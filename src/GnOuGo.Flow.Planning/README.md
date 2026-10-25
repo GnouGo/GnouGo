@@ -6,8 +6,12 @@ Fresh presentation revision 6 supplies all exact original clauses when the compl
 authoring request fits; otherwise selected and explicitly retrieved requirements stay
 with all globals/core/evidence and exact omitted-page links. Scoped review still covers
 all originals independently of selected associations. Consumed producers retain exact arguments,
-original contract prose and bound-input/selected-output schema closure; unconsumed
-producers keep compact port identities and exact retrieval links. Types alone do
+original contract prose and bound-input/selected-output schema closure. An identical
+port directory appears once, with task-navigation identities and links retained.
+Accessible accepted producers expose exact omitted-input schema retrieval, including
+defaults and their ancestor/reference constraints, without selecting the operation
+or materializing an argument. Unconsumed producers keep compact port identities and
+exact retrieval links. Types alone do
 not establish business identity, and these views grant no new edit or effect authority.
 Scoped Judges review bounded whole-clause source windows when one request cannot fit.
 Every window must cover the same candidate, baseline, claims, originals and contracts

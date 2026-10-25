@@ -39,6 +39,9 @@ port identities and exact bound-input/selected-output schema closures, including
 nullability, required siblings and references. Unconsumed producer directories keep
 exact prose/schema links. These views neither choose a replacement port nor grant
 completion, revision or execution authority; required context is never truncated.
+When a consumed producer view already carries an exactly matching compact port
+directory, its task-navigation row keeps the identity and links without repeating
+that array. Full producer semantics and every address remain available.
 Navigation's `objectiveTextComplete` describes the displayed text only. Actual
 open-scope identities determine closure diagnostics; truncated descriptions never
 reopen accepted work. Earlier presentation revisions keep their original field.
@@ -298,7 +301,11 @@ openings also retain a bounded page of closed reusable interfaces; other drafts
 receive only the exact interface-directory link. Interface and task evidence pages
 retain exact continuations. Evidence
 responses select addresses present in host-owned navigation, including nested MCP
-directories and required-sibling omission links. Original contract data is never
+directories and required-sibling omission links. Fresh revision-6 accepted-producer rows also link the existing input-schema directory.
+Selection and consumers may retrieve exact omitted-input branches and defaults from
+accessible accepted producers without selecting those operations or applying defaults.
+Nested pages and exact ancestor/reference closure use the same admission and recovery
+rules. Original contract data is never
 interpreted as navigation authority. Selection and reselection reuse these exact
 choices for displayed originals, interfaces and retained rejection records. Each
 response has one non-null action; retrieving evidence does not also select a step.

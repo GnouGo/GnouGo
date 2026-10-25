@@ -1,0 +1,241 @@
+{
+  "version": 1,
+  "source": "686c2964d2437cbe1ab6b27e8b6ae673824fc873",
+  "cohort": "compactr686c2964dcolhighv6nh1",
+  "verdict": "One exact artifact independently reviewed and publicly verified; both frozen runtime variants passed. No demonstrated new host defect or causal profile improvement.",
+  "artifact": {
+    "artifact_hash": "252c9e90a62b9f613574a5825f76552e31ee1c3cabc6b58f5d5691616a0fd3a2",
+    "revision": 34,
+    "task_count": 3,
+    "requirement_count": 2,
+    "canonical_requirement_and_task_hashes": {
+      "session_id": "057738776a1c84ccb3b58c3f3211dd3e85792271ebd8a63816929e6f5b129dcc",
+      "revision": 34,
+      "artifact_hash": "252c9e90a62b9f613574a5825f76552e31ee1c3cabc6b58f5d5691616a0fd3a2",
+      "requirements": [
+        {
+          "id": "req_0",
+          "sha256": "b8e1f185fc6ac96c98072e3acd9533ebdb0c3e6a852e5b53881aa3bea313f9e7"
+        },
+        {
+          "id": "req_1",
+          "sha256": "d7aebf079b403516a8eef12c16fb27a6bec77fde58f45b68f6c999c2f717d5ab"
+        }
+      ],
+      "tasks": [
+        {
+          "id": "foreach_values",
+          "kind": "foreach",
+          "sha256": "e4c6bf2dee23fe7366e130edcffa1c00197dc36892fce8e11bced8301070d727"
+        },
+        {
+          "id": "double_current_item",
+          "kind": "call",
+          "sha256": "ba13fec8448b9d40eb3e3a89aee7a3c39d74527193c4f18fb9884f535c936983"
+        },
+        {
+          "id": "compute_double_item",
+          "kind": "value",
+          "sha256": "e49f8e02885d4036662c843cd4553430790cf36e9c5975a9960ea067ea8a28e0"
+        }
+      ]
+    },
+    "structure": "One bounded parallel foreach consumes caller values; each current item enters a closed reusable group that multiplies by literal2; the original index order and duplicates are retained in result. Only local foreach/call/value tasks exist.",
+    "all_scopes_requirements_closed": true,
+    "public_graph_yaml_reproduction": true,
+    "no_operations_or_runtime_inference": true
+  },
+  "accepted_obligations": [
+    "exact_outputs",
+    "declared_effects",
+    "cleanup"
+  ],
+  "runtime": {
+    "variants": [
+      {
+        "variant": "nominal",
+        "correct": true,
+        "runtime_success": true,
+        "elapsed_ms": 351.4263,
+        "error": null,
+        "effects": [],
+        "violations": []
+      },
+      {
+        "variant": "alternate",
+        "correct": true,
+        "runtime_success": true,
+        "elapsed_ms": 3.533,
+        "error": null,
+        "effects": [],
+        "violations": []
+      }
+    ],
+    "nominal_oracle_expected_result": [
+      2,
+      4,
+      8
+    ],
+    "alternate_oracle_expected_result": [
+      6,
+      6,
+      -4
+    ],
+    "expected_values_basis": "Frozen source oracle, not a model-produced fixture; terminal flags bind the actual result check.",
+    "authorization_origin": "delegated_test",
+    "authorization_hash": "182848ed03783b30b220237679818f8874d29f38834a831f41a7964f601b956b",
+    "evidence_hash": "7fa915281c479c107fa6fd03763b96574cb3ce51b11c574cda8e368e69d30ab0",
+    "receipt_artifact_hash": "252c9e90a62b9f613574a5825f76552e31ee1c3cabc6b58f5d5691616a0fd3a2",
+    "metadata_and_frozen_argv_verified": true,
+    "no_replay": true
+  },
+  "corrections": [
+    {
+      "requests": [
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "classification": "Supported duplicate-identity rejection; renaming preserves the business duplication.",
+      "basis": "Request19 adds double_current_item and20 accepts the partial call. Selection21 repeats that contribution. Draft22 is the same extension under the new base;23 changes only its ID. The global identity diagnostic is valid and does not itself resolve the redundant work."
+    },
+    {
+      "requests": [
+        24,
+        25,
+        26,
+        27,
+        28
+      ],
+      "classification": "Supported bounded unnecessary-operation finding and actual resolution.",
+      "basis": "The candidate call uses the same closed group and current-item argument as accepted double_current_item. It adds no needed data contribution. Judge24 confines its adverse finding to that redundant tentative call and explicitly leaves open-scope export work for later. Request25 abandons the tentative duplicate without changing accepted tasks.26 selects the existing result;27 exports it and closes the body with no new task;28 records a resolved defect and clean bounded findings. The supplied scopeOpen assertion agrees with the body being open before the repair; no false missing-final-output premise is needed."
+    },
+    {
+      "requests": [
+        29,
+        30,
+        31
+      ],
+      "classification": "Supported explicit-root-closure correction.",
+      "basis": "Request30 sets complete=true while closeScopes is empty and root remains open. Request31 receives the exact CONSTRUCTION_INCOMPLETE diagnostic, adds /root closure and directly exports foreach_values.result. It also removes its copy_result alias; no claim that an alias alone caused the diagnostic or that compiler optimization performed this removal is made."
+    }
+  ],
+  "final_review_evidence": {
+    "request_ordinals": [
+      32,
+      33,
+      34
+    ],
+    "result": "Two legitimate evidence requests followed by clean scoped review; mandatory source coverage and exact graph/YAML passed public Verify."
+  },
+  "assessment_limits": [
+    "The duplicate selection recurs in the navigation-high arm; it was later abandoned. No avoided-correction or causal convergence claim follows.",
+    "All three corrections are supported by the bounded trace. Full omitted contexts are not reconstructed as absent.",
+    "Original text whitespace is formatting evidence, not a demonstrated latency or failure cause.",
+    "Cleanup is vacuous for this artifact because it acquires no external resource; runtime records no effects.",
+    "Finite100-item capacity, extreme numeric behavior, arbitrary-length input and broader reliability are untested.",
+    "This first source686 Collections success does not meet the two-fresh-success-per-case gate."
+  ],
+  "source_pins": [
+    {
+      "path": "tests/Shared/PlanningBenchmarkCases.cs",
+      "sha256": "a25de6fc75d94a06c5dc8fce96d04eb09ba4132caec76f35e7f644912433f998",
+      "lines": "18 original;29 both inputs;93-105 runtime oracle"
+    },
+    {
+      "path": "tests/GnOuGo.Agent.Planning.Benchmark/SyntheticArtifactOracle.cs",
+      "sha256": "0d121463cd5e659af725d4029671af441fe2605dc4a393fcc1c16394c103140d",
+      "lines": "8-28 result-contributing parallel reusable calls and no operation/transform"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/TaskPlanCompiler.cs",
+      "sha256": "8bad618fc065498d04dc4354ac262298fe489eaf591d8815f6f8b6f8c7ac7236",
+      "lines": "345-379 bounded parallel foreach and ordered result projection; arithmetic typed value route"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Core/Runtime/Executors/LoopParallelExecutor.cs",
+      "sha256": "07a043168c5b4075e2665ca83e31ac919ad78047a6ab6c8c9d8c690cce777b46",
+      "lines": "66-115 one iteration per index, isolated data and ordered result collection"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningConstructionReviewCoverage.cs",
+      "sha256": "fc075b804c1a284e1b8ebf42ccf41773ca2467b5c037eb4c434c6f13f087a0b1",
+      "lines": "83-88 all source windows required before acceptance"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningArtifactApproval.cs",
+      "sha256": "8e98380b47af7af9268bf7ca9eb60e408d219f21737e25d5cc9dc8013b210cd7",
+      "lines": "public artifact verification, checkpoint coverage and exact reproduction"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/TaskPlanCompiler.Validation.cs",
+      "sha256": "3e9678a44c0c8fbfc7f7f61efaab0ca4be060ad85956b30c26d71226c92308d3"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningConstruction.cs",
+      "sha256": "bf5ac0648594e8e23ad7f36d1fa1414f284cdbac04719634516a05fa7c7b9695"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningConstructionReviewCoverage.cs",
+      "sha256": "fc075b804c1a284e1b8ebf42ccf41773ca2467b5c037eb4c434c6f13f087a0b1"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.ConstructionReview.cs",
+      "sha256": "b300d294511d51efb7a76de7f5ef2aa2711f687542adec460cb657d2573aef32"
+    }
+  ],
+  "evidence_pins": {
+    "planning_numeric": {
+      "name": "collections-terminal-numeric-safe.json",
+      "sha256": "f24d84a0d6b1679faf7e1959cee46057b68b739325e110b3a280d85ee078c059",
+      "bytes": 16456
+    },
+    "formatting": {
+      "name": "collections-original-formatting-safe.json",
+      "sha256": "efd93e14e87a8b2ed31b8d79ca937ee31d6946815adabea7f60acb964cd0bcfd",
+      "bytes": 27199
+    },
+    "runtime_peer": {
+      "name": "independent-runtime-review-safe.json",
+      "sha256": "ebe4607084fe504b480f7164c4ed9c1a079f59dc5d76d4d7d6ddf16312d09e02",
+      "bytes": 8713
+    },
+    "post_execution_metrics": {
+      "name": "collections-post-execution-exact-metrics.json",
+      "sha256": "3ebdf9ce4be8bb3757c1260009be88d61bb49a8cdf588d5c8abeb4d625b1243b",
+      "bytes": 142235
+    },
+    "execution": {
+      "name": "collections-execution.jsonl",
+      "sha256": "4e0b69a0db590ae04a65fe180cac9b81a6f414d8424d8aab2c69156f47154525",
+      "bytes": 65315
+    },
+    "public_inspection": {
+      "name": "collections-artifact-inspection-safe.json",
+      "sha256": "2df4f80f391ca425a19883741324c45baa962d5faf32696097c99ecff18fb9f6",
+      "bytes": 3196
+    },
+    "review_metadata": {
+      "name": "collections-reviewed-metadata-safe.json",
+      "sha256": "24b2718ad871b959d901bfbd65b41bd76a1087900b79dac9cb8e28cf4c55f010",
+      "bytes": 1145
+    },
+    "artifact_review": {
+      "name": "artifact-review-v2-safe.json",
+      "sha256": "b60eac8f6354cc0ca062f0c758ef7cd9dd0194ee5f314706bdd7876151fe3c30",
+      "bytes": 7188
+    },
+    "correction_assessment": {
+      "name": "correction-assessment-safe.json",
+      "sha256": "e34ed440e25d95ae4ec57d5c2efc458d894954e3eff29a226f12e483ef05007c",
+      "bytes": 6401
+    },
+    "helper_peer": {
+      "name": "independent-review-safe.json",
+      "sha256": "e88f51ff078adc0c0ff3cef09f04be1adf15f227a656bb08455178d6abcfc2fd",
+      "bytes": 4624
+    }
+  }
+}

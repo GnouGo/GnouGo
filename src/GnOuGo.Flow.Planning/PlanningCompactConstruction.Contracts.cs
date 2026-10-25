@@ -221,7 +221,10 @@ internal static partial class PlanningCompactConstruction
             entry["outputDirectory"] = "port-page:" + ContractIdentity(operation.Id, operation.Version) + ":/output:0";
             entry["descriptionEvidence"] = "description:" + ContractIdentity(operation.Id, operation.Version) + ":0";
             if (UsesDecisionView(state))
+            {
+                entry["inputDirectory"] = "schema-page:" + ContractIdentity(operation.Id, operation.Version) + ":/input:0";
                 entry["outputs"] = CompletePortDirectory(operation.Outputs, ContractIdentity(operation.Id, operation.Version), "/output");
+            }
             var produces = TaskOperations.ArtifactPorts(capability)["produces"] as JsonArray ?? [];
             if (produces.Count == 0) continue;
             entry["producesCount"] = produces.Count;
@@ -270,6 +273,15 @@ internal static partial class PlanningCompactConstruction
     {
         "schema" => tail == "/output" || tail.StartsWith("/output/", StringComparison.Ordinal),
         "schema-page" or "port-page" => tail.StartsWith("/output:", StringComparison.Ordinal) || tail.StartsWith("/output/", StringComparison.Ordinal),
+        _ => false
+    };
+
+    // Producer input originals explain existing arguments and omitted defaults;
+    // they do not select an operation or authorize new input bindings.
+    private static bool InputEvidence(string kind, string tail) => kind switch
+    {
+        "schema" => tail.StartsWith("/input/", StringComparison.Ordinal),
+        "schema-page" => tail.StartsWith("/input:", StringComparison.Ordinal) || tail.StartsWith("/input/", StringComparison.Ordinal),
         _ => false
     };
 
@@ -535,15 +547,15 @@ internal static partial class PlanningCompactConstruction
             return OperationDescription(state, operation, version, identity, offset);
         }
         var capability = ExactContract(state, operation, version);
-        var producerOutput = recordSchemaSelection && state.Construction!.Compact!.CurrentStep?.OperationIds.Contains(operation, StringComparer.Ordinal) != true &&
-            OutputEvidence(kind, tail) && AcceptedProducerOutput(state, capability);
-        if (recordSchemaSelection && UsesConvergentConstruction(state) && state.Construction!.Compact!.CurrentStep is null && !producerOutput)
+        var producerEvidence = recordSchemaSelection && state.Construction!.Compact!.CurrentStep?.OperationIds.Contains(operation, StringComparer.Ordinal) != true &&
+            (OutputEvidence(kind, tail) || UsesDecisionView(state) && InputEvidence(kind, tail)) && AcceptedProducerOutput(state, capability);
+        if (recordSchemaSelection && UsesConvergentConstruction(state) && state.Construction!.Compact!.CurrentStep is null && !producerEvidence)
             PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Select a business step before inspecting its capability contracts.");
         if (kind == "contract" && tail.Length == 0) return ContractView(state, capability, review: false);
         if (kind == "schema")
         {
             var view = ExactSchemaView(capability, tail);
-            if (recordSchemaSelection && !producerOutput)
+            if (recordSchemaSelection && !producerEvidence)
             {
                 var step = state.Construction!.Compact!.CurrentStep!;
                 if (!step.OperationIds.Contains(operation, StringComparer.Ordinal))

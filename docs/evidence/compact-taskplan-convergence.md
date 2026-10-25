@@ -1,4 +1,63 @@
 # Compact TaskPlan convergence
+## Source 686c2964d: Code with a 16k Judge input limit stops on received output exhaustion
+
+The Code run `compactr686c2964dcode20v6j16` received **24 logical calls, 24 physical attempts and 24 receipts**, with one correction and two checkpoints, in **694.861 seconds** of planning. Its final Judge response reported `output_limit`: all **4,096 output tokens were reasoning**, with empty original text and no parsed report. The host left the candidate unaccepted; no artifact or runtime followed. This was received exhaustion, not transport uncertainty. [Numerical evidence](compact-taskplan-686c2964d-code-review16.json)
+
+The accepted clone satisfied the inspected head/reference and directory literals, and the later selection could see that accepted task. Request 22 repeated the earlier clone extension; correction 23 changed only its task ID. That second clone remained tentative. The exhausted Judge supplied no adverse finding to classify, and the trace demonstrates no accepted clone defect or missing accepted-task presentation. Its cause and any benefit from changed settings remain unproven. [Source assessment](compact-taskplan-686c2964d-code-review16-assessment.json)
+
+The 26 constructed identities include two prepared-only drafts and no admission rejection. Usage was **132,725 input and 25,500 output tokens**, including 19,882 reasoning tokens. Exact cost was **EUR 1.2749888442659526996876394466**, with no retained reservation or unknown usage. The originals comprise 23 nonempty valid JSON responses and one empty response: 17,178 original UTF-8 bytes versus 17,766 normalized bytes, with 10 outside-string whitespace bytes and a maximum run of 5 bytes. These observations establish no fulfillment ratio or causal comparison.
+
+## Source 686c2964d: final technical validation
+
+The exact committed source passed the full warning-as-error solution run: **8,368 passed, 0 failed and 13 skipped across 33 projects**, with no compiler diagnostics. All 4,600 source hashes remained unchanged. The earlier source `2b0d378c8` retains its separate stale-fixture failure; it is not relabeled.
+
+The publication sequence has **12 successful results: six fresh Planning-dependent stages on 686c2964d and six successful 2b0d378c8 executions reused under exact unchanged-input checks**. Fresh stages include Planning and Integrations packages, Planning Native AOT publication/smoke, and the published encrypted-storage host/smoke. The AOT smoke explicitly exercises presentations 2–5; it does not provide a v6-specific scenario result. All 46 full-validation files and 484 publication files were hash-verified after preservation; publication payloads use shared-inode hard links. These technical results do not establish live business acceptance. [Validation evidence](compact-taskplan-686c2964d-technical-validation.json)
+
+All eight [CI checks on this revision](compact-taskplan-686c2964d-ci.json) also passed; PR #120 remains Draft.
+
+
+## Source 686c2964d: Amazon with a 16k Judge input limit stops before review dispatch
+
+The Amazon run `compactr686c2964damz20v6j16` stopped when the next Judge request measured **16,604 input tokens against its 16,000-token limit** (49,043 serialized bytes, source window 0 of 6). This request was never dispatched and has no receipt. The terminal `CONSTRUCTION_REVIEW_INCONCLUSIVE` code accompanies that admission rejection; it is not a received inconclusive report or an accepted Browser defect. No artifact or runtime followed. [Numerical evidence](compact-taskplan-686c2964d-amazon-review16.json)
+
+The run received **26 logical calls, 26 physical attempts and 26 receipts**, with one correction and four checkpoints, in **882.391 seconds** of planning. Its 30 constructed identities comprise those 26 received calls, two prepared-only requests and two admission rejections; the earlier rejected draft measured 22,882 against 20,000 tokens. Usage was 118,616 input and 40,212 output tokens, including 34,601 reasoning tokens. Exact cost was **EUR 1.6059259259259259259259259261**, with no retained reservation or unknown usage. All 26 received originals were nonempty valid JSON: 17,545 original UTF-8 bytes versus 17,967 normalized bytes, with 13 outside-string whitespace bytes and a maximum run of 4 bytes.
+
+The rejected Judge context contained the same 19-port navigation directory twice (4,728 canonical bytes); an in-memory comparison retained all 33 navigation addresses after removing the second copy. This is a bounded presentation finding, not a measured rebuilt-request saving or proof that a changed request would be admitted. Complete producer semantics were not duplicated or removed. No convergence, causal or fulfillment-ratio claim follows. [Capacity assessment](compact-taskplan-686c2964d-amazon-review16-assessment.json)
+
+## Source `686c2964d`: first fresh Collections navigation-high success
+
+The separately frozen [navigation-high arm](compact-taskplan-686c2964d-collections-navigation-high.json) passed public artifact verification and both unchanged runtime oracles. Only navigation reasoning changed from medium to high; source, input, remaining policy, permissions and oracles stayed fixed.
+
+| Logical / physical / receipts | Corrections / checkpoints | Planning seconds | Known provider input / output / reasoning tokens | Nominal / alternate runtime ms |
+| ---: | ---: | ---: | ---: | ---: |
+| 34 / 36 / 34 | 3 / 8 | 1,783.785 | 90,208 / 53,831 / 44,792 | 351.4263 / 3.533 |
+
+The [artifact and correction assessment](compact-taskplan-686c2964d-collections-navigation-high-assessment.json) covers the three-task parallel reusable group, ordered doubling with duplicates, and no external operations or runtime inference. Nominal `[1,2,4]` and alternate `[3,3,-2]` passed their exact result checks with no effects or violations. Execution added no model calls. This is **one successful fresh Collections run on this source**; the second Collections success and both successes for each other case remain outstanding.
+
+The duplicate call was still proposed: the compiler rejected its reused ID, the Judge rejected the renamed redundant call, and reselection used the accepted result. A separate premature-finalization correction closed the root. These are three supported corrections, not avoided corrections; one successful run does not establish navigation-high efficacy or reliability.
+
+Known cost is **EUR 1.8437929495760821062025881305**, plus **EUR 1.8617402945113788487282463186** retained for request 2's two received HTTP 500 attempts before its 200 receipt. All 34 logical requests have receipts. The three frozen obligations are accepted, giving 34/3 logical calls and 12 physical attempts per obligation; complete provider-usage/cost ratios remain undefined. No current campaign balance is asserted.
+
+All 34 original responses are nonempty valid JSON: **84,691 bytes**, including **64,508 bytes** of whitespace outside strings (maximum run 64,498). Request 2 accounts for 65,778 original bytes and 64,500 whitespace bytes; extraction remained valid. The normalized 20,335 bytes are distinct. These observations establish no performance or failure cause. The artifact's 100-item capacity and extreme numeric behavior remain qualified; prior controls below are unchanged.
+
+## Source `686c2964d`: three received control failures, no artifact or runtime
+
+| Frozen control | Logical / physical / receipts | Corrections / checkpoints | Planning seconds | Known provider input / output / reasoning tokens |
+| --- | ---: | ---: | ---: | ---: |
+| [Collections high](compact-taskplan-686c2964d-collections-high.json) | 28 / 29 / 28 | 4 / 6 | 1,190.743 | 71,049 / 38,556 / 31,951 |
+| [Amazon](compact-taskplan-686c2964d-amazon.json) | 21 / 21 / 21 | 3 / 2 | 835.058 | 95,015 / 41,366 / 31,775 |
+| [Review PR](compact-taskplan-686c2964d-code.json) | 19 / 20 / 19 | 1 / 2 | 794.577 | 82,817 / 16,325 / 11,393 |
+
+Known costs were **EUR 1.3493306559571619812583668006**, **EUR 1.5315082552431950022311468093**, and **EUR 0.8066354306113342257920571174** respectively. Collections and Review PR retain **EUR 0.9308701472556894243641231593** and **EUR 0.9487193217313699241410084784** for received HTTP 500 attempts before successful retries. All logical requests have receipts; reasoning is included in output. These are run measurements, not a current campaign balance.
+
+The [Collections assessment](compact-taskplan-686c2964d-collections-assessment.json) records a duplicate call proposed despite its accepted identity, scope, group and port being displayed. The compiler correctly rejects it. Earlier corrections include an input navigation address used as a source name and a field selected from a numeric item; the available redundant-computation diagnostic has explicitly bounded supporting evidence.
+
+[Amazon](compact-taskplan-686c2964d-amazon-assessment.json) stops before its tentative Browser operation's mandatory review: **14,312 estimated input tokens exceed 12,000**. Original observation-carrier semantics and the consumed URL producer are present; no wrong content consumer is shown. [Review PR](compact-taskplan-686c2964d-code-assessment.json) proposes the exact clone branch and directory, but its Judge legitimately requests an original clause outside the current source window. The prospective follow-up needs **12,617 tokens against 12,000**. That clone remains unaccepted, and all source-window coverage is still required.
+
+All **68** original responses are nonempty valid JSON. Whitespace outside strings totals **6841 / 115769 / 28 bytes**, with maximum runs **6722 / 114971 / 5**, respectively; these formatting observations do not establish a failure cause. Prepared-only and rejected identities remain distinct in the numeric archives.
+
+These controls establish no verified fulfilled business obligations or runtime timing, so calls-per-fulfilled-obligation ratios remain undefined. They do not establish causal improvement or avoided corrections. Separately frozen navigation or review-capacity experiments retain their own evidence; no outcome from an active or proposed arm is included here. Earlier results below remain unchanged.
+
 ## Source `2b0d378c8`: Collections reaches root export, then misdirects correction
 
 The [fresh diagnostic](compact-taskplan-2b0d378c8-collections-high.json) received

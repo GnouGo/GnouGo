@@ -1,0 +1,129 @@
+{
+  "version": 1,
+  "source": "686c2964d2437cbe1ab6b27e8b6ae673824fc873",
+  "cohort": "compactr686c2964damz20v6",
+  "case": "amazon",
+  "verdict": "The terminal stop is a real pre-dispatch mandatory-review input limit, not an adverse Judge decision, output exhaustion or transport uncertainty. The saved operation/producer context contains the relevant original semantics; no missing producer-carrier information or duplicated complete contract is demonstrated.",
+  "private_evidence": {
+    "assessment": {
+      "name": "source-assessment-safe.json",
+      "sha256": "1b1a3942e4b757360f3f65f36370a1095bba571b7e9143e120a55350a85cc9d0",
+      "bytes": 9990
+    },
+    "independent_peer": {
+      "name": "independent-review-safe.json",
+      "sha256": "70ccc945560d084f0a05232621f49cc69781ba676629b51fb0f6886af21811e4",
+      "bytes": 4877
+    },
+    "safe_inputs": [
+      {
+        "role": "witness",
+        "name": "amazon-review-limit-witness-safe.json",
+        "sha256": "4447d81d8c1b14816b2e9a5d6e60c862d0e8be813da680e4596ce81da1ab970a",
+        "bytes": 196378
+      },
+      {
+        "role": "metrics",
+        "name": "amazon-terminal-exact-metrics.json",
+        "sha256": "781797e72873dc2877308514718fe2f1576eff89e5196a1f33ce9757094defed",
+        "bytes": 97445
+      },
+      {
+        "role": "freeze",
+        "name": "freeze.json",
+        "sha256": "b9189bf528e4db068d1065c570f236043d06f206a98758baad23b0c58e448ad1",
+        "bytes": 7787
+      },
+      {
+        "role": "numeric",
+        "name": "amazon-terminal-numeric-safe.json",
+        "sha256": "d1d860af8f5804c32415ef86b94e9e1ba2c97813342641d4c5b0d4fd7b58cf8c",
+        "bytes": 19077
+      },
+      {
+        "role": "formatting",
+        "name": "amazon-original-formatting-safe.json",
+        "sha256": "67579c2e69cf425e8b46575430834a139fd4406ba691e9ac2638704fad43a5ff",
+        "bytes": 17036
+      }
+    ]
+  },
+  "source_pins": [
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Contracts.cs",
+      "sha256": "f3c41268c2588e7e0e60bdaf70bea7aee4edc6e1b67ecc92ae7c4120e2ab0703",
+      "lines": "330-375 full operation prose, bound input closures and compact output identities; 625-669 exact schema closure; 699-703 output links"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.DecisionContext.cs",
+      "sha256": "2a039e85f26998dd20d0fe0856ccc8c96cb9b0ae7d97145b601e9724d83d8838",
+      "lines": "consumed producer exact task projection and explicit original context"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs",
+      "sha256": "d60fe4ae28d7a2b442b00e56e7200aa74650dfd1e998935b5a11b84e429080a9",
+      "lines": "399-487 selected imports, caller-declaration navigation and review declarations"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningConstructionReviewCoverage.cs",
+      "sha256": "fc075b804c1a284e1b8ebf42ccf41773ca2467b5c037eb4c434c6f13f087a0b1",
+      "lines": "14-80 whole prepared-window fit checks; 233-260 invariant core plus source windows"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.Construction.cs",
+      "sha256": "c496731d77532948799299c9e70d717d6a5a00af33573f788387af88feb8c4eb",
+      "lines": "175-208 exactly one action and charged initial reselection"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Core/Planning/PlanningConstructionPhasePolicy.cs",
+      "sha256": "f804594fa51bc39651652838618ff7d0a46c61d2ce596e35eb90e5102767b691",
+      "lines": "77-84 phase selection and captured limits"
+    }
+  ],
+  "outcome": {
+    "artifact": false,
+    "runtime_executed": false,
+    "verified_fulfilled_business_obligations": null,
+    "calls_per_fulfilled_obligation": null
+  },
+  "limitations": [
+    "Bounded saved witness analysis; omitted original reports and text cannot be inferred.",
+    "Partial clean reviews do not establish complete business fulfillment. No causal efficacy, avoided-correction, reliability or current campaign-balance claim.",
+    "All received logical calls have receipts. Failed physical-attempt usage stays reserved separately. No public artifact or runtime result exists for this run."
+  ],
+  "findings": [
+    {
+      "requests": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "assessment": "The model suspends for an already declared query interface, then explicitly selects it and closes its declaration. The partial request4 context projection limits direct reconstruction of its asserted empty imports."
+    },
+    {
+      "requests": [
+        15,
+        17,
+        18,
+        19
+      ],
+      "assessment": "A URL prerequisite is supplied by a local interpret transform and reviewed; the operation resumes with that exact producer. Runtime URL correctness is untested."
+    },
+    {
+      "requests": [
+        20,
+        21
+      ],
+      "assessment": "An invalid mixed evidence/reselection action is corrected to one Browser operation proposal. Its mandatory review fails admission before dispatch, so no cleanup finding or accepted Browser behavior follows."
+    }
+  ],
+  "mandatory_context": "The tentative Browser review contains full original carrier semantics, five bound-input schema closures,19 distinct output ports and the consumed URL producer. No wrong observation-content consumer exists in this run. Seven source windows do not remove that mandatory core.",
+  "capacity": {
+    "estimated_input_tokens": 14312,
+    "captured_review_limit": 12000,
+    "complete_request_bytes": 42168,
+    "assessment": "Actual pre-dispatch mandatory-review rejection. No duplicate whole contract or verified harmless reduction sufficient to remove the excess is established."
+  },
+  "recommendation": "Retain the failed control. Any reasoning or capacity experiment must be separately frozen with only its stated policy change; this record demonstrates neither a production fix nor future business success."
+}

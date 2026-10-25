@@ -115,10 +115,22 @@ internal static partial class PlanningCompactConstruction
                         ["selectedInputs"] = new JsonArray(contract.Inputs.Where(port => site.Task.Inputs.Any(input => input.Name == port.Name))
                             .Select(port => (JsonNode)ExactSchemaView(capability, PortPointer("/input", port.Path))).ToArray()),
                         ["outputs"] = CompletePortDirectory(contract.Outputs, identity, "/output"),
+                        ["inputDirectory"] = "schema-page:" + identity + ":/input:0",
                         ["outputDirectory"] = "port-page:" + identity + ":/output:0",
                         ["selectedOutputs"] = new JsonArray(selected.Select(pointer => (JsonNode)ExactSchemaView(capability, pointer)).ToArray()),
                         ["artifacts"] = TaskOperations.ArtifactPorts(capability)
                     };
+                    // The mandatory producer view already carries these exact port
+                    // identities. Keep the task's navigation links and provenance,
+                    // but do not repeat an identical directory in a second row.
+                    if (context["taskEvidence"]?["items"] is JsonArray navigation)
+                        foreach (var entry in navigation.OfType<JsonObject>())
+                            if (entry["task"]?.ToString() == id && entry["scope"]?.ToString() == site.Scope.Path &&
+                                entry["phase"]?.ToString() == accepted.Phase(id) && entry["operation"]?.ToString() == contract.Id &&
+                                entry["operationVersion"]?.ToString() == contract.Version &&
+                                entry["contractHash"]?.ToString() == producer["contract"]!["hash"]!.ToString() &&
+                                entry["outputs"] is JsonArray ports && JsonNode.DeepEquals(ports, producer["contract"]!["outputs"]))
+                                entry.Remove("outputs");
                 }
                 else if (site.Task.Kind == "call" && state.Plan.Groups.SingleOrDefault(group => group.Id == site.Task.Group) is { } group)
                 {

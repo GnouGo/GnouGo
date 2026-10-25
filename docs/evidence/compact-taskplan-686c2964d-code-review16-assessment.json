@@ -1,0 +1,167 @@
+{
+  "schema": "source-assessment-v1",
+  "source": "686c2964d2437cbe1ab6b27e8b6ae673824fc873",
+  "cohort": "compactr686c2964dcode20v6j16",
+  "scope": "Offline safe trace/state assessment only; no store, replay, provider, build, approval or runtime action.",
+  "pins": {
+    "trace": {
+      "name": "code-response-trace-safe.json",
+      "sha256": "4ea9c8899c32d07179956cef1e458c7b6db9489dfdbb94338c93ca6b2b38bedd"
+    },
+    "state": {
+      "name": "code-terminal-state-witness-safe.json",
+      "sha256": "0fd1edef1ffc03f96451440d69c22ff536b4ba00e2b8ffc710d227f47ab4231b"
+    },
+    "metrics": {
+      "name": "code-terminal-exact-metrics.json",
+      "sha256": "dff8f08a7272eab9f2a49b5ca375733be8de8d01bced00938fe13aec3cd3eefb"
+    },
+    "freeze": {
+      "name": "freeze.json",
+      "sha256": "702913c9486833672233154eb8cd363dcf43c282c0856387cc8032c17c4b0a6a"
+    }
+  },
+  "committed_sources": [
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Navigation.cs",
+      "commit": "686c2964d2437cbe1ab6b27e8b6ae673824fc873",
+      "sha256": "1fd36225306eb75db342b968b6ced3c9f00777d42ecb186f11ba543738acf0dd"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs",
+      "commit": "686c2964d2437cbe1ab6b27e8b6ae673824fc873",
+      "sha256": "d60fe4ae28d7a2b442b00e56e7200aa74650dfd1e998935b5a11b84e429080a9"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningConstructionReviewCoverage.cs",
+      "commit": "686c2964d2437cbe1ab6b27e8b6ae673824fc873",
+      "sha256": "fc075b804c1a284e1b8ebf42ccf41773ca2467b5c037eb4c434c6f13f087a0b1"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/TaskPlanCompiler.Validation.cs",
+      "commit": "686c2964d2437cbe1ab6b27e8b6ae673824fc873",
+      "sha256": "3e9678a44c0c8fbfc7f7f61efaab0ca4be060ad85956b30c26d71226c92308d3"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningConstruction.Evidence.cs",
+      "commit": "686c2964d2437cbe1ab6b27e8b6ae673824fc873",
+      "sha256": "f62d3401d10be6b7f3e4b25ff45d1bd7704bbcda705b7394e1cdda8cb0785baf"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningModelCalls.cs",
+      "commit": "686c2964d2437cbe1ab6b27e8b6ae673824fc873",
+      "sha256": "50ce2f032b19d106aeedbcd9d16319d7a4037598202bcac42d0b88e346db1656"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.ConstructionReview.cs",
+      "commit": "686c2964d2437cbe1ab6b27e8b6ae673824fc873",
+      "sha256": "b300d294511d51efb7a76de7f5ef2aa2711f687542adec460cb657d2573aef32"
+    }
+  ],
+  "verification": {
+    "received_request_record_phase_and_token_joins": 24,
+    "join_rows_canonical_sha256": "500d2e33b25641f17a34e9682feee23e2a2eedb67f73d755a03240af80d248f8",
+    "original_text_inspected": false,
+    "parsed_trace_only": true,
+    "equal_q15_q22_extension_parsed_sha256": "9d01573877cb85e3a622411a93abde83ab8bd823a23e7369699cfadd19d65f12",
+    "q23_only_task_id_renamed": true,
+    "renamed_extension_parsed_sha256": "3d735c5d4abea8ad60e83c68270d4032fdab12fce7ce3ce339600140916a2e98",
+    "accepted_task_parsed_sha256": "7aaca4ed9d329d2538ea557347c7c6ede7ca182a9611e0ddbf9b930e98142086",
+    "clone_obligation_utf8_sha256": "66229586953e573a3555f08c70e235089e81fd9cb44f4fd746b68f96b8119f29",
+    "shown_accepted_task_parsed_sha256": "ffcaaab51b38759069df6fbe53f0fdd35045bfc745a6e23f4b067fedd0accada",
+    "checker_limitations": [
+      "Initial in-memory assertion included two prepared-only metric rows; receipt joins now filter receipt_present.",
+      "Initial accepted-versus-response equality compared persisted optional null/empty defaults. Final check compares exact operation/objective and ordered input name/kind/text; response-extension equality remains full parsed-object equality. No source evidence changed."
+    ]
+  },
+  "findings": [
+    {
+      "requests": [
+        2,
+        5,
+        10,
+        14,
+        15,
+        16
+      ],
+      "classification": "no_demonstrated_accepted_clone_defect",
+      "finding": "The accepted clone supplies the exact required head/reference and per-run directory. Its clean scoped review saw all 13 original requirement rows and three global rows in one source window; no clone/business requirement was closed.",
+      "qualification": "This establishes inspected literal compliance only, not complete workflow or runtime success."
+    },
+    {
+      "requests": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22
+      ],
+      "classification": "repeated_model_choice_despite_visible_accepted_producer",
+      "finding": "The next selection repeats cloning although its context includes the exact accepted task, inputs and output directory. Request 22 repeats request 15 extension exactly as parsed JSON, against the newer baseline.",
+      "qualification": "No missing accepted-task/original-clause presentation defect is demonstrated; the reason for choosing another clone is unknown."
+    },
+    {
+      "requests": [
+        22,
+        23
+      ],
+      "classification": "supported_technical_duplicate_rejection_but_incomplete_business_correction",
+      "finding": "The sole correction follows a duplicate task identity diagnostic. It changes only the task ID; operation arguments and behavior remain identical, proposing another clone despite the original unique-clone constraint.",
+      "qualification": "The second clone remains unaccepted. Compiler identity uniqueness does not establish semantic uniqueness. No new semantic duplicate ban is proposed."
+    },
+    {
+      "requests": [
+        24
+      ],
+      "classification": "received_output_exhaustion",
+      "finding": "The mandatory Judge response has output_limit, 4096 output tokens all reported as reasoning, and no parsed response. The host stops without accepting the renamed candidate.",
+      "qualification": "No adverse Judge finding exists to classify. Received exhaustion is not transport uncertainty and establishes no cause or benefit from changing reasoning/output settings."
+    }
+  ],
+  "terminal": {
+    "logical_requests": 24,
+    "physical_attempts": 24,
+    "receipts": 24,
+    "prepared_only_metric_rows": 2,
+    "corrections": 1,
+    "checkpoints": 2,
+    "accepted_task_count": 1,
+    "open_scopes": [
+      "/root"
+    ],
+    "closed_requirement_ids": [
+      "req_5"
+    ],
+    "artifact": null,
+    "runtime": null,
+    "diagnostic_codes": [
+      "CONSTRUCTION_REVIEW_INCONCLUSIVE",
+      "MODEL_OUTPUT_LIMIT"
+    ]
+  },
+  "recommendation": "Retain the valid accepted partial clone separately from demonstrated later nonprogress. This trace supports no new production correction, accepted-task revision, or output/reasoning escalation on its own.",
+  "evidence_provenance": {
+    "private_semantic_assessment": {
+      "name": "source-assessment-safe.json",
+      "sha256": "5acbbe74bc7810ed0fcb51c9ba7a5cefe952e25273ffb9d0e96c5643ed64c8a4",
+      "bytes": 7081
+    },
+    "semantic_peer": {
+      "name": "independent-review-safe.json",
+      "sha256": "476928f2b9ad252f21cf95328a93547265444c7905d05d56c2715c8a8f7e392c",
+      "bytes": 4538
+    },
+    "private_numeric": {
+      "name": "code-terminal-numeric-safe.json",
+      "sha256": "07a398c4378971661b4fbaa2174f510c9b18c93bdd4ff8aba887ce3e4c2c6a55",
+      "bytes": 18791
+    },
+    "numeric_peer": {
+      "name": "code-independent-review-safe.json",
+      "sha256": "3eb9371301f3f081f4823c568ed2c09d0034c10eedc84286e746fd27468bdafb",
+      "bytes": 3929
+    }
+  },
+  "projection": "Absolute private reference paths are replaced by basenames; the tentative task identifier is omitted. Source facts, request ordinals, parsed-object hashes and qualifications are unchanged. No prompt, original response text, operation arguments or task body is copied."
+}

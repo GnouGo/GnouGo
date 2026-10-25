@@ -925,6 +925,9 @@ establishes that the duplicate-effect business miss is fixed.
 Fresh cohorts capture presentation revision 6. Authoring shows all exact originals when
 the prepared request fits; otherwise selected/retrieved requirements, all globals and
 mandatory producer/evidence context remain with exact omitted-page links.
+Exact duplicate producer-port directories are presented once; original input defaults
+remain reachable through the accepted producer's schema directory. Compare complete
+prepared requests, including evidence enums and envelope, before claiming size savings.
 Scoped source windows reuse existing Judge records and require complete current
 coverage before acceptance, automatic closure and delegated artifact verification.
 Count each window as a logical request and every HTTP attempt separately; windows

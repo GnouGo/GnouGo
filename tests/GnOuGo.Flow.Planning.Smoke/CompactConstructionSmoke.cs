@@ -19,17 +19,27 @@ internal static class CompactConstructionSmoke
         await RunAsync(3);
         await RunAsync(4);
         await RunAsync(5);
+        await RunAsync(6);
     }
 
     private static async Task RunAsync(int presentationVersion)
     {
         var planner = new HybridWorkflowPlanner();
-        var runtime = new Runtime();
+        var runtime = new Runtime(presentationVersion);
         var recoveredIntentActions = new HashSet<string>(StringComparer.Ordinal);
         var state = new PlanningSession { Request = new() { TenantId = "compact-smoke", Prompt = Objective } };
         PlanningSessionCreation.Capture(state);
-        state.Request.Options["construction_presentation_version"] = presentationVersion;
-        state.Construction!.Compact!.PresentationVersion = presentationVersion;
+        if (presentationVersion == 6)
+        {
+            if (state.Request.Options["construction_presentation_version"]?.GetValue<int>() != 6 ||
+                state.Construction!.Compact!.PresentationVersion != 6)
+                throw new InvalidOperationException("Fresh compact capture did not select presentation six.");
+        }
+        else
+        {
+            state.Request.Options["construction_presentation_version"] = presentationVersion;
+            state.Construction!.Compact!.PresentationVersion = presentationVersion;
+        }
         state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
         for (var advance = 0; advance < 24 && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); advance++)
         {
@@ -43,7 +53,7 @@ internal static class CompactConstructionSmoke
                 var issued = JsonSerializer.Serialize(interrupted.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
                 if (interrupted.PendingCall.Purpose == "construction_intent")
                     recoveredIntentActions.Add(interrupted.PendingCall.Request.StructuredOutputSchema!["properties"]!["clauses"] is null ? "interfaces" : "classification");
-                var recoveredRuntime = new Runtime();
+                var recoveredRuntime = new Runtime(presentationVersion);
                 foreach (var (id, receipt) in runtime.Receipts)
                     recoveredRuntime.Receipts.Add(id, JsonSerializer.Deserialize(JsonSerializer.Serialize(receipt,
                         PlanningJsonContext.Default.LLMResponse), PlanningJsonContext.Default.LLMResponse)!);
@@ -54,7 +64,9 @@ internal static class CompactConstructionSmoke
                     JsonSerializer.Serialize(recovered.Construction?.Compact, PlanningJsonContext.Default.PlanningCompactConstructionState) !=
                     JsonSerializer.Serialize(state.Construction?.Compact, PlanningJsonContext.Default.PlanningCompactConstructionState) ||
                     PlanningConstruction.Hash(recovered.Plan) != PlanningConstruction.Hash(state.Plan) ||
-                    recovered.Construction?.Checkpoints.Count != state.Construction?.Checkpoints.Count)
+                    recovered.Construction?.Checkpoints.Count != state.Construction?.Checkpoints.Count ||
+                    presentationVersion == 6 && JsonSerializer.Serialize(recovered.Construction, PlanningJsonContext.Default.PlanningConstructionState) !=
+                        JsonSerializer.Serialize(state.Construction, PlanningJsonContext.Default.PlanningConstructionState))
                     throw new InvalidOperationException("Compact phase recovery changed accepted work or dispatched a duplicate call.");
             }
             state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
@@ -65,12 +77,13 @@ internal static class CompactConstructionSmoke
             state.ApprovedHash is not null || state.Yaml is null)
             throw new InvalidOperationException("Compact construction did not complete with explicit requirement closure: " +
                 state.Status + "; " + JsonSerializer.Serialize(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic));
+        var expectedCalls = presentationVersion == 6 ? 5 + runtime.SourceWindows.Count : 6;
         if (state.Request.Options["construction_presentation_version"]?.GetValue<int>() != presentationVersion ||
             state.Construction.Compact.InterfaceExtractions is not [{ Complete: true, SourceIds.Count: 2 }] ||
             !runtime.IntentActions.SequenceEqual(["classification", "interfaces"]) ||
             !runtime.SelectionActions.SequenceEqual(["evidence", "step"]) ||
             !recoveredIntentActions.SetEquals(["classification", "interfaces"]) ||
-            runtime.PhysicalCalls != 6 || state.ModelCalls != 6 || state.ReplanAttempts != 0)
+            runtime.PhysicalCalls != expectedCalls || state.ModelCalls != expectedCalls || state.ReplanAttempts != 0)
             throw new InvalidOperationException("Fresh classified declarations, grouped interface extraction or exact recovery accounting changed.");
         if (presentationVersion >= 3 && state.Construction.Compact.InterfaceExtractions[0].Dispositions is not { Count: 2 })
             throw new InvalidOperationException("Source-bound interface dispositions were not retained through Native AOT recovery.");
@@ -82,21 +95,36 @@ internal static class CompactConstructionSmoke
         if (state.RequestMeasurements is null || state.RequestMeasurements.Count != runtime.PhysicalCalls ||
             state.RequestMeasurements.Any(m => m.EstimatedInputTokens > m.InputLimit || m.Components.Sum(c => c.SerializedBytes) != m.CompleteRequestBytes))
             throw new InvalidOperationException("Compact request measurements did not survive source-generated recovery.");
+        if (presentationVersion == 6)
+        {
+            var windows = runtime.SourceWindows;
+            var retained = state.Construction.Checkpoints.SelectMany(checkpoint => checkpoint.Reviews)
+                .Where(review => review["sourceCoverage"] is JsonObject).ToArray();
+            if (windows.Count == 0 || windows[0]["windowCount"]!.GetValue<int>() != windows.Count ||
+                retained.Length != windows.Count || windows.Any(window => !retained.Any(review =>
+                    JsonNode.DeepEquals(review["sourceCoverage"], window))) ||
+                !windows.SelectMany(window => window["sourceIds"]!.AsArray()).Select(id => id!.ToString())
+                    .ToHashSet(StringComparer.Ordinal).SetEquals(["requirement:req_0", "requirement:req_1"]))
+                throw new InvalidOperationException("Fresh source-window coverage was not retained before artifact approval.");
+        }
         PlanningArtifactApproval.Verify(state);
         var workflow = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml)).Workflows["main"];
         var result = await new WorkflowEngine().ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
         if (!result.Success || result.Outputs?["message"]?.GetValue<string>() != "Hello")
             throw new InvalidOperationException("Compact v15 artifact changed the independently expected value.");
-        Console.WriteLine($"compact presentation {presentationVersion}: classified originals, grounded interface extraction, six recovered calls, narrow draft/Judge and independently executed output");
+        Console.WriteLine(presentationVersion == 6
+            ? $"compact presentation 6: fresh capture, {runtime.SourceWindows.Count} exact source windows, {expectedCalls} recovered calls and independently executed output"
+            : $"compact presentation {presentationVersion}: classified originals, grounded interface extraction, six recovered calls, narrow draft/Judge and independently executed output");
     }
 
-    private sealed class Runtime : IPlanningRuntime
+    private sealed class Runtime(int presentationVersion) : IPlanningRuntime
     {
         private readonly WorkflowPlanningRuntime _inner = new(new(), (_, _) => Task.CompletedTask);
         internal Dictionary<string, LLMResponse> Receipts { get; } = new(StringComparer.Ordinal);
         internal List<string> Purposes { get; } = [];
         internal List<string> IntentActions { get; } = [];
         internal List<string> SelectionActions { get; } = [];
+        internal List<JsonObject> SourceWindows { get; } = [];
         internal string? BeforeDispatch;
         internal string? LastRequest;
         internal int PhysicalCalls;
@@ -193,6 +221,30 @@ internal static class CompactConstructionSmoke
                     break;
                 case "construction_local_judge":
                 case "construction_intermediate_judge":
+                    if (presentationVersion == 6)
+                    {
+                        if (context["sourceCoverage"] is not JsonObject coverage || coverage["sourceIds"] is not JsonArray sourceIds ||
+                            context["requirements"] is not JsonArray originals || originals.Count == 0 ||
+                            coverage["version"]?.GetValue<int>() != 1 ||
+                            coverage["windowIndex"]?.GetValue<int>() != SourceWindows.Count ||
+                            request.RequiredReviewCalls != coverage["windowCount"]!.GetValue<int>() - SourceWindows.Count - 1 ||
+                            !sourceIds.Select(id => id!.ToString()).ToHashSet(StringComparer.Ordinal).SetEquals(
+                                originals.Select(original => "requirement:" + original!["id"]!.ToString())) ||
+                            SourceWindows.Count > 0 && coverage["setHash"]?.ToString() != SourceWindows[0]["setHash"]?.ToString())
+                            throw new InvalidOperationException("Fresh Judge lost its exact source window or remaining-review headroom.");
+                        foreach (var original in originals)
+                        {
+                            var text = original!["id"]?.ToString() switch
+                            { "req_0" => ResultRequirement, "req_1" => InterfaceRequirement, _ => null };
+                            if (text is null || original["original"]?.ToString() != text ||
+                                original["sources"] is not JsonArray { Count: 1 } sources ||
+                                sources[0]?["version"]?.ToString() != PlanningGraphCompiler.Fingerprint(text))
+                                throw new InvalidOperationException("Fresh Judge changed an original clause or source version.");
+                        }
+                        SourceWindows.Add(coverage.DeepClone().AsObject());
+                    }
+                    else if (context["sourceCoverage"] is not null)
+                        throw new InvalidOperationException("Historical review unexpectedly acquired fresh source-window metadata.");
                     response = HybridWorkflowPlanner.ConvergentConstructionReviewIssued(request.StructuredOutputSchema)
                         ? new() { ["action"] = new JsonObject { ["kind"] = "findings", ["findings"] = new JsonArray() },
                             ["uncertainty"] = "Execution remains unverified." }
