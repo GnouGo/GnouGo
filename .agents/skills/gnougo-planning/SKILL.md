@@ -15,7 +15,7 @@ Compiler preflight proves present technical facts, not business fulfillment or f
 
 ## Construction
 
-Select the next necessary result from original obligations and accessible accepted producers. Reuse an existing binding or resume its evidenced consumer before proposing another producer. Local/structural work needs no discovery call. Avoid aliases or tasks that merely subdivide an action.
+Select the next necessary result from original obligations and accessible accepted producers. An available producer does not close its requirement; a demonstrated defective producer needs explicit revision, not duplication. Reuse an existing binding or resume its evidenced consumer before proposing another producer. Local/structural work needs no discovery call. Derive this decision view from existing state, never a second plan or semantic duplicate ban.
 
 Keep contribution, requirement closure, local export and public return distinct. Ordinary partial closure cannot claim a requirement whose complete current direct source disposition declares a required public output absent from the merged root. Optional outputs and supporting evidence create no such obligation; authorized revisions retain partial-repair behavior. This necessary check does not prove fulfillment. Host-prepared closure still needs the same scoped identity, reviewed evidence and ordinary validation; an empty scope is not completion.
 
@@ -31,17 +31,21 @@ Phase instructions must match all offered actions. Tentative implementation bind
 
 Suspend consumers explicitly. Bounded current-chain continuations are navigation, not a scheduler or original obligations. Eligibility to attempt resumption is not proof of type compatibility or intended producer; retain exact contract, scope, checkpoint and binding checks.
 
-Validate clones before review. Expose consumed bindings, original artifact kinds, relevant accepted effects/arguments and exports. Types alone do not establish business identity. Imports grant no extra permission; empty additions preserve exports. Partial prompt evidence does not prove missing implementation.
+Validate clones before review. Expose consumed bindings, producing arguments, original contract descriptions, exact selected schemas and exports. Preserve nullability, required siblings and references. Types alone do not establish business identity. Keep complete compact port identities and precise pagination links; never substitute a port by name or type similarity. Imports grant no extra permission; empty additions preserve exports. Partial prompt evidence does not prove missing implementation.
 
 ## Review and correction
 
 Require applicable local and intermediate reviews. A Judge returns findings, targeted evidence requests or explicit inconclusive status. Findings separately identify an applicable original obligation, concrete implementation and correctable location. Present arguments/effects must satisfy original constraints even in open scopes; assess future work at its actual closure. A contract prerequisite proves neither availability nor permission expansion. Missing evidence remains unresolved.
+
+Present exact original clauses independently of selected associations and completion claims. When originals exceed one request, review the same fragment against bounded whole-clause windows, preserving linked continuations. Existing review records bind coverage to the candidate, baseline, claims, originals and contracts. Every required window must pass before acceptance, automatic closure or approval; a clean window closes no requirement. Keep only that window's originals in its context and retain exact retrieval links. An indivisible required context must fit its captured ceiling. Reserve remaining reviews and share the single follow-up allowance across windows. Fresh evidence schemas enumerate host-issued addresses, never arbitrary prose or schema content.
 
 Mechanically enforce existing deterministic diagnostics or explicit factual assertions, not keyword interpretations, semantic duplicate bans or preflight-as-business-proof. Finite loop ceilings reject excess input rather than sample success; only authoritative required bounds establish a conflict.
 
 Carry validated rejection identities and bounded before/after evidence through the same replacement chain, including reselection and explicit resumption; acceptance ends the chain. Never reinterpret old pointers against new contexts. Restore cited accepted evidence only when baseline, source, content and placement still match; restoration is not progress or authority. Historical technical rejections are not current diagnostics or edit slots. Validation summaries must describe the current candidate truthfully.
 
 A changed hash proves novelty, not resolution. Preserve executable objectives and literals, reject provably unchanged affected bindings and require scoped review after correction. Mentioning an input elsewhere does not establish required consumer use. Use offered evidence, prerequisites, claim reselection or authorized invalidation within existing allowances; repeated non-progress stops.
+
+For independently established defects in accepted work, an authorized host uses the existing explicit revision command with current identity and exact editable paths. Preserve requirements and independent checkpoints; inspect dependent bindings, retain failed snapshots and renew review and artifact approval. Rollback cannot change literals it promises to preserve, and compensating runtime effects cannot repair a planning node. Benchmark delegation does not expand production revision or execution authority.
 
 Keep the existing shared single follow-up allowance for supported reassessment or repair of a complete bounded received report. Persist its exact candidate/claim identity. It cannot edit the candidate, erase valid adverse findings or restart evidence cycles. Uncertain transport, output exhaustion and a second invalid report stop. Evidence/review consume usage, not TaskPlan corrections. Coalesce reviews only with issued coverage of both obligations, joins and claims, preserved through checkpoints and approval. Never invent receipts or reuse narrower coverage. There is no final whole-workflow Judge.
 
