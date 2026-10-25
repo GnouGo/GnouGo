@@ -258,7 +258,10 @@ internal static partial class PlanningConstruction
                 Fail("CONSTRUCTION_SCOPE_INVALID", path, "Only an issued open scope or a newly introduced child may close, once.");
         foreach (var closed in extension.CloseScopes)
             if (open.Any(p => IsDescendantScope(symbols, p, closed))) Fail("CONSTRUCTION_SCOPE_OPEN", closed, "Close child scopes before their parent.");
-        if (extension.Complete && open.Count > 0) Fail("CONSTRUCTION_INCOMPLETE", "/", "All construction scopes must close before finalization.");
+        if (extension.Complete && open.Count > 0)
+            Fail("CONSTRUCTION_INCOMPLETE", "/", PlanningCompactConstruction.UsesDecisionView(state)
+                ? $"Finalization requires explicit closure of remaining open scopes ({open.Count}): {string.Join(", ", open.Order(StringComparer.Ordinal).Take(8))}{(open.Count > 8 ? ", …" : "")}."
+                : "All construction scopes must close before finalization.");
         if (!extension.Complete && open.Count == 0) Fail("CONSTRUCTION_INCOMPLETE", "/", "A closed root must explicitly declare construction complete.");
         if (extension.RequirementIds.Distinct(StringComparer.Ordinal).Count() != extension.RequirementIds.Count ||
             extension.RequirementIds.Any(id => state.Requirements?.Outcomes.All(r => r.Id != id) != false))

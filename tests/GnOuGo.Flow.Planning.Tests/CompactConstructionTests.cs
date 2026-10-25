@@ -9,6 +9,46 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CompactConstructionTests
 {
     [Theory]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    public void MissingRootClosureDoesNotDescribeAcceptedChildWorkAsIncomplete(int presentation)
+    {
+        var state = NewSession();
+        PlanningSessionCreation.Capture(state);
+        state.Construction!.Compact!.PresentationVersion = presentation;
+        state.Request.Options["construction_presentation_version"] = presentation;
+        state.Catalog = new();
+        state.Requirements = new() { Outcomes = [new("req_0", "Return exactly Hello.")] };
+        state.Plan = new() { Root = new() { Tasks = [new() { Id = "producer", Kind = "sequence",
+            Objective = "Supply the greeting.", Body = new() { Tasks = [Value()],
+                Outputs = [new("message", new() { Kind = "output", Source = "greet", Port = "message" })] } }] } };
+        state.Construction.OpenScopes = ["/root"];
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var extension = new PlanningConstructionExtension { Scope = "/root", Complete = true,
+            RequirementIds = ["req_0"], Outputs = [new("message", new() { Kind = "output", Source = "producer", Port = "message" })] };
+        var error = Assert.Throws<PlanningResponseException>(() => PlanningConstruction.Apply(state, extension));
+        var diagnostic = Assert.Single(error.Diagnostics);
+        Assert.Equal("CONSTRUCTION_INCOMPLETE", diagnostic.Code);
+        if (presentation < 6) Assert.Equal("All construction scopes must close before finalization.", diagnostic.Message);
+        else
+        {
+            Assert.Contains("(1): /root.", diagnostic.Message, StringComparison.Ordinal);
+            Assert.DoesNotContain("/tasks/producer/body", diagnostic.Message, StringComparison.Ordinal);
+        }
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        extension.CloseScopes = ["/root"];
+        var candidate = PlanningConstruction.Apply(state, extension);
+        Assert.Empty(candidate.OpenScopes);
+        Assert.Equal(PlanningConstruction.Hash(state.Plan), candidate.BaseHash);
+        Assert.True(JsonNode.DeepEquals(PlanningConstruction.TaskNode(state.Plan.Root.Tasks[0]),
+            PlanningConstruction.TaskNode(candidate.Plan.Root.Tasks[0])));
+        Assert.Empty(TaskPlanCompiler.ValidateConstruction(candidate.Plan, state.Catalog, state.Request,
+            candidate.OpenScopes.ToHashSet(StringComparer.Ordinal)).Diagnostics);
+        Assert.False(candidate.LocalReviewed);
+    }
+
+    [Theory]
     [InlineData("漢")]
     [InlineData("🧠")]
     [InlineData("\"\\\n")]

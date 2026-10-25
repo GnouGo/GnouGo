@@ -39,6 +39,9 @@ port identities and exact bound-input/selected-output schema closures, including
 nullability, required siblings and references. Unconsumed producer directories keep
 exact prose/schema links. These views neither choose a replacement port nor grant
 completion, revision or execution authority; required context is never truncated.
+Navigation's `objectiveTextComplete` describes the displayed text only. Actual
+open-scope identities determine closure diagnostics; truncated descriptions never
+reopen accepted work. Earlier presentation revisions keep their original field.
 
 Mandatory scoped review partitions originals into whole-clause windows when the
 complete prepared request would exceed its captured ceiling. Linked continuations

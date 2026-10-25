@@ -324,7 +324,7 @@ internal static partial class PlanningCompactConstruction
             // retrieval link. Historical presentation retains its issued shape.
             if (!PlanningConstructionPhasePolicies.IsFresh(state.Request))
                 foreach (var item in (context["interfaces"] as JsonArray ?? []).OfType<JsonObject>())
-                    if (item["objectiveComplete"]?.GetValue<bool>() == false && item["objectiveEvidence"] is JsonValue)
+                    if (item[ObjectiveTextCompleteField(state)]?.GetValue<bool>() == false && item["objectiveEvidence"] is JsonValue)
                         item.Remove("objective");
         }
         if (IsCompactPresentation(state) && state.Construction.Evidence is { Count: > 0 })
@@ -338,7 +338,7 @@ internal static partial class PlanningCompactConstruction
                         new TaskPlanSymbols(state.Plan!).Tasks.TryGetValue(owner, out var site))
                         item["objectiveEvidence"] = TaskObjectiveAddress(site.Task, 0);
                     if (!PlanningConstructionPhasePolicies.IsFresh(state.Request))
-                    { item.Remove("objective"); item.Remove("objectiveComplete"); }
+                    { item.Remove("objective"); item.Remove(ObjectiveTextCompleteField(state)); }
                     item.Remove("question"); item.Remove("questionComplete");
                 }
         }
@@ -628,7 +628,7 @@ internal static partial class PlanningCompactConstruction
                 var description = objective is null ? null : NavigationDescription(objective);
                 var inputGroup = explicitBoundaries ? group ?? ScopeGroup(state, s.Path) : null;
                 var entry = TrimNavigation(new JsonObject { ["path"] = s.Path, ["owner"] = s.Owner?.Id, ["kind"] = group is null ? s.Owner?.Kind : "group",
-                ["objective"] = description, ["objectiveComplete"] = objective is null ? null : JsonValue.Create(description == objective),
+                ["objective"] = description, [ObjectiveTextCompleteField(state)] = objective is null ? null : JsonValue.Create(description == objective),
                 ["requirementIds"] = opening is null ? null : new JsonArray(opening.RequirementIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
                 ["iterationInputs"] = s.Owner?.Kind == "foreach" ? "item and index" : null,
                 ["inputScope"] = group is null && inputGroup is not null ? "/groups/" + inputGroup.Id + "/body" : null,

@@ -936,6 +936,10 @@ for comparison. Regression passes do not establish business fulfillment or fewer
 When assessing closure findings, distinguish the owning group's candidate boundary
 from accepted producer interfaces. Preserve a contradictory issued summary as failure
 evidence; a later context fix never changes its request, receipt or rejected snapshot.
+Revision-6 navigation's `objectiveTextComplete` measures text coverage, not accepted
+business completion. Preserve a correction that confuses those facts as a received
+semantic failure; count whitespace in original responses separately from normalized
+JSON and provider reasoning usage. Neither measure alone establishes its cause.
 Accepted-work corrections require the existing explicit identity-bound `revise`
 command and editable paths; benchmark delegation does not grant model-authored edits.
 

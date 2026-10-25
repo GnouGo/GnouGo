@@ -20,6 +20,9 @@ The reviewed scope's owning group uses the candidate's validated boundary and
 exports; called producer groups retain explicitly labelled accepted declarations.
 This keeps group closure facts consistent with the scope preflight without
 promoting a tentative group into an accepted callable producer.
+Revision-6 navigation names truncated objective coverage `objectiveTextComplete`;
+it makes no claim about business completion. Finalization diagnostics identify
+the remaining open boundaries without describing already closed children as unfinished.
 Established accepted-work defects still require the existing explicit scoped
 `revise` authority; rollback or runtime compensation cannot withdraw accepted literals.
 No live convergence or execution result follows from these context guarantees.

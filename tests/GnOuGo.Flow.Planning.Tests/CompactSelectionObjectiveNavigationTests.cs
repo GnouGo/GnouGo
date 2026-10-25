@@ -168,11 +168,17 @@ public sealed class CompactSelectionObjectiveNavigationTests
 
     [Theory]
     [InlineData("fresh")]
+    [InlineData("v5")]
     [InlineData("historical")]
     [InlineData("retainedCompact")]
     public async Task IncompleteNavigationRetainsExactObjectiveAndEveryPort(string profile)
     {
         var state = await Ready();
+        if (profile == "v5")
+        {
+            state.Construction!.Compact!.PresentationVersion = 5;
+            state.Request.Options["construction_presentation_version"] = 5;
+        }
         if (profile == "historical") state.Construction!.Compact!.PresentationVersion = null;
         if (profile == "retainedCompact")
         {
@@ -185,7 +191,10 @@ public sealed class CompactSelectionObjectiveNavigationTests
         var interfaces = context["interfaces"]!.AsArray();
         var entry = interfaces.OfType<JsonObject>().Single(item => item["task"]?.ToString() == "first");
         var prior = directory.OfType<JsonObject>().Single(item => item["task"]?.ToString() == "first");
-        Assert.False(entry["objectiveComplete"]!.GetValue<bool>());
+        var completeField = profile is "v5" or "historical" ? "objectiveComplete" : "objectiveTextComplete";
+        var absentField = completeField == "objectiveComplete" ? "objectiveTextComplete" : "objectiveComplete";
+        Assert.False(entry[completeField]!.GetValue<bool>());
+        Assert.False(entry.ContainsKey(absentField));
         Assert.Equal(profile != "retainedCompact", entry.ContainsKey("objective"));
         Assert.Equal(profile != "retainedCompact" ? prior["objective"]!.ToString() : null, entry["objective"]?.ToString());
         foreach (var field in prior.Where(field => field.Key != "objective"))
@@ -194,7 +203,8 @@ public sealed class CompactSelectionObjectiveNavigationTests
         Assert.Equal(8, entry["ports"]!.AsArray().Count);
         Assert.NotNull(entry["nextPorts"]);
         var shortEntry = interfaces.OfType<JsonObject>().Single(item => item["task"]?.ToString() == "short");
-        Assert.True(shortEntry["objectiveComplete"]!.GetValue<bool>());
+        Assert.True(shortEntry[completeField]!.GetValue<bool>());
+        Assert.False(shortEntry.ContainsKey(absentField));
         Assert.NotNull(state.Plan);
         Assert.Equal(state.Plan.Root.Tasks[2].Objective, shortEntry["objective"]!.ToString());
         Assert.Equal(original, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
@@ -224,7 +234,7 @@ public sealed class CompactSelectionObjectiveNavigationTests
         var context = PlanningCompactConstruction.SelectionContext(state);
         var previous = context.DeepClone().AsObject();
         foreach (var item in previous["interfaces"]!.AsArray().OfType<JsonObject>())
-            if (item["objectiveComplete"]?.GetValue<bool>() == false) item.Remove("objective");
+            if (item["objectiveTextComplete"]?.GetValue<bool>() == false) item.Remove("objective");
         var schema = PlanningCompactConstruction.SelectionSchema(state);
         var current = PlanningRequestMeasurements.Measure(Request(state, context, schema),
             PlanningCompactConstruction.SelectPurpose, 3000);
@@ -244,22 +254,107 @@ public sealed class CompactSelectionObjectiveNavigationTests
             var excerpt = item["objective"]!.ToString();
             Assert.InRange(JsonEncodedText.Encode(JsonEncodedText.Encode(excerpt).ToString()).EncodedUtf8Bytes.Length, 1, 192);
             Assert.StartsWith(excerpt, state.Plan!.Root.Tasks.Single(task => task.Id == item["task"]!.ToString()).Objective, StringComparison.Ordinal);
-            if (item["objectiveComplete"]?.GetValue<bool>() == false) Assert.NotNull(item["objectiveEvidence"]);
+            if (item["objectiveTextComplete"]?.GetValue<bool>() == false) Assert.NotNull(item["objectiveEvidence"]);
         });
     }
 
-    [Fact]
-    public async Task SavedSelectionWithoutNavigationPrefixesResumesExactIssuedBytesAndAccounting()
+    [Theory]
+    [InlineData(5, "selection")]
+    [InlineData(6, "selection")]
+    [InlineData(5, "draft")]
+    [InlineData(6, "draft")]
+    [InlineData(5, "review")]
+    [InlineData(6, "review")]
+    public async Task TruncatedObjectiveTextDoesNotReopenAClosedProducerOrHideItsExport(int presentation, string phase)
+    {
+        var state = await ClosedProducerState(presentation);
+        var construction = state.Construction!;
+        var producer = state.Plan!.Root.Tasks[0];
+        var selected = new PlanningConstructionStep { Id = "return_result", Scope = "/root", Kind = "close",
+            Objective = "Return the accepted result.", RequirementIds = ["req_0"], OutputNames = ["result"],
+            Inputs = [new() { Kind = "output", Source = producer.Id, Port = "result" }], DiscoveryComplete = true };
+        PlanningCompactConstruction.ValidateSelection(state, selected);
+        if (phase != "selection") construction.Compact!.CurrentStep = selected;
+        if (phase == "review")
+        {
+            construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["req_0"],
+                Outputs = [new("result", new() { Kind = "output", Source = producer.Id, Port = "result" })] });
+            Assert.Empty(construction.Candidate.Diagnostics);
+        }
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        var context = phase == "selection" ? PlanningCompactConstruction.SelectionContext(state) :
+            PlanningCompactConstruction.Context(state, review: phase == "review");
+        var entries = phase == "selection" ? context["interfaces"]!.AsArray() : context["taskEvidence"]!["items"]!.AsArray();
+        var entry = Assert.Single(entries.OfType<JsonObject>(), item => item["task"]?.ToString() == producer.Id);
+        Assert.False(entry[presentation == 6 ? "objectiveTextComplete" : "objectiveComplete"]!.GetValue<bool>());
+        Assert.False(entry.ContainsKey(presentation == 6 ? "objectiveComplete" : "objectiveTextComplete"));
+        Assert.StartsWith(entry["objective"]!.ToString(), producer.Objective, StringComparison.Ordinal);
+        var directory = PlanningCompactConstruction.InterfaceDirectory(state, [producer.Id], 0);
+        var export = Assert.Single(directory.OfType<JsonObject>(), item => item["task"]?.ToString() == producer.Id);
+        Assert.Equal("result", Assert.Single(export["ports"]!.AsArray())!.ToString());
+        Assert.Equal(new[] { "/root" }, construction.OpenScopes);
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+
+        var address = entry["objectiveEvidence"]!.ToString();
+        PlanningConstruction.LoadEvidence(state, [address]);
+        Assert.Equal(producer.Objective, construction.Evidence![address]!["text"]!.ToString());
+        Assert.Equal(PlanningGraphCompiler.Fingerprint(producer.Objective), construction.Evidence[address]!["version"]!.ToString());
+        Assert.Null(construction.Evidence[address]!["next"]);
+        Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
+        Assert.Equal(new[] { "/root" }, construction.OpenScopes);
+        Assert.Empty(construction.Checkpoints);
+        Assert.Equal(0, state.ReplanAttempts);
+    }
+
+    [Theory]
+    [InlineData(5)]
+    [InlineData(6)]
+    public async Task OpenOwnerTextCoverageDoesNotReplaceTheOpenScopeIdentity(int presentation)
+    {
+        var state = await ClosedProducerState(presentation);
+        const string scope = "/tasks/producer/body";
+        state.Construction!.OpenScopes.Add(scope);
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var context = PlanningCompactConstruction.SelectionContext(state);
+        var owner = Assert.Single(context["scopes"]!.AsArray().OfType<JsonObject>(), entry => entry["path"]?.ToString() == scope);
+        Assert.False(owner[presentation == 6 ? "objectiveTextComplete" : "objectiveComplete"]!.GetValue<bool>());
+        Assert.False(owner.ContainsKey(presentation == 6 ? "objectiveComplete" : "objectiveTextComplete"));
+        Assert.Equal("scope:" + scope, owner["evidence"]!.ToString());
+        Assert.DoesNotContain(context["interfaces"]!.AsArray(), entry => entry?["task"]?.ToString() == "producer");
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        PlanningConstruction.LoadEvidence(state, [owner["objectiveEvidence"]!.ToString()]);
+        Assert.Equal(state.Plan!.Root.Tasks[0].Objective,
+            state.Construction.Evidence![owner["objectiveEvidence"]!.ToString()]!["text"]!.ToString());
+        Assert.Equal(new[] { "/root", scope }, state.Construction.OpenScopes);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SavedSelectionWithoutNavigationPrefixesResumesExactIssuedBytesAndAccounting(bool preRenameCoverageField)
     {
         var state = await Ready();
         var context = PlanningCompactConstruction.SelectionContext(state);
         foreach (var item in context["interfaces"]!.AsArray().OfType<JsonObject>())
-            if (item["objectiveComplete"]?.GetValue<bool>() == false) item.Remove("objective");
+        {
+            if (item["objectiveTextComplete"]?.GetValue<bool>() == false) item.Remove("objective");
+            if (preRenameCoverageField && item.Remove("objectiveTextComplete", out var coverage))
+                item["objectiveComplete"] = coverage;
+        }
         var request = Request(state, context, PlanningCompactConstruction.SelectionSchema(state));
         state.ModelCalls++;
         state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningCompactConstruction.SelectPurpose, Request = request };
         state = PlannerFixture.Clone(state);
         var issued = JsonSerializer.Serialize(state.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
+        if (preRenameCoverageField)
+        {
+            Assert.Contains("objectiveComplete", issued, StringComparison.Ordinal);
+            Assert.DoesNotContain("objectiveTextComplete", issued, StringComparison.Ordinal);
+            var fresh = PlanningCompactConstruction.SelectionContext(state)["interfaces"]!.AsArray().OfType<JsonObject>().ToArray();
+            Assert.Contains(fresh, item => item.ContainsKey("objectiveTextComplete"));
+            Assert.DoesNotContain(fresh, item => item.ContainsKey("objectiveComplete"));
+        }
         var accepted = PlanningConstruction.Hash(state.Plan);
         var requirements = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
         var calls = state.ModelCalls;
@@ -469,6 +564,21 @@ public sealed class CompactSelectionObjectiveNavigationTests
         for (var index = 0; index < 2; index++)
             state.Plan.Root.Tasks.Add(new() { Id = "later_" + index, Kind = "value", Objective = "Keep this accepted value.",
                 Outputs = [new("field", new() { Kind = "string", Text = "accepted" })] });
+        return state;
+    }
+
+    private static async Task<PlanningSession> ClosedProducerState(int presentation)
+    {
+        var state = await Ready();
+        state.Request.Options["construction_presentation_version"] = presentation;
+        state.Construction!.Compact!.PresentationVersion = presentation;
+        state.Construction.OpenScopes = ["/root"];
+        state.Requirements!.Outputs = [new() { Name = "result", Type = new() { Kind = "string" } }];
+        state.Plan = new() { Root = new() { Tasks = [new() { Id = "producer", Kind = "sequence",
+            Objective = string.Concat(Enumerable.Repeat("Preserve the exact accepted value and return its declared result. ", 8)),
+            Body = new() { Tasks = [new() { Id = "leaf", Kind = "value", Objective = "Keep the accepted value.",
+                    Outputs = [new("value", new() { Kind = "string", Text = "accepted" })] }],
+                Outputs = [new("result", new() { Kind = "output", Source = "leaf", Port = "value" })] } }] } };
         return state;
     }
 

@@ -189,7 +189,7 @@ internal static partial class PlanningCompactConstruction
     {
         var description = NavigationDescription(task.Objective);
         var entry = new JsonObject { ["task"] = task.Id, ["scope"] = scope, ["kind"] = task.Kind,
-            ["objective"] = description, ["objectiveComplete"] = description == task.Objective,
+            ["objective"] = description, [ObjectiveTextCompleteField(state)] = description == task.Objective,
             ["objectiveEvidence"] = description == task.Objective ? null : TaskObjectiveAddress(task, 0) };
         if (IsCompactPresentation(state) && PlanningConstructionPhasePolicies.IsFresh(state.Request))
         {
@@ -198,6 +198,9 @@ internal static partial class PlanningCompactConstruction
         }
         return entry;
     }
+
+    private static string ObjectiveTextCompleteField(PlanningSession state) =>
+        UsesDecisionView(state) ? "objectiveTextComplete" : "objectiveComplete";
 
     private static void AddAcceptedOperationEvidence(PlanningSession state, JsonObject context, IEnumerable<JsonObject> entries)
     {
@@ -227,7 +230,7 @@ internal static partial class PlanningCompactConstruction
             // Keep whole omitted fields retrievable through the existing link.
             entry["omittedFields"] = new JsonArray(original.AsObject().Where(field =>
                 field.Key is not ("id" or "kind" or "operation" or "scope" or "phase") &&
-                !(field.Key == "objective" && entry["objectiveComplete"]?.GetValue<bool>() == true))
+                !(field.Key == "objective" && entry[ObjectiveTextCompleteField(state)]?.GetValue<bool>() == true))
                 .Select(field => (JsonNode?)JsonValue.Create(field.Key)).ToArray());
         }
         if (added.Count == 0) return;

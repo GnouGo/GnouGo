@@ -1,4 +1,27 @@
 # Compact TaskPlan convergence
+## Source `2b0d378c8`: Collections reaches root export, then misdirects correction
+
+The [fresh diagnostic](compact-taskplan-2b0d378c8-collections-high.json) received
+**32 logical requests / 32 attempts / 32 receipts**, with three corrections and
+seven checkpoints. Both reusable-group and foreach boundaries closed, but no
+artifact or runtime execution resulted. The final public export omitted explicit
+root closure; its correction interpreted truncated objective text as incomplete
+producer work. The [bounded assessment](compact-taskplan-2b0d378c8-collections-assessment.json)
+retains that distinction and the subsequent non-progress stop.
+
+Planning took **1,254.469 seconds**. Provider usage was **78,272 input / 58,901
+output tokens**, including **39,977 reasoning tokens**. Known cost was
+**EUR 1.9262739848282016956715751895**, with no new unknown reservation. Complete
+request bytes were **p50 12,859.5 / p95 18,439 / maximum 19,953**; all components
+reconcile and requests fit their captured ceilings. Interface extraction returned
+valid JSON containing **135,301 whitespace bytes outside strings**. This is a
+received formatting anomaly, not evidence of transport uncertainty or its cause.
+
+The next focused correction names text coverage explicitly and reports the actual
+remaining open boundaries. It changes no model settings, validation or execution
+authority. Its live benefit is unverified; no avoided-correction or fulfilled-business
+ratio is claimed. Earlier archives and results below remain unchanged.
+
 ## Source `a2860a3c5`: received Collections failure exposes contradictory group facts
 
 The [fresh Collections diagnostic](compact-taskplan-a2860a3c5-collections-high.json)
