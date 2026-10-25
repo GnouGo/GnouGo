@@ -237,6 +237,9 @@ public sealed class CompactAcceptedClosureTests
     {
         var state = new PlanningSession { Request = new() { TenantId = "accepted-closure", Prompt = "Return the public greeting message." } };
         PlanningSessionCreation.Capture(state);
+        // These retained checkpoint records predate per-window review coverage.
+        state.Request.Options["construction_presentation_version"] = 5;
+        state.Construction!.Compact!.PresentationVersion = 5;
         state.IntentVersion = 3; state.Revision = 1; state.Status = PlanningStatus.Generating;
         PlanningCompactConstruction.InitializeSources(state);
         var compact = state.Construction!.Compact!;

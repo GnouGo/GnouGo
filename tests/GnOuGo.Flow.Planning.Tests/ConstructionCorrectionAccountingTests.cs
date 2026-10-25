@@ -288,14 +288,19 @@ public sealed class ConstructionCorrectionAccountingTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task CandidateRepairReceivesTheRejectedEvidenceDiagnosticAndClearsItOnlyAfterSuccess(bool typed)
+    [InlineData(5, false)]
+    [InlineData(5, true)]
+    [InlineData(6, false)]
+    [InlineData(6, true)]
+    public async Task CandidateRepairReceivesTheRejectedEvidenceDiagnosticAndClearsItOnlyAfterSuccess(int presentation, bool typed)
     {
         var (state, runtime) = await Ready(draft: true);
+        state.Request.Options["construction_presentation_version"] = presentation;
+        state.Construction!.Compact!.PresentationVersion = presentation;
         var candidate = DiagnoseCandidate(state, typed);
         var finding = Assert.Single(candidate.Diagnostics);
-        var evidenceCode = typed ? "CONSTRUCTION_EVIDENCE_UNKNOWN" : "PLANNING_RESPONSE_INVALID";
+        var loaderRejects = typed && presentation < 6;
+        var evidenceCode = loaderRejects ? "CONSTRUCTION_EVIDENCE_UNKNOWN" : "PLANNING_RESPONSE_INVALID";
         var accepted = PlanningConstruction.Hash(state.Plan);
         var hash = candidate.Hash;
         runtime.Respond = (request, purpose) =>
@@ -320,7 +325,7 @@ public sealed class ConstructionCorrectionAccountingTests
             Assert.Single(diagnostics, diagnostic => diagnostic!["code"]!.ToString() == finding.Code);
             var rejected = Assert.Single(diagnostics, diagnostic => diagnostic!["code"]!.ToString() == evidenceCode)!;
             Assert.Contains("requirement:missing", rejected["message"]!.ToString(), StringComparison.Ordinal);
-            Assert.Equal(typed ? "/evidenceRequests" : "/evidenceRequests/1", Assert.Single(rejected["locations"]!.AsArray())!.ToString());
+            Assert.Equal(loaderRejects ? "/evidenceRequests" : "/evidenceRequests/1", Assert.Single(rejected["locations"]!.AsArray())!.ToString());
             return Evidence(request, "requirement:req_0");
         };
         state = await Advance(state, runtime);

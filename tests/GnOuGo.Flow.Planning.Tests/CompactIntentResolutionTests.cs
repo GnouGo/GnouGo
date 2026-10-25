@@ -70,7 +70,7 @@ public sealed class CompactIntentResolutionTests(ITestOutputHelper output)
         var runtime = new TestRuntime { Respond = (r, _) => Wire(r, Classify(r, classification,
             (declaration, "none"), (naming, classification))) };
         var state = await Advance(Fresh(declaration + naming), runtime);
-        Assert.Equal(5, state.Construction!.Compact!.PresentationVersion);
+        Assert.Equal(6, state.Construction!.Compact!.PresentationVersion);
         runtime.Respond = (r, _) =>
         {
             var context = Context(r);

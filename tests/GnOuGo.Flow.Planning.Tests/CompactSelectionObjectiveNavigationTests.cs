@@ -54,11 +54,15 @@ public sealed class CompactSelectionObjectiveNavigationTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task LaterSelectionPageRetainsReturnNavigationToExactCallerInput(bool firstPageAlreadyRead)
+    [InlineData(false, 5)]
+    [InlineData(true, 5)]
+    [InlineData(false, 6)]
+    [InlineData(true, 6)]
+    public async Task LaterSelectionPageRetainsReturnNavigationToExactCallerInput(bool firstPageAlreadyRead, int presentation)
     {
         var state = await PagingState();
+        state.Construction!.Compact!.PresentationVersion = presentation;
+        state.Request.Options["construction_presentation_version"] = presentation;
         var accepted = PlanningConstruction.Hash(state.Plan);
         var calls = state.ModelCalls;
         var declaration = JsonSerializer.SerializeToNode(Assert.Single(state.Plan!.Inputs), PlanningJsonContext.Default.TaskInput);
@@ -77,7 +81,8 @@ public sealed class CompactSelectionObjectiveNavigationTests
             var address = addresses.Dequeue();
             if (address == "page:interfaces:0")
             {
-                Assert.Null(context["interfaces"]);
+                if (presentation == 5) Assert.Null(context["interfaces"]);
+                else Assert.True(JsonNode.DeepEquals(PlanningCompactConstruction.InterfaceDirectory(state, null, 4), context["interfaces"]));
                 Assert.Null(context["nextInterfaces"]);
                 Assert.Equal(address, context["interfacesDirectory"]!.ToString());
                 Assert.Null(context["evidence"]?[address]);

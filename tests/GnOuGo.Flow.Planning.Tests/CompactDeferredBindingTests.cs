@@ -341,7 +341,9 @@ public sealed class CompactDeferredBindingTests
         Assert.Empty(state.Diagnostics);
         Assert.Equal(["req_1"], state.Construction!.Compact!.CurrentStep!.RequirementIds);
         Assert.Null(state.Construction.Evidence);
-        Assert.Equal("req_1", Assert.Single(PlanningCompactConstruction.SelectionContext(state)["requirements"]!.AsArray())!["id"]!.ToString());
+        var originals = PlanningCompactConstruction.SelectionContext(state)["requirements"]!.AsArray();
+        Assert.Equal(new[] { "req_0", "req_1" }, originals.Select(row => row!["id"]!.ToString()));
+        Assert.Equal(new[] { declaration, work }, originals.Select(row => row!["original"]!.ToString()));
         var discovery = PlanningCompactConstruction.DiscoveryContext(state);
         Assert.Equal(new[] { "requirement:req_0", declarationSource }, discovery["step"]!["prerequisites"]![0]!["evidenceAddresses"]!.AsArray().Select(address => address!.ToString()));
         runtime.Respond = (request, _) =>
@@ -623,9 +625,13 @@ public sealed class CompactDeferredBindingTests
     [InlineData("discovery", true)]
     [InlineData("judge", false)]
     [InlineData("judge", true)]
-    public async Task SelectedPhasesRetrieveLaterOriginalsWithoutChangingClaims(string phase, bool recover)
+    public async Task V5SelectedPhasesRetrieveLaterOriginalsWithoutChangingClaims(string phase, bool recover)
     {
         var (state, runtime) = OriginalPages(phase);
+        // This retained protocol unions requested originals into one review;
+        // fresh v6 presents all author originals and reviews whole-clause windows.
+        state.Construction!.Compact!.PresentationVersion = 5;
+        state.Request.Options["construction_presentation_version"] = 5;
         var accepted = PlanningConstruction.Hash(state.Plan);
         var stepBytes = JsonSerializer.Serialize(state.Construction!.Compact!.CurrentStep, PlanningJsonContext.Default.PlanningConstructionStep);
         var claims = state.Construction.Requirements.Select(item => (item.Id, item.Status)).ToArray();
@@ -783,9 +789,13 @@ public sealed class CompactDeferredBindingTests
     }
 
     [Fact]
-    public void RetrievedOriginalUnionStillRequiresCompleteReviewAdmission()
+    public void V5RetrievedOriginalUnionStillRequiresCompleteReviewAdmission()
     {
         var (state, _) = OriginalPages("judge", count: 19);
+        // V5's complete union must still stop; v6's bounded review windows are a
+        // different captured protocol, exercised by the review coverage fixtures.
+        state.Construction!.Compact!.PresentationVersion = 5;
+        state.Request.Options["construction_presentation_version"] = 5;
         PlanningConstruction.LoadEvidence(state, ["page:requirements:8", "page:requirements:16"],
             followup: Review, purpose: PlanningConstruction.LocalPurpose);
         var original = state.Construction!.Evidence!.ToJsonString();

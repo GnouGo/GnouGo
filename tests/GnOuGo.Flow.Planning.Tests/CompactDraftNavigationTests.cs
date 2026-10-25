@@ -61,12 +61,16 @@ public sealed class CompactDraftNavigationTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void SelectionEvidenceUsesDisplayedOriginalsAndExactNavigationAcrossPages(bool reselection)
+    [InlineData(false, 5)]
+    [InlineData(true, 5)]
+    [InlineData(false, 6)]
+    [InlineData(true, 6)]
+    public void SelectionEvidenceUsesDisplayedOriginalsAndExactNavigationAcrossPages(bool reselection, int presentation)
     {
         var state = State();
         var compact = state.Construction!.Compact!;
+        compact.PresentationVersion = presentation;
+        state.Request.Options["construction_presentation_version"] = presentation;
         if (reselection)
         {
             state.Diagnostics = [new("CONSTRUCTION_SELECTION_INVALID", "/step", "The tentative implementation needs another producer.")];
@@ -92,7 +96,10 @@ public sealed class CompactDraftNavigationTests
         Assert.Empty(PlanningContractValidation.ValidateSchema(request.StructuredOutputSchema!.AsObject(), strict: true));
         foreach (var address in new[] { "requirement:req", "source:request:0:clause:0", "group:worker", "input:caller", "scope:/root", "page:requirements:1" })
             AssertSelectionEvidence(request, state, address, valid: true);
-        foreach (var address in new[] { "Find an authorized producer for this action.", "task:unknown", "request:0:clause:0", "source:request:1:clause:0", "page:requirements:2" })
+        // V6 supplies every small original before paging; v5 retains its anchor-only view.
+        Assert.Equal(presentation == 6 ? 3 : 1, Context(request)["requirements"]!.AsArray().Count);
+        AssertSelectionEvidence(request, state, "source:request:1:clause:0", valid: presentation == 6);
+        foreach (var address in new[] { "Find an authorized producer for this action.", "task:unknown", "request:0:clause:0", "page:requirements:2" })
             AssertSelectionEvidence(request, state, address, valid: false);
         AssertSelectionEvidence(request, state, "rejected:0", valid: reselection);
         AssertSelectionEvidence(request, state, "rejected:1", valid: false);

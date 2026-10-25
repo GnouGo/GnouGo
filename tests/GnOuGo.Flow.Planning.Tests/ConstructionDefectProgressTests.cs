@@ -624,6 +624,7 @@ public sealed partial class ConstructionDefectProgressTests
         var captured = new PlanningSession { Request = new() { TenantId = "defect-progress", Prompt = "Use the original caller string text in the operation.",
             Options = new() { ["automatic_correction"] = true } } };
         PlanningSessionCreation.Capture(captured);
+        captured.Request.Options["construction_presentation_version"] = state.Construction!.Compact!.PresentationVersion;
         state.Request = captured.Request; state.Revision = 1; state.IntentVersion = 3; state.Status = PlanningStatus.Generating;
         var construction = state.Construction!; var compact = construction.Compact!;
         construction.Limits = captured.Construction!.Limits; construction.OpenScopes = ["/root"];
