@@ -1,0 +1,214 @@
+{
+  "version": 1,
+  "status": "public_safe_source_assessment_projection",
+  "source": "4d486d1ac63aafb7893086437164cfd9f23dc26d",
+  "cohort": "compactr4d486d1accode20v6j16",
+  "run_hash": "0abbb64f427d297fbaa27f39c3b16d2adf0a65f1b29fead0ab07a481451d6172",
+  "terminal": {
+    "logical_requests": 34,
+    "physical_attempts": 34,
+    "receipts": 34,
+    "corrections": 2,
+    "checkpoints": 3,
+    "artifact": false,
+    "execution": false,
+    "diagnostic": "CONSTRUCTION_REVIEW_INCONCLUSIVE with MODEL_INPUT_LIMIT",
+    "received_output_exhaustion_demonstrated": false
+  },
+  "accepted_structure": {
+    "revision": 35,
+    "task_count": 2,
+    "task_kinds": [
+      "operation",
+      "operation"
+    ],
+    "same_operation_and_all_input_bindings": true,
+    "unconditional_same_root_phase": true,
+    "root_remains_open": true
+  },
+  "assessment": [
+    {
+      "requests": [
+        7,
+        8,
+        9
+      ],
+      "classification": "partial_input_declaration_acceptance",
+      "finding": "The first checkpoint closes req_5 for the two public input declarations. Its clean bounded review does not establish completion of cloning, review, report generation or cleanup."
+    },
+    {
+      "requests": [
+        16,
+        17
+      ],
+      "classification": "first_clone_has_exact_target_and_head",
+      "finding": "The first accepted clone uses the authorized repository, explicit head commit and exact cohort directory. The clean review is a partial fragment review; downstream checks, report and cleanup remain open and runtime is unverified."
+    },
+    {
+      "requests": [
+        18,
+        23,
+        24,
+        25
+      ],
+      "classification": "demonstrated_accepted_single_clone_violation_and_missed_business_finding",
+      "finding": "Selection18 repeats cloning although the full first accepted operation is displayed. Draft23 repeats the first task exactly and receives TASK_IDENTITY_INVALID. Repair24 changes only task ID and objective, preserving operation and all three arguments. Judge25 returns findings:[] and checkpoint3 accepts the second unconditional clone into the same root phase. Two planned clone operations violate req_1 and req_7 exactly-one-clone restriction; this is a present effect-count violation, not merely future incomplete work or inferred runtime failure."
+    },
+    {
+      "requests": [
+        18,
+        25
+      ],
+      "classification": "relevant_originals_and_accepted_implementation_visible",
+      "finding": "Both exact issued contexts contain full first-clone task under evidence, including remoteUrl, targetDirectory and branch, and exact req_1/req_7 original text. Judge25 includes all13 requirements and3 globals in one source window; its schema supports unnecessary_operation and concrete prior-task/draft pointers. Guidance explicitly requires assessing current effects in combination with accepted work. No demonstrated missing context, unavailable retrieval, partial-window coverage bypass or contradictory instruction explains this false negative."
+    },
+    {
+      "requests": [
+        26,
+        30,
+        31,
+        32,
+        33
+      ],
+      "classification": "third_clone_abandoned_without_repairing_accepted_duplicate",
+      "finding": "Selection26 again chooses cloning. After exact branch/req_7 evidence, response31 abandons that new proposal because another clone would violate the original. It does not remove either accepted clone. Selection32 and draft33 instead copy first-clone results into a record; this candidate remains unaccepted at terminal."
+    },
+    {
+      "requests": [
+        34
+      ],
+      "classification": "received_evidence_request_then_two_unissued_input_rejections",
+      "finding": "The last received Judge requests six original/task addresses from source window0 of4. The expanded follow-up is rejected at17,512>16,000; existing batch-limit handling retains a diagnostic for a narrower request, whose complete mandatory context itself is rejected at16,028>16,000 before dispatch. These are two distinct ordinal35 identities, no provider attempts or receipts. No received output exhaustion or missing receipt follows; the accepted duplicate already predates this capacity stop."
+    }
+  ],
+  "source_boundaries": [
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Navigation.cs",
+      "lines": "205-238",
+      "fact": "Existing accepted-operation evidence projection emits whole original task when bounded and leaves exact retrieval links for omissions; no accepted-plan mutation."
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/TaskPlanCompiler.Validation.cs",
+      "lines": "29-36",
+      "fact": "Duplicate-ID diagnostic enforces syntactic global uniqueness; it does not certify the business necessity of a renamed operation."
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.ConstructionReview.cs",
+      "lines": "7-18,381-413",
+      "fact": "Review guidance assesses current arguments/effects in combination with accepted work; evidence batches are loaded on a probe with complete follow-up admission, and a multi-address limit permits a narrower request without dispatching the rejected identity."
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/TaskPlanRevisions.cs",
+      "lines": "9-26,231-290",
+      "fact": "Explicit EditablePaths permit existing value/input and specified declaration slots, not task deletion, kind or operation withdrawal. The comparison preserves all other task structure."
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningConstruction.Evidence.cs",
+      "lines": "301-335",
+      "fact": "Ordinary extension preserves accepted tasks, scope/order and existing exports; authorized revision delegates to the existing scoped comparator."
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningConstruction.Rollback.cs",
+      "lines": "10-31,94-104",
+      "fact": "Rollback requires no pending candidate and retains reconstruction obligations including original effects, literals, objective, placement and conditions; it cannot permanently discard an unwanted accepted clone."
+    }
+  ],
+  "recommendation": {
+    "decision": "Retain this control as a business failure independently of its input-limit stop. No new production defect is demonstrated by the supplied review context.",
+    "excluded_workarounds": "Do not add a semantic duplicate ban, compensating operation, disabling assertion, or unsupported deletion/revision. No review-output8192 experiment is supported by this run: the terminal cause is input admission, not received output exhaustion.",
+    "capacity_limit": "Larger input capacity alone cannot repair the already accepted duplicate; no profile-efficacy or causal claim follows."
+  },
+  "verification": {
+    "safe_input_pins": 4,
+    "exact_source_blobs": 7,
+    "received_phase_and_receipt_joins": 34,
+    "supplement_record_joins": 6,
+    "original_text_or_full_raw_envelope_rescanned": false,
+    "draft23_equals_draft16_task": true,
+    "repair24_changed_fields": [
+      "id",
+      "objective"
+    ],
+    "judge25_whole_original_window": {
+      "requirements": 13,
+      "globals": 3,
+      "windows": 1
+    }
+  },
+  "source_files": [
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Navigation.cs",
+      "sha256": "1fd36225306eb75db342b968b6ced3c9f00777d42ecb186f11ba543738acf0dd",
+      "committed_current_equal": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.ConstructionReview.cs",
+      "sha256": "b300d294511d51efb7a76de7f5ef2aa2711f687542adec460cb657d2573aef32",
+      "committed_current_equal": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningConstructionReviewCoverage.cs",
+      "sha256": "fc075b804c1a284e1b8ebf42ccf41773ca2467b5c037eb4c434c6f13f087a0b1",
+      "committed_current_equal": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningConstruction.Evidence.cs",
+      "sha256": "f62d3401d10be6b7f3e4b25ff45d1bd7704bbcda705b7394e1cdda8cb0785baf",
+      "committed_current_equal": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningConstruction.Rollback.cs",
+      "sha256": "8f0a22836204046cb2befc8be0ddc19c99ce8f8a36117c34171c8db24723eb43",
+      "committed_current_equal": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/TaskPlanRevisions.cs",
+      "sha256": "4df4119a2c36ccd2af45c2525a7876a1f6af41f0512f034a6d8a4c0c55e9f342",
+      "committed_current_equal": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/TaskPlanCompiler.Validation.cs",
+      "sha256": "3e9678a44c0c8fbfc7f7f61efaab0ca4be060ad85956b30c26d71226c92308d3",
+      "committed_current_equal": true
+    }
+  ],
+  "private_evidence_references": [
+    {
+      "file": "code-state-witness-safe.json",
+      "sha256": "cdd3751e0965501ce7313df84b6ea3c8797dc0be2e3ea0bb98c41e1d4f9ea017",
+      "bytes": 100518
+    },
+    {
+      "file": "code-received-decisions-safe.json",
+      "sha256": "a7c0b942c441be0b2a31012b760792e1056c6859caf3d25f884b0acea2fd4386",
+      "bytes": 243762
+    },
+    {
+      "file": "code-accepted-operation-review-witness-safe.json",
+      "sha256": "8b9628dd6f312f4d71eaec44eda4d8c019210d0938f720b606b1bfdcccfa1d1d",
+      "bytes": 318150
+    },
+    {
+      "file": "code-terminal-exact-metrics.json",
+      "sha256": "a6c5ab56a1c48486daaf5a8694948a7e831183b99944f8c7cfbe137320203e13",
+      "bytes": 154303
+    },
+    {
+      "file": "source-assessment-safe.json",
+      "sha256": "b15c58419d4b068a9502fc4fefb9cc6b76126183b50935a0ecd1b18babe000ee",
+      "bytes": 17120
+    },
+    {
+      "file": "independent-review-safe.json",
+      "sha256": "b7d9910659e4bf42c0f7ff60259a3eb83a42b5334775c4f983fea4b0ffc02306",
+      "bytes": 1847
+    }
+  ],
+  "limitations": [
+    "Two accepted planned clone operations are established; no clone runtime was executed or artifact approved.",
+    "A clean report is a missed present business violation here; other earlier partial clean reviews are not relabeled false negatives.",
+    "No original response formatting rescan, current campaign balance, avoided-correction, causal mechanism or successful future repair is claimed.",
+    "No store, provider, source edit, build or test invocation.",
+    "Public projection omits per-receipt joins and exact task/requirement identities; these remain bound in the immutable private assessment."
+  ]
+}

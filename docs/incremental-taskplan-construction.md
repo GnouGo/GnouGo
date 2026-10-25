@@ -198,7 +198,10 @@ scope page, with existing pagination for omitted scopes; a replacement keeps its
 fixed scope. When the full accepted symbol table has no tasks, revision-5 selection
 omits `output` and `present` imports, including inside field projections. Caller
 inputs, choices and taskless closed-group calls remain available; existing reference
-validation still applies. Historical issued requests remain exact. Apply candidates atomically to a clone. Compiler semantic
+validation still applies. Revision-6 selection enumerates exact input names from complete
+declarations for its offered scopes, including isolated reusable-group parameters.
+This shared name set does not bypass scope validation or turn evidence addresses into bindings.
+Historical issued requests remain exact. Apply candidates atomically to a clone. Compiler semantic
 preflight remains the authority for types, contracts, ownership, references,
 provenance, assertions, permissions and dependencies. Partial validation does not
 lower a graph or suppress arbitrary final-validation errors.
@@ -299,6 +302,9 @@ container result only after its child scopes close.
 Cleanup, exports and closure use the same substep mechanism. Public workflow
 outputs remain distinct from internal task/group results and local exports.
 All unprocessed pages and unresolved requirements block completion.
+Fresh revision-6 discovery omits `close` only when the fixed step permits no
+scope closure, export or pending requirement closure under the existing rules.
+Nested exports, input-only requirement closure and retained issued schemas stay valid.
 
 Revision-3 drafting retains the current scope's exact evidence address. Structural
 openings also retain a bounded page of closed reusable interfaces; other drafts

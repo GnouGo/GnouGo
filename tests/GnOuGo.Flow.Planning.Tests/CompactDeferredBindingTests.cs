@@ -25,6 +25,7 @@ public sealed class CompactDeferredBindingTests
     public void FreshDiscoveryBindingSchemaCouplesKindToOperationAndGroupFields(string kind, int operations, string? group, bool valid)
     {
         var (state, _) = Ready();
+        state.Construction!.Compact!.CurrentStep!.CloseRequirementIds = ["req_0"];
         var original = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
         var schema = PlanningCompactConstruction.DiscoverySchema(state);
         var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state),
@@ -44,6 +45,8 @@ public sealed class CompactDeferredBindingTests
     public void HistoricalFlatDiscoveryBindingBytesAndNonTaskActionsRemainAvailable()
     {
         var (state, _) = Ready();
+        state.Construction!.Compact!.PresentationVersion = 4;
+        state.Request.Options["construction_presentation_version"] = 4;
         var current = PlanningCompactConstruction.DiscoverySchema(state);
         foreach (var kind in new[] { "value", "transform", "sequence", "conditional", "parallel", "foreach", "close", "group", "choice" })
             Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(Binding(kind), current));
@@ -54,6 +57,111 @@ public sealed class CompactDeferredBindingTests
         Assert.Equal(LegacyBindingSchema().ToJsonString(), historical["properties"]!["binding"]!.ToJsonString());
         current["properties"]!["binding"] = LegacyBindingSchema();
         Assert.Equal(historical.ToJsonString(), current.ToJsonString());
+    }
+
+    [Theory]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    public void DiscoveryCloseRequiresAnExistingProgressRouteOnlyInVersionSix(int presentation)
+    {
+        var (state, _) = Ready();
+        var compact = state.Construction!.Compact!;
+        compact.PresentationVersion = presentation;
+        state.Request.Options["construction_presentation_version"] = presentation;
+        var original = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var schema = PlanningCompactConstruction.DiscoverySchema(state);
+        Assert.Equal(presentation < 6, PlanningContractValidation.ValidateInstanceFindings(Binding("close"), schema).Count == 0);
+        foreach (var kind in new[] { "value", "transform", "sequence", "conditional", "parallel", "foreach", "group", "choice" })
+            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(Binding(kind), schema));
+        Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(Discover(null), schema));
+        Assert.Equal(original, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        compact.CurrentStep!.Kind = "close";
+        var failure = Assert.Throws<PlanningResponseException>(() => PlanningConstruction.Apply(state,
+            new PlanningConstructionExtension { Scope = "/root", RequirementIds = ["req_0"] }));
+        Assert.Contains(failure.Diagnostics, d => d.Code == "REPLAN_NO_PROGRESS");
+    }
+
+    [Theory]
+    [InlineData("requirement")]
+    [InlineData("root_export")]
+    [InlineData("nested_close")]
+    [InlineData("nested_export")]
+    [InlineData("complete")]
+    public void DiscoveryClosePreservesRequirementExportAndScopeProgress(string progress)
+    {
+        var (state, _) = Ready();
+        var construction = state.Construction!;
+        var step = construction.Compact!.CurrentStep!;
+        var extension = new PlanningConstructionExtension { RequirementIds = ["req_0"] };
+        if (progress == "requirement") step.CloseRequirementIds = ["req_0"];
+        if (progress == "root_export")
+        {
+            state.Requirements!.Outputs = [new() { Name = "result", Type = new() { Kind = "string" }, Required = true }];
+            step.OutputNames = ["result"];
+            extension.Outputs = [new("result", new() { Kind = "string", Text = "EXACT" })];
+        }
+        if (progress.StartsWith("nested", StringComparison.Ordinal))
+        {
+            state.Plan!.Groups.Add(new() { Id = "worker" });
+            step.Scope = extension.Scope = "/groups/worker/body";
+            construction.OpenScopes.Add(step.Scope);
+            if (progress == "nested_close") extension.CloseScopes = [step.Scope];
+            else
+            {
+                state.Plan.Groups[0].Body.Tasks.Add(new() { Id = "child", Kind = "sequence", Objective = "Produce the nested result", Body = new() });
+                construction.OpenScopes.Add("/tasks/child/body");
+                extension.Outputs = [new("result", new() { Kind = "string", Text = "EXACT" })];
+            }
+        }
+        if (progress == "complete")
+        {
+            construction.Requirements[0].Status = "closed";
+            extension.CloseScopes = ["/root"]; extension.Complete = true;
+        }
+        step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(Binding("close"), PlanningCompactConstruction.DiscoverySchema(state)));
+        step.Kind = "close"; step.DiscoveryComplete = true;
+        var schema = PlanningCompactConstruction.DraftSchema(state);
+        var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.DraftGuidance(state),
+            PlanningCompactConstruction.Context(state, review: false), schema, PlanningConstruction.DraftPurpose);
+        var response = Draft(state);
+        response["extension"] = JsonSerializer.SerializeToNode(extension, PlanningJsonContext.Default.PlanningConstructionExtension);
+        Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(Wire(request, response).Json!, request.StructuredOutputSchema!));
+        var candidate = PlanningConstruction.Apply(state, extension);
+        PlanningCompactConstruction.ValidateExtension(state, candidate);
+        Assert.Empty(candidate.TaskIds);
+        Assert.False(candidate.LocalReviewed);
+    }
+
+    [Fact]
+    public async Task SavedVersionSixCloseBindingRecoversUnderItsIssuedSchema()
+    {
+        var (state, runtime) = Ready();
+        var schema = PlanningCompactConstruction.DiscoverySchema(state);
+        var kinds = Nodes(schema["properties"]!["binding"]!).OfType<JsonObject>()
+            .Single(node => node["enum"] is JsonArray values && values.Any(value => value?.ToString() == "value"))["enum"]!.AsArray();
+        kinds.Insert(6, JsonValue.Create("close")); // The exact earlier v6 discovery alternative.
+        var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state),
+            PlanningCompactConstruction.DiscoveryContext(state), schema, PlanningCompactConstruction.DiscoveryPurpose);
+        request = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.DiscoveryPurpose, request.Prompt, request.StructuredOutputSchema!.AsObject());
+        var exact = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
+        var baseline = PlanningConstruction.Hash(state.Plan);
+        state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = request };
+        state.ModelCalls = 1;
+        runtime.Respond = (issued, _) =>
+        {
+            Assert.Equal(exact, JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest));
+            return Wire(issued, Binding("close"));
+        };
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Equal(exact, JsonSerializer.Serialize(Assert.Single(runtime.Calls), PlanningJsonContext.Default.LLMRequest));
+        Assert.Equal("close", state.Construction!.Compact!.CurrentStep!.Kind);
+        Assert.True(state.Construction.Compact.CurrentStep.DiscoveryComplete);
+        Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
+        Assert.Empty(state.Construction.Checkpoints);
+        Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
     }
 
     [Theory]

@@ -11,6 +11,68 @@ public sealed partial class BenchmarkPermanentRetentionTests
     private static JsonObject BaselineFixture() => JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,
         "Fixtures", "BaselineRetention", "baseline-serializer-fixture.json")))!.AsObject();
 
+    private static JsonObject BaselineIdentityFixture() => JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,
+        "Fixtures", "BaselineRetention", "baseline-identities-fixture.json")))!.AsObject();
+
+    [Theory]
+    [InlineData("collections", "cohort_key")]
+    [InlineData("collections", "phase")]
+    [InlineData("collections", "missing_phase")]
+    [InlineData("collections", "arm")]
+    [InlineData("collections", "repetition")]
+    [InlineData("collections", "fingerprint")]
+    [InlineData("collections", "duplicate_phase")]
+    [InlineData("collections", "route")]
+    [InlineData("amazon", "display_name_as_case")]
+    [InlineData("amazon", "unsupported_case")]
+    [InlineData("amazon", "run")]
+    [InlineData("amazon", "invalid_label")]
+    [InlineData("amazon", "key_prefix")]
+    [InlineData("amazon", "mode")]
+    [InlineData("amazon", "repetition")]
+    [InlineData("code", "duplicate_case")]
+    [InlineData("code", "cases_alias")]
+    [InlineData("code", "route")]
+    public void FrozenInvocationRejectsChangesToActualLegacyCreation(string scenario, string mutation)
+    {
+        var fixture = BaselineIdentityFixture();
+        var row = fixture["cases"]!.AsArray().OfType<JsonObject>().Single(item => item["case"]!.ToString() == scenario);
+        var argv = row["argv"]!.DeepClone().AsArray();
+        var source = fixture["source"]!.ToString();
+        var binding = new JsonObject { ["campaign"] = row["campaign"]!.DeepClone(), ["cohort"] = row["cohort"]!.DeepClone(),
+            ["case"] = scenario, ["mode"] = row["mode"]!.DeepClone(), ["arm"] = row["arm"]?.DeepClone(),
+            ["repetition"] = row["repetition"]!.DeepClone(), ["run_collection"] = row["run_collection"]!.DeepClone(),
+            ["session_id"] = row["request"]!["sessionId"]!.DeepClone(), ["run_key"] = row["run_key"]!.DeepClone() };
+        BenchmarkFrozenBaselineArm.ValidateInvocation(binding, source, argv);
+        void SetArgument(string name, string value)
+        {
+            var index = argv.Select((arg, position) => (arg, position)).Single(pair => pair.arg?.ToString() == name).position;
+            argv[index + 1] = value;
+        }
+        switch (mutation)
+        {
+            case "cohort_key":
+                binding["run_key"] = source + ":fixture:cohort:" + binding["cohort"] + ":collections:1";
+                binding["session_id"] = PlanningGraphCompiler.Fingerprint(binding["campaign"] + ":" + binding["run_key"]); break;
+            case "phase": SetArgument("--phase", "pilot"); break;
+            case "missing_phase": argv.RemoveAt(1); argv.RemoveAt(0); break;
+            case "arm": argv.Add("--arm"); argv.Add("judge"); break;
+            case "repetition": binding["repetition"] = scenario == "collections" ? 2 : 4; break;
+            case "fingerprint": binding["session_id"] = new string('0', 64); break;
+            case "duplicate_phase": argv.Add("--phase"); argv.Add("fixture"); break;
+            case "route": binding["run_collection"] = scenario == "collections" ? SchemaPortabilityCampaign.Collection : "planning-evaluation-runs"; break;
+            case "display_name_as_case": binding["case"] = "Live amazon"; SetArgument("--case", "Live amazon"); break;
+            case "unsupported_case": binding["case"] = "collections"; SetArgument("--case", "collections"); break;
+            case "run": SetArgument("--run", "different-valid-label"); break;
+            case "invalid_label": binding["session_id"] = "invalid label"; binding["run_key"] = "run:invalid label"; SetArgument("--run", "invalid label"); break;
+            case "key_prefix": binding["run_key"] = "other:" + binding["session_id"]; break;
+            case "mode": binding["mode"] = "fixture"; break;
+            case "duplicate_case": argv.Add("--case"); argv.Add("amazon"); break;
+            case "cases_alias": argv.Add("--cases"); argv.Add("code"); break;
+        }
+        Assert.Throws<InvalidOperationException>(() => BenchmarkFrozenBaselineArm.ValidateInvocation(binding, source, argv));
+    }
+
     [Fact]
     public void ActualLegacySerializerPreservesOriginalAndFinalDispatchHashDomains()
     {
@@ -144,29 +206,37 @@ public sealed partial class BenchmarkPermanentRetentionTests
     }
 
     [Theory]
-    [InlineData(null)]
-    [InlineData("source")]
-    [InlineData("campaign")]
-    [InlineData("collection")]
-    [InlineData("run_key")]
-    [InlineData("session")]
-    [InlineData("case")]
-    [InlineData("cohort")]
-    [InlineData("repetition")]
-    [InlineData("configuration")]
-    [InlineData("input")]
-    [InlineData("retry")]
-    [InlineData("provider")]
-    [InlineData("model")]
-    [InlineData("campaign_configuration")]
-    [InlineData("after_dispatch")]
-    public void FrozenRunBindingRejectsChangedOriginalIdentities(string? mutation)
+    [InlineData("collections", null)]
+    [InlineData("amazon", null)]
+    [InlineData("code", null)]
+    [InlineData("amazon", "source")]
+    [InlineData("amazon", "campaign")]
+    [InlineData("amazon", "collection")]
+    [InlineData("amazon", "run_key")]
+    [InlineData("amazon", "session")]
+    [InlineData("amazon", "case")]
+    [InlineData("amazon", "name")]
+    [InlineData("amazon", "cohort")]
+    [InlineData("amazon", "repetition")]
+    [InlineData("amazon", "configuration")]
+    [InlineData("amazon", "input")]
+    [InlineData("amazon", "retry")]
+    [InlineData("amazon", "provider")]
+    [InlineData("amazon", "model")]
+    [InlineData("amazon", "campaign_configuration")]
+    [InlineData("amazon", "after_dispatch")]
+    public void FrozenRunBindingRejectsChangedOriginalIdentities(string scenario, string? mutation)
     {
         // Unit test of bindings after file/source validation, not a fabricated eligible arm.
         // No source/build proof or operator authorization is asserted by this fixture.
         var (state, request, policy, journal, retry) = BaselinePolicy();
-        const string source = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-        state.Request.SessionId = "baseline-collections-1";
+        var fixture = BaselineIdentityFixture();
+        var identity = fixture["cases"]!.AsArray().OfType<JsonObject>().Single(row => row["case"]!.ToString() == scenario);
+        var source = fixture["source"]!.ToString();
+        state.Request.SessionId = identity["request"]!["sessionId"]!.ToString();
+        state.Request.Name = identity["request"]!["name"]!.ToString();
+        var collection = identity["run_collection"]!.ToString();
+        var key = identity["run_key"]!.ToString();
         state.PendingCall!.Id = state.Request.SessionId + ":1:original";
         state.PendingCall.Request.ClientRequestId = state.PendingCall.Id;
         request["clientRequestId"] = state.PendingCall.Id;
@@ -180,15 +250,17 @@ public sealed partial class BenchmarkPermanentRetentionTests
         var configuration = PlanningBenchmarkMeasurements.Configuration(state.Request);
         configuration["policy"] = originalRequest["policy"]!.DeepClone();
         var campaignConfiguration = new JsonObject { ["provider"] = "fixture", ["model"] = "pinned", ["endpoint"] = "https://invalid.example" };
-        var binding = new JsonObject { ["campaign"] = "retention", ["run_collection"] = SchemaPortabilityCampaign.Collection,
-            ["run_key"] = "run:" + state.Request.SessionId, ["session_id"] = state.Request.SessionId, ["case"] = state.Request.Name,
-            ["cohort"] = "baseline", ["repetition"] = 1, ["configuration"] = configuration,
+        var binding = new JsonObject { ["campaign"] = identity["campaign"]!.DeepClone(), ["run_collection"] = collection,
+            ["run_key"] = key, ["session_id"] = state.Request.SessionId, ["case"] = scenario,
+            ["cohort"] = identity["cohort"]!.DeepClone(), ["repetition"] = identity["repetition"]!.DeepClone(),
+            ["mode"] = identity["mode"]!.DeepClone(), ["arm"] = identity["arm"]?.DeepClone(), ["configuration"] = configuration,
             ["rendered_input_sha256"] = PlanningGraphCompiler.Fingerprint(state.Request.Prompt), ["retry_policy"] = retry.DeepClone(),
             ["provider"] = "fixture", ["model"] = "pinned",
             ["campaign_configuration_sha256"] = PlanningGraphCompiler.Fingerprint(campaignConfiguration.ToJsonString()) };
         var firstRequest = DateTimeOffset.UtcNow;
         var proof = new JsonObject { ["source"] = source, ["proof_sha256"] = new string('b', 64),
             ["reviewed_at_utc"] = firstRequest.AddMinutes(-1).ToString("O"), ["binding"] = binding,
+            ["invocation_argv"] = identity["argv"]!.DeepClone(),
             ["references"] = new JsonObject { ["freeze"] = new JsonObject { ["sha256"] = new string('c', 64) } } };
         switch (mutation)
         {
@@ -198,8 +270,9 @@ public sealed partial class BenchmarkPermanentRetentionTests
             case "run_key": binding["run_key"] = "run:other"; break;
             case "session": binding["session_id"] = "other"; break;
             case "case": binding["case"] = "code"; break;
+            case "name": state.Request.Name = "Live collections"; break;
             case "cohort": binding["cohort"] = "changed"; break;
-            case "repetition": binding["repetition"] = 2; break;
+            case "repetition": binding["repetition"] = 0; break;
             case "configuration": configuration["calls"] = 99; break;
             case "input": binding["rendered_input_sha256"] = new string('0', 64); break;
             case "retry": binding["retry_policy"]!["MaxUncertainRetries"] = 0; break;
@@ -208,8 +281,8 @@ public sealed partial class BenchmarkPermanentRetentionTests
             case "campaign_configuration": campaignConfiguration["endpoint"] = "https://other.invalid"; break;
             case "after_dispatch": proof["reviewed_at_utc"] = firstRequest.ToString("O"); break;
         }
-        JsonObject Validate() => BenchmarkFrozenBaselineArm.ValidateRun(proof, "retention", SchemaPortabilityCampaign.Collection,
-            "run:" + state.Request.SessionId, source, state, originalRequest, request, policy, journal, retry, campaignConfiguration, firstRequest);
+        JsonObject Validate() => BenchmarkFrozenBaselineArm.ValidateRun(proof, identity["campaign"]!.ToString(), collection,
+            key, source, state, originalRequest, request, policy, journal, retry, campaignConfiguration, firstRequest);
         if (mutation is not null) Assert.Throws<InvalidOperationException>(Validate);
         else
         {

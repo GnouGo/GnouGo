@@ -393,6 +393,16 @@ internal static partial class PlanningCompactConstruction
         }
     }
 
+    private static bool DiscoveryCloseCanProgress(PlanningSession state)
+    {
+        if (!UsesDecisionView(state)) return true;
+        var step = State(state).CurrentStep!;
+        // A close binding adds no task. Reuse the existing draft/Apply progress
+        // choices; nested scopes may export even when a child is still open.
+        return step.Scope != "/root" || step.OutputNames.Count > 0 || ClosurePresentation(state).CloseScope ||
+            step.CloseRequirementIds.Any(id => state.Construction!.Requirements.Any(r => r.Id == id && r.Status != "closed"));
+    }
+
     private static JsonObject CompactDiscoverySchema(PlanningSession state)
     {
         var requests = PresentedProviderRequests(state)?["items"]?.AsArray() ?? [];
@@ -433,7 +443,8 @@ internal static partial class PlanningCompactConstruction
                         ("operationIds", Strings(1, 2)), ("groupId", PlanningSchemas.Type("null"))),
                     PlanningSchemas.Object(("kind", PlanningSchemas.Enum("call")),
                         ("operationIds", Strings(0, 0)), ("groupId", Text(96))),
-                    PlanningSchemas.Object(("kind", PlanningSchemas.Enum(TaskKinds.Where(kind => kind is not ("operation" or "call")).ToArray())),
+                    PlanningSchemas.Object(("kind", PlanningSchemas.Enum(TaskKinds.Where(kind => kind is not ("operation" or "call") &&
+                        (kind != "close" || DiscoveryCloseCanProgress(state))).ToArray())),
                         ("operationIds", Strings(0, 0)), ("groupId", PlanningSchemas.Type("null")))) }
                 : PlanningSchemas.Object(("kind", PlanningSchemas.Enum(TaskKinds)), ("operationIds", Strings(0, 2)),
                     ("groupId", PlanningSchemas.Nullable(Text(96))));

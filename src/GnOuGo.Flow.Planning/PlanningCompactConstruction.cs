@@ -224,6 +224,23 @@ internal static partial class PlanningCompactConstruction
             imports.RemoveAt(0);
             imports[0]!["properties"]!["kind"] = PlanningSchemas.Enum("input", "choice");
         }
+        if (UsesDecisionView(state))
+        {
+            var imports = schema["$defs"]!["import"]!["anyOf"]!.AsArray();
+            var references = imports.Single(import => import?["properties"]?["kind"]?["enum"] is JsonArray kinds &&
+                kinds.Any(kind => kind?.ToString() == "input"))!;
+            references["properties"]!["kind"] = PlanningSchemas.Enum(references["properties"]!["kind"]!["enum"]!
+                .AsArray().Select(kind => kind!.ToString()).Where(kind => kind != "input").ToArray());
+            var inputScopes = replacement is not null ? [replacement] : scopes ?? state.Construction!.OpenScopes.ToArray();
+            var inputNames = inputScopes
+                .SelectMany(scope => ScopeGroup(state, scope)?.Inputs ?? state.Plan?.Inputs ?? state.Requirements!.Inputs!)
+                .Select(input => input.Name).Distinct(StringComparer.Ordinal).ToArray();
+            if (inputNames.Length > 0)
+            {
+                var source = PlanningSchemas.Enum(inputNames); source["maxLength"] = 96;
+                imports.Insert(0, PlanningSchemas.Object(("kind", PlanningSchemas.Enum("input")), ("source", source)));
+            }
+        }
         if (UsesConvergentConstruction(state) && ContinuationContext(state) is { } continuation)
         {
             var checkpoints = continuation["acceptedCheckpoints"]!.AsArray().Select(item => item!["sequence"]!.GetValue<int>()).ToArray();

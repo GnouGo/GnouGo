@@ -447,8 +447,16 @@ execution and explain exact source equality; it cannot turn a failed build into 
 These proof fields are required before use; older generic freeze/build manifests
 without them are not automatically compatible. The binding names the exact campaign, run collection,
 run key, session, case/cohort/repetition, rendered input, provider/model,
-configuration and unchanged campaign retry policy. Existing corpus/live key
-derivation is checked. The review pins the freeze and predates the first original
+configuration and unchanged campaign retry policy. The proof's canonical case is
+bound to one explicit `--case` and corpus `--phase` invocation (`--cases` batches are not qualified by
+this private proof). Legacy corpus keys retain their original source/phase/arm/
+case/repetition shape without a cohort segment; the cohort is experiment metadata.
+External sessions retain the literal validated `--run` label and `run:<label>` key,
+with request name `Live <case>` for the exact `amazon` or `code` scenario. No label
+is inferred by stripping a display name. Corpus repetition must be in the pinned
+invocation's original range; live repetition remains bounded reviewed metadata.
+The hash-checked command is revalidated with the run; supplied derived command data
+cannot override that reference. The review pins the freeze and predates the first original
 request record. All referenced bytes are revalidated on inspect/apply/readback.
 The resulting `frozen_arm` hash summary is part of the existing inspection evidence;
 application still requires its exact evidence hash and separate explicit operator

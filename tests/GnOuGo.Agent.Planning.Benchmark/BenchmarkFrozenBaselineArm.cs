@@ -94,6 +94,9 @@ internal sealed class BenchmarkFrozenBaselineArm
             Json("command")["argv"] is not JsonArray argv || argv.Count is < 2 or > 128 || argv.Any(a => a is not JsonValue || a.ToString().Length > 4096) ||
             !Argument(argv, "--campaign", binding["campaign"]?.ToString()) || !Argument(argv, "--cohort", binding["cohort"]?.ToString()))
             throw Invalid("the original invocation, input and planning configuration");
+        ValidateInvocation(binding, source, argv);
+        // Derived only from the hash-checked command reference; overwrite any supplied value.
+        proof["invocation_argv"] = argv.DeepClone();
         proof["reviewed_at_utc"] = reviewed.ToString("O");
         proof["proof_sha256"] = _hash;
         return proof;
@@ -176,7 +179,8 @@ internal sealed class BenchmarkFrozenBaselineArm
         configuration["policy"] = originalPlanningRequest["policy"]?.DeepClone();
         if (proof["source"]?.ToString() != source || binding["campaign"]?.ToString() != campaign ||
             binding["run_collection"]?.ToString() != collection || binding["run_key"]?.ToString() != runKey ||
-            binding["session_id"]?.ToString() != state.Request.SessionId || binding["case"]?.ToString() != state.Request.Name ||
+            binding["session_id"]?.ToString() != state.Request.SessionId ||
+            (collection == SchemaPortabilityCampaign.Collection ? "Live " + binding["case"]?.ToString() : binding["case"]?.ToString()) != state.Request.Name ||
             Timestamp(proof["reviewed_at_utc"]) >= firstRequest ||
             !JsonNode.DeepEquals(binding["configuration"], configuration) ||
             binding["rendered_input_sha256"]?.ToString() != PlanningGraphCompiler.Fingerprint(state.Request.Prompt) ||
@@ -185,7 +189,8 @@ internal sealed class BenchmarkFrozenBaselineArm
             binding["provider"]?.ToString() != campaignConfiguration["provider"]?.ToString() ||
             binding["model"]?.ToString() != campaignConfiguration["model"]?.ToString())
             throw Invalid("the pre-dispatch arm and original run/configuration identity");
-        ValidateRunKey(binding, campaign, source, collection, runKey, state);
+        if (proof["invocation_argv"] is not JsonArray argv) throw Invalid("the validated original invocation");
+        ValidateInvocation(binding, source, argv);
         ValidateTransport(state, request, policy, journal, retry, binding["provider"]!.ToString(), binding["model"]!.ToString());
         return new() { ["proof_sha256"] = proof["proof_sha256"]!.DeepClone(), ["baseline_source"] = Baseline,
             ["source"] = source, ["reviewed_at_utc"] = proof["reviewed_at_utc"]!.DeepClone(),
@@ -193,17 +198,52 @@ internal sealed class BenchmarkFrozenBaselineArm
                 new KeyValuePair<string, JsonNode?>(pair.Key, pair.Value!["sha256"]!.DeepClone()))) };
     }
 
-    private static void ValidateRunKey(JsonObject binding, string campaign, string source, string collection, string key, PlanningSession state)
+    internal static void ValidateInvocation(JsonObject binding, string source, JsonArray argv)
     {
-        var cohort = PlanningBenchmarkMeasurements.Cohort(["--cohort", binding["cohort"]!.ToString()]);
+        var cohort = PlanningBenchmarkMeasurements.Cohort(["--cohort", binding["cohort"]?.ToString() ?? ""]);
+        var campaign = binding["campaign"]?.ToString(); var name = binding["case"]?.ToString();
+        var session = binding["session_id"]?.ToString(); var key = binding["run_key"]?.ToString();
         var repetition = binding["repetition"]?.GetValue<int>() ?? 0;
-        var valid = repetition is >= 1 and <= 20 && (collection == "planning-evaluation-runs"
-            ? binding["mode"]?.ToString() is "fixture" or "pilot" or "measured" && binding["arm"]?.ToString() is null or "judge" or "defaults" &&
-                key == PlanningBenchmarkMeasurements.CorpusRunKey(source, binding["mode"]!.ToString(), binding["arm"]?.ToString(), cohort, state.Request.Name, repetition) &&
-                state.Request.SessionId == PlanningGraphCompiler.Fingerprint(campaign + ":" + key)
-            : collection == SchemaPortabilityCampaign.Collection && repetition <= 3 &&
-                state.Request.SessionId == cohort + "-" + state.Request.Name + "-" + repetition.ToString(CultureInfo.InvariantCulture) && key == "run:" + state.Request.SessionId);
-        if (!valid) throw Invalid("the original corpus/live session derivation");
+        if (!Argument(argv, "--campaign", campaign) || !Argument(argv, "--cohort", cohort) ||
+            !Argument(argv, "--case", name) || argv.Any(arg => arg?.ToString() == "--cases"))
+            throw Invalid("the exact original case and campaign invocation");
+        if (binding["run_collection"]?.ToString() == SchemaPortabilityCampaign.Collection)
+        {
+            // The legacy issuer uses a literal --run label and Name="Live "+scenario.
+            // Repetition/cohort remain reviewed experiment metadata, not guessed name suffixes.
+            if (name is not ("amazon" or "code") || binding["mode"]?.ToString() != "plan" || repetition is < 1 or > 3 ||
+                !Argument(argv, "--schema-portability", "plan") || !Argument(argv, "--run", session) ||
+                session is not { Length: > 0 and <= 80 } || !session.All(c => char.IsAsciiLetterOrDigit(c) || c == '-') ||
+                key != "run:" + session)
+                throw Invalid("the original live scenario and explicit run label");
+            return;
+        }
+        var phase = OptionalArgument(argv, "--phase") ?? throw Invalid("the explicit original corpus phase");
+        var arm = OptionalArgument(argv, "--arm");
+        var repetitions = Number("--repetitions", phase == "measured" ? 3 : 1);
+        var first = Number("--first-repetition", 1);
+        if (binding["run_collection"]?.ToString() != "planning-evaluation-runs" ||
+            argv.Any(arg => arg?.ToString() == "--schema-portability") ||
+            phase is not ("fixture" or "pilot" or "measured") || phase != binding["mode"]?.ToString() ||
+            arm is not (null or "judge" or "defaults") || arm != binding["arm"]?.ToString() ||
+            repetitions is < 1 or > 20 || phase == "measured" && repetitions != 3 || phase == "pilot" && repetitions != 1 ||
+            first < 1 || first > repetitions || first != 1 && phase != "fixture" || repetition < first || repetition > repetitions ||
+            key != PlanningBenchmarkMeasurements.CorpusRunKey(source, phase, arm, null, name!, repetition) ||
+            session != PlanningGraphCompiler.Fingerprint(campaign + ":" + key))
+            throw Invalid("the original cohort-free corpus key and session derivation");
+
+        int Number(string option, int fallback) => OptionalArgument(argv, option) is not { } value ? fallback :
+            int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var number) ? number :
+            throw Invalid("an exact original repetition option");
+    }
+
+    private static string? OptionalArgument(JsonArray args, string name)
+    {
+        var matches = args.Select((item, index) => (item, index)).Where(pair => pair.item?.ToString() == name).ToArray();
+        if (matches.Length == 0) return null;
+        if (matches.Length != 1 || matches[0].index + 1 >= args.Count || args[matches[0].index + 1]?.ToString() is not { Length: > 0 } value)
+            throw Invalid("one exact original command option");
+        return value;
     }
 
     internal static void ValidateTransport(PlanningSession state, JsonObject request, JsonObject policy, JsonObject journal,
