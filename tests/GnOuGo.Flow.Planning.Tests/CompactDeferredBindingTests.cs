@@ -173,21 +173,25 @@ public sealed class CompactDeferredBindingTests
     }
 
     [Theory]
-    [InlineData(false, 2)]
-    [InlineData(false, 3)]
-    [InlineData(false, 4)]
-    [InlineData(false, 5)]
-    [InlineData(true, 3)]
-    [InlineData(true, 4)]
-    [InlineData(true, 5)]
-    public async Task RetainedLocalTransformSelectionKeepsExactGuidanceAndSchema(bool discovery, int presentation)
+    [InlineData(false, 2, false)]
+    [InlineData(false, 3, false)]
+    [InlineData(false, 4, false)]
+    [InlineData(false, 5, false)]
+    [InlineData(true, 3, false)]
+    [InlineData(true, 4, false)]
+    [InlineData(true, 5, false)]
+    [InlineData(true, 5, true)]
+    public async Task RetainedLocalTransformSelectionKeepsExactGuidanceAndSchema(bool discovery, int presentation, bool retainTransformGuidance)
     {
         var (state, runtime) = Ready(selected: discovery);
         state.Construction!.Compact!.PresentationVersion = presentation;
         state.Request.Options["construction_presentation_version"] = presentation;
         var purpose = discovery ? PlanningCompactConstruction.DiscoveryPurpose : PlanningCompactConstruction.SelectPurpose;
         var guidance = discovery ? PlanningCompactConstruction.DiscoveryGuidance(state) : PlanningCompactConstruction.SelectGuidance(state);
-        var previous = guidance.Replace(PlanningCompactConstruction.TransformSemantics + (discovery ? " " : ""),
+        // Reconstruct exact previously issued instructions, not a claim that wording improves model behavior.
+        var previous = discovery ? guidance.Replace("offered constraints", "necessary constraints", StringComparison.Ordinal)
+            .Replace("Binding tentatively selects implementation; the host resolves its exact contract and admits the required constraints before drafting", "Bind only after its needed inputs and contract constraints are known", StringComparison.Ordinal) : guidance;
+        if (!retainTransformGuidance) previous = previous.Replace(PlanningCompactConstruction.TransformSemantics + (discovery ? " " : ""),
             discovery ? "" : "transform extracts/interprets supplied data, never external effects.", StringComparison.Ordinal);
         if (presentation < 5) Assert.Equal(previous, guidance);
         else Assert.NotEqual(previous, guidance);
@@ -419,19 +423,41 @@ public sealed class CompactDeferredBindingTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task RequiredContractClosureIsAdmittedBeforeBindingAndOptionalGiantBranchesStayOmitted(bool required)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task RequiredContractClosureIsAdmittedBeforeBindingAndOptionalGiantBranchesStayOmitted(bool required, bool unresolved)
     {
         var (state, runtime) = Ready();
         var contract = Contract();
         contract.InputSchema["properties"]!["large"] = new JsonObject { ["type"] = "string", ["description"] = new string('x', 80_000) };
         if (required) contract.InputSchema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("large"));
         var exact = JsonSerializer.Serialize(contract, PlanningJsonContext.Default.PlanningCapability);
-        AddContract(state, contract);
+        var pages = new Pages(resolved: unresolved ? contract : null); runtime.Capabilities = pages;
+        if (unresolved)
+            state.Discovery.Pages.Add(new("source", null,
+                [new(contract.Id, "source", "Read a record", contract.Description, contract.StepType,
+                    contract.EffectKind, contract.Version, Operation: TaskOperations.Describe(contract))], null, Query: Objective));
+        else AddContract(state, contract);
         var baseline = PlanningConstruction.Hash(state.Plan);
-        runtime.Respond = (request, _) => Wire(request, Binding("operation"));
+        runtime.Respond = (request, purpose) =>
+        {
+            Assert.Equal(PlanningCompactConstruction.DiscoveryPurpose, purpose);
+            Assert.Empty(pages.Resolutions);
+            if (unresolved)
+            {
+                Assert.Empty(state.Discovery.Resolved);
+                var descriptor = Assert.Single(OriginalContext(request)["descriptors"]!["items"]!.AsArray())!;
+                Assert.Equal("read", descriptor["id"]!.ToString());
+                Assert.DoesNotContain(Nodes(OriginalContext(request)).OfType<JsonObject>(), node => node.ContainsKey("inputSchema"));
+            }
+            return Wire(request, Binding("operation"));
+        };
         state = await Advance(state, runtime);
+        Assert.Equal(unresolved ? 1 : 0, pages.Resolutions.Count);
+        Assert.Empty(pages.Cursors); Assert.Single(runtime.Calls);
+        Assert.Equal(0, state.ReplanAttempts); Assert.Empty(state.Construction!.Checkpoints);
         Assert.Equal(exact, JsonSerializer.Serialize(state.Discovery.Resolved.Single(), PlanningJsonContext.Default.PlanningCapability));
         Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
         if (required)
@@ -446,8 +472,11 @@ public sealed class CompactDeferredBindingTests
         else
         {
             Assert.Empty(state.Diagnostics);
-            var view = Assert.Single(PlanningCompactConstruction.ContractViews(state))!;
+            Assert.True(state.Construction!.Compact!.CurrentStep!.DiscoveryComplete);
+            var draft = PlanningConstruction.DraftRequest(state, repair: false);
+            var view = Assert.Single(OriginalContext(draft)["operations"]!.AsArray())!;
             Assert.NotNull(view["inputSchema"]!["properties"]!["target"]);
+            Assert.Contains("target", view["inputSchema"]!["required"]!.AsArray().Select(value => value!.ToString()));
             Assert.Null(view["inputSchema"]!["properties"]!["large"]);
             Assert.Contains("schema:read@v1:/input/properties/large", view["omittedOptionalInputs"]!.AsArray().Select(n => n!.ToString()));
         }
@@ -889,9 +918,10 @@ public sealed class CompactDeferredBindingTests
         new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
     private static LLMResponse Wire(LLMRequest request, JsonObject response) => new()
     { Json = PlanningCorpus.Transport(response, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
-    private sealed class Pages(string mode = "normal") : ICapabilityCatalog
+    private sealed class Pages(string mode = "normal", PlanningCapability? resolved = null) : ICapabilityCatalog
     {
         internal readonly List<string?> Cursors = [];
+        internal readonly List<CapabilitySummary> Resolutions = [];
         public Task<IReadOnlyList<CapabilitySource>> ListSourcesAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<CapabilitySource>>([]);
         public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null, string? producedArtifactKind = null)
         {
@@ -907,7 +937,12 @@ public sealed class CompactDeferredBindingTests
             return Task.FromResult(new CapabilityPage(sourceId, cursor, [], mode == "cycle" ? "1" : offset == 5 ? null : (offset + 1).ToString(System.Globalization.CultureInfo.InvariantCulture),
                 mode == "unavailable" ? "Unavailable original provider metadata." : null, query));
         }
-        public Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct) => throw new InvalidOperationException("No operation is chosen by metadata pagination.");
+        public Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct)
+        {
+            if (resolved is null) throw new InvalidOperationException("No operation is chosen by metadata pagination.");
+            Assert.Equal(resolved.Id, summary.Id); Assert.Equal(resolved.Version, summary.Version);
+            Resolutions.Add(summary); return Task.FromResult(resolved);
+        }
     }
 
     private sealed class InterruptedRuntime(TestRuntime inner, int completed) : IPlanningRuntime

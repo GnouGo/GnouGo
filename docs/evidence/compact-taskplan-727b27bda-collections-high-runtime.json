@@ -1,0 +1,219 @@
+{
+  "version": 1,
+  "prepared_utc": "2026-10-25T04:58:32.097846+00:00",
+  "source": "727b27bda2e599842e7ebf29eb9461285f463204",
+  "cohort": "compactr727b27bdacolhighv5",
+  "status": "Exact artifact approved with delegated test review; both frozen isolated runtime variants passed.",
+  "safe_sources": [
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdacolhighv5/freeze.json",
+      "sha256": "4487a3943ea8d4f547892b0b5195cc5643c86bcd5867e29efa24f53bf4920cbb",
+      "bytes": 16392
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdacolhighv5/collections-terminal-safe-metrics.json",
+      "sha256": "bfa7114109d4e95cd4b53ccd3f0595c7b9272ee1ec7a0df7bc379dda6e22745a",
+      "bytes": 130697
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdacolhighv5/collections-post-execution-safe-metrics.json",
+      "sha256": "fb8196e99255ead4a9df06b4698cf84696009212c4f4ae24f4f3e965406b1978",
+      "bytes": 130691
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdacolhighv5/collections-execution.jsonl",
+      "sha256": "6cf176dd23d60d4fc67800bf9c88f1eaa2c3dfabee3bf3de37c9fe252c1fb5f1",
+      "bytes": 57038
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdacolhighv5/collections-execution-exit-safe.json",
+      "sha256": "3d49f1ba73f903e15bb51070ce11aecced9e054a3a3ca17b01da8d50be65326c",
+      "bytes": 494
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdacolhighv5/collections-execution-command-safe.json",
+      "sha256": "776a898619270ba95c49de52d0e9b325427c7a461c396d961714f3477bad5146",
+      "bytes": 1704
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdacolhighv5/collections-review-inspection-safe.json",
+      "sha256": "dc6154cba68e2413e4674eee904174f56d6ddd70fe27dcdbbfc6510315f55a65",
+      "bytes": 3295
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdacolhighv5/collections-review-metadata-safe.json",
+      "sha256": "3a778b8a569bc7ff8a51f2f0ad28c1ff091fbcce67e3010d39b15c5c1d5be1cb",
+      "bytes": 1139
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdacolhighv5/collections-delegated-review.json",
+      "sha256": "e0f4bba637d36973ebecc5f9dc52027fb5d455f5793a86ea1fab2ff56b644942",
+      "bytes": 4347
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdacolhighv5/collections-delegated-authorization.json",
+      "sha256": "a49a468bfd9ccd6a8118114102ae408cd10e73d55c788773fc9cfbf379144573",
+      "bytes": 1617
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdacolhighv5/collections-execution.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "/private/tmp/gnougo-727b-colhigh-post-execution-audit-wocp7usx/audit-safe.json",
+      "sha256": "4abd90b31c0b8be7b6a4f70b52f0bb6615e4017a20561c7a91f50d4cd8977405",
+      "bytes": 869
+    },
+    {
+      "path": "/private/tmp/gnougo-727b-colhigh-post-execution-audit-wocp7usx/provider-readiness.jsonl",
+      "sha256": "aa9102e036d9035a5807113df85569f820ef660840ffd969fe8b4610cb4090c3",
+      "bytes": 8531
+    },
+    {
+      "path": "/private/tmp/gnougo-727b-collections-high-terminal-safe/compact-taskplan-727b27bda-collections-high.json",
+      "sha256": "df55ce2d16c695c43c6032a8e3f730e92e84ba5ae38e4b04eb6286a868b49ffa",
+      "bytes": 10158
+    },
+    {
+      "path": "/private/tmp/gnougo-727b-collections-high-terminal-safe/medium-high-comparison-safe.json",
+      "sha256": "17c50abae644b1b34eebc9b76fe06b7cd3d5da1b5a333052a377c7a9fa8d898f",
+      "bytes": 3986
+    },
+    {
+      "path": "/private/tmp/gnougo-727b-collections-high-terminal-safe/collections-original-formatting-supplement-safe.json",
+      "sha256": "c90a601e6a7f4886e08b983ae07a6770d7b07904119481c9c76e6b2ba9348e18",
+      "bytes": 21028
+    },
+    {
+      "path": "/private/tmp/gnougo-727b-collections-high-terminal-safe/collections-correction-source-supplement-safe.json",
+      "sha256": "762157b4d146d21bb793e4b31d5f0c840b2d88d1d39ba276968e8df22b03b0e8",
+      "bytes": 8433
+    },
+    {
+      "path": "/private/tmp/gnougo-727b-colhigh-artifact-review-ckf1iv1g/collections-reviewed-spec.json",
+      "sha256": "340e570659270c8cc91890d39eb2638bd5326d95896fa6b38ad322c1a1a6e80c",
+      "bytes": 4074
+    },
+    {
+      "path": "/private/tmp/gnougo-727b-colhigh-artifact-review-ckf1iv1g/spec-independent-review-safe.json",
+      "sha256": "7118c2a07c4ea76218aada75a84358d7b6f84695ccac3372568d46eb00e93213",
+      "bytes": 2480
+    }
+  ],
+  "pre_execution_measurements_preserved": {
+    "path": "/private/tmp/gnougo-727b-collections-high-terminal-safe/compact-taskplan-727b27bda-collections-high.json",
+    "sha256": "df55ce2d16c695c43c6032a8e3f730e92e84ba5ae38e4b04eb6286a868b49ffa",
+    "bytes": 10158
+  },
+  "artifact": {
+    "session_id": "d690f70b2545c47eb695f049f3eac320fea5c3cdc94c47c49979bb3f91822be5",
+    "reviewed_revision": 29,
+    "artifact_sha256": "8b71f6655fd9690919cbc8d89846f77a5fe8f7b96c6f3eedd0cc6a3c51fad3ee",
+    "public_verifier_reproduced_graph_and_yaml": true,
+    "review_origin": "delegated_test",
+    "authorization_sha256": "a49a468bfd9ccd6a8118114102ae408cd10e73d55c788773fc9cfbf379144573",
+    "evidence_sha256": "947da11324c25b90dfa88206882f226b52e11feb742a97f6b5739659a9c845b3",
+    "review_receipt_file_sha256": "e0f4bba637d36973ebecc5f9dc52027fb5d455f5793a86ea1fab2ff56b644942",
+    "reviewed_requirements": 2,
+    "reviewed_recursive_tasks": 4,
+    "recorded_review_uncertainty": "Actual runtime business success remains unverified until both frozen nominal and alternate variants execute and pass independent exact-result and no-effect oracles. The finite maxItems/maxConcurrency100 capacity and extreme numeric ranges are not generalized or certified by those two tests. The pure root alias is retained, not claimed minimal. Static plan/graph/YAML review is not approval dispatch or evidence of reasoning-profile efficacy."
+  },
+  "runtime": {
+    "execution_correct": true,
+    "variants": [
+      {
+        "variant": "nominal",
+        "correct": true,
+        "runtime_success": true,
+        "elapsed_ms": "359.3095",
+        "error": null,
+        "effects": [],
+        "violations": []
+      },
+      {
+        "variant": "alternate",
+        "correct": true,
+        "runtime_success": true,
+        "elapsed_ms": "2.3422",
+        "error": null,
+        "effects": [],
+        "violations": []
+      }
+    ],
+    "safety_violations": [],
+    "command_exit_code": 0,
+    "started_at_utc": "2026-10-25T04:55:18.753078+00:00",
+    "finished_at_utc": "2026-10-25T04:55:24.520256+00:00",
+    "no_new_planning_requests_or_attempts": true,
+    "postrun_projection": {
+      "execution_started": true,
+      "execution_success": null,
+      "runtime_ms": null,
+      "artifact_hash": null,
+      "oracle_passed": true
+    },
+    "projection_qualification": "Use actual public terminal execution_variants/execution_correct for runtime results. The ordinary projection retains null execution_success/runtime_ms/artifact_hash and must not negate or manufacture the separately recorded outcomes."
+  },
+  "planning_and_cost": {
+    "logical_requests": 29,
+    "physical_attempts": 29,
+    "receipts": 29,
+    "corrections": 3,
+    "checkpoints": 8,
+    "planning_ms": 834270,
+    "known_input_tokens": 64394,
+    "known_output_tokens": 31223,
+    "known_reasoning_tokens": 25749,
+    "known_cost_eur": "1.1233020972780008924587237840",
+    "retained_reservation_eur": 0,
+    "unknown_usage_attempts": 0,
+    "all_exact_request_receipt_and_usage_rows_unchanged_after_execution": true
+  },
+  "accepted_frozen_obligations": {
+    "ids": [
+      "cleanup",
+      "declared_effects",
+      "exact_outputs"
+    ],
+    "set_hash": "6ab079dce2f8e688b76d83445cbd16ff19772683c53d3b4b0a6af3012b77dd65",
+    "count": 3,
+    "logical_calls_per_accepted_obligation": {
+      "numerator": 29,
+      "denominator": 3
+    },
+    "qualification": "Distinct frozen artifact obligations, not task count, user requirement count, model review count or additional business scenarios; only this accepted artifact/runtime observation."
+  },
+  "original_formatting": {
+    "receipt_count": 29,
+    "original_utf8_bytes": 19633,
+    "outside_string_whitespace_bytes": 1504,
+    "maximum_outside_string_whitespace_run_bytes": 1107,
+    "empty_original_texts": 0,
+    "all_originals_parse_and_equal_retained_json": true
+  },
+  "post_execution_campaign_audit": {
+    "captured_at_utc": "2026-10-25T04:56:27.100143+00:00",
+    "known_cost_eur": "140.18343669651799532024243173",
+    "retained_reservations_eur": "43.222737502336131456719380257",
+    "recorded_cost_upper_bound_eur": "183.40617419885412677696181199",
+    "cost_ceiling_eur": "240.0301038327063045424449473",
+    "available_eur": "56.62392963385217776548313531",
+    "recorded_upper_minus_exact_known_plus_reserve_eur": "3E-27",
+    "physical_attempts": 3277,
+    "unknown_usage_attempts": 57,
+    "receiptless_identities": 29,
+    "closed_receiptless_identities": 29,
+    "unresolved_receiptless_identities": 0,
+    "readiness_model_calls": 0,
+    "readiness_session_calls": 0,
+    "audit_evidence_hash": "7bc37375af15bb201ac198534b6e5d24bb5eff55fa589b24276dac91388d632f",
+    "qualification": "Independent root-owned zero-call post-execution audit, not a reconstructed sum of selected runs; recorded CLR rounding retained, older lost-ledger exposure separate."
+  },
+  "limitations": [
+    "The medium/high comparison is one fresh run per captured setting. Only draft/correction reasoning changed, but trajectories and transport retries differ. No causal, reliability, avoided-correction or general performance claim.",
+    "Both fixed runtime variants pass; capacity100, extreme numeric behavior, alias non-minimality and original artifact-review uncertainties remain qualified.",
+    "Amazon and Review PR remain without accepted runtime outcomes. One Collections success does not satisfy all three scenario gates or authorize the18 paired comparisons.",
+    "No source/store/provider/reader/approval/runtime/build action by this archive preparation. Root owns the recorded verification and execution; all previous archives remain unchanged."
+  ]
+}

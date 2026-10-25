@@ -27,7 +27,7 @@ Offer reachable grammar using the complete accepted symbol inventory: no tasks m
 
 ## Context and progress
 
-Phase instructions must match all offered actions. Keep obligations, caller declarations, producer contracts and current work retrievable, including unselected originals and earlier pages. Retrieval expands no claims or edits. Preserve required schemas, coupled constraints, normative text, permissions and prerequisites; optional omissions need exact links. Admit the complete follow-up before accepting retrieval. Required context exceeding its captured ceiling stops, without truncation or mid-session escalation. Compact JSON preserves strings/originals.
+Phase instructions must match all offered actions. Tentative implementation binding lets the host resolve and admit exact contracts before drafting; do not require undisclosed constraints before that navigation choice. Keep obligations, caller declarations, producer contracts and current work retrievable, including unselected originals and earlier pages. Retrieval expands no claims or edits. Preserve required schemas, coupled constraints, normative text, permissions and prerequisites; optional omissions need exact links. Admit the complete follow-up before accepting retrieval. Required context exceeding its captured ceiling stops, without truncation or mid-session escalation. Compact JSON preserves strings/originals.
 
 Suspend consumers explicitly. Bounded current-chain continuations are navigation, not a scheduler or original obligations. Eligibility to attempt resumption is not proof of type compatibility or intended producer; retain exact contract, scope, checkpoint and binding checks.
 

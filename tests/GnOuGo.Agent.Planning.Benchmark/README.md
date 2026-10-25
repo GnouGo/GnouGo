@@ -44,6 +44,10 @@ instructions only; interpretation already uses this admitted, journaled runtime 
 after artifact approval. The separate public-output closure check and empty-task
 import pruning are deterministic changes. Technical fixtures do not establish live
 convergence or avoided corrections; frozen earlier cohorts retain their original source.
+The subsequent revision-5 discovery clarification describes existing tentative
+selection followed by host contract resolution and admission. Its frozen diagnostic
+must remain separate from earlier receipts; corrected staging wording alone does
+not establish why a model selected repeated empty containers or prove convergence.
 
 The [18 October Amazon retest](../../docs/evidence/bounded-observations-2026-10-18/README.md)
 preserves a structurally valid first proposal that failed before extraction dispatch.

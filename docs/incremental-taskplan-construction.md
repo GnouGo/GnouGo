@@ -221,8 +221,11 @@ a provider's reasoning-only exhaustion.
 
 Selection identifies the next business action, original requirements and scope using caller/scope
 inputs or accepted outputs. Revision 3 leaves `kind` null for capability-dependent
-work. Existing discovery binds the implementation only after exact contract
-inspection; scope, requirements and closure authority stay fixed. Fresh revision-4
+work. Discovery chooses a tentative implementation from offered original descriptions;
+the host then resolves its exact contract and admits the required constraint closure
+and complete draft grammar before accepting that binding. Fresh revision-5 guidance
+states this ordering; historical guidance and issued requests remain exact. Scope,
+requirements and closure authority stay fixed. Fresh revision-4
 binding schemas couple operation identities to `operation`, a reusable target to
 `call`, and neither field to other kinds. This reflects existing semantic checks;
 revision-3 schemas and already issued requests retain their exact grammar. Supported local

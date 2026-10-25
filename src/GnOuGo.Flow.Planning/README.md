@@ -82,7 +82,10 @@ presentation size without changing compiler validation or v15 lowering.
 
 Revision-3 selection fixes the business objective, scope and original requirements
 before selecting a capability-dependent implementation. A nullable `kind` enters
-the existing discovery phase; its final binding selects exact operations and kind.
+the existing discovery phase; its response tentatively selects operation identities
+and kind. The host resolves the original contracts and admits their required closure
+before accepting that binding for drafting. Revision-5 guidance states this order;
+it does not require undisclosed contract constraints before the tentative selection.
 Fresh revision-4 schemas admit only the existing valid field combinations: operation
 identities for `operation`, a group target for `call`, and neither for other kinds.
 Semantic validation still checks the selected contracts and closed reusable target.

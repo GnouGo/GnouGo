@@ -1,5 +1,63 @@
 # Compact TaskPlan convergence
 
+## Source `727b27bda`: Collections-high passed; overall acceptance remains incomplete
+
+The separately frozen Collections-high artifact passed both actual runtime variants.
+Collections-medium, Amazon and Review PR produced no accepted artifact or execution.
+Amazon and Review PR still lack business success; the three-case gate remains unmet
+and the 18 paired comparisons have not started.
+
+| Frozen case | Logical calls / attempts / receipts | Corrections / checkpoints | Planning seconds | Provider input / output / reasoning tokens |
+| --- | ---: | ---: | ---: | ---: |
+| [Collections-medium](compact-taskplan-727b27bda-collections.json) | 24 / 25 / 24 | 2 / 6 | 872.252 | 53,336 / 18,237 / 14,049 |
+| [Amazon](compact-taskplan-727b27bda-amazon-pending.json) | 10 / 11 / 9 | 0 / 1 | 1,012.078 | 21,582 / 23,022 / 21,074 |
+| [Review PR](compact-taskplan-727b27bda-code.json) | 62 / 63 / 62 | 0 / 6 | 1,967.450 | 285,314 / 62,373 / 50,632 |
+| [Collections-high](compact-taskplan-727b27bda-collections-high.json) | 29 / 29 / 29 | 3 / 8 | 834.270 | 64,394 / 31,223 / 25,749 |
+
+Known costs in table order were **EUR 0.7262739848282016956715751897**,
+**EUR 0.7126907630522088353413654618**, **EUR 2.9431146809460062472110664879**
+and **EUR 1.1233020972780008924587237840**. Retained reservations were respectively
+**EUR 0.9308701472556894243641231593**, **EUR 1.8998884426595269968763944668**,
+**EUR 1.0187550200803212851405622490** and **zero**. Reasoning is included in output;
+Amazon usage excludes its unanswered request. Planning includes host/transport time.
+
+[Collections-high execution](compact-taskplan-727b27bda-collections-high-runtime.json)
+used the exact artifact-bound delegated review and public verifier. Nominal and alternate
+oracles passed in **359.3095 ms** and **2.3422 ms**, with no effects or violations and
+no additional planning calls. Only draft/correction reasoning changed medium→high;
+source, model, other settings, oracles and authority were retained. One run per setting,
+different trajectories and a retry in the medium control do not establish causality,
+reliability or avoided corrections. The finite capacity 100 and pure alias remain disclosed.
+The accepted denominator is three distinct frozen obligations, not two requirements or
+four tasks. Other cases have no accepted denominator or runtime timing.
+
+Collections-medium stopped with a missing public output and non-progress. Amazon request
+10 had Transport without HTTP status or receipt; its content remains unknown. Its
+[exact authorized closure](compact-taskplan-727b27bda-amazon-retention-review.json) forbids
+replay/continuation and retains the full EUR 0.9690182954038375725122713075 reservation.
+The original pending snapshot is unchanged. Review PR stopped at `CONSTRUCTION_REVIEW_ALLOWANCE`;
+six further identities were prepared-only, not measured input-limit rejections.
+
+The independent **2026-10-25 04:56:27 UTC** post-execution audit records
+**EUR 56.62392963385217776548313531 available**, all **29 receiptless identities closed**,
+and **57 unknown-usage physical-attempt reservations retained**. The runtime archive pins
+its exact aggregate and CLR rounding; prior audits and separate lost-ledger exposure remain.
+[Code formatting](compact-taskplan-727b27bda-code-formatting.json) covers 62 original texts;
+the high runtime archive links all 29 high originals and the three deterministic repairs.
+Formatting counts imply no semantic quality or savings; original and normalized hash domains remain separate.
+
+Exact `727b27bda` passed **8,216 full-solution tests, zero failures, 13 skips** across
+33 projects, **12 publication stages** and **three CI workflows**. These technical results
+and one Collections runtime success do not establish the remaining business outcomes.
+Earlier reports and immutable pre-execution archives remain unchanged.
+
+The next focused change aligns version-5 discovery guidance with existing staging:
+select an implementation tentatively, then let the host resolve its original contract
+and admit mandatory constraints before drafting. It changes no schema or execution
+authority. Exact-contract admission, oversized closure rejection and historical
+pending-request recovery passed in the 3,075-test owning suite with warnings as errors.
+The observed nested containers do not establish that this wording caused the failure.
+
 ## Source `ba86cf874`: all three diagnostics remain incomplete
 
 Collections stopped; Amazon and Review PR requested clarification. None produced
