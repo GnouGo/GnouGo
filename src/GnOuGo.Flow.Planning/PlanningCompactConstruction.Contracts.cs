@@ -219,6 +219,7 @@ internal static partial class PlanningCompactConstruction
             entry["operationVersion"] = operation.Version;
             entry["contractHash"] = ContractHash(capability);
             entry["outputDirectory"] = "port-page:" + ContractIdentity(operation.Id, operation.Version) + ":/output:0";
+            entry["descriptionEvidence"] = "description:" + ContractIdentity(operation.Id, operation.Version) + ":0";
             var produces = TaskOperations.ArtifactPorts(capability)["produces"] as JsonArray ?? [];
             if (produces.Count == 0) continue;
             entry["producesCount"] = produces.Count;

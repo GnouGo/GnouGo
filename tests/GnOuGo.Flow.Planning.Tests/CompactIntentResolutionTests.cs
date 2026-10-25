@@ -584,6 +584,127 @@ public sealed class CompactIntentResolutionTests(ITestOutputHelper output)
         Assert.Equal(0, retained.ReplanAttempts);
     }
 
+    private static async Task<(PlanningSession State, TestRuntime Runtime)> NeighboringOriginals(int containingPage, int version = 5)
+    {
+        var page = 0;
+        var runtime = new TestRuntime { Respond = (request, _) => Wire(request,
+            Classify(request, page++ == containingPage ? "output" : "none")) };
+        var original = string.Concat(Enumerable.Repeat(
+            "Write the local report with supplied details and preserve each original value without changing its meaning. ", 45));
+        var state = PlannerFixture.CapturedPresentation(Fresh(original), version);
+        do { state = await Advance(state, runtime); }
+        while (state.Construction!.Compact!.Sources.Any(source => !source.Indexed));
+        Assert.True(state.Construction.Compact.Sources.Count(source => source.Kind == "page") >= 5);
+        Assert.Single(state.Construction.Compact.InterfaceExtractions!);
+        return (state, runtime);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task ImmediateOriginalNeighborsFillOnlyUnusedInterfaceContextSlots(int containingPage)
+    {
+        var (state, runtime) = await NeighboringOriginals(containingPage);
+        var pages = state.Construction!.Compact!.Sources.Where(source => source.Kind == "page").ToArray();
+        var extraction = Assert.Single(state.Construction.Compact.InterfaceExtractions!);
+        var candidates = extraction.SourceIds.ToArray();
+        var outcomes = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
+        var neighbor = pages[containingPage == 1 ? 2 : 1];
+        var calls = state.ModelCalls;
+        runtime.Respond = (request, _) =>
+        {
+            var context = Context(request);
+            Assert.Equal(new[] { pages[0].Id, pages[containingPage].Id, neighbor.Id },
+                context["originalContext"]!.AsArray().Select(source => source!["id"]!.ToString()));
+            Assert.Equal(candidates, context["sources"]!.AsArray().Select(source => source!["id"]!.ToString()));
+            var supplied = context["originalContext"]!.AsArray().Single(source => source!["id"]!.ToString() == neighbor.Id)!;
+            Assert.Equal(neighbor.Text, supplied["text"]!.ToString());
+            Assert.Equal(neighbor.Version, supplied["version"]!.ToString());
+            var response = Resolve(request, kind: "no_public_interface");
+            response["interfaces"]!["dispositions"]![0]!["evidence"]!.AsArray().Add(new JsonObject
+            { ["sourceId"] = neighbor.Id, ["version"] = neighbor.Version });
+            return Wire(request, response);
+        };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.True(Assert.Single(state.Construction!.Compact!.InterfaceExtractions!).Complete);
+        var disposition = Assert.Single(state.Construction.Compact.InterfaceExtractions![0].Dispositions!);
+        Assert.Equal(Assert.Single(candidates), disposition.SourceId);
+        Assert.Equal(neighbor.Version, disposition.Evidence[neighbor.Id]);
+        Assert.Equal(outcomes, JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements));
+        Assert.Equal(calls + 1, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts); Assert.Equal(0, runtime.Discoveries);
+        Assert.Null(state.Plan); Assert.Empty(state.Construction.Checkpoints);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ExistingOriginalContextPrioritiesKeepAllThreeSlotsBeforeNeighbors(bool latestAnswer)
+    {
+        var (state, _) = await NeighboringOriginals(2);
+        var compact = state.Construction!.Compact!;
+        var pages = compact.Sources.Where(source => source.Kind == "page").ToArray();
+        var extraction = Assert.Single(compact.InterfaceExtractions!);
+        var other = pages[4];
+        extraction.SourceIds.Add(compact.Sources.Single(source => source.Id == other.Id + ":clause:0").Id);
+        if (latestAnswer)
+        {
+            other = new() { Id = "answer:clarification:0", Kind = "answer_page", Text = "Preserve this exact later answer.",
+                Version = PlanningGraphCompiler.Fingerprint("Preserve this exact later answer."), Indexed = true };
+            compact.Sources.Add(other);
+        }
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var context = PlanningCompactConstruction.InterfaceContext(state, extraction);
+        Assert.Equal(new[] { pages[0].Id, pages[2].Id, other.Id },
+            context["originalContext"]!.AsArray().Select(source => source!["id"]!.ToString()));
+        Assert.Equal(extraction.SourceIds, context["sources"]!.AsArray().Select(source => source!["id"]!.ToString()));
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+    }
+
+    [Theory]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    public async Task IssuedInterfaceContextKeepsItsOriginalPagesAcrossRecovery(int version)
+    {
+        var (state, runtime) = await NeighboringOriginals(2, version);
+        var historical = PlannerFixture.Clone(state);
+        if (version == 5)
+        {
+            historical.Construction!.Compact!.PresentationVersion = 4;
+            historical.Request.Options["construction_presentation_version"] = 4;
+        }
+        var extraction = Assert.Single(state.Construction!.Compact!.InterfaceExtractions!);
+        var oldContext = PlanningCompactConstruction.InterfaceContext(historical, extraction);
+        Assert.Equal(2, oldContext["originalContext"]!.AsArray().Count);
+        var currentContext = PlanningCompactConstruction.InterfaceContext(state, extraction);
+        Assert.Equal(version == 5 ? 3 : 2, currentContext["originalContext"]!.AsArray().Count);
+        if (version < 5) Assert.Equal(oldContext.ToJsonString(), currentContext.ToJsonString());
+        var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.InterfaceGuidance(state), oldContext,
+            PlanningCompactConstruction.ResolvableInterfaceSchema(historical, extraction), PlanningCompactConstruction.IntentPurpose);
+        runtime.Respond = (_, _) => throw new OperationCanceledException();
+        using var correction = new PlanningCorrectionAttempt(state, false);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => PlanningModelCalls.CallAsync(state, runtime,
+            PlanningCompactConstruction.IntentPurpose, request.Prompt, request.StructuredOutputSchema!.AsObject(),
+            PlannerFixture.Ct, state.Construction.Limits.DraftOutputTokens, correction));
+        var saved = PlannerFixture.Clone(runtime.Checkpoints.Last(checkpoint => checkpoint.PendingCall is not null));
+        saved.Status = PlanningStatus.Generating;
+        var issued = JsonSerializer.Serialize(saved.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
+        var calls = saved.ModelCalls; var repairs = saved.ReplanAttempts;
+        var recovery = new TestRuntime { Respond = (received, _) =>
+        {
+            Assert.Equal(issued, JsonSerializer.Serialize(received, PlanningJsonContext.Default.LLMRequest));
+            Assert.Equal(2, Context(received)["originalContext"]!.AsArray().Count);
+            return Wire(received, Resolve(received, kind: "no_public_interface"));
+        } };
+        var resumed = await Advance(saved, recovery);
+        Assert.Single(recovery.Calls); Assert.Empty(resumed.Diagnostics);
+        Assert.Equal(calls, resumed.ModelCalls); Assert.Equal(repairs, resumed.ReplanAttempts);
+        Assert.True(Assert.Single(resumed.Construction!.Compact!.InterfaceExtractions!).Complete);
+        Assert.Equal(version, resumed.Construction.Compact.PresentationVersion);
+    }
+
     [Fact]
     public async Task OriginalEvidenceIsAdmittedAndRecoveredWithinTheSameIntentPhase()
     {

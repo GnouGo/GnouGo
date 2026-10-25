@@ -1,5 +1,43 @@
 # Compact TaskPlan convergence
 
+## Source `232a4f229`: Amazon and Review PR remain incomplete
+
+Neither fresh diagnostic produced an artifact or executed. Collections-high’s two
+runtime passes belong to `727b27bda`; they do not establish success on this source.
+The three-case acceptance gate remains unmet and the 18 paired comparisons have not started.
+
+| Frozen case | Calls / attempts / receipts | Corrections / checkpoints | Planning seconds | Provider input / output / reasoning tokens |
+| --- | ---: | ---: | ---: | ---: |
+| [Amazon](compact-taskplan-232a4f229-amazon.json) | 42 / 42 / 42 | 4 / 4 | 1,481.691 | 170,272 / 66,494 / 58,364 |
+| [Review PR](compact-taskplan-232a4f229-code.json) | 6 / 6 / 6 | 0 / 0 | 145.778 | 7,819 / 5,517 / 3,522 |
+
+Known costs were **EUR 2.5400981704596162427487728693** and
+**EUR 0.1826015171798304328424810353**, with **zero new reservations**.
+Every dispatched request has a receipt. Amazon has four additional prepared-only identities,
+not measured admission rejections. Reasoning is included in output. Neither case has
+verified fulfilled business obligations or runtime timing; a ratio of calls to fulfilled
+obligations is undefined.
+
+[Amazon’s assessment](compact-taskplan-232a4f229-amazon-assessment.json) supports Judge 39’s
+duplicate-operation finding and the subsequent abandonment. Draft request 42 then stopped
+at `MODEL_OUTPUT_LIMIT`: zero visible text and 16,384 output tokens, all reported as reasoning.
+Separately, its selected flat-content inputs did not carry the producer’s observation pages,
+and the exact producer-prose retrieval link was missing. The output schema was not stripped;
+no causal explanation of exhaustion or benefit from a context change is established.
+[Review PR’s assessment](compact-taskplan-232a4f229-code-assessment.json) identifies an
+unsupported assumption that report-file contents must form a public interface. It stopped
+in clarification during intent extraction. The adjacent original page was not automatically
+displayed, but exact retrieval and `no_public_interface` were offered; causality is unproven.
+
+The [2026-10-25 05:38:49 UTC audit](compact-taskplan-232a4f229-campaign-audit.json) records
+**EUR 53.90122994621273108989188139 available**, all **29 receiptless identities closed**,
+and **57 historical unknown-usage attempt reservations retained**. Recorded CLR rounding
+and separate lost-ledger exposure remain unchanged. Detailed original-formatting supplements
+remain separately hash-bound; their counts establish no semantic quality or savings.
+The **3,075-test owning execution** and **75 overlapping focused tests** are qualified to
+`232a4f229` through unchanged technical inputs and explicit documentation differences;
+they establish neither business acceptance nor a new full-solution result.
+
 ## Source `727b27bda`: Collections-high passed; overall acceptance remains incomplete
 
 The separately frozen Collections-high artifact passed both actual runtime variants.

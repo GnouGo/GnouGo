@@ -938,6 +938,10 @@ action; it adds no repair authority or allowance.
 Freeze a new source identity for these presentation changes and preserve the
 received failures that motivated them. Passing navigation and recovery tests do
 not establish fewer corrections or complete business execution.
+Accepted-producer description links and adjacent original-source context are
+separately frozen presentation changes. Keep received output-exhaustion failures
+distinct from receiptless uncertainty; their token counts alone do not establish
+a schema or context cause. No failed response is retried unchanged.
 The earlier revision-4 behavior remains frozen for historical cohorts. Scoped reviews receive compiler
 facts separately from business and runtime evidence, plus bounded exact caller
 declarations. An explicit inconclusive review is not acceptance. Its single

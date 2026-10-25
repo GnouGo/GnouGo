@@ -1,0 +1,187 @@
+{
+  "version": 1,
+  "source": "232a4f229261be3f0c736ec089156d3b875ad956",
+  "reviewed_utc": "2026-10-25T05:44:10.447714+00:00",
+  "scope": "Independent offline intent/context assessment of six supplied exact received requests; no store, reader, model, runtime, build or source action.",
+  "safe_sources": [
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr232a4f229code20v5/freeze.json",
+      "sha256": "cf335e18cb6a1828bd5f624933cebbec712ce7095d5d57f6aa31e49d9101c84c"
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr232a4f229code20v5/code-terminal-safe-metrics.json",
+      "sha256": "df37347001e055d36d44ecc040546771309988449d2525c6a79521a7fd4e64bc"
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr232a4f229code20v5/code-terminal-state-witness.json",
+      "sha256": "73593e47403f169b8794e0b72c80ac5bd4f19335fcdcb15585971d483fb5fd5f"
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr232a4f229code20v5/code-received-requests-witness.json",
+      "sha256": "637ac3dbc893ba30a4a5570667ce4b9c4e09eff6760e8f44f584a9d01f717dce"
+    }
+  ],
+  "committed_sources": [
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Intent.cs",
+      "commit": "232a4f229261be3f0c736ec089156d3b875ad956",
+      "sha256": "36719d8bda88aca2828b532bd8e7d97d2ef37353329e3174ffbd782074564370",
+      "bytes": 26283
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.CompactIntent.cs",
+      "commit": "232a4f229261be3f0c736ec089156d3b875ad956",
+      "sha256": "f79e99760b001982d6146492988d5fe7089d3de34297e6b7b689da1739d81561",
+      "bytes": 18128
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningModelCalls.cs",
+      "commit": "232a4f229261be3f0c736ec089156d3b875ad956",
+      "sha256": "9c202200b9758d22817b86d77ea908ab01184ae55b448d72e4ca9a2c92053258",
+      "bytes": 16369
+    },
+    {
+      "path": "tests/GnOuGo.Flow.Planning.Tests/CompactIntentResolutionTests.cs",
+      "commit": "232a4f229261be3f0c736ec089156d3b875ad956",
+      "sha256": "f1b8671a759aaa47d74e99dbe084e94b8ffa34923f813abdfdef084060d1ccac",
+      "bytes": 44111
+    }
+  ],
+  "bounded_received_identities": [
+    {
+      "ordinal": 1,
+      "request_id": "compactr232a4f229code20v5-code-1:1:816f74e842d7f7039e3fa0238fd16de60f14536ed105a0b2b309d7327fac0a9b",
+      "request_record_sha256": "d45e16f911aaeacd5c5f910dd62fcd9ac4502eea16a38179bbf366e19b7a9b84",
+      "receipt_record_sha256": "2821e0615d44e3f2b1f90e66b481e099c3092e82b16dfcbdb0a47e87adba7162",
+      "original_text_sha256": "7def873e4b08894a199540db9758ca1735116c54c45ac3e700aaa2bdf0c8f551",
+      "original_utf8_bytes": 1194
+    },
+    {
+      "ordinal": 2,
+      "request_id": "compactr232a4f229code20v5-code-1:2:25fc49553ad126f97f019f9963bf6f4fffa9858b89ad85d12a9ffaeee3c6c2dd",
+      "request_record_sha256": "e91d643cc27e1e8f16cbde66c451ba5ed7ebdfafefa0da5884bfbcb4f96c260d",
+      "receipt_record_sha256": "acf5e5e784f7e9113fe9eb837cbc3bba4a23699aa13a98da82da185f0558e555",
+      "original_text_sha256": "17727072bd7b545b492cb72b8601b117a4e1a87aeb332709820bdaa4ca907a1f",
+      "original_utf8_bytes": 1140
+    },
+    {
+      "ordinal": 3,
+      "request_id": "compactr232a4f229code20v5-code-1:3:731349be94d5097db3a72a0353f89e924eb7123f2ac506b169165286af6b4b3e",
+      "request_record_sha256": "8ce268e40fe8871a89881063b8297a1e702a91b726c79dd5652a038a1c27d4c7",
+      "receipt_record_sha256": "6ae49049683f51700cc28c42666b1360dc88de79a0a5ce2d925354b60da5627f",
+      "original_text_sha256": "89d89a28559354babac8a5c5c004c6c7d8730b95058b73e16d000071f7c24e21",
+      "original_utf8_bytes": 513
+    },
+    {
+      "ordinal": 4,
+      "request_id": "compactr232a4f229code20v5-code-1:4:557b765ac6ee9f4aab03c3ce6c422b7170aba891d87c5c540fc1ad5c909e84f9",
+      "request_record_sha256": "3bd84a9f4c53df593dc512d9a7c52073f60a4f339ff88b41b87a0180d4f3e1c4",
+      "receipt_record_sha256": "bbe673586959b8b9845928fd2619ff9e10f2217da56ea97e9874f41e323091e4",
+      "original_text_sha256": "df5f2c7897f5f4f12637f2851875a13f712743ceef7c3133be8960c74d8ef1e5",
+      "original_utf8_bytes": 2322
+    },
+    {
+      "ordinal": 5,
+      "request_id": "compactr232a4f229code20v5-code-1:5:f83afc53e08bb602a6d19ee771e36d0728d47e4ccaed48705b6905877f4c124a",
+      "request_record_sha256": "19cc11692a398a6c134522a728fb42e7dd18b6b052c8ecca8ef914060e76f86d",
+      "receipt_record_sha256": "e0161503a2ad5c4c92f7851bf71b3f24948f9cef10cc344e9b0bf873420599a4",
+      "original_text_sha256": "650540915ab9262f4686c7e0d8fc6c5b86549f13e94300afbd57396fc922286d",
+      "original_utf8_bytes": 650
+    },
+    {
+      "ordinal": 6,
+      "request_id": "compactr232a4f229code20v5-code-1:6:c44eb76b1b72dcfabbd92b47b6da8741ae9c6c94ca6cd8d54869eeba1398ad83",
+      "request_record_sha256": "107f74a958798d6797c45f87d35ff863943949ff63d98152530942ef11f0764e",
+      "receipt_record_sha256": "3f55b5c2c705e184e36f375bb53504912c325911b5e4f02017b2fed12b3e1313",
+      "original_text_sha256": "3ad361bb6cdd4218d686f819826694c1ef2c68939356ccc1ca269f46b4237bff",
+      "original_utf8_bytes": 1004
+    }
+  ],
+  "outcome": {
+    "logical_calls": 6,
+    "physical_attempts": 6,
+    "receipts": 6,
+    "corrections": 0,
+    "checkpoints": 0,
+    "status": "clarification",
+    "phase": "construction_intent",
+    "artifact": null,
+    "execution": false
+  },
+  "findings": [
+    {
+      "requests": [
+        3,
+        6
+      ],
+      "classification": "Unsupported public-interface interpretation by the model",
+      "finding": "Classification marks the report-content clause as output. Resolution then assumes that the report itself is a public result and asks for its public schema and unspecified element types. The clause specifies artifact contents, not a value explicitly returned to the caller. Current instructions explicitly make classifications provisional and exclude artifact contents alone from public results; no_public_interface and exact original retrieval were both offered.",
+      "basis": {
+        "current_source_id": "request:1524:clause:0",
+        "current_source_version": "28d84588382323a302d6b0ca30f84377636a8030f76a7e92dd6adc35a1892a49",
+        "exact_current_clause": "Le rapport review.json contient decision (approve ou request_changes), findings (liste), et les commandes/codes de sortie observés.",
+        "question_id": "clarify-review-json-schema",
+        "bounded_instruction": "Artifact contents, effects and resources alone are not public results; explicitly returned paths/contents are."
+      },
+      "limits": "No deterministic filename classifier, invented array types or automatic clarification override is justified. Clarification suspension followed an offered action; no malformed-response, allowance, transport or empty-output defect is shown."
+    },
+    {
+      "requests": [
+        4,
+        5
+      ],
+      "classification": "Retained earlier declarations and correction of one provisional input label",
+      "finding": "Request4 accepts pullRequestUrl/reviewText and adds required feedback:string from the feedback clause. That source describes a business deliverable without an explicit caller-return declaration; its public/string interpretation is model-authored and was not business-reviewed. Local-only does not itself prohibit a returned value, so this record does not classify feedback:string as an independently proven runtime or authority violation. Request5 correctly treats exact clone branch/path constraints as no_public_interface; it does not retract the earlier declaration.",
+      "limits": "Accepted declarations remain immutable. The source does not establish that this earlier interpretation caused request6 or that another context would reverse it."
+    },
+    {
+      "request": 6,
+      "classification": "Bounded automatic context omission with an existing exact retrieval route",
+      "finding": "InterfaceOriginalPages selects the opening page, first containing page, latest answer and remaining containing pages, distinct and capped at three. Here it supplies only request:0 and request:1524. The immediately preceding request:755 contains local-only/save-artifact requirements and is omitted despite a spare third slot. It remains explicitly offered as source:request:755 in both directory and evidenceRequests; this is not an inaccessible-evidence gap.",
+      "source_lines": [
+        "PlanningCompactConstruction.Intent.cs:154",
+        "PlanningCompactConstruction.Intent.cs:175",
+        "PlanningCompactConstruction.Intent.cs:188",
+        "HybridWorkflowPlanner.CompactIntent.cs:122"
+      ],
+      "context_ids": [
+        "request:0",
+        "request:1524"
+      ],
+      "exact_retrievable_address": "source:request:755",
+      "available_capacity": 3,
+      "used_capacity": 2
+    }
+  ],
+  "minimal_context_proposal": {
+    "status": "Presentation-only proposal; no code applied by reviewer",
+    "change": "For fresh v5 only, append immediate containing-page neighbors after all existing opening/containing/latest-answer/remaining-containing priorities, before the existing distinct-and-take-three bound. This fills unused capacity without replacing existing chosen pages. Keep the original directory/retrieval mechanism and complete request admission.",
+    "this_witness_proposed_context_ids": [
+      "request:0",
+      "request:1524",
+      "request:755"
+    ],
+    "authority_boundary": "Supporting original pages expand context and exact evidence citations only. They do not become current candidate sources, new dispositions, inferred public interfaces or permission/repair authority.",
+    "focused_checks": [
+      "Existing priority order and maximum three pages, including answer/multiple-containing cases.",
+      "Immediate predecessor/successor boundaries, distinct entries, and exact original bytes/versions.",
+      "Candidate source IDs and per-source disposition set unchanged; no_public_interface and explicit returned-interface cases remain available.",
+      "Historical presentations2–4 remain unchanged and pending issued v5 prompt/schema recover byte-exactly.",
+      "Full expanded context is admitted or rejected by existing limits without truncation or ceiling escalation."
+    ],
+    "qualification": "This witness demonstrates missing automatic adjacency, not causation, necessity for a correct interpretation, convergence benefit or a guarantee against clarification."
+  },
+  "formatting": {
+    "original_text_bytes": 6823,
+    "outside_string_whitespace_bytes": 0,
+    "empty_texts": 0,
+    "original_text_json_matches": 6,
+    "qualification": "Original text hashes above are distinct from normalized parsed-response hashes; no formatting cause is inferred."
+  },
+  "limitations": [
+    "No planning Judge, business artifact or runtime was reached, so no Judge false-positive or execution-success claim is supported.",
+    "All six responses were received; no output exhaustion or receiptless uncertainty occurred.",
+    "Existing declaration/source coverage validation is unchanged; no proposed acceptance of arbitrary repeated interfaces.",
+    "Exact financial accounting is recorded in a separately reviewed numeric archive. Main root-owned SKILL edits, if concurrent, are outside the four exact committed source pins."
+  ]
+}

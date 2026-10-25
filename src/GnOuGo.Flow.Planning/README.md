@@ -30,7 +30,8 @@ Oversized values retain exact retrieval links; equality does not authorize remov
 Fresh revision-5 accepted-producer navigation also identifies the exact contract
 version/hash and declared artifact-producing business ports. Whole artifact rows
 share a 2,048-byte inline bound; omissions remain available through existing output
-port pages. Selected accessible producer output schemas are read-only evidence:
+port pages. Exact original-description links retain normative meaning that a bare
+output type cannot express, including paged continuations. Selected accessible producer output schemas are read-only evidence:
 they neither select another operation nor expand its generation grammar or bindings.
 Fresh revision-5 prerequisite citations discard exact duplicates only after validating every original address and the raw item bound; retained receipts and historical behavior stay unchanged.
 Drafts and reviews retain at most four whole current-step companion operation
@@ -61,15 +62,18 @@ directions are provisional. Extraction first distinguishes caller interfaces fro
 artifact obligations: writing a file with specified fields does not itself declare
 a returned value; an explicitly returned path or content remains an interface.
 Extraction includes bounded surrounding originals and
-exact retrieval links so names retain earlier types and constraints. An explicit
+exact retrieval links so names retain earlier types and constraints. Fresh revision 5
+fills unused slots in the existing three-page context with immediate containing-page
+neighbors, after the existing source and latest-answer priorities. These pages add
+supporting evidence, not extraction candidates. An explicit
 no-interface disposition leaves the source's business obligation intact; bare empty
 arrays cannot resolve coverage. Missing type evidence requires retrieval or
 clarification. Pending extraction blocks generation. Natural boundaries and linked
 continuations preserve complete obligations. Historical revision-2 sessions and
 issued requests retain their captured grouping and schemas. Compact schema
 references carry no sibling annotations in the strict provider profile.
-Fresh revision-5 extraction consolidates its instructions without changing schemas,
-source context or model settings. Revision-4 guidance and all saved requests remain
+The earlier revision-5 instruction cleanup changed wording alone; the bounded
+context additions above are separately frozen. Revision-4 guidance and all saved requests remain
 exact; shorter instructions alone establish neither an exhaustion cause nor efficacy.
 Revision-3 extraction requests compact JSON whitespace outside strings without
 altering original string contents, parser behavior or saved receipts.

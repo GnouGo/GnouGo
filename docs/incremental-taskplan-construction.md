@@ -92,7 +92,9 @@ oversized originals remain explicitly retrievable. Directories alone remain
 insufficient grounding, and equal arguments do not automatically establish an
 unnecessary operation.
 Accepted producer navigation retains original artifact kinds and business ports,
-with exact contract identities and existing output-page links. Bounded omissions
+with exact contract identities and existing output-page and original-description links.
+Fresh revision-5 consumers can retrieve the producer's normative prose and its continuations
+without selecting another operation or treating a bare output type as its complete contract. Bounded omissions
 stay retrievable; reading an accessible producer's output schema does not add an
 operation, select generation branches, or grant new field access. Literal or
 same-type values still cannot manufacture artifact provenance.
@@ -178,7 +180,7 @@ declarations may be separate clauses; an action and its adjacent composition/res
 constraints remain one requirement even when they declare a public result.
 Interface marking does not split that obligation. Revision 3 treats these marks
 as provisional: extraction receives bounded surrounding originals and exact source
-links, including earlier naming/type constraints. Within the same intent phase it
+links, including earlier naming/type constraints. Fresh revision 5 fills unused slots in the existing three-page context with immediate containing-page neighbors, after opening, containing and latest-answer priorities; neighboring originals remain supporting evidence, not additional extraction candidates. Within the same intent phase it
 can produce typed declarations, explicitly identify spans with no public interface,
 retrieve missing evidence or clarify material ambiguity. Before extracting types,
 it determines whether a source declares a caller input or a value returned to the

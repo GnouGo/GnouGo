@@ -161,6 +161,11 @@ internal static partial class PlanningCompactConstruction
         // originals are exact navigable evidence, not a workflow-wide summary.
         return pages.Take(1).Concat(containing.Take(1))
             .Concat(pages.Where(s => s.Kind == "answer_page").TakeLast(1)).Concat(containing.Skip(1))
+            .Concat(UsesConvergentConstruction(state) ? containing.SelectMany(page =>
+            {
+                var index = pages.IndexOf(page);
+                return pages.Skip(Math.Max(0, index - 1)).Take(index == 0 ? 2 : 3);
+            }) : [])
             .DistinctBy(s => s.Id, StringComparer.Ordinal).Take(3);
     }
 
