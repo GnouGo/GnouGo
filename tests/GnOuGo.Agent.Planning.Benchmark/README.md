@@ -942,6 +942,8 @@ Accepted-producer description links and adjacent original-source context are
 separately frozen presentation changes. Keep received output-exhaustion failures
 distinct from receiptless uncertainty; their token counts alone do not establish
 a schema or context cause. No failed response is retried unchanged.
+Producer-navigation regressions establish evidence reachability and admission, not
+the model's semantic choice or runtime fulfillment; verify those with the frozen business oracles.
 The earlier revision-4 behavior remains frozen for historical cohorts. Scoped reviews receive compiler
 facts separately from business and runtime evidence, plus bounded exact caller
 declarations. An explicit inconclusive review is not acceptance. Its single

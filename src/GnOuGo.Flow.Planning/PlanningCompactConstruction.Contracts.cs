@@ -502,6 +502,9 @@ internal static partial class PlanningCompactConstruction
         {
             if (!int.TryParse(tail, NumberStyles.None, CultureInfo.InvariantCulture, out var offset) || offset < 0)
                 PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Use the issued description address with its nonnegative integer offset.");
+            if (recordSchemaSelection && UsesConvergentConstruction(state) && State(state).CurrentStep is null &&
+                !AcceptedProducerOutput(state, ExactContract(state, operation, version)))
+                PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Inspect only an accessible accepted producer before selecting a business step.");
             return OperationDescription(state, operation, version, identity, offset);
         }
         var capability = ExactContract(state, operation, version);

@@ -15,7 +15,7 @@ Compiler preflight proves present technical facts, not business fulfillment or f
 
 ## Construction
 
-Select necessary results from original obligations and accepted producers before relevant discovery and implementation. Local/structural work needs no discovery call. Avoid aliases or tasks that merely subdivide an action. Keep cached identities and descriptions available after discovery ends.
+Select the next necessary result from original obligations and accessible accepted producers. Reuse an existing binding or resume its evidenced consumer before proposing another producer. Local/structural work needs no discovery call. Avoid aliases or tasks that merely subdivide an action.
 
 Keep contribution, requirement closure, local export and public return distinct. Ordinary partial closure cannot claim a requirement whose complete current direct source disposition declares a required public output absent from the merged root. Optional outputs and supporting evidence create no such obligation; authorized revisions retain partial-repair behavior. This necessary check does not prove fulfillment. Host-prepared closure still needs the same scoped identity, reviewed evidence and ordinary validation; an empty scope is not completion.
 
@@ -27,7 +27,7 @@ Offer reachable grammar using the complete accepted symbol inventory: no tasks m
 
 ## Context and progress
 
-Phase instructions must match all offered actions. Tentative implementation binding lets the host resolve and admit exact contracts before drafting; do not require undisclosed constraints before that navigation choice. Keep obligations, caller declarations, producer contracts and current work retrievable, including unselected originals and earlier pages. Accepted-producer navigation must link exact original descriptions as well as output schemas. Retrieval expands no claims or edits. Preserve required schemas, coupled constraints, normative text, permissions and prerequisites; optional omissions need exact links. Admit the complete follow-up before accepting retrieval. Required context exceeding its captured ceiling stops, without truncation or mid-session escalation. Compact JSON preserves strings/originals.
+Phase instructions must match all offered actions. Tentative implementation binding lets the host resolve and admit exact contracts before drafting; do not require undisclosed constraints before that navigation choice. Reuse retained contracts and keep their exact identities, original descriptions and nested schema pages retrievable after discovery ends. The same applies to obligations, caller declarations and accepted work; a navigation page is not the complete evidence. Retrieval expands no claims or edits. Preserve required schemas, coupled constraints, normative text, permissions and prerequisites; optional omissions need exact links. Admit the complete follow-up before accepting retrieval. Required context exceeding its captured ceiling stops, without truncation or mid-session escalation. Compact JSON preserves strings/originals.
 
 Suspend consumers explicitly. Bounded current-chain continuations are navigation, not a scheduler or original obligations. Eligibility to attempt resumption is not proof of type compatibility or intended producer; retain exact contract, scope, checkpoint and binding checks.
 
@@ -51,7 +51,7 @@ Capture fresh behavior through the existing presentation version; retain constru
 
 One owner reserves every physical attempt before dispatch against calls, tokens, time, money and review headroom. Fresh synchronous tool-free planning permits at most three journaled attempts after fully received, durably recorded eligible transient failures. Missing outcomes, interrupted bodies, invalid responses and external effects are not automatically retried. Keep unknown-usage reserves even after success; saved successes recover without dispatch. Exact authorized abandonment retains evidence and funds and forbids replay and run continuation. Fresh benchmark runtime inference is single-attempt with prior reservation, retaining unverified failures including rate limits. Preserve historical policies; do not infer new retention eligibility.
 
-Freeze source/settings/contracts/inputs/oracles before experiments. Separate instruction experiments from schema/settings changes and retain failures. Output shape alone establishes no cause. Separate estimates/billed usage, logical/physical calls and technical/execution results. Useful progress uses independent business obligations; none satisfied means an undefined ratio. Test behavior and historical bytes, not wording. Claim convergence only after complete execution passes independent oracles.
+Freeze source/settings/contracts/inputs/oracles before experiments. Validate an implemented correction before adding another mechanism. Separate instruction experiments from schema/settings changes and retain failures. Missing receipts, received output exhaustion, formatting and semantic mistakes are distinct evidence; none establishes another's cause. Separate estimates/billed usage, logical/physical calls and technical/execution results. Useful progress uses independent business obligations; none satisfied means an undefined ratio. Test behavior and historical bytes, not wording. Claim convergence only after complete execution passes independent oracles.
 
 ## Maintained references
 

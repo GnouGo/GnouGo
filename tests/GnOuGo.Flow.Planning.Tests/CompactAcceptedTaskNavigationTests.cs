@@ -146,6 +146,188 @@ public sealed class CompactAcceptedTaskNavigationTests
     }
 
     [Fact]
+    public async Task PagedNullableProducerContractSurvivesSelectionResetThroughDraftAndJudge()
+    {
+        const string port = "zz_snapshot";
+        var state = await ArtifactProducerState();
+        var producer = state.Catalog!.Capabilities.Single(capability => capability.Id == "allocate");
+        producer.ArtifactContract = null;
+        producer.Description = string.Concat(Enumerable.Repeat(
+            "The display value is a label. The nullable snapshot contains complete pages of observed records; preserve their order and null state. ", 17));
+        var structured = JsonNode.Parse("""
+            {"type":["object","null"],"properties":{"pages":{"type":"array","items":{"type":"object",
+            "properties":{"records":{"type":"array","items":{"type":"object","properties":{"label":{"type":"string"},"amount":{"type":"number"}},
+            "required":["label","amount"],"additionalProperties":false}}},"required":["records"],"additionalProperties":false}}},
+            "required":["pages"],"additionalProperties":false}
+            """)!.AsObject();
+        for (var index = 0; index < 7; index++)
+        {
+            var name = "extra_" + index;
+            producer.OutputSchema["properties"]![name] = new JsonObject { ["type"] = "string" };
+            producer.OutputSchema["required"]!.AsArray().Add((JsonNode)JsonValue.Create(name)!);
+        }
+        producer.OutputSchema["properties"]![port] = structured.DeepClone();
+        producer.OutputSchema["required"]!.AsArray().Add((JsonNode)JsonValue.Create(port)!);
+        var contract = JsonSerializer.Serialize(producer, PlanningJsonContext.Default.PlanningCapability);
+        var compact = state.Construction!.Compact!;
+        compact.CurrentStep = null;
+        compact.InterfaceExtractions = [];
+        var source = compact.Sources[0];
+        compact.Sources.Add(new() { Id = source.Id + ":clause:0", Version = source.Version, Text = source.Text,
+            Kind = "requirement", InterfaceKind = "none", Indexed = true });
+        compact.RequirementSources["req_0"] = [source.Id + ":clause:0"];
+        Assert.True(PlanningCompactConstruction.SourcesComplete(state));
+        var baseline = PlanningConstruction.Hash(state.Plan);
+        var requirements = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
+
+        static JsonObject Presented(LLMRequest request) => JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!.AsObject();
+        static string Purpose(PlanningSession current) => current.Construction!.Compact!.CurrentStep is null
+            ? PlanningCompactConstruction.SelectPurpose : current.Construction.Candidate is null
+                ? PlanningConstruction.DraftPurpose : PlanningConstruction.LocalPurpose;
+        LLMRequest Request(PlanningSession current)
+        {
+            LLMRequest raw;
+            if (current.Construction!.Compact!.CurrentStep is null)
+            {
+                var context = PlanningCompactConstruction.SelectionContext(current);
+                var schema = PlanningCompactConstruction.SelectionSchema(current);
+                PlanningCompactConstruction.ConstrainSelectionEvidence(current, context, schema);
+                raw = PlanningCompactConstruction.Request(PlanningCompactConstruction.SelectGuidance(current), context, schema,
+                    PlanningCompactConstruction.SelectPurpose);
+            }
+            else raw = current.Construction.Candidate is null ? PlanningConstruction.DraftRequest(current, false)
+                : HybridWorkflowPlanner.CreateConstructionReviewRequest(current, false).Request;
+            return PlanningModelCalls.PrepareRequest(current, Purpose(current), raw.Prompt, raw.StructuredOutputSchema!.AsObject());
+        }
+        void Read(PlanningSession current, string address)
+        {
+            var request = Request(current);
+            if (current.Construction!.Candidate is null)
+                Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(new JsonArray(address),
+                    request.StructuredOutputSchema!["properties"]!["evidenceRequests"]!));
+            else Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(new JsonObject
+            {
+                ["action"] = new JsonObject { ["kind"] = "evidenceRequests", ["addresses"] = new JsonArray(address) },
+                ["uncertainty"] = "Inspect the exact accepted producer."
+            }, request.StructuredOutputSchema!));
+            try { PlanningConstruction.LoadEvidence(current, [address], followup: Request, purpose: Purpose(current)); }
+            catch (PlanningResponseException exception)
+            { Assert.Fail(address + ": " + string.Join("; ", exception.Diagnostics.Select(diagnostic => diagnostic.Code + " " + diagnostic.Message))); }
+        }
+        string ReadDescription(PlanningSession current, string first)
+        {
+            var text = new StringBuilder(); string? address = first;
+            do
+            {
+                Read(current, address);
+                var page = current.Construction!.Evidence![address]!;
+                Assert.Equal(PlanningGraphCompiler.Fingerprint(producer.Description), page["descriptionHash"]!.ToString());
+                text.Append(page["text"]!.ToString()); address = page["next"]?.ToString();
+            } while (address is not null);
+            return text.ToString();
+        }
+
+        var selection = Presented(Request(state));
+        var row = Assert.Single(selection["interfaces"]!.AsArray(), item => item?["task"]?.ToString() == "make")!;
+        Assert.DoesNotContain(port, row["ports"]!.AsArray().Select(item => item!.ToString()));
+        var description = row["descriptionEvidence"]!.ToString();
+        Assert.Equal(producer.Description, ReadDescription(state, description));
+        var descriptionFingerprint = PlanningConstruction.EvidenceBatchFingerprint(state, [description]);
+        Assert.Contains(descriptionFingerprint, state.Construction.EvidenceRequests);
+        var directory = row["outputDirectory"]!.ToString();
+        Read(state, directory);
+        Assert.DoesNotContain(state.Construction.Evidence![directory]!["items"]!.AsArray(), item => item?["name"]?.ToString() == port);
+        var next = state.Construction.Evidence[directory]!["next"]!.ToString();
+        Read(state, next);
+        var selected = Assert.Single(state.Construction.Evidence[next]!["items"]!.AsArray(), item => item?["name"]?.ToString() == port)!;
+        var schemaAddress = selected["schema"]!.ToString();
+        var nestedDirectory = selected["directory"]!.ToString();
+        var retained = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        Assert.Throws<PlanningResponseException>(() => PlanningConstruction.LoadEvidence(state, [description]));
+        Assert.Equal(retained, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+
+        var binding = TaskArtifactBindingTests.Reference("make", port);
+        var projection = TaskPlanCompiler.ValidateConstruction(state.Plan!, state.Catalog!, state.Request,
+            state.Construction.OpenScopes.ToHashSet(StringComparer.Ordinal),
+            new Dictionary<string, IReadOnlyList<TaskValue>> { ["/root"] = [TaskFieldBindingTests.Field(binding, "pages")] });
+        Assert.Empty(projection.Diagnostics);
+        Assert.True(JsonNode.DeepEquals(structured["properties"]!["pages"], Assert.Single(projection.Interfaces["/root"]).Schema));
+        var runtime = new TestRuntime { Respond = (request, purpose) =>
+        {
+            Assert.Equal(PlanningCompactConstruction.SelectPurpose, purpose);
+            var response = new JsonObject
+            {
+                ["baseHash"] = baseline, ["evidenceRequests"] = null, ["clarifications"] = null,
+                ["step"] = new JsonObject { ["scope"] = "/root", ["kind"] = "transform",
+                    ["objective"] = "Interpret the supplied observed records, preserving their ordering and null state.",
+                    ["requirementIds"] = new JsonArray("req_0"),
+                    ["inputs"] = new JsonArray(new JsonObject { ["kind"] = "output", ["source"] = "make", ["port"] = port }),
+                    ["groupId"] = null, ["dependencyTaskIds"] = new JsonArray(), ["expectedOutputs"] = new JsonArray("result"),
+                    ["closeRequirementIds"] = new JsonArray(), ["outputNames"] = new JsonArray(), ["prerequisites"] = null }
+            };
+            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response, request.StructuredOutputSchema!));
+            return new() { Json = response };
+        } };
+        state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+        Assert.Empty(state.Diagnostics); Assert.Single(runtime.Calls);
+        Assert.Equal("transform", state.Construction!.Compact!.CurrentStep!.Kind);
+        Assert.Null(state.Construction.Evidence); Assert.Empty(state.Construction.EvidenceRequests);
+        Assert.Equal(descriptionFingerprint, PlanningConstruction.EvidenceBatchFingerprint(state, [description]));
+        var draft = Presented(Request(state));
+        Assert.True(JsonNode.DeepEquals(structured, Assert.Single(draft["interfaces"]!.AsArray())!["schema"]));
+        Assert.Equal(description, draft["taskEvidence"]!["items"]![0]!["descriptionEvidence"]!.ToString());
+        Assert.Equal(producer.Description, ReadDescription(state, description));
+        Read(state, directory); Read(state, next);
+        Read(state, schemaAddress);
+        Assert.True(JsonNode.DeepEquals(structured, state.Construction.Evidence![schemaAddress]!["schema"]));
+        Read(state, nestedDirectory);
+        var pages = Assert.Single(state.Construction.Evidence[nestedDirectory]!["items"]!.AsArray())!;
+        Assert.EndsWith("/properties/pages", pages["pointer"]!.ToString(), StringComparison.Ordinal);
+        var pagesAddress = pages["evidence"]!.ToString();
+        Read(state, pagesAddress);
+        Assert.True(JsonNode.DeepEquals(structured["properties"]!["pages"], state.Construction.Evidence[pagesAddress]!["schema"]));
+        foreach (var invalid in new[] { "schema:allocate@old:/output/properties/" + port, "schema:allocate@v1:/input" })
+        {
+            var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+            Assert.Throws<PlanningResponseException>(() => PlanningConstruction.LoadEvidence(state, [invalid]));
+            Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        }
+        var oversized = PlannerFixture.Clone(state);
+        oversized.Construction!.Evidence = null; oversized.Construction.EvidenceRequests.Clear();
+        oversized.Catalog!.Capabilities.Single(capability => capability.Id == "allocate").OutputSchema["properties"]![port]!["description"] = new string('x', 100_000);
+        var evidenceBefore = JsonSerializer.Serialize(oversized.Construction, PlanningJsonContext.Default.PlanningConstructionState);
+        var admission = Assert.Throws<PlanningResponseException>(() => PlanningConstruction.LoadEvidence(oversized, [schemaAddress],
+            followup: Request, purpose: PlanningConstruction.DraftPurpose));
+        Assert.Contains(admission.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_EVIDENCE_LIMIT");
+        Assert.Equal(evidenceBefore, JsonSerializer.Serialize(oversized.Construction, PlanningJsonContext.Default.PlanningConstructionState));
+        Assert.Contains(oversized.RequestMeasurements!, measurement => measurement.Admission == "rejected_before_dispatch");
+
+        state.Construction.Candidate = PlanningConstruction.Apply(state, new()
+        {
+            Scope = "/root", RequirementIds = ["req_0"], Tasks = [new() { Id = "consume", Kind = "transform", Mode = "interpret",
+                Objective = "Interpret the supplied observed records, preserving their ordering and null state.", Inputs = [new("snapshot", binding)],
+                ResultType = new() { Kind = "object", Fields = [new() { Name = "result", Type = new() { Kind = "string" } }] } }]
+        });
+        Assert.Empty(TaskPlanCompiler.ValidateConstruction(state.Construction.Candidate.Plan, state.Catalog!, state.Request,
+            state.Construction.Candidate.OpenScopes.ToHashSet(StringComparer.Ordinal)).Diagnostics);
+        var judgeRequest = Request(state);
+        PlanningConstruction.AdmitEvidenceFollowup(state, judgeRequest, PlanningConstruction.LocalPurpose);
+        var judge = Presented(judgeRequest);
+        Assert.Empty(judge["operations"]!.AsArray());
+        Assert.True(JsonNode.DeepEquals(structured, Assert.Single(judge["interfaces"]!.AsArray())!["schema"]));
+        Assert.True(JsonNode.DeepEquals(structured, judge["evidence"]![schemaAddress]!["schema"]));
+        Assert.Contains(producer.Description[..100], judge["evidence"]![description]!["text"]!.ToString(), StringComparison.Ordinal);
+        Assert.False(HybridWorkflowPlanner.ConstructionReviewEvidenceGrounded(judge, "/taskEvidence/items/0", true));
+        Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
+        Assert.Equal(requirements, JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements));
+        Assert.Equal(contract, JsonSerializer.Serialize(state.Catalog!.Capabilities.Single(capability => capability.Id == "allocate"), PlanningJsonContext.Default.PlanningCapability));
+        Assert.Empty(state.Construction.Compact.CurrentStep.OperationIds); Assert.Empty(state.Construction.Compact.CurrentStep.SchemaPointers);
+        Assert.Empty(state.Construction.Compact.CurrentStep.CloseRequirementIds); Assert.Empty(state.Construction.Compact.PendingCommitments);
+        Assert.Null(state.Construction.Candidate.AuthorizedPaths); Assert.Empty(state.Construction.Checkpoints);
+        Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts); Assert.Equal(0, runtime.Discoveries);
+    }
+
+    [Fact]
     public async Task SelectionCanInspectTheVisibleAcceptedProducerWithoutSelectingAnOperation()
     {
         var state = await ArtifactProducerState();
@@ -205,7 +387,31 @@ public sealed class CompactAcceptedTaskNavigationTests
         another.Version = "v2";
         state.Discovery.Resolved.Add(another);
         var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
-        Assert.Throws<PlanningResponseException>(() => PlanningConstruction.LoadEvidence(state, ["schema:allocate@v1:/output/properties/handle"]));
+        foreach (var address in new[] { "schema:allocate@v1:/output/properties/handle", "description:allocate@v1:0" })
+        {
+            Assert.Throws<PlanningResponseException>(() => PlanningConstruction.LoadEvidence(state, [address]));
+            Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        }
+    }
+
+    [Theory]
+    [InlineData("unrelated")]
+    [InlineData("not_displayed")]
+    [InlineData("denied")]
+    [InlineData("stale")]
+    [InlineData("unavailable")]
+    public async Task SelectionProducerDescriptionRetainsExactContractAndAccessGuards(string invalid)
+    {
+        var state = await ArtifactProducerState();
+        state.Construction!.Compact!.CurrentStep = null;
+        var address = "description:allocate@v1:0";
+        if (invalid == "unrelated") address = "description:inspect@v1:0";
+        if (invalid == "not_displayed") state.Construction.Compact.InterfaceOffset = 4;
+        if (invalid == "denied") state.Catalog!.Policy.DeniedCapabilityIds.Add("allocate");
+        if (invalid == "stale") address = "description:allocate@old:0";
+        if (invalid == "unavailable") state.Catalog!.Capabilities.RemoveAll(capability => capability.Id == "allocate");
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        Assert.Throws<PlanningResponseException>(() => PlanningConstruction.LoadEvidence(state, [address]));
         Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
     }
 
@@ -316,6 +522,10 @@ public sealed class CompactAcceptedTaskNavigationTests
         state.Catalog!.Capabilities.Single(c => c.Id == "allocate").ArtifactContract = new(1, [new("different", "/handle", "materialize")], []);
         state.Catalog.Capabilities.Single(c => c.Id == "allocate").Description = "Changed producer prose outside this historical presentation.";
         Assert.Equal(before, JsonSerializer.Serialize(ArtifactDraftRequest(state), PlanningJsonContext.Default.LLMRequest));
+        state.Construction!.Compact!.CurrentStep = null;
+        var retained = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        Assert.Throws<PlanningResponseException>(() => PlanningConstruction.LoadEvidence(state, ["description:allocate@v1:0"]));
+        Assert.Equal(retained, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
     }
 
     private static async Task<PlanningSession> ArtifactProducerState(int version = 5)

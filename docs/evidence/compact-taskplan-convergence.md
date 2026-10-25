@@ -1,5 +1,32 @@
 # Compact TaskPlan convergence
 
+## Source `7bc4b9f17`: Collections stopped; exact abandonment is recorded
+
+The [unchanged pending snapshot](compact-taskplan-7bc4b9f17-collections-high-pending.json)
+records **2 logical calls, 2 physical attempts and 1 receipt**, with no corrections,
+checkpoints, artifact or execution. Request 2 stopped at `MODEL_DISPATCH_UNVERIFIABLE`
+after Transport without an HTTP response or receipt. Its response is unknown, not
+empty output or output exhaustion; original-response whitespace was not measured.
+Planning stopped during intent extraction before the retained high-reasoning draft phase.
+
+Known cost was **EUR 0.0111066488174921909861668898**, and the full
+**EUR 0.9308701472556894243641231593** reservation remains retained.
+The received request used 377 input and 352 output tokens, including 229 reasoning
+tokens; usage for the unanswered request remains unknown.
+
+The [separate authorized closure](compact-taskplan-7bc4b9f17-collections-retained-closure.json)
+permanently forbids replay and run continuation. Reinspection preserved the original
+evidence; repeated application returned identical bytes. The **2026-10-25 06:52:47 UTC**
+post-closure audit records **EUR 52.95925315013954947454159135 available**, with all
+**30 receiptless identities closed**, no unresolved identity and all **58 unknown-usage
+attempt reservations retained**. Monetary totals are unchanged from the pre-closure
+audit; recorded CLR rounding and separate lost-ledger exposure remain preserved.
+
+No transport cause or instruction/profile benefit is established. Collections-high's
+prior two runtime passes belong to `727b27bda`. The final-source three-case acceptance
+gate remains unmet, and the 18 paired comparisons have not started. Earlier outcomes
+and the original pending archive remain unchanged.
+
 ## Source `232a4f229`: Amazon and Review PR remain incomplete
 
 Neither fresh diagnostic produced an artifact or executed. Collections-high’s two

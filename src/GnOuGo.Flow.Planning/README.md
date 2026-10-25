@@ -33,6 +33,8 @@ share a 2,048-byte inline bound; omissions remain available through existing out
 port pages. Exact original-description links retain normative meaning that a bare
 output type cannot express, including paged continuations. Selected accessible producer output schemas are read-only evidence:
 they neither select another operation nor expand its generation grammar or bindings.
+Following later output pages and nested array schemas preserves declared nullability and
+the original contract's constraints; discovery history does not substitute for supplied evidence.
 Fresh revision-5 prerequisite citations discard exact duplicates only after validating every original address and the raw item bound; retained receipts and historical behavior stay unchanged.
 Drafts and reviews retain at most four whole current-step companion operation
 rows within 2,048 serialized UTF-8 bytes, with canonical directory and original

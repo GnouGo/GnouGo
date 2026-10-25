@@ -94,10 +94,14 @@ unnecessary operation.
 Accepted producer navigation retains original artifact kinds and business ports,
 with exact contract identities and existing output-page and original-description links.
 Fresh revision-5 consumers can retrieve the producer's normative prose and its continuations
-without selecting another operation or treating a bare output type as its complete contract. Bounded omissions
+without selecting another operation or treating a bare output type as its complete contract. Before selection,
+the same description addresses require an exact accessible accepted producer, as output-page reads do. Bounded omissions
 stay retrievable; reading an accessible producer's output schema does not add an
 operation, select generation branches, or grant new field access. Literal or
 same-type values still cannot manufacture artifact provenance.
+Normal selection retains explicit prerequisite evidence, not every earlier inspection.
+Producer prose omitted from the new context remains retrievable through the existing
+progress checks; later port pages and nested schemas use the same bounded loader.
 Fresh revision-5 discovery retains bounded cached operation choices for selected accepted producers and dependencies.
 Exact original description links remain available; canonical operation pages and contract admission are unchanged.
 
