@@ -75,7 +75,7 @@ public sealed partial class HybridWorkflowPlanner
             limits.DraftOutputTokens is < 1 or > 65536 || limits.ReviewOutputTokens is < 1 or > 65536)
             throw new PlanningConflictException("The captured construction contract or limits are unsupported.");
         if (construction.CandidateFailureIdentityVersion is not (null or 1) ||
-            construction.CandidateFailureIdentityVersion is not null && construction is not { Version: 2, Compact.PresentationVersion: 2 or 3 or 4 or 5 or 6 })
+            construction.CandidateFailureIdentityVersion is not null && construction is not { Version: 2, Compact.PresentationVersion: 2 or 3 or 4 or 5 or 6 or 7 })
             throw new PlanningConflictException("The captured candidate failure identity is unsupported.");
         if (construction.Version == 2) { await AdvanceCompactConstructionAsync(state, runtime, ct); return; }
         state.Status = PlanningStatus.Generating;
@@ -168,7 +168,7 @@ public sealed partial class HybridWorkflowPlanner
         // CallAsync checkpoints this transient recovery contract with the issued
         // request before dispatch. Already issued requests/candidates keep their
         // captured (including absent historical) comparison semantics.
-        if (state.PendingCall is null && previous is null && construction is { Version: 2, Compact.PresentationVersion: 2 or 3 or 4 or 5 or 6 })
+        if (state.PendingCall is null && previous is null && construction is { Version: 2, Compact.PresentationVersion: 2 or 3 or 4 or 5 or 6 or 7 })
             construction.CandidateFailureIdentityVersion = 1;
         var request = state.PendingCall?.Request ?? PlanningConstruction.DraftRequest(state, repair);
         var response = await PlanningModelCalls.CallAsync(state, runtime, repair ? "replan" : PlanningConstruction.DraftPurpose,
@@ -473,6 +473,10 @@ public sealed partial class HybridWorkflowPlanner
             throw new PlanningConflictException("The candidate has not completed its required deterministic and advisory reviews.");
         PlanningConstruction.PreserveAccepted(state, draft.Plan);
         var symbols = new TaskPlanSymbols(draft.Plan);
+        var retainedTasks = draft.TaskIds.AsEnumerable();
+        if (PlanningCompactConstruction.UsesAcceptedProgress(state))
+            retainedTasks = retainedTasks.Concat(draft.Extension.CloseScopes.SelectMany(path => symbols.Scopes
+                .Where(scope => scope.Path == path && scope.Owner is not null).Select(scope => scope.Owner!.Id))).Distinct(StringComparer.Ordinal);
         var checkpoint = new PlanningConstructionCheckpoint
         {
             Sequence = construction.Checkpoints.Count + 1, BaseHash = draft.BaseHash, PlanHash = draft.Hash,
@@ -484,7 +488,7 @@ public sealed partial class HybridWorkflowPlanner
             Fragment = new JsonObject
             {
                 ["scope"] = draft.Extension.Scope,
-                ["tasks"] = new JsonArray(draft.TaskIds.Where(symbols.Tasks.ContainsKey)
+                ["tasks"] = new JsonArray(retainedTasks.Where(symbols.Tasks.ContainsKey)
                     .Select(id => PlanningConstruction.Node(symbols.Tasks[id].Task, PlanningJsonContext.Default.PlanTask)).ToArray()),
                 ["outputs"] = PlanningConstruction.Node(draft.Extension.Outputs, PlanningJsonContext.Default.ListTaskOutput),
                 ["interfaces"] = PlanningConstruction.Context(state, review: true)["interfaces"]?.DeepClone()

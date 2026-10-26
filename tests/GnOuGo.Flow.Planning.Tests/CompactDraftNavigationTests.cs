@@ -54,7 +54,8 @@ public sealed class CompactDraftNavigationTests
             ["step"] = new JsonObject { ["scope"] = "/root", ["kind"] = kind, ["objective"] = "Apply the reusable calculation.",
                 ["requirementIds"] = new JsonArray("req"), ["inputs"] = new JsonArray(), ["groupId"] = group,
                 ["dependencyTaskIds"] = new JsonArray(), ["expectedOutputs"] = new JsonArray(), ["closeRequirementIds"] = new JsonArray(),
-                ["outputNames"] = new JsonArray(), ["prerequisites"] = prerequisite is null ? null : new JsonArray(new JsonObject
+                ["outputNames"] = new JsonArray(), ["operationIds"] = new JsonArray(), ["closeScopes"] = null,
+                ["prerequisites"] = prerequisite is null ? null : new JsonArray(new JsonObject
                     { ["need"] = "The required calculation must be available.", ["evidenceAddresses"] = new JsonArray(prerequisite) }) }
         };
         Assert.Equal(valid, PlanningContractValidation.ValidateInstanceFindings(response, schema).Count == 0);

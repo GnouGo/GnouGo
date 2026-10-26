@@ -50,6 +50,7 @@ public sealed class PlanningTransportPolicyTests
     [InlineData(4)]
     [InlineData(5)]
     [InlineData(6)]
+    [InlineData(7)]
     public void SourceWindowHeadroomIsBoundedByCapturedCallsWithoutChangingHistoricalRequests(int presentation)
     {
         var state = Fresh();
@@ -62,7 +63,7 @@ public sealed class PlanningTransportPolicyTests
         foreach (var count in new[] { 0, 1, 2, 3, 5, 6, 8 })
         {
             request.RequiredReviewCalls = count;
-            if (count <= (presentation == 6 ? 5 : 2)) PlanningTransportPolicies.ValidateIssued(request, state.Request);
+            if (count <= (presentation is 6 or 7 ? 5 : 2)) PlanningTransportPolicies.ValidateIssued(request, state.Request);
             else Assert.Throws<PlanningConflictException>(() => PlanningTransportPolicies.ValidateIssued(request, state.Request));
         }
         request.RequiredReviewCalls = null;

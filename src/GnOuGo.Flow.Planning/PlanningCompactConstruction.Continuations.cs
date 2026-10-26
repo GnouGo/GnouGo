@@ -133,9 +133,11 @@ internal static partial class PlanningCompactConstruction
             PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_INVALID", "/resumeStep", "Resume only the current retained consumer after its prerequisite has been accepted.");
         var leaf = binding;
         while (leaf.Kind == "field" && leaf.Items.Count == 1) leaf = leaf.Items[0];
-        if (leaf.Kind is not ("output" or "present") || leaf.Source is null || producerCheckpoint <= item!.SuspendedAtCheckpoint ||
+        if (leaf.Kind is not ("output" or "present") || leaf.Source is null ||
+            (UsesAcceptedProgress(state) ? producerCheckpoint < 1 : producerCheckpoint <= item!.SuspendedAtCheckpoint) ||
             producerCheckpoint > construction.Checkpoints.Count)
-            PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_INVALID", "/resumeStep/binding", "Select an exact accepted producer from a checkpoint after suspension.");
+            PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_INVALID", "/resumeStep/binding", UsesAcceptedProgress(state)
+                ? "Select an exact current accepted producer and its owning checkpoint." : "Select an exact accepted producer from a checkpoint after suspension.");
         var checkpoint = construction.Checkpoints[producerCheckpoint - 1];
         var symbols = new TaskPlanSymbols(state.Plan!);
         var producerExists = symbols.Tasks.TryGetValue(leaf.Source!, out var producer);
@@ -143,6 +145,8 @@ internal static partial class PlanningCompactConstruction
             !checkpoint.TaskIds.Contains(leaf.Source!, StringComparer.Ordinal) && !checkpoint.ClosedScopes.Any(path =>
                 symbols.Scopes.Any(scope => scope.Path == path && scope.Owner?.Id == leaf.Source)))
             PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_INVALID", "/resumeStep/producerCheckpoint", "The selected checkpoint must own the accepted producer or its completed container boundary.");
+        if (UsesAcceptedProgress(state) && !CheckpointProducerCurrent(state, checkpoint, leaf.Source!))
+            PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_INVALID", "/resumeStep/producerCheckpoint", "The owning checkpoint must retain this producer's current accepted content and completed boundary.");
         var imported = CloneStep(item!.Consumer); imported.Inputs = [binding];
         var interfaces = ImportedInterfaces(state, imported);
         if (!PlanningContractCompatibility.Fits(interfaces[0]!["schema"]!.AsObject(), TaskPlanCompiler.TypeSchema(item.Prerequisite.ExpectedType)))
@@ -178,7 +182,7 @@ internal static partial class PlanningCompactConstruction
         if (active.Length == 0) return null;
         var item = active[^1];
         var symbols = new TaskPlanSymbols(state.Plan ?? new());
-        var checkpoints = state.Construction!.Checkpoints.Where(checkpoint => checkpoint.Sequence > item.SuspendedAtCheckpoint &&
+        var checkpoints = state.Construction!.Checkpoints.Where(checkpoint => (UsesAcceptedProgress(state) || checkpoint.Sequence > item.SuspendedAtCheckpoint) &&
             (checkpoint.TaskIds.Any(id => !checkpoint.InvalidatedTaskIds.Contains(id, StringComparer.Ordinal) && symbols.Tasks.ContainsKey(id)) ||
                 checkpoint.ClosedScopes.Any(path => !state.Construction.OpenScopes.Contains(path, StringComparer.Ordinal) &&
                     symbols.Scopes.Any(scope => scope.Path == path && scope.Owner is { } owner &&
@@ -194,12 +198,79 @@ internal static partial class PlanningCompactConstruction
             ["scope"] = item.Consumer.Scope, ["requirementIds"] = new JsonArray(item.Consumer.RequirementIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
             ["objective"] = item.Consumer.Objective, ["prerequisite"] = PlanningConstruction.Node(item.Prerequisite, PlanningJsonContext.Default.PlanningConstructionTypedPrerequisite),
             ["evidence"] = "rejected:" + item.RejectedStepIndex,
-            ["canAttemptResume"] = item.Status == "waiting" && ContinuationCurrent(state, item) && item.LastPrerequisiteCheckpoint > item.SuspendedAtCheckpoint,
+            ["canAttemptResume"] = item.Status == "waiting" && ContinuationCurrent(state, item) &&
+                (UsesAcceptedProgress(state) ? checkpoints.Length > 0 : item.LastPrerequisiteCheckpoint > item.SuspendedAtCheckpoint),
             ["basis"] = "model_authored_navigation", ["bindingValidation"] = ContinuationValidation,
-            ["directory"] = item.LastPrerequisiteCheckpoint > item.SuspendedAtCheckpoint ? "page:checkpoints:" + item.SuspendedAtCheckpoint : null,
+            ["directory"] = UsesAcceptedProgress(state) ? checkpoints.Length > 0 ? "page:checkpoints:0" : null :
+                item.LastPrerequisiteCheckpoint > item.SuspendedAtCheckpoint ? "page:checkpoints:" + item.SuspendedAtCheckpoint : null,
             ["acceptedCheckpoints"] = new JsonArray(available.Select(checkpoint => (JsonNode)new JsonObject
                 { ["sequence"] = checkpoint.Sequence, ["evidence"] = "page:checkpoints:" + (checkpoint.Sequence - 1) }).ToArray())
         };
+    }
+
+    internal static void ValidateContinuationBinding(PlanningSession state, PlanningConstructionCandidate candidate)
+    {
+        if (!UsesAcceptedProgress(state)) return;
+        var compact = State(state); var association = candidate.Extension.ContinuationBinding;
+        // Replacement drafts do not inherit another candidate's proposed association.
+        compact.CurrentStep!.ContinuationBinding = null;
+        if (association is null) return;
+        var item = compact.SuspendedSteps?.LastOrDefault(Active);
+        var leaf = association.Binding;
+        while (leaf.Kind == "field" && leaf.Items.Count == 1) leaf = leaf.Items[0];
+        if (candidate.AuthorizedPaths is not null || item is not { Status: "waiting" } || item.Id != association.ContinuationId ||
+            !ContinuationCurrent(state, item) || leaf.Kind is not ("output" or "present") || leaf.Source is null)
+            PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_INVALID", "/extension/continuationBinding", "Associate only the current waiting consumer with an exact output produced by this fragment.");
+        var symbols = new TaskPlanSymbols(candidate.Plan);
+        if (!symbols.Tasks.ContainsKey(leaf.Source!) || !candidate.TaskIds.Contains(leaf.Source!, StringComparer.Ordinal) &&
+            !candidate.Extension.CloseScopes.Any(path => symbols.Scopes.Any(scope => scope.Path == path && scope.Owner?.Id == leaf.Source)))
+            PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_INVALID", "/extension/continuationBinding/binding", "The fragment must produce this output or complete its enclosing producer; existing outputs remain selectable through resumeStep.");
+        var probe = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
+        probe.Plan = candidate.Plan; probe.Construction!.OpenScopes = candidate.OpenScopes;
+        var consumer = CloneStep(item!.Consumer); consumer.Inputs = [association.Binding];
+        var interfaces = ImportedInterfaces(probe, consumer);
+        if (!PlanningContractCompatibility.Fits(interfaces[0]!["schema"]!.AsObject(), TaskPlanCompiler.TypeSchema(item.Prerequisite.ExpectedType)))
+            PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_INVALID", "/extension/continuationBinding/binding", "The proposed producer must provide the prerequisite's exact accessible typed interface.");
+        compact.CurrentStep.ContinuationBinding = JsonSerializer.Deserialize(
+            JsonSerializer.Serialize(association, PlanningJsonContext.Default.PlanningConstructionContinuationBinding),
+            PlanningJsonContext.Default.PlanningConstructionContinuationBinding);
+    }
+
+    private static bool CheckpointProducerCurrent(PlanningSession state, PlanningConstructionCheckpoint checkpoint, string id)
+    {
+        var symbols = new TaskPlanSymbols(state.Plan!);
+        if (checkpoint.InvalidatedTaskIds.Contains(id, StringComparer.Ordinal) || !symbols.Tasks.TryGetValue(id, out var producer) ||
+            checkpoint.Fragment["tasks"] is not JsonArray tasks ||
+            !tasks.Any(task => task?["id"]?.ToString() == id && JsonNode.DeepEquals(task,
+                PlanningConstruction.Node(producer.Task, PlanningJsonContext.Default.PlanTask)))) return false;
+        return checkpoint.TaskIds.Contains(id, StringComparer.Ordinal) || checkpoint.ClosedScopes.Any(path =>
+            !state.Construction!.OpenScopes.Contains(path, StringComparer.Ordinal) &&
+            symbols.Scopes.Any(scope => scope.Path == path && scope.Owner?.Id == id));
+    }
+
+    internal static bool TryResumeReviewedConsumer(PlanningSession state)
+    {
+        if (!UsesAcceptedProgress(state) || state.PendingCall is not null || state.Construction!.Candidate is not null ||
+            State(state).CurrentStep is not null || State(state).ReplacementScope is not null || state.Diagnostics.Any(d => d.Required) ||
+            State(state).SuspendedSteps?.LastOrDefault(Active) is not { Status: "waiting" } item || !ContinuationCurrent(state, item)) return false;
+        var acceptedHash = PlanningConstruction.Hash(state.Plan);
+        var matches = state.Construction.Checkpoints.Where(checkpoint =>
+            checkpoint.PlanHash == acceptedHash &&
+            checkpoint.Step?.ContinuationBinding is { } association && association.ContinuationId == item.Id &&
+            PlanningConstructionReviewCoverage.Reviewed(state, checkpoint, PlanningConstruction.LocalPurpose) &&
+            (!checkpoint.NeedsIntermediateReview || PlanningConstructionReviewCoverage.Reviewed(state, checkpoint, PlanningConstruction.IntermediatePurpose)))
+            .ToArray();
+        if (matches.Length != 1) return false;
+        // An intervening accepted change may alter upstream meaning without changing
+        // the producer node. Such older bindings require explicit semantic selection.
+        // Validate on a clone so failed visibility or stale evidence simply returns
+        // to bounded semantic selection without partially restoring a consumer.
+        var probe = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
+        var selected = matches[0];
+        try { ResumeStep(probe, item.Id, selected.Sequence, selected.Step!.ContinuationBinding!.Binding); }
+        catch (PlanningResponseException) { return false; }
+        state.Construction = probe.Construction; state.Diagnostics = probe.Diagnostics;
+        return true;
     }
 
     private static JsonObject? DraftContinuationContext(PlanningSession state)

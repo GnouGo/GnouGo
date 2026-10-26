@@ -20,6 +20,7 @@ internal static class CompactConstructionSmoke
         await RunAsync(4);
         await RunAsync(5);
         await RunAsync(6);
+        await RunAsync(7);
     }
 
     private static async Task RunAsync(int presentationVersion)
@@ -29,11 +30,11 @@ internal static class CompactConstructionSmoke
         var recoveredIntentActions = new HashSet<string>(StringComparer.Ordinal);
         var state = new PlanningSession { Request = new() { TenantId = "compact-smoke", Prompt = Objective } };
         PlanningSessionCreation.Capture(state);
-        if (presentationVersion == 6)
+        if (presentationVersion == 7)
         {
-            if (state.Request.Options["construction_presentation_version"]?.GetValue<int>() != 6 ||
-                state.Construction!.Compact!.PresentationVersion != 6)
-                throw new InvalidOperationException("Fresh compact capture did not select presentation six.");
+            if (state.Request.Options["construction_presentation_version"]?.GetValue<int>() != 7 ||
+                state.Construction!.Compact!.PresentationVersion != 7)
+                throw new InvalidOperationException("Fresh compact capture did not select presentation seven.");
         }
         else
         {
@@ -65,7 +66,7 @@ internal static class CompactConstructionSmoke
                     JsonSerializer.Serialize(state.Construction?.Compact, PlanningJsonContext.Default.PlanningCompactConstructionState) ||
                     PlanningConstruction.Hash(recovered.Plan) != PlanningConstruction.Hash(state.Plan) ||
                     recovered.Construction?.Checkpoints.Count != state.Construction?.Checkpoints.Count ||
-                    presentationVersion == 6 && JsonSerializer.Serialize(recovered.Construction, PlanningJsonContext.Default.PlanningConstructionState) !=
+                    presentationVersion >= 6 && JsonSerializer.Serialize(recovered.Construction, PlanningJsonContext.Default.PlanningConstructionState) !=
                         JsonSerializer.Serialize(state.Construction, PlanningJsonContext.Default.PlanningConstructionState))
                     throw new InvalidOperationException("Compact phase recovery changed accepted work or dispatched a duplicate call.");
             }
@@ -77,7 +78,7 @@ internal static class CompactConstructionSmoke
             state.ApprovedHash is not null || state.Yaml is null)
             throw new InvalidOperationException("Compact construction did not complete with explicit requirement closure: " +
                 state.Status + "; " + JsonSerializer.Serialize(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic));
-        var expectedCalls = presentationVersion == 6 ? 5 + runtime.SourceWindows.Count : 6;
+        var expectedCalls = presentationVersion >= 6 ? 5 + runtime.SourceWindows.Count : 6;
         if (state.Request.Options["construction_presentation_version"]?.GetValue<int>() != presentationVersion ||
             state.Construction.Compact.InterfaceExtractions is not [{ Complete: true, SourceIds.Count: 2 }] ||
             !runtime.IntentActions.SequenceEqual(["classification", "interfaces"]) ||
@@ -90,12 +91,37 @@ internal static class CompactConstructionSmoke
         var historical = JsonSerializer.Serialize(new PlanningCompactConstructionState(), PlanningJsonContext.Default.PlanningCompactConstructionState);
         if (historical.Contains("presentationVersion", StringComparison.Ordinal) || historical.Contains("interfaceExtractions", StringComparison.Ordinal))
             throw new InvalidOperationException("Fresh presentation metadata changed historical omitted fields.");
+        var historicalStep = JsonSerializer.Serialize(new PlanningConstructionStep(), PlanningJsonContext.Default.PlanningConstructionStep);
+        var historicalExtension = JsonSerializer.Serialize(new PlanningConstructionExtension(), PlanningJsonContext.Default.PlanningConstructionExtension);
+        if (historicalStep.Contains("closeScopes", StringComparison.Ordinal) || historicalStep.Contains("continuationBinding", StringComparison.Ordinal) ||
+            historicalExtension.Contains("continuationBinding", StringComparison.Ordinal))
+            throw new InvalidOperationException("Fresh progression metadata changed historical omitted fields.");
+        if (presentationVersion == 7)
+        {
+            foreach (var scopes in new List<string>[] { [], ["/root"] })
+            {
+                var close = new PlanningConstructionStep { Kind = "close", CloseScopes = scopes };
+                var saved = JsonSerializer.Serialize(close, PlanningJsonContext.Default.PlanningConstructionStep);
+                var restored = JsonSerializer.Deserialize(saved, PlanningJsonContext.Default.PlanningConstructionStep)!;
+                if (restored.CloseScopes is null || !restored.CloseScopes.SequenceEqual(scopes) || restored.ContinuationBinding is not null)
+                    throw new InvalidOperationException("Source generation lost the explicit closure target.");
+            }
+            var extension = new PlanningConstructionExtension { ContinuationBinding = new()
+            {
+                ContinuationId = "retained_consumer", Binding = new() { Kind = "output", Source = "greeting", Port = "message" }
+            } };
+            var exact = JsonSerializer.Serialize(extension, PlanningJsonContext.Default.PlanningConstructionExtension);
+            var recovered = JsonSerializer.Deserialize(exact, PlanningJsonContext.Default.PlanningConstructionExtension)!;
+            if (JsonSerializer.Serialize(recovered, PlanningJsonContext.Default.PlanningConstructionExtension) != exact ||
+                recovered.ContinuationBinding is not { ContinuationId: "retained_consumer", Binding.Port: "message" })
+                throw new InvalidOperationException("Source generation lost the exact continuation binding.");
+        }
         foreach (var phase in new[] { "construction_intent", "construction_select", "construction_draft", "construction_local_judge" })
             if (!runtime.Purposes.Contains(phase, StringComparer.Ordinal)) throw new InvalidOperationException("Missing compact model phase: " + phase);
         if (state.RequestMeasurements is null || state.RequestMeasurements.Count != runtime.PhysicalCalls ||
             state.RequestMeasurements.Any(m => m.EstimatedInputTokens > m.InputLimit || m.Components.Sum(c => c.SerializedBytes) != m.CompleteRequestBytes))
             throw new InvalidOperationException("Compact request measurements did not survive source-generated recovery.");
-        if (presentationVersion == 6)
+        if (presentationVersion >= 6)
         {
             var windows = runtime.SourceWindows;
             var retained = state.Construction.Checkpoints.SelectMany(checkpoint => checkpoint.Reviews)
@@ -112,8 +138,8 @@ internal static class CompactConstructionSmoke
         var result = await new WorkflowEngine().ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
         if (!result.Success || result.Outputs?["message"]?.GetValue<string>() != "Hello")
             throw new InvalidOperationException("Compact v15 artifact changed the independently expected value.");
-        Console.WriteLine(presentationVersion == 6
-            ? $"compact presentation 6: fresh capture, {runtime.SourceWindows.Count} exact source windows, {expectedCalls} recovered calls and independently executed output"
+        Console.WriteLine(presentationVersion >= 6
+            ? $"compact presentation {presentationVersion}: {(presentationVersion == 7 ? "fresh capture" : "retained capture")}, {runtime.SourceWindows.Count} exact source windows, {expectedCalls} recovered calls and independently executed output"
             : $"compact presentation {presentationVersion}: classified originals, grounded interface extraction, six recovered calls, narrow draft/Judge and independently executed output");
     }
 
@@ -201,6 +227,11 @@ internal static class CompactConstructionSmoke
                             ["closeRequirementIds"] = requirements.DeepClone(), ["outputNames"] = new JsonArray("message")
                         }
                     };
+                    if (presentationVersion == 7)
+                    {
+                        response["step"]!["closeScopes"] = null;
+                        response["step"]!["operationIds"] = new JsonArray();
+                    }
                     break;
                 case "construction_draft":
                     var requirementIds = context["step"]!["requirementIds"]!.AsArray().Select(id => id!.ToString()).ToList();
@@ -221,7 +252,7 @@ internal static class CompactConstructionSmoke
                     break;
                 case "construction_local_judge":
                 case "construction_intermediate_judge":
-                    if (presentationVersion == 6)
+                    if (presentationVersion >= 6)
                     {
                         if (context["sourceCoverage"] is not JsonObject coverage || coverage["sourceIds"] is not JsonArray sourceIds ||
                             context["requirements"] is not JsonArray originals || originals.Count == 0 ||

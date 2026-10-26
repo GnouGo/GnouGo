@@ -33,6 +33,54 @@ internal static partial class PlanningCompactConstruction
 
     // This prepares only a structural candidate. The caller still runs the ordinary
     // preflight, final output checks when applicable, and mandatory scoped review.
+    internal static PlanningSession? PrepareSelectedClosure(PlanningSession state)
+    {
+        if (!UsesAcceptedProgress(state) || state.Plan is null || state.PendingCall is not null ||
+            state.Construction!.Candidate is not null || state.EditablePaths is not null || state.Diagnostics.Any(item => item.Required)) return null;
+        var construction = state.Construction!;
+        var compact = State(state);
+        if (compact.CurrentStep is not { Kind: "close", DiscoveryComplete: true, CloseScopes: not null } step ||
+            step.BaseHash != PlanningConstruction.Hash(state.Plan) || compact.ReplacementScope is not null ||
+            compact.ResumingStepId is not null || step.ContinuationBinding is not null ||
+            step.Inputs.Count > 0 || step.DependencyTaskIds.Count > 0 || step.ExpectedOutputs.Count > 0 ||
+            step.Prerequisites is { Count: > 0 } || compact.PendingCommitments.Any(item => item.Value.Count > 0)) return null;
+        if (construction.RebuildTasks.Any(task => !new TaskPlanSymbols(state.Plan).Tasks.ContainsKey(task.Id))) return null;
+        ValidateSelectedCloseScopes(state, step);
+        // Selection names desired public outputs, not their value expressions.
+        // Only an already accepted binding can be preserved without a draft.
+        if (step.OutputNames.Any(name => state.Plan.Root.Outputs.All(output => output.Name != name)) ||
+            step.CloseScopes.Contains("/root", StringComparer.Ordinal) &&
+                ((state.Requirements!.Outputs ?? []).Any(output => output.Required && state.Plan.Root.Outputs.All(binding => binding.Name != output.Name)) ||
+                 state.Plan.Choices.Any(choice => choice.Selected is null) || compact.SuspendedSteps?.Any(Active) == true) ||
+            step.CloseScopes.Count == 0 && !step.CloseRequirementIds.Any(id => construction.Requirements.Any(item => item.Id == id && item.Status != "closed")))
+            return null;
+        var probe = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession),
+            PlanningJsonContext.Default.PlanningSession)!;
+        probe.Construction!.CandidateFailureIdentityVersion = 1;
+        probe.Construction.Candidate = PlanningConstruction.Apply(probe, new()
+        {
+            Scope = step.Scope, RequirementIds = step.RequirementIds.ToList(), CloseScopes = step.CloseScopes.ToList(),
+            Complete = step.CloseScopes.Contains("/root", StringComparer.Ordinal)
+        });
+        return probe;
+    }
+
+    internal static void ValidateSelectedCloseScopes(PlanningSession state, PlanningConstructionStep step)
+    {
+        if (!UsesAcceptedProgress(state)) return;
+        if (step.Kind != "close")
+        {
+            if (step.CloseScopes is not null)
+                PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/step/closeScopes", "Only an explicit close selection chooses a closure target.");
+            return;
+        }
+        if (step.CloseScopes is null || step.CloseScopes.Count > 1 ||
+            !state.Construction!.OpenScopes.Contains(step.Scope, StringComparer.Ordinal) ||
+            step.CloseScopes.Any(path => path != step.Scope) ||
+            step.CloseScopes.Count == 1 && !ClosurePresentation(state, step).CloseScope)
+            PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/step/closeScopes", "Choose requirement-only closure or the selected scope when its existing closure conditions permit it.");
+    }
+
     internal static PlanningSession? PrepareReviewedClosure(PlanningSession state)
     {
         var construction = state.Construction!;
@@ -62,7 +110,8 @@ internal static partial class PlanningCompactConstruction
         {
             Id = "step_" + (++next.NextStep), BaseHash = PlanningConstruction.Hash(state.Plan), Scope = boundary, Kind = "close",
             Objective = "Close this accepted boundary after its reviewed obligations; preserve all accepted work and exports.",
-            RequirementIds = requirements.ToList(), DiscoveryComplete = true
+            RequirementIds = requirements.ToList(), DiscoveryComplete = true,
+            CloseScopes = UsesAcceptedProgress(state) ? [boundary] : null
         };
         probe.Construction.CandidateFailureIdentityVersion = 1;
         probe.Construction.Candidate = PlanningConstruction.Apply(probe, new()

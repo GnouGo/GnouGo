@@ -96,6 +96,8 @@ public sealed class PlanningConstructionExtension
     public List<string> CloseScopes { get; set; } = [];
     public List<string> RequirementIds { get; set; } = [];
     public bool Complete { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningConstructionContinuationBinding? ContinuationBinding { get; set; }
 }
 
 public sealed class PlanningConstructionCheckpoint

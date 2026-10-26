@@ -1,6 +1,6 @@
 # Incremental TaskPlan construction
 
-Fresh construction-version-2 sessions capture presentation revision 6 and extend one semantic TaskPlan from available producers
+Fresh construction-version-2 sessions capture presentation revision 7 and extend one semantic TaskPlan from available producers
 toward consumers. They index original intent once, select one immediate business
 substep, discover its capabilities and generate only its fragment. Each bounded
 draft passes deterministic semantic validation and a local advisory review before
@@ -11,7 +11,7 @@ selection. There is no new executable representation or alternate engine.
 flowchart LR
   Intent[Indexed original intent] --> Select[Select immediate business substep]
   Select --> Discover[Substep capability discovery and exact contract views]
-  Select -->|Known local contract| Draft
+  Select -->|Known local or inspected operation contract| Draft
   Discover --> Draft[Bounded semantic extension]
   Draft --> Validate[Compiler semantic preflight]
   Validate --> Review[Local advisory Judge]
@@ -20,6 +20,7 @@ flowchart LR
   Repair --> Validate
   Review --> Checkpoint[Encrypted checkpoint]
   Validate -->|Junction trigger: combined local and intermediate coverage| Review
+  Checkpoint -->|Exact reviewed prerequisite binding| Draft
   Checkpoint --> Select
   Checkpoint --> Final[Complete deterministic validation]
   Final --> Graph[PlanningGraph]
@@ -28,6 +29,38 @@ flowchart LR
 ```
 
 During discovery, selected producer outputs are provisional navigation bindings. Their compiler-resolved nullable interfaces, exact accepted arguments, full original operation and top-level port descriptions, and bound-input schema constraints remain visible. Nested schema annotations and constraints remain exact through retrieval and the full draft/review closures. Automatic selected-output schema closures may be deferred through the exact existing schema/page links; explicitly retrieved originals remain intact. Draft and scoped review still include the complete selected original closures for actual consumers. Discovery grants no task, permission, or acceptance authority.
+
+## Accepted work and mechanical continuation (presentation revision 7)
+
+The decision view joins original obligations to their accepted contributions, available
+typed producers, suspended consumers and legal closures. It is derived from existing
+state, not another persisted plan. Contributions and type compatibility do not prove
+business fulfillment. A proven defect in accepted work still needs authorized scoped
+revision; operation names establish neither redundancy nor permission to duplicate effects.
+
+A prerequisite draft can propose `continuationBinding`: the current suspended consumer
+and its exact semantic `TaskValue`. The host validates the producing fragment, scope,
+nullable interface and original contracts; the ordinary scoped Judge reviews its meaning.
+The association participates in review and rejection identity, then is retained in the
+accepted checkpoint's step. Only a current, uniquely reviewed association resumes the
+consumer mechanically while that checkpoint's accepted plan remains current. Intervening
+accepted changes return to explicit semantic selection, since producer bytes alone do
+not establish unchanged upstream meaning. Explicit selection may also bind an older accepted producer;
+its current content must match its owning checkpoint. Revisions and rollback invalidate
+affected bindings, and an interrupted resumption never selects or dispatches twice.
+
+Selection may bind a bounded offered page of exact inspected operations. It shares
+discovery's contract resolution and complete-draft admission; unknown capabilities keep
+deferred discovery. Original-description retrieval follows exact continuation links
+within the existing eight-address batch. Only complete admitted pages are retained;
+remaining originals keep exact links and incomplete evidence cannot establish absence.
+
+An explicit close selection records either requirement-only closure (`closeScopes:[]`)
+or the current scope. Where no new tasks, exports or bindings are needed, the host
+prepares the unchanged-plan candidate without a generation call. All normal validation,
+source-window coverage and mandatory reviews still apply. Closure before selection
+retains its stronger existing reviewed-completion conditions. No new review cache,
+reassessment allowance, execution authority or compiler path is introduced.
 
 ## Exact decision context and source windows (presentation revision 6)
 
@@ -809,12 +842,12 @@ unrestricted-string versus exhaustive-enum semantics after schema annotations
 are compacted. File-content obligations do not imply public outputs; an explicit
 public file-path declaration still requires a typed interface.
 
-Fresh creation captures presentation revision 6 in the existing setting. It
+Fresh creation captures presentation revision 7 in the existing setting. It
 inherits compiler-grounded review context and explicit inconclusive reviews,
 using existing candidate review records for grounded findings and repair witnesses.
 Nullable implementation choices, prerequisite continuations and extraction
 dispositions remain non-executable metadata; construction version 2
-and storage format 10 are unchanged. Historical revisions 2 through 5 retain their
+and storage format 10 are unchanged. Historical revisions 2 through 6 retain their
 captured future-request behavior as well as already issued requests. Historical sessions retain issued
 schemas, compiler profiles, identities, approvals, receipts and cumulative usage.
 Their required compatibility paths cannot be selected by new sessions. Legacy

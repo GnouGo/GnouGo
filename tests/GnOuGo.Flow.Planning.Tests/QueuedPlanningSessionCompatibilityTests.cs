@@ -41,8 +41,8 @@ public sealed class QueuedPlanningSessionCompatibilityTests
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
         Assert.True(state.Construction!.Complete);
         Assert.Equal(2, state.Construction.Version);
-        Assert.Equal(6, state.Construction.Compact!.PresentationVersion);
-        Assert.Equal("6", state.Request.Options["construction_presentation_version"]!.ToString());
+        Assert.Equal(7, state.Construction.Compact!.PresentationVersion);
+        Assert.Equal("7", state.Request.Options["construction_presentation_version"]!.ToString());
         Assert.Single(state.Construction.Checkpoints);
         Assert.Equal("1", state.Request.Options["planning_diagnostics_version"]!.ToString());
         Assert.Equal("2", state.Request.Options["planning_input_review_version"]!.ToString());
@@ -66,8 +66,8 @@ public sealed class QueuedPlanningSessionCompatibilityTests
         state = await PlannerFixture.RunAsync(IncrementalRuntime(), state);
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
         Assert.True(state.Construction!.Complete);
-        Assert.Equal(6, state.Construction.Compact!.PresentationVersion);
-        Assert.Equal("6", state.Request.Options["construction_presentation_version"]!.ToString());
+        Assert.Equal(7, state.Construction.Compact!.PresentationVersion);
+        Assert.Equal("7", state.Request.Options["construction_presentation_version"]!.ToString());
         Assert.Equal("compact-bindings-v10", state.Request.Options["compilation_profile"]!.ToString());
         Assert.Equal("1", state.Request.Options["planning_input_review_version"]!.ToString());
         Assert.Equal("1", state.Request.Options["business_judge_review_version"]!.ToString());
@@ -134,7 +134,8 @@ public sealed class QueuedPlanningSessionCompatibilityTests
                 response = new() { ["baseHash"] = request.StructuredOutputSchema!["properties"]!["baseHash"]!["enum"]![0]!.DeepClone(), ["step"] = new JsonObject
                     { ["scope"] = "/root", ["kind"] = "value", ["objective"] = "Return the greeting.",
                         ["requirementIds"] = new JsonArray("req_0"), ["inputs"] = new JsonArray(), ["dependencyTaskIds"] = new JsonArray(),
-                        ["expectedOutputs"] = new JsonArray("The greeting."), ["closeRequirementIds"] = new JsonArray("req_0"), ["outputNames"] = new JsonArray("message") } };
+                        ["expectedOutputs"] = new JsonArray("The greeting."), ["closeRequirementIds"] = new JsonArray("req_0"), ["outputNames"] = new JsonArray("message"),
+                        ["operationIds"] = new JsonArray(), ["closeScopes"] = null } };
             else if (purpose == PlanningConstruction.DraftPurpose)
                 response = new() { ["baseHash"] = context["baseHash"]!.DeepClone(), ["extension"] = JsonSerializer.SerializeToNode(new PlanningConstructionExtension
                     { Tasks = runtime.Proposal.Plan!.Root.Tasks, Outputs = runtime.Proposal.Plan.Root.Outputs,

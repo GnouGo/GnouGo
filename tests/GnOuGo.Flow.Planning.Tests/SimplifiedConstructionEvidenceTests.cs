@@ -332,6 +332,167 @@ public sealed class SimplifiedConstructionEvidenceTests
         Assert.Equal(before, Snapshot(state));
     }
 
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(7)]
+    public void OriginalDescriptionContinuationsAreAutomaticOnlyForFreshAcceptedProgress(int presentation)
+    {
+        var state = DescriptionState(presentation);
+        var original = JsonSerializer.Serialize(state.Discovery.Resolved[0], PlanningJsonContext.Default.PlanningCapability);
+        var before = PlanningConstruction.Hash(state.Plan);
+        var schema = PlanningCompactConstruction.DiscoverySchema(state);
+        var readKey = PlanningCompactConstruction.DescriptionReadKey(state, schema,
+            new JsonObject { ["evidenceRequests"] = new JsonArray("description:read@v1:0") });
+        PlanningConstruction.LoadEvidence(state, ["description:read@v1:0"], readKey, followup: Followup,
+            purpose: PlanningConstruction.DraftPurpose, issuedDiscoverySchema: schema);
+        var pages = state.Construction!.Evidence!;
+        Assert.Equal(presentation == 7 ? 3 : 1, pages.Count);
+        if (presentation == 7)
+        {
+            Assert.Equal(state.Discovery.Resolved[0].Description, string.Concat(pages.Select(page => page.Value!["text"]!.ToString())));
+            Assert.Null(pages.Last().Value!["next"]);
+            foreach (var (address, value) in pages)
+            {
+                Assert.True(JsonNode.DeepEquals(PlanningCompactConstruction.LoadContractEvidence(state, address), value));
+                Assert.Contains(PlanningConstruction.EvidenceBatchFingerprint(state, [address]), state.Construction.EvidenceRequests);
+                Assert.Contains(state.Construction.EvidenceRequests, key => key.StartsWith("description-read:" +
+                    PlanningConstruction.EvidenceBatchFingerprint(state, [address]) + ":", StringComparison.Ordinal));
+            }
+            var restored = PlannerFixture.Clone(state);
+            var snapshot = Snapshot(restored);
+            var repeated = Assert.Throws<PlanningResponseException>(() => PlanningConstruction.LoadEvidence(restored,
+                [pages.Last().Key], followup: Followup, purpose: PlanningConstruction.DraftPurpose));
+            Assert.Contains(repeated.Diagnostics, diagnostic => diagnostic.Code == "REPLAN_NO_PROGRESS");
+            Assert.Equal(snapshot, Snapshot(restored));
+        }
+        Assert.Equal(original, JsonSerializer.Serialize(state.Discovery.Resolved[0], PlanningJsonContext.Default.PlanningCapability));
+        Assert.Equal(before, PlanningConstruction.Hash(state.Plan));
+        Assert.Equal(0, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+    }
+
+    [Fact]
+    public void OriginalProviderPagesShareEightReadBoundWithExplicitEvidenceAndKeepExactRemainder()
+    {
+        var state = DescriptionState(7);
+        var prose = string.Concat(Enumerable.Repeat("Exact Ω😀 original constraint. ", 1000));
+        state.Discovery.Sources.Add(new("provider/original", prose));
+        var address = "source-description:" + Uri.EscapeDataString("provider/original") + "@" + PlanningGraphCompiler.Fingerprint(prose) + ":0";
+        PlanningConstruction.LoadEvidence(state, [address, Address("first")], followup: Followup,
+            purpose: PlanningConstruction.DraftPurpose);
+        var evidence = state.Construction!.Evidence!;
+        var pages = evidence.Where(page => page.Key.StartsWith("source-description:", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(7, pages.Length);
+        Assert.Equal(8, evidence.Count);
+        var text = string.Concat(pages.Select(page => page.Value!["text"]!.ToString()));
+        Assert.StartsWith(text, prose, StringComparison.Ordinal);
+        Assert.Equal(text.Length, pages.Last().Value!["offset"]!.GetValue<int>() + pages.Last().Value!["text"]!.ToString().Length);
+        var next = pages.Last().Value!["next"]!.ToString();
+        Assert.DoesNotContain(next, evidence.Select(page => page.Key));
+        Assert.Equal(text.Length, PlanningCompactConstruction.LoadContractEvidence(state, next)!["offset"]!.GetValue<int>());
+        Assert.DoesNotContain(evidence, page => page.Key.StartsWith("description:", StringComparison.Ordinal));
+        Assert.Equal(17, evidence[Address("first")]!["schema"]!["maxLength"]!.GetValue<int>());
+        Assert.Equal(prose, state.Discovery.Sources.Single().Description);
+    }
+
+    [Theory]
+    [InlineData("next")]
+    [InlineData("id")]
+    [InlineData("version")]
+    [InlineData("descriptionHash")]
+    [InlineData("text")]
+    public void StaleOrCyclicRetainedDescriptionChainRejectsTheWholeTransaction(string field)
+    {
+        var state = DescriptionState(7);
+        const string first = "description:read@v1:0";
+        var second = PlanningCompactConstruction.LoadContractEvidence(state, first)!["next"]!.ToString();
+        var retained = PlanningCompactConstruction.LoadContractEvidence(state, second)!;
+        retained[field] = field == "next" ? first : "stale original";
+        state.Construction!.Evidence = new JsonObject { [second] = retained };
+        var before = Snapshot(state);
+        var failure = Assert.Throws<PlanningResponseException>(() => PlanningConstruction.LoadEvidence(state, [first],
+            followup: Followup, purpose: PlanningConstruction.DraftPurpose));
+        Assert.Contains(failure.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_EVIDENCE_INVALID");
+        Assert.Equal(before, Snapshot(state));
+        Assert.Empty(state.Construction.EvidenceRequests);
+    }
+
+    [Fact]
+    public void AutomaticDescriptionPrefixRetainsOnlyPagesWhoseCompleteFollowupFits()
+    {
+        var state = DescriptionState(7);
+        const string first = "description:read@v1:0";
+        var preview = PlannerFixture.Clone(state);
+        preview.Construction!.Evidence = new JsonObject();
+        var address = first;
+        for (var i = 0; i < 2; i++)
+        {
+            var page = PlanningCompactConstruction.LoadContractEvidence(preview, address)!;
+            preview.Construction.Evidence[address] = page;
+            address = page["next"]!.ToString();
+        }
+        var ceiling = checked((int)PlanningRequestMeasurements.Measure(Followup(preview), PlanningConstruction.DraftPurpose, 16000).EstimatedInputTokens + 4);
+        state.Request.Generation = new("medium", ceiling, 8192);
+        PlanningConstruction.LoadEvidence(state, [first], followup: Followup, purpose: PlanningConstruction.DraftPurpose);
+        Assert.Equal(2, state.Construction!.Evidence!.Count);
+        Assert.Equal(address, state.Construction.Evidence.Last().Value!["next"]!.ToString());
+        Assert.DoesNotContain(PlanningConstruction.EvidenceBatchFingerprint(state, [address]), state.Construction.EvidenceRequests);
+        Assert.Contains(state.RequestMeasurements!, measurement => measurement.Admission == "rejected_before_dispatch" &&
+            measurement.EstimatedInputTokens > measurement.InputLimit);
+        Assert.InRange(PlanningRequestMeasurements.Measure(Followup(state), PlanningConstruction.DraftPurpose, ceiling).EstimatedInputTokens, 1, ceiling);
+        Assert.Equal(0, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+        var before = Snapshot(state);
+        var explicitFailure = Assert.Throws<PlanningResponseException>(() => PlanningConstruction.LoadEvidence(state,
+            [address], followup: Followup, purpose: PlanningConstruction.DraftPurpose));
+        Assert.Contains(explicitFailure.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_EVIDENCE_LIMIT");
+        Assert.Equal(before, Snapshot(state));
+    }
+
+    [Fact]
+    public void InterruptedAutomaticDescriptionAdmissionRetainsNoPartialProgress()
+    {
+        var state = DescriptionState(7);
+        var before = Snapshot(state);
+        Assert.Throws<OperationCanceledException>(() => PlanningConstruction.LoadEvidence(state, ["description:read@v1:0"],
+            followup: probe => probe.Construction!.Evidence!.Count == 2 ? throw new OperationCanceledException() : Followup(probe),
+            purpose: PlanningConstruction.DraftPurpose));
+        Assert.Equal(before, Snapshot(state));
+        state = PlannerFixture.Clone(state);
+        PlanningConstruction.LoadEvidence(state, ["description:read@v1:0"], followup: Followup,
+            purpose: PlanningConstruction.DraftPurpose);
+        Assert.Equal(3, state.Construction!.Evidence!.Count);
+        Assert.Equal(0, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+    }
+
+    [Fact]
+    public void InvalidExplicitBatchDoesNotStartAutomaticDescriptionReads()
+    {
+        var state = DescriptionState(7);
+        var before = Snapshot(state);
+        var failure = Assert.Throws<PlanningResponseException>(() => PlanningConstruction.LoadEvidence(state,
+            ["description:read@v1:0", "schema:read@stale:/input/properties/first"],
+            followup: _ => throw new InvalidOperationException("The complete explicit batch must resolve before any follow-up."),
+            purpose: PlanningConstruction.DraftPurpose));
+        Assert.Contains(failure.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_CONTRACT_UNAVAILABLE");
+        Assert.Equal(before, Snapshot(state));
+        Assert.Null(state.RequestMeasurements);
+    }
+
+    private static PlanningSession DescriptionState(int presentation)
+    {
+        var state = State();
+        state.Construction!.Compact!.PresentationVersion = presentation;
+        state.Request.Options["construction_presentation_version"] = presentation;
+        state.Discovery.Resolved[0].Description = new string('A', 5000) + " Preserve the exact original final constraint.";
+        return state;
+    }
+
     [Fact]
     public void SingletonFingerprintsSurviveRecoveryAndPreventRegrouping()
     {

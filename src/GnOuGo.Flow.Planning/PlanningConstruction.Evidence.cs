@@ -59,6 +59,8 @@ internal static partial class PlanningConstruction
                 if (purpose is null) throw new ArgumentException("Evidence admission requires the follow-up purpose.", nameof(purpose));
                 AdmitEvidenceFollowup(state, followup(probe), purpose);
             }
+            if (PlanningCompactConstruction.UsesAcceptedProgress(state) && followup is not null)
+                probe = FollowDescriptionContinuations(state, probe, requests, followup, purpose, issuedDiscoverySchema);
             var target = state.Construction!; var accepted = probe.Construction!;
             target.Compact = accepted.Compact;
             target.Evidence = accepted.Evidence;
@@ -81,6 +83,52 @@ internal static partial class PlanningConstruction
             construction.TaskCursor = taskCursor; construction.ScopeCursor = scopeCursor; construction.RequirementCursor = requirementCursor;
             throw;
         }
+    }
+
+    private static PlanningSession FollowDescriptionContinuations(PlanningSession state, PlanningSession probe,
+        List<string> requests, Func<PlanningSession, LLMRequest> followup, string? purpose, JsonNode? issuedSchema)
+    {
+        var supplied = requests.ToHashSet(StringComparer.Ordinal);
+        var pending = new Queue<string>(requests.Where(PlanningCompactConstruction.IsOriginalDescriptionAddress));
+        while (pending.TryDequeue(out var address))
+        {
+            // Only host-issued next links from explicitly requested chains are
+            // traversed. Exact retained originals also detect stale/cyclic pages.
+            var next = PlanningCompactConstruction.OriginalDescriptionContinuation(probe, address);
+            if (next is null || supplied.Contains(next) || supplied.Count == 8) continue;
+            var key = EvidenceBatchFingerprint(probe, [next]);
+            if (probe.Construction!.EvidenceRequests.Contains(key, StringComparer.Ordinal))
+            {
+                // Already supplied pages add no progress or reread authority.
+                if (probe.Construction.Evidence?.ContainsKey(next) == true)
+                    _ = PlanningCompactConstruction.OriginalDescriptionContinuation(probe, next);
+                continue;
+            }
+            var expanded = JsonSerializer.Deserialize(JsonSerializer.Serialize(probe, PlanningJsonContext.Default.PlanningSession),
+                PlanningJsonContext.Default.PlanningSession)!;
+            var readKey = issuedSchema is not null && next.StartsWith("description:", StringComparison.Ordinal)
+                ? PlanningCompactConstruction.DescriptionReadKey(expanded, issuedSchema,
+                    new JsonObject { ["evidenceRequests"] = new JsonArray(next) }) : null;
+            LoadEvidenceCore(expanded, [next], readKey, issuedSchema);
+            _ = PlanningCompactConstruction.OriginalDescriptionContinuation(expanded, next);
+            try { AdmitEvidenceFollowup(state, followup(expanded), purpose!); }
+            catch (PlanningResponseException error) when (error.Diagnostics.Count > 0 && error.Diagnostics.All(diagnostic =>
+                diagnostic.Code is "CONSTRUCTION_EVIDENCE_LIMIT" or "CONSTRUCTION_REVIEW_ALLOWANCE"))
+            {
+                // Retain the last admitted whole-page prefix and its exact
+                // remaining link. The rejected estimate is never a dispatch.
+                continue;
+            }
+            probe = expanded;
+            supplied.Add(next);
+            pending.Enqueue(next);
+        }
+        if (supplied.Count > requests.Count)
+        {
+            var batch = EvidenceBatchFingerprint(probe, supplied);
+            if (!probe.Construction!.EvidenceRequests.Contains(batch, StringComparer.Ordinal)) probe.Construction.EvidenceRequests.Add(batch);
+        }
+        return probe;
     }
 
     private static void ClearResolvedEvidenceDiagnostics(PlanningSession state) => state.Diagnostics.RemoveAll(d =>

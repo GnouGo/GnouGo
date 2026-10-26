@@ -48,7 +48,7 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
             _effectiveTransportPolicy?["version"]?.GetValue<int>() == 2 && !IsRuntimeSingleAttempt(_effectiveTransportPolicy))
         {
             var planning = await campaign.LoadAsync("planning-evaluation-session-policy", requestId.Split(':')[0], ct);
-            if (planning?["construction_presentation_version"]?.GetValue<int>() == 6 &&
+            if (planning?["construction_presentation_version"]?.GetValue<int>() is 6 or 7 &&
                 planning["max_physical_attempts"]?.GetValue<int>() == capturedLimit &&
                 planning[PlanningTransportPolicies.OptionName] is JsonObject transport &&
                 JsonNode.DeepEquals(transport, _effectiveTransportPolicy["planning_transport_policy"]))

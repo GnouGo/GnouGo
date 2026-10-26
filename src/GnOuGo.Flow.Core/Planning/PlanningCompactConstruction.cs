@@ -46,7 +46,7 @@ public sealed class PlanningConstructionTypedPrerequisite
     public List<string> EvidenceAddresses { get; set; } = [];
 }
 
-/// <summary>A retained consumer in the bounded prerequisite chain. Only explicit selection resumes it.</summary>
+/// <summary>A retained consumer in the bounded prerequisite chain, resumed through an exact selected or reviewed binding.</summary>
 public sealed class PlanningConstructionSuspendedStep
 {
     public string Id { get; set; } = "";
@@ -123,12 +123,23 @@ public sealed class PlanningConstructionStep
     public string? GroupId { get; set; }
     public List<string> SchemaPointers { get; set; } = [];
     public List<string> CloseRequirementIds { get; set; } = [];
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? CloseScopes { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningConstructionContinuationBinding? ContinuationBinding { get; set; }
     public List<string> OutputNames { get; set; } = [];
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public List<PlanningConstructionPrerequisite>? Prerequisites { get; set; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public PlanningConstructionDiscoveryContinuation? PendingDiscovery { get; set; }
     public bool DiscoveryComplete { get; set; }
+}
+
+/// <summary>A proposed semantic association reviewed with a producer fragment; not an executable reference or scheduling edge.</summary>
+public sealed class PlanningConstructionContinuationBinding
+{
+    public string ContinuationId { get; set; } = "";
+    public TaskValue Binding { get; set; } = new();
 }
 
 /// <summary>Continuation of one received metadata action; never another model request or executable task.</summary>

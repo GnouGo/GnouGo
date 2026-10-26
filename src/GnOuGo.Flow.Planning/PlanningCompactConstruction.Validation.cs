@@ -8,7 +8,7 @@ internal static partial class PlanningCompactConstruction
 {
     internal static bool CanReselectInitialDraft(PlanningSession state) =>
         state.Construction is { Version: 2, Candidate: null } construction &&
-        construction.Compact is { PresentationVersion: 2 or 3 or 4 or 5 or 6, CurrentStep.DiscoveryComplete: true } &&
+        construction.Compact is { PresentationVersion: 2 or 3 or 4 or 5 or 6 or 7, CurrentStep.DiscoveryComplete: true } &&
         state.EditablePaths is null && state.Request.Options["automatic_correction"]?.ToString() != "false" &&
         construction.DraftCorrections < construction.Limits.MaxCorrectionsPerDraft &&
         PlanningModelCalls.RemainingRepairs(state) > 0;
@@ -62,6 +62,10 @@ internal static partial class PlanningCompactConstruction
             candidate.Extension.RequirementIds.Any(id => !step.RequirementIds.Contains(id, StringComparer.Ordinal)) ||
             step.CloseRequirementIds.Any(id => !candidate.Extension.RequirementIds.Contains(id, StringComparer.Ordinal)))
             PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/extension", "Keep the selected scope and requirements; a closing requirement must be associated with this fragment.");
+        if (UsesAcceptedProgress(state) && step.Kind == "close" && step.CloseScopes is { } selectedClosure &&
+            (!candidate.Extension.CloseScopes.SequenceEqual(selectedClosure) ||
+             candidate.Extension.Complete != selectedClosure.Contains("/root", StringComparer.Ordinal)))
+            PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/extension/closeScopes", "Preserve the explicitly selected requirement-only or scope closure and its completion claim.");
         var symbols = new TaskPlanSymbols(candidate.Plan);
         if (candidate.TaskIds.Any(id => symbols.Tasks[id].Task.Kind != step.Kind ||
             symbols.Tasks[id].Task.Operation is { } operation && !step.OperationIds.Contains(operation, StringComparer.Ordinal) ||
@@ -88,6 +92,7 @@ internal static partial class PlanningCompactConstruction
                 CheckImport(candidate.Extension.Choices[i].Alternatives[j].Value, "/extension/choices/" + i + "/alternatives/" + j + "/value", step.Scope);
         if (step.CloseRequirementIds.Any(id => state.Construction!.Requirements.Single(r => r.Id == id).Checkpoints.Count > 0))
             candidate.NeedsIntermediateReview = true;
+        ValidateContinuationBinding(state, candidate);
 
         void CheckImport(TaskValue value, string location, string scope)
         {

@@ -1,5 +1,22 @@
 # Planning evaluation corpus
 
+## Accepted-state progression comparison
+
+Presentation revision 7 is a source-only comparison against `e0c057b15`: retain the
+same scenario-specific model, reasoning, input/output limits, MCP binaries, inputs
+and independent oracles in both frozen arms. Run one diagnostic per arm in alternating
+control/candidate order for Amazon, Review PR and Collections. Separate mechanical
+navigation calls, explicit semantic choices, automatic corrections and operator
+revision interventions. Unknown physical-attempt reservations remain accounted for;
+no freeze or source change authorizes replay or continuation of abandoned runs.
+
+Qualifying convergence requires two fresh executions per scenario on one final commit,
+without operator planning intervention; both Collections runtime variants must pass
+each time. Only then run the 18 agreed alternating comparisons against `56942f5`, after
+verifying baseline accounting and input parity. Report provider incidents separately
+from planner defects, and use independent business obligations rather than checkpoints
+as the denominator. Technical tests and source-only measurements establish no runtime success.
+
 ## First-proposal measurements
 
 The first non-null submitted `plan` response and its diagnostics are captured separately

@@ -4,7 +4,7 @@ using GnOuGo.Flow.Core.Planning;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
-public sealed class CompactAcceptedClosureTests
+public sealed partial class CompactAcceptedClosureTests
 {
     [Theory]
     [InlineData(2)]

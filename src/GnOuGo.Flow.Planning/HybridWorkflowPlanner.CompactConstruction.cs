@@ -60,6 +60,11 @@ public sealed partial class HybridWorkflowPlanner
             if (state.PendingCall is null && PlanningCompactConstruction.UsesConvergentConstruction(state))
             {
                 PlanningCompactConstruction.ReconcileContinuations(state);
+                if (PlanningCompactConstruction.TryResumeReviewedConsumer(state))
+                {
+                    await runtime.CheckpointAsync(state, ct);
+                    return;
+                }
                 var closure = PlanningCompactConstruction.PrepareReviewedClosure(state);
                 if (closure is not null)
                 {
@@ -85,6 +90,15 @@ public sealed partial class HybridWorkflowPlanner
         if (!compact.CurrentStep.DiscoveryComplete) { await DiscoverConstructionStepAsync(state, runtime, ct); return; }
         var repair = state.PendingCall is { } pending ? pending.Purpose == "replan" :
             state.Diagnostics.Any(d => d.Required) && !PlanningCompactConstruction.EvidenceAdmissionOnly(state);
+        if (!repair && PlanningCompactConstruction.PrepareSelectedClosure(state) is { } selectedClosure)
+        {
+            await ValidateConstructionCandidateAsync(selectedClosure, runtime, ct);
+            state.Construction = selectedClosure.Construction;
+            state.Phase = selectedClosure.Phase;
+            state.Diagnostics = selectedClosure.Diagnostics;
+            await runtime.CheckpointAsync(state, ct);
+            return;
+        }
         if (repair && state.PendingCall is null && (construction.DraftCorrections >= construction.Limits.MaxCorrectionsPerDraft || PlanningModelCalls.RemainingRepairs(state) == 0))
         { Stop(state); return; }
         await GenerateConstructionAsync(state, runtime, repair, ct);
@@ -260,8 +274,9 @@ public sealed partial class HybridWorkflowPlanner
     private static async Task SelectConstructionStepAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
     {
         using var correction = new PlanningCorrectionAttempt(state, state.Diagnostics.Any(d => d.Required));
+        var exactRequest = state.PendingCall?.Request;
         var response = await CompactCallAsync(state, runtime, PlanningCompactConstruction.SelectPurpose, () =>
-            PlanningCompactConstruction.Request(state, PlanningCompactConstruction.SelectGuidance(state), PlanningCompactConstruction.SelectionContext(state),
+            exactRequest = PlanningCompactConstruction.Request(state, PlanningCompactConstruction.SelectGuidance(state), PlanningCompactConstruction.SelectionContext(state),
                 PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose), ct, correction);
         if (response["baseHash"]!.ToString() != PlanningConstruction.Hash(state.Plan))
             throw new PlanningConflictException("The step selection identifies a stale accepted checkpoint.");
@@ -280,11 +295,24 @@ public sealed partial class HybridWorkflowPlanner
         var compact = PlanningCompactConstruction.State(state);
         var step = response["step"]!.Deserialize(PlanningJsonContext.Default.PlanningConstructionStep)!;
         PlanningCompactConstruction.ValidateSelection(state, step);
-        step.Id = "step_" + (++compact.NextStep);
-        step.DiscoveryComplete = step.Kind is not null && step.Kind != "operation";
+        var known = PlanningCompactConstruction.UsesAcceptedProgress(state) && step.Kind == "operation";
+        if (PlanningCompactConstruction.UsesAcceptedProgress(state))
+        {
+            PlanningCompactConstruction.ValidateSelectedCloseScopes(state, step);
+            if (step.ContinuationBinding is not null || !known && step.OperationIds.Count != 0)
+                PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/step", "Selection binds only offered operations; reviewed continuation bindings belong to the producer draft.");
+        }
+        step.Id = "step_" + (compact.NextStep + 1);
+        if (known)
+        {
+            PlanningCompactConstruction.ValidateKnownSelection(state, step.OperationIds, exactRequest!);
+            await BindConstructionStepAsync(state, runtime, step, "operation", step.OperationIds.ToArray(), null, step.CloseScopes, knownOnly: true, admit: true, ct);
+        }
+        else step.DiscoveryComplete = step.Kind is not null && step.Kind != "operation";
+        compact.NextStep++;
         compact.CurrentStep = step;
         if (step.Kind is null) await ReserveCompactContinuationAsync(state, runtime, ct);
-        compact.PendingCommitments.Clear();
+        if (!known) compact.PendingCommitments.Clear();
         PlanningCompactConstruction.RetainPrerequisiteEvidence(state);
         state.Diagnostics.Clear();
     }
@@ -335,8 +363,19 @@ public sealed partial class HybridWorkflowPlanner
         var operations = (binding?["operationIds"] ?? response["operationIds"])!.AsArray().Select(o => o!.ToString()).ToArray();
         var kind = binding?["kind"]?.ToString() ?? "operation";
         var groupId = binding?["groupId"]?.ToString();
+        var closeScopes = binding?["closeScopes"]?.AsArray().Select(value => value!.ToString()).ToList();
+        await BindConstructionStepAsync(state, runtime, step, kind, operations, groupId, closeScopes, knownOnly: false, admit: binding is not null, ct);
+        PlanningCompactConstruction.RetainPrerequisiteEvidence(state);
+        state.Diagnostics.Clear();
+    }
+
+    private static async Task BindConstructionStepAsync(PlanningSession state, IPlanningRuntime runtime, PlanningConstructionStep step,
+        string kind, string[] operations, string? groupId, List<string>? closeScopes, bool knownOnly, bool admit, CancellationToken ct)
+    {
         if (kind == "operation" ? operations.Length is < 1 or > 2 || groupId is not null : operations.Length != 0)
             PlanningConstruction.Fail("DISCOVERY_SELECTION_INVALID", "/binding", "Only an operation binding selects exact operations; local work must not bind operation identities.");
+        if (knownOnly && operations.Any(operation => !PlanningCompactConstruction.SelectionOperationIds(state).Contains(operation, StringComparer.Ordinal)))
+            PlanningConstruction.Fail("DISCOVERY_SELECTION_INVALID", "/operationIds", "Select only an unambiguous, validated, policy-allowed cached contract from the current offered directory.");
         foreach (var operation in operations)
         {
             var retained = state.Catalog!.Capabilities.Concat(state.Discovery.Resolved)
@@ -352,13 +391,16 @@ public sealed partial class HybridWorkflowPlanner
             if (discovered.Length != 1) PlanningConstruction.Fail("DISCOVERY_SELECTION_INVALID", "/operationIds", "Select an unambiguous discovered operation.");
             await PlanningDiscoveryContext.ResolveAsync(state, runtime, discovered[0], ct);
         }
-        if (binding is not null)
+        if (admit)
         {
             var probe = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
-            var selected = probe.Construction!.Compact!.CurrentStep!;
+            var selected = JsonSerializer.Deserialize(JsonSerializer.Serialize(step, PlanningJsonContext.Default.PlanningConstructionStep), PlanningJsonContext.Default.PlanningConstructionStep)!;
+            probe.Construction!.Compact!.CurrentStep = selected;
             selected.Kind = kind; selected.GroupId = groupId;
+            if (PlanningCompactConstruction.UsesAcceptedProgress(state)) selected.CloseScopes = closeScopes;
             selected.OperationIds = operations.Distinct(StringComparer.Ordinal).ToList(); selected.DiscoveryComplete = true;
             PlanningCompactConstruction.ValidateSelection(probe, selected);
+            PlanningCompactConstruction.ValidateSelectedCloseScopes(probe, selected);
             PlanningCompactConstruction.RetainPrerequisiteEvidence(probe);
             var draft = PlanningConstruction.DraftRequest(probe, repair: false);
             try
@@ -372,15 +414,14 @@ public sealed partial class HybridWorkflowPlanner
                     "The selected operations' mandatory original constraint closure and complete generation grammar exceed the captured input ceiling. No implementation binding was accepted.");
             }
             step.Kind = selected.Kind; step.GroupId = selected.GroupId;
+            step.CloseScopes = selected.CloseScopes;
         }
         step.OperationIds = operations.Distinct(StringComparer.Ordinal).ToList();
         // The independent selection decision precedes the draft being assessed.
         // These bindings stay tentative until that draft and its review are accepted.
-        compact.PendingCommitments = step.RequirementIds.ToDictionary(id => id,
+        PlanningCompactConstruction.State(state).PendingCommitments = step.RequirementIds.ToDictionary(id => id,
             _ => step.OperationIds.Select(operation => new PlanningCommitment(operation)).ToList(), StringComparer.Ordinal);
         step.DiscoveryComplete = true;
-        PlanningCompactConstruction.RetainPrerequisiteEvidence(state);
-        state.Diagnostics.Clear();
     }
 
     private static async Task<bool> CompactOtherActionAsync(PlanningSession state, IPlanningRuntime runtime,

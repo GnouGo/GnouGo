@@ -205,7 +205,11 @@ internal static partial class PlanningCompactConstruction
     {
         value = null;
         if (!address.StartsWith("page:operations:", StringComparison.Ordinal)) return false;
-        if (State(state).CurrentStep is null) return true;
+        if (State(state).CurrentStep is null)
+        {
+            if (UsesAcceptedProgress(state)) value = LoadKnownOperationPage(state, address);
+            return true;
+        }
         var parts = address.Split(':');
         if (parts is ["page", "operations", var originalOffset] &&
             int.TryParse(originalOffset, NumberStyles.None, CultureInfo.InvariantCulture, out var legacyOffset) && legacyOffset >= 0)
@@ -448,6 +452,23 @@ internal static partial class PlanningCompactConstruction
                         ("operationIds", Strings(0, 0)), ("groupId", PlanningSchemas.Type("null")))) }
                 : PlanningSchemas.Object(("kind", PlanningSchemas.Enum(TaskKinds)), ("operationIds", Strings(0, 2)),
                     ("groupId", PlanningSchemas.Nullable(Text(96))));
+            if (UsesAcceptedProgress(state))
+            {
+                var branches = binding["anyOf"]!.AsArray();
+                branches[2]!["properties"]!["kind"] = PlanningSchemas.Enum(TaskKinds.Where(kind => kind is not ("operation" or "call" or "close")).ToArray());
+                foreach (var branch in branches.OfType<JsonObject>())
+                {
+                    branch["properties"]!["closeScopes"] = PlanningSchemas.Type("null");
+                    branch["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("closeScopes"));
+                }
+                if (DiscoveryCloseCanProgress(state))
+                {
+                    var selected = State(state).CurrentStep!;
+                    branches.Add((JsonNode)PlanningSchemas.Object(("kind", PlanningSchemas.Enum("close")), ("operationIds", EmptyArray()),
+                        ("groupId", PlanningSchemas.Type("null")), ("closeScopes", ClosurePresentation(state).CloseScope
+                            ? PlanningSchemas.Array(PlanningSchemas.Enum(selected.Scope), 0, 1) : EmptyArray())));
+                }
+            }
             schema["properties"]!["binding"] = PlanningSchemas.Nullable(binding);
             schema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("binding"));
         }

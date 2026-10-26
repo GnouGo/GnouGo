@@ -34,6 +34,11 @@ internal static partial class PlanningCompactConstruction
             addresses.UnionWith(NavigationEvidence((context["continuation"]?["acceptedCheckpoints"] as JsonArray ?? []).Cast<JsonNode?>()));
             addresses.UnionWith(NavigationEvidence((context["scopes"] as JsonArray ?? []).Select(scope => scope?["acceptedExports"])));
         }
+        if (UsesAcceptedProgress(state))
+        {
+            addresses.UnionWith(NavigationEvidence([context["knownOperations"]]));
+            addresses.UnionWith(NavigationEvidence((context["requirements"] as JsonArray ?? []).Select(row => row?["acceptedProgress"])));
+        }
         ConstrainEvidenceChoices(state, schema, addresses, maximum: 4);
     }
 
@@ -75,6 +80,7 @@ internal static partial class PlanningCompactConstruction
             .Append(context["taskEvidence"]?["scopeOwner"])
             .Concat((state.Construction!.Evidence ?? []).Select(item => item.Value).Where(value => value is JsonObject or JsonArray))));
         if (UsesDecisionView(state)) addresses.UnionWith(NavigationEvidence([context["interfaces"]]));
+        if (UsesAcceptedProgress(state)) addresses.UnionWith(NavigationEvidence((context["requirements"] as JsonArray ?? []).Select(row => row?["acceptedProgress"])));
         ConstrainEvidenceChoices(state, schema, addresses, maximum: HasEvidenceAdmissionLimit(state) ? 1 : 8);
     }
 
@@ -98,6 +104,7 @@ internal static partial class PlanningCompactConstruction
         }
         if (UsesConvergentConstruction(state))
             addresses.UnionWith(NavigationEvidence([context["requirementsDirectory"], context["nextRequirements"]]));
+        if (UsesAcceptedProgress(state)) addresses.UnionWith(NavigationEvidence((context["requirements"] as JsonArray ?? []).Select(row => row?["acceptedProgress"])));
         addresses.UnionWith(NavigationEvidence(new[] { context["descriptors"], context["providerRequests"], context["scopeOwner"] }
             .Concat((context["directoryEvidence"] as JsonObject ?? []).Select(item => item.Value))
             .Concat((context["evidence"] as JsonObject ?? []).Select(item => item.Value))));
@@ -111,7 +118,7 @@ internal static partial class PlanningCompactConstruction
             .Select(item => item.Key).Order(StringComparer.Ordinal).ToArray();
         addresses.RemoveWhere(address => state.Construction!.EvidenceRequests.Contains(
             PlanningConstruction.EvidenceBatchFingerprint(state, [address]), StringComparer.Ordinal));
-        var maximum = State(state).PresentationVersion is 4 or 5 or 6 && state.Diagnostics.Any(diagnostic =>
+        var maximum = State(state).PresentationVersion is 4 or 5 or 6 or 7 && state.Diagnostics.Any(diagnostic =>
             diagnostic.Required && diagnostic.Code == "CONSTRUCTION_EVIDENCE_LIMIT" && diagnostic.Location == "/evidenceRequests") ? 1 : 8;
         var alternatives = new JsonArray();
         if (addresses.Count > 0)

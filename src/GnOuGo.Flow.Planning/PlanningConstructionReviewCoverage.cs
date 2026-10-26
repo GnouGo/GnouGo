@@ -119,6 +119,9 @@ internal static class PlanningConstructionReviewCoverage
 
     private static JsonObject? CurrentManifest(PlanningSession state, PlanningConstructionCandidate candidate)
     {
+        if (PlanningCompactConstruction.UsesAcceptedProgress(state) && !JsonNode.DeepEquals(
+            JsonSerializer.SerializeToNode(candidate.Extension.ContinuationBinding, PlanningJsonContext.Default.PlanningConstructionContinuationBinding),
+            JsonSerializer.SerializeToNode(state.Construction!.Compact!.CurrentStep!.ContinuationBinding, PlanningJsonContext.Default.PlanningConstructionContinuationBinding))) return null;
         var units = Units(state);
         return candidate.Reviews.LastOrDefault(row => row["purpose"]?.ToString() == ManifestPurpose &&
             row["candidateHash"]?.ToString() == candidate.Hash && row["basis"] is JsonObject basis &&

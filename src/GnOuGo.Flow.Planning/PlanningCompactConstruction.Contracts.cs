@@ -575,6 +575,23 @@ internal static partial class PlanningCompactConstruction
         return null;
     }
 
+    internal static bool IsOriginalDescriptionAddress(string address) =>
+        address.StartsWith("description:", StringComparison.Ordinal) || address.StartsWith("source-description:", StringComparison.Ordinal);
+
+    internal static string? OriginalDescriptionContinuation(PlanningSession state, string address)
+    {
+        if (!IsOriginalDescriptionAddress(address)) return null;
+        var evidence = state.Construction!.Evidence;
+        if (evidence is null || evidence[address] is not JsonObject page)
+            throw new PlanningResponseException([new("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "An original-description continuation needs its retained page.")]);
+        var prefix = address[..(address.LastIndexOf(':') + 1)];
+        foreach (var retained in evidence.Where(pair => pair.Key.StartsWith(prefix, StringComparison.Ordinal)))
+            if (!JsonNode.DeepEquals(retained.Value, LoadContractEvidence(state, retained.Key, recordSchemaSelection: false)))
+                PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests",
+                    "The original-description identity, version, hash or continuation no longer matches its retained original.");
+        return page["next"]?.GetValue<string>();
+    }
+
     private static JsonObject OperationDescription(PlanningSession state, string operation, string version, string identity, int offset)
     {
         // Discovery needs the original decision evidence before exact contract

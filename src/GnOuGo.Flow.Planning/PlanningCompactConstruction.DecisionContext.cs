@@ -54,8 +54,10 @@ internal static partial class PlanningCompactConstruction
     internal static JsonArray OriginalRequirementRows(PlanningSession state)
     {
         var rows = RequirementNodes(state, state.Requirements!.Outcomes.Select(requirement => requirement.Id));
+        var accepted = UsesAcceptedProgress(state) && state.Plan is not null ? new TaskPlanSymbols(state.Plan) : null;
         foreach (var row in rows.OfType<JsonObject>())
         {
+            if (accepted is not null) row["acceptedProgress"] = AcceptedRequirementProgress(state, accepted, row["id"]!.ToString());
             var sources = row["sources"]!.AsArray().OfType<JsonObject>().ToArray();
             var originals = sources.Select(source => State(state).Sources.Single(value => value.Id == source["id"]!.ToString())).ToArray();
             // Indexed requirements already contain the exact concatenated clause,
@@ -65,6 +67,62 @@ internal static partial class PlanningCompactConstruction
             for (var index = 0; index < sources.Length; index++) sources[index]["text"] = originals[index].Text;
         }
         return rows;
+    }
+
+    private static JsonObject AcceptedRequirementProgress(PlanningSession state, TaskPlanSymbols accepted, string requirementId)
+    {
+        var construction = state.Construction!;
+        var requirement = construction.Requirements.Single(item => item.Id == requirementId);
+        var checkpoints = construction.Checkpoints.Select((checkpoint, index) => (checkpoint, index)).Where(item =>
+            requirement.Checkpoints.Contains(item.checkpoint.Sequence) && item.checkpoint.RequirementIds.Contains(requirementId, StringComparer.Ordinal)).ToArray();
+        return new()
+        {
+            // Associations describe accepted contributions, never fulfillment or
+            // execution. Current requirement status remains the separate claim.
+            ["basis"] = "accepted_checkpoint_associations_not_fulfillment", ["checkpointCount"] = checkpoints.Length,
+            ["directory"] = checkpoints.Length > 4 ? "page:checkpoints:0" : null,
+            ["items"] = new JsonArray(checkpoints.TakeLast(4).Select(item =>
+            {
+                var checkpoint = item.checkpoint;
+                var tasks = checkpoint.TaskIds.Where(id => !checkpoint.InvalidatedTaskIds.Contains(id, StringComparer.Ordinal) && accepted.Tasks.ContainsKey(id))
+                    .Distinct(StringComparer.Ordinal).ToArray();
+                var scope = accepted.Scopes.SingleOrDefault(scope => scope.Path == checkpoint.Step?.Scope ||
+                    checkpoint.Step is null && scope.Path == checkpoint.Fragment["scope"]?.ToString());
+                var exports = scope is null ? [] : (checkpoint.Fragment["outputs"] as JsonArray ?? []).OfType<JsonObject>()
+                    .Where(output => scope.Source.Outputs.Any(binding => JsonNode.DeepEquals(output,
+                        PlanningConstruction.Node(binding, PlanningJsonContext.Default.TaskOutput)))).ToArray();
+                return (JsonNode)new JsonObject
+                {
+                    ["sequence"] = checkpoint.Sequence, ["evidence"] = "page:checkpoints:" + item.index,
+                    ["scope"] = scope?.Path, ["scopeOpen"] = scope is null ? null : JsonValue.Create(construction.OpenScopes.Contains(scope.Path, StringComparer.Ordinal)),
+                    ["taskCount"] = tasks.Length, ["tasks"] = new JsonArray(tasks.Take(4).Select(id =>
+                    {
+                        var site = accepted.Tasks[id];
+                        var entry = TaskNavigation(state, site.Task, site.Scope.Path);
+                        var open = accepted.Scopes.Count(boundary => boundary.Owner?.Id == id && construction.OpenScopes.Contains(boundary.Path, StringComparer.Ordinal));
+                        // A call's result directory comes from the accepted group,
+                        // never a currently proposed group's tentative exports.
+                        var ports = (site.Task.Kind == "call"
+                            ? state.Plan!.Groups.Where(group => group.Id == site.Task.Group &&
+                                !construction.OpenScopes.Contains("/groups/" + group.Id + "/body", StringComparer.Ordinal))
+                                .SelectMany(group => group.Body.Outputs.Select(output => output.Name))
+                            : PlanningRepairContext.Ports(site.Task, state)).ToArray();
+                        entry["evidence"] = "task:" + id;
+                        entry["openResultScopeCount"] = open;
+                        entry["portCount"] = ports.Length;
+                        entry["ports"] = new JsonArray(ports.Take(8).Select(port => (JsonNode?)JsonValue.Create(port)).ToArray());
+                        entry["nextPorts"] = ports.Length > 8 ? TaskPortsAddress(id, ports, 8) : null;
+                        return (JsonNode)TrimNavigation(entry);
+                    }).ToArray()),
+                    ["outputCount"] = exports.Length,
+                    ["outputs"] = new JsonArray(exports.Take(4).Select(output => (JsonNode)new JsonObject
+                    {
+                        ["name"] = output["name"]!.DeepClone(), ["scope"] = scope!.Path,
+                        ["evidence"] = ScopeInterfaceAddress(scope.Path, false, ScopeInterfaceVersion(state.Plan!, construction.OpenScopes, scope.Path), 0)
+                    }).ToArray())
+                };
+            }).ToArray())
+        };
     }
 
     internal static JsonArray OriginalGlobalRows(PlanningSession state) => Sources(state, State(state).GlobalSourceIds);

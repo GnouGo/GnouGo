@@ -530,7 +530,8 @@ public sealed class CompactSelectionObjectiveNavigationTests
             ["requirementIds"] = new JsonArray("req_0"), ["inputs"] = new JsonArray(Import("input")),
             ["groupId"] = "reusable", ["dependencyTaskIds"] = new JsonArray(),
             ["expectedOutputs"] = new JsonArray("The reusable result."), ["closeRequirementIds"] = new JsonArray(),
-            ["outputNames"] = new JsonArray(), ["prerequisites"] = null
+            ["outputNames"] = new JsonArray(), ["prerequisites"] = null,
+            ["operationIds"] = new JsonArray(), ["closeScopes"] = null
         };
         Assert.Empty(PlanningContractValidation.ValidateInstance(response, PlanningCompactConstruction.SelectionSchema(state)));
         PlanningCompactConstruction.ValidateSelection(state, new() { Scope = "/root", Kind = "call", GroupId = "reusable",
@@ -629,7 +630,8 @@ public sealed class CompactSelectionObjectiveNavigationTests
             ["scope"] = "/root", ["kind"] = "value", ["objective"] = "Preserve the caller value.",
             ["requirementIds"] = new JsonArray("req_0"), ["inputs"] = new JsonArray(Input(name)), ["groupId"] = null,
             ["dependencyTaskIds"] = new JsonArray(), ["expectedOutputs"] = new JsonArray("The caller value."),
-            ["closeRequirementIds"] = new JsonArray(), ["outputNames"] = new JsonArray(), ["prerequisites"] = null
+            ["closeRequirementIds"] = new JsonArray(), ["outputNames"] = new JsonArray(), ["prerequisites"] = null,
+            ["operationIds"] = new JsonArray(), ["closeScopes"] = null
         }
     };
 

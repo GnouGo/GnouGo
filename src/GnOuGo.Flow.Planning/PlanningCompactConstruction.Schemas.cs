@@ -8,11 +8,11 @@ internal static partial class PlanningCompactConstruction
     internal const string ValueSemantics = "value only copies, projects or assembles typed values using declared arithmetic, predicates, lookup, flatten and JSON encoding. It cannot concatenate or format strings, URL-encode or interpolate literals; its objective adds no computation.";
     internal const string RollbackSemantics = "Rollback reconstructs every invalidated task in its original scope, phase and order; it cannot discard accepted work. Preserve original objectives, effects, literal arguments, assertions, decisions and iteration limits. Any reference repair must still pass validation. Explain the reconstruction defect in rollbackReason and retrieve exact originals as needed.";
 
-    private static (bool CloseScope, bool Complete) ClosurePresentation(PlanningSession state)
+    internal static (bool CloseScope, bool Complete) ClosurePresentation(PlanningSession state, PlanningConstructionStep? selected = null)
     {
         var construction = state.Construction!;
         var compact = State(state);
-        var step = compact.CurrentStep!;
+        var step = selected ?? compact.CurrentStep!;
         var symbols = new TaskPlanSymbols(state.Plan ?? new TaskPlan());
         var open = construction.OpenScopes;
         // Scope addresses are global task identities, not hierarchical paths.
@@ -77,6 +77,27 @@ internal static partial class PlanningCompactConstruction
             ("requirementIds", step.RequirementIds.Count == 0 ? EmptyArray() :
                 PlanningSchemas.Array(PlanningSchemas.Enum(step.RequirementIds.ToArray()), 0, step.RequirementIds.Count)),
             ("complete", completion));
+        if (UsesAcceptedProgress(state) && step.Kind == "close" && step.CloseScopes is { } selectedClosure)
+        {
+            extension["properties"]!["closeScopes"] = selectedClosure.Count == 0 ? EmptyArray() :
+                PlanningSchemas.Array(PlanningSchemas.Enum(step.Scope), 1, 1);
+            extension["properties"]!["complete"] = new JsonObject { ["type"] = "boolean", ["enum"] = new JsonArray(selectedClosure.Contains("/root", StringComparer.Ordinal)) };
+        }
+        if (UsesAcceptedProgress(state))
+        {
+            var retained = State(state).SuspendedSteps?.LastOrDefault(Active);
+            extension["properties"]!["continuationBinding"] = retained is { Status: "waiting" } && ContinuationCurrent(state, retained)
+                ? PlanningSchemas.Nullable(PlanningSchemas.Object(("continuationId", PlanningSchemas.Enum(retained.Id)),
+                    ("binding", PlanningSchemas.Ref("continuationBindingValue")))) : PlanningSchemas.Type("null");
+            if (retained is { Status: "waiting" } && ContinuationCurrent(state, retained))
+                definitions["continuationBindingValue"] = new JsonObject { ["anyOf"] = new JsonArray(
+                    PlanningSchemas.Object(("kind", PlanningSchemas.Enum("output")), ("source", Text(96)),
+                        ("port", PlanningSchemas.Nullable(Text(96)))),
+                    PlanningSchemas.Object(("kind", PlanningSchemas.Enum("present")), ("source", Text(96))),
+                    PlanningSchemas.Object(("kind", PlanningSchemas.Enum("field")), ("port", Text(96)),
+                        ("items", PlanningSchemas.Array(PlanningSchemas.Ref("continuationBindingValue"), 1, 1)))) };
+            extension["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("continuationBinding"));
+        }
         var publicOutputs = IsCompactPresentation(state)
             ? step.OutputNames.ToArray()
             : state.Requirements?.Outputs?.Select(output => output.Name).ToArray() ?? [];
@@ -126,6 +147,8 @@ internal static partial class PlanningCompactConstruction
         // Compact removes presentation annotations from the shared grammar. Put
         // back only the semantics needed by this selected kind and scope.
         projected["description"] = DraftSemantics(state, step);
+        if (UsesAcceptedProgress(state) && State(state).SuspendedSteps?.LastOrDefault(Active) is { Status: "waiting" })
+            projected["description"] += " When this fragment produces the retained consumer's prerequisite, continuationBinding identifies that consumer and the exact output or field binding. This is a proposed semantic association, validated and reviewed with the fragment; compatible types alone do not establish its meaning. Otherwise use null.";
         if (fresh && rollback)
             projected["description"] += UsesConvergentConstruction(state) ? " " + RollbackSemantics :
                 " rollbackTask requests host-computed invalidation of an earlier producer and its dependent work; it cannot change accepted requirements or permissions. Explain the concrete defect in rollbackReason. Do not request rollback merely to regenerate the plan.";

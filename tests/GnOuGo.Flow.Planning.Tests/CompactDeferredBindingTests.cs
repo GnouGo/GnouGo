@@ -11,6 +11,269 @@ public sealed class CompactDeferredBindingTests
     private const string Objective = "Produce the requested exact record without external changes.";
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task VersionSevenKnownSelectionAdmitsTheExactContractAndDraftsWithoutDiscovery(bool catalogContract)
+    {
+        var (state, runtime) = ReadySeven();
+        var capability = Contract();
+        if (catalogContract) state.Catalog!.Capabilities.Add(capability); else AddContract(state, capability);
+        var pages = new Pages(); runtime.Capabilities = pages;
+        var baseline = PlanningConstruction.Hash(state.Plan);
+        runtime.Respond = (request, purpose) =>
+        {
+            Assert.Equal(PlanningCompactConstruction.SelectPurpose, purpose);
+            var descriptor = Assert.Single(OriginalContext(request)["knownOperations"]!["items"]!.AsArray())!;
+            Assert.Equal("read", descriptor["id"]!.ToString());
+            Assert.Equal(capability.Description, descriptor["description"]!.ToString());
+            Assert.NotNull(descriptor["hash"]);
+            return new LLMResponse { Json = SelectSeven(state, "operation", "read") };
+        };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        var step = state.Construction!.Compact!.CurrentStep!;
+        Assert.True(step.DiscoveryComplete); Assert.Equal(new[] { "read" }, step.OperationIds);
+        Assert.Equal("read", Assert.Single(state.Construction.Compact.PendingCommitments["req_0"]).Operation);
+        Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan)); Assert.Empty(state.Construction.Checkpoints);
+        Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+        runtime.Respond = (request, purpose) =>
+        {
+            Assert.Equal(PlanningConstruction.DraftPurpose, purpose);
+            var view = Assert.Single(OriginalContext(request)["operations"]!.AsArray())!;
+            Assert.Contains("target", view["inputSchema"]!["required"]!.AsArray().Select(value => value!.ToString()));
+            var response = Draft(state);
+            var extension = new PlanningConstructionExtension { RequirementIds = ["req_0"], Tasks = [new()
+                { Id = "read_exact", Kind = "operation", Operation = "read", Objective = Objective,
+                    Inputs = [new("target", new() { Kind = "string", Text = "EXACT" })] }] };
+            response["extension"] = JsonSerializer.SerializeToNode(extension, PlanningJsonContext.Default.PlanningConstructionExtension);
+            return Wire(request, response);
+        };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics); Assert.NotNull(state.Construction!.Candidate);
+        Assert.Equal(2, state.ModelCalls); Assert.Empty(state.Construction.Checkpoints);
+        Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
+        Assert.Empty(pages.Cursors); Assert.Empty(pages.Resolutions);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("value")]
+    public async Task VersionSevenUnknownAndLocalSelectionsKeepTheirExistingPaths(string? kind)
+    {
+        var (state, runtime) = ReadySeven(); AddContract(state, Contract());
+        var pages = new Pages(); runtime.Capabilities = pages;
+        runtime.Respond = (request, _) => Wire(request, SelectSeven(state, kind));
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics); Assert.Equal(kind, state.Construction!.Compact!.CurrentStep!.Kind);
+        Assert.Equal(kind is not null, state.Construction.Compact.CurrentStep.DiscoveryComplete);
+        Assert.Equal(1, state.ModelCalls); Assert.Empty(pages.Cursors); Assert.Empty(pages.Resolutions);
+        if (kind is null)
+        {
+            runtime.Respond = (request, purpose) =>
+            { Assert.Equal(PlanningCompactConstruction.DiscoveryPurpose, purpose); return Wire(request, Binding("operation")); };
+            state = await Advance(state, runtime);
+            Assert.Empty(state.Diagnostics); Assert.True(state.Construction!.Compact!.CurrentStep!.DiscoveryComplete);
+            Assert.Equal(2, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+        }
+    }
+
+    [Fact]
+    public void VersionSevenKnownOperationsHaveBoundedExactPagesAndRejectStalePages()
+    {
+        var (state, _) = ReadySeven();
+        for (var index = 0; index < 9; index++)
+        { var contract = Contract(); contract.Id = contract.Method = "read_" + index; AddContract(state, contract); }
+        var first = PlanningCompactConstruction.SelectionContext(state)["knownOperations"]!;
+        Assert.Equal(4, first["items"]!.AsArray().Count);
+        Assert.Equal(new[] { "read_0", "read_1", "read_2", "read_3" }, PlanningCompactConstruction.SelectionOperationIds(state));
+        var next = first["next"]!.ToString();
+        Assert.Contains(next, Nodes(PlanningCompactConstruction.SelectionSchema(state)).OfType<JsonValue>().Select(value => value.ToString()));
+        PlanningConstruction.LoadEvidence(state, [next]);
+        var retained = state.Construction!.Evidence![next]!;
+        Assert.Equal(4, retained["items"]!.AsArray().Count);
+        Assert.Equal(8, PlanningCompactConstruction.SelectionOperationIds(state).Length);
+        Assert.DoesNotContain("read_8", PlanningCompactConstruction.SelectionOperationIds(state));
+        var stale = retained["next"]!.ToString();
+        state.Discovery.Resolved[8].Description += " Changed exact original contract.";
+        var error = Assert.Throws<PlanningResponseException>(() => PlanningConstruction.LoadEvidence(state, [stale]));
+        Assert.Contains(error.Diagnostics, diagnostic => diagnostic.Code is "CONSTRUCTION_EVIDENCE_UNKNOWN" or "CONSTRUCTION_EVIDENCE_INVALID");
+        Assert.Equal(4, PlanningCompactConstruction.SelectionOperationIds(state).Length);
+        Assert.Equal(0, state.ModelCalls);
+    }
+
+    [Fact]
+    public async Task VersionSevenSelectsAnExactCachedOperationFromItsRetrievedPage()
+    {
+        var (state, runtime) = ReadySeven();
+        for (var index = 0; index < 9; index++)
+        { var contract = Contract(); contract.Id = contract.Method = "read_" + index; AddContract(state, contract); }
+        var next = PlanningCompactConstruction.SelectionContext(state)["knownOperations"]!["next"]!.ToString();
+        PlanningConstruction.LoadEvidence(state, [next]);
+        var pages = new Pages(); runtime.Capabilities = pages;
+        runtime.Respond = (_, _) => new() { Json = SelectSeven(state, "operation", "read_5") };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics); Assert.True(state.Construction!.Compact!.CurrentStep!.DiscoveryComplete);
+        Assert.Equal(new[] { "read_5" }, state.Construction.Compact.CurrentStep.OperationIds);
+        Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Empty(state.Construction.Checkpoints); Assert.Empty(pages.Cursors); Assert.Empty(pages.Resolutions);
+    }
+
+    [Theory]
+    [InlineData("denied")]
+    [InlineData("step_type")]
+    [InlineData("version")]
+    [InlineData("content")]
+    [InlineData("descriptor")]
+    [InlineData("invalid")]
+    public void VersionSevenDoesNotOfferUnqualifiedCachedContracts(string reason)
+    {
+        var (state, _) = ReadySeven(); var contract = Contract();
+        if (reason == "descriptor") state.Discovery.Pages.Add(new("source", null,
+            [new(contract.Id, "source", "Read", contract.Description, contract.StepType, contract.EffectKind, contract.Version,
+                Operation: TaskOperations.Describe(contract))], null, Query: Objective));
+        else AddContract(state, contract);
+        if (reason == "denied") state.Catalog!.Policy.DeniedCapabilityIds.Add("read");
+        if (reason == "step_type") state.Catalog!.AllowedStepTypes.Clear();
+        if (reason is "version" or "content")
+        { var conflict = Contract(); if (reason == "version") conflict.Version = "v2"; else conflict.Description += " Changed."; AddContract(state, conflict); }
+        if (reason == "invalid")
+        {
+            contract.Operation = TaskOperations.Describe(contract);
+            contract.Operation.Version = "stale_mapping";
+            Assert.NotEmpty(TaskOperations.Validate(contract));
+        }
+        Assert.Empty(PlanningCompactConstruction.SelectionOperationIds(state));
+        Assert.Null(PlanningCompactConstruction.SelectionContext(state)["knownOperations"]);
+        Assert.DoesNotContain(Nodes(PlanningCompactConstruction.SelectionSchema(state)).OfType<JsonObject>(), node =>
+            node["properties"]?["kind"]?["enum"] is JsonArray kinds && kinds.Any(kind => kind?.ToString() == "operation"));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task VersionSevenKnownSelectionPreservesStateWhenMandatoryDraftCannotFit(bool required)
+    {
+        var (state, runtime) = ReadySeven(); var contract = Contract();
+        contract.InputSchema["properties"]!["large"] = new JsonObject { ["type"] = "string", ["description"] = new string('x', 80_000) };
+        if (required) contract.InputSchema["required"]!.AsArray().Add("large");
+        AddContract(state, contract); var pages = new Pages(); runtime.Capabilities = pages;
+        var baseline = PlanningConstruction.Hash(state.Plan);
+        runtime.Respond = (request, _) => new LLMResponse { Json = SelectSeven(state, "operation", "read") };
+        state = await Advance(state, runtime);
+        Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan)); Assert.Empty(state.Construction!.Checkpoints);
+        Assert.Empty(pages.Cursors); Assert.Empty(pages.Resolutions); Assert.Equal(1, state.ModelCalls);
+        if (required)
+        {
+            Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_CONTRACT_LIMIT");
+            Assert.Null(state.Construction.Compact!.CurrentStep); Assert.Equal(0, state.Construction.Compact.NextStep);
+            Assert.Empty(state.Construction.Compact.PendingCommitments);
+            Assert.Contains(state.RequestMeasurements!, measurement => measurement.Phase == PlanningConstruction.DraftPurpose && measurement.Admission == "rejected_before_dispatch");
+        }
+        else { Assert.Empty(state.Diagnostics); Assert.True(state.Construction.Compact!.CurrentStep!.DiscoveryComplete); }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task VersionSevenIssuedKnownSelectionRequiresItsOriginalContractHashOnRecovery(bool changed)
+    {
+        var (state, runtime) = ReadySeven(); AddContract(state, Contract());
+        var request = PlanningCompactConstruction.Request(state, PlanningCompactConstruction.SelectGuidance(state), PlanningCompactConstruction.SelectionContext(state),
+            PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose);
+        request = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.SelectPurpose, request.Prompt, request.StructuredOutputSchema!.AsObject());
+        var exact = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
+        state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningCompactConstruction.SelectPurpose, Request = request };
+        state.ModelCalls = 1;
+        if (changed) state.Discovery.Resolved[0].Description += " Changed after issuance.";
+        runtime.Respond = (issued, _) =>
+        { Assert.Equal(exact, JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest)); return new LLMResponse { Json = SelectSeven(state, "operation", "read") }; };
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Equal(1, state.ModelCalls); Assert.Single(runtime.Calls); Assert.Empty(state.Construction!.Checkpoints);
+        if (changed)
+        { Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "DISCOVERY_SELECTION_INVALID"); Assert.Null(state.Construction.Compact!.CurrentStep); }
+        else { Assert.Empty(state.Diagnostics); Assert.True(state.Construction.Compact!.CurrentStep!.DiscoveryComplete); }
+    }
+
+    private static (PlanningSession, TestRuntime) ReadySeven()
+    {
+        var (state, runtime) = Ready(selected: false);
+        state.Construction!.Compact!.PresentationVersion = 7;
+        state.Request.Options["construction_presentation_version"] = 7;
+        return (state, runtime);
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    public void HistoricalSelectionDoesNotExposeTheNewCachedOperationRoute(int presentation)
+    {
+        var (state, _) = Ready(selected: false);
+        state.Construction!.Compact!.PresentationVersion = presentation;
+        state.Request.Options["construction_presentation_version"] = presentation;
+        string Request() => JsonSerializer.Serialize(PlanningCompactConstruction.Request(state, PlanningCompactConstruction.SelectGuidance(state),
+            PlanningCompactConstruction.SelectionContext(state), PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose),
+            PlanningJsonContext.Default.LLMRequest);
+        var original = Request(); AddContract(state, Contract());
+        Assert.Equal(original, Request());
+        Assert.DoesNotContain("knownOperations", original); Assert.DoesNotContain("closeScopes", original);
+    }
+
+    [Theory]
+    [InlineData("value", false, true)]
+    [InlineData("value", true, false)]
+    [InlineData("close", false, false)]
+    [InlineData("close", true, true)]
+    public void VersionSevenSelectionRequiresExplicitClosureOnlyForClose(string kind, bool explicitTarget, bool valid)
+    {
+        var (state, _) = ReadySeven();
+        var response = SelectSeven(state, kind);
+        response["step"]!["closeScopes"] = explicitTarget ? new JsonArray() : null;
+        Assert.Equal(valid, PlanningContractValidation.ValidateInstanceFindings(response, PlanningCompactConstruction.SelectionSchema(state)).Count == 0);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task VersionSevenDeferredCloseSelectsItsExactTargetWithoutReselection(bool closeScope)
+    {
+        var (state, runtime) = ReadySeven();
+        runtime.Respond = (request, _) =>
+        {
+            var response = SelectSeven(state, null);
+            response["step"]!["closeRequirementIds"] = new JsonArray("req_0");
+            return Wire(request, response);
+        };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics); Assert.Null(state.Construction!.Compact!.CurrentStep!.Kind);
+        runtime.Respond = (request, purpose) =>
+        {
+            Assert.Equal(PlanningCompactConstruction.DiscoveryPurpose, purpose);
+            var response = Binding("close");
+            response["binding"]!["closeScopes"] = closeScope ? new JsonArray("/root") : new JsonArray();
+            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response, request.StructuredOutputSchema!));
+            return Wire(request, response);
+        };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        var step = state.Construction!.Compact!.CurrentStep!;
+        Assert.Equal("close", step.Kind); Assert.True(step.DiscoveryComplete);
+        Assert.Equal(closeScope ? new[] { "/root" } : [], step.CloseScopes);
+        Assert.Equal(2, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Empty(state.Construction.Checkpoints); Assert.Null(state.Construction.Candidate);
+    }
+
+    private static JsonObject SelectSeven(PlanningSession state, string? kind, params string[] operations)
+    {
+        var response = Select(state, kind);
+        response["step"]!["operationIds"] = new JsonArray(operations.Select(value => (JsonNode?)JsonValue.Create(value)).ToArray());
+        response["step"]!["closeScopes"] = kind == "close" ? new JsonArray() : null;
+        return response;
+    }
+
+    [Theory]
     [InlineData("operation", 1, null, true)]
     [InlineData("operation", 2, null, true)]
     [InlineData("operation", 0, null, false)]
@@ -416,6 +679,8 @@ public sealed class CompactDeferredBindingTests
         PlanningSessionCreation.Capture(state);
         PlanningCompactConstruction.InitializeSources(state);
         var compact = state.Construction!.Compact!;
+        compact.PresentationVersion = 6;
+        state.Request.Options["construction_presentation_version"] = 6;
         compact.Sources[0].Indexed = true;
         foreach (var (text, index) in new[] { declaration, work }.Select((text, index) => (text, index)))
         {
@@ -970,6 +1235,9 @@ public sealed class CompactDeferredBindingTests
             Options = new JsonObject { ["automatic_correction"] = true } } };
         PlanningSessionCreation.Capture(state);
         var compact = state.Construction!.Compact!;
+        // This fixture also protects the retained v6 selection/discovery protocol.
+        compact.PresentationVersion = 6;
+        state.Request.Options["construction_presentation_version"] = 6;
         PlanningCompactConstruction.InitializeSources(state);
         compact.Sources[0].Indexed = true;
         compact.Sources.Add(new() { Id = "request:0:clause:0", Version = PlanningGraphCompiler.Fingerprint(Objective),

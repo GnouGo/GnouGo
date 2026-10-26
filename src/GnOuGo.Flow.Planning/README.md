@@ -2,7 +2,16 @@
 
 Fresh sessions use [compact incremental construction](../../docs/incremental-taskplan-construction.md): index original intent, select one immediate business substep, discover its capabilities, then generate and review a bounded fragment of one TaskPlan. Phase-specific context and response schemas omit unrelated inspections, task grammar and history. Exact contract views preserve required constraints; the shared compiler validates against unchanged original contracts before encrypted checkpoint acceptance. Completion uses the existing PlanningGraph and compiler v15 path without a final whole-plan LLM Judge. Historical proposal/repair contracts below retain their original meaning for issued sessions.
 
-Fresh presentation revision 6 supplies all exact original clauses when the complete
+Fresh presentation revision 7 reuses inspected operation selection, exact reviewed
+consumer associations and explicit unchanged-plan closures through the existing
+coordinator. Associations are optional construction metadata, never TaskPlan nodes;
+they bind review identities and become resumable only with the accepted checkpoint.
+An older producer remains explicitly selectable when its current bytes, ownership,
+scope and contracts still validate. No semantic binding is inferred from type similarity.
+Whole-page original-description continuations use the existing bounded evidence loader
+and admission checks. Historical revisions 2–6 retain their captured behavior.
+
+Revision 7 retains revision 6's exact original clauses when the complete
 authoring request fits; otherwise selected and explicitly retrieved requirements stay
 with all globals/core/evidence and exact omitted-page links. Scoped review still covers
 all originals independently of selected associations. Consumed producers retain exact arguments,
