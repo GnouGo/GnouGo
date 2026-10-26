@@ -1,5 +1,19 @@
 # Compact TaskPlan convergence
 
+## 88f338bf: verified transitions; first candidate stopped on transport uncertainty
+
+Presentation revision 8 adds prospectively reviewed applicability proof for consumer resumption across narrowly permitted independent additions, removes the host closure's four-requirement ceiling, and restores eligible original-description continuation pages in the same batch. New fragments retain complete scoped review; these transitions establish no runtime success by themselves. Model settings and Judge grammar are unchanged.
+
+The missing [Collections control on `60e85c9f`](compact-taskplan-60e85c9f-collections-control.json) passed artifact-bound delegated verification and both real runtime variants, preserving order and duplicates with no effects or runtime inference. Its three-task artifact used 28 logical requests/28 physical attempts, one automatic correction and 929,032 ms planning. Known cost was €1.283989, with no unknown usage; approval/execution added no model calls. Both variants count as one independently defined business obligation, giving 28 calls per obligation. This is control evidence, not qualification for revision 8.
+
+The first [v8 Amazon candidate](compact-taskplan-88f338bf-amazon-inconclusive.json) stopped at its second intent request after a transport failure without HTTP response or completion receipt. It used two requests/two attempts, one receipt, zero corrections and 381,384 ms; no checkpoint, Judge, artifact or execution resulted. Known cost is €0.103351 plus the full €0.930870 unknown-usage reservation. Both constructed requests fit their captured ceiling and component sizes reconcile. This is neither received output exhaustion nor evidence of a planner convergence defect. Calls per fulfilled business obligation remain undefined.
+
+At the exact retention inspection, campaign known cost was €215.876926 and retained reserves €65.122510, leaving **€159.030668** under the unchanged ceiling. The new request requires its own exact abandonment authorization; previous closures and reservations remain intact. This dated balance does not authorize another dispatch while uncertainty is unresolved.
+
+[Technical evidence](compact-taskplan-88f338bf-technical.json) covers 3,435 distinct Planning cases and 706 focused host cases with warnings as errors; these are composed results, not one full-solution pass. Offline compaction of one retained review removes another 2,970 bytes (56,735 → 53,765), with all 11 schema views reconstructed and all 30 evidence addresses retained. No live efficacy is established. Twelve publication stages passed on exact `88f338bf` plus the named smoke-fixture correction, including six independent packages, Native AOT and published encrypted-storage checks. The original stale-version smoke failure remains archived. The full solution and remote CI were still running at this capture.
+
+PR #120 remains Draft. The v8 six-run qualification and subsequent 18 comparisons have not passed. Earlier source-bound evidence below remains unchanged.
+
 ## 60e85c9f: retained controls; business convergence incomplete
 
 Presentation revision 7 reuses accepted contributions, inspected operations and exact reviewed prerequisite bindings. Eligible closures and original-description continuation pages retain deterministic validation and mandatory reviews. These mechanisms establish no business result by themselves. The subsequent revision-8 implementation has no live acceptance result at this capture.

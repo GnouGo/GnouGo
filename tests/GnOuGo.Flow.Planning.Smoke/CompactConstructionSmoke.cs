@@ -21,6 +21,7 @@ internal static class CompactConstructionSmoke
         await RunAsync(5);
         await RunAsync(6);
         await RunAsync(7);
+        await RunAsync(8);
     }
 
     private static async Task RunAsync(int presentationVersion)
@@ -30,11 +31,11 @@ internal static class CompactConstructionSmoke
         var recoveredIntentActions = new HashSet<string>(StringComparer.Ordinal);
         var state = new PlanningSession { Request = new() { TenantId = "compact-smoke", Prompt = Objective } };
         PlanningSessionCreation.Capture(state);
-        if (presentationVersion == 7)
+        if (presentationVersion == 8)
         {
             if (state.Request.Options["construction_presentation_version"]?.GetValue<int>() != 8 ||
-                state.Construction!.Compact!.PresentationVersion != 7)
-                throw new InvalidOperationException("Fresh compact capture did not select presentation seven.");
+                state.Construction!.Compact!.PresentationVersion != 8)
+                throw new InvalidOperationException("Fresh compact capture did not select presentation eight.");
         }
         else
         {
@@ -96,7 +97,7 @@ internal static class CompactConstructionSmoke
         if (historicalStep.Contains("closeScopes", StringComparison.Ordinal) || historicalStep.Contains("continuationBinding", StringComparison.Ordinal) ||
             historicalExtension.Contains("continuationBinding", StringComparison.Ordinal))
             throw new InvalidOperationException("Fresh progression metadata changed historical omitted fields.");
-        if (presentationVersion == 7)
+        if (presentationVersion >= 7)
         {
             foreach (var scopes in new List<string>[] { [], ["/root"] })
             {
@@ -139,7 +140,7 @@ internal static class CompactConstructionSmoke
         if (!result.Success || result.Outputs?["message"]?.GetValue<string>() != "Hello")
             throw new InvalidOperationException("Compact v15 artifact changed the independently expected value.");
         Console.WriteLine(presentationVersion >= 6
-            ? $"compact presentation {presentationVersion}: {(presentationVersion == 7 ? "fresh capture" : "retained capture")}, {runtime.SourceWindows.Count} exact source windows, {expectedCalls} recovered calls and independently executed output"
+            ? $"compact presentation {presentationVersion}: {(presentationVersion == 8 ? "fresh capture" : "retained capture")}, {runtime.SourceWindows.Count} exact source windows, {expectedCalls} recovered calls and independently executed output"
             : $"compact presentation {presentationVersion}: classified originals, grounded interface extraction, six recovered calls, narrow draft/Judge and independently executed output");
     }
 
@@ -227,7 +228,7 @@ internal static class CompactConstructionSmoke
                             ["closeRequirementIds"] = requirements.DeepClone(), ["outputNames"] = new JsonArray("message")
                         }
                     };
-                    if (presentationVersion == 7)
+                    if (presentationVersion >= 7)
                     {
                         response["step"]!["closeScopes"] = null;
                         response["step"]!["operationIds"] = new JsonArray();
