@@ -1,0 +1,275 @@
+{
+  "version": 1,
+  "source": "93d3e1c2747e029f0136d4391ba8480151092ac4",
+  "cohort": "compactr93d3e1c27amz22j20v9p9a",
+  "case": "amazon",
+  "control_source": "d5a4cac23ebe7fa8525ecb8f0299c65b6613d870",
+  "freeze_sha256": "b9f2d768d36be6d442d7adafb941665e12d3c7d1b201672351e863d9151b8065",
+  "model": "gpt-5.5-2026-04-24",
+  "phase_policy": {
+    "version": 1,
+    "navigation": {
+      "reasoning": "high",
+      "targetInputTokens": 3000,
+      "maxInputTokens": 12000,
+      "outputTokens": 32768
+    },
+    "draft": {
+      "reasoning": "medium",
+      "targetInputTokens": 8000,
+      "maxInputTokens": 22000,
+      "outputTokens": 16384
+    },
+    "review": {
+      "reasoning": "medium",
+      "targetInputTokens": 4000,
+      "maxInputTokens": 20000,
+      "outputTokens": 16384
+    }
+  },
+  "outcome": {
+    "status": "stopped",
+    "phase": "construction_intent",
+    "classification": "confirmed_http_retry_exhaustion_without_completion_receipt",
+    "logical_requests": 2,
+    "physical_attempts": 4,
+    "receipts": 1,
+    "corrections": 0,
+    "accepted_checkpoints": 0,
+    "artifact_present": false,
+    "execution_started": false,
+    "runtime_oracle_passed": null,
+    "independently_fulfilled_business_obligations": 0,
+    "calls_per_fulfilled_obligation": null,
+    "planning_ms": 987082,
+    "known_input_tokens": 537,
+    "known_output_tokens": 2366,
+    "known_reasoning_tokens": 2048,
+    "known_visible_output_tokens_derived": 318,
+    "empty_completed_responses": 0,
+    "known_cost_eur": "0.0657429718875502008032128514",
+    "unknown_usage_reservation_eur": "2.7926104417670682730923694779",
+    "cost_upper_bound_eur": "2.8583534136546184738955823293",
+    "unknown_usage_attempts": 3
+  },
+  "request_measurements": {
+    "phases": {
+      "construction_intent": {
+        "constructed_requests": 2,
+        "admitted_requests": 2,
+        "rejected_before_dispatch": 0,
+        "complete_request_bytes": {
+          "count": 2,
+          "p50": 6257,
+          "p95": 9423,
+          "maximum": 9423,
+          "total": 12514
+        },
+        "estimated_input_tokens": {
+          "count": 2,
+          "p50": 2342,
+          "p95": 3397,
+          "maximum": 3397,
+          "total": 4684
+        },
+        "component_sizes": {
+          "diagnostics": {
+            "serialized_bytes": 52,
+            "estimated_tokens": 18
+          },
+          "envelope": {
+            "serialized_bytes": 866,
+            "estimated_tokens": 801
+          },
+          "instructions": {
+            "serialized_bytes": 2367,
+            "estimated_tokens": 789
+          },
+          "intent": {
+            "serialized_bytes": 3331,
+            "estimated_tokens": 1111
+          },
+          "response_schema": {
+            "serialized_bytes": 5816,
+            "estimated_tokens": 1939
+          },
+          "evidence": {
+            "serialized_bytes": 23,
+            "estimated_tokens": 8
+          },
+          "interfaces": {
+            "serialized_bytes": 59,
+            "estimated_tokens": 20
+          }
+        },
+        "components_reconcile": true,
+        "within_input_limits": true
+      }
+    },
+    "requests": [
+      {
+        "version": 1,
+        "inputLimit": 12000,
+        "completeRequestBytes": 3091,
+        "estimatedInputTokens": 1287,
+        "estimator": "serialized_utf8_div3_plus256_v1",
+        "requestId": "compactr93d3e1c27amz22j20v9p9a-amazon-1:1:79aa32cc08483dddde52846df5fa04d24b1d0217913d9d31e6ff7f33aa418dcd",
+        "phase": "construction_intent",
+        "stepId": null,
+        "admission": "admitted",
+        "requestHash": "e826d75af4bb44856c4fa56851b1d6332018358afc36861f497f0db6dee143fb",
+        "schemaHash": "6acb3cdcddc4e731db76d485e30647a99fdbb7594bb79743140cad56d1dfc568",
+        "baselineHash": null,
+        "contracts": [],
+        "components": [
+          {
+            "component": "diagnostics",
+            "serializedBytes": 26,
+            "estimatedTokens": 9
+          },
+          {
+            "component": "envelope",
+            "serializedBytes": 431,
+            "estimatedTokens": 400
+          },
+          {
+            "component": "instructions",
+            "serializedBytes": 882,
+            "estimatedTokens": 294
+          },
+          {
+            "component": "intent",
+            "serializedBytes": 1140,
+            "estimatedTokens": 380
+          },
+          {
+            "component": "response_schema",
+            "serializedBytes": 612,
+            "estimatedTokens": 204
+          }
+        ],
+        "components_reconcile": true,
+        "within_input_limit": true,
+        "stored_request_matches_measurement": true
+      },
+      {
+        "version": 1,
+        "inputLimit": 12000,
+        "completeRequestBytes": 9423,
+        "estimatedInputTokens": 3397,
+        "estimator": "serialized_utf8_div3_plus256_v1",
+        "requestId": "compactr93d3e1c27amz22j20v9p9a-amazon-1:2:df250c6b6e6e41e7e5a38273fd3a9a6b4e06192ab81cb86853ccb0a06946988d",
+        "phase": "construction_intent",
+        "stepId": null,
+        "admission": "admitted",
+        "requestHash": "fb393170d505d19e5b831960b4eb119fd8f8559f20b52ddbf73f1c55dada980d",
+        "schemaHash": "4ae426f5a79561409961e2a02cb6e8af21ea456928971468eaefbb0e3758f79b",
+        "baselineHash": null,
+        "contracts": [],
+        "components": [
+          {
+            "component": "diagnostics",
+            "serializedBytes": 26,
+            "estimatedTokens": 9
+          },
+          {
+            "component": "envelope",
+            "serializedBytes": 435,
+            "estimatedTokens": 401
+          },
+          {
+            "component": "evidence",
+            "serializedBytes": 23,
+            "estimatedTokens": 8
+          },
+          {
+            "component": "instructions",
+            "serializedBytes": 1485,
+            "estimatedTokens": 495
+          },
+          {
+            "component": "intent",
+            "serializedBytes": 2191,
+            "estimatedTokens": 731
+          },
+          {
+            "component": "interfaces",
+            "serializedBytes": 59,
+            "estimatedTokens": 20
+          },
+          {
+            "component": "response_schema",
+            "serializedBytes": 5204,
+            "estimatedTokens": 1735
+          }
+        ],
+        "components_reconcile": true,
+        "within_input_limit": true,
+        "stored_request_matches_measurement": true
+      }
+    ]
+  },
+  "failed_request": {
+    "id": "compactr93d3e1c27amz22j20v9p9a-amazon-1:2:df250c6b6e6e41e7e5a38273fd3a9a6b4e06192ab81cb86853ccb0a06946988d",
+    "request_hash": "fb393170d505d19e5b831960b4eb119fd8f8559f20b52ddbf73f1c55dada980d",
+    "schema_hash": "4ae426f5a79561409961e2a02cb6e8af21ea456928971468eaefbb0e3758f79b",
+    "http_statuses": [
+      500,
+      500,
+      500
+    ],
+    "complete_error_response_bytes": [
+      130,
+      130,
+      130
+    ],
+    "complete_error_response_hashes": [
+      "0e491b9ecbab696c8290235f873b327ffa0d084f2a7e4ce4b26be63ee9a4e452",
+      "0e491b9ecbab696c8290235f873b327ffa0d084f2a7e4ce4b26be63ee9a4e452",
+      "0e491b9ecbab696c8290235f873b327ffa0d084f2a7e4ce4b26be63ee9a4e452"
+    ],
+    "receipt_present": false,
+    "verified_usage_present": false,
+    "retention_kind": "exhausted-planning-retries",
+    "retention_evidence_hash": "d786ed640aef511aaff809aa29451d52d6cf51ca08a1aaadaa397ec5a257e531",
+    "authorization_status_at_capture": "pending",
+    "permanent_closure_applied": false
+  },
+  "coverage": {
+    "judge_calls": 0,
+    "fresh_propositions_reviewed": 0,
+    "reused_propositions": 0,
+    "mechanical_transitions": 0,
+    "a_live_efficacy": "not_evaluated",
+    "b_live_efficacy": "not_evaluated"
+  },
+  "campaign_after_run": {
+    "campaign": "schema-portability-20261019-incremental",
+    "ceiling_eur": "440.0301038327063045424449473",
+    "upper_eur": "298.10496937957701834322687229",
+    "known_cost_eur": "227.18403018156931169686001323",
+    "reserved_cost_eur": "70.920939198007706646366859061",
+    "available_eur": "141.92513445312928619921807501",
+    "receiptless": 34,
+    "closures": 33,
+    "unknown_attempts": 87,
+    "unresolved_requests": 1,
+    "unresolved_id": "compactr93d3e1c27amz22j20v9p9a-amazon-1:2:df250c6b6e6e41e7e5a38273fd3a9a6b4e06192ab81cb86853ccb0a06946988d",
+    "evidence_hash": "0f343950c155b8d69f5cb464ff8a0dd20abc3d53143c13162ab385deb61b26a4",
+    "inspection_sha256": "5b8c8df6f85c98419a0c0825c5124ba9d6b861a7c9c093a8980c48e93f5086ab"
+  },
+  "evidence": {
+    "safe_metrics_sha256": "329ae1ddaae5a6f0614208a013601c549ec55a3034699f2244b3187901d9bda9",
+    "canonical_state_sha256": "3a7d7ae2622e209baf497381226e1d76b28502ddd41d33a73159c335e10642c8",
+    "exact_request2_sha256": "a51a806120c59179afa5281280f858eca64b8048794780db9e066308371ec5ea",
+    "retention_inspection_sha256": "143f7903e5a1672fb373fe921bc00d684152e70a00e46170e51a0c917813b495",
+    "accounting_summary_sha256": "0548090f7a96038de020a27e7a2aa2a00a0f760e11e073a32bf41c3d8fd6630d",
+    "private_evidence_retained": true
+  },
+  "limits": [
+    "This run stopped before any TaskPlan draft or review; its fewer calls are not an efficiency result.",
+    "No output-exhaustion or empty-model-response conclusion is possible for the receiptless request.",
+    "Failed HTTP attempts retain their full reservation; no provider termination or usage claim is made.",
+    "The two-per-scenario qualification gate and eighteen baseline comparisons remain incomplete."
+  ]
+}

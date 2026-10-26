@@ -1,5 +1,13 @@
 # Compact TaskPlan convergence
 
+## 93d3e1c2: Amazon stopped on exhausted HTTP retries
+
+The [frozen v9 candidate](compact-taskplan-93d3-amazon-http-exhaustion.json) stopped during interface extraction: **two logical requests, four physical attempts and one completion receipt**. Request 2 received three HTTP 500 error responses under its captured retry policy, with no completion receipt or verified usage. Known cost is **€0.065743**, with **€2.792610** retained unknown-usage reservations (rounded; exact amounts in the evidence). Planning took 987,082 ms. No draft, Judge, checkpoint, artifact or runtime execution occurred, so A/B live efficacy remains untested and calls per fulfilled business obligation are undefined. Earlier termination is not an efficiency improvement over the control.
+
+Exact permanent-retention inspection succeeded; authorization for this new request was pending at capture. No replay, continuation or reservation release occurred. The campaign check records €227.184030 known cost and €70.920939 reservations, leaving **€141.925134** under the existing ceiling, with 33 permanently closed receiptless identities and this one unresolved identity. Fresh paid diagnostics remain blocked until its exact authorized closure. The six-run gate and subsequent 18 comparisons remain incomplete; PR #120 stays Draft.
+
+The [technical capture](compact-taskplan-93d3-technical-capture.json) records **3,555 owning Planning tests passed with warnings as errors**, including the 97 focused cases. Source-qualified managed/Native AOT smoke, six independent packages and published encrypted format-10 storage checks passed. Exact-revision standalone CI and six ProxyCopilot AOT jobs passed; planner CI and the full solution were still running at capture. The full run retains a Cmd five-second timeout; an unchanged targeted check passed separately without changing that original outcome. No overall solution/CI or runtime business pass is claimed.
+
 ## Revision 9: measured mechanisms; live qualification pending
 
 The [focused source-bound qualification](compact-v9-mechanism-qualification.json) passed **97 cases with warnings as errors**. A's complete scripted multi-window comparisons include initial proof-producing calls: total calls **51→46**, **51→47** and **39→36**, with Judge calls **21→16**, **21→17** and **15→12**. Both arms reach identical plans, pass the artifact coverage guard and execute two input sets with independently asserted arithmetic results. These are pure runtime fixtures, not delegated or human approval receipts or live scenario success. Two one-window controls increased **34→35** calls; an additional scope-local case increased **57→59**. Reuse therefore does not guarantee lower total cost or calls.
