@@ -235,6 +235,33 @@ internal static partial class PlanningCompactConstruction
         }
     }
 
+    private static JsonObject SelectionProducerPageContext(PlanningSession state, JsonObject context, JsonObject schema)
+    {
+        JsonObject? displayed = null;
+        var pages = new List<(int Index, JsonArray Items)>();
+        var entries = context["interfaces"] as JsonArray ?? [];
+        for (var index = 0; index < entries.Count; index++)
+        {
+            if (entries[index] is not JsonObject entry || entry["kind"]?.ToString() != "operation" ||
+                entry["outputs"] is not JsonArray outputs || outputs.Count <= ContractDirectoryPageSize ||
+                entry["operation"]?.ToString() is not { } operation || entry["operationVersion"]?.ToString() is not { } version) continue;
+            var capability = ExactContract(state, operation, version);
+            var page = OperationPortDirectory(capability, "/output", 0, producerOutput: true);
+            displayed ??= context.DeepClone().AsObject();
+            var row = displayed["interfaces"]![index]!;
+            row["outputCount"] = page["total"]!.DeepClone();
+            row["next"] = page["next"]!.DeepClone();
+            pages.Add((index, page["items"]!.DeepClone().AsArray()));
+        }
+        if (displayed is null) return context;
+        // Retain every previously offered exact address before paging the display.
+        // The normal collector also offers the existing typed continuation link;
+        // nextPorts remains the separate names-only task navigation page.
+        ConstrainSelectionEvidence(state, displayed, schema);
+        foreach (var (index, items) in pages) displayed["interfaces"]![index]!["outputs"] = items;
+        return displayed;
+    }
+
     private static bool AcceptedProducerOutput(PlanningSession state, PlanningCapability capability)
     {
         if (!UsesConvergentConstruction(state) || state.Plan is null) return false;

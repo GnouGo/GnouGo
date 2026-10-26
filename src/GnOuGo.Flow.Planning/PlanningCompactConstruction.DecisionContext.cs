@@ -44,7 +44,9 @@ internal static partial class PlanningCompactConstruction
             // Choose originals and evidence authority using the unchanged full
             // view first. Sharing is only a final fresh author presentation.
             if (!UsesVerifiedProgress(state) || !PlanningConstructionPhasePolicies.IsFresh(state.Request)) return chosen;
-            var displayed = CompactAcceptedProgressContext(context);
+            var navigation = purpose == SelectPurpose
+                ? SelectionProducerPageContext(state, context, chosen.StructuredOutputSchema!.AsObject()) : context;
+            var displayed = CompactAcceptedProgressContext(navigation);
             if (!ReferenceEquals(displayed, context)) chosen.Prompt = instructions + "\n" + PlanningJsonTransport.Prompt(displayed);
             return chosen;
         }
