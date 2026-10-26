@@ -586,6 +586,13 @@ until their original content is supplied. Pointer escaping and exact context
 lookup remain authoritative; malformed reports stop acceptance. Public root
 outputs and local exports are reviewed in their respective scopes.
 
+Fresh revision-6 Judge instructions use one coherent block for business claims,
+verified bindings, grounded citations and evidence boundaries. Shared task-kind,
+source-window and report-follow-up guidance remains unchanged. This instruction
+experiment changes no response schema, source coverage, model setting or original
+contract context; historical guidance and issued requests remain byte-exact.
+Smaller requests alone do not establish better reasoning or business acceptance.
+
 Each Judge response selects one action. A completed review returns a findings
 array; an evidence action requests exact missing support. Revision 4 additionally
 allows an explicit `inconclusive` reason when business assessment is incomplete.

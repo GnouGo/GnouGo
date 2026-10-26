@@ -12,11 +12,15 @@ public sealed partial class CompactConvergentJudgeTests
     private const string ContractReviewOpening = "Review current contract-defined arguments, results and effects against applicable original obligations; assess unnecessary work and actual completion claims. An operation objective describes its intended contribution, not additional contract behavior or a requirement to perform future work now; transform objectives remain executable instructions.";
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task OperationPurposeDefersLaterWorkWithoutExcusingCurrentBindingDefects(bool wrongBinding)
+    [InlineData(5, false)]
+    [InlineData(5, true)]
+    [InlineData(6, false)]
+    [InlineData(6, true)]
+    public async Task OperationPurposeDefersLaterWorkWithoutExcusingCurrentBindingDefects(int presentation, bool wrongBinding)
     {
         var state = await State(distinctIdentities: true);
+        state.Construction!.Compact!.PresentationVersion = presentation;
+        state.Request.Options["construction_presentation_version"] = presentation;
         const string argumentMeaning = "The exact subject identity to retain, not the identity of a related record.";
         var capability = new PlanningCapability
         {
@@ -109,8 +113,17 @@ public sealed partial class CompactConvergentJudgeTests
             Assert.Equal(capability.Version, contract["version"]!.ToString());
             var argument = Assert.Single(contract["boundInputs"]!.AsArray())!;
             Assert.Equal("label", argument["name"]!.ToString());
-            Assert.Equal(argumentMeaning, argument["description"]!.ToString());
-            Assert.True(argument["descriptionComplete"]!.GetValue<bool>());
+            if (presentation == 6)
+            {
+                var originalInput = Assert.Single(contract["selectedInputs"]!.AsArray())!;
+                Assert.Equal(argumentMeaning, originalInput["schema"]!["description"]!.ToString());
+                Assert.EndsWith(originalInput["pointer"]!.ToString(), argument["schemaEvidence"]!.ToString(), StringComparison.Ordinal);
+            }
+            else
+            {
+                Assert.Equal(argumentMeaning, argument["description"]!.ToString());
+                Assert.True(argument["descriptionComplete"]!.GetValue<bool>());
+            }
             var imported = Assert.Single(context["interfaces"]!.AsArray())!;
             Assert.Equal(consumed, imported["binding"]!["source"]!.ToString());
             Assert.Equal("string", imported["schema"]!["type"]!.ToString());
@@ -122,6 +135,7 @@ public sealed partial class CompactConvergentJudgeTests
     [InlineData(2, "2d21f8f71813270de53cc16fc3ecc2fe3a166358a037cf7959ba04b95520e091")]
     [InlineData(3, "f7bf1082bb059c73b0f42fd12f72a8adc546d1dfe5d9df9c9769263cb382de8c")]
     [InlineData(4, "ead711e6f0a4eb115b90d593cb2f9129495f83ea32c8b901e83eb9ce1adb9b22")]
+    [InlineData(5, "ac37b7a879ef5cad45a1ee0351049153c24cdc43e2333811f76d2cc79aedb3e6")]
     public async Task HistoricalReviewRequestBytesRemainUnchanged(int presentation, string expected)
     {
         var state = await State();
@@ -130,7 +144,7 @@ public sealed partial class CompactConvergentJudgeTests
         var request = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, false).Request;
         var actual = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
         Assert.True(expected == actual, actual);
-        Assert.DoesNotContain(ContractReviewOpening, request.Prompt, StringComparison.Ordinal);
+        if (presentation < 5) Assert.DoesNotContain(ContractReviewOpening, request.Prompt, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -167,13 +181,19 @@ public sealed partial class CompactConvergentJudgeTests
     }
 
     [Theory]
-    [InlineData("all_null")]
-    [InlineData("missing_obligation")]
-    [InlineData("navigation_implementation")]
-    [InlineData("two_actions")]
-    public async Task EmittedSchemaRequiresOneActionAndSeparateOriginalAndConcreteCitations(string defect)
+    [InlineData(5, "all_null")]
+    [InlineData(5, "missing_obligation")]
+    [InlineData(5, "navigation_implementation")]
+    [InlineData(5, "two_actions")]
+    [InlineData(6, "all_null")]
+    [InlineData(6, "missing_obligation")]
+    [InlineData(6, "navigation_implementation")]
+    [InlineData(6, "two_actions")]
+    public async Task EmittedSchemaRequiresOneActionAndSeparateOriginalAndConcreteCitations(int presentation, string defect)
     {
         var state = await State();
+        state.Construction!.Compact!.PresentationVersion = presentation;
+        state.Request.Options["construction_presentation_version"] = presentation;
         var (_, request) = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, false);
         var issued = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.LocalPurpose, request.Prompt, request.StructuredOutputSchema!.AsObject());
         Assert.True(HybridWorkflowPlanner.ConvergentConstructionReviewIssued(issued.StructuredOutputSchema));

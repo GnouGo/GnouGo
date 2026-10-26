@@ -49,6 +49,15 @@ selection followed by host contract resolution and admission. Its frozen diagnos
 must remain separate from earlier receipts; corrected staging wording alone does
 not establish why a model selected repeated empty containers or prove convergence.
 
+The revision-6 repair-intent diagnostics and separate Judge instruction experiment
+are recorded in the [convergence evidence](../../docs/evidence/compact-taskplan-convergence.md).
+Compare received output exhaustion separately from input refusal and receiptless
+transport failure. The consolidated instruction arm preserves response schemas,
+source windows and model settings; offline byte reductions are not model results.
+Pending exact-retention authorization blocks fresh paid dispatch without releasing
+reservations. One Collections run passing both variants counts as one complete
+business outcome toward the six-run gate, not two qualifying repetitions.
+
 The [18 October Amazon retest](../../docs/evidence/bounded-observations-2026-10-18/README.md)
 preserves a structurally valid first proposal that failed before extraction dispatch.
 Its scalar extraction still bound the complete observation; zero extraction provider

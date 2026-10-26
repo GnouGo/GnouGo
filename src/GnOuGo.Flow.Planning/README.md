@@ -224,6 +224,13 @@ or exact retrieval links. Ambiguous source associations expose directory navigat
 only. Preflight does not settle business choices, unfinished interfaces, complete
 requirements, final validation or runtime effects.
 
+Fresh revision-6 reviews use a single instruction block for business meaning,
+current claims, verified bindings and evidence boundaries. Shared source-window
+and follow-up instructions remain separate; response schemas, original contracts
+and captured model settings are unchanged. Historical guidance and already issued
+requests retain their exact bytes. Reduced instruction size alone proves no
+improvement in model reasoning or execution success.
+
 The historical revision-4 private Judge envelope distinguishes findings, evidence requests
 and an explicit inconclusive assessment. Findings require both an applicable
 original obligation and concrete implementation evidence; status and navigation

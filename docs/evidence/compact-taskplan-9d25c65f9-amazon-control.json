@@ -1,0 +1,243 @@
+{
+  "source": "9d25c65f9a0af17a49fcb67e5bcdb2d664abfb84",
+  "cohort": "compactr9d25c65f9amz22v6o16",
+  "profile": {
+    "model": "gpt-5.5-2026-04-24",
+    "benchmark_binary_sha256": "c901701dd8d4145f9ce127d53350b3a577fcbcf59057984865f911ba14a08678",
+    "phase_policy": {
+      "version": 1,
+      "navigation": {
+        "reasoning": "high",
+        "targetInputTokens": 3000,
+        "maxInputTokens": 12000,
+        "outputTokens": 32768
+      },
+      "draft": {
+        "reasoning": "medium",
+        "targetInputTokens": 8000,
+        "maxInputTokens": 22000,
+        "outputTokens": 16384
+      },
+      "review": {
+        "reasoning": "medium",
+        "targetInputTokens": 4000,
+        "maxInputTokens": 16000,
+        "outputTokens": 16384
+      }
+    }
+  },
+  "outcome": {
+    "status": "stopped_before_local_Judge37_dispatch",
+    "logical_calls": 36,
+    "physical_attempts": 37,
+    "receipts": 36,
+    "automatic_corrections": 4,
+    "accepted_checkpoints": 5,
+    "artifact": null,
+    "runtime_started": false,
+    "verified_complete_business_units": 0,
+    "calls_per_complete_business_unit": null,
+    "candidate_gate_qualifying_runs_at_capture": 1,
+    "candidate_gate_required_runs": 6
+  },
+  "cost": {
+    "known_eur": "2.6300267737617135207496653281",
+    "retained_unknown_usage_reserve_eur": "0.6402588130298973672467648371",
+    "upper_eur": "3.2702855867916108879964301652",
+    "reason": "One HTTP500 attempt followed by HTTP200 at request34; first-attempt unknown-usage reserve retained, no receiptless logical request.",
+    "exact_arithmetic": "Decimal80 over original safe numeric evidence"
+  },
+  "usage": {
+    "input_tokens": 166491,
+    "output_tokens": 70483,
+    "reasoning_tokens_within_output": 62342,
+    "reasoning_measured_calls": 36,
+    "visible_output_tokens_derived_where_reasoning_measured": "8141"
+  },
+  "planning_ms": 1848038,
+  "request_population": {
+    "constructed_identities": 41,
+    "received": 36,
+    "prepared_only": 3,
+    "unissued_admission_rejections": 2,
+    "bytes_all_constructed": {
+      "count": 41,
+      "p50": "17979",
+      "p95": "53012",
+      "max": "66454"
+    },
+    "phase_counts": {
+      "construction_intent": {
+        "constructed": 2,
+        "dispatched": 2,
+        "receipts": 2,
+        "prepared_only": 0,
+        "rejected_before_dispatch": 0,
+        "known_cost_eur": "0.1137170905845604640785363677",
+        "retained_reservation_eur": "0"
+      },
+      "construction_select": {
+        "constructed": 9,
+        "dispatched": 9,
+        "receipts": 9,
+        "prepared_only": 0,
+        "rejected_before_dispatch": 0,
+        "known_cost_eur": "1.1154529228023203926818384650",
+        "retained_reservation_eur": "0"
+      },
+      "construction_draft": {
+        "constructed": 16,
+        "dispatched": 12,
+        "receipts": 12,
+        "prepared_only": 3,
+        "rejected_before_dispatch": 1,
+        "known_cost_eur": "0.7796876394466755912539045069",
+        "retained_reservation_eur": "0"
+      },
+      "construction_local_judge": {
+        "constructed": 6,
+        "dispatched": 5,
+        "receipts": 5,
+        "prepared_only": 0,
+        "rejected_before_dispatch": 1,
+        "known_cost_eur": "0.2218652387327086122266845159",
+        "retained_reservation_eur": "0.6402588130298973672467648371"
+      },
+      "replan": {
+        "constructed": 1,
+        "dispatched": 1,
+        "receipts": 1,
+        "prepared_only": 0,
+        "rejected_before_dispatch": 0,
+        "known_cost_eur": "0.0400580098170459616242748773",
+        "retained_reservation_eur": "0"
+      },
+      "construction_discovery": {
+        "constructed": 7,
+        "dispatched": 7,
+        "receipts": 7,
+        "prepared_only": 0,
+        "rejected_before_dispatch": 0,
+        "known_cost_eur": "0.3592458723784024988844265953",
+        "retained_reservation_eur": "0"
+      }
+    }
+  },
+  "formatting": {
+    "receipt_count": 36,
+    "nonempty_valid_json_texts": 36,
+    "empty_original_texts": 0,
+    "nonempty_non_json_texts": 0,
+    "original_utf8_bytes": 25662,
+    "outside_string_whitespace_bytes_in_valid_json": 33,
+    "maximum_outside_string_whitespace_run_bytes_in_valid_json": 25,
+    "normalized_response_bytes": 26228
+  },
+  "corrections": [
+    {
+      "cause": "Received reselection reports that the public-input declaration is not visible; later input declaration is accepted.",
+      "received_action": 4,
+      "qualification": "Exact issued q4 context has empty interfaces and no inline inputDeclarations/scopeInterface, while the exact required-input original and interface/scope retrieval links remain. Source shows a draft presentation limitation; no causal or avoided-correction claim."
+    },
+    {
+      "cause": "Invalid task-presence reference to caller input query corrected to input/non-null predicate.",
+      "rejected_action": 10,
+      "correction_action": 11
+    },
+    {
+      "cause": "Search operation suspended for a URL-building/search mechanism prerequisite; earlier offered alternatives not fully assessed.",
+      "received_action": 20
+    },
+    {
+      "cause": "Continuation attempted with string URL while retained prerequisite required a mechanism object; subsequent selection supplies that object.",
+      "rejected_action": 25,
+      "correction_action": 26,
+      "qualification": "Exact issued q26 diagnostic CONSTRUCTION_CONTINUATION_INVALID at /resumeStep/binding confirms that the accepted binding does not satisfy the retained prerequisite type."
+    }
+  ],
+  "review_boundary": {
+    "received_local_Judge_reports": 5,
+    "received_adverse_findings": 0,
+    "final_Judge_received": false,
+    "tentative_consumer": "Unaccepted extraction consumes content/observation from complete-mode Browser output, whose records are in observationSnapshot.pages. Exact normative producer description and arguments were present; no accepted extraction defect or received Judge false negative is established."
+  },
+  "capacity": {
+    "earlier_unissued_draft": {
+      "bytes": 66454,
+      "estimated_input_tokens": 22408,
+      "ceiling": 22000
+    },
+    "terminal_unissued_Judge": {
+      "bytes": 53012,
+      "estimated_input_tokens": 17927,
+      "ceiling": 16000,
+      "window_count": 7,
+      "first_window_source_units": 1
+    },
+    "prospective_separate20k_review_input_only": {
+      "complete_request_bytes": 55825,
+      "estimated_input_tokens": 18865,
+      "ceiling": 20000,
+      "source_units": 7,
+      "windows": 1,
+      "unchanged_mandatory_context": true,
+      "issued_or_admitted": false
+    },
+    "interpretation": "No sufficient safe generic contract/schema deletion demonstrated. Counterfactual packing neither corrects the tentative binding nor predicts acceptance or future-run fit."
+  },
+  "source_evidence": [
+    {
+      "file": "freeze.json",
+      "sha256": "221429959858d6e9465a95e2d2df6bc236ddcc2b99ec5f38ac3e0a2466601551"
+    },
+    {
+      "file": "terminal-metrics-safe.json",
+      "sha256": "afc114e2f639fcd4dc493e907bcf9dfa4189eefe6ff55c6849d3b3fb9fe390e3"
+    },
+    {
+      "file": "original-formatting-safe.json",
+      "sha256": "c939cc0fb82ff7939a78071956d46c92696342c5820915695754b1b37106d10c"
+    },
+    {
+      "file": "amazon-terminal-numeric-safe.json",
+      "sha256": "c304d6534a5441a6c43bdd130d0c70333a0781b01c2a319c6e59708789a91513"
+    },
+    {
+      "file": "received-decisions-format-review-safe.json",
+      "sha256": "1df1757898a3d9fd75bbf31eb5bfee3ffcc88d11b997b8e9633892745ee7fd8a"
+    },
+    {
+      "file": "assessment-safe.json",
+      "sha256": "66fc2d09b9aa8c52ed58a700b22f437a3c0ca6b2ea7273dfa5d7e4543097c3b3"
+    },
+    {
+      "file": "independent-source-review-safe.json",
+      "sha256": "823106fd3253358150d1a7746924d4ae1a4799bf9e9bf653c46b1b21e839a233"
+    },
+    {
+      "file": "assessment-safe.json",
+      "sha256": "bcc45f0ac74d0c30644a6cd929dfba2505d1e20e0761b9d8c416e56d3cc3f4b0"
+    },
+    {
+      "file": "independent-source-result-review-safe.json",
+      "sha256": "8011b7595f1d6079770ac12cb0e883cacb2db3544f53acd4a67e7e408498173a"
+    },
+    {
+      "file": "correction-attribution-qualification-safe.json",
+      "sha256": "1e40ad236b70bb01c2386d9ef90200eea9d42dd47e34b979b54da8346d8fcb5c"
+    },
+    {
+      "file": "selected-issued-contexts-private.json",
+      "sha256": "8c58274df6fb71ef2f2af715743788ec5bc8c76e1d4486c1a25b1f6c7ae2a1db"
+    },
+    {
+      "file": "issued-context-attribution-safe.json",
+      "sha256": "7e7e674a7c7f60edb349721c7785268c2224e6f470ea250cb8a9fd1e8108fd0f"
+    }
+  ],
+  "limitations": [
+    "No raw prompts, provider bodies or task definitions included.",
+    "Original-format counters reuse root in-memory scan and reviewer receipt joins, not a second raw scan.",
+    "No causal profile benefit, avoided correction, runtime acceptance or completed-case ratio. Historical results are unchanged."
+  ]
+}
