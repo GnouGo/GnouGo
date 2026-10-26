@@ -163,17 +163,15 @@ public sealed class CompactSuspendedConsumerTests
     [InlineData(7, true)]
     public async Task ExplicitResumptionMayUseAnOlderProducerOnlyUnderTheNewCapturedProtocol(int version, bool allowed)
     {
-        var state = await StringProducerState(suspend: false, version);
+        var state = await ReviewedProducerState(version, operation: false);
         var compact = state.Construction!.Compact!;
         compact.CurrentStep = Consumer(state, "consumer");
-        var decision = Suspend(); decision.Prerequisite!.ExpectedType = new() { Kind = "string" };
-        state.Diagnostics = [new("CONSTRUCTION_TENTATIVE_SELECTION", "/step", "Use the original formatted label.")];
-        PlanningCompactConstruction.Reselect(state, decision);
+        state.Diagnostics = [new("CONSTRUCTION_TENTATIVE_SELECTION", "/step", "Use the original accepted number.")];
+        PlanningCompactConstruction.Reselect(state, Suspend());
         compact.ReplacementScope = null; compact.ReplacementRequirements = null; state.Diagnostics.Clear();
-        var checkpoint = state.Construction.Checkpoints[0];
-        checkpoint.Fragment["tasks"] = new JsonArray(PlanningConstruction.Node(state.Plan!.Root.Tasks[0], PlanningJsonContext.Default.PlanTask));
         var id = Assert.Single(compact.SuspendedSteps!).Id;
-        var binding = new TaskValue { Kind = "output", Source = "format_label", Port = "label" };
+        var binding = Output("number_source");
+        var calls = state.ModelCalls;
         if (!allowed)
         {
             Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ResumeStep(state, id, 1, binding));
@@ -183,8 +181,120 @@ public sealed class CompactSuspendedConsumerTests
         Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ResumeStep(changed, id, 1, binding));
         Assert.False(PlanningCompactConstruction.TryResumeReviewedConsumer(state)); // No accepted semantic association.
         PlanningCompactConstruction.ResumeStep(state, id, 1, binding);
-        Assert.Equal("format_label", Assert.Single(compact.CurrentStep!.Inputs).Source);
-        Assert.Equal(0, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal("number_source", Assert.Single(compact.CurrentStep!.Inputs).Source);
+        Assert.Equal(calls, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+    }
+
+    [Theory]
+    [InlineData("unchanged", true)]
+    [InlineData("identical_copy", true)]
+    [InlineData("description", false)]
+    [InlineData("missing", false)]
+    [InlineData("conflicting_same_version", false)]
+    [InlineData("unreviewed", false)]
+    public async Task ExplicitOlderProducerRequiresItsOriginalReviewedContract(string mutation, bool allowed)
+    {
+        var state = await ReviewedProducerState(7, operation: true);
+        var compact = state.Construction!.Compact!;
+        compact.CurrentStep = Consumer(state, "consumer");
+        state.Diagnostics = [new("CONSTRUCTION_TENTATIVE_SELECTION", "/step", "Use the exact accepted numeric producer.")];
+        PlanningCompactConstruction.Reselect(state, Suspend());
+        compact.ReplacementScope = null; compact.ReplacementRequirements = null; state.Diagnostics.Clear();
+        var continuation = Assert.Single(compact.SuspendedSteps!);
+        Assert.Empty(continuation.ContractHashes); // The local consumer selects no operation.
+        var checkpoint = Assert.Single(state.Construction.Checkpoints);
+        Assert.Equal(checkpoint.Sequence, continuation.SuspendedAtCheckpoint);
+        Assert.True(PlanningConstructionReviewCoverage.Reviewed(state, checkpoint, PlanningConstruction.LocalPurpose));
+        var capability = state.Catalog!.Capabilities.Single(item => item.Id == "read");
+        var original = PlanningConstruction.Node(capability, PlanningJsonContext.Default.PlanningCapability)!;
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        var calls = state.ModelCalls;
+        switch (mutation)
+        {
+            case "description": capability.Description += " A new normative constraint."; break;
+            case "missing": state.Catalog.Capabilities.Remove(capability); break;
+            case "unreviewed": checkpoint.Reviews.Clear(); break;
+            case "identical_copy":
+            case "conflicting_same_version":
+                var copy = original.Deserialize(PlanningJsonContext.Default.PlanningCapability)!;
+                if (mutation == "conflicting_same_version") copy.Description += " A conflicting normative constraint.";
+                state.Discovery.Resolved.Add(copy);
+                break;
+        }
+        Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
+        Assert.Equal(original["id"]!.ToString(), capability.Id);
+        Assert.Equal(original["version"]!.ToString(), capability.Version);
+        Assert.True(JsonNode.DeepEquals(original["inputSchema"], capability.InputSchema));
+        Assert.True(JsonNode.DeepEquals(original["outputSchema"], capability.OutputSchema));
+        var before = Snapshot(state);
+        if (allowed)
+        {
+            PlanningCompactConstruction.ResumeStep(state, continuation.Id, checkpoint.Sequence, Output("number_source"));
+            Assert.Equal("resuming", continuation.Status);
+            Assert.Equal("number_source", Assert.Single(compact.CurrentStep!.Inputs).Source);
+        }
+        else
+        {
+            var failure = Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ResumeStep(
+                state, continuation.Id, checkpoint.Sequence, Output("number_source")));
+            Assert.Contains(failure.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_CONTINUATION_INVALID");
+            Assert.Equal(before, Snapshot(state));
+        }
+        Assert.Equal(calls, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+    }
+
+    [Theory]
+    [InlineData(6, true)]
+    [InlineData(7, false)]
+    public async Task ConflictingContractCopiesDoNotChangeHistoricalCheckpointReviewBehavior(int version, bool reviewed)
+    {
+        var state = await ReviewedProducerState(version, operation: true);
+        var capability = state.Catalog!.Capabilities.Single(item => item.Id == "read");
+        var copy = PlanningConstruction.Node(capability, PlanningJsonContext.Default.PlanningCapability)!
+            .Deserialize(PlanningJsonContext.Default.PlanningCapability)!;
+        copy.Description += " A conflicting same-version constraint.";
+        state.Discovery.Resolved.Add(copy);
+        var before = Snapshot(state);
+        Assert.Equal(reviewed, PlanningConstructionReviewCoverage.Reviewed(state,
+            Assert.Single(state.Construction!.Checkpoints), PlanningConstruction.LocalPurpose));
+        Assert.Equal(before, Snapshot(state));
+    }
+
+    private static async Task<PlanningSession> ReviewedProducerState(int version, bool operation)
+    {
+        var state = State(version); state.IntentVersion = 3; state.Revision = 1; state.Status = PlanningStatus.Generating;
+        state.Catalog = await new TestRuntime().DiscoverAsync(state.Request, PlannerFixture.Ct);
+        PlanningCompactConstruction.InitializeSources(state);
+        foreach (var source in state.Construction!.Compact!.Sources) { source.Indexed = true; source.InterfaceKind = "none"; }
+        var step = Consumer(state, "number_source");
+        var task = new PlanTask { Id = "number_source", Kind = "value", Objective = "Produce the original numeric prerequisite.",
+            Outputs = [new("number", new() { Kind = "number", Number = 7 })] };
+        if (operation)
+        {
+            state.Catalog.AllowedStepTypes.Add("mcp.call");
+            state.Catalog.Capabilities.Add(new() { Id = "read", Version = "v1", Kind = "tool", StepType = "mcp.call",
+                Server = "source", Method = "read", Description = "Read the authorized numeric record.", EffectKind = "read",
+                InputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false },
+                OutputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject { ["number"] = new JsonObject { ["type"] = "number" } },
+                    ["required"] = new JsonArray("number"), ["additionalProperties"] = false } });
+            step.Kind = "operation"; step.OperationIds = ["read"];
+            task.Kind = "operation"; task.Operation = "read"; task.Outputs.Clear();
+        }
+        state.Construction.Compact.CurrentStep = step;
+        state.Construction.CandidateFailureIdentityVersion = 1;
+        state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["req"], Tasks = [task] });
+        PlanningCompactConstruction.ValidateExtension(state, state.Construction.Candidate);
+        Assert.Empty(TaskPlanCompiler.ValidateConstruction(state.Construction.Candidate.Plan, state.Catalog, state.Request,
+            state.Construction.Candidate.OpenScopes.ToHashSet(StringComparer.Ordinal)).Diagnostics);
+        state.Diagnostics.Clear();
+        var runtime = CleanJudge();
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Single(runtime.Calls);
+        var checkpoint = Assert.Single(state.Construction!.Checkpoints);
+        Assert.True(PlanningConstructionReviewCoverage.Reviewed(state, checkpoint, PlanningConstruction.LocalPurpose));
+        Assert.Null(checkpoint.Step!.ContinuationBinding);
+        return state;
     }
 
     private static async Task<PlanningSession> AssociatedProducer()

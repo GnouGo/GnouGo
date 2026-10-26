@@ -46,7 +46,8 @@ accepted checkpoint's step. Only a current, uniquely reviewed association resume
 consumer mechanically while that checkpoint's accepted plan remains current. Intervening
 accepted changes return to explicit semantic selection, since producer bytes alone do
 not establish unchanged upstream meaning. Explicit selection may also bind an older accepted producer;
-its current content must match its owning checkpoint. Revisions and rollback invalidate
+its current content and original contract review must still match its owning checkpoint.
+Revisions and rollback invalidate
 affected bindings, and an interrupted resumption never selects or dispatches twice.
 
 Selection may bind a bounded offered page of exact inspected operations. It shares

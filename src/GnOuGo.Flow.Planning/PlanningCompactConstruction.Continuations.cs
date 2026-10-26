@@ -243,6 +243,9 @@ internal static partial class PlanningCompactConstruction
             checkpoint.Fragment["tasks"] is not JsonArray tasks ||
             !tasks.Any(task => task?["id"]?.ToString() == id && JsonNode.DeepEquals(task,
                 PlanningConstruction.Node(producer.Task, PlanningJsonContext.Default.PlanTask)))) return false;
+        if (!PlanningConstructionReviewCoverage.Reviewed(state, checkpoint, PlanningConstruction.LocalPurpose) ||
+            checkpoint.NeedsIntermediateReview && !PlanningConstructionReviewCoverage.Reviewed(state, checkpoint, PlanningConstruction.IntermediatePurpose))
+            return false;
         return checkpoint.TaskIds.Contains(id, StringComparer.Ordinal) || checkpoint.ClosedScopes.Any(path =>
             !state.Construction!.OpenScopes.Contains(path, StringComparer.Ordinal) &&
             symbols.Scopes.Any(scope => scope.Path == path && scope.Owner?.Id == id));
@@ -256,9 +259,7 @@ internal static partial class PlanningCompactConstruction
         var acceptedHash = PlanningConstruction.Hash(state.Plan);
         var matches = state.Construction.Checkpoints.Where(checkpoint =>
             checkpoint.PlanHash == acceptedHash &&
-            checkpoint.Step?.ContinuationBinding is { } association && association.ContinuationId == item.Id &&
-            PlanningConstructionReviewCoverage.Reviewed(state, checkpoint, PlanningConstruction.LocalPurpose) &&
-            (!checkpoint.NeedsIntermediateReview || PlanningConstructionReviewCoverage.Reviewed(state, checkpoint, PlanningConstruction.IntermediatePurpose)))
+            checkpoint.Step?.ContinuationBinding is { } association && association.ContinuationId == item.Id)
             .ToArray();
         if (matches.Length != 1) return false;
         // An intervening accepted change may alter upstream meaning without changing

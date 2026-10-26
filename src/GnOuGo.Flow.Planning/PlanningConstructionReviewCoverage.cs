@@ -142,7 +142,9 @@ internal static class PlanningConstructionReviewCoverage
         {
             var matches = (state.Catalog?.Capabilities ?? []).Concat(state.Discovery.Resolved)
                 .Where(capability => TaskOperations.Describe(capability).Id == contract["id"]?.ToString() &&
-                    capability.Version == contract["version"]?.ToString()).DistinctBy(capability => (capability.Id, capability.Version)).ToArray();
+                    capability.Version == contract["version"]?.ToString()).ToArray();
+            if (PlanningCompactConstruction.UsesAcceptedProgress(state) && matches.Select(ContractHash).Distinct(StringComparer.Ordinal).Count() != 1) return false;
+            matches = matches.DistinctBy(capability => (capability.Id, capability.Version)).ToArray();
             if (matches.Length != 1 || contract["hash"]?.ToString() != ContractHash(matches[0])) return false;
         }
         return contracts.All(node => node is JsonObject);
