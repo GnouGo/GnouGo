@@ -2,7 +2,21 @@
 
 Fresh sessions use [compact incremental construction](../../docs/incremental-taskplan-construction.md): index original intent, select one immediate business substep, discover its capabilities, then generate and review a bounded fragment of one TaskPlan. Phase-specific context and response schemas omit unrelated inspections, task grammar and history. Exact contract views preserve required constraints; the shared compiler validates against unchanged original contracts before encrypted checkpoint acceptance. Completion uses the existing PlanningGraph and compiler v15 path without a final whole-plan LLM Judge. Historical proposal/repair contracts below retain their original meaning for issued sessions.
 
-Fresh presentation revision 8 reuses inspected operation selection, exact reviewed
+Fresh presentation revision 9 combines prospectively scoped review propositions with
+host-verified conservation proofs. Original request and receipt identities remain
+attached to the proposition; reuse is a separate journal entry, never a new clean
+response. The same coverage verifier controls request windows, admission, checkpoint
+acceptance, closure and artifact approval. New interactions and completion claims
+remain reviewed. Unknown/shared effects and uncertain source scope retain broad
+coverage. See the [v9 coverage and transition contract](../../docs/incremental-taskplan-construction.md#verified-incremental-coverage-and-advancement-presentation-revision-9).
+
+Existing coordinator transitions additionally consume reviewed local-boundary claims,
+exact cross-boundary exports and exact ancestor-consumer associations. Each transition
+retains preflight, scoped review, persisted identity and recovery. These are bounded
+claims about existing work, not a second plan or execution engine. Historical
+presentations 2–8 retain their behavior and exact issued requests.
+
+Presentation revision 8 reuses inspected operation selection, exact reviewed
 consumer associations and explicit unchanged-plan closures through the existing
 coordinator. Associations are optional construction metadata, never TaskPlan nodes;
 they bind review identities and become resumable only with the accepted checkpoint.
@@ -31,7 +45,7 @@ Revision 8 additionally shares byte-identical ancestor constraints and reference
 closures within each input/output direction under that same exact contract;
 differing views remain separate and independently retrievable in full.
 This presentation reduction changes neither captured ceilings nor compiler validation.
-Fresh revision-8 authoring also shares identical accepted-checkpoint navigation rows
+Revision-8 authoring also shares identical accepted-checkpoint navigation rows
 through the first complete row in the same request. Each requirement keeps its exact
 association and evidence address. Factoring follows the existing original-clause
 selection and evidence-schema construction; it changes no Judge window, source clause,
@@ -42,7 +56,7 @@ or materializing an argument. Unconsumed producers keep compact port identities 
 exact retrieval links. Types alone do
 not establish business identity, and these views grant no new edit or effect authority.
 Scoped Judges review bounded whole-clause source windows when one request cannot fit.
-Every window must cover the same candidate, baseline, claims, originals and contracts
+In revisions 6–8, every window covers the same candidate, baseline, claims, originals and contracts
 before acceptance, automatic closure or approval. The existing review journal stores
 that coverage; changed evidence invalidates it, pending requests keep exact bytes,
 and one shared follow-up allowance remains. Indivisible context and all remaining

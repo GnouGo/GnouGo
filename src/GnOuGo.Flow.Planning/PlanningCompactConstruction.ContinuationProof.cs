@@ -11,10 +11,14 @@ internal static partial class PlanningCompactConstruction
     // It neither infers resource independence nor turns an old review into a new one.
     internal static JsonObject? ContinuationDependencyProof(PlanningSession state, PlanningConstructionCandidate candidate)
     {
+        var proposed = candidate.Extension.ContinuationBinding;
+        var retained = UsesIncrementalReview(state) && proposed is not null
+            ? State(state).SuspendedSteps?.SingleOrDefault(item => item.Id == proposed.ContinuationId && Active(item))
+            : State(state).SuspendedSteps?.LastOrDefault(Active);
         if (!UsesVerifiedProgress(state) || candidate.Extension.ContinuationBinding is not { } association ||
-            State(state).SuspendedSteps?.LastOrDefault(Active) is not { Status: "waiting" } item || item.Id != association.ContinuationId)
+            retained is not { Status: "waiting" } item || item.Id != association.ContinuationId)
             return null;
-        return new JsonObject
+        var result = new JsonObject
         {
             ["version"] = 1, ["planHash"] = candidate.Hash, ["consumerHash"] = ContinuationConsumerHash(item),
             ["authorityHash"] = ContinuationAuthorityHash(state, accepting: true),
@@ -22,9 +26,20 @@ internal static partial class PlanningCompactConstruction
             ["groups"] = ContinuationStrings(candidate.Plan.Groups.Select(group => group.Id)),
             ["openScopes"] = ContinuationStrings(candidate.OpenScopes)
         };
+        if (UsesIncrementalReview(state))
+        {
+            var leaf = association.Binding;
+            while (leaf.Kind == "field" && leaf.Items.Count == 1) leaf = leaf.Items[0];
+            result["producerProof"] = leaf.Source is null ? null : PlanningConstructionDependencies.Capture(state, candidate.Plan,
+                new JsonObject { ["kind"] = "task", ["id"] = leaf.Source }, candidate.OpenScopes);
+            if (result["producerProof"] is null && association.DischargedContinuationIds is { Count: > 0 })
+                result["exactProducerProof"] = PlanningConstructionDependencies.CaptureExactTransition(state, candidate.Plan, candidate.OpenScopes);
+            result["discharged"] = ContinuationDischargeProof(state, association);
+        }
+        return result;
     }
 
-    private static string ContinuationConsumerHash(PlanningConstructionSuspendedStep item)
+    internal static string ContinuationConsumerHash(PlanningConstructionSuspendedStep item)
     {
         var value = PlanningConstruction.Node(item, PlanningJsonContext.Default.PlanningConstructionSuspendedStep)!.AsObject();
         value.Remove("status"); value.Remove("lastPrerequisiteCheckpoint");
@@ -130,7 +145,8 @@ internal static partial class PlanningCompactConstruction
         return manifest["basis"]?["continuationProof"] is not JsonObject proof ||
             proof["version"]?.ToString() == "1" && proof["planHash"]?.ToString() == checkpoint.PlanHash &&
             proof["consumerHash"]?.ToString() == ContinuationConsumerHash(item) &&
-            proof["authorityHash"]?.ToString() == ContinuationAuthorityHash(state);
+            proof["authorityHash"]?.ToString() == ContinuationAuthorityHash(state) &&
+            (!UsesIncrementalReview(state) || JsonNode.DeepEquals(proof["discharged"], ContinuationDischargeProof(state, checkpoint.Step!.ContinuationBinding!)));
     }
 
     private static bool IndependentLiteral(PlanTask task) => task.Kind == "value" && task.Inputs.Count == 0 && task.DependsOn.Count == 0 &&
@@ -158,6 +174,7 @@ internal static partial class PlanningCompactConstruction
             ["reviewFingerprints"] = ContinuationStrings(fingerprints.Take(8)),
             ["reviewFingerprintSetHash"] = PlanningGraphCompiler.Fingerprint(ContinuationStrings(fingerprints).ToJsonString())
         });
+        if (UsesIncrementalReview(state)) checkpoint.Reviews[^1]["discharged"] = ContinuationDischargeProof(state, checkpoint.Step.ContinuationBinding);
     }
 
     internal static JsonObject? ReviewedContinuationProvenance(PlanningSession state)

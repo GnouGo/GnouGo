@@ -320,6 +320,8 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 [JsonSerializable(typeof(PlanningConstructionTypedPrerequisite))]
 [JsonSerializable(typeof(PlanningConstructionSuspendedStep))]
 [JsonSerializable(typeof(PlanningConstructionContinuationBinding))]
+[JsonSerializable(typeof(PlanningConstructionBoundaryTransition))]
+[JsonSerializable(typeof(List<PlanningConstructionBoundaryTransition>))]
 [JsonSerializable(typeof(PlanningConstructionSource))]
 [JsonSerializable(typeof(PlanningConstructionInterfaceExtraction))]
 [JsonSerializable(typeof(PlanningConstructionCommitment))]

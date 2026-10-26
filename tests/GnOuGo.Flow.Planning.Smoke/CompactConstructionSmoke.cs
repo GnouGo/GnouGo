@@ -22,6 +22,7 @@ internal static class CompactConstructionSmoke
         await RunAsync(6);
         await RunAsync(7);
         await RunAsync(8);
+        await RunAsync(9);
     }
 
     private static async Task RunAsync(int presentationVersion)
@@ -31,11 +32,11 @@ internal static class CompactConstructionSmoke
         var recoveredIntentActions = new HashSet<string>(StringComparer.Ordinal);
         var state = new PlanningSession { Request = new() { TenantId = "compact-smoke", Prompt = Objective } };
         PlanningSessionCreation.Capture(state);
-        if (presentationVersion == 8)
+        if (presentationVersion == 9)
         {
-            if (state.Request.Options["construction_presentation_version"]?.GetValue<int>() != 8 ||
-                state.Construction!.Compact!.PresentationVersion != 8)
-                throw new InvalidOperationException("Fresh compact capture did not select presentation eight.");
+            if (state.Request.Options["construction_presentation_version"]?.GetValue<int>() != 9 ||
+                state.Construction!.Compact!.PresentationVersion != 9)
+                throw new InvalidOperationException("Fresh compact capture did not select presentation nine.");
         }
         else
         {
@@ -94,9 +95,22 @@ internal static class CompactConstructionSmoke
             throw new InvalidOperationException("Fresh presentation metadata changed historical omitted fields.");
         var historicalStep = JsonSerializer.Serialize(new PlanningConstructionStep(), PlanningJsonContext.Default.PlanningConstructionStep);
         var historicalExtension = JsonSerializer.Serialize(new PlanningConstructionExtension(), PlanningJsonContext.Default.PlanningConstructionExtension);
+        var historicalBinding = JsonSerializer.Serialize(new PlanningConstructionContinuationBinding(), PlanningJsonContext.Default.PlanningConstructionContinuationBinding);
         if (historicalStep.Contains("closeScopes", StringComparison.Ordinal) || historicalStep.Contains("continuationBinding", StringComparison.Ordinal) ||
-            historicalExtension.Contains("continuationBinding", StringComparison.Ordinal))
+            historicalStep.Contains("boundaryTransitions", StringComparison.Ordinal) || historicalExtension.Contains("boundaryTransitions", StringComparison.Ordinal) ||
+            historicalExtension.Contains("continuationBinding", StringComparison.Ordinal) || historicalBinding.Contains("dischargedContinuationIds", StringComparison.Ordinal))
             throw new InvalidOperationException("Fresh progression metadata changed historical omitted fields.");
+        if (presentationVersion == 9)
+        {
+            var transitions = new List<PlanningConstructionBoundaryTransition>
+            {
+                new() { Scope = "/root", Outputs = [new("message", new() { Kind = "string", Text = "Hello" })], RequirementIds = ["req_0"] }
+            };
+            var encoded = JsonSerializer.Serialize(transitions, PlanningJsonContext.Default.ListPlanningConstructionBoundaryTransition);
+            var decoded = JsonSerializer.Deserialize(encoded, PlanningJsonContext.Default.ListPlanningConstructionBoundaryTransition);
+            if (JsonSerializer.Serialize(decoded, PlanningJsonContext.Default.ListPlanningConstructionBoundaryTransition) != encoded)
+                throw new InvalidOperationException("Reviewed boundary claims did not roundtrip through source-generated Native AOT metadata.");
+        }
         if (presentationVersion >= 7)
         {
             foreach (var scopes in new List<string>[] { [], ["/root"] })
@@ -140,7 +154,7 @@ internal static class CompactConstructionSmoke
         if (!result.Success || result.Outputs?["message"]?.GetValue<string>() != "Hello")
             throw new InvalidOperationException("Compact v15 artifact changed the independently expected value.");
         Console.WriteLine(presentationVersion >= 6
-            ? $"compact presentation {presentationVersion}: {(presentationVersion == 8 ? "fresh capture" : "retained capture")}, {runtime.SourceWindows.Count} exact source windows, {expectedCalls} recovered calls and independently executed output"
+            ? $"compact presentation {presentationVersion}: {(presentationVersion == 9 ? "fresh capture" : "retained capture")}, {runtime.SourceWindows.Count} exact source windows, {expectedCalls} recovered calls and independently executed output"
             : $"compact presentation {presentationVersion}: classified originals, grounded interface extraction, six recovered calls, narrow draft/Judge and independently executed output");
     }
 
@@ -257,7 +271,7 @@ internal static class CompactConstructionSmoke
                     {
                         if (context["sourceCoverage"] is not JsonObject coverage || coverage["sourceIds"] is not JsonArray sourceIds ||
                             context["requirements"] is not JsonArray originals || originals.Count == 0 ||
-                            coverage["version"]?.GetValue<int>() != 1 ||
+                            coverage["version"]?.GetValue<int>() != (presentationVersion == 9 ? 2 : 1) ||
                             coverage["windowIndex"]?.GetValue<int>() != SourceWindows.Count ||
                             request.RequiredReviewCalls != coverage["windowCount"]!.GetValue<int>() - SourceWindows.Count - 1 ||
                             !sourceIds.Select(id => id!.ToString()).ToHashSet(StringComparer.Ordinal).SetEquals(
@@ -284,6 +298,10 @@ internal static class CompactConstructionSmoke
                     break;
                 default: throw new InvalidOperationException("Unexpected compact phase: " + purpose);
             }
+            if (response["action"] is JsonObject action && action["kind"]?.ToString() == "findings" &&
+                context["reviewPropositions"] is JsonArray propositions)
+                action["acknowledgments"] = new JsonArray(propositions.Select(proposition => (JsonNode)new JsonObject
+                    { ["id"] = proposition!["id"]!.DeepClone(), ["applicability"] = "broad" }).ToArray());
             var result = new LLMResponse { Json = PlanningCorpus.Transport(response, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
             Receipts.Add(request.ClientRequestId!, result);
             return Task.FromResult(result);

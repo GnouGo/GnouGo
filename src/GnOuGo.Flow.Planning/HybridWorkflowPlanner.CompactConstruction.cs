@@ -62,6 +62,8 @@ public sealed partial class HybridWorkflowPlanner
                 var transition = PlanningCompactConstruction.PrepareAcceptedTransition(state);
                 if (transition is not null && transition.Construction!.Candidate is null)
                 {
+                    state.Construction = transition.Construction;
+                    state.Diagnostics = transition.Diagnostics;
                     await runtime.CheckpointAsync(state, ct);
                     return;
                 }
@@ -71,7 +73,7 @@ public sealed partial class HybridWorkflowPlanner
                     await ValidateConstructionCandidateAsync(closure, runtime, ct);
                     if (closure.Construction!.Candidate!.Diagnostics.Count == 0)
                     {
-                        // This is an unchanged-plan structural draft, never a fabricated model receipt.
+                        // This host-prepared boundary candidate has no fabricated model receipt.
                         // Persist it before the ordinary mandatory review can be issued.
                         state.Construction = closure.Construction;
                         state.Phase = closure.Phase;

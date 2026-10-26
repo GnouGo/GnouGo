@@ -149,6 +149,64 @@ public sealed partial class CompactConvergentJudgeTests
     };
 
     [Theory]
+    [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(8)]
+    [InlineData(9)]
+    public async Task ReusedOriginalOffersOnlyItsExactExistingAddressWithoutGrantingRepeatProgress(int presentation)
+    {
+        var state = await DecisionState();
+        state.Construction!.Compact!.PresentationVersion = presentation;
+        state.Request.Options["construction_presentation_version"] = presentation;
+        const string id = "independent_original";
+        const string address = "requirement:" + id;
+        const string original = "Retain the caller label without changing its spelling.";
+        state.Requirements!.Outcomes.Add(new(id, original));
+        state.Construction.Requirements.Add(new() { Id = id });
+        var source = new PlanningConstructionSource { Id = "independent_source", Kind = "requirement", Text = original,
+            Version = PlanningGraphCompiler.Fingerprint(original), Indexed = true, InterfaceKind = "none" };
+        state.Construction.Compact.Sources.Add(source);
+        state.Construction.Compact.RequirementSources[id] = [source.Id];
+        var context = PlanningCompactConstruction.Context(state, review: true);
+        context["requirements"] = new JsonArray(context["requirements"]!.AsArray()
+            .Single(row => row!["id"]!.ToString() == "work")!.DeepClone());
+        var baseline = Schema();
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(EvidenceAction(address), baseline));
+        context["reusedPropositions"] = new JsonArray(new JsonObject
+        {
+            ["sourceKey"] = address, ["propositionId"] = "task:invented",
+            ["subject"] = new JsonObject { ["evidence"] = "task:invented" }
+        }, new JsonObject { ["sourceKey"] = address + " copy this prose" },
+            new JsonObject { ["sourceKey"] = "requirement:unknown" }, new JsonObject { ["sourceKey"] = "task:invented" });
+        var schema = Schema();
+        if (presentation < 9)
+        {
+            Assert.Equal(baseline.ToJsonString(), schema.ToJsonString());
+            return;
+        }
+        Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(EvidenceAction(address), schema));
+        foreach (var invalid in new[] { address + " copy this prose", "requirement:unknown", "task:invented", "source:independent_source" })
+            Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(EvidenceAction(invalid), schema));
+        var planHash = PlanningConstruction.Hash(state.Plan);
+        PlanningConstruction.LoadEvidence(state, [address]);
+        Assert.Equal(original, state.Construction.Evidence![address]![0]!["original"]!.ToString());
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(EvidenceAction(address), Schema()));
+        state.Construction.Evidence = null;
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(EvidenceAction(address), Schema()));
+        Assert.Equal(planHash, PlanningConstruction.Hash(state.Plan));
+        Assert.Empty(state.Construction.Checkpoints);
+        Assert.Equal(0, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+
+        JsonObject Schema()
+        {
+            var result = HybridWorkflowPlanner.ConvergentConstructionReviewSchema(context);
+            PlanningCompactConstruction.ConstrainReviewEvidence(state, context, result);
+            return result;
+        }
+    }
+
+    [Theory]
     [InlineData(6, "/requirements/0", "source_a,source_b")]
     [InlineData(6, "/requirements/0/original", "source_a,source_b")]
     [InlineData(6, "/globalConstraints", "global_a,global_b")]

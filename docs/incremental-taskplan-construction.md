@@ -1,6 +1,6 @@
 # Incremental TaskPlan construction
 
-Fresh construction-version-2 sessions capture presentation revision 8 and extend one semantic TaskPlan from available producers
+Fresh construction-version-2 sessions capture presentation revision 9 and extend one semantic TaskPlan from available producers
 toward consumers. They index original intent once, select one immediate business
 substep, discover its capabilities and generate only its fragment. Each bounded
 draft passes deterministic semantic validation and a local advisory review before
@@ -29,6 +29,72 @@ flowchart LR
 ```
 
 During discovery, selected producer outputs are provisional navigation bindings. Their compiler-resolved nullable interfaces, exact accepted arguments, full original operation and top-level port descriptions, and bound-input schema constraints remain visible. Nested schema annotations and constraints remain exact through retrieval and the full draft/review closures. Automatic selected-output schema closures may be deferred through the exact existing schema/page links; explicitly retrieved originals remain intact. Draft and scoped review still include the complete selected original closures for actual consumers. Discovery grants no task, permission, or acceptance authority.
+
+## Verified incremental coverage and advancement (presentation revision 9)
+
+Review coverage is a union of fresh propositions and retained propositions whose
+current applicability is verified. A proposition binds a complete original unit,
+exact structural subject, claim kind (local behavior, interaction, global constraint
+or completion), required review purposes, and its original request/receipt/checkpoint.
+The host issues its identity. In the existing Judge call, the findings branch
+acknowledges subject-bounded or broad applicability after examining the whole original.
+A declaration or selected requirement association does not prove locality; empty
+findings do not establish independence. Mixed and uncertain sources remain broad.
+
+The host separately verifies conservation of the subject's dependencies: executable
+values/objectives, upstream producers, inputs/defaults, groups, captures, exports,
+control/order, iteration, failure/cleanup context, originals, complete contracts and
+permissions. Supported classes include deterministic value computations, recursively
+eligible executed groups and closed executable scopes. Unknown inference, operations
+or shared external effects require broader review. New consumers and calls receive
+interaction review even when a stable producer proposition remains applicable.
+New closure claims require completion review; global and negative constraints retain
+their applicable coverage. Unresolved defects remain blocking.
+
+Reuse rows reference original receipts and current proofs; they never copy a clean
+verdict under another candidate hash. One verifier governs window preparation,
+remaining-review admission, acceptance, closure and approval. Only outstanding
+obligations are packed into whole-clause windows, without increasing ceilings or
+follow-up allowances. Every new fragment receives business review. Invalid or stale
+proof restores required coverage and cannot reduce admission headroom speculatively.
+
+The coordinator recovers pending requests and finishes candidate work before deriving
+established transitions. Ordinary drafts/reviews may retain exact boundary exports,
+local closure authority and consumer associations, including explicitly superseded
+prerequisite-only descendants. These refer to existing work, not future tasks.
+A child fragment can establish a parent closure while unrelated requirements remain
+open; an exact parent export can be materialized without another selection/draft;
+a reviewed ancestor association can resume without list reordering. ParentId,
+original obligations, dependencies and effects still constrain ordering. Missing or
+ambiguous authority returns to the specific semantic decision.
+
+The optional draft/checkpoint `boundaryTransitions` field contains at most four
+exact existing-boundary claims, one per scope. Each carries its original requirement
+IDs, exact exports and an explicit `closeScope` assertion that no further work
+belongs in that boundary. Scope parents determine child-before-parent order; list
+order grants no scheduling authority. The host validates the combined projection,
+then applies one eligible boundary extension and reviews its new interaction before
+considering another retained claim. Root exports are permitted; root completion and
+requirement closure retain their separate gates. An ancestor `continuationBinding`
+names every bypassed prerequisite-only descendant in `dischargedContinuationIds`;
+their records and ParentId links remain intact. These optional metadata fields are
+omitted from historical state. Neither a missing conservation proof nor a compatible type
+grants automatic transition authority. For unknown or external behavior, the shared
+proof can instead require exact equality of the entire projected plan, open scopes,
+original contracts and authority. This permits the reviewed transition only; it
+establishes no independence or reusable local business proposition. A change to that
+projected state restores semantic selection unless a deterministic conservation proof applies.
+
+Each transition is clone-validated, reviewed where it introduces interaction or
+completion claims, and checkpointed before continuing. Changed claims invalidate
+review identity even without an executable-plan change. Relevant-state identities
+prevent repeated unsuccessful application. Root closure retains complete original
+coverage, public-output, cleanup and descendant requirements.
+
+These changes are captured only for fresh revision-9 sessions. Revisions 2–8 keep
+their captured future behavior; pending responses use their issued schemas. Metadata
+is optional and non-executable. TaskPlan, storage format 10, compiler v15, execution
+permissions and physical-attempt accounting are unchanged.
 
 ## Verified transitions (presentation revision 8)
 
@@ -885,12 +951,12 @@ unrestricted-string versus exhaustive-enum semantics after schema annotations
 are compacted. File-content obligations do not imply public outputs; an explicit
 public file-path declaration still requires a typed interface.
 
-Fresh creation captures presentation revision 8 in the existing setting. It
+Fresh creation captures presentation revision 9 in the existing setting. It
 inherits compiler-grounded review context and explicit inconclusive reviews,
 using existing candidate review records for grounded findings and repair witnesses.
 Nullable implementation choices, prerequisite continuations and extraction
 dispositions remain non-executable metadata; construction version 2
-and storage format 10 are unchanged. Historical revisions 2 through 7 retain their
+and storage format 10 are unchanged. Historical revisions 2 through 8 retain their
 captured future-request behavior as well as already issued requests. Historical sessions retain issued
 schemas, compiler profiles, identities, approvals, receipts and cumulative usage.
 Their required compatibility paths cannot be selected by new sessions. Legacy

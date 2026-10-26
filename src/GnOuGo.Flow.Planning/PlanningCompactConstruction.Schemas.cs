@@ -86,9 +86,17 @@ internal static partial class PlanningCompactConstruction
         if (UsesAcceptedProgress(state))
         {
             var retained = State(state).SuspendedSteps?.LastOrDefault(Active);
-            extension["properties"]!["continuationBinding"] = retained is { Status: "waiting" } && ContinuationCurrent(state, retained)
-                ? PlanningSchemas.Nullable(PlanningSchemas.Object(("continuationId", PlanningSchemas.Enum(retained.Id)),
-                    ("binding", PlanningSchemas.Ref("continuationBindingValue")))) : PlanningSchemas.Type("null");
+            var eligible = UsesIncrementalReview(state) ? EligibleContinuationAssociations(state) :
+                retained is { Status: "waiting" } && ContinuationCurrent(state, retained) ? [retained] : [];
+            var association = PlanningSchemas.Object(("continuationId", PlanningSchemas.Enum(eligible.Select(item => item.Id).ToArray())),
+                ("binding", PlanningSchemas.Ref("continuationBindingValue")));
+            if (UsesIncrementalReview(state))
+            {
+                association["properties"]!["dischargedContinuationIds"] = PlanningSchemas.Nullable(eligible.Length < 2 ? EmptyArray() :
+                    PlanningSchemas.Array(PlanningSchemas.Enum(eligible.Skip(1).Select(item => item.Id).ToArray()), 0, 3));
+                association["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("dischargedContinuationIds"));
+            }
+            extension["properties"]!["continuationBinding"] = eligible.Length > 0 ? PlanningSchemas.Nullable(association) : PlanningSchemas.Type("null");
             if (retained is { Status: "waiting" } && ContinuationCurrent(state, retained))
                 definitions["continuationBindingValue"] = new JsonObject { ["anyOf"] = new JsonArray(
                     PlanningSchemas.Object(("kind", PlanningSchemas.Enum("output")), ("source", Text(96)),
@@ -97,6 +105,22 @@ internal static partial class PlanningCompactConstruction
                     PlanningSchemas.Object(("kind", PlanningSchemas.Enum("field")), ("port", Text(96)),
                         ("items", PlanningSchemas.Array(PlanningSchemas.Ref("continuationBindingValue"), 1, 1)))) };
             extension["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("continuationBinding"));
+        }
+        if (UsesIncrementalReview(state))
+        {
+            var boundaries = BoundaryTargets(state, step.Scope).Where(boundary => step.RequirementIds.Count > 0 &&
+                (boundary != "/root" || state.Requirements?.Outputs is { Count: > 0 }));
+            var transitions = boundaries.Select(boundary => PlanningSchemas.Object(("scope", PlanningSchemas.Enum(boundary)),
+                ("requirementIds", PlanningSchemas.Array(PlanningSchemas.Enum(step.RequirementIds.ToArray()), 1, step.RequirementIds.Count)),
+                ("outputs", boundary == "/root" ? state.Requirements?.Outputs is { Count: > 0 } publicPorts
+                    ? PlanningSchemas.Array(PlanningSchemas.Object(("name", PlanningSchemas.Enum(publicPorts.Select(output => output.Name).ToArray())),
+                        ("value", PlanningSchemas.Ref("value"))), 1, maximum) : EmptyArray()
+                    : PlanningSchemas.Array(PlanningSchemas.Ref("output"), 0, maximum)),
+                ("closeScope", boundary == "/root" ? new JsonObject { ["type"] = "boolean", ["enum"] = new JsonArray(false) } : PlanningSchemas.Type("boolean")))).ToArray();
+            extension["properties"]!["boundaryTransitions"] = transitions.Length == 0 ? PlanningSchemas.Type("null") :
+                PlanningSchemas.Nullable(PlanningSchemas.Array(transitions.Length == 1 ? transitions[0] :
+                    new JsonObject { ["anyOf"] = new JsonArray(transitions.Cast<JsonNode>().ToArray()) }, 0, 4));
+            extension["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("boundaryTransitions"));
         }
         var publicOutputs = IsCompactPresentation(state)
             ? step.OutputNames.ToArray()
@@ -149,6 +173,8 @@ internal static partial class PlanningCompactConstruction
         projected["description"] = DraftSemantics(state, step);
         if (UsesAcceptedProgress(state) && State(state).SuspendedSteps?.LastOrDefault(Active) is { Status: "waiting" })
             projected["description"] += " When this fragment produces the retained consumer's prerequisite, continuationBinding identifies that consumer and the exact output or field binding. This is a proposed semantic association, validated and reviewed with the fragment; compatible types alone do not establish its meaning. Otherwise use null.";
+        if (UsesIncrementalReview(state))
+            projected["description"] += " boundaryTransitions optionally claims up to four exact existing boundaries, once per scope: outputs are exact exports; closeScope asserts no further work belongs in that boundary for its named original requirements. Host parent relationships determine order; this is not a future-task queue. Exports may reach the root, but these claims never close a requirement or the root. Use null when meaning or cleanup remains unresolved. An ancestor continuation association must explicitly list every bypassed prerequisite-only descendant in dischargedContinuationIds; never discharge original obligations or accepted effects.";
         if (fresh && rollback)
             projected["description"] += UsesConvergentConstruction(state) ? " " + RollbackSemantics :
                 " rollbackTask requests host-computed invalidation of an earlier producer and its dependent work; it cannot change accepted requirements or permissions. Explain the concrete defect in rollbackReason. Do not request rollback merely to regenerate the plan.";

@@ -56,7 +56,8 @@ public static class PlanningArtifactApproval
                 throw new PlanningConflictException("Every accepted construction checkpoint requires its artifact-bound local and intermediate review evidence.");
         }
 
-        bool Reviewed(PlanningConstructionCheckpoint checkpoint, string purpose) => PlanningConstructionReviewCoverage.Reviewed(state, checkpoint, purpose) && checkpoint.Reviews.Any(review =>
+        bool Reviewed(PlanningConstructionCheckpoint checkpoint, string purpose) => PlanningConstructionReviewCoverage.Reviewed(state, checkpoint, purpose) &&
+            (PlanningCompactConstruction.UsesIncrementalReview(state) || checkpoint.Reviews.Any(review =>
             (review["purpose"]?.ToString() == purpose || CombinedReview(checkpoint, review, purpose)) &&
             review["candidateHash"]?.ToString() == checkpoint.PlanHash &&
             (checkpoint.ClosedRequirementIds is null || review["closedRequirementIds"] is JsonArray closed &&
@@ -64,7 +65,7 @@ public static class PlanningArtifactApproval
             Hash(review["fingerprint"]?.ToString()) && review["outcome"]?.ToString() == "unverified" &&
             review["response"] is JsonObject response && response["findings"] is JsonArray { Count: 0 } &&
             response["evidenceRequests"] is null && response["uncertainty"] is JsonValue uncertainty &&
-            uncertainty.TryGetValue<string>(out var message) && message.Length <= 512);
+            uncertainty.TryGetValue<string>(out var message) && message.Length <= 512));
 
         // Coverage is host-issued evidence retained with the same context fingerprint,
         // candidate and closure claims; it does not invent a second Judge receipt.

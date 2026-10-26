@@ -112,10 +112,11 @@ public sealed partial class HybridWorkflowPlanner
         var findings = schema["properties"]!["findings"]!["anyOf"]!.AsArray()
             .Single(node => node?["type"]?.ToString() == "array")!.AsObject();
         if (locations.Count == 0 || grounded.Length == 0) findings["maxItems"] = 0;
-        else
+        if (locations.Count > 0 && grounded.Length > 0 ||
+            context["sourceCoverage"]?["version"]?.ToString() == "2" && context["reviewPropositions"] is JsonArray && grounded.Length > 0)
         {
             var properties = findings["items"]!["properties"]!.AsObject();
-            properties["location"] = PlanningSchemas.Enum(locations.Distinct(StringComparer.Ordinal).ToArray());
+            if (locations.Count > 0) properties["location"] = PlanningSchemas.Enum(locations.Distinct(StringComparer.Ordinal).ToArray());
             properties["evidence"] = PlanningSchemas.Array(PlanningSchemas.Enum(grounded), 1, 3);
         }
         if (verified)
@@ -197,7 +198,9 @@ public sealed partial class HybridWorkflowPlanner
             finding["properties"]!["implementation"]!["description"] = "Concrete candidate implementation, exact consumed binding or declaration supporting this finding; a valid pointer alone does not prove its business claim.";
             finding["properties"]!["requiredBinding"]!["description"] = "Optional advisory business claim that this exact operation argument must consume this accessible source. Presence elsewhere is insufficient; this does not grant edit authority.";
             var completed = PlanningSchemas.Object(("kind", PlanningSchemas.Enum("findings")),
-                ("findings", PlanningSchemas.Array(finding, 0, 3)));
+                ("findings", PlanningSchemas.Array(finding, 0,
+                    context["sourceCoverage"]?["version"]?.ToString() == "2" && context["reviewPropositions"] is JsonArray
+                        ? findings["maxItems"]!.GetValue<int>() : 3)));
             if (context["defectProgress"] is JsonArray { Count: > 0 } prior)
             {
                 completed["properties"]!["resolutions"] = PlanningSchemas.Array(PlanningSchemas.Object(
@@ -240,6 +243,7 @@ public sealed partial class HybridWorkflowPlanner
         var normalizedReport = new JsonObject { ["findings"] = findings, ["evidenceRequests"] = kind == "evidenceRequests" ? action["addresses"]!.DeepClone() : null,
             ["inconclusive"] = kind == "inconclusive" ? action["reason"]!.DeepClone() : null, ["uncertainty"] = raw["uncertainty"]!.DeepClone() };
         if (action["resolutions"] is not null) normalizedReport["resolutions"] = action["resolutions"]!.DeepClone();
+        if (action["acknowledgments"] is not null) normalizedReport["acknowledgments"] = action["acknowledgments"]!.DeepClone();
         return normalizedReport;
     }
 
@@ -289,9 +293,14 @@ public sealed partial class HybridWorkflowPlanner
         if (reassessment is not null && reassessment["reportRepair"] is null)
             context["reassessment"] = new JsonObject { ["reason"] = reassessment["reason"]?.DeepClone(),
                 ["support"] = reassessment["support"]?.DeepClone() };
+        // Report repair keeps the frozen window, including its applicability
+        // protocol. It must not silently lose the meaning of its required IDs.
+        if (PlanningCompactConstruction.UsesIncrementalReview(state))
+            guidance += "\n" + PlanningConstructionReviewCoverage.IncrementalInstructions;
         if (PlanningCompactConstruction.UsesDecisionView(state) && reassessment?["reportRepair"]?.GetValue<bool>() != true)
         {
-            guidance += "\nReview this window's exact original clauses against the unchanged candidate and its full completion claims, independently of selected requirement associations. A claim concerning an original assigned to another window does not by itself require that original here. Request other exact originals when a specific dependency or coupled constraint is needed to assess a clause in this window; their absence alone is not missing implementation. Future obligations alone are not defects. Every source window must pass before acceptance of the candidate or its closure claims. A clean window closes no requirement.";
+            if (!PlanningCompactConstruction.UsesIncrementalReview(state))
+                guidance += "\nReview this window's exact original clauses against the unchanged candidate and its full completion claims, independently of selected requirement associations. A claim concerning an original assigned to another window does not by itself require that original here. Request other exact originals when a specific dependency or coupled constraint is needed to assess a clause in this window; their absence alone is not missing implementation. Future obligations alone are not defects. Every source window must pass before acceptance of the candidate or its closure claims. A clean window closes no requirement.";
             context = PlanningConstructionReviewCoverage.Select(state, context, (window, remaining) =>
             {
                 var proposal = Create(window);
@@ -305,6 +314,7 @@ public sealed partial class HybridWorkflowPlanner
         {
             var schema = convergent ? ConvergentConstructionReviewSchema(displayed, reassessment is not null)
                 : ConstructionReviewSchema(displayed, verified, reassessment is not null);
+            PlanningConstructionReviewCoverage.ConstrainPropositionAcknowledgments(displayed, schema);
             PlanningCompactConstruction.ConstrainReviewEvidence(state, displayed, schema);
             return PlanningCompactConstruction.Request(guidance, displayed, schema, purpose);
         }
@@ -425,6 +435,8 @@ public sealed partial class HybridWorkflowPlanner
             return;
         }
         var findings = response["findings"]!.AsArray();
+        if (!PlanningConstructionReviewCoverage.AcknowledgmentsValid(context, response.AsObject()))
+        { Inconclusive("The review did not acknowledge every issued proposition exactly once with an allowed applicability."); return; }
         if (PlanningBusinessJudge.ReferenceDiagnostics(response, context, out _).Count > 0 ||
             response["uncertainty"]!.ToString().Length > 8192 || findings.Any(f =>
             f!["explanation"]!.ToString().Length is 0 or > 8192 || f["uncertainty"]!.ToString().Length > 8192 ||
@@ -457,6 +469,7 @@ public sealed partial class HybridWorkflowPlanner
             retainedReview["candidateIdentity"] = PlanningConstruction.FailureIdentity(state, draft);
             retainedReview["reviewCoverage"] = context["reviewCoverage"]?.DeepClone();
             if (context["sourceCoverage"] is JsonObject sourceCoverage) retainedReview["sourceCoverage"] = sourceCoverage.DeepClone();
+            PlanningConstructionReviewCoverage.RetainPropositionReceipt(context, retainedReview, request);
             if (PlanningConstruction.DefectWitness(state, context, findings) is { } witness) retainedReview["defectWitness"] = witness;
         }
         if (construction.Version == 2) retainedReview["closedRequirementIds"] = new JsonArray(construction.Compact!.CurrentStep!.CloseRequirementIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray());

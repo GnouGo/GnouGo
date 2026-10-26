@@ -7,7 +7,7 @@ namespace GnOuGo.Flow.Planning;
 
 // Source windows are evidence for one candidate, never executable work or
 // requirement completion. Their manifest lives in the existing review journal.
-internal static class PlanningConstructionReviewCoverage
+internal static partial class PlanningConstructionReviewCoverage
 {
     private const string ManifestPurpose = "construction_source_coverage";
     private sealed record Unit(string Key, string Kind, JsonObject Value, JsonObject Original);
@@ -15,6 +15,8 @@ internal static class PlanningConstructionReviewCoverage
     internal static JsonObject Select(PlanningSession state, JsonObject context,
         Func<JsonObject, int, LLMRequest> prepare, JsonObject? reassessmentCoverage = null)
     {
+        if (PlanningCompactConstruction.UsesIncrementalReview(state))
+            return SelectIncremental(state, context, prepare, reassessmentCoverage);
         var candidate = state.Construction!.Candidate!;
         var units = Units(state);
         var core = Core(context);
@@ -82,6 +84,7 @@ internal static class PlanningConstructionReviewCoverage
 
     internal static bool Complete(PlanningSession state, PlanningConstructionCandidate candidate)
     {
+        if (PlanningCompactConstruction.UsesIncrementalReview(state)) return IncrementalComplete(state, candidate);
         if (!PlanningCompactConstruction.UsesDecisionView(state)) return true;
         var manifest = CurrentManifest(state, candidate);
         return manifest is not null && !PlanningConstruction.UnresolvedDefects(candidate) && Enumerable.Range(0, manifest["windows"]!.AsArray().Count).All(index =>
@@ -90,6 +93,7 @@ internal static class PlanningConstructionReviewCoverage
 
     internal static int RemainingCalls(PlanningSession state)
     {
+        if (PlanningCompactConstruction.UsesIncrementalReview(state)) return IncrementalRemainingCalls(state);
         if (state.Construction?.Candidate is not { } candidate) return 1;
         var manifest = CurrentManifest(state, candidate);
         return manifest is null ? 1 : Enumerable.Range(0, manifest["windows"]!.AsArray().Count).Count(index =>
@@ -105,6 +109,7 @@ internal static class PlanningConstructionReviewCoverage
 
     internal static bool Reviewed(PlanningSession state, PlanningConstructionCheckpoint checkpoint, string purpose)
     {
+        if (PlanningCompactConstruction.UsesIncrementalReview(state)) return IncrementalReviewed(state, checkpoint, purpose);
         if (!PlanningCompactConstruction.UsesDecisionView(state)) return true;
         var manifest = CheckpointManifest(state, checkpoint, allowAddedSources: true);
         return manifest is not null && Enumerable.Range(0, manifest["windows"]!.AsArray().Count).All(index =>
@@ -113,6 +118,7 @@ internal static class PlanningConstructionReviewCoverage
 
     internal static JsonObject? ReviewedContinuationBasis(PlanningSession state, PlanningConstructionCheckpoint checkpoint)
     {
+        if (PlanningCompactConstruction.UsesIncrementalReview(state)) return ReviewedTransitionBasis(state, checkpoint);
         if (!PlanningCompactConstruction.UsesVerifiedProgress(state)) return null;
         var manifest = CheckpointManifest(state, checkpoint, allowAddedSources: false);
         return manifest is not null &&
@@ -185,6 +191,8 @@ internal static class PlanningConstructionReviewCoverage
                 { ["id"] = TaskOperations.Describe(capability).Id, ["version"] = capability.Version, ["hash"] = ContractHash(capability) }).ToArray())
         };
         if (PlanningCompactConstruction.ContinuationDependencyProof(state, candidate) is { } proof) basis["continuationProof"] = proof;
+        if (PlanningCompactConstruction.UsesIncrementalReview(state) && PlanningCompactConstruction.BoundaryDependencyProof(state, candidate) is { } boundary)
+            basis["boundaryProof"] = boundary;
         return basis;
     }
 

@@ -50,7 +50,7 @@ public sealed class CompactConstructionHostTests
         Assert.Equal(0, effects);
         Assert.Null(state.ApprovedHash); Assert.Null(state.SavedAgentId);
         Assert.True(state.Construction!.Complete);
-        Assert.Equal(8, state.Construction.Compact!.PresentationVersion);
+        Assert.Equal(9, state.Construction.Compact!.PresentationVersion);
         Assert.True(Assert.Single(state.Construction.Compact.InterfaceExtractions!).Complete);
         Assert.Equal("closed", Assert.Single(state.Construction.Requirements).Status);
         Assert.Single(state.Construction.Checkpoints);
@@ -186,6 +186,10 @@ public sealed class CompactConstructionHostTests
                     break;
                 default: throw new InvalidOperationException("Unexpected construction phase: " + phase);
             }
+            if (response["action"] is JsonObject action && action["kind"]?.ToString() == "findings" &&
+                context["reviewPropositions"] is JsonArray propositions)
+                action["acknowledgments"] = new JsonArray(propositions.Select(proposition => (JsonNode)new JsonObject
+                    { ["id"] = proposition!["id"]!.DeepClone(), ["applicability"] = "broad" }).ToArray());
             return Task.FromResult(new LLMResponse
             {
                 Json = PlanningCorpus.Transport(response, request.StructuredOutputSchema.AsObject(), request.StructuredOutputSchema.AsObject()),

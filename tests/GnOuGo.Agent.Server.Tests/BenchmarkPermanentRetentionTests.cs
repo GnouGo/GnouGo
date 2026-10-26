@@ -29,6 +29,7 @@ public sealed partial class BenchmarkPermanentRetentionTests
     [InlineData(6)]
     [InlineData(7)]
     [InlineData(8)]
+    [InlineData(9)]
     public async Task SourceWindowHeadroomRetentionRequiresItsCapturedPresentationWithoutChangingReservations(int presentation)
     {
         var records = new Records();

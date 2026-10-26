@@ -1,5 +1,29 @@
 # Compact TaskPlan convergence
 
+## Revision 9: measured mechanisms; live qualification pending
+
+The [focused source-bound qualification](compact-v9-mechanism-qualification.json) passed **97 cases with warnings as errors**. A's complete scripted multi-window comparisons include initial proof-producing calls: total calls **51→46**, **51→47** and **39→36**, with Judge calls **21→16**, **21→17** and **15→12**. Both arms reach identical plans, pass the artifact coverage guard and execute two input sets with independently asserted arithmetic results. These are pure runtime fixtures, not delegated or human approval receipts or live scenario success. Two one-window controls increased **34→35** calls; an additional scope-local case increased **57→59**. Reuse therefore does not guarantee lower total cost or calls.
+
+B's complete matched segments reduce calls for local closure **12→11**, exact export **13→11**, chained transitions **17→13**, and ancestor resumption **10→8**. All authority-establishing calls and remaining reviews are counted. The ancestor control legally abandons prerequisite navigation and selects the original consumer; the candidate resumes its reviewed association. These segments preserve the same accepted executable plan but do not establish a completed business workflow.
+
+Both mechanisms are realized in these controlled fixtures; live efficacy remains unverified. New interactions, global constraints, completion claims and unresolved defects retain review. A peer-found post-resume authority regression was fixed and tested: immutable consumer claims remain bound while legitimate dependency bookkeeping does not invalidate the historical receipt. Full-suite/publication evidence and live diagnostics remain separately attributed. The six-run business gate and the 18 comparisons have not been satisfied.
+
+## Pagination-only control: Amazon stopped at draft admission
+
+The fresh [d5a4cac2 control](compact-taskplan-d5a4-amazon-control.json) used **29 logical requests / 29 attempts**, three corrections and **€1.990776** known cost. All attempts have receipts, with no new unknown reservation. The next complete draft was 79,410 bytes / 26,726 estimated tokens against the frozen 22,000-token ceiling and stopped before dispatch. Planning took 1,190,632 ms. There is no artifact or runtime result; three checkpoints do not establish a fulfilled business obligation, and calls per success remain undefined. This is the pagination-only control, not evidence for the v9 candidate or an efficiency improvement over other failed runs.
+
+## Revision 9: initial review comparisons did not reduce total calls
+
+The [initial scripted comparisons](compact-v9-initial-review-comparisons.json) retain three equivalent, independently executed numeric artifacts whose total Judge calls increased: **10→17, 10→19 and 21→26**. A fourth comparison stopped on unavailable or repeated closure evidence. These failures include the initial proof-producing calls; local proposition reuse and smaller acknowledgment schemas did not establish net savings. Subsequent source corrections require separate qualification. These are mechanism tests, not live scenario acceptance.
+
+## e3df8d62: retained failures and pagination-only control
+
+The [retained numeric evidence](compact-taskplan-e3df-pagination-control.json) records two received-response runs that stopped before the next request could be admitted. Amazon used **33 logical requests / 33 attempts**, three corrections and €2.118983 known cost; Review PR used **24 / 24**, zero corrections and €2.273391. Neither produced an artifact or runtime execution. Both retained complete receipts, without new uncertain reservations. Calls per fulfilled business obligation remain undefined.
+
+Amazon's next selection exceeded its unchanged 12,000-token ceiling at 12,387 estimated tokens. The isolated four-file pagination correction became control commit **`d5a4cac2`**. Exact offline reconstruction reduced that request from 36,391 to 32,879 bytes, or 11,216 estimated tokens, while reconstructing all 19 typed ports through existing pages. All 54 previous retrieval addresses remain; the existing continuation address adds one schema enum choice. This is not a byte-identical response schema or a live completion result. The qualified overlay passed 3,457 Planning tests with warnings as errors.
+
+Review PR's next draft exceeded its 20,000 ceiling at 26,751 estimated tokens / 79,485 bytes. This remains a separate retained failure; pagination qualification establishes no fix for it. The frozen e3df Collections run was never dispatched and is not evidence for the new control. Revision-9 A/B qualification is recorded separately when completed; earlier successes remain attributed to their original revisions.
+
 ## Focused correction: repeated accepted-checkpoint context
 
 The [source-pinned presentation correction](compact-taskplan-checkpoint-context-technical.json) shares only byte-identical checkpoint rows within fresh authoring requests. It retains the first complete row and exact references, after the existing original-clause fallback and evidence grammar are fixed. Judge context, instructions, settings and historical recovery are unchanged.

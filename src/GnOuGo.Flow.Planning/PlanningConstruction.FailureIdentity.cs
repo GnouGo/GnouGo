@@ -38,6 +38,8 @@ internal static partial class PlanningConstruction
         };
         if (PlanningCompactConstruction.UsesAcceptedProgress(state))
             identity["continuationBinding"] = Node(candidate.Extension.ContinuationBinding, PlanningJsonContext.Default.PlanningConstructionContinuationBinding);
+        if (PlanningCompactConstruction.UsesIncrementalReview(state))
+            identity["boundaryTransitions"] = Node(candidate.Extension.BoundaryTransitions, PlanningJsonContext.Default.ListPlanningConstructionBoundaryTransition);
         return "candidate:v1:" + PlanningGraphCompiler.Fingerprint(identity.ToJsonString());
 
         static JsonArray Set(IEnumerable<string> values) =>

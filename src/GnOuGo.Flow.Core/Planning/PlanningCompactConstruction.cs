@@ -127,6 +127,8 @@ public sealed class PlanningConstructionStep
     public List<string>? CloseScopes { get; set; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public PlanningConstructionContinuationBinding? ContinuationBinding { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<PlanningConstructionBoundaryTransition>? BoundaryTransitions { get; set; }
     public List<string> OutputNames { get; set; } = [];
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public List<PlanningConstructionPrerequisite>? Prerequisites { get; set; }
@@ -140,6 +142,17 @@ public sealed class PlanningConstructionContinuationBinding
 {
     public string ContinuationId { get; set; } = "";
     public TaskValue Binding { get; set; } = new();
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? DischargedContinuationIds { get; set; }
+}
+
+/// <summary>One exact existing-boundary claim reviewed with its producer; neither future tasks nor requirement completion.</summary>
+public sealed class PlanningConstructionBoundaryTransition
+{
+    public string Scope { get; set; } = "";
+    public List<string> RequirementIds { get; set; } = [];
+    public List<TaskOutput> Outputs { get; set; } = [];
+    public bool CloseScope { get; set; }
 }
 
 /// <summary>Continuation of one received metadata action; never another model request or executable task.</summary>

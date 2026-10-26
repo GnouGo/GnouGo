@@ -118,7 +118,7 @@ internal static partial class PlanningCompactConstruction
             .Select(item => item.Key).Order(StringComparer.Ordinal).ToArray();
         addresses.RemoveWhere(address => state.Construction!.EvidenceRequests.Contains(
             PlanningConstruction.EvidenceBatchFingerprint(state, [address]), StringComparer.Ordinal));
-        var maximum = State(state).PresentationVersion is 4 or 5 or 6 or 7 or 8 && state.Diagnostics.Any(diagnostic =>
+        var maximum = State(state).PresentationVersion is 4 or 5 or 6 or 7 or 8 or 9 && state.Diagnostics.Any(diagnostic =>
             diagnostic.Required && diagnostic.Code == "CONSTRUCTION_EVIDENCE_LIMIT" && diagnostic.Location == "/evidenceRequests") ? 1 : 8;
         var alternatives = new JsonArray();
         if (addresses.Count > 0)

@@ -215,12 +215,15 @@ internal static partial class PlanningCompactConstruction
         // Replacement drafts do not inherit another candidate's proposed association.
         compact.CurrentStep!.ContinuationBinding = null;
         if (association is null) return;
-        var item = compact.SuspendedSteps?.LastOrDefault(Active);
+        var item = UsesIncrementalReview(state) ? compact.SuspendedSteps?.SingleOrDefault(item => item.Id == association.ContinuationId && Active(item)) :
+            compact.SuspendedSteps?.LastOrDefault(Active);
         var leaf = association.Binding;
         while (leaf.Kind == "field" && leaf.Items.Count == 1) leaf = leaf.Items[0];
         if (candidate.AuthorizedPaths is not null || item is not { Status: "waiting" } || item.Id != association.ContinuationId ||
             !ContinuationCurrent(state, item) || leaf.Kind is not ("output" or "present") || leaf.Source is null)
             PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_INVALID", "/extension/continuationBinding", "Associate only the current waiting consumer with an exact output produced by this fragment.");
+        if (UsesIncrementalReview(state) && !ValidContinuationDischarge(state, association))
+            PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_INVALID", "/extension/continuationBinding/dischargedContinuationIds", "Name exactly the prerequisite-only descendants bypassed by this reviewed ancestor association; preserve original obligations and ParentId order.");
         var symbols = new TaskPlanSymbols(candidate.Plan);
         if (!symbols.Tasks.ContainsKey(leaf.Source!) || !candidate.TaskIds.Contains(leaf.Source!, StringComparer.Ordinal) &&
             !candidate.Extension.CloseScopes.Any(path => symbols.Scopes.Any(scope => scope.Path == path && scope.Owner?.Id == leaf.Source)))
@@ -256,6 +259,7 @@ internal static partial class PlanningCompactConstruction
         if (!UsesAcceptedProgress(state) || state.PendingCall is not null || state.Construction!.Candidate is not null ||
             State(state).CurrentStep is not null || State(state).ReplacementScope is not null || state.Diagnostics.Any(d => d.Required) ||
             State(state).SuspendedSteps?.LastOrDefault(Active) is not { Status: "waiting" } item || !ContinuationCurrent(state, item)) return false;
+        if (UsesIncrementalReview(state) && TryResumeReviewedAncestor(state)) return true;
         var acceptedHash = PlanningConstruction.Hash(state.Plan);
         var matches = state.Construction.Checkpoints.Where(checkpoint =>
             checkpoint.Step?.ContinuationBinding is { } association && association.ContinuationId == item.Id &&
@@ -301,7 +305,23 @@ internal static partial class PlanningCompactConstruction
             // This existing address retrieves the consumer's rejection, not the
             // separately retained typed prerequisite. Do not promise otherwise.
             ["evidence"] = "rejected:" + item.RejectedStepIndex, ["evidenceContent"] = "consumer_reselection"
-        };
+        }.WithContinuationAncestors(state);
+    }
+
+    private static JsonObject WithContinuationAncestors(this JsonObject context, PlanningSession state)
+    {
+        if (!UsesIncrementalReview(state)) return context;
+        var chain = EligibleContinuationAssociations(state);
+        context["ancestorAssociations"] = new JsonArray(chain.Take(Math.Max(0, chain.Length - 1)).Select(item => (JsonNode)new JsonObject
+        {
+            ["id"] = item.Id, ["parentId"] = item.ParentId, ["scope"] = item.Consumer.Scope,
+            ["objective"] = item.Consumer.Objective,
+            ["prerequisite"] = PlanningConstruction.Node(item.Prerequisite, PlanningJsonContext.Default.PlanningConstructionTypedPrerequisite),
+            ["evidence"] = "rejected:" + item.RejectedStepIndex,
+            ["dischargeIds"] = new JsonArray(chain.SkipWhile(descendant => descendant.Id != item.Id).Skip(1)
+                .Select(descendant => (JsonNode?)JsonValue.Create(descendant.Id)).ToArray())
+        }).ToArray());
+        return context;
     }
 
     internal static void ReconcileContinuations(PlanningSession state)

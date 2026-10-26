@@ -71,7 +71,7 @@ internal static partial class PlanningConstruction
 
     internal static List<JsonObject> ReplacementDefectReviews(PlanningSession state)
     {
-        if (state.Construction?.Compact is not { PresentationVersion: 5 or 6 or 7 or 8, CurrentStep: { } step } compact) return [];
+        if (state.Construction?.Compact is not { PresentationVersion: 5 or 6 or 7 or 8 or 9, CurrentStep: { } step } compact) return [];
         JsonObject? rejected = null;
         if (compact.ResumingStepId is { } id)
         {

@@ -41,8 +41,8 @@ public sealed class QueuedPlanningSessionCompatibilityTests
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
         Assert.True(state.Construction!.Complete);
         Assert.Equal(2, state.Construction.Version);
-        Assert.Equal(8, state.Construction.Compact!.PresentationVersion);
-        Assert.Equal("8", state.Request.Options["construction_presentation_version"]!.ToString());
+        Assert.Equal(9, state.Construction.Compact!.PresentationVersion);
+        Assert.Equal("9", state.Request.Options["construction_presentation_version"]!.ToString());
         Assert.Single(state.Construction.Checkpoints);
         Assert.Equal("1", state.Request.Options["planning_diagnostics_version"]!.ToString());
         Assert.Equal("2", state.Request.Options["planning_input_review_version"]!.ToString());
@@ -66,8 +66,8 @@ public sealed class QueuedPlanningSessionCompatibilityTests
         state = await PlannerFixture.RunAsync(IncrementalRuntime(), state);
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
         Assert.True(state.Construction!.Complete);
-        Assert.Equal(8, state.Construction.Compact!.PresentationVersion);
-        Assert.Equal("8", state.Request.Options["construction_presentation_version"]!.ToString());
+        Assert.Equal(9, state.Construction.Compact!.PresentationVersion);
+        Assert.Equal("9", state.Request.Options["construction_presentation_version"]!.ToString());
         Assert.Equal("compact-bindings-v10", state.Request.Options["compilation_profile"]!.ToString());
         Assert.Equal("1", state.Request.Options["planning_input_review_version"]!.ToString());
         Assert.Equal("1", state.Request.Options["business_judge_review_version"]!.ToString());
@@ -77,6 +77,10 @@ public sealed class QueuedPlanningSessionCompatibilityTests
     [InlineData(3)]
     [InlineData(4)]
     [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(8)]
+    [InlineData(9)]
     public async Task ExplicitIntentRevisionRetainsPresentationAndCumulativeAccounting(int version)
     {
         var runtime = IncrementalRuntime();
@@ -108,8 +112,7 @@ public sealed class QueuedPlanningSessionCompatibilityTests
         runtime.Proposal.Requirements!.Outputs = [new() { Name = "message", Type = new() { Kind = "string" } }];
         runtime.Respond = (request, purpose) =>
         {
-            var context = purpose is PlanningCompactConstruction.IntentPurpose or PlanningCompactConstruction.SelectPurpose or PlanningConstruction.DraftPurpose
-                ? JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])! : new JsonObject();
+            var context = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
             JsonObject response;
             if (purpose == PlanningCompactConstruction.IntentPurpose)
                 response = request.StructuredOutputSchema!["properties"]!["clauses"] is not null
@@ -145,6 +148,10 @@ public sealed class QueuedPlanningSessionCompatibilityTests
                     ? new() { ["action"] = new JsonObject { ["kind"] = "findings", ["findings"] = new JsonArray() },
                         ["uncertainty"] = "Offline fixture; execution is unverified." }
                     : new() { ["findings"] = new JsonArray(), ["uncertainty"] = "Offline fixture; execution is unverified." };
+            if (response["action"] is JsonObject action && action["kind"]?.ToString() == "findings" &&
+                context["reviewPropositions"] is JsonArray propositions)
+                action["acknowledgments"] = new JsonArray(propositions.Select(proposition => (JsonNode)new JsonObject
+                    { ["id"] = proposition!["id"]!.DeepClone(), ["applicability"] = "broad" }).ToArray());
             var schema = request.StructuredOutputSchema!.AsObject();
             return new() { Json = PlanningCorpus.Transport(response, schema, schema) };
         };

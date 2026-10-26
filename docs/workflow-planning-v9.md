@@ -4,6 +4,15 @@ Flow uses one semantic planner, one executable graph and one execution journal.
 
 Fresh sessions use [incremental TaskPlan construction](incremental-taskplan-construction.md): index original clauses, select one immediate business substep, discover its capabilities, then validate and review a bounded semantic draft before an encrypted checkpoint. TaskPlan, PlanningGraph, compiler v15 and storage format 10 remain unchanged. Historical sessions retain their captured [business-intent profile](planner-simplification.md) and issued-request recovery.
 
+Fresh presentation revision 9 uses one verified union of fresh and conserved scoped
+review propositions through admission, acceptance and approval. Source applicability
+is established prospectively in existing Judge calls; the host independently checks
+exact dependency and authority conservation. Established exports, local closures and
+consumer associations advance through the existing coordinator and journals, retaining
+mandatory validation and review. These optional audit records introduce no executable
+representation or runtime permission. Earlier presentations retain their issued and
+future behavior; see the [incremental contract](incremental-taskplan-construction.md).
+
 ```mermaid
 flowchart LR
   Requirements[Indexed original clauses] --> Select[Select immediate business substep]

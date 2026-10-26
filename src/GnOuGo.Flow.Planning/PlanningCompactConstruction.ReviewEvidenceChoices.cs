@@ -15,6 +15,11 @@ internal static partial class PlanningCompactConstruction
         var addresses = StepOriginalEvidence(state);
         addresses.UnionWith(PrerequisiteAddresses(state, (context["requirements"] as JsonArray ?? [])
             .Select(row => row!["id"]!.ToString())).Where(IsOriginalAddress));
+        if (UsesIncrementalReview(state))
+            addresses.UnionWith(NavigationEvidence((context["reusedPropositions"] as JsonArray ?? [])
+                .OfType<JsonObject>().Select(row => row["sourceKey"])).Intersect(
+                PrerequisiteAddresses(state, state.Construction!.Requirements.Select(requirement => requirement.Id))
+                    .Where(IsOriginalAddress), StringComparer.Ordinal));
         addresses.UnionWith(NavigationEvidence(new[]
         {
             "requirementsDirectory", "nextRequirements", "checkpointEvidence", "scopeEvidence", "interfacesDirectory",

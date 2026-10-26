@@ -140,10 +140,42 @@ internal static partial class PlanningCompactConstruction
 
     internal static PlanningSession? PrepareAcceptedTransition(PlanningSession state)
     {
+        if (UsesIncrementalReview(state)) return AcceptedTransitions(state).FirstOrDefault()?.State;
         // Recovery and candidate work take precedence in the coordinator. These
         // existing transitions establish no new semantic association or verdict.
         ReconcileContinuations(state);
         return TryResumeReviewedConsumer(state) ? state : PrepareReviewedClosure(state);
+    }
+
+    private sealed record AcceptedTransition(string Kind, string Reason, int? Checkpoint, PlanningSession State);
+
+    // One request-local view owns transition precedence and applicability. It is
+    // derived from existing checkpoints, never a persisted queue or another plan.
+    private static IEnumerable<AcceptedTransition> AcceptedTransitions(PlanningSession state)
+    {
+        if (state.PendingCall is not null || state.Construction!.Candidate is not null || State(state).CurrentStep is not null ||
+            state.EditablePaths is not null || State(state).ReplacementScope is not null || state.Diagnostics.Any(item => item.Required)) yield break;
+        var resumed = CloneTransitionState(state);
+        ReconcileContinuations(resumed);
+        if (!JsonNode.DeepEquals(PlanningConstruction.Node(State(state), PlanningJsonContext.Default.PlanningCompactConstructionState),
+            PlanningConstruction.Node(State(resumed), PlanningJsonContext.Default.PlanningCompactConstructionState)))
+        {
+            yield return new("navigation", "invalidate_stale_prerequisite_navigation", null, resumed);
+            yield break;
+        }
+        if (TryResumeReviewedConsumer(resumed))
+        {
+            yield return new("consumer", "exact_reviewed_binding", resumed.Construction!.Checkpoints.LastOrDefault()?.Sequence, resumed);
+            yield break;
+        }
+        // A retained consumer has precedence; do not close its boundary while its
+        // exact missing value or its review is unresolved.
+        if (State(resumed).SuspendedSteps?.Any(Active) == true) yield break;
+        foreach (var checkpoint in state.Construction.Checkpoints.AsEnumerable().Reverse())
+            if (PrepareReviewedBoundaryTransition(state, checkpoint) is { } boundary)
+                yield return new("boundary", "exact_reviewed_boundary_claim", checkpoint.Sequence, boundary);
+        if (PrepareReviewedClosure(state) is { } closure)
+            yield return new("closure", "all_original_obligations_reviewed", null, closure);
     }
 
     internal static JsonObject SelectionDecision(PlanningSession state)
@@ -152,9 +184,12 @@ internal static partial class PlanningCompactConstruction
         var reason = state.Diagnostics.Any(d => d.Required) ? "resolve_retained_diagnostic" :
             compact.SuspendedSteps?.LastOrDefault(item => item.Status == "waiting") is not null ? "resolve_unproven_consumer_binding" :
             CompletionOnly(state) ? "resolve_unproven_closure" : "select_next_business_action";
-        return new JsonObject { ["kind"] = "semantic_selection", ["reason"] = reason,
+        var result = new JsonObject { ["kind"] = "semantic_selection", ["reason"] = reason,
             ["baseline"] = PlanningConstruction.Hash(state.Plan),
             ["acceptedCheckpoint"] = state.Construction!.Checkpoints.LastOrDefault()?.Sequence ?? 0 };
+        if (UsesIncrementalReview(state)) result["reviewedTransitions"] = new JsonArray(AcceptedTransitions(state).Take(4).Select(item => (JsonNode)new JsonObject
+            { ["kind"] = item.Kind, ["reason"] = item.Reason, ["checkpoint"] = item.Checkpoint }).ToArray());
+        return result;
     }
 
     private static string[] ClosureRequirements(PlanningSession state, TaskPlanSymbols symbols, string boundary)

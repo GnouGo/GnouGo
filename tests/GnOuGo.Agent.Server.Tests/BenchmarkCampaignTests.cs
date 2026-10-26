@@ -268,6 +268,7 @@ public sealed class BenchmarkCampaignTests
     [InlineData(6)]
     [InlineData(7)]
     [InlineData(8)]
+    [InlineData(9)]
     public async Task SourceWindowHeadroomResumesExactlyAndPreservesRequiredCalls(int presentation)
     {
         var campaign = new BenchmarkCampaign(new Records(), "window-headroom-recovery");

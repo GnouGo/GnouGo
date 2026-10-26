@@ -1,8 +1,32 @@
 # Planning evaluation corpus
 
+## Revision-9 mechanism and live comparison
+
+The immediate control is pagination-only commit `d5a4cac2`, based on `e3df8d62`.
+Freeze it separately from the revision-9 implementation. Keep model, reasoning,
+scenario inputs, ceilings, MCP binaries, permissions and oracles identical. Retained
+older runs are historical evidence, not executions of this control. The earlier
+frozen e3df Collections cohort remains undispatched.
+
+Report A (incremental review coverage) and B (state-driven advancement) separately.
+Mechanism tests must create proofs through ordinary session decisions/reviews and
+count actual dispatches, including initial proof-producing calls. Compare executable
+results and total Judge calls across at least two nontrivial multi-window cases.
+Coordinator tests count eliminated selection/generation dispatches for reviewed
+local closure, ancestor resumption and exact boundary exports. Presentation size,
+checkpoint counts and an earlier failed stop establish no equivalent-result savings.
+
+Live comparisons retain the same campaign, accounting and uncertainty safeguards.
+Separate fresh/reused/invalidated propositions, calls by phase, logical requests,
+physical attempts, corrections, interventions, tokens, known costs and unknown
+reservations from artifact and runtime-oracle outcomes. Provider blocking before a
+mechanism is exercised means its live benefit is unestablished. The six-run
+intervention-free qualification and subsequent 18 baseline comparisons below remain
+separate gates. No new ceilings or execution authority accompany review reuse.
+
 ## Accepted-state progression comparison
 
-Presentation revision 8 is a source-only comparison against `60e85c9f`: retain the
+The retained presentation revision 8 evaluation is a source-only comparison against `60e85c9f`: retain the
 same scenario-specific model, reasoning, input/output limits, MCP binaries, inputs
 and independent oracles in both frozen arms. Run one diagnostic per arm in alternating
 control/candidate order for Amazon, Review PR and Collections. Reuse matching
@@ -1003,7 +1027,7 @@ provenance. Preserve these findings separately from later producer-port presenta
 and exact-citation normalization changes. Neither technical tests nor better navigation
 establishes that the duplicate-effect business miss is fixed.
 
-Fresh cohorts capture presentation revision 8, retaining revision 6's original coverage. Authoring shows all exact originals when
+Fresh cohorts capture presentation revision 9, retaining original coverage through the verified union described above. Authoring shows all exact originals when
 the prepared request fits; otherwise selected/retrieved requirements, all globals and
 mandatory producer/evidence context remain with exact omitted-page links.
 Exact duplicate producer-port directories are presented once; original input defaults

@@ -98,6 +98,8 @@ public sealed class PlanningConstructionExtension
     public bool Complete { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PlanningConstructionContinuationBinding? ContinuationBinding { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<PlanningConstructionBoundaryTransition>? BoundaryTransitions { get; set; }
 }
 
 public sealed class PlanningConstructionCheckpoint

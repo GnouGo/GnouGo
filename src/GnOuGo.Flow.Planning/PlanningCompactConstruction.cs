@@ -7,13 +7,14 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningCompactConstruction
 {
-    internal static bool IsCompactPresentation(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 2 or 3 or 4 or 5 or 6 or 7 or 8;
-    internal static bool UsesDeferredBinding(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 3 or 4 or 5 or 6 or 7 or 8;
-    internal static bool UsesVerifiedReview(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 4 or 5 or 6 or 7 or 8;
-    internal static bool UsesConvergentConstruction(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 5 or 6 or 7 or 8;
-    internal static bool UsesAcceptedProgress(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 7 or 8;
-    internal static bool UsesVerifiedProgress(PlanningSession state) => state.Construction?.Compact?.PresentationVersion == 8;
-    internal static bool UsesDecisionView(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 6 or 7 or 8;
+    internal static bool UsesIncrementalReview(PlanningSession state) => state.Construction?.Compact?.PresentationVersion == 9;
+    internal static bool IsCompactPresentation(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9;
+    internal static bool UsesDeferredBinding(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 3 or 4 or 5 or 6 or 7 or 8 or 9;
+    internal static bool UsesVerifiedReview(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 4 or 5 or 6 or 7 or 8 or 9;
+    internal static bool UsesConvergentConstruction(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 5 or 6 or 7 or 8 or 9;
+    internal static bool UsesAcceptedProgress(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 7 or 8 or 9;
+    internal static bool UsesVerifiedProgress(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 8 or 9;
+    internal static bool UsesDecisionView(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 6 or 7 or 8 or 9;
 
     // Remaining mandatory review calls; issuance captures this once for physical-attempt admission.
     internal static int RequiredReviewCalls(PlanningSession state)

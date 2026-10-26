@@ -111,7 +111,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         foreach (var key in new[] { PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms" })
             if (request.Options[key] is { } captured) value[key] = captured.DeepClone();
         if (request.Options["construction_presentation_version"] is JsonValue presentation &&
-            presentation.TryGetValue<int>(out var version) && version is 6 or 7 or 8)
+            presentation.TryGetValue<int>(out var version) && version is 6 or 7 or 8 or 9)
             value["construction_presentation_version"] = version;
         if (PlanningTransportPolicies.Read(request) is not null)
         {
