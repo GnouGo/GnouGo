@@ -31,6 +31,11 @@ Revision 8 additionally shares byte-identical ancestor constraints and reference
 closures within each input/output direction under that same exact contract;
 differing views remain separate and independently retrievable in full.
 This presentation reduction changes neither captured ceilings nor compiler validation.
+Fresh revision-8 authoring also shares identical accepted-checkpoint navigation rows
+through the first complete row in the same request. Each requirement keeps its exact
+association and evidence address. Factoring follows the existing original-clause
+selection and evidence-schema construction; it changes no Judge window, source clause,
+retrieval authority or saved request. Differing checkpoint views are never merged.
 Accessible accepted producers expose exact omitted-input schema retrieval, including
 defaults and their ancestor/reference constraints, without selecting the operation
 or materializing an argument. Unconsumed producers keep compact port identities and

@@ -1013,6 +1013,10 @@ Newly constructed revision-6 producer views share identical contract identity an
 view guidance at the parent; they retain every selected schema and ancestor/reference
 constraint. Compare exact closures and the complete evidence-address set alongside
 request bytes. Standalone evidence, issued requests and captured ceilings are unchanged.
+Revision-8 authoring may also reference the first identical checkpoint-navigation row
+within that same request. Measure this after the existing original-clause fallback and
+evidence schema are fixed; reconstruct every original row and compare all retrieval
+addresses. A smaller prospective request establishes admission, not runtime success.
 Scoped source windows reuse existing Judge records and require complete current
 coverage before acceptance, automatic closure and delegated artifact verification.
 Count each window as a logical request and every HTTP attempt separately; windows

@@ -65,6 +65,13 @@ and completion claims retain every required original window. Presentation can sh
 identical embedded schema metadata under its exact contract, never across requests
 or by dropping mandatory constraints. Existing Judge grammar and settings remain.
 
+Authoring requests also share byte-identical checkpoint navigation within the chosen
+original-requirement view. The first complete row stays inline; subsequent associations
+retain their sequence, original evidence address and an exact JSON Pointer to that row.
+Choose the original view and evidence enums before this display-only reduction, so it
+cannot change fallback selection or retrieval authority. Different rows remain separate,
+and the original context, saved requests and Judge windows are unchanged.
+
 ## Accepted work and mechanical continuation (presentation revision 7)
 
 The decision view joins original obligations to their accepted contributions, available

@@ -1,5 +1,31 @@
 # Compact TaskPlan convergence
 
+## Focused correction: repeated accepted-checkpoint context
+
+The [source-pinned presentation correction](compact-taskplan-checkpoint-context-technical.json) shares only byte-identical checkpoint rows within fresh authoring requests. It retains the first complete row and exact references, after the existing original-clause fallback and evidence grammar are fixed. Judge context, instructions, settings and historical recovery are unchanged.
+
+The final isolated overlay passed **3,449 Planning tests**, with zero warnings, failures or skips. Compiled offline admission reproduced the two rejected original envelopes exactly, then reduced them from 53,998 bytes / 18,256 estimated tokens to 48,012 / 16,260 and from 53,279 / 18,016 to 47,293 / 16,021. Both fit the unchanged 18,000 ceiling. Schemas, settings, selected originals and all ten checkpoint navigation addresses remain identical; every displayed reference reconstructs its original row. These are admission measurements, not live success or proof of avoided corrections.
+
+## cb1d9899: Collections passed both runtime variants
+
+The [fresh Collections candidate](compact-taskplan-cb1d9899-collections.json) passed concrete artifact-bound review and both unchanged real runtime oracles. They verify `[1,2,4] → [2,4,8]` and `[3,3,-2] → [6,6,-4]`, including order, duplicates, parallel reusable calls and absence of external effects or runtime inference. The runner retains exact-equality oracle results rather than separate raw output arrays. A local passthrough alias remains in the plan; no supported redundant-effect finding is inferred from it.
+
+Candidate planning used **26 logical requests / 26 attempts, zero corrections, €1.250611 and 887,580 ms**, compared with the retained control's 28 / 28, one correction, €1.283989 and 929,032 ms. Both runtime variants passed in 358.0401 and 2.3204 ms. There were no additional model calls or unknown reservations. This is one descriptive pair, not causal evidence or reproducibility. The frozen complete business obligation is one, giving **26 calls per fulfilled obligation**; the historical three review dimensions do not increase that denominator.
+
+Post-execution inspection retained the exact source, artifact, requests, receipts and accounting: **€151.166638** available at the recorded check, 33 permanently closed receiptless identities and none unresolved. This is one successful cb1 run; it must repeat on the final source. Amazon, Review PR, the six-run gate and the subsequent 18 comparisons remain incomplete.
+
+## cb1d9899: Review PR stopped at discovery admission
+
+The frozen [Review PR candidate](compact-taskplan-cb1d9899-code.json) produced no artifact or execution: 39 logical requests, 42 physical attempts, 39 receipts and 2,705,564 ms planning. Known cost is €3.607599, with €3.005819 retained after received HTTP502/500 retries that subsequently succeeded. No new receiptless request, empty response or output-exhaustion failure occurred. All dispatched requests fit; two prospective discovery requests were rejected at 18,256 and 18,016 estimated tokens against 18,000. The final singleton evidence request repeated the rejected action and stopped for non-progress. Calls per fulfilled business obligation remain undefined.
+
+The three correction charges cover an omitted typed `reviewText` declaration and two rejected evidence responses, not three successful TaskPlan repairs. Five Judge reports were clean and one requested accepted-clone evidence; no adverse business finding or avoided correction is established. Accepted work contains the pinned clone and two open sequence boundaries, with checks, report and cleanup still unfinished. An interface response contained 19,564 whitespace bytes outside JSON strings; its formatting and missing declaration are separate observations, with no demonstrated common cause.
+
+Exact inspection found repeated checkpoint-navigation rows within the final request. The original requested description is a single complete page, so automatic continuation expansion did not cause the limit failure. A subsequent presentation correction must preserve exact rows, original-clause selection and evidence schemas; smaller context alone establishes no business result. Source/profile comparisons remain limited by different generated fragments.
+
+[Final technical qualification and authorized retention](compact-taskplan-cb1d9899-qualification.json) record the exact88 full solution: **8,687 passed, two preserved Workspace confinement failures, 13 skipped**, across all 33 test projects with zero compiler warnings/errors. Planning passed 3,435 cases; Server passed 1,854 with one skip. The unchanged Desktop-dependent failures were neither suppressed nor rerun with relaxed access. The smoke-only correction and twelve publication stages are separately qualified to cb1; original execution attribution remains intact.
+
+The exact Amazon88 abandonment was applied under its user authorization, retaining its full €0.930870 reservation and permanently forbidding replay/continuation. At the post-Code readiness check on 2026-10-26 at 19:34 UTC, all 33 receiptless identities were closed, none unresolved, and **€152.417250** remained under the unchanged ceiling. This is a dated balance, not authority for later dispatches. PR #120 remains Draft; neither the six-run business gate nor the 18 comparisons has passed.
+
 ## 88f338bf: verified transitions; first candidate stopped on transport uncertainty
 
 Presentation revision 8 adds prospectively reviewed applicability proof for consumer resumption across narrowly permitted independent additions, removes the host closure's four-requirement ceiling, and restores eligible original-description continuation pages in the same batch. New fragments retain complete scoped review; these transitions establish no runtime success by themselves. Model settings and Judge grammar are unchanged.

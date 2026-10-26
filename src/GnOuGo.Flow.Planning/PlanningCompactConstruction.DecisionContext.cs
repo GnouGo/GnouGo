@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
@@ -20,13 +21,13 @@ internal static partial class PlanningCompactConstruction
         // in admission. Prompt-only estimates cannot choose a safe projection.
         if (ModelRequestAdmission.EstimateTokens(PlanningModelCalls.PrepareRequest(state, purpose, request.Prompt,
                 request.StructuredOutputSchema!.AsObject(), state.Construction!.Limits.DraftOutputTokens)) <=
-            PlanningConstructionInputPolicy.EffectiveLimit(state.Request, purpose)) return request;
+            PlanningConstructionInputPolicy.EffectiveLimit(state.Request, purpose)) return Display(request);
 
         IEnumerable<string> selectedRequirements = purpose == SelectPurpose ? SelectionRequirementIds(state) : State(state).CurrentStep!.RequirementIds;
         var selected = selectedRequirements.Concat(EvidenceRequirementIds(state)).ToHashSet(StringComparer.Ordinal);
         var originals = context["requirements"] as JsonArray ?? [];
         var omitted = originals.OfType<JsonObject>().Where(row => !selected.Contains(row["id"]!.ToString())).ToArray();
-        if (omitted.Length == 0) return request;
+        if (omitted.Length == 0) return Display(request);
         context["requirements"] = new JsonArray(originals.OfType<JsonObject>().Where(row => selected.Contains(row["id"]!.ToString()))
             .Select(row => (JsonNode)row.DeepClone()).ToArray());
         context["omittedRequirementCount"] = omitted.Length;
@@ -36,7 +37,17 @@ internal static partial class PlanningCompactConstruction
         // No opportunistic filling or clipping: globals, retrieved originals and
         // the entire producer/contract core remain unchanged. If this mandatory
         // request is too large, ordinary admission records and rejects it.
-        return Render();
+        return Display(Render());
+
+        LLMRequest Display(LLMRequest chosen)
+        {
+            // Choose originals and evidence authority using the unchanged full
+            // view first. Sharing is only a final fresh author presentation.
+            if (!UsesVerifiedProgress(state) || !PlanningConstructionPhasePolicies.IsFresh(state.Request)) return chosen;
+            var displayed = CompactAcceptedProgressContext(context);
+            if (!ReferenceEquals(displayed, context)) chosen.Prompt = instructions + "\n" + PlanningJsonTransport.Prompt(displayed);
+            return chosen;
+        }
 
         LLMRequest Render()
         {
@@ -49,6 +60,33 @@ internal static partial class PlanningCompactConstruction
             }
             return Request(instructions, context, response, purpose);
         }
+    }
+
+    internal static JsonObject CompactAcceptedProgressContext(JsonObject context)
+    {
+        var first = new Dictionary<string, string>(StringComparer.Ordinal);
+        JsonObject? displayed = null;
+        var requirements = context["requirements"] as JsonArray ?? [];
+        for (var requirement = 0; requirement < requirements.Count; requirement++)
+        {
+            var items = requirements[requirement]?["acceptedProgress"]?["items"] as JsonArray ?? [];
+            for (var item = 0; item < items.Count; item++)
+            {
+                if (items[item] is not JsonObject row || row["sequence"] is null || row["evidence"] is null || row["detailsPointer"] is not null) continue;
+                var exact = PlanningJsonTransport.Prompt(row);
+                var pointer = $"/requirements/{requirement}/acceptedProgress/items/{item}";
+                if (first.TryAdd(exact, pointer)) continue;
+                var reference = new JsonObject
+                {
+                    ["sequence"] = row["sequence"]!.DeepClone(), ["evidence"] = row["evidence"]!.DeepClone(),
+                    ["detailsPointer"] = first[exact]
+                };
+                if (Encoding.UTF8.GetByteCount(PlanningJsonTransport.Prompt(reference)) >= Encoding.UTF8.GetByteCount(exact)) continue;
+                displayed ??= context.DeepClone().AsObject();
+                displayed["requirements"]![requirement]!["acceptedProgress"]!["items"]![item] = reference;
+            }
+        }
+        return displayed ?? context;
     }
 
     internal static JsonArray OriginalRequirementRows(PlanningSession state)
