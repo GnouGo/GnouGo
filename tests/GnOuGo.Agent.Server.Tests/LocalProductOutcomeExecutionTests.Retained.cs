@@ -26,7 +26,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
     public async Task RetainedWholeProposalUsesOnlyExistingTypedBindingsAndPreservesRequirements()
     {
         var ct = TestContext.Current.CancellationToken;
-        var factory = new RealProductContracts.Factory(RealProductContracts.Capture(new DocumentPolicy(new DocumentServerSettings(), AppContext.BaseDirectory)));
+        var factory = new RealProductContracts.Factory(CaptureIsolatedProductContracts());
         var engine = new WorkflowEngine { McpClientFactory = factory };
         var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
         var catalog = await RetainedCatalog(runtime, ct);

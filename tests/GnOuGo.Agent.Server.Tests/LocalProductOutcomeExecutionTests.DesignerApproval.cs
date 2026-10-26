@@ -26,7 +26,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
     [Fact]
     public async Task DesignerApprovalRevisionCorrectsBusinessCompositionWithoutChangingHistoricalArtifact()
     {
-        var factory = new RealProductContracts.Factory(RealProductContracts.Capture(new DocumentPolicy(new(), AppContext.BaseDirectory)));
+        var factory = new RealProductContracts.Factory(CaptureIsolatedProductContracts());
         var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
         var catalog = await RetainedCatalog(runtime, TestContext.Current.CancellationToken); catalog.Policy.RequireExternalConfirmation = false;
         var retained = ApprovalRetained(catalog); var corrected = ApprovalCorrected(catalog);
@@ -63,7 +63,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
     [InlineData("operation")]
     public async Task DesignerApprovalReviewRejectsChangesBeyondTheAuthorizedDelta(string change)
     {
-        var factory = RealProductContracts.Capture(new DocumentPolicy(new(), AppContext.BaseDirectory));
+        var factory = CaptureIsolatedProductContracts();
         // Use the actual captured contracts through the same existing discovery helper.
         var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = new RealProductContracts.Factory(factory) }, (_, _) => Task.CompletedTask);
         var catalog = await RetainedCatalog(runtime, TestContext.Current.CancellationToken);

@@ -27,7 +27,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
     [Fact]
     public async Task DesignerCompositionRevisionPreservesBusinessWorkAndReachesReview()
     {
-        var factory = new RealProductContracts.Factory(RealProductContracts.Capture(new DocumentPolicy(new(), AppContext.BaseDirectory)));
+        var factory = new RealProductContracts.Factory(CaptureIsolatedProductContracts());
         var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
         var catalog = await RetainedCatalog(runtime, TestContext.Current.CancellationToken); catalog.Policy.RequireExternalConfirmation = false;
         var retained = DesignerRetained(catalog); var corrected = DesignerCorrected(catalog);
@@ -58,7 +58,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
     [InlineData("operation")]
     public async Task DesignerBusinessReviewRejectsUnrelatedStructuralChanges(string mutation)
     {
-        var factory = new RealProductContracts.Factory(RealProductContracts.Capture(new DocumentPolicy(new(), AppContext.BaseDirectory)));
+        var factory = new RealProductContracts.Factory(CaptureIsolatedProductContracts());
         var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
         var catalog = await RetainedCatalog(runtime, TestContext.Current.CancellationToken);
         var retained = DesignerRetained(catalog); var corrected = DesignerCorrected(catalog);

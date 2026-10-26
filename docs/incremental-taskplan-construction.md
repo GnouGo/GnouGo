@@ -43,7 +43,7 @@ exact prose/schema links. These views neither choose a replacement port nor gran
 completion, revision or execution authority; required context is never truncated.
 When a consumed producer view already carries an exactly matching compact port
 directory, its task-navigation row keeps the identity and links without repeating
-that array. Full producer semantics and every address remain available.
+that array. Full producer semantics and every address remain available. Embedded v6 selected schema views inherit only their exactly matching parent contract identity and one identical view-description string. Every selected schema, ancestor constraint and reference closure remains intact; standalone retrieved views and issued requests keep their original bytes.
 Navigation's `objectiveTextComplete` describes the displayed text only. Actual
 open-scope identities determine closure diagnostics; truncated descriptions never
 reopen accepted work. Earlier presentation revisions keep their original field.

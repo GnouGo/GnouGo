@@ -21,6 +21,17 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed partial class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
 {
+    private static JsonObject CaptureIsolatedProductContracts()
+    {
+        var root = Directory.CreateTempSubdirectory("gnougo-product-contracts-");
+        try
+        {
+            return RealProductContracts.Capture(new GnOuGo.Document.Mcp.DocumentPolicy(
+                new() { DefaultWorkingDirectory = root.FullName }, root.FullName));
+        }
+        finally { root.Delete(recursive: true); }
+    }
+
     [Theory]
     [InlineData("nominal")]
     [InlineData("notice-generic")]

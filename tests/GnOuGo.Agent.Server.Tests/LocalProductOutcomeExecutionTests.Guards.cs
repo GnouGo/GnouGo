@@ -28,7 +28,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
     [Fact]
     public async Task RetainedGuardsAndExplicitCompositionRevisionStaySeparate()
     {
-        var factory = new RealProductContracts.Factory(RealProductContracts.Capture(new DocumentPolicy(new(), AppContext.BaseDirectory)));
+        var factory = new RealProductContracts.Factory(CaptureIsolatedProductContracts());
         var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
         var catalog = await RetainedCatalog(runtime, TestContext.Current.CancellationToken); catalog.Policy.RequireExternalConfirmation = false;
         var retained = GuardRetained(catalog); var original = JsonSerializer.Serialize(retained, PlanningJsonContext.Default.PlanningProposal);
@@ -74,7 +74,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
     [InlineData("header")]
     public async Task GuardRevisionReviewRejectsUnrelatedBusinessChanges(string change)
     {
-        var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = new RealProductContracts.Factory(RealProductContracts.Capture(new DocumentPolicy(new(), AppContext.BaseDirectory))) }, (_, _) => Task.CompletedTask);
+        var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = new RealProductContracts.Factory(CaptureIsolatedProductContracts()) }, (_, _) => Task.CompletedTask);
         var catalog = await RetainedCatalog(runtime, TestContext.Current.CancellationToken);
         var retained = GuardRetained(catalog); var proposal = GuardCorrected(catalog);
         switch (change)

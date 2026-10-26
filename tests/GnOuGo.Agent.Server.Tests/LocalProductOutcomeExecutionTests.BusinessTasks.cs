@@ -26,7 +26,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
     [Fact]
     public async Task RetainedReadableCompositionUsesBindingsWithoutDroppingValidationOrWork()
     {
-        var factory = new RealProductContracts.Factory(RealProductContracts.Capture(new DocumentPolicy(new DocumentServerSettings(), AppContext.BaseDirectory)));
+        var factory = new RealProductContracts.Factory(CaptureIsolatedProductContracts());
         var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
         var catalog = await RetainedCatalog(runtime, TestContext.Current.CancellationToken);
         catalog.Policy.RequireExternalConfirmation = false;
@@ -62,7 +62,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
     [Fact]
     public async Task ReadableProfilesPreserveBusinessCompositionContracts()
     {
-        var factory = new RealProductContracts.Factory(RealProductContracts.Capture(new DocumentPolicy(new DocumentServerSettings(), AppContext.BaseDirectory)));
+        var factory = new RealProductContracts.Factory(CaptureIsolatedProductContracts());
         var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
         var catalog = await RetainedCatalog(runtime, TestContext.Current.CancellationToken);
         catalog.Policy.RequireExternalConfirmation = false;
@@ -86,7 +86,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
     [Fact]
     public async Task BusinessCompositionRemovesForwardersWithoutChangingContractsOrLowering()
     {
-        var factory = new RealProductContracts.Factory(RealProductContracts.Capture(new DocumentPolicy(new DocumentServerSettings(), AppContext.BaseDirectory)));
+        var factory = new RealProductContracts.Factory(CaptureIsolatedProductContracts());
         var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
         var catalog = await RetainedCatalog(runtime, TestContext.Current.CancellationToken);
         catalog.Policy.RequireExternalConfirmation = false;

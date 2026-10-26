@@ -123,6 +123,7 @@ internal static partial class PlanningCompactConstruction
                             : ExactSchemaView(capability, pointer))).ToArray()),
                         ["artifacts"] = TaskOperations.ArtifactPorts(capability)
                     };
+                    CompactProducerSchemaMetadata(producer["contract"]!.AsObject());
                     if (discovery)
                     {
                         // These are provisional navigation bindings, not actual
@@ -157,6 +158,27 @@ internal static partial class PlanningCompactConstruction
             }
             if (producers.Count > 0) row["producers"] = producers;
         }
+    }
+
+    internal static void CompactProducerSchemaMetadata(JsonObject contract)
+    {
+        var views = new[] { "selectedInputs", "selectedOutputs" }.SelectMany(name =>
+            (contract[name] as JsonArray ?? []).OfType<JsonObject>()).Where(view => view["schema"] is not null).ToArray();
+        var identity = new[] { "id", "version", "hash" };
+        if (views.Length == 0 || identity.Any(key => contract[key] is not JsonValue value ||
+                !value.TryGetValue<string>(out var text) || string.IsNullOrEmpty(text)) ||
+            views.Any(view => identity.Any(key => !JsonNode.DeepEquals(view[key], contract[key])))) return;
+        // These views are embedded under this exact contract. Their schema paths,
+        // coupled ancestor constraints and reference closures remain unchanged.
+        if (views[0]["view"] is JsonValue description && description.TryGetValue<string>(out _) &&
+            views.All(view => JsonNode.DeepEquals(view["view"], description)) &&
+            (contract["selectedSchemaView"] is null || JsonNode.DeepEquals(contract["selectedSchemaView"], description)))
+        {
+            contract["selectedSchemaView"] = description.DeepClone();
+            foreach (var view in views) view.Remove("view");
+        }
+        foreach (var view in views)
+            foreach (var key in identity) view.Remove(key);
     }
 
     private static IEnumerable<TaskValue> ProducerReferences(JsonObject row) =>

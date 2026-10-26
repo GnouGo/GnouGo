@@ -990,6 +990,10 @@ mandatory producer/evidence context remain with exact omitted-page links.
 Exact duplicate producer-port directories are presented once; original input defaults
 remain reachable through the accepted producer's schema directory. Compare complete
 prepared requests, including evidence enums and envelope, before claiming size savings.
+Newly constructed revision-6 producer views share identical contract identity and
+view guidance at the parent; they retain every selected schema and ancestor/reference
+constraint. Compare exact closures and the complete evidence-address set alongside
+request bytes. Standalone evidence, issued requests and captured ceilings are unchanged.
 Scoped source windows reuse existing Judge records and require complete current
 coverage before acceptance, automatic closure and delegated artifact verification.
 Count each window as a logical request and every HTTP attempt separately; windows

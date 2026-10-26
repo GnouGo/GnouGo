@@ -10,8 +10,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
     [Fact]
     public async Task CompactUnionUsesExistingBindingsAndPreservesRequirements()
     {
-        var factory = new GnOuGo.Planning.Examples.RealProductContracts.Factory(GnOuGo.Planning.Examples.RealProductContracts.Capture(
-            new GnOuGo.Document.Mcp.DocumentPolicy(new GnOuGo.Document.Mcp.DocumentServerSettings(), AppContext.BaseDirectory)));
+        var factory = new GnOuGo.Planning.Examples.RealProductContracts.Factory(CaptureIsolatedProductContracts());
         var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
         var catalog = await RetainedCatalog(runtime, TestContext.Current.CancellationToken);
         catalog.Policy.RequireExternalConfirmation = false;

@@ -13,7 +13,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
     public async Task AutomaticCorrectionReplaysBothRetainedMalformedGuardsWithoutChangingBusinessWork()
     {
         var ct = TestContext.Current.CancellationToken;
-        var factory = new RealProductContracts.Factory(RealProductContracts.Capture(new GnOuGo.Document.Mcp.DocumentPolicy(new(), AppContext.BaseDirectory)));
+        var factory = new RealProductContracts.Factory(CaptureIsolatedProductContracts());
         var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
         var catalog = await RetainedCatalog(runtime, ct); catalog.Policy.RequireExternalConfirmation = false;
         var retained = GuardRetained(catalog); var corrected = GuardRetained(catalog);

@@ -32,7 +32,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
     [InlineData(true)]
     public async Task V10CorrectedCompositionReachesReviewWithoutPaidCallsOrAutomaticRepair(bool revision)
     {
-        var factory = new RealProductContracts.Factory(RealProductContracts.Capture(new DocumentPolicy(new(), AppContext.BaseDirectory)));
+        var factory = new RealProductContracts.Factory(CaptureIsolatedProductContracts());
         var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
         var catalog = await RetainedCatalog(runtime, TestContext.Current.CancellationToken); catalog.Policy.RequireExternalConfirmation = false;
         var corrected = V10Proposal(catalog, 4);
@@ -123,7 +123,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
     [Fact]
     public async Task V10FieldReconnectionRemovesLearnedAssemblyWithoutChangingAcceptedOutputs()
     {
-        var factory = new RealProductContracts.Factory(RealProductContracts.Capture(new DocumentPolicy(new(), AppContext.BaseDirectory)));
+        var factory = new RealProductContracts.Factory(CaptureIsolatedProductContracts());
         var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
         var catalog = await RetainedCatalog(runtime, TestContext.Current.CancellationToken); catalog.Policy.RequireExternalConfirmation = false;
         var proposal = V10Proposal(catalog, 2);
@@ -138,7 +138,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
     [Fact]
     public async Task V10TypedOriginalsRetainProducerRecordsAndNarrowConsumerViews()
     {
-        var factory = new RealProductContracts.Factory(RealProductContracts.Capture(new DocumentPolicy(new(), AppContext.BaseDirectory)));
+        var factory = new RealProductContracts.Factory(CaptureIsolatedProductContracts());
         var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
         var catalog = await RetainedCatalog(runtime, TestContext.Current.CancellationToken);
         catalog.Policy.RequireExternalConfirmation = false;

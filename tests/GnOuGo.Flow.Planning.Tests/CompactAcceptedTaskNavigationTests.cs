@@ -78,6 +78,21 @@ public sealed class CompactAcceptedTaskNavigationTests
             Assert.Contains(port, selected["ancestors"]![0]!["constraints"]!["required"]!.AsArray().Select(value => value!.ToString()));
             Assert.Null(producer["contract"]!["selectedOutputSchemasOmitted"]);
         }
+        Assert.NotNull(producer["contract"]!["selectedSchemaView"]);
+        foreach (var view in producer["contract"]!["selectedInputs"]!.AsArray().Concat(
+                     producer["contract"]!["selectedOutputs"]!.AsArray()).Where(view => view?["schema"] is not null))
+        {
+            Assert.Null(view!["id"]); Assert.Null(view["version"]); Assert.Null(view["hash"]); Assert.Null(view["view"]);
+            var retrievedState = PlannerFixture.Clone(state);
+            var address = "schema:allocate@v1:" + view["pointer"]!.ToString();
+            PlanningConstruction.LoadEvidence(retrievedState, [address]);
+            var retrieved = retrievedState.Construction!.Evidence![address]!;
+            Assert.Equal("allocate", retrieved["id"]!.ToString()); Assert.Equal("v1", retrieved["version"]!.ToString());
+            Assert.Equal(producer["contract"]!["hash"]!.ToString(), retrieved["hash"]!.ToString());
+            Assert.Equal(producer["contract"]!["selectedSchemaView"]!.ToString(), retrieved["view"]!.ToString());
+            foreach (var field in new[] { "pointer", "schema", "ancestors", "referenceClosure" })
+                Assert.True(JsonNode.DeepEquals(view[field], retrieved[field]), field);
+        }
         var links = PlanningCompactConstruction.NavigationEvidence([context["interfaces"]]);
         Assert.Contains("schema:allocate@v1:/output/properties/zz_snapshot", links);
         Assert.Contains("description:allocate@v1:0", links);
@@ -262,11 +277,14 @@ public sealed class CompactAcceptedTaskNavigationTests
         Assert.NotEmpty(producer["contract"]!["selectedOutputs"]!.AsArray());
 
         var repeated = context.DeepClone().AsObject();
+        RestoreEmbeddedSchemaMetadata(repeated["interfaces"]![0]!["producers"]![0]!["contract"]!.AsObject());
         Assert.Single(repeated["taskEvidence"]!["items"]!.AsArray(), row => row?["task"]?.ToString() == "make")!["outputs"] =
             producer["contract"]!["outputs"]!.DeepClone();
         var currentLinks = PlanningCompactConstruction.NavigationEvidence([context["interfaces"], context["taskEvidence"]]);
         Assert.True(currentLinks.SetEquals(PlanningCompactConstruction.NavigationEvidence([repeated["interfaces"], repeated["taskEvidence"]])));
-        Assert.True(JsonNode.DeepEquals(context["interfaces"], repeated["interfaces"]));
+        var restored = context["interfaces"]!.DeepClone();
+        RestoreEmbeddedSchemaMetadata(restored[0]!["producers"]![0]!["contract"]!.AsObject());
+        Assert.True(JsonNode.DeepEquals(restored, repeated["interfaces"]));
         var currentSchema = request.StructuredOutputSchema!.DeepClone().AsObject();
         var repeatedSchema = currentSchema.DeepClone().AsObject();
         if (review)
@@ -287,6 +305,9 @@ public sealed class CompactAcceptedTaskNavigationTests
         var oldPrepared = PlanningModelCalls.PrepareRequest(state, purpose, repeatedPrompt, request.StructuredOutputSchema.AsObject(), output);
         var measured = PlanningRequestMeasurements.Measure(prepared, purpose, 128000);
         var previous = PlanningRequestMeasurements.Measure(oldPrepared, purpose, 128000);
+        Assert.Equal(previous.Contracts.Select(item => (item.Id, item.Version, item.Hash)),
+            measured.Contracts.Select(item => (item.Id, item.Version, item.Hash)));
+        Assert.Equal(previous.SchemaHash, measured.SchemaHash);
         Assert.True(measured.CompleteRequestBytes < previous.CompleteRequestBytes);
         Assert.True(measured.EstimatedInputTokens < previous.EstimatedInputTokens);
         Assert.Equal(measured.CompleteRequestBytes, measured.Components.Sum(component => component.SerializedBytes));
@@ -327,6 +348,8 @@ public sealed class CompactAcceptedTaskNavigationTests
         AuthorAllowance(state, 128000);
         var review = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, false);
         var producer = review.Context["interfaces"]![0]!["producers"]![0]!;
+        RestoreEmbeddedSchemaMetadata(producer["contract"]!.AsObject());
+        Assert.NotNull(producer["contract"]!["selectedOutputs"]![0]!["id"]);
         Assert.Single(review.Context["taskEvidence"]!["items"]!.AsArray(), row => row?["task"]?.ToString() == "make")!["outputs"] =
             producer["contract"]!["outputs"]!.DeepClone();
         var prompt = review.Request.Prompt[..(review.Request.Prompt.LastIndexOf('\n') + 1)] + PlanningJsonTransport.Prompt(review.Context);
@@ -338,6 +361,7 @@ public sealed class CompactAcceptedTaskNavigationTests
         var exact = JsonSerializer.Serialize(saved.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
         var calls = saved.ModelCalls;
         var next = HybridWorkflowPlanner.CreateConstructionReviewRequest(saved, false);
+        Assert.Null(next.Context["interfaces"]![0]!["producers"]![0]!["contract"]!["selectedOutputs"]![0]!["id"]);
         Assert.Null(Assert.Single(next.Context["taskEvidence"]!["items"]!.AsArray(), row => row?["task"]?.ToString() == "make")!["outputs"]);
         var recovery = new TestRuntime { Respond = (request, _) =>
         {
@@ -348,6 +372,66 @@ public sealed class CompactAcceptedTaskNavigationTests
         await PlanningModelCalls.CallAsync(saved, recovery, PlanningConstruction.LocalPurpose, next.Request.Prompt,
             next.Request.StructuredOutputSchema!.AsObject(), PlannerFixture.Ct, saved.Construction!.Limits.ReviewOutputTokens);
         Assert.Single(recovery.Calls); Assert.Equal(calls, saved.ModelCalls); Assert.Equal(0, saved.ReplanAttempts);
+    }
+
+    [Theory]
+    [InlineData("id", false)]
+    [InlineData("version", false)]
+    [InlineData("hash", false)]
+    [InlineData("id", true)]
+    [InlineData("version", true)]
+    [InlineData("hash", true)]
+    public async Task EmbeddedProducerSchemasRequireExactParentIdentity(string key, bool absent)
+    {
+        var state = await ArtifactProducerState(6);
+        var contract = Context(state, false)["interfaces"]![0]!["producers"]![0]!["contract"]!.AsObject();
+        RestoreEmbeddedSchemaMetadata(contract);
+        var selected = contract["selectedOutputs"]![0]!.AsObject();
+        if (absent) selected.Remove(key); else selected[key] = "different";
+        var before = contract.ToJsonString();
+        PlanningCompactConstruction.CompactProducerSchemaMetadata(contract);
+        Assert.Equal(before, contract.ToJsonString());
+    }
+
+    [Fact]
+    public async Task EmbeddedProducerSchemasKeepDifferentViewDescriptions()
+    {
+        var state = await ArtifactProducerState(6);
+        state.Construction!.Compact!.CurrentStep!.Inputs = [TaskArtifactBindingTests.Reference("make", "display"),
+            TaskArtifactBindingTests.Reference("make", "handle")];
+        var contract = Context(state, false)["interfaces"]![0]!["producers"]![0]!["contract"]!.AsObject();
+        RestoreEmbeddedSchemaMetadata(contract);
+        var views = contract["selectedOutputs"]!.AsArray(); Assert.Equal(2, views.Count);
+        views[1]!["view"] = "A different retained qualification.";
+        var descriptions = views.Select(view => view!["view"]!.ToString()).ToArray();
+        PlanningCompactConstruction.CompactProducerSchemaMetadata(contract);
+        Assert.Null(contract["selectedSchemaView"]);
+        Assert.Equal(descriptions, views.Select(view => view!["view"]!.ToString()));
+        Assert.All(views, view => Assert.Null(view!["id"]));
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    public async Task HistoricalProducerContextKeepsExactBytesWhenDecisionProjectionIsRequested(int version)
+    {
+        var state = await ArtifactProducerState(version);
+        var context = Context(state, false); var before = context.ToJsonString();
+        PlanningCompactConstruction.AddDecisionContext(state, context, review: false);
+        Assert.Equal(before, context.ToJsonString());
+    }
+
+    private static void RestoreEmbeddedSchemaMetadata(JsonObject contract)
+    {
+        foreach (var view in new[] { "selectedInputs", "selectedOutputs" }.SelectMany(name =>
+                     contract[name]!.AsArray().OfType<JsonObject>()).Where(view => view["schema"] is not null))
+        {
+            foreach (var key in new[] { "id", "version", "hash" }) view[key] = contract[key]!.DeepClone();
+            view["view"] = contract["selectedSchemaView"]!.DeepClone();
+        }
+        contract.Remove("selectedSchemaView");
     }
 
     [Fact]
