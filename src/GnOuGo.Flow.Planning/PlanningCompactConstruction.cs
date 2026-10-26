@@ -608,7 +608,7 @@ internal static partial class PlanningCompactConstruction
         if (DescribedOperationChoices(state) is { } described) context["describedOperations"] = described;
         if (PlanningConstructionPhasePolicies.IsFresh(state.Request) && ScopeOwnerNavigation(state) is { } owner)
             context["scopeOwner"] = owner;
-        AddDecisionContext(state, context, review: false);
+        AddDecisionContext(state, context, review: false, discovery: true);
         // These are optional navigation slots, not fields inside original
         // evidence. Preserve historical issued presentation and nested values.
         return IsCompactPresentation(state) ? TrimNavigation(context) : context;

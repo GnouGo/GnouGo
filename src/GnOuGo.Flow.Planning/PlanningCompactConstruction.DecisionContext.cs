@@ -69,9 +69,10 @@ internal static partial class PlanningCompactConstruction
 
     internal static JsonArray OriginalGlobalRows(PlanningSession state) => Sources(state, State(state).GlobalSourceIds);
 
-    internal static void AddDecisionContext(PlanningSession state, JsonObject context, bool review)
+    internal static void AddDecisionContext(PlanningSession state, JsonObject context, bool review, bool discovery = false)
     {
         if (!UsesDecisionView(state)) return;
+        discovery &= !review;
         if (!review)
         {
             context["requirements"] = OriginalRequirementRows(state);
@@ -117,9 +118,23 @@ internal static partial class PlanningCompactConstruction
                         ["outputs"] = CompletePortDirectory(contract.Outputs, identity, "/output"),
                         ["inputDirectory"] = "schema-page:" + identity + ":/input:0",
                         ["outputDirectory"] = "port-page:" + identity + ":/output:0",
-                        ["selectedOutputs"] = new JsonArray(selected.Select(pointer => (JsonNode)ExactSchemaView(capability, pointer)).ToArray()),
+                        ["selectedOutputs"] = new JsonArray(selected.Select(pointer => (JsonNode)(discovery
+                            ? new JsonObject { ["pointer"] = pointer, ["schemaEvidence"] = "schema:" + identity + ":" + pointer }
+                            : ExactSchemaView(capability, pointer))).ToArray()),
                         ["artifacts"] = TaskOperations.ArtifactPorts(capability)
                     };
+                    if (discovery)
+                    {
+                        // These are provisional navigation bindings, not actual
+                        // consumers. Keep resolved interfaces, exact arguments,
+                        // input constraints and normative prose; original output
+                        // closures remain retrievable through every port's links.
+                        var view = producer["contract"]!.AsObject();
+                        view["selectedOutputSchemasOmitted"] = selected.Length > 0;
+                        foreach (var port in contract.Outputs)
+                            if (port.Schema["description"] is { } description)
+                                view["outputs"]!.AsArray().Single(row => row!["name"]!.ToString() == port.Name)!["description"] = description.DeepClone();
+                    }
                     // The mandatory producer view already carries these exact port
                     // identities. Keep the task's navigation links and provenance,
                     // but do not repeat an identical directory in a second row.

@@ -1,4 +1,35 @@
 # Compact TaskPlan convergence
+## Source 8c2043418: Collections success and current limits
+
+**Collections passed public approval verification and both frozen runtime variants.** This is one fresh success, **1 of 6 required on this source**; two variants count once. The parallel foreach and reusable doubling group preserved ordered items and duplicates, with empty effects and violations.
+
+| Case | Logical / physical / receipts | Corrections / checkpoints | Known / reserved EUR (rounded) | Planning seconds | Runtime nominal / alternate (ms) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Collections | 29 / 30 / 29 | 1 / 8 | 1.4122 / 0.9309 | 1,258.627 | 394.9243 / 2.4074 |
+
+The correction closed the root and exported the existing result. Eight Judge reports were clean; two requested evidence. One rejected evidence expansion was followed by bounded retrieval. The received HTTP500/200 sequence retains its failed-attempt reserve. Approval/runtime added no model calls or cost. Useful-business-obligation ratios remain undefined; no avoided correction or causal benefit is claimed. [Evidence](compact-taskplan-8c2043418-collections-high.json).
+
+**Amazon draft22/output16 stopped before the next dispatch:** 18 logical calls, attempts and receipts, zero corrections, two checkpoints, €1.2282 known cost (rounded), no reserve or receiptless uncertainty. Discovery was rejected at **13,278 estimated input tokens against 12,000**; two drafts remained prepared-only. All 18 received responses were nonempty valid JSON. Exact reproduction matched the 39,066-byte request and showed no large duplicated whole contract. No artifact, runtime result or accepted consumer defect was established. [Evidence](compact-taskplan-8c2043418-amazon-draft22-output16.json).
+
+**Owning validation:** Planning passed 3,263; Server passed 1,846 with one expected browser skip. Both used warnings as errors with zero compiler diagnostics. Original 663-plus-overlay execution is retained, with exact 8c technical bytes and 19 inert evidence/report differences. Focused/baseline counts are nonadditive. Earlier full-solution and Native AOT/publication results remain attributed to 663. Exact 8c proxy workflows passed; planner CI remained in progress at capture. [Technical evidence](compact-taskplan-8c2043418-technical-validation.json).
+
+**Private qualification incident:** an adapter’s null database path inserted seven new synthetic records into the default workspace, overwriting none. Root archived and verified them encrypted, removed exactly seven under the lease, and retained audit history; campaign readiness/accounting bytes were unchanged. The earlier confinement review was withdrawn. The corrected confined adapter subsequently passed four synthetic-case CLI qualifications using exact 8c dependencies; real baseline-arm readiness remains separate. [Incident and qualification](compact-taskplan-8c2043418-private-adapter-incident.json).
+
+### Review PR control and explicit revision
+
+Code on source `8c2043418` stopped without an artifact or runtime execution. The control’s next Judge request was rejected before dispatch at 17,416 estimated input tokens against its 16,000 limit. Independent review also identified an accepted clone binding the PR-page input as a Git remote.
+
+| Scope | Logical / physical / receipts | Known cost (€), rounded | Retained reserve (€), rounded |
+|---|---:|---:|---:|
+| Original control | 38 / 38 / 38 | 2.685310 | 0 |
+| Explicit revision increment | 3 / 4 / 3 | 0.451406 | 0.957644 |
+| Cumulative after revision | 41 / 42 / 41 | 3.136716 | 0.957644 |
+
+The revision issued two intent calls and one Judge call, with no correction call; the requested argument remained unchanged. Judge41 fit the input limit at 15,434 estimated tokens but exhausted all 8,192 output tokens on reasoning, returning no text or verdict. Intent40’s received HTTP500 was retried to HTTP200; its unknown-usage reserve remains. Corrections and checkpoints stayed at two each. The saved campaign audit showed zero unresolved logical requests, with all 30 uncertain requests permanently closed. These outcomes do not establish a successful repair, completion or business benefit; the business-obligation ratio remains undefined. Exact costs, the cumulative/incremental distinction and dated accounting are retained in [the safe numeric record](compact-taskplan-8c2043418-code-revision.json).
+
+
+The separate interface response at control request 4 was valid JSON but contained 393,221 outside-string whitespace bytes in 395,782 original bytes. Its 13,348 output tokens included 1,785 reasoning tokens and stayed below the 32,768 reservation. This formatting anomaly is distinct from the later empty Judge response; no shared cause is established.
+
 ## Source 66360362d: first fresh Collections success
 
 The reviewed artifact passed public approval verification and both frozen synthetic runtime variants. This is **one fresh successful Collections run** on `66360362d`, with the retained high/high/high profile. It establishes no causal benefit from the source changes or reasoning settings.

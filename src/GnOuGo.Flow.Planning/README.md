@@ -995,6 +995,11 @@ explicit revision can enter the existing targeted correction route; findings wit
 that authority require explicit revision. Mixed authorized and unauthorized findings
 cannot expand the patch. Patches apply atomically to a copy and undergo full validation;
 accepted requirements, interfaces, effects, guards and unrelated work remain protected.
+For presentation revision 6, an existing explicit-revision diagnostic survives
+intent/interface preflight while the authorized candidate is still identical to its
+accepted baseline. Technical validity does not satisfy the host's requested change.
+An actual authorized patch clears that pending marker and requires renewed review;
+saved requests and earlier presentation behavior remain unchanged.
 Fresh intent-v3 sessions capture `planning_diagnostics_version=1` and use private
 correction progress version 8. After successful compilation and choice resolution,
 accepted-output interface findings and commitment coverage are collected together

@@ -27,6 +27,8 @@ flowchart LR
   YAML --> Approval[Exact artifact approval]
 ```
 
+During discovery, selected producer outputs are provisional navigation bindings. Their compiler-resolved nullable interfaces, exact accepted arguments, full original operation and top-level port descriptions, and bound-input schema constraints remain visible. Nested schema annotations and constraints remain exact through retrieval and the full draft/review closures. Automatic selected-output schema closures may be deferred through the exact existing schema/page links; explicitly retrieved originals remain intact. Draft and scoped review still include the complete selected original closures for actual consumers. Discovery grants no task, permission, or acceptance authority.
+
 ## Exact decision context and source windows (presentation revision 6)
 
 Selection, discovery and drafting display all exact original requirements when the
@@ -70,6 +72,12 @@ reconstruct, and a compensating runtime effect cannot edit the accepted TaskPlan
 The revision view shows only authorized current tasks, labeled separately from new
 extensions. Prior defect comparisons use their exact current identity and subpath;
 retained original evidence and review witnesses remain unchanged.
+Presentation revision 6 retains an existing host-requested repair diagnostic while
+its exact authorized paths, baseline and unchanged candidate hashes still agree.
+Intent/interface revalidation runs normally but cannot discharge that obligation.
+The marker stays separate from compiler rejection history and clears after an
+authorized changed patch; renewed scoped review remains mandatory. Missing markers
+are not reconstructed, and already-issued requests retain their original routing.
 These changes establish context and validation boundaries, not live convergence.
 
 ## Accepted-state progression (presentation revision 5)

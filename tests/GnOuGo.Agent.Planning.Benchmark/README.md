@@ -824,6 +824,13 @@ require current admission. Collections reconciles a complete saved HTTP success
 before coordinator deadline checks. Historical wrappers remain unchanged.
 They require fresh review and approval; the command never creates acknowledgments.
 
+Operator-requested scoped revisions are diagnostic interventions, with their calls,
+reservations and latency included in the original run. They do not qualify for the
+compact-convergence acceptance gate: require two fresh runs per scenario on the same
+source without operator intervention before the eighteen baseline/candidate runs.
+Automatic local corrections remain eligible. Each qualifying Collections run must
+pass both runtime variants; two variants are one run, not two successes.
+
 Supply every accepted requirement ID exactly once only after comparing it with actual
 operations, loop bodies, conditions and data dependencies. Never generate this list
 automatically from the requirements. Missing visits, extraction or observation completeness

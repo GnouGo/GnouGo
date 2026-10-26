@@ -294,6 +294,11 @@ public sealed partial class HybridWorkflowPlanner
     {
         ct.ThrowIfCancellationRequested();
         var draft = state.Construction!.Candidate!;
+        var pendingRevision = PlanningCompactConstruction.UsesDecisionView(state) &&
+            draft.AuthorizedPaths is { Count: > 0 } authorized && draft.Hash == draft.BaseHash &&
+            draft.Hash == PlanningConstruction.Hash(draft.Plan) && draft.BaseHash == PlanningConstruction.Hash(state.Plan)
+            ? draft.Diagnostics.Where(d => d.Required && d.Code == "JUDGE_SCOPED_REVIEW" &&
+                authorized.Contains(d.Location, StringComparer.Ordinal)).ToArray() : [];
         if (state.Construction.Version == 2) PlanningCompactConstruction.ValidateExtension(state, draft);
         foreach (var operation in TaskPlanRevisions.Tasks(draft.Plan).Select(t => t.Operation).OfType<string>().Distinct(StringComparer.Ordinal))
         {
@@ -347,6 +352,9 @@ public sealed partial class HybridWorkflowPlanner
                     "The prior finding's cited implementation is unchanged. Its truth remains advisory: make a targeted repair, retrieve evidence contesting it, suspend for an evidenced prerequisite, or withdraw a premature completion claim within existing authority. Prior witness: " + progress["id"]));
             }
         }
+        // Reindexing intent cannot discharge an unchanged, explicitly requested repair.
+        // Keep host intent out of deterministic history; a changed typed patch clears it.
+        draft.Diagnostics.AddRange(pendingRevision);
         state.Diagnostics = draft.Diagnostics.ToList();
         state.Phase = draft.Diagnostics.Count == 0 ? PlanningConstruction.LocalPurpose : PlanningPhase.Replanning;
         if (draft.Diagnostics.Count > 0) PlanningConstruction.RecordRejection(state, draft);

@@ -1,11 +1,217 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed partial class CompactConvergentJudgeTests
 {
+    [Theory]
+    [InlineData(false, "none")]
+    [InlineData(true, "intent")]
+    [InlineData(true, "replan")]
+    public async Task ExplicitRevisionRetainsItsRepairThroughIntentBeforeReview(bool resolveInterface, string recovery)
+    {
+        var state = await PendingExplicitRevision();
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        var independent = JsonSerializer.Serialize(state.Plan!.Root.Tasks[0], PlanningJsonContext.Default.PlanTask);
+        var checkpoint = JsonSerializer.Serialize(state.Construction!.Checkpoints[0], PlanningJsonContext.Default.PlanningConstructionCheckpoint);
+        var desired = PlanningConstruction.Clone(state.Plan);
+        desired.Root.Tasks.Single(task => task.Id == "create").Inputs =
+        [new("target", new() { Kind = "string", Text = "approved/location" }), new("revision", new() { Kind = "string", Text = "head" })];
+        var interrupted = false;
+        var runtime = new TestRuntime { Respond = (request, purpose) =>
+        {
+            Assert.Equal(PlanningCompactConstruction.IntentPurpose, purpose);
+            if (recovery == "intent" && request.StructuredOutputSchema!["properties"]?["clauses"] is null && !interrupted)
+            { interrupted = true; throw new OperationCanceledException(); }
+            return RevisionIntent(request, resolveInterface);
+        } };
+        for (var i = 0; i < 8; i++)
+        {
+            state = await Advance(PlannerFixture.Clone(state), runtime);
+            if (state.PendingCall is not null)
+            {
+                state = PlannerFixture.Clone(runtime.Checkpoints.Last(saved => saved.Status == PlanningStatus.Generating &&
+                    saved.PendingCall?.Purpose == PlanningCompactConstruction.IntentPurpose));
+                var exact = JsonSerializer.Serialize(state.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
+                var calls = state.ModelCalls;
+                Assert.False(string.IsNullOrWhiteSpace(state.PendingCall.Request.ClientRequestId));
+                Assert.True(state.PendingCall.Request.MaxTokens > 0);
+                runtime.Respond = (request, purpose) =>
+                {
+                    Assert.Equal(exact, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+                    Assert.Equal(PlanningCompactConstruction.IntentPurpose, purpose);
+                    return RevisionIntent(request, resolveInterface);
+                };
+                state = await Advance(state, runtime);
+                Assert.Equal(calls, state.ModelCalls);
+                runtime.Respond = (request, purpose) =>
+                { Assert.Equal(PlanningCompactConstruction.IntentPurpose, purpose); return RevisionIntent(request, resolveInterface); };
+            }
+            if (state.Construction!.Compact!.Sources.All(source => source.Indexed) &&
+                PlanningCompactConstruction.IntentDeclarationsComplete(state.Construction.Compact)) break;
+        }
+        var candidate = state.Construction!.Candidate!;
+        Assert.Equal(accepted, candidate.Hash); Assert.Equal(candidate.BaseHash, candidate.Hash);
+        Assert.Equal(["/tasks/create/inputs"], candidate.AuthorizedPaths);
+        Assert.Equal("JUDGE_SCOPED_REVIEW", Assert.Single(candidate.Diagnostics).Code);
+        Assert.Equal(PlanningPhase.Replanning, state.Phase);
+        Assert.Equal(0, state.ReplanAttempts); Assert.Equal(0, candidate.Corrections);
+        Assert.DoesNotContain(candidate.Reviews, review => review.ToJsonString().Contains("JUDGE_SCOPED_REVIEW", StringComparison.Ordinal));
+        if (resolveInterface) Assert.Contains(state.Construction.Compact!.InterfaceExtractions!, extraction =>
+            extraction.Complete && extraction.Dispositions?.Any(disposition => disposition.Kind == "no_public_interface") == true);
+
+        if (recovery == "replan")
+        {
+            runtime.Respond = (_, purpose) => { Assert.Equal("replan", purpose); throw new OperationCanceledException(); };
+            _ = await Advance(PlannerFixture.Clone(state), runtime);
+            state = PlannerFixture.Clone(runtime.Checkpoints.Last(saved => saved.Status == PlanningStatus.Generating && saved.PendingCall?.Purpose == "replan"));
+        }
+        var issued = state.PendingCall is null ? null : JsonSerializer.Serialize(state.PendingCall.Request, PlanningJsonContext.Default.LLMRequest);
+        var beforeRepairCalls = state.ModelCalls;
+        runtime.Respond = (request, purpose) =>
+        {
+            Assert.Equal("replan", purpose);
+            if (issued is not null) Assert.Equal(issued, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+            Assert.True(PlanningRepairPatch.Issued(request.StructuredOutputSchema!.AsObject()));
+            Assert.False(string.IsNullOrWhiteSpace(request.ClientRequestId)); Assert.True(request.MaxTokens > 0);
+            Assert.Equal("null", request.StructuredOutputSchema["properties"]!["reselectStep"]!["type"]!.ToString());
+            Assert.All(PlanningRepairPatch.RequestContext(request)["repair"]!["slots"]!.AsArray(),
+                slot => Assert.Equal("/tasks/create/inputs", slot!["location"]!.ToString()));
+            var authority = PlannerFixture.Clone(state);
+            authority.Plan = authority.Construction!.Candidate!.Plan;
+            authority.EditablePaths = ["/tasks/create/inputs"]; authority.RevisionScope = authority.EditablePaths;
+            return Response(TestRuntime.PatchResponse(request, authority, desired));
+        };
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Equal(beforeRepairCalls + (issued is null ? 1 : 0), state.ModelCalls);
+        Assert.Equal(1, state.ReplanAttempts); Assert.Equal(1, state.Construction!.Candidate!.Corrections);
+        Assert.Empty(state.Construction.Candidate.Diagnostics);
+        Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
+        Assert.Equal(PlanningConstruction.Hash(desired), state.Construction.Candidate.Hash);
+        Assert.False(state.Construction.Candidate.LocalReviewed); Assert.Null(state.ApprovedHash);
+        runtime.Respond = (_, purpose) =>
+        { Assert.Equal(PlanningConstruction.LocalPurpose, purpose); return Response(Report()); };
+        for (var i = 0; i < 6 && state.Construction!.Checkpoints.Count == 1; i++) state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Equal(2, state.Construction!.Checkpoints.Count);
+        Assert.Equal(PlanningConstruction.Hash(desired), PlanningConstruction.Hash(state.Plan));
+        Assert.Equal(independent, JsonSerializer.Serialize(state.Plan!.Root.Tasks[0], PlanningJsonContext.Default.PlanTask));
+        Assert.Equal(checkpoint, JsonSerializer.Serialize(state.Construction.Checkpoints[0], PlanningJsonContext.Default.PlanningConstructionCheckpoint));
+        Assert.Equal(1, state.ReplanAttempts); Assert.Null(state.ApprovedHash); Assert.Null(state.PendingCall);
+    }
+
+    [Theory]
+    [InlineData("noop")]
+    [InlineData("outside")]
+    public async Task ExplicitRevisionCannotBypassItsRequestedChangeOrAuthority(string action)
+    {
+        var state = await PendingExplicitRevision();
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        var runtime = new TestRuntime { Respond = (request, purpose) =>
+        { Assert.Equal(PlanningCompactConstruction.IntentPurpose, purpose); return RevisionIntent(request, false); } };
+        do { state = await Advance(PlannerFixture.Clone(state), runtime); }
+        while (state.Construction!.Compact!.Sources.Any(source => !source.Indexed));
+        runtime.Respond = (request, purpose) =>
+        {
+            Assert.Equal("replan", purpose);
+            var slot = Assert.Single(PlanningRepairPatch.RequestContext(request)["repair"]!["slots"]!.AsArray())!;
+            Assert.Equal("/tasks/create/inputs", slot["location"]!.ToString());
+            var response = new JsonObject { ["patch"] = new JsonObject { ["edits"] = new JsonArray(new JsonObject
+            {
+                ["slot"] = slot["id"]!.DeepClone(), ["action"] = "replace",
+                ["value"] = JsonSerializer.SerializeToNode(state.Plan!.Root.Tasks.Single(task => task.Id == "create").Inputs,
+                    PlanningJsonContext.Default.ListTaskOutput)
+            }) } };
+            var issuedShape = PlanningCorpus.Transport(response, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject())!;
+            // Corrupt the received slot after fixture transport; exercise the host, not the fixture's schema projection.
+            if (action == "outside") issuedShape["patch"]!["edits"]![0]!["slot"] = "/tasks/independent/inputs";
+            return Response(issuedShape);
+        };
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
+        Assert.Equal(accepted, state.Construction!.Candidate!.Hash); Assert.Single(state.Construction.Checkpoints);
+        Assert.False(state.Construction.Candidate.LocalReviewed); Assert.Null(state.ApprovedHash);
+        Assert.NotEmpty(state.Diagnostics); Assert.Equal(1, state.ReplanAttempts);
+        if (action == "noop") Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "REPLAN_NO_PROGRESS");
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    public async Task HistoricalRevisionIntentKeepsItsPriorReviewRouting(int presentation)
+    {
+        var state = await PendingExplicitRevision();
+        state.Construction!.Compact!.PresentationVersion = presentation;
+        state.Request.Options["construction_presentation_version"] = presentation;
+        var runtime = new TestRuntime { Respond = (request, purpose) =>
+        { Assert.Equal(PlanningCompactConstruction.IntentPurpose, purpose); return RevisionIntent(request, false); } };
+        do { state = await Advance(PlannerFixture.Clone(state), runtime); }
+        while (state.Construction!.Compact!.Sources.Any(source => !source.Indexed));
+        Assert.Empty(state.Construction!.Candidate!.Diagnostics);
+        Assert.Equal(PlanningConstruction.LocalPurpose, state.Phase); Assert.Equal(0, state.ReplanAttempts);
+    }
+
+    [Fact]
+    public async Task ExplicitRevisionKeepsTechnicalFindingsSeparateFromPendingHostIntent()
+    {
+        var state = await PendingExplicitRevision(invalidRetainedBinding: true);
+        var runtime = new TestRuntime { Respond = (request, purpose) =>
+        { Assert.Equal(PlanningCompactConstruction.IntentPurpose, purpose); return RevisionIntent(request, false); } };
+        do { state = await Advance(PlannerFixture.Clone(state), runtime); }
+        while (state.Construction!.Compact!.Sources.Any(source => !source.Indexed));
+        var candidate = state.Construction!.Candidate!;
+        Assert.Contains(candidate.Diagnostics, diagnostic => diagnostic.Code == "TASK_INPUT_TYPE");
+        Assert.Contains(candidate.Diagnostics, diagnostic => diagnostic.Code == "JUDGE_SCOPED_REVIEW" && diagnostic.Location == "/tasks/create/inputs");
+        Assert.Equal(candidate.Diagnostics, state.Diagnostics);
+        var history = Assert.Single(candidate.Reviews, review => review["technicalRejections"] is not null).ToJsonString();
+        Assert.Contains("TASK_INPUT_TYPE", history, StringComparison.Ordinal);
+        Assert.DoesNotContain("JUDGE_SCOPED_REVIEW", history, StringComparison.Ordinal);
+        Assert.Equal(PlanningPhase.Replanning, state.Phase); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Single(state.Construction.Checkpoints); Assert.False(candidate.LocalReviewed);
+    }
+
+    private static async Task<PlanningSession> PendingExplicitRevision(bool invalidRetainedBinding = false)
+    {
+        var state = await ExplicitRevisionState();
+        var runtime = new TestRuntime { Respond = (_, _) => Response(Report()) };
+        state = await Advance(state, runtime);
+        Assert.Single(state.Construction!.Checkpoints);
+        // Exercise revalidation of a retained type defect under the same explicit authority.
+        if (invalidRetainedBinding) state.Plan!.Root.Tasks.Single(task => task.Id == "create").Inputs =
+            [new("target", new() { Kind = "boolean", Boolean = true })];
+        state.Status = PlanningStatus.Stopped;
+        return await new HybridWorkflowPlanner().AdvanceAsync(PlannerFixture.Clone(state), new()
+        {
+            Kind = "revise", ExpectedRevision = state.Revision, ArtifactHash = state.ComputeArtifactHash(), PreserveRequirements = true,
+            EditablePaths = ["/tasks/create/inputs"], Text = "Correct create's existing inputs to target approved/location and revision head."
+        }, runtime, PlannerFixture.Ct);
+    }
+
+    private static LLMResponse RevisionIntent(LLMRequest request, bool resolveInterface)
+    {
+        var context = Context(request); var source = context["sources"]![0]!;
+        var response = request.StructuredOutputSchema!["properties"]?["clauses"] is not null
+            ? new JsonObject { ["sourceId"] = source["id"]!.DeepClone(), ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray(),
+                ["clauses"] = new JsonArray(new JsonObject { ["text"] = source["text"]!.DeepClone(), ["kind"] = "global",
+                    ["interfaces"] = resolveInterface ? "output" : "none" }) }
+            : new JsonObject { ["sourceId"] = source["id"]!.DeepClone(), ["interfaces"] = new JsonObject
+            {
+                ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray(),
+                ["dispositions"] = new JsonArray(context["sources"]!.AsArray().Select(s => (JsonNode)new JsonObject
+                {
+                    ["sourceId"] = s!["id"]!.DeepClone(), ["version"] = s["version"]!.DeepClone(), ["kind"] = "no_public_interface",
+                    ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray(), ["reason"] = "Revise the implementation binding; this clause declares no caller-facing interface.",
+                    ["evidence"] = new JsonArray(new JsonObject { ["sourceId"] = s["id"]!.DeepClone(), ["version"] = s["version"]!.DeepClone() })
+                }).ToArray())
+            } };
+        return Response(PlanningCorpus.Transport(response, request.StructuredOutputSchema.AsObject(), request.StructuredOutputSchema.AsObject())!);
+    }
+
     [Fact]
     public async Task ExplicitAcceptedOperationRevisionPreservesIndependentWorkAndAccountingAcrossRestart()
     {
@@ -101,6 +307,24 @@ public sealed partial class CompactConvergentJudgeTests
             Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(report, request.StructuredOutputSchema!));
             return Response(report);
         };
+        // Recover an already-issued v6 Judge from before host-diagnostic retention.
+        // Keep this adverse-report/witness case; fresh revisions now repair first.
+        do { state = await Advance(PlannerFixture.Clone(state), runtime); }
+        while (state.Construction!.Compact!.Sources.Any(source => !source.Indexed));
+        state.Construction.Candidate!.Diagnostics.Clear(); state.Diagnostics.Clear();
+        var respond = runtime.Respond;
+        runtime.Respond = (_, purpose) => { Assert.Equal(PlanningConstruction.LocalPurpose, purpose); throw new OperationCanceledException(); };
+        _ = await Advance(PlannerFixture.Clone(state), runtime);
+        state = PlannerFixture.Clone(runtime.Checkpoints.Last(saved => saved.Status == PlanningStatus.Generating &&
+            saved.PendingCall?.Purpose == PlanningConstruction.LocalPurpose));
+        var issued = JsonSerializer.Serialize(state.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
+        runtime.Respond = (request, purpose) =>
+        {
+            Assert.Equal(issued, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+            return respond!(request, purpose);
+        };
+        state = await Advance(state, runtime);
+        runtime.Respond = respond;
         for (var count = 0; count < 12 && state.Construction!.Checkpoints.Count == 1 && state.Status == PlanningStatus.Generating; count++)
             state = await Advance(PlannerFixture.Clone(state), runtime);
         Assert.True(state.Construction!.Checkpoints.Count == 2, string.Join("; ", state.Diagnostics));

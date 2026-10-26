@@ -1,0 +1,54 @@
+{
+  "source": "8c2043418ace12a283b66ffad69c1063021c389a",
+  "kind": "private_qualification_confinement_incident",
+  "incident_utc": "2026-10-25T22:14:22Z",
+  "fault": "Private adapter passed a null database path; the public API treated its supplied private directory as fallback and selected the default workspace. Earlier confinement peer conclusion was withdrawn.",
+  "confirmed_effects": {
+    "new_synthetic_records": 7,
+    "overwritten_preexisting_records_among_these_coordinates": 0,
+    "namespace": "retention",
+    "provider_dispatches_by_adapter": 0,
+    "benchmark_cli_invocations_before_incident": 0
+  },
+  "reversal": {
+    "root_owned_under_campaign_lease": true,
+    "payloads_and_metadata_archived_encrypted_before_removal": true,
+    "exact_synthetic_records_removed": 7,
+    "audit_records_preserved": true,
+    "campaign_accounting_operations": 0
+  },
+  "campaign_observation": {
+    "pre_and_post_readiness_byte_identical": true,
+    "readiness_sha256": "991659193e0158e36e57e23f7b6644ed50918f43c118ab2abce20d86b567f9a8",
+    "scope": "The paid campaign configuration/accounting snapshot is unchanged; database audit entries remain and whole-database equality is not asserted."
+  },
+  "private_correction": {
+    "explicit_absolute_private_database_path": true,
+    "resolved_path_equality_assertion": true,
+    "separate_process_denial_of_real_data_reads_writes_and_network": true,
+    "status": "source_prepared_separate_actual_cli_qualification_pending_at_appendix_capture"
+  },
+  "evidence_sha256": {
+    "root_exact_seven_inspection": "f9604b00849b8cb3f4bde6d4114b365574d598f563a84d8cc036cabb6a025683",
+    "root_reversal": "11ef976b1480b37e09e1d03cc8fa42ff0478f399e479250615cb548badf31542",
+    "independent_source_audit": "113e6b6fb07d6503e5601ff7220587c3cfdcde174914e2af24406fd5acd2ba09",
+    "inspection_qualification": "4065ee0f2b87482b2c3fd87a6fe8442930cb10d9c16accf34bf635e2e9b292e2",
+    "corrected_private_source": "2d7356c0f4f7d7289562ab74b66ec531ae66926b15290b1d6d823aaa64bd806d"
+  },
+  "limits": [
+    "The failed adapter attempt does not count as CLI or baseline-readiness qualification.",
+    "No production source, profile, oracle or business-result change follows from this private adapter correction.",
+    "Original failed logs, evidence and audit history remain retained."
+  ],
+  "later_actual_cli_qualification": {
+    "status": "four_synthetic_case_process_qualification_passed",
+    "actual_cli_processes": 25,
+    "adapter_processes": 20,
+    "final_confinement_probes": 4,
+    "main_binary_dependency_closure_used": true,
+    "bcl_asyncinterfaces_version": "10.0.5",
+    "qualification_sha256": "b64110e3f25fa688a255825c16d52e9ccb9f96541f48c41e0026a00a2aeadd7e",
+    "independent_peer_sha256": "b586bd7141096c7991303054af189f1dc52f999e1875c683c1cd9acaadf4f3a1",
+    "scope": "Separate later synthetic-store process qualification; no real baseline arm or failed-attempt erasure."
+  }
+}
