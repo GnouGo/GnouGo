@@ -25,11 +25,14 @@ public sealed partial class BenchmarkPermanentRetentionTests
     private static string InterruptedConfigurationKey => "corpus-settings:" + new string('a', 40) + ":fixture:control:cohort:diagnostic";
     private const string ErrorBody = """{"errorCode":"upstream_failure","errorMessage":"Provider unavailable.","errorDetail":"No completion receipt."}""";
 
-    [Fact]
-    public async Task SourceWindowHeadroomRetentionRequiresItsCapturedPresentationWithoutChangingReservations()
+    [Theory]
+    [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(8)]
+    public async Task SourceWindowHeadroomRetentionRequiresItsCapturedPresentationWithoutChangingReservations(int presentation)
     {
         var records = new Records();
-        var campaign = await SeedCapturedRetriesAsync(records, 1, true, presentation: 6, reviewHeadroom: 4);
+        var campaign = await SeedCapturedRetriesAsync(records, 1, true, presentation: presentation, reviewHeadroom: 4);
         var before = records.Snapshot();
         var accounting = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
         var inspection = await campaign.InspectPermanentRetentionAsync(SchemaPortabilityCampaign.Collection, "run:" + Session,

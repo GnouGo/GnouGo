@@ -50,7 +50,7 @@ public sealed class CompactConstructionHostTests
         Assert.Equal(0, effects);
         Assert.Null(state.ApprovedHash); Assert.Null(state.SavedAgentId);
         Assert.True(state.Construction!.Complete);
-        Assert.Equal(6, state.Construction.Compact!.PresentationVersion);
+        Assert.Equal(8, state.Construction.Compact!.PresentationVersion);
         Assert.True(Assert.Single(state.Construction.Compact.InterfaceExtractions!).Complete);
         Assert.Equal("closed", Assert.Single(state.Construction.Requirements).Status);
         Assert.Single(state.Construction.Checkpoints);
@@ -158,6 +158,7 @@ public sealed class CompactConstructionHostTests
                     {
                         ["baseHash"] = Issued(request, "baseHash"), ["evidenceRequests"] = null, ["clarifications"] = null,
                         ["step"] = new JsonObject { ["scope"] = "/root", ["kind"] = "value", ["objective"] = Objective,
+                            ["operationIds"] = new JsonArray(), ["closeScopes"] = null,
                             ["requirementIds"] = new JsonArray(requirement), ["inputs"] = new JsonArray(), ["dependencyTaskIds"] = new JsonArray(),
                             ["expectedOutputs"] = new JsonArray("The exact requested greeting"), ["closeRequirementIds"] = new JsonArray(requirement),
                             ["outputNames"] = new JsonArray("message") }

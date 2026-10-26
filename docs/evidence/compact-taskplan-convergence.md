@@ -1,5 +1,19 @@
 # Compact TaskPlan convergence
 
+## 60e85c9f: retained controls; business convergence incomplete
+
+Presentation revision 7 reuses accepted contributions, inspected operations and exact reviewed prerequisite bindings. Eligible closures and original-description continuation pages retain deterministic validation and mandatory reviews. These mechanisms establish no business result by themselves. The subsequent revision-8 implementation has no live acceptance result at this capture.
+
+The [Amazon pair](compact-taskplan-60e85c9f-amazon-pair.json) used matched frozen model, inputs, MCPs, oracles and phase policy. Neither arm produced an artifact or executed an oracle. Control `e0c057b1` used 43 logical requests/44 attempts, four corrections and 34.47 minutes; candidate `60e85c9f` used 42/42, three corrections and 29.89 minutes. Known costs were €2.96545 versus €3.11720; control additionally retains €0.61973. Candidate accepted only two nested empty/open sequences. One prospective draft exceeded 22k at 22,069 estimated tokens; every dispatched request fit. Fewer calls established no business improvement.
+
+[Review PR control](compact-taskplan-60e85c9f-code-control-retention.json) stopped after four requests/five attempts and three receipts. Exact authorized abandonment retained €1.91529 and permanently forbids replay/continuation. The [fresh60 candidate](compact-taskplan-60e85c9f-code-candidate.json) used 28 requests/29 attempts, zero corrections and 22.75 minutes, costing €2.73779 known plus €0.95764 retained for a failed attempt. Judge28 exhausted its 8,192-token allowance entirely in reasoning and returned no text. All 28 admitted requests fit; 32 constructed measurements reconcile. No artifact or execution resulted. Causes of output exhaustion and original whitespace remain unestablished.
+
+[Technical evidence](compact-taskplan-60e85c9f-technical.json) records 3,388 owning Planning passes and 12 publication stages: eight fresh plus four qualified unchanged results, covering six packages, Native AOT and encrypted-storage recovery. The archived b25 full run remains 8,616 passes/10 failures/13 skips. [Final60 CI](compact-taskplan-60e85c9f-ci.json) reports 7,571 passes/one failure/one skip: the already reproduced stale host fixture; subsequent package/AOT steps were skipped. Its held correction passed privately. Counts overlap; no final60 full-solution pass is claimed.
+
+[Readiness](compact-taskplan-60e85c9f-pre-control-balance.json), inspected on 2026-10-26 at 16:59 UTC, retains 32 closed receiptless identities, zero unresolved and €161.348878 available. This dated balance is not future readiness. All completed diagnostics above satisfied zero independent business obligations, so calls per fulfilled obligation remain undefined.
+
+PR #120 remains Draft. Two intervention-free executions per scenario on one final source are required before the 18 baseline `56942f5` comparisons. Baseline freeze, command, runtime and input-parity prerequisites remain. No diagnostic above qualifies toward that gate.
+
 ## 42757cf7: one qualifying Collections run; other diagnostics stopped
 
 These separately frozen runs used source `42757cf7661f48a6b7e8acc3f07ab6c15e523b38`, the pinned model and their retained scenario profiles. Exact costs, provider tokens, complete-request distributions, corrections and latency are retained in the linked records. Estimates are not billed tokens; reasoning is included in output usage. Different generated fragments and settings preclude a causal instruction or efficiency claim.

@@ -12,6 +12,187 @@ public sealed class CompactSuspendedConsumerTests
 {
     private const string ResumeAction = "resumeStep (only when offered, with its exact producer checkpoint and binding), ";
 
+    [Theory]
+    [InlineData(7, false)]
+    [InlineData(7, true)]
+    [InlineData(8, false)]
+    [InlineData(8, true)]
+    public async Task OnlyFreshReviewedIndependentAdditionsReuseTheOriginalAssociation(int presentation, bool group)
+    {
+        var runtime = CleanJudge();
+        var state = await Advance(await AssociatedProducer(presentation), runtime);
+        var original = Assert.Single(state.Construction!.Checkpoints);
+        var oldReviews = original.Reviews.Select(review => review.ToJsonString()).ToArray();
+        state = await AcceptAddition(state, runtime, group
+            ? new() { Scope = "/root", RequirementIds = ["req"], Groups = [new() { Id = "unused" }] }
+            : LiteralAddition());
+        var accepted = PlanningConstruction.Hash(state.Plan); var calls = state.ModelCalls;
+        var before = Snapshot(state);
+        Assert.Equal(presentation == 8, PlanningCompactConstruction.TryResumeReviewedConsumer(state));
+        Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan)); Assert.Equal(calls, state.ModelCalls);
+        if (presentation == 7) { Assert.Equal(before, Snapshot(state)); return; }
+        Assert.Equal("number_source", Assert.Single(state.Construction!.Compact!.CurrentStep!.Inputs).Source);
+        Assert.Equal("resuming", Assert.Single(state.Construction.Compact.SuspendedSteps!).Status);
+        Assert.Equal(oldReviews, state.Construction.Checkpoints[0].Reviews.Take(oldReviews.Length).Select(review => review.ToJsonString()));
+        var provenance = PlanningCompactConstruction.ReviewedContinuationProvenance(state)!;
+        Assert.Equal("reviewed_independent_additions", provenance["reason"]!.ToString());
+        Assert.Equal(1, provenance["checkpoint"]!.GetValue<int>());
+        Assert.Equal(original.PlanHash, provenance["originCandidateHash"]!.ToString());
+        Assert.NotEmpty(provenance["reviewFingerprints"]!.AsArray());
+        Assert.NotNull(provenance["originBasisHash"]);
+        var recovered = PlannerFixture.Clone(state); var resumed = Snapshot(recovered);
+        Assert.False(PlanningCompactConstruction.TryResumeReviewedConsumer(recovered));
+        Assert.Equal(resumed, Snapshot(recovered));
+        Assert.True(JsonNode.DeepEquals(provenance, PlanningCompactConstruction.ReviewedContinuationProvenance(recovered)));
+        recovered.Catalog!.Policy.Instructions = "Changed permission after resumption.";
+        Assert.Null(PlanningCompactConstruction.ReviewedContinuationProvenance(recovered));
+        recovered = PlannerFixture.Clone(state); recovered.Construction!.Compact!.Sources[0].Text += " Changed original.";
+        Assert.Null(PlanningCompactConstruction.ReviewedContinuationProvenance(recovered));
+    }
+
+    [Theory]
+    [InlineData("upstream")]
+    [InlineData("consumer")]
+    [InlineData("policy")]
+    [InlineData("permission")]
+    [InlineData("source")]
+    [InlineData("added_source")]
+    [InlineData("group")]
+    [InlineData("order")]
+    [InlineData("unreviewed")]
+    [InlineData("invalidated")]
+    [InlineData("chain")]
+    public async Task IndependentAdditionProofRejectsChangedDependenciesAuthorityAndJournal(string mutation)
+    {
+        var state = await AssociatedProducer(8);
+        state.Plan!.Root.Tasks.Add(new() { Id = "upstream", Kind = "value", Objective = "Provide the original exact number.",
+            Outputs = [new("number", new() { Kind = "number", Number = 7 })] });
+        state.Plan.Groups.Add(new() { Id = "retained_group" }); state.Construction!.OpenScopes.Add("/groups/retained_group/body");
+        var extension = state.Construction.Candidate!.Extension;
+        extension.Tasks[0].Outputs[0] = new("number", Output("upstream"));
+        state.Construction.Candidate = PlanningConstruction.Apply(state, extension);
+        PlanningCompactConstruction.ValidateExtension(state, state.Construction.Candidate);
+        var runtime = CleanJudge(); state = await Advance(state, runtime);
+        state = await AcceptAddition(state, runtime, LiteralAddition());
+        Assert.True(PlanningCompactConstruction.TryResumeReviewedConsumer(PlannerFixture.Clone(state)));
+        switch (mutation)
+        {
+            case "upstream": state.Plan!.Root.Tasks[0].Outputs[0].Value.Number = 99; break;
+            case "consumer": state.Construction!.Compact!.SuspendedSteps![0].Consumer.Objective += " Different meaning."; break;
+            case "policy": state.Request.Policy.Instructions = "A changed original permission constraint."; break;
+            case "permission": state.Catalog!.Policy.DeniedCapabilityIds.Add("new_denial"); break;
+            case "source": state.Construction!.Compact!.Sources[0].Text += " Changed obligation."; break;
+            case "added_source":
+                const string extra = "Do not perform the earlier requested action.";
+                state.Construction!.Compact!.Sources.Add(new() { Id = "later_global", Kind = "global", Text = extra,
+                    Version = PlanningGraphCompiler.Fingerprint(extra), Indexed = true });
+                state.Construction.Compact.GlobalSourceIds.Add("later_global"); break;
+            case "group": state.Plan!.Groups[0].Inputs.Add(new() { Name = "changed", Type = new() { Kind = "number" } }); break;
+            case "order":
+                var added = state.Plan!.Root.Tasks[^1]; state.Plan.Root.Tasks.RemoveAt(state.Plan.Root.Tasks.Count - 1);
+                state.Plan.Root.Tasks.Insert(0, added); break;
+            case "unreviewed": state.Construction!.Checkpoints[^1].Reviews.RemoveAll(row => row["purpose"]?.ToString() == PlanningConstruction.LocalPurpose); break;
+            case "invalidated": state.Construction!.Checkpoints[0].InvalidatedTaskIds.Add("upstream"); break;
+            case "chain": state.Construction!.Checkpoints[^1].BaseHash = new string('0', 64); break;
+        }
+        var before = Snapshot(state);
+        Assert.False(PlanningCompactConstruction.TryResumeReviewedConsumer(state));
+        Assert.Equal(before, Snapshot(state));
+    }
+
+    [Theory]
+    [InlineData("reference")]
+    [InlineData("dependency")]
+    [InlineData("guard")]
+    [InlineData("cleanup")]
+    [InlineData("export")]
+    public async Task ReviewedAdditionsWithInteractionsStillRequireSemanticSelection(string interaction)
+    {
+        var runtime = CleanJudge(); var state = await Advance(await AssociatedProducer(8), runtime);
+        var extension = LiteralAddition(); var task = extension.Tasks[0];
+        switch (interaction)
+        {
+            case "reference": task.Outputs[0] = new("number", Output("number_source")); break;
+            case "dependency": task.DependsOn.Add("number_source"); break;
+            case "guard": task.Requires = new() { Kind = "boolean", Boolean = true }; break;
+            case "cleanup": extension.Tasks.Clear(); extension.Always.Add(task); break;
+            case "export": extension.Outputs.Add(new("unrelated", Output(task.Id))); break;
+        }
+        state = await AcceptAddition(state, runtime, extension);
+        var before = Snapshot(state);
+        Assert.False(PlanningCompactConstruction.TryResumeReviewedConsumer(state));
+        Assert.Equal(before, Snapshot(state));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FreshProofRetainsExactOriginalContractAndPermissionChecks(bool ambiguous)
+    {
+        var runtime = CleanJudge(); var state = await Advance(await AssociatedProducer(8, operation: true), runtime);
+        state = await AcceptAddition(state, runtime, LiteralAddition());
+        Assert.True(PlanningCompactConstruction.TryResumeReviewedConsumer(PlannerFixture.Clone(state)));
+        var original = state.Catalog!.Capabilities.Single(capability => capability.Id == "read");
+        if (ambiguous)
+        {
+            var changed = PlanningConstruction.Node(original, PlanningJsonContext.Default.PlanningCapability)!.Deserialize(PlanningJsonContext.Default.PlanningCapability)!;
+            changed.Description += " Only another entity is permitted."; state.Discovery.Resolved.Add(changed);
+        }
+        else original.Description += " Only another entity is permitted.";
+        var before = Snapshot(state);
+        Assert.False(PlanningCompactConstruction.TryResumeReviewedConsumer(state)); Assert.Equal(before, Snapshot(state));
+    }
+
+    [Fact]
+    public async Task MissingProspectiveProofKeepsTheHistoricalWholePlanFallback()
+    {
+        var runtime = CleanJudge(); var state = await Advance(await AssociatedProducer(7), runtime);
+        var original = Assert.Single(state.Construction!.Checkpoints);
+        Assert.All(original.Reviews, row => Assert.Null(row["basis"]?["continuationProof"]));
+        // Characterize a missing-proof record under fresh validation; production
+        // recovery never changes a captured historical presentation.
+        state.Construction.Compact!.PresentationVersion = 8;
+        state.Request.Options["construction_presentation_version"] = 8;
+        Assert.True(PlanningCompactConstruction.TryResumeReviewedConsumer(PlannerFixture.Clone(state)));
+        state = await AcceptAddition(state, runtime, LiteralAddition());
+        var before = Snapshot(state);
+        Assert.False(PlanningCompactConstruction.TryResumeReviewedConsumer(state)); Assert.Equal(before, Snapshot(state));
+    }
+
+    [Fact]
+    public async Task AnUnrelatedReviewedOperationDoesNotProveIndependentExternalEffects()
+    {
+        var runtime = CleanJudge(); var state = await Advance(await AssociatedProducer(8, operation: true), runtime);
+        state = await AcceptAddition(state, runtime, new() { Scope = "/root", RequirementIds = ["req"],
+            Tasks = [new() { Id = "another_read", Kind = "operation", Operation = "read", Objective = "Read another externally observed value." }] });
+        Assert.All(state.Construction!.Checkpoints, checkpoint =>
+            Assert.True(PlanningConstructionReviewCoverage.Reviewed(state, checkpoint, PlanningConstruction.LocalPurpose)));
+        var before = Snapshot(state);
+        Assert.False(PlanningCompactConstruction.TryResumeReviewedConsumer(state)); Assert.Equal(before, Snapshot(state));
+    }
+
+    private static PlanningConstructionExtension LiteralAddition() => new()
+    {
+        Scope = "/root", RequirementIds = ["req"], Tasks = [new() { Id = "unrelated_literal", Kind = "value",
+            Objective = "Retain an independent literal.", Outputs = [new("number", new() { Kind = "number", Number = 3 })] }]
+    };
+
+    private static async Task<PlanningSession> AcceptAddition(PlanningSession state, TestRuntime runtime, PlanningConstructionExtension extension)
+    {
+        var tasks = extension.Tasks.Concat(extension.Always).ToArray();
+        state.Construction!.Compact!.CurrentStep = Consumer(state, tasks.FirstOrDefault()?.Id ?? "unused_group");
+        state.Construction.Compact.CurrentStep.Kind = tasks.FirstOrDefault()?.Kind ?? "group";
+        state.Construction.Compact.CurrentStep.OperationIds = tasks.Select(task => task.Operation).OfType<string>().Distinct(StringComparer.Ordinal).ToList();
+        state.Construction.Candidate = PlanningConstruction.Apply(state, extension);
+        PlanningCompactConstruction.ValidateExtension(state, state.Construction.Candidate);
+        Assert.Empty(TaskPlanCompiler.ValidateConstruction(state.Construction.Candidate.Plan, state.Catalog!, state.Request,
+            state.Construction.Candidate.OpenScopes.ToHashSet(StringComparer.Ordinal)).Diagnostics);
+        for (var remaining = 12; state.Construction!.Candidate is not null && remaining > 0; remaining--) state = await Advance(state, runtime);
+        Assert.Null(state.Construction!.Candidate); Assert.Empty(state.Diagnostics);
+        Assert.Null(state.Construction.Compact!.CurrentStep);
+        return state;
+    }
+
     [Fact]
     public async Task FirstProducerDraftOffersExactOutputAssociationWithoutLiteralOrFuturePlanGrammar()
     {
@@ -297,9 +478,9 @@ public sealed class CompactSuspendedConsumerTests
         return state;
     }
 
-    private static async Task<PlanningSession> AssociatedProducer()
+    private static async Task<PlanningSession> AssociatedProducer(int presentation = 7, bool operation = false)
     {
-        var state = State(7); state.IntentVersion = 3; state.Revision = 1; state.Status = PlanningStatus.Generating;
+        var state = State(presentation); state.IntentVersion = 3; state.Revision = 1; state.Status = PlanningStatus.Generating;
         state.Catalog = await new TestRuntime().DiscoverAsync(state.Request, PlannerFixture.Ct);
         PlanningCompactConstruction.InitializeSources(state);
         foreach (var source in state.Construction!.Compact!.Sources) { source.Indexed = true; source.InterfaceKind = "none"; }
@@ -312,6 +493,18 @@ public sealed class CompactSuspendedConsumerTests
             Tasks = [new() { Id = "number_source", Kind = "value", Objective = "Produce the original numeric prerequisite.",
                 Outputs = [new("number", new() { Kind = "number", Number = 7 })] }],
             ContinuationBinding = new() { ContinuationId = compact.SuspendedSteps![0].Id, Binding = Output("number_source") } };
+        if (operation)
+        {
+            state.Catalog.AllowedStepTypes.Add("mcp.call");
+            state.Catalog.Capabilities.Add(new() { Id = "read", Version = "v1", Kind = "tool", StepType = "mcp.call",
+                Server = "source", Method = "read", Description = "Read the authorized numeric record.", EffectKind = "read",
+                InputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false },
+                OutputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject { ["number"] = new JsonObject { ["type"] = "number" } },
+                    ["required"] = new JsonArray("number"), ["additionalProperties"] = false } });
+            compact.CurrentStep.Kind = "operation"; compact.CurrentStep.OperationIds = ["read"];
+            extension.Tasks[0].Kind = "operation"; extension.Tasks[0].Operation = "read"; extension.Tasks[0].Outputs.Clear();
+            PlanningCompactConstruction.StageCommitments(state, null);
+        }
         state.Construction.Candidate = PlanningConstruction.Apply(state, extension);
         PlanningCompactConstruction.ValidateExtension(state, state.Construction.Candidate);
         Assert.Empty(TaskPlanCompiler.ValidateConstruction(state.Construction.Candidate.Plan, state.Catalog, state.Request,

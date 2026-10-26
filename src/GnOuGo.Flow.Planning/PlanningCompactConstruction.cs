@@ -7,12 +7,13 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningCompactConstruction
 {
-    internal static bool IsCompactPresentation(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 2 or 3 or 4 or 5 or 6 or 7;
-    internal static bool UsesDeferredBinding(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 3 or 4 or 5 or 6 or 7;
-    internal static bool UsesVerifiedReview(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 4 or 5 or 6 or 7;
-    internal static bool UsesConvergentConstruction(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 5 or 6 or 7;
-    internal static bool UsesAcceptedProgress(PlanningSession state) => state.Construction?.Compact?.PresentationVersion == 7;
-    internal static bool UsesDecisionView(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 6 or 7;
+    internal static bool IsCompactPresentation(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 2 or 3 or 4 or 5 or 6 or 7 or 8;
+    internal static bool UsesDeferredBinding(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 3 or 4 or 5 or 6 or 7 or 8;
+    internal static bool UsesVerifiedReview(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 4 or 5 or 6 or 7 or 8;
+    internal static bool UsesConvergentConstruction(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 5 or 6 or 7 or 8;
+    internal static bool UsesAcceptedProgress(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 7 or 8;
+    internal static bool UsesVerifiedProgress(PlanningSession state) => state.Construction?.Compact?.PresentationVersion == 8;
+    internal static bool UsesDecisionView(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 6 or 7 or 8;
 
     // Remaining mandatory review calls; issuance captures this once for physical-attempt admission.
     internal static int RequiredReviewCalls(PlanningSession state)
@@ -473,6 +474,7 @@ internal static partial class PlanningCompactConstruction
             context["continuation"] = ContinuationContext(state);
         }
         if (UsesAcceptedProgress(state)) context["knownOperations"] = KnownOperations(state);
+        if (UsesVerifiedProgress(state)) context["nextDecision"] = SelectionDecision(state);
         AddDecisionContext(state, context, review: false);
         return TrimNavigation(context);
     }
@@ -552,6 +554,8 @@ internal static partial class PlanningCompactConstruction
         AddRequirementNavigation(state, context);
         if (CompanionOperationNavigation(state) is { } companions) context["companionOperations"] = companions;
         if (DraftContinuationContext(state) is { } continuation) context["continuation"] = continuation;
+        if (ReviewedContinuationProvenance(state) is { } reviewedContinuation)
+            context["reviewedContinuation"] = reviewedContinuation;
         if (step.OutputNames.Count > 0)
             context["outputs"] = PlanningConstruction.Node(state.Requirements!.Outputs!.Where(o => step.OutputNames.Contains(o.Name, StringComparer.Ordinal)).ToList(), PlanningJsonContext.Default.ListTaskInput);
         if (step.GroupId is { } groupId) context["group"] = GroupInterface(state, groupId, verified?.Accepted);

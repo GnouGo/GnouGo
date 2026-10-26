@@ -10,6 +10,101 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CompactContractEvidenceFlowTests
 {
     [Theory]
+    [InlineData(7)]
+    [InlineData(8)]
+    public async Task ProducerSchemaSharingPreservesExactClosuresAndReducesTheCompleteRequestOnlyInVersionEight(int version)
+    {
+        var (state, _) = await Ready();
+        state.Construction!.Compact!.PresentationVersion = version;
+        state.Request.Options["construction_presentation_version"] = version;
+        var capability = state.Discovery.Resolved[0];
+        capability.OutputSchema["$defs"] = new JsonObject { ["original"] = new JsonObject { ["type"] = "string", ["pattern"] = "^ORIGINAL$" } };
+        foreach (var port in capability.OutputSchema["properties"]!.AsObject())
+            port.Value!.AsObject()["$ref"] = "#/$defs/original";
+        state.Catalog!.Capabilities.Add(capability);
+        state.Catalog.AllowedStepTypes.Add("set"); // Optional output imports retain their ordinary presence checks.
+        state.Plan = new() { Root = new() { Tasks = [new() { Id = "producer", Kind = "operation", Operation = "read",
+            Objective = "Read the exact authorized original.", Inputs = [new("target", new() { Kind = "string", Text = "EXACT" })] }] } };
+        var step = state.Construction.Compact.CurrentStep!;
+        step.Kind = "value"; step.OperationIds.Clear(); step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        step.Inputs = [new() { Kind = "output", Source = "producer", Port = "result0" }, new() { Kind = "output", Source = "producer", Port = "result1" }];
+        var validation = TaskPlanCompiler.ValidateConstruction(state.Plan, state.Catalog, state.Request,
+            state.Construction.OpenScopes.ToHashSet(StringComparer.Ordinal), new Dictionary<string, IReadOnlyList<TaskValue>> { [step.Scope] = step.Inputs });
+        Assert.True(validation.Diagnostics.Count == 0, string.Join("; ", validation.Diagnostics.Select(item => item.Code + ": " + item.Message)));
+        Assert.Equal(2, validation.Interfaces.GetValueOrDefault(step.Scope)?.Count ?? 0);
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var proposal = PlanningConstruction.DraftRequest(state, false);
+        var context = Context(proposal);
+        var contract = context["interfaces"]![0]!["producers"]![0]!["contract"]!.AsObject();
+        var views = contract["selectedOutputs"]!.AsArray();
+        var shared = contract["selectedOutputsSharedSchemaMetadata"] as JsonObject;
+        Assert.Equal(version == 8, shared is not null);
+        var expanded = context.DeepClone().AsObject();
+        var expandedContract = expanded["interfaces"]![0]!["producers"]![0]!["contract"]!.AsObject();
+        if (shared is not null)
+        {
+            Assert.NotEmpty(shared["referenceClosure"]!.AsObject());
+            foreach (var view in expandedContract["selectedOutputs"]!.AsArray().OfType<JsonObject>())
+                foreach (var (key, value) in shared) view[key] = value!.DeepClone();
+            expandedContract.Remove("selectedOutputsSharedSchemaMetadata");
+        }
+        foreach (var view in expandedContract["selectedOutputs"]!.AsArray().OfType<JsonObject>())
+        {
+            var original = PlanningCompactConstruction.LoadContractEvidence(state, "schema:read@v1:" + view["pointer"]!, recordSchemaSelection: false)!;
+            foreach (var key in new[] { "schema", "ancestors", "referenceClosure", "pointer" })
+                Assert.True(JsonNode.DeepEquals(original[key], view[key]), key);
+            Assert.NotNull(original["id"]); Assert.NotNull(original["view"]);
+        }
+        var request = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.DraftPurpose, proposal.Prompt,
+            proposal.StructuredOutputSchema!.AsObject(), state.Construction.Limits.DraftOutputTokens);
+        var originalPrompt = proposal.Prompt[..(proposal.Prompt.LastIndexOf('\n') + 1)] + PlanningJsonTransport.Prompt(expanded);
+        var unshared = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.DraftPurpose, originalPrompt,
+            proposal.StructuredOutputSchema.AsObject(), state.Construction.Limits.DraftOutputTokens);
+        var measured = PlanningRequestMeasurements.Measure(request, PlanningConstruction.DraftPurpose, 32000);
+        var previous = PlanningRequestMeasurements.Measure(unshared, PlanningConstruction.DraftPurpose, 32000);
+        Assert.Equal(previous.SchemaHash, measured.SchemaHash);
+        Assert.Equal(version == 8, measured.CompleteRequestBytes < previous.CompleteRequestBytes);
+        Assert.Equal(version == 8, measured.EstimatedInputTokens < previous.EstimatedInputTokens);
+        Assert.Equal(measured.CompleteRequestBytes, measured.Components.Sum(component => component.SerializedBytes));
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+    }
+
+    [Theory]
+    [InlineData("ancestors")]
+    [InlineData("referenceClosure")]
+    [InlineData("identity")]
+    [InlineData("ancestors_order")]
+    public async Task ProducerSharingKeepsDifferentMetadataAndRequiresExactParentIdentity(string change)
+    {
+        var (state, _) = await Ready();
+        var views = new[] { "result0", "result1", "result2" }.Select(port => PlanningCompactConstruction.LoadContractEvidence(state,
+            "schema:read@v1:/output/properties/" + port, recordSchemaSelection: false)!.DeepClone().AsObject()).ToArray();
+        if (change == "ancestors") views[1]["ancestors"]![0]!["constraints"]!["description"] = "Different original constraint.";
+        if (change == "referenceClosure") views[1]["referenceClosure"]!["#/$defs/original"] = new JsonObject { ["type"] = "number" };
+        if (change == "identity") views[1]["hash"] = new string('f', 64);
+        if (change == "ancestors_order")
+        {
+            var ancestor = views[1]["ancestors"]![0]!.AsObject();
+            views[1]["ancestors"]![0] = new JsonObject(ancestor.Reverse().Select(item => new KeyValuePair<string, JsonNode?>(item.Key, item.Value?.DeepClone())));
+            Assert.True(JsonNode.DeepEquals(views[0]["ancestors"], views[1]["ancestors"]));
+            Assert.NotEqual(views[0]["ancestors"]!.ToJsonString(), views[1]["ancestors"]!.ToJsonString());
+            change = "ancestors";
+        }
+        var contract = new JsonObject { ["id"] = views[0]["id"]!.DeepClone(), ["version"] = views[0]["version"]!.DeepClone(),
+            ["hash"] = views[0]["hash"]!.DeepClone(), ["selectedInputs"] = new JsonArray(),
+            ["selectedOutputs"] = new JsonArray(views.Select(view => (JsonNode)view).ToArray()) };
+        var original = contract.ToJsonString();
+        var metadata = change == "identity" ? null : views.Select(view => view[change]!.ToJsonString()).ToArray();
+        PlanningCompactConstruction.CompactProducerSchemaMetadata(contract, shareConstraints: true);
+        if (change == "identity") Assert.Equal(original, contract.ToJsonString());
+        else
+        {
+            Assert.Null(contract["selectedOutputsSharedSchemaMetadata"]?[change]);
+            Assert.Equal(metadata, views.Select(view => view[change]!.ToJsonString()));
+        }
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task GenerationAndCorrectionExposeOptionalPortsBeforeReviewingExactOriginals(bool correction)

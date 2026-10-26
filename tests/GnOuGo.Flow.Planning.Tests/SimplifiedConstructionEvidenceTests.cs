@@ -339,6 +339,7 @@ public sealed class SimplifiedConstructionEvidenceTests
     [InlineData(5)]
     [InlineData(6)]
     [InlineData(7)]
+    [InlineData(8)]
     public void OriginalDescriptionContinuationsAreAutomaticOnlyForFreshAcceptedProgress(int presentation)
     {
         var state = DescriptionState(presentation);
@@ -350,8 +351,8 @@ public sealed class SimplifiedConstructionEvidenceTests
         PlanningConstruction.LoadEvidence(state, ["description:read@v1:0"], readKey, followup: Followup,
             purpose: PlanningConstruction.DraftPurpose, issuedDiscoverySchema: schema);
         var pages = state.Construction!.Evidence!;
-        Assert.Equal(presentation == 7 ? 3 : 1, pages.Count);
-        if (presentation == 7)
+        Assert.Equal(presentation >= 7 ? 3 : 1, pages.Count);
+        if (presentation >= 7)
         {
             Assert.Equal(state.Discovery.Resolved[0].Description, string.Concat(pages.Select(page => page.Value!["text"]!.ToString())));
             Assert.Null(pages.Last().Value!["next"]);
@@ -482,6 +483,126 @@ public sealed class SimplifiedConstructionEvidenceTests
         Assert.Contains(failure.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_CONTRACT_UNAVAILABLE");
         Assert.Equal(before, Snapshot(state));
         Assert.Null(state.RequestMeasurements);
+    }
+
+    [Theory]
+    [InlineData(7, 1)]
+    [InlineData(8, 3)]
+    public void NewProviderKnowledgeRereadsEveryEligibleOriginalContinuationOnlyInVersionEight(int presentation, int restored)
+    {
+        var state = DescriptionKnowledgeState(presentation);
+        var pages = state.Construction!.Evidence!.Select(pair => pair.Key).ToArray();
+        var originals = state.Construction.Evidence!.ToJsonString();
+        var plan = PlanningConstruction.Hash(state.Plan);
+        Assert.All(pages, address => Assert.True(PlanningCompactConstruction.DiscoveryContext(state)["evidence"]![address]!["textOmitted"]!.GetValue<bool>()));
+        ReadDescription(state, pages[0]);
+        var context = PlanningCompactConstruction.DiscoveryContext(state);
+        Assert.Equal(restored, pages.Count(address => context["evidence"]![address]!["text"] is not null));
+        Assert.Equal(3 + restored, state.Construction.EvidenceRequests.Count(key => key.StartsWith("description-read:", StringComparison.Ordinal)));
+        Assert.Equal(originals, state.Construction.Evidence.ToJsonString());
+        Assert.Equal(plan, PlanningConstruction.Hash(state.Plan));
+        Assert.Equal(0, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+        Assert.DoesNotContain(state.RequestMeasurements!, measurement => measurement.Admission == "rejected_before_dispatch");
+        var recovered = PlannerFixture.Clone(state); var before = Snapshot(recovered);
+        var failure = Assert.Throws<PlanningResponseException>(() => ReadDescription(recovered, pages[0]));
+        Assert.Contains(failure.Diagnostics, item => item.Code == "REPLAN_NO_PROGRESS");
+        Assert.Equal(before, Snapshot(recovered));
+    }
+
+    [Theory]
+    [InlineData("failed")]
+    [InlineData("consumed")]
+    [InlineData("missing_history")]
+    public void AutomaticDescriptionRereadCannotBypassRetainedReadAuthority(string restriction)
+    {
+        var state = DescriptionKnowledgeState(8);
+        var pages = state.Construction!.Evidence!.Select(pair => pair.Key).ToArray();
+        var schema = PlanningCompactConstruction.DiscoverySchema(state);
+        var readKey = PlanningCompactConstruction.DescriptionReadKey(state, schema, new JsonObject { ["evidenceRequests"] = new JsonArray(pages[1]) })!;
+        var prefix = "description-read:" + PlanningConstruction.EvidenceBatchFingerprint(state, [pages[1]]) + ":";
+        if (restriction == "failed") state.Construction.Compact!.FailedActions.Add("retained-rejected-action:" + readKey);
+        if (restriction == "consumed") state.Construction.EvidenceRequests.Add(readKey);
+        if (restriction == "missing_history") state.Construction.EvidenceRequests.RemoveAll(key => key.StartsWith(prefix, StringComparison.Ordinal));
+        var previousKeys = state.Construction.EvidenceRequests.ToArray();
+        ReadDescription(state, pages[0]);
+        Assert.DoesNotContain(readKey, state.Construction.EvidenceRequests.Except(previousKeys));
+        Assert.Single(state.Construction.EvidenceRequests.Except(previousKeys));
+        Assert.Equal(0, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+    }
+
+    [Fact]
+    public void InterruptedKnowledgeRereadCommitsNeitherExplicitNorAutomaticPages()
+    {
+        var state = DescriptionKnowledgeState(8); var before = Snapshot(state);
+        Assert.Throws<OperationCanceledException>(() => ReadDescription(state, "description:read@v1:0", probe =>
+            probe.Construction!.EvidenceRequests.Count(key => key.StartsWith("description-read:", StringComparison.Ordinal)) > 4
+                ? throw new OperationCanceledException() : DescriptionDiscoveryRequest(probe)));
+        Assert.Equal(before, Snapshot(state));
+        ReadDescription(state, "description:read@v1:0");
+        Assert.Equal(6, state.Construction!.EvidenceRequests.Count(key => key.StartsWith("description-read:", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void KnowledgeRereadRetainsOnlyTheAdmittedWholePagePrefix()
+    {
+        var state = DescriptionKnowledgeState(8);
+        var firstOnly = PlannerFixture.Clone(state);
+        firstOnly.Construction!.Compact!.PresentationVersion = 7;
+        firstOnly.Request.Options["construction_presentation_version"] = 7;
+        ReadDescription(firstOnly, "description:read@v1:0");
+        firstOnly.Construction.Compact.PresentationVersion = 8;
+        firstOnly.Request.Options["construction_presentation_version"] = 8;
+        var ceiling = checked((int)PlanningRequestMeasurements.Measure(DescriptionDiscoveryRequest(firstOnly), PlanningCompactConstruction.DiscoveryPurpose, 32000).EstimatedInputTokens + 16);
+        state.Request.Options["construction_limits"]!["phasePolicy"]!["navigation"]!["maxInputTokens"] = ceiling;
+        var original = state.Construction!.Evidence!.ToJsonString();
+        ReadDescription(state, "description:read@v1:0");
+        Assert.Equal(4, state.Construction.EvidenceRequests.Count(key => key.StartsWith("description-read:", StringComparison.Ordinal)));
+        Assert.Equal(original, state.Construction.Evidence.ToJsonString());
+        Assert.Contains(state.RequestMeasurements!, measurement => measurement.Admission == "rejected_before_dispatch" && measurement.EstimatedInputTokens > measurement.InputLimit);
+        Assert.InRange(PlanningRequestMeasurements.Measure(DescriptionDiscoveryRequest(state), PlanningCompactConstruction.DiscoveryPurpose, ceiling).EstimatedInputTokens, 1, ceiling);
+        Assert.Equal(0, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+    }
+
+    private static PlanningSession DescriptionKnowledgeState(int presentation)
+    {
+        var state = DescriptionState(presentation);
+        state.Request.Options["construction_limits"]!["phasePolicy"]!["navigation"]!["maxInputTokens"] = 32000;
+        var step = state.Construction!.Compact!.CurrentStep!;
+        step.Kind = null; step.OperationIds.Clear();
+        state.Discovery.Sources = [new("source", "Declared original operation metadata.")];
+        var capability = state.Discovery.Resolved[0];
+        state.Discovery.Pages = [new("source", null,
+            [new(capability.Id, "source", capability.Method!, capability.Description, capability.StepType,
+                capability.EffectKind, capability.Version, Operation: TaskOperations.Describe(capability))], "more", Query: step.Objective)];
+        ReadDescription(state, "description:read@v1:0");
+        Assert.Equal(3, state.Construction.Evidence!.Count);
+        var original = state.Construction.Evidence.ToJsonString();
+        var additional = PlannerFixture.Clone(state).Discovery.Resolved[0];
+        additional.Id = "additional"; additional.Method = "additional"; additional.Description = "A different exact inspected operation.";
+        state.Discovery.Pages.Add(new("source", "more",
+            [new(additional.Id, "source", additional.Method, additional.Description, additional.StepType,
+                additional.EffectKind, additional.Version, Operation: TaskOperations.Describe(additional))], null, Query: step.Objective));
+        PlanningCompactConstruction.RemoveStaleDiscoveryDirectories(state);
+        Assert.Equal(original, state.Construction.Evidence.ToJsonString());
+        return state;
+    }
+
+    private static void ReadDescription(PlanningSession state, string address, Func<PlanningSession, LLMRequest>? followup = null)
+    {
+        var schema = PlanningCompactConstruction.DiscoverySchema(state);
+        var readKey = PlanningCompactConstruction.DescriptionReadKey(state, schema,
+            new JsonObject { ["evidenceRequests"] = new JsonArray(address) });
+        Assert.NotNull(readKey);
+        PlanningConstruction.LoadEvidence(state, [address], readKey, followup: followup ?? DescriptionDiscoveryRequest,
+            purpose: PlanningCompactConstruction.DiscoveryPurpose, issuedDiscoverySchema: schema);
+    }
+
+    private static LLMRequest DescriptionDiscoveryRequest(PlanningSession state)
+    {
+        var request = PlanningCompactConstruction.Request(state, PlanningCompactConstruction.DiscoveryGuidance(state),
+            PlanningCompactConstruction.DiscoveryContext(state), PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose);
+        return PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.DiscoveryPurpose, request.Prompt,
+            request.StructuredOutputSchema!.AsObject(), state.Construction!.Limits.DraftOutputTokens);
     }
 
     private static PlanningSession DescriptionState(int presentation)

@@ -21,9 +21,9 @@ internal static class PlanningSessionCreation
         state.Construction ??= new();
         state.Construction.Version = 2;
         state.Construction.Compact ??= new();
-        state.Construction.Compact.PresentationVersion = 7;
+        state.Construction.Compact.PresentationVersion = 8;
         state.Construction.Compact.InterfaceExtractions ??= [];
-        options["construction_presentation_version"] = 7;
+        options["construction_presentation_version"] = 8;
         state.Construction.Limits.InputLimits ??= new();
         var limits = state.Construction.Limits.InputLimits;
         var general = state.Request.Generation.MaxInputTokensPerRequest;

@@ -285,7 +285,7 @@ internal sealed partial class BenchmarkCampaign
             !JsonNode.DeepEquals(effective["planning_transport_policy"], policy[PlanningTransportPolicies.OptionName]) ||
             !JsonNode.DeepEquals(policy["benchmark_planning_elapsed_ms"], state.Request.Options["benchmark_planning_elapsed_ms"]) ||
             !JsonNode.DeepEquals(policy["llm_budget"], state.Request.Options["llm_budget"]) ||
-            state.Request.Options["construction_presentation_version"]?.ToString() is "6" or "7" &&
+            state.Request.Options["construction_presentation_version"]?.ToString() is "6" or "7" or "8" &&
                 !JsonNode.DeepEquals(policy["construction_presentation_version"], state.Request.Options["construction_presentation_version"]) ||
             state.PendingCall!.Request.UseBackgroundMode || !PlanningTransportPolicies.ReviewHeadroomValid(state.PendingCall.Request, state.Request) ||
             effective["disable_transport_retries"]?.GetValue<bool>() != state.PendingCall.Request.DisableTransportRetries ||

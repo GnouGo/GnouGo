@@ -2,16 +2,21 @@
 
 Fresh sessions use [compact incremental construction](../../docs/incremental-taskplan-construction.md): index original intent, select one immediate business substep, discover its capabilities, then generate and review a bounded fragment of one TaskPlan. Phase-specific context and response schemas omit unrelated inspections, task grammar and history. Exact contract views preserve required constraints; the shared compiler validates against unchanged original contracts before encrypted checkpoint acceptance. Completion uses the existing PlanningGraph and compiler v15 path without a final whole-plan LLM Judge. Historical proposal/repair contracts below retain their original meaning for issued sessions.
 
-Fresh presentation revision 7 reuses inspected operation selection, exact reviewed
+Fresh presentation revision 8 reuses inspected operation selection, exact reviewed
 consumer associations and explicit unchanged-plan closures through the existing
 coordinator. Associations are optional construction metadata, never TaskPlan nodes;
 they bind review identities and become resumable only with the accepted checkpoint.
 An older producer remains explicitly selectable when its current bytes, ownership,
 scope and contracts still validate. No semantic binding is inferred from type similarity.
 Whole-page original-description continuations use the existing bounded evidence loader
-and admission checks. Historical revisions 2–6 retain their captured behavior.
+and admission checks. Historical revisions 2–7 retain their captured behavior.
+Fresh applicability proofs remain in the existing review journal: only reviewed,
+demonstrably disjoint additions may preserve automatic consumer resumption.
+Missing proof or changed original work retains semantic selection. Proven host
+closures preserve all associated requirements beyond the model selection bound;
+new fragments and closure claims still require complete scoped review.
 
-Revision 7 retains revision 6's exact original clauses when the complete
+Revision 8 retains revision 6's exact original clauses when the complete
 authoring request fits; otherwise selected and explicitly retrieved requirements stay
 with all globals/core/evidence and exact omitted-page links. Scoped review still covers
 all originals independently of selected associations. Consumed producers retain exact arguments,
@@ -22,6 +27,9 @@ view matches its exact ID, version and hash. Identical view guidance appears onc
 as `selectedSchemaView`; distinct guidance stays with its view. Schema content,
 ancestor/reference constraints and exact retrieval addresses remain intact.
 Standalone retrieved evidence and previously issued requests stay unchanged.
+Revision 8 additionally shares byte-identical ancestor constraints and reference
+closures within each input/output direction under that same exact contract;
+differing views remain separate and independently retrievable in full.
 This presentation reduction changes neither captured ceilings nor compiler validation.
 Accessible accepted producers expose exact omitted-input schema retrieval, including
 defaults and their ancestor/reference constraints, without selecting the operation

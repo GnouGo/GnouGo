@@ -264,15 +264,20 @@ public sealed class BenchmarkCampaignTests
         Assert.Equal(0L, (await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct))["calls"]!.GetValue<long>());
     }
 
-    [Fact]
-    public async Task SourceWindowHeadroomResumesExactlyAndPreservesRequiredCalls()
+    [Theory]
+    [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(8)]
+    public async Task SourceWindowHeadroomResumesExactlyAndPreservesRequiredCalls(int presentation)
     {
         var campaign = new BenchmarkCampaign(new Records(), "window-headroom-recovery");
         using var model = new KeyVaultBenchmarkModel(campaign, new LLMOptions());
         var request = LiveWorkflowEvaluation.FreshPlanningRequest([], "window", "amazon", "Requested work", "provider", "model");
+        request.Options["construction_presentation_version"] = presentation;
         request.Options["llm_budget"]!["max_calls"] = 5;
         await model.CapturePlanningPolicyAsync(request, Ct);
         var captured = (await campaign.LoadAsync("planning-evaluation-session-policy", "window", Ct))!;
+        Assert.Equal(presentation, captured["construction_presentation_version"]!.GetValue<int>());
         var policy = StrictTransport();
         policy["planning_transport_policy"] = captured[PlanningTransportPolicies.OptionName]!.DeepClone();
         const string id = "window:1:hash";

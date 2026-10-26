@@ -2,10 +2,12 @@
 
 ## Accepted-state progression comparison
 
-Presentation revision 7 is a source-only comparison against `e0c057b15`: retain the
+Presentation revision 8 is a source-only comparison against `60e85c9f`: retain the
 same scenario-specific model, reasoning, input/output limits, MCP binaries, inputs
 and independent oracles in both frozen arms. Run one diagnostic per arm in alternating
-control/candidate order for Amazon, Review PR and Collections. Separate mechanical
+control/candidate order for Amazon, Review PR and Collections. Reuse matching
+retained `60e85c9f` control evidence and fill the missing Collections control;
+retain the earlier revision-7 comparison as historical evidence. Separate mechanical
 navigation calls, explicit semantic choices, automatic corrections and operator
 revision interventions. Unknown physical-attempt reservations remain accounted for;
 no freeze or source change authorizes replay or continuation of abandoned runs.
@@ -1001,7 +1003,7 @@ provenance. Preserve these findings separately from later producer-port presenta
 and exact-citation normalization changes. Neither technical tests nor better navigation
 establishes that the duplicate-effect business miss is fixed.
 
-Fresh cohorts capture presentation revision 6. Authoring shows all exact originals when
+Fresh cohorts capture presentation revision 8, retaining revision 6's original coverage. Authoring shows all exact originals when
 the prepared request fits; otherwise selected/retrieved requirements, all globals and
 mandatory producer/evidence context remain with exact omitted-page links.
 Exact duplicate producer-port directories are presented once; original input defaults

@@ -20,11 +20,12 @@ public sealed class PlanningHttpJournalTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task SourceWindowHeadroomSurvivesBothHostJournalsAndExactReceiptRecovery(bool workflow)
+    [InlineData(false, 6)] [InlineData(true, 6)]
+    [InlineData(false, 7)] [InlineData(true, 7)]
+    [InlineData(false, 8)] [InlineData(true, 8)]
+    public async Task SourceWindowHeadroomSurvivesBothHostJournalsAndExactReceiptRecovery(bool workflow, int presentation)
     {
-        await using var host = await Host.CreateAsync(workflow, [500, 200], presentation: 6);
+        await using var host = await Host.CreateAsync(workflow, [500, 200], presentation: presentation);
         await host.OpenAsync();
         var request = host.Issue(reviews: 4);
         var exact = Serialize(request);

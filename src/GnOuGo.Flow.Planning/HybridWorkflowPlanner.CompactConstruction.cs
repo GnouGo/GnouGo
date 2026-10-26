@@ -59,13 +59,13 @@ public sealed partial class HybridWorkflowPlanner
         {
             if (state.PendingCall is null && PlanningCompactConstruction.UsesConvergentConstruction(state))
             {
-                PlanningCompactConstruction.ReconcileContinuations(state);
-                if (PlanningCompactConstruction.TryResumeReviewedConsumer(state))
+                var transition = PlanningCompactConstruction.PrepareAcceptedTransition(state);
+                if (transition is not null && transition.Construction!.Candidate is null)
                 {
                     await runtime.CheckpointAsync(state, ct);
                     return;
                 }
-                var closure = PlanningCompactConstruction.PrepareReviewedClosure(state);
+                var closure = transition;
                 if (closure is not null)
                 {
                     await ValidateConstructionCandidateAsync(closure, runtime, ct);

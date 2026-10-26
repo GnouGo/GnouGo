@@ -181,7 +181,7 @@ internal static partial class PlanningCompactConstruction
                             : ExactSchemaView(capability, pointer))).ToArray()),
                         ["artifacts"] = TaskOperations.ArtifactPorts(capability)
                     };
-                    CompactProducerSchemaMetadata(producer["contract"]!.AsObject());
+                    CompactProducerSchemaMetadata(producer["contract"]!.AsObject(), UsesVerifiedProgress(state));
                     if (discovery)
                     {
                         // These are provisional navigation bindings, not actual
@@ -218,7 +218,7 @@ internal static partial class PlanningCompactConstruction
         }
     }
 
-    internal static void CompactProducerSchemaMetadata(JsonObject contract)
+    internal static void CompactProducerSchemaMetadata(JsonObject contract, bool shareConstraints = false)
     {
         var views = new[] { "selectedInputs", "selectedOutputs" }.SelectMany(name =>
             (contract[name] as JsonArray ?? []).OfType<JsonObject>()).Where(view => view["schema"] is not null).ToArray();
@@ -226,6 +226,28 @@ internal static partial class PlanningCompactConstruction
         if (views.Length == 0 || identity.Any(key => contract[key] is not JsonValue value ||
                 !value.TryGetValue<string>(out var text) || string.IsNullOrEmpty(text)) ||
             views.Any(view => identity.Any(key => !JsonNode.DeepEquals(view[key], contract[key])))) return;
+        if (shareConstraints)
+            foreach (var direction in new[] { "selectedInputs", "selectedOutputs" })
+            {
+                var selected = (contract[direction] as JsonArray ?? []).OfType<JsonObject>().ToArray();
+                if (selected.Length < 2 || selected.Any(view => view["schema"] is null)) continue;
+                var sharedName = direction + "SharedSchemaMetadata";
+                if (contract[sharedName] is not null) continue;
+                var shared = new JsonObject();
+                foreach (var key in new[] { "ancestors", "referenceClosure" })
+                    if (selected[0][key] is { } original && selected.All(view =>
+                        string.Equals(view[key]?.ToJsonString(), original.ToJsonString(), StringComparison.Ordinal)))
+                        shared[key] = original.DeepClone();
+                // Direction-specific inheritance applies only to these embedded
+                // views. Original coordinates, schemas and retrieval stay exact.
+                var size = System.Text.Encoding.UTF8.GetByteCount(shared.ToJsonString());
+                if (shared.Count > 0 && selected.Length * (size - 1) > size + sharedName.Length + 4)
+                {
+                    contract[sharedName] = shared;
+                    foreach (var view in selected)
+                        foreach (var key in shared.Select(item => item.Key)) view.Remove(key);
+                }
+            }
         // These views are embedded under this exact contract. Their schema paths,
         // coupled ancestor constraints and reference closures remain unchanged.
         if (views[0]["view"] is JsonValue description && description.TryGetValue<string>(out _) &&

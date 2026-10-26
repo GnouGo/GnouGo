@@ -1,6 +1,6 @@
 # Incremental TaskPlan construction
 
-Fresh construction-version-2 sessions capture presentation revision 7 and extend one semantic TaskPlan from available producers
+Fresh construction-version-2 sessions capture presentation revision 8 and extend one semantic TaskPlan from available producers
 toward consumers. They index original intent once, select one immediate business
 substep, discover its capabilities and generate only its fragment. Each bounded
 draft passes deterministic semantic validation and a local advisory review before
@@ -29,6 +29,41 @@ flowchart LR
 ```
 
 During discovery, selected producer outputs are provisional navigation bindings. Their compiler-resolved nullable interfaces, exact accepted arguments, full original operation and top-level port descriptions, and bound-input schema constraints remain visible. Nested schema annotations and constraints remain exact through retrieval and the full draft/review closures. Automatic selected-output schema closures may be deferred through the exact existing schema/page links; explicitly retrieved originals remain intact. Draft and scoped review still include the complete selected original closures for actual consumers. Discovery grants no task, permission, or acceptance authority.
+
+## Verified transitions (presentation revision 8)
+
+The existing coordinator resolves established transitions before semantic selection:
+resume the current reviewed consumer, resolve its selected cached contract, follow
+eligible description continuations, or prepare one proven leaf closure. Request and
+checkpoint journals identify the reason and supporting identities; a fallback
+selection identifies the unresolved decision. This is derived navigation, not a
+second plan or authority store.
+
+Fresh continuation reviews prospectively capture applicability evidence in their
+existing hashed review basis. An older exact association may resume after reviewed,
+disjoint additions only when removing permitted new root literal values or unused
+group definitions reconstructs the exact original accepted plan. Existing upstream
+arguments, groups, control, exports, ordering and literals therefore cannot drift.
+Sources, claims, permissions and complete original contracts must still match.
+Unproven interactions, effects, revisions and missing proof retain semantic selection;
+historical records do not acquire reconstructed authority. New consumer work still
+passes ordinary preflight and scoped review.
+
+Proven host closure can carry more than four original requirement IDs. The model's
+selection bound remains four; host closure preserves all IDs and its stronger
+reviewed-completion conditions, source windows and admission limits. Structural
+closure creates no fabricated model receipt or execution approval.
+
+After new provider knowledge permits an explicit original-description reread, the
+same batch may restore eligible exact continuation pages. Knowledge-bound read and
+failure identities remain authoritative; unchanged knowledge is not progress. The
+eight-address cap, whole-page admission, exact links and atomic recovery remain.
+
+Retained producer facts keep their original checkpoint and review provenance. They
+do not become clean windows for a new candidate: new composition, bindings, effects
+and completion claims retain every required original window. Presentation can share
+identical embedded schema metadata under its exact contract, never across requests
+or by dropping mandatory constraints. Existing Judge grammar and settings remain.
 
 ## Accepted work and mechanical continuation (presentation revision 7)
 
@@ -843,12 +878,12 @@ unrestricted-string versus exhaustive-enum semantics after schema annotations
 are compacted. File-content obligations do not imply public outputs; an explicit
 public file-path declaration still requires a typed interface.
 
-Fresh creation captures presentation revision 7 in the existing setting. It
+Fresh creation captures presentation revision 8 in the existing setting. It
 inherits compiler-grounded review context and explicit inconclusive reviews,
 using existing candidate review records for grounded findings and repair witnesses.
 Nullable implementation choices, prerequisite continuations and extraction
 dispositions remain non-executable metadata; construction version 2
-and storage format 10 are unchanged. Historical revisions 2 through 6 retain their
+and storage format 10 are unchanged. Historical revisions 2 through 7 retain their
 captured future-request behavior as well as already issued requests. Historical sessions retain issued
 schemas, compiler profiles, identities, approvals, receipts and cumulative usage.
 Their required compatibility paths cannot be selected by new sessions. Legacy

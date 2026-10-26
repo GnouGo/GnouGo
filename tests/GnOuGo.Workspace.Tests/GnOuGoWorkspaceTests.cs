@@ -233,13 +233,14 @@ public class GnOuGoWorkspaceTests
     [Fact]
     public void ResolveDatabasePath_DefaultRelativePath_ResolvesUnderDefaultWorkingDirectory()
     {
+        var baseDirectory = Path.GetTempPath();
         var expected = Path.Combine(
-            GnOuGoWorkspace.ResolveDefaultWorkingDirectory(),
+            GnOuGoWorkspace.ResolveDefaultWorkingDirectorySafe(contentRootPath: baseDirectory),
             ".GnOuGo",
             "data",
             "gnougo-test.db");
 
-        var result = GnOuGoWorkspace.ResolveDatabasePath(null, "/base", ".GnOuGo/data/gnougo-test.db");
+        var result = GnOuGoWorkspace.ResolveDatabasePath(null, baseDirectory, ".GnOuGo/data/gnougo-test.db");
 
         Assert.Equal(expected, result);
     }
@@ -247,12 +248,13 @@ public class GnOuGoWorkspaceTests
     [Fact]
     public void ResolveDatabasePath_CustomRelativePath_ResolvesUnderDefaultWorkingDirectory()
     {
+        var baseDirectory = Path.GetTempPath();
         var expected = Path.Combine(
-            GnOuGoWorkspace.ResolveDefaultWorkingDirectory(),
+            GnOuGoWorkspace.ResolveDefaultWorkingDirectorySafe(contentRootPath: baseDirectory),
             "custom",
             "path.db");
 
-        var result = GnOuGoWorkspace.ResolveDatabasePath("custom/path.db", "/base", ".GnOuGo/data/default.db");
+        var result = GnOuGoWorkspace.ResolveDatabasePath("custom/path.db", baseDirectory, ".GnOuGo/data/default.db");
 
         Assert.Equal(expected, result);
     }

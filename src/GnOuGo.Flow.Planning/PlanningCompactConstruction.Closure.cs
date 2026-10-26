@@ -85,15 +85,20 @@ internal static partial class PlanningCompactConstruction
     {
         var construction = state.Construction!;
         var compact = State(state);
-        if (!CompletionOnly(state) || state.PendingCall is not null || construction.Candidate is not null ||
-            compact.CurrentStep is not null || construction.Requirements.Any(requirement =>
-                !construction.Checkpoints.Any(checkpoint => checkpoint.ClosedRequirementIds?.Contains(requirement.Id, StringComparer.Ordinal) == true &&
+        if (!CompletionOnly(state) || state.PendingCall is not null || construction.Candidate is not null || compact.CurrentStep is not null)
+            return null;
+        var witnesses = new List<PlanningConstructionCheckpoint>();
+        foreach (var requirement in construction.Requirements)
+        {
+            var witness = construction.Checkpoints.FirstOrDefault(checkpoint => checkpoint.ClosedRequirementIds?.Contains(requirement.Id, StringComparer.Ordinal) == true &&
                     requirement.Checkpoints.Contains(checkpoint.Sequence) && checkpoint.InvalidatedTaskIds.Count == 0 &&
                     PlanningConstructionReviewCoverage.Reviewed(state, checkpoint, PlanningConstruction.LocalPurpose) &&
                     (!checkpoint.NeedsIntermediateReview || PlanningConstructionReviewCoverage.Reviewed(state, checkpoint, PlanningConstruction.IntermediatePurpose)) &&
                     checkpoint.Reviews.Any(review => review["candidateHash"]?.ToString() == checkpoint.PlanHash &&
-                        review["outcome"]?.ToString() == "unverified" && review["response"]?["findings"] is JsonArray { Count: 0 }))))
-            return null;
+                        review["outcome"]?.ToString() == "unverified" && review["response"]?["findings"] is JsonArray { Count: 0 }));
+            if (witness is null) return null;
+            witnesses.Add(witness);
+        }
         var symbols = new TaskPlanSymbols(state.Plan!);
         // A path's textual depth is not its scope depth: task IDs are global.
         var boundary = construction.OpenScopes.FirstOrDefault(path => OpenDescendants(state, symbols, path) == 0 &&
@@ -102,7 +107,7 @@ internal static partial class PlanningCompactConstruction
         var requirements = ClosureRequirements(state, symbols, boundary);
         // Mechanical closure must not substitute an unrelated first obligation
         // or silently omit a wider original set to fit the existing step bound.
-        if (requirements.Length is < 1 or > 4) return null;
+        if (requirements.Length < 1 || !UsesVerifiedProgress(state) && requirements.Length > 4) return null;
         var probe = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession),
             PlanningJsonContext.Default.PlanningSession)!;
         var next = probe.Construction!.Compact!;
@@ -119,7 +124,37 @@ internal static partial class PlanningCompactConstruction
             Scope = boundary, CloseScopes = [boundary], Complete = boundary == "/root",
             RequirementIds = next.CurrentStep.RequirementIds.ToList()
         });
+        if (UsesVerifiedProgress(state))
+            probe.Construction.Candidate.Reviews.Add(new JsonObject
+            {
+                ["purpose"] = "construction_transition", ["outcome"] = "prepared_closure",
+                ["reason"] = "All associated obligations have retained closure reviews; close one accepted leaf boundary.",
+                ["baseline"] = next.CurrentStep.BaseHash, ["scope"] = boundary,
+                ["requirements"] = new JsonArray(requirements.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+                ["checkpoints"] = new JsonArray(witnesses.DistinctBy(checkpoint => checkpoint.Sequence).Where(checkpoint =>
+                    checkpoint.ClosedRequirementIds?.Any(id => requirements.Contains(id, StringComparer.Ordinal)) == true)
+                    .Select(checkpoint => (JsonNode?)JsonValue.Create(checkpoint.Sequence)).ToArray())
+            });
         return probe;
+    }
+
+    internal static PlanningSession? PrepareAcceptedTransition(PlanningSession state)
+    {
+        // Recovery and candidate work take precedence in the coordinator. These
+        // existing transitions establish no new semantic association or verdict.
+        ReconcileContinuations(state);
+        return TryResumeReviewedConsumer(state) ? state : PrepareReviewedClosure(state);
+    }
+
+    internal static JsonObject SelectionDecision(PlanningSession state)
+    {
+        var compact = State(state);
+        var reason = state.Diagnostics.Any(d => d.Required) ? "resolve_retained_diagnostic" :
+            compact.SuspendedSteps?.LastOrDefault(item => item.Status == "waiting") is not null ? "resolve_unproven_consumer_binding" :
+            CompletionOnly(state) ? "resolve_unproven_closure" : "select_next_business_action";
+        return new JsonObject { ["kind"] = "semantic_selection", ["reason"] = reason,
+            ["baseline"] = PlanningConstruction.Hash(state.Plan),
+            ["acceptedCheckpoint"] = state.Construction!.Checkpoints.LastOrDefault()?.Sequence ?? 0 };
     }
 
     private static string[] ClosureRequirements(PlanningSession state, TaskPlanSymbols symbols, string boundary)

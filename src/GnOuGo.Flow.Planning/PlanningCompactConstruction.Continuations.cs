@@ -258,18 +258,22 @@ internal static partial class PlanningCompactConstruction
             State(state).SuspendedSteps?.LastOrDefault(Active) is not { Status: "waiting" } item || !ContinuationCurrent(state, item)) return false;
         var acceptedHash = PlanningConstruction.Hash(state.Plan);
         var matches = state.Construction.Checkpoints.Where(checkpoint =>
-            checkpoint.PlanHash == acceptedHash &&
-            checkpoint.Step?.ContinuationBinding is { } association && association.ContinuationId == item.Id)
+            checkpoint.Step?.ContinuationBinding is { } association && association.ContinuationId == item.Id &&
+            (checkpoint.PlanHash == acceptedHash
+                ? !UsesVerifiedProgress(state) || CurrentContinuationAuthority(state, checkpoint, item)
+                : UsesVerifiedProgress(state) && IndependentContinuationAdditions(state, checkpoint, item)))
             .ToArray();
         if (matches.Length != 1) return false;
-        // An intervening accepted change may alter upstream meaning without changing
-        // the producer node. Such older bindings require explicit semantic selection.
+        // Producer bytes alone cannot prove unchanged upstream meaning. Fresh
+        // independent additions need the exact prospective review-basis proof;
+        // historical records and unknown interactions keep semantic selection.
         // Validate on a clone so failed visibility or stale evidence simply returns
         // to bounded semantic selection without partially restoring a consumer.
         var probe = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
         var selected = matches[0];
         try { ResumeStep(probe, item.Id, selected.Sequence, selected.Step!.ContinuationBinding!.Binding); }
         catch (PlanningResponseException) { return false; }
+        if (UsesVerifiedProgress(state)) RecordReviewedContinuation(probe, probe.Construction!.Checkpoints[selected.Sequence - 1], acceptedHash);
         state.Construction = probe.Construction; state.Diagnostics = probe.Diagnostics;
         return true;
     }

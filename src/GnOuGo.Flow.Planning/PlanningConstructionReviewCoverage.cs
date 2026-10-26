@@ -106,15 +106,29 @@ internal static class PlanningConstructionReviewCoverage
     internal static bool Reviewed(PlanningSession state, PlanningConstructionCheckpoint checkpoint, string purpose)
     {
         if (!PlanningCompactConstruction.UsesDecisionView(state)) return true;
+        var manifest = CheckpointManifest(state, checkpoint, allowAddedSources: true);
+        return manifest is not null && Enumerable.Range(0, manifest["windows"]!.AsArray().Count).All(index =>
+            CleanWindow(checkpoint.Reviews, manifest, index, [purpose == PlanningConstruction.LocalPurpose ? "local" : "intermediate"]));
+    }
+
+    internal static JsonObject? ReviewedContinuationBasis(PlanningSession state, PlanningConstructionCheckpoint checkpoint)
+    {
+        if (!PlanningCompactConstruction.UsesVerifiedProgress(state)) return null;
+        var manifest = CheckpointManifest(state, checkpoint, allowAddedSources: false);
+        return manifest is not null &&
+            Enumerable.Range(0, manifest["windows"]!.AsArray().Count).All(index => CleanWindow(checkpoint.Reviews, manifest, index,
+                checkpoint.NeedsIntermediateReview ? ["local", "intermediate"] : ["local"])) ? manifest : null;
+    }
+
+    private static JsonObject? CheckpointManifest(PlanningSession state, PlanningConstructionCheckpoint checkpoint, bool allowAddedSources)
+    {
         var units = Units(state);
-        var manifest = checkpoint.Reviews.LastOrDefault(row => row["purpose"]?.ToString() == ManifestPurpose &&
+        return checkpoint.Reviews.LastOrDefault(row => row["purpose"]?.ToString() == ManifestPurpose &&
             row["candidateHash"]?.ToString() == checkpoint.PlanHash && row["basis"] is JsonObject basis &&
             basis["baseline"]?.ToString() == checkpoint.BaseHash && basis["candidate"]?.ToString() == checkpoint.PlanHash &&
             checkpoint.Step is { } step && basis["claims"]?.ToString() == Claims(step, checkpoint.ClosedScopes,
                 checkpoint.Fragment["complete"]?.GetValue<bool>() == true) &&
-            basis["scope"]?.ToString() == step.Scope && BasisOriginalsValid(state, row, units, allowAddedSources: true));
-        return manifest is not null && Enumerable.Range(0, manifest["windows"]!.AsArray().Count).All(index =>
-            CleanWindow(checkpoint.Reviews, manifest, index, [purpose == PlanningConstruction.LocalPurpose ? "local" : "intermediate"]));
+            basis["scope"]?.ToString() == step.Scope && BasisOriginalsValid(state, row, units, allowAddedSources));
     }
 
     private static JsonObject? CurrentManifest(PlanningSession state, PlanningConstructionCandidate candidate)
@@ -129,6 +143,8 @@ internal static class PlanningConstructionReviewCoverage
             basis["candidate"]?.ToString() == candidate.Hash && candidate.Hash == PlanningConstruction.Hash(candidate.Plan) &&
             basis["scope"]?.ToString() == candidate.Extension.Scope &&
             basis["claims"]?.ToString() == Claims(state.Construction!.Compact!.CurrentStep!, candidate.Extension.CloseScopes, candidate.Extension.Complete) &&
+            (!PlanningCompactConstruction.UsesVerifiedProgress(state) || JsonNode.DeepEquals(basis["continuationProof"],
+                PlanningCompactConstruction.ContinuationDependencyProof(state, candidate))) &&
             basis["evidence"]?.ToString() == EvidenceHash(state) && BasisOriginalsValid(state, row, units, allowAddedSources: false));
     }
 
@@ -158,7 +174,7 @@ internal static class PlanningConstructionReviewCoverage
             .Where(capability => operationIds.Contains(TaskOperations.Describe(capability).Id))
             .DistinctBy(capability => (capability.Id, capability.Version)).OrderBy(capability => capability.Id, StringComparer.Ordinal)
             .ThenBy(capability => capability.Version, StringComparer.Ordinal);
-        return new JsonObject
+        var basis = new JsonObject
         {
             ["baseline"] = candidate.BaseHash, ["candidate"] = candidate.Hash, ["scope"] = candidate.Extension.Scope,
             ["claims"] = Claims(state.Construction!.Compact!.CurrentStep!, candidate.Extension.CloseScopes, candidate.Extension.Complete),
@@ -168,6 +184,8 @@ internal static class PlanningConstructionReviewCoverage
             ["contracts"] = new JsonArray(contracts.Select(capability => (JsonNode)new JsonObject
                 { ["id"] = TaskOperations.Describe(capability).Id, ["version"] = capability.Version, ["hash"] = ContractHash(capability) }).ToArray())
         };
+        if (PlanningCompactConstruction.ContinuationDependencyProof(state, candidate) is { } proof) basis["continuationProof"] = proof;
+        return basis;
     }
 
     private static bool ManifestValid(JsonObject row, List<Unit> units, bool allowAddedSources = false)

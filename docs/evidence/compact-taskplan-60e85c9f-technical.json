@@ -1,0 +1,234 @@
+{
+  "source": "60e85c9fcf7f50c87cb906e6497ff9935b8c14c2",
+  "full_runs": {
+    "e0": {
+      "execution_attribution": "42757 plus tested overlay, separately content-qualified to e0; nine inert documentation changes not executed",
+      "qualified_commit": "e0c057b15e3c14a8bb160e8bf5ed49ebcd0b7b8b",
+      "outcomes": {
+        "Passed": 8534,
+        "Failed": 9,
+        "NotExecuted": 13
+      },
+      "trx_count": 33
+    },
+    "b25": {
+      "executed_commit": "b25bdf6a9ae604bdc866d7c4691231f3efc4e46a",
+      "outcomes": {
+        "Passed": 8616,
+        "Failed": 10,
+        "NotExecuted": 13
+      },
+      "trx_count": 33
+    }
+  },
+  "failure_comparison": {
+    "same_nine_default_workspace_failures": [
+      {
+        "test": "GnOuGo.Agent.Mcp.Tests.AgentMcpWebHostTests.ResolveDatabasePath_WhenUsingDefaultPath_UsesDefaultWorkingDirectoryGnOuGoDataDirectory",
+        "file": "tests/GnOuGo.Agent.Mcp.Tests/AgentMcpWebHostTests.cs"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.GnOuGoAgentWebHostTests.ResolveDatabasePath_WhenUsingAgentDefaultTelemetryPath_UsesDefaultWorkingDirectoryGnOuGoDataDirectory",
+        "file": "tests/GnOuGo.Agent.Server.Tests/GnOuGoAgentWebHostTests.cs"
+      },
+      {
+        "test": "GnOuGo.Files.Server.Tests.FilesStoragePathsTests.DatabasePath_WhenDefault_UsesWorkspaceGnOuGoDataDirectory",
+        "file": "tests/GnOuGo.Files.Server.Tests/FilesStoragePathsTests.cs"
+      },
+      {
+        "test": "GnOuGo.Files.Server.Tests.FilesStoragePathsTests.StorageRootPath_WhenDefault_UsesWorkspaceGnOuGoFilesDirectory",
+        "file": "tests/GnOuGo.Files.Server.Tests/FilesStoragePathsTests.cs"
+      },
+      {
+        "test": "GnOuGo.KeyVault.Mcp.Tests.KeyVaultMcpWebHostTests.ResolveDatabasePath_WhenUsingDefaultPath_UsesDefaultWorkingDirectoryGnOuGoDataDirectory",
+        "file": "tests/GnOuGo.KeyVault.Mcp.Tests/KeyVaultMcpWebHostTests.cs"
+      },
+      {
+        "test": "GnOuGo.Workspace.Tests.GnOuGoWorkspaceTests.ResolveDatabasePath_CustomRelativePath_ResolvesUnderDefaultWorkingDirectory",
+        "file": "tests/GnOuGo.Workspace.Tests/GnOuGoWorkspaceTests.cs"
+      },
+      {
+        "test": "GnOuGo.Workspace.Tests.GnOuGoWorkspaceTests.ResolveDatabasePath_DefaultRelativePath_ResolvesUnderDefaultWorkingDirectory",
+        "file": "tests/GnOuGo.Workspace.Tests/GnOuGoWorkspaceTests.cs"
+      },
+      {
+        "test": "GnOuGo.Workspace.Tests.GnOuGoWorkspaceTests.ResolveDefaultWorkingDirectory_DefaultPath_CreatesGnOuGoSubfolder",
+        "file": "tests/GnOuGo.Workspace.Tests/GnOuGoWorkspaceTests.cs"
+      },
+      {
+        "test": "GnOuGo.Workspace.Tests.GnOuGoWorkspaceTests.ResolveDefaultWorkingDirectory_RelativePath_ResolvesUnderDesktop",
+        "file": "tests/GnOuGo.Workspace.Tests/GnOuGoWorkspaceTests.cs"
+      }
+    ],
+    "added_stale_host_fixture": "GnOuGo.Agent.Server.Tests.CompactConstructionHostTests.FreshCompactBackgroundPipelineRestoresEncryptedEvidenceWithoutApprovalOrEffects",
+    "test_file_sha256": {
+      "tests/GnOuGo.Agent.Mcp.Tests/AgentMcpWebHostTests.cs": {
+        "e0_executed": "8087cd597d6e6f2e506b3cf601f52ce8a4e6e7e2faac2c7256ba591485e36065",
+        "b25_executed": "8087cd597d6e6f2e506b3cf601f52ce8a4e6e7e2faac2c7256ba591485e36065",
+        "committed60": "8087cd597d6e6f2e506b3cf601f52ce8a4e6e7e2faac2c7256ba591485e36065",
+        "private60_fixture_overlay": "8087cd597d6e6f2e506b3cf601f52ce8a4e6e7e2faac2c7256ba591485e36065"
+      },
+      "tests/GnOuGo.Agent.Server.Tests/CompactConstructionHostTests.cs": {
+        "e0_executed": "aef79b87c8592407431cc48abedb937c9f5027e8d3d4deab3356d9b3ad036cd2",
+        "b25_executed": "aef79b87c8592407431cc48abedb937c9f5027e8d3d4deab3356d9b3ad036cd2",
+        "committed60": "aef79b87c8592407431cc48abedb937c9f5027e8d3d4deab3356d9b3ad036cd2",
+        "private60_fixture_overlay": "3530897d04701f289202f821896beee6c6ec8515461a653913fc33b7de7b3bd2"
+      },
+      "tests/GnOuGo.Agent.Server.Tests/GnOuGoAgentWebHostTests.cs": {
+        "e0_executed": "c0ca4ef5d1f546062e433df625342937bcbf0276033a28aa2e6704f83471637a",
+        "b25_executed": "c0ca4ef5d1f546062e433df625342937bcbf0276033a28aa2e6704f83471637a",
+        "committed60": "c0ca4ef5d1f546062e433df625342937bcbf0276033a28aa2e6704f83471637a",
+        "private60_fixture_overlay": "c0ca4ef5d1f546062e433df625342937bcbf0276033a28aa2e6704f83471637a"
+      },
+      "tests/GnOuGo.Files.Server.Tests/FilesStoragePathsTests.cs": {
+        "e0_executed": "95c64a20cc6c754d2e14b73f177c50e31f619a36c8e43222ae1b69523bf51d7a",
+        "b25_executed": "95c64a20cc6c754d2e14b73f177c50e31f619a36c8e43222ae1b69523bf51d7a",
+        "committed60": "95c64a20cc6c754d2e14b73f177c50e31f619a36c8e43222ae1b69523bf51d7a",
+        "private60_fixture_overlay": "95c64a20cc6c754d2e14b73f177c50e31f619a36c8e43222ae1b69523bf51d7a"
+      },
+      "tests/GnOuGo.KeyVault.Mcp.Tests/KeyVaultMcpWebHostTests.cs": {
+        "e0_executed": "c1f2aabced726ef0c9810cb85c2c65d6fcd582f8c3240a7d181b6bb7eb496e3c",
+        "b25_executed": "c1f2aabced726ef0c9810cb85c2c65d6fcd582f8c3240a7d181b6bb7eb496e3c",
+        "committed60": "c1f2aabced726ef0c9810cb85c2c65d6fcd582f8c3240a7d181b6bb7eb496e3c",
+        "private60_fixture_overlay": "c1f2aabced726ef0c9810cb85c2c65d6fcd582f8c3240a7d181b6bb7eb496e3c"
+      },
+      "tests/GnOuGo.Workspace.Tests/GnOuGoWorkspaceTests.cs": {
+        "e0_executed": "ca90167410889ce60beed7e3d2a42256f8eafaa438988d301a2c1e045e41f77c",
+        "b25_executed": "ca90167410889ce60beed7e3d2a42256f8eafaa438988d301a2c1e045e41f77c",
+        "committed60": "ca90167410889ce60beed7e3d2a42256f8eafaa438988d301a2c1e045e41f77c",
+        "private60_fixture_overlay": "ca90167410889ce60beed7e3d2a42256f8eafaa438988d301a2c1e045e41f77c"
+      }
+    },
+    "unchanged_test_source_does_not_establish_final60_test_success": true
+  },
+  "final60_owning": {
+    "passed": 3388,
+    "failed": 0,
+    "skipped": 0,
+    "warnings_as_errors": true,
+    "nonadditive_with_prior_focused_cases": true
+  },
+  "private_host_fixture": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "patch_sha256": "5b447ac5199a1b5f8f491cc16e54db98fff581438a8f4b19cc55e040eae33afe",
+    "uncommitted_test_only_overlay": true,
+    "original_b25_failure_retained": true
+  },
+  "publication": {
+    "fresh60_stages": 8,
+    "qualified_b25_package_stages": 4,
+    "fresh_outputs_rehashed": 209,
+    "reuse_unique_source_inputs": 227,
+    "package_zip_integrity_checks": 6,
+    "scope": "Fresh managed and Native AOT planning smoke, Planning and Integrations packages, trimmed Server publish and explicit-private encrypted-storage smoke. Core/Copilot/Persistence/AI.Core package executions reused from b25 with exact unchanged input closures.",
+    "storage_limit": "Existing storage format10 recovery smoke, not a new v7-specific persistence fixture or full host bundle."
+  },
+  "publication_stages": [
+    {
+      "stage": "managed-publish",
+      "executed_source": "60e85c9fcf7f50c87cb906e6497ff9935b8c14c2",
+      "execution_reused": false,
+      "exit_code": 0,
+      "log_sha256": "1f9dc76700bf5470e224b0ba1aeda1457cac8b32408737772a5ebc6b04d6d39c"
+    },
+    {
+      "stage": "managed-smoke",
+      "executed_source": "60e85c9fcf7f50c87cb906e6497ff9935b8c14c2",
+      "execution_reused": false,
+      "exit_code": 0,
+      "log_sha256": "f24925ec020a3ada52d62784cdbf914437095afeb49fa8ca36ba781e749d0f61"
+    },
+    {
+      "stage": "native-publish",
+      "executed_source": "60e85c9fcf7f50c87cb906e6497ff9935b8c14c2",
+      "execution_reused": false,
+      "exit_code": 0,
+      "log_sha256": "383459a6d651acac23848c93779157a204fe7a4d26f40581ca0c34ddab013aa7"
+    },
+    {
+      "stage": "native-smoke",
+      "executed_source": "60e85c9fcf7f50c87cb906e6497ff9935b8c14c2",
+      "execution_reused": false,
+      "exit_code": 0,
+      "log_sha256": "d5f70f41331ee092e31127984649f759bca76baef720aed8a829ad65b502cb78"
+    },
+    {
+      "stage": "pack-planning",
+      "executed_source": "60e85c9fcf7f50c87cb906e6497ff9935b8c14c2",
+      "execution_reused": false,
+      "exit_code": 0,
+      "log_sha256": "7df532a325b0f538418a1aa780461baf759d661ce3b4b668898d891ed47b5d34"
+    },
+    {
+      "stage": "pack-integrations",
+      "executed_source": "60e85c9fcf7f50c87cb906e6497ff9935b8c14c2",
+      "execution_reused": false,
+      "exit_code": 0,
+      "log_sha256": "ac8556964e86c321f95e508ee1746d60f67dc50c74fd0093ce28ead6a7c93ead"
+    },
+    {
+      "stage": "server-publish",
+      "executed_source": "60e85c9fcf7f50c87cb906e6497ff9935b8c14c2",
+      "execution_reused": false,
+      "exit_code": 0,
+      "log_sha256": "45c22fd32d74a28fa9ee78d66d7ab529515d43598a0b84fd15bdebda53416ce0"
+    },
+    {
+      "stage": "server-encrypted-storage-smoke",
+      "executed_source": "60e85c9fcf7f50c87cb906e6497ff9935b8c14c2",
+      "execution_reused": false,
+      "exit_code": 0,
+      "log_sha256": "7e3ebcc6e52949e24cd53cf518d48371066902ffe33e70d05446cfa36641fdf5"
+    },
+    {
+      "stage": "pack-core",
+      "executed_source": "b25bdf6a9ae604bdc866d7c4691231f3efc4e46a",
+      "qualified_source": "60e85c9fcf7f50c87cb906e6497ff9935b8c14c2",
+      "execution_reused": true,
+      "exit_code": 0,
+      "log_sha256": "20ed50aa8967cffa66378b1ebc0b34b4ad57affb4071a067f17a84c18e8cf8ea"
+    },
+    {
+      "stage": "pack-copilot",
+      "executed_source": "b25bdf6a9ae604bdc866d7c4691231f3efc4e46a",
+      "qualified_source": "60e85c9fcf7f50c87cb906e6497ff9935b8c14c2",
+      "execution_reused": true,
+      "exit_code": 0,
+      "log_sha256": "da5ff20783ee225113e39e48d829beedf1f4bd02ac5eeb26f8389d0b80806ba1"
+    },
+    {
+      "stage": "pack-persistence",
+      "executed_source": "b25bdf6a9ae604bdc866d7c4691231f3efc4e46a",
+      "qualified_source": "60e85c9fcf7f50c87cb906e6497ff9935b8c14c2",
+      "execution_reused": true,
+      "exit_code": 0,
+      "log_sha256": "1de0ccd7fce2804f4dacee8807d0040fd41122f53a2a306a8acd5f70e39a0f98"
+    },
+    {
+      "stage": "pack-ai-core",
+      "executed_source": "b25bdf6a9ae604bdc866d7c4691231f3efc4e46a",
+      "qualified_source": "60e85c9fcf7f50c87cb906e6497ff9935b8c14c2",
+      "execution_reused": true,
+      "exit_code": 0,
+      "log_sha256": "e251c557f44887bdc19c8cfc5a82a5a848422ba458c56a716b2ffd7f1f8630c6"
+    }
+  ],
+  "boundaries": [
+    "No full-solution success on b25, e0, final60 or the private fixture overlay is claimed.",
+    "The nine default-path failures remain unexecuted on final60; source equality is not a passing test result.",
+    "3388 owning, historical full runs and the private one-case fix are not added together.",
+    "No operational store/provider, main mutation, build, test or publication invocation performed by this review."
+  ],
+  "proof_sha256": {
+    "private_reconciliation": "c25882b218573af52eca7da4844948e0cd14caaa959d186aa37a34fbcf7b2ccd",
+    "final60_owning": "5a7c8accdcbbbf4277c425efa7862ded2d9f5d053509c582a5623987d1b4abe2",
+    "final60_publication": "7147bbe03dcfc6998c63e30bea19a970292780d4baae356284fd161684a6098b",
+    "final60_storage": "8f1d646eb1f756b54266c70c58db8600236d43d7ebc6eb7d24a6aa32847c071a",
+    "four_package_reuse": "85963d73f8f209540c6155218456dcd336fab1e77b2dcc6de0cd17ceb7a96eb8",
+    "independent_final60_review": "bf11c51b79a014cd282d386659ed7929771a62b9a0a0a9b9bee51079f5515af3",
+    "private_host_fixture_validation": "87563693f66de2abee558b4385c7062e47210da5481add74d862160663d23859",
+    "independent_fixture_result_review": "55876afc13c67d5531f1efd66fee34d5b35b0123fed2986d98219d83bfe3d948"
+  }
+}

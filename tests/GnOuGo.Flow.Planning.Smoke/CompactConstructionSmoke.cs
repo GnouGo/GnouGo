@@ -32,7 +32,7 @@ internal static class CompactConstructionSmoke
         PlanningSessionCreation.Capture(state);
         if (presentationVersion == 7)
         {
-            if (state.Request.Options["construction_presentation_version"]?.GetValue<int>() != 7 ||
+            if (state.Request.Options["construction_presentation_version"]?.GetValue<int>() != 8 ||
                 state.Construction!.Compact!.PresentationVersion != 7)
                 throw new InvalidOperationException("Fresh compact capture did not select presentation seven.");
         }

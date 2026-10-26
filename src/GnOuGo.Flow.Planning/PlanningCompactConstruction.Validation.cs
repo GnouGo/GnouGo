@@ -8,7 +8,7 @@ internal static partial class PlanningCompactConstruction
 {
     internal static bool CanReselectInitialDraft(PlanningSession state) =>
         state.Construction is { Version: 2, Candidate: null } construction &&
-        construction.Compact is { PresentationVersion: 2 or 3 or 4 or 5 or 6 or 7, CurrentStep.DiscoveryComplete: true } &&
+        construction.Compact is { PresentationVersion: 2 or 3 or 4 or 5 or 6 or 7 or 8, CurrentStep.DiscoveryComplete: true } &&
         state.EditablePaths is null && state.Request.Options["automatic_correction"]?.ToString() != "false" &&
         construction.DraftCorrections < construction.Limits.MaxCorrectionsPerDraft &&
         PlanningModelCalls.RemainingRepairs(state) > 0;

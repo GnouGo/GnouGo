@@ -97,18 +97,21 @@ internal static partial class PlanningConstruction
             var next = PlanningCompactConstruction.OriginalDescriptionContinuation(probe, address);
             if (next is null || supplied.Contains(next) || supplied.Count == 8) continue;
             var key = EvidenceBatchFingerprint(probe, [next]);
-            if (probe.Construction!.EvidenceRequests.Contains(key, StringComparer.Ordinal))
+            var expanded = JsonSerializer.Deserialize(JsonSerializer.Serialize(probe, PlanningJsonContext.Default.PlanningSession),
+                PlanningJsonContext.Default.PlanningSession)!;
+            var verified = PlanningCompactConstruction.UsesVerifiedProgress(probe);
+            var readKey = verified ? DescriptionKey() : null;
+            if (probe.Construction!.EvidenceRequests.Contains(key, StringComparer.Ordinal) && (!verified || readKey is null) ||
+                verified && readKey is not null && (probe.Construction.EvidenceRequests.Contains(readKey, StringComparer.Ordinal) ||
+                    probe.Construction.Compact!.FailedActions.Any(action => action.EndsWith(":" + readKey, StringComparison.Ordinal))))
             {
-                // Already supplied pages add no progress or reread authority.
+                // Supplied bytes alone grant no reread authority. Fresh v8 may
+                // follow the same knowledge-bound singleton reread as discovery.
                 if (probe.Construction.Evidence?.ContainsKey(next) == true)
                     _ = PlanningCompactConstruction.OriginalDescriptionContinuation(probe, next);
                 continue;
             }
-            var expanded = JsonSerializer.Deserialize(JsonSerializer.Serialize(probe, PlanningJsonContext.Default.PlanningSession),
-                PlanningJsonContext.Default.PlanningSession)!;
-            var readKey = issuedSchema is not null && next.StartsWith("description:", StringComparison.Ordinal)
-                ? PlanningCompactConstruction.DescriptionReadKey(expanded, issuedSchema,
-                    new JsonObject { ["evidenceRequests"] = new JsonArray(next) }) : null;
+            if (!verified) readKey = DescriptionKey();
             LoadEvidenceCore(expanded, [next], readKey, issuedSchema);
             _ = PlanningCompactConstruction.OriginalDescriptionContinuation(expanded, next);
             try { AdmitEvidenceFollowup(state, followup(expanded), purpose!); }
@@ -122,6 +125,10 @@ internal static partial class PlanningConstruction
             probe = expanded;
             supplied.Add(next);
             pending.Enqueue(next);
+
+            string? DescriptionKey() => issuedSchema is not null && next.StartsWith("description:", StringComparison.Ordinal)
+                ? PlanningCompactConstruction.DescriptionReadKey(expanded, issuedSchema,
+                    new JsonObject { ["evidenceRequests"] = new JsonArray(next) }) : null;
         }
         if (supplied.Count > requests.Count)
         {
