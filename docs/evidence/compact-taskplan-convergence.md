@@ -1406,3 +1406,14 @@ without changing the captured limit. The focused transport-policy tests pass
 (`7df4d252…`), including exact receipt recovery, retained reservations and review
 headroom. The earlier full run's three failures remain separate from those passes;
 its result is not represented as a successful full-solution validation.
+
+The next isolated full-solution attempt exposed the corresponding benchmark gaps:
+the captured session policy omitted version 10, and the benchmark HTTP journal
+rejected its source-window headroom. Both existing version sets now include 10.
+The benchmark admission, campaign and journal suite passes **245 tests with warnings
+as errors** (`be7094c9…` log). The completed owning Planning rerun passes **3,605**
+(`b7b04969…`). An earlier owning run retained two five-second collection-runtime
+allowance failures during concurrent builds; its unchanged focused rerun passed
+3/3 before the successful full owning rerun. No execution allowance was raised.
+Both interrupted full-solution attempts retain their observed failures and are
+not reported as completed passes. Final full-solution validation remains pending.
