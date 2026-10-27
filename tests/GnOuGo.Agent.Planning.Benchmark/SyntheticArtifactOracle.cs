@@ -7,7 +7,7 @@ internal static class SyntheticArtifactOracle
 {
     internal const string Version = "synthetic-artifact-v1";
     internal static string VersionFor(string scenario) => PlanningBenchmarkCases.ProofCases.Contains(scenario, StringComparer.Ordinal)
-        ? "generic-proof-artifact-v1" : Version;
+        ? "generic-proof-artifact-v2" : Version;
 
     internal static IReadOnlyList<string> Validate(string scenario, TaskPlan? plan, PlanningCatalog? catalog = null)
     {
@@ -71,9 +71,9 @@ internal static class SyntheticArtifactOracle
             var matches = (catalog?.Capabilities ?? []).Where(c => TaskOperations.Describe(c).Id == read.Operation).ToArray();
             if (matches.Length != 1 || matches[0].Server != "filesystem" || matches[0].Method != "cmd_run")
                 findings.Add("unverified_seed_read_contract");
-            if (tasks.Where(t => t != read).Any(t => TaskValues(t).Any(v => References(v, read.Id))) ||
-                plan.Root.Outputs.Any(o => References(o.Value, read.Id)) ||
-                plan.Groups.Any(g => g.Body.Outputs.Any(o => References(o.Value, read.Id))))
+            if (tasks.Where(t => t != read).Any(t => TaskValues(t).Any(v => DependsOnRead(v, read.Id))) ||
+                plan.Root.Outputs.Any(o => DependsOnRead(o.Value, read.Id)) ||
+                plan.Groups.Any(g => g.Body.Outputs.Any(o => DependsOnRead(o.Value, read.Id))))
                 findings.Add("opaque_read_consumed");
         }
         if (!left.Any(a => a.Kind == "call" && right.Any(b => b.Kind == "call" && b != a && b.Group == a.Group) &&
@@ -87,6 +87,10 @@ internal static class SyntheticArtifactOracle
         .Concat(new[] { task.Body, task.Otherwise }.OfType<TaskScope>().Concat(task.Branches).SelectMany(s => s.Outputs.Select(o => o.Value)));
     private static bool References(TaskValue value, string task) => value.Kind == "output" && value.Source == task ||
         value.Items.Any(v => References(v, task)) || value.Members.Any(m => References(m.Value, task));
+    // Presence is forbidden control/data dependence on the opaque observation,
+    // but it cannot establish numeric contribution to a public result.
+    private static bool DependsOnRead(TaskValue value, string task) => value.Kind is "output" or "present" && value.Source == task ||
+        value.Items.Any(v => DependsOnRead(v, task)) || value.Members.Any(m => DependsOnRead(m.Value, task));
     private static bool ReferencesInput(TaskValue value, string input) => value.Kind == "input" && value.Source == input ||
         value.Items.Any(v => ReferencesInput(v, input)) || value.Members.Any(m => ReferencesInput(m.Value, input));
 

@@ -27,7 +27,7 @@ public sealed class GenericProofBenchmarkTests
             Assert.NotEmpty(PlanningBenchmarkCases.Prompt(name));
             Assert.NotEqual(PlanningBenchmarkCases.Inputs(name, "nominal").ToJsonString(),
                 PlanningBenchmarkCases.Inputs(name, "alternate").ToJsonString());
-            Assert.Equal("generic-proof-artifact-v1", SyntheticArtifactOracle.VersionFor(name));
+            Assert.Equal("generic-proof-artifact-v2", SyntheticArtifactOracle.VersionFor(name));
         }
         Assert.Equal("synthetic-artifact-v1", SyntheticArtifactOracle.VersionFor("collections"));
     }
@@ -53,6 +53,7 @@ public sealed class GenericProofBenchmarkTests
     [InlineData("inlined_shared_value")]
     [InlineData("single_consumer")]
     [InlineData("unused_shared_value")]
+    [InlineData("presence_only")]
     public void CorrectNominalConstantsOrUnusedDemonstrationsDoNotProveTheRequestedDataFlow(string defect)
     {
         var plan = Pure();
@@ -65,6 +66,13 @@ public sealed class GenericProofBenchmarkTests
         }
         else if (defect == "single_consumer")
             plan.Root.Outputs[1] = new("shifted", Output("double_consumer"));
+        else if (defect == "presence_only")
+        {
+            plan.Root.Tasks[1].Requires = new() { Kind = "present", Source = "shared" };
+            plan.Root.Tasks[2].Requires = new() { Kind = "present", Source = "shared" };
+            plan.Root.Tasks[1].Outputs = [new("value", Number(20))];
+            plan.Root.Tasks[2].Outputs = [new("value", Number(11))];
+        }
         else
         {
             plan.Root.Tasks[1].Outputs = [new("value", Number(20))];
@@ -140,6 +148,10 @@ public sealed class GenericProofBenchmarkTests
     [InlineData("wrong_path", "missing_exact_sequential_seed_read")]
     [InlineData("write_command", "missing_exact_sequential_seed_read")]
     [InlineData("read_dependency", "opaque_read_consumed")]
+    [InlineData("present_value", "opaque_read_consumed")]
+    [InlineData("present_guard", "opaque_read_consumed")]
+    [InlineData("nested_present", "opaque_read_consumed")]
+    [InlineData("present_condition", "opaque_read_consumed")]
     [InlineData("unused_group", "missing_contributing_parameterized_calls")]
     [InlineData("same_call_twice", "missing_contributing_parameterized_calls")]
     [InlineData("inference", "unavailable_runtime_dependency")]
@@ -158,6 +170,11 @@ public sealed class GenericProofBenchmarkTests
             case "wrong_path": read.Inputs[1].Value.Members[0] = new("path", Text("alpha.txt")); break;
             case "write_command": read.Inputs[0] = new("commandName", Text("write_file")); break;
             case "read_dependency": plan.Root.Tasks[1].Inputs[0] = new("operand", Output("audit_read", "content")); break;
+            case "present_value": plan.Root.Tasks[1].Inputs[0] = new("operand", new() { Kind = "present", Source = "audit_read" }); break;
+            case "present_guard": plan.Root.Tasks[1].Requires = new() { Kind = "present", Source = "audit_read" }; break;
+            case "present_condition": plan.Root.Tasks[1].Condition = new() { Kind = "present", Source = "audit_read" }; break;
+            case "nested_present": plan.Root.Tasks[1].Inputs[0] = new("operand", new() { Kind = "object", Members =
+                [new("nested", new() { Kind = "array", Items = [new() { Kind = "present", Source = "audit_read" }] })] }); break;
             case "unused_group": plan.Root.Outputs = [new("leftResult", Number(7)), new("rightResult", Number(15))]; break;
             case "same_call_twice": plan.Root.Tasks[4].Outputs = [new("value", Arithmetic("add", Output("left_call"), Number(1)))]; break;
             case "inference": plan.Root.Tasks.Add(new() { Id = "unrequested_inference", Kind = "transform", Objective = "Infer an extra result." }); break;
