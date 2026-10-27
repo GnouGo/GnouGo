@@ -1348,3 +1348,19 @@ Archives below are grouped newest to oldest; their failures and validation scope
 Archives retain failures, uncertainty and exact validation scope. Original payloads remain
 encrypted; safe reports grant no execution authority. Exact630 technical validation is complete;
 later-source validation and live results must retain their separate source and settings attribution.
+
+## 27 October v10 preparation: delegated retention and single supplement
+
+The [dated authorization record](compact-taskplan-v10-accounting-authorization.json)
+closes the stopped 93d Collections request 18 without replay or reservation release.
+Restart application returned identical closure bytes. All 36 receiptless identities
+are now permanently closed; current unresolved count is zero. Known spending remains
+EUR 233.12340992275628179949276645 and retained reservations remain
+EUR 74.026891897695346093042450314.
+
+The single 27 October supplement raises the ceiling by EUR 100 to
+EUR 540.0301038327063045424449473. Its stable authorization reference appears once
+in the existing append-only history. The inspected available allowance is
+EUR 232.87980201225467664990973054. Historical sessions, lost-ledger exposure and
+effects authority remain unchanged. This administrative step establishes no business
+success; v10 implementation and qualification are pending.
