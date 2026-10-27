@@ -1,5 +1,25 @@
 # Compact TaskPlan convergence
 
+## Revision 9 Collections: final Judge transport uncertainty
+
+[Exact stopped outcome](compact-taskplan-93d3-collections-outcome.json) and [phase measurements](compact-taskplan-93d3-collections-phase-measurements.json) retain the captured requests, costs and limitations.
+
+Fresh Collections on `93d3e1c2` stopped at Judge request 18 after a response-less timeout: 18 logical requests, 19 attempts, 17 receipts and one correction. No artifact or runtime result was produced. Known usage was 49,242 input, 26,812 output and 22,750 reasoning tokens. The final complete request was admitted at 7,272 estimated tokens under its unchanged 8k ceiling; this is transport uncertainty, not received output exhaustion.
+
+The correction added the explicitly missing root closure. Four accepted checkpoints retain direct parallel arithmetic, but the requested reusable subworkflow remains unestablished. Root completion was not accepted. Four received scoped reports contain 18 broad acknowledgments, with no recorded proposition reuse or automatic transition; these observations establish no saved calls.
+
+Known cost is €0.937590; the €1.244212 retained reservation comprises €0.930870 from an earlier HTTP 500 followed by success and €0.313342 for the final unknown request. Exact abandonment authorization for the latter is pending; the earlier applied control closure is separate. The dated inspection retains 35 previously closed identities plus this new unresolved identity, with €132.879802 available. No reservation was released. The six-run business gate remains 0/6.
+
+All three CI workflows and eight jobs passed on documentation revision `2038c252`; PR #120 remains Draft. The initial GitHub observation transport failure was followed by a serial observer resume, without rerunning CI. This technical pass does not qualify a later revision or runtime acceptance.
+
+## Collections control: authorized permanent retention applied
+
+[Exact closure and restart evidence](compact-taskplan-d5-collections-authorized-retention.json) supplement the earlier pending capture.
+
+On 27 October 2026, the user's exact authorization was applied to the stopped `d5a4cac2` Collections request 2. The closure retained every original record and the full **€1.8617402945113788487282463186** reservation; replay and run continuation are permanently forbidden. Restart application returned identical bytes, and reinspection confirmed the same evidence and unchanged accounting. No funds were released or missing usage reconstructed.
+
+Post-closure readiness recorded **35 closed receiptless identities and no unresolved requests**. The saved pre-candidate allowance was **€135.06160477887672038038719593**, before the separate `93d3e1c2` Collections dispatch. This dated value is not a current balance. The earlier pending-authorization archive remains unchanged; the abandoned control stays inconclusive and receives no business-success credit.
+
 ## Collections control: new transport uncertainty blocks paid diagnostics
 
 [Exact source-bound outcome and accounting](compact-taskplan-d5a4-collections-uncertain.json) retain the original records; amounts below are rounded.
