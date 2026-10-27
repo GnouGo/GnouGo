@@ -2,7 +2,16 @@
 
 Fresh sessions use [compact incremental construction](../../docs/incremental-taskplan-construction.md): index original intent, select one immediate business substep, discover its capabilities, then generate and review a bounded fragment of one TaskPlan. Phase-specific context and response schemas omit unrelated inspections, task grammar and history. Exact contract views preserve required constraints; the shared compiler validates against unchanged original contracts before encrypted checkpoint acceptance. Completion uses the existing PlanningGraph and compiler v15 path without a final whole-plan LLM Judge. Historical proposal/repair contracts below retain their original meaning for issued sessions.
 
-Fresh presentation revision 9 combines prospectively scoped review propositions with
+Fresh presentation revision 10 additionally offers an exact new deterministic task
+as a local subject when existing output/boundary subjects do not apply. A bounded
+mixed-plan proof preserves an opaque sequential root prefix exactly; opaque result
+dependencies or unknown interactions remain ineligible. Independent reviewed
+exports/closures check each waiting consumer instead of a global veto. A resumed
+business child can establish its immediate parent's exact binding without discarding
+either consumer. See the [v10 contract](../../docs/incremental-taskplan-construction.md#useful-local-evidence-and-independent-transitions-presentation-revision-10).
+Historical versions 2–9 retain their captured behavior and issued bytes.
+
+Presentation revision 9 combines prospectively scoped review propositions with
 host-verified conservation proofs. Original request and receipt identities remain
 attached to the proposition; reuse is a separate journal entry, never a new clean
 response. The same coverage verifier controls request windows, admission, checkpoint

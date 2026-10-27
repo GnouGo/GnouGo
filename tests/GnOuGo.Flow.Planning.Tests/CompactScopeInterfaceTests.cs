@@ -1,5 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Planning.Examples;
@@ -8,6 +10,142 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class CompactScopeInterfaceTests
 {
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(8)]
+    [InlineData(9)]
+    [InlineData(10)]
+    public void ReusableKindMeaningDoesNotMigrateHistoricalGuidance(int presentation)
+    {
+        var state = PlannerFixture.CapturedPresentation(new() { Request = new() { Prompt = PlanningBenchmarkCases.Prompt("collections") } }, presentation);
+        state.Plan = new() { Root = new() { Tasks = [new() { Id = "iterate", Kind = "foreach", Body = new() }] } };
+        var step = new PlanningConstructionStep { Scope = "/tasks/iterate/body", Kind = "close" };
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        foreach (var guidance in new[] { PlanningCompactConstruction.SelectGuidance(state),
+            PlanningCompactConstruction.DraftSemantics(state, step), PlanningCompactConstruction.DraftSemantics(state, step, review: true) })
+            Assert.Equal(presentation == 10, guidance.Contains(PlanningCompactConstruction.ReusableGroupSemantics, StringComparison.Ordinal));
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+    }
+
+    [Fact]
+    public async Task FreshReusableItemCallsAreConstructedAndExecuteBothIndependentVariants()
+    {
+        var stage = 0;
+        var sawEmptyLoopReview = false;
+        Exception? modelFailure = null;
+        var runtime = new TestRuntime { Respond = (request, purpose) =>
+        {
+            try
+            {
+                var context = Context(request);
+                if (purpose == PlanningCompactConstruction.IntentPurpose)
+                {
+                    var source = request.StructuredOutputSchema!["properties"]!["sourceId"]!["enum"]![0]!.ToString();
+                    return StrictWire(request, request.StructuredOutputSchema["properties"]!["clauses"] is not null
+                        ? new JsonObject { ["sourceId"] = source, ["clauses"] = new JsonArray(new JsonObject
+                            { ["text"] = context["sources"]![0]!["text"]!.ToString(), ["kind"] = "requirement", ["interfaces"] = "both" }) }
+                        : new JsonObject { ["sourceId"] = source, ["interfaces"] = new JsonObject
+                            {
+                                ["inputs"] = JsonSerializer.SerializeToNode(new List<TaskInput> { new() { Name = "values", Type = NumericArray(), Required = true } }, PlanningJsonContext.Default.ListTaskInput),
+                                ["outputs"] = JsonSerializer.SerializeToNode(new List<TaskInput> { new() { Name = "result", Type = NumericArray(), Required = true } }, PlanningJsonContext.Default.ListTaskInput),
+                                ["dispositions"] = new JsonArray(context["sources"]!.AsArray().Select(item => (JsonNode)new JsonObject
+                                {
+                                    ["sourceId"] = item!["id"]!.DeepClone(), ["version"] = item["version"]!.DeepClone(), ["kind"] = "interfaces",
+                                    ["inputs"] = new JsonArray("values"), ["outputs"] = new JsonArray("result"),
+                                    ["reason"] = "The original explicitly declares these numeric caller/result interfaces.",
+                                    ["evidence"] = new JsonArray(new JsonObject { ["sourceId"] = item["id"]!.DeepClone(), ["version"] = item["version"]!.DeepClone() })
+                                }).ToArray())
+                            }, ["evidenceRequests"] = null, ["clarifications"] = null });
+                }
+                if (purpose == PlanningCompactConstruction.SelectPurpose)
+                {
+                    Assert.Contains(PlanningCompactConstruction.ReusableGroupSemantics, request.Prompt, StringComparison.Ordinal);
+                    var selection = Select(request, stage switch { 0 => "group", 1 or 4 => "value", 2 => "foreach", _ => "call" },
+                        stage switch { 1 => "/groups/double/body", 3 => "/tasks/iterate/body", _ => "/root" }, complete: stage == 4);
+                    var step = selection["step"]!.AsObject();
+                    step["objective"] = stage switch { 0 => "Declare the reusable numeric doubling interface.", 1 => "Double the isolated numeric parameter.",
+                        2 => "Open parallel ordered iteration over every input item.", 3 => "Invoke the reusable doubling group for this item.", _ => "Return the ordered doubled values." };
+                    step["expectedOutputs"] = new JsonArray(); step["outputNames"] = stage == 4 ? new JsonArray("result") : new JsonArray();
+                    step["inputs"] = stage switch { 1 => Values(new() { Kind = "input", Source = "number" }),
+                        2 => Values(new() { Kind = "input", Source = "values" }), 3 => Values(new() { Kind = "item" }),
+                        4 => Values(new() { Kind = "output", Source = "iterate", Port = "doubled" }), _ => new JsonArray() };
+                    step["groupId"] = stage == 3 ? "double" : null;
+                    step["operationIds"] = new JsonArray(); step["closeScopes"] = null; step["prerequisites"] = null;
+                    if (request.StructuredOutputSchema!["properties"]!["resumeStep"] is not null) selection["resumeStep"] = null;
+                    return StrictWire(request, selection, exact: true);
+                }
+                if (purpose == PlanningConstruction.DraftPurpose)
+                {
+                    Assert.Contains(PlanningCompactConstruction.ReusableGroupSemantics, request.StructuredOutputSchema!["description"]!.ToString(), StringComparison.Ordinal);
+                    var extension = stage++ switch
+                    {
+                        0 => new PlanningConstructionExtension { Groups = [new() { Id = "double", Inputs = [new() { Name = "number", Type = new() { Kind = "number" } }] }], RequirementIds = ["req_0"] },
+                        1 => new() { Scope = "/groups/double/body", Tasks = [new() { Id = "multiply", Kind = "value", Objective = "Double the isolated numeric parameter.",
+                            Outputs = [new("doubled", new() { Kind = "arithmetic", Text = "multiply", Items = [new() { Kind = "input", Source = "number" }, new() { Kind = "number", Number = 2 }] })] }],
+                            Outputs = [new("doubled", new() { Kind = "output", Source = "multiply", Port = "doubled" })], CloseScopes = ["/groups/double/body"], RequirementIds = ["req_0"] },
+                        2 => new() { Tasks = [new() { Id = "iterate", Kind = "foreach", Objective = "Open parallel ordered iteration over every input item.",
+                            Items = new() { Kind = "input", Source = "values" }, Body = new(), Parallel = true, MaxItems = 100, MaxConcurrency = 4 }], RequirementIds = ["req_0"] },
+                        3 => new() { Scope = "/tasks/iterate/body", Tasks = [new() { Id = "invoke", Kind = "call", Group = "double", Objective = "Invoke the reusable doubling group for this item.",
+                            Inputs = [new("number", new() { Kind = "item" })] }], Outputs = [new("doubled", new() { Kind = "output", Source = "invoke", Port = "doubled" })],
+                            CloseScopes = ["/tasks/iterate/body"], RequirementIds = ["req_0"] },
+                        _ => new() { Outputs = [new("result", new() { Kind = "output", Source = "iterate", Port = "doubled" })], CloseScopes = ["/root"], RequirementIds = ["req_0"], Complete = true }
+                    };
+                    return StrictWire(request, Draft(request, extension));
+                }
+                Assert.Contains(PlanningCompactConstruction.ReusableGroupSemantics, request.Prompt, StringComparison.Ordinal);
+                if (stage == 3)
+                {
+                    sawEmptyLoopReview = true;
+                    Assert.Empty(context["draft"]!["tasks"]![0]!["body"]!["tasks"]!.AsArray());
+                    Assert.Equal(1, context["constructionStage"]!["openedScopeCount"]!.GetValue<int>());
+                    Assert.False(context["constructionStage"]!["planCompletionClaimed"]!.GetValue<bool>());
+                    Assert.Empty(context["constructionStage"]!["closeRequirementIds"]!.AsArray());
+                }
+                return StrictWire(request, new() { ["action"] = new JsonObject { ["kind"] = "findings", ["findings"] = new JsonArray(),
+                    ["acknowledgments"] = new JsonArray(context["reviewPropositions"]!.AsArray().Select(item => (JsonNode)new JsonObject
+                        { ["id"] = item!["id"]!.DeepClone(), ["applicability"] = "broad" }).ToArray()) }, ["uncertainty"] = "Execution remains unverified." });
+            }
+            catch (Exception error) { modelFailure = error; throw; }
+        } };
+        var state = await PlannerFixture.RunAsync(runtime, new() { Request = new() { TenantId = "fresh-reusable", Prompt = PlanningBenchmarkCases.Prompt("collections"),
+            MaxModelCalls = 64, Options = new() { ["automatic_correction"] = true } } });
+        Assert.Null(modelFailure);
+        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics.Select(item => item.Code + ":" + item.Message)));
+        Assert.Equal(10, state.Construction!.Compact!.PresentationVersion); Assert.True(sawEmptyLoopReview);
+        Assert.Equal(0, state.ReplanAttempts); Assert.Equal(5, stage);
+        PlanningArtifactApproval.Verify(state);
+        var loop = Assert.Single(state.Plan!.Root.Tasks); Assert.Equal("foreach", loop.Kind); Assert.True(loop.Parallel);
+        var call = Assert.Single(loop.Body!.Tasks); Assert.Equal("call", call.Kind); Assert.Equal(Assert.Single(state.Plan.Groups).Id, call.Group);
+        Assert.Equal(call.Id, Assert.Single(loop.Body.Outputs).Value.Source); Assert.Equal(loop.Id, Assert.Single(state.Plan.Root.Outputs).Value.Source);
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));
+        foreach (var variant in new[] { "nominal", "alternate" })
+        {
+            var sample = new PlanningBenchmarkCases.Environment("collections", variant);
+            var result = await new WorkflowEngine().ExecuteAsync(document.Workflows[document.Entrypoint!], PlanningBenchmarkCases.Inputs("collections", variant), PlannerFixture.Ct);
+            Assert.True(sample.Verify(result), result.Error?.Message); Assert.Empty(sample.Effects); Assert.Empty(sample.Violations);
+        }
+
+        static TaskType NumericArray() => new() { Kind = "array", Items = new() { Kind = "number" } };
+        static JsonArray Values(TaskValue value)
+        {
+            var hint = new JsonObject { ["kind"] = value.Kind };
+            if (value.Kind is "input" or "output") hint["source"] = value.Source;
+            if (value.Kind == "output") hint["port"] = value.Port;
+            return new JsonArray(hint);
+        }
+        static LLMResponse StrictWire(LLMRequest request, JsonObject response, bool exact = false)
+        {
+            var value = exact ? response : PlanningCorpus.Transport(response, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject())!;
+            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(value, request.StructuredOutputSchema!));
+            return new() { Json = value, Text = value.ToJsonString() };
+        }
+    }
+
     [Fact]
     public async Task AcceptedExportsRemainVisibleWhenASeparateFragmentClosesTheGroup()
     {

@@ -97,7 +97,8 @@ internal static partial class PlanningCompactConstruction
                 association["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("dischargedContinuationIds"));
             }
             extension["properties"]!["continuationBinding"] = eligible.Length > 0 ? PlanningSchemas.Nullable(association) : PlanningSchemas.Type("null");
-            if (retained is { Status: "waiting" } && ContinuationCurrent(state, retained))
+            if (UsesAcceptedTransitions(state) ? eligible.Length > 0 :
+                retained is { Status: "waiting" } && ContinuationCurrent(state, retained))
                 definitions["continuationBindingValue"] = new JsonObject { ["anyOf"] = new JsonArray(
                     PlanningSchemas.Object(("kind", PlanningSchemas.Enum("output")), ("source", Text(96)),
                         ("port", PlanningSchemas.Nullable(Text(96)))),
@@ -173,6 +174,8 @@ internal static partial class PlanningCompactConstruction
         projected["description"] = DraftSemantics(state, step);
         if (UsesAcceptedProgress(state) && State(state).SuspendedSteps?.LastOrDefault(Active) is { Status: "waiting" })
             projected["description"] += " When this fragment produces the retained consumer's prerequisite, continuationBinding identifies that consumer and the exact output or field binding. This is a proposed semantic association, validated and reviewed with the fragment; compatible types alone do not establish its meaning. Otherwise use null.";
+        if (ResumedConsumerParent(state) is not null)
+            projected["description"] += " This resumed business consumer may supply its immediate waiting parent's prerequisite. continuationBinding may name that offered parent and this fragment's exact new output; keep dischargedContinuationIds empty. Both business consumers and their original obligations remain retained. The child must pass ordinary acceptance before the parent can resume.";
         if (UsesIncrementalReview(state))
             projected["description"] += " boundaryTransitions optionally claims up to four exact existing boundaries, once per scope: outputs are exact exports; closeScope asserts no further work belongs in that boundary for its named original requirements. Host parent relationships determine order; this is not a future-task queue. Exports may reach the root, but these claims never close a requirement or the root. Use null when meaning or cleanup remains unresolved. An ancestor continuation association must explicitly list every bypassed prerequisite-only descendant in dischargedContinuationIds; never discharge original obligations or accepted effects.";
         if (fresh && rollback)
@@ -209,6 +212,7 @@ internal static partial class PlanningCompactConstruction
     {
         var scope = new TaskPlanSymbols(state.Plan ?? new TaskPlan()).Scopes.SingleOrDefault(s => s.Path == step.Scope);
         var hints = new List<string>();
+        if (state.Construction?.Compact?.PresentationVersion == 10) hints.Add(ReusableGroupSemantics);
         if (UsesConvergentConstruction(state)) hints.Add(SelectedExpectationsSemantics);
         if (review && UsesConvergentConstruction(state)) hints.Add(ReviewCapacitySemantics);
         if (!review && UsesDeferredBinding(state) && step.Kind is "group" or "sequence" or "conditional" or "parallel" or "foreach")

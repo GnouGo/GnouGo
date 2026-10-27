@@ -6,6 +6,8 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningCompactConstruction
 {
+    internal static bool UsesAcceptedTransitions(PlanningSession state) => state.Construction?.Compact?.PresentationVersion == 10;
+
     internal static bool CompletionOnly(PlanningSession state) => UsesConvergentConstruction(state) &&
         state.Construction!.Requirements.Count > 0 && state.Construction.Requirements.All(requirement => requirement.Status == "closed") &&
         State(state).ReplacementScope is null && !state.Diagnostics.Any(diagnostic => diagnostic.Required) &&
@@ -170,7 +172,7 @@ internal static partial class PlanningCompactConstruction
         }
         // A retained consumer has precedence; do not close its boundary while its
         // exact missing value or its review is unresolved.
-        if (State(resumed).SuspendedSteps?.Any(Active) == true) yield break;
+        if (!UsesAcceptedTransitions(state) && State(resumed).SuspendedSteps?.Any(Active) == true) yield break;
         foreach (var checkpoint in state.Construction.Checkpoints.AsEnumerable().Reverse())
             if (PrepareReviewedBoundaryTransition(state, checkpoint) is { } boundary)
                 yield return new("boundary", "exact_reviewed_boundary_claim", checkpoint.Sequence, boundary);

@@ -19,16 +19,22 @@ internal static class PlanningConstructionDependencies
         if (symbols.InvalidIds.Count != 0 || TaskPlanCompiler.ValidateConstruction(plan, state.Catalog, state.Request, open).Diagnostics.Count != 0)
             return null;
         var projection = new Projection(plan, symbols, open);
-        // Absence of graph edges is not an effect proof. The initial conservation
-        // class explicitly excludes unknown/external behavior throughout the plan.
-        if (!projection.PurePlan() || !projection.Subject(subject)) return null;
-        return new JsonObject
+        // Historical proofs exclude unknown behavior everywhere. Fresh mixed
+        // proofs keep it as an exact prefix, never infer effect independence.
+        var pure = projection.PurePlan();
+        JsonArray? contracts = null;
+        if (!pure && (state.Construction.Compact?.PresentationVersion != 10 ||
+            !projection.ExactOpaquePrefix() || (contracts = OperationContracts(state, plan)) is null)) return null;
+        if (!projection.Subject(subject)) return null;
+        var result = new JsonObject
         {
-            ["version"] = 1, ["class"] = "deterministic_behavior_not_completion",
+            ["version"] = pure ? 1 : 2, ["class"] = pure ? "deterministic_behavior_not_completion" : "deterministic_behavior_with_exact_opaque_prefix",
             ["subject"] = subject.DeepClone(), ["authority"] = Authority(state),
             ["inputs"] = Hash(projection.PlanNode["inputs"]!), ["choices"] = Hash(projection.PlanNode["choices"]!),
             ["projection"] = projection.Result()
         };
+        if (!pure) result["opaquePrefix"] = projection.OpaquePrefix(contracts!);
+        return result;
     }
 
     internal static bool Preserved(PlanningSession state, TaskPlan plan, JsonObject proof,
@@ -39,8 +45,12 @@ internal static class PlanningConstructionDependencies
     // There is deliberately no candidate hash here: unrelated trailing pure work
     // may change it, and still requires its own interaction/completion review.
     internal static bool Conserves(JsonObject origin, JsonObject target) =>
-        origin["version"]?.ToString() == "1" && origin["class"]?.ToString() == "deterministic_behavior_not_completion" &&
+        BehaviorProof(origin) &&
         JsonNode.DeepEquals(origin, target);
+
+    internal static bool BehaviorProof(JsonObject proof) =>
+        proof["version"]?.ToString() == "1" && proof["class"]?.ToString() == "deterministic_behavior_not_completion" ||
+        proof["version"]?.ToString() == "2" && proof["class"]?.ToString() == "deterministic_behavior_with_exact_opaque_prefix";
 
     // Only a separately reviewed transition may consume this exact-state proof.
     // External effects and inference are permitted here because no plan change is
@@ -53,11 +63,22 @@ internal static class PlanningConstructionDependencies
         var open = OpenScopes(state, plan, openScopes);
         if (open is null || new TaskPlanSymbols(plan).InvalidIds.Count != 0 ||
             TaskPlanCompiler.ValidateConstruction(plan, state.Catalog, state.Request, open).Diagnostics.Count != 0) return null;
+        var contracts = OperationContracts(state, plan);
+        if (contracts is null) return null;
+        return new JsonObject
+        {
+            ["version"] = 1, ["class"] = "exact_transition_not_independence", ["plan"] = PlanningConstruction.Hash(plan),
+            ["openScopes"] = Strings(open.Order(StringComparer.Ordinal)), ["authority"] = Authority(state), ["contracts"] = contracts
+        };
+    }
+
+    private static JsonArray? OperationContracts(PlanningSession state, TaskPlan plan)
+    {
         var contracts = new JsonArray();
         foreach (var operation in TaskPlanRevisions.Tasks(plan).Where(task => task.Kind == "operation")
             .Select(task => task.Operation).OfType<string>().Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
         {
-            var matches = state.Catalog.Capabilities.Concat(state.Discovery.Resolved)
+            var matches = state.Catalog!.Capabilities.Concat(state.Discovery.Resolved)
                 .Where(capability => TaskOperations.Describe(capability).Id == operation).ToArray();
             // Do not hide conflicting normative descriptions behind identity dedup.
             var hashes = matches.Select(capability => Hash(PlanningConstruction.Node(capability,
@@ -67,11 +88,7 @@ internal static class PlanningConstructionDependencies
                 state.Catalog.Policy.DeniedCapabilityIds.Contains(matches[0].Id) || TaskOperations.Validate(matches[0]).Count != 0) return null;
             contracts.Add((JsonNode)new JsonObject { ["id"] = operation, ["version"] = matches[0].Version, ["hash"] = hashes[0] });
         }
-        return new JsonObject
-        {
-            ["version"] = 1, ["class"] = "exact_transition_not_independence", ["plan"] = PlanningConstruction.Hash(plan),
-            ["openScopes"] = Strings(open.Order(StringComparer.Ordinal)), ["authority"] = Authority(state), ["contracts"] = contracts
-        };
+        return contracts;
     }
 
     internal static bool PreservedExactTransition(PlanningSession state, TaskPlan plan, JsonObject proof,
@@ -120,8 +137,30 @@ internal static class PlanningConstructionDependencies
         private readonly HashSet<string> _addingGroups = new(StringComparer.Ordinal);
         private bool _valid = true;
         private JsonNode? _anchor;
+        private readonly HashSet<string> _opaque = new(StringComparer.Ordinal);
 
         internal bool PurePlan() => PureScope(plan.Root) && plan.Groups.All(group => PureGroup(group.Id));
+
+        internal bool ExactOpaquePrefix()
+        {
+            // Only sequential root leaves may be opaque. Nothing can be inserted
+            // ahead of them or overlap them through a branch, loop or cleanup.
+            var prefix = plan.Root.Tasks.TakeWhile(task => task.Kind is "operation" or "transform").ToArray();
+            if (prefix.Length == 0 || prefix.Any(task => task.Body is not null || task.Otherwise is not null || task.Branches.Count != 0 ||
+                    task.Requires is not null || task.Condition is not null || task.Each is not null || task.Parallel) ||
+                !plan.Root.Tasks.Skip(prefix.Length).All(PureTask) || !plan.Root.Always.All(PureTask) ||
+                !plan.Root.Outputs.All(output => PureValue(output.Value)) || !plan.Groups.All(group => PureGroup(group.Id))) return false;
+            _opaque.UnionWith(prefix.Select(task => task.Id));
+            return true;
+        }
+
+        internal JsonObject OpaquePrefix(JsonArray contracts) => new()
+        {
+            ["tasks"] = new JsonArray(plan.Root.Tasks.Take(_opaque.Count).Select((task, index) => (JsonNode)new JsonObject
+                { ["id"] = task.Id, ["position"] = index, ["hash"] = Hash(PlanningConstruction.Node(task, PlanningJsonContext.Default.PlanTask)!) }).ToArray()),
+            ["rootOpen"] = open.Contains("/root"), ["contracts"] = contracts,
+            ["cleanup"] = Hash(PlanNode["root"]!["always"]!)
+        };
 
         private bool PureScope(TaskScope scope) => scope.Tasks.Concat(scope.Always).All(PureTask) &&
             scope.Outputs.All(output => PureValue(output.Value));
@@ -150,6 +189,7 @@ internal static class PlanningConstructionDependencies
 
         internal bool Subject(JsonObject subject)
         {
+            foreach (var opaque in plan.Root.Tasks.Take(_opaque.Count)) AddTask(opaque.Id);
             var kind = subject["kind"]?.ToString();
             switch (kind)
             {
@@ -160,6 +200,7 @@ internal static class PlanningConstructionDependencies
                     Values(outputs[0].Value); Context(symbols.Scopes.Single(scope => scope.Path == "/root"));
                     break;
                 case "task" when subject.Count == 2 && Text(subject, "id") is { } id:
+                    if (_opaque.Contains(id)) return false;
                     AddTask(id); break;
                 case "group" when subject.Count == 2 && Text(subject, "id") is { } group:
                     AddGroup(group); break;
@@ -175,12 +216,12 @@ internal static class PlanningConstructionDependencies
         private static string? Text(JsonObject node, string key) => node[key] is JsonValue value &&
             value.TryGetValue<string>(out var text) && !string.IsNullOrEmpty(text) ? text : null;
 
-        private void Values(TaskValue value)
+        private void Values(TaskValue value, bool opaqueContext = false)
         {
             foreach (var item in TaskPlanCompiler.Values(value))
                 if (item.Kind is "output" or "present")
                 {
-                    if (item.Source is null) _valid = false;
+                    if (item.Source is null || !opaqueContext && _opaque.Contains(item.Source)) _valid = false;
                     else AddTask(item.Source);
                 }
         }
@@ -196,7 +237,9 @@ internal static class PlanningConstructionDependencies
                 ["id"] = id, ["scope"] = scope.Path, ["phase"] = phase, ["position"] = siblings.IndexOf(task),
                 ["hash"] = Hash(PlanningConstruction.Node(task, PlanningJsonContext.Default.PlanTask)!)
             };
-            foreach (var value in TaskPlanCompiler.Values(task)) Values(value);
+            // An opaque predecessor is an exact order/failure dependency, never
+            // a source of deterministic input values, guards or presence facts.
+            foreach (var value in TaskPlanCompiler.Values(task)) Values(value, _opaque.Contains(id));
             foreach (var dependency in task.DependsOn) AddTask(dependency);
             // All preceding executions can prevent this subject from being reached.
             // Their literal/objective/guard/failure behavior is therefore conserved.

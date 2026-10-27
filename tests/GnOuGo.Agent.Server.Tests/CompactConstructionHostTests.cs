@@ -50,7 +50,7 @@ public sealed class CompactConstructionHostTests
         Assert.Equal(0, effects);
         Assert.Null(state.ApprovedHash); Assert.Null(state.SavedAgentId);
         Assert.True(state.Construction!.Complete);
-        Assert.Equal(9, state.Construction.Compact!.PresentationVersion);
+        Assert.Equal(10, state.Construction.Compact!.PresentationVersion);
         Assert.True(Assert.Single(state.Construction.Compact.InterfaceExtractions!).Complete);
         Assert.Equal("closed", Assert.Single(state.Construction.Requirements).Status);
         Assert.Single(state.Construction.Checkpoints);

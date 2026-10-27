@@ -8,6 +8,82 @@ public sealed class PlanningConstructionDependenciesTests
     [Theory]
     [InlineData("operation")]
     [InlineData("transform")]
+    public void FreshMixedProofConservesAnOpaquePrefixWithoutUsingItsResults(string kind)
+    {
+        var state = MixedSession(kind); var plan = state.Plan!;
+        var subject = new JsonObject { ["kind"] = "task", ["id"] = "calculation" };
+        var before = Snapshot(state);
+        var proof = Assert.IsType<JsonObject>(PlanningConstructionDependencies.Capture(state, plan, subject));
+        Assert.Equal(before, Snapshot(state));
+        Assert.Equal("deterministic_behavior_with_exact_opaque_prefix", proof["class"]!.ToString());
+        Assert.Contains(proof["projection"]!["tasks"]!.AsArray(), row => row!["id"]!.ToString() == "external");
+        plan.Root.Tasks.Add(Value("consumer", new() { Kind = "arithmetic", Text = "add", Items = [Ref("calculation"), Number(1)] }));
+        Assert.True(PlanningConstructionDependencies.Preserved(state, plan, proof));
+        Assert.Null(PlanningConstructionDependencies.Capture(state, plan, new() { ["kind"] = "task", ["id"] = "external" }));
+        state.Construction!.Compact!.PresentationVersion = 9;
+        Assert.Null(PlanningConstructionDependencies.Capture(state, plan, subject));
+        Assert.False(PlanningConstructionDependencies.Preserved(state, plan, proof));
+    }
+
+    [Theory]
+    [InlineData("opaque_value")]
+    [InlineData("opaque_presence")]
+    [InlineData("opaque_guard")]
+    [InlineData("opaque_argument")]
+    [InlineData("opaque_condition")]
+    [InlineData("opaque_objective")]
+    [InlineData("contract")]
+    [InlineData("contract_conflict")]
+    [InlineData("permission")]
+    [InlineData("order")]
+    [InlineData("opaque_after")]
+    [InlineData("opaque_cleanup")]
+    [InlineData("cleanup")]
+    [InlineData("root_state")]
+    [InlineData("pure_upstream")]
+    public void MixedProofRejectsChangedOpaqueContextAndUnknownInteractions(string change)
+    {
+        var state = MixedSession("operation"); var plan = state.Plan!;
+        var subject = new JsonObject { ["kind"] = "task", ["id"] = "calculation" };
+        var proof = Assert.IsType<JsonObject>(PlanningConstructionDependencies.Capture(state, plan, subject));
+        switch (change)
+        {
+            case "opaque_value": plan.Root.Tasks[1].Outputs[0] = new("value", Ref("external", "result")); break;
+            case "opaque_presence": plan.Root.Tasks[1].Outputs[0] = new("value", new() { Kind = "present", Source = "external", Port = "result" }); break;
+            case "opaque_guard": plan.Root.Tasks[1].Requires = new() { Kind = "present", Source = "external", Port = "result" }; break;
+            case "opaque_argument": plan.Root.Tasks[0].Requires = new() { Kind = "boolean", Boolean = true }; break;
+            case "opaque_condition": plan.Root.Tasks[0].Condition = new() { Kind = "boolean", Boolean = true }; break;
+            case "opaque_objective": plan.Root.Tasks[0].Objective += " Changed interpretation."; break;
+            case "contract": state.Catalog!.Capabilities[0].Description += " Consent required."; break;
+            case "contract_conflict":
+                var other = PlannerFixture.Clone(state).Catalog!.Capabilities[0]; other.Description += " Different original.";
+                state.Discovery.Resolved.Add(other); break;
+            case "permission": state.Catalog!.Policy.DeniedCapabilityIds.Add("observe"); break;
+            case "order": plan.Root.Tasks.Insert(0, Value("before_external", Number(1))); break;
+            case "opaque_after": plan.Root.Tasks.Add(new() { Id = "later_external", Kind = "operation", Operation = "observe", Objective = "Another effect." }); break;
+            case "opaque_cleanup": plan.Root.Tasks.RemoveAt(0); plan.Root.Always.Add(new() { Id = "external", Kind = "operation", Operation = "observe", Objective = "An effect during cleanup." }); break;
+            case "cleanup": plan.Root.Always.Add(Value("cleanup_value", Number(1))); break;
+            case "root_state": state.Construction!.OpenScopes.Clear(); break;
+            case "pure_upstream": plan.Root.Tasks[1].Outputs[0].Value.Items[0].Number = 9; break;
+        }
+        Assert.False(PlanningConstructionDependencies.Preserved(state, plan, proof));
+        if (change is "opaque_value" or "opaque_presence" or "opaque_guard" or "opaque_argument" or "opaque_condition" or "order" or "opaque_after" or "opaque_cleanup")
+            Assert.Null(PlanningConstructionDependencies.Capture(state, plan, subject));
+    }
+
+    private static PlanningSession MixedSession(string kind)
+    {
+        var state = ExternalSession(kind);
+        state.Construction!.Compact!.PresentationVersion = 10;
+        state.Request.Options["construction_presentation_version"] = 10;
+        state.Plan!.Root.Tasks.Add(Value("calculation", new() { Kind = "arithmetic", Text = "multiply", Items = [Number(4), Number(2)] }));
+        state.Plan.Root.Outputs = [new("result", Ref("calculation"))];
+        return state;
+    }
+
+    [Theory]
+    [InlineData("operation")]
+    [InlineData("transform")]
     public void ExactReviewedTransitionStateDoesNotClaimIndependentBehavior(string kind)
     {
         var state = ExternalSession(kind); var plan = state.Plan!;

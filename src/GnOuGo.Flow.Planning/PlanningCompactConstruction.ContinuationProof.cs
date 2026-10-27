@@ -36,7 +36,27 @@ internal static partial class PlanningCompactConstruction
                 result["exactProducerProof"] = PlanningConstructionDependencies.CaptureExactTransition(state, candidate.Plan, candidate.OpenScopes);
             result["discharged"] = ContinuationDischargeProof(state, association);
         }
+        if (ResumedConsumerParent(state) is { } parent && parent.Id == association.ContinuationId)
+        {
+            var child = State(state).SuspendedSteps!.Single(item => item.Id == State(state).ResumingStepId);
+            result["parentHandoff"] = new JsonObject
+            {
+                ["child"] = child.Id, ["parent"] = parent.Id, ["step"] = State(state).CurrentStep!.Id,
+                ["childClaim"] = ContinuationConsumerHash(child)
+            };
+        }
         return result;
+    }
+
+    internal static bool ContinuationParentHandoffCurrent(PlanningSession state, PlanningConstructionStep step, JsonNode? proof)
+    {
+        if (!UsesAcceptedTransitions(state) || proof?["parentHandoff"] is null) return true;
+        if (proof["parentHandoff"] is not JsonObject handoff || step.ContinuationBinding is not { } association ||
+            association.DischargedContinuationIds is { Count: > 0 } || handoff["parent"]?.ToString() != association.ContinuationId ||
+            handoff["step"]?.ToString() != step.Id || State(state).SuspendedSteps?.SingleOrDefault(item =>
+                item.Id == handoff["child"]?.ToString()) is not { } child || child.ParentId != association.ContinuationId ||
+            child.Status is not ("resuming" or "completed") || handoff["childClaim"]?.ToString() != ContinuationConsumerHash(child)) return false;
+        return child.Status == "completed" || State(state).ResumingStepId == child.Id && State(state).CurrentStep?.Id == step.Id;
     }
 
     internal static string ContinuationConsumerHash(PlanningConstructionSuspendedStep item)
@@ -146,7 +166,8 @@ internal static partial class PlanningCompactConstruction
             proof["version"]?.ToString() == "1" && proof["planHash"]?.ToString() == checkpoint.PlanHash &&
             proof["consumerHash"]?.ToString() == ContinuationConsumerHash(item) &&
             proof["authorityHash"]?.ToString() == ContinuationAuthorityHash(state) &&
-            (!UsesIncrementalReview(state) || JsonNode.DeepEquals(proof["discharged"], ContinuationDischargeProof(state, checkpoint.Step!.ContinuationBinding!)));
+            (!UsesIncrementalReview(state) || JsonNode.DeepEquals(proof["discharged"], ContinuationDischargeProof(state, checkpoint.Step!.ContinuationBinding!))) &&
+            ContinuationParentHandoffCurrent(state, checkpoint.Step!, proof);
     }
 
     private static bool IndependentLiteral(PlanTask task) => task.Kind == "value" && task.Inputs.Count == 0 && task.DependsOn.Count == 0 &&

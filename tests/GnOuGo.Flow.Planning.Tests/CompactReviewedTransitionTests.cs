@@ -6,7 +6,7 @@ using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
-public sealed class CompactReviewedTransitionTests(ITestOutputHelper output)
+public sealed partial class CompactReviewedTransitionTests(ITestOutputHelper output)
 {
     private const string Local = "Compute seven inside the inner local boundary and preserve the outer boundary's exact local result. ";
     private const string Later = "An unrelated later original obligation remains open.";

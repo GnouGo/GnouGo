@@ -10,7 +10,7 @@ internal static partial class PlanningCompactConstruction
         var version = state.Construction?.Compact?.PresentationVersion;
         var captured = state.Request.Options["construction_presentation_version"];
         return version is null && captured is null ||
-            version is 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 && captured is JsonValue value && value.TryGetValue<int>(out var number) && number == version;
+            version is 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 && captured is JsonValue value && value.TryGetValue<int>(out var number) && number == version;
     }
 
     internal const string ClassifyInstructions = """
@@ -21,7 +21,7 @@ internal static partial class PlanningCompactConstruction
         Extract only the minimum sufficient caller/public result interfaces from these exact clauses. Combine clauses about the same interface into one declaration. Preserve stated names, meaning, types, enums, nullability and literal defaults; no aliases or invented restrictions. Existing declarations are immutable. No task, tool-argument, file-content, effect or resource design. Use only permitted directions; return [] for a direction only when these clauses declare no interface in it. Examples impose no restrictions. An absent array bound is null; maxItems:0 permits only an empty array. Public outputs have no defaults.
         """;
 
-    internal static string InterfaceGuidance(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 5 or 6 or 7 or 8 or 9 ? """
+    internal static string InterfaceGuidance(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 5 or 6 or 7 or 8 or 9 or 10 ? """
         Resolve whether each current candidate source declares caller inputs/public results; classifications are provisional. originalContext and existing names supply context, not additional candidates. Return exactly one of interfaces, evidenceRequests or clarifications. Reuse supplied evidence; retrieve missing originals or clarify missing names/types for a declared interface. Use any only for explicitly unconstrained data.
         For interfaces, give each candidate source one disposition with its exact ID/version, displayed evidence citations, declared names and reason. Extract all interfaces declared by these sources, matching typed declarations exactly to their disposition names and merging only the same interface. A current source may explicitly link an unchanged existing interface. Otherwise use no_public_interface, retaining business obligations. Artifact contents, effects and resources alone are not public results; explicitly returned paths/contents are.
         Preserve names, types, constraints, enums, nullability and literal defaults; existing declarations are immutable. Examples add no restrictions. Absent array bounds are null; maxItems:0 permits only []. String enum:null means unrestricted values; a list is the declared exhaustive set. default:null means no default; {"kind":"null"} is an explicit null literal. Outputs have no defaults. Emit compact JSON without whitespace outside strings; preserve string contents and verbatim originals exactly.
@@ -257,7 +257,7 @@ internal static partial class PlanningCompactConstruction
     }
 
     internal static bool IntentDeclarationsComplete(PlanningCompactConstructionState compact) =>
-        compact.PresentationVersion is null || compact.PresentationVersion is 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 &&
+        compact.PresentationVersion is null || compact.PresentationVersion is 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 &&
         compact.InterfaceExtractions is not null && compact.InterfaceExtractions.All(e => e.Complete && e.SourceIds.Count > 0 &&
             e.SourceIds.All(id => compact.Sources.Count(s => s.Id == id && s.Indexed) == 1) &&
             e.Inputs == e.SourceIds.Any(id => compact.Sources.Single(s => s.Id == id).InterfaceKind is "input" or "both") &&

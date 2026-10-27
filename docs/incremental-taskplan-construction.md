@@ -1,6 +1,6 @@
 # Incremental TaskPlan construction
 
-Fresh construction-version-2 sessions capture presentation revision 9 and extend one semantic TaskPlan from available producers
+Fresh construction-version-2 sessions capture presentation revision 10 and extend one semantic TaskPlan from available producers
 toward consumers. They index original intent once, select one immediate business
 substep, discover its capabilities and generate only its fragment. Each bounded
 draft passes deterministic semantic validation and a local advisory review before
@@ -29,6 +29,49 @@ flowchart LR
 ```
 
 During discovery, selected producer outputs are provisional navigation bindings. Their compiler-resolved nullable interfaces, exact accepted arguments, full original operation and top-level port descriptions, and bound-input schema constraints remain visible. Nested schema annotations and constraints remain exact through retrieval and the full draft/review closures. Automatic selected-output schema closures may be deferred through the exact existing schema/page links; explicitly retrieved originals remain intact. Draft and scoped review still include the complete selected original closures for actual consumers. Discovery grants no task, permission, or acceptance authority.
+
+## Useful local evidence and independent transitions (presentation revision 10)
+
+Fresh selection, drafting and scoped review share explicit structural semantics:
+a TaskPlan group declares a named reusable body with isolated inputs and exports;
+a call invokes that closed group. An inline control body is not a callable group,
+including when compilation creates an internal workflow for that body. Objectives
+and labels cannot supply missing structure. An empty necessary container remains
+valid partial work; closure evaluates its actual contributing tasks and bindings
+against the original obligations. This adds no keyword-based validator or oracle
+change, and closing a boundary does not establish business fulfillment.
+Presentations 2–9 and already issued requests retain their original guidance.
+
+After existing public-output and closed-boundary subjects, a unique new
+result-producing task in the actual executable delta can provide the subject for
+an original clause. Its owned scopes and dependencies must be eligible. The normal
+Judge still examines the whole original and may acknowledge broad applicability.
+Bounded host reasons distinguish an absent subject, an unsupported conservation
+context and received broad acknowledgment; no quota or extra classification call
+is introduced.
+
+A separate conservation class permits deterministic contributions following an
+exact sequential root prefix of opaque operation/inference tasks. The prefix's
+arguments, upstream context, complete contracts, permissions, ordering and cleanup
+remain exact. Deterministic inputs and guards cannot consume opaque outputs.
+Conditional, nested or concurrent opaque work and unknown interactions remain
+ineligible. This proves conserved conditional behavior, not successful execution or
+external-effect independence. New interactions, global constraints and closure
+claims retain review through the existing coverage union.
+
+An established export or local closure may advance while another consumer waits
+only when the projected clone preserves that consumer's scope, exact dependencies,
+imports, contracts and original evidence. A closure cannot close its boundary or
+an ancestor. Root completion retains all global gates. A resumed business child
+may prospectively bind its exact result to its immediate waiting ParentId in its
+normal draft and review. Acceptance completes the child and permits parent
+resumption; neither business obligation is discharged as navigation.
+
+Proofs, claims and transitions remain in existing journals. Candidate changes,
+stale authorities and relevant invalidations require renewed review. One validated
+transition is applied per advance before recomputing. Presentations 2–9 keep their
+captured behavior and exact request/receipt recovery. No runtime contract, storage
+format, Judge action protocol or financial/session ceiling changes accompany v10.
 
 ## Verified incremental coverage and advancement (presentation revision 9)
 

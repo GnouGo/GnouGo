@@ -939,7 +939,7 @@ public sealed class CompactIntentIndexingTests
         Assert.True(JsonNode.DeepEquals(before, PlanningBenchmarkMeasurements.Configuration(restored)));
         var state = new PlanningSession { Request = restored };
         PlanningBenchmarkMeasurements.CaptureConstructionSettings(state);
-        Assert.Equal(current ? 9 : (int?)null, state.Construction!.Compact!.PresentationVersion);
+        Assert.Equal(current ? 10 : (int?)null, state.Construction!.Compact!.PresentationVersion);
         Assert.Equal(64, restored.MaxModelCalls); Assert.Equal(8192, restored.Generation.MaxOutputTokens);
         Assert.Equal("medium", restored.Generation.Reasoning);
     }
@@ -955,7 +955,9 @@ public sealed class CompactIntentIndexingTests
     [InlineData(8, 7)]
     [InlineData(8, 9)]
     [InlineData(9, 8)]
-    [InlineData(10, 10)]
+    [InlineData(9, 10)]
+    [InlineData(10, 9)]
+    [InlineData(11, 11)]
     public async Task MismatchedPresentationMarkersCannotDowngradeAStoredSession(int? stateVersion, int? capturedVersion)
     {
         var state = Fresh(); PlanningSessionCreation.Capture(state);

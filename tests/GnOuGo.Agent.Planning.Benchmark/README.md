@@ -1,5 +1,31 @@
 # Planning evaluation corpus
 
+## Revision-10 business fidelity and matched mechanism evaluation
+
+Use `65db90d9` as the immediate v9 control; its relevant implementation is unchanged
+from evaluated `93d3e1c2`. Retain earlier execution attribution. Freeze each candidate
+and control with identical profiles, model, inputs, MCP binaries and oracles for
+causal comparisons. Start fresh diagnostics with Collections, then Amazon and Review PR.
+The existing final 18-run comparison against `56942f5` retains declared-configuration
+mode; disclose its differences separately from matched source experiments.
+
+Normal-session tests must count proof-producing calls and show strictly fewer Judge
+and total calls on two multi-window workloads, including an eligible mixed plan.
+For transitions, preserve two real business consumers and independently waiting work;
+discharging navigation alone is not that demonstration. Live observations must separate
+no offered subject, unsupported conservation, received broad acknowledgment, invalidated
+proof and fresh interaction/completion coverage. No subject quota applies.
+
+The 27 October user delegation covers necessary paid diagnostics and exact administrative
+retention of established stopped/unrecoverable requests without repeated per-identity
+confirmation. Each closure still binds exact evidence, preserves every reservation and
+forbids replay/continuation. It does not cancel active effects or expand execution authority.
+The single EUR 100 supplement has stable reference
+`gnougo-pr120-2026-10-27-supplement-100-eur-once`; inspect the existing authorization
+history under the campaign lease before any repeated application, using the fixed
+expected/new ceilings. Never derive another increase from the current ceiling.
+See the [dated accounting record](../../docs/evidence/compact-taskplan-v10-accounting-authorization.json).
+
 ## Revision-9 mechanism and live comparison
 
 The immediate control is pagination-only commit `d5a4cac2`, based on `e3df8d62`.
@@ -1027,7 +1053,7 @@ provenance. Preserve these findings separately from later producer-port presenta
 and exact-citation normalization changes. Neither technical tests nor better navigation
 establishes that the duplicate-effect business miss is fixed.
 
-Fresh cohorts capture presentation revision 9, retaining original coverage through the verified union described above. Authoring shows all exact originals when
+Historical revision-9 cohorts capture presentation revision 9, retaining original coverage through the verified union described above. Authoring shows all exact originals when
 the prepared request fits; otherwise selected/retrieved requirements, all globals and
 mandatory producer/evidence context remain with exact omitted-page links.
 Exact duplicate producer-port directories are presented once; original input defaults

@@ -21,7 +21,7 @@ internal static partial class PlanningConstructionReviewCoverage
         if (manifest is null)
         {
             var basis = Basis(state, candidate, units);
-            basis["propositions"] = Propositions(state, candidate, units);
+            basis["propositions"] = Propositions(state, candidate, units, basis);
             basis["incrementalCompletion"] = ClaimsCompletion(state, candidate);
             basis["incrementalComplete"] = candidate.Extension.Complete;
             basis["incrementalClaimScopes"] = ClaimScopes(state.Construction!.Compact!.CurrentStep!, candidate.Extension.CloseScopes);
@@ -39,23 +39,36 @@ internal static partial class PlanningConstructionReviewCoverage
                 ["candidateHash"] = candidate.Hash, ["basis"] = basis, ["basisHash"] = basisHash,
                 ["sources"] = SourceHashes(units), ["reuse"] = new JsonArray() };
             var reusable = new Dictionary<string, JsonObject>(StringComparer.Ordinal);
+            var dispositions = state.Construction.Compact.PresentationVersion == 10 ? new JsonObject() : null;
             // Completion, explicit retrieval and unresolved corrections cannot borrow
             // a narrower contribution or silently discard requested original text.
             if (originalSet is not null)
                 foreach (var row in originalSet["reuse"]!.AsArray().OfType<JsonObject>())
                     reusable.Add(row["sourceKey"]!.ToString(), row.DeepClone().AsObject());
-            if (originalSet is null && !PlanningConstruction.UnresolvedDefects(candidate))
+            if (originalSet is null)
                 foreach (var proposition in basis["propositions"]!.AsArray().OfType<JsonObject>())
-                    if (MayReuseForClaims(state, candidate, proposition) &&
-                        !OriginalRequested(state, units.Single(unit => unit.Key == proposition["sourceKey"]!.ToString())) &&
-                        FindReuse(state, candidate, proposition) is { } reuse)
-                        reusable.Add(proposition["sourceKey"]!.ToString(), reuse);
+                {
+                    var key = proposition["sourceKey"]!.ToString(); string reason;
+                    if (PlanningConstruction.UnresolvedDefects(candidate)) reason = "unresolved_finding";
+                    else if (proposition["subject"] is not JsonObject) reason = "no_subject";
+                    else if (!MayReuseForClaims(state, candidate, proposition)) reason = "claim_requires_fresh_coverage";
+                    else if (OriginalRequested(state, units.Single(unit => unit.Key == key))) reason = "original_explicitly_requested";
+                    else if (FindReuse(state, candidate, proposition, out reason) is { } reuse) reusable.Add(key, reuse);
+                    if (dispositions is not null) dispositions[key] = reason;
+                }
             var groups = PackingGroups(units, core, state);
             foreach (var group in originalSet is null ? groups : [])
                 if (group.Any(key => !reusable.ContainsKey(key)))
-                    foreach (var key in group) reusable.Remove(key);
+                    foreach (var key in group)
+                        if (reusable.Remove(key) && dispositions is not null) dispositions[key] = "coupled_original_requires_fresh_coverage";
             // A novel fragment still needs an original-grounded semantic review.
-            if (reusable.Count == units.Count) reusable.Clear();
+            if (reusable.Count == units.Count)
+            {
+                if (dispositions is not null) foreach (var key in reusable.Keys) dispositions[key] = "new_fragment_requires_original_coverage";
+                reusable.Clear();
+            }
+            if (dispositions is not null)
+                manifest["reuseDisposition"] = originalSet is null ? dispositions : originalSet["reuseDisposition"]?.DeepClone();
             foreach (var row in reusable.Values) manifest["reuse"]!.AsArray().Add((JsonNode)row);
             var windows = originalSet is null ? new List<List<string>>() : originalSet["windows"]!.AsArray()
                 .Select(window => window!.AsArray().Select(key => key!.ToString()).ToList()).ToList();
@@ -97,12 +110,22 @@ internal static partial class PlanningConstructionReviewCoverage
         return JsonNode.DeepEquals(supported, current);
     }
 
-    private static JsonArray Propositions(PlanningSession state, PlanningConstructionCandidate candidate, List<Unit> units) =>
-        new(units.Select(unit => (JsonNode)Proposition(state, candidate, unit)).ToArray());
-
-    private static JsonObject Proposition(PlanningSession state, PlanningConstructionCandidate candidate, Unit unit)
+    private static JsonArray Propositions(PlanningSession state, PlanningConstructionCandidate candidate, List<Unit> units, JsonObject basis)
     {
-        JsonObject? subject = null; JsonObject? proof = null;
+        var eligibility = new JsonObject();
+        var result = new JsonArray(units.Select(unit =>
+        {
+            var proposition = Proposition(state, candidate, unit, out var status);
+            eligibility[unit.Key] = status; return (JsonNode)proposition;
+        }).ToArray());
+        if (state.Construction!.Compact!.PresentationVersion == 10) basis["subjectEligibility"] = eligibility;
+        return result;
+    }
+
+    private static JsonObject Proposition(PlanningSession state, PlanningConstructionCandidate candidate, Unit unit, out string status)
+    {
+        status = unit.Kind == "global" ? "global" : "no_unique_structural_subject";
+        JsonObject? subject = null; JsonObject? proof = null; var attempted = false;
         if (unit.Kind == "requirement")
         {
             // Preserve a previously acknowledged exact subject only through its
@@ -113,7 +136,7 @@ internal static partial class PlanningConstructionReviewCoverage
                     foreach (var prior in origin["basis"]!["propositions"]!.AsArray().OfType<JsonObject>())
                         if (prior["sourceKey"]?.ToString() == unit.Key && prior["sourceHash"]?.ToString() == Hash(unit.Original) &&
                             FindReuse(state, candidate, prior) is not null)
-                            return prior.DeepClone().AsObject();
+                        { status = "offered"; return prior.DeepClone().AsObject(); }
             var sources = SourceIds(unit).ToHashSet(StringComparer.Ordinal);
             var outputs = (state.Construction!.Compact!.InterfaceExtractions ?? [])
                 .Where(extraction => extraction.Complete).SelectMany(extraction => extraction.Dispositions ?? [])
@@ -122,6 +145,7 @@ internal static partial class PlanningConstructionReviewCoverage
                 .SelectMany(disposition => disposition.Outputs).Distinct(StringComparer.Ordinal).ToArray();
             if (outputs.Length == 1 && state.Requirements!.Outputs?.Count(output => output.Name == outputs[0]) == 1)
             {
+                attempted = true;
                 subject = new JsonObject { ["kind"] = "output", ["name"] = outputs[0] };
                 proof = PlanningConstructionDependencies.Capture(state, candidate.Plan, subject);
                 if (proof is null) subject = null;
@@ -129,6 +153,7 @@ internal static partial class PlanningConstructionReviewCoverage
             if (subject is null && candidate.Extension.Scope != "/root" &&
                 candidate.Extension.CloseScopes.Contains(candidate.Extension.Scope, StringComparer.Ordinal))
             {
+                attempted = true;
                 // The host offers the actual newly closed selected boundary,
                 // not a model's association or a name/type-based semantic guess.
                 // The Judge must still establish whole-original locality.
@@ -138,10 +163,30 @@ internal static partial class PlanningConstructionReviewCoverage
                 proof = PlanningConstructionDependencies.Capture(state, candidate.Plan, subject);
                 if (proof is null) subject = null;
             }
+            if (subject is null && state.Construction.Compact.PresentationVersion == 10)
+            {
+                // The actual delta supplies the anchor, not selected requirement
+                // associations. Multiple contributions need a semantic decision;
+                // the single offered task still needs whole-original locality.
+                var accepted = state.Plan is null ? new HashSet<string>(StringComparer.Ordinal) :
+                    TaskPlanRevisions.Tasks(state.Plan).Select(task => task.Id).ToHashSet(StringComparer.Ordinal);
+                var tasks = TaskPlanRevisions.Tasks(candidate.Plan).Where(task => !accepted.Contains(task.Id) &&
+                    (task.Outputs.Count > 0 || task.Kind == "call" && candidate.Plan.Groups.Any(group => group.Id == task.Group && group.Body.Outputs.Count > 0) ||
+                    task.Body?.Outputs.Count > 0 || task.Branches.Any(branch => branch.Outputs.Count > 0))).ToArray();
+                if (tasks.Length == 1)
+                {
+                    attempted = true;
+                    subject = new JsonObject { ["kind"] = "task", ["id"] = tasks[0].Id };
+                    proof = PlanningConstructionDependencies.Capture(state, candidate.Plan, subject);
+                    if (proof is null) subject = null;
+                }
+            }
         }
         var result = new JsonObject { ["sourceKey"] = unit.Key, ["sourceHash"] = Hash(unit.Original),
             ["kind"] = unit.Kind == "global" ? "global" : "local_behavior", ["subject"] = subject,
             ["dependencyProof"] = proof, ["requiredPurposes"] = Strings(subject is not null ? ["local"] : Purposes(candidate.NeedsIntermediateReview)) };
+        if (subject is not null) status = "offered";
+        else if (attempted) status = "conservation_not_proven";
         result["id"] = "proposition:" + Hash(result); return result;
     }
 
@@ -234,12 +279,20 @@ internal static partial class PlanningConstructionReviewCoverage
     private static bool IncrementalReviewed(PlanningSession state, PlanningConstructionCheckpoint checkpoint, string purpose) =>
         IncrementalCheckpointManifest(state, checkpoint) is { } manifest && CurrentContractsValid(state, manifest) &&
         IncrementalUnion(state, checkpoint.Reviews, manifest, [purpose == PlanningConstruction.LocalPurpose ? "local" : "intermediate"],
-            checkpoint.PlanHash == PlanningConstruction.Hash(state.Plan) ? state.Plan : null);
+            CurrentCheckpointPlan(state, checkpoint));
 
     internal static JsonObject? ReviewedTransitionBasis(PlanningSession state, PlanningConstructionCheckpoint checkpoint) =>
         PlanningCompactConstruction.UsesIncrementalReview(state) && IncrementalCheckpointManifest(state, checkpoint) is { } manifest && CurrentContractsValid(state, manifest) &&
         IncrementalUnion(state, checkpoint.Reviews, manifest, Purposes(checkpoint.NeedsIntermediateReview),
-            checkpoint.PlanHash == PlanningConstruction.Hash(state.Plan) ? state.Plan : null) ? manifest : null;
+            CurrentCheckpointPlan(state, checkpoint)) ? manifest : null;
+
+    private static TaskPlan? CurrentCheckpointPlan(PlanningSession state, PlanningConstructionCheckpoint checkpoint) =>
+        checkpoint.PlanHash == PlanningConstruction.Hash(state.Plan) &&
+        // Closing a boundary can keep identical TaskPlan bytes. Older receipts
+        // bind their original open-scope state, not this later accepted state.
+        // Any new reuse still recomputes conservation against its actual target.
+        (state.Construction!.Compact!.PresentationVersion != 10 ||
+            state.Construction.Checkpoints.LastOrDefault()?.Sequence == checkpoint.Sequence) ? state.Plan : null;
 
     private static JsonObject? IncrementalCurrentManifest(PlanningSession state, PlanningConstructionCandidate candidate)
     {
@@ -250,14 +303,15 @@ internal static partial class PlanningConstructionReviewCoverage
             !JsonNode.DeepEquals(PlanningConstruction.Node(candidate.Extension, PlanningJsonContext.Default.PlanningConstructionExtension)!["boundaryTransitions"],
                 PlanningConstruction.Node(step, PlanningJsonContext.Default.PlanningConstructionStep)!["boundaryTransitions"])) return null;
         var units = Units(state); var basis = Basis(state, candidate, units);
-        basis["propositions"] = Propositions(state, candidate, units); basis["incrementalCompletion"] = ClaimsCompletion(state, candidate);
+        basis["propositions"] = Propositions(state, candidate, units, basis); basis["incrementalCompletion"] = ClaimsCompletion(state, candidate);
         basis["incrementalComplete"] = candidate.Extension.Complete;
         basis["incrementalClaimScopes"] = ClaimScopes(step, candidate.Extension.CloseScopes);
         basis["incrementalClaimSources"] = ClaimSources(state, step);
         basis["incrementalConsumerClaim"] = ContinuationClaimHash(state, step);
         basis["requiredPurposes"] = Strings(Purposes(candidate.NeedsIntermediateReview));
         return candidate.Reviews.LastOrDefault(row => row["version"]?.ToString() == "2" && row["purpose"]?.ToString() == ManifestPurpose &&
-            JsonNode.DeepEquals(row["basis"], basis) && ContinuationClaimCurrent(state, step, basis) && IncrementalManifestValid(state, row, units) &&
+            JsonNode.DeepEquals(row["basis"], basis) && ContinuationClaimCurrent(state, step, basis) &&
+            PlanningCompactConstruction.ContinuationParentHandoffCurrent(state, step, basis["continuationProof"]) && IncrementalManifestValid(state, row, units) &&
             (!PlanningConstruction.UnresolvedDefects(candidate) || row["reuse"] is JsonArray { Count: 0 }) &&
             row["reuse"]!.AsArray().OfType<JsonObject>().All(reuse => ReuseValid(state, row, reuse, Purposes(candidate.NeedsIntermediateReview), candidate.Plan)));
     }
@@ -272,6 +326,7 @@ internal static partial class PlanningConstructionReviewCoverage
             JsonNode.DeepEquals(row["basis"]?["incrementalClaimScopes"], ClaimScopes(step, checkpoint.ClosedScopes)) &&
             JsonNode.DeepEquals(row["basis"]?["incrementalClaimSources"], ClaimSources(state, step)) &&
             row["basis"]?["incrementalConsumerClaim"]?.ToString() == ContinuationClaimHash(state, step) &&
+            PlanningCompactConstruction.ContinuationParentHandoffCurrent(state, step, row["basis"]?["continuationProof"]) &&
             JsonNode.DeepEquals(row["basis"]?["closedRequirementIds"], Strings(step.CloseRequirementIds)) &&
             IncrementalManifestValid(state, row, Units(state), allowAddedSources: true));
 
@@ -361,22 +416,32 @@ internal static partial class PlanningConstructionReviewCoverage
     }
 
     private static JsonObject? FindReuse(PlanningSession state, PlanningConstructionCandidate candidate, JsonObject proposition)
+        => FindReuse(state, candidate, proposition, out _);
+
+    private static JsonObject? FindReuse(PlanningSession state, PlanningConstructionCandidate candidate, JsonObject proposition, out string reason)
     {
-        if (proposition["dependencyProof"] is not JsonObject proof || proposition["subject"] is not JsonObject subject ||
-            !PlanningConstructionDependencies.Preserved(state, candidate.Plan, proof)) return null;
+        reason = "no_subject";
+        if (proposition["dependencyProof"] is not JsonObject proof || proposition["subject"] is not JsonObject subject) return null;
+        reason = "conservation_not_proven";
+        if (!PlanningConstructionDependencies.Preserved(state, candidate.Plan, proof)) return null;
+        reason = "no_verified_origin";
         foreach (var checkpoint in state.Construction!.Checkpoints.AsEnumerable().Reverse())
         {
-            if (ProofInvalidated(checkpoint, proof) || IncrementalCheckpointManifest(state, checkpoint) is not { } origin) continue;
+            if (state.Construction.Compact!.PresentationVersion != 10 && ProofInvalidated(checkpoint, proof)) continue;
+            if (IncrementalCheckpointManifest(state, checkpoint) is not { } origin) continue;
             var original = origin["basis"]!["propositions"]!.AsArray().OfType<JsonObject>()
                 .SingleOrDefault(row => row["sourceKey"]?.ToString() == proposition["sourceKey"]?.ToString() && row["id"]?.ToString() == proposition["id"]?.ToString());
             if (original is null) continue;
+            if (ProofInvalidated(checkpoint, proof)) { reason = "dependency_invalidated"; continue; }
+            reason = "no_clean_local_receipt";
             var windows = origin["windows"]!.AsArray();
             for (var index = 0; index < windows.Count; index++)
                 if (windows[index]!.AsArray().Any(key => key!.ToString() == proposition["sourceKey"]!.ToString()) &&
                     IncrementalCleanReceipt(state, checkpoint.Reviews, origin, index, ["local"]) is not null)
                 {
                     var receipt = IncrementalCleanReceipt(state, checkpoint.Reviews, origin, index, ["local"])!;
-                    if (!SubjectAcknowledged(receipt, original["id"]!.ToString())) continue;
+                    if (!SubjectAcknowledged(receipt, original["id"]!.ToString())) { reason = "broad_acknowledgment"; continue; }
+                    reason = "reused";
                     return new JsonObject { ["sourceKey"] = proposition["sourceKey"]!.DeepClone(), ["propositionId"] = original["id"]!.DeepClone(),
                         ["checkpoint"] = checkpoint.Sequence, ["originBasisHash"] = origin["basisHash"]!.DeepClone(), ["windowIndex"] = index,
                         ["reviewFingerprint"] = receipt["fingerprint"]!.DeepClone(), ["sourceRequestId"] = receipt["sourceRequestId"]!.DeepClone(),
@@ -446,7 +511,7 @@ internal static partial class PlanningConstructionReviewCoverage
     {
         if (complete || closedScopes is null || closedRequirements is null || closedScopes.Any(scope => scope?.ToString() == "/root") ||
             closedRequirements.Any(id => proposition["sourceKey"]?.ToString() == "requirement:" + id?.ToString()) ||
-            proposition["dependencyProof"] is not JsonObject proof || proof["class"]?.ToString() != "deterministic_behavior_not_completion" ||
+            proposition["dependencyProof"] is not JsonObject proof || !PlanningConstructionDependencies.BehaviorProof(proof) ||
             proof["projection"]?["scopes"] is not JsonArray scopes) return false;
         // TaskPlan scope paths are flattened. The proof includes every actual
         // ancestor, preceding execution and cleanup scope, so exact membership

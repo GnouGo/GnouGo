@@ -59,6 +59,102 @@ public sealed class IncrementalReviewTests(ITestOutputHelper output)
     public Task WholeOriginalBoundaryBehaviorDoesNotAuthorizeNewCallers(bool group, string prefix, int clauses, int consumers) =>
         Compare(group, prefix, clauses, boundaryLocal: true, consumers);
 
+    [Theory]
+    [InlineData(false, 3, 2)]
+    [InlineData(true, 3, 2)]
+    [InlineData(true, 3, 3)]
+    public async Task FreshContributionProofsSaveActualCallsAgainstV9IncludingTheirEstablishment(bool mixed, int clauses, int consumers)
+    {
+        var prefix = mixed ? "mixed" : "tasklocal";
+        var control = await Run(mixed, prefix, clauses, 9, boundaryLocal: true, consumers: consumers, taskLocal: !mixed, mixedPrefix: mixed);
+        var candidate = await Run(mixed, prefix, clauses, 10, boundaryLocal: true, consumers: consumers, taskLocal: !mixed, mixedPrefix: mixed);
+        foreach (var run in new[] { control, candidate })
+        {
+            Assert.Equal(PlanningStatus.FinalReview, run.State.Status);
+            output.WriteLine($"approval v{run.State.Construction!.Compact!.PresentationVersion}: complete={run.State.Construction.Complete}, open={string.Join(',', run.State.Construction.OpenScopes)}, requirements={string.Join(',', run.State.Construction.Requirements.Select(r => r.Id + ':' + r.Status))}");
+            output.WriteLine("reviewed checkpoints: " + string.Join(",", run.State.Construction.Checkpoints.Select(cp => cp.Sequence + ":" +
+                PlanningConstructionReviewCoverage.Reviewed(run.State, cp, PlanningConstruction.LocalPurpose) + "/" +
+                PlanningConstructionReviewCoverage.Reviewed(run.State, cp, PlanningConstruction.IntermediatePurpose))));
+            PlanningArtifactApproval.Verify(run.State);
+            Assert.Equal(0, run.State.Construction!.DraftCorrections);
+            Assert.All(run.State.Construction.Checkpoints, checkpoint =>
+                Assert.True(PlanningConstructionReviewCoverage.Reviewed(run.State, checkpoint, PlanningConstruction.LocalPurpose)));
+        }
+        Assert.Equal(PlanningConstruction.Hash(control.State.Plan), PlanningConstruction.Hash(candidate.State.Plan));
+        var controlManifests = control.State.Construction!.Checkpoints.SelectMany(cp => cp.Reviews)
+            .Where(row => row["purpose"]?.ToString() == "construction_source_coverage").ToArray();
+        var manifests = candidate.State.Construction!.Checkpoints.SelectMany(cp => cp.Reviews)
+            .Where(row => row["purpose"]?.ToString() == "construction_source_coverage").ToArray();
+        Assert.Contains(controlManifests, row => row["windows"] is JsonArray { Count: > 1 });
+        Assert.DoesNotContain(controlManifests.SelectMany(row => row["reuse"]!.AsArray()),
+            row => row?["subject"]?["kind"]?.ToString() == (mixed ? "group" : "task"));
+        Assert.Contains(manifests.SelectMany(row => row["reuse"]!.AsArray()),
+            row => row?["subject"]?["kind"]?.ToString() == (mixed ? "group" : "task"));
+        Assert.All(manifests, manifest =>
+        {
+            Assert.Equal(manifest["sources"]!.AsObject().Count, manifest["reuseDisposition"]!.AsObject().Count);
+            Assert.Equal(manifest["sources"]!.AsObject().Count, manifest["basis"]!["subjectEligibility"]!.AsObject().Count);
+        });
+        Assert.Contains(manifests.SelectMany(row => row["reuseDisposition"]!.AsObject()), pair => pair.Value?.ToString() == "reused");
+        Assert.All(Judges(candidate.Runtime), request => Assert.Contains(Context(request)["reviewPropositions"]!.AsArray(),
+            proposition => proposition?["kind"]?.ToString() == "interaction"));
+        foreach (var input in new[] { 3, -2 })
+        {
+            var values = new JsonObject { [prefix + "Input"] = input, [prefix + "Other"] = 7 };
+            if (consumers == 3) values[prefix + "ThirdInput"] = 11;
+            var before = await Execute(control.State, values, mixed); var after = await Execute(candidate.State, values, mixed);
+            Assert.True(JsonNode.DeepEquals(before, after));
+            Assert.Equal(input * 2 + 1, after![prefix + "Left"]!.GetValue<double>());
+            Assert.Equal(15, after[prefix + "Right"]!.GetValue<double>());
+            if (consumers == 3) Assert.Equal(23, after[prefix + "Third"]!.GetValue<double>());
+        }
+        var oldJudges = Judges(control.Runtime).Count(); var newJudges = Judges(candidate.Runtime).Count();
+        output.WriteLine($"fresh10 {prefix}, clauses={clauses}, consumers={consumers}: v9={control.Runtime.Calls.Count}/{oldJudges} Judge, v10={candidate.Runtime.Calls.Count}/{newJudges} Judge; all establishment and retrieval calls included; same artifact={PlanningConstruction.Hash(candidate.State.Plan)}");
+        Assert.Equal(control.Runtime.Calls.Count - oldJudges, candidate.Runtime.Calls.Count - newJudges);
+        output.WriteLine("v9 windows=" + string.Join(",", controlManifests.Select(row => row["windows"]!.AsArray().Count)));
+        output.WriteLine("v10 windows/reuse=" + string.Join(",", manifests.Select(row => row["windows"]!.AsArray().Count + "/" + row["reuse"]!.AsArray().Count)));
+        Assert.True(newJudges < oldJudges, $"Judge calls {oldJudges} -> {newJudges}");
+        Assert.True(candidate.Runtime.Calls.Count < control.Runtime.Calls.Count,
+            $"Total calls {control.Runtime.Calls.Count} -> {candidate.Runtime.Calls.Count}");
+    }
+
+    [Fact]
+    public async Task LargerTaskLocalControlRetainsTheCapturedCallCapWithoutAnEfficiencyClaim()
+    {
+        var control = await Run(false, "tasklocal", 2, 9, expectStop: true, boundaryLocal: true,
+            consumers: 3, taskLocal: true);
+        Assert.Equal(PlanningStatus.Stopped, control.State.Status);
+        Assert.Contains(control.State.Diagnostics, diagnostic => diagnostic.Required && diagnostic.Code == "CONSTRUCTION_REVIEW_ALLOWANCE");
+        Assert.Equal(64, control.State.Request.MaxModelCalls);
+        Assert.Equal(64, control.Runtime.Calls.Count);
+        Assert.False(control.State.Construction!.Complete);
+        Assert.Null(control.State.Yaml);
+        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(control.State));
+        output.WriteLine("Retained v9 task-local control: clauses=2, consumers=3, navigation=12000, draft=18000, review=10000, calls=64; allowance refusal before final artifact. No completed comparison or savings claim.");
+    }
+
+    [Theory]
+    [InlineData("opaque_objective")]
+    [InlineData("invalidation")]
+    [InlineData("unreviewed_closure")]
+    public async Task MixedHistoricalReceiptsDoNotAuthorizeChangedContextOrUnreviewedClosure(string change)
+    {
+        var run = await Run(true, "guardedmixed", 1, 10, boundaryLocal: true, mixedPrefix: true);
+        PlanningArtifactApproval.Verify(run.State);
+        var state = PlannerFixture.Clone(run.State);
+        if (change == "opaque_objective") state.Plan!.Root.Tasks[0].Objective += " Changed interpretation.";
+        else if (change == "unreviewed_closure") state.Construction!.Checkpoints[^1].Reviews.Clear();
+        else
+        {
+            var reuse = state.Construction!.Checkpoints.SelectMany(cp => cp.Reviews)
+                .Where(row => row["purpose"]?.ToString() == "construction_source_coverage")
+                .SelectMany(row => row["reuse"]!.AsArray()).First(row => row?["subject"]?["kind"]?.ToString() == "group")!;
+            state.Construction.Checkpoints.Single(cp => cp.Sequence == reuse["checkpoint"]!.GetValue<int>())
+                .InvalidatedTaskIds.Add("guardedmixedOpaque");
+        }
+        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(state));
+    }
+
     private async Task Compare(bool group, string prefix, int clauses, bool boundaryLocal = false, int consumers = 2)
     {
         var control = await Run(group, prefix, clauses, 8, boundaryLocal: boundaryLocal, consumers: consumers);
@@ -237,10 +333,11 @@ public sealed class IncrementalReviewTests(ITestOutputHelper output)
     [Theory]
     [InlineData(8)]
     [InlineData(9)]
+    [InlineData(10)]
     public async Task IssuedReviewRecoversExactEnvelopeAndGenuineReceiptBeforeAcceptance(int version)
     {
         var run = await Run(false, "recovery", 1, version);
-        var state = version == 9 ? ReusePending(run) : PlannerFixture.Clone(run.Runtime.Checkpoints.First(saved =>
+        var state = version >= 9 ? ReusePending(run) : PlannerFixture.Clone(run.Runtime.Checkpoints.First(saved =>
             saved.Status == PlanningStatus.Generating && saved.PendingCall?.Purpose == PlanningConstruction.LocalPurpose));
         var pending = state.PendingCall!; var request = JsonSerializer.Serialize(pending.Request, PlanningJsonContext.Default.LLMRequest);
         var context = state.Construction!.PendingReviewContext!.ToJsonString(); var candidateHash = state.Construction.Candidate!.Hash;
@@ -314,7 +411,8 @@ public sealed class IncrementalReviewTests(ITestOutputHelper output)
     private sealed record Result(PlanningSession State, TestRuntime Runtime, IReadOnlyDictionary<string, LLMResponse> Responses);
 
     private async Task<Result> Run(bool group, string prefix, int clauseCount, int version,
-        Action<JsonObject, JsonObject>? alterReview = null, bool expectStop = false, bool boundaryLocal = false, int consumers = 2, bool stopOnAdverse = false)
+        Action<JsonObject, JsonObject>? alterReview = null, bool expectStop = false, bool boundaryLocal = false, int consumers = 2, bool stopOnAdverse = false,
+        bool taskLocal = false, bool mixedPrefix = false)
     {
         var left = prefix + "Left"; var right = prefix + "Right"; var input = prefix + "Input"; var other = prefix + "Other";
         var pairs = new[] { (Name: left, Source: input), (Name: right, Source: other), (Name: prefix + "Third", Source: prefix + "ThirdInput") }.Take(consumers).ToArray();
@@ -328,9 +426,12 @@ public sealed class IncrementalReviewTests(ITestOutputHelper output)
                         string.Concat(Enumerable.Range(0, 8).Select(n => $"For case {index}-{n}, preserve the supplied operand and perform multiplication before the final addition. ")) + "\n\n", "requirement", "output"));
                 else
                 {
-                    var subject = group ? new JsonObject { ["kind"] = "group", ["id"] = prefix + "Function" }
+                    var subject = taskLocal ? new JsonObject { ["kind"] = "task", ["id"] = name + "Producer" }
+                        : group ? new JsonObject { ["kind"] = "group", ["id"] = prefix + "Function" }
                         : new JsonObject { ["kind"] = "scope", ["path"] = "/tasks/" + name + "Scope/body" };
-                    var text = group
+                    var text = taskLocal
+                        ? $"The intermediate calculation {name}Producer computes numeric value equal to twice input {source} plus one, using multiplication followed by addition. This clause defines only that computation, independently of its later consumers and public return. Numeric conformance block {index}: "
+                        : group
                         ? $"The reusable group {prefix}Function has one required numeric parameter operand and exports value equal to operand multiplied by two. This clause defines that group's parameterized behavior, independently of any caller. Numeric conformance block {name}-{index}: "
                         : $"The executable sequence {name}Scope computes from numeric input {source} and exports value equal to twice that input plus one. This clause defines only this boundary's value; its public return is specified separately. Numeric conformance block {index}: ";
                     text += string.Concat(Enumerable.Range(index * 8 - 8, 8).Select(n =>
@@ -340,13 +441,16 @@ public sealed class IncrementalReviewTests(ITestOutputHelper output)
             }
         if (boundaryLocal)
             foreach (var (name, source) in pairs)
-                clauses.Add(($"Return required public numeric output {name} equal to twice caller input {source} plus one, using the specified {(group ? "parameterized group" : "executable boundary")}.\n\n", "requirement", "output"));
-        clauses.Add(("Throughout the workflow, use only deterministic value computation; no external effects or runtime inference.\n\n", "global", "none"));
+                clauses.Add(($"Return required public numeric output {name} equal to twice caller input {source} plus one, using the specified {(taskLocal ? "intermediate calculation" : group ? "parameterized group" : "executable boundary")}.\n\n", "requirement", "output"));
+        clauses.Add((mixedPrefix
+            ? "First interpret the supplied literal seven into a numeric value exactly once. Keep this inference in the sequential root prefix; subsequent deterministic computations must not consume its result. No other inference or external effects are permitted.\n\n"
+            : "Throughout the workflow, use only deterministic value computation; no external effects or runtime inference.\n\n", "global", "none"));
         var state = new PlanningSession { Request = new() { TenantId = "incremental-coverage", SessionId = "proof-" + prefix,
             Prompt = string.Concat(clauses.Select(clause => clause.Text)), MaxModelCalls = 64,
             Options = new JsonObject { ["automatic_correction"] = true } } };
         PlanningSessionCreation.Capture(state);
-        state.Construction!.Compact!.PresentationVersion = version; state.Request.Options["construction_presentation_version"] = version;
+        if (version == 10) Assert.Equal(10, state.Construction!.Compact!.PresentationVersion);
+        else { state.Construction!.Compact!.PresentationVersion = version; state.Request.Options["construction_presentation_version"] = version; }
         // Both arms retain the same captured ceilings; only presentation differs.
         state.Construction.Limits.PhasePolicy!.Navigation.MaxInputTokens = 12_000;
         state.Construction.Limits.PhasePolicy.Draft.MaxInputTokens = 18_000;
@@ -360,6 +464,12 @@ public sealed class IncrementalReviewTests(ITestOutputHelper output)
         TaskValue Input(string name) => new() { Kind = "input", Source = name };
         TaskValue Ref(string id) => new() { Kind = "output", Source = id, Port = "value" };
         PlanTask Value(string id, TaskValue value) => new() { Id = id, Kind = "value", Objective = "Compute the exact declared numeric result.", Outputs = [new("value", value)] };
+        if (mixedPrefix) steps.Add(new("transform", "/root", leftRequirements, [], [], [], new()
+        {
+            RequirementIds = leftRequirements.ToList(), Tasks = [new() { Id = prefix + "Opaque", Kind = "transform", Mode = "interpret",
+                Objective = "Return the exact supplied seven as numeric value without using external observations.",
+                Inputs = [new("source", Number(7))], ResultType = new() { Kind = "object", Fields = [new() { Name = "value", Type = new() { Kind = "number" } }] } }]
+        }));
         if (group)
         {
             var id = prefix + "Function"; var parameter = "operand";
@@ -378,6 +488,14 @@ public sealed class IncrementalReviewTests(ITestOutputHelper output)
                 steps.Add(new("value", "/root", leftRequirements, [], [Ref(call)], [name], new() { RequirementIds = leftRequirements.ToList(),
                     Tasks = [Value(finish, Formula("add", Ref(call), Number(1)))], Outputs = [new(name, Ref(finish))] }));
             }
+        }
+        else if (taskLocal) foreach (var (name, source) in pairs)
+        {
+            var requirements = name == left ? leftRequirements : rightRequirements; var producer = name + "Producer";
+            steps.Add(new("value", "/root", requirements, [], [Input(source)], [], new() { RequirementIds = requirements.ToList(),
+                Tasks = [Value(producer, Formula("add", Formula("multiply", Input(source), Number(2)), Number(1)))] }));
+            steps.Add(new("value", "/root", requirements, [], [Ref(producer)], [name], new() { RequirementIds = requirements.ToList(),
+                Tasks = [Value(name + "Return", Ref(producer))], Outputs = [new(name, Ref(name + "Return"))] }));
         }
         else foreach (var (name, source) in pairs)
         {
@@ -572,12 +690,26 @@ public sealed class IncrementalReviewTests(ITestOutputHelper output)
         { Name = name, Type = new() { Kind = "number" } }).ToList(), PlanningJsonContext.Default.ListTaskInput);
     private static TaskValue Number(double number) => new() { Kind = "number", Number = number };
     private static TaskValue Formula(string operation, params TaskValue[] values) => new() { Kind = "arithmetic", Text = operation, Items = values.ToList() };
-    private static async Task<JsonObject?> Execute(PlanningSession state, JsonObject inputs)
+    private static async Task<JsonObject?> Execute(PlanningSession state, JsonObject inputs, bool opaquePrefix = false)
     {
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));
-        var engine = new WorkflowEngine { LLMClient = new ForbiddenInference() };
+        var inference = new PrefixInference();
+        var engine = new WorkflowEngine { LLMClient = opaquePrefix ? inference : new ForbiddenInference(),
+            LlmDefaults = new() { Model = "fixture" }, LLMUsageBudget = new(new() { MaxCalls = 1 }) };
         var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], inputs.DeepClone(), PlannerFixture.Ct);
-        Assert.True(result.Success, result.Error?.Message); return result.Outputs?.AsObject();
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(opaquePrefix ? 1 : 0, inference.Calls);
+        return result.Outputs?.AsObject();
+    }
+    private sealed class PrefixInference : ILLMClient
+    {
+        internal int Calls;
+        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken cancellationToken)
+        {
+            Calls++;
+            Assert.Contains("seven", request.Prompt, StringComparison.Ordinal);
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["value"] = 7 }, Text = "{\"value\":7}" });
+        }
     }
     private sealed class ForbiddenInference : ILLMClient
     {

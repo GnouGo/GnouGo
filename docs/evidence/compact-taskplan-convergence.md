@@ -1364,3 +1364,36 @@ in the existing append-only history. The inspected available allowance is
 EUR 232.87980201225467664990973054. Historical sessions, lost-ledger exposure and
 effects authority remain unchanged. This administrative step establishes no business
 success; v10 implementation and qualification are pending.
+
+## 27 October v10 mechanism qualification
+
+The v10 implementation preserves historical guards and adds shared group/call
+semantics, exact-prefix conservation for eligible deterministic work, unique-task
+review subjects, and reviewed transitions that preserve waiting business consumers.
+The full owning Planning suite passes **3,604 tests with warnings as errors** on
+the recorded source snapshot (`fb532ba7…` log). Its first run retained four failures:
+two stale fresh-version assertions, one test expectation that incorrectly froze the
+existing prerequisite checkpoint cursor, and a control that exhausted its 64-call
+allowance. All remain archived. The last case now explicitly asserts the allowance
+stop and absent artifact; it supplies no completed efficiency comparison.
+
+Controlled model responses exercise ordinary indexing, issued schemas, review,
+acceptance, approval and runtime paths. Counts include proof acquisition:
+
+| Matched segment | Total calls v9 → v10 | Judge calls v9 → v10 |
+| --- | ---: | ---: |
+| Intermediate deterministic task and two consumers | 55 → 51 | 29 → 25 |
+| Exact opaque prefix, deterministic group and two callers | 42 → 37 | 18 → 13 |
+| Same mixed class with three callers | 54 → 45 | 25 → 16 |
+| Independent boundary/export while a business consumer waits | 29 → 25 | 9 → 9 |
+| Two retained business consumers | 16 → 15 | 4 → 4 |
+
+Each completed pair has identical executable artifacts and independently checked
+results. Mixed-workload inference is a controlled runtime stub, not observed
+external success. [A evidence](compact-taskplan-v10-review-reuse.json) and
+[B evidence](compact-taskplan-v10-transitions.json) retain exact source hashes,
+settings, phase counts, counterexamples and failed qualification attempts.
+These demonstrate mechanism savings, not live-model convergence. Fresh paired live
+diagnostics use `65db90d9` as control with unchanged scenario profiles. Business
+qualification and the subsequent 18-run comparison remain incomplete; PR #120
+stays Draft.

@@ -41,8 +41,8 @@ public sealed class QueuedPlanningSessionCompatibilityTests
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
         Assert.True(state.Construction!.Complete);
         Assert.Equal(2, state.Construction.Version);
-        Assert.Equal(9, state.Construction.Compact!.PresentationVersion);
-        Assert.Equal("9", state.Request.Options["construction_presentation_version"]!.ToString());
+        Assert.Equal(10, state.Construction.Compact!.PresentationVersion);
+        Assert.Equal("10", state.Request.Options["construction_presentation_version"]!.ToString());
         Assert.Single(state.Construction.Checkpoints);
         Assert.Equal("1", state.Request.Options["planning_diagnostics_version"]!.ToString());
         Assert.Equal("2", state.Request.Options["planning_input_review_version"]!.ToString());
@@ -66,8 +66,8 @@ public sealed class QueuedPlanningSessionCompatibilityTests
         state = await PlannerFixture.RunAsync(IncrementalRuntime(), state);
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
         Assert.True(state.Construction!.Complete);
-        Assert.Equal(9, state.Construction.Compact!.PresentationVersion);
-        Assert.Equal("9", state.Request.Options["construction_presentation_version"]!.ToString());
+        Assert.Equal(10, state.Construction.Compact!.PresentationVersion);
+        Assert.Equal("10", state.Request.Options["construction_presentation_version"]!.ToString());
         Assert.Equal("compact-bindings-v10", state.Request.Options["compilation_profile"]!.ToString());
         Assert.Equal("1", state.Request.Options["planning_input_review_version"]!.ToString());
         Assert.Equal("1", state.Request.Options["business_judge_review_version"]!.ToString());

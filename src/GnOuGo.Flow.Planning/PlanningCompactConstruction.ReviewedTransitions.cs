@@ -17,6 +17,7 @@ internal static partial class PlanningCompactConstruction
 
     private static PlanningConstructionSuspendedStep[] EligibleContinuationAssociations(PlanningSession state)
     {
+        if (ResumedConsumerParent(state) is { } parent) return [parent];
         var active = State(state).SuspendedSteps?.Where(Active).ToArray() ?? [];
         if (active.Length == 0 || active.Length > 4 || active.Any(item => item.Status != "waiting" || !ContinuationCurrent(state, item))) return [];
         for (var i = 1; i < active.Length; i++)
@@ -24,8 +25,28 @@ internal static partial class PlanningCompactConstruction
         return active;
     }
 
+    // A resumed business child may produce its waiting parent's exact input.
+    // Its ordinary acceptance completes the child; no business consumer is
+    // discharged, reordered or completed merely by proposing this association.
+    private static PlanningConstructionSuspendedStep? ResumedConsumerParent(PlanningSession state)
+    {
+        if (!UsesAcceptedTransitions(state)) return null;
+        var compact = State(state);
+        var active = compact.SuspendedSteps?.Where(Active).ToArray() ?? [];
+        if (active.Length is < 2 or > 4 || compact.CurrentStep is not { } step ||
+            active[^1] is not { Status: "resuming", ParentId: not null } child || compact.ResumingStepId != child.Id ||
+            active.Take(active.Length - 1).Any(item => item.Status != "waiting") || active.Any(item => !ContinuationCurrent(state, item)) ||
+            step.Scope != child.Consumer.Scope || step.Objective != child.Consumer.Objective ||
+            !step.RequirementIds.SequenceEqual(child.Consumer.RequirementIds, StringComparer.Ordinal)) return null;
+        for (var index = 1; index < active.Length; index++)
+            if (active[index].ParentId != active[index - 1].Id) return null;
+        return active[^2];
+    }
+
     private static bool ValidContinuationDischarge(PlanningSession state, PlanningConstructionContinuationBinding association)
     {
+        if (ResumedConsumerParent(state) is { } parent)
+            return parent.Id == association.ContinuationId && association.DischargedContinuationIds is not { Count: > 0 };
         var chain = EligibleContinuationAssociations(state);
         var index = Array.FindIndex(chain, item => item.Id == association.ContinuationId);
         if (index < 0) return false;
@@ -164,7 +185,8 @@ internal static partial class PlanningCompactConstruction
     {
         if (!UsesIncrementalReview(state) || state.PendingCall is not null || state.Construction!.Candidate is not null ||
             State(state).CurrentStep is not null || State(state).ReplacementScope is not null || state.EditablePaths is not null ||
-            state.Diagnostics.Any(diagnostic => diagnostic.Required) || State(state).SuspendedSteps?.Any(Active) == true ||
+            state.Diagnostics.Any(diagnostic => diagnostic.Required) ||
+            !UsesAcceptedTransitions(state) && State(state).SuspendedSteps?.Any(Active) == true ||
             state.Plan is null || state.Plan.Choices.Any(choice => choice.Selected is null) ||
             state.Construction.RebuildTasks.Any(task => !new TaskPlanSymbols(state.Plan).Tasks.ContainsKey(task.Id))) return null;
         var baseline = PlanningConstruction.Hash(state.Plan);
@@ -188,6 +210,7 @@ internal static partial class PlanningCompactConstruction
                 compact.CurrentStep = BoundaryStep(probe, claim); compact.NextStep++;
                 probe.Construction!.CandidateFailureIdentityVersion = 1;
                 var candidate = PlanningConstruction.Apply(probe, BoundaryExtension(claim));
+                if (UsesAcceptedTransitions(state) && !BoundaryPreservesConsumers(state, candidate, claim)) continue;
                 if (checkpoint.PlanHash == baseline && dependency["projectedHash"]?.ToString() != candidate.Hash) continue;
                 var preserved = dependency["proofs"] is JsonArray { Count: > 0 } proofs
                     ? proofs.All(proof => proof is JsonObject entry && PlanningConstructionDependencies.Preserved(probe,
@@ -210,6 +233,34 @@ internal static partial class PlanningCompactConstruction
             catch (PlanningResponseException) { /* Another exact claim can remain eligible. */ }
         }
         return null;
+    }
+
+    private static bool BoundaryPreservesConsumers(PlanningSession state, PlanningConstructionCandidate candidate,
+        PlanningConstructionBoundaryTransition claim)
+    {
+        foreach (var item in State(state).SuspendedSteps?.Where(Active) ?? [])
+        {
+            if (item.Status != "waiting" || !ContinuationCurrent(state, item) ||
+                claim.CloseScope && ScopeWithin(state.Plan!, item.Consumer.Scope, claim.Scope) ||
+                claim.Scope == "/root" && claim.Outputs.Any(output => item.Consumer.OutputNames.Contains(output.Name, StringComparer.Ordinal))) return false;
+            var before = CloneTransitionState(state);
+            var after = CloneTransitionState(state);
+            after.Plan = candidate.Plan; after.Construction!.OpenScopes = candidate.OpenScopes.ToList();
+            if (!ContinuationCurrent(after, item)) return false;
+            // Preserve actual typed imports, including captures and isolated group
+            // parameters. A matching type or lack of edges is not independence.
+            try
+            {
+                var evidence = State(state).RejectedSteps[item.RejectedStepIndex]["evidence"] as JsonObject;
+                before.Construction!.Evidence = evidence?.DeepClone().AsObject();
+                after.Construction.Evidence = evidence?.DeepClone().AsObject();
+                var original = CloneStep(item.Consumer); var projected = CloneStep(item.Consumer);
+                ValidateSelection(before, original); ValidateSelection(after, projected);
+                if (!JsonNode.DeepEquals(ImportedInterfaces(before, original), ImportedInterfaces(after, projected))) return false;
+            }
+            catch (PlanningResponseException) { return false; }
+        }
+        return true;
     }
 
     private static bool TryResumeReviewedAncestor(PlanningSession state)
