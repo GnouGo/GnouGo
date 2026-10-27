@@ -23,6 +23,8 @@ public sealed class PlanningHttpJournalTests
     [InlineData(false, 6)] [InlineData(true, 6)]
     [InlineData(false, 7)] [InlineData(true, 7)]
     [InlineData(false, 8)] [InlineData(true, 8)]
+    [InlineData(false, 9)] [InlineData(true, 9)]
+    [InlineData(false, 10)] [InlineData(true, 10)]
     public async Task SourceWindowHeadroomSurvivesBothHostJournalsAndExactReceiptRecovery(bool workflow, int presentation)
     {
         await using var host = await Host.CreateAsync(workflow, [500, 200], presentation: presentation);

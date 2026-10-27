@@ -1397,3 +1397,12 @@ These demonstrate mechanism savings, not live-model convergence. Fresh paired li
 diagnostics use `65db90d9` as control with unchanged scenario profiles. Business
 qualification and the subsequent 18-run comparison remain incomplete; PR #120
 stays Draft.
+
+The subsequent full-solution run exposed a host-admission gap outside the owning
+Planning suite: the shared transport predicate still capped v10 at two remaining
+reviews. Extending its existing source-window version set fixes that refusal
+without changing the captured limit. The focused transport-policy tests pass
+22/22 (`e44b06e0…` log), and both production journal paths pass 29/29
+(`7df4d252…`), including exact receipt recovery, retained reservations and review
+headroom. The earlier full run's three failures remain separate from those passes;
+its result is not represented as a successful full-solution validation.
