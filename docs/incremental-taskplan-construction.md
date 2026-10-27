@@ -1079,3 +1079,5 @@ compilation, declared coverage, business success, uncertainty, physical calls,
 tokens, elapsed time and cost.
 
 Issued response schemas own prerequisite/reselection string bounds. Shared semantic validators check the action, scope and evidence but do not impose a second UTF-16 length limit after schema validation. This also applies when revalidating a retained consumer. Marked requests use Unicode code points; unmarked historical requests retain UTF-16 bounds, including old version-10 receipts.
+
+For version 11, selection port directories and their evidence choices share the same displayed page. Omitted ports remain reachable through the original typed `port-page` continuation. Earlier versions retain their complete issued address domains. Port paging changes presentation only: selection still validates exact contracts and later consumers receive full mandatory closures.

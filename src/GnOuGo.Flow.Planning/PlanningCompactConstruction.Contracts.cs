@@ -257,8 +257,12 @@ internal static partial class PlanningCompactConstruction
         // Retain every previously offered exact address before paging the display.
         // The normal collector also offers the existing typed continuation link;
         // nextPorts remains the separate names-only task navigation page.
-        ConstrainSelectionEvidence(state, displayed, schema);
+        if (State(state).PresentationVersion != 11) ConstrainSelectionEvidence(state, displayed, schema);
         foreach (var (index, items) in pages) displayed["interfaces"]![index]!["outputs"] = items;
+        // Fresh requests issue evidence choices from the exact displayed page.
+        // The typed continuation retains every omitted port without enumerating
+        // all of its evidence addresses in this request's response grammar.
+        if (State(state).PresentationVersion == 11) ConstrainSelectionEvidence(state, displayed, schema);
         return displayed;
     }
 

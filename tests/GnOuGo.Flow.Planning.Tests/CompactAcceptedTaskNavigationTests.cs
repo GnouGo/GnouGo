@@ -7,7 +7,7 @@ using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
-public sealed class CompactAcceptedTaskNavigationTests
+public sealed class CompactAcceptedTaskNavigationTests(ITestOutputHelper output)
 {
     private const string NestedScope = "/tasks/container/body";
 
@@ -1254,6 +1254,9 @@ public sealed class CompactAcceptedTaskNavigationTests
     [InlineData(8, 8)]
     [InlineData(8, 9)]
     [InlineData(8, 19)]
+    [InlineData(10, 19)]
+    [InlineData(11, 19)]
+    [InlineData(11, 100)]
     public async Task SelectionTypedPortsUseExistingPagesOnlyForFreshVersionEight(int version, int count)
     {
         var state = await PagedSelectionState(version, count);
@@ -1280,8 +1283,29 @@ public sealed class CompactAcceptedTaskNavigationTests
             Assert.StartsWith("page:task-ports:", row["nextPorts"]!.ToString(), StringComparison.Ordinal);
             var addresses = PlanningCompactConstruction.NavigationEvidence([context["interfaces"]]);
             Assert.NotEmpty(addresses);
+            var displayedAddresses = PlanningCompactConstruction.NavigationEvidence([presented["interfaces"]]);
             foreach (var address in addresses.Append(row["next"]!.ToString()))
-                Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(new JsonArray(address), raw.StructuredOutputSchema!["properties"]!["evidenceRequests"]!));
+            {
+                var findings = PlanningContractValidation.ValidateInstanceFindings(new JsonArray(address), raw.StructuredOutputSchema!["properties"]!["evidenceRequests"]!);
+                if (version == 11 && !displayedAddresses.Contains(address)) Assert.NotEmpty(findings);
+                else Assert.Empty(findings);
+            }
+            if (version == 11)
+            {
+                var historical = PlannerFixture.Clone(state);
+                historical.Construction!.Compact!.PresentationVersion = 10;
+                historical.Request.Options["construction_presentation_version"] = 10;
+                var previous = AuthorRequest(historical, PlanningCompactConstruction.SelectPurpose,
+                    PlanningCompactConstruction.SelectionContext(historical));
+                Assert.True(raw.StructuredOutputSchema!.ToJsonString().Length < previous.StructuredOutputSchema!.ToJsonString().Length);
+                var measured = PlanningRequestMeasurements.Measure(PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.SelectPurpose,
+                    raw.Prompt, raw.StructuredOutputSchema.AsObject()), PlanningCompactConstruction.SelectPurpose, 3000);
+                var before = PlanningRequestMeasurements.Measure(PlanningModelCalls.PrepareRequest(historical, PlanningCompactConstruction.SelectPurpose,
+                    previous.Prompt, previous.StructuredOutputSchema.AsObject()), PlanningCompactConstruction.SelectPurpose, 3000);
+                Assert.Equal(measured.CompleteRequestBytes, measured.Components.Sum(component => component.SerializedBytes));
+                Assert.True(measured.CompleteRequestBytes < before.CompleteRequestBytes);
+                output.WriteLine($"ports={count}; control_bytes={before.CompleteRequestBytes}; candidate_bytes={measured.CompleteRequestBytes}; control_tokens={before.EstimatedInputTokens}; candidate_tokens={measured.EstimatedInputTokens}");
+            }
             var expectedSchema = original.StructuredOutputSchema!.DeepClone();
             expectedSchema["properties"]!["evidenceRequests"] = raw.StructuredOutputSchema!["properties"]!["evidenceRequests"]!.DeepClone();
             Assert.True(JsonNode.DeepEquals(expectedSchema, raw.StructuredOutputSchema));
