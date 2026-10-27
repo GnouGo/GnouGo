@@ -6,6 +6,47 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed partial class CompactConvergentJudgeTests
 {
     [Fact]
+    public async Task ReviewCompactionMovesOnlyCheckpointNavigationBehindExactTaskEvidence()
+    {
+        var state = await DecisionState();
+        var context = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, intermediate: false).Context;
+        var requirement = context["requirements"]!.AsArray()[0]!;
+        var progress = new JsonObject
+        {
+            ["basis"] = "accepted_checkpoint_associations_not_fulfillment", ["checkpointCount"] = 4,
+            ["items"] = new JsonArray(Enumerable.Range(1, 4).Select(index => (JsonNode)new JsonObject
+            {
+                ["sequence"] = index, ["evidence"] = "page:checkpoints:" + (index - 1),
+                ["tasks"] = new JsonArray(new JsonObject { ["task"] = "accepted_label", ["evidence"] = "task:accepted_label",
+                    ["scope"] = "/root", ["kind"] = "value", ["objective"] = new string('x', 220),
+                    ["ports"] = new JsonArray("value"), ["portCount"] = 1 })
+            }).ToArray())
+        };
+        requirement["acceptedProgress"] = progress;
+        var before = context.DeepClone().AsObject();
+        var bytes = System.Text.Encoding.UTF8.GetByteCount(context.ToJsonString());
+        PlanningCompactConstruction.CompactReviewNavigation(context);
+        Assert.True(System.Text.Encoding.UTF8.GetByteCount(context.ToJsonString()) < bytes - 800);
+        foreach (var field in new[] { "original", "sources", "commitments" })
+            Assert.True(JsonNode.DeepEquals(before["requirements"]![0]![field], requirement[field]));
+        foreach (var field in new[] { "draft", "interfaces", "operations", "inputDeclarations", "ancestorControls", "sourceCoverage", "reviewPropositions", "evidence" })
+            Assert.True(JsonNode.DeepEquals(before[field], context[field]), field);
+        foreach (var item in progress["items"]!.AsArray())
+        {
+            var task = item!["tasks"]![0]!;
+            Assert.Null(task["objective"]); Assert.True(task["detailsOmitted"]!.GetValue<bool>());
+            Assert.Equal("task:accepted_label", task["evidence"]!.ToString());
+        }
+        var once = context.ToJsonString();
+        PlanningCompactConstruction.CompactReviewNavigation(context);
+        Assert.Equal(once, context.ToJsonString());
+        PlanningConstruction.LoadEvidence(state, ["task:accepted_label"]);
+        Assert.Equal("accepted_label", state.Construction!.Evidence!["task:accepted_label"]!["id"]!.ToString());
+        Assert.False(state.Construction.Candidate!.LocalReviewed);
+        Assert.False(PlanningConstructionReviewCoverage.Complete(state, state.Construction.Candidate));
+    }
+
+    [Fact]
     public async Task DecisionReviewOffersExactTaskEvidenceAndLoadsItWithoutCorrection()
     {
         var state = await DecisionState();
