@@ -1,0 +1,169 @@
+{
+  "source": "65db90d9bc745d00580bdcb40fa62fe29b893a62",
+  "presentation_version": 9,
+  "cohort": "compactr65db90d9bcode20nhv9a",
+  "run": "compactr65db90d9bcode20nhv9a-code-1",
+  "case": "code",
+  "role": "Matched control; no complete business outcome.",
+  "freeze_sha256": "5778cd647a9335a715865f838ee4e457479bf85ec792185abcb54ece86693105",
+  "command_sha256": "48ca90924256b0b4a49ceb23e9cb425db4d4a07d2370679e14a35aa9f8822189",
+  "benchmark_binary_sha256": "126055c812f91f76896f9e5a38ace5fcea0b17a1bedcd919b0e90db235961571",
+  "observation_utc": "2026-10-27T17:26:40.401597+00:00",
+  "status": "stopped",
+  "revision": 23,
+  "planning": {
+    "logical_calls": 23,
+    "physical_attempts": 23,
+    "known_input_tokens": 119814,
+    "known_output_tokens": 40110,
+    "known_cost_eur": "1.6085408299866131191432396251",
+    "unknown_attempts": 0,
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0,
+    "receipts": 23,
+    "corrections": 2,
+    "known_reasoning_tokens": 31832,
+    "planning_wall_ms": 978789,
+    "complete_provider_usage_known": true
+  },
+  "terminal": {
+    "diagnostics": [
+      {
+        "code": "CONSTRUCTION_STEP_INVALID",
+        "location": "/step/prerequisites",
+        "message": "Retain at most four evidence-linked current prerequisites."
+      },
+      {
+        "code": "REPLAN_NO_PROGRESS",
+        "location": "/",
+        "message": "The model repeated a rejected compact construction action."
+      }
+    ],
+    "last_received_actions": [
+      {
+        "number": 22,
+        "resumeStep": {
+          "continuationId": "continuation_0",
+          "producerCheckpoint": 3,
+          "binding": {
+            "kind": "output",
+            "source": "derive_cloneable_repository_remote_url",
+            "port": "cloneableRepositoryRemoteUrl"
+          }
+        },
+        "step_is_null": true,
+        "evidence_requests": null,
+        "clarifications": null
+      },
+      {
+        "number": 23,
+        "resumeStep": {
+          "continuationId": "continuation_0",
+          "producerCheckpoint": 3,
+          "binding": {
+            "kind": "output",
+            "source": "derive_cloneable_repository_remote_url",
+            "port": "cloneableRepositoryRemoteUrl"
+          }
+        },
+        "step_is_null": true,
+        "evidence_requests": null,
+        "clarifications": null
+      }
+    ],
+    "classification": "Received resumption hit the retained four-prerequisite host bound; the repeated identical action then stopped. This is the old resumption failure class already addressed prospectively in 9824, not evidence of a new candidate defect or an avoided-correction result.",
+    "attribution_limit": "This public projection retains normalized responses and terminal diagnostics, not exact issued schemas or the full suspended-consumer journal. The two charged corrections are reported as a total; their complete per-request attribution is unavailable here.",
+    "missing_receipts": 0,
+    "unknown_physical_attempts": 0,
+    "new_retention_required": false
+  },
+  "accepted_progress": {
+    "input_names": [
+      "pullRequestUrl",
+      "reviewText"
+    ],
+    "required_inputs": true,
+    "defaults_present": false,
+    "task_kinds": {
+      "sequence": 1,
+      "transform": 1
+    },
+    "structure": "One cleanup-protected sequence contains one URL-deriving transform; no clone, repository checks, review report, cleanup operation or public output has been accepted. The transform has not executed.",
+    "received_authored_continuation_binding_at": 20,
+    "successful_resumption_established": false,
+    "checkpoint_count": null,
+    "checkpoint_boundary": "Public inspect-run does not expose construction checkpoints.",
+    "business_unit": "code_complete_pinned_local_review_v1",
+    "independently_completed_business_obligations": 0,
+    "calls_per_completed_business_obligation": null
+  },
+  "review_observations": {
+    "received_judge_requests": [
+      9,
+      12,
+      21
+    ],
+    "clean_findings_responses": 3,
+    "received_acknowledgment_entries": 50,
+    "broad_acknowledgments": 50,
+    "subject_acknowledgments": 0,
+    "retained_reuse_events": null,
+    "retained_transition_events": null,
+    "boundary": "No source/subject journal verification or saved-call inference is made from normalized acknowledgments."
+  },
+  "response_anomalies": {
+    "received_normalized_responses": 23,
+    "recorded_content_bytes_total": 22700,
+    "zero_recorded_content_byte_responses": 0,
+    "completion_status_unavailable": 23,
+    "original_whitespace_bytes": null,
+    "whitespace_heavy_responses": null,
+    "provider_finish_reasons": null,
+    "http_status_codes": null,
+    "provider_input_rejections": null,
+    "boundary": "Original text/HTTP bodies are not exposed by this public reader. All 23 responses exist; no output-limit diagnostic is recorded. Missing formatting/status evidence is not reported as zero."
+  },
+  "artifact_hash": null,
+  "runtime": {
+    "started": false,
+    "model_calls": 0,
+    "independent_oracle_pass": false,
+    "business_units": 0
+  },
+  "campaign_after_run": {
+    "observed_utc": "2026-10-27T17:26:40.401597+00:00",
+    "inspection_stdout_sha256": "a9a57d6203cf355ca4d3db47450f2c2887d1859283d490312423e16387f5019b",
+    "evidence_hash": "797e85c1df571ed790fd9d4a439470f5e4c8acae4c4fd78c06c786a389133983",
+    "reserved_requests": 4883,
+    "completed_receipts": 4846,
+    "receiptless_records": 37,
+    "permanently_closed": 37,
+    "unresolved": 0,
+    "known_cost_eur": "244.36034432704008367365608643",
+    "reserved_unknown_cost_eur": "77.982857984263842300092874233",
+    "stored_cost_upper_bound_eur": "322.34320231130392597374896066",
+    "cost_ceiling_eur": "540.0301038327063045424449473",
+    "available_eur": "217.68690152140237856869598664",
+    "unknown_physical_attempts_all_runs": 96,
+    "boundary": "Dated read-only campaign snapshot after this control and before later candidate work. Stored System.Decimal upper bound is authoritative; all historical reserves remain retained."
+  },
+  "measurements": {
+    "file": "compact-taskplan-65db90d9-code-measurements.json",
+    "sha256": "4ca771c39186d445df4da7e58effaf0e22533f3ddbafd920d1c4118515ebe1f2",
+    "bytes": 8983
+  },
+  "evidence": {
+    "safe_reduction_sha256": "b2bd1e7df0c8cf0fa5139647312458be447ea4c720d7a78e878dd3ac440f3b3a",
+    "last_action_readback_sha256": "b88eeb8fb410ef08b0315b28f9dee33338974fe534deccb3bb5a08b73b108c29",
+    "public_inspection_stdout_sha256": "c8e0afb696f6ae58fea21db5e350209b13566f7b8b508404e8228436f0e0e80c",
+    "double_read_byte_identical": true,
+    "exact_source_files": 4690,
+    "exact_runtime_files": 435,
+    "source_runtime_unchanged": true
+  },
+  "limits": [
+    "No source change, provider call, continuation, replay, retention mutation or artifact execution by the inspection.",
+    "No complete outcome, live reuse benefit, correction saving or full implementation qualification follows from this partial control."
+  ]
+}
