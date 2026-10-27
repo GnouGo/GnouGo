@@ -1494,3 +1494,5 @@ for this selected comparison; its rows must still report `mode: live`. This does
 claim the historical eight-case measured pilot gate passed. The report is inconclusive
 when required outcomes or usage are missing, and three repetitions remain descriptive
 evidence rather than a general reliability claim.
+
+Fresh presentation 11 retains source-window review headroom under the captured physical-call limit. Permanent retention compares the exact captured presentation for versions 6–11; a missing or mismatched capture cannot establish abandonment eligibility or release any reservation.

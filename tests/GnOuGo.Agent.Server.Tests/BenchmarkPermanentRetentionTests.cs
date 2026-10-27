@@ -30,6 +30,8 @@ public sealed partial class BenchmarkPermanentRetentionTests
     [InlineData(7)]
     [InlineData(8)]
     [InlineData(9)]
+    [InlineData(10)]
+    [InlineData(11)]
     public async Task SourceWindowHeadroomRetentionRequiresItsCapturedPresentationWithoutChangingReservations(int presentation)
     {
         var records = new Records();
@@ -42,6 +44,11 @@ public sealed partial class BenchmarkPermanentRetentionTests
         Assert.Equal(before, records.Snapshot());
         Assert.True(JsonNode.DeepEquals(accounting, await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct)));
         var policy = (await campaign.LoadAsync("planning-evaluation-session-policy", Session, Ct))!;
+        policy["construction_presentation_version"] = presentation + 1;
+        await campaign.SaveAsync("planning-evaluation-session-policy", Session, policy, Ct);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.InspectPermanentRetentionAsync(
+            SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, Ct, BenchmarkCampaign.ExhaustedPlanningRetriesRetention));
+        Assert.True(JsonNode.DeepEquals(accounting, await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct)));
         policy.Remove("construction_presentation_version");
         await campaign.SaveAsync("planning-evaluation-session-policy", Session, policy, Ct);
         await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.InspectPermanentRetentionAsync(

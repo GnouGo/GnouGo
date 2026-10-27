@@ -1,0 +1,35 @@
+{
+  "classification": "Deterministic validation; no model dispatch or business qualification",
+  "runs": [
+    {
+      "suite": "transport headroom",
+      "base": "ed84c2430dc66913c031fe105f465046eda993aa",
+      "exit_code": 0,
+      "counts": {
+        "Passed": 23
+      },
+      "elapsed_seconds": 27.764604791998863,
+      "source_unchanged": true,
+      "log_sha256": "72fe844a26ab83d5c84734a645e2eff4e098a03c7201acb9c17e39852efaf874",
+      "source_manifest_sha256": "1592c2cae71a9b59a1e03ee988f3a2d6a950fe3764d7225a98b98529f4803126"
+    },
+    {
+      "suite": "permanent retention and generic oracle",
+      "base": "ed84c2430dc66913c031fe105f465046eda993aa",
+      "exit_code": 0,
+      "counts": {
+        "Passed": 500
+      },
+      "elapsed_seconds": 99.6257615420036,
+      "source_unchanged": true,
+      "log_sha256": "d4828d9411c06de2427f63b6662446d1ff5f98ee1a3e8eb742fe8362fb53ca51",
+      "source_manifest_sha256": "0c90c9b53c4cb5718e665959180fb454f5daaf7c2dd78ee63c5342748886355c"
+    }
+  ],
+  "failed_reproduction": {
+    "passed": 499,
+    "failed": 1,
+    "log_sha256": "1ce271b8d1822c4609ee80158e3026fa53bf551db73efa1755edc39c6de46f3d",
+    "cause": "Core omitted presentation11 from captured source-window headroom"
+  }
+}

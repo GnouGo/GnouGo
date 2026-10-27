@@ -1515,3 +1515,9 @@ Warnings-as-errors qualification passed 319 owning tests. A 12-test output-measu
 ### Presentation 11: admitted evidence-selection recovery
 
 A rejected evidence batch now retains its full report and diagnosis while checking the complete smaller-evidence control on a clone. Optional navigation can be compacted deterministically; originals, consumed interfaces, producer contracts and ancestor controls remain intact. An unsendable control stops without another model request or false coverage. Exact pending control recovery and unchanged correction accounting pass within 324 focused warnings-as-errors tests. These counts overlap prior qualification. The cab26684 full Planning run had 3,650 passes and two stale version fixtures; those fixtures are corrected here, and the earlier full run is not relabeled successful. No new live outcome follows from this correction. [Validation evidence](compact-taskplan-v11-recovery-validation.json).
+
+### Version 11 admission and benchmark safeguards
+
+A focused retention fixture exposed a missing version-11 branch in Core transport admission: four required source reviews were rejected under the historical two-review maximum. Version 11 now uses the same captured physical-call bound as versions 6–10. Benchmark permanent-retention checks require exact captured presentation identity for versions 10 and 11; missing or conflicting policy rejects without changing reservations.
+
+The transport suite passed 23 tests with warnings as errors. The owning retention/generic-oracle suite passed 500; these are focused counts, not additional full-solution totals. The preceding 499/1 reproduction remains retained. [Validation record](compact-taskplan-v11-safeguard-validation.json). No paid dispatch or business success is attributed to these tests. The prepared `ed84c243` Collections freeze remains undispatched because this admission defect was found first.

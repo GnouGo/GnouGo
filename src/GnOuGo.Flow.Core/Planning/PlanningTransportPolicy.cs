@@ -79,7 +79,7 @@ public static class PlanningTransportPolicies
     internal static bool ReviewHeadroomValid(LLMRequest request, PlanningRequest planning)
     {
         var maximum = planning.Options["construction_presentation_version"] is JsonValue version &&
-            version.TryGetValue<int>(out var presentation) && presentation is 6 or 7 or 8 or 9 or 10
+            version.TryGetValue<int>(out var presentation) && presentation is 6 or 7 or 8 or 9 or 10 or 11
                 ? Math.Min(planning.MaxModelCalls, PlanningBudgetOptions.Parse(planning.Options)?.MaxCalls ?? planning.MaxModelCalls)
                 : 2;
         return request.RequiredReviewCalls is >= 0 && request.RequiredReviewCalls <= maximum;
