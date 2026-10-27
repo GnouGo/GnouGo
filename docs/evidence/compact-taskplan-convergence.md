@@ -1417,3 +1417,27 @@ allowance failures during concurrent builds; its unchanged focused rerun passed
 3/3 before the successful full owning rerun. No execution allowance was raised.
 Both interrupted full-solution attempts retain their observed failures and are
 not reported as completed passes. Final full-solution validation remains pending.
+
+## 27 October matched Collections control
+
+The frozen 65db Collections control passed both runtime variants after artifact-bound delegated synthetic review (367.426 ms and 2.25 ms), with no effects or violations. It used 28 logical calls and 30 physical attempts, with one automatic correction: explicit root closure and direct loop export, followed by renewed review. Known cost was €1.562686; €1.861740 remains reserved for two unknown attempts. Nine Judge calls retained 38 proposition acknowledgments (37 broad, one subject), with no recorded reuse or mechanical transition. Eight checkpoints represent one independently completed business obligation. This is control evidence, not final-candidate acceptance; raw output arrays were not retained, so reported arrays remain frozen oracle expectations.
+
+[Source-bound outcome](compact-taskplan-65db90d9-collections-control.json) and
+[request measurements](compact-taskplan-65db90d9-collections-measurements.json)
+retain the exact freeze, receipts, costs and independent runtime checks.
+
+## 27 October be798 Collections candidate stop
+
+The frozen be798 Collections candidate stopped after 39 logical calls, attempts and receipts, one effective input-binding correction, and nine checkpoints. Known cost was €2.785850 with no unknown reservation. Final root closure remained unaccepted; no artifact or runtime result exists. Three prospective evidence batches exceeded the unchanged 8k Judge ceiling. A host defect then rejected q38’s valid 256-character uncertainty because .NET counted 257 UTF-16 units, sending it into report repair; q39 returned inconclusive under its no-new-evidence instruction. The accepted workflow also contains an unnecessary local array copy. All 42 retained proposition acknowledgments were broad, with no reuse; the only transition row records the unaccepted root-closure preparation. These observations establish neither successful convergence after a correction nor savings against the successful 28-call control.
+
+[Source-bound outcome](compact-taskplan-be798a3a-collections-candidate.json) and
+[request measurements](compact-taskplan-be798a3a-collections-measurements.json)
+retain the complete numeric trace and failed evidence batches. This cohort is
+terminal; the Unicode fix requires a new frozen identity.
+
+The successor captures Unicode code-point bounds in newly issued v10 schemas,
+preserving unmarked historical receipts. Both response consumption and typed repair
+reconstruction use the same issued rule. [Focused and owning validation](compact-taskplan-unicode-response-validation.json)
+passes 1,454 Core tests, 3,617 Planning tests before the final helper extraction,
+and 26 final typed-repair tests, with warnings as errors; counts overlap. Initial
+fixture failures remain retained. These passes do not establish live convergence.

@@ -8,6 +8,12 @@ namespace GnOuGo.Flow.Planning;
 
 internal static class PlanningModelCalls
 {
+    // Standard schema annotation captures host validation semantics in the
+    // exact issued request. Unmarked receipts retain historical UTF-16 bounds.
+    internal const string UnicodeStringLengths = "GnOuGo planning response: string length limits count Unicode code points.";
+    internal static IReadOnlyList<PlanningInstanceFinding> ValidateResponseFindings(JsonNode? response, JsonNode issuedSchema) =>
+        JsonSchemaInstanceValidator.ValidateInstanceFindings(response, issuedSchema,
+            unicodeStringLengths: issuedSchema["$comment"]?.ToString() == UnicodeStringLengths);
     internal static int CallLimit(PlanningSession state) => Math.Min(state.Request.MaxModelCalls,
         PlanningBudgetOptions.Parse(state.Request.Options)?.MaxCalls ?? state.Request.MaxModelCalls);
     internal static long CallsUsed(PlanningSession state) => Math.Max(state.ModelCalls, state.Usage?.Calls ?? 0);
@@ -36,6 +42,8 @@ internal static class PlanningModelCalls
         {
             schema = schema.DeepClone().AsObject();
             schema["title"] = purpose;
+            if (state.Construction?.Compact?.PresentationVersion == 10)
+                schema["$comment"] = UnicodeStringLengths;
         }
         var request = PlanningConstructionPhasePolicies.Apply(new LLMRequest
         {
@@ -155,7 +163,7 @@ internal static class PlanningModelCalls
             throw new WorkflowRuntimeException("DISCOVERY_NOT_ALLOWED",
                 "Discovery is closed for this request. No additional metadata was fetched; the remaining allowance is reserved for a proposal and repairs. Start a new planning session if more discovery is needed.",
                 details: new JsonObject { ["location"] = "/discoveryRequests" });
-        var findings = PlanningContractValidation.ValidateInstanceFindings(json, call.Request.StructuredOutputSchema!);
+        var findings = ValidateResponseFindings(json, call.Request.StructuredOutputSchema!);
         if (findings.Count != 0)
         {
             var rejectedHash = PlanningGraphCompiler.Fingerprint(json.ToJsonString());

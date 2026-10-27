@@ -16,6 +16,11 @@ discharging navigation alone is not that demonstration. Live observations must s
 no offered subject, unsupported conservation, received broad acknowledgment, invalidated
 proof and fresh interaction/completion coverage. No subject quota applies.
 
+Retain schema-validation false positives separately from provider formatting or
+output-exhaustion failures. The received be798 Collections Judge boundary case
+has 256 Unicode code points but 257 UTF-16 units; the fresh issued-schema fix
+does not authorize continuing that stopped cohort or changing its old receipts.
+
 The 27 October user delegation covers necessary paid diagnostics and exact administrative
 retention of established stopped/unrecoverable requests without repeated per-identity
 confirmation. Each closure still binds exact evidence, preserves every reservation and

@@ -378,7 +378,7 @@ internal static class PlanningRepairPatch
         // Removal actions omit the payload in the wire contract.
         foreach (var edit in response["patch"]!["edits"]!.AsArray())
             if (edit!["action"]?.ToString() is "remove" or "remove_owned" or "remove_forwarder") edit.AsObject().Remove("value");
-        if (PlanningContractValidation.ValidateInstance(response, request.StructuredOutputSchema!).Count > 0)
+        if (PlanningModelCalls.ValidateResponseFindings(response, request.StructuredOutputSchema!).Count > 0)
             throw new PlanningResponseException([new("REVISION_SCOPE_CHANGED", "/patch/edits", "The patch does not satisfy its issued schema.")]);
         var selected = new List<Slot>();
         foreach (var edit in patch.Edits)

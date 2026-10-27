@@ -1031,6 +1031,12 @@ and the unrun live improvement gate.
 
 ## Historical optional independent business review
 
+Fresh v10 model requests mark their issued schema with Unicode code-point length
+semantics. The shared instance validator uses that captured interpretation for
+response strings; receipt recovery never infers it from a newer session version.
+Unmarked requests preserve historical UTF-16 bounds. Request bytes/tokens, report
+grounding, correction authority and runtime contract validation remain unchanged.
+
 Retained full-proposal sessions use their captured `Request.Options.business_judge`
 setting for an independent Structured Output call after deterministic validation and
 resolved choices, before FinalReview. Its historical default is `false`. New

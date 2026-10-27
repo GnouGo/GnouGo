@@ -73,6 +73,15 @@ transition is applied per advance before recomputing. Presentations 2–9 keep t
 captured behavior and exact request/receipt recovery. No runtime contract, storage
 format, Judge action protocol or financial/session ceiling changes accompany v10.
 
+Newly issued v10 response schemas capture Unicode code-point string-length
+validation in a standard `$comment` annotation. Response parsing reads that exact
+issued annotation, including after recovery. Supplementary characters count once
+for JSON Schema `minLength`/`maxLength`; byte and token admission stay separate.
+Unmarked issued requests, including earlier v10 requests, retain their original
+UTF-16 counting. Runtime contract validation and public APIs are unchanged. This
+corrects a received Judge report falsely rejected at 256 code points/257 UTF-16
+units; it grants no extra follow-up, evidence or correction allowance.
+
 ## Verified incremental coverage and advancement (presentation revision 9)
 
 Review coverage is a union of fresh propositions and retained propositions whose

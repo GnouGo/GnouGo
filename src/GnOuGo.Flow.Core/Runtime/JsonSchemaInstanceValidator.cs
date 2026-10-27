@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Numerics;
+using System.Text;
 using System.Text.Json;
 using GnOuGo.Flow.Core.Planning;
 using System.Text.Json.Nodes;
@@ -15,11 +16,13 @@ internal static class JsonSchemaInstanceValidator
     public static IReadOnlyList<string> ValidateInstance(JsonNode? instance, JsonNode? schema)
         => ValidateInstanceFindings(instance, schema).Select(f => f.Message).ToArray();
 
-    internal static IReadOnlyList<PlanningInstanceFinding> ValidateInstanceFindings(JsonNode? instance, JsonNode? schema)
-        => ValidateInstanceFindings(instance, schema, "");
+    internal static IReadOnlyList<PlanningInstanceFinding> ValidateInstanceFindings(JsonNode? instance, JsonNode? schema,
+        bool unicodeStringLengths = false)
+        => ValidateInstanceFindings(instance, schema, "", unicodeStringLengths);
 
     // Compiler-owned unwrapping retains the original diagnostic property path.
-    internal static IReadOnlyList<PlanningInstanceFinding> ValidateInstanceFindings(JsonNode? instance, JsonNode? schema, string instancePath)
+    internal static IReadOnlyList<PlanningInstanceFinding> ValidateInstanceFindings(JsonNode? instance, JsonNode? schema, string instancePath,
+        bool unicodeStringLengths = false)
     {
         var errors = new List<PlanningInstanceFinding>();
         if (schema is not JsonObject root)
@@ -32,14 +35,14 @@ internal static class JsonSchemaInstanceValidator
         if (instancePath.Length != 0)
             foreach (var part in instancePath[1..].Split('/'))
                 location = location.Child(part.Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal));
-        ValidateInstanceNode(instance, root, root, location, errors, new HashSet<string>(StringComparer.Ordinal));
+        ValidateInstanceNode(instance, root, root, location, errors, new HashSet<string>(StringComparer.Ordinal), unicodeStringLengths);
         return errors;
     }
 
     internal static bool MatchesSchema(JsonNode? value, JsonObject schema, JsonObject root)
     {
         var errors = new List<PlanningInstanceFinding>();
-        ValidateInstanceNode(value, schema, root, new("$", ""), errors, new(StringComparer.Ordinal));
+        ValidateInstanceNode(value, schema, root, new("$", ""), errors, new(StringComparer.Ordinal), unicodeStringLengths: false);
         return errors.Count == 0;
     }
 
@@ -49,7 +52,8 @@ internal static class JsonSchemaInstanceValidator
         JsonObject root,
         InstanceLocation path,
         List<PlanningInstanceFinding> errors,
-        HashSet<string> referenceStack)
+        HashSet<string> referenceStack,
+        bool unicodeStringLengths)
     {
         if (TryReadString(schema["$ref"], out var reference))
         {
@@ -62,22 +66,22 @@ internal static class JsonSchemaInstanceValidator
             var referenceKey = $"{reference}|{path.Pointer}";
             if (!referenceStack.Add(referenceKey))
                 return;
-            ValidateInstanceNode(value, referencedObject, root, path, errors, referenceStack);
+            ValidateInstanceNode(value, referencedObject, root, path, errors, referenceStack, unicodeStringLengths);
             referenceStack.Remove(referenceKey);
         }
 
         if (schema["allOf"] is JsonArray allOf)
             foreach (var variant in allOf)
-                ValidateChild(value, variant, root, path, errors, referenceStack);
+                ValidateChild(value, variant, root, path, errors, referenceStack, unicodeStringLengths);
 
-        if (schema["anyOf"] is JsonArray anyOf && CountMatchingVariants(value, anyOf, root, path, referenceStack) == 0)
+        if (schema["anyOf"] is JsonArray anyOf && CountMatchingVariants(value, anyOf, root, path, referenceStack, unicodeStringLengths) == 0)
         {
-            if (!DescribeSelectedVariant(value, anyOf, root, path, errors, referenceStack))
+            if (!DescribeSelectedVariant(value, anyOf, root, path, errors, referenceStack, unicodeStringLengths))
                 errors.Add(new(path.Pointer, $"{path}: value does not match any allowed schema variant", "anyOf"));
             return;
         }
 
-        if (schema["oneOf"] is JsonArray oneOf && CountMatchingVariants(value, oneOf, root, path, referenceStack) != 1)
+        if (schema["oneOf"] is JsonArray oneOf && CountMatchingVariants(value, oneOf, root, path, referenceStack, unicodeStringLengths) != 1)
         {
             errors.Add(new(path.Pointer, $"{path}: value must match exactly one allowed schema variant", "oneOf"));
             return;
@@ -86,10 +90,10 @@ internal static class JsonSchemaInstanceValidator
         if (schema["if"] is JsonObject condition)
         {
             var conditionErrors = new List<PlanningInstanceFinding>();
-            ValidateInstanceNode(value, condition, root, path, conditionErrors, new HashSet<string>(referenceStack, StringComparer.Ordinal));
+            ValidateInstanceNode(value, condition, root, path, conditionErrors, new HashSet<string>(referenceStack, StringComparer.Ordinal), unicodeStringLengths);
             var selectedBranch = conditionErrors.Count == 0 ? schema["then"] : schema["else"];
             if (selectedBranch is JsonObject selectedBranchSchema)
-                ValidateInstanceNode(value, selectedBranchSchema, root, path, errors, referenceStack);
+                ValidateInstanceNode(value, selectedBranchSchema, root, path, errors, referenceStack, unicodeStringLengths);
         }
 
         if (schema.TryGetPropertyValue("const", out var constant) && !JsonNode.DeepEquals(value, constant))
@@ -114,13 +118,13 @@ internal static class JsonSchemaInstanceValidator
         switch (applicableType)
         {
             case "object":
-                ValidateObject(value, schema, root, path, errors, referenceStack);
+                ValidateObject(value, schema, root, path, errors, referenceStack, unicodeStringLengths);
                 break;
             case "array":
-                ValidateArray(value, schema, root, path, errors, referenceStack);
+                ValidateArray(value, schema, root, path, errors, referenceStack, unicodeStringLengths);
                 break;
             case "string":
-                ValidateString(value, schema, path, errors);
+                ValidateString(value, schema, path, errors, unicodeStringLengths);
                 break;
             case "number":
             case "integer":
@@ -129,7 +133,8 @@ internal static class JsonSchemaInstanceValidator
         }
     }
 
-    private static int CountMatchingVariants(JsonNode? value, JsonArray variants, JsonObject root, InstanceLocation path, HashSet<string> referenceStack)
+    private static int CountMatchingVariants(JsonNode? value, JsonArray variants, JsonObject root, InstanceLocation path, HashSet<string> referenceStack,
+        bool unicodeStringLengths)
     {
         var matches = 0;
         foreach (var variant in variants)
@@ -137,7 +142,7 @@ internal static class JsonSchemaInstanceValidator
             if (IsIncompatibleAlternative(value, variant, root, path, referenceStack, new(StringComparer.Ordinal)))
                 continue;
             var variantErrors = new List<PlanningInstanceFinding>();
-            ValidateChild(value, variant, root, path, variantErrors, new HashSet<string>(referenceStack, StringComparer.Ordinal));
+            ValidateChild(value, variant, root, path, variantErrors, new HashSet<string>(referenceStack, StringComparer.Ordinal), unicodeStringLengths);
             if (variantErrors.Count == 0)
                 matches++;
         }
@@ -185,12 +190,12 @@ internal static class JsonSchemaInstanceValidator
     // Type and literal tags can identify one intended variant even when a nested
     // field is invalid. Report that field without guessing among ambiguous branches.
     private static bool DescribeSelectedVariant(JsonNode? value, JsonArray variants, JsonObject root, InstanceLocation path,
-        List<PlanningInstanceFinding> errors, HashSet<string> referenceStack)
+        List<PlanningInstanceFinding> errors, HashSet<string> referenceStack, bool unicodeStringLengths)
     {
         var candidates = variants.OfType<JsonObject>().Where(v => Possible(v, new(StringComparer.Ordinal))).ToArray();
         if (candidates.Length != 1) return false;
         var details = new List<PlanningInstanceFinding>();
-        ValidateInstanceNode(value, candidates[0], root, path, details, new(referenceStack, StringComparer.Ordinal));
+        ValidateInstanceNode(value, candidates[0], root, path, details, new(referenceStack, StringComparer.Ordinal), unicodeStringLengths);
         if (details.Count == 0) return false;
         errors.AddRange(details); return true;
 
@@ -245,7 +250,8 @@ internal static class JsonSchemaInstanceValidator
         };
     }
 
-    private static void ValidateObject(JsonNode? value, JsonObject schema, JsonObject root, InstanceLocation path, List<PlanningInstanceFinding> errors, HashSet<string> referenceStack)
+    private static void ValidateObject(JsonNode? value, JsonObject schema, JsonObject root, InstanceLocation path, List<PlanningInstanceFinding> errors, HashSet<string> referenceStack,
+        bool unicodeStringLengths)
     {
         if (value is not JsonObject obj)
             return;
@@ -275,7 +281,7 @@ internal static class JsonSchemaInstanceValidator
         {
             if (properties != null && properties.TryGetPropertyValue(name, out var childSchema))
             {
-                ValidateChild(childValue, childSchema, root, path.Child(name), errors, referenceStack);
+                ValidateChild(childValue, childSchema, root, path.Child(name), errors, referenceStack, unicodeStringLengths);
                 continue;
             }
             if (schema["additionalProperties"] is JsonValue additionalValue
@@ -283,11 +289,12 @@ internal static class JsonSchemaInstanceValidator
                 && !additionalAllowed)
                 errors.Add(new(path.Child(name).Pointer, $"{path}.{name}: property is not allowed by schema", "additionalProperties"));
             else if (schema["additionalProperties"] is JsonObject additionalSchema)
-                ValidateInstanceNode(childValue, additionalSchema, root, path.Child(name), errors, referenceStack);
+                ValidateInstanceNode(childValue, additionalSchema, root, path.Child(name), errors, referenceStack, unicodeStringLengths);
         }
     }
 
-    private static void ValidateArray(JsonNode? value, JsonObject schema, JsonObject root, InstanceLocation path, List<PlanningInstanceFinding> errors, HashSet<string> referenceStack)
+    private static void ValidateArray(JsonNode? value, JsonObject schema, JsonObject root, InstanceLocation path, List<PlanningInstanceFinding> errors, HashSet<string> referenceStack,
+        bool unicodeStringLengths)
     {
         if (value is not JsonArray array)
             return;
@@ -299,21 +306,31 @@ internal static class JsonSchemaInstanceValidator
                         errors.Add(new(path.Child(j).Pointer, $"{path}: items at indexes {i} and {j} must be unique", "uniqueItems"));
         var prefix = schema["prefixItems"] as JsonArray;
         for (var i = 0; i < array.Count; i++)
-            ValidateChild(array[i], prefix is not null && i < prefix.Count ? prefix[i] : schema["items"], root, path.Child(i), errors, referenceStack);
+            ValidateChild(array[i], prefix is not null && i < prefix.Count ? prefix[i] : schema["items"], root, path.Child(i), errors, referenceStack, unicodeStringLengths);
     }
 
-    private static void ValidateChild(JsonNode? value, JsonNode? schema, JsonObject root, InstanceLocation path, List<PlanningInstanceFinding> errors, HashSet<string> referenceStack)
+    private static void ValidateChild(JsonNode? value, JsonNode? schema, JsonObject root, InstanceLocation path, List<PlanningInstanceFinding> errors, HashSet<string> referenceStack,
+        bool unicodeStringLengths)
     {
-        if (schema is JsonObject contract) ValidateInstanceNode(value, contract, root, path, errors, referenceStack);
+        if (schema is JsonObject contract) ValidateInstanceNode(value, contract, root, path, errors, referenceStack, unicodeStringLengths);
         else if (schema is JsonValue boolean && boolean.TryGetValue<bool>(out var allowed) && !allowed)
             errors.Add(new(path.Pointer, $"{path}: value is not allowed by schema", "false_schema"));
     }
 
-    private static void ValidateString(JsonNode? value, JsonObject schema, InstanceLocation path, List<PlanningInstanceFinding> errors)
+    private static void ValidateString(JsonNode? value, JsonObject schema, InstanceLocation path, List<PlanningInstanceFinding> errors,
+        bool unicodeStringLengths)
     {
         if (value is not JsonValue jsonValue || !jsonValue.TryGetValue<string>(out var text) || text == null)
             return;
-        ValidateCount(text.Length, schema, "minLength", "maxLength", path, "characters", errors);
+        // A captured response profile may opt into JSON Schema's Unicode character
+        // count. Unmarked historical requests and runtime contracts retain UTF-16.
+        var length = text.Length;
+        if (unicodeStringLengths)
+        {
+            length = 0;
+            foreach (var _ in text.EnumerateRunes()) length++;
+        }
+        ValidateCount(length, schema, "minLength", "maxLength", path, "characters", errors);
         if (TryReadString(schema["pattern"], out var pattern))
             try
             {

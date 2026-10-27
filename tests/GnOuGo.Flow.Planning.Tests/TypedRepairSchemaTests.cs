@@ -189,4 +189,59 @@ public sealed class TypedRepairSchemaTests
         Assert.Equal("corrected", repaired.Root.Outputs[0].Value.Text);
         Assert.Equal("original", restored.Plan!.Root.Outputs[0].Value.Text);
     }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ReconstructedPatchUsesItsIssuedCharacterInterpretationWithoutChangingAuthority(bool unicode)
+    {
+        var state = Output(new() { Kind = "string" });
+        state.EditablePaths = state.RevisionScope;
+        var schema = Schema(state);
+        // A captured wire bound constrains the edit text; it adds no business
+        // contract or permission to the independently compiled output.
+        Assert.True(BoundText(schema) > 0);
+        if (unicode) schema["$comment"] = PlanningModelCalls.UnicodeStringLengths;
+        var request = new LLMRequest { ClientRequestId = "issued-unicode-repair",
+            Prompt = "Repair\n" + new JsonObject { ["repair"] = new JsonObject { ["version"] = 11,
+                ["authority"] = PlanningRepairPatch.Authority(state, version: 11) } }, StructuredOutputSchema = schema };
+        state.PendingCall = new() { Id = request.ClientRequestId, Request = request, Purpose = "replan" };
+        var restored = PlannerFixture.Clone(state);
+        var issued = restored.PendingCall!.Request;
+        Assert.Equal(schema.ToJsonString(), issued.StructuredOutputSchema!.ToJsonString());
+        Assert.True(PlanningRepairPatch.Verify(restored, issued));
+        var before = JsonSerializer.Serialize(restored, PlanningJsonContext.Default.PlanningSession);
+        var text = new string('a', 255) + "🌍";
+        var response = Response(new JsonObject { ["kind"] = "string", ["text"] = text }.ToJsonString());
+        var patch = response["patch"]!.Deserialize(RepairJsonContext.Default.RepairPatch)!;
+        Assert.Equal(unicode, PlanningModelCalls.ValidateResponseFindings(response, issued.StructuredOutputSchema).Count == 0);
+        if (unicode)
+        {
+            var repaired = PlanningRepairPatch.Apply(restored, patch, issued);
+            Assert.Equal(text, repaired.Root.Outputs[0].Value.Text);
+            Assert.Empty(new TaskPlanCompiler().Compile(repaired, restored.Catalog!).Diagnostics);
+            var invalidReference = Response(Reference)["patch"]!.Deserialize(RepairJsonContext.Default.RepairPatch)!;
+            Assert.Throws<PlanningResponseException>(() => PlanningRepairPatch.Apply(restored, invalidReference, issued));
+        }
+        else Assert.Throws<PlanningResponseException>(() => PlanningRepairPatch.Apply(restored, patch, issued));
+        Assert.Equal(before, JsonSerializer.Serialize(restored, PlanningJsonContext.Default.PlanningSession));
+        patch.Edits[0].Slot = "not-authorized";
+        Assert.Throws<PlanningResponseException>(() => PlanningRepairPatch.Apply(restored, patch, issued));
+        restored.Plan!.Root.Outputs[0].Value.Text = "changed baseline";
+        Assert.Throws<PlanningConflictException>(() => PlanningRepairPatch.Verify(restored, issued));
+
+        static int BoundText(JsonNode? node)
+        {
+            var count = 0;
+            if (node is JsonObject obj)
+            {
+                if (obj["properties"] is JsonObject properties && properties["kind"]?["enum"] is JsonArray kinds &&
+                    kinds.Any(k => k?.ToString() == "string") && properties["text"] is JsonObject text)
+                { text["maxLength"] = 256; count++; }
+                foreach (var value in obj.Select(p => p.Value)) count += BoundText(value);
+            }
+            else if (node is JsonArray array) foreach (var value in array) count += BoundText(value);
+            return count;
+        }
+    }
 }
