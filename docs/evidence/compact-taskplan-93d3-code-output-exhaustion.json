@@ -1,0 +1,252 @@
+{
+  "version": 1,
+  "captured_utc": "2026-10-27T06:32:02.526825+00:00",
+  "source": "93d3e1c2747e029f0136d4391ba8480151092ac4",
+  "control_source": "d5a4cac23ebe7fa8525ecb8f0299c65b6613d870",
+  "cohort": "compactr93d3e1c27code20nhv9p9a",
+  "case": "code",
+  "presentation_version": 9,
+  "freeze_sha256": "c0357466798e3562d7469e220f8cd1589edc9c7f10cc299c90174c6f2e56f62c",
+  "model": "gpt-5.5-2026-04-24",
+  "phase_policy": {
+    "version": 1,
+    "navigation": {
+      "reasoning": "high",
+      "targetInputTokens": 3000,
+      "maxInputTokens": 18000,
+      "outputTokens": 32768
+    },
+    "draft": {
+      "reasoning": "medium",
+      "targetInputTokens": 8000,
+      "maxInputTokens": 20000,
+      "outputTokens": 16384
+    },
+    "review": {
+      "reasoning": "high",
+      "targetInputTokens": 4000,
+      "maxInputTokens": 20000,
+      "outputTokens": 8192
+    }
+  },
+  "outcome": {
+    "status": "stopped",
+    "phase": "construction_local_judge",
+    "diagnostics": [
+      "CONSTRUCTION_REVIEW_INCONCLUSIVE",
+      "MODEL_OUTPUT_LIMIT"
+    ],
+    "logical_calls": 27,
+    "physical_attempts": 27,
+    "completion_receipts": 27,
+    "corrections": 1,
+    "accepted_checkpoints": 2,
+    "planning_ms": 1183395,
+    "artifact_present": false,
+    "runtime_started": false,
+    "runtime_oracle_passed": null,
+    "independently_fulfilled_business_obligations": 0,
+    "calls_per_fulfilled_obligation": null
+  },
+  "accounting": {
+    "prepared_measurement_identities": 33,
+    "admitted_and_dispatched": 27,
+    "unissued_prepared": 6,
+    "rejected_before_dispatch": 0,
+    "unknown_attempts": 0,
+    "empty_completed_responses": 1,
+    "known_input_tokens": 199573,
+    "known_output_tokens": 56169,
+    "reasoning_tokens_included_in_output": 48240,
+    "derived_visible_output_tokens": 7929,
+    "known_cost_eur": "2.3944087460954930834448906740",
+    "unknown_usage_reservation_eur": "0",
+    "cost_upper_bound_eur": "2.3944087460954930834448906740",
+    "per_phase": {
+      "construction_intent": {
+        "received_calls": 7,
+        "physical_attempts": 7,
+        "known_input_tokens": 11193,
+        "known_output_tokens": 19566,
+        "known_reasoning_tokens": 16839,
+        "known_cost_eur": "0.5738018741633199464524765730",
+        "reserved_eur": "0"
+      },
+      "construction_select": {
+        "received_calls": 3,
+        "physical_attempts": 3,
+        "known_input_tokens": 16181,
+        "known_output_tokens": 8252,
+        "known_reasoning_tokens": 7170,
+        "known_cost_eur": "0.2931414547077197679607318161",
+        "reserved_eur": "0"
+      },
+      "construction_draft": {
+        "received_calls": 4,
+        "physical_attempts": 4,
+        "known_input_tokens": 41013,
+        "known_output_tokens": 4094,
+        "known_reasoning_tokens": 2742,
+        "known_cost_eur": "0.2926238286479250334672021419",
+        "reserved_eur": "0"
+      },
+      "construction_local_judge": {
+        "received_calls": 4,
+        "physical_attempts": 4,
+        "known_input_tokens": 46888,
+        "known_output_tokens": 17337,
+        "known_reasoning_tokens": 15358,
+        "known_cost_eur": "0.6734047300312360553324408747",
+        "reserved_eur": "0"
+      },
+      "construction_discovery": {
+        "received_calls": 9,
+        "physical_attempts": 9,
+        "known_input_tokens": 84298,
+        "known_output_tokens": 6920,
+        "known_reasoning_tokens": 6131,
+        "known_cost_eur": "0.5614368585452922802320392683",
+        "reserved_eur": "0"
+      }
+    }
+  },
+  "terminal_judge": {
+    "ordinal": 27,
+    "request_id": "compactr93d3e1c27code20nhv9p9a-code-1:27:2cdd70c5f976ba13a55640bb550134db71353e627ddb2bc17804bc7c751a9884",
+    "request_hash": "2a96664f50dec16dafe5861c6db9a7f13f0bd230fcce7c488c1fd12529165add",
+    "schema_hash": "bbf647992709909382521b736c42d94cb318c9548a0258b66dd400a43fd2f54e",
+    "complete_request_bytes": 55693,
+    "estimated_input_tokens": 18821,
+    "captured_input_ceiling": 20000,
+    "admission": "admitted",
+    "http_statuses": [
+      200
+    ],
+    "completion_status": "output_limit",
+    "issued_output_limit": 8192,
+    "provider_input_tokens": 14852,
+    "provider_output_tokens": 8192,
+    "provider_reasoning_tokens": 8192,
+    "visible_response_bytes": 0,
+    "known_cost_eur": "0.2856046407853636769299419902",
+    "receipt_sha256": "84422adee44def379e99f23c565ba02ee239bd8aaed5bab41bf082a3863898a4"
+  },
+  "saved_journal_observation": {
+    "observation": "Saved journal counts; not a revalidation of current proposition applicability or business success.",
+    "propositions": {
+      "retained_v9_manifests": 3,
+      "fresh_received_request_proposition_occurrences": 34,
+      "fresh_by_kind": {
+        "local_behavior": 19,
+        "interaction": 3,
+        "global": 12,
+        "completion": 0,
+        "transition": 0,
+        "other": 0
+      },
+      "acknowledged_subject_occurrences": 0,
+      "acknowledged_broad_occurrences": 34,
+      "recorded_reuse_events": 0,
+      "explicit_invalidated_dependency_origin_propositions": 0,
+      "other_staleness_invalidation_events": null,
+      "unjoined_review_rows_excluded": 0,
+      "fresh_identity_set_sha256": "57905096cdf4cb30b2dfdc7c3b3fc08b18cd66c1153174c9c18bd2e20969bc7a",
+      "reuse_identity_set_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "invalidated_identity_set_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "transitions": {
+      "distinct_journal_rows": 0,
+      "resume_reviewed_consumer": 0,
+      "reviewed_boundary": 0,
+      "other": 0,
+      "unaccepted_candidate_rows": 0,
+      "journal_set_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "received_acknowledged_review_rows": 3,
+    "qualifier": "Counts cover retained checkpoint/current-candidate journals only. They are not accepted-clean fact counts, physical calls saved, or an independent applicability revalidation. The final empty response contributes no acknowledgments."
+  },
+  "evidence": {
+    "metrics_sha256": "e7f98d8fa7e340b3b61e533e534d63c7a34339dbd253c743ca6ac97f2eee2b1b",
+    "canonical_state_sha256": "aaeb0040dc09f23e8adafb06bba32a5cead3349cba3d41f843715a85bd9597b8",
+    "terminal_request_export_sha256": "329aec4f9c650c35a629cef0a704d74f6393bfa3ab117fec127b25ff1eedf0a4",
+    "observer_source_sha256": "e8a180a05e054d3487760284bc7d439857eab0016f6e78d318e09cce8269aa2a",
+    "observer_qualification_sha256": "1a1b46f9147837a5cbd40c88f47bbe5993549e4257bb40a828be32f09b2b4ccc",
+    "saved_journal_counts_sha256": "de7aededff1555f71cbcb222b0a7932cdc64c247b2788550d70b285bef7f252d",
+    "accounting_review_sha256": "a90cc4cc720c7de9090146807e67595f42901dc2176db12be274e5fc0c8718bb"
+  },
+  "limitations": [
+    "The final failure is a received output-limit completion with known usage, not a receiptless transport failure or input admission rejection.",
+    "No artifact or runtime success was reached; lower money or elapsed time cannot establish equal-result efficiency.",
+    "Retained journals record zero reuse events and zero mechanical transition rows; this does not reconstruct overwritten or unretained history.",
+    "No current campaign balance, new authorization, live model-causality conclusion or business acceptance is inferred."
+  ],
+  "request_measurements_supplement": {
+    "sha256": "0f4d6fc7f08e900e7f53fa037633202d0472d085a771770cd72cc920fe986e5f",
+    "suggested_evidence_file": "compact-taskplan-d5-93d-code-request-measurements.json",
+    "scope": "Per-phase candidate and control full-request byte/estimated-token quantiles and component-byte reconciliation; all constructed identities included.",
+    "candidate_constructed": 33,
+    "candidate_admitted_and_dispatched": 27,
+    "candidate_unissued_prepared": 6,
+    "candidate_rejected_before_dispatch": 0
+  },
+  "latency_ms": {
+    "planning": 1183395,
+    "sum_recorded_completed_call_stages": "1079498.6825",
+    "terminal_judge": "112581.8552",
+    "scope": "Recorded planning/call timing; separate from serialized request estimates and provider token usage."
+  },
+  "independent_semantic_inspection": {
+    "correction": {
+      "charged_corrections": 1,
+      "phase": "construction_intent",
+      "rejected_response_ordinal": 4,
+      "diagnostic_request_ordinal": 5,
+      "diagnostic": "TASK_DEFAULT_REQUIRED",
+      "affected_inputs": [
+        "pullRequestUrl",
+        "reviewText"
+      ],
+      "before": "Both non-null strings were optional without defaults.",
+      "after": "Both became required, with no defaults; request 6 carries no diagnostics.",
+      "other_response_change": "The feedback output also changed required:false to required:true; this was not a diagnostic target and is not independently classified as a defect here."
+    },
+    "accepted_state": {
+      "accepted_checkpoints": 2,
+      "accepted_structural_containers": 1,
+      "accepted_operations": 1,
+      "clone_task_id": "step_2",
+      "clone_remote_url": "https://github.com/AxaFrance/SmartGuide",
+      "clone_branch": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488",
+      "clone_target_directory_matches_exact_original": true,
+      "clone_binding_assessment": "Repository URL, pinned commit and isolated target match the original request. No caller PR-page URL is bound as the Git remote. Runtime provenance and clone success remain unverified.",
+      "public_outputs": 0,
+      "requirement_closure_claims": 0,
+      "artifact_present": false,
+      "runtime_started": false
+    },
+    "unaccepted_candidate": {
+      "task_id": "step_3",
+      "purpose": "Run the three original preliminary version commands, preserving exact outputs/exit codes and explicit failure reporting.",
+      "producer_binding": "step_2.projectRootRelative -> step_3.projectRoot",
+      "deterministic_diagnostics": [],
+      "completion_claim": false,
+      "local_reviewed": false,
+      "intermediate_reviewed": false,
+      "review_window_result": "First of two required original-source windows returned no findings; the second produced no report. The candidate was not accepted."
+    },
+    "control_comparison": {
+      "source": "d5a4cac23ebe7fa8525ecb8f0299c65b6613d870",
+      "model_equal": true,
+      "phase_policy_equal": true,
+      "original_prompt_equal_modulo_exact_run_identity": true,
+      "control_calls": 26,
+      "candidate_calls": 27,
+      "control_checkpoints": 3,
+      "candidate_checkpoints": 2,
+      "control_stop": "Unissued next draft exceeded its 20,000 input ceiling: 69,935 bytes / 23,568 estimated tokens.",
+      "candidate_stop": "Admitted second precheck review window returned output_limit; 18,821 estimated input tokens were within 20,000.",
+      "comparison_limit": "Different accepted plans and stopping points. No equal-result savings or causal A/B benefit is demonstrated."
+    },
+    "assessment_sha256": "db1b00a71afd6ca72cd1179a881ad746b9f0b5181a6bf584250663674e7c4fa4"
+  }
+}

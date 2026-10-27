@@ -1,5 +1,33 @@
 # Compact TaskPlan convergence
 
+## Collections control: new transport uncertainty blocks paid diagnostics
+
+[Exact source-bound outcome and accounting](compact-taskplan-d5a4-collections-uncertain.json) retain the original records; amounts below are rounded.
+
+The `d5a4cac2` Collections control stopped during interface extraction after **two logical requests, three physical attempts and one completion receipt**. Request 2 received HTTP 500, then a response-less transport failure; it has no completion receipt or verified usage. Known cost is **€0.018389**, with **€1.861740** reserved for two unknown-usage attempts. No checkpoint, artifact or runtime execution occurred.
+
+Exact retention inspection succeeded, but the new abandonment remains **pending user authorization**; replay and continuation are forbidden and the reservation remains retained. The saved campaign upper bound is €304.968499, leaving **€135.061605** under the existing ceiling at that capture. The prior record contains 34 permanently closed receiptless identities; this is one new unresolved identity, not a fresh full-ledger recount. Candidate Collections had not been frozen or dispatched. Paid diagnostics remain blocked; no business success or efficiency claim follows.
+
+## Revision 9 Review PR: received Judge output exhaustion
+
+[Candidate outcome](compact-taskplan-93d3-code-output-exhaustion.json) and [paired request measurements](compact-taskplan-v9-code-request-measurements.json) retain distinct planning failures under the same profiles.
+
+The frozen `93d3e1c2` v9 Review PR candidate stopped at its mandatory local Judge after **27 logical calls, 27 physical attempts and 27 completion receipts**, with one correction and two accepted planning checkpoints. Request 27 was admitted at an estimated 18,821 input tokens under 20,000; the provider returned `output_limit`, with all 8,192 output tokens counted as reasoning and no visible response. Known cost and its upper bound were **€2.394409** (rounded), with zero unknown-usage reserve.
+
+The unchanged offline journal reducer found **34 retained received request/proposition pairs** across three reports: 19 local-behavior, 3 interaction and 12 global, all acknowledged as broad. It recorded zero reuse events and zero mechanical transition rows. These are retained journal observations, not independently revalidated accepted facts or calls saved. The 33 measured request identities comprise 27 dispatched and 6 unissued prepared requests; none were rejected before dispatch. No artifact or runtime execution was reached, so business acceptance and equal-result savings remain unestablished.
+
+The paired size evidence reports per-phase complete-request byte and estimated-token p50/p95/max, with component bytes reconciled. Each arm constructed 33 identities: the control dispatched 26, retained 6 unissued prepared requests and rejected 1 before dispatch; the candidate dispatched 27 and retained 6 unissued prepared requests. These distributions include unissued requests and are not provider usage.
+
+## Terminal validation, authorized closure and Review PR control
+
+The [source-bound update](compact-taskplan-93d3-terminal-technical-closure-code-control.json) supplements the dated captures below.
+
+Terminal technical validation is now available: the exact `93d3e1c2` local full suite recorded **8,810 passed, 13 skipped and one Cmd timeout**, with warnings as errors. The unchanged targeted Cmd check passed separately; the original full-run failure remains. All three CI workflows (eight jobs) passed on both `93d3e1c2` and its documentation-only successor `19fd429e`. PR #120 remained Draft. The previously qualified eight publication/storage stages and four reused packages retain their original execution attribution.
+
+The user-authorized Amazon abandonment was applied and returned the same result after restart. Its **€2.7926104417670682730923694779 reservation remains retained**; unknown usage stays unverified, with replay and continuation prohibited. Accounting was unchanged. The post-closure capture showed 34 closed receiptless identities and zero unresolved identities; this predates subsequent diagnostics and is not a current balance statement.
+
+The `d5a4cac2` Review PR control stopped after **26 logical calls, 26 physical attempts and 26 completion receipts**, with three accepted planning checkpoints and no corrections. The next draft was rejected before dispatch: its complete 69,935-byte request estimated 23,568 input tokens against the frozen 20,000 ceiling. Known cost was **€2.588992** (rounded), with no unknown-usage reservation. No artifact or runtime execution resulted, so calls per fulfilled obligation remain undefined. These results do not establish live efficiency or business acceptance; the candidate outcome is recorded separately above.
+
 ## 93d3e1c2: Amazon stopped on exhausted HTTP retries
 
 The [frozen v9 candidate](compact-taskplan-93d3-amazon-http-exhaustion.json) stopped during interface extraction: **two logical requests, four physical attempts and one completion receipt**. Request 2 received three HTTP 500 error responses under its captured retry policy, with no completion receipt or verified usage. Known cost is **€0.065743**, with **€2.792610** retained unknown-usage reservations (rounded; exact amounts in the evidence). Planning took 987,082 ms. No draft, Judge, checkpoint, artifact or runtime execution occurred, so A/B live efficacy remains untested and calls per fulfilled business obligation are undefined. Earlier termination is not an efficiency improvement over the control.
