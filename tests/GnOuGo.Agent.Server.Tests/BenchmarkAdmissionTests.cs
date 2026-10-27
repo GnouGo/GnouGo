@@ -96,22 +96,29 @@ public sealed class BenchmarkAdmissionTests
     }
 
     [Theory]
-    [InlineData(false, 0)]
-    [InlineData(false, 1)]
-    [InlineData(false, 2)]
-    [InlineData(false, 3)]
-    [InlineData(false, 4)]
-    [InlineData(true, 1)]
-    public async Task FreshCapturedTransportBindsActualReviewHeadroomAndStricterDisable(bool disabled, int reviews)
+    [InlineData(false, 0, 10)]
+    [InlineData(false, 0, 11)]
+    [InlineData(false, 1, 10)]
+    [InlineData(false, 1, 11)]
+    [InlineData(false, 2, 10)]
+    [InlineData(false, 2, 11)]
+    [InlineData(false, 3, 10)]
+    [InlineData(false, 3, 11)]
+    [InlineData(false, 4, 10)]
+    [InlineData(false, 4, 11)]
+    [InlineData(true, 1, 10)]
+    [InlineData(true, 1, 11)]
+    public async Task FreshCapturedTransportBindsActualReviewHeadroomAndStricterDisable(bool disabled, int reviews, int presentation)
     {
         using var fixture = new Fixture();
         var provider = new Provider(fixture.Campaign);
         using var model = fixture.Model(new Rates(fixture.Time), provider);
         var planning = LiveWorkflowEvaluation.FreshPlanningRequest([], "strict", "amazon", "Original", "fixture", "pinned");
+        planning.Options["construction_presentation_version"] = presentation;
         planning.Options["llm_budget"]!["max_calls"] = 5;
         await model.CapturePlanningPolicyAsync(planning, Ct, activeMilliseconds: 120_000);
         var captured = await fixture.Campaign.LoadAsync("planning-evaluation-session-policy", planning.SessionId, Ct);
-        Assert.Equal(11, captured!["construction_presentation_version"]!.GetValue<int>());
+        Assert.Equal(presentation, captured!["construction_presentation_version"]!.GetValue<int>());
         var request = PlanningConstructionPhasePolicies.Apply(new LLMRequest
         {
             ClientRequestId = "strict:1", Prompt = "Exact bounded request", RequiredReviewCalls = reviews,

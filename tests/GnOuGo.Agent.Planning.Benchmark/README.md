@@ -1498,3 +1498,5 @@ evidence rather than a general reliability claim.
 Fresh presentation 11 retains source-window review headroom under the captured physical-call limit. Permanent retention compares the exact captured presentation for versions 6–11; a missing or mismatched capture cannot establish abandonment eligibility or release any reservation.
 
 The opt-in generic proof oracle is `generic-proof-artifact-v2`. Forbidden dependencies on the opaque read include `output` and `present` recursively in values and control predicates. Contribution remains result-dataflow based: a presence guard cannot stand in for consuming the shared numeric result. Collections keeps `synthetic-artifact-v1`; measured generic arms must both capture v2 before comparison.
+
+Version-11 session capture and the physical-attempt journal use the same source-window headroom convention as versions 6–10. The captured presentation is mandatory evidence for that headroom; saved policies are never filled or rewritten during recovery. A run frozen before this host correction retains its original capture and is reported under that harness, including any admission stop.
