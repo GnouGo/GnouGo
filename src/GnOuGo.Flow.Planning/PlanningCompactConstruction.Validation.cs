@@ -17,7 +17,7 @@ internal static partial class PlanningCompactConstruction
     {
         var construction = state.Construction!; var compact = State(state); var step = compact.CurrentStep;
         if (construction.Version != 2 || step is null || construction.Candidate?.AuthorizedPaths is not null || state.EditablePaths is not null ||
-            state.PendingCall is not null || string.IsNullOrWhiteSpace(reason) || reason.Length > 512 || !state.Diagnostics.Any(d => d.Required))
+            state.PendingCall is not null || string.IsNullOrWhiteSpace(reason) || !state.Diagnostics.Any(d => d.Required))
             PlanningConstruction.Fail("CONSTRUCTION_RESELECTION_INVALID", "/reselectStep", "Reselection requires a diagnosed tentative step and cannot expand explicit correction authority.");
         compact.RejectedSteps.Add(new JsonObject { ["step"] = JsonSerializer.SerializeToNode(step, PlanningJsonContext.Default.PlanningConstructionStep),
             ["candidateHash"] = construction.Candidate?.Hash, ["reason"] = reason,

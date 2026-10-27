@@ -1001,10 +1001,12 @@ internal static partial class PlanningCompactConstruction
         // after that navigation page expires; citation grants no coverage or edits.
         var available = PrerequisiteAddresses(state, state.Construction!.Requirements.Select(requirement => requirement.Id))
             .ToHashSet(StringComparer.Ordinal);
+        // String bounds were validated under the exact issued schema before
+        // deserialization. Do not reapply UTF-16 bounds to retained declarations.
         foreach (var prerequisite in step.Prerequisites)
         {
             var addresses = prerequisite.EvidenceAddresses.Distinct(StringComparer.Ordinal).ToList();
-            if (string.IsNullOrWhiteSpace(prerequisite.Need) || prerequisite.Need.Length > 256 ||
+            if (string.IsNullOrWhiteSpace(prerequisite.Need) ||
                 prerequisite.EvidenceAddresses.Count is < 1 or > 4 ||
                 !UsesConvergentConstruction(state) && addresses.Count != prerequisite.EvidenceAddresses.Count)
                 PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/step/prerequisites", "A prerequisite needs a bounded description and distinct original evidence addresses.");

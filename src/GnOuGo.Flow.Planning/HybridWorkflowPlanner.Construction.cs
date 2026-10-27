@@ -195,7 +195,7 @@ public sealed partial class HybridWorkflowPlanner
                 // recovered requests whose reselectStep may still be null-only.
                 if (!PlanningCompactConstruction.CanReselectInitialDraft(state) ||
                     proposal.Requirements is not null || proposal.Commitments is not null || proposal.RollbackReason is not null ||
-                    string.IsNullOrWhiteSpace(reason) || reason.Length > 512)
+                    string.IsNullOrWhiteSpace(reason))
                     PlanningConstruction.Fail("CONSTRUCTION_RESELECTION_INVALID", "/reselectStep",
                         "Reselect only the unaccepted tentative step within its captured correction allowance.");
                 if (correction.Enabled) correction.Reselect();

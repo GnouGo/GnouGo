@@ -58,6 +58,7 @@ public sealed partial class CompactConvergentJudgeTests
     [InlineData(8)]
     [InlineData(9)]
     [InlineData(10)]
+    [InlineData(11)]
     public async Task IssuedStringLengthInterpretationSurvivesChangedSessionAndRequestReconstruction(int presentation)
     {
         var state = await State();
@@ -65,21 +66,21 @@ public sealed partial class CompactConvergentJudgeTests
         var schema = PlanningSchemas.Object(("text", new JsonObject { ["type"] = "string", ["minLength"] = 1, ["maxLength"] = 1 }));
         var request = PlanningModelCalls.PrepareRequest(state, "construction_select", "Inspect one character.", schema);
         Assert.Null(schema["$comment"]);
-        Assert.Equal(presentation == 10, request.StructuredOutputSchema!["$comment"] is not null);
+        Assert.Equal(presentation is 10 or 11, request.StructuredOutputSchema!["$comment"] is not null);
         Assert.Empty(PlanningContractValidation.ValidateSchema(request.StructuredOutputSchema, strict: true));
         state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = "construction_select", Request = request };
         state.ModelCalls++;
         state = PlannerFixture.Clone(state);
         var exact = JsonSerializer.Serialize(state.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
         // Recovery must use the issued annotation, never a newer/current version.
-        state.Construction!.Compact!.PresentationVersion = presentation == 10 ? 9 : 10;
+        state.Construction!.Compact!.PresentationVersion = presentation is 10 or 11 ? 9 : 10;
         var runtime = new TestRuntime { Respond = (issuedRequest, _) =>
         {
             Assert.Equal(exact, JsonSerializer.Serialize(issuedRequest, PlanningJsonContext.Default.LLMRequest));
             return Response(new JsonObject { ["text"] = "\U0001F4A1" });
         } };
         var call = PlanningModelCalls.CallAsync(state, runtime, "construction_select", "New context must not replace an issued request.", schema, PlannerFixture.Ct);
-        if (presentation == 10) Assert.Equal("\U0001F4A1", (await call)["text"]!.ToString());
+        if (presentation is 10 or 11) Assert.Equal("\U0001F4A1", (await call)["text"]!.ToString());
         else Assert.Contains((await Assert.ThrowsAsync<PlanningResponseException>(() => call)).Diagnostics,
             diagnostic => diagnostic.Location == "/text");
         Assert.Equal(1, state.ModelCalls);

@@ -70,10 +70,11 @@ internal static partial class PlanningCompactConstruction
 
     internal static void Reselect(PlanningSession state, PlanningConstructionReselection decision)
     {
+        // CallAsync owns string bounds under the issued schema's convention.
         if (decision.Disposition == "legacy") { Reselect(state, decision.Reason); return; }
         var construction = state.Construction!; var compact = State(state); var step = compact.CurrentStep;
         if (!UsesConvergentConstruction(state) || step is null || decision.Disposition is not ("suspend" or "abandon") ||
-            string.IsNullOrWhiteSpace(decision.Reason) || decision.Reason.Length > 512 ||
+            string.IsNullOrWhiteSpace(decision.Reason) ||
             (decision.Disposition == "suspend") != (decision.Prerequisite is not null))
             PlanningConstruction.Fail("CONSTRUCTION_RESELECTION_INVALID", "/reselectStep", "Explicitly abandon this selection or suspend it for one evidenced typed prerequisite.");
         PlanningConstructionSuspendedStep? suspended = null;

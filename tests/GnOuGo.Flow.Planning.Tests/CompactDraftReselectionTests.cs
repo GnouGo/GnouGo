@@ -370,6 +370,66 @@ public sealed class CompactDraftReselectionTests
         Assert.Single(state.Construction.Compact!.RejectedSteps);
     }
 
+    [Theory]
+    [InlineData(9, false)]
+    [InlineData(10, false)]
+    [InlineData(10, true)]
+    [InlineData(11, false)]
+    [InlineData(11, true)]
+    public async Task ReselectionAndPrerequisiteBoundsFollowTheIssuedSchemaAfterRecovery(int presentation, bool unmarked)
+    {
+        var (state, runtime) = await Ready(presentation);
+        runtime.Calls.Clear();
+        var accepted = Accepted(state);
+        var request = PlanningConstruction.DraftRequest(state, repair: false);
+        request = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.DraftPurpose, request.Prompt,
+            request.StructuredOutputSchema!.AsObject());
+        if (unmarked) request.StructuredOutputSchema!.AsObject().Remove("$comment");
+        var unicode = request.StructuredOutputSchema!["$comment"]?.ToString() == PlanningModelCalls.UnicodeStringLengths;
+        request.ClientRequestId = "retained-unicode-reselection";
+        state.PendingCall = new() { Id = request.ClientRequestId, Purpose = PlanningConstruction.DraftPurpose,
+            Request = request, CorrectionAccounting = 0 };
+        state.Construction!.IssuedBaseHash = PlanningConstruction.Hash(state.Plan);
+        state.ModelCalls++;
+        state = PlannerFixture.Clone(state);
+        var exact = JsonSerializer.Serialize(state.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
+        var reason = new string('r', 511) + "\U0001F4A1";
+        var need = new string('n', 255) + "\U0001F4A1";
+        runtime.Respond = (issued, _) =>
+        {
+            Assert.Equal(exact, JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest));
+            var response = Reselect(issued);
+            response["reselectStep"] = new JsonObject
+            {
+                ["reason"] = reason, ["disposition"] = "suspend", ["prerequisite"] = new JsonObject
+                {
+                    ["need"] = need, ["expectedType"] = JsonSerializer.SerializeToNode(new TaskType { Kind = "string" }, PlanningJsonContext.Default.TaskType),
+                    ["evidenceAddresses"] = new JsonArray("requirement:req_0")
+                }
+            };
+            return Wire(issued, response);
+        };
+        state = await Advance(state, runtime);
+        Assert.Equal(accepted, Accepted(state));
+        Assert.Single(runtime.Calls);
+        if (unicode)
+        {
+            Assert.Empty(state.Diagnostics);
+            Assert.Equal(1, state.ReplanAttempts);
+            Assert.Equal(reason, Assert.Single(state.Construction!.Compact!.RejectedSteps)["reason"]!.ToString());
+            Assert.Equal(need, Assert.Single(state.Construction.Compact.SuspendedSteps!).Prerequisite.Need);
+            Assert.Null(state.Construction.Compact.CurrentStep);
+        }
+        else
+        {
+            Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "PLANNING_RESPONSE_INVALID");
+            Assert.Equal(0, state.ReplanAttempts);
+            Assert.Empty(state.Construction!.Compact!.RejectedSteps);
+            Assert.Null(state.Construction.Compact.SuspendedSteps);
+            Assert.NotNull(state.Construction.Compact.CurrentStep);
+        }
+    }
+
     private static async Task<(PlanningSession State, TestRuntime Runtime)> Ready(int presentationVersion = 2)
     {
         var runtime = new TestRuntime { Respond = (request, _) => Wire(request, new()

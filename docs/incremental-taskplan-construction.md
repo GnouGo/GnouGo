@@ -1077,3 +1077,5 @@ Budget extensions append authorization history. Frozen cohorts retain source,
 contract, settings and oracle hashes, including failures. Reports distinguish
 compilation, declared coverage, business success, uncertainty, physical calls,
 tokens, elapsed time and cost.
+
+Issued response schemas own prerequisite/reselection string bounds. Shared semantic validators check the action, scope and evidence but do not impose a second UTF-16 length limit after schema validation. This also applies when revalidating a retained consumer. Marked requests use Unicode code points; unmarked historical requests retain UTF-16 bounds, including old version-10 receipts.

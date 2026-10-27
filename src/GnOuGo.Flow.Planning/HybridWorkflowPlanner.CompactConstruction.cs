@@ -342,7 +342,7 @@ public sealed partial class HybridWorkflowPlanner
                 correcting = context?["diagnostics"]?.AsArray().Any(d => d?["required"]?.GetValue<bool>() == true) == true;
             }
             if (new[] { primary, "evidenceRequests", "clarifications", "discoveryRequests" }.Any(name => response[name] is not null) ||
-                !PlanningCompactConstruction.CanReselectDiscovery(state) || string.IsNullOrWhiteSpace(decision.Reason) || decision.Reason.Length > 512)
+                !PlanningCompactConstruction.CanReselectDiscovery(state) || string.IsNullOrWhiteSpace(decision.Reason))
                 PlanningConstruction.Fail("CONSTRUCTION_RESELECTION_INVALID", "/reselectStep", "Reselect only an inspected tentative operation step, as one bounded action within its retained correction authority.");
             if (!correcting && PlanningModelCalls.RemainingRepairs(state) == 0)
                 PlanningConstruction.Fail("CONSTRUCTION_CORRECTION_ALLOWANCE", "/reselectStep", "The retained correction allowance cannot admit tentative-step reselection.");
