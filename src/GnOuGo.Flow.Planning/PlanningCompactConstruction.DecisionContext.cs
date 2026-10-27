@@ -57,6 +57,8 @@ internal static partial class PlanningCompactConstruction
             var displayed = CompactAcceptedProgressContext(navigation);
             if (purpose == SelectPurpose && State(state).PresentationVersion == 11)
                 return FitSelectionNavigation(state, instructions, displayed);
+            if (State(state).PresentationVersion == 11 && purpose is PlanningConstruction.DraftPurpose or "replan")
+                displayed = CompactSelectedProducerContractMetadata(displayed);
             if (!ReferenceEquals(displayed, context)) chosen.Prompt = instructions + "\n" + PlanningJsonTransport.Prompt(displayed);
             return chosen;
         }
@@ -73,6 +75,44 @@ internal static partial class PlanningCompactConstruction
             }
             return Request(instructions, context, response, purpose);
         }
+    }
+
+    internal static JsonObject CompactSelectedProducerContractMetadata(JsonObject context)
+    {
+        // Only the same original contract can share presentation metadata. Task
+        // arguments and selected schema closures remain local to each producer.
+        var operations = context["operations"] as JsonArray ?? [];
+        var interfaces = context["interfaces"] as JsonArray ?? [];
+        JsonObject? displayed = null;
+        for (var row = 0; row < interfaces.Count; row++)
+        {
+            var producers = interfaces[row]?["producers"] as JsonArray ?? [];
+            for (var producer = 0; producer < producers.Count; producer++)
+            {
+                if (producers[producer]?["contract"] is not JsonObject contract || contract["sharedContractMetadata"] is not null) continue;
+                for (var operation = 0; operation < operations.Count; operation++)
+                {
+                    if (operations[operation] is not JsonObject selected || new[] { "id", "version", "hash" }.Any(key =>
+                            contract[key] is not JsonValue value || !value.TryGetValue<string>(out var identity) ||
+                            string.IsNullOrEmpty(identity) || !JsonNode.DeepEquals(contract[key], selected[key]))) continue;
+                    var fields = new[] { "description", "outputs", "artifacts" }.Where(key => contract[key] is { } original &&
+                        string.Equals(original.ToJsonString(), selected[key]?.ToJsonString(), StringComparison.Ordinal)).ToArray();
+                    if (fields.Length == 0) continue;
+                    var compact = contract.DeepClone().AsObject();
+                    foreach (var field in fields) compact.Remove(field);
+                    compact["sharedContractMetadata"] = new JsonObject
+                    {
+                        ["detailsPointer"] = "/operations/" + operation.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        ["fields"] = new JsonArray(fields.Select(field => (JsonNode)JsonValue.Create(field)!).ToArray())
+                    };
+                    if (Encoding.UTF8.GetByteCount(compact.ToJsonString()) >= Encoding.UTF8.GetByteCount(contract.ToJsonString())) continue;
+                    displayed ??= context.DeepClone().AsObject();
+                    displayed["interfaces"]![row]!["producers"]![producer]!["contract"] = compact;
+                    break;
+                }
+            }
+        }
+        return displayed ?? context;
     }
 
     private static LLMRequest FitSelectionNavigation(PlanningSession state, string instructions, JsonObject initial)

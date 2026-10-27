@@ -228,6 +228,15 @@ and completion claims retain every required original window. Presentation can sh
 identical embedded schema metadata under its exact contract, never across requests
 or by dropping mandatory constraints. Existing Judge grammar and settings remain.
 
+Revision 11 drafting/correction can also share byte-identical description, output
+directory and artifact metadata when a consumed producer uses the same selected
+operation's exact ID, version and complete contract hash. Its
+`sharedContractMetadata` names only the shared fields and the selected operation's
+request-local `detailsPointer`. Arguments, selected schema closures and original
+coordinates remain with the producer; standalone retrieval stays complete.
+Different fields or identities remain separate. This is display-only factoring,
+not a TaskValue reference or a substitute for mandatory evidence admission.
+
 Authoring requests also share byte-identical checkpoint navigation within the chosen
 original-requirement view. The first complete row stays inline; subsequent associations
 retain their sequence, original evidence address and an exact JSON Pointer to that row.

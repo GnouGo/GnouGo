@@ -60,6 +60,12 @@ Revision 8 additionally shares byte-identical ancestor constraints and reference
 closures within each input/output direction under that same exact contract;
 differing views remain separate and independently retrievable in full.
 This presentation reduction changes neither captured ceilings nor compiler validation.
+Revision 11 drafts/corrections may reference byte-identical description, output
+directory and artifact fields in the same selected operation's request-local view.
+The producer retains its exact contract ID/version/hash, arguments and consumed
+schema closures. `sharedContractMetadata` lists the shared fields and their
+`detailsPointer`; original coordinates and complete standalone retrieval remain.
+Different identities or field bytes cannot share this presentation.
 Revision-8 authoring also shares identical accepted-checkpoint navigation rows
 through the first complete row in the same request. Each requirement keeps its exact
 association and evidence address. Factoring follows the existing original-clause
