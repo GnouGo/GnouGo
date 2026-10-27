@@ -45,6 +45,14 @@ cannot close a requirement without complete valid coverage. Fresh revision 11
 inherits revision 10's continuation and conservation safeguards; versions 2–10
 retain their original presentation behavior and issued requests.
 
+On a rejected multi-address evidence batch, revision 11 prepares and admits the
+complete single-address control before making recovery available. Optional task
+and companion-operation navigation may move behind its exact links when needed;
+original clauses, explicit evidence, consumed interfaces and contract closures do
+not. The original report and detailed rejection remain in the candidate journal.
+An unsendable mandatory review/control stops immediately. Admission and recovery
+neither commit rejected evidence nor grant another correction or reassessment.
+
 ## Useful local evidence and independent transitions (presentation revision 10)
 
 Fresh selection, drafting and scoped review share explicit structural semantics:

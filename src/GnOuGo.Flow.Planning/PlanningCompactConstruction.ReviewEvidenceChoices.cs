@@ -27,7 +27,7 @@ internal static partial class PlanningCompactConstruction
         {
             "requirementsDirectory", "nextRequirements", "checkpointEvidence", "scopeEvidence", "interfacesDirectory",
             "reusableInterfaces", "taskEvidence", "groupEvidence", "scopeInterface", "interfaces", "inputDeclarations", "operations",
-            "companionOperations", "rebuild", "continuation"
+            "companionOperations", "rebuild", "continuation", "ancestorControls"
         }.Select(name => context[name]).Append(context["taskEvidence"]?["scopeOwner"])
             .Concat((context["evidence"] as JsonObject ?? []).Select(item => item.Value))));
         // Displayed host links are the only navigation authority. Retained originals

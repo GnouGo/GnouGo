@@ -5,6 +5,27 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningCompactConstruction
 {
+    internal static void CompactReviewNavigation(JsonObject context)
+    {
+        // Actual operands, producer tasks/contracts, ancestor controls, originals
+        // and explicitly retrieved evidence remain complete. Only optional
+        // navigation descriptions move behind their existing exact addresses.
+        if (context["taskEvidence"]?["items"] is JsonArray tasks)
+            foreach (var task in tasks.OfType<JsonObject>())
+            {
+                foreach (var key in task.Select(pair => pair.Key).Except(
+                    ["task", "address", "evidence", "scope", "phase", "scopes", "nextPorts", "objectiveEvidence"], StringComparer.Ordinal).ToArray())
+                    task.Remove(key);
+                task["detailsOmitted"] = true;
+            }
+        if (context["companionOperations"]?["items"] is JsonArray operations)
+            foreach (var operation in operations.OfType<JsonObject>())
+            {
+                operation.Remove("description"); operation.Remove("descriptionComplete");
+                operation["descriptionOmitted"] = true;
+            }
+    }
+
     private static void AddTaskEvidence(PlanningSession state, JsonObject context, bool review)
     {
         var construction = state.Construction!;

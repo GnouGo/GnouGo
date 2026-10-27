@@ -184,11 +184,13 @@ public sealed partial class CompactConvergentJudgeTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task CoalescedBatchStillAdmitsTheWholeDistinctFollowupAtomically(bool multiple)
+    [InlineData(10, false)]
+    [InlineData(10, true)]
+    [InlineData(11, false)]
+    [InlineData(11, true)]
+    public async Task CoalescedBatchStillAdmitsTheWholeDistinctFollowupAtomically(int presentation, bool multiple)
     {
-        var state = await BatchState();
+        var state = await BatchState(presentation);
         // Its navigation is bounded, but the requested original remains whole.
         // Keep it outside the current consumed producer cone so the initial
         // review fits and only the proposed evidence follow-up is oversized.
@@ -227,7 +229,36 @@ public sealed partial class CompactConvergentJudgeTests
         {
             Assert.Equal(PlanningStatus.Generating, state.Status);
             Assert.Equal("CONSTRUCTION_EVIDENCE_LIMIT", Assert.Single(state.Diagnostics).Code);
-            Assert.Equal(1, BatchSchema(HybridWorkflowPlanner.CreateConstructionReviewRequest(state, false).Request)["maxItems"]!.GetValue<int>());
+            var followup = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, false).Request;
+            Assert.Equal(1, BatchSchema(followup)["maxItems"]!.GetValue<int>());
+            if (presentation == 11)
+            {
+                var complete = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.LocalPurpose,
+                    followup.Prompt, followup.StructuredOutputSchema!.AsObject(), construction.Limits.ReviewOutputTokens);
+                var actual = PlanningRequestMeasurements.Measure(complete, PlanningConstruction.LocalPurpose,
+                    PlanningConstructionInputPolicy.EffectiveLimit(state.Request, PlanningConstruction.LocalPurpose));
+                Assert.Contains(state.RequestMeasurements!, row => row.RequestHash == actual.RequestHash && row.Admission != "rejected_before_dispatch");
+                var rejected = Assert.Single(state.Construction.Candidate.Reviews, row => row["outcome"]?.ToString() == "evidence_admission_rejected");
+                Assert.True(JsonNode.DeepEquals(raw, rejected["rawResponse"]));
+                Assert.NotNull(rejected["sourceCoverage"]);
+                runtime.Respond = (_, _) => throw new OperationCanceledException();
+                _ = await Advance(PlannerFixture.Clone(state), runtime);
+                state = PlannerFixture.Clone(runtime.Checkpoints.Last(saved => saved.Status == PlanningStatus.Generating && saved.PendingCall is not null));
+                var exact = JsonSerializer.Serialize(state.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
+                var charged = state.ModelCalls;
+                runtime.Respond = (request, _) =>
+                {
+                    Assert.Equal(exact, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+                    return Response(EvidenceBatch("task:accepted_label"));
+                };
+                state = await Advance(state, runtime);
+                Assert.Empty(state.Diagnostics);
+                Assert.Equal(charged, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+                Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan)); Assert.Equal(candidate, state.Construction!.Candidate!.Hash);
+                Assert.True(state.Construction.Evidence!.ContainsKey("task:accepted_label"));
+                Assert.False(state.Construction.Evidence.ContainsKey("task:large_independent"));
+                Assert.Empty(state.Construction.Checkpoints);
+            }
         }
         else
         {
@@ -242,6 +273,56 @@ public sealed partial class CompactConvergentJudgeTests
         state.Construction!.Compact!.PresentationVersion = presentation;
         state.Request.Options["construction_presentation_version"] = presentation;
         return state;
+    }
+
+    [Fact]
+    public async Task UnsendableEvidenceControlStopsWithoutAnotherDispatchOrCommittingTheRejectedBatch()
+    {
+        var state = await BatchState(11);
+        state.Plan!.Root.Tasks.Add(new() { Id = "large_independent", Kind = "value", Objective = new string('x', 100_000),
+            Outputs = [new("value", new() { Kind = "string", Text = "Retained independent value." })] });
+        var construction = state.Construction!;
+        construction.Compact!.CurrentStep!.BaseHash = PlanningConstruction.Hash(state.Plan);
+        construction.Candidate = PlanningConstruction.Apply(state, construction.Candidate!.Extension);
+        var first = CompleteRequest();
+        SetCeiling(Estimated(first) - 1);
+        var compacted = CompleteRequest();
+        Assert.True(Estimated(compacted) < Estimated(first));
+        SetCeiling(Estimated(compacted));
+        var baseline = PlanningConstruction.Hash(state.Plan); var candidate = construction.Candidate.Hash;
+        var runtime = new TestRuntime { Respond = (request, _) =>
+        {
+            Assert.InRange(Estimated(request), 1, construction.Limits.PhasePolicy!.Review.MaxInputTokens);
+            var response = EvidenceBatch("task:large_independent", "requirement:work");
+            Assert.Empty(PlanningModelCalls.ValidateResponseFindings(response, request.StructuredOutputSchema!));
+            return Response(response);
+        } };
+        state = await Advance(state, runtime);
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Contains("CONSTRUCTION_EVIDENCE_RECOVERY_LIMIT", Assert.Single(state.Diagnostics).Message, StringComparison.Ordinal);
+        Assert.Single(runtime.Calls); Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan)); Assert.Equal(candidate, state.Construction!.Candidate!.Hash);
+        Assert.Null(state.Construction.Evidence); Assert.Empty(state.Construction.Checkpoints);
+        Assert.False(PlanningConstructionReviewCoverage.Complete(state, state.Construction.Candidate));
+        Assert.Equal(2, state.RequestMeasurements!.Count(row => row.Admission == "rejected_before_dispatch"));
+        Assert.Single(state.Construction.Candidate.Reviews, row => row["outcome"]?.ToString() == "evidence_admission_rejected");
+
+        LLMRequest CompleteRequest()
+        {
+            var request = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, false).Request;
+            return PlanningModelCalls.PrepareRequest(state, PlanningConstruction.LocalPurpose, request.Prompt,
+                request.StructuredOutputSchema!.AsObject(), construction.Limits.ReviewOutputTokens);
+        }
+        int Estimated(LLMRequest request) => checked((int)PlanningRequestMeasurements.Measure(request, PlanningConstruction.LocalPurpose,
+            construction.Limits.PhasePolicy!.Review.MaxInputTokens).EstimatedInputTokens);
+        void SetCeiling(int ceiling)
+        {
+            construction.Limits.PhasePolicy!.Review.MaxInputTokens = ceiling;
+            construction.Limits.PhasePolicy.Review.TargetInputTokens = Math.Min(ceiling, construction.Limits.PhasePolicy.Review.TargetInputTokens);
+            construction.Limits.InputLimits!.Review = ceiling;
+            state.Request.Options["construction_limits"] = JsonSerializer.SerializeToNode(construction.Limits, PlanningJsonContext.Default.PlanningConstructionOptions);
+            state.Request.Options["construction_input_limits"] = JsonSerializer.SerializeToNode(construction.Limits.InputLimits, PlanningJsonContext.Default.PlanningConstructionInputLimits);
+        }
     }
 
     private static JsonObject EvidenceBatch(params string[] addresses)

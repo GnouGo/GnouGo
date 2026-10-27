@@ -320,11 +320,29 @@ public sealed partial class HybridWorkflowPlanner
         LLMRequest Create(JsonObject displayed)
         {
             PlanningCompactConstruction.AddWindowReviewEvidence(state, displayed);
-            var schema = convergent ? ConvergentConstructionReviewSchema(displayed, reassessment is not null)
-                : ConstructionReviewSchema(displayed, verified, reassessment is not null);
-            PlanningConstructionReviewCoverage.ConstrainPropositionAcknowledgments(displayed, schema);
-            PlanningCompactConstruction.ConstrainReviewEvidence(state, displayed, schema);
-            return PlanningCompactConstruction.Request(guidance, displayed, schema, purpose);
+            var proposal = Render();
+            if (construction.Compact!.PresentationVersion == 11 && reassessment?["reportRepair"]?.GetValue<bool>() != true)
+            {
+                // Window count is a conservative upper bound on remaining
+                // headroom, and avoids recursive request preparation here.
+                var complete = PlanningModelCalls.PrepareRequest(state, purpose, proposal.Prompt, proposal.StructuredOutputSchema!.AsObject(),
+                    construction.Limits.ReviewOutputTokens, requiredReviewCalls: displayed["sourceCoverage"]?["windowCount"]?.GetValue<int>() ?? 1);
+                if (ModelRequestAdmission.EstimateTokens(complete) > PlanningConstructionInputPolicy.EffectiveLimit(state.Request, purpose))
+                {
+                    PlanningCompactConstruction.CompactReviewNavigation(displayed);
+                    proposal = Render();
+                }
+            }
+            return proposal;
+
+            LLMRequest Render()
+            {
+                var schema = convergent ? ConvergentConstructionReviewSchema(displayed, reassessment is not null)
+                    : ConstructionReviewSchema(displayed, verified, reassessment is not null);
+                PlanningConstructionReviewCoverage.ConstrainPropositionAcknowledgments(displayed, schema);
+                PlanningCompactConstruction.ConstrainReviewEvidence(state, displayed, schema);
+                return PlanningCompactConstruction.Request(guidance, displayed, schema, purpose);
+            }
         }
     }
 
@@ -428,6 +446,24 @@ public sealed partial class HybridWorkflowPlanner
                 {
                     // Admission rejected the complete batch on a clone. Keep
                     // the valid candidate; the next review permits one address.
+                    if (construction.Compact?.PresentationVersion == 11)
+                    {
+                        draft.Reviews.Add(new JsonObject { ["purpose"] = purpose, ["outcome"] = "evidence_admission_rejected",
+                            ["candidateIdentity"] = PlanningConstruction.FailureIdentity(state, draft),
+                            ["requestId"] = request.ClientRequestId, ["fingerprint"] = fingerprint,
+                            ["sourceCoverage"] = context["sourceCoverage"]?.DeepClone(),
+                            ["rawResponse"] = retainedResponse?.DeepClone(),
+                            ["diagnostics"] = PlanningJsonTransport.Diagnostics([limit]) });
+                        var recovery = PrepareConstructionEvidenceRecovery(state, intermediate, limit);
+                        if (recovery is null)
+                        {
+                            Inconclusive("CONSTRUCTION_EVIDENCE_RECOVERY_LIMIT: The complete mandatory review and its evidence-selection control cannot fit the captured allowance. No evidence was committed.");
+                            return;
+                        }
+                        state.Diagnostics = [recovery];
+                        construction.PendingReviewContext = null; construction.PendingReviewHash = null;
+                        return;
+                    }
                     state.Diagnostics = [limit];
                     construction.PendingReviewContext = null; construction.PendingReviewHash = null;
                     return;
@@ -533,6 +569,26 @@ public sealed partial class HybridWorkflowPlanner
             if (cause is not null) state.Diagnostics.Add(cause);
             Stop(state);
         }
+    }
+
+    private static PlanningDiagnostic? PrepareConstructionEvidenceRecovery(PlanningSession state, bool intermediate, PlanningDiagnostic rejection)
+    {
+        // The rejected request measurement and received report remain in their
+        // journals. Only a bounded control diagnosis enters the next request.
+        var diagnosis = rejection with { Message = "Select one exact separable evidence address; the rejected complete batch exceeded its captured input allowance." };
+        var probe = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession),
+            PlanningJsonContext.Default.PlanningSession)!;
+        probe.Diagnostics = [diagnosis];
+        probe.Construction!.PendingReviewContext = null; probe.Construction.PendingReviewHash = null;
+        var purpose = intermediate ? PlanningConstruction.IntermediatePurpose : PlanningConstruction.LocalPurpose;
+        var followup = CreateConstructionReviewRequest(probe, intermediate).Request;
+        var request = PlanningModelCalls.PrepareRequest(probe, purpose, followup.Prompt, followup.StructuredOutputSchema!.AsObject(),
+            probe.Construction.Limits.ReviewOutputTokens);
+        try { PlanningConstruction.AdmitEvidenceFollowup(state, request, purpose); }
+        catch (PlanningResponseException error) when (error.Diagnostics.Count > 0 && error.Diagnostics.All(d => d.Code is "CONSTRUCTION_EVIDENCE_LIMIT" or "CONSTRUCTION_REVIEW_ALLOWANCE"))
+        { return null; }
+        PlanningConstructionReviewCoverage.CopyManifest(probe.Construction.Candidate!, state.Construction!.Candidate!);
+        return diagnosis;
     }
 
     private static JsonObject? PendingConstructionReassessment(PlanningSession state, string purpose)
