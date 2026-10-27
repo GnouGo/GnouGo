@@ -24,6 +24,7 @@ internal static class CompactConstructionSmoke
         await RunAsync(8);
         await RunAsync(9);
         await RunAsync(10);
+        await RunAsync(11);
     }
 
     private static async Task RunAsync(int presentationVersion)
@@ -33,11 +34,11 @@ internal static class CompactConstructionSmoke
         var recoveredIntentActions = new HashSet<string>(StringComparer.Ordinal);
         var state = new PlanningSession { Request = new() { TenantId = "compact-smoke", Prompt = Objective } };
         PlanningSessionCreation.Capture(state);
-        if (presentationVersion == 10)
+        if (presentationVersion == 11)
         {
-            if (state.Request.Options["construction_presentation_version"]?.GetValue<int>() != 10 ||
-                state.Construction!.Compact!.PresentationVersion != 10)
-                throw new InvalidOperationException("Fresh compact capture did not select presentation ten.");
+            if (state.Request.Options["construction_presentation_version"]?.GetValue<int>() != 11 ||
+                state.Construction!.Compact!.PresentationVersion != 11)
+                throw new InvalidOperationException("Fresh compact capture did not select presentation eleven.");
         }
         else
         {
@@ -155,7 +156,7 @@ internal static class CompactConstructionSmoke
         if (!result.Success || result.Outputs?["message"]?.GetValue<string>() != "Hello")
             throw new InvalidOperationException("Compact v15 artifact changed the independently expected value.");
         Console.WriteLine(presentationVersion >= 6
-            ? $"compact presentation {presentationVersion}: {(presentationVersion == 10 ? "fresh capture" : "retained capture")}, {runtime.SourceWindows.Count} exact source windows, {expectedCalls} recovered calls and independently executed output"
+            ? $"compact presentation {presentationVersion}: {(presentationVersion == 11 ? "fresh capture" : "retained capture")}, {runtime.SourceWindows.Count} exact source windows, {expectedCalls} recovered calls and independently executed output"
             : $"compact presentation {presentationVersion}: classified originals, grounded interface extraction, six recovered calls, narrow draft/Judge and independently executed output");
     }
 
