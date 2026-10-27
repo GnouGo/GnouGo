@@ -1031,12 +1031,21 @@ internal static partial class PlanningCompactConstruction
         }
     }
 
-    internal static void RetainPrerequisiteEvidence(PlanningSession state)
+    private static HashSet<string> CurrentPrerequisiteAddresses(PlanningSession state)
     {
-        var construction = state.Construction!;
         var addresses = UsesDeferredBinding(state)
             ? State(state).CurrentStep?.Prerequisites?.SelectMany(item => item.EvidenceAddresses).ToHashSet(StringComparer.Ordinal) ?? []
             : [];
+        if (State(state).PresentationVersion == 10 && State(state).ResumingStepId is { } resumingId &&
+            State(state).SuspendedSteps?.SingleOrDefault(item => item.Id == resumingId && Active(item)) is { } resumed)
+            addresses.UnionWith(resumed.Prerequisite.EvidenceAddresses);
+        return addresses;
+    }
+
+    internal static void RetainPrerequisiteEvidence(PlanningSession state)
+    {
+        var construction = state.Construction!;
+        var addresses = CurrentPrerequisiteAddresses(state);
         var retained = new JsonObject();
         foreach (var item in construction.Evidence ?? [])
             if (addresses.Contains(item.Key)) retained[item.Key] = item.Value?.DeepClone();

@@ -751,6 +751,136 @@ public sealed class CompactSuspendedConsumerTests
         Assert.Equal(4, steps.Count); Assert.Equal("abandon", state.Construction.Compact.RejectedSteps[^1]["disposition"]!.ToString());
     }
 
+    [Theory]
+    [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(8)]
+    [InlineData(9)]
+    [InlineData(10)]
+    public async Task ResumptionKeepsFourOriginalNotesAndTheSeparateSatisfiedTypedPrerequisite(int presentation)
+    {
+        var state = State(presentation); state.IntentVersion = 3; state.Revision = 1; state.Status = PlanningStatus.Generating;
+        state.Catalog = await new TestRuntime().DiscoverAsync(state.Request, PlannerFixture.Ct);
+        PlanningCompactConstruction.InitializeSources(state);
+        var compact = state.Construction!.Compact!;
+        foreach (var source in compact.Sources) { source.Indexed = true; source.InterfaceKind = "none"; }
+        const string descriptionAddress = "description:required_number@v1:0";
+        state.Discovery.Resolved.Add(new()
+        {
+            Id = "required_number", Version = "v1", Kind = "tool", StepType = "mcp.call", Server = "source", Method = "number",
+            Description = "The authorized numeric prerequisite is required before consuming the numeric value.", EffectKind = "read",
+            InputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false },
+            OutputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject { ["number"] = new JsonObject { ["type"] = "number" } },
+                ["required"] = new JsonArray("number"), ["additionalProperties"] = false }
+        });
+        compact.CurrentStep!.Kind = null; compact.CurrentStep.DiscoveryComplete = false;
+        compact.CurrentStep!.Prerequisites = Enumerable.Range(1, 4).Select(index => new PlanningConstructionPrerequisite
+            { Need = "Preserve original evidence note " + index + ".", EvidenceAddresses = ["requirement:req"] }).ToList();
+        var originalNotes = PlanningConstruction.Node(compact.CurrentStep, PlanningJsonContext.Default.PlanningConstructionStep)!["prerequisites"]!.ToJsonString();
+        Assert.True(PlanningCompactConstruction.LoadEvidence(state, "source:source", out var evidence));
+        var description = PlanningCompactConstruction.LoadContractEvidence(state, descriptionAddress)!;
+        var originalDescription = description.ToJsonString();
+        state.Construction.Evidence = new JsonObject { ["source:source"] = evidence, [descriptionAddress] = description };
+        var originalEvidence = evidence!.ToJsonString();
+        var suspension = Suspend(); suspension.Prerequisite!.EvidenceAddresses.Add(descriptionAddress);
+        PlanningCompactConstruction.Reselect(state, suspension);
+        var suspended = Assert.Single(compact.SuspendedSteps!);
+        var typedNeed = PlanningConstruction.Node(suspended.Prerequisite, PlanningJsonContext.Default.PlanningConstructionTypedPrerequisite)!.ToJsonString();
+        Assert.DoesNotContain(suspended.Consumer.Prerequisites!, note => note.Need == suspended.Prerequisite.Need);
+
+        // The producer receives its ordinary scoped review, including fresh
+        // acknowledgments; no checkpoint receipt or review basis is fabricated.
+        compact.CurrentStep = Consumer(state, "number_source");
+        compact.ReplacementScope = null; compact.ReplacementRequirements = null;
+        state.Construction.CandidateFailureIdentityVersion = 1;
+        state.Construction.Candidate = PlanningConstruction.Apply(state, new()
+        {
+            Scope = "/root", RequirementIds = ["req"],
+            Tasks = [new() { Id = "number_source", Kind = "value", Objective = "Produce the original numeric prerequisite.",
+                Outputs = [new("number", new() { Kind = "number", Number = 7 })] }]
+        });
+        PlanningCompactConstruction.ValidateExtension(state, state.Construction.Candidate);
+        state.Diagnostics.Clear();
+        var producerRuntime = new TestRuntime { Respond = (request, purpose) =>
+        {
+            Assert.Contains(purpose, new[] { PlanningConstruction.LocalPurpose, PlanningConstruction.IntermediatePurpose });
+            var action = new JsonObject { ["kind"] = "findings", ["findings"] = new JsonArray() };
+            if (RequestContext(request)["reviewPropositions"] is JsonArray propositions)
+                action["acknowledgments"] = new JsonArray(propositions.Select(item => (JsonNode)new JsonObject
+                    { ["id"] = item!["id"]!.DeepClone(), ["applicability"] = "broad" }).ToArray());
+            var response = new JsonObject { ["action"] = action, ["uncertainty"] = "Execution remains unobserved." };
+            return new() { Json = response, Text = response.ToJsonString() };
+        } };
+        for (var remaining = 8; state.Construction!.Candidate is not null && remaining > 0; remaining--)
+            state = await Advance(state, producerRuntime);
+        Assert.Null(state.Construction.Candidate); Assert.Empty(state.Diagnostics);
+        var checkpoint = Assert.Single(state.Construction.Checkpoints);
+        Assert.True(PlanningConstructionReviewCoverage.Reviewed(state, checkpoint, PlanningConstruction.LocalPurpose));
+        compact = state.Construction.Compact!; suspended = Assert.Single(compact.SuspendedSteps!);
+        Assert.Equal("waiting", suspended.Status); Assert.Null(compact.CurrentStep);
+        var plan = PlanningConstruction.Hash(state.Plan); var corrections = state.Construction.DraftCorrections; var replans = state.ReplanAttempts;
+        var request = SelectionRequest(state, PlanningCompactConstruction.SelectGuidance(state));
+        var resume = new JsonObject
+        {
+            ["baseHash"] = plan, ["step"] = null, ["evidenceRequests"] = null, ["clarifications"] = null,
+            ["resumeStep"] = new JsonObject { ["continuationId"] = suspended.Id, ["producerCheckpoint"] = checkpoint.Sequence,
+                ["binding"] = new JsonObject { ["kind"] = "output", ["source"] = "number_source", ["port"] = "number" } }
+        };
+        Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(resume, request.StructuredOutputSchema!));
+        Assert.Null(resume["resumeStep"]!["prerequisites"]); // The issued action supplies no fifth note.
+        if (presentation < 10)
+        {
+            var before = Snapshot(state);
+            var error = Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ResumeStep(state, suspended.Id, checkpoint.Sequence, Output("number_source")));
+            Assert.Contains(error.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_STEP_INVALID" && diagnostic.Location == "/step/prerequisites");
+            Assert.Equal(before, Snapshot(state));
+            return;
+        }
+
+        foreach (var changeContract in new[] { false, true })
+        {
+            var stale = PlannerFixture.Clone(state);
+            if (changeContract) stale.Discovery.Resolved.Single(item => item.Id == "required_number").Description += " Changed original contract.";
+            else stale.Construction!.Compact!.Sources.Single(source => source.Id == "source").Text += " Changed original evidence.";
+            var staleBefore = Snapshot(stale);
+            Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ResumeStep(stale, suspended.Id, checkpoint.Sequence, Output("number_source")));
+            Assert.Equal(staleBefore, Snapshot(stale));
+        }
+        state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningCompactConstruction.SelectPurpose, Request = request };
+        state.ModelCalls++;
+        var issued = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest); var calls = state.ModelCalls;
+        var runtime = new TestRuntime { Respond = (actual, purpose) =>
+        {
+            Assert.Equal(PlanningCompactConstruction.SelectPurpose, purpose);
+            Assert.Equal(issued, JsonSerializer.Serialize(actual, PlanningJsonContext.Default.LLMRequest));
+            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(resume, actual.StructuredOutputSchema!));
+            return new() { Json = resume.DeepClone(), Text = resume.ToJsonString() };
+        } };
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Single(runtime.Calls); Assert.Equal(calls, state.ModelCalls); Assert.Null(state.PendingCall); Assert.Empty(state.Diagnostics);
+        Assert.Equal(corrections, state.Construction!.DraftCorrections); Assert.Equal(replans, state.ReplanAttempts);
+        Assert.Equal(plan, PlanningConstruction.Hash(state.Plan)); Assert.Single(state.Construction.Checkpoints);
+        compact = state.Construction.Compact!; suspended = Assert.Single(compact.SuspendedSteps!);
+        Assert.Equal("resuming", suspended.Status); Assert.Equal(suspended.Id, compact.ResumingStepId);
+        Assert.Equal(4, compact.CurrentStep!.Prerequisites!.Count);
+        Assert.Equal(originalNotes, PlanningConstruction.Node(compact.CurrentStep, PlanningJsonContext.Default.PlanningConstructionStep)!["prerequisites"]!.ToJsonString());
+        Assert.Equal(typedNeed, PlanningConstruction.Node(suspended.Prerequisite, PlanningJsonContext.Default.PlanningConstructionTypedPrerequisite)!.ToJsonString());
+        Assert.Equal("number_source", Assert.Single(compact.CurrentStep.Inputs).Source);
+        Assert.Equal(originalEvidence, state.Construction.Evidence!["source:source"]!.ToJsonString());
+        Assert.Equal(originalDescription, state.Construction.Evidence[descriptionAddress]!.ToJsonString());
+        Assert.Null(compact.CurrentStep.Kind); Assert.False(compact.CurrentStep.DiscoveryComplete);
+        var discovery = PlanningCompactConstruction.DiscoveryContext(state);
+        Assert.Equal(description["text"]!.ToString(), discovery["evidence"]![descriptionAddress]!["text"]!.ToString());
+        Assert.Null(discovery["evidence"]![descriptionAddress]!["textOmitted"]);
+        Assert.Contains(descriptionAddress, PlanningCompactConstruction.DiscoverySchema(state).ToJsonString(), StringComparison.Ordinal);
+        Assert.Contains(PlanningConstruction.EvidenceBatchFingerprint(state, ["source:source"]), state.Construction.EvidenceRequests);
+        var recovered = PlannerFixture.Clone(state); var recoveredBefore = Snapshot(recovered);
+        Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ResumeStep(recovered, suspended.Id, checkpoint.Sequence, Output("number_source")));
+        Assert.Equal(recoveredBefore, Snapshot(recovered)); Assert.False(PlanningCompactConstruction.TryResumeReviewedConsumer(recovered));
+        Assert.Equal(recoveredBefore, Snapshot(recovered));
+    }
+
     [Fact]
     public void ExactEvidenceAndDependencyChangesInvalidateOnlyTheirContinuations()
     {

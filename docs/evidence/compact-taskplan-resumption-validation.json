@@ -1,0 +1,111 @@
+{
+  "record_version": 1,
+  "base_source": "df92a8a57e1b8925c110365a5842e07de65df15c",
+  "change": "Fresh10 resumes a satisfied typed prerequisite without appending a fifth note; exact prerequisite evidence remains in the existing continuation and resumed views.",
+  "source_attribution": "Uncommitted working overlay qualified before the successor commit; exact executed file hashes below. Later documentation edits do not change these compiled inputs.",
+  "source_file_sha256": {
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Continuations.cs": "0a4f0ec8dbfad92bafcad01586a09246988d69dc1b66b34d8aac40e263dc9e6e",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs": "94c194c26fcc9e00528705af48a4979abb4168981f44e97c5e4eefc5cc57c79e",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Discovery.cs": "bfd78398b9e394fb0272d228b5721ef605c4ef17f7a614eb23553c99d93a5ca0",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Navigation.cs": "ca2e0fd02b32b788fb562fb174259686e9fdfd0168fbdc1100c7f37fa67c3dc0",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactSuspendedConsumerTests.cs": "760d7e05ed68862005b6158661c573385fa63437eb7c52fb74f93932cb7ea212",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactDiscoveryDecisionTests.cs": "0d66929886159e44c6f94dc2173f666bc9e324d4f7a67c1b54997a263e2da747"
+  },
+  "current_validation": {
+    "full_owning": {
+      "passed": 3626,
+      "failed": 0,
+      "skipped": 0,
+      "warning_as_error": true,
+      "elapsed_seconds": 292.67727204202674,
+      "source_manifest_sha256": "61cd39cf471d651285e69a29936d366f0f118bc69452834cf090719dd004418d",
+      "result_sha256": "d8fb7eec668298b3445e8037825655cf85e1b8f8a5d2c06ba442ee661c106fcb",
+      "log_sha256": "b37fd8ffb04f0bd37aa9918bbae2c6e7cad72fbd84ea79a03d623fba4b54a912",
+      "trx_sha256": "1f1cc7c9a127c891eb2717d63ea8689aa4aa8aee3778526c5439bde535c452a7",
+      "qualification_sha256": "46e60f6dc1a8afecaf3f18cb774da337c081d4f598d5e934a078703243c141c5"
+    },
+    "focused": [
+      {
+        "class": "CompactSuspendedConsumerTests",
+        "passed": 89,
+        "warning_as_error": true,
+        "qualification_sha256": "921fcc0ae09a4abf953357a755c8aeaaecbc0d13475a081580a904ac805395d2",
+        "log_sha256": "1f52c8f2f43a7a4dd7f15edb57cc6142acf9b5a2dc229747401eaf616147c62c",
+        "scope_note": "Pre-final Navigation historical ternary; final full suite covers the final gate."
+      },
+      {
+        "class": "CompactDiscoveryProtocolTests",
+        "passed": 178,
+        "warning_as_error": true,
+        "result_sha256": "2a0f19331b62055df21129542387b588eed919f7119d29cd1cc9c5b73993991c",
+        "log_sha256": "05de8b978d11c9c287fa5e8d26afd57aafc9a875300bf17091fdbfdb3d4dae39",
+        "scope_note": "Includes final Navigation gate and provider-growth description-retention case."
+      }
+    ],
+    "counting": "Focused cases overlap the full suite; no additive pass count.",
+    "retained_initial_failure": {
+      "passed": 89,
+      "exit_code": 1,
+      "nullable_warnings": 5,
+      "log_sha256": "328e87327e128ef9df0953582f2b1c58094d8cdad93545f46ba38e6f375b48db",
+      "result_sha256": "297ea6209f0f4b2b91ed6705458e5e4d0a639005ad170e49274e4f4618fe831f",
+      "resolution": "Corrected nullable annotations without warning suppression; original evidence retained."
+    }
+  },
+  "verified_behavior": [
+    "Fresh10 preserves the original four notes and retains the distinct typed need, type, source and exact contract-description evidence separately.",
+    "Versions5\u20139 retain the original atomic fifth-note count rejection; the incoming issued resume action has no fifth-note field.",
+    "Ordinary review receipts establish the producer; pending request recovery and exact binding remain checked.",
+    "No additional correction, duplicate resume or accepted-plan change; stale original or contract evidence rejects atomically.",
+    "Resuming evidence remains visible through deferred discovery and the provider-growth omission branch."
+  ],
+  "older_source_validation": {
+    "full_solution": {
+      "source": "be798a3a81aea8281d5477085e141875e2f4fd1e",
+      "passed": 8867,
+      "failed": 0,
+      "skipped": 13,
+      "projects": 33,
+      "warning_as_error": true,
+      "elapsed_seconds": 5420.061219875002,
+      "log_sha256": "31b4fe7dea5d896eb398fbbcd9c6e31401fd2f2495db93f8dad3f3329e2eaf33",
+      "qualification_sha256": "6ea7ede3263bb48a124cd459e85a82bea03ea8a8a05e2d069407236b047d29b4",
+      "limits": [
+        "SkipClientBuild=true; no frontend compilation claim.",
+        "Verified cached Copilot archive; private explicit service roots.",
+        "Exact be798 only; excludes later Unicode and resumption changes. Prior aborted failures remain retained."
+      ]
+    },
+    "publication": {
+      "source": "df92a8a57e1b8925c110365a5842e07de65df15c",
+      "fresh_stages": 12,
+      "warning_as_error": true,
+      "independent_packages": 6,
+      "managed_native_versions": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "private_encrypted_storage": "Format10 passed",
+      "published_files": 209,
+      "synthetic_storage_files": 4,
+      "qualification_sha256": "7a18f03a965a7a339adad72d29c726b967ab68ec20f6182e925193c5b83e2009",
+      "peer_sha256": "76b4429a9457c45875e640642e6269131c7f143ebae240ec4c7318a8c5a7c3a1",
+      "limits": [
+        "Exact df92 only; excludes the resumption fix.",
+        "Server persistence smoke skips frontend and bundled-tool staging; not a full deployment package."
+      ]
+    }
+  },
+  "limits": [
+    "Technical test evidence only; no live efficacy, business runtime success or new approval authority claim.",
+    "Current full owning is not a current-source full solution or publication run.",
+    "Existing allowances, schemas and typed continuation evidence remain enforced; no budget increase."
+  ]
+}

@@ -67,6 +67,13 @@ may prospectively bind its exact result to its immediate waiting ParentId in its
 normal draft and review. Acceptance completes the child and permits parent
 resumption; neither business obligation is discharged as navigation.
 
+Fresh v10 resumption preserves the consumer's original four-note bound. Its typed
+prerequisite remains in the existing continuation, alongside the exact selected
+binding, rather than becoming a fifth note on the restored step. Retention,
+discovery presentation and draft navigation share those exact evidence addresses.
+This does not establish business completion; the consumer still needs its normal
+validation and review. Historical resumption reconstruction is unchanged.
+
 Proofs, claims and transitions remain in existing journals. Candidate changes,
 stale authorities and relevant invalidations require renewed review. One validated
 transition is applied per advance before recomputing. Presentations 2–9 keep their

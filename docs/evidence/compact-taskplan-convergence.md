@@ -1441,3 +1441,11 @@ reconstruction use the same issued rule. [Focused and owning validation](compact
 passes 1,454 Core tests, 3,617 Planning tests before the final helper extraction,
 and 26 final typed-repair tests, with warnings as errors; counts overlap. Initial
 fixture failures remain retained. These passes do not establish live convergence.
+
+## 27 October 65db Amazon control stop
+
+The frozen 65db Amazon control stopped after 26 logical calls, physical attempts and receipts, with three automatic corrections and 997,118 ms of planning. Known cost was €1.506546, with no new unknown attempt or reservation. No artifact, oracle or runtime result exists, so calls per successful business obligation are undefined.
+
+Exact q25 and q26 resume responses both pass their issued schemas. Neither supplies prerequisite notes: each selects the offered continuation, checkpoint 3 and accepted `step_5.searchUrl` binding. The host restores four existing consumer notes, appends the distinct resolved typed need as a fifth, then rejects its own reconstruction under the four-note limit. Repeating the valid resume produces the terminal non-progress diagnostic. This establishes a host resumption defect, not a provider failure or a model-supplied fifth note; the three correction charges remain a separate run total.
+
+The [source-bound outcome](compact-taskplan-65db90d9-amazon-control.json) and [measurements](compact-taskplan-65db90d9-amazon-measurements.json) retain exact request, schema and source hashes. The single 14:37:29Z accounting readback recorded €225.16297916531134777887001616 available, with 36 previously uncertain logical requests closed and zero unresolved; that dated snapshot is not new admission authority. No corrected-run convergence is claimed.

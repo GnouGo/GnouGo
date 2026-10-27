@@ -385,10 +385,11 @@ public sealed partial class CompactDiscoveryProtocolTests
     [InlineData("cursor")]
     [InlineData("historical-read")]
     [InlineData("prerequisite")]
+    [InlineData("resuming-prerequisite")]
     [InlineData("rejected-reread")]
     public async Task DiscoveryKeepsOriginalTextWhenItCannotSafelyOfferAnotherRead(string condition)
     {
-        var (state, runtime) = await Ready(presentationVersion: 3);
+        var (state, runtime) = await Ready(presentationVersion: condition == "resuming-prerequisite" ? 10 : 3);
         AddOperations(state, 1);
         var address = DescriptionAddress(state);
         runtime.Respond = (request, _) => Wire(request, Evidence(address));
@@ -407,9 +408,33 @@ public sealed partial class CompactDiscoveryProtocolTests
                 Assert.NotNull(key);
                 state.Construction.Compact!.FailedActions.Add("rejected:" + key);
             }
+            else if (condition == "resuming-prerequisite")
+            {
+                // New provider knowledge would otherwise replace this exact read
+                // with navigation. The restored consumer keeps its typed need on
+                // the continuation, separately from its bounded original notes.
+                Assert.True(PlanningCompactConstruction.DiscoveryContext(state)["evidence"]![address]!["textOmitted"]!.GetValue<bool>());
+                var compact = state.Construction.Compact!;
+                var consumer = compact.CurrentStep!;
+                Assert.Empty(consumer.Prerequisites ?? []);
+                compact.ResumingStepId = "continuation_1";
+                compact.SuspendedSteps = [new()
+                {
+                    Id = "continuation_1", Status = "resuming", Consumer = consumer,
+                    Prerequisite = new() { Need = "Retain the inspected restriction.", ExpectedType = new() { Kind = "string" }, EvidenceAddresses = [address] }
+                }];
+                var retained = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+                var schema = PlanningCompactConstruction.DiscoverySchema(state);
+                Assert.NotEmpty(PlanningContractValidation.ValidateInstance(new JsonArray(address), schema["properties"]!["evidenceRequests"]!));
+                Assert.Equal(schema.ToJsonString(), PlanningCompactConstruction.DiscoverySchema(PlannerFixture.Clone(state)).ToJsonString());
+                Assert.Equal(retained, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+            }
             else state.Construction.Compact!.CurrentStep!.Prerequisites = [new() { Need = "Retain the inspected restriction.", EvidenceAddresses = [address] }];
         }
-        Assert.Equal(original, PlanningCompactConstruction.DiscoveryContext(state)["evidence"]![address]!.ToJsonString());
+        var expected = JsonNode.Parse(original)!.AsObject();
+        if (condition == "resuming-prerequisite") expected.Remove("version"); // Exact address already carries the version in fresh presentation.
+        Assert.Equal(expected.ToJsonString(), PlanningCompactConstruction.DiscoveryContext(state)["evidence"]![address]!.ToJsonString());
+        Assert.Equal(original, state.Construction.Evidence![address]!.ToJsonString());
     }
 
     [Fact]

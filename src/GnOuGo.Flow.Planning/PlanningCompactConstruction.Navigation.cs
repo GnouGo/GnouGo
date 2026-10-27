@@ -60,7 +60,8 @@ internal static partial class PlanningCompactConstruction
     {
         var addresses = PrerequisiteAddresses(state, State(state).CurrentStep!.RequirementIds)
             .Where(IsOriginalAddress).ToHashSet(StringComparer.Ordinal);
-        var citations = State(state).CurrentStep!.Prerequisites?.SelectMany(note => note.EvidenceAddresses) ?? [];
+        var citations = State(state).PresentationVersion == 10 ? CurrentPrerequisiteAddresses(state) :
+            State(state).CurrentStep!.Prerequisites?.SelectMany(note => note.EvidenceAddresses) ?? [];
         addresses.UnionWith(citations.Intersect(PrerequisiteAddresses(state,
             state.Construction!.Requirements.Select(requirement => requirement.Id)), StringComparer.Ordinal).Where(IsOriginalAddress));
         return addresses;

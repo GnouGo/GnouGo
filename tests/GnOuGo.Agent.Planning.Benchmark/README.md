@@ -21,6 +21,13 @@ output-exhaustion failures. The received be798 Collections Judge boundary case
 has 256 Unicode code points but 257 UTF-16 units; the fresh issued-schema fix
 does not authorize continuing that stopped cohort or changing its old receipts.
 
+The 65db Amazon control also retained two schema-valid resumption responses. Its
+host reconstructed a fifth prerequisite note and rejected that reconstruction.
+Fresh v10 keeps the original notes and the exact typed need in the existing
+continuation; qualify the correction through a new cohort, never by continuing
+the failed control. Record host validation errors separately from invalid model
+responses and from runtime outcomes.
+
 The 27 October user delegation covers necessary paid diagnostics and exact administrative
 retention of established stopped/unrecoverable requests without repeated per-identity
 confirmation. Each closure still binds exact evidence, preserves every reservation and

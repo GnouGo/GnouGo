@@ -156,9 +156,15 @@ internal static partial class PlanningCompactConstruction
                 PlanningConstruction.Node(binding, PlanningJsonContext.Default.TaskValue)))) resumed.Inputs.Add(binding);
         if (resumed.Inputs.Count > 8)
             PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_LIMIT", "/resumeStep/binding", "The resumed consumer exceeds its existing eight selected-input bound.");
-        resumed.Prerequisites ??= [];
-        if (!resumed.Prerequisites.Any(need => need.Need == item.Prerequisite.Need && need.EvidenceAddresses.SequenceEqual(item.Prerequisite.EvidenceAddresses)))
-            resumed.Prerequisites.Add(new() { Need = item.Prerequisite.Need, EvidenceAddresses = item.Prerequisite.EvidenceAddresses.ToList() });
+        // The exact need remains on the continuation for the consumer's review.
+        // Duplicating it as a note can overflow the restored consumer's four slots.
+        // Historical presentations retain their original reconstruction.
+        if (compact.PresentationVersion != 10)
+        {
+            resumed.Prerequisites ??= [];
+            if (!resumed.Prerequisites.Any(need => need.Need == item.Prerequisite.Need && need.EvidenceAddresses.SequenceEqual(item.Prerequisite.EvidenceAddresses)))
+                resumed.Prerequisites.Add(new() { Need = item.Prerequisite.Need, EvidenceAddresses = item.Prerequisite.EvidenceAddresses.ToList() });
+        }
         // Validate on an isolated session because exact cached evidence may have left the current presentation.
         var probe = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
         var retained = compact.RejectedSteps[item.RejectedStepIndex]["evidence"] as JsonObject;

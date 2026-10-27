@@ -268,7 +268,7 @@ internal static partial class PlanningCompactConstruction
     {
         var evidence = state.Construction!.Evidence?.DeepClone().AsObject();
         if (evidence is null || !UsesDeferredBinding(state) || !PlanningConstructionPhasePolicies.IsFresh(state.Request)) return evidence;
-        var prerequisiteAddresses = State(state).CurrentStep?.Prerequisites?.SelectMany(item => item.EvidenceAddresses).ToHashSet(StringComparer.Ordinal) ?? [];
+        var prerequisiteAddresses = CurrentPrerequisiteAddresses(state);
         var schema = new JsonObject { ["description"] = DescriptionKnowledgePrefix +
             DescriptionKnowledgeHash(DescriptionKnowledge(state, state.Discovery.Pages.Count)) };
         foreach (var (address, original) in evidence.ToArray())

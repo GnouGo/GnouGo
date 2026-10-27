@@ -1037,6 +1037,11 @@ response strings; receipt recovery never infers it from a newer session version.
 Unmarked requests preserve historical UTF-16 bounds. Request bytes/tokens, report
 grounding, correction authority and runtime contract validation remain unchanged.
 
+Fresh v10 consumer resumption retains the typed prerequisite in its existing
+continuation instead of appending it to the restored step's four bounded notes.
+Its exact evidence remains available to retention, discovery and draft navigation;
+the binding still requires ordinary validation and scoped business review.
+
 Retained full-proposal sessions use their captured `Request.Options.business_judge`
 setting for an independent Structured Output call after deterministic validation and
 resolved choices, before FinalReview. Its historical default is `false`. New
