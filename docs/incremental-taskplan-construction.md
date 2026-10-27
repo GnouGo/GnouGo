@@ -1093,4 +1093,11 @@ For version 11, selection port directories and their evidence choices share the 
 
 Version 11 builds selection grammar from its displayed request-local page. Before omitting unrelated original rows, it tries deterministic reductions of optional navigation descriptions, ordered by measured complete-request byte savings and stable identity. Every omitted description keeps an exact original retrieval address. Active obligations, globals, explicit evidence, scopes and operation choices stay intact; exceeding a target alone triggers no reduction. A mandatory core that still exceeds the captured hard ceiling remains an ordinary admission failure.
 
+An admitted v11 evidence-recovery control retains the rejected prospective
+request's exact hash, serialized UTF-8 bytes, conservative input estimate and
+captured ceiling in its bounded diagnosis. The host correlates these facts with
+the actual prospective request, then measures the complete one-address control.
+Missing measurement authority or an oversized mandatory control stops without
+dispatch or evidence mutation; the full received report remains in its journal.
+
 When a version-11 review window exceeds admission, checkpoint contribution task directories use the existing task-navigation projection too. Each retains its exact `task:` retrieval link and checkpoint provenance. Original clauses, source versions, actual consumed interfaces, ancestor controls, contract closures, explicit evidence and coverage claims remain complete. Removing optional history descriptions supplies no new proof or acceptance authority.

@@ -233,6 +233,11 @@ public sealed partial class CompactConvergentJudgeTests
             Assert.Equal(1, BatchSchema(followup)["maxItems"]!.GetValue<int>());
             if (presentation == 11)
             {
+                var diagnosis = Assert.Single(state.Diagnostics);
+                Assert.Contains(measured.RequestHash, diagnosis.Message, StringComparison.Ordinal);
+                Assert.Contains(measured.CompleteRequestBytes.ToString(System.Globalization.CultureInfo.InvariantCulture), diagnosis.Message, StringComparison.Ordinal);
+                Assert.Contains(measured.EstimatedInputTokens.ToString(System.Globalization.CultureInfo.InvariantCulture), diagnosis.Message, StringComparison.Ordinal);
+                Assert.Contains(measured.InputLimit.ToString(System.Globalization.CultureInfo.InvariantCulture), diagnosis.Message, StringComparison.Ordinal);
                 var complete = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.LocalPurpose,
                     followup.Prompt, followup.StructuredOutputSchema!.AsObject(), construction.Limits.ReviewOutputTokens);
                 var actual = PlanningRequestMeasurements.Measure(complete, PlanningConstruction.LocalPurpose,

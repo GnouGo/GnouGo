@@ -427,13 +427,14 @@ public sealed partial class HybridWorkflowPlanner
         }
         if (response["evidenceRequests"] is JsonArray evidenceRequests)
         {
+            LLMRequest? prospective = null;
             try
             {
                 PlanningConstruction.LoadEvidence(state, evidenceRequests.Select(e => e!.ToString()).ToList(),
                     followup: probe =>
                     {
                         var followup = CreateConstructionReviewRequest(probe, intermediate).Request;
-                        return PlanningModelCalls.PrepareRequest(probe, purpose, followup.Prompt, followup.StructuredOutputSchema!.AsObject(),
+                        return prospective = PlanningModelCalls.PrepareRequest(probe, purpose, followup.Prompt, followup.StructuredOutputSchema!.AsObject(),
                             probe.Construction!.Limits.ReviewOutputTokens);
                     },
                     purpose: purpose);
@@ -454,7 +455,7 @@ public sealed partial class HybridWorkflowPlanner
                             ["sourceCoverage"] = context["sourceCoverage"]?.DeepClone(),
                             ["rawResponse"] = retainedResponse?.DeepClone(),
                             ["diagnostics"] = PlanningJsonTransport.Diagnostics([limit]) });
-                        var recovery = PrepareConstructionEvidenceRecovery(state, intermediate, limit);
+                        var recovery = PrepareConstructionEvidenceRecovery(state, intermediate, limit, prospective);
                         if (recovery is null)
                         {
                             Inconclusive("CONSTRUCTION_EVIDENCE_RECOVERY_LIMIT: The complete mandatory review and its evidence-selection control cannot fit the captured allowance. No evidence was committed.");
@@ -571,16 +572,24 @@ public sealed partial class HybridWorkflowPlanner
         }
     }
 
-    private static PlanningDiagnostic? PrepareConstructionEvidenceRecovery(PlanningSession state, bool intermediate, PlanningDiagnostic rejection)
+    private static PlanningDiagnostic? PrepareConstructionEvidenceRecovery(PlanningSession state, bool intermediate, PlanningDiagnostic rejection,
+        LLMRequest? prospective)
     {
         // The rejected request measurement and received report remain in their
         // journals. Only a bounded control diagnosis enters the next request.
-        var diagnosis = rejection with { Message = "Select one exact separable evidence address; the rejected complete batch exceeded its captured input allowance." };
+        var purpose = intermediate ? PlanningConstruction.IntermediatePurpose : PlanningConstruction.LocalPurpose;
+        if (prospective is null) return null;
+        var hash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(prospective, PlanningJsonContext.Default.LLMRequest));
+        var measured = state.RequestMeasurements?.SingleOrDefault(row => row.RequestHash == hash && row.Phase == purpose &&
+            row.StepId == state.Construction!.Compact!.CurrentStep!.Id && row.Admission == "rejected_before_dispatch" &&
+            row.EstimatedInputTokens > row.InputLimit);
+        if (measured is null) return null;
+        var diagnosis = rejection with { Message = FormattableString.Invariant(
+            $"Rejected request {measured.RequestHash}: {measured.CompleteRequestBytes} UTF-8 bytes, {measured.EstimatedInputTokens} estimated input tokens; limit {measured.InputLimit}. Select one exact separable evidence address.") };
         var probe = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession),
             PlanningJsonContext.Default.PlanningSession)!;
         probe.Diagnostics = [diagnosis];
         probe.Construction!.PendingReviewContext = null; probe.Construction.PendingReviewHash = null;
-        var purpose = intermediate ? PlanningConstruction.IntermediatePurpose : PlanningConstruction.LocalPurpose;
         var followup = CreateConstructionReviewRequest(probe, intermediate).Request;
         var request = PlanningModelCalls.PrepareRequest(probe, purpose, followup.Prompt, followup.StructuredOutputSchema!.AsObject(),
             probe.Construction.Limits.ReviewOutputTokens);
