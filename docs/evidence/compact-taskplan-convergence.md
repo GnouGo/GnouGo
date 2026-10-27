@@ -1487,3 +1487,13 @@ The frozen `46e35628` Collections candidate stopped after **23 logical calls, 23
 Two opt-in generic cases are qualified on private harness commits fb361df2 (production anchor 65db90d9) and 44400217 (anchor 46e35628). The identical eight-file benchmark/test patch changes no production source or default case set and preserves capture versions 9/10. Each arm passes 29 proof tests with the retained 53-file Cmd binary, ordinary artifact approval/Verify and a test provider checking exact host confirmation, plus 618 existing retention/accounting cases. The control’s initial 617/1 Git-location setup failure remains separate from the unchanged affected-method pass. Fifty-eight offline guard checks and independent source/result review cover the prepared freezer and uninvoked commands. These authored tests establish no live acquisition, reuse, convergence or savings.
 
 [Qualification evidence](compact-taskplan-generic-proof-harness-qualification.json).
+
+### Amazon46: selection input admission stopped the incomplete run
+
+Frozen `46e356283e431c3c7911010ac7098302f8df9b71` reached 45 logical calls, 47 physical attempts and 45 receipts with 3 correction charges. The next selection request was rejected before dispatch: 38,762 bytes / 13,177 estimated tokens exceeded its unchanged 12,000 limit. The accepted sequence contains a query-to-URL transform and an operation consuming that exact output, alongside two empty groups. No public output, complete artifact or runtime resulted. Six clean scoped Judges supplied 50 broad acknowledgments and no subject acknowledgment. The received continuation association and subsequent operation draft have no independently inspected transition journal, so they receive no saved-call credit.
+
+Known planning cost was €3.0083712628290941543953592149; €1.5494288264167782240071396698 remains reserved for two attempts with unknown usage despite eventual receipts. The dated campaign read recorded 37 closed receiptless identities, 0 unresolved and €211.92436247633321301760272471 available. Neither matched arm completed the business obligation. Exact reselection fields are retained, but individual correction charges lack their issued diagnostic history. Component growth establishes no removable contract duplication or new host defect.
+
+See [outcome](compact-taskplan-46e35628-amazon-candidate.json) and [measurements](compact-taskplan-46e35628-amazon-measurements.json).
+
+Historical full-solution validation on `98418f2a0b597208eb74d5fae3a08e5e88eb9d1a` finished with 8,923 passed, 13 skipped and zero failures across 33 projects, with warnings as errors. Its retained qualification hash is `c904d294c27c929beba8da0b2cde585923c1e7d99c134cca6f98ee9645d4fcd6`; it does not qualify later changed source or live outcomes.
