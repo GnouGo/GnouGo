@@ -23,6 +23,14 @@ internal static partial class PlanningCompactConstruction
                 request.StructuredOutputSchema!.AsObject(), state.Construction!.Limits.DraftOutputTokens)) <=
             PlanningConstructionInputPolicy.EffectiveLimit(state.Request, purpose)) return Display(request);
 
+        if (purpose == SelectPurpose && State(state).PresentationVersion == 11)
+        {
+            var fitted = Display(request);
+            if (ModelRequestAdmission.EstimateTokens(PlanningModelCalls.PrepareRequest(state, purpose, fitted.Prompt,
+                    fitted.StructuredOutputSchema!.AsObject(), state.Construction!.Limits.DraftOutputTokens)) <=
+                PlanningConstructionInputPolicy.EffectiveLimit(state.Request, purpose)) return fitted;
+        }
+
         IEnumerable<string> selectedRequirements = purpose == SelectPurpose ? SelectionRequirementIds(state) : State(state).CurrentStep!.RequirementIds;
         var selected = selectedRequirements.Concat(EvidenceRequirementIds(state)).ToHashSet(StringComparer.Ordinal);
         var originals = context["requirements"] as JsonArray ?? [];
@@ -47,13 +55,16 @@ internal static partial class PlanningCompactConstruction
             var navigation = purpose == SelectPurpose
                 ? SelectionProducerPageContext(state, context, chosen.StructuredOutputSchema!.AsObject()) : context;
             var displayed = CompactAcceptedProgressContext(navigation);
+            if (purpose == SelectPurpose && State(state).PresentationVersion == 11)
+                return FitSelectionNavigation(state, instructions, displayed);
             if (!ReferenceEquals(displayed, context)) chosen.Prompt = instructions + "\n" + PlanningJsonTransport.Prompt(displayed);
             return chosen;
         }
 
         LLMRequest Render()
         {
-            var response = schema.DeepClone().AsObject();
+            var response = purpose == SelectPurpose && State(state).PresentationVersion == 11
+                ? SelectionSchema(state, context) : schema.DeepClone().AsObject();
             if (response["properties"] is JsonObject properties && properties.ContainsKey("evidenceRequests"))
             {
                 if (purpose == SelectPurpose) ConstrainSelectionEvidence(state, context, response);
@@ -62,6 +73,51 @@ internal static partial class PlanningCompactConstruction
             }
             return Request(instructions, context, response, purpose);
         }
+    }
+
+    private static LLMRequest FitSelectionNavigation(PlanningSession state, string instructions, JsonObject initial)
+    {
+        // The same request-local page supplies context and response choices.
+        // Explicit evidence and authoritative originals are never candidates for
+        // this presentation reduction; only bounded navigation descriptions are.
+        var page = initial.DeepClone().AsObject();
+        var request = Render(page);
+        var limit = PlanningConstructionInputPolicy.EffectiveLimit(state.Request, SelectPurpose);
+        var reviewHeadroom = RequiredReviewCalls(state);
+        var measurement = Measure(request);
+        while (measurement.EstimatedInputTokens > limit)
+        {
+            (string Identity, JsonObject Page, LLMRequest Request, PlanningRequestMeasurement Measurement)? best = null;
+            foreach (var (directory, rows) in new[] { ("scopes", page["scopes"] as JsonArray),
+                ("interfaces", page["interfaces"] as JsonArray), ("knownOperations", page["knownOperations"]?["items"] as JsonArray) })
+                for (var index = 0; index < (rows?.Count ?? 0); index++)
+                {
+                    var row = rows![index]!;
+                    var field = directory == "knownOperations" ? "description" : "objective";
+                    if (row[field] is not JsonValue || row["evidence"] is null && row[field + "Evidence"] is null) continue;
+                    var identity = directory + ":" + (row["path"] ?? row["task"] ?? row["id"] ?? row["evidence"]) + ":" + field;
+                    var probe = page.DeepClone().AsObject();
+                    var target = directory == "knownOperations" ? probe[directory]!["items"]![index]! : probe[directory]![index]!;
+                    target.AsObject().Remove(field);
+                    target.AsObject().Remove(field == "description" ? "descriptionComplete" : ObjectiveTextCompleteField(state));
+                    target[field + "Omitted"] = true;
+                    var proposed = Render(probe);
+                    var measured = Measure(proposed);
+                    var size = measured.CompleteRequestBytes;
+                    if (size >= measurement.CompleteRequestBytes || best is { } prior && (size > prior.Measurement.CompleteRequestBytes || size == prior.Measurement.CompleteRequestBytes &&
+                            string.CompareOrdinal(identity, prior.Identity) >= 0)) continue;
+                    best = (identity, probe, proposed, measured);
+                }
+            if (best is not { } selected) break;
+            page = selected.Page; request = selected.Request; measurement = selected.Measurement;
+        }
+        // Ordinary admission records any still-oversized mandatory core. No
+        // cursor/evidence mutation or extra semantic call is introduced here.
+        return request;
+
+        LLMRequest Render(JsonObject displayed) => Request(instructions, displayed, SelectionSchema(state, displayed), SelectPurpose);
+        PlanningRequestMeasurement Measure(LLMRequest candidate) => PlanningRequestMeasurements.Measure(PlanningModelCalls.PrepareRequest(state, SelectPurpose,
+            candidate.Prompt, candidate.StructuredOutputSchema!.AsObject(), requiredReviewCalls: reviewHeadroom), SelectPurpose, limit);
     }
 
     internal static JsonObject CompactAcceptedProgressContext(JsonObject context)

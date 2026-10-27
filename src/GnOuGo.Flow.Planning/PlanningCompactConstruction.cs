@@ -165,14 +165,14 @@ internal static partial class PlanningCompactConstruction
         return schema;
     }
 
-    internal static JsonObject SelectionSchema(PlanningSession state)
+    internal static JsonObject SelectionSchema(PlanningSession state, JsonObject? page = null)
     {
         var compact = State(state);
         var replacement = compact.ReplacementScope;
         var outputs = OutputPage(state).Select(o => o.Name).ToArray();
         var requirements = IsCompactPresentation(state) ? SelectionRequirementIds(state) : null;
         var scopes = PlanningConstructionPhasePolicies.IsFresh(state.Request) && replacement is null
-            ? ScopeDirectory(state).Select(scope => scope!["path"]!.ToString()).ToArray() : null;
+            ? (page?["scopes"] as JsonArray ?? ScopeDirectory(state)).Select(scope => scope!["path"]!.ToString()).ToArray() : null;
         var hasClosedGroup = !IsCompactPresentation(state) || state.Plan?.Groups.Any(group =>
             !state.Construction!.OpenScopes.Contains("/groups/" + group.Id + "/body", StringComparer.Ordinal)) == true;
         var completionOnly = CompletionOnly(state);
@@ -237,7 +237,11 @@ internal static partial class PlanningCompactConstruction
                 AddSelectionFields(close, EmptyArray(), target);
                 choices.Add((JsonNode)close);
             }
-            var known = SelectionOperationIds(state);
+            var known = page is null ? SelectionOperationIds(state) :
+                new[] { page["knownOperations"] }.Concat((page["evidence"] as JsonObject ?? [])
+                    .Where(item => item.Key.StartsWith("page:operations:", StringComparison.Ordinal)).Select(item => item.Value))
+                    .SelectMany(value => value?["items"] as JsonArray ?? []).Select(item => item!["id"]!.ToString())
+                    .Intersect(SelectionOperationIds(state), StringComparer.Ordinal).ToArray();
             if (!completionOnly && known.Length > 0)
             {
                 var operation = template.DeepClone().AsObject();
@@ -299,7 +303,7 @@ internal static partial class PlanningCompactConstruction
                     ("producerCheckpoint", checkpoint), ("binding", PlanningSchemas.Ref("import")))) : PlanningSchemas.Type("null");
             schema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("resumeStep"));
         }
-        if (UsesDeferredBinding(state)) ConstrainSelectionEvidence(state, SelectionContext(state), schema);
+        if (UsesDeferredBinding(state)) ConstrainSelectionEvidence(state, page ?? SelectionContext(state), schema);
         return IsCompactPresentation(state) ? PlanningSchemas.Compact(schema) : schema;
     }
 

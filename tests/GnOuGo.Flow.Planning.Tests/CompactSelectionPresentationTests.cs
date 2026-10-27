@@ -5,7 +5,7 @@ using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
-public sealed class CompactSelectionPresentationTests
+public sealed class CompactSelectionPresentationTests(ITestOutputHelper output)
 {
     [Fact]
     public async Task FreshFactoringPreservesStrictDomainsAndEverySchemaConstraint()
@@ -133,6 +133,66 @@ public sealed class CompactSelectionPresentationTests
         Assert.Equal(0, state.ReplanAttempts);
         Assert.Equal(requirements, JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements));
         Assert.Equal(["req_0"], state.Construction!.Compact!.CurrentStep!.RequirementIds);
+    }
+
+    [Theory]
+    [InlineData(10)]
+    [InlineData(11)]
+    public async Task SelectionAdmissionReducesOptionalNavigationWithoutChangingItsChoicesOrOriginals(int presentation)
+    {
+        var state = await Ready();
+        state.Construction!.Compact!.PresentationVersion = presentation;
+        state.Request.Options["construction_presentation_version"] = presentation;
+        state.Plan = new() { Root = new() { Tasks = Enumerable.Range(0, 4).Select(index => new PlanTask
+        {
+            Id = "producer_" + index, Kind = "value", Objective = new string((char)('a' + index), 220 - index * 30),
+            Outputs = [new("number", new() { Kind = "number", Number = index })]
+        }).ToList() } };
+        state.Request.Generation.MaxInputTokensPerRequest = 32_000;
+        state.Request.Options["construction_limits"]!["phasePolicy"]!["navigation"]!["maxInputTokens"] = 12_000;
+        state.Construction.Evidence = new JsonObject { ["task:producer_0"] = PlanningConstruction.TaskNode(state.Plan.Root.Tasks[0]) };
+        var full = Request();
+        var originalContext = Context(full);
+        var originalSchema = full.StructuredOutputSchema!.ToJsonString();
+        var estimate = Complete(full).EstimatedInputTokens;
+        state.Request.Generation.MaxInputTokensPerRequest = checked((int)estimate - 25);
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var fitted = Request();
+        var measured = Complete(fitted);
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        var context = Context(fitted);
+        Assert.True(JsonNode.DeepEquals(originalContext["requirements"], context["requirements"]));
+        Assert.True(JsonNode.DeepEquals(originalContext["globalConstraints"], context["globalConstraints"]));
+        Assert.True(JsonNode.DeepEquals(originalContext["evidence"], context["evidence"]));
+        Assert.Equal(originalSchema, fitted.StructuredOutputSchema!.ToJsonString());
+        Assert.Equal(measured.CompleteRequestBytes, measured.Components.Sum(component => component.SerializedBytes));
+        output.WriteLine($"presentation={presentation}; original_tokens={estimate}; limit={state.Request.Generation.MaxInputTokensPerRequest}; result_tokens={measured.EstimatedInputTokens}; result_bytes={measured.CompleteRequestBytes}");
+        if (presentation == 11)
+        {
+            Assert.InRange(measured.EstimatedInputTokens, 1, state.Request.Generation.MaxInputTokensPerRequest);
+            var first = context["interfaces"]![0]!;
+            Assert.Null(first["objective"]);
+            Assert.True(first["objectiveOmitted"]!.GetValue<bool>());
+            Assert.Equal("task:producer_0", first["evidence"]!.ToString());
+            Assert.NotNull(context["interfaces"]![1]!["objective"]);
+        }
+        else Assert.True(measured.EstimatedInputTokens > state.Request.Generation.MaxInputTokensPerRequest);
+        Assert.Equal(JsonSerializer.Serialize(fitted, PlanningJsonContext.Default.LLMRequest),
+            JsonSerializer.Serialize(Request(), PlanningJsonContext.Default.LLMRequest));
+        state.Request.Generation.MaxInputTokensPerRequest = 512;
+        var beforeStop = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var oversized = Request();
+        Assert.True(Complete(oversized).EstimatedInputTokens > 512);
+        Assert.True(JsonNode.DeepEquals(originalContext["requirements"], Context(oversized)["requirements"]));
+        Assert.True(JsonNode.DeepEquals(originalContext["evidence"], Context(oversized)["evidence"]));
+        Assert.Equal(beforeStop, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+
+        LLMRequest Request() => PlanningCompactConstruction.Request(state, PlanningCompactConstruction.SelectGuidance(state),
+            PlanningCompactConstruction.SelectionContext(state), PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose);
+        PlanningRequestMeasurement Complete(LLMRequest request) => PlanningRequestMeasurements.Measure(
+            PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.SelectPurpose, request.Prompt, request.StructuredOutputSchema!.AsObject()),
+            PlanningCompactConstruction.SelectPurpose, 3000);
+        static JsonObject Context(LLMRequest request) => JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!.AsObject();
     }
 
     private static JsonObject Unfactored(PlanningSession state)
