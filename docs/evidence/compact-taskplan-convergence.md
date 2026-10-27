@@ -1497,3 +1497,11 @@ Known planning cost was €3.0083712628290941543953592149; €1.5494288264167782
 See [outcome](compact-taskplan-46e35628-amazon-candidate.json) and [measurements](compact-taskplan-46e35628-amazon-measurements.json).
 
 Historical full-solution validation on `98418f2a0b597208eb74d5fae3a08e5e88eb9d1a` finished with 8,923 passed, 13 skipped and zero failures across 33 projects, with warnings as errors. Its retained qualification hash is `c904d294c27c929beba8da0b2cde585923c1e7d99c134cca6f98ee9645d4fcd6`; it does not qualify later changed source or live outcomes.
+
+### Review PR46: mandatory draft admission stopped the partial plan
+
+Frozen `46e356283e431c3c7911010ac7098302f8df9b71` stopped after 25 logical calls, 25 physical attempts and 25 receipts, with 2 correction charges. The next mandatory draft required 70,797 bytes / 23,855 estimated tokens against its unchanged 20,000 limit; no provider request was dispatched. Original capability contracts contributed 28,745 bytes and response grammar 21,007 bytes. These measurements do not establish removable duplication.
+
+The accepted plan has the exact repository/head/run-directory clone and a dependent prerequisite-verification task consuming its project-root output. Selecting that known capability again does not by itself prove duplicate work. Three clean scoped Judges supplied 27 broad acknowledgments and no subject acknowledgment. No complete review artifact or runtime execution resulted. Known planning cost was €2.2844578313253012048192771082, with no new reserve. The dated campaign read recorded 37 closed receiptless identities, 0 unresolved and €209.63990464500791181278344761 available. Exact correction attribution and the next objective remain outside the saved safe projection; no savings or business-success claim follows.
+
+See [outcome](compact-taskplan-46e35628-code-candidate.json) and [measurements](compact-taskplan-46e35628-code-measurements.json).
