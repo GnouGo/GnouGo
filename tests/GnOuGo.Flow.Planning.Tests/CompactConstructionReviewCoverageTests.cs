@@ -81,10 +81,13 @@ public sealed class CompactConstructionReviewCoverageTests
         Assert.Null(state.ApprovedHash);
     }
 
-    [Fact]
-    public async Task CleanFirstWindowCannotCloseAClaimWhoseOriginalIsInTheNextWindow()
+    [Theory]
+    [InlineData(6)]
+    [InlineData(9)]
+    [InlineData(10)]
+    public async Task CleanFirstWindowCannotCloseAClaimWhoseOriginalIsInTheNextWindow(int presentation)
     {
-        var state = await State(closeScope: true, closeRequirement: true, repetitions: 24);
+        var state = await State(closeScope: true, closeRequirement: true, repetitions: presentation >= 9 ? 12 : 24, presentation: presentation);
         var construction = state.Construction!;
         var compact = construction.Compact!;
         // Keep the existing fixture's exact original text, but index it as two
@@ -130,7 +133,14 @@ public sealed class CompactConstructionReviewCoverageTests
             Assert.Equal(candidate, state.Construction!.Candidate!.Hash);
             Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
             Assert.Equal(claims, JsonSerializer.Serialize(state.Construction.Compact!.CurrentStep, PlanningJsonContext.Default.PlanningConstructionStep));
-            var report = Report();
+            var guidance = request.Prompt[..request.Prompt.LastIndexOf('\n')];
+            Assert.Equal(presentation != 9, guidance.Contains("A claim concerning an original assigned to another window does not by itself require that original here.", StringComparison.Ordinal));
+            if (presentation == 10)
+            {
+                Assert.Contains("Request other exact originals when a specific dependency or coupled constraint is needed", guidance, StringComparison.Ordinal);
+                Assert.Contains("A clean window closes no requirement.", guidance, StringComparison.Ordinal);
+            }
+            var report = Report(context);
             Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(report, request.StructuredOutputSchema!));
             seen++;
             return Response(report);
@@ -649,7 +659,7 @@ public sealed class CompactConstructionReviewCoverageTests
         return state;
     }
 
-    private static async Task<PlanningSession> State(bool closeScope = false, bool closeRequirement = false, bool oversized = false, int repetitions = 28)
+    private static async Task<PlanningSession> State(bool closeScope = false, bool closeRequirement = false, bool oversized = false, int repetitions = 28, int presentation = 6)
     {
         var clauses = Enumerable.Range(0, oversized ? 1 : 18).Select(index =>
             $"Original clause {index}: retain the exact supplied value and preserve this distinct condition. " +
@@ -659,7 +669,7 @@ public sealed class CompactConstructionReviewCoverageTests
         state.IntentVersion = 3; state.Revision = 1; state.Status = PlanningStatus.Generating;
         var construction = state.Construction!;
         var compact = construction.Compact!;
-        compact.PresentationVersion = 6; state.Request.Options["construction_presentation_version"] = 6;
+        compact.PresentationVersion = presentation; state.Request.Options["construction_presentation_version"] = presentation;
         construction.CandidateFailureIdentityVersion = 1;
         PlanningCompactConstruction.InitializeSources(state);
         foreach (var page in compact.Sources) page.Indexed = true;
@@ -701,8 +711,14 @@ public sealed class CompactConstructionReviewCoverageTests
     private static IEnumerable<JsonObject> CleanReviews(IEnumerable<JsonObject> reviews) => reviews.Where(review =>
         review["outcome"]?.ToString() == "unverified" && review["sourceCoverage"] is JsonObject);
     private static string[] Strings(JsonNode? value) => value!.AsArray().Select(item => item!.ToString()).ToArray();
-    private static JsonObject Report() => new() { ["action"] = new JsonObject { ["kind"] = "findings", ["findings"] = new JsonArray() },
-        ["uncertainty"] = "Execution remains unobserved." };
+    private static JsonObject Report(JsonObject? context = null)
+    {
+        var action = new JsonObject { ["kind"] = "findings", ["findings"] = new JsonArray() };
+        if (context?["reviewPropositions"] is JsonArray propositions)
+            action["acknowledgments"] = new JsonArray(propositions.OfType<JsonObject>().Select(proposition =>
+                (JsonNode)new JsonObject { ["id"] = proposition["id"]!.DeepClone(), ["applicability"] = "broad" }).ToArray());
+        return new() { ["action"] = action, ["uncertainty"] = "Execution remains unobserved." };
+    }
     private static LLMResponse Response(JsonObject report) => new() { Json = report, Text = report.ToJsonString() };
     private static JsonObject Context(LLMRequest request) => JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!.AsObject();
     private static Task<PlanningSession> Advance(PlanningSession state, TestRuntime runtime) => new HybridWorkflowPlanner()

@@ -253,12 +253,14 @@ public sealed class IncrementalReviewTests(ITestOutputHelper output)
     }
 
     [Theory]
-    [InlineData("inconclusive")]
-    [InlineData("report_repair")]
-    public async Task SupportedFollowupRetainsItsPriorReportAndCompletesTheVerifiedUnion(string kind)
+    [InlineData("inconclusive", 9)]
+    [InlineData("report_repair", 9)]
+    [InlineData("inconclusive", 10)]
+    [InlineData("report_repair", 10)]
+    public async Task SupportedFollowupRetainsItsPriorReportAndCompletesTheVerifiedUnion(string kind, int version)
     {
         var issued = false;
-        var run = await Run(false, "followup", 1, 9, (context, report) =>
+        var run = await Run(false, "followup", 1, version, (context, report) =>
         {
             if (issued || kind == "inconclusive" && !(context["interfaces"] is JsonArray interfaces &&
                 interfaces.Any(item => item?["binding"]?["kind"]?.ToString() == "output"))) return;
@@ -273,6 +275,8 @@ public sealed class IncrementalReviewTests(ITestOutputHelper output)
             var repaired = Assert.Single(Judges(run.Runtime), request => Context(request)["reportRepair"] is not null);
             Assert.Contains(PlanningConstructionReviewCoverage.IncrementalInstructions, repaired.Prompt, StringComparison.Ordinal);
         }
+        Assert.All(Judges(run.Runtime), request =>
+            Assert.Equal(version == 10, request.Prompt.Contains("A claim concerning an original assigned to another window does not by itself require that original here.", StringComparison.Ordinal)));
         PlanningArtifactApproval.Verify(run.State);
         var prior = Assert.Single(run.State.Construction!.Checkpoints.SelectMany(checkpoint => checkpoint.Reviews),
             review => review["reassessment"] is not null);

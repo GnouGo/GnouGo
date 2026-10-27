@@ -69,7 +69,16 @@ public sealed partial class CompactConvergentJudgeTests
     {
         var state = await BatchState(presentation);
         var (context, review) = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, false);
-        if (presentation == 10) BatchSchema(review).Remove("description");
+        if (presentation == 10)
+        {
+            BatchSchema(review).Remove("description");
+            // Preserve a pre-clarification issued envelope, not a request rebuilt
+            // with current guidance when its historical response is recovered.
+            var historical = review.Prompt.Split('\n').Where(line =>
+                !line.StartsWith("Review this window's exact original clauses", StringComparison.Ordinal));
+            review.Prompt = string.Join('\n', historical);
+            Assert.DoesNotContain("A clean window closes no requirement.", review.Prompt, StringComparison.Ordinal);
+        }
         Assert.False(PlanningCompactConstruction.CoalesceReviewEvidenceIssued(review.StructuredOutputSchema));
         var issued = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.LocalPurpose, review.Prompt,
             review.StructuredOutputSchema!.AsObject());

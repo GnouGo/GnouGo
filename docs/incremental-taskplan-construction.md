@@ -80,6 +80,15 @@ first-occurrence order. The original receipt, eight-entry wire bound, atomic
 follow-up admission and successful-read repeat checks are preserved. Unmarked
 issued schemas keep their prior handling; retrieval grants no review coverage.
 
+Fresh v10 review guidance also explains how the current whole-clause window
+assesses full completion claims. An obligation assigned to another window alone
+does not require rereading it; a specific dependency or coupled constraint still
+does. A clean window grants no completion, and the shared verifier requires all
+outstanding coverage. The same guidance applies to the single report follow-up.
+Historical guidance and saved issued requests remain unchanged. This addresses
+an instruction ambiguity, not proof that every cross-window request is needless;
+complete-request admission and mandatory coverage remain enforced.
+
 Proofs, claims and transitions remain in existing journals. Candidate changes,
 stale authorities and relevant invalidations require renewed review. One validated
 transition is applied per advance before recomputing. Presentations 2–9 keep their

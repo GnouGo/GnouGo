@@ -301,10 +301,12 @@ public sealed partial class HybridWorkflowPlanner
         // protocol. It must not silently lose the meaning of its required IDs.
         if (PlanningCompactConstruction.UsesIncrementalReview(state))
             guidance += "\n" + PlanningConstructionReviewCoverage.IncrementalInstructions;
+        if (PlanningCompactConstruction.UsesDecisionView(state) &&
+            (construction.Compact!.PresentationVersion == 10 ||
+             !PlanningCompactConstruction.UsesIncrementalReview(state) && reassessment?["reportRepair"]?.GetValue<bool>() != true))
+            guidance += "\nReview this window's exact original clauses against the unchanged candidate and its full completion claims, independently of selected requirement associations. A claim concerning an original assigned to another window does not by itself require that original here. Request other exact originals when a specific dependency or coupled constraint is needed to assess a clause in this window; their absence alone is not missing implementation. Future obligations alone are not defects. Every source window must pass before acceptance of the candidate or its closure claims. A clean window closes no requirement.";
         if (PlanningCompactConstruction.UsesDecisionView(state) && reassessment?["reportRepair"]?.GetValue<bool>() != true)
         {
-            if (!PlanningCompactConstruction.UsesIncrementalReview(state))
-                guidance += "\nReview this window's exact original clauses against the unchanged candidate and its full completion claims, independently of selected requirement associations. A claim concerning an original assigned to another window does not by itself require that original here. Request other exact originals when a specific dependency or coupled constraint is needed to assess a clause in this window; their absence alone is not missing implementation. Future obligations alone are not defects. Every source window must pass before acceptance of the candidate or its closure claims. A clean window closes no requirement.";
             context = PlanningConstructionReviewCoverage.Select(state, context, (window, remaining) =>
             {
                 var proposal = Create(window);
