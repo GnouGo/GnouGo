@@ -1042,6 +1042,12 @@ continuation instead of appending it to the restored step's four bounded notes.
 Its exact evidence remains available to retention, discovery and draft navigation;
 the binding still requires ordinary validation and scoped business review.
 
+Fresh Judge evidence arrays also capture exact duplicate-address coalescing in
+their description. Normalization follows raw response validation and uses that
+issued annotation, never a later session version. Reads, admission and review
+coverage remain subject to the existing loader; historical unmarked arrays keep
+their original handling.
+
 Retained full-proposal sessions use their captured `Request.Options.business_judge`
 setting for an independent Structured Output call after deterministic validation and
 resolved choices, before FinalReview. Its historical default is `false`. New

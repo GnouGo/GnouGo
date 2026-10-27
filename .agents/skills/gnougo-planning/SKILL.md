@@ -69,6 +69,8 @@ Keep the existing shared single follow-up allowance for supported reassessment o
 
 Validate response string bounds using the issued schema's captured interpretation. JSON Schema character limits count Unicode code points, separately from request byte/token admission. A supplementary character must not consume a report-repair allowance merely because its UTF-16 encoding has two units. Preserve unmarked historical requests and their original validation behavior.
 
+For newly issued evidence actions, read duplicate exact addresses once within the same bounded batch. Preserve the raw receipt and its issued semantics, ordinary admission and cross-request repeat checks. Repeating an address supplies neither new evidence nor review coverage; mechanical duplication alone need not stop an otherwise valid retrieval.
+
 ## Recovery and evaluation
 
 Capture fresh behavior through the existing presentation version; retain construction version 2 and storage format 10. Preserve historical future behavior and exact issued requests, schemas, receipts, hashes and approvals. Parse saved responses under their issued schema. Never rebuild pending requests from newer context, regenerate accepted work, reset accounting or replay uncertainty; use existing checkpoints/journals. A legacy benchmark retention exception requires independently pinned pre-dispatch source/build/input proof and the exact original dispatch mapping; a mode label never establishes eligibility or authorization. Bind legacy run identities to their exact issuer and pinned invocation: corpus keys need not contain cohort metadata, and a live scenario identifier is distinct from its display name and explicit run label.

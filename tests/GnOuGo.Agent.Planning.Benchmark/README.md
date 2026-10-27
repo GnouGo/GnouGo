@@ -28,6 +28,12 @@ continuation; qualify the correction through a new cohort, never by continuing
 the failed control. Record host validation errors separately from invalid model
 responses and from runtime outcomes.
 
+The stopped 9824 Collections candidate retained 33 receipts. Its final evidence
+action passed the issued schema but repeated one page address five times, which
+the loader rejected before lookup. Qualify same-batch coalescing prospectively
+under a new frozen source; preserve the original receipt and failure. This does
+not relax cross-request progress checks or establish an avoided live failure.
+
 The 27 October user delegation covers necessary paid diagnostics and exact administrative
 retention of established stopped/unrecoverable requests without repeated per-identity
 confirmation. Each closure still binds exact evidence, preserves every reservation and

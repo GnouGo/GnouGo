@@ -229,7 +229,7 @@ public sealed partial class HybridWorkflowPlanner
             kinds[0]?.ToString() is "findings" or "evidenceRequests" or "inconclusive") &&
         actions.Any(action => action?["properties"]?["kind"]?["enum"]?[0]?.ToString() == "inconclusive");
 
-    private static JsonObject NormalizeConstructionReview(JsonObject raw)
+    private static JsonObject NormalizeConstructionReview(JsonObject raw, JsonNode? issuedSchema)
     {
         var action = raw["action"]!.AsObject();
         var kind = action["kind"]!.ToString();
@@ -240,7 +240,11 @@ public sealed partial class HybridWorkflowPlanner
             normalized.Remove("obligation"); normalized.Remove("implementation");
             return (JsonNode)normalized;
         }).ToArray()) : null;
-        var normalizedReport = new JsonObject { ["findings"] = findings, ["evidenceRequests"] = kind == "evidenceRequests" ? action["addresses"]!.DeepClone() : null,
+        var evidence = kind == "evidenceRequests" ? action["addresses"]!.DeepClone().AsArray() : null;
+        if (evidence is not null && PlanningCompactConstruction.CoalesceReviewEvidenceIssued(issuedSchema))
+            evidence = new JsonArray(evidence.Select(address => address!.ToString()).Distinct(StringComparer.Ordinal)
+                .Select(address => (JsonNode?)JsonValue.Create(address)).ToArray());
+        var normalizedReport = new JsonObject { ["findings"] = findings, ["evidenceRequests"] = evidence,
             ["inconclusive"] = kind == "inconclusive" ? action["reason"]!.DeepClone() : null, ["uncertainty"] = raw["uncertainty"]!.DeepClone() };
         if (action["resolutions"] is not null) normalizedReport["resolutions"] = action["resolutions"]!.DeepClone();
         if (action["acknowledgments"] is not null) normalizedReport["acknowledgments"] = action["acknowledgments"]!.DeepClone();
@@ -367,7 +371,7 @@ public sealed partial class HybridWorkflowPlanner
                     MarkConstructionReassessmentIssued(state, purpose, fingerprint);
                 } : null);
             retainedResponse = response.DeepClone();
-            if (convergent) response = NormalizeConstructionReview(response.AsObject());
+            if (convergent) response = NormalizeConstructionReview(response.AsObject(), request.StructuredOutputSchema);
         }
         catch (PlanningResponseException error)
         {

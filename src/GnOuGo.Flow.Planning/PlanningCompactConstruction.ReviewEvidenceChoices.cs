@@ -5,6 +5,9 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningCompactConstruction
 {
+    internal const string ReviewEvidenceBatchSemantics =
+        "Repeated exact addresses are retrieved once within this batch; prior successful reads are not new evidence.";
+
     internal static void ConstrainReviewEvidence(PlanningSession state, JsonObject context, JsonObject schema)
     {
         if (!UsesDecisionView(state) || schema["properties"]?["action"]?["anyOf"] is not JsonArray actions) return;
@@ -34,7 +37,17 @@ internal static partial class PlanningCompactConstruction
         addresses.RemoveWhere(address => state.Construction.EvidenceRequests.Contains(
             PlanningConstruction.EvidenceBatchFingerprint(state, [address]), StringComparer.Ordinal));
         if (addresses.Count == 0) actions.Remove(requestAction);
-        else requestAction["properties"]!["addresses"] = PlanningSchemas.Array(
-            PlanningSchemas.Enum(addresses.Order(StringComparer.Ordinal).ToArray()), 1, HasEvidenceAdmissionLimit(state) ? 1 : 8);
+        else
+        {
+            var offered = PlanningSchemas.Array(PlanningSchemas.Enum(addresses.Order(StringComparer.Ordinal).ToArray()),
+                1, HasEvidenceAdmissionLimit(state) ? 1 : 8);
+            if (State(state).PresentationVersion == 10) offered["description"] = ReviewEvidenceBatchSemantics;
+            requestAction["properties"]!["addresses"] = offered;
+        }
     }
+
+    internal static bool CoalesceReviewEvidenceIssued(JsonNode? schema) =>
+        schema?["properties"]?["action"]?["anyOf"] is JsonArray actions && actions.Any(action =>
+            action?["properties"]?["kind"]?["enum"]?[0]?.ToString() == "evidenceRequests" &&
+            action?["properties"]?["addresses"]?["description"]?.ToString() == ReviewEvidenceBatchSemantics);
 }

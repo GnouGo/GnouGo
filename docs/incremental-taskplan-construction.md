@@ -74,6 +74,12 @@ discovery presentation and draft navigation share those exact evidence addresses
 This does not establish business completion; the consumer still needs its normal
 validation and review. Historical resumption reconstruction is unchanged.
 
+New v10 Judge evidence arrays describe same-batch coalescing in their issued
+schema. After raw schema validation, identical addresses are retrieved once in
+first-occurrence order. The original receipt, eight-entry wire bound, atomic
+follow-up admission and successful-read repeat checks are preserved. Unmarked
+issued schemas keep their prior handling; retrieval grants no review coverage.
+
 Proofs, claims and transitions remain in existing journals. Candidate changes,
 stale authorities and relevant invalidations require renewed review. One validated
 transition is applied per advance before recomputing. Presentations 2–9 keep their
