@@ -699,7 +699,8 @@ public static class PlanningBenchmarkMeasurements
     public static string[] Select(string? selection)
     {
         var names = selection?.Split(',', StringSplitOptions.TrimEntries) ?? CandidateCases;
-        if (names.Length == 0 || names.Distinct(StringComparer.Ordinal).Count() != names.Length || names.Any(n => !PlanningBenchmarkCases.Names.Contains(n, StringComparer.Ordinal)))
+        if (names.Length == 0 || names.Distinct(StringComparer.Ordinal).Count() != names.Length || names.Any(n => !PlanningBenchmarkCases.Names.Contains(n, StringComparer.Ordinal) &&
+            !PlanningBenchmarkCases.ProofCases.Contains(n, StringComparer.Ordinal)))
             throw new ArgumentException("Select distinct frozen benchmark cases.");
         return names;
     }

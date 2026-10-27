@@ -1,12 +1,17 @@
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Planning;
+using GnOuGo.Planning.Examples;
 
 /// <summary>Supplementary authored expectations; never planner guidance or execution authority.</summary>
 internal static class SyntheticArtifactOracle
 {
     internal const string Version = "synthetic-artifact-v1";
+    internal static string VersionFor(string scenario) => PlanningBenchmarkCases.ProofCases.Contains(scenario, StringComparer.Ordinal)
+        ? "generic-proof-artifact-v1" : Version;
 
-    internal static IReadOnlyList<string> Validate(string scenario, TaskPlan? plan)
+    internal static IReadOnlyList<string> Validate(string scenario, TaskPlan? plan, PlanningCatalog? catalog = null)
     {
+        if (PlanningBenchmarkCases.ProofCases.Contains(scenario, StringComparer.Ordinal)) return ValidateProof(scenario, plan, catalog);
         if (scenario is not ("local" or "collections")) return [];
         if (plan is null) return ["missing_taskplan"];
         var findings = new List<string>();
@@ -27,12 +32,70 @@ internal static class SyntheticArtifactOracle
         return findings;
     }
 
-    private static HashSet<PlanTask> ResultDependencies(TaskPlan plan, PlanTask[] tasks)
+    private static IReadOnlyList<string> ValidateProof(string scenario, TaskPlan? plan, PlanningCatalog? catalog)
+    {
+        if (plan is null) return ["missing_taskplan"];
+        var findings = new List<string>();
+        var tasks = Walk(plan.Root).Concat(plan.Groups.SelectMany(g => Walk(g.Body))).ToArray();
+        var inputs = plan.Inputs;
+        if (inputs.Count != 2 || new[] { "left", "right" }.Any(name => !inputs.Any(i => i.Name == name && i.Required &&
+                i.Default is null && i.Type.Kind == "number" && !i.Type.Nullable))) findings.Add("wrong_numeric_inputs");
+        var outputNames = scenario == PlanningBenchmarkCases.TaskProofCase ? new[] { "doubled", "shifted" } : ["leftResult", "rightResult"];
+        if (plan.Root.Outputs.Count != 2 || outputNames.Any(name => plan.Root.Outputs.Count(o => o.Name == name) != 1))
+            findings.Add("wrong_public_outputs");
+        if (tasks.Any(t => t.Kind == "transform")) findings.Add("unavailable_runtime_dependency");
+        var left = ResultDependencies(plan, tasks, outputNames[0]);
+        var right = ResultDependencies(plan, tasks, outputNames[1]);
+        if (scenario == PlanningBenchmarkCases.TaskProofCase)
+        {
+            if (tasks.Any(t => t.Kind == "operation")) findings.Add("unavailable_runtime_dependency");
+            // A shared nonliteral intermediate must actually feed two different
+            // result-producing computations; two independent inlined expressions
+            // or an unused demonstration intermediate do not satisfy this case.
+            var shared = left.Intersect(right).Where(t => t.Kind == "value" &&
+                TaskValues(t).Any(v => ReferencesInput(v, "left")) && TaskValues(t).Any(v => ReferencesInput(v, "right"))).ToArray();
+            if (!shared.Any(producer => left.Any(a => a != producer && a.Kind == "value" && TaskValues(a).Any(v => References(v, producer.Id)) &&
+                    right.Any(b => b != producer && b != a && b.Kind == "value" && TaskValues(b).Any(v => References(v, producer.Id))))))
+                findings.Add("missing_shared_intermediate_consumers");
+            return findings;
+        }
+        var operations = tasks.Where(t => t.Kind == "operation").ToArray();
+        var read = operations.Length == 1 ? operations[0] : null;
+        if (read is null || plan.Root.Tasks.FirstOrDefault() != read || read.Requires is not null || read.Condition is not null || read.DependsOn.Count != 0 ||
+            read.Inputs.Count != 2 || !read.Inputs.Any(i => i.Name == "commandName" && i.Value.Kind == "string" && i.Value.Text == "cat_file") ||
+            !read.Inputs.Any(i => i.Name == "parameters" && i.Value.Kind == "object" && i.Value.Members.Count == 1 &&
+                i.Value.Members[0] is { Name: "path", Value.Kind: "string", Value.Text: "seed.txt" }))
+            findings.Add("missing_exact_sequential_seed_read");
+        if (read is not null)
+        {
+            var matches = (catalog?.Capabilities ?? []).Where(c => TaskOperations.Describe(c).Id == read.Operation).ToArray();
+            if (matches.Length != 1 || matches[0].Server != "filesystem" || matches[0].Method != "cmd_run")
+                findings.Add("unverified_seed_read_contract");
+            if (tasks.Where(t => t != read).Any(t => TaskValues(t).Any(v => References(v, read.Id))) ||
+                plan.Root.Outputs.Any(o => References(o.Value, read.Id)) ||
+                plan.Groups.Any(g => g.Body.Outputs.Any(o => References(o.Value, read.Id))))
+                findings.Add("opaque_read_consumed");
+        }
+        if (!left.Any(a => a.Kind == "call" && right.Any(b => b.Kind == "call" && b != a && b.Group == a.Group) &&
+                plan.Groups.Any(g => g.Id == a.Group && g.Inputs.Count == 1 && g.Inputs[0] is { Required: true, Default: null, Type.Kind: "number", Type.Nullable: false })))
+            findings.Add("missing_contributing_parameterized_calls");
+        return findings;
+    }
+
+    private static IEnumerable<TaskValue> TaskValues(PlanTask task) => task.Inputs.Concat(task.Outputs).Select(o => o.Value)
+        .Concat(new[] { task.Requires, task.Condition, task.Items }.OfType<TaskValue>())
+        .Concat(new[] { task.Body, task.Otherwise }.OfType<TaskScope>().Concat(task.Branches).SelectMany(s => s.Outputs.Select(o => o.Value)));
+    private static bool References(TaskValue value, string task) => value.Kind == "output" && value.Source == task ||
+        value.Items.Any(v => References(v, task)) || value.Members.Any(m => References(m.Value, task));
+    private static bool ReferencesInput(TaskValue value, string input) => value.Kind == "input" && value.Source == input ||
+        value.Items.Any(v => ReferencesInput(v, input)) || value.Members.Any(m => ReferencesInput(m.Value, input));
+
+    private static HashSet<PlanTask> ResultDependencies(TaskPlan plan, PlanTask[] tasks, string outputName = "result")
     {
         // Follow result data, not mere presence of an unused demonstration group/loop.
         var result = new HashSet<PlanTask>();
         var visited = new HashSet<(string Id, string? Port)>();
-        foreach (var output in plan.Root.Outputs.Where(o => o.Name == "result")) VisitValue(output.Value);
+        foreach (var output in plan.Root.Outputs.Where(o => o.Name == outputName)) VisitValue(output.Value);
         return result;
 
         void VisitValue(TaskValue value)

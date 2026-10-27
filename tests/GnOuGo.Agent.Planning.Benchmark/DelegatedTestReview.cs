@@ -5,6 +5,7 @@ using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
+using GnOuGo.Planning.Examples;
 
 // Test-host authority only. Neither planner responses nor Judge findings can create a review.
 internal sealed record DelegatedTestAuthorization(string Id, string UserAuthorization, string Reviewer,
@@ -32,6 +33,7 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
     private readonly Dictionary<string, string> _browserCursors = new(StringComparer.Ordinal);
     private string? _browserUrl;
     private string? _browserSnapshot;
+    private bool _proofReadValidated;
 
     internal IDisposable BeginCall(McpCallExecutionContext context)
     {
@@ -58,11 +60,13 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
         "amazon" => ["search", "observed_product_order", "exact_product_fields", "workbook", "cleanup", "truthful_result"],
         "code" => ["pinned_checkout", "repository_checks", "requested_review", "local_report", "cleanup", "truthful_result"],
         "synthetic" => ["exact_outputs", "declared_effects", "cleanup"],
+        PlanningBenchmarkCases.ReadGroupProofCase => ["exact_outputs", "reusable_group_calls", "single_seed_read", "unchanged_workspace"],
         _ => throw new PlanningConflictException("The delegated scenario is not authorized.")
     };
 
     internal void Validate(PlanningSession state)
     {
+        _proofReadValidated = false;
         if (string.IsNullOrWhiteSpace(authorization.Id) || string.IsNullOrWhiteSpace(authorization.UserAuthorization) ||
             string.IsNullOrWhiteSpace(authorization.Reviewer) || authorization.Campaign != campaign || authorization.Run != run ||
             authorization.Scenario != scenario || Path.GetFullPath(authorization.WorkspaceRoot) != Path.GetFullPath(root) ||
@@ -71,6 +75,14 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
             document.Receipt.EvidenceHash != PlanningGraphCompiler.Fingerprint(
                 JsonSerializer.Serialize(document.Evidence, DelegatedTestJsonContext.Default.DelegatedReviewEvidence)))
             throw new PlanningConflictException("The delegated review does not match its frozen host authorization and evidence.");
+        if (scenario == PlanningBenchmarkCases.ReadGroupProofCase &&
+            (state.Request.Name != PlanningBenchmarkCases.ReadGroupProofCase ||
+             Receipt.Origin != "delegated_test" || Receipt.TenantId != state.Request.TenantId || Receipt.SessionId != run ||
+             Receipt.ReviewedRevision != state.Revision || Receipt.ArtifactHash != state.ComputeArtifactHash() ||
+             Receipt.ReviewedRequirementIds.Count != state.Requirements?.Outcomes.Count ||
+             !Receipt.ReviewedRequirementIds.ToHashSet(StringComparer.Ordinal).SetEquals(state.Requirements?.Outcomes.Select(r => r.Id) ?? []) ||
+             SyntheticArtifactOracle.Validate(scenario, state.Plan, state.Catalog).Count != 0))
+            throw new PlanningConflictException("The local-read delegation requires the exact proof case and its independently checked artifact.");
         var requirements = state.Requirements?.Outcomes ?? [];
         var reviews = document.Evidence.Requirements;
         if (reviews.Count != requirements.Count || reviews.Select(r => r.Id).Distinct(StringComparer.Ordinal).Count() != reviews.Count ||
@@ -97,6 +109,14 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
             .Where(n => n.Type == "mcp.call" && state.Catalog?.Capabilities.Any(c => c.Id == n.CapabilityId &&
                 c.Server == "GnOuGo.GithubCopilot.Mcp" && c.Method == "code_agent_edit") == true)
             .Select(n => "/step/n_" + PlanningGraphCompiler.Fingerprint(n.Key)[..16]).Distinct(StringComparer.Ordinal).ToList() ?? [];
+        _proofReadValidated = scenario == PlanningBenchmarkCases.ReadGroupProofCase;
+    }
+
+    internal void RequireProofWorkspace(string workspace)
+    {
+        if (!_proofReadValidated || Path.GetFullPath(workspace) != Path.GetFullPath(root))
+            throw new PlanningConflictException("The seed-read runtime is outside its reviewed isolated workspace.");
+        RequirePath("seed.txt", "seed.txt", exact: true);
     }
 
     internal PlanningCommand Command() => new() { Kind = "approve", ExpectedRevision = Receipt.ReviewedRevision,
@@ -124,6 +144,7 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
             server == "GnOuGo.GithubCopilot.Mcp" && tool is "code_project_summary" or "code_read_file" or "code_search_text" or "code_agent_edit" ||
             server == "GnOuGo.Cmd.Mcp" && tool == "cmd_run" || server == "GnOuGo.Document.Mcp" && tool == "document_write",
         "synthetic" => false, // Synthetic cohorts use local fixtures; no external producer is authorized here.
+        PlanningBenchmarkCases.ReadGroupProofCase => server == "filesystem" && tool == "cmd_run",
         _ => false
     };
 
@@ -132,6 +153,14 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
         if (!AllowsTool(scenario, server, tool)) throw new PlanningConflictException("The operation is outside delegated isolated-test authority.");
         if (inspectOnly) return;
         if (arguments is not JsonObject args) throw new PlanningConflictException("Concrete operation arguments are required.");
+        if (scenario == PlanningBenchmarkCases.ReadGroupProofCase)
+        {
+            if (!_proofReadValidated || args.Count != 2 || args["commandName"]?.ToString() != "cat_file" ||
+                args["parameters"] is not JsonObject parameters || parameters.Count != 1 || parameters["path"]?.ToString() != "seed.txt")
+                throw new PlanningConflictException("Only the reviewed literal seed read is delegated; no other command, argument or path is permitted.");
+            RequirePath("seed.txt", "seed.txt", exact: true);
+            return;
+        }
         var relative = "workflows/" + campaign + "/" + run;
         if (tool == "document_write") RequirePath(args["filePath"]?.ToString(), relative + (scenario == "amazon" ? "/products.xlsx" : "/review.json"), exact: true);
         if (tool == "browser_close") ClearBrowser();

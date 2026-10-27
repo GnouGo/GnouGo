@@ -1220,6 +1220,49 @@ does not authorize approval. Historical records without this oracle version reta
 their earlier verdicts. Paired comparisons apply the same frozen supplementary
 check to both revisions alongside the existing independent runtime oracles.
 
+Two opt-in live fixture diagnostics use this same corpus runner, accounting and
+artifact review path. They are absent from the default eight cases and their
+pilot/measured gates. Select exactly one with `--phase fixture --case
+proof_task_consumers` or `--phase fixture --case proof_read_group_consumers`,
+retaining the frozen cohort, provider, model and complete generation/retry policy.
+The read case additionally requires `--cmd-executable <frozen-Cmd-apphost>`.
+
+`proof_task_consumers` requires a shared numeric `left + right` intermediate,
+two distinct consumers (`base * 2` and `base + 1`), and separate public returns.
+`proof_read_group_consumers` first reads literal `seed.txt` once through the real
+shipped Cmd server, without consuming that observation later. An isolated numeric
+group doubles its parameter; two callers use `left` and `right`, then add one to
+each result. This real filesystem prefix differs from the controlled inference
+fixture. Neither case supplies a runtime inference client. Independent nominal
+`(3, 7)` and alternate `(-2, 0)` inputs expect `(20, 11)`/`(-4, -1)` for the shared
+intermediate and `(7, 15)`/`(-3, 1)` for the group callers. The read also checks its
+actual returned UTF-8 contents, one successful invocation and unchanged files.
+
+Both capture `generic-proof-artifact-v1`: the supplementary oracle checks actual
+result-contributing structure, not task presence or model acknowledgments. Both
+require the existing exact artifact-bound delegated receipt before execution.
+The pure case retains synthetic deny-all effect authority. The read case uses
+scenario `proof_read_group_consumers`, its saved session ID and the exact isolated
+`planner-proof-<session>` workspace. Authority permits only server `filesystem`,
+tool `cmd_run`, command `cat_file`, and the singleton literal parameter
+`path: seed.txt`; extra arguments, other paths, writes and unreviewed execution
+are denied. The runner freezes the complete Cmd runtime file inventory, preserves
+the original approval gate, records each variant's confirmation separately, and
+retains started execution/workspace evidence instead of resetting an uncertain
+execution. Saved inspection is supported; proof execution replay is rejected.
+
+Each diagnostic has one complete independent business unit. Review dimensions,
+planner checkpoints and subject acknowledgments are not additional units. Report
+actual subject/broad acquisition, conserved proofs, dispatches and both runtime
+oracles without a locality quota or prescribed window count; a one-window run can
+show no Judge-call saving. A matched control needs a separately committed,
+benchmark-only harness overlay with its original production source preserved.
+Freeze identical new case text, inputs, seed contents, Cmd runtime, supplementary
+oracle and captured settings in both arms under new identities. Existing
+three-case freezer records do not authorize these new cases, and
+`--evaluation-source` does not permit disguising a case/oracle overlay as the old
+source. Existing Collections, Amazon and Review PR freezes remain unchanged.
+
 The active local product fixtures contain no cookie-consent work. Historical saved
 artifacts retain their issued vocabulary for compatibility tests; those fixtures offer
 no consent control and never exercise a consent action.

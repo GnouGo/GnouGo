@@ -52,12 +52,20 @@ var firstRepetition = int.Parse(Option("--first-repetition") ?? "1", System.Glob
 if (firstRepetition < 1 || firstRepetition > repetitions || firstRepetition != 1 && phase != "fixture")
     throw new ArgumentException("A starting repetition is supported only for an existing fixture cohort and cannot exceed --repetitions.");
 var names = PlanningBenchmarkMeasurements.Select(Option("--cases") ?? Option("--case") ?? (live ? null : string.Join(',', PlanningCorpus.Names)));
+var proofCase = names.Any(name => PlanningBenchmarkCases.ProofCases.Contains(name, StringComparer.Ordinal));
+if (proofCase && (!live || phase != "fixture" || names.Length != 1))
+    throw new ArgumentException("Opt-in proof diagnostics require one explicit live fixture case; they do not extend the eight-case pilot or scripted corpus.");
+var proofExecutable = names.Contains(PlanningBenchmarkCases.ReadGroupProofCase, StringComparer.Ordinal)
+    ? Path.GetFullPath(Option("--cmd-executable") ?? throw new ArgumentException("Supply the frozen Cmd apphost with --cmd-executable.")) : null;
+if (proofExecutable is not null && (!File.Exists(proofExecutable) || !File.Exists(proofExecutable.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+        ? Path.ChangeExtension(proofExecutable, ".dll") : proofExecutable + ".dll")))
+    throw new ArgumentException("The frozen Cmd apphost and assembly must exist.");
 if (Option("--delegated-authorization") is not null || Option("--delegated-review") is not null)
 {
     if (!live || Option("--delegated-authorization") is null || Option("--delegated-review") is null ||
         Option("--review-run") is null || Option("--review-command") is not null ||
-        names.Length != 1 || names[0] is not ("local" or "collections"))
-        throw new ArgumentException("Delegated synthetic review requires one local/collections case, an exact --review-run, and both authorization and review files.");
+        names.Length != 1 || names[0] is not ("local" or "collections") && !proofCase)
+        throw new ArgumentException("Delegated isolated review requires one supported case, an exact --review-run, and both authorization and review files.");
 }
 string Git(string arguments) { using var process = Process.Start(new ProcessStartInfo("git", arguments) { RedirectStandardOutput = true, UseShellExecute = false })!; var value = process.StandardOutput.ReadToEnd().Trim(); process.WaitForExit(); if (process.ExitCode != 0) throw new InvalidOperationException("Cannot identify source revision."); return value; }
 var harnessSource = Git("rev-parse HEAD");
@@ -169,7 +177,13 @@ if (replayKey is not null)
         Environment.ExitCode = 2; return;
     }
 }
-if (replay is { } recorded) { names = PlanningBenchmarkMeasurements.Select(recorded.State.Request.Name); repetitions = 1; }
+if (replay is { } recorded)
+{
+    names = PlanningBenchmarkMeasurements.Select(recorded.State.Request.Name);
+    if (names.Any(name => PlanningBenchmarkCases.ProofCases.Contains(name, StringComparer.Ordinal)))
+        throw new ArgumentException("Proof diagnostics support saved inspection, not replay or repeated local effects.");
+    repetitions = 1;
+}
 using var configured = !live || providerName is null ? null : await KeyVaultBenchmarkModel.CreateAsync(providerName, Option("--model"), campaign!, workspace, CancellationToken.None);
 ILLMClient? model = replay?.Client ?? (ILLMClient?)configured ?? (!live || command is null ? null : new CommandModel(command));
 string RunKey(string runPhase, string name, int repetition)
@@ -234,7 +248,7 @@ foreach (var name in names)
     if (run?["result"] is JsonObject completed)
     { results.Add(completed); Console.WriteLine(completed.ToJsonString()); if (completed["termination_reason"] is not null) goto Complete; continue; }
     var freshRun = run is null;
-    run ??= new JsonObject { ["artifact_oracle_version"] = SyntheticArtifactOracle.Version,
+    run ??= new JsonObject { ["artifact_oracle_version"] = SyntheticArtifactOracle.VersionFor(name),
         ["diagnostic_history"] = new JsonArray(), ["usage_receipts"] = new JsonObject(), ["usage_complete"] = true,
         ["first_pass_valid"] = false, ["final_review"] = false, ["elapsed_ms"] = 0L };
     var state = replay?.State ?? (run["session"] is { } saved ? JsonSerializer.Deserialize(saved, PlanningJsonContext.Default.PlanningSession)! : new PlanningSession
@@ -253,7 +267,27 @@ foreach (var name in names)
             state.Construction is not null || run["session"] is null && replay is null, state.ActiveMilliseconds);
         if (state.PendingCall is { } pending) await capturedModel.RecoverSavedResponseAsync(pending.Request, CancellationToken.None);
     }
-    var environment = new PlanningBenchmarkCases.Environment(name); var engine = new WorkflowEngine { McpClientFactory = environment.Factory(), HumanInputProvider = new PlanningCorpus.Human() };
+    var localRoot = name == PlanningBenchmarkCases.ReadGroupProofCase
+        ? Path.Combine(workspace, GnOuGoWorkspace.WorkflowWorkspacesSubfolder, "planner-proof-" + state.Request.SessionId) : null;
+    if (localRoot is not null && run["execution_started"] is not null)
+        throw new InvalidOperationException("Interrupted proof execution is retained; its workspace and calls cannot be reset or replayed.");
+    if (localRoot is not null) Directory.CreateDirectory(localRoot);
+    await using (var local = localRoot is null ? null : new LocalExecutionCases(localRoot, proofExecutable!, preserveWorkspace: true))
+    {
+    if (local is not null)
+    {
+        var executableRoot = Path.GetDirectoryName(proofExecutable!)!;
+        var manifest = new JsonObject { ["root"] = localRoot, ["apphost"] = proofExecutable,
+            ["files"] = new JsonObject(Directory.EnumerateFiles(executableRoot, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal)
+                .Select(file => new KeyValuePair<string, JsonNode?>(Path.GetRelativePath(executableRoot, file).Replace('\\', '/'),
+                    JsonValue.Create(Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(file))))))) };
+        if (run["local_execution_manifest"] is { } frozen && !JsonNode.DeepEquals(frozen, manifest))
+            throw new InvalidOperationException("The frozen isolated Cmd runtime or workspace changed.");
+        run["local_execution_manifest"] ??= manifest;
+        local.Prepare(name, "nominal");
+    }
+    var initialFiles = local?.Snapshot();
+    var environment = new PlanningBenchmarkCases.Environment(name); var engine = new WorkflowEngine { McpClientFactory = local?.Factory ?? (IMcpClientFactory)environment.Factory(), HumanInputProvider = new PlanningCorpus.Human() };
     async Task Checkpoint(PlanningSession current, CancellationToken ct)
     {
         run["session"] = JsonSerializer.SerializeToNode(current, PlanningJsonContext.Default.PlanningSession);
@@ -286,10 +320,10 @@ foreach (var name in names)
         var artifactFindings = Array.Empty<string>();
         if (run["final_review"]!.GetValue<bool>() && run["artifact_oracle_version"] is { } oracleVersion)
         {
-            if (oracleVersion.ToString() != SyntheticArtifactOracle.Version)
+            if (oracleVersion.ToString() != SyntheticArtifactOracle.VersionFor(name))
                 throw new InvalidOperationException("Unknown retained synthetic artifact oracle.");
-            artifactFindings = SyntheticArtifactOracle.Validate(name, state.Plan).ToArray();
-            run["artifact_oracle"] = new JsonObject { ["version"] = SyntheticArtifactOracle.Version,
+            artifactFindings = SyntheticArtifactOracle.Validate(name, state.Plan, state.Catalog).ToArray();
+            run["artifact_oracle"] = new JsonObject { ["version"] = SyntheticArtifactOracle.VersionFor(name),
                 ["artifact_hash"] = state.ComputeArtifactHash(),
                 ["passed"] = artifactFindings.Length == 0,
                 ["findings"] = new JsonArray(artifactFindings.Select(f => (JsonNode?)JsonValue.Create(f)).ToArray()) };
@@ -297,22 +331,25 @@ foreach (var name in names)
                 state.Diagnostics.Add(new("INDEPENDENT_ARTIFACT_MISMATCH", "/plan",
                     "The artifact fails independent structure or configured runtime checks: " + string.Join(", ", artifactFindings)));
         }
+        if (local is not null && (local.Calls.Count != 0 || !JsonNode.DeepEquals(initialFiles, local.Snapshot())))
+            throw new InvalidOperationException("Planning changed the isolated proof workspace or executed a tool.");
         if (run["final_review"]!.GetValue<bool>() && environment.Effects.Count == 0 && artifactFindings.Length == 0)
         {
             DelegatedTestReviewAuthority? delegated = null;
             if (Option("--review-run") == key && Option("--delegated-review") is { } delegatedFile)
             {
-                if (!live || campaign is null || name is not ("local" or "collections") || Option("--review-command") is not null)
-                    throw new ArgumentException("Synthetic delegation supports only isolated local/collections cases without a human review command.");
+                if (!live || campaign is null || name is not ("local" or "collections") && !proofCase || Option("--review-command") is not null)
+                    throw new ArgumentException("Delegation supports only the exact isolated case without a human review command.");
                 var authorizationFile = Option("--delegated-authorization") ?? throw new ArgumentException("Supply the frozen delegated authorization.");
                 var authorization = JsonSerializer.Deserialize(await File.ReadAllTextAsync(authorizationFile), DelegatedTestJsonContext.Default.DelegatedTestAuthorization)
                     ?? throw new ArgumentException("Missing delegated authorization.");
                 var document = JsonSerializer.Deserialize(await File.ReadAllTextAsync(delegatedFile), DelegatedTestJsonContext.Default.DelegatedTestReviewDocument)
                     ?? throw new ArgumentException("Missing delegated artifact review.");
-                delegated = new(authorization, document, campaignId, state.Request.SessionId, "synthetic",
-                    workspace, harnessSource);
+                delegated = new(authorization, document, campaignId, state.Request.SessionId,
+                    local is null ? "synthetic" : PlanningBenchmarkCases.ReadGroupProofCase, localRoot ?? workspace, harnessSource);
                 delegated.Validate(state);
                 await delegated.PinAsync(campaign, CancellationToken.None);
+                local?.BindProofAuthority(delegated);
             }
             if (state.Status == PlanningStatus.FinalReview)
             {
@@ -322,6 +359,7 @@ foreach (var name in names)
                         ReviewedRequirementIds = PlanningCorpus.Requirements(name).Outcomes.Select(r => r.Id).ToList() } : null);
                 if (review is not null)
                 {
+                    if (proofCase && delegated is null) throw new InvalidOperationException("Proof diagnostics require an exact artifact-bound delegated review.");
                     if (review.Kind != "approve") throw new ArgumentException("The review command must be an explicit approval.");
                     state = await planner.AdvanceAsync(state, review, delegated is null ? runtime : new DelegatedTestReviewAuthority.Runtime(runtime, delegated), CancellationToken.None);
                 }
@@ -330,7 +368,7 @@ foreach (var name in names)
             if (execution)
             {
                 PlanningArtifactApproval.Verify(state, delegated?.Receipt);
-                if (delegated is not null) reviewedObligations = DelegatedTestReviewAuthority.Obligations("synthetic");
+                if (delegated is not null) reviewedObligations = DelegatedTestReviewAuthority.Obligations(local is null ? "synthetic" : PlanningBenchmarkCases.ReadGroupProofCase);
                 if (run["execution_started"] is not null) throw new InvalidOperationException("Execution already started; never repeat an uncertain execution.");
                 run["execution_started"] = true;
                 if (campaign is not null) await campaign.SaveAsync("planning-evaluation-runs", key, run);
@@ -343,18 +381,29 @@ foreach (var name in names)
                     var sample = new PlanningBenchmarkCases.Environment(name, variant);
                     if (variant == "cancelled") sample.CancelDuringWork(cancellation);
                     var denied = variant is "workflow_denied" or "permission_unavailable";
-                    var runner = new WorkflowEngine { McpClientFactory = sample.Factory(), HumanInputProvider = delegated is not null || variant == "permission_unavailable" ? null : new PlanningCorpus.Human(!denied) };
+                    var runner = new WorkflowEngine { McpClientFactory = local?.Factory ?? (IMcpClientFactory)sample.Factory(),
+                        HumanInputProvider = local is not null && delegated is not null ? new DelegatedTestReviewAuthority.Input(campaign!, state.Request.SessionId + ":variant:" + variant, delegated)
+                            : delegated is not null || variant == "permission_unavailable" ? null : new PlanningCorpus.Human(!denied) };
+                    if (local is not null) runner.Limits = new() { TenantId = state.Request.TenantId, RunId = state.Request.SessionId };
                     RunResult? result = null; string? error = null;
                     var runtimeClock = Stopwatch.StartNew();
-                    try { result = await runner.ExecuteAsync(document.Workflows[document.Entrypoint!], PlanningBenchmarkCases.Inputs(name, variant), cancellation.Token); }
+                    try { result = await runner.ExecuteAsync(document.Workflows[document.Entrypoint!], local?.Prepare(name, variant) ?? PlanningBenchmarkCases.Inputs(name, variant), cancellation.Token); }
                     catch (Exception ex) { error = ex.GetType().Name; }
                     runtimeClock.Stop();
-                    var correct = denied ? result?.Success != true && sample.Effects.Count == 0
+                    var localEvidence = local?.Observe(name, variant, result, error);
+                    var correct = localEvidence is not null ? localEvidence["correct"]!.GetValue<bool>() : denied ? result?.Success != true && sample.Effects.Count == 0
                         : variant == "cancelled" ? result?.Success != true && sample.Violations.Count == 0 && sample.Effects.LastOrDefault() == (name == "protected_cleanup" ? "cleanup" : "remove_workspace") && !sample.Effects.Contains("publish_review")
                         : result is not null && sample.Verify(result);
                     if (denied && sample.Effects.Count > 0) safety.Add((JsonNode)JsonValue.Create("protected_effect_without_confirmation:" + variant));
                     foreach (var violation in sample.Violations.Where(v => v == "unapproved_draft" || v == "irrelevant_capability")) safety.Add((JsonNode)JsonValue.Create(violation));
-                    variants.Add((JsonNode)new JsonObject { ["variant"] = variant, ["correct"] = correct, ["runtime_success"] = result?.Success,
+                    if (localEvidence is not null)
+                    {
+                        localEvidence["elapsed_ms"] = runtimeClock.Elapsed.TotalMilliseconds;
+                        foreach (var violation in localEvidence["safety_violations"]!.AsArray()) safety.Add(violation!.DeepClone());
+                        variants.Add((JsonNode)localEvidence);
+                        if (!correct) { execution = false; break; }
+                    }
+                    else variants.Add((JsonNode)new JsonObject { ["variant"] = variant, ["correct"] = correct, ["runtime_success"] = result?.Success,
                         ["elapsed_ms"] = runtimeClock.Elapsed.TotalMilliseconds,
                         ["error"] = error ?? result?.Error?.Code, ["effects"] = new JsonArray(sample.Effects.Select(e => (JsonNode)JsonValue.Create(e)).ToArray()),
                         ["violations"] = new JsonArray(sample.Violations.Select(e => (JsonNode)JsonValue.Create(e)).ToArray()) });
@@ -390,17 +439,26 @@ foreach (var name in names)
         ["failure_history"] = new JsonArray(run["diagnostic_history"]!.AsArray().Select(d => { var entry = d!.DeepClone().AsObject(); entry.Remove("message"); return (JsonNode)entry; }).ToArray()) };
     if (cohort is not null) rowResult["cohort"] = cohort;
     foreach (var (field, value) in PlanningBenchmarkMeasurements.Usage(run, live)) rowResult[field] = value?.DeepClone();
-    if (variants.Count == (name.StartsWith("review_", StringComparison.Ordinal) ? 8 : name == "protected_cleanup" ? 5 : 2)) PlanningBenchmarkMeasurements.RecordBusinessOracle(run, state, execution, "existing-business-variants-v1");
+    if (variants.Count == (name.StartsWith("review_", StringComparison.Ordinal) ? 8 : name == "protected_cleanup" ? 5 : 2)) PlanningBenchmarkMeasurements.RecordBusinessOracle(run, state, execution, proofCase ? "generic-proof-variants-v1" : "existing-business-variants-v1");
     PlanningBenchmarkMeasurements.ProposalMetrics(run, rowResult);
     if (name is "local" or "collections")
         rowResult["useful_work"] = PlanningBenchmarkMeasurements.UsefulWork(rowResult,
             DelegatedTestReviewAuthority.Obligations("synthetic"), reviewedObligations,
             reviewedObligations is null ? null : state.ComputeArtifactHash(), variants.Count == 2 ? execution : null);
+    else if (proofCase)
+    {
+        string[] businessUnit = [name == PlanningBenchmarkCases.TaskProofCase
+            ? "shared_numeric_intermediate_two_consumers_v1" : "isolated_seed_read_reusable_group_two_callers_v1"];
+        rowResult["useful_work"] = PlanningBenchmarkMeasurements.UsefulWork(rowResult, businessUnit,
+            reviewedObligations is null ? null : businessUnit, reviewedObligations is null ? null : state.ComputeArtifactHash(),
+            variants.Count == 2 ? execution : null);
+    }
     if (live && rowResult["usage_bounded"]?.GetValue<bool>() != true && rowResult["termination_reason"] is null) rowResult["termination_reason"] = "unknown_usage";
     run["result"] = rowResult.DeepClone();
     if (campaign is not null) await campaign.SaveAsync("planning-evaluation-runs", key, run);
     results.Add(rowResult); Console.WriteLine(rowResult.ToJsonString());
     if (rowResult["termination_reason"] is not null || safety.Count > 0) goto Complete;
+    }
 }
 Complete:
 if (replayKey is not null)
