@@ -42,7 +42,7 @@ internal static class PlanningModelCalls
         {
             schema = schema.DeepClone().AsObject();
             schema["title"] = purpose;
-            if (state.Construction?.Compact?.PresentationVersion == 10)
+            if (state.Construction?.Compact?.PresentationVersion is 10 or 11)
                 schema["$comment"] = UnicodeStringLengths;
         }
         var request = PlanningConstructionPhasePolicies.Apply(new LLMRequest

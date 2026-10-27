@@ -116,7 +116,7 @@ public sealed class CompactScopeInterfaceTests
             MaxModelCalls = 64, Options = new() { ["automatic_correction"] = true } } });
         Assert.Null(modelFailure);
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics.Select(item => item.Code + ":" + item.Message)));
-        Assert.Equal(10, state.Construction!.Compact!.PresentationVersion); Assert.True(sawEmptyLoopReview);
+        Assert.Equal(11, state.Construction!.Compact!.PresentationVersion); Assert.True(sawEmptyLoopReview);
         Assert.Equal(0, state.ReplanAttempts); Assert.Equal(5, stage);
         PlanningArtifactApproval.Verify(state);
         var loop = Assert.Single(state.Plan!.Root.Tasks); Assert.Equal("foreach", loop.Kind); Assert.True(loop.Parallel);

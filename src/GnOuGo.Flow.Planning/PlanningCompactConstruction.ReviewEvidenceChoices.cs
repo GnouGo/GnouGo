@@ -41,7 +41,7 @@ internal static partial class PlanningCompactConstruction
         {
             var offered = PlanningSchemas.Array(PlanningSchemas.Enum(addresses.Order(StringComparer.Ordinal).ToArray()),
                 1, HasEvidenceAdmissionLimit(state) ? 1 : 8);
-            if (State(state).PresentationVersion == 10) offered["description"] = ReviewEvidenceBatchSemantics;
+            if (State(state).PresentationVersion is 10 or 11) offered["description"] = ReviewEvidenceBatchSemantics;
             requestAction["properties"]!["addresses"] = offered;
         }
     }

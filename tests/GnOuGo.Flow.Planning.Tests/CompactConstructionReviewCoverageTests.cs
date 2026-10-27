@@ -85,6 +85,7 @@ public sealed class CompactConstructionReviewCoverageTests
     [InlineData(6)]
     [InlineData(9)]
     [InlineData(10)]
+    [InlineData(11)]
     public async Task CleanFirstWindowCannotCloseAClaimWhoseOriginalIsInTheNextWindow(int presentation)
     {
         var state = await State(closeScope: true, closeRequirement: true, repetitions: presentation >= 9 ? 12 : 24, presentation: presentation);

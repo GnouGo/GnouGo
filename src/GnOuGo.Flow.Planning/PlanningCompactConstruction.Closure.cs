@@ -6,7 +6,7 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningCompactConstruction
 {
-    internal static bool UsesAcceptedTransitions(PlanningSession state) => state.Construction?.Compact?.PresentationVersion == 10;
+    internal static bool UsesAcceptedTransitions(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 10 or 11;
 
     internal static bool CompletionOnly(PlanningSession state) => UsesConvergentConstruction(state) &&
         state.Construction!.Requirements.Count > 0 && state.Construction.Requirements.All(requirement => requirement.Status == "closed") &&

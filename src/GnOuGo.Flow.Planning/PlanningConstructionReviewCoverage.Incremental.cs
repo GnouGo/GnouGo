@@ -39,7 +39,7 @@ internal static partial class PlanningConstructionReviewCoverage
                 ["candidateHash"] = candidate.Hash, ["basis"] = basis, ["basisHash"] = basisHash,
                 ["sources"] = SourceHashes(units), ["reuse"] = new JsonArray() };
             var reusable = new Dictionary<string, JsonObject>(StringComparer.Ordinal);
-            var dispositions = state.Construction.Compact.PresentationVersion == 10 ? new JsonObject() : null;
+            var dispositions = state.Construction.Compact.PresentationVersion is 10 or 11 ? new JsonObject() : null;
             // Completion, explicit retrieval and unresolved corrections cannot borrow
             // a narrower contribution or silently discard requested original text.
             if (originalSet is not null)
@@ -118,7 +118,7 @@ internal static partial class PlanningConstructionReviewCoverage
             var proposition = Proposition(state, candidate, unit, out var status);
             eligibility[unit.Key] = status; return (JsonNode)proposition;
         }).ToArray());
-        if (state.Construction!.Compact!.PresentationVersion == 10) basis["subjectEligibility"] = eligibility;
+        if (state.Construction!.Compact!.PresentationVersion is 10 or 11) basis["subjectEligibility"] = eligibility;
         return result;
     }
 
@@ -163,7 +163,7 @@ internal static partial class PlanningConstructionReviewCoverage
                 proof = PlanningConstructionDependencies.Capture(state, candidate.Plan, subject);
                 if (proof is null) subject = null;
             }
-            if (subject is null && state.Construction.Compact.PresentationVersion == 10)
+            if (subject is null && state.Construction.Compact.PresentationVersion is 10 or 11)
             {
                 // The actual delta supplies the anchor, not selected requirement
                 // associations. Multiple contributions need a semantic decision;
@@ -291,7 +291,7 @@ internal static partial class PlanningConstructionReviewCoverage
         // Closing a boundary can keep identical TaskPlan bytes. Older receipts
         // bind their original open-scope state, not this later accepted state.
         // Any new reuse still recomputes conservation against its actual target.
-        (state.Construction!.Compact!.PresentationVersion != 10 ||
+        (state.Construction!.Compact!.PresentationVersion is not (10 or 11) ||
             state.Construction.Checkpoints.LastOrDefault()?.Sequence == checkpoint.Sequence) ? state.Plan : null;
 
     private static JsonObject? IncrementalCurrentManifest(PlanningSession state, PlanningConstructionCandidate candidate)
@@ -427,7 +427,7 @@ internal static partial class PlanningConstructionReviewCoverage
         reason = "no_verified_origin";
         foreach (var checkpoint in state.Construction!.Checkpoints.AsEnumerable().Reverse())
         {
-            if (state.Construction.Compact!.PresentationVersion != 10 && ProofInvalidated(checkpoint, proof)) continue;
+            if (state.Construction.Compact!.PresentationVersion is not (10 or 11) && ProofInvalidated(checkpoint, proof)) continue;
             if (IncrementalCheckpointManifest(state, checkpoint) is not { } origin) continue;
             var original = origin["basis"]!["propositions"]!.AsArray().OfType<JsonObject>()
                 .SingleOrDefault(row => row["sourceKey"]?.ToString() == proposition["sourceKey"]?.ToString() && row["id"]?.ToString() == proposition["id"]?.ToString());

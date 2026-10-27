@@ -98,6 +98,7 @@ public sealed partial class HybridWorkflowPlanner
         var evidence = new List<string>();
         foreach (var key in new[] { "requirements", "globalConstraints", "interfaces", "operations", "outputs", "choices", "checkpoints" })
             AddEntries(context[key], "/" + key, evidence);
+        AddEntries(context["ancestorControls"], "/ancestorControls", evidence);
         evidence.AddRange(locations);
         if (verified && context["inputDeclarations"]?["inputs"] is JsonArray declarations)
             for (var index = 0; index < declarations.Count; index++)
@@ -302,7 +303,7 @@ public sealed partial class HybridWorkflowPlanner
         if (PlanningCompactConstruction.UsesIncrementalReview(state))
             guidance += "\n" + PlanningConstructionReviewCoverage.IncrementalInstructions;
         if (PlanningCompactConstruction.UsesDecisionView(state) &&
-            (construction.Compact!.PresentationVersion == 10 ||
+            (construction.Compact!.PresentationVersion is 10 or 11 ||
              !PlanningCompactConstruction.UsesIncrementalReview(state) && reassessment?["reportRepair"]?.GetValue<bool>() != true))
             guidance += "\nReview this window's exact original clauses against the unchanged candidate and its full completion claims, independently of selected requirement associations. A claim concerning an original assigned to another window does not by itself require that original here. Request other exact originals when a specific dependency or coupled constraint is needed to assess a clause in this window; their absence alone is not missing implementation. Future obligations alone are not defects. Every source window must pass before acceptance of the candidate or its closure claims. A clean window closes no requirement.";
         if (PlanningCompactConstruction.UsesDecisionView(state) && reassessment?["reportRepair"]?.GetValue<bool>() != true)
@@ -318,6 +319,7 @@ public sealed partial class HybridWorkflowPlanner
 
         LLMRequest Create(JsonObject displayed)
         {
+            PlanningCompactConstruction.AddWindowReviewEvidence(state, displayed);
             var schema = convergent ? ConvergentConstructionReviewSchema(displayed, reassessment is not null)
                 : ConstructionReviewSchema(displayed, verified, reassessment is not null);
             PlanningConstructionReviewCoverage.ConstrainPropositionAcknowledgments(displayed, schema);
@@ -780,6 +782,7 @@ public sealed partial class HybridWorkflowPlanner
             .Any(key => item[key] is JsonArray { Count: > 0 });
         if (pointer.StartsWith("/interfaces/", StringComparison.Ordinal)) return item["binding"] is not null && item["schema"] is not null;
         if (pointer.StartsWith("/inputDeclarations/inputs/", StringComparison.Ordinal)) return item["declaration"] is JsonObject;
+        if (pointer.StartsWith("/ancestorControls/", StringComparison.Ordinal)) return item["task"] is JsonObject && item["scope"] is JsonValue;
         if (pointer == "/scopeInterface") return item["evidence"] is null && item["outputs"] is JsonArray;
         if (pointer is "/group" or "/scopeGroup") return item["inputs"] is JsonArray;
         if (pointer.Split('/') is not ["", "evidence", var encoded]) return false;
@@ -792,7 +795,7 @@ public sealed partial class HybridWorkflowPlanner
     {
         var root = pointer.Split('/').ElementAtOrDefault(1);
         if (root is not ("request" or "revision" or "requirements" or "answers" or "tasks" or "operations" or "interfaces" or "draft" or "evidence" or "closures") &&
-            !(compact && root is "globalConstraints" or "step" or "checkpoints" or "outputs" or "commitments" or "choices" or "group" or "scopeGroup" or "scopeInterface" or "inputDeclarations" or "constructionStage")) return false;
+            !(compact && root is "globalConstraints" or "step" or "checkpoints" or "outputs" or "commitments" or "choices" or "group" or "scopeGroup" or "scopeInterface" or "inputDeclarations" or "ancestorControls" or "constructionStage")) return false;
         if (!PlanningConstruction.TryPointer(context, pointer, out var evidence) || evidence is null) return false;
         return evidence is not JsonArray { Count: 0 } && evidence is not JsonObject { Count: 0 } &&
             (evidence is not JsonValue || !string.IsNullOrWhiteSpace(evidence.ToString()));

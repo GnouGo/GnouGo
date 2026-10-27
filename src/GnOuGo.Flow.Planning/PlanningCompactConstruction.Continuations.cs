@@ -159,7 +159,7 @@ internal static partial class PlanningCompactConstruction
         // The exact need remains on the continuation for the consumer's review.
         // Duplicating it as a note can overflow the restored consumer's four slots.
         // Historical presentations retain their original reconstruction.
-        if (compact.PresentationVersion != 10)
+        if (compact.PresentationVersion is not (10 or 11))
         {
             resumed.Prerequisites ??= [];
             if (!resumed.Prerequisites.Any(need => need.Need == item.Prerequisite.Need && need.EvidenceAddresses.SequenceEqual(item.Prerequisite.EvidenceAddresses)))

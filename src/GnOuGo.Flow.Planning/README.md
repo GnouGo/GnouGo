@@ -2,6 +2,12 @@
 
 Fresh sessions use [compact incremental construction](../../docs/incremental-taskplan-construction.md): index original intent, select one immediate business substep, discover its capabilities, then generate and review a bounded fragment of one TaskPlan. Phase-specific context and response schemas omit unrelated inspections, task grammar and history. Exact contract views preserve required constraints; the shared compiler validates against unchanged original contracts before encrypted checkpoint acceptance. Completion uses the existing PlanningGraph and compiler v15 path without a final whole-plan LLM Judge. Historical proposal/repair contracts below retain their original meaning for issued sessions.
 
+Presentation revision 11 derives caller declarations and exact ancestor control
+bindings from each review window's original clauses before packing and admission.
+Evidence about a root declaration does not grant an isolated group access to it.
+The compiler, coverage verifier and execution-authority boundary are unchanged;
+versions 2–10 retain their captured request construction and interpretation.
+
 Fresh presentation revision 10 additionally offers an exact new deterministic task
 as a local subject when existing output/boundary subjects do not apply. A bounded
 mixed-plan proof preserves an opaque sequential root prefix exactly; opaque result

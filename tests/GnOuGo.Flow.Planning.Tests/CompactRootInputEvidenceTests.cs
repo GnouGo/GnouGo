@@ -5,8 +5,100 @@ using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
-public sealed class CompactRootInputEvidenceTests
+public sealed class CompactRootInputEvidenceTests(ITestOutputHelper output)
 {
+    [Theory]
+    [InlineData(10, false)]
+    [InlineData(11, false)]
+    [InlineData(11, true)]
+    public async Task OriginalWindowOwnsItsDeclarationAndExactAncestorCollection(int presentation, bool wrongInput)
+    {
+        var state = await State();
+        var construction = state.Construction!; var compact = construction.Compact!;
+        compact.PresentationVersion = presentation;
+        state.Request.Options["construction_presentation_version"] = presentation;
+        var inputOriginal = "Accept the required numeric array values, preserving all items. " + new string(' ', 4300);
+        var workOriginal = "Double each item and export it from the parallel loop body. " + new string(' ', 4300);
+        compact.Sources = new[] { ("input_clause", inputOriginal), ("work_clause", workOriginal) }.Select(pair =>
+            new PlanningConstructionSource { Id = pair.Item1, Text = pair.Item2, Kind = "requirement", Indexed = true,
+                Version = PlanningGraphCompiler.Fingerprint(pair.Item2) }).ToList();
+        compact.RequirementSources = new(StringComparer.Ordinal) { ["declare"] = ["input_clause"], ["work"] = ["work_clause"] };
+        compact.InterfaceExtractions = [new() { Id = "inputs", SourceIds = ["input_clause"], Inputs = true, Complete = true,
+            Dispositions = [new() { SourceId = "input_clause", Version = compact.Sources[0].Version,
+                Kind = "interfaces", Inputs = ["values"], Reason = "The original explicitly declares the caller input.",
+                Evidence = new(StringComparer.Ordinal) { ["input_clause"] = compact.Sources[0].Version } }] }];
+        state.Requirements!.Outcomes = [new("declare", inputOriginal), new("work", workOriginal)];
+        state.Plan!.Groups.Clear();
+        state.Plan.Inputs.Add(new() { Name = "other", Type = state.Plan.Inputs[0].Type });
+        state.Plan.Root.Tasks = [new() { Id = "iterate", Kind = "foreach", Objective = "Process the complete supplied array in parallel.", Items = new() { Kind = "input", Source = wrongInput ? "other" : "values" },
+            MaxItems = 32, Parallel = true, MaxConcurrency = 4, Body = new() { Tasks = [new() { Id = "double", Kind = "value", Objective = "Double this numeric item.",
+                Outputs = [new("doubled", new() { Kind = "arithmetic", Text = "multiply", Items = [new() { Kind = "item" }, new() { Kind = "number", Number = 2 }] })] }] } }];
+        construction.OpenScopes = ["/root", "/tasks/iterate/body"];
+        compact.CurrentStep = new() { Id = "export_item", Kind = "close", Scope = "/tasks/iterate/body",
+            BaseHash = PlanningConstruction.Hash(state.Plan), RequirementIds = ["work"], DiscoveryComplete = true };
+        construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/tasks/iterate/body", RequirementIds = ["work"],
+            Outputs = [new("result", new() { Kind = "output", Source = "double", Port = "doubled" })], CloseScopes = ["/tasks/iterate/body"] });
+        Assert.Empty(TaskPlanCompiler.ValidateConstruction(construction.Candidate.Plan, state.Catalog!, state.Request,
+            construction.Candidate.OpenScopes.ToHashSet(StringComparer.Ordinal)).Diagnostics);
+        var baseline = PlanningConstruction.Hash(state.Plan);
+        var review = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, intermediate: false);
+        var window = review.Context;
+        Assert.Contains(window["requirements"]!.AsArray(), row => row!["id"]!.ToString() == "declare");
+        Assert.DoesNotContain(window["step"]!["requirementIds"]!.AsArray(), id => id!.ToString() == "declare");
+        Assert.True(window["sourceCoverage"]!["windowCount"]!.GetValue<int>() > 1);
+        var measured = PlanningRequestMeasurements.Measure(PlanningModelCalls.PrepareRequest(state,
+            PlanningConstruction.LocalPurpose, review.Request.Prompt, review.Request.StructuredOutputSchema!.AsObject()), PlanningConstruction.LocalPurpose, 8000);
+        output.WriteLine(JsonSerializer.Serialize(new { presentation, wrongInput, measured.CompleteRequestBytes,
+            measured.EstimatedInputTokens, windows = window["sourceCoverage"]!["windowCount"]!.GetValue<int>() }));
+        if (presentation == 10)
+        {
+            Assert.Empty(window["inputDeclarations"]!["inputs"]!.AsArray());
+            Assert.Null(window["ancestorControls"]);
+            return;
+        }
+        var declaration = Assert.Single(window["inputDeclarations"]!["inputs"]!.AsArray())!;
+        Assert.Equal("values", declaration["declaration"]!["name"]!.ToString());
+        Assert.Equal(32, declaration["declaration"]!["type"]!["maxItems"]!.GetValue<int>());
+        var control = Assert.Single(window["ancestorControls"]!.AsArray())!;
+        Assert.Equal(wrongInput ? "other" : "values", control["task"]!["items"]!["source"]!.ToString());
+        Assert.True(control["task"]!["parallel"]!.GetValue<bool>());
+        Assert.Equal("accepted", control["basis"]!.ToString());
+        Assert.Null(control["task"]!["body"]);
+        Assert.True(HybridWorkflowPlanner.ConstructionReviewEvidenceGrounded(window, "/ancestorControls/0", compact: true));
+        Assert.InRange(measured.EstimatedInputTokens, 1, 8000);
+        Assert.Equal(measured.CompleteRequestBytes, measured.Components.Sum(component => component.SerializedBytes));
+        Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
+        Assert.False(PlanningConstructionReviewCoverage.Complete(state, construction.Candidate));
+        Assert.All(construction.Requirements, requirement => Assert.NotEqual("closed", requirement.Status));
+    }
+
+    [Fact]
+    public async Task WindowDeclarationEvidenceDoesNotGrantRootInputAccessToAnIsolatedGroup()
+    {
+        var state = await State();
+        var construction = state.Construction!; var compact = construction.Compact!;
+        compact.PresentationVersion = 11;
+        state.Request.Options["construction_presentation_version"] = 11;
+        var source = compact.Sources[0];
+        compact.InterfaceExtractions = [new() { Id = "inputs", SourceIds = [source.Id], Inputs = true, Complete = true,
+            Dispositions = [new() { SourceId = source.Id, Version = source.Version, Kind = "interfaces", Inputs = ["values"],
+                Reason = "The original declares values as a caller input.", Evidence = new(StringComparer.Ordinal) { [source.Id] = source.Version } }] }];
+        compact.CurrentStep!.Scope = "/groups/isolated/body";
+        compact.CurrentStep.Kind = "value"; compact.CurrentStep.CloseRequirementIds.Clear();
+        var value = new TaskValue { Kind = "input", Source = "local" };
+        construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = compact.CurrentStep.Scope, RequirementIds = ["declare"],
+            Tasks = [new() { Id = "local_value", Kind = "value", Objective = "Use this isolated group's numeric parameter.", Outputs = [new("value", value)] }] });
+        var review = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, intermediate: false);
+        Assert.False(review.Context["inputDeclarations"]!["accessibleInSelectedScope"]!.GetValue<bool>());
+        Assert.Equal("values", Assert.Single(review.Context["inputDeclarations"]!["inputs"]!.AsArray())!["declaration"]!["name"]!.ToString());
+        Assert.Equal("local", review.Context["scopeGroup"]!["inputs"]![0]!["name"]!.ToString());
+        Assert.Null(review.Context["ancestorControls"]);
+        value.Source = "values";
+        construction.Candidate.Plan.Groups.Single().Body.Tasks.Single().Outputs[0].Value.Source = "values";
+        Assert.NotEmpty(TaskPlanCompiler.ValidateConstruction(construction.Candidate.Plan, state.Catalog!, state.Request,
+            construction.Candidate.OpenScopes.ToHashSet(StringComparer.Ordinal)).Diagnostics);
+    }
+
     [Theory]
     [InlineData(false, false)]
     [InlineData(false, true)]

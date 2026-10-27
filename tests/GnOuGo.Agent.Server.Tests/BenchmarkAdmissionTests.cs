@@ -111,7 +111,7 @@ public sealed class BenchmarkAdmissionTests
         planning.Options["llm_budget"]!["max_calls"] = 5;
         await model.CapturePlanningPolicyAsync(planning, Ct, activeMilliseconds: 120_000);
         var captured = await fixture.Campaign.LoadAsync("planning-evaluation-session-policy", planning.SessionId, Ct);
-        Assert.Equal(10, captured!["construction_presentation_version"]!.GetValue<int>());
+        Assert.Equal(11, captured!["construction_presentation_version"]!.GetValue<int>());
         var request = PlanningConstructionPhasePolicies.Apply(new LLMRequest
         {
             ClientRequestId = "strict:1", Prompt = "Exact bounded request", RequiredReviewCalls = reviews,

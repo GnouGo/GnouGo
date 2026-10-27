@@ -23,7 +23,7 @@ internal static class PlanningConstructionDependencies
         // proofs keep it as an exact prefix, never infer effect independence.
         var pure = projection.PurePlan();
         JsonArray? contracts = null;
-        if (!pure && (state.Construction.Compact?.PresentationVersion != 10 ||
+        if (!pure && (state.Construction.Compact?.PresentationVersion is not (10 or 11) ||
             !projection.ExactOpaquePrefix() || (contracts = OperationContracts(state, plan)) is null)) return null;
         if (!projection.Subject(subject)) return null;
         var result = new JsonObject

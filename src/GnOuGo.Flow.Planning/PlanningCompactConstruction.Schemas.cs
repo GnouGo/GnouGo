@@ -212,7 +212,7 @@ internal static partial class PlanningCompactConstruction
     {
         var scope = new TaskPlanSymbols(state.Plan ?? new TaskPlan()).Scopes.SingleOrDefault(s => s.Path == step.Scope);
         var hints = new List<string>();
-        if (state.Construction?.Compact?.PresentationVersion == 10) hints.Add(ReusableGroupSemantics);
+        if (state.Construction?.Compact?.PresentationVersion is 10 or 11) hints.Add(ReusableGroupSemantics);
         if (UsesConvergentConstruction(state)) hints.Add(SelectedExpectationsSemantics);
         if (review && UsesConvergentConstruction(state)) hints.Add(ReviewCapacitySemantics);
         if (!review && UsesDeferredBinding(state) && step.Kind is "group" or "sequence" or "conditional" or "parallel" or "foreach")

@@ -60,7 +60,7 @@ internal static partial class PlanningCompactConstruction
     {
         var addresses = PrerequisiteAddresses(state, State(state).CurrentStep!.RequirementIds)
             .Where(IsOriginalAddress).ToHashSet(StringComparer.Ordinal);
-        var citations = State(state).PresentationVersion == 10 ? CurrentPrerequisiteAddresses(state) :
+        var citations = State(state).PresentationVersion is 10 or 11 ? CurrentPrerequisiteAddresses(state) :
             State(state).CurrentStep!.Prerequisites?.SelectMany(note => note.EvidenceAddresses) ?? [];
         addresses.UnionWith(citations.Intersect(PrerequisiteAddresses(state,
             state.Construction!.Requirements.Select(requirement => requirement.Id)), StringComparer.Ordinal).Where(IsOriginalAddress));
@@ -119,7 +119,7 @@ internal static partial class PlanningCompactConstruction
             .Select(item => item.Key).Order(StringComparer.Ordinal).ToArray();
         addresses.RemoveWhere(address => state.Construction!.EvidenceRequests.Contains(
             PlanningConstruction.EvidenceBatchFingerprint(state, [address]), StringComparer.Ordinal));
-        var maximum = State(state).PresentationVersion is 4 or 5 or 6 or 7 or 8 or 9 or 10 && state.Diagnostics.Any(diagnostic =>
+        var maximum = State(state).PresentationVersion is 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 && state.Diagnostics.Any(diagnostic =>
             diagnostic.Required && diagnostic.Code == "CONSTRUCTION_EVIDENCE_LIMIT" && diagnostic.Location == "/evidenceRequests") ? 1 : 8;
         var alternatives = new JsonArray();
         if (addresses.Count > 0)

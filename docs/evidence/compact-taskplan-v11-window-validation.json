@@ -1,0 +1,88 @@
+{
+  "base_commit": "80d264eec6cf12de9b20440895c813824c774a3d",
+  "presentation_version": 11,
+  "status": "offline correction qualified; live qualification not yet run",
+  "production_postimages": {
+    "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.Construction.cs": "770691740f5c033ab78a9d7f43f2d7d36f77669743b69f314b2fa3fc0ee6f8da",
+    "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.ConstructionReview.cs": "32c86bf2a2107cf5d21127d8077520fab0fa20139595dd7b0861e2e375c5b1db",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Closure.cs": "8da8914a8cc20b944c39e677d9b6f3cfc22ce00d42834462fba39589570b6546",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Continuations.cs": "a30b690fa494625c696ea728b1bce748856fb431fa31175617376fbd768fa934",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Intent.cs": "0cd5e24d64995ffe68f823378c353a2c77d2c496903c6b058ee01a844c97bbd4",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Navigation.cs": "f94bbf1c0553a265f039092e0a2304ebf70974367903cb312e438360c1abf702",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.ReviewEvidenceChoices.cs": "fed1735afcf8ecbf6a08d3139273d507cccb5a49d11b11cdd6b4d805abaa5117",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Schemas.cs": "5d93d0526b8d0402abeb2559df84a26a9eecbe874d1770688d615ab2b4e6c3ed",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.ScopeInterfaces.cs": "4082357c778c9a1200c7532f50004c59bbf4b846fe16b6ffb503aace2acae6a0",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Validation.cs": "e7a28d865329fabf3792bb3a457faf713ac7ef26a89ff2754581b67bbc00fc84",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs": "d05a82b1d7ff35798b22bc73e25767439760b8b7b081e35f5b1ec969db13c661",
+    "src/GnOuGo.Flow.Planning/PlanningConstruction.DefectProgress.cs": "a0be4d6d5791f9c1d6f0353caa3e5467bf1b075aa6661d4124e1c0744eec764b",
+    "src/GnOuGo.Flow.Planning/PlanningConstructionDependencies.cs": "8a928e30162a7cd8d8d67212b5de231e6fe3d305eb5e00ffbe7a25c3c435d00e",
+    "src/GnOuGo.Flow.Planning/PlanningConstructionReviewCoverage.Incremental.cs": "464b677c811de3ad1ca7c38b67341ae4628b74ef76cb31da9c0bfa44e89e2f21",
+    "src/GnOuGo.Flow.Planning/PlanningModelCalls.cs": "ff06ac6128fa15afe02536b2bb213621f55f15441b87fdc71a968f636d1bdd74",
+    "src/GnOuGo.Flow.Planning/PlanningSessionCreation.cs": "d8d53debfd40ca1fd7ee9bdedf9afba25bf26c76d0d3f77488cbe79373ca1ffd"
+  },
+  "validations": [
+    {
+      "root": "gnougo-v9-validation-0saqxjvs",
+      "result": {
+        "exit_code": 0,
+        "counts": {
+          "Passed": 319
+        },
+        "elapsed_seconds": 96.86564487498254,
+        "source_unchanged": true,
+        "log_sha256": "830c4b683c0ba24b5bf6cef4cc30794e1fe5c9337efabb4ab2cbb46b0fda5ca3"
+      },
+      "source_manifest_sha256": "d3615ec585ef7e674f149e9e580408bdb7e225ec4436566bf7b75c667cb3c3ad",
+      "command_sha256": "c59751a209942522c0531a842e22283e9a20ddfc3ed0d34633214ffcc89ccf5c"
+    },
+    {
+      "root": "gnougo-v9-validation-95owwbet",
+      "result": {
+        "exit_code": 0,
+        "counts": {
+          "Passed": 12
+        },
+        "elapsed_seconds": 21.98395879101008,
+        "source_unchanged": true,
+        "log_sha256": "25bea2fc96d1cccb1fc5d3b7070523528f6cba00ad046a00eb7e73e412709b3e"
+      },
+      "source_manifest_sha256": "7231e33cc38c6b1fbc8e2e6d29269361723e99c5e2edfca0bc88cffc82217ba2",
+      "command_sha256": "5bd74d5204ba2d2e1c58dbdd58e83e5e0d162f5af4830f8862a238293903032a"
+    }
+  ],
+  "fixture_request_measurements": [
+    {
+      "presentation": 11,
+      "wrongInput": true,
+      "CompleteRequestBytes": 22895,
+      "EstimatedInputTokens": 7888,
+      "windows": 2
+    },
+    {
+      "presentation": 11,
+      "wrongInput": false,
+      "CompleteRequestBytes": 22896,
+      "EstimatedInputTokens": 7888,
+      "windows": 2
+    },
+    {
+      "presentation": 10,
+      "wrongInput": false,
+      "CompleteRequestBytes": 21570,
+      "EstimatedInputTokens": 7446,
+      "windows": 2
+    }
+  ],
+  "attribution": "319 owning tests include historical and new window regressions. The 12-test logging follow-up overlaps that suite; counts are not additive. Source snapshots are validation-only, not paid cohort identities. All received earlier live failures remain unchanged.",
+  "retained_failed_iterations": [
+    "jd4a6wpt:312passed/5 fixture or stale expectation failures",
+    "hkoh2kqa:315passed/2 oversized synthetic clause failures",
+    "_2l8mrqt:319passed but compiler IL2026/IL3050 caused exit1; fixed JsonArray.Add overload"
+  ],
+  "business_acceptance": {
+    "new_live_runs": 0,
+    "qualifying_runs": 0,
+    "required_runs": 6,
+    "baseline_comparisons_started": false
+  }
+}

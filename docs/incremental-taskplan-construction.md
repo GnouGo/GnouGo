@@ -1,6 +1,6 @@
 # Incremental TaskPlan construction
 
-Fresh construction-version-2 sessions capture presentation revision 10 and extend one semantic TaskPlan from available producers
+Fresh construction-version-2 sessions capture presentation revision 11 and extend one semantic TaskPlan from available producers
 toward consumers. They index original intent once, select one immediate business
 substep, discover its capabilities and generate only its fragment. Each bounded
 draft passes deterministic semantic validation and a local advisory review before
@@ -29,6 +29,21 @@ flowchart LR
 ```
 
 During discovery, selected producer outputs are provisional navigation bindings. Their compiler-resolved nullable interfaces, exact accepted arguments, full original operation and top-level port descriptions, and bound-input schema constraints remain visible. Nested schema annotations and constraints remain exact through retrieval and the full draft/review closures. Automatic selected-output schema closures may be deferred through the exact existing schema/page links; explicitly retrieved originals remain intact. Draft and scoped review still include the complete selected original closures for actual consumers. Discovery grants no task, permission, or acceptance authority.
+
+## Window-specific review evidence (presentation revision 11)
+
+Each proposed source window derives its caller declarations from that window's
+exact indexed sources before schema construction and complete-request measurement.
+The fragment's requirement associations do not select the window's evidence.
+Relevant ancestor controls include exact collection expressions, conditions,
+iteration limits and scope identities, with original task retrieval addresses;
+child bodies remain separate. Root declaration evidence grants no access inside
+an isolated group. Compiler-resolved consumed interfaces remain authoritative.
+
+Packing measures these projections for every trial window. A clean window still
+cannot close a requirement without complete valid coverage. Fresh revision 11
+inherits revision 10's continuation and conservation safeguards; versions 2–10
+retain their original presentation behavior and issued requests.
 
 ## Useful local evidence and independent transitions (presentation revision 10)
 

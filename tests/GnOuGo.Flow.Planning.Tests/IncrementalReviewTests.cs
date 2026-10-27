@@ -453,7 +453,7 @@ public sealed class IncrementalReviewTests(ITestOutputHelper output)
             Prompt = string.Concat(clauses.Select(clause => clause.Text)), MaxModelCalls = 64,
             Options = new JsonObject { ["automatic_correction"] = true } } };
         PlanningSessionCreation.Capture(state);
-        if (version == 10) Assert.Equal(10, state.Construction!.Compact!.PresentationVersion);
+        if (version == 11) Assert.Equal(11, state.Construction!.Compact!.PresentationVersion);
         else { state.Construction!.Compact!.PresentationVersion = version; state.Request.Options["construction_presentation_version"] = version; }
         // Both arms retain the same captured ceilings; only presentation differs.
         state.Construction.Limits.PhasePolicy!.Navigation.MaxInputTokens = 12_000;

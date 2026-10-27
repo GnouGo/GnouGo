@@ -195,7 +195,7 @@ public sealed partial class CompactReviewedTransitionTests
             MaxModelCalls = 64, MaxReplanAttempts = 4, Generation = new("medium", 32_000, 8_192),
             Options = new() { ["automatic_correction"] = true } } };
         if (historical is { } version) state = PlannerFixture.CapturedPresentation(state, version);
-        else { PlanningSessionCreation.Capture(state); Assert.Equal(10, state.Construction!.Compact!.PresentationVersion); }
+        else { PlanningSessionCreation.Capture(state); Assert.Equal(11, state.Construction!.Compact!.PresentationVersion); }
         // Matched initial allowances in both arms; no request is issued before capture.
         state.Construction!.Limits.PhasePolicy!.Navigation.MaxInputTokens = 12_000;
         state.Request.Options["construction_limits"]!["phasePolicy"]!["navigation"]!["maxInputTokens"] = 12_000;
