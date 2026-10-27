@@ -26,6 +26,93 @@ public sealed partial class BenchmarkPermanentRetentionTests
     private const string ErrorBody = """{"errorCode":"upstream_failure","errorMessage":"Provider unavailable.","errorDetail":"No completion receipt."}""";
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task UnstartedPlanningRetentionPreservesZeroAttemptEvidenceAndSurvivesInterruptedPublication(bool afterCommit)
+    {
+        var records = new Records(); var campaign = await SeedUnstartedPlanningAsync(records);
+        var original = records.Snapshot();
+        var accounting = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
+        var kind = BenchmarkCampaign.UnstartedPlanningRetention;
+        var proposal = await campaign.InspectPermanentRetentionAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, Ct, kind);
+        Assert.Equal(original, records.Snapshot());
+        Assert.Equal("no_reserved_physical_attempt", proposal["evidence"]!["outcome_evidence"]!.ToString());
+        Assert.Equal(0, accounting["calls"]!.GetValue<long>());
+        Assert.Equal(0m, accounting["reserved_cost_eur"]!.GetValue<decimal>());
+        var hash = proposal["evidence_hash"]!.ToString();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.ApplyPermanentRetentionAsync(
+            SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, new string('0', 64), Operator, Authorization, Ct, kind));
+        records.FailClosure = true; records.FailAfterCommit = afterCommit;
+        await Assert.ThrowsAsync<IOException>(() => campaign.ApplyPermanentRetentionAsync(
+            SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, hash, Operator, Authorization, Ct, kind));
+        Assert.Equal(original, records.Snapshot(excludeClosures: true));
+        records.FailClosure = false;
+        var restarted = new BenchmarkCampaign(records, "retention");
+        await restarted.ApplyPermanentRetentionAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, hash, Operator, Authorization, Ct, kind);
+        await restarted.ApplyPermanentRetentionAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, hash, Operator, Authorization, Ct, kind);
+        Assert.Single(await records.ListAsync(Closures, "benchmark", BenchmarkCampaign.Author, Ct));
+        Assert.Equal(original, records.Snapshot(excludeClosures: true));
+        Assert.True(JsonNode.DeepEquals(accounting, await BenchmarkHttpJournal.AccountingAsync(restarted, ct: Ct)));
+        Assert.Null(await restarted.LoadAsync("planning-evaluation-receipts", RequestId, Ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.RequireRunNotRetainedAsync(Session, Ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.CallAsync(new() { ClientRequestId = RequestId },
+            _ => throw new Exception("Must not admit"), _ => throw new Exception("Must not dispatch"), Ct));
+    }
+
+    [Theory]
+    [InlineData("attempt")]
+    [InlineData("fingerprint")]
+    [InlineData("delay")]
+    [InlineData("status")]
+    [InlineData("kind")]
+    [InlineData("count")]
+    [InlineData("retryable")]
+    [InlineData("policy")]
+    [InlineData("usage")]
+    [InlineData("receipt")]
+    public async Task UnstartedPlanningRetentionRejectsAnyConflictingDispatchEvidence(string defect)
+    {
+        var records = new Records(); var campaign = await SeedUnstartedPlanningAsync(records);
+        var journal = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct))!;
+        var failure = (await campaign.LoadAsync("planning-evaluation-failures", RequestId, Ct))!;
+        switch (defect)
+        {
+            case "attempt": journal["transport"]!["Attempts"]!.AsArray().Add(new JsonObject { ["Id"] = RequestId + ":reserved" }); break;
+            case "fingerprint": journal["transport"]!["Fingerprint"] = new string('a', 64); break;
+            case "delay": journal["transport"]!["DelayMilliseconds"] = 1d; break;
+            case "status": failure["status_code"] = 500; break;
+            case "kind": failure["kind"] = "Timeout"; break;
+            case "count": failure["attempt_count"] = 0; break;
+            case "retryable": failure["retryable"] = true; break;
+            case "policy": journal["effective_transport_policy"]!["effective_retry_policy"]!["MaxUncertainRetries"] = 1; break;
+            case "usage": journal["usage"] = new JsonObject(); break;
+            case "receipt": await campaign.SaveAsync("planning-evaluation-receipts", RequestId, new(), Ct); break;
+        }
+        journal["effective_transport_policy_hash"] = PlanningGraphCompiler.Fingerprint(journal["effective_transport_policy"]!.ToJsonString());
+        await campaign.SaveAsync(BenchmarkHttpJournal.Collection, RequestId, journal, Ct);
+        await campaign.SaveAsync("planning-evaluation-failures", RequestId, failure, Ct);
+        var before = records.Snapshot();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.InspectPermanentRetentionAsync(
+            SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, Ct, BenchmarkCampaign.UnstartedPlanningRetention));
+        Assert.Equal(before, records.Snapshot());
+    }
+
+    private static async Task<BenchmarkCampaign> SeedUnstartedPlanningAsync(Records records)
+    {
+        var campaign = await SeedCapturedRetriesAsync(records, 0, false, presentation: 11);
+        var journal = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct))!;
+        journal["transport"] = JsonSerializer.SerializeToNode(new LLMHttpRetryState(), LLMHttpRetryJsonContext.Default.LLMHttpRetryState);
+        await campaign.SaveAsync(BenchmarkHttpJournal.Collection, RequestId, journal, Ct);
+        await campaign.SaveAsync("planning-evaluation-failures", RequestId, new()
+        {
+            ["stage"] = "dispatch", ["exception_type"] = "LLMClientException", ["kind"] = "Unknown",
+            ["status_code"] = null, ["safe_provider_code"] = null, ["retryable"] = false,
+            ["attempt_count"] = 1, ["retry_exhausted"] = false, ["retry_after_ms"] = null
+        }, Ct);
+        return campaign;
+    }
+
+    [Theory]
     [InlineData(6)]
     [InlineData(7)]
     [InlineData(8)]

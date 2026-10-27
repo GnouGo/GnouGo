@@ -599,6 +599,18 @@ responses, receipts, cancellation and verified usage remain ineligible. Every
 failed attempt keeps its full unknown-usage reservation, including HTTP 429.
 The older `retain-exhausted-request` shortcut cannot close this new policy.
 
+`--retention-kind unstarted-planning-request` covers a stopped, unexecuted
+tool-free request whose captured confirmed-response policy has an initialized
+generation journal with an empty fingerprint, zero attempts and zero backoff.
+It additionally requires the exact non-retryable `Unknown` client failure with no
+HTTP status, receipt or usage. Authentication can fail before the generation
+journal boundary; the exception's default attempt count is not physical usage.
+This mode binds the same original identities, policy and accounting hashes and
+permanently rejects replay and continuation. It changes no reservation or usage,
+creates no physical attempt or receipt, and makes no claim about the failure's
+cause or provider termination. Inspection is read-only; application uses the
+existing campaign lease and exact delegated administrative authorization.
+
 An explicit `--retention-kind interrupted-process` handles a corpus planning
 process lost after its single HTTP attempt was reserved but before any outcome was
 recorded. It requires the exact pending, tool-free request in its original

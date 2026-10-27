@@ -13,6 +13,7 @@ internal sealed partial class BenchmarkCampaign
     internal const string SingleHttp504Retention = "single-http-504";
     internal const string InterruptedProcessRetention = "interrupted-process";
     internal const string ExhaustedPlanningRetriesRetention = "exhausted-planning-retries";
+    internal const string UnstartedPlanningRetention = "unstarted-planning-request";
 
     // Called before any continuation, approval, execution or new request in the abandoned session.
     // Historical closures retain their original request-only behavior.
@@ -35,7 +36,7 @@ internal sealed partial class BenchmarkCampaign
     {
         ValidateRetentionKind(retentionKind);
         var frozenProof = frozenBaseline?.Read();
-        if (frozenProof is not null && retentionKind is InterruptedProcessRetention or ExhaustedPlanningRetriesRetention)
+        if (frozenProof is not null && retentionKind is InterruptedProcessRetention or ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention)
             throw new InvalidOperationException("A frozen baseline proof cannot authorize interruption or captured-retry retention.");
         if (collection is not ("planning-evaluation-runs" or SchemaPortabilityCampaign.Collection))
             throw new ArgumentException("Choose an existing benchmark planning-run collection.");
@@ -59,7 +60,8 @@ internal sealed partial class BenchmarkCampaign
             ?? throw new InvalidOperationException("No retained planning session.");
         var pending = state.PendingCall;
         var interrupted = retentionKind == InterruptedProcessRetention;
-        var capturedRetries = retentionKind == ExhaustedPlanningRetriesRetention;
+        var unstarted = retentionKind == UnstartedPlanningRetention;
+        var capturedRetries = retentionKind is ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention;
         var result = run["result"] as JsonObject;
         if (state.SchemaVersion != 10 || state.Request.TenantId != "benchmark" ||
             state.Status != (interrupted ? PlanningStatus.Generating : PlanningStatus.Stopped) || state.RequiresPlanningRevision ||
@@ -102,15 +104,15 @@ internal sealed partial class BenchmarkCampaign
             !JsonNode.DeepEquals(policy["construction_limits"], state.Request.Options["construction_limits"]) ||
             !JsonNode.DeepEquals(policy["construction_input_limits"], state.Request.Options["construction_input_limits"]) ||
             journal?["transport"]?["Attempts"] is not JsonArray attempts ||
-            (capturedRetries ? attempts.Count is < 1 or > 3 : attempts.Count != 1) ||
-            attempts[0]?["Id"]?.ToString() is not { Length: > 0 } ||
+            (unstarted ? attempts.Count != 0 : capturedRetries ? attempts.Count is < 1 or > 3 : attempts.Count != 1) ||
+            !unstarted && attempts[0]?["Id"]?.ToString() is not { Length: > 0 } ||
             (interrupted
                 ? failure is not null || attempts[0]?["Status"] is not null || attempts[0]?["Body"] is not null ||
                   attempts[0]?["Failure"] is not null || attempts[0]?["ContentType"] is not null ||
                   attempts[0]?["RetryAfter"] is not null || attempts[0]?["NotBefore"] is not null ||
                   !attempts[0]!["Id"]!.ToString().StartsWith(requestId + ":", StringComparison.Ordinal) ||
                   journal["transport"]?["Fingerprint"]?.ToString() is not { Length: 64 } fingerprint || !fingerprint.All(Uri.IsHexDigit)
-                : capturedRetries ? !MatchesCapturedPlanningFailure(state, policy, journal, attempts, failure)
+                : capturedRetries ? !MatchesCapturedPlanningFailure(state, policy, journal, attempts, failure, unstarted)
                 : failure?["stage"]?.ToString() != "dispatch" || failure["retry_exhausted"]?.GetValue<bool>() != true ||
                   failure["retryable"]?.GetValue<bool>() != true || failure["attempt_count"]?.GetValue<int>() != attempts.Count ||
                   !MatchesPermanentFailure(failure, attempts[0], retentionKind)) ||
@@ -195,6 +197,7 @@ internal sealed partial class BenchmarkCampaign
             ["accounting"] = await BenchmarkHttpJournal.AccountingAsync(this, requestId, ct: ct)
         };
         if (retentionKind is not null) evidence["retention_kind"] = retentionKind;
+        if (unstarted) evidence["outcome_evidence"] = "no_reserved_physical_attempt";
         if (frozenArm is not null) evidence["frozen_arm"] = frozenArm;
         if (interrupted)
         {
@@ -249,7 +252,8 @@ internal sealed partial class BenchmarkCampaign
     {
         if (closure["reason"]?.ToString() != PermanentRetentionReason ||
             closure["evidence"] is not JsonObject evidence || evidence["version"]?.GetValue<int>() != 1 ||
-            evidence["retention_kind"]?.ToString() is not (null or SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention or InterruptedProcessRetention or ExhaustedPlanningRetriesRetention) ||
+            evidence["retention_kind"]?.ToString() is not (null or SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention or InterruptedProcessRetention or ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention) ||
+            evidence["retention_kind"]?.ToString() == UnstartedPlanningRetention && evidence["outcome_evidence"]?.ToString() != "no_reserved_physical_attempt" ||
             evidence["retention_kind"]?.ToString() == InterruptedProcessRetention &&
                 (evidence.ContainsKey("failure_hash") || evidence["outcome_evidence"]?.ToString() != "reserved_attempt_without_persisted_outcome" ||
                  evidence["source_evidence"]?.ToString() != "corpus_key_and_frozen_configuration" ||
@@ -271,11 +275,12 @@ internal sealed partial class BenchmarkCampaign
 
     private static void ValidateRetentionKind(string? retentionKind)
     {
-        if (retentionKind is not (null or SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention or InterruptedProcessRetention or ExhaustedPlanningRetriesRetention))
-            throw new ArgumentException("Choose the exact single-http-500, single-http-502, single-http-504 or interrupted-process or exhausted-planning-retries retention kind.", nameof(retentionKind));
+        if (retentionKind is not (null or SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention or InterruptedProcessRetention or ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention))
+            throw new ArgumentException("Choose an exact supported permanent-retention kind.", nameof(retentionKind));
     }
 
-    private static bool MatchesCapturedPlanningFailure(PlanningSession state, JsonObject policy, JsonObject journal, JsonArray attempts, JsonObject? failure)
+    private static bool MatchesCapturedPlanningFailure(PlanningSession state, JsonObject policy, JsonObject journal, JsonArray attempts, JsonObject? failure,
+        bool unstarted = false)
     {
         var captured = PlanningTransportPolicies.Read(state.Request);
         var effective = journal["effective_transport_policy"] as JsonObject;
@@ -296,9 +301,19 @@ internal sealed partial class BenchmarkCampaign
             retry["MaxDelayMilliseconds"]?.GetValue<int>() != captured.MaxDelayMilliseconds ||
             retry["MaxTotalDelayMilliseconds"]?.GetValue<int>() != captured.MaxTotalDelayMilliseconds ||
             attempts.Count > retry["MaxAttempts"]!.GetValue<int>() ||
-            failure?["stage"]?.ToString() != "dispatch" || failure["attempt_count"]?.GetValue<int>() != attempts.Count ||
+            failure?["stage"]?.ToString() != "dispatch" || !unstarted && failure["attempt_count"]?.GetValue<int>() != attempts.Count ||
             attempts.Select(a => a?["Id"]?.ToString()).Distinct(StringComparer.Ordinal).Count() != attempts.Count ||
             attempts.Any(a => a?["Id"]?.ToString() is not { Length: > 0 } id || !id.StartsWith(state.PendingCall.Id + ":", StringComparison.Ordinal))) return false;
+        if (unstarted)
+            // AI.Core reserves an attempt before sending generation HTTP. Authentication
+            // may fail earlier; the default exception count of one is not an attempt.
+            // Preserve that failure verbatim without inferring its cause or a receipt.
+            return attempts.Count == 0 && journal["transport"]?["Fingerprint"]?.ToString() == "" &&
+                journal["transport"]?["DelayMilliseconds"]?.GetValue<double>() == 0 &&
+                failure["exception_type"]?.ToString() == "LLMClientException" && failure["kind"]?.ToString() == "Unknown" &&
+                failure["status_code"] is null && failure["safe_provider_code"] is null &&
+                failure["retryable"]?.GetValue<bool>() == false && failure["retry_exhausted"]?.GetValue<bool>() == false &&
+                failure["attempt_count"]?.GetValue<int>() == 1 && failure["retry_after_ms"] is null;
         for (var i = 0; i < attempts.Count; i++)
         {
             var attempt = attempts[i]!;
