@@ -6,7 +6,7 @@
     <IsAotCompatible>true</IsAotCompatible>
     <IsPackable>true</IsPackable>
     <PackageId>GnOuGo.Flow.Persistence</PackageId>
-    <PackageReleaseNotes>Encrypted tenant execution journals remain schema 9. Planning consumers use format 10 TaskPlan sessions; regenerate and approve previous planning sessions without migrating old encrypted records.</PackageReleaseNotes>
+    <PackageReleaseNotes>Preserve encrypted tenant-owned runtime journals and exact invocation recovery. Planning consumers use internal format 11 and reject older sessions unchanged; historical records remain retained for audit and financial inspection.</PackageReleaseNotes>
     <Authors>GnOuGo</Authors>
     <Description>Tenant-owned encrypted workflow execution journals with rebuildable EF Core and SQLite indexes.</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>

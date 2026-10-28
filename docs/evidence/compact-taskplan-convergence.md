@@ -1,5 +1,30 @@
 # Compact TaskPlan convergence
 
+## Active format-11 qualification
+
+The active implementation replaces the former review protocol. Generation remains incremental; technically validated checkpoints may await business review. Coherent local blocks and a mandatory completed-workflow global review replace proposition acknowledgments, conservation proofs, exhaustive windows and interval triggers. Older planning sessions are rejected unchanged; financial and encrypted historical archives remain inspectable.
+
+The current delivery gate is **two consecutive intervention-free executions per scenario on one final production source**, including both Collections runtime variants. Each Collections run must use fewer than 26 logical calls, at most four Judges and at most 13,197 complete Judge-request bytes. This six-run gate replaces the earlier eighteen-comparison delivery gate. The dated sections below describe retired implementations and their actual historical gates, not current requirements.
+
+A [fresh format-11 Collections diagnostic](compact-taskplan-28d2e448-collections-runtime.json) on frozen source `28d2e448` passes the independent artifact check and both real runtime variants: nominal `[1,2,4] → [2,4,8]` and alternate `[3,3,-2] → [6,6,-4]`. It declares and calls a reusable group through a parallel loop, preserves order and duplicates, and records no effects or safety violations. It uses **23 logical calls / 23 attempts, four Judges, one automatic correction and 8,321 peak complete Judge-request bytes**. This is one diagnostic success, not two-run qualification of the later final source. Known cost is €1.421941 versus the reference’s €1.404056, so lower calls did not lower known cost. Planning latency is 1,143,524 ms versus 1,733,772 ms. Provider input/output/reasoning tokens are 70,149 / 41,418 / 36,501 versus 87,489 / 37,860 / 31,115; reasoning is included in output. The candidate received no empty response or output-exhaustion receipt. Complete phase distributions and reconciled components are retained in the linked evidence.
+
+The retained `6469a1a3` reference uses 26 logical calls, eight Judges and 26,394 peak complete Judge-request bytes. These completed Collections traces show lower call and review sizes under the retained model/profile/oracle; they do not establish architecture-only causality, reproducibility or Amazon/Review PR success. The preceding [received-report failure](compact-taskplan-c8ffa53b-collections-received-review.json) remains retained and prompted a schema-domain fix; its earlier termination receives no efficiency credit.
+
+After the completed Collections diagnostic, the shared campaign retains **€290.06941616996734828766768837 known cost** and **€98.41151483388454734248466363 unknown-usage reservations** under the unchanged **€540.0301038327063045424449473** ceiling, leaving **€151.54917282885440891229259530** at that inspection. No funds were released, supplement reapplied or uncertain request replayed. New dispatch requires reinspection.
+
+| Area | Corrected and tested | Live business outcome | Remaining evidence |
+| --- | --- | --- | --- |
+| Business review | One strict short verdict; technical facts remain in code; no coverage manifests | One Collections diagnostic passes both variants within all three call/size thresholds | Two consecutive final-source runs and other scenarios |
+| Evidence and repairs | Exact original semantics, actual bindings, scoped repair witnesses; context and reinterpretation accounting are separate | One automatic correction in the completed diagnostic | Complete Amazon and Review PR trajectories |
+| Recovery and authority | Format-11 exact requests, tenant/encryption/approval and retained physical accounting regressions | Artifact-bound delegated review precedes both local executions | Final-source solution, publication, AOT and storage validation |
+| Simplification | Retired protocol/version paths and exclusive tests removed | No claim based on removed lines or green tests | Final deletion inventory and final-revision CI |
+
+PR #120 remains Draft. Earlier technical passes belong only to their recorded source revisions.
+
+## Historical evidence archive
+
+The following dated sections are retained without rewriting their findings. References to presentation versions, review windows, proposition conservation or older qualification gates describe retired behavior.
+
 ## Current qualification (28 October 2026)
 
 Production **6469a1a3** extends the existing draft pager to unused names on producer-owned port directories. Consumed schemas, arguments, descriptions, explicitly retrieved evidence and shared anchors remain intact. The [exact-hash repair reconstruction](compact-taskplan-v11-producer-navigation-repair-admission.json) improves **22,659→21,731 estimated tokens** under the unchanged22k ceiling and retains all five original requirement rows instead of two. [Technical qualification](compact-taskplan-6469a1a3-technical-validation.json) passes **290 focused and3,705 full Planning cases** with warnings as errors; counts overlap. All12 independently verified package/AOT/encrypted-storage stages pass, and its benchmark build verifies568 MCP pins.
