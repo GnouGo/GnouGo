@@ -1,0 +1,119 @@
+{
+  "source": "dbe1ad97d9c6d6dd8374731595296fe8b8f468f1",
+  "harness_source": "dbe1ad97d9c6d6dd8374731595296fe8b8f468f1",
+  "cohort": "compactrdbe1ad97code20nhv11a",
+  "case": "code",
+  "freeze_sha256": "fc7e3a5ab17e1abffd69ac00d389e96abfaa8bdc865f0467cb557ee708fee700",
+  "status": "stopped",
+  "planning_ms": 490442,
+  "accounting": {
+    "logical_calls": 4,
+    "physical_attempts": 4,
+    "known_input_tokens": 1555,
+    "known_output_tokens": 7972,
+    "known_cost_eur": "0.2203792949576082106202588130",
+    "unknown_attempts": 1,
+    "reserved_input_tokens": 18000,
+    "reserved_output_tokens": 32768,
+    "reserved_cost_eur": "0.9576439089692101740294511379"
+  },
+  "corrections": 0,
+  "artifact": false,
+  "runtime_status": "not_started",
+  "runtime_success": false,
+  "oracle_success": false,
+  "reasoning_tokens": 7168,
+  "request_counts": {
+    "admitted": 4
+  },
+  "phase_rows": [
+    {
+      "phase": "construction_intent",
+      "constructed_identities": 4,
+      "admitted_logical": 4,
+      "prepared_only": 0,
+      "rejected_before_dispatch": 0,
+      "physical_attempts": 4,
+      "receipts": 3,
+      "known_provider_input_tokens": 1555,
+      "known_provider_output_tokens": 7972,
+      "known_provider_reasoning_tokens": 7168,
+      "known_cost_eur": "0.2203792949576082106202588130",
+      "unknown_reserved_cost_eur": "0.9576439089692101740294511379",
+      "usage_complete": false,
+      "recorded_call_stage_ms": "464473.2747",
+      "admitted_complete_request_bytes": {
+        "count": 4,
+        "total": 20737,
+        "p50": "3156.5",
+        "p95": "11794",
+        "max": 11794
+      },
+      "admitted_estimated_input_tokens": {
+        "count": 4,
+        "total": 7938,
+        "p50": "1308.5",
+        "p95": "4188",
+        "max": 4188
+      },
+      "constructed_complete_request_bytes": {
+        "count": 4,
+        "total": 20737,
+        "p50": "3156.5",
+        "p95": "11794",
+        "max": 11794
+      },
+      "admitted_component_utf8_bytes": {
+        "diagnostics": 104,
+        "envelope": 1712,
+        "evidence": 23,
+        "instructions": 4131,
+        "intent": 6946,
+        "interfaces": 59,
+        "response_schema": 7762
+      }
+    }
+  ],
+  "inspection_stdout_sha256": "d25aea15df2393cfbcbe958bb962b5123547d316a2a0de4a61cb54fa0677ae32",
+  "measurement_components_reconcile": true,
+  "provider_component_usage_claimed": false,
+  "raw_payload_persisted": false,
+  "provider_calls": 0,
+  "inspected_at": "2026-10-28T03:57:17.741046+00:00",
+  "permanent_retention": {
+    "request_id": "compactrdbe1ad97code20nhv11a-code-1:4:17641d027530edb80148147de6a6c5ce6721fc962e3c938dd87e8a49cc374abc",
+    "evidence_hash": "e38bdab4d0711badc1d5e9cf5c17aa85e60ec1ee98618d6c2e0fe73a7f76ae0d",
+    "closure_file_sha256": "fcb521c1b1bf74f13f7ea01acc4d5eda017c54ee970134082763c15123ba104e",
+    "idempotent": true,
+    "restart_guard": {
+      "run_rejected": true,
+      "exact_request_rejected": true,
+      "original_hashes_unchanged": true,
+      "accounting_unchanged": true,
+      "provider_calls": 0,
+      "new_attempts": 0,
+      "ceiling_eur": "540.0301038327063045424449473",
+      "accounting": {
+        "calls": 5246,
+        "session_calls": 4,
+        "known_input_tokens": 17987969,
+        "known_output_tokens": 6824036,
+        "known_cost_eur": "262.80638627260010152283056202",
+        "reserved_input_tokens": 1706265,
+        "reserved_output_tokens": 3112960,
+        "reserved_cost_eur": "90.93777989412551119790635037",
+        "cost_upper_bound_eur": "353.74416616672561272073691239",
+        "unknown_attempts": 110
+      },
+      "available_eur": "186.28593766598069182170803491"
+    },
+    "restart_guard_sha256": "e5d2c9fd26e751eade3cf1de06a2bdf2d1b7ef91e121527f65ab0cee4cef11a8",
+    "retained_request_reservation_eur": "0.9576439089692101740294511379",
+    "authorization": "Existing user-delegated exact benchmark administrative retention; no replay, release or execution authority."
+  },
+  "complete_business_outcomes": 0,
+  "calls_per_success": null,
+  "cause": "Receiptless transport failure with no HTTP response at request 4. No model-output-exhaustion or invalid-interface conclusion is established.",
+  "continued_or_replayed": false,
+  "physical_attempts_separate": true
+}
