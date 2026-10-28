@@ -22,6 +22,10 @@ Artifacts and file contents are not automatically public return values.
 
 Select only the next business action, using accepted producers and exact available
 results. Reuse known authorized contracts and deterministic pagination/cache reads.
+Cached operation identities, original descriptions and exact links remain visible after
+accepting a checkpoint and selecting a different objective. Provider results remain
+bound to their own query; cached metadata does not establish query completeness,
+resolve a contract or authorize execution.
 Discover unknown capabilities for that action before fixing its implementation.
 A group declares reusable inputs/body/exports; a call invokes it. An inline loop body
 is not a reusable declaration. Preserve consumers waiting for exact prerequisites.

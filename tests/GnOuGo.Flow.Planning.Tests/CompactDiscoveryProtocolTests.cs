@@ -163,7 +163,7 @@ public sealed partial class CompactDiscoveryProtocolTests
     }
 
     [Fact]
-    public async Task UnrelatedQueryHistoryCannotGrowTheFreshAutomaticRequest()
+    public async Task UnrelatedQueryHistoryOnlyAddsBoundedRetrievableCacheNavigation()
     {
         var (state, _) = await Ready();
         AddOperations(state, 1);
@@ -175,8 +175,13 @@ public sealed partial class CompactDiscoveryProtocolTests
                 Capabilities = [capability with { Id = "earlier_" + index,
                     Operation = new() { Id = "earlier_operation_" + index, Version = capability.Version, Description = new string('x', 20000) } }] });
         var after = Measure(state);
-        Assert.Equal(before.CompleteRequestBytes, after.CompleteRequestBytes);
-        Assert.Equal(before.EstimatedInputTokens, after.EstimatedInputTokens);
+        Assert.InRange(after.CompleteRequestBytes - before.CompleteRequestBytes, 1, 4096);
+        Assert.InRange(after.EstimatedInputTokens, 1, 6000);
+        var cached = PlanningCompactConstruction.DiscoveryContext(state)["describedOperations"]!;
+        Assert.InRange(System.Text.Encoding.UTF8.GetByteCount(cached.ToJsonString()), 1, 2048);
+        Assert.InRange(cached["items"]!.AsArray().Count, 1, 4);
+        Assert.NotNull(cached["next"]);
+        Assert.DoesNotContain(new string('x', 20000), DiscoveryFollowup(state).Prompt, StringComparison.Ordinal);
         Assert.Equal(251, state.Discovery.Pages.Count);
         Assert.Single(PlanningCompactConstruction.ContractDescriptorPage(state)["items"]!.AsArray());
     }

@@ -109,38 +109,75 @@ internal static partial class PlanningCompactConstruction
     {
         if (State(state).CurrentStep is not { } step) return null;
         var reads = state.Construction!.EvidenceRequests.ToHashSet(StringComparer.Ordinal);
-        var ranked = CapabilityRelevance.Rank(DescriptorCandidates(state, state.Discovery.Pages), CapabilityRelevance.Query(step.Objective)).Where(capability =>
-            state.Construction!.Evidence is { Count: > 0 } &&
-            capability.Operation!.Version == capability.Version && reads.Contains(PlanningConstruction.EvidenceBatchFingerprint(state,
-                ["description:" + ContractIdentity(capability.Operation.Id, capability.Operation.Version) + ":0"]))).ToArray();
+        var ranked = CapabilityRelevance.Rank(DescriptorCandidates(state, state.Discovery.Pages), CapabilityRelevance.Query(step.Objective))
+            .Where(capability => capability.Operation!.Version == capability.Version).ToArray();
+        var described = ranked.Where(capability => state.Construction.Evidence is { Count: > 0 } &&
+            reads.Contains(PlanningConstruction.EvidenceBatchFingerprint(state,
+                ["description:" + ContractIdentity(capability.Operation!.Id, capability.Operation.Version) + ":0"]))).ToArray();
+        // A new objective needs its own provider response, but does not erase
+        // immutable operation metadata already returned by those providers.
+        // These bounded descriptions remain selection aids, never resolved
+        // contracts, new reads, or authority to execute.
+        var earlier = state.Discovery.Pages.Where(page => page.Query != step.Objective && page.ProducedArtifactKind is null)
+            .SelectMany(page => page.Capabilities).Where(capability => capability.Operation is not null)
+            .Select(capability => (capability.Id, capability.Operation!.Id, capability.Operation.Version)).ToHashSet();
+        var cached = step.BaseHash == PlanningConstruction.Hash(state.Plan)
+            ? ranked.Where(capability => earlier.Contains((capability.Id, capability.Operation!.Id, capability.Operation.Version)))
+                .Select(CachedDescription).OfType<JsonObject>().ToArray() : [];
         var accepted = AcceptedProducerOperationChoices(state).ToArray();
-        if (accepted.Length > 0)
+        var choices = accepted.Concat(cached).Concat(described.Select(capability => new JsonObject
         {
-            var choices = accepted.Concat(ranked.Select(capability => new JsonObject
-            {
-                ["id"] = capability.Operation!.Id, ["name"] = capability.Name, ["effect"] = capability.EffectKind
-            })).DistinctBy(item => item["id"]!.ToString(), StringComparer.Ordinal).ToArray();
-            var items = new JsonArray();
-            var navigation = new JsonObject { ["total"] = choices.Length, ["complete"] = false, ["items"] = items };
-            foreach (var choice in choices.Take(CompactContractDescriptorPageSize))
-            {
-                items.Add((JsonNode)choice);
-                if (Encoding.UTF8.GetByteCount(navigation.ToJsonString()) > ContractDescriptionPageSize) items.RemoveAt(items.Count - 1);
-            }
-            navigation["complete"] = items.Count == choices.Length;
-            return navigation;
+            ["id"] = capability.Operation!.Id, ["name"] = capability.Name, ["effect"] = capability.EffectKind
+        })).DistinctBy(item => item["id"]!.ToString(), StringComparer.Ordinal).ToArray();
+        if (choices.Length == 0) return null;
+        var items = new JsonArray();
+        var navigation = new JsonObject { ["total"] = choices.Length, ["complete"] = false, ["items"] = items };
+        foreach (var choice in choices.Take(CompactContractDescriptorPageSize))
+        {
+            items.Add((JsonNode)choice);
+            if (Encoding.UTF8.GetByteCount(navigation.ToJsonString()) > ContractDescriptionPageSize) items.RemoveAt(items.Count - 1);
         }
-        if (ranked.Length == 0) return null;
-        // A successful description page is navigation evidence, not complete
-        // contract inspection or authority to execute. Never resend its prose.
-        return new JsonObject
+        navigation["complete"] = items.Count == choices.Length;
+        if (cached.Length > 0 && items.Count != choices.Length)
         {
-            ["total"] = ranked.Length, ["complete"] = ranked.Length <= 4,
-            ["items"] = new JsonArray(ranked.Take(4).Select(capability => (JsonNode)new JsonObject
+            AddRemainingCacheLink();
+            while (items.Count > 0 && Encoding.UTF8.GetByteCount(navigation.ToJsonString()) > ContractDescriptionPageSize)
+            { items.RemoveAt(items.Count - 1); AddRemainingCacheLink(); }
+        }
+        return navigation;
+
+        JsonObject? CachedDescription(CapabilitySummary capability)
+        {
+            var operation = capability.Operation!;
+            var identity = ContractIdentity(operation.Id, operation.Version);
+            try
             {
-                ["id"] = capability.Operation!.Id, ["name"] = capability.Name, ["effect"] = capability.EffectKind
-            }).ToArray())
-        };
+                if ((state.Catalog?.Capabilities ?? []).Concat(state.Discovery.Resolved).Any(contract => TaskOperations.Describe(contract).Id == operation.Id) &&
+                    ExactContract(state, operation.Id).Version != operation.Version) return null;
+                _ = OperationDescription(state, operation.Id, operation.Version, identity, 0);
+            }
+            catch (PlanningResponseException) { return null; }
+            var description = NavigationDescription(operation.Description);
+            return new JsonObject { ["id"] = operation.Id, ["version"] = operation.Version,
+                ["name"] = capability.Name, ["effect"] = capability.EffectKind, ["description"] = description,
+                ["descriptionComplete"] = description.Length == operation.Description.Length,
+                ["descriptionEvidence"] = "description:" + identity + ":0" };
+        }
+        void AddRemainingCacheLink()
+        {
+            var visible = items.Select(item => item!["id"]!.ToString()).ToHashSet(StringComparer.Ordinal);
+            foreach (var retained in (state.Construction.Evidence ?? []).Where(pair => pair.Key.StartsWith("page:operations:", StringComparison.Ordinal)))
+                foreach (var item in retained.Value?["items"] as JsonArray ?? [])
+                    if (item?["id"] is { } id) visible.Add(id.ToString());
+            var all = ContractDescriptors(state, count: int.MaxValue, concise: true, retained: true);
+            var omitted = all.Select((item, index) => (item, index)).FirstOrDefault(pair =>
+                cached.Any(choice => choice["id"]!.ToString() == pair.item!["id"]!.ToString()) &&
+                !visible.Contains(pair.item!["id"]!.ToString()));
+            if (omitted.item is null) { navigation.Remove("next"); return; }
+            var page = ContractDescriptorPage(state, omitted.index, retained: true);
+            navigation["next"] = "page:operations:" + PlanningGraphCompiler.Fingerprint(page.ToJsonString()) + ":" +
+                omitted.index.ToString(CultureInfo.InvariantCulture);
+        }
     }
 
     private static IEnumerable<JsonObject> AcceptedProducerOperationChoices(PlanningSession state)

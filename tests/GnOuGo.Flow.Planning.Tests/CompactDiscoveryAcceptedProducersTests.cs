@@ -70,25 +70,26 @@ public sealed partial class CompactDiscoveryProtocolTests
     }
 
     [Fact]
-    public async Task CachedChoicesDoNotIncludeUnselectedAcceptedSiblingsOrEarlierQueryOperations()
+    public async Task CachedMetadataDoesNotAddUnselectedAcceptedSiblingsToTheConsumersBindings()
     {
         var (state, _) = await AcceptedDiscovery(true, 3);
         var step = state.Construction!.Compact!.CurrentStep!;
         step.DependencyTaskIds = ["producer_0"];
         PlanningCompactConstruction.ValidateSelection(state, step);
         var context = PlanningCompactConstruction.DiscoveryContext(state);
-        Assert.Equal("operation_0", Assert.Single(context["describedOperations"]!["items"]!.AsArray())!["id"]!.ToString());
+        Assert.Equal(new[] { "operation_0", "operation_1", "operation_2" },
+            context["describedOperations"]!["items"]!.AsArray().Select(item => item!["id"]!.ToString()));
+        Assert.Equal(new[] { "producer_0" }, step.InputTaskIds);
+        Assert.Empty(step.OperationIds);
         var schema = DiscoveryFollowup(state).StructuredOutputSchema!.ToJsonString();
-        Assert.DoesNotContain("description:operation_1@", schema, StringComparison.Ordinal);
-        Assert.DoesNotContain("description:operation_2@", schema, StringComparison.Ordinal);
+        Assert.Contains("description:operation_1@version_1:0", schema, StringComparison.Ordinal);
+        Assert.Contains("description:operation_2@version_2:0", schema, StringComparison.Ordinal);
     }
 
     [Theory]
     [InlineData("denied")]
     [InlineData("step-type")]
     [InlineData("ambiguous")]
-    [InlineData("missing")]
-    [InlineData("unselected")]
     [InlineData("future")]
     public async Task CachedChoicesExcludeUnavailableOrUnselectedAcceptedOperations(string change)
     {
@@ -104,13 +105,31 @@ public sealed partial class CompactDiscoveryProtocolTests
                 second.Version = "conflicting";
                 state.Discovery.Resolved.Add(second);
                 break;
-            case "missing": state.Catalog.Capabilities.Clear(); break;
-            case "unselected": compact.CurrentStep!.DependencyTaskIds.Clear(); compact.CurrentStep.InputTaskIds.Clear(); break;
             case "future": state.Plan!.Root.Tasks.RemoveAll(task => task.Id == "producer_0"); break;
         }
         var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
         Assert.Null(PlanningCompactConstruction.DescribedOperationChoices(state));
         Assert.False(PlanningCompactConstruction.DiscoveryContext(state).ContainsKey("describedOperations"));
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CachedMetadataRemainsRetrievableWithoutAResolvedOrSelectedProducer(bool unresolved)
+    {
+        var (state, _) = await AcceptedDiscovery(true);
+        if (unresolved) state.Catalog!.Capabilities.Clear();
+        else
+        {
+            state.Construction!.Compact!.CurrentStep!.DependencyTaskIds.Clear();
+            state.Construction.Compact.CurrentStep.InputTaskIds.Clear();
+        }
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var choice = Assert.Single(PlanningCompactConstruction.DescribedOperationChoices(state)!["items"]!.AsArray())!;
+        Assert.Equal("operation_0", choice["id"]!.ToString());
+        Assert.Equal("description:operation_0@version_0:0", choice["descriptionEvidence"]!.ToString());
+        Assert.Empty(state.Construction!.Compact!.CurrentStep!.OperationIds);
         Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
     }
 
@@ -140,7 +159,7 @@ public sealed partial class CompactDiscoveryProtocolTests
 
 
     [Fact]
-    public async Task PendingVersionFiveDiscoveryWithoutCachedChoicesKeepsItsExactIssuedBytes()
+    public async Task PendingDiscoveryKeepsItsExactIssuedBytesAfterContractAvailabilityChanges()
     {
         var (state, runtime) = await AcceptedDiscovery(true);
         var capability = state.Catalog!.Capabilities.Single();
@@ -154,7 +173,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         runtime.Respond = (request, _) =>
         {
             Assert.Equal(exact, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
-            Assert.Null(Context(request)["describedOperations"]);
+            Assert.Equal("operation_0", Assert.Single(Context(request)["describedOperations"]!["items"]!.AsArray())!["id"]!.ToString());
             return Wire(request, CachedBinding());
         };
         state = await Advance(PlannerFixture.Clone(state), runtime);
