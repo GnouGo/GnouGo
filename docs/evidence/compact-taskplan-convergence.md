@@ -2,17 +2,21 @@
 
 ## Current qualification (28 October 2026)
 
-Production **e44e08fd** retains resolved repair observations without restoring their authority. It passes 3,699 Planning cases, 789 focused host cases and 12 independently verified publication stages; full solution qualification remains pending. The package verifier caught and retained a private harness revision-tag error before the successful fresh publication. Targeted tests are not added to full-suite totals. [Technical evidence](compact-taskplan-e44e08fd-technical-validation.json).
+Production **e44e08fd** completed Collections through delegated artifact review and both real runtime variants. Its [retained runtime outcome](compact-taskplan-e44e08fd-collections-runtime.json) records 27 requests/attempts, one automatic root-closure correction, no unwanted effects and €1.562918 known cost. The prior a6bd5978 configuration control used 26 calls and €1.218670; no savings claim follows. A pure forwarding alias remains. The repair-history change was not exercised by that correction.
+
+[Amazon](compact-taskplan-e44e08fd-amazon-admission-stop.json) stopped before business execution: 39 logical requests, 40 attempts, three corrections, €3.344525 known cost and €0.930870 retained unknown-usage reservation. All logical requests have responses; the failed physical attempt is not replayed or refunded. Repeated consumer discovery and the final evidence-admission failure remain separate issues. Review PR is still active on its original frozen source and settings.
 
 | Area | Corrected / tested | Live and business result | Unproven |
 | --- | --- | --- | --- |
-| Review evidence and admission | Window-specific originals, declarations/controls, measured atomic fallback | Source-identical a6bd5978 Collections **12k-only** experiment passes both real variants | Reproducibility and other scenarios |
-| Native implementation context | Shared eligibility and value semantics before discovery binding | Amazon remains unqualified | Complete business benefit |
-| Repair history | Both replacement drafts and typed patches retain bounded historical rejected values | e44e08fd diagnostics active; prior a6bd5978 Review PR cycle retained | Whether the context resolves the demonstrated semantic cycle |
-| A — conservation | Controlled equal-result call savings; partially realized | Successful control has 36 broad acknowledgments, zero reuse | Live savings |
-| B — transitions | Controlled equivalent traces; partially realized | No transition row in successful control | Matched live eliminated calls |
+| Review evidence and admission | Window-specific originals, declarations/controls, atomic fallback | e44 Collections passes both variants; Amazon later exceeds evidence admission | Reproducibility and other scenarios |
+| Native implementation context | Shared eligibility and value semantics before discovery binding | Amazon repeatedly selects the same missing-input consumer | Complete business benefit |
+| Repair history | Typed and replacement repairs retain bounded historical rejected values | Current Review PR diagnostic active | Resolution of the demonstrated semantic cycle |
+| A — conservation | Controlled equal-result savings; partially realized | No matched live savings established | Real-model efficiency |
+| B — transitions | Controlled equivalent traces; partially realized | No matched live eliminated calls established | Complete business efficiency |
 
-The current production gate is **0/6**: two intervention-free successes per scenario on the same production source, both Collections variants each time, then the 18 baseline comparisons. The successful configuration control below is a6bd5978, not e44e08fd. Latest pre-e44e08fd dispatch readiness verified **€181.417468 available**, 42 permanent closures, no unresolved request and the unchanged €540.030104 ceiling. All unknown reservations and the single supplement remain retained. PR #120 stays Draft.
+The e44 production qualification gate is **1/6**, with two intervention-free successes per scenario required on the same final source, then the 18 baseline comparisons. [Full solution validation](compact-taskplan-e44e08fd-solution-validation.json) passed 9,033 tests with 13 skipped; it predates the separate 76bc Browser-fixture adjustment. Earlier 3,699 Planning and 789 host checks overlap and are not added. [Package, AOT and encrypted-storage evidence](compact-taskplan-e44e08fd-technical-validation.json) retains its exact execution attribution.
+
+Latest verified **pre-Review-PR** allowance was **€175.579155**, with 42 permanent closures, no unresolved request and the unchanged €540.030104 ceiling. This is not a current balance while that run is active. The user subsequently deleted the external `benchmark-evidence` directory; encrypted accounting, requests, receipts and Collections runtime outcomes remain readable and were reinspected. Original manifest loss is an evidence gap, never authority to recreate history, repeat execution, release reservations or apply the supplement again. New paid launches wait for fresh provenance verification. PR #120 stays Draft.
 
 ## Revision 9 Collections: final Judge transport uncertainty
 
