@@ -117,14 +117,17 @@ public sealed partial class HybridWorkflowPlanner
         // request before dispatch. Already issued requests/candidates keep their
         // captured (including absent historical) comparison semantics.
         var request = state.PendingCall?.Request ?? PlanningConstruction.DraftRequest(state, repair);
+        PlanningModelCall? completedCall = null;
         var response = await PlanningModelCalls.CallAsync(state, runtime, repair ? "replan" : PlanningConstruction.DraftPurpose,
-            request.Prompt, request.StructuredOutputSchema!.AsObject(), ct, construction.Limits.DraftOutputTokens, correction);
+            request.Prompt, request.StructuredOutputSchema!.AsObject(), ct, construction.Limits.DraftOutputTokens, correction,
+            received: (call, _) => completedCall = call);
+        request = PlanningModelCalls.CanonicalEvidenceRequest(completedCall!);
         construction.LastProposalHash = "proposal:" + PlanningGraphCompiler.Fingerprint(response.ToJsonString());
         if (construction.FailedCandidates.Contains(construction.LastProposalHash, StringComparer.Ordinal))
             throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The model repeated an invalid construction action. No budget was reset.");
         var reselection = response["reselectStep"] is { } selected
             ? PlanningCompactConstruction.ReadReselection(state, selected, request.StructuredOutputSchema!) : null;
-        var normalized = response.DeepClone();
+        var normalized = PlanningConstruction.NormalizeDraftResponse(state, response, request);
         if (reselection is not null) normalized["reselectStep"] = reselection.Reason;
         var proposal = normalized.Deserialize(ConstructionJsonContext.Default.PlanningConstructionResponse)!;
         if (construction.IssuedBaseHash != PlanningConstruction.Hash(state.Plan) || proposal.BaseHash != construction.IssuedBaseHash)
@@ -362,7 +365,10 @@ public sealed partial class HybridWorkflowPlanner
         }
         PlanningRepairPatch.Verify(repairState, request);
         using var accounting = new PlanningCorrectionAttempt(state, correcting: true, draft: true);
-        var response = await PlanningModelCalls.CallAsync(state, runtime, "replan", request.Prompt, request.StructuredOutputSchema!.AsObject(), ct, construction.Limits.DraftOutputTokens, accounting);
+        PlanningModelCall? completedCall = null;
+        var response = await PlanningModelCalls.CallAsync(state, runtime, "replan", request.Prompt, request.StructuredOutputSchema!.AsObject(), ct, construction.Limits.DraftOutputTokens, accounting,
+            received: (call, _) => completedCall = call);
+        request = PlanningModelCalls.CanonicalEvidenceRequest(completedCall!);
         var selectedReselection = response["reselectStep"] is { } selected
             ? PlanningCompactConstruction.ReadReselection(state, selected, request.StructuredOutputSchema!) : null;
         var normalized = response.DeepClone();
@@ -462,6 +468,7 @@ public sealed partial class HybridWorkflowPlanner
         construction.Complete = draft.Extension.Complete; construction.Candidate = null;
         construction.DraftCorrections = 0; construction.LastProposalHash = null;
         construction.PendingReviewContext = null; construction.PendingReviewHash = null; construction.Evidence = null; construction.EvidenceRequests.Clear();
+        construction.ScopeCursor = 0;
         state.Diagnostics.Clear(); state.Graph = null; Invalidate(state);
         state.Phase = construction.Complete ? PlanningPhase.Validation : PlanningConstruction.DraftPurpose;
         await runtime.CheckpointAsync(state, ct);

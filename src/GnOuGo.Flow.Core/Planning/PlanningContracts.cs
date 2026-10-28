@@ -177,6 +177,17 @@ public sealed class PlanningModelCall
     // 0 = ordinary call, 1 = navigation correction, 3 = draft correction.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? CorrectionAccounting { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningEvidenceAddresses? EvidenceAddresses { get; set; }
+}
+
+/// <summary>Exact navigation authority captured with one issued model request.</summary>
+public sealed class PlanningEvidenceAddresses
+{
+    public string RequestHash { get; set; } = "";
+    public string RequestBasisHash { get; set; } = "";
+    public string MapHash { get; set; } = "";
+    public Dictionary<string, string> Addresses { get; set; } = new(StringComparer.Ordinal);
 }
 
 public sealed class PlanningCatalog
@@ -301,6 +312,8 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 [JsonSerializable(typeof(PlanningConstructionInterfaceExtraction))]
 [JsonSerializable(typeof(PlanningConstructionCommitment))]
 [JsonSerializable(typeof(PlanningRequestMeasurement))]
+[JsonSerializable(typeof(PlanningEvidenceAddresses))]
+[JsonSerializable(typeof(PlanningModelCall))]
 [JsonSerializable(typeof(List<PlanningRequestMeasurement>))]
 [JsonSerializable(typeof(List<PlanningConstructionCheckpoint>))]
 public partial class PlanningJsonContext : JsonSerializerContext;

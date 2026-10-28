@@ -78,7 +78,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         runtime.Respond = (request, purpose) =>
         {
             Assert.Equal(PlanningCompactConstruction.DiscoveryPurpose, purpose);
-            Assert.Contains(addresses[0], request.Prompt, StringComparison.Ordinal);
+            Assert.Contains(runtime.EvidenceId(request, addresses[0]), request.Prompt, StringComparison.Ordinal);
             return Wire(request, new JsonObject { ["binding"] = new JsonObject { ["kind"] = "operation",
                 ["operationIds"] = new JsonArray(chosen), ["groupId"] = null, ["closeScopes"] = null } });
         };

@@ -296,6 +296,7 @@ public static class PlanningBenchmarkMeasurements
             var prepared = group.ToArray();
             var admitted = group.Where(m => m["admission"]?.ToString() == "admitted").ToArray();
             var sizes = prepared.Select(m => m["estimatedInputTokens"]!.GetValue<long>()).Order().ToArray();
+            var bytes = prepared.Select(m => m["completeRequestBytes"]!.GetValue<long>()).Order().ToArray();
             var components = new JsonObject();
             foreach (var component in prepared.SelectMany(m => m["components"]!.AsArray().OfType<JsonObject>()).GroupBy(c => c["component"]!.ToString()))
                 components[component.Key] = new JsonObject
@@ -307,7 +308,10 @@ public static class PlanningBenchmarkMeasurements
             {
                 ["prepared_requests"] = prepared.Length, ["requests"] = admitted.Length,
                 ["rejected_before_dispatch"] = prepared.Count(m => m["admission"]?.ToString() == "rejected_before_dispatch"),
+                ["above_target_warnings"] = prepared.Count(m => m["targetWarning"] is not null),
                 ["peak_complete_request_bytes"] = prepared.Max(m => m["completeRequestBytes"]!.GetValue<long>()),
+                ["p50_complete_request_bytes"] = (bytes[(bytes.Length - 1) / 2] + bytes[bytes.Length / 2]) / 2.0,
+                ["p95_complete_request_bytes"] = bytes[(int)Math.Ceiling(bytes.Length * .95) - 1],
                 ["peak_estimated_input_tokens"] = sizes[^1],
                 ["peak_admitted_request_bytes"] = admitted.Length == 0 ? null : admitted.Max(m => m["completeRequestBytes"]!.GetValue<long>()),
                 ["peak_admitted_input_tokens"] = admitted.Length == 0 ? null : admitted.Max(m => m["estimatedInputTokens"]!.GetValue<long>()),

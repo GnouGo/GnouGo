@@ -357,11 +357,11 @@ public sealed class CompactIntentIndexingTests
         var context = PlanningCompactConstruction.InterfaceContext(state, extraction);
         var issued = PlanningCompactConstruction.Request(PlanningCompactConstruction.InterfaceGuidance(state), context,
             PlanningCompactConstruction.ResolvableInterfaceSchema(state, extraction), PlanningCompactConstruction.IntentPurpose);
-        issued = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.IntentPurpose, issued.Prompt, issued.StructuredOutputSchema!.AsObject());
-        issued.ClientRequestId = state.Request.SessionId + ":2:" +
-            PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest));
+        issued = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.IntentPurpose, issued.Prompt, issued.StructuredOutputSchema!.AsObject(),
+            null, null, out var evidenceAddresses);
         var exact = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
-        state.PendingCall = new() { Id = issued.ClientRequestId, Purpose = PlanningCompactConstruction.IntentPurpose, Request = issued };
+        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.IntentPurpose, Request = issued,
+            EvidenceAddresses = evidenceAddresses };
         state.ModelCalls++;
         var measurement = PlanningRequestMeasurements.Measure(issued, PlanningCompactConstruction.IntentPurpose, 3000);
         measurement.Admission = "admitted";
@@ -370,7 +370,7 @@ public sealed class CompactIntentIndexingTests
         var requirements = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
         var sources = JsonSerializer.Serialize(state.Construction!.Compact!.Sources, PlanningJsonContext.Default.ListPlanningConstructionSource);
         var receipt = outputLimited ? ReasoningOnlyLimit() : Simple(issued, PlanningCompactConstruction.IntentPurpose);
-        var receipts = new Dictionary<string, LLMResponse>(StringComparer.Ordinal) { [issued.ClientRequestId] = receipt };
+        var receipts = new Dictionary<string, LLMResponse>(StringComparer.Ordinal) { [issued.ClientRequestId!] = receipt };
         var physicalCalls = 0;
         var recovery = new TestRuntime { Respond = (request, _) =>
         {

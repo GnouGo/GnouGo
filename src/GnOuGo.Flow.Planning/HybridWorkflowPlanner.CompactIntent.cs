@@ -104,7 +104,7 @@ public sealed partial class HybridWorkflowPlanner
         using var correction = new PlanningCorrectionAttempt(state, state.Diagnostics.Any(d => d.Required));
         var issued = state.PendingCall?.Request;
         var response = await CompactCallAsync(state, runtime, PlanningCompactConstruction.IntentPurpose,
-            () => issued = ResolvableInterfaceRequest(state, extraction.Id), ct, correction);
+            () => issued = ResolvableInterfaceRequest(state, extraction.Id), ct, correction, request => issued = request);
         if (response["sourceId"]?.ToString() != extraction.Id)
             PlanningConstruction.Fail("CONSTRUCTION_SOURCE_COVERAGE", "/sourceId", "Use the exact issued interface declaration source.");
         if (new[] { "interfaces", "evidenceRequests", "clarifications" }.Count(name => response[name] is not null) != 1)

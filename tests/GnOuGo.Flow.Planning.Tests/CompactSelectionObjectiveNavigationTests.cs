@@ -63,22 +63,38 @@ public sealed class CompactSelectionObjectiveNavigationTests
         var accepted = PlanningConstruction.Hash(state.Plan);
         var calls = state.ModelCalls;
         var declaration = JsonSerializer.SerializeToNode(Assert.Single(state.Plan!.Inputs), PlanningJsonContext.Default.TaskInput);
-        var grammar = Request(state, PlanningCompactConstruction.SelectionContext(state),
-            PlanningCompactConstruction.SelectionSchema(state)).StructuredOutputSchema!.DeepClone().AsObject();
-        grammar["properties"]!.AsObject().Remove("evidenceRequests");
+        var grammarRequest = Request(state, PlanningCompactConstruction.SelectionContext(state), PlanningCompactConstruction.SelectionSchema(state));
+        grammarRequest = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.SelectPurpose, grammarRequest.Prompt,
+            grammarRequest.StructuredOutputSchema!.AsObject(), null, null, out var grammarAddresses);
+        var grammar = EvidenceFreeSchema(PlanningModelCalls.CanonicalEvidenceRequest(new()
+        { Id = grammarRequest.ClientRequestId!, Purpose = PlanningCompactConstruction.SelectPurpose, Request = grammarRequest, EvidenceAddresses = grammarAddresses }));
         Assert.Null(PlanningCompactConstruction.SelectionContext(state)["interfacesDirectory"]);
         if (firstPageAlreadyRead) PlanningConstruction.LoadEvidence(state, ["page:interfaces:0"]);
         var addresses = new Queue<string>(firstPageAlreadyRead
             ? ["page:interfaces:4", "input:caller_value"]
             : ["page:interfaces:4", "page:interfaces:0", "input:caller_value"]);
         var expectedCalls = addresses.Count;
-        var runtime = new TestRuntime { Respond = (request, _) =>
+        var runtime = new TestRuntime();
+        runtime.Respond = (request, _) =>
         {
-            var context = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
+            var call = runtime.Checkpoints.Last(checkpoint => checkpoint.PendingCall?.Id == request.ClientRequestId).PendingCall!;
+            var host = PlanningModelCalls.CanonicalEvidenceRequest(call);
+            var context = JsonNode.Parse(host.Prompt[(host.Prompt.LastIndexOf('\n') + 1)..])!;
             var address = addresses.Dequeue();
             if (address == "page:interfaces:0")
             {
-                Assert.True(JsonNode.DeepEquals(PlanningCompactConstruction.InterfaceDirectory(state, null, 4), context["interfaces"]));
+                var expected = PlanningCompactConstruction.InterfaceDirectory(state, null, 4);
+                var displayed = context["interfaces"]!.DeepClone().AsArray();
+                for (var index = 0; index < displayed.Count; index++)
+                    if (displayed[index]?["objectiveOmitted"]?.GetValue<bool>() == true)
+                    {
+                        Assert.NotNull(displayed[index]!["evidence"]);
+                        Assert.NotNull(expected[index]!["objective"]);
+                        expected[index]!.AsObject().Remove("objective");
+                        expected[index]!.AsObject().Remove("objectiveTextComplete");
+                        displayed[index]!.AsObject().Remove("objectiveOmitted");
+                    }
+                Assert.True(JsonNode.DeepEquals(expected, displayed));
                 Assert.Null(context["nextInterfaces"]);
                 Assert.Equal(address, context["interfacesDirectory"]!.ToString());
                 Assert.Null(context["evidence"]?[address]);
@@ -88,16 +104,13 @@ public sealed class CompactSelectionObjectiveNavigationTests
                 Assert.Null(context["interfacesDirectory"]);
                 Assert.Contains(context["evidence"]!["page:interfaces:0"]!.AsArray(), item => item?["input"]?.ToString() == "caller_value");
                 Assert.NotEmpty(PlanningContractValidation.ValidateInstance(EvidenceAction(state, "page:interfaces:0"),
-                    request.StructuredOutputSchema!.AsObject()));
+                    host.StructuredOutputSchema!.AsObject()));
             }
-            var response = EvidenceAction(state, address);
+            var response = EvidenceAction(state, runtime.EvidenceId(request, address));
             Assert.Empty(PlanningContractValidation.ValidateInstance(response, request.StructuredOutputSchema!.AsObject()));
-            var actualGrammar = request.StructuredOutputSchema.DeepClone().AsObject();
-            actualGrammar["properties"]!.AsObject().Remove("evidenceRequests");
-            actualGrammar.Remove("$comment");
-            Assert.True(JsonNode.DeepEquals(grammar, actualGrammar));
+            Assert.True(JsonNode.DeepEquals(grammar, EvidenceFreeSchema(host)));
             return new() { Json = response };
-        } };
+        };
         for (var index = 0; index < expectedCalls; index++)
         {
             state = await new HybridWorkflowPlanner().AdvanceAsync(PlannerFixture.Clone(state),
@@ -472,6 +485,14 @@ public sealed class CompactSelectionObjectiveNavigationTests
 
     private static JsonObject ImportSchema(JsonObject schema) => new()
         { ["$ref"] = "#/$defs/" + ImportKey(schema), ["$defs"] = schema["$defs"]!.DeepClone() };
+
+    private static JsonObject EvidenceFreeSchema(LLMRequest request)
+    {
+        var schema = request.StructuredOutputSchema!.DeepClone().AsObject();
+        schema["properties"]!.AsObject().Remove("evidenceRequests");
+        schema.Remove("$comment");
+        return schema["$defs"] is JsonObject ? PlanningSchemas.Compact(schema, preserveDescriptions: true) : schema;
+    }
 
     private static LLMRequest Request(PlanningSession state, JsonObject context, JsonObject schema)
     {

@@ -220,6 +220,11 @@ public sealed class CompactConstructionClosureTests
     private static void AssertCompletion(JsonObject schema, bool allowed)
     {
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
+        if (ExtensionProperties(schema)["complete"] is null)
+        {
+            Assert.False(allowed);
+            return; // Omission is the fixed DTO default false, not a model choice.
+        }
         var completion = ExtensionPropertyWithDefinitions(schema, "complete");
         Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(JsonValue.Create(false), completion));
         Assert.Equal(allowed, PlanningContractValidation.ValidateInstanceFindings(JsonValue.Create(true), completion).Count == 0);
@@ -227,6 +232,11 @@ public sealed class CompactConstructionClosureTests
 
     private static void AssertScopeClosure(JsonObject schema, string? scope, bool allowed)
     {
+        if (ExtensionProperties(schema)["closeScopes"] is null)
+        {
+            Assert.Equal(scope is null, allowed);
+            return;
+        }
         var closures = ExtensionPropertyWithDefinitions(schema, "closeScopes");
         var value = scope is null ? new JsonArray() : new JsonArray(scope);
         Assert.Equal(allowed, PlanningContractValidation.ValidateInstanceFindings(value, closures).Count == 0);

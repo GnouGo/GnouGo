@@ -36,6 +36,19 @@ internal sealed class TestRuntime : IPlanningRuntime, IPlanningConstructionAdmis
 {
     internal readonly List<LLMRequest> Calls = [];
     internal readonly List<PlanningSession> Checkpoints = [];
+    private readonly Dictionary<string, PlanningEvidenceAddresses> _evidenceAddresses = new(StringComparer.Ordinal);
+    internal bool EncodeCanonicalEvidence = true;
+    internal string EvidenceId(LLMRequest request, string canonical)
+    {
+        if (request.ClientRequestId is not { } id || !_evidenceAddresses.TryGetValue(id, out var mapping))
+            throw new InvalidOperationException("The fixture must capture the exact issued evidence map before constructing its raw response.");
+        return mapping.Addresses.Single(pair => pair.Value == canonical).Key;
+    }
+    internal void CaptureIssued(PlanningModelCall call)
+    {
+        PlanningModelCalls.ValidateEvidenceAddresses(call);
+        if (call.EvidenceAddresses is { } mapping) _evidenceAddresses[call.Id] = mapping;
+    }
     internal Action<PlanningSession>? Checkpointed;
     internal readonly WorkflowPlanningRuntime Actual;
     internal TaskPlanFixture Proposal = new() { Requirements = PlannerFixture.Requirements(), Plan = PlanningCorpus.Greeting() };
@@ -58,12 +71,37 @@ internal sealed class TestRuntime : IPlanningRuntime, IPlanningConstructionAdmis
             TestContext.Current.TestOutputHelper?.WriteLine(error.ToString());
             throw;
         }
+        if (EncodeCanonicalEvidence && response.Json is not null && request.ClientRequestId is { } id && _evidenceAddresses.TryGetValue(id, out var addresses))
+            response.Json = WireEvidence(response.Json, addresses);
         return Task.FromResult(response);
+    }
+    internal static JsonNode WireEvidence(JsonNode response, PlanningEvidenceAddresses? addresses)
+    {
+        var wire = response.DeepClone();
+        if (addresses is not null) Evidence(wire);
+        return wire;
+        void Evidence(JsonNode? node)
+        {
+            if (node is JsonArray array) { foreach (var item in array) Evidence(item); return; }
+            if (node is not JsonObject obj) return;
+            foreach (var pair in obj)
+                if (pair.Key is "evidenceRequests" or "contextRequests" or "evidenceAddresses" && pair.Value is JsonArray values)
+                    for (var index = 0; index < values.Count; index++)
+                    {
+                        var canonical = values[index]?.ToString();
+                        var shortId = addresses!.Addresses.SingleOrDefault(item => item.Value == canonical).Key;
+                        if (shortId is not null) values[index] = shortId;
+                    }
+                else if (pair.Key is not ("extension" or "patch" or "interfaces")) Evidence(pair.Value);
+        }
     }
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => Validation is null ? Actual.ValidateAsync(request, ct) : Task.FromResult(Validation);
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => CatalogChanges is null ? Actual.ValidateCatalogAsync(catalog, ct) : Task.FromResult(CatalogChanges);
     public Task CheckpointAsync(PlanningSession state, CancellationToken ct)
-    { Checkpoints.Add(PlannerFixture.Clone(state)); Checkpointed?.Invoke(state); return Task.CompletedTask; }
+    {
+        if (state.PendingCall is { } call) CaptureIssued(call);
+        Checkpoints.Add(PlannerFixture.Clone(state)); Checkpointed?.Invoke(state); return Task.CompletedTask;
+    }
     public Task AdmitConstructionAsync(LLMRequest request, int inputTokenCeiling, IReadOnlyList<int> outputTokenCeilings, CancellationToken ct)
     { AdmitConstruction?.Invoke(request, inputTokenCeiling, outputTokenCeilings); return Task.CompletedTask; }
 }

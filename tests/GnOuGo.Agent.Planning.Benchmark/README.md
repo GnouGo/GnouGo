@@ -77,10 +77,36 @@ a later successful attempt does not release them.
 
 Preserve the existing physical-call, correction, token, time, output and financial
 ceilings. Captured input targets guide presentation; ceilings govern admission.
+Optional navigation is compacted toward targets of 3k navigation, 8k drafting/correction
+and 4k review tokens. An irreducible request above target can proceed below its captured
+maximum; its exact measurement retains a nonblocking warning with bytes, estimate,
+target, maximum and component sizes. These warnings create no repair authority.
 Requests rejected before dispatch retain measurements without a paid attempt.
 An indivisible required contract/context that cannot fit stops explicitly, without
 truncation or silently escalating limits. `present(taskId)` means task completion;
 nullability checks compare the exact business value with null.
+
+The separately frozen diagnostic arm may capture maxima of 24k navigation, 32k draft
+and 24k review using the existing `--phase-policy` file. The explicit
+[`Profiles/compact-diagnostic-collections.json`](Profiles/compact-diagnostic-collections.json),
+[`compact-diagnostic-amazon.json`](Profiles/compact-diagnostic-amazon.json) and
+[`compact-diagnostic-review-pr.json`](Profiles/compact-diagnostic-review-pr.json)
+preserve the retained scenario reasoning/output settings and change only input maxima.
+They are never selected automatically. Fresh launches must also capture
+`--max-input-tokens 32000 --max-output-tokens 32768` to retain these phase
+reservations; explicit tighter general limits continue to clamp the profile. Preserve each scenario's
+reasoning/output reservations and all cumulative limits. Do not modify an existing
+session or qualification profile, and do not count an enlarged-profile run toward the
+unchanged qualification gate. Deployment capacity after output reservation and explicit
+tighter host limits still prevail. Reports distinguish serialized bytes, conservative
+component estimates, actual whole-call provider usage and retained unknown reservations.
+
+Short evidence IDs are scoped to one issued request and its encrypted map. Reports
+expose safe measurement metadata, never reconstruct mappings from later context or
+replace raw receipts with resolved responses. Admission probes measure the final wire
+request, including the short-ID response grammar and envelope.
+Canonical-address archives are not upgraded to this navigation envelope; missing or
+conflicting required mappings stop rather than reconstructing authority from newer state.
 
 The single authorized 27 October EUR 100 supplement has reference
 `gnougo-pr120-2026-10-27-supplement-100-eur-once`. Its fixed ceilings were

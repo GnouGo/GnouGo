@@ -46,8 +46,8 @@ public sealed partial class CompactDiscoveryProtocolTests
         var canonical = PlanningCompactConstruction.ProviderRequestPage(state, 0).ToJsonString();
         var address = PlanningCompactConstruction.ProviderRequestAddress(state, 0);
         var original = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
-        var request = DiscoveryFollowup(state);
-        var overview = Context(request)["providerRequests"]!;
+        var request = DiscoveryFollowup(state, out var evidenceAddresses);
+        var overview = Context(HostView(request, evidenceAddresses))["providerRequests"]!;
         Assert.Equal(8, overview["items"]!.AsArray().Count);
         Assert.Equal(10, overview["total"]!.GetValue<int>());
         Assert.DoesNotContain(description, request.Prompt, StringComparison.Ordinal);
@@ -68,9 +68,10 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Equal(PlanningCompactConstruction.ProviderRequestAddress(state, 8), next);
         var expected = PlanningCompactConstruction.ProviderRequestPage(state, 8).ToJsonString();
         PlanningConstruction.LoadEvidence(state, [next]);
-        request = DiscoveryFollowup(state);
-        Assert.Null(Context(request)["providerRequests"]);
-        Assert.Equal(expected, Context(request)["evidence"]![next]!.ToJsonString());
+        request = DiscoveryFollowup(state, out evidenceAddresses);
+        var host = HostView(request, evidenceAddresses);
+        Assert.Null(Context(host)["providerRequests"]);
+        Assert.Equal(expected, Context(host)["evidence"]![next]!.ToJsonString());
         foreach (var provider in new[] { "provider_8", "provider_9" })
             Assert.Empty(PlanningContractValidation.ValidateInstance(Wire(request, Discover(provider, null)).Json!, request.StructuredOutputSchema!));
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Wire(request, Discover("alpha", null)).Json!, request.StructuredOutputSchema!));
@@ -88,8 +89,9 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Equal(5, context["providerRequests"]!["items"]!.AsArray().Count);
         context["providerRequests"] = PlanningCompactConstruction.ProviderRequestPage(state, 0);
         var request = Complete(state, PlanningCompactConstruction.Request("Retained two-provider instructions.", context,
-            PlanningCompactConstruction.DiscoverySchema(historical), PlanningCompactConstruction.DiscoveryPurpose));
-        state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = request };
+            PlanningCompactConstruction.DiscoverySchema(historical), PlanningCompactConstruction.DiscoveryPurpose), out var evidenceAddresses);
+        state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = request, EvidenceAddresses = evidenceAddresses };
+        runtime.CaptureIssued(state.PendingCall);
         state.ModelCalls++;
         var exact = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
         var calls = state.ModelCalls;

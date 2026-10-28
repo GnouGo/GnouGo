@@ -128,7 +128,7 @@ public sealed partial class HybridWorkflowPlanner
     }
 
     private static async Task<JsonNode> CompactCallAsync(PlanningSession state, IPlanningRuntime runtime, string purpose,
-        Func<LLMRequest> create, CancellationToken ct, PlanningCorrectionAttempt? correction = null)
+        Func<LLMRequest> create, CancellationToken ct, PlanningCorrectionAttempt? correction = null, Action<LLMRequest>? completedRequest = null)
     {
         using var ownedCorrection = correction is null ? new PlanningCorrectionAttempt(state, state.Diagnostics.Any(d => d.Required)) : null;
         correction ??= ownedCorrection!;
@@ -141,8 +141,12 @@ public sealed partial class HybridWorkflowPlanner
         await ReserveCompactContinuationAsync(state, runtime, ct);
         state.Phase = purpose;
         var request = state.PendingCall?.Request ?? create();
+        PlanningModelCall? completedCall = null;
         var response = await PlanningModelCalls.CallAsync(state, runtime, purpose, request.Prompt,
-            request.StructuredOutputSchema!.AsObject(), ct, state.Construction!.Limits.DraftOutputTokens, correction);
+            request.StructuredOutputSchema!.AsObject(), ct, state.Construction!.Limits.DraftOutputTokens, correction,
+            received: (call, _) => completedCall = call);
+        request = PlanningModelCalls.CanonicalEvidenceRequest(completedCall!);
+        completedRequest?.Invoke(request);
         var descriptionReadKey = purpose == PlanningCompactConstruction.DiscoveryPurpose
             ? PlanningCompactConstruction.DescriptionReadKey(state, request.StructuredOutputSchema!, response) : null;
         if (purpose == PlanningCompactConstruction.DiscoveryPurpose)
@@ -240,7 +244,7 @@ public sealed partial class HybridWorkflowPlanner
         var exactRequest = state.PendingCall?.Request;
         var response = await CompactCallAsync(state, runtime, PlanningCompactConstruction.SelectPurpose, () =>
             exactRequest = PlanningCompactConstruction.Request(state, PlanningCompactConstruction.SelectGuidance(state), PlanningCompactConstruction.SelectionContext(state),
-                PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose), ct, correction);
+                PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose), ct, correction, request => exactRequest = request);
         if (response["baseHash"]!.ToString() != PlanningConstruction.Hash(state.Plan))
             throw new PlanningConflictException("The step selection identifies a stale accepted checkpoint.");
         if (response["resumeStep"] is { } resume)
@@ -289,7 +293,7 @@ public sealed partial class HybridWorkflowPlanner
         using var correction = new PlanningCorrectionAttempt(state, correcting);
         var response = await CompactCallAsync(state, runtime, PlanningCompactConstruction.DiscoveryPurpose, () =>
             exactRequest = PlanningCompactConstruction.Request(state, PlanningCompactConstruction.DiscoveryGuidance(state), PlanningCompactConstruction.DiscoveryContext(state),
-                PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose), ct, correction);
+                PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose), ct, correction, request => exactRequest = request);
         if (response["reselectStep"] is { } reason)
         {
             var decision = PlanningCompactConstruction.ReadReselection(state, reason, exactRequest!.StructuredOutputSchema!);

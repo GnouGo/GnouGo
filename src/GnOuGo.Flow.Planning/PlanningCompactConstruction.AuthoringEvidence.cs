@@ -5,15 +5,23 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningCompactConstruction
 {
-    internal static void CompactReviewNavigation(JsonObject context)
+    internal static void CompactAuthoringNavigation(JsonObject context)
     {
         // Actual operands, producer tasks/contracts, ancestor controls, originals
         // and explicitly retrieved evidence remain complete. Only optional
         // navigation descriptions move behind their existing exact addresses.
         if (context["taskEvidence"]?["items"] is JsonArray tasks) CompactTasks(tasks);
         foreach (var requirement in (context["requirements"] as JsonArray ?? []).OfType<JsonObject>())
+        {
+            if (requirement["acceptedProgress"] is JsonObject progress && progress["checkpointCount"] is JsonValue count &&
+                count.TryGetValue<int>(out var total) && total == 0 && progress["items"] is JsonArray { Count: 0 })
+            {
+                requirement.Remove("acceptedProgress");
+                continue;
+            }
             foreach (var checkpoint in (requirement["acceptedProgress"]?["items"] as JsonArray ?? []).OfType<JsonObject>())
                 if (checkpoint["tasks"] is JsonArray contributions) CompactTasks(contributions);
+        }
         if (context["companionOperations"]?["items"] is JsonArray operations)
             foreach (var operation in operations.OfType<JsonObject>())
             {
@@ -29,7 +37,8 @@ internal static partial class PlanningCompactConstruction
                 if (task["task"]?.ToString() is not { } id ||
                     task["evidence"]?.ToString() != "task:" + id && task["address"]?.ToString() != "task:" + id) continue;
                 var removed = task.Select(pair => pair.Key).Except(
-                    ["task", "address", "evidence", "scope", "phase", "scopes", "nextPorts", "objectiveEvidence", "detailsOmitted"], StringComparer.Ordinal).ToArray();
+                    ["task", "address", "evidence", "scope", "phase", "kind", "operation", "group", "scopes", "scopeCount", "nextPorts", "objectiveEvidence", "detailsOmitted",
+                     "openResultScopeCount", "portCount", "ports"], StringComparer.Ordinal).ToArray();
                 foreach (var key in removed) task.Remove(key);
                 if (removed.Length > 0) task["detailsOmitted"] = true;
             }

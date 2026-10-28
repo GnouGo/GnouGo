@@ -47,12 +47,14 @@ public sealed partial class CompactReviewedTransitionTests
     private static PlanTask Number(string id) => new() { Id = id, Kind = "value", Objective = "Produce exactly seven.", Outputs = [new("number", new() { Kind = "number", Number = 7 })] };
     private static TaskValue Output(string id) => new() { Kind = "output", Source = id, Port = "number" };
     private static JsonObject Context(LLMRequest request) => JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!.AsObject();
-    private static LLMResponse Wire(LLMRequest request, JsonObject response)
+    private static LLMResponse Wire(LLMRequest request, JsonObject response, TestRuntime runtime)
     {
         // Every scripted response is validated against the ordinary issued schema.
         var schema = request.StructuredOutputSchema ?? throw new InvalidOperationException("The scripted response requires its exact issued schema.");
         var value = response.ContainsKey("step") ? response.DeepClone() :
             PlanningCorpus.Transport(response, schema.AsObject(), schema.AsObject())!;
+        var issued = runtime.Checkpoints.Last(checkpoint => checkpoint.PendingCall?.Id == request.ClientRequestId).PendingCall!;
+        value = TestRuntime.WireEvidence(value, issued.EvidenceAddresses);
         Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(value, schema));
         return new() { Json = value, Text = value.ToJsonString() };
     }

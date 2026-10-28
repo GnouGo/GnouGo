@@ -660,16 +660,16 @@ internal static partial class PlanningCompactConstruction
         var compact = State(state); var selected = ids.ToHashSet(StringComparer.Ordinal);
         return new JsonArray(state.Requirements!.Outcomes.Where(r => selected.Contains(r.Id)).Select(r => (JsonNode)new JsonObject
         {
-            ["id"] = r.Id, ["original"] = r.Description,
+            ["id"] = r.Id, ["evidence"] = "requirement:" + r.Id, ["original"] = r.Description,
             ["status"] = state.Construction!.Requirements.Single(s => s.Id == r.Id).Status,
             ["sources"] = new JsonArray((compact.RequirementSources.GetValueOrDefault(r.Id) ?? []).Select(id =>
-                (JsonNode)new JsonObject { ["id"] = id, ["version"] = compact.Sources.Single(s => s.Id == id).Version }).ToArray()),
+                (JsonNode)new JsonObject { ["id"] = id, ["evidence"] = "source:" + id, ["version"] = compact.Sources.Single(s => s.Id == id).Version }).ToArray()),
             ["commitments"] = JsonSerializer.SerializeToNode(r.Commitments, PlanningJsonContext.Default.ListPlanningCommitment)
         }).ToArray());
     }
 
     private static JsonArray Sources(PlanningSession state, IEnumerable<string> ids) => new(ids.Select(id => State(state).Sources.Single(s => s.Id == id))
-        .Select(s => (JsonNode)new JsonObject { ["id"] = s.Id, ["version"] = s.Version, ["text"] = s.Text }).ToArray());
+        .Select(s => (JsonNode)new JsonObject { ["id"] = s.Id, ["evidence"] = "source:" + s.Id, ["version"] = s.Version, ["text"] = s.Text }).ToArray());
 
     private static int ScopeOffset(PlanningSession state) => state.Construction!.ScopeCursor < state.Construction.OpenScopes.Count
         ? state.Construction.ScopeCursor : 0;

@@ -89,18 +89,18 @@ public sealed class CompactSelectionPresentationTests(ITestOutputHelper output)
     {
         var state = await Ready();
         var context = PlanningCompactConstruction.SelectionContext(state);
-        var request = PlanningGenerationPolicy.Apply(PlanningCompactConstruction.Request(
-            PlanningCompactConstruction.SelectGuidance(state), context, PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose), state.Request.Generation);
-        request.StructuredOutputStrict = true;
-        request.ClientRequestId = state.Request.SessionId + ":" + (state.ModelCalls + 1) + ":" +
-            PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+        var raw = PlanningCompactConstruction.Request(PlanningCompactConstruction.SelectGuidance(state), context,
+            PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose);
+        var request = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.SelectPurpose, raw.Prompt,
+            raw.StructuredOutputSchema!.AsObject(), null, null, out var issuedMap);
         state.ModelCalls++;
-        state.PendingCall = new() { Id = request.ClientRequestId, Purpose = PlanningCompactConstruction.SelectPurpose, Request = request };
+        state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningCompactConstruction.SelectPurpose, Request = request, EvidenceAddresses = issuedMap };
         state = PlannerFixture.Clone(state);
         var exact = JsonSerializer.Serialize(state.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
         var calls = state.ModelCalls;
         var requirements = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
         var runtime = new TestRuntime { Respond = (_, _) => new() { Json = Response(state) } };
+        runtime.CaptureIssued(state.PendingCall!);
         state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
         Assert.Empty(state.Diagnostics);
         Assert.Equal(exact, JsonSerializer.Serialize(Assert.Single(runtime.Calls), PlanningJsonContext.Default.LLMRequest));
@@ -122,19 +122,27 @@ public sealed class CompactSelectionPresentationTests(ITestOutputHelper output)
         }).ToList() } };
         state.Request.Generation.MaxInputTokensPerRequest = 32_000;
         state.Request.Options["construction_limits"]!["phasePolicy"]!["navigation"]!["maxInputTokens"] = 12_000;
+        // Exercise hard-ceiling fallback separately from the default target-first compaction.
+        state.Request.Options["construction_limits"]!["phasePolicy"]!["navigation"]!["targetInputTokens"] = 12_000;
         state.Construction!.Evidence = new JsonObject { ["task:producer_0"] = PlanningConstruction.TaskNode(state.Plan.Root.Tasks[0]) };
         var full = Request();
         var originalContext = Context(full);
         Assert.Null(originalContext["nextDecision"]?["localComputations"]); // An absent catalog is unknown, not a grant or denial.
         var originalSchema = full.StructuredOutputSchema!.ToJsonString();
         var estimate = Complete(full).EstimatedInputTokens;
-        state.Request.Generation.MaxInputTokensPerRequest = checked((int)estimate - 25);
+        var compactNavigation = originalContext.DeepClone().AsObject();
+        PlanningCompactConstruction.CompactAuthoringNavigation(compactNavigation);
+        var navigationOnly = JsonSerializer.Deserialize(JsonSerializer.Serialize(full, PlanningJsonContext.Default.LLMRequest), PlanningJsonContext.Default.LLMRequest)!;
+        navigationOnly.Prompt = full.Prompt[..(full.Prompt.LastIndexOf('\n') + 1)] + PlanningJsonTransport.Prompt(compactNavigation);
+        // Calibrate below already-compacted zero-count metadata, so this still
+        // exercises a producer-description omission at the hard ceiling.
+        state.Request.Generation.MaxInputTokensPerRequest = checked((int)Complete(navigationOnly).EstimatedInputTokens - 25);
         var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
         var fitted = Request();
         var measured = Complete(fitted);
         Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
         var context = Context(fitted);
-        Assert.True(JsonNode.DeepEquals(originalContext["requirements"], context["requirements"]));
+        Assert.True(JsonNode.DeepEquals(compactNavigation["requirements"], context["requirements"]));
         Assert.True(JsonNode.DeepEquals(originalContext["globalConstraints"], context["globalConstraints"]));
         Assert.True(JsonNode.DeepEquals(originalContext["evidence"], context["evidence"]));
         Assert.Equal(originalSchema, fitted.StructuredOutputSchema!.ToJsonString());
@@ -152,7 +160,7 @@ public sealed class CompactSelectionPresentationTests(ITestOutputHelper output)
         var beforeStop = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
         var oversized = Request();
         Assert.True(Complete(oversized).EstimatedInputTokens > 512);
-        Assert.True(JsonNode.DeepEquals(originalContext["requirements"], Context(oversized)["requirements"]));
+        Assert.True(JsonNode.DeepEquals(compactNavigation["requirements"], Context(oversized)["requirements"]));
         Assert.True(JsonNode.DeepEquals(originalContext["evidence"], Context(oversized)["evidence"]));
         Assert.Equal(beforeStop, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
 

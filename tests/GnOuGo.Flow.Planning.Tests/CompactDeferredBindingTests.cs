@@ -25,8 +25,8 @@ public sealed class CompactDeferredBindingTests
             Assert.Equal(PlanningCompactConstruction.SelectPurpose, purpose);
             var descriptor = Assert.Single(OriginalContext(request)["knownOperations"]!["items"]!.AsArray())!;
             Assert.Equal("read", descriptor["id"]!.ToString());
-            Assert.Equal(capability.Description, descriptor["description"]!.ToString());
-            Assert.NotNull(descriptor["hash"]);
+            if (descriptor["description"] is { } text) Assert.Equal(capability.Description, text.ToString());
+            else Assert.NotNull(descriptor["descriptionEvidence"]);
             return new LLMResponse { Json = SelectKnown(state, "operation", "read") };
         };
         state = await Advance(state, runtime);
@@ -180,9 +180,10 @@ public sealed class CompactDeferredBindingTests
         var (state, runtime) = ReadyKnown(); AddContract(state, Contract());
         var request = PlanningCompactConstruction.Request(state, PlanningCompactConstruction.SelectGuidance(state), PlanningCompactConstruction.SelectionContext(state),
             PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose);
-        request = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.SelectPurpose, request.Prompt, request.StructuredOutputSchema!.AsObject());
+        request = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.SelectPurpose, request.Prompt, request.StructuredOutputSchema!.AsObject(), null, null, out var issuedMap);
         var exact = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
-        state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningCompactConstruction.SelectPurpose, Request = request };
+        state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningCompactConstruction.SelectPurpose, Request = request, EvidenceAddresses = issuedMap };
+        runtime.CaptureIssued(state.PendingCall);
         state.ModelCalls = 1;
         if (changed) state.Discovery.Resolved[0].Description += " Changed after issuance.";
         runtime.Respond = (issued, _) =>
@@ -364,10 +365,11 @@ public sealed class CompactDeferredBindingTests
         var schema = PlanningCompactConstruction.DiscoverySchema(state);
         var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state),
             PlanningCompactConstruction.DiscoveryContext(state), schema, PlanningCompactConstruction.DiscoveryPurpose);
-        request = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.DiscoveryPurpose, request.Prompt, request.StructuredOutputSchema!.AsObject());
+        request = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.DiscoveryPurpose, request.Prompt, request.StructuredOutputSchema!.AsObject(), null, null, out var issuedMap);
         var exact = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
         var baseline = PlanningConstruction.Hash(state.Plan);
-        state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = request };
+        state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = request, EvidenceAddresses = issuedMap };
+        runtime.CaptureIssued(state.PendingCall);
         state.ModelCalls = 1;
         runtime.Respond = (issued, _) =>
         {
@@ -550,32 +552,34 @@ public sealed class CompactDeferredBindingTests
         // A bounded original page exposes the earlier declaration beside the
         // current obligation. Selection consumes this navigation page afterward.
         PlanningConstruction.LoadEvidence(state, ["page:requirements:0"]);
-        var runtime = new TestRuntime { Respond = (request, _) =>
+        var runtime = new TestRuntime();
+        runtime.Respond = (request, _) =>
         {
             var response = Select(state, null);
             response["step"]!["requirementIds"] = new JsonArray("req_1");
             response["step"]!["objective"] = work;
             response["step"]!["inputs"] = new JsonArray(new JsonObject { ["kind"] = "input", ["source"] = "sourceValue" });
             response["step"]!["prerequisites"] = new JsonArray(new JsonObject
-                { ["need"] = "Use the declared caller input.", ["evidenceAddresses"] = new JsonArray("requirement:req_0", declarationSource) });
+                { ["need"] = "Use the declared caller input.", ["evidenceAddresses"] = new JsonArray(runtime.EvidenceId(request, "requirement:req_0"), runtime.EvidenceId(request, declarationSource)) });
             var wire = Wire(request, response);
             Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(wire.Json!, request.StructuredOutputSchema!));
             return wire;
-        } };
+        };
         state = await Advance(state, runtime);
         Assert.Empty(state.Diagnostics);
         Assert.Equal(["req_1"], state.Construction!.Compact!.CurrentStep!.RequirementIds);
         Assert.Null(state.Construction!.Evidence);
         var originals = PlanningCompactConstruction.SelectionContext(state)["requirements"]!.AsArray();
-        Assert.Equal(new[] { "req_0", "req_1" }, originals.Select(row => row!["id"]!.ToString()));
-        Assert.Equal(new[] { declaration, work }, originals.Select(row => row!["original"]!.ToString()));
+        Assert.Equal(new[] { "req_1" }, originals.Select(row => row!["id"]!.ToString()));
+        Assert.Equal(new[] { work }, originals.Select(row => row!["original"]!.ToString()));
+        Assert.Equal(declaration, state.Construction.Compact!.Sources.Single(source => source.Id == declarationSource[7..]).Text);
         var discovery = PlanningCompactConstruction.DiscoveryContext(state);
         Assert.Equal(new[] { "requirement:req_0", declarationSource }, discovery["step"]!["prerequisites"]![0]!["evidenceAddresses"]!.AsArray().Select(address => address!.ToString()));
         runtime.Respond = (request, _) =>
         {
             foreach (var address in new[] { "requirement:req_0", declarationSource })
                 Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(Wire(request, new JsonObject
-                    { ["evidenceRequests"] = new JsonArray(address) }).Json!, request.StructuredOutputSchema!));
+                    { ["evidenceRequests"] = new JsonArray(runtime.EvidenceId(request, address)) }).Json!, request.StructuredOutputSchema!));
             return Wire(request, Binding("value"));
         };
         state = await Advance(state, runtime);
@@ -737,9 +741,10 @@ public sealed class CompactDeferredBindingTests
         var (state, runtime) = Ready();
         var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state),
             PlanningCompactConstruction.DiscoveryContext(state), PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose);
-        request = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.DiscoveryPurpose, request.Prompt, request.StructuredOutputSchema!.AsObject());
+        request = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.DiscoveryPurpose, request.Prompt, request.StructuredOutputSchema!.AsObject(), null, null, out var issuedMap);
         var exact = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
-        state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = request };
+        state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = request, EvidenceAddresses = issuedMap };
+        runtime.CaptureIssued(state.PendingCall);
         state.ModelCalls++;
         state.Discovery.Pages.Add(new("source", null, [], "1", Query: Objective));
         state.Discovery.Pages.Add(new("source", "1", [], "2", Query: Objective));
@@ -859,7 +864,8 @@ public sealed class CompactDeferredBindingTests
         var initial = OriginalRequest(state, phase);
         var initialContext = OriginalContext(initial);
         Assert.Equal("page:requirements:0", initialContext["requirementsDirectory"]!.ToString());
-        Assert.Equal("page:requirements:8", initialContext["nextRequirements"]!.ToString());
+        var firstPage = initialContext["nextRequirements"]!.ToString();
+        var secondPage = "page:requirements:" + (int.Parse(firstPage[(firstPage.LastIndexOf(':') + 1)..], System.Globalization.CultureInfo.InvariantCulture) + 8);
         if (recover)
         {
             // A saved request predates the new navigation; its exact envelope is retained.
@@ -872,8 +878,9 @@ public sealed class CompactDeferredBindingTests
             var old = PlanningCompactConstruction.Request(initial.Prompt[..initial.Prompt.LastIndexOf('\n')], initialContext, schema,
                 phase == "judge" ? PlanningConstruction.LocalPurpose : phase == "draft" ? PlanningConstruction.DraftPurpose : PlanningCompactConstruction.DiscoveryPurpose);
             initial = PlanningModelCalls.PrepareRequest(state, phase == "judge" ? PlanningConstruction.LocalPurpose : phase == "draft" ? PlanningConstruction.DraftPurpose : PlanningCompactConstruction.DiscoveryPurpose,
-                old.Prompt, old.StructuredOutputSchema!.AsObject());
-            state.PendingCall = new() { Id = initial.ClientRequestId!, Purpose = initial.StructuredOutputSchema!["title"]!.ToString(), Request = initial, CorrectionAccounting = 0 };
+                old.Prompt, old.StructuredOutputSchema!.AsObject(), null, null, out var issuedMap);
+            state.PendingCall = new() { Id = initial.ClientRequestId!, Purpose = initial.StructuredOutputSchema!["title"]!.ToString(), Request = initial, CorrectionAccounting = 0, EvidenceAddresses = issuedMap };
+            runtime.CaptureIssued(state.PendingCall);
             if (phase == "draft") state.Construction!.IssuedBaseHash = accepted;
             if (phase == "judge")
             {
@@ -885,7 +892,7 @@ public sealed class CompactDeferredBindingTests
             runtime.Respond = (request, _) =>
             {
                 Assert.Equal(exact, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
-                return OriginalEvidence(request, phase, "source:request:0:clause:0");
+                return OriginalEvidence(request, phase, runtime.EvidenceId(request, "source:request:0:clause:0"));
             };
             state = await Advance(PlannerFixture.Clone(state), runtime);
             if (phase == "discovery" && state.Diagnostics.Any(d => d.Code == "CONSTRUCTION_EVIDENCE_LIMIT"))
@@ -893,14 +900,14 @@ public sealed class CompactDeferredBindingTests
             Assert.Empty(state.Diagnostics);
             Assert.Equal(1, state.ModelCalls);
         }
-        foreach (var address in new[] { "page:requirements:8", "page:requirements:16", "page:requirements:0" })
+        foreach (var address in new[] { firstPage, secondPage, "page:requirements:0" })
         {
             runtime.Respond = (request, _) =>
             {
                 var context = OriginalContext(request);
-                if (address == "page:requirements:16")
-                    Assert.Equal(address, context["evidence"]!["page:requirements:8"]!["next"]!.ToString());
-                var response = OriginalEvidence(request, phase, address);
+                if (address == secondPage)
+                    Assert.Equal(runtime.EvidenceId(request, address), context["evidence"]![runtime.EvidenceId(request, firstPage)]!["next"]!.ToString());
+                var response = OriginalEvidence(request, phase, runtime.EvidenceId(request, address));
                 Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response.Json!, request.StructuredOutputSchema!));
                 return response;
             };
@@ -926,7 +933,11 @@ public sealed class CompactDeferredBindingTests
         var displayed = OriginalContext(followup);
         Assert.Null(displayed["requirementsDirectory"]); Assert.Null(displayed["nextRequirements"]);
         if (phase != "judge")
-            Assert.DoesNotContain("page:requirements:", followup.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
+        {
+            var wire = PlanningModelCalls.PrepareRequest(state, phase == "draft" ? PlanningConstruction.DraftPurpose : PlanningCompactConstruction.DiscoveryPurpose,
+                followup.Prompt, followup.StructuredOutputSchema!.AsObject());
+            Assert.DoesNotContain("page:requirements:", wire.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
+        }
         else
         {
             var requirement = displayed["requirements"]!.AsArray().Select((node, index) => (node, index))
@@ -944,7 +955,7 @@ public sealed class CompactDeferredBindingTests
             Assert.Null(state.Construction!.Candidate!.AuthorizedPaths); Assert.Null(state.EditablePaths);
             Assert.Equal(0, state.ReplanAttempts); Assert.Equal(0, state.Construction!.DraftCorrections);
         }
-        var replay = Assert.Throws<PlanningResponseException>(() => PlanningConstruction.LoadEvidence(state, ["page:requirements:8"]));
+        var replay = Assert.Throws<PlanningResponseException>(() => PlanningConstruction.LoadEvidence(state, [firstPage]));
         Assert.Contains(replay.Diagnostics, item => item.Code == "REPLAN_NO_PROGRESS");
         var invalid = state.Construction!.Compact!.CurrentStep!;
         invalid.CloseRequirementIds = ["req_10"];

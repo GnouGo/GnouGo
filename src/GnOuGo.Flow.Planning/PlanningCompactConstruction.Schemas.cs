@@ -74,9 +74,8 @@ internal static partial class PlanningCompactConstruction
                 PlanningSchemas.Array(PlanningSchemas.Enum(step.Scope), 1, 1);
             extension["properties"]!["complete"] = new JsonObject { ["type"] = "boolean", ["enum"] = new JsonArray(selectedClosure.Contains("/root", StringComparer.Ordinal)) };
         }
+        var eligible = EligibleContinuationAssociations(state);
         {
-            var retained = State(state).SuspendedSteps?.LastOrDefault(Active);
-            var eligible = EligibleContinuationAssociations(state);
             var association = PlanningSchemas.Object(("continuationId", PlanningSchemas.Enum(eligible.Select(item => item.Id).ToArray())),
                 ("binding", PlanningSchemas.Ref("continuationBindingValue")));
             {
@@ -94,6 +93,7 @@ internal static partial class PlanningCompactConstruction
                         ("items", PlanningSchemas.Array(PlanningSchemas.Ref("continuationBindingValue"), 1, 1)))) };
             extension["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("continuationBinding"));
         }
+        var hasBoundaryTransitions = false;
         {
             var boundaries = BoundaryTargets(state, step.Scope).Where(boundary => step.RequirementIds.Count > 0 &&
                 (boundary != "/root" || state.Requirements?.Outputs is { Count: > 0 }));
@@ -104,6 +104,7 @@ internal static partial class PlanningCompactConstruction
                         ("value", PlanningSchemas.Ref("value"))), 1, maximum) : EmptyArray()
                     : PlanningSchemas.Array(PlanningSchemas.Ref("output"), 0, maximum)),
                 ("closeScope", boundary == "/root" ? new JsonObject { ["type"] = "boolean", ["enum"] = new JsonArray(false) } : PlanningSchemas.Type("boolean")))).ToArray();
+            hasBoundaryTransitions = transitions.Length > 0;
             extension["properties"]!["boundaryTransitions"] = transitions.Length == 0 ? PlanningSchemas.Type("null") :
                 PlanningSchemas.Nullable(PlanningSchemas.Array(transitions.Length == 1 ? transitions[0] :
                     new JsonObject { ["anyOf"] = new JsonArray(transitions.Cast<JsonNode>().ToArray()) }, 0, 4));
@@ -129,7 +130,7 @@ internal static partial class PlanningCompactConstruction
         }
         var rollback = state.Construction.Candidate is null && state.Phase != PlanningPhase.Replanning &&
             state.Plan is { } accepted && TaskPlanRevisions.Tasks(accepted).Any();
-        var schema = PlanningSchemas.Object(("baseHash", PlanningSchemas.Enum(step.BaseHash)), ("requirements", PlanningSchemas.Type("null")),
+        var schema = PlanningSchemas.Object(("requirements", PlanningSchemas.Type("null")),
             ("commitments", commitments),
             ("extension", PlanningSchemas.Nullable(extension)), ("discoveryRequests", PlanningSchemas.Type("null")),
             ("clarifications", PlanningSchemas.Nullable(PlanningSchemas.Clarifications())),
@@ -142,8 +143,9 @@ internal static partial class PlanningCompactConstruction
                 ? PlanningSchemas.Nullable(new JsonObject { ["type"] = "string", ["minLength"] = 1, ["maxLength"] = 512 }) : PlanningSchemas.Type("null")));
         schema["$defs"] = definitions;
         ConstrainReselectionSchema(state, schema);
-        var reselection = schema["properties"]!["reselectStep"]!["type"]?.ToString() != "null"
-            ? schema["properties"]!["reselectStep"]!.DeepClone().AsObject() : null;
+        OmitHostFixedDraftFields(schema, extension);
+        var reselection = schema["properties"]!["reselectStep"] is JsonObject reselectionSchema &&
+            reselectionSchema["type"]?.ToString() != "null" ? reselectionSchema.DeepClone().AsObject() : null;
         var projected = PlanningContractValidation.ProjectStructuredOutputSchema(PlanningSchemas.Compact(schema));
         if (reselection is not null)
         {
@@ -154,11 +156,14 @@ internal static partial class PlanningCompactConstruction
         // Compact removes presentation annotations from the shared grammar. Put
         // back only the semantics needed by this selected kind and scope.
         projected["description"] = DraftSemantics(state, step);
-        if (State(state).SuspendedSteps?.LastOrDefault(Active) is { Status: "waiting" })
+        if (eligible.Length > 0 && State(state).SuspendedSteps?.LastOrDefault(Active) is { Status: "waiting" })
             projected["description"] += " When this fragment produces the retained consumer's prerequisite, continuationBinding identifies that consumer and the exact output or field binding. This is a proposed semantic association, validated and reviewed with the fragment; compatible types alone do not establish its meaning. Otherwise use null.";
-        if (ResumedConsumerParent(state) is not null)
+        if (eligible.Length > 0 && ResumedConsumerParent(state) is not null)
             projected["description"] += " This resumed business consumer may supply its immediate waiting parent's prerequisite. continuationBinding may name that offered parent and this fragment's exact new output; keep dischargedContinuationIds empty. Both business consumers and their original obligations remain retained. The child must pass ordinary acceptance before the parent can resume.";
-        projected["description"] += " boundaryTransitions optionally claims up to four exact existing boundaries, once per scope: outputs are exact exports; closeScope asserts no further work belongs in that boundary for its named original requirements. Host parent relationships determine order; this is not a future-task queue. Exports may reach the root, but these claims never close a requirement or the root. Use null when meaning or cleanup remains unresolved. An ancestor continuation association must explicitly list every bypassed prerequisite-only descendant in dischargedContinuationIds; never discharge original obligations or accepted effects.";
+        if (hasBoundaryTransitions)
+            projected["description"] += " boundaryTransitions optionally claims up to four exact existing boundaries, once per scope: outputs are exact exports; closeScope asserts no further work belongs in that boundary for its named original requirements. Host parent relationships determine order; this is not a future-task queue. Exports may reach the root, but these claims never close a requirement or the root. Use null when meaning or cleanup remains unresolved.";
+        if (eligible.Length > 1)
+            projected["description"] += " An ancestor continuation association must explicitly list every bypassed prerequisite-only descendant in dischargedContinuationIds; never discharge original obligations or accepted effects.";
         if (rollback)
             projected["description"] += " " + RollbackSemantics;
         return projected;
@@ -181,6 +186,32 @@ internal static partial class PlanningCompactConstruction
                 ("objective", PlanningSchemas.Ref("goal")), ("dependsOn", PlanningSchemas.Ref("identities")),
                 ("requires", PlanningSchemas.Nullable(PlanningSchemas.Ref("value"))),
                 ("operation", PlanningSchemas.Enum(operation.Id)), ("inputs", inputs));
+        }
+    }
+
+    private static void OmitHostFixedDraftFields(JsonObject schema, JsonObject extension)
+    {
+        // These are envelope facts already fixed by the retained step, or DTO
+        // defaults. Literal values and semantic choices keep their full grammar.
+        Remove(extension, "scope");
+        foreach (var name in new[] { "requirements", "commitments", "discoveryRequests", "rollbackTask", "rollbackReason", "reselectStep" })
+            if (schema["properties"]![name]?["type"]?.ToString() == "null") Remove(schema, name);
+        foreach (var name in new[] { "tasks", "always", "outputs", "groups", "choices", "closeScopes", "requirementIds", "continuationBinding", "boundaryTransitions" })
+        {
+            var field = extension["properties"]![name];
+            if (field?["type"]?.ToString() == "null" ||
+                field?["type"]?.ToString() == "array" && field["maxItems"]?.GetValue<int>() == 0)
+                Remove(extension, name);
+        }
+        if (extension["properties"]!["complete"]?["enum"] is JsonArray { Count: 1 } values &&
+            values[0]?.GetValue<bool>() == false) Remove(extension, "complete");
+
+        static void Remove(JsonObject owner, string name)
+        {
+            owner["properties"]!.AsObject().Remove(name);
+            var required = owner["required"]!.AsArray();
+            for (var i = required.Count - 1; i >= 0; i--)
+                if (required[i]?.ToString() == name) required.RemoveAt(i);
         }
     }
 

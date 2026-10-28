@@ -69,6 +69,8 @@ public sealed partial class HybridWorkflowPlanner
         if (construction.PendingReviewHash != fingerprint || candidate.BaseHash != PlanningConstruction.Hash(state.Plan))
             throw new PlanningConflictException("The issued business review no longer matches its candidate, originals, contracts or claims.");
         JsonNode report;
+        PlanningModelCall? receivedCall = null;
+        JsonNode? rawReport = null;
         try
         {
             report = await PlanningModelCalls.CallAsync(state, runtime, purpose, request.Prompt, request.StructuredOutputSchema!.AsObject(), ct,
@@ -77,11 +79,11 @@ public sealed partial class HybridWorkflowPlanner
                     request = state.PendingCall!.Request;
                     if (PendingBusinessReconsideration(state) is { } entry)
                     { entry["outcome"] = "reconsideration_issued"; entry["requestId"] = state.PendingCall.Id; }
-                });
+                }, received: (call, raw) => { receivedCall = call; rawReport = raw; });
         }
         catch (PlanningResponseException error)
         {
-            if (error.ReceivedReport is { } received) candidate.Reviews.Add(ReviewRecord(state, context, request, received, global, "invalid_report"));
+            if (error.ReceivedReport is { } received) candidate.Reviews.Add(ReviewRecord(state, context, request, received, global, "invalid_report", receivedCall, rawReport));
             Incomplete("The received business report did not satisfy its issued verdict schema."); return;
         }
         catch (JsonException) { Incomplete("The received business report was not valid JSON."); return; }
@@ -89,7 +91,7 @@ public sealed partial class HybridWorkflowPlanner
         { Incomplete(error.Code + ": " + error.Message); return; }
         var decision = report["decision"]!.AsObject();
         var verdict = decision["verdict"]!.ToString();
-        var row = ReviewRecord(state, context, request, report, global, verdict);
+        var row = ReviewRecord(state, context, request, report, global, verdict, receivedCall, rawReport);
         candidate.Reviews.Add(row);
         if (verdict == "needs_context")
         {
@@ -205,7 +207,8 @@ public sealed partial class HybridWorkflowPlanner
         ? candidate.Reviews.LastOrDefault(row => row["outcome"]?.ToString() == "reconsideration_ready" &&
             row["candidateIdentity"]?.ToString() == PlanningConstruction.FailureIdentity(state, candidate)) : null;
 
-    private static JsonObject ReviewRecord(PlanningSession state, JsonObject context, LLMRequest request, JsonNode report, bool global, string outcome) => new()
+    private static JsonObject ReviewRecord(PlanningSession state, JsonObject context, LLMRequest request, JsonNode report, bool global, string outcome,
+        PlanningModelCall? call, JsonNode? rawReport) => new()
     {
         ["purpose"] = global ? PlanningConstruction.GlobalPurpose : PlanningConstruction.LocalPurpose,
         ["candidateHash"] = state.Construction!.Candidate!.Hash, ["baselineHash"] = state.Construction.Candidate.BaseHash,
@@ -217,8 +220,10 @@ public sealed partial class HybridWorkflowPlanner
         ["reviewedTaskIds"] = new JsonArray((context["actions"] as JsonArray ?? []).Select(action => action!["id"]!.DeepClone()).ToArray()),
         ["openScopes"] = Strings(state.Construction.Candidate.OpenScopes),
         ["requestId"] = request.ClientRequestId, ["requestHash"] = Hash(request, PlanningJsonContext.Default.LLMRequest),
-        ["responseHash"] = PlanningGraphCompiler.Fingerprint(report.ToJsonString()), ["outcome"] = outcome,
-        ["response"] = report.DeepClone(), ["rawResponse"] = report.DeepClone(), ["context"] = context.DeepClone()
+        ["responseHash"] = PlanningGraphCompiler.Fingerprint((rawReport ?? report).ToJsonString()), ["outcome"] = outcome,
+        ["response"] = report.DeepClone(), ["rawResponse"] = (rawReport ?? report).DeepClone(), ["context"] = context.DeepClone(),
+        ["evidenceAddresses"] = call?.EvidenceAddresses is { } addresses
+            ? JsonSerializer.SerializeToNode(addresses, PlanningJsonContext.Default.PlanningEvidenceAddresses) : null
     };
 
     internal static string ConstructionClaimsHash(PlanningSession state) => PlanningGraphCompiler.Fingerprint(
@@ -259,7 +264,7 @@ public sealed partial class HybridWorkflowPlanner
     private static bool ReviewValid(PlanningSession state, JsonObject row, string candidate, string baseline, string claims, bool global) =>
         row["candidateHash"]?.ToString() == candidate && row["baselineHash"]?.ToString() == baseline && row["claimsHash"]?.ToString() == claims && row["outcome"]?.ToString() == "ok" &&
         row["purpose"]?.ToString() is { } purpose && (purpose == PlanningConstruction.GlobalPurpose || !global && purpose == PlanningConstruction.LocalPurpose) &&
-        row["rawResponse"]?["decision"]?["verdict"]?.ToString() == "ok" && JsonNode.DeepEquals(row["rawResponse"], row["response"]) &&
+        row["rawResponse"]?["decision"]?["verdict"]?.ToString() == "ok" && PlanningModelCalls.ReviewEvidenceBindingValid(row) &&
         row["responseHash"]?.ToString() == PlanningGraphCompiler.Fingerprint(row["rawResponse"]!.ToJsonString()) &&
         row["claimsHash"]?.ToString() == PlanningGraphCompiler.Fingerprint(row["claims"]!.ToJsonString()) &&
         row["context"] is JsonObject context && row["fingerprint"]?.ToString() == RowFingerprint(row, context) &&

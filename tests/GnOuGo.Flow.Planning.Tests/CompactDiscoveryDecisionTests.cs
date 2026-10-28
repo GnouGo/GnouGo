@@ -24,8 +24,9 @@ public sealed partial class CompactDiscoveryProtocolTests
         PlanningConstruction.LoadEvidence(state, [directory, description, source]);
         var original = state.Construction!.Evidence!.DeepClone().AsObject();
         var saved = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
-        var request = DiscoveryFollowup(state);
-        var view = Context(request)["evidence"]!.AsObject();
+        var request = DiscoveryFollowup(state, out var requestAddresses);
+        var requestHost = HostView(request, requestAddresses);
+        var view = Context(requestHost)["evidence"]!.AsObject();
         var expected = original.DeepClone().AsObject();
         expected[description]!.AsObject().Remove("version");
         expected[source]!.AsObject().Remove("version");
@@ -34,19 +35,21 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Equal(saved, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
         var control = PlannerFixture.Clone(state);
 
-        var unprojected = DiscoveryFollowup(control);
+        var unprojected = HostView(DiscoveryFollowup(control, out var originalAddresses), originalAddresses);
         var unprojectedContext = Context(unprojected);
         unprojectedContext["evidence"] = original.DeepClone();
         unprojected.Prompt = unprojected.Prompt[..(unprojected.Prompt.LastIndexOf('\n') + 1)] + unprojectedContext.ToJsonString();
         unprojected = PlanningModelCalls.PrepareRequest(control, PlanningCompactConstruction.DiscoveryPurpose,
-            unprojected.Prompt, unprojected.StructuredOutputSchema!.AsObject());
-        Assert.Equal(original.ToJsonString(), Context(unprojected)["evidence"]!.ToJsonString());
-        Assert.Equal(unprojected.StructuredOutputSchema!.ToJsonString(), request.StructuredOutputSchema!.ToJsonString());
+            unprojected.Prompt, unprojected.StructuredOutputSchema!.AsObject(), null, null, out var unprojectedAddresses);
+        var unprojectedHost = HostView(unprojected, unprojectedAddresses);
+        Assert.Equal(original.ToJsonString(), Context(unprojectedHost)["evidence"]!.ToJsonString());
+        Assert.Equal(PlanningSchemas.Compact(unprojectedHost.StructuredOutputSchema!.DeepClone().AsObject(), preserveDescriptions: true).ToJsonString(),
+            PlanningSchemas.Compact(requestHost.StructuredOutputSchema!.DeepClone().AsObject(), preserveDescriptions: true).ToJsonString());
         // This comparison isolates metadata. Keep both grammar and instructions
         // fixed, without changing the original issued request used below.
         var measuredControl = PlanningModelCalls.PrepareRequest(control, PlanningCompactConstruction.DiscoveryPurpose,
-            request.Prompt[..(request.Prompt.LastIndexOf('\n') + 1)] +
-                unprojected.Prompt[(unprojected.Prompt.LastIndexOf('\n') + 1)..], unprojected.StructuredOutputSchema.AsObject());
+            requestHost.Prompt[..(requestHost.Prompt.LastIndexOf('\n') + 1)] +
+                unprojectedHost.Prompt[(unprojectedHost.Prompt.LastIndexOf('\n') + 1)..], unprojectedHost.StructuredOutputSchema!.AsObject());
         var before = PlanningRequestMeasurements.Measure(measuredControl, PlanningCompactConstruction.DiscoveryPurpose, 6000);
         var after = PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, 6000);
         Assert.Equal(after.CompleteRequestBytes, after.Components.Sum(component => component.SerializedBytes));
@@ -57,7 +60,8 @@ public sealed partial class CompactDiscoveryProtocolTests
         var next = original[description]!["next"]!.ToString();
         var exact = JsonSerializer.Serialize(unprojected, PlanningJsonContext.Default.LLMRequest);
         state.PendingCall = new() { Id = unprojected.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose,
-            Request = unprojected, CorrectionAccounting = 0 };
+            Request = unprojected, CorrectionAccounting = 0, EvidenceAddresses = unprojectedAddresses };
+        runtime.CaptureIssued(state.PendingCall);
         state.ModelCalls++;
         var calls = state.ModelCalls;
         runtime.Respond = (issued, _) =>
@@ -114,7 +118,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         state.Diagnostics = [new("CONSTRUCTION_EVIDENCE_LIMIT", location, "The complete prospective request exceeded its captured ceiling.", required)];
         var retained = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
         var schema = PlanningCompactConstruction.DiscoverySchema(state);
-        var request = DiscoveryFollowup(state);
+        var request = HostView(DiscoveryFollowup(state, out var evidenceAddresses), evidenceAddresses);
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
         Assert.Empty(PlanningContractValidation.ValidateInstance(Wire(request, Evidence(addresses[0])).Json!, schema));
         Assert.Equal(singleton, PlanningContractValidation.ValidateInstance(Wire(request, Evidence(addresses)).Json!, schema).Count != 0);
@@ -192,8 +196,8 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Single(state.Construction.Evidence!);
         Assert.Contains("Preserve the complete observation.", state.Construction.Evidence![addresses[0]]!["text"]!.ToString(), StringComparison.Ordinal);
         Assert.Contains(PlanningConstruction.EvidenceBatchFingerprint(state, [addresses[0]]), state.Construction.EvidenceRequests);
-        var next = DiscoveryFollowup(state);
-        Assert.Empty(PlanningContractValidation.ValidateInstance(Wire(next, Evidence(addresses[1..])).Json!, next.StructuredOutputSchema!));
+        var next = DiscoveryFollowup(state, out var nextAddresses);
+        Assert.Empty(PlanningContractValidation.ValidateInstance(Wire(next, Evidence(addresses[1..]), nextAddresses).Json!, next.StructuredOutputSchema!));
         var measurement = PlanningRequestMeasurements.Measure(next, PlanningCompactConstruction.DiscoveryPurpose, policy.Navigation.MaxInputTokens);
         Assert.InRange(measurement.EstimatedInputTokens, 1, measurement.InputLimit);
         Assert.Equal(measurement.CompleteRequestBytes, measurement.Components.Sum(component => component.SerializedBytes));
@@ -206,10 +210,11 @@ public sealed partial class CompactDiscoveryProtocolTests
         AddOperations(state, 2);
         var addresses = PlanningCompactConstruction.ContractDescriptors(state, count: 2)
             .Select(item => item!["descriptionEvidence"]!.ToString()).ToArray();
-        var issued = DiscoveryFollowup(state);
-        var receipt = Wire(issued, Evidence(addresses));
+        var issued = DiscoveryFollowup(state, out var evidenceAddresses);
+        var receipt = Wire(issued, Evidence(addresses), evidenceAddresses);
         var exact = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
-        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = issued, CorrectionAccounting = 0 };
+        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = issued, CorrectionAccounting = 0, EvidenceAddresses = evidenceAddresses };
+        runtime.CaptureIssued(state.PendingCall);
         state.ModelCalls++;
         var calls = state.ModelCalls;
         var accepted = PlanningConstruction.Hash(state.Plan);
@@ -244,21 +249,22 @@ public sealed partial class CompactDiscoveryProtocolTests
         var originals = state.Construction!.Evidence!.ToJsonString();
         var continuations = addresses.Select(address => state.Construction.Evidence[address]!["next"]?.ToString()).OfType<string>().ToArray();
         state.Discovery.Pages.Add(new("alpha", "more", [AdditionalOperation(state)], null, Query: Objective));
-        var request = DiscoveryFollowup(state);
+        var request = DiscoveryFollowup(state, out var evidenceAddresses);
         Assert.Empty(PlanningContractValidation.ValidateSchema(request.StructuredOutputSchema!, strict: true));
         var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.DiscoveryPurpose).MaxInputTokens;
         var measurement = PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, limit);
         Assert.Equal(measurement.CompleteRequestBytes, measurement.Components.Sum(component => component.SerializedBytes));
         Assert.InRange(measurement.EstimatedInputTokens, 1, limit);
-        Assert.All(continuations, address => Assert.Contains(address, request.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal));
+        var host = HostView(request, evidenceAddresses);
+        Assert.All(continuations, address => Assert.Contains(address, host.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal));
         foreach (var address in addresses)
         {
-            Assert.True(Context(request)["evidence"]![address]!["textOmitted"]!.GetValue<bool>());
-            Assert.Empty(PlanningContractValidation.ValidateInstance(Wire(request, Evidence(address)).Json!, request.StructuredOutputSchema!));
+            Assert.True(Context(host)["evidence"]![address]!["textOmitted"]!.GetValue<bool>());
+            Assert.Empty(PlanningContractValidation.ValidateInstance(Wire(request, Evidence(address), evidenceAddresses).Json!, request.StructuredOutputSchema!));
         }
-        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Wire(request, Evidence(addresses)).Json!, request.StructuredOutputSchema!));
-        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Wire(request, Evidence(addresses[0], continuations[0])).Json!, request.StructuredOutputSchema!));
-        Assert.Empty(PlanningContractValidation.ValidateInstance(Wire(request, Evidence(continuations)).Json!, request.StructuredOutputSchema!));
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Wire(request, Evidence(addresses), evidenceAddresses).Json!, request.StructuredOutputSchema!));
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Wire(request, Evidence(addresses[0], continuations[0]), evidenceAddresses).Json!, request.StructuredOutputSchema!));
+        Assert.Empty(PlanningContractValidation.ValidateInstance(Wire(request, Evidence(continuations), evidenceAddresses).Json!, request.StructuredOutputSchema!));
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Wire(request, Evidence("description:invented@version:0")).Json!, request.StructuredOutputSchema!));
         Assert.Equal(originals, state.Construction.Evidence.ToJsonString());
         var accepted = PlanningConstruction.Hash(state.Plan);
@@ -270,8 +276,8 @@ public sealed partial class CompactDiscoveryProtocolTests
         state = await Advance(PlannerFixture.Clone(state), runtime);
         Assert.Empty(state.Diagnostics);
         Assert.NotNull(PlanningCompactConstruction.DiscoveryContext(state)["evidence"]![addresses[0]]!["text"]);
-        request = DiscoveryFollowup(state);
-        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Wire(request, Evidence(addresses[0])).Json!, request.StructuredOutputSchema!));
+        request = DiscoveryFollowup(state, out evidenceAddresses);
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Wire(request, Evidence(addresses[0]), evidenceAddresses).Json!, request.StructuredOutputSchema!));
         Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
         Assert.Equal(0, state.ReplanAttempts);
         Assert.Empty(state.Construction!.Checkpoints);
@@ -293,8 +299,9 @@ public sealed partial class CompactDiscoveryProtocolTests
         var schema = PlanningCompactConstruction.DiscoverySchema(state);
         schema["properties"]!["evidenceRequests"] = PlanningSchemas.Nullable(PlanningSchemas.Array(new() { ["type"] = "string", ["maxLength"] = 2048 }, 1, 8));
         var issued = Complete(state, PlanningCompactConstruction.Request("Retained discovery instructions.",
-            PlanningCompactConstruction.DiscoveryContext(state), schema, PlanningCompactConstruction.DiscoveryPurpose));
-        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = issued };
+            PlanningCompactConstruction.DiscoveryContext(state), schema, PlanningCompactConstruction.DiscoveryPurpose), out var evidenceAddresses);
+        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = issued, EvidenceAddresses = evidenceAddresses };
+        runtime.CaptureIssued(state.PendingCall);
         state.ModelCalls++;
         var calls = state.ModelCalls;
         var exact = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
@@ -348,8 +355,8 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Equal(address, presented["evidence"]!.ToString());
         Assert.NotNull(context["describedOperations"]);
         Assert.Equal(retained, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
-        var followup = DiscoveryFollowup(state);
-        Assert.Empty(PlanningContractValidation.ValidateInstance(Wire(followup, Evidence(address)).Json!, followup.StructuredOutputSchema!));
+        var followup = DiscoveryFollowup(state, out var evidenceAddresses);
+        Assert.Empty(PlanningContractValidation.ValidateInstance(Wire(followup, Evidence(address), evidenceAddresses).Json!, followup.StructuredOutputSchema!));
 
         state = await Advance(PlannerFixture.Clone(state), runtime);
         Assert.Empty(state.Diagnostics);
@@ -610,8 +617,9 @@ public sealed partial class CompactDiscoveryProtocolTests
         context["evidence"] = state.Construction!.Evidence!.DeepClone();
         context.Remove("describedOperations");
         var issued = Complete(state, PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state),
-            context, PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose));
-        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = issued };
+            context, PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose), out var evidenceAddresses);
+        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = issued, EvidenceAddresses = evidenceAddresses };
+        runtime.CaptureIssued(state.PendingCall);
         state.ModelCalls++;
         var calls = state.ModelCalls;
         var plan = PlanningConstruction.Hash(state.Plan!);

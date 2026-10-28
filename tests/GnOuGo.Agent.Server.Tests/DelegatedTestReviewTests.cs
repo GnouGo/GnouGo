@@ -135,6 +135,22 @@ public sealed class DelegatedTestReviewTests
     }
 
     [Theory]
+    [InlineData("chaussure geox homme 45")]
+    [InlineData("café & lampe + 45% ?")]
+    public async Task DerivedSearchAddressesRemainSubjectToExactExecutionAuthority(string query)
+    {
+        var (_, _, authorization, evidence, receipt) = await Fixture();
+        var authority = Authority(authorization with { Scenario = "amazon" }, evidence, receipt, "amazon");
+        var address = "https://www.amazon.fr/s?k=" + Uri.EscapeDataString(query);
+        authority.RequireTool("GnOuGo.Browser.Mcp", "browser_get_content", new JsonObject { ["url"] = address });
+        Assert.Equal(query, Uri.UnescapeDataString(new Uri(address).Query[3..]));
+        foreach (var denied in new[] { address.Replace("www.amazon.fr", "www.amazon.fr.example.com", StringComparison.Ordinal),
+            address.Replace("/s?", "/ap/signin?", StringComparison.Ordinal), "http://www.amazon.fr/s?k=" + Uri.EscapeDataString(query) })
+            Assert.Throws<PlanningConflictException>(() => authority.RequireTool("GnOuGo.Browser.Mcp", "browser_get_content", new JsonObject { ["url"] = denied }));
+        Assert.Throws<PlanningConflictException>(() => authority.RequireTool("GnOuGo.Browser.Mcp", "browser_click", new JsonObject { ["url"] = address }));
+    }
+
+    [Theory]
     [InlineData("close")]
     [InlineData("error")]
     [InlineData("new_navigation")]

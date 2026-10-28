@@ -63,8 +63,9 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Empty(PlanningContractValidation.ValidateInstance(Discover("alpha", null), schema));
         Assert.Empty(PlanningContractValidation.ValidateInstance(Discover("beta", null), schema));
         var request = Complete(state, PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state),
-            PlanningCompactConstruction.DiscoveryContext(state), schema, PlanningCompactConstruction.DiscoveryPurpose));
-        state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = request };
+            PlanningCompactConstruction.DiscoveryContext(state), schema, PlanningCompactConstruction.DiscoveryPurpose), out var evidenceAddresses);
+        state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = request, EvidenceAddresses = evidenceAddresses };
+        runtime.CaptureIssued(state.PendingCall);
         state.ModelCalls++;
         // New presentation availability must not replace a durably issued request.
 

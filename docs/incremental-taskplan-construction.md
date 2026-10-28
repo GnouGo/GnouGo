@@ -43,8 +43,17 @@ semantic preflight against original contracts, permissions and provenance. Inval
 candidates never replace accepted state. Checkpointing establishes technical acceptance,
 not business fulfillment.
 
-Draft admission pages optional output directories before discarding whole original
-clauses. A selected operation and a producer sharing the same exact contract share
+Local requests derive their originals before packing: selected obligations, consumed
+producers and their accepted requirement associations, ancestor controls/groups,
+completion claims, explicit evidence and retained repair witnesses. Linked interface
+and source clauses stay complete; indexed global constraints remain visible. Scope-page
+cursors reset when a checkpoint replaces the accepted frontier and clears its evidence,
+so earlier waiting consumers remain reachable. Selection
+offers bounded remaining work with exact continuation links. Unrelated originals stay
+retrievable. The final global review still receives every original obligation.
+
+Selection, discovery, drafting and correction compact optional navigation toward their
+captured targets. A selected operation and a producer sharing the same exact contract share
 one directory anchor; fitting that anchor retains every consumed port and complete
 schema view. Continuations use the first omitted original coordinate. Explicitly
 retrieved evidence, producer arguments and mandatory constraints remain unchanged.
@@ -122,8 +131,21 @@ fully recorded transient HTTP outcomes permit the bounded journaled retry policy
 Pre-generation client failures do not invent physical attempts or reservations.
 
 One resolver applies captured phase targets, hard ceilings, reasoning/output reservations
-and stricter host limits. Targets do not reject a necessary request. Calls, corrections,
+and stricter host limits. Above-target requests within the ceiling continue with a
+content-free warning in their exact measurement journal, outside plan diagnostics and
+approval identity. Targets never cause another model call or correction. Evidence batches
+and fallback requests undergo the same full-request preparation before atomic admission.
+Calls, corrections,
 graph size, cumulative time/tokens and financial controls remain independent limits.
+
+Navigation uses short IDs bound to one exact issued request. Its encrypted call metadata
+retains the canonical address map and identity checks before dispatch. Raw responses must
+validate against the issued ID schema before canonical resolution; repeat checks use the
+canonical addresses. Recovery uses the saved map, never a later context. IDs do not alter
+TaskPlan references, original schemas, arguments or source text. Draft envelopes omit
+unavailable actions and host-fixed echoes; the retained issued step supplies only those facts.
+Canonical-address archives are not converted to short-ID requests. A required missing
+or conflicting map stops recovery without dispatch or changes to the archived record.
 
 After complete deterministic compilation and global business review, execution still
 requires exact artifact-bound approval, original permissions, tenant/workspace confinement

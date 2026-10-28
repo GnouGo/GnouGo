@@ -128,8 +128,9 @@ public sealed class CompactSelectionScopeTests
         var state = await Ready();
         var context = PlanningCompactConstruction.SelectionContext(state);
         var issued = Complete(state, PlanningCompactConstruction.Request("Retained instructions: select one exact business step.",
-            context, PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose));
-        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.SelectPurpose, Request = issued };
+            context, PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose), out var evidenceAddresses);
+        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.SelectPurpose, Request = issued,
+            EvidenceAddresses = evidenceAddresses };
         state.ModelCalls++;
         var exact = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
         var calls = state.ModelCalls;
@@ -168,12 +169,11 @@ public sealed class CompactSelectionScopeTests
     private static LLMResponse Wire(LLMRequest request, JsonObject response) => new()
     { Json = PlanningCorpus.Transport(response, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
 
-    private static LLMRequest Complete(PlanningSession state, LLMRequest request) => PlanningGenerationPolicy.Apply(new()
-    {
-        Prompt = request.Prompt, StructuredOutputSchema = request.StructuredOutputSchema, StructuredOutputStrict = true,
-        Provider = "OpenAi", Model = "retained-model", UseBackgroundMode = true, MaxTokens = 8192,
-        ClientRequestId = new string('s', 64) + ":9:" + new string('h', 64)
-    }, state.Request.Generation);
+    private static LLMRequest Complete(PlanningSession state, LLMRequest request) => Complete(state, request, out _);
+
+    private static LLMRequest Complete(PlanningSession state, LLMRequest request, out PlanningEvidenceAddresses? evidenceAddresses) =>
+        PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.SelectPurpose, request.Prompt,
+            request.StructuredOutputSchema!.AsObject(), 8192, null, out evidenceAddresses);
 
     private static string Snapshot(PlanningSession state) => JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
 
@@ -192,8 +192,11 @@ public sealed class CompactSelectionScopeTests
                 ["clauses"] = new JsonArray(new JsonObject { ["text"] = objective, ["kind"] = "requirement", ["interfaces"] = "none" })
             });
         } };
+        // These cases isolate scope/import correction, with the whole small
+        // directory offered. The hard ceiling remains the normal 6k limit.
         var state = await Advance(PlannerFixture.Capture(new() { Request = new() { TenantId = "selection-scopes", Prompt = objective,
-            Options = new() { ["automatic_correction"] = true } } }), runtime);
+            Options = new() { ["automatic_correction"] = true } }, Construction = new() { Limits = new() { PhasePolicy = new()
+            { Navigation = new() { TargetInputTokens = 6000, MaxInputTokens = 6000 } } } } }), runtime);
         Assert.Empty(state.Diagnostics);
         state.Catalog = await runtime.DiscoverAsync(state.Request, PlannerFixture.Ct);
         state.Requirements!.Inputs = [new() { Name = "query", Type = new() { Kind = "string" } }];

@@ -40,7 +40,7 @@ public sealed class BusinessReviewProtocolTests
         var (context, request) = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, global: false);
         var branches = request.StructuredOutputSchema!["properties"]!["decision"]!["anyOf"]!.AsArray();
         var change = Assert.Single(branches, branch => branch?["properties"]?["verdict"]?["enum"]?[0]?.ToString() == "needs_change")!;
-        Assert.Equal(new[] { "later", "work" }, change["properties"]!["obligations"]!["items"]!["enum"]!.AsArray().Select(id => id!.ToString()));
+        Assert.Equal(new[] { "work" }, change["properties"]!["obligations"]!["items"]!["enum"]!.AsArray().Select(id => id!.ToString()));
         Assert.Contains("compute", change["properties"]!["targets"]!["items"]!["enum"]!.AsArray().Select(id => id!.ToString()));
         Assert.DoesNotContain("task:compute", change["properties"]!["targets"]!["items"]!["enum"]!.AsArray().Select(id => id!.ToString()));
         runtime.Respond = (issued, _) =>
@@ -122,7 +122,7 @@ public sealed class BusinessReviewProtocolTests
         var projection = PlanningBusinessProjection.Build(state, global: false);
         Assert.Contains(projection["actions"]!.AsArray(), action => action!["id"]!.ToString() == "compute");
         Assert.Contains(projection["actions"]!.AsArray(), action => action!["id"]!.ToString() == "sequence");
-        Assert.Equal(new[] { "work", "later" }, projection["requirements"]!.AsArray().Select(original => original!["id"]!.ToString()));
+        Assert.Equal(new[] { "work" }, projection["requirements"]!.AsArray().Select(original => original!["id"]!.ToString()));
         Assert.False(projection["scopes"]!.AsArray().Single(row => row!["id"]!.ToString() == scope)!["open"]!.GetValue<bool>());
     }
 
@@ -137,7 +137,7 @@ public sealed class BusinessReviewProtocolTests
         {
             if (purpose == "replan")
             {
-                var evidence = new JsonObject { ["evidenceRequests"] = new JsonArray("task:compute") };
+                var evidence = new JsonObject { ["evidenceRequests"] = new JsonArray(runtime.EvidenceId(request, "task:compute")) };
                 if (request.StructuredOutputSchema?["properties"]?["baseHash"]?["enum"]?[0] is { } baseline)
                     evidence["baseHash"] = baseline.DeepClone();
                 return new() { Json = PlanningCorpus.Transport(evidence, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
@@ -145,7 +145,7 @@ public sealed class BusinessReviewProtocolTests
             Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
             var context = PromptContext(request);
             judges++;
-            var response = judges switch { 1 => Context("task:compute"), 2 => Change(), 3 => Report("ok"), _ => throw new InvalidOperationException("Unexpected extra business review.") };
+            var response = judges switch { 1 => Context(runtime.EvidenceId(request, "task:compute")), 2 => Change(), 3 => Report("ok"), _ => throw new InvalidOperationException("Unexpected extra business review.") };
             if (judges == 3)
             {
                 Assert.Equal("needs_change", context["interpretationReconsideration"]!["priorReport"]!["decision"]!["verdict"]!.ToString());

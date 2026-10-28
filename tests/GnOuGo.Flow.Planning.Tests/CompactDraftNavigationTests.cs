@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
@@ -94,8 +95,8 @@ public sealed class CompactDraftNavigationTests
         Assert.Empty(PlanningContractValidation.ValidateSchema(request.StructuredOutputSchema!.AsObject(), strict: true));
         foreach (var address in new[] { "requirement:req", "source:request:0:clause:0", "group:worker", "input:caller", "scope:/root", "page:requirements:1" })
             AssertSelectionEvidence(request, state, address, valid: true);
-        Assert.Equal(3, Context(request)["requirements"]!.AsArray().Count);
-        AssertSelectionEvidence(request, state, "source:request:1:clause:0", valid: true);
+        Assert.Single(Context(request)["requirements"]!.AsArray());
+        AssertSelectionEvidence(request, state, "source:request:1:clause:0", valid: false);
         foreach (var address in new[] { "Find an authorized producer for this action.", "task:unknown", "request:0:clause:0", "page:requirements:2" })
             AssertSelectionEvidence(request, state, address, valid: false);
         AssertSelectionEvidence(request, state, "rejected:0", valid: reselection);
@@ -245,6 +246,10 @@ public sealed class CompactDraftNavigationTests
         ["discoveryRequests"] = null, ["clarifications"] = null, ["evidenceRequests"] = new JsonArray(address),
         ["rollbackTask"] = null, ["rollbackReason"] = null, ["reselectStep"] = null
     };
-    private static void AssertResponse(LLMRequest request, PlanningSession state, string address, bool valid) =>
-        Assert.Equal(valid, PlanningContractValidation.ValidateInstanceFindings(Response(state, address), request.StructuredOutputSchema!).Count == 0);
+    private static void AssertResponse(LLMRequest request, PlanningSession state, string address, bool valid)
+    {
+        var schema = request.StructuredOutputSchema!.AsObject();
+        var response = PlanningCorpus.Transport(Response(state, address), schema, schema)!;
+        Assert.Equal(valid, PlanningContractValidation.ValidateInstanceFindings(response, schema).Count == 0);
+    }
 }

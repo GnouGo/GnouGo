@@ -157,7 +157,7 @@ public sealed partial class CompactReviewedTransitionTests
                     }
                 }
                 else { Assert.True(IsJudge(purpose), purpose); response = CleanReview(context); }
-                var result = Wire(request, response); responses.Add(request.ClientRequestId!, result); return result;
+                var result = Wire(request, response, runtime); responses.Add(request.ClientRequestId!, result); return result;
             }
             catch (Exception error) { modelFailure = error; throw; }
         };

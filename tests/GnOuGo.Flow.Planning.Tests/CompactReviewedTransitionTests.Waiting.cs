@@ -77,6 +77,7 @@ public sealed partial class CompactReviewedTransitionTests
         var waitingScope = pendingInsideBoundary ? "/tasks/outer/body" : "/root";
         var runtime = new TestRuntime(); var purposes = new List<string>();
         var responses = new Dictionary<string, LLMResponse>(StringComparer.Ordinal); Exception? modelFailure = null;
+        var acceptedAfterScopeNavigation = false;
         runtime.Respond = (request, purpose) =>
         {
             if (responses.TryGetValue(request.ClientRequestId!, out var retained)) return retained;
@@ -129,6 +130,17 @@ public sealed partial class CompactReviewedTransitionTests
                         PlanningConstruction.Node(value, PlanningJsonContext.Default.TaskValue))).ToArray());
                     if (kind == "close" && scope != "/root") response["step"]!["expectedOutputs"] = new JsonArray("number");
                     if (symbols.Tasks.ContainsKey("lateConsumer")) response["step"]!["closeRequirementIds"] = new JsonArray("req_0", "req_1");
+                    if (acceptedAfterScopeNavigation && scope == "/tasks/inner/body")
+                        Assert.Contains(context["scopes"]!.AsArray(), row => row?["path"]?.ToString() == scope);
+                    if (!(context["scopes"] as JsonArray ?? []).Any(row => row?["path"]?.ToString() == scope))
+                    {
+                        // Optional scope pages must be inspected through their
+                        // exact issued link before the scripted semantic choice.
+                        var next = context["nextScopes"]?.ToString() ?? throw new InvalidOperationException(
+                            "The desired existing scope is outside this page without an offered continuation: " + scope);
+                        response["step"] = null;
+                        response["evidenceRequests"] = new JsonArray(next);
+                    }
                 }
                 else if (purpose == PlanningConstruction.DraftPurpose)
                 {
@@ -167,19 +179,28 @@ public sealed partial class CompactReviewedTransitionTests
                     }
                 }
                 else { Assert.True(IsJudge(purpose), purpose); response = CleanReview(context); }
-                var result = Wire(request, response); responses.Add(request.ClientRequestId!, result); return result;
+                var result = Wire(request, response, runtime); responses.Add(request.ClientRequestId!, result); return result;
             }
             catch (Exception error) { modelFailure = error; throw; }
         };
         var state = NewTransitionSession(local + " " + later);
         for (var tick = 0; tick < 160 && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); tick++)
         {
+            var priorCursor = state.Construction!.ScopeCursor;
+            var checkpoints = state.Construction.Checkpoints.Count;
             state = await Advance(PlannerFixture.Clone(state), runtime);
             Assert.True(modelFailure is null, modelFailure?.ToString());
             Assert.True(state.Diagnostics.All(diagnostic => !diagnostic.Required), string.Join(";", state.Diagnostics.Select(diagnostic => diagnostic.Code + ":" + diagnostic.Message)));
+            if (priorCursor > 0 && state.Construction!.Checkpoints.Count > checkpoints)
+            {
+                acceptedAfterScopeNavigation = true;
+                Assert.Equal(0, state.Construction.ScopeCursor);
+                Assert.Null(state.Construction.Evidence);
+            }
             if (state.Construction!.Candidate is null && (stopAfterProducer && state.Construction.Checkpoints.Count == 4 ||
                 stopAfterOuter && state.Construction.Checkpoints.Count == 5)) break;
         }
+        Assert.True(acceptedAfterScopeNavigation, "The ordinary trace must accept a checkpoint after inspecting a later scope page.");
         return new(state, runtime, purposes, responses);
     }
 }

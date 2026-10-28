@@ -10,6 +10,34 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class ConstructionPhasePolicyTests
 {
     [Theory]
+    [InlineData("collections", "high", "high", 8192)]
+    [InlineData("amazon", "medium", "medium", 16384)]
+    [InlineData("review-pr", "medium", "high", 8192)]
+    public void EnlargedDiagnosticProfilesAreProspectiveAndDoNotRaiseExistingSessionAllowances(string scenario,
+        string draftReasoning, string reviewReasoning, int reviewOutput)
+    {
+        var file = Path.Combine(AppContext.BaseDirectory, "Fixtures", "DiagnosticProfiles", "compact-diagnostic-" + scenario + ".json");
+        var state = new PlanningSession(); PlanningSessionCreation.Capture(state);
+        var original = PlanningBenchmarkMeasurements.Configuration(state.Request).ToJsonString();
+        Assert.Throws<InvalidOperationException>(() => PlanningBenchmarkMeasurements.ConfigureRequest(state.Request,
+            ["--phase-policy", file], retained: true));
+        Assert.Equal(original, PlanningBenchmarkMeasurements.Configuration(state.Request).ToJsonString());
+        var fresh = new PlanningRequest();
+        PlanningBenchmarkMeasurements.ConfigureRequest(fresh, ["--phase-policy", file, "--max-input-tokens", "32000",
+            "--max-output-tokens", "32768"], retained: false);
+        var policy = PlanningConstructionPhasePolicies.Read(fresh)!;
+        Assert.Equal(new[] { 3000, 8000, 4000 }, new[] { policy.Navigation.TargetInputTokens, policy.Draft.TargetInputTokens, policy.Review.TargetInputTokens });
+        Assert.Equal(new[] { 24000, 32000, 24000 }, new[] { policy.Navigation.MaxInputTokens, policy.Draft.MaxInputTokens, policy.Review.MaxInputTokens });
+        Assert.Equal("high", policy.Navigation.Reasoning); Assert.Equal(draftReasoning, policy.Draft.Reasoning); Assert.Equal(reviewReasoning, policy.Review.Reasoning);
+        Assert.Equal(32768, policy.Navigation.OutputTokens); Assert.Equal(16384, policy.Draft.OutputTokens); Assert.Equal(reviewOutput, policy.Review.OutputTokens);
+        Assert.Equal(64, fresh.MaxModelCalls); Assert.Equal(4, fresh.MaxReplanAttempts); Assert.Equal(300, fresh.Policy.MaxStepsTotal);
+        var restored = PlanningBenchmarkMeasurements.RestoreConfiguration(PlanningBenchmarkMeasurements.Configuration(fresh));
+        Assert.Equal(PlanningBenchmarkMeasurements.PhasePolicyHash(fresh), PlanningBenchmarkMeasurements.PhasePolicyHash(restored));
+        fresh.Generation.MaxInputTokensPerRequest = 10000;
+        Assert.Equal(10000, PlanningConstructionPhasePolicies.Resolve(fresh, PlanningConstruction.DraftPurpose).MaxInputTokens);
+    }
+
+    [Theory]
     [InlineData("construction_intent", 3000, 6000, 8192)]
     [InlineData("construction_select", 3000, 6000, 8192)]
     [InlineData("construction_discovery", 3000, 6000, 8192)]
@@ -114,11 +142,60 @@ public sealed class ConstructionPhasePolicyTests
         await PlanningModelCalls.CallAsync(state, runtime, "construction_select", new string('x', 10000), schema, PlannerFixture.Ct, 8192);
         var admitted = Assert.Single(state.RequestMeasurements!);
         Assert.InRange(admitted.EstimatedInputTokens, 3001, 6000);
+        Assert.Equal(3000, admitted.InputTarget);
+        Assert.NotNull(admitted.TargetWarning);
+        Assert.Contains("maximum 6000", admitted.TargetWarning, StringComparison.Ordinal);
+        Assert.Empty(state.Diagnostics);
         Assert.Single(runtime.Calls); Assert.Equal(1, state.ModelCalls);
         await Assert.ThrowsAsync<WorkflowRuntimeException>(() => PlanningModelCalls.CallAsync(state, runtime, "construction_select",
             new string('x', 20000), schema, PlannerFixture.Ct, 8192));
         Assert.Single(runtime.Calls); Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
         Assert.Equal("rejected_before_dispatch", state.RequestMeasurements!.Last().Admission);
+        Assert.Null(state.RequestMeasurements!.Last().TargetWarning);
+    }
+
+    [Theory]
+    [InlineData("construction_discovery")]
+    [InlineData("replan")]
+    [InlineData("construction_local_judge")]
+    [InlineData("construction_global_judge")]
+    public void EvidenceAdmissionRecordsOneAdvisoryPerExactRequestWithoutRepairOrApprovalChanges(string purpose)
+    {
+        var state = new PlanningSession { Yaml = "unchanged artifact" };
+        PlanningSessionCreation.Capture(state);
+        var phaseName = purpose == "replan" ? "draft" : purpose.EndsWith("judge", StringComparison.Ordinal) ? "review" : "navigation";
+        var phase = state.Request.Options["construction_limits"]!["phasePolicy"]![phaseName]!;
+        phase["targetInputTokens"] = 1000; phase["maxInputTokens"] = 3000;
+        var schema = PlanningSchemas.Object(("value", PlanningSchemas.String()));
+        var shortRequest = PlanningModelCalls.PrepareRequest(state, purpose, "Bounded evidence.", schema);
+        PlanningConstruction.AdmitEvidenceFollowup(state, shortRequest, purpose);
+        Assert.Null(Assert.Single(state.RequestMeasurements!).TargetWarning);
+        var larger = PlanningModelCalls.PrepareRequest(state, purpose, new string('x', 4000), schema);
+        var beforeHash = state.ComputeArtifactHash();
+        PlanningConstruction.AdmitEvidenceFollowup(state, larger, purpose);
+        var warning = state.RequestMeasurements!.Last();
+        Assert.InRange(warning.EstimatedInputTokens, 1001, 3000);
+        Assert.NotNull(warning.TargetWarning);
+        Assert.Contains("response_schema=", warning.TargetWarning, StringComparison.Ordinal);
+        Assert.Contains("instructions=", warning.TargetWarning, StringComparison.Ordinal);
+        PlanningConstruction.AdmitEvidenceFollowup(state, larger, purpose);
+        Assert.Equal(2, state.RequestMeasurements!.Count);
+        Assert.Empty(state.Diagnostics); Assert.Empty(state.Construction!.Candidate?.Diagnostics ?? []);
+        Assert.Equal(0, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(beforeHash, state.ComputeArtifactHash());
+        var restored = PlannerFixture.Clone(state);
+        Assert.Equal(warning.TargetWarning, restored.RequestMeasurements!.Last().TargetWarning);
+        PlanningConstruction.AdmitEvidenceFollowup(restored, larger, purpose);
+        Assert.Equal(2, restored.RequestMeasurements!.Count);
+        var report = PlanningBenchmarkMeasurements.RequestMetrics(new JsonObject
+            { ["session"] = JsonSerializer.SerializeToNode(restored, PlanningJsonContext.Default.PlanningSession) })["phases"]![purpose]!;
+        Assert.Equal(1, report["above_target_warnings"]!.GetValue<int>());
+        Assert.Equal(warning.CompleteRequestBytes, report["p95_complete_request_bytes"]!.GetValue<long>());
+        var oversized = PlanningModelCalls.PrepareRequest(state, purpose, new string('x', 12000), schema);
+        Assert.Throws<PlanningResponseException>(() => PlanningConstruction.AdmitEvidenceFollowup(state, oversized, purpose));
+        Assert.Equal("rejected_before_dispatch", state.RequestMeasurements!.Last().Admission);
+        Assert.Null(state.RequestMeasurements!.Last().TargetWarning);
+        Assert.Empty(state.Diagnostics); Assert.Equal(beforeHash, state.ComputeArtifactHash());
     }
 
     [Fact]

@@ -32,6 +32,11 @@ public sealed class PlanningRequestMeasurement
     public string? StepId { get; set; }
     public string Admission { get; set; } = "prepared";
     public int InputLimit { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? InputTarget { get; set; }
+    /// <summary>Content-free advisory for this exact request; never repair authority.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? TargetWarning { get; set; }
     public long CompleteRequestBytes { get; set; }
     public long EstimatedInputTokens { get; set; }
     public List<PlanningRequestComponentMeasurement> Components { get; set; } = [];

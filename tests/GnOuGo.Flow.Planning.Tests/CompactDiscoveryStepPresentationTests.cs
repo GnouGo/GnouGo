@@ -79,9 +79,10 @@ public sealed class CompactDiscoveryStepPresentationTests
         Assert.Empty(state.Construction.Checkpoints[0].Reviews);
         Assert.True(state.Construction.Checkpoints[0].Fragment["businessReviewPending"]!.GetValue<bool>());
         Assert.Null(state.Construction.Compact!.CurrentStep!.Kind);
-        var request = Complete(state, context);
+        var request = Complete(state, context, out var requestAddresses);
         var withoutGroup = context.DeepClone().AsObject(); withoutGroup.Remove("scopeGroup");
-        Assert.True(JsonNode.DeepEquals(Complete(state, withoutGroup).StructuredOutputSchema, request.StructuredOutputSchema));
+        var withoutGroupRequest = Complete(state, withoutGroup, out var withoutGroupAddresses);
+        Assert.True(JsonNode.DeepEquals(HostSchema(withoutGroupRequest, withoutGroupAddresses), HostSchema(request, requestAddresses)));
         var limit = PlanningConstructionInputPolicy.EffectiveLimit(state.Request, PlanningCompactConstruction.DiscoveryPurpose);
         var measured = PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, limit);
         Assert.InRange(measured.EstimatedInputTokens, 1, limit);
@@ -119,13 +120,13 @@ public sealed class CompactDiscoveryStepPresentationTests
         var state = State();
         var retained = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
         var context = PlanningCompactConstruction.DiscoveryContext(state);
-        var compact = Complete(state, context);
+        var compact = Complete(state, context, out var compactAddresses);
         var limit = PlanningConstructionInputPolicy.EffectiveLimit(state.Request, PlanningCompactConstruction.DiscoveryPurpose);
         var compactMeasurement = PlanningRequestMeasurements.Measure(compact, PlanningCompactConstruction.DiscoveryPurpose, limit);
         var fullContext = context.DeepClone().AsObject();
         fullContext["step"] = Node(state.Construction!.Compact!.CurrentStep!);
-        var fullMeasurement = PlanningRequestMeasurements.Measure(Complete(state, fullContext),
-            PlanningCompactConstruction.DiscoveryPurpose, limit);
+        var full = Complete(state, fullContext, out var fullAddresses);
+        var fullMeasurement = PlanningRequestMeasurements.Measure(full, PlanningCompactConstruction.DiscoveryPurpose, limit);
         Assert.True(fullMeasurement.EstimatedInputTokens > compactMeasurement.EstimatedInputTokens,
             $"Selected-step projection must remove duplicated authority metadata: {fullMeasurement.EstimatedInputTokens}/{compactMeasurement.EstimatedInputTokens}.");
         Assert.True(compactMeasurement.EstimatedInputTokens <= limit,
@@ -135,7 +136,7 @@ public sealed class CompactDiscoveryStepPresentationTests
         Assert.True(JsonNode.DeepEquals(context["requirements"], fullContext["requirements"]));
         Assert.True(JsonNode.DeepEquals(context["globalConstraints"], fullContext["globalConstraints"]));
         Assert.True(JsonNode.DeepEquals(context["providerRequests"], fullContext["providerRequests"]));
-        Assert.True(JsonNode.DeepEquals(compact.StructuredOutputSchema, Complete(state, fullContext).StructuredOutputSchema));
+        Assert.True(JsonNode.DeepEquals(HostSchema(compact, compactAddresses), HostSchema(full, fullAddresses)));
         Assert.Equal(retained, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
     }
 
@@ -147,10 +148,10 @@ public sealed class CompactDiscoveryStepPresentationTests
         state.Construction!.Compact!.CurrentStep!.Objective = "Read the authorized original record.";
         var context = PlanningCompactConstruction.DiscoveryContext(state);
         context["step"] = Node(state.Construction.Compact.CurrentStep);
-        var issued = Complete(state, context);
+        var issued = Complete(state, context, out var evidenceAddresses);
         var limit = PlanningConstructionInputPolicy.EffectiveLimit(state.Request, PlanningCompactConstruction.DiscoveryPurpose);
         Assert.InRange(PlanningRequestMeasurements.Measure(issued, PlanningCompactConstruction.DiscoveryPurpose, limit).EstimatedInputTokens, 1, limit);
-        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = issued };
+        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = issued, EvidenceAddresses = evidenceAddresses };
         state.ModelCalls = 1;
         var saved = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
         var original = JsonSerializer.Serialize(state.Construction.Compact.CurrentStep, PlanningJsonContext.Default.PlanningConstructionStep);
@@ -159,7 +160,7 @@ public sealed class CompactDiscoveryStepPresentationTests
             ["operationIds"] = null, ["discoveryRequests"] = null, ["clarifications"] = null,
             ["reselectStep"] = null, ["evidenceRequests"] = new JsonArray("page:sources:0")
         } };
-        receipt.Json = PlanningCorpus.Transport(receipt.Json!.AsObject(), issued.StructuredOutputSchema!.AsObject(), issued.StructuredOutputSchema.AsObject());
+        receipt.Json = PlanningCorpus.Transport(TestRuntime.WireEvidence(receipt.Json!, evidenceAddresses), issued.StructuredOutputSchema!.AsObject(), issued.StructuredOutputSchema.AsObject());
         Assert.Empty(PlanningModelCalls.ValidateResponseFindings(receipt.Json, issued.StructuredOutputSchema.AsObject()));
         var runtime = new TestRuntime { Respond = (request, purpose) =>
         {
@@ -167,12 +168,13 @@ public sealed class CompactDiscoveryStepPresentationTests
             Assert.Equal(saved, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
             return receipt;
         } };
+        runtime.CaptureIssued(state.PendingCall);
         var next = Complete(state, PlanningCompactConstruction.DiscoveryContext(state));
         Assert.NotEqual(saved, JsonSerializer.Serialize(next, PlanningJsonContext.Default.LLMRequest));
         state = PlannerFixture.Clone(state);
         var result = await PlanningModelCalls.CallAsync(state, runtime, PlanningCompactConstruction.DiscoveryPurpose,
             next.Prompt, next.StructuredOutputSchema!.AsObject(), PlannerFixture.Ct, 8192);
-        Assert.True(JsonNode.DeepEquals(receipt.Json, result));
+        Assert.True(JsonNode.DeepEquals(PlanningModelCalls.NormalizeEvidenceResponse(receipt.Json!, evidenceAddresses), result));
         Assert.Equal(1, state.ModelCalls);
         Assert.Equal(0, state.ReplanAttempts);
         Assert.Single(runtime.Calls);
@@ -184,12 +186,14 @@ public sealed class CompactDiscoveryStepPresentationTests
     private static JsonObject Node(PlanningConstructionStep step) =>
         JsonSerializer.SerializeToNode(step, PlanningJsonContext.Default.PlanningConstructionStep)!.AsObject();
 
-    private static LLMRequest Complete(PlanningSession state, JsonObject context)
+    private static LLMRequest Complete(PlanningSession state, JsonObject context) => Complete(state, context, out _);
+
+    private static LLMRequest Complete(PlanningSession state, JsonObject context, out PlanningEvidenceAddresses? evidenceAddresses)
     {
         var presentation = PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state),
             context, PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose);
         return PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.DiscoveryPurpose,
-            presentation.Prompt, presentation.StructuredOutputSchema!.AsObject(), 8192);
+            presentation.Prompt, presentation.StructuredOutputSchema!.AsObject(), 8192, null, out evidenceAddresses);
     }
 
     private static PlanningSession State()
@@ -233,6 +237,16 @@ public sealed class CompactDiscoveryStepPresentationTests
             }
         };
         return PlannerFixture.Capture(state);
+    }
+
+    private static JsonObject HostSchema(LLMRequest request, PlanningEvidenceAddresses? addresses)
+    {
+        var schema = PlanningModelCalls.CanonicalEvidenceRequest(new()
+        {
+            Id = request.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose,
+            Request = request, EvidenceAddresses = addresses
+        }).StructuredOutputSchema!.AsObject();
+        return schema["$defs"] is JsonObject ? PlanningSchemas.Compact(schema, preserveDescriptions: true) : schema;
     }
 
     private static PlanningSession GroupState(bool nestedControl)

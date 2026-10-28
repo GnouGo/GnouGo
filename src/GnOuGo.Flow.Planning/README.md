@@ -27,6 +27,20 @@ Optional draft port directories can be paged through shared contract anchors wit
 removing consumed schema closures. Exact original coordinates remain retrievable;
 an oversized mandatory core still fails admission before dispatch.
 
+Local evidence is selected before serialization from current obligations, consumed
+producers, their checkpoint associations, controls, linked declarations and repair claims.
+Indexed globals remain visible; final review retains every original obligation. Optional
+navigation is fitted toward the captured target in selection, discovery and authoring.
+Necessary requests above target continue with measurement warnings; hard ceilings remain
+blocking. Warnings never enter candidate diagnostics or artifact approval hashes.
+
+Issued calls store an encrypted request-bound short-ID map for evidence navigation.
+Validate the raw response under its issued schema before resolving canonical addresses;
+preserve raw receipts and use canonical identities for repeat/progress checks. Recovery
+cannot rebuild a missing map. TaskPlan references and original contracts are unchanged.
+Host-fixed draft facts come from the frozen step, with unavailable branches omitted from
+the model grammar and complete semantic validation retained.
+
 The Judge receives only faithful decision-relevant behavior and original business
 semantics. Full contract schemas remain host-validated and retrievable. The response is
 one strict `ok`, `needs_change` or `needs_context` decision. Program-owned receipts,

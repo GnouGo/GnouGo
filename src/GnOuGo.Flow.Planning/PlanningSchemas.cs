@@ -78,11 +78,12 @@ internal static class PlanningSchemas
         };
     }
 
-    internal static JsonObject Compact(JsonObject root)
+    internal static JsonObject Compact(JsonObject root, bool preserveDescriptions = false)
     {
         // Contract descriptions already accompany the admitted operations in the
         // prompt. Remove only schema annotations, never properties named description.
-        foreach (var (_, schema) in PlanningSchemaReferences.Walk(root, "", 0)) schema.Remove("description");
+        if (!preserveDescriptions)
+            foreach (var (_, schema) in PlanningSchemaReferences.Walk(root, "", 0)) schema.Remove("description");
         var definitions = root["$defs"]!.AsObject();
         ShareRepeatedSchemas(root, definitions);
         for (var pass = 0; pass < 3; pass++) { ShareRepeatedSchemas(root, definitions, 30); CollapseAliases(root, definitions); PruneDefinitions(root, definitions); }

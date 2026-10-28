@@ -30,9 +30,10 @@ public sealed class CompactDraftReselectionTests
         string? issued = null;
         if (retainedRequest)
         {
-            request = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.DraftPurpose, request.Prompt, request.StructuredOutputSchema.AsObject());
+            request = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.DraftPurpose, request.Prompt, request.StructuredOutputSchema.AsObject(), null, null, out var evidenceAddresses);
             state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningConstruction.DraftPurpose,
-                Request = request, CorrectionAccounting = 0 };
+                Request = request, CorrectionAccounting = 0, EvidenceAddresses = evidenceAddresses };
+            runtime.CaptureIssued(state.PendingCall);
             state.Construction.IssuedBaseHash = PlanningConstruction.Hash(state.Plan);
             state.ModelCalls++;
             issued = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
@@ -124,7 +125,9 @@ public sealed class CompactDraftReselectionTests
             Assert.Equal(Reason, reselection["reason"]!.ToString());
             Assert.Equal("/root", reselection["scope"]!.ToString());
             Assert.Equal(["req_0"], reselection["requirementIds"]!.AsArray().Select(id => id!.ToString()));
-            Assert.True(PlanningCompactConstruction.LoadEvidence(state, reselection["evidence"]!.ToString(), out var evidence));
+            var archived = "rejected:" + (state.Construction!.Compact!.RejectedSteps.Count - 1);
+            Assert.Equal(runtime.EvidenceId(request, archived), reselection["evidence"]!.ToString());
+            Assert.True(PlanningCompactConstruction.LoadEvidence(state, archived, out var evidence));
             Assert.True(JsonNode.DeepEquals(rejected, evidence));
             Assert.Empty(PlanningContractValidation.ValidateInstance(Wire(request, Selection(request, replacementKind)).Json!, request.StructuredOutputSchema!));
             var ceiling = PlanningConstructionPhasePolicies.Resolve(state.Request, purpose).MaxInputTokens;
@@ -182,7 +185,7 @@ public sealed class CompactDraftReselectionTests
             case "revision": state.EditablePaths = ["/root/outputs/retained"]; break;
         }
         Assert.False(PlanningCompactConstruction.CanReselectInitialDraft(state));
-        Assert.Equal("null", PlanningCompactConstruction.DraftSchema(state)["properties"]!["reselectStep"]!["type"]!.ToString());
+        Assert.Null(PlanningCompactConstruction.DraftSchema(state)["properties"]!["reselectStep"]);
         var accepted = Accepted(state); var corrections = state.ReplanAttempts; var draftCorrections = state.Construction!.DraftCorrections;
         runtime.Respond = (request, _) => new() { Json = Reselect(request) };
         state = await Advance(state, runtime);
@@ -218,11 +221,11 @@ public sealed class CompactDraftReselectionTests
         var accepted = Accepted(state);
         var request = PlanningConstruction.DraftRequest(state, repair: false);
         request = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.DraftPurpose, request.Prompt,
-            request.StructuredOutputSchema!.AsObject());
+            request.StructuredOutputSchema!.AsObject(), null, null, out var evidenceAddresses);
         Assert.Equal(PlanningModelCalls.UnicodeStringLengths, request.StructuredOutputSchema!["$comment"]!.ToString());
-        request.ClientRequestId = "retained-unicode-reselection";
-        state.PendingCall = new() { Id = request.ClientRequestId, Purpose = PlanningConstruction.DraftPurpose,
-            Request = request, CorrectionAccounting = 0 };
+        state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningConstruction.DraftPurpose,
+            Request = request, CorrectionAccounting = 0, EvidenceAddresses = evidenceAddresses };
+        runtime.CaptureIssued(state.PendingCall);
         state.Construction!.IssuedBaseHash = PlanningConstruction.Hash(state.Plan);
         state.ModelCalls++;
         state = PlannerFixture.Clone(state);
@@ -285,12 +288,16 @@ public sealed class CompactDraftReselectionTests
     private static JsonObject Context(LLMRequest request) => JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!.AsObject();
     private static LLMResponse Wire(LLMRequest request, JsonObject response) => new()
     { Json = PlanningCorpus.Transport(response, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
-    private static JsonObject Reselect(LLMRequest request) => new()
+    private static JsonObject Reselect(LLMRequest request)
     {
-        ["baseHash"] = Context(request)["baseHash"]!.DeepClone(), ["requirements"] = null, ["commitments"] = null,
-        ["extension"] = null, ["discoveryRequests"] = null, ["clarifications"] = null, ["evidenceRequests"] = null,
-        ["rollbackTask"] = null, ["rollbackReason"] = null, ["reselectStep"] = new JsonObject { ["reason"] = Reason, ["disposition"] = "abandon", ["prerequisite"] = null }
-    };
+        var action = new JsonObject { ["reason"] = Reason, ["disposition"] = "abandon", ["prerequisite"] = null };
+        var response = PlanningCorpus.Transport(new JsonObject { ["reselectStep"] = action.DeepClone() },
+            request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject())!.AsObject();
+        // Deliberately preserve the attempted action in the authority-denial
+        // cases, so the issued schema itself rejects this unavailable action.
+        response["reselectStep"] = action;
+        return response;
+    }
     private static JsonObject Selection(LLMRequest request, string kind = "operation") => new()
     {
         ["baseHash"] = request.StructuredOutputSchema!["properties"]!["baseHash"]!["enum"]![0]!.DeepClone(), ["evidenceRequests"] = null, ["clarifications"] = null,

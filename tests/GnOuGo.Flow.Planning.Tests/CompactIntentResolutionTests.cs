@@ -595,11 +595,12 @@ public sealed class CompactIntentResolutionTests
         {
             var context = Context(r);
             var supplied = context["originalContext"]!.AsArray().Select(s => s!["id"]!.ToString()).ToHashSet(StringComparer.Ordinal);
-            requested = context["originalDirectory"]!.AsArray().First(s => !supplied.Contains(s!["id"]!.ToString()) &&
+            var originalEntry = context["originalDirectory"]!.AsArray().First(s => !supplied.Contains(s!["id"]!.ToString()) &&
                 state.Construction!.Compact!.Sources.Single(originalSource => originalSource.Id == s["id"]!.ToString())
-                    .Text.Contains(typeDeclaration, StringComparison.Ordinal))!["evidence"]!.ToString();
+                    .Text.Contains(typeDeclaration, StringComparison.Ordinal))!;
+            requested = "source:" + originalEntry["id"]!.ToString();
             return Wire(r, new JsonObject { ["sourceId"] = context["sources"]![0]!["id"]!.ToString(), ["interfaces"] = null,
-                ["evidenceRequests"] = new JsonArray(requested), ["clarifications"] = null });
+                ["evidenceRequests"] = new JsonArray(originalEntry["evidence"]!.ToString()), ["clarifications"] = null });
         };
         state = await Advance(state, runtime);
         Assert.Equal(0, state.ReplanAttempts);
@@ -609,7 +610,8 @@ public sealed class CompactIntentResolutionTests
         JsonObject? followupContext = null;
         runtime.Respond = (r, _) =>
         {
-            followupContext = Context(r);
+            var exact = runtime.Checkpoints.Last(checkpoint => checkpoint.PendingCall?.Id == r.ClientRequestId).PendingCall!;
+            followupContext = Context(PlanningModelCalls.CanonicalEvidenceRequest(exact));
             var response = Resolve(r, inputs: [new() { Name = "suppliedText", Type = new() { Kind = "string" }, Required = true }]);
             var originalSource = state.Construction!.Compact!.Sources.Single(source => source.Id == requested[7..]);
             response["interfaces"]!["dispositions"]![0]!["evidence"]!.AsArray().Add(new JsonObject

@@ -57,7 +57,8 @@ internal static class PlanningBusinessProjection
         else if (plan.Groups.SingleOrDefault(group => candidate.Extension.Scope.StartsWith("/groups/" + group.Id + "/", StringComparison.Ordinal)) is { } selectedGroup)
             groups.Add(selectedGroup.Id);
         var requirements = new JsonArray();
-        foreach (var row in PlanningCompactConstruction.OriginalRequirementRows(state).OfType<JsonObject>())
+        foreach (var row in PlanningCompactConstruction.OriginalRequirementRows(state, global ? null :
+            PlanningCompactConstruction.LocalRequirementIds(state, selected, exportScopes.Select(scope => scope.Path))).OfType<JsonObject>())
             requirements.Add((JsonNode)new JsonObject { ["id"] = row["id"]!.DeepClone(), ["original"] = row["original"]!.DeepClone(),
                 ["evidence"] = "requirement:" + row["id"]!.ToString() });
         var globals = new JsonArray(PlanningCompactConstruction.OriginalGlobalRows(state).OfType<JsonObject>()

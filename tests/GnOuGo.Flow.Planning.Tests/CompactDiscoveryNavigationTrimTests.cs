@@ -56,9 +56,10 @@ public sealed partial class CompactDiscoveryProtocolTests
 
         var request = Complete(state, PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state),
             PlanningCompactConstruction.DiscoveryContext(state), PlanningCompactConstruction.DiscoverySchema(state),
-            PlanningCompactConstruction.DiscoveryPurpose));
+            PlanningCompactConstruction.DiscoveryPurpose), out var evidenceAddresses);
         Assert.False(Context(request).ContainsKey("sources"));
-        state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = request };
+        state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = request, EvidenceAddresses = evidenceAddresses };
+        runtime.CaptureIssued(state.PendingCall);
         state.ModelCalls++;
 
         Assert.False(PlanningCompactConstruction.DiscoveryContext(state).ContainsKey("sources"));

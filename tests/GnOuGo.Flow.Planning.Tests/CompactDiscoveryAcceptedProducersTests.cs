@@ -17,14 +17,15 @@ public sealed partial class CompactDiscoveryProtocolTests
         runtime.Capabilities = provider;
         var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
         var canonical = PlanningCompactConstruction.OperationPageAddress(state, 0);
-        var request = DiscoveryFollowup(state);
-        var context = Context(request);
+        var request = DiscoveryFollowup(state, out var evidenceAddresses);
+        var host = HostView(request, evidenceAddresses);
+        var context = Context(host);
         Assert.Null(context["descriptors"]);
         var choice = Assert.Single(context["describedOperations"]!["items"]!.AsArray())!;
         Assert.Equal("operation_0", choice["id"]!.ToString());
         Assert.Equal("version_0", choice["version"]!.ToString());
         Assert.Equal("description:operation_0@version_0:0", choice["descriptionEvidence"]!.ToString());
-        Assert.Contains(choice["descriptionEvidence"]!.ToString(), request.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
+        Assert.Contains(choice["descriptionEvidence"]!.ToString(), host.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
         Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
         Assert.Equal(canonical, PlanningCompactConstruction.OperationPageAddress(state, 0));
         var baseline = PlanningConstruction.Hash(state.Plan);
@@ -81,7 +82,7 @@ public sealed partial class CompactDiscoveryProtocolTests
             context["describedOperations"]!["items"]!.AsArray().Select(item => item!["id"]!.ToString()));
         Assert.Equal(new[] { "producer_0" }, step.InputTaskIds);
         Assert.Empty(step.OperationIds);
-        var schema = DiscoveryFollowup(state).StructuredOutputSchema!.ToJsonString();
+        var schema = HostView(DiscoveryFollowup(state, out var evidenceAddresses), evidenceAddresses).StructuredOutputSchema!.ToJsonString();
         Assert.Contains("description:operation_1@version_1:0", schema, StringComparison.Ordinal);
         Assert.Contains("description:operation_2@version_2:0", schema, StringComparison.Ordinal);
     }
@@ -164,9 +165,10 @@ public sealed partial class CompactDiscoveryProtocolTests
         var (state, runtime) = await AcceptedDiscovery(true);
         var capability = state.Catalog!.Capabilities.Single();
         state.Catalog.Capabilities.Clear();
-        var issued = DiscoveryFollowup(state);
+        var issued = DiscoveryFollowup(state, out var evidenceAddresses);
         state.Catalog.Capabilities.Add(capability);
-        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = issued };
+        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = issued, EvidenceAddresses = evidenceAddresses };
+        runtime.CaptureIssued(state.PendingCall);
         state.ModelCalls++;
         var calls = state.ModelCalls;
         var exact = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);

@@ -46,7 +46,7 @@ public sealed class CompactContractEvidenceFlowTests
             address => PlanningCompactConstruction.LoadContractEvidence(state, address, recordSchemaSelection: false)!.ToJsonString());
         var purpose = correction ? "replan" : PlanningConstruction.DraftPurpose;
         SetLimit(32000);
-        var full = PlanningConstruction.DraftRequest(state, correction);
+        var full = UnfittedDraft(state, correction);
         var fullPrepared = Prepare(full);
         var maximum = checked((int)PlanningRequestMeasurements.Measure(fullPrepared, purpose, 32000).EstimatedInputTokens - 1);
         Assert.Equal(40, Contract(Context(full))["outputs"]!.AsArray().Count);
@@ -56,7 +56,7 @@ public sealed class CompactContractEvidenceFlowTests
         var context = Context(paged);
         var operation = Contract(context);
         Assert.InRange(PlanningRequestMeasurements.Measure(Prepare(paged), purpose, maximum).EstimatedInputTokens, 1, maximum);
-        Assert.InRange(operation["outputs"]!.AsArray().Count, 8, 9);
+        Assert.InRange(operation["outputs"]!.AsArray().Count, 2, 9);
         Assert.Equal(40, operation["outputCount"]!.GetValue<int>());
         Assert.Contains(operation["outputs"]!.AsArray(), row => row!["name"]!.ToString() == "result9");
         Assert.Equal(capability.Description, operation["description"]!.ToString());
@@ -130,12 +130,13 @@ public sealed class CompactContractEvidenceFlowTests
             Assert.True(JsonNode.DeepEquals(context, PlanningCompactConstruction.CompactSelectedProducerContractMetadata(expanded)));
             Assert.True(JsonNode.DeepEquals(context, PlanningCompactConstruction.CompactSelectedProducerContractMetadata(context)));
             var expandedDraft = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.DraftPurpose,
-                draft.Prompt[..(draft.Prompt.LastIndexOf('\n') + 1)] + PlanningJsonTransport.Prompt(expanded), draft.StructuredOutputSchema!.AsObject());
-            var measured = PlanningRequestMeasurements.Measure(PlanningModelCalls.PrepareRequest(state, PlanningConstruction.DraftPurpose,
-                draft.Prompt, draft.StructuredOutputSchema.AsObject()), PlanningConstruction.DraftPurpose, 32000);
+                draft.Prompt[..(draft.Prompt.LastIndexOf('\n') + 1)] + PlanningJsonTransport.Prompt(expanded), draft.StructuredOutputSchema!.AsObject(), null, null, out var expandedAddresses);
+            var compactDraft = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.DraftPurpose,
+                draft.Prompt, draft.StructuredOutputSchema.AsObject(), null, null, out var compactAddresses);
+            var measured = PlanningRequestMeasurements.Measure(compactDraft, PlanningConstruction.DraftPurpose, 32000);
             var original = PlanningRequestMeasurements.Measure(expandedDraft, PlanningConstruction.DraftPurpose, 32000);
             Assert.True(measured.CompleteRequestBytes < original.CompleteRequestBytes);
-            Assert.Equal(original.SchemaHash, measured.SchemaHash);
+            Assert.True(JsonNode.DeepEquals(HostSchema(expandedDraft, expandedAddresses), HostSchema(compactDraft, compactAddresses)));
             Assert.Equal(measured.CompleteRequestBytes, measured.Components.Sum(component => component.SerializedBytes));
         }
         foreach (var view in contract["selectedOutputs"]!.AsArray().OfType<JsonObject>())
@@ -178,7 +179,7 @@ public sealed class CompactContractEvidenceFlowTests
         state.Construction.Evidence = new() { [exact] = PlanningCompactConstruction.LoadContractEvidence(state, exact) };
         var requestedOriginal = state.Construction.Evidence.ToJsonString();
         SetLimit(32000);
-        var full = PlanningConstruction.DraftRequest(state, false);
+        var full = UnfittedDraft(state, false);
         var originalContext = Context(full);
         Assert.Equal(16, originalContext["operations"]![0]!["outputs"]!.AsArray().Count);
         Assert.Contains(originalContext["interfaces"]![0]!["producers"]![0]!["contract"]!["sharedContractMetadata"]!["fields"]!.AsArray(),
@@ -208,7 +209,7 @@ public sealed class CompactContractEvidenceFlowTests
         var firstOmitted = originals.Keys.Select((name, index) => (name, index)).First(item => !recovered.ContainsKey(item.name)).index;
         Assert.Equal("port-page:read@v1:/output:" + firstOmitted, selected["nextPorts"]!.ToString());
         string? next = selected["nextPorts"]!.ToString();
-        Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(DraftAction(context, evidence: next), fitted.StructuredOutputSchema!));
+        Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(Wire(fitted, DraftAction(context, evidence: next)).Json!, fitted.StructuredOutputSchema!));
         while (next is not null)
         {
             var page = PlanningCompactConstruction.LoadContractEvidence(state, next, recordSchemaSelection: false)!;
@@ -325,7 +326,7 @@ public sealed class CompactContractEvidenceFlowTests
         var drafts = 0;
         runtime.Respond = (request, purpose) =>
         {
-            var context = Context(request);
+            var context = HostContext(runtime, request);
             var view = context["operations"]![0]!;
             var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, purpose).MaxInputTokens;
             var measurement = PlanningRequestMeasurements.Measure(request, purpose, limit);
@@ -343,7 +344,7 @@ public sealed class CompactContractEvidenceFlowTests
                 Assert.Equal("target", Assert.Single(view["editableInputs"]!.AsArray())!["name"]!.ToString());
                 Assert.True(JsonNode.DeepEquals(state.Discovery.Resolved[0].InputSchema["properties"]!["target"],
                     context["evidence"]!["schema:read@v1:/input/properties/target"]!["schema"]));
-                Assert.Equal(view["outputCount"]!.GetValue<int>(), view["outputs"]!.AsArray().Count);
+                Assert.InRange(view["outputs"]!.AsArray().Count, 1, view["outputCount"]!.GetValue<int>());
                 Assert.Equal("port-page:read@v1:/output:0", view["outputDirectory"]!.ToString());
                 return Wire(request, DraftAction(context, task: new() { Id = "read_exact", Kind = "operation",
                     Objective = "Read the caller-authorized record EXACT.", Operation = "read",
@@ -409,13 +410,14 @@ public sealed class CompactContractEvidenceFlowTests
         runtime.Respond = (request, purpose) =>
         {
             Assert.Equal(PlanningConstruction.DraftPurpose, purpose);
-            var context = Context(request); var view = context["operations"]![0]!;
+            var context = HostContext(runtime, request); var view = context["operations"]![0]!;
             if (drafts++ == 0)
             {
                 var response = DraftAction(context);
                 response["evidenceRequests"] = new JsonArray(addresses.Select(address => (JsonNode?)JsonValue.Create(address)).ToArray());
-                Assert.Empty(PlanningContractValidation.ValidateInstance(response, request.StructuredOutputSchema!));
-                return Wire(request, response);
+                var wire = Wire(request, TestRuntime.WireEvidence(response, runtime.Checkpoints.Last().PendingCall!.EvidenceAddresses).AsObject());
+                Assert.Empty(PlanningContractValidation.ValidateInstance(wire.Json!, request.StructuredOutputSchema!));
+                return wire;
             }
             Assert.Equal(names.Order(StringComparer.Ordinal), view["editableInputs"]!.AsArray().Select(input => input!["name"]!.ToString()).Order(StringComparer.Ordinal));
             foreach (var name in names)
@@ -545,6 +547,26 @@ public sealed class CompactContractEvidenceFlowTests
             Objective = state.Request.Prompt, OperationIds = ["read"], RequirementIds = ["req_0"],
             BaseHash = PlanningConstruction.Hash(state.Plan), DiscoveryComplete = true };
         return (state, runtime);
+    }
+    private static LLMRequest UnfittedDraft(PlanningSession state, bool correction)
+    {
+        // Structural control before target packing; this payload was never issued.
+        var context = PlanningCompactConstruction.Context(state);
+        var schema = PlanningCompactConstruction.DraftSchema(state);
+        PlanningCompactConstruction.ConstrainDraftEvidence(state, context, schema);
+        var ordinary = PlanningConstruction.DraftRequest(state, correction);
+        var instructions = ordinary.Prompt[..ordinary.Prompt.LastIndexOf('\n')];
+        return PlanningCompactConstruction.Request(instructions,
+            PlanningCompactConstruction.CompactSelectedProducerContractMetadata(context), schema,
+            correction ? "replan" : PlanningConstruction.DraftPurpose);
+    }
+    private static JsonObject HostContext(TestRuntime runtime, LLMRequest request) => Context(
+        PlanningModelCalls.CanonicalEvidenceRequest(runtime.Checkpoints.Last(checkpoint => checkpoint.PendingCall?.Id == request.ClientRequestId).PendingCall!));
+    private static JsonObject HostSchema(LLMRequest request, PlanningEvidenceAddresses? addresses)
+    {
+        var schema = PlanningModelCalls.CanonicalEvidenceRequest(new()
+            { Id = request.ClientRequestId!, Purpose = PlanningConstruction.DraftPurpose, Request = request, EvidenceAddresses = addresses }).StructuredOutputSchema!.AsObject();
+        return schema["$defs"] is JsonObject ? PlanningSchemas.Compact(schema, preserveDescriptions: true) : schema;
     }
     private static JsonObject DraftAction(JsonObject context, string? evidence = null, PlanTask? task = null) => new()
     {

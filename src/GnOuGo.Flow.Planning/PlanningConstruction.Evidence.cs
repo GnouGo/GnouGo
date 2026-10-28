@@ -129,6 +129,7 @@ internal static partial class PlanningConstruction
         var measurements = state.RequestMeasurements ??= [];
         var measurement = measurements.SingleOrDefault(item => item.RequestHash == measured.RequestHash);
         if (measurement is null) { measurement = measured; measurements.Add(measurement); }
+        PlanningInputWarnings.Record(state, purpose, measurement);
         if (estimate > limit)
         {
             measurement.Admission = "rejected_before_dispatch";

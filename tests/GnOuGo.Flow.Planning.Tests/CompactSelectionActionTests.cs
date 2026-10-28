@@ -38,7 +38,7 @@ public sealed class CompactSelectionActionTests
         {
             Assert.Equal(PlanningCompactConstruction.SelectPurpose, purpose);
             var mixed = Selection(request);
-            mixed["evidenceRequests"] = new JsonArray("task:accepted");
+            mixed["evidenceRequests"] = new JsonArray(runtime.EvidenceId(request, "task:accepted"));
             Assert.Empty(PlanningContractValidation.ValidateInstance(mixed, request.StructuredOutputSchema!));
             return Wire(request, mixed);
         };

@@ -282,6 +282,7 @@ public sealed class CompactConstructionContractsTests
             ["discoveryRequests"] = null, ["clarifications"] = null, ["evidenceRequests"] = null,
             ["rollbackTask"] = null, ["rollbackReason"] = null, ["reselectStep"] = null
         };
+        response = PlanningCorpus.Transport(response, schema, schema)!.AsObject();
         Assert.Empty(PlanningContractValidation.ValidateInstance(response, schema));
         response["commitments"]![0]!["result"]!["output"] = "unrelated_0";
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, schema));
@@ -306,6 +307,8 @@ public sealed class CompactConstructionContractsTests
         var schema = request.StructuredOutputSchema!;
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
         var response = CommitmentResponse(state, operation, port);
+        foreach (var key in response.Select(pair => pair.Key).Where(key => !schema["properties"]!.AsObject().ContainsKey(key)).ToArray())
+            response.Remove(key);
         Assert.Equal(valid, PlanningContractValidation.ValidateInstance(response, schema).Count == 0);
         if (valid)
         {
@@ -609,7 +612,7 @@ public sealed class CompactConstructionContractsTests
     {
         var state = State(navigationCeiling: 8_000);
         state.Construction!.Requirements = [new() { Id = "result" }];
-        var original = string.Concat(Enumerable.Repeat(symbol, 2048)) + " Exact final restriction.";
+        var original = string.Concat(Enumerable.Repeat(symbol, 16384)) + " Exact final restriction.";
         var capability = state.Discovery.Resolved.Single();
         capability.Description = original; capability.Version = new string('v', 64);
         var source = new CapabilitySource(new string('s', 192), original);
@@ -620,6 +623,7 @@ public sealed class CompactConstructionContractsTests
             ? PlanningCompactConstruction.SourceDescriptors(state)["items"]![0]!["descriptionEvidence"]!.ToString()
             : Assert.Single(PlanningCompactConstruction.ContractDescriptors(state))!["descriptionEvidence"]!.ToString();
         var retained = new System.Text.StringBuilder();
+        var stoppedBeforeDispatch = false;
         while (address is not null)
         {
             PlanningConstruction.LoadEvidence(state, [address]);
@@ -633,18 +637,17 @@ public sealed class CompactConstructionContractsTests
             Assert.NotNull(context["directoryEvidence"]);
             var presentation = PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state), context,
                 PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose);
-            var request = PlanningGenerationPolicy.Apply(new LLMRequest { Prompt = presentation.Prompt,
-                StructuredOutputSchema = presentation.StructuredOutputSchema, StructuredOutputStrict = true, UseBackgroundMode = true,
-                MaxTokens = 8192, Provider = "OpenAi", Model = "gpt-5.5-2026-04-24",
-                ClientRequestId = new string('s', 64) + ":123:" + new string('h', 64) }, state.Request.Generation);
+            var request = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.DiscoveryPurpose,
+                presentation.Prompt, presentation.StructuredOutputSchema!.AsObject());
             var measurement = PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, 3000, "step");
             if (measurement.EstimatedInputTokens > state.Construction!.Limits.PhasePolicy!.Navigation.MaxInputTokens)
             {
                 var before = JsonSerializer.Serialize(state.Construction, PlanningJsonContext.Default.PlanningConstructionState);
                 var runtime = new TestRuntime();
                 var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => PlanningModelCalls.CallAsync(state, runtime,
-                    PlanningCompactConstruction.DiscoveryPurpose, request.Prompt, request.StructuredOutputSchema!.AsObject(), PlannerFixture.Ct));
+                    PlanningCompactConstruction.DiscoveryPurpose, presentation.Prompt, presentation.StructuredOutputSchema!.AsObject(), PlannerFixture.Ct));
                 Assert.Equal("MODEL_INPUT_LIMIT", error.Code); Assert.Empty(runtime.Calls); Assert.Equal(0, state.ModelCalls);
+                stoppedBeforeDispatch = true;
                 Assert.Equal(before, JsonSerializer.Serialize(state.Construction, PlanningJsonContext.Default.PlanningConstructionState));
                 // The original remains exactly addressable despite local admission stopping.
                 address = page["next"]?.ToString();
@@ -657,6 +660,7 @@ public sealed class CompactConstructionContractsTests
             }
             address = page["next"]?.ToString();
         }
+        Assert.True(stoppedBeforeDispatch, "The actual prepared request must exceed its unchanged captured ceiling.");
         Assert.Equal(original, retained.ToString());
         Assert.Equal(original, capability.Description); Assert.Equal(original, source.Description);
     }
@@ -665,11 +669,11 @@ public sealed class CompactConstructionContractsTests
     public void ReselectionIsAvailableOnlyForDiagnosedTentativeWork()
     {
         var state = State();
-        Assert.Equal("null", PlanningCompactConstruction.DraftSchema(state)["properties"]!["reselectStep"]!["type"]!.ToString());
+        Assert.Null(PlanningCompactConstruction.DraftSchema(state)["properties"]!["reselectStep"]);
         state.Diagnostics = [new("CONSTRUCTION_BUSINESS_REVIEW", "/construction/candidate", "The selected kind cannot perform the original effect.")];
         Assert.NotNull(PlanningCompactConstruction.DraftSchema(state)["properties"]!["reselectStep"]!["anyOf"]);
         state.Construction!.Candidate = new() { AuthorizedPaths = ["/tasks/fixed/outputs/value"] };
-        Assert.Equal("null", PlanningCompactConstruction.DraftSchema(state)["properties"]!["reselectStep"]!["type"]!.ToString());
+        Assert.Null(PlanningCompactConstruction.DraftSchema(state)["properties"]!["reselectStep"]);
     }
 
     [Theory]
@@ -694,8 +698,8 @@ public sealed class CompactConstructionContractsTests
             .SelectMany(n => n["properties"]!["kind"]?["enum"]?.AsArray() ?? []).Select(n => n!.ToString()).Distinct().ToArray();
         Assert.Equal(kind is "group" or "choice" or "close" ? [] : new[] { kind }, taskKinds);
         if (kind != "operation") Assert.DoesNotContain("\"read\"", schema.ToJsonString(), StringComparison.Ordinal);
-        Assert.Equal("null", schema["properties"]!["discoveryRequests"]!["type"]!.ToString());
-        Assert.Equal("null", schema["properties"]!["requirements"]!["type"]!.ToString());
+        Assert.Null(schema["properties"]!["discoveryRequests"]);
+        Assert.Null(schema["properties"]!["requirements"]);
     }
 
     [Theory]

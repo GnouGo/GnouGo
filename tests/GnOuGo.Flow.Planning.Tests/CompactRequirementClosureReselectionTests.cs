@@ -43,8 +43,9 @@ public sealed class CompactRequirementClosureReselectionTests
             request.Prompt = request.Prompt.Replace(
                 "For a replacement extension, preserve its target scope and accepted requirements; the accepted TaskPlan is immutable.",
                 "Correct only the retained tentative extension. Preserve its target scope and accepted requirements; the accepted TaskPlan is immutable.", StringComparison.Ordinal);
-            request = PlanningModelCalls.PrepareRequest(state, "replan", request.Prompt, request.StructuredOutputSchema!.AsObject());
-            state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = "replan", Request = request, CorrectionAccounting = 3 };
+            request = PlanningModelCalls.PrepareRequest(state, "replan", request.Prompt, request.StructuredOutputSchema!.AsObject(), null, null, out var evidenceAddresses);
+            state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = "replan", Request = request, CorrectionAccounting = 3, EvidenceAddresses = evidenceAddresses };
+            runtime.CaptureIssued(state.PendingCall);
             state.ModelCalls++;
             issued = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
             receipt = Wire(request, Reselect(request, 5));

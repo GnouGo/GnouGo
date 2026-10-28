@@ -6,6 +6,32 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class BusinessProjectionBindingsTests
 {
+    [Fact]
+    public async Task LocalReviewSelectsOriginalsFromActualProducersWhileGlobalReviewKeepsAllOriginals()
+    {
+        var (state, _) = await BusinessReviewProtocolTests.Ready();
+        var candidate = state.Construction!.Candidate!;
+        var compact = state.Construction.Compact!;
+        const string global = "Never publish internal artifacts or duplicate external effects.";
+        compact.Sources.Add(new() { Id = "negative", Kind = "global", Indexed = true, Text = global, Version = "v1" });
+        compact.GlobalSourceIds.Add("negative");
+        Assert.Equal(["work"], PlanningBusinessProjection.Build(state, global: false)["requirements"]!.AsArray()
+            .Select(row => row!["id"]!.ToString()));
+        candidate.Plan.Root.Tasks.Insert(0, new() { Id = "prior", Kind = "value", Objective = "Supply the original numeric result.",
+            Outputs = [new("result", new() { Kind = "number", Number = 7 })] });
+        candidate.Plan.Root.Tasks.Single(task => task.Id == "compute").Inputs = [new("supplied", Output("prior", "result"))];
+        state.Construction.Checkpoints.Add(new() { Sequence = 1, TaskIds = ["prior"], RequirementIds = ["later"] });
+        var local = PlanningBusinessProjection.Build(state, global: false);
+        Assert.Equal(["work", "later"], local["requirements"]!.AsArray().Select(row => row!["id"]!.ToString()));
+        Assert.Equal(global, Assert.Single(local["globalConstraints"]!.AsArray())!["text"]!.ToString());
+        candidate.Plan.Root.Tasks.Single(task => task.Id == "compute").Inputs.Clear();
+        Assert.Equal(["work"], PlanningBusinessProjection.Build(state, global: false)["requirements"]!.AsArray()
+            .Select(row => row!["id"]!.ToString()));
+        var complete = PlanningBusinessProjection.Build(state, global: true);
+        Assert.Equal(["work", "later"], complete["requirements"]!.AsArray().Select(row => row!["id"]!.ToString()));
+        Assert.Equal(global, Assert.Single(complete["globalConstraints"]!.AsArray())!["text"]!.ToString());
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

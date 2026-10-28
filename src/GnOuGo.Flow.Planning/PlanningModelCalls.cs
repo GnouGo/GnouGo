@@ -6,7 +6,7 @@ using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 namespace GnOuGo.Flow.Planning;
 
-internal static class PlanningModelCalls
+internal static partial class PlanningModelCalls
 {
     // Active responses use Unicode code-point bounds; exact requests still govern recovery.
     internal const string UnicodeStringLengths = "GnOuGo planning response: string length limits count Unicode code points.";
@@ -31,7 +31,10 @@ internal static class PlanningModelCalls
     }
 
     internal static LLMRequest PrepareRequest(PlanningSession state, string purpose, string prompt, JsonObject schema, int? outputLimit = null,
-        int? requiredReviewCalls = null)
+        int? requiredReviewCalls = null) => PrepareRequest(state, purpose, prompt, schema, outputLimit, requiredReviewCalls, out _);
+
+    internal static LLMRequest PrepareRequest(PlanningSession state, string purpose, string prompt, JsonObject schema, int? outputLimit,
+        int? requiredReviewCalls, out PlanningEvidenceAddresses? evidenceAddresses)
     {
         {
             schema = schema.DeepClone().AsObject();
@@ -48,19 +51,24 @@ internal static class PlanningModelCalls
         if (PlanningTransportPolicies.Read(state.Request) is not null)
             request.RequiredReviewCalls = Math.Max(0, (requiredReviewCalls ?? PlanningCompactConstruction.RequiredReviewCalls(state)) -
                     (purpose is PlanningConstruction.LocalPurpose or PlanningConstruction.GlobalPurpose ? 1 : 0));
-        var hash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
-        request.ClientRequestId = state.Request.SessionId + ":" + (state.ModelCalls + 1) + ":" + hash;
+        evidenceAddresses = PrepareEvidenceAddresses(state, request);
+        if (request.StructuredOutputSchema?["$defs"] is JsonObject)
+            request.StructuredOutputSchema = PlanningSchemas.Compact(request.StructuredOutputSchema.AsObject(), preserveDescriptions: true);
+        var hash = IssuedIdentityHash(request, evidenceAddresses);
+        request.ClientRequestId = state.Request.SessionId + ":" + (state.ModelCalls + 1) + ":" +
+            (evidenceAddresses is null ? "" : evidenceAddresses.MapHash + ":") + hash;
+        if (evidenceAddresses is not null) evidenceAddresses.RequestHash = RequestHash(request);
         return request;
     }
 
     internal static async Task<JsonNode> CallAsync(PlanningSession state, IPlanningRuntime runtime, string purpose, string prompt, JsonObject schema, CancellationToken ct, int? outputLimit = null,
-        PlanningCorrectionAttempt? correction = null, Action? issued = null)
+        PlanningCorrectionAttempt? correction = null, Action? issued = null, Action<PlanningModelCall, JsonNode>? received = null)
     {
         ct.ThrowIfCancellationRequested();
         if (state.PendingCall is null)
         {
             EnsureCallAvailable(state);
-            var request = PrepareRequest(state, purpose, prompt, schema, outputLimit);
+            var request = PrepareRequest(state, purpose, prompt, schema, outputLimit, null, out var evidenceAddresses);
             schema = request.StructuredOutputSchema!.AsObject();
             var inputTokens = ModelRequestAdmission.EstimateTokens(request);
             var inputLimit = PlanningConstructionInputPolicy.EffectiveLimit(state.Request, purpose);
@@ -73,6 +81,7 @@ internal static class PlanningModelCalls
                 measurement = retainedMeasurements.SingleOrDefault(m => m.RequestHash == measured.RequestHash);
                 if (measurement is null) { measurement = measured; retainedMeasurements.Add(measurement); }
             }
+            PlanningInputWarnings.Record(state, purpose, measurement);
             var violations = PlanningContractValidation.ValidateSchema(schema, strict: true);
             if (violations.Count != 0)
             {
@@ -97,7 +106,7 @@ internal static class PlanningModelCalls
             state.ModelCalls++;
             if (purpose == "replan" && correction?.Enabled != true) state.ReplanAttempts++;
             state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = purpose, Request = request,
-                CorrectionAccounting = correction?.IssuedMode };
+                CorrectionAccounting = correction?.IssuedMode, EvidenceAddresses = evidenceAddresses };
             issued?.Invoke();
             await runtime.CheckpointAsync(state, ct);
 
@@ -110,6 +119,7 @@ internal static class PlanningModelCalls
         }
         var call = state.PendingCall;
         if (call.Purpose != purpose) throw new PlanningConflictException("Complete the pending request before changing planning phases.");
+        ValidateEvidenceAddresses(call);
         var response = await runtime.CallAsync(call.Request, purpose, ct);
         correction?.Received();
         state.PendingCall = null;
@@ -130,9 +140,8 @@ internal static class PlanningModelCalls
                     { ["location"] = "/phases/" + purpose, ["limit"] = maximum, ["current"] = measured,
                         ["measurement"] = reported.HasValue ? "reported_output_tokens" : "conservative_serialized_response_tokens", ["unit"] = "tokens", ["stage"] = purpose });
             }
-            if (purpose == "replan" && construction.LastProposalHash == "proposal:" + PlanningGraphCompiler.Fingerprint(json.ToJsonString()))
-                throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The correction repeated the same rejected construction action.");
         }
+        received?.Invoke(call, json.DeepClone());
         // The issued schema, not today's counters/policy, governs recovered responses.
         var findings = ValidateResponseFindings(json, call.Request.StructuredOutputSchema!);
         if (findings.Count != 0)
@@ -148,7 +157,10 @@ internal static class PlanningModelCalls
             };
         }
         state.RejectedProposalHash = null;
-        return json;
+        var normalized = NormalizeEvidenceResponse(json, call.EvidenceAddresses);
+        if (purpose == "replan" && state.Construction?.LastProposalHash == "proposal:" + PlanningGraphCompiler.Fingerprint(normalized.ToJsonString()))
+            throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The correction repeated the same rejected construction action.");
+        return normalized;
     }
 
 }

@@ -68,11 +68,12 @@ public sealed partial class CompactDiscoveryProtocolTests
         var exactPage = page.ToJsonString();
         var schema = PlanningCompactConstruction.DiscoverySchema(state);
         var issued = Complete(state, PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state),
-            PlanningCompactConstruction.DiscoveryContext(state), schema, PlanningCompactConstruction.DiscoveryPurpose));
+            PlanningCompactConstruction.DiscoveryContext(state), schema, PlanningCompactConstruction.DiscoveryPurpose), out var evidenceAddresses);
         var description = DescriptionAddress(state);
-        var receipt = Wire(issued, Evidence(description));
+        var receipt = Wire(issued, Evidence(description), evidenceAddresses);
         state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose,
-            Request = issued, CorrectionAccounting = 0 };
+            Request = issued, CorrectionAccounting = 0, EvidenceAddresses = evidenceAddresses };
+        runtime.CaptureIssued(state.PendingCall);
         state.ModelCalls++;
         var calls = state.ModelCalls;
         var exact = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
@@ -80,7 +81,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         runtime.Respond = (request, _) =>
         {
             Assert.Equal(exact, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
-            Assert.Equal(exactPage, Context(request)["evidence"]![provider]!.ToJsonString());
+            Assert.Equal(exactPage, Context(PlanningModelCalls.CanonicalEvidenceRequest(state.PendingCall!))["evidence"]![provider]!.ToJsonString());
             return receipt;
         };
         state = await Advance(PlannerFixture.Clone(state), runtime);

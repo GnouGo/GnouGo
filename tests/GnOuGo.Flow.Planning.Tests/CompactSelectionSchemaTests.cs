@@ -26,12 +26,15 @@ public sealed class CompactSelectionSchemaTests
 
         var next = context["nextScopes"]!.ToString();
         Assert.Equal("page:scopes:8", next);
-        var runtime = new TestRuntime { Respond = (request, _) =>
+        var runtime = new TestRuntime();
+        runtime.Respond = (request, _) =>
         {
-            var displayed = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
+            var host = HostRequest(runtime, request);
+            var displayed = JsonNode.Parse(host.Prompt[(host.Prompt.LastIndexOf('\n') + 1)..])!;
             next = displayed["nextScopes"]!.ToString();
-            return new() { Json = new JsonObject { ["baseHash"] = plan, ["step"] = null, ["clarifications"] = null, ["evidenceRequests"] = new JsonArray(next) } };
-        } };
+            return new() { Json = new JsonObject { ["baseHash"] = plan, ["step"] = null, ["clarifications"] = null,
+                ["evidenceRequests"] = new JsonArray(runtime.EvidenceId(request, next)) } };
+        };
         var calls = state.ModelCalls;
         state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
         Assert.Empty(state.Diagnostics);
@@ -43,7 +46,8 @@ public sealed class CompactSelectionSchemaTests
         string? selectedScope = null;
         runtime.Respond = (request, _) =>
         {
-            var displayed = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
+            var host = HostRequest(runtime, request);
+            var displayed = JsonNode.Parse(host.Prompt[(host.Prompt.LastIndexOf('\n') + 1)..])!;
             Assert.Equal(exact, displayed["evidence"]![next]!.ToJsonString());
             Assert.Equal(DisplayedScopes(displayed), ScopeDomain(request.StructuredOutputSchema!.AsObject()));
             Assert.NotEmpty(PlanningContractValidation.ValidateInstance(ScopedResponse(state, "/root"), request.StructuredOutputSchema));
@@ -155,6 +159,10 @@ public sealed class CompactSelectionSchemaTests
             PlanningCompactConstruction.SelectPurpose, request.Prompt, request.StructuredOutputSchema.AsObject(), PlannerFixture.Ct));
         Assert.Equal("MODEL_INPUT_LIMIT", failure.Code); Assert.Empty(runtime.Calls); Assert.Null(state.PendingCall);
     }
+
+    private static LLMRequest HostRequest(TestRuntime runtime, LLMRequest request) =>
+        PlanningModelCalls.CanonicalEvidenceRequest(runtime.Checkpoints.Last(checkpoint =>
+            checkpoint.PendingCall?.Id == request.ClientRequestId).PendingCall!);
 
     private static void AddScopes(PlanningSession state, int count)
     {

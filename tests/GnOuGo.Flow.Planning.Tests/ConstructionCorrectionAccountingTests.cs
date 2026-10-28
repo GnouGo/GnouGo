@@ -98,6 +98,7 @@ public sealed class ConstructionCorrectionAccountingTests
         {
             if (exact is not null) Assert.Equal(exact, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
             var response = Evidence(request, "requirement:req_0");
+            response.Json!["evidenceRequests"]![0] = runtime.EvidenceId(request, "requirement:req_0");
             response.Json!["commitments"] = new JsonArray(new JsonObject { ["requirementId"] = "req_0", ["operation"] = "read", ["result"] = null });
             Assert.Empty(PlanningContractValidation.ValidateInstance(response.Json, request.StructuredOutputSchema!));
             return response;

@@ -59,14 +59,15 @@ public sealed class CompactMissingImportTests
     {
         var state = await Ready(); var accepted = Accepted(state);
         var raw = PlanningConstruction.DraftRequest(state, repair: false);
-        var issued = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.DraftPurpose, raw.Prompt, raw.StructuredOutputSchema!.AsObject());
-        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningConstruction.DraftPurpose, Request = issued };
+        var issued = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.DraftPurpose, raw.Prompt, raw.StructuredOutputSchema!.AsObject(), null, null, out var mapping);
+        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningConstruction.DraftPurpose, Request = issued, EvidenceAddresses = mapping };
         state.Construction!.IssuedBaseHash = PlanningConstruction.Hash(state.Plan); state.ModelCalls++;
         var exact = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest); var calls = state.ModelCalls;
         var receipt = Wire(issued, new() { ["baseHash"] = PlanningConstruction.Hash(state.Plan),
             ["extension"] = JsonSerializer.SerializeToNode(Extension(), PlanningJsonContext.Default.PlanningConstructionExtension) });
         var runtime = new TestRuntime { Respond = (request, _) =>
         { Assert.Equal(exact, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)); return receipt; } };
+        runtime.CaptureIssued(state.PendingCall!);
         state = await Advance(PlannerFixture.Clone(state), runtime);
         Assert.Empty(state.Diagnostics); Assert.Single(runtime.Calls); Assert.Equal(calls, state.ModelCalls);
         Assert.Equal(0, state.ReplanAttempts); Assert.Null(state.PendingCall);
@@ -79,16 +80,38 @@ public sealed class CompactMissingImportTests
     public async Task SelectionKeepsGroupAndCallerDeclarationsDistinctWithinItsCapturedCompleteCeiling()
     {
         var state = await Ready(); state.Construction!.Compact!.CurrentStep = null;
-        var raw = PlanningCompactConstruction.Request(state, PlanningCompactConstruction.SelectGuidance(state),
-            PlanningCompactConstruction.SelectionContext(state), PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose);
-        var request = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.SelectPurpose, raw.Prompt, raw.StructuredOutputSchema!.AsObject());
+        var request = Prepared(state);
         var ceiling = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.SelectPurpose).MaxInputTokens;
         Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.SelectPurpose, ceiling).EstimatedInputTokens, 1, ceiling);
-        var context = Context(request);
+        var context = Context(Canonical(state, request));
+        if (!context["scopes"]!.AsArray().Any(row => row?["path"]?.ToString() == Scope))
+        {
+            var next = context["nextScopes"]!.ToString();
+            PlanningConstruction.LoadEvidence(state, [next], followup: Prepared, purpose: PlanningCompactConstruction.SelectPurpose);
+            request = Prepared(state);
+            Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.SelectPurpose, ceiling).EstimatedInputTokens, 1, ceiling);
+            context = Context(Canonical(state, request));
+        }
         var group = Assert.Single(context["scopes"]!.AsArray(), row => row?["path"]?.ToString() == Scope)!;
         Assert.Equal("parameter", group["inputs"]![0]!["input"]!.ToString());
         Assert.Equal("number", group["inputs"]![0]!["typeKind"]!.ToString());
         Assert.Equal("/root", Assert.Single(context["interfaces"]!.AsArray(), row => row?["input"]?.ToString() == "caller")!["scope"]!.ToString());
+
+        LLMRequest Prepared(PlanningSession current)
+        {
+            var raw = PlanningCompactConstruction.Request(current, PlanningCompactConstruction.SelectGuidance(current),
+                PlanningCompactConstruction.SelectionContext(current), PlanningCompactConstruction.SelectionSchema(current), PlanningCompactConstruction.SelectPurpose);
+            return PlanningModelCalls.PrepareRequest(current, PlanningCompactConstruction.SelectPurpose, raw.Prompt, raw.StructuredOutputSchema!.AsObject());
+        }
+        LLMRequest Canonical(PlanningSession current, LLMRequest prepared)
+        {
+            var raw = PlanningCompactConstruction.Request(current, PlanningCompactConstruction.SelectGuidance(current),
+                PlanningCompactConstruction.SelectionContext(current), PlanningCompactConstruction.SelectionSchema(current), PlanningCompactConstruction.SelectPurpose);
+            var exact = PlanningModelCalls.PrepareRequest(current, PlanningCompactConstruction.SelectPurpose, raw.Prompt,
+                raw.StructuredOutputSchema!.AsObject(), null, null, out var exactMap);
+            Assert.Equal(JsonSerializer.Serialize(prepared, PlanningJsonContext.Default.LLMRequest), JsonSerializer.Serialize(exact, PlanningJsonContext.Default.LLMRequest));
+            return PlanningModelCalls.CanonicalEvidenceRequest(new() { Id = exact.ClientRequestId!, Request = exact, EvidenceAddresses = exactMap });
+        }
     }
 
     private static async Task<PlanningSession> Ready()

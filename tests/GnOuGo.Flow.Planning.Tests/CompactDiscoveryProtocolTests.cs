@@ -355,11 +355,14 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Equal(0, state.ReplanAttempts);
         Assert.All(runtime.Calls.Where(call => call.StructuredOutputSchema?["title"]?.ToString() == PlanningCompactConstruction.DiscoveryPurpose),
             call => Assert.InRange(PlanningRequestMeasurements.Measure(call, PlanningCompactConstruction.DiscoveryPurpose, 3000).EstimatedInputTokens, 1, 6000));
-        state = await Advance(state, runtime);
-        if (state.Status == PlanningStatus.Generating) state = await Advance(state, runtime);
-        Assert.Equal(PlanningStatus.Stopped, state.Status);
-        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "REPLAN_NO_PROGRESS");
-        Assert.Empty(state.Construction!.Checkpoints);
+        var beforeRepeatedRead = state.Construction!.Evidence!.ToJsonString();
+        var callsBeforeRepeatedRead = state.ModelCalls;
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Evidence(description), PlanningCompactConstruction.DiscoverySchema(state)));
+        var repeated = Assert.Throws<PlanningResponseException>(() => PlanningConstruction.LoadEvidence(state, [description]));
+        Assert.Contains(repeated.Diagnostics, diagnostic => diagnostic.Code == "REPLAN_NO_PROGRESS");
+        Assert.Equal(beforeRepeatedRead, state.Construction.Evidence.ToJsonString());
+        Assert.Equal(callsBeforeRepeatedRead, state.ModelCalls);
+        Assert.Empty(state.Construction.Checkpoints);
     }
 
     [Fact]
@@ -422,7 +425,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         runtime.Respond = (request, _) =>
         {
             if (issued is not null) Assert.Equal(issued, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
-            Assert.Equal(JsonNode.Parse(original)!["text"]!.ToString(), Context(request)["evidence"]![description]!["text"]!.ToString());
+            Assert.Equal(JsonNode.Parse(original)!["text"]!.ToString(), Context(request)["evidence"]![runtime.EvidenceId(request, description)]!["text"]!.ToString());
             return Wire(request, Discover("alpha", "more"));
         };
         state = await Advance(PlannerFixture.Clone(state), runtime);
@@ -616,19 +619,20 @@ public sealed partial class CompactDiscoveryProtocolTests
         context["descriptors"] = null;
         var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state), context,
             PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose);
-        request = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.DiscoveryPurpose, request.Prompt, request.StructuredOutputSchema!.AsObject());
+        request = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.DiscoveryPurpose, request.Prompt, request.StructuredOutputSchema!.AsObject(), null, null, out var evidenceAddresses);
         var exact = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
-        state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = request };
+        state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = request, EvidenceAddresses = evidenceAddresses };
         state.ModelCalls++;
         var calls = state.ModelCalls;
         var measurements = state.RequestMeasurements!.ToDictionary(measurement => measurement.RequestHash,
             measurement => JsonSerializer.Serialize(measurement, PlanningJsonContext.Default.PlanningRequestMeasurement));
-        var receipt = Wire(request, Evidence(description));
+        var receipt = Wire(request, Evidence(description), evidenceAddresses);
         var recovery = new TestRuntime { Respond = (issued, _) =>
         {
             Assert.Equal(exact, JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest));
             return receipt;
         } };
+        recovery.CaptureIssued(state.PendingCall);
         state = await Advance(PlannerFixture.Clone(state), recovery);
         Assert.Empty(state.Diagnostics);
         Assert.Single(recovery.Calls);
@@ -853,14 +857,13 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.All(runtime.Calls.Where(call => call.StructuredOutputSchema?["title"]?.ToString() == PlanningCompactConstruction.DiscoveryPurpose),
             call => Assert.InRange(PlanningRequestMeasurements.Measure(call, PlanningCompactConstruction.DiscoveryPurpose, 3000).EstimatedInputTokens, 1, 6000));
         var calls = state.ModelCalls;
-        runtime.Respond = (request, _) => Wire(request, Evidence(secondAddress));
-        state = await Advance(state, runtime);
-        if (state.Status == PlanningStatus.Generating) state = await Advance(state, runtime);
-        Assert.Equal(PlanningStatus.Stopped, state.Status);
-        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "REPLAN_NO_PROGRESS");
-        Assert.InRange(state.ModelCalls - calls, 1, 2);
-        Assert.InRange(state.ReplanAttempts, 0, 1);
-        Assert.Same(state, await Advance(state, runtime));
+        var retained = state.Construction!.Evidence!.ToJsonString();
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Evidence(secondAddress), PlanningCompactConstruction.DiscoverySchema(state)));
+        var repeated = Assert.Throws<PlanningResponseException>(() => PlanningConstruction.LoadEvidence(state, [secondAddress]));
+        Assert.Contains(repeated.Diagnostics, diagnostic => diagnostic.Code == "REPLAN_NO_PROGRESS");
+        Assert.Equal(retained, state.Construction.Evidence.ToJsonString());
+        Assert.Equal(calls, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
     }
 
     [Fact]
@@ -1182,6 +1185,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         var exact = JsonSerializer.Serialize(saved.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
         var calls = saved.ModelCalls;
         var recovery = new TestRuntime { Respond = (request, _) => Wire(request, Evidence(address)) };
+        recovery.CaptureIssued(saved.PendingCall!);
         var resumed = await Advance(saved, recovery);
         Assert.Empty(resumed.Diagnostics);
         Assert.Equal(exact, JsonSerializer.Serialize(Assert.Single(recovery.Calls), PlanningJsonContext.Default.LLMRequest));
@@ -1205,8 +1209,9 @@ public sealed partial class CompactDiscoveryProtocolTests
         var schema = PlanningCompactConstruction.DiscoverySchema(state);
         if (change == "hash") schema["description"] = schema["description"]!.ToString()[..^1] + "Z";
         var issued = Complete(state, PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state),
-            PlanningCompactConstruction.DiscoveryContext(state), schema, PlanningCompactConstruction.DiscoveryPurpose));
-        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = issued };
+            PlanningCompactConstruction.DiscoveryContext(state), schema, PlanningCompactConstruction.DiscoveryPurpose), out var evidenceAddresses);
+        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = issued, EvidenceAddresses = evidenceAddresses };
+        runtime.CaptureIssued(state.PendingCall);
         state.ModelCalls++;
         if (change == "knowledge") state.Discovery.Pages.Add(new("alpha", "more", [AdditionalOperation(state)], null, Query: Objective));
         if (change == "version") address = address.Replace("@version_0:", "@stale:", StringComparison.Ordinal);
@@ -1257,17 +1262,17 @@ public sealed partial class CompactDiscoveryProtocolTests
     };
 
     private static PlanningRequestMeasurement Measure(PlanningSession state) => PlanningRequestMeasurements.Measure(
-        Complete(state, PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state),
-            PlanningCompactConstruction.DiscoveryContext(state), PlanningCompactConstruction.DiscoverySchema(state),
-            PlanningCompactConstruction.DiscoveryPurpose)), PlanningCompactConstruction.DiscoveryPurpose, 3000);
+        DiscoveryFollowup(state), PlanningCompactConstruction.DiscoveryPurpose, 6000);
 
-    private static LLMRequest DiscoveryFollowup(PlanningSession state)
+    private static LLMRequest DiscoveryFollowup(PlanningSession state) => DiscoveryFollowup(state, out _);
+
+    private static LLMRequest DiscoveryFollowup(PlanningSession state, out PlanningEvidenceAddresses? evidenceAddresses)
     {
         var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state),
             PlanningCompactConstruction.DiscoveryContext(state), PlanningCompactConstruction.DiscoverySchema(state),
             PlanningCompactConstruction.DiscoveryPurpose);
         return PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.DiscoveryPurpose,
-            request.Prompt, request.StructuredOutputSchema!.AsObject(), state.Construction!.Limits.DraftOutputTokens);
+            request.Prompt, request.StructuredOutputSchema!.AsObject(), state.Construction!.Limits.DraftOutputTokens, null, out evidenceAddresses);
     }
 
     private static void AddOperations(PlanningSession state, int count)
@@ -1316,8 +1321,11 @@ public sealed partial class CompactDiscoveryProtocolTests
     private static Task<PlanningSession> Advance(PlanningSession state, TestRuntime runtime) =>
         new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
     private static JsonObject Context(LLMRequest request) => JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!.AsObject();
-    private static LLMResponse Wire(LLMRequest request, JsonObject response) => new()
-    { Json = PlanningCorpus.Transport(response, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
+    private static LLMResponse Wire(LLMRequest request, JsonObject response, PlanningEvidenceAddresses? evidenceAddresses = null) => new()
+    { Json = PlanningCorpus.Transport(TestRuntime.WireEvidence(response, evidenceAddresses), request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
+    private static LLMRequest HostView(LLMRequest request, PlanningEvidenceAddresses? evidenceAddresses) =>
+        PlanningModelCalls.CanonicalEvidenceRequest(new() { Id = request.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose,
+            Request = request, EvidenceAddresses = evidenceAddresses });
     private static JsonObject Discover(string source, string? cursor, string? query = null) => new()
     {
         ["binding"] = null, ["evidenceRequests"] = null, ["reselectStep"] = null, ["clarifications"] = null,
@@ -1337,6 +1345,10 @@ public sealed partial class CompactDiscoveryProtocolTests
         Provider = "provider", Model = "pinned-model", UseBackgroundMode = true, MaxTokens = 8192,
         ClientRequestId = new string('s', 64) + ":123:" + new string('h', 64)
     }, state.Request.Generation);
+
+    private static LLMRequest Complete(PlanningSession state, LLMRequest request, out PlanningEvidenceAddresses? evidenceAddresses) =>
+        PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.DiscoveryPurpose, request.Prompt,
+            request.StructuredOutputSchema!.AsObject(), 8192, null, out evidenceAddresses);
     private sealed class EmptyCatalog : ICapabilityCatalog
     {
         public Task<IReadOnlyList<CapabilitySource>> ListSourcesAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<CapabilitySource>>([new("alpha", "Declared metadata for business operations.")]);

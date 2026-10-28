@@ -12,66 +12,35 @@ internal static partial class PlanningCompactConstruction
     {
         if (purpose is not (SelectPurpose or DiscoveryPurpose or PlanningConstruction.DraftPurpose or "replan"))
             return Request(instructions, context, schema, purpose);
-        // Drafts and typed corrections are authoring decisions. Install original
-        // obligations before measuring their complete request.
-        context["requirements"] = OriginalRequirementRows(state);
-        context["globalConstraints"] = OriginalGlobalRows(state);
-        var request = Render();
-        // The response grammar, model settings and request envelope participate
-        // in admission. Prompt-only estimates cannot choose a safe projection.
+        // Original applicability is derived before packing, independently of
+        // whether the unrelated originals would happen to fit this request.
+        AddOriginalDecisionContext(state, context);
+        var displayed = CompactAcceptedProgressContext(purpose == SelectPurpose
+            ? SelectionProducerPageContext(state, context, schema) : context);
+        var request = Render(displayed);
+        var target = PlanningConstructionPhasePolicies.Resolve(state.Request, purpose).TargetInputTokens;
         if (ModelRequestAdmission.EstimateTokens(PlanningModelCalls.PrepareRequest(state, purpose, request.Prompt,
-                request.StructuredOutputSchema!.AsObject(), state.Construction!.Limits.DraftOutputTokens)) <=
-            PlanningConstructionInputPolicy.EffectiveLimit(state.Request, purpose)) return Display(request);
-
-        if (purpose is SelectPurpose or PlanningConstruction.DraftPurpose or "replan")
+                request.StructuredOutputSchema!.AsObject(), state.Construction!.Limits.DraftOutputTokens)) > target)
         {
-            var fitted = Display(request);
-            if (ModelRequestAdmission.EstimateTokens(PlanningModelCalls.PrepareRequest(state, purpose, fitted.Prompt,
-                    fitted.StructuredOutputSchema!.AsObject(), state.Construction!.Limits.DraftOutputTokens)) <=
-                PlanningConstructionInputPolicy.EffectiveLimit(state.Request, purpose)) return fitted;
+            displayed = displayed.DeepClone().AsObject();
+            CompactAuthoringNavigation(displayed);
         }
+        if (purpose == SelectPurpose) return FitSelectionNavigation(state, instructions, displayed);
+        if (purpose is DiscoveryPurpose or PlanningConstruction.DraftPurpose or "replan")
+            return FitDraftNavigation(state, instructions, CompactSelectedProducerContractMetadata(displayed), schema, purpose);
+        return Render(displayed);
 
-        IEnumerable<string> selectedRequirements = purpose == SelectPurpose ? SelectionRequirementIds(state) : State(state).CurrentStep!.RequirementIds;
-        var selected = selectedRequirements.Concat(EvidenceRequirementIds(state)).ToHashSet(StringComparer.Ordinal);
-        var originals = context["requirements"] as JsonArray ?? [];
-        var omitted = originals.OfType<JsonObject>().Where(row => !selected.Contains(row["id"]!.ToString())).ToArray();
-        if (omitted.Length == 0) return Display(request);
-        context["requirements"] = new JsonArray(originals.OfType<JsonObject>().Where(row => selected.Contains(row["id"]!.ToString()))
-            .Select(row => (JsonNode)row.DeepClone()).ToArray());
-        context["omittedRequirementCount"] = omitted.Length;
-        context["requirementsDirectory"] = "page:requirements:0";
-        var next = state.Requirements!.Outcomes.FindIndex(requirement => requirement.Id == omitted[0]["id"]!.ToString());
-        context["nextRequirements"] = "page:requirements:" + next.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        // No opportunistic filling or clipping: globals, retrieved originals and
-        // the entire producer/contract core remain unchanged. If this mandatory
-        // request is too large, ordinary admission records and rejects it.
-        return Display(Render());
-
-        LLMRequest Display(LLMRequest chosen)
-        {
-            var navigation = purpose == SelectPurpose
-                ? SelectionProducerPageContext(state, context, chosen.StructuredOutputSchema!.AsObject()) : context;
-            var displayed = CompactAcceptedProgressContext(navigation);
-            if (purpose == SelectPurpose)
-                return FitSelectionNavigation(state, instructions, displayed);
-            if (purpose is PlanningConstruction.DraftPurpose or "replan")
-                return FitDraftNavigation(state, instructions, CompactSelectedProducerContractMetadata(displayed),
-                    chosen.StructuredOutputSchema!.AsObject(), purpose);
-            if (!ReferenceEquals(displayed, context)) chosen.Prompt = instructions + "\n" + PlanningJsonTransport.Prompt(displayed);
-            return chosen;
-        }
-
-        LLMRequest Render()
+        LLMRequest Render(JsonObject page)
         {
             var response = purpose == SelectPurpose
-                ? SelectionSchema(state, context) : schema.DeepClone().AsObject();
+                ? SelectionSchema(state, page) : schema.DeepClone().AsObject();
             if (response["properties"] is JsonObject properties && properties.ContainsKey("evidenceRequests"))
             {
-                if (purpose == SelectPurpose) ConstrainSelectionEvidence(state, context, response);
-                else if (purpose == DiscoveryPurpose) ConstrainDiscoveryEvidence(state, context, response);
-                else ConstrainDraftEvidence(state, context, response);
+                if (purpose == SelectPurpose) ConstrainSelectionEvidence(state, page, response);
+                else if (purpose == DiscoveryPurpose) ConstrainDiscoveryEvidence(state, page, response);
+                else ConstrainDraftEvidence(state, page, response);
             }
-            return Request(instructions, context, response, purpose);
+            return Request(instructions, page, response, purpose);
         }
     }
 
@@ -126,12 +95,25 @@ internal static partial class PlanningCompactConstruction
     {
         var page = initial.DeepClone().AsObject();
         var request = Render(page);
-        var limit = PlanningConstructionInputPolicy.EffectiveLimit(state.Request, purpose);
+        var phase = PlanningConstructionPhasePolicies.Resolve(state.Request, purpose);
+        var limit = phase.MaxInputTokens;
         var reviewHeadroom = RequiredReviewCalls(state);
         var measurement = Measure(request);
-        while (measurement.EstimatedInputTokens > limit)
+        while (measurement.EstimatedInputTokens > phase.TargetInputTokens)
         {
             (string Identity, JsonObject Page, LLMRequest Request, PlanningRequestMeasurement Measurement)? best = null;
+            foreach (var directory in new[] { "describedOperations", "companionOperations" })
+                foreach (var (row, index) in (page[directory]?["items"] as JsonArray ?? []).Select((row, index) => (row, index)))
+                {
+                    if (row is not JsonObject entry || entry["description"] is null || entry["id"]?.ToString() is not { } id ||
+                        entry["version"]?.ToString() is not { } version ||
+                        entry["descriptionEvidence"]?.ToString() != "description:" + ContractIdentity(id, version) + ":0" ||
+                        State(state).CurrentStep!.OperationIds.Contains(id, StringComparer.Ordinal)) continue;
+                    var probe = page.DeepClone().AsObject();
+                    var trimmed = probe[directory]!["items"]![index]!.AsObject();
+                    trimmed.Remove("description"); trimmed.Remove("descriptionComplete"); trimmed["descriptionOmitted"] = true;
+                    Consider(directory + ":" + id + "@" + version, probe);
+                }
             var operations = page["operations"] as JsonArray ?? [];
             var locations = new List<(JsonObject Contract, int Operation, int Row, int Producer)>();
             for (var index = 0; index < operations.Count; index++)
@@ -179,12 +161,16 @@ internal static partial class PlanningCompactConstruction
                 target["outputCount"] = original.Count;
                 target["outputsOmitted"] = original.Count - retained.Count;
                 target["nextPorts"] = "port-page:" + identity + ":/output:" + omitted.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                identity += $":{location.Operation}:{location.Row}:{location.Producer}";
+                Consider(identity, probe);
+            }
+            void Consider(string identity, JsonObject probe)
+            {
                 var proposed = Render(probe);
                 var measured = Measure(proposed);
-                identity += $":{location.Operation}:{location.Row}:{location.Producer}";
                 if (measured.CompleteRequestBytes >= measurement.CompleteRequestBytes || best is { } prior &&
                     (measured.CompleteRequestBytes > prior.Measurement.CompleteRequestBytes || measured.CompleteRequestBytes == prior.Measurement.CompleteRequestBytes &&
-                        string.CompareOrdinal(identity, prior.Identity) >= 0)) continue;
+                        string.CompareOrdinal(identity, prior.Identity) >= 0)) return;
                 best = (identity, probe, proposed, measured);
             }
             if (best is not { } chosen) break;
@@ -197,7 +183,8 @@ internal static partial class PlanningCompactConstruction
         LLMRequest Render(JsonObject displayed)
         {
             var response = schema.DeepClone().AsObject();
-            ConstrainDraftEvidence(state, displayed, response);
+            if (purpose == DiscoveryPurpose) ConstrainDiscoveryEvidence(state, displayed, response);
+            else ConstrainDraftEvidence(state, displayed, response);
             return Request(instructions, displayed, response, purpose);
         }
         PlanningRequestMeasurement Measure(LLMRequest candidate) => PlanningRequestMeasurements.Measure(PlanningModelCalls.PrepareRequest(state, purpose,
@@ -215,10 +202,11 @@ internal static partial class PlanningCompactConstruction
         // this presentation reduction; only bounded navigation descriptions are.
         var page = initial.DeepClone().AsObject();
         var request = Render(page);
-        var limit = PlanningConstructionInputPolicy.EffectiveLimit(state.Request, SelectPurpose);
+        var phase = PlanningConstructionPhasePolicies.Resolve(state.Request, SelectPurpose);
+        var limit = phase.MaxInputTokens;
         var reviewHeadroom = RequiredReviewCalls(state);
         var measurement = Measure(request);
-        while (measurement.EstimatedInputTokens > limit)
+        while (measurement.EstimatedInputTokens > phase.TargetInputTokens)
         {
             (string Identity, JsonObject Page, LLMRequest Request, PlanningRequestMeasurement Measurement)? best = null;
             foreach (var (directory, rows) in new[] { ("scopes", page["scopes"] as JsonArray),
@@ -302,9 +290,9 @@ internal static partial class PlanningCompactConstruction
         return displayed ?? context;
     }
 
-    internal static JsonArray OriginalRequirementRows(PlanningSession state)
+    internal static JsonArray OriginalRequirementRows(PlanningSession state, IEnumerable<string>? requirementIds = null)
     {
-        var rows = RequirementNodes(state, state.Requirements!.Outcomes.Select(requirement => requirement.Id));
+        var rows = RequirementNodes(state, requirementIds ?? state.Requirements!.Outcomes.Select(requirement => requirement.Id));
         var accepted = state.Plan is not null ? new TaskPlanSymbols(state.Plan) : null;
         foreach (var row in rows.OfType<JsonObject>())
         {
@@ -380,8 +368,7 @@ internal static partial class PlanningCompactConstruction
 
     internal static void AddDecisionContext(PlanningSession state, JsonObject context, bool discovery = false)
     {
-        context["requirements"] = OriginalRequirementRows(state);
-        context["globalConstraints"] = OriginalGlobalRows(state);
+        AddOriginalDecisionContext(state, context);
         if (state.Plan is null) return;
         if (context["interfaces"] is not JsonArray)
             context["interfaces"] = State(state).CurrentStep is { } step
