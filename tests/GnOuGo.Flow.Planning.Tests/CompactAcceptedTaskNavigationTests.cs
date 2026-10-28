@@ -485,8 +485,11 @@ public sealed class CompactAcceptedTaskNavigationTests
         var prepared = PlanningModelCalls.PrepareRequest(state, purpose, full.Prompt, full.StructuredOutputSchema!.AsObject(),
             state.Construction!.Limits.DraftOutputTokens);
         var limit = checked((int)PlanningRequestMeasurements.Measure(prepared, purpose, 128000).EstimatedInputTokens - 1);
+        if (purpose is PlanningConstruction.DraftPurpose or "replan")
+            limit = MinimumDecisionAllowance(state, purpose, current => AuthorRequest(current, purpose, AuthorContext(current, purpose)));
         // The original prompt alone fits: the complete envelope, including the
-        // response grammar and captured model settings, triggers this fallback.
+        // mandatory grammar, must trigger whole-clause fallback even after the
+        // small optional producer directory has been completely paged away.
         Assert.True((Encoding.UTF8.GetByteCount(full.Prompt) + 2L) / 3 + 256 < limit);
         AuthorAllowance(state, limit);
         var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
@@ -553,6 +556,7 @@ public sealed class CompactAcceptedTaskNavigationTests
             var prepared = PlanningModelCalls.PrepareRequest(state, "replan", full.Prompt, full.StructuredOutputSchema.AsObject(),
                 state.Construction!.Limits.DraftOutputTokens);
             limit = checked((int)PlanningRequestMeasurements.Measure(prepared, "replan", limit).EstimatedInputTokens - 1);
+            limit = MinimumDecisionAllowance(state, "replan", current => PlanningConstruction.RepairRequest(current, authority));
             Assert.True((Encoding.UTF8.GetByteCount(full.Prompt) + 2L) / 3 + 256 < limit);
             AuthorAllowance(state, limit);
         }
@@ -562,7 +566,9 @@ public sealed class CompactAcceptedTaskNavigationTests
         Assert.Equal(bounded ? new[] { "req_0", "req_2" } : ["req_0", "req_1", "req_2"],
             context["requirements"]!.AsArray().Select(row => row!["id"]!.ToString()));
         foreach (var key in new[] { "repair", "globalConstraints", "interfaces", "evidence" })
-            Assert.True(JsonNode.DeepEquals(fullContext[key], context[key]), key);
+            Assert.True(key == "interfaces" && bounded
+                ? JsonNode.DeepEquals(WithoutProducerOutputDirectories(fullContext[key]), WithoutProducerOutputDirectories(context[key]))
+                : JsonNode.DeepEquals(fullContext[key], context[key]), key);
         Assert.True(JsonNode.DeepEquals(fullContext["requirements"]![0], context["requirements"]![0]));
         Assert.True(JsonNode.DeepEquals(fullContext["requirements"]![2], context["requirements"]![bounded ? 1 : 2]));
         if (bounded)
@@ -579,6 +585,16 @@ public sealed class CompactAcceptedTaskNavigationTests
         Assert.Equal(measured.CompleteRequestBytes, measured.Components.Sum(component => component.SerializedBytes));
         Assert.Empty(PlanningContractValidation.ValidateSchema(request.StructuredOutputSchema.AsObject(), strict: true));
         Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+
+        static JsonNode? WithoutProducerOutputDirectories(JsonNode? value)
+        {
+            var result = value?.DeepClone();
+            foreach (var row in result?.AsArray() ?? [])
+                foreach (var producer in row?["producers"] as JsonArray ?? [])
+                    if (producer?["contract"] is JsonObject contract)
+                        foreach (var key in new[] { "outputs", "outputCount", "outputsOmitted", "nextPorts" }) contract.Remove(key);
+            return result;
+        }
     }
 
 
@@ -775,6 +791,18 @@ public sealed class CompactAcceptedTaskNavigationTests
             settings["maxInputTokens"] = maximum;
             settings["targetInputTokens"] = Math.Min(1000, maximum);
         }
+    }
+
+    private static int MinimumDecisionAllowance(PlanningSession state, string purpose, Func<PlanningSession, LLMRequest> build)
+    {
+        // Derive a fitting mandatory core on a clone. A one-token reduction of
+        // the full request can now be satisfied by optional directory paging.
+        var probe = PlannerFixture.Clone(state);
+        AuthorAllowance(probe, 512);
+        var request = build(probe);
+        var prepared = PlanningModelCalls.PrepareRequest(probe, purpose, request.Prompt, request.StructuredOutputSchema!.AsObject(),
+            probe.Construction!.Limits.DraftOutputTokens);
+        return checked((int)PlanningRequestMeasurements.Measure(prepared, purpose, 512).EstimatedInputTokens + 1);
     }
 
     private static JsonObject AuthorContext(PlanningSession state, string purpose) => purpose switch

@@ -146,26 +146,38 @@ internal static partial class PlanningCompactConstruction
             foreach (var location in locations)
             {
                 var operation = location.Contract;
-                if (operation["outputs"] is not JsonArray outputs ||
-                    operation["outputsOmitted"] is not null || outputs.Count <= ContractDirectoryPageSize) continue;
-                // A shared directory keeps its existing anchor complete. A
-                // producer's own optional names can be paged independently;
-                // every consumed schema, argument and description stays exact.
-                if (location.Operation >= 0 && locations.Any(other => other.Operation < 0 &&
-                        new[] { "id", "version", "hash" }.All(key => JsonNode.DeepEquals(other.Contract[key], operation[key])))) continue;
+                if (operation["outputs"] is not JsonArray { Count: > 0 } outputs || !SameContract(operation, operation)) continue;
+                var related = locations.Where(other => SameContract(other.Contract, operation)).ToArray();
+                // A producer can inherit its directory from this selected
+                // operation. Page that one anchor while retaining every port
+                // consumed through any view of the same exact contract.
+                if (location.Operation >= 0 && locations.Any(other =>
+                        other.Contract["sharedContractMetadata"]?["detailsPointer"]?.ToString() == "/operations/" +
+                            location.Operation.ToString(System.Globalization.CultureInfo.InvariantCulture) &&
+                        other.Contract["sharedContractMetadata"]?["fields"] is JsonArray fields &&
+                        fields.Any(field => field?.ToString() == "outputs") && !SameContract(other.Contract, operation))) continue;
                 var identity = ContractIdentity(operation["id"]!.ToString(), operation["version"]!.ToString());
-                var selected = (operation["selectedOutputs"] as JsonArray ?? []).OfType<JsonObject>()
+                var selected = related.SelectMany(other => (other.Contract["selectedOutputs"] as JsonArray ?? []).OfType<JsonObject>())
                     .Select(view => "schema:" + identity + ":" + view["pointer"]).ToHashSet(StringComparer.Ordinal);
-                var retained = outputs.Select((row, position) => (row, position)).Where(item =>
-                    item.position < ContractDirectoryPageSize || selected.Contains(item.row?["schema"]?.ToString() ?? "")).ToArray();
-                var omitted = Enumerable.Range(0, outputs.Count).FirstOrDefault(position => retained.All(item => item.position != position), outputs.Count);
-                if (omitted == outputs.Count) continue;
+                var original = CompletePortDirectory(TaskOperations.Describe(ExactContract(state,
+                    operation["id"]!.ToString(), operation["version"]!.ToString())).Outputs, identity, "/output");
+                if (outputs.Any(row => !original.Any(port => JsonNode.DeepEquals(port, row)))) continue;
+                var retained = outputs.Where((row, position) => operation["outputsOmitted"] is null && outputs.Count > ContractDirectoryPageSize
+                    ? position < ContractDirectoryPageSize || selected.Contains(row?["schema"]?.ToString() ?? "") : true).ToList();
+                if (retained.Count == outputs.Count)
+                {
+                    var optional = retained.FindLastIndex(row => !selected.Contains(row?["schema"]?.ToString() ?? ""));
+                    if (optional < 0) continue;
+                    retained.RemoveAt(optional);
+                }
+                var omitted = Enumerable.Range(0, original.Count).First(position =>
+                    retained.All(row => !JsonNode.DeepEquals(row, original[position])));
                 var probe = page.DeepClone().AsObject();
                 var target = location.Operation >= 0 ? probe["operations"]![location.Operation]! :
                     probe["interfaces"]![location.Row]!["producers"]![location.Producer]!["contract"]!;
-                target["outputs"] = new JsonArray(retained.Select(item => item.row!.DeepClone()).ToArray());
-                target["outputCount"] = outputs.Count;
-                target["outputsOmitted"] = outputs.Count - retained.Length;
+                target["outputs"] = new JsonArray(retained.Select(row => row!.DeepClone()).ToArray());
+                target["outputCount"] = original.Count;
+                target["outputsOmitted"] = original.Count - retained.Count;
                 target["nextPorts"] = "port-page:" + identity + ":/output:" + omitted.ToString(System.Globalization.CultureInfo.InvariantCulture);
                 var proposed = Render(probe);
                 var measured = Measure(proposed);
@@ -191,6 +203,9 @@ internal static partial class PlanningCompactConstruction
         PlanningRequestMeasurement Measure(LLMRequest candidate) => PlanningRequestMeasurements.Measure(PlanningModelCalls.PrepareRequest(state, purpose,
             candidate.Prompt, candidate.StructuredOutputSchema!.AsObject(), state.Construction!.Limits.DraftOutputTokens,
             requiredReviewCalls: reviewHeadroom), purpose, limit);
+        static bool SameContract(JsonObject left, JsonObject right) => new[] { "id", "version", "hash" }.All(key =>
+            left[key] is JsonValue value && value.TryGetValue<string>(out var identity) && !string.IsNullOrEmpty(identity) &&
+            JsonNode.DeepEquals(left[key], right[key]));
     }
 
     private static LLMRequest FitSelectionNavigation(PlanningSession state, string instructions, JsonObject initial)

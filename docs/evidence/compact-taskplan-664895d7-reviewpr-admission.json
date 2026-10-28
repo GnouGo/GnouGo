@@ -1,0 +1,281 @@
+{
+  "kind": "format11_received_live_admission_failure",
+  "captured_date": "2026-10-28",
+  "scenario": "Review PR",
+  "production_sha": "664895d790ee8572c76ac36b70629a7eac9e9eeb",
+  "execution_snapshot_sha": "321dc426d60a505c7edbfff16fed6ccb8257334a",
+  "source_map": {
+    "critical_files": 1182,
+    "all_file_sets_and_blobs_equal": true,
+    "sha256": "7aac959440d9807c4fecc5d57949635de465c1efcf9667fd40dd0ff2d5e9bd3f"
+  },
+  "freeze_sha256": "1e035a69d0321005dce6f328b264645f606f1bd2dad66aaa3dec373a1138c4a5",
+  "benchmark_binary_sha256": "b597f07b7914bdff9c5d868920d2fb5f95f5a9cffcee37b693351308623e72a6",
+  "cohort": "compactf664895d7code11a",
+  "pinned_model": "gpt-5.5-2026-04-24",
+  "configuration_hash": "e4b187879e34ce4b48999e72941caa81a3fd02a5b0bbc1cf9a8f67ab15bbd078",
+  "metadata_hash": "f37630df13544d2e2d11910560424f2224aeb414d63b3cb924e458e7b742237f",
+  "phase_policy": {
+    "version": 1,
+    "navigation": {
+      "targetInputTokens": 3000,
+      "maxInputTokens": 18000,
+      "reasoning": "high",
+      "outputTokens": 32768
+    },
+    "draft": {
+      "targetInputTokens": 8000,
+      "maxInputTokens": 20000,
+      "reasoning": "medium",
+      "outputTokens": 16384
+    },
+    "review": {
+      "targetInputTokens": 4000,
+      "maxInputTokens": 20000,
+      "reasoning": "high",
+      "outputTokens": 8192
+    }
+  },
+  "phase_policy_sha256": "00fcfe333c623720a4cd0495bb604d784c00e4229b6ba008cfebe357d1764c8e",
+  "mcp_manifest_sha256": "5b2c4135da538375b4eb952c21aec11208a85aefc51ca1885227b9b2c9578d11",
+  "mcp_pinned_files": 568,
+  "outcomes": {
+    "generation": "stopped_at_prospective_draft_admission",
+    "artifact": false,
+    "runtime": "not_started",
+    "independent_business_acceptance": false,
+    "qualifying_success": false,
+    "interventions": 0,
+    "business_obligation_denominator": null,
+    "calls_per_satisfied_business_obligation": null
+  },
+  "planning_ms": 1411498,
+  "runner_elapsed_seconds": "1439.6063659170177",
+  "ended_at": "2026-10-28T18:14:59.446991+00:00",
+  "logical_calls": 22,
+  "physical_attempts": 23,
+  "saved_logical_receipts": 22,
+  "automatic_corrections": 0,
+  "business_judges": 0,
+  "accepted_technical_checkpoints": 2,
+  "accepted_planned_actions": [
+    {
+      "operation": "git_clone",
+      "effect": "write"
+    },
+    {
+      "operation": "code_agent_edit",
+      "effect": "execute",
+      "purpose": "Observe requested toolchain versions before later checks."
+    }
+  ],
+  "actual_runtime_operations": 0,
+  "requirement_status_counts": {
+    "in_progress": 5,
+    "remaining": 8
+  },
+  "open_scopes": 1,
+  "provider_tokens": {
+    "input_tokens": 159663,
+    "output_tokens": 37091,
+    "reasoning_tokens": 31046
+  },
+  "provider_http_status_counts": {
+    "200": 22,
+    "500": 1
+  },
+  "failure_classification": {
+    "local_input_admission": 1,
+    "received_http_retryable_failures": 1,
+    "receiptless_logical_requests": 0,
+    "uncertain_transport_terminal": false,
+    "output_exhaustion": 0,
+    "malformed_response": 0,
+    "empty_response": 0,
+    "whitespace_only_response": 0,
+    "whitespace_heavy_response": 0,
+    "whitespace_heavy_definition": "at_least_1000_visible_characters_and_at_least_90_percent_whitespace"
+  },
+  "terminal_diagnostic": "CONSTRUCTION_CONTRACT_LIMIT",
+  "blocked_prospective_draft": {
+    "requestId": "compactf664895d7code11a-code-1:23:4e1dae111a1e9e99b427e6f58d8adc3ec3baa22fea7bf9e72f50d111215d85d0",
+    "requestHash": "b13eadedcfe6ba609cbfa611f944eefb24949c811afa2baf759d840615b93c9b",
+    "schemaHash": "ee35821410dfbe2840eeb0073ee5ee361bae8d3572773e271d9e0cf02dd5a15c",
+    "admission": "rejected_before_dispatch",
+    "inputLimit": 20000,
+    "completeRequestBytes": 64828,
+    "estimatedInputTokens": 21866
+  },
+  "component_bytes_reconcile": true,
+  "provider_token_semantics": "Provider output includes reasoning; component token values are conservative presentation estimates, not billed component usage.",
+  "phase_measurements": {
+    "construction_intent": {
+      "logical_requests": 6,
+      "physical_attempts": 6,
+      "input_tokens": 8348,
+      "output_tokens": 7723,
+      "reasoning_tokens": 5771,
+      "elapsed_ms": "219596.2546",
+      "complete_request_bytes": {
+        "count": 6,
+        "p50": 7100.0,
+        "p95_nearest_rank": 11413,
+        "maximum": 11413
+      },
+      "input_estimates": {
+        "count": 6,
+        "p50": 2623.0,
+        "p95_nearest_rank": 4061,
+        "maximum": 4061
+      },
+      "components_serialized_bytes": {
+        "diagnostics": 156,
+        "envelope": 2544,
+        "instructions": 7101,
+        "intent": 14128,
+        "response_schema": 18324,
+        "evidence": 69,
+        "interfaces": 315
+      },
+      "empty_responses": 0,
+      "whitespace_only_responses": 0,
+      "whitespace_heavy_responses": 0
+    },
+    "construction_select": {
+      "logical_requests": 4,
+      "physical_attempts": 4,
+      "input_tokens": 27292,
+      "output_tokens": 18254,
+      "reasoning_tokens": 16386,
+      "elapsed_ms": "309413.8744",
+      "complete_request_bytes": {
+        "count": 4,
+        "p50": 26535.5,
+        "p95_nearest_rank": 41116,
+        "maximum": 41116
+      },
+      "input_estimates": {
+        "count": 4,
+        "p50": 9101.5,
+        "p95_nearest_rank": 13962,
+        "maximum": 13962
+      },
+      "components_serialized_bytes": {
+        "construction_context": 6729,
+        "envelope": 1727,
+        "instructions": 11160,
+        "interfaces": 16639,
+        "requirements": 37500,
+        "response_schema": 31626,
+        "evidence": 6340
+      },
+      "empty_responses": 0,
+      "whitespace_only_responses": 0,
+      "whitespace_heavy_responses": 0
+    },
+    "construction_discovery": {
+      "logical_requests": 9,
+      "physical_attempts": 10,
+      "input_tokens": 86893,
+      "output_tokens": 8244,
+      "reasoning_tokens": 7353,
+      "elapsed_ms": "632768.2747",
+      "complete_request_bytes": {
+        "count": 9,
+        "p50": 44979,
+        "p95_nearest_rank": 49551,
+        "maximum": 49551
+      },
+      "input_estimates": {
+        "count": 9,
+        "p50": 15249,
+        "p95_nearest_rank": 16773,
+        "maximum": 16773
+      },
+      "components_serialized_bytes": {
+        "construction_context": 16449,
+        "envelope": 3881,
+        "evidence": 29141,
+        "instructions": 18972,
+        "mcp_descriptors": 44399,
+        "objective": 4683,
+        "requirements": 66564,
+        "response_schema": 86058,
+        "interfaces": 11958,
+        "mcp_contracts": 65682
+      },
+      "empty_responses": 0,
+      "whitespace_only_responses": 0,
+      "whitespace_heavy_responses": 0
+    },
+    "construction_draft": {
+      "logical_requests": 3,
+      "physical_attempts": 3,
+      "input_tokens": 37130,
+      "output_tokens": 2870,
+      "reasoning_tokens": 1536,
+      "elapsed_ms": "102848.3315",
+      "complete_request_bytes": {
+        "count": 3,
+        "p50": 44067,
+        "p95_nearest_rank": 59168,
+        "maximum": 59168
+      },
+      "input_estimates": {
+        "count": 3,
+        "p50": 14945,
+        "p95_nearest_rank": 19979,
+        "maximum": 19979
+      },
+      "components_serialized_bytes": {
+        "construction_context": 14069,
+        "diagnostics": 78,
+        "envelope": 1321,
+        "evidence": 8046,
+        "fragment": 66,
+        "instructions": 3210,
+        "interfaces": 2689,
+        "mcp_contracts": 33166,
+        "objective": 1445,
+        "requirements": 24473,
+        "response_schema": 56338
+      },
+      "empty_responses": 0,
+      "whitespace_only_responses": 0,
+      "whitespace_heavy_responses": 0
+    }
+  },
+  "known_run_cost_eur": "1.70552878179384203480589024",
+  "retained_http500_unknown_usage_reservation_eur": "1.08871932173136992414100848",
+  "campaign_snapshot": {
+    "campaign": "schema-portability-20261019-incremental",
+    "ceiling_eur": "540.0301038327063045424449473",
+    "known_cost_eur": "298.11642197094905288383011583",
+    "reserved_unknown_cost_eur": "100.43110430287160669098979527",
+    "cost_upper_bound_eur": "398.54752627382065957481991110",
+    "available_eur": "141.48257755888564496762503620",
+    "permanent_closures": 44,
+    "unresolved": 0,
+    "evidence_hash": "be480cb87be683527e609f35be7b976dbb4b6a436a7b150fdf97ac9f953a0838"
+  },
+  "retained_evidence": {
+    "raw_and_requests_remain_private": true,
+    "terminal_safe_sha256": "0dfbb7e34d83b1ea4b121776100146de9627bade86c8e8d101d268c730d7bf0f",
+    "trajectory_sha256": "f0ada47a7f5179efa1b97c20e182126e75c2a5a73b99d4b227330edc7471efce",
+    "discovery_audit_sha256": "de95709fd858b08b5308d6d74d76216fa5e987dfe02e4b31d4f1e5411fb016ec"
+  },
+  "trajectory": [
+    "Calls1–6 indexed original clauses and dispositions.",
+    "Calls7–13 selected and drafted one exact pinned clone.",
+    "Calls14–21 selected and drafted toolchain observations using its accepted directory binding. cmd_run was alias-only; the original contract did not offer the requested version commands.",
+    "The call18 knowledge-bound description reread reproduced the same5114 characters/three pages. This establishes repeated original bytes, not a defect or matched saved-call claim.",
+    "Received call22 selected the cached operation for dependency installation and declared checks. Its prospective draft23 exceeded input admission and was never dispatched."
+  ],
+  "limits": [
+    "No artifact or execution was produced; technical checkpoints do not establish fulfilled business obligations.",
+    "No Judge ran, so this failure cannot establish Judge quality or review-call savings.",
+    "HTTP500 was durably recorded and followed by an eligible successful journaled retry. Its failed-attempt reservation remains unknown usage. No receiptless logical identity was replayed.",
+    "Campaign allowance is a terminal snapshot, not a future spending guarantee.",
+    "The undispatched instruction-only2a3 arm is separate; this run used664 throughout."
+  ]
+}

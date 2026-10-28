@@ -40,6 +40,13 @@ semantic preflight against original contracts, permissions and provenance. Inval
 candidates never replace accepted state. Checkpointing establishes technical acceptance,
 not business fulfillment.
 
+Draft admission pages optional output directories before discarding whole original
+clauses. A selected operation and a producer sharing the same exact contract share
+one directory anchor; fitting that anchor retains every consumed port and complete
+schema view. Continuations use the first omitted original coordinate. Explicitly
+retrieved evidence, producer arguments and mandatory constraints remain unchanged.
+If only mandatory context remains and cannot fit, construction stops before dispatch.
+
 ## Generation and judgment have different boundaries
 
 Several generated fragments may form one coherent business block. Empty openings,

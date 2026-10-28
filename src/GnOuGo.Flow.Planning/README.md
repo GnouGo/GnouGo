@@ -21,6 +21,10 @@ technical checkpoints with business review pending. Empty controls and uncalled 
 definitions do not create a business block. These checkpoints grant no reviewed
 continuation or boundary authority; the final global review still covers every obligation.
 
+Optional draft port directories can be paged through shared contract anchors without
+removing consumed schema closures. Exact original coordinates remain retrievable;
+an oversized mandatory core still fails admission before dispatch.
+
 The Judge receives only faithful decision-relevant behavior and original business
 semantics. Full contract schemas remain host-validated and retrievable. The response is
 one strict `ok`, `needs_change` or `needs_context` decision. Program-owned receipts,

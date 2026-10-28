@@ -147,6 +147,97 @@ public sealed class CompactContractEvidenceFlowTests
         Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
     }
 
+    [Fact]
+    public async Task SharedOutputDirectoryFitsIterativelyWithoutLosingConsumedOrRequestedOriginals()
+    {
+        var (state, _) = await Ready();
+        var capability = state.Discovery.Resolved[0];
+        capability.InputSchema["required"] = new JsonArray("target");
+        capability.OutputSchema["properties"] = new JsonObject();
+        for (var index = 0; index < 16; index++)
+            capability.OutputSchema["properties"]!["result" + index.ToString("D2")] = new JsonObject { ["type"] = "string" };
+        capability.OutputSchema["properties"]!["result15"] = JsonNode.Parse("""
+            {"type":["array","null"],"description":"Exact original records, or null when unavailable.",
+             "items":{"$ref":"#/$defs/record"}}
+            """);
+        capability.OutputSchema["$defs"] = JsonNode.Parse("""
+            {"record":{"type":"object","properties":{"identity":{"type":"string","pattern":"^EXACT$"}},
+              "required":["identity"],"additionalProperties":false}}
+            """);
+        capability.OutputSchema["required"] = new JsonArray("result00", "result15");
+        state.Catalog!.Capabilities.Add(capability);
+        state.Catalog.AllowedStepTypes.Add("set");
+        state.Plan = new() { Root = new() { Tasks = [new() { Id = "producer", Kind = "operation", Operation = "read",
+            Objective = "Read the exact authorized original.", Inputs = [new("target", new() { Kind = "string", Text = "EXACT" })] }] } };
+        var step = state.Construction!.Compact!.CurrentStep!;
+        step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        step.InputTaskIds = ["producer"];
+        step.Inputs = [new() { Kind = "output", Source = "producer", Port = "result00" },
+            new() { Kind = "output", Source = "producer", Port = "result15" }];
+        const string exact = "schema:read@v1:/output/properties/result15";
+        state.Construction.Evidence = new() { [exact] = PlanningCompactConstruction.LoadContractEvidence(state, exact) };
+        var requestedOriginal = state.Construction.Evidence.ToJsonString();
+        SetLimit(32000);
+        var full = PlanningConstruction.DraftRequest(state, false);
+        var originalContext = Context(full);
+        Assert.Equal(16, originalContext["operations"]![0]!["outputs"]!.AsArray().Count);
+        Assert.Contains(originalContext["interfaces"]![0]!["producers"]![0]!["contract"]!["sharedContractMetadata"]!["fields"]!.AsArray(),
+            field => field!.ToString() == "outputs");
+        SetLimit(512);
+        var core = PlanningConstruction.DraftRequest(state, false);
+        var limit = checked((int)Measure(core).EstimatedInputTokens + 100);
+        SetLimit(limit);
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var fitted = PlanningConstruction.DraftRequest(state, false);
+        var context = Context(fitted);
+        var selected = context["operations"]![0]!;
+        Assert.InRange(Measure(fitted).EstimatedInputTokens, 1, limit);
+        Assert.InRange(selected["outputs"]!.AsArray().Count, 2, 7); // Requires refinement below the initial eight-row page.
+        Assert.Equal(16, selected["outputCount"]!.GetValue<int>());
+        foreach (var name in new[] { "result00", "result15" })
+            Assert.Contains(selected["outputs"]!.AsArray(), row => row!["name"]!.ToString() == name);
+        Assert.True(JsonNode.DeepEquals(originalContext["interfaces"], context["interfaces"]));
+        Assert.True(JsonNode.DeepEquals(originalContext["evidence"], context["evidence"]));
+        Assert.Equal(requestedOriginal, state.Construction.Evidence.ToJsonString());
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        Assert.Equal(fitted.Prompt, PlanningConstruction.DraftRequest(PlannerFixture.Clone(state), false).Prompt);
+        Assert.Equal(Measure(fitted).CompleteRequestBytes, Measure(fitted).Components.Sum(component => component.SerializedBytes));
+
+        var originals = originalContext["operations"]![0]!["outputs"]!.AsArray().ToDictionary(row => row!["name"]!.ToString());
+        var recovered = selected["outputs"]!.AsArray().ToDictionary(row => row!["name"]!.ToString());
+        var firstOmitted = originals.Keys.Select((name, index) => (name, index)).First(item => !recovered.ContainsKey(item.name)).index;
+        Assert.Equal("port-page:read@v1:/output:" + firstOmitted, selected["nextPorts"]!.ToString());
+        string? next = selected["nextPorts"]!.ToString();
+        Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(DraftAction(context, evidence: next), fitted.StructuredOutputSchema!));
+        while (next is not null)
+        {
+            var page = PlanningCompactConstruction.LoadContractEvidence(state, next, recordSchemaSelection: false)!;
+            foreach (var row in page["items"]!.AsArray()) recovered[row!["name"]!.ToString()] = row;
+            next = page["next"]?.ToString();
+        }
+        Assert.Equal(16, recovered.Count);
+        Assert.All(originals, pair => Assert.True(JsonNode.DeepEquals(pair.Value, recovered[pair.Key])));
+        SetLimit(512);
+        var construction = JsonSerializer.Serialize(state.Construction, PlanningJsonContext.Default.PlanningConstructionState);
+        var calls = state.ModelCalls;
+        var rejected = Assert.Throws<PlanningResponseException>(() => PlanningConstruction.LoadEvidence(state, [selected["nextPorts"]!.ToString()],
+            followup: current => PlanningConstruction.DraftRequest(current, false), purpose: PlanningConstruction.DraftPurpose));
+        Assert.Contains(rejected.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_EVIDENCE_LIMIT");
+        Assert.Equal(construction, JsonSerializer.Serialize(state.Construction, PlanningJsonContext.Default.PlanningConstructionState));
+        Assert.Equal(calls, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+
+        PlanningRequestMeasurement Measure(LLMRequest request) => PlanningRequestMeasurements.Measure(PlanningModelCalls.PrepareRequest(state,
+            PlanningConstruction.DraftPurpose, request.Prompt, request.StructuredOutputSchema!.AsObject(), state.Construction!.Limits.DraftOutputTokens),
+            PlanningConstruction.DraftPurpose, PlanningConstructionInputPolicy.EffectiveLimit(state.Request, PlanningConstruction.DraftPurpose));
+        void SetLimit(int maximum)
+        {
+            state.Request.Generation.MaxInputTokensPerRequest = maximum;
+            state.Request.Options["construction_limits"]!["phasePolicy"]!["draft"]!["maxInputTokens"] = maximum;
+            state.Request.Options["construction_limits"]!["phasePolicy"]!["draft"]!["targetInputTokens"] = Math.Min(1000, maximum);
+        }
+    }
+
     [Theory]
     [InlineData("id")]
     [InlineData("version")]
