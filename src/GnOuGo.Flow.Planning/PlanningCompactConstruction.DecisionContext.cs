@@ -23,7 +23,7 @@ internal static partial class PlanningCompactConstruction
                 request.StructuredOutputSchema!.AsObject(), state.Construction!.Limits.DraftOutputTokens)) <=
             PlanningConstructionInputPolicy.EffectiveLimit(state.Request, purpose)) return Display(request);
 
-        if (purpose == SelectPurpose && State(state).PresentationVersion == 11)
+        if (State(state).PresentationVersion == 11 && purpose is SelectPurpose or PlanningConstruction.DraftPurpose or "replan")
         {
             var fitted = Display(request);
             if (ModelRequestAdmission.EstimateTokens(PlanningModelCalls.PrepareRequest(state, purpose, fitted.Prompt,
@@ -58,7 +58,8 @@ internal static partial class PlanningCompactConstruction
             if (purpose == SelectPurpose && State(state).PresentationVersion == 11)
                 return FitSelectionNavigation(state, instructions, displayed);
             if (State(state).PresentationVersion == 11 && purpose is PlanningConstruction.DraftPurpose or "replan")
-                displayed = CompactSelectedProducerContractMetadata(displayed);
+                return FitDraftNavigation(state, instructions, CompactSelectedProducerContractMetadata(displayed),
+                    chosen.StructuredOutputSchema!.AsObject(), purpose);
             if (!ReferenceEquals(displayed, context)) chosen.Prompt = instructions + "\n" + PlanningJsonTransport.Prompt(displayed);
             return chosen;
         }
@@ -112,7 +113,75 @@ internal static partial class PlanningCompactConstruction
                 }
             }
         }
+        foreach (var (operation, index) in operations.Select((operation, index) => (operation, index)))
+        {
+            if (operation is not JsonObject selected) continue;
+            var compact = selected.DeepClone().AsObject();
+            CompactProducerSchemaMetadata(compact, shareConstraints: true);
+            if (Encoding.UTF8.GetByteCount(compact.ToJsonString()) >= Encoding.UTF8.GetByteCount(selected.ToJsonString())) continue;
+            displayed ??= context.DeepClone().AsObject();
+            displayed["operations"]![index] = compact;
+        }
         return displayed ?? context;
+    }
+
+    private static LLMRequest FitDraftNavigation(PlanningSession state, string instructions, JsonObject initial, JsonObject schema, string purpose)
+    {
+        var page = initial.DeepClone().AsObject();
+        var request = Render(page);
+        var limit = PlanningConstructionInputPolicy.EffectiveLimit(state.Request, purpose);
+        var reviewHeadroom = RequiredReviewCalls(state);
+        var measurement = Measure(request);
+        while (measurement.EstimatedInputTokens > limit)
+        {
+            (string Identity, JsonObject Page, LLMRequest Request, PlanningRequestMeasurement Measurement)? best = null;
+            var operations = page["operations"] as JsonArray ?? [];
+            for (var index = 0; index < operations.Count; index++)
+            {
+                if (operations[index] is not JsonObject operation || operation["outputs"] is not JsonArray outputs ||
+                    operation["outputsOmitted"] is not null || outputs.Count <= ContractDirectoryPageSize) continue;
+                // Consumed producer facts remain complete, including when their
+                // directory is shared with this operation. Only optional names
+                // on a selected operation are candidates for pagination.
+                var producers = (page["interfaces"] as JsonArray ?? []).SelectMany(row =>
+                    (row?["producers"] as JsonArray ?? []).OfType<JsonObject>());
+                if (producers.Any(producer => producer["contract"] is JsonObject contract &&
+                        new[] { "id", "version", "hash" }.All(key => JsonNode.DeepEquals(contract[key], operation[key])))) continue;
+                var identity = ContractIdentity(operation["id"]!.ToString(), operation["version"]!.ToString());
+                var selected = (operation["selectedOutputs"] as JsonArray ?? []).OfType<JsonObject>()
+                    .Select(view => "schema:" + identity + ":" + view["pointer"]).ToHashSet(StringComparer.Ordinal);
+                var retained = outputs.Select((row, position) => (row, position)).Where(item =>
+                    item.position < ContractDirectoryPageSize || selected.Contains(item.row?["schema"]?.ToString() ?? "")).ToArray();
+                var omitted = Enumerable.Range(0, outputs.Count).FirstOrDefault(position => retained.All(item => item.position != position), outputs.Count);
+                if (omitted == outputs.Count) continue;
+                var probe = page.DeepClone().AsObject();
+                var target = probe["operations"]![index]!;
+                target["outputs"] = new JsonArray(retained.Select(item => item.row!.DeepClone()).ToArray());
+                target["outputsOmitted"] = outputs.Count - retained.Length;
+                target["nextPorts"] = "port-page:" + identity + ":/output:" + omitted.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                var proposed = Render(probe);
+                var measured = Measure(proposed);
+                if (measured.CompleteRequestBytes >= measurement.CompleteRequestBytes || best is { } prior &&
+                    (measured.CompleteRequestBytes > prior.Measurement.CompleteRequestBytes || measured.CompleteRequestBytes == prior.Measurement.CompleteRequestBytes &&
+                        string.CompareOrdinal(identity, prior.Identity) >= 0)) continue;
+                best = (identity, probe, proposed, measured);
+            }
+            if (best is not { } chosen) break;
+            page = chosen.Page; request = chosen.Request; measurement = chosen.Measurement;
+        }
+        // Remaining mandatory evidence is never clipped. Ordinary admission
+        // rejects it without changing saved evidence, cursors or settings.
+        return request;
+
+        LLMRequest Render(JsonObject displayed)
+        {
+            var response = schema.DeepClone().AsObject();
+            ConstrainDraftEvidence(state, displayed, response);
+            return Request(instructions, displayed, response, purpose);
+        }
+        PlanningRequestMeasurement Measure(LLMRequest candidate) => PlanningRequestMeasurements.Measure(PlanningModelCalls.PrepareRequest(state, purpose,
+            candidate.Prompt, candidate.StructuredOutputSchema!.AsObject(), state.Construction!.Limits.DraftOutputTokens,
+            requiredReviewCalls: reviewHeadroom), purpose, limit);
     }
 
     private static LLMRequest FitSelectionNavigation(PlanningSession state, string instructions, JsonObject initial)

@@ -10,6 +10,104 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CompactContractEvidenceFlowTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DraftAdmissionPagesOnlyOptionalPortsAndPreservesSelectedOriginalClosures(bool correction)
+    {
+        var (state, _) = await Ready();
+        state.Construction!.Compact!.PresentationVersion = 11;
+        state.Request.Options["construction_presentation_version"] = 11;
+        var capability = state.Discovery.Resolved[0];
+        for (var index = 12; index < 40; index++)
+            capability.OutputSchema["properties"]!["result" + index] = new JsonObject { ["type"] = "string" };
+        capability.OutputSchema["properties"]!["result9"] = new JsonObject
+        {
+            ["type"] = new JsonArray("array", "null"), ["description"] = "Only records returned by this exact authorized read, or null when unavailable.",
+            ["items"] = new JsonObject { ["$ref"] = "#/$defs/record" }
+        };
+        capability.OutputSchema["$defs"] = new JsonObject { ["record"] = new JsonObject
+            { ["type"] = "object", ["properties"] = new JsonObject { ["identity"] = new JsonObject { ["type"] = "string", ["pattern"] = "^EXACT$" } },
+                ["required"] = new JsonArray("identity"), ["additionalProperties"] = false } };
+        capability.OutputSchema["required"] = new JsonArray("result0", "result9");
+        foreach (var port in new[] { "result0", "result9" })
+            state.Construction.Compact.CurrentStep!.SchemaPointers.Add("schema:read@v1:/output/properties/" + port);
+        var originals = state.Construction.Compact.CurrentStep!.SchemaPointers.ToDictionary(address => address,
+            address => PlanningCompactConstruction.LoadContractEvidence(state, address, recordSchemaSelection: false)!.ToJsonString());
+        var purpose = correction ? "replan" : PlanningConstruction.DraftPurpose;
+        SetLimit(32000);
+        var full = PlanningConstruction.DraftRequest(state, correction);
+        var fullPrepared = Prepare(full);
+        var maximum = checked((int)PlanningRequestMeasurements.Measure(fullPrepared, purpose, 32000).EstimatedInputTokens - 1);
+        Assert.Equal(40, Context(full)["operations"]![0]!["outputs"]!.AsArray().Count);
+        SetLimit(maximum);
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var paged = PlanningConstruction.DraftRequest(state, correction);
+        var context = Context(paged);
+        var operation = context["operations"]![0]!.AsObject();
+        Assert.InRange(PlanningRequestMeasurements.Measure(Prepare(paged), purpose, maximum).EstimatedInputTokens, 1, maximum);
+        Assert.InRange(operation["outputs"]!.AsArray().Count, 8, 9);
+        Assert.Equal(40, operation["outputCount"]!.GetValue<int>());
+        Assert.Contains(operation["outputs"]!.AsArray(), row => row!["name"]!.ToString() == "result9");
+        Assert.Equal(capability.Description, operation["description"]!.ToString());
+        var firstOmitted = Context(full)["operations"]![0]!["outputs"]!.AsArray().Select((row, index) => (row, index))
+            .First(item => !operation["outputs"]!.AsArray().Any(row => row!["name"]!.ToString() == item.row!["name"]!.ToString())).index;
+        Assert.Equal("port-page:read@v1:/output:" + firstOmitted, operation["nextPorts"]!.ToString());
+        var addresses = PlanningCompactConstruction.NavigationEvidence([context["operations"]]);
+        Assert.Contains(operation["nextPorts"]!.ToString(), addresses);
+        Assert.Contains(operation["nextPorts"]!.ToString(), paged.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
+        var directory = PlanningCompactConstruction.LoadContractEvidence(state, operation["nextPorts"]!.ToString())!;
+        Assert.Equal(firstOmitted, directory["offset"]!.GetValue<int>());
+        foreach (var view in operation["selectedOutputs"]!.AsArray().OfType<JsonObject>())
+        {
+            var expanded = view.DeepClone().AsObject();
+            foreach (var key in new[] { "id", "version", "hash" }) expanded[key] = operation[key]!.DeepClone();
+            if (operation["selectedSchemaView"] is { } description) expanded["view"] = description.DeepClone();
+            foreach (var pair in operation["selectedOutputsSharedSchemaMetadata"]!.AsObject()) expanded[pair.Key] = pair.Value!.DeepClone();
+            Assert.True(JsonNode.DeepEquals(JsonNode.Parse(originals["schema:read@v1:" + view["pointer"]]), expanded));
+        }
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        Assert.Equal(paged.Prompt, PlanningConstruction.DraftRequest(PlannerFixture.Clone(state), correction).Prompt);
+        SetLimit(512);
+        var rejected = PlanningConstruction.DraftRequest(state, correction);
+        Assert.True(PlanningRequestMeasurements.Measure(Prepare(rejected), purpose, 512).EstimatedInputTokens > 512);
+        Assert.Equal(operation["selectedOutputs"]!.ToJsonString(), Context(rejected)["operations"]![0]!["selectedOutputs"]!.ToJsonString());
+
+        LLMRequest Prepare(LLMRequest request) => PlanningModelCalls.PrepareRequest(state, purpose,
+            request.Prompt, request.StructuredOutputSchema!.AsObject(), state.Construction.Limits.DraftOutputTokens);
+        void SetLimit(int limit)
+        {
+            state.Request.Generation.MaxInputTokensPerRequest = limit;
+            state.Request.Options["construction_limits"]!["phasePolicy"]!["draft"]!["maxInputTokens"] = limit;
+            state.Request.Options["construction_limits"]!["phasePolicy"]!["draft"]!["targetInputTokens"] = Math.Min(1000, limit);
+        }
+    }
+
+    [Theory]
+    [InlineData(10)]
+    [InlineData(11)]
+    public async Task AdmissionDoesNotPageConsumedProducerFactsOrHistoricalDrafts(int version)
+    {
+        var (state, _) = await Ready();
+        state.Construction!.Compact!.PresentationVersion = version;
+        state.Request.Options["construction_presentation_version"] = version;
+        state.Catalog!.Capabilities.Add(state.Discovery.Resolved[0]);
+        state.Catalog.AllowedStepTypes.Add("set");
+        state.Plan = new() { Root = new() { Tasks = [new() { Id = "producer", Kind = "operation", Operation = "read",
+            Objective = "Read the exact authorized original.", Inputs = [new("target", new() { Kind = "string", Text = "EXACT" })] }] } };
+        state.Construction.Compact.CurrentStep!.BaseHash = PlanningConstruction.Hash(state.Plan);
+        state.Construction.Compact.CurrentStep.Inputs = [new() { Kind = "output", Source = "producer", Port = "result9" }];
+        var full = PlanningConstruction.DraftRequest(state, false);
+        state.Request.Generation.MaxInputTokensPerRequest = 512;
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var rejected = PlanningConstruction.DraftRequest(state, false);
+        Assert.Equal(Context(full)["operations"]![0]!["outputs"]!.ToJsonString(), Context(rejected)["operations"]![0]!["outputs"]!.ToJsonString());
+        Assert.Equal(Context(full)["interfaces"]!.ToJsonString(), Context(rejected)["interfaces"]!.ToJsonString());
+        Assert.True(PlanningRequestMeasurements.Measure(PlanningModelCalls.PrepareRequest(state, PlanningConstruction.DraftPurpose,
+            rejected.Prompt, rejected.StructuredOutputSchema!.AsObject()), PlanningConstruction.DraftPurpose, 512).EstimatedInputTokens > 512);
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+    }
+
+    [Theory]
     [InlineData(10)]
     [InlineData(11)]
     public async Task DraftSharesOnlyIdenticalSelectedContractMetadataAndKeepsConsumedClosures(int version)

@@ -30,6 +30,8 @@ flowchart LR
 
 During discovery, selected producer outputs are provisional navigation bindings. Their compiler-resolved nullable interfaces, exact accepted arguments, full original operation and top-level port descriptions, and bound-input schema constraints remain visible. Nested schema annotations and constraints remain exact through retrieval and the full draft/review closures. Automatic selected-output schema closures may be deferred through the exact existing schema/page links; explicitly retrieved originals remain intact. Draft and scoped review still include the complete selected original closures for actual consumers. Discovery grants no task, permission, or acceptance authority.
 
+Fresh version-11 draft and correction requests also share byte-identical embedded schema metadata under the exact selected contract. If the complete request still exceeds its captured ceiling, optional output-name navigation uses the existing eight-port page, retaining explicitly selected ports and a link to the first omitted port. Evidence choices come from that displayed page. Consumed producer directories and explicitly retrieved evidence remain complete; indivisible mandatory context still stops admission. These reductions change neither stored contracts nor execution authority.
+
 ## Window-specific review evidence (presentation revision 11)
 
 Each proposed source window derives its caller declarations from that window's

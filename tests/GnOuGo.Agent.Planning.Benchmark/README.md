@@ -1436,6 +1436,13 @@ new read. Judge evidence addresses remain distinct from finding JSON Pointers;
 bare producer IDs are still inconclusive. Compare complete serialized
 requests, including content-address overhead and the issued compatibility schema;
 a smaller individual component does not establish complete-request admission.
+Label read-only reconstructions from stopped state as structural measurements when
+the original prospective payload was never issued. Preserve that distinction from
+exact issued-request replay. Fresh revision-11 drafting can factor identical schema
+metadata and page optional output names before rejecting mandatory evidence; selected
+closures, explicit evidence and consumed producer facts remain intact. Record the
+complete request and its emitted evidence domain after projection, with unchanged
+settings. A measured admission improvement is not a runtime success.
 Recorded failures and accounting for Amazon, Collections and Review PR are in the
 [convergence summary](../../docs/evidence/compact-taskplan-convergence.md), which links
 immutable earlier diagnostic records. The e6b snapshot adds
