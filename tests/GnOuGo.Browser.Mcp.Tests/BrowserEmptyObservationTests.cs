@@ -265,6 +265,9 @@ public sealed class BrowserEmptyObservationTests
         {
             ObservationCheckpoint = (_, _, token) => { cancelled.Cancel(); token.ThrowIfCancellationRequested(); return Task.CompletedTask; }
         };
+        // Keep cold browser startup outside the acquisition whose cancellation is under test.
+        await host.GetContentAsync(site.Url + "warmup", "load", null, null, "html", null, false, ct);
+        site.Calls.Clear();
         var error = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => host.GetContentAsync(site.Url, "load", 5000, null,
             "observation_complete", null, false, cancelled.Token));
         var result = BrowserToolFailure.Content(site.Url, null, "observation_complete", error);

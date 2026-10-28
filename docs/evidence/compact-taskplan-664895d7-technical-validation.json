@@ -1,0 +1,187 @@
+{
+  "evidence_version": 1,
+  "source_revision": "664895d790ee8572c76ac36b70629a7eac9e9eeb",
+  "scope": "Technical validation only. No live business qualification claimed.",
+  "source_capture": {
+    "method": "immutable git archive; private outputs",
+    "manifest_sha256": "88da126a807c3c77e91b9a6dde4936ed451be5db96251beb2f7067009a235dc2",
+    "tracked_files": 4735,
+    "tracked_files_unchanged": true,
+    "pinned_otlp_inputs": 9,
+    "pinned_otlp_inputs_unchanged": true
+  },
+  "independent_publication": {
+    "warnings_as_errors": true,
+    "all_stages_passed": true,
+    "compiler_and_linker_warnings": 0,
+    "packages": [
+      {
+        "name": "GnOuGo.Flow.Copilot.1.0.0.nupkg",
+        "bytes": 11013,
+        "sha256": "1764c67a0e9ec9b081c65805a803eba88c41d619c7ff0d32a157e90d220f74c9",
+        "repository_commit": "664895d790ee8572c76ac36b70629a7eac9e9eeb"
+      },
+      {
+        "name": "GnOuGo.Flow.Core.1.0.0.nupkg",
+        "bytes": 737275,
+        "sha256": "c60f5b493ce9b0ccab3125b3746b029e346cec67cc99d3d81a93bc629115a979",
+        "repository_commit": "664895d790ee8572c76ac36b70629a7eac9e9eeb"
+      },
+      {
+        "name": "GnOuGo.Flow.Integrations.1.0.0.nupkg",
+        "bytes": 59868,
+        "sha256": "9d609cec522cec07894ea55ec252e07fb497dab30b9b91bf492f1a37c9e37bbe",
+        "repository_commit": "664895d790ee8572c76ac36b70629a7eac9e9eeb"
+      },
+      {
+        "name": "GnOuGo.Flow.Persistence.1.0.0.nupkg",
+        "bytes": 50198,
+        "sha256": "a7e2fe1bff09934b9c1361c6f6cd6c2bda0e414c9bf8c80e54d3498c4f544b86",
+        "repository_commit": "664895d790ee8572c76ac36b70629a7eac9e9eeb"
+      },
+      {
+        "name": "GnOuGo.Flow.Planning.1.0.0.nupkg",
+        "bytes": 587863,
+        "sha256": "ab3b0ccb76ebc982bdd09c7d462906be9ceff23c3bfa0641225968efe816a7cb",
+        "repository_commit": "664895d790ee8572c76ac36b70629a7eac9e9eeb"
+      }
+    ],
+    "native_planning_smoke": {
+      "actual_execution": true,
+      "format": "Mach-O 64-bit executable arm64",
+      "runtimeconfig_present": false
+    },
+    "published_server_checks": [
+      "format11 encrypted planning and session storage",
+      "tenant isolation and retired-format rejection without mutation",
+      "exact saved current HTTP request and receipt recovery",
+      "cumulative physical accounting",
+      "current global review receipt recovery",
+      "mapping and schema9 runtime receipt recovery"
+    ],
+    "artifacts": {
+      "GnOuGo.Flow.Planning.Smoke": {
+        "bytes": 34178632,
+        "sha256": "a4c5373145c9d03b4382baffa33c4399605b143231eec615f531118821dd9eb5"
+      },
+      "GnOuGo.Agent.Server": {
+        "bytes": 71248436,
+        "sha256": "f19b57150038cdedd861b2d8076c9bba1c70d8dff50e1f72f233a535af07e5f9"
+      }
+    },
+    "summary_sha256": "77b2560fd292afd764eeb949ae5ff88d72791a981c453768d94b89eff69c38fe",
+    "paid_calls": 0,
+    "operational_workspace_access": false
+  },
+  "ci": {
+    "head": "664895d790ee8572c76ac36b70629a7eac9e9eeb",
+    "planner": {
+      "run": 40736347663,
+      "conclusion": "failure",
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/40736347663",
+      "passed_components": {
+        "Mcp.Core": 49,
+        "Browser.Mcp": 141
+      },
+      "failed_components": {
+        "Browser.Mcp": 1
+      },
+      "failed_test": "BrowserEmptyObservationTests.DirectHostCancellationKeepsItsExceptionContractAndAcquisitionEvidence",
+      "expected": "OperationCanceledException",
+      "actual": "BrowserObservationException: Complete snapshot acquisition exceeded its shared timeout during startup.",
+      "limit_under_test_ms": 5000,
+      "remaining_steps": "Planning/host tests, packages and workflow smokes not reached after Browser failure.",
+      "log_sha256": "594324545fff12ccca37d020f2f9b2988475254ce5294c43a120fad9602443a0"
+    },
+    "proxy_standalone": {
+      "run": 40736347810,
+      "conclusion": "success"
+    },
+    "proxy_native_aot": {
+      "run": 40736347595,
+      "conclusion": "success",
+      "platforms": 6
+    },
+    "reruns_requested": 0
+  },
+  "earlier_validation_attribution": {
+    "exact_a765_ci": {
+      "revision": "a7653f780ffe5dac59e5b1652d408576e1374d9c",
+      "run": 40725191024,
+      "conclusion": "cancelled_superseded_not_passed",
+      "component_passes": {
+        "Planning": 2222,
+        "Integrations": 103,
+        "Browser.Mcp": 142
+      },
+      "received_failures": "Three MappingProbe static compiler fixtures incorrectly expected approval without incremental/global review; preserved and corrected in test-only ada26848."
+    },
+    "mapping_probe_correction": {
+      "revision": "ada26848ee77ac7a65c8db5317a939ec7b7f9a1a",
+      "test_cases_passed": 6,
+      "warnings_as_errors": true,
+      "production_changed": false,
+      "behavior": "Compiled graphs remain technically valid with no planning inference; unreviewed artifacts remain unapprovable and unchanged."
+    },
+    "working_tree_checks": {
+      "Planning": 2209,
+      "Integrations": 103,
+      "focused_business_projection": 77,
+      "attribution": "Older precommit working-tree checks, not independently pinned. Targeted and full results overlap and are not added."
+    },
+    "superseded_planner_cancellations": [
+      40718527366,
+      40720488938,
+      40725191024,
+      40727526432
+    ],
+    "prior_ada_proxy_capacity_failure": {
+      "run": 40727526364,
+      "conclusion": "failure",
+      "failed_job": 122954696206,
+      "platform": "osx-arm64",
+      "runner_id": 0,
+      "steps": [],
+      "annotation": "The job was not acquired by Runner of type hosted even after multiple attempts",
+      "other_platforms_passed": 5,
+      "rerun_requested": false
+    }
+  },
+  "full_solution": {
+    "status": "incomplete",
+    "attempts": [
+      {
+        "record": "first superseded development run",
+        "stopped_at": "Unreproduced Browser worker wait",
+        "result": "Authorized cancellation; later same-DLL Browser diagnostic passed142, not a solution pass."
+      },
+      {
+        "record": "second superseded a765+Mapping development run",
+        "completed_module_suites": 10,
+        "stopped_at": "Agent.Server tests",
+        "result": "Authorized superseded cancellation; no Agent.Server or full-solution pass. Exact old test-worker cleanup retained privately."
+      }
+    ]
+  },
+  "retirement_delta": {
+    "revision": "d2aa76f7e0fd7c75c4f703eac2486855c0b26025",
+    "comparison": "parent..d2aa76f7, all tracked files under src including project metadata/docs",
+    "source_files_changed": 89,
+    "lines_added": 1766,
+    "lines_removed": 7820,
+    "net_lines": -6054,
+    "deleted_production_files": 11,
+    "deleted_test_files": 65,
+    "retired": [
+      "Optional/monolithic Judge and whole-proposal schemas/prompts",
+      "Proposition/window/conservation engine and old citation grammar",
+      "Duplicate input limits and implicit whole-plan test adapters"
+    ]
+  },
+  "limitations": [
+    "This source does not have a successful full-solution run or successful Planner CI.",
+    "Publication smokes and simulated-model tests are distinct from live model/runtime business acceptance.",
+    "Two intervention-free successful executions per scenario on one source remain a separate live gate.",
+    "No failed or cancelled workflow is counted as an overall pass."
+  ]
+}
