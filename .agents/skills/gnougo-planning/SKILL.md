@@ -17,7 +17,7 @@ Recover issued work before selecting another action. Automate exact contract ret
 
 ## Context and contracts
 
-Retain complete authoritative intent and explicit interface dispositions. Resolve neighboring naming and type clauses before clarification. Do not invent missing types or defaults. Every required source must resolve before completion.
+Retain complete authoritative intent and explicit interface dispositions. Operation metadata describes contracts; it is not an executed observation or producer result. Resolve neighboring naming and type clauses before clarification. Do not invent missing types or defaults. Every required source must resolve before completion.
 
 Generation addresses the immediate business action with exact consumed bindings, original producer arguments and necessary schema closures. Preserve nullable values, required siblings, alternatives, references and normative constraints. Page optional navigation and retrieve exact originals rather than silently truncating mandatory evidence. Keep cached operation identities, original descriptions and exact retrieval links visible across accepted steps. Cached metadata does not make a new provider query complete or grant contract or execution authority. Task completion (`present`) differs from input or field nullability.
 

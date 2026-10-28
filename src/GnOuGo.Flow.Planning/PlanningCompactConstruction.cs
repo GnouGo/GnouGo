@@ -15,7 +15,7 @@ internal static partial class PlanningCompactConstruction
         return HybridWorkflowPlanner.NeedsBusinessReview(state, candidate) && !candidate.BusinessReviewed ? 2 : 1;
     }
 
-    internal const string TransformSemantics = "transform extract preserves observed facts; interpret uses the configured runtime LLM to derive typed data from supplied inputs under its objective, without a separate expression. Neither supplies unobserved external facts or performs external actions.";
+    internal const string TransformSemantics = "transform extract preserves observed facts; eligible interpret derives typed data from supplied inputs using the configured runtime LLM, without a utility MCP or separate expression. Operation metadata establishes contracts, not executed producer results. Obtain missing external facts through authorized observations. Neither mode invents external facts or performs external actions.";
     internal const string ReusableGroupSemantics = "group declares a named reusable subworkflow with isolated inputs and explicit exports; call invokes that closed group. A control's inline body is not a callable group, even when compilation creates an internal workflow for it. Objectives and labels do not change these executable kinds. At closure, assess the actual contributing tasks and bindings against the original structural obligations.";
 
     private static readonly string[] TaskKinds = ["operation", "value", "transform", "sequence", "conditional", "parallel", "foreach", "call", "close", "group", "choice"];

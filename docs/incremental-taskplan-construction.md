@@ -27,6 +27,9 @@ accepting a checkpoint and selecting a different objective. Provider results rem
 bound to their own query; cached metadata does not establish query completeness,
 resolve a contract or authorize execution.
 Discover unknown capabilities for that action before fixing its implementation.
+Operation metadata describes contracts, not executed producer results. Existing eligible
+interpretation can derive typed data from supplied inputs without another utility MCP;
+missing external facts require authorized observation, preserving original permissions.
 A group declares reusable inputs/body/exports; a call invokes it. An inline loop body
 is not a reusable declaration. Preserve consumers waiting for exact prerequisites.
 
