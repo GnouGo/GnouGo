@@ -1577,3 +1577,12 @@ The focused source correction promotes that exact prerequisite to the immediate 
 
 
 Broader `acc10c07` validation exposed a null-catalog exception in the existing selection-admission fixture. The follow-up presents local eligibility only when a captured catalog exists; absence is unknown rather than a grant or denial. All 300 owning cases pass with warnings as errors, including unchanged choice domains and complete-request admission. No `acc10c07` paid cohort was dispatched. [Correction validation](compact-taskplan-v11-catalog-eligibility-validation.json).
+
+
+### Retained v11 live outcomes before prerequisite targeting
+
+Collections on `de905b24` received three HTTP 500 routing failures at request 2: two logical requests, four physical attempts, one receipt and no artifact or execution. Exact delegated permanent retention preserved the full €2.792610 unknown reservation; fresh-process replay and run-continuation guards pass. This is provider failure, not evidence of planner convergence or input exhaustion. [Source-bound outcome and request measurements](compact-taskplan-de905b24-collections-outcome.json).
+
+Amazon on `821f16a6` received all 29 logical responses across 30 attempts, using 165,917 provider input, 49,999 output and 43,373 reasoning tokens. Planning took 1,621,316 ms; known cost is €2.079032 plus the retained €0.930870 reservation from a failed attempt before success. One declaration checkpoint produced no executable task. Three reselections did not establish the missing prerequisite; the final implementation clarification is not a business success. The candidate focus correction is evaluated separately. [Outcome](compact-taskplan-821f16a6-amazon-outcome.json), [phase sizes and reconciled components](compact-taskplan-821f16a6-amazon-measurements.json).
+
+After these runs, the read-only campaign check found €254.793383 known cost and €83.255767 retained reservations, an upper bound of €338.049151 and €201.980953 available under the unchanged €540.030104 ceiling. These are dated observations, not future balance guarantees. No calls-per-success ratio or A/B efficiency claim is available when no business outcome succeeds.
