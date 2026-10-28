@@ -1,8 +1,5 @@
 @using GnOuGo.Flow.Core.Planning
-@if (Session.BusinessJudge)
-{
-    <p>Independent business review is enabled and shares this session's model allowance.</p>
-}
+<p>Business review is required and shares this session's model allowance.</p>
 @if (Session.ValidationResults.Any(r => r.Id.StartsWith("judge:", StringComparison.Ordinal)))
 {
     <details open aria-label="Business judge observations"><summary>Business judge observations</summary>
@@ -89,14 +86,6 @@ else if (Session.Status == PlanningStatus.Stopped && Session.Diagnostics.Any(d =
         @foreach (var operation in Session.ValidationResults.Where(r => r.Id.StartsWith("operation:", StringComparison.Ordinal)))
         { <li>@operation.Description</li> }
     </ul></details>
-}
-@if (Session.ValidationResults.Any(r => r.Id.StartsWith("outcome:", StringComparison.Ordinal)))
-{
-    <details open><summary>Historical outcome checks</summary>
-        <p>These retained checks used the previous planning contract. They do not establish execution success.</p>
-        <ul>@foreach (var outcome in Session.ValidationResults.Where(r => r.Id.StartsWith("outcome:", StringComparison.Ordinal)))
-        { <li>@outcome.Description</li> }</ul>
-    </details>
 }
 @if (Session.RevisionScope.Count > 0)
 {

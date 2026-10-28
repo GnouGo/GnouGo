@@ -15,6 +15,10 @@ public sealed class CompactRequestMeasurementTests
     [InlineData("originalDirectory", "intent")]
     [InlineData("existingInputs", "interfaces")]
     [InlineData("existingOutputs", "interfaces")]
+    [InlineData("inputs", "interfaces")]
+    [InlineData("groups", "interfaces")]
+    [InlineData("publicOutputs", "interfaces")]
+    [InlineData("actions", "fragment")]
     public void TargetedIntentEvidenceReconcilesWithinItsExistingComponent(string key, string component)
     {
         var context = new JsonObject { [key] = new JsonObject { ["id"] = "source:é", ["text"] = "Original \"declaration\" 🙂" } };
@@ -55,23 +59,23 @@ public sealed class CompactRequestMeasurementTests
         var state = new PlanningSession();
         PlanningBenchmarkMeasurements.ConfigureRequest(state.Request, ["--max-input-tokens", "2000"], retained: false);
         PlanningBenchmarkMeasurements.CaptureConstructionSettings(state);
-        var limits = state.Construction!.Limits.InputLimits!;
-        Assert.Equal(2000, limits.Selection);
-        Assert.Equal(2000, limits.Draft);
-        Assert.Equal(2000, limits.Review);
-        var saved = state.Request.Options["construction_input_limits"]!.ToJsonString();
+        var limits = state.Construction!.Limits.PhasePolicy!;
+        Assert.Equal(2000, limits.Navigation.MaxInputTokens);
+        Assert.Equal(2000, limits.Draft.MaxInputTokens);
+        Assert.Equal(2000, limits.Review.MaxInputTokens);
+        var saved = state.Request.Options["construction_limits"]!["phasePolicy"]!.ToJsonString();
         PlanningBenchmarkMeasurements.ConfigureRequest(state.Request, [], retained: true);
-        Assert.Equal(saved, state.Request.Options["construction_input_limits"]!.ToJsonString());
+        Assert.Equal(saved, state.Request.Options["construction_limits"]!["phasePolicy"]!.ToJsonString());
     }
 
     [Theory]
-    [InlineData("construction_intent", 3000)]
-    [InlineData("construction_select", 3000)]
-    [InlineData("construction_discovery", 3000)]
-    [InlineData("construction_draft", 8000)]
-    [InlineData("replan", 8000)]
-    [InlineData("construction_local_judge", 4000)]
-    [InlineData("construction_intermediate_judge", 4000)]
+    [InlineData("construction_intent", 6000)]
+    [InlineData("construction_select", 6000)]
+    [InlineData("construction_discovery", 6000)]
+    [InlineData("construction_draft", 16000)]
+    [InlineData("replan", 16000)]
+    [InlineData("construction_local_judge", 8000)]
+    [InlineData("construction_global_judge", 8000)]
     public void CapturedCompactPhaseLimitsCannotBeRaisedByGeneralAllowance(string phase, int expected)
     {
         var request = CompactRequest();
@@ -79,22 +83,11 @@ public sealed class CompactRequestMeasurementTests
         request.Generation.MaxInputTokensPerRequest = 1000;
         Assert.Equal(1000, PlanningConstructionInputPolicy.EffectiveLimit(request, phase));
         request.Generation.MaxInputTokensPerRequest = 128000;
-        request.Options["construction_input_limits"] = new JsonObject { ["selection"] = 9000, ["draft"] = 9000, ["review"] = 9000 };
         Assert.Equal(expected, PlanningConstructionInputPolicy.EffectiveLimit(request, phase));
-        request.Options["construction_input_limits"] = new JsonObject { ["selection"] = 700, ["draft"] = 700, ["review"] = 700 };
+        request.Generation.MaxInputTokensPerRequest = 700;
         Assert.Equal(700, PlanningConstructionInputPolicy.EffectiveLimit(request, phase));
     }
 
-    [Fact]
-    public void HistoricalRequestsRetainTheirAllowanceAndCompactUnknownPhasesFailClosed()
-    {
-        var historical = JsonSerializer.Deserialize("{}", PlanningJsonContext.Default.PlanningRequest)!;
-        Assert.Equal(8, historical.MaxModelCalls);
-        Assert.Equal(12000, PlanningConstructionInputPolicy.EffectiveLimit(historical, "old-purpose"));
-        var compact = CompactRequest();
-        Assert.Throws<PlanningConflictException>(() => PlanningConstructionInputPolicy.EffectiveLimit(compact, "old-purpose"));
-        Assert.Throws<PlanningConflictException>(() => PlanningConstructionInputPolicy.EffectiveLimit(compact, new LLMRequest()));
-    }
 
     [Fact]
     public void ComponentsPartitionExactEscapedEnvelopeAndDoNotChangeRequestOrApprovalIdentity()
@@ -159,17 +152,17 @@ public sealed class CompactRequestMeasurementTests
     [Fact]
     public async Task OversizedCompleteRequestIsMeasuredAndCheckpointedBeforeDispatchWithoutCharge()
     {
-        var state = new PlanningSession { Request = CompactRequest(), Construction = new() { Version = 2, Compact = new() } };
+        var state = new PlanningSession { Request = CompactRequest(), Construction = new() { Compact = new() } };
         var runtime = new TestRuntime();
         var schema = PlanningSchemas.Object(("value", PlanningSchemas.String()));
         var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => PlanningModelCalls.CallAsync(state, runtime,
-            "construction_select", new string('x', 9000), schema, PlannerFixture.Ct, 8192));
+            "construction_select", new string('x', 24000), schema, PlannerFixture.Ct, 8192));
         Assert.Equal("MODEL_INPUT_LIMIT", error.Code);
         Assert.Empty(runtime.Calls); Assert.Null(state.PendingCall); Assert.Equal(0, state.ModelCalls);
         var measurement = Assert.Single(state.RequestMeasurements!);
         Assert.Equal("rejected_before_dispatch", measurement.Admission);
-        Assert.Equal(3000, measurement.InputLimit);
-        Assert.True(measurement.EstimatedInputTokens > 3000);
+        Assert.Equal(6000, measurement.InputLimit);
+        Assert.True(measurement.EstimatedInputTokens > 6000);
         var run = new JsonObject { ["session"] = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession) };
         var phase = PlanningBenchmarkMeasurements.RequestMetrics(run)["phases"]!["construction_select"]!;
         Assert.Equal(1, phase["rejected_before_dispatch"]!.GetValue<int>());
@@ -233,11 +226,11 @@ public sealed class CompactRequestMeasurementTests
     [InlineData("construction_discovery", "operationIds")]
     [InlineData("construction_draft", "extension")]
     [InlineData("construction_local_judge", "findings")]
-    [InlineData("construction_intermediate_judge", "findings")]
+    [InlineData("construction_global_judge", "decision")]
     [InlineData("replan", "patch")]
     public async Task PendingRequestAndMeasurementRemainExactAcrossReceiptRecovery(string phase, string property)
     {
-        var state = new PlanningSession { Status = PlanningStatus.Generating, Phase = phase, Request = CompactRequest(), Construction = new() { Version = 2, Compact = new() } };
+        var state = new PlanningSession { Status = PlanningStatus.Generating, Phase = phase, Request = CompactRequest(), Construction = new() { Compact = new() } };
         var physicalCalls = 0;
         var receipts = new Dictionary<string, LLMResponse>(StringComparer.Ordinal);
         var runtime = new TestRuntime { Respond = (request, _) =>
@@ -262,7 +255,12 @@ public sealed class CompactRequestMeasurementTests
         Assert.Null(state.PendingCall);
     }
 
-    private static PlanningRequest CompactRequest() => new() { Options = new() { ["construction_version"] = 2 } };
+    private static PlanningRequest CompactRequest()
+    {
+        var state = new PlanningSession { Request = new() { Generation = new("medium", 32_000, 8_192) } };
+        PlanningSessionCreation.Capture(state);
+        return state.Request;
+    }
 
     [Theory]
     [InlineData("complete", "passed")]
@@ -275,7 +273,7 @@ public sealed class CompactRequestMeasurementTests
     [InlineData("business_failed", "failed")]
     [InlineData("rejected_request", "failed")]
     [InlineData("duplicate_measurement", "passed")]
-    [InlineData("legacy_phases", "passed")]
+    [InlineData("review_phases", "passed")]
     [InlineData("judge_regression", "failed")]
     [InlineData("generation_regression", "failed")]
     public void CompactComparisonPermitsMoreCallsButRequiresIndependentCompleteBusinessEvidence(string defect, string expected)
@@ -287,13 +285,13 @@ public sealed class CompactRequestMeasurementTests
             var draftLength = compact ? defect == "generation_regression" && name == "amazon" ? 6000 : 1000
                 : defect == "generation_regression" && name == "collections" ? 10000 : 5000;
             var measurement = PlanningRequestMeasurements.Measure(new LLMRequest { Prompt = new string('a', draftLength) },
-                !compact && defect == "legacy_phases" ? "tasks" : "construction_draft", compact ? 8000 : 32000);
+                "construction_draft", compact ? 8000 : 32000);
             measurement.Admission = "admitted";
             var measurements = new JsonArray(JsonSerializer.SerializeToNode(measurement, PlanningJsonContext.Default.PlanningRequestMeasurement));
-            if (defect is "legacy_phases" or "judge_regression")
+            if (defect is "review_phases" or "judge_regression")
             {
                 var judge = PlanningRequestMeasurements.Measure(new LLMRequest { Prompt = new string('j', compact ? defect == "judge_regression" && name == "amazon" ? 2000 : 500 : 1000) },
-                    compact ? "construction_local_judge" : "judge", compact ? 4000 : 32000);
+                    compact ? "construction_local_judge" : "construction_global_judge", compact ? 4000 : 32000);
                 judge.Admission = "admitted";
                 measurements.Add(JsonSerializer.SerializeToNode(judge, PlanningJsonContext.Default.PlanningRequestMeasurement));
             }
@@ -334,13 +332,13 @@ public sealed class CompactRequestMeasurementTests
         var draftPhase = report["candidate"]!["request_phases"]!["construction_draft"]!;
         Assert.Equal(after.Length, draftPhase["prepared_requests"]!.GetValue<int>());
         Assert.Equal(after.Length, draftPhase["requests"]!.GetValue<int>());
-        Assert.Equal(after.Length * (defect is "legacy_phases" or "judge_regression" ? 2 : 1), report["candidate"]!["request_count"]!.GetValue<int>());
+        Assert.Equal(after.Length * (defect is "review_phases" or "judge_regression" ? 2 : 1), report["candidate"]!["request_count"]!.GetValue<int>());
         var totalDraftBytes = after.Sum(row => row["request_metrics"]!["requests"]![0]!["completeRequestBytes"]!.GetValue<long>());
         Assert.Equal(totalDraftBytes,
             draftPhase["components"]!.AsObject().Sum(component => component.Value!["serialized_bytes"]!.GetValue<long>()));
         Assert.Equal(3, report["cases"]!["collections"]!["candidate"]!["request_phases"]!["construction_draft"]!["prepared_requests"]!.GetValue<int>());
         var judgeComparison = report["cases"]!["amazon"]!["phase_comparisons"]!["judge"]!;
-        Assert.Equal(defect == "judge_regression" ? "failed" : defect == "legacy_phases" ? "passed" : "not_comparable", judgeComparison["status"]!.ToString());
+        Assert.Equal(defect == "judge_regression" ? "failed" : defect == "review_phases" ? "passed" : "not_comparable", judgeComparison["status"]!.ToString());
         if (defect == "judge_regression")
         {
             Assert.True(report["peak_request_reduction"]!.GetValue<double>() > 0);
@@ -348,7 +346,7 @@ public sealed class CompactRequestMeasurementTests
             Assert.Equal("passed", report["cases"]!["collections"]!["phase_comparisons"]!["judge"]!["status"]!.ToString());
             Assert.Equal(4000, Assert.Single(judgeComparison["candidate_input_limits"]!.AsArray())!.GetValue<int>());
         }
-        if (defect == "legacy_phases")
+        if (defect == "review_phases")
             Assert.Equal("passed", report["cases"]!["amazon"]!["phase_comparisons"]!["generation"]!["status"]!.ToString());
         if (defect == "generation_regression")
         {

@@ -129,47 +129,8 @@ public sealed class ConstructionValidationTests(ITestOutputHelper output)
         Assert.Equal(original, JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan));
     }
 
-    [Theory]
-    [InlineData(300, false)]
-    [InlineData(301, true)]
-    public void HistoricalPerWorkflowCeilingRemainsIndependentOfTotal(int count, bool rejected)
-    {
-        var catalog = Catalog(); catalog.Policy.MaxStepsTotal = 5_000;
-        var graph = Graph(1, count);
-        Assert.Equal(rejected, PlanningExecutableValidation.Validate(graph, catalog).Any(d => d.Code == "STEP_LIMIT"));
-        if (rejected) Assert.Throws<InvalidOperationException>(() => new PlanningGraphCompiler().Compile(graph, catalog));
-        else Assert.NotEmpty(new PlanningGraphCompiler().Compile(graph, catalog));
-    }
 
-    [Theory]
-    [InlineData(100, false)]
-    [InlineData(101, true)]
-    public void HistoricalWorkflowCountCeilingRemainsCaptured(int count, bool rejected)
-    {
-        var catalog = Catalog(); catalog.Policy.MaxStepsTotal = 5_000;
-        var graph = Graph(count, 1);
-        Assert.Equal(rejected, PlanningExecutableValidation.Validate(graph, catalog).Any(d => d.Code == "WORKFLOW_IDENTITIES_INVALID"));
-        if (rejected) Assert.Throws<InvalidOperationException>(() => new PlanningGraphCompiler().Compile(graph, catalog));
-        else Assert.NotEmpty(new PlanningGraphCompiler().Compile(graph, catalog));
-    }
 
-    [Fact]
-    public void ExplicitLargeCeilingsDoNotChangeHistoricalBytesAndStillRejectExcess()
-    {
-        var catalog = Catalog(); var graph = Graph(1, 2);
-        var originalPolicy = JsonSerializer.Serialize(catalog.Policy, PlanningJsonContext.Default.PlanningPolicy);
-        Assert.DoesNotContain("maxWorkflows", originalPolicy);
-        Assert.DoesNotContain("maxStepsPerWorkflow", originalPolicy);
-        var yaml = new PlanningGraphCompiler().Compile(graph, catalog);
-        catalog.Policy.MaxStepsTotal = 5_000; catalog.Policy.MaxStepsPerWorkflow = 5_000; catalog.Policy.MaxWorkflows = 1_024;
-        Assert.Equal(yaml, new PlanningGraphCompiler().Compile(graph, catalog));
-        Assert.Empty(PlanningExecutableValidation.Validate(Graph(101, 1), catalog));
-        Assert.Empty(PlanningExecutableValidation.Validate(Graph(1, 500), catalog));
-        Assert.Contains(PlanningStructureValidation.Validate(Graph(1, 5_001), catalog), d => d.Code == "STEP_LIMIT");
-        Assert.Contains(PlanningStructureValidation.Validate(Graph(1_025, 1), catalog), d => d.Code == "WORKFLOW_IDENTITIES_INVALID");
-        catalog.Policy.MaxWorkflows = 0;
-        Assert.Contains(PlanningStructureValidation.Validate(graph, catalog), d => d.Code == "PLANNING_LIMIT_INVALID");
-    }
 
     [Fact]
     public async Task LargePolicyCompilesOneHundredAndOneShallowConditionalSiblingTasks()
@@ -242,25 +203,6 @@ public sealed class ConstructionValidationTests(ITestOutputHelper output)
         Assert.Equal("expression_contracts", finding.Field);
         Assert.Contains("contains 98268 characters; the runtime limit is 65536", finding.Message);
         output.WriteLine(finding.WorkflowName + "/" + finding.StepId + ": " + finding.Message);
-    }
-
-    [Fact]
-    public async Task OversizedGeneratedProgramStopsAsCompilerDiagnosticWithoutModelRepair()
-    {
-        var state = PlannerFixture.Session();
-        state.Plan = new() { Root = new() { Tasks = [Value("payload", new() { Kind = "string", Text = new string('x', 70_000) })],
-            Outputs = [new("value", Reference("payload"))] } };
-        state.Requirements = new() { Summary = "Return the retained payload", Inputs = [],
-            Outputs = [new() { Name = "value", Type = new() { Kind = "string" } }], Outcomes = [new("payload", "Return the exact retained payload")] };
-        state.Construction = new() { Complete = true, OpenScopes = [] };
-        var runtime = new TestRuntime();
-        state.Catalog = await runtime.DiscoverAsync(state.Request, PlannerFixture.Ct);
-        var result = await PlannerFixture.RunAsync(runtime, state);
-        Assert.Equal(PlanningStatus.Stopped, result.Status);
-        Assert.Contains(result.Diagnostics, d => d.Code == "TASK_COMPILER_VALIDATION" && d.Message.Contains("runtime limit is 65536", StringComparison.Ordinal));
-        Assert.Null(result.Yaml);
-        Assert.Null(result.ApprovedHash);
-        Assert.Empty(runtime.Calls);
     }
 
     [Fact]

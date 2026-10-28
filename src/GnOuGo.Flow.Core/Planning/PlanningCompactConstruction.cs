@@ -2,11 +2,9 @@ using System.Text.Json.Nodes;
 
 namespace GnOuGo.Flow.Core.Planning;
 
-/// <summary>Version-two presentation and scheduling metadata; never an executable plan.</summary>
+/// <summary>Source, immediate-step and continuation metadata; never an executable plan.</summary>
 public sealed class PlanningCompactConstructionState
 {
-    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    public int? PresentationVersion { get; set; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public List<PlanningConstructionInterfaceExtraction>? InterfaceExtractions { get; set; }
     public List<PlanningConstructionSource> Sources { get; set; } = [];

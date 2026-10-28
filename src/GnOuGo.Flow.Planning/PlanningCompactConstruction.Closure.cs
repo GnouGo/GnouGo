@@ -6,9 +6,7 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningCompactConstruction
 {
-    internal static bool UsesAcceptedTransitions(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 10 or 11;
-
-    internal static bool CompletionOnly(PlanningSession state) => UsesConvergentConstruction(state) &&
+    internal static bool CompletionOnly(PlanningSession state) =>
         state.Construction!.Requirements.Count > 0 && state.Construction.Requirements.All(requirement => requirement.Status == "closed") &&
         State(state).ReplacementScope is null && !state.Diagnostics.Any(diagnostic => diagnostic.Required) &&
         state.Plan is { } plan && plan.Choices.All(choice => choice.Selected is not null) &&
@@ -37,7 +35,7 @@ internal static partial class PlanningCompactConstruction
     // preflight, final output checks when applicable, and mandatory scoped review.
     internal static PlanningSession? PrepareSelectedClosure(PlanningSession state)
     {
-        if (!UsesAcceptedProgress(state) || state.Plan is null || state.PendingCall is not null ||
+        if (state.Plan is null || state.PendingCall is not null ||
             state.Construction!.Candidate is not null || state.EditablePaths is not null || state.Diagnostics.Any(item => item.Required)) return null;
         var construction = state.Construction!;
         var compact = State(state);
@@ -58,8 +56,7 @@ internal static partial class PlanningCompactConstruction
             return null;
         var probe = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession),
             PlanningJsonContext.Default.PlanningSession)!;
-        probe.Construction!.CandidateFailureIdentityVersion = 1;
-        probe.Construction.Candidate = PlanningConstruction.Apply(probe, new()
+        probe.Construction!.Candidate = PlanningConstruction.Apply(probe, new()
         {
             Scope = step.Scope, RequirementIds = step.RequirementIds.ToList(), CloseScopes = step.CloseScopes.ToList(),
             Complete = step.CloseScopes.Contains("/root", StringComparer.Ordinal)
@@ -69,7 +66,6 @@ internal static partial class PlanningCompactConstruction
 
     internal static void ValidateSelectedCloseScopes(PlanningSession state, PlanningConstructionStep step)
     {
-        if (!UsesAcceptedProgress(state)) return;
         if (step.Kind != "close")
         {
             if (step.CloseScopes is not null)
@@ -89,18 +85,6 @@ internal static partial class PlanningCompactConstruction
         var compact = State(state);
         if (!CompletionOnly(state) || state.PendingCall is not null || construction.Candidate is not null || compact.CurrentStep is not null)
             return null;
-        var witnesses = new List<PlanningConstructionCheckpoint>();
-        foreach (var requirement in construction.Requirements)
-        {
-            var witness = construction.Checkpoints.FirstOrDefault(checkpoint => checkpoint.ClosedRequirementIds?.Contains(requirement.Id, StringComparer.Ordinal) == true &&
-                    requirement.Checkpoints.Contains(checkpoint.Sequence) && checkpoint.InvalidatedTaskIds.Count == 0 &&
-                    PlanningConstructionReviewCoverage.Reviewed(state, checkpoint, PlanningConstruction.LocalPurpose) &&
-                    (!checkpoint.NeedsIntermediateReview || PlanningConstructionReviewCoverage.Reviewed(state, checkpoint, PlanningConstruction.IntermediatePurpose)) &&
-                    checkpoint.Reviews.Any(review => review["candidateHash"]?.ToString() == checkpoint.PlanHash &&
-                        review["outcome"]?.ToString() == "unverified" && review["response"]?["findings"] is JsonArray { Count: 0 }));
-            if (witness is null) return null;
-            witnesses.Add(witness);
-        }
         var symbols = new TaskPlanSymbols(state.Plan!);
         // A path's textual depth is not its scope depth: task IDs are global.
         var boundary = construction.OpenScopes.FirstOrDefault(path => OpenDescendants(state, symbols, path) == 0 &&
@@ -109,44 +93,36 @@ internal static partial class PlanningCompactConstruction
         var requirements = ClosureRequirements(state, symbols, boundary);
         // Mechanical closure must not substitute an unrelated first obligation
         // or silently omit a wider original set to fit the existing step bound.
-        if (requirements.Length < 1 || !UsesVerifiedProgress(state) && requirements.Length > 4) return null;
+        if (requirements.Length < 1) return null;
         var probe = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession),
             PlanningJsonContext.Default.PlanningSession)!;
         var next = probe.Construction!.Compact!;
         next.CurrentStep = new()
         {
             Id = "step_" + (++next.NextStep), BaseHash = PlanningConstruction.Hash(state.Plan), Scope = boundary, Kind = "close",
-            Objective = "Close this accepted boundary after its reviewed obligations; preserve all accepted work and exports.",
+            Objective = "Close this technically complete boundary; final business review still checks all original obligations.",
             RequirementIds = requirements.ToList(), DiscoveryComplete = true,
-            CloseScopes = UsesAcceptedProgress(state) ? [boundary] : null
+            CloseScopes = [boundary]
         };
-        probe.Construction.CandidateFailureIdentityVersion = 1;
-        probe.Construction.Candidate = PlanningConstruction.Apply(probe, new()
+        probe.Construction!.Candidate = PlanningConstruction.Apply(probe, new()
         {
             Scope = boundary, CloseScopes = [boundary], Complete = boundary == "/root",
             RequirementIds = next.CurrentStep.RequirementIds.ToList()
         });
-        if (UsesVerifiedProgress(state))
-            probe.Construction.Candidate.Reviews.Add(new JsonObject
+        probe.Construction.Candidate.Reviews.Add(new JsonObject
             {
                 ["purpose"] = "construction_transition", ["outcome"] = "prepared_closure",
-                ["reason"] = "All associated obligations have retained closure reviews; close one accepted leaf boundary.",
+                ["reason"] = "All original obligations are claimed complete; close one technically ready leaf before mandatory final review.",
                 ["baseline"] = next.CurrentStep.BaseHash, ["scope"] = boundary,
                 ["requirements"] = new JsonArray(requirements.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
-                ["checkpoints"] = new JsonArray(witnesses.DistinctBy(checkpoint => checkpoint.Sequence).Where(checkpoint =>
-                    checkpoint.ClosedRequirementIds?.Any(id => requirements.Contains(id, StringComparer.Ordinal)) == true)
-                    .Select(checkpoint => (JsonNode?)JsonValue.Create(checkpoint.Sequence)).ToArray())
+                ["checkpoint"] = construction.Checkpoints.LastOrDefault()?.Sequence
             });
         return probe;
     }
 
     internal static PlanningSession? PrepareAcceptedTransition(PlanningSession state)
     {
-        if (UsesIncrementalReview(state)) return AcceptedTransitions(state).FirstOrDefault()?.State;
-        // Recovery and candidate work take precedence in the coordinator. These
-        // existing transitions establish no new semantic association or verdict.
-        ReconcileContinuations(state);
-        return TryResumeReviewedConsumer(state) ? state : PrepareReviewedClosure(state);
+        return AcceptedTransitions(state).FirstOrDefault()?.State;
     }
 
     private sealed record AcceptedTransition(string Kind, string Reason, int? Checkpoint, PlanningSession State);
@@ -172,12 +148,11 @@ internal static partial class PlanningCompactConstruction
         }
         // A retained consumer has precedence; do not close its boundary while its
         // exact missing value or its review is unresolved.
-        if (!UsesAcceptedTransitions(state) && State(resumed).SuspendedSteps?.Any(Active) == true) yield break;
         foreach (var checkpoint in state.Construction.Checkpoints.AsEnumerable().Reverse())
             if (PrepareReviewedBoundaryTransition(state, checkpoint) is { } boundary)
                 yield return new("boundary", "exact_reviewed_boundary_claim", checkpoint.Sequence, boundary);
         if (PrepareReviewedClosure(state) is { } closure)
-            yield return new("closure", "all_original_obligations_reviewed", null, closure);
+            yield return new("closure", "all_original_obligations_claimed", null, closure);
     }
 
     internal static JsonObject SelectionDecision(PlanningSession state, JsonObject? continuation = null)
@@ -189,7 +164,6 @@ internal static partial class PlanningCompactConstruction
         var result = new JsonObject { ["kind"] = "semantic_selection", ["reason"] = reason,
             ["baseline"] = PlanningConstruction.Hash(state.Plan),
             ["acceptedCheckpoint"] = state.Construction!.Checkpoints.LastOrDefault()?.Sequence ?? 0 };
-        if (compact.PresentationVersion == 11)
         {
             if (LocalComputationEligibility(state) is { } local)
                 result["localComputations"] = local;
@@ -200,13 +174,13 @@ internal static partial class PlanningCompactConstruction
                 result["prerequisite"] = continuation["prerequisite"]!.DeepClone();
             }
         }
-        if (UsesIncrementalReview(state)) result["reviewedTransitions"] = new JsonArray(AcceptedTransitions(state).Take(4).Select(item => (JsonNode)new JsonObject
+        result["reviewedTransitions"] = new JsonArray(AcceptedTransitions(state).Take(4).Select(item => (JsonNode)new JsonObject
             { ["kind"] = item.Kind, ["reason"] = item.Reason, ["checkpoint"] = item.Checkpoint }).ToArray());
         return result;
     }
 
     private static JsonObject? LocalComputationEligibility(PlanningSession state) =>
-        State(state).PresentationVersion == 11 && state.Catalog is { } catalog
+        state.Catalog is { } catalog
             ? new JsonObject
             {
                 ["basis"] = "catalog_eligibility_only", ["value"] = catalog.AllowedStepTypes.Contains("set"),
@@ -232,7 +206,7 @@ internal static partial class PlanningCompactConstruction
             groupId is not null && checkpoint.Fragment["groups"] is JsonArray groups && groups.Any(group => group?.ToString() == groupId) ||
             checkpoint.Fragment["scope"]?.ToString() == "/root" && checkpoint.Fragment["outputs"] is JsonArray outputs &&
                 outputs.Any(output => output?["name"] is JsonValue name && publicOutputs.Contains(name.ToString()))).ToArray();
-        // Historical/baseline work without an accepted association needs explicit
+        // Work without an accepted association needs explicit
         // selection; task type or objective prose cannot invent that association.
         if (tasks.Any(id => !checkpoints.Any(checkpoint => checkpoint.TaskIds.Contains(id, StringComparer.Ordinal)))) return [];
         var ids = checkpoints.SelectMany(checkpoint => checkpoint.RequirementIds).ToHashSet(StringComparer.Ordinal);

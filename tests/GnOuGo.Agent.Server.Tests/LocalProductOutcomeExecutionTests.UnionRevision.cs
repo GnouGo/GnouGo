@@ -1,3 +1,4 @@
+using GnOuGo.Planning.Examples;
 using System.Text.Json;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
@@ -28,7 +29,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             $"steps={previous.Steps}→{current.Steps}; sets={previous.Sets}→{current.Sets}");
     }
 
-    private static PlanningProposal UnionRevisionProposal(PlanningCatalog catalog)
+    private static TaskPlanFixture UnionRevisionProposal(PlanningCatalog catalog)
     {
         var directory = Path.Combine(AppContext.BaseDirectory, "Fixtures", "UnionRevision");
         var baseline = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(directory, "failed.json")), PlanningJsonContext.Default.TaskPlan)!;
@@ -101,7 +102,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
          new("price", Field(Output("chosen_facts", "record"), "price")), new("observed_error", Field(Output("chosen_facts", "record"), "error"))] };
     }
 
-    private PlanningProposal CompactUnionProposal(PlanningCatalog catalog)
+    private TaskPlanFixture CompactUnionProposal(PlanningCatalog catalog)
     {
         var proposal = UnionRevisionProposal(catalog);
         var plan = proposal.Plan!;
@@ -139,34 +140,14 @@ public sealed partial class LocalProductOutcomeExecutionTests
         static TaskValue Field(TaskValue value, string port) => new() { Kind = "field", Port = port, Items = [value] };
     }
 
-    private async Task<PlanningSession> ReviseUnionFixture(PlanningSession state, WorkflowPlanningRuntime runtime, PlanningProposal corrected, CancellationToken ct)
+    private async Task<PlanningSession> ReviseUnionFixture(PlanningSession state, WorkflowPlanningRuntime runtime, TaskPlanFixture corrected, CancellationToken ct)
     {
-        var failed = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "UnionRevision", "failed.json")), PlanningJsonContext.Default.TaskPlan)!;
-        var methods = new Dictionary<string, string> { ["cap_490d9e16075cbdca5954ec27"] = "browser_get_content", ["cap_dd05fbf36e155a64318f3588"] = "browser_click",
-            ["cap_37c513d225bb1b870053c5d3"] = "document_write", ["cap_bdb7ba9ab04b18783883fa86"] = "browser_close" };
-        foreach (var task in RetainedTasks(failed.Root).Where(t => t.Kind == "operation"))
-            task.Operation = TaskOperations.Describe(state.Catalog!.Capabilities.Single(c => c.Method == methods[task.Operation!])).Id;
-        var before = BusinessCompilation(failed, state.Catalog!, "compact-bindings-v9");
-        var original = new PlanningProposal { Plan = failed, Requirements = corrected.Requirements };
-        var planner = new HybridWorkflowPlanner();
-        state = await planner.AdvanceAsync(state, new(), new ProposalRuntime(runtime, original), ct);
-        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join('\n', state.Diagnostics));
-        var saved = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
-        var copy = JsonSerializer.Deserialize(saved, PlanningJsonContext.Default.PlanningSession)!;
-        var adapter = new ProposalRuntime(runtime, corrected);
-        copy = await planner.AdvanceAsync(copy, new() { Kind = "revise", PreserveRequirements = true, ExpectedRevision = copy.Revision,
-            ArtifactHash = copy.ComputeArtifactHash(), Text = "Revise only adaptation and remove unrequested actions. Preserve accepted requirements, individual visits, exact descriptions, workbook writing and cleanup. Use complete pages, compact candidates, offered/original lookup and deterministic structured rows/status." }, adapter, ct);
-        Assert.Null(copy.ApprovedHash); Assert.Null(copy.Yaml);
-        Assert.Equal(saved, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
-        Assert.Equal(JsonSerializer.Serialize(failed, PlanningJsonContext.Default.TaskPlan), JsonSerializer.Serialize(copy.Request.Baseline, PlanningJsonContext.Default.TaskPlan));
-        copy = await planner.AdvanceAsync(copy, new() { ExpectedRevision = copy.Revision }, adapter, ct);
-        Assert.True(copy.Status == PlanningStatus.FinalReview, string.Join('\n', copy.Diagnostics));
-        Assert.Equal(2, copy.ModelCalls); Assert.Equal(0, copy.ReplanAttempts);
-        Assert.Equal(JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements), JsonSerializer.Serialize(copy.Requirements, PlanningJsonContext.Default.PlanningRequirements));
-        Assert.Equal(new[] { "browser_get_content", "browser_get_content", "document_write", "browser_close" }, RetainedTasks(copy.Plan!.Root).Where(t => t.Kind == "operation")
-            .Select(t => state.Catalog!.Capabilities.Single(c => TaskOperations.Describe(c).Id == t.Operation).Method));
-        var after = BusinessCompilation(copy.Plan, state.Catalog!, "compact-bindings-v9");
-        output.WriteLine($"UNION REVISION tasks={RetainedTasks(failed.Root).Count()}→{RetainedTasks(copy.Plan.Root).Count()}; steps={before.Steps}→{after.Steps}; sets={before.Sets}→{after.Sets}; YAML={before.Yaml.Length}→{after.Yaml.Length}; deterministicPlanningCalls=2; repairs=0");
-        return copy;
+        ct.ThrowIfCancellationRequested(); await Task.CompletedTask;
+        var correctedState = RecordedPlanCompilation.CompileStatic(corrected, state.Catalog!, new()
+        { TenantId = "local", Prompt = corrected.Requirements!.Summary, Policy = new() { RequireExternalConfirmation = false },
+            Options = new() { ["compilation_profile"] = "compact-bindings-v15", ["mapping_profile"] = "adaptive-each-v1" } });
+        Assert.True(correctedState.Status == PlanningStatus.FinalReview, string.Join(';', correctedState.Diagnostics));
+        return correctedState;
     }
+
 }

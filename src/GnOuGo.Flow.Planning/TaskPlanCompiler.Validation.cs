@@ -43,11 +43,6 @@ public sealed partial class TaskPlanCompiler
                 for (var i = 0; i < choice.Alternatives.Count; i++) ScanValue(choice.Alternatives[i].Value, "/choices/" + choice.Id + "/alternatives/" + i + "/value");
         }
         return findings.Distinct().OrderBy(d => d.Location, StringComparer.Ordinal).ThenBy(d => d.Code, StringComparer.Ordinal).ToArray();
-
-        void Reference(string? id, string path)
-        {
-            if (!ValidIdentity(id)) findings.Add(new("TASK_IDENTITY_INVALID", path, "Identity references must use a nonempty path-safe ID outside the reserved '__' namespace."));
-        }
         void ScanValue(TaskValue value, string path)
         {
             foreach (var nested in Values(value))
@@ -71,6 +66,11 @@ public sealed partial class TaskPlanCompiler
                 if (task.Otherwise is not null) ScanScope(task.Otherwise, location + "/otherwise");
                 for (var i = 0; i < task.Branches.Count; i++) ScanScope(task.Branches[i], location + "/branches/" + i);
             }
+        }
+
+        void Reference(string? id, string path)
+        {
+            if (!ValidIdentity(id)) findings.Add(new("TASK_IDENTITY_INVALID", path, "Identity references must use a nonempty path-safe ID outside the reserved '__' namespace."));
         }
     }
 
@@ -149,23 +149,6 @@ public sealed partial class TaskPlanCompiler
             catch (UnavailableValue) { /* A diagnosed prerequisite has no usable contract. */ }
             finally { _location = saved; }
         }
-        Bound? Read(TaskValue value, Scope scope, string location)
-        {
-            inspect?.Invoke(location, scope);
-            if (value.Kind is "output" or "present" or "choice" && symbols.InvalidIds.Contains(value.Source!)) return null;
-            Bound? result = null;
-            var children = value.Members.Select(m => m.Value).Concat(value.Items).ToArray();
-            var valid = true;
-            foreach (var child in children) if (Read(child, scope, location) is null) valid = false;
-            if (!valid) return null;
-            if (value.Kind == "choice" && invalidChoices.Contains(value.Source ?? "")) return null;
-            Check(location, () => result = Value(value, scope));
-            if (result is null && value.Kind == "output" && value.Source is { } producer && symbols.Values.TryGetValue(location, out var site))
-                foreach (var boundary in symbols.ExportRoute(site.Scope, producer))
-                    foreach (var affected in boundary.Owner?.Kind == "conditional" ? symbols.Scopes.Where(s => s.Owner == boundary.Owner) : [boundary])
-                        findings.Add(new("TASK_EXPORT_REQUIRED", affected.Path + "/outputs", "Declare the business outputs needed by consumers outside this scope; exports are never implicit." + symbols.ReferenceContext(location, producer)));
-            return result;
-        }
         void Inputs(Scope scope, List<TaskInput> inputs, string path)
         {
             Check(path, () => Unique(inputs.Select(i => i.Name)));
@@ -193,7 +176,6 @@ public sealed partial class TaskPlanCompiler
             InspectScope(group.Body, scope, "/groups/" + id + "/body");
             activeGroups.Remove(id); return scope;
         }
-        Dictionary<string, Bound> Exports(Scope scope) => scope.Workflow.Outputs.ToDictionary(o => o.Name, o => Output("semantic", "workflow.call", [o.Name], o.Schema.Contract!), StringComparer.Ordinal);
         void InspectScope(TaskScope source, Scope scope, string path)
         {
             OutputNames(source.Outputs, path + "/outputs");
@@ -208,6 +190,23 @@ public sealed partial class TaskPlanCompiler
                     scope.Workflow.Outputs.Add(new() { Name = output.Name, Value = value.Value, Schema = Contract(value.Schema) });
             }
             inspect?.Invoke(path + "/outputs", scope);
+        }
+        Bound? Read(TaskValue value, Scope scope, string location)
+        {
+            inspect?.Invoke(location, scope);
+            if (value.Kind is "output" or "present" or "choice" && symbols.InvalidIds.Contains(value.Source!)) return null;
+            Bound? result = null;
+            var children = value.Members.Select(m => m.Value).Concat(value.Items).ToArray();
+            var valid = true;
+            foreach (var child in children) if (Read(child, scope, location) is null) valid = false;
+            if (!valid) return null;
+            if (value.Kind == "choice" && invalidChoices.Contains(value.Source ?? "")) return null;
+            Check(location, () => result = Value(value, scope));
+            if (result is null && value.Kind == "output" && value.Source is { } producer && symbols.Values.TryGetValue(location, out var site))
+                foreach (var boundary in symbols.ExportRoute(site.Scope, producer))
+                    foreach (var affected in boundary.Owner?.Kind == "conditional" ? symbols.Scopes.Where(s => s.Owner == boundary.Owner) : [boundary])
+                        findings.Add(new("TASK_EXPORT_REQUIRED", affected.Path + "/outputs", "Declare the business outputs needed by consumers outside this scope; exports are never implicit." + symbols.ReferenceContext(location, producer)));
+            return result;
         }
         void OutputNames(List<TaskOutput> outputs, string path)
         {
@@ -510,6 +509,7 @@ public sealed partial class TaskPlanCompiler
             scope.Tasks.TryAdd(task.Id, ports);
             contracts.TryAdd(task.Id, ports);
         }
+        Dictionary<string, Bound> Exports(Scope scope) => scope.Workflow.Outputs.ToDictionary(o => o.Name, o => Output("semantic", "workflow.call", [o.Name], o.Schema.Contract!), StringComparer.Ordinal);
     }
 
     private static JsonObject? SelectedInputBranch(JsonObject request, JsonObject contract)

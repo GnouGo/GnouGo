@@ -8,17 +8,6 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class CompactConfigurationComparisonTests
 {
-    [Fact]
-    public void HistoricalSafeRowsWithoutJudgeSwitchKeepTheirMatchedComparison()
-    {
-        var before = Arm(false); var after = Arm(true);
-        var settings = (JsonObject)before[0]["configuration"]!.DeepClone();
-        settings.Remove("business_judge");
-        foreach (var row in before.Concat(after)) row["configuration"] = settings.DeepClone();
-        var report = PlanningBenchmarkMeasurements.CompareCompactConstruction(before, after, ["collections", "amazon", "code"]);
-        Assert.Equal("passed", report["status"]!.ToString());
-        Assert.True(report["matched_cumulative_and_output_allowances"]!.GetValue<bool>());
-    }
 
     [Theory]
     [InlineData("none", "passed")]
@@ -70,14 +59,7 @@ public sealed class CompactConfigurationComparisonTests
     {
         var request = new PlanningRequest(); PlanningBenchmarkMeasurements.ConfigureRequest(request, [], false);
         request.Generation.Reasoning = compact ? "low" : "medium";
-        if (!compact)
-        {
-            request.Options["construction_version"] = 1;
-            request.Options["construction_limits"]!.AsObject().Remove("phasePolicy");
-            request.Options["construction_limits"]!.AsObject().Remove("inputLimits");
-            request.Options.Remove("construction_input_limits");
-        }
-        else request.Options["construction_limits"]!["phasePolicy"]!["navigation"]!["reasoning"] = "low";
+        if (compact) request.Options["construction_limits"]!["phasePolicy"]!["navigation"]!["reasoning"] = "low";
         var configuration = PlanningBenchmarkMeasurements.Configuration(request);
         return new[] { "collections", "amazon", "code" }.SelectMany(name => Enumerable.Range(1, 3).Select(repetition =>
         {

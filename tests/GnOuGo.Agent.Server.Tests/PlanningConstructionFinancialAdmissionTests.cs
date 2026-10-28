@@ -12,15 +12,13 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class PlanningConstructionFinancialAdmissionTests
 {
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(true, false)]
-    [InlineData(false, true)]
-    [InlineData(true, true)]
-    public async Task DraftThatCannotAffordItsRequiredReviewNeverDispatchesOrCharges(bool parentLimit, bool compact)
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DraftThatCannotAffordItsRequiredReviewNeverDispatchesOrCharges(bool parentLimit)
     {
         var ct = TestContext.Current.CancellationToken;
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var parent = new LLMUsageBudgetScope(new() { MaxEstimatedCostUsd = compact ? 20_000 : 60_000 },
+        var parent = new LLMUsageBudgetScope(new() { MaxEstimatedCostUsd = 20_000 },
             sink: new PlanningBudgetSink(fixture.Records, "tenant", "financial"));
         var budget = parentLimit ? parent.CreateChild(new() { MaxEstimatedCostUsd = 100_000 }) : parent;
         var before = budget.Snapshot; var parentBefore = parent.Snapshot;
@@ -34,12 +32,6 @@ public sealed class PlanningConstructionFinancialAdmissionTests
             Generation = new("medium", 32_000, 32_768),
             Options = new() { ["generator"] = new JsonObject { ["provider"] = "fixture", ["model"] = "priced" } }
         } };
-        if (!compact)
-        {
-            state.Construction = new() { Version = 1 };
-            state.Request.Options["construction_version"] = 1;
-            state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
-        }
         var result = await new HybridWorkflowPlanner().AdvanceAsync(state, new(), runtime, ct);
         Assert.Equal(PlanningStatus.Stopped, result.Status);
         Assert.Contains(result.Diagnostics, d => d.Code == ErrorCodes.LlmBudgetExceeded);
@@ -49,8 +41,8 @@ public sealed class PlanningConstructionFinancialAdmissionTests
         Assert.Null(result.Plan);
         Assert.Equal(before, budget.Snapshot);
         Assert.Equal(parentBefore, parent.Snapshot);
-        Assert.Contains((compact ? 16_000L : 32_000L, 8_192L), price.Estimates);
-        Assert.Contains((compact ? 16_000L : 32_000L, 2_048L), price.Estimates);
+        Assert.Contains((16_000L, 8_192L), price.Estimates);
+        Assert.Contains((16_000L, 2_048L), price.Estimates);
         await using var db = fixture.CreateDbContext();
         Assert.Equal(0, await db.Calls.CountAsync(ct));
         Assert.Null(await fixture.Records.GetAsync(PlanningBudgetSink.Collection, "tenant", "financial", EfPlanningSessionStore.Author, ct));

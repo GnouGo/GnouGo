@@ -96,29 +96,23 @@ public sealed class BenchmarkAdmissionTests
     }
 
     [Theory]
-    [InlineData(false, 0, 10)]
-    [InlineData(false, 0, 11)]
-    [InlineData(false, 1, 10)]
-    [InlineData(false, 1, 11)]
-    [InlineData(false, 2, 10)]
-    [InlineData(false, 2, 11)]
-    [InlineData(false, 3, 10)]
-    [InlineData(false, 3, 11)]
-    [InlineData(false, 4, 10)]
-    [InlineData(false, 4, 11)]
-    [InlineData(true, 1, 10)]
-    [InlineData(true, 1, 11)]
-    public async Task FreshCapturedTransportBindsActualReviewHeadroomAndStricterDisable(bool disabled, int reviews, int presentation)
+    [InlineData(false, 0)]
+    [InlineData(false, 1)]
+    [InlineData(false, 2)]
+    [InlineData(false, 3)]
+    [InlineData(false, 4)]
+    [InlineData(true, 1)]
+    public async Task FreshCapturedTransportBindsActualReviewHeadroomAndStricterDisable(bool disabled, int reviews)
     {
         using var fixture = new Fixture();
         var provider = new Provider(fixture.Campaign);
         using var model = fixture.Model(new Rates(fixture.Time), provider);
         var planning = LiveWorkflowEvaluation.FreshPlanningRequest([], "strict", "amazon", "Original", "fixture", "pinned");
-        planning.Options["construction_presentation_version"] = presentation;
         planning.Options["llm_budget"]!["max_calls"] = 5;
         await model.CapturePlanningPolicyAsync(planning, Ct, activeMilliseconds: 120_000);
         var captured = await fixture.Campaign.LoadAsync("planning-evaluation-session-policy", planning.SessionId, Ct);
-        Assert.Equal(presentation, captured!["construction_presentation_version"]!.GetValue<int>());
+        Assert.Equal(11, captured!["planning_format"]!.GetValue<int>());
+        Assert.Null(captured["construction_presentation_version"]);
         var request = PlanningConstructionPhasePolicies.Apply(new LLMRequest
         {
             ClientRequestId = "strict:1", Prompt = "Exact bounded request", RequiredReviewCalls = reviews,
@@ -228,43 +222,6 @@ public sealed class BenchmarkAdmissionTests
     }
 
     [Theory]
-    [InlineData("execute", false)]
-    [InlineData("revise", true)]
-    public async Task ExplicitJudgeMismatchStopsBeforeReadinessOrTransport(string phase, bool enabled)
-    {
-        using var fixture = new Fixture();
-        var rates = new Rates(fixture.Time) { Defect = "network" };
-        var provider = new Provider(fixture.Campaign);
-        using var model = fixture.Model(rates, provider);
-        var retained = new JsonObject { ["session"] = new JsonObject { ["request"] = new JsonObject
-            { ["options"] = enabled ? new JsonObject { ["business_judge"] = true } : new JsonObject() } } };
-        await fixture.Campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "run:frozen", retained, Ct);
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => LiveWorkflowEvaluation.RunAsync(
-            ["--case", "amazon", "--run", "frozen", enabled ? "--no-business-judge" : "--business-judge"],
-            phase, fixture.Campaign, model, fixture.Root));
-        Assert.Contains("judge", error.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(0, rates.Calls);
-        Assert.Equal(0, provider.Calls);
-        Assert.True(JsonNode.DeepEquals(retained, await fixture.Campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "run:frozen", Ct)));
-        Assert.Equal(0L, (await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct))["calls"]!.GetValue<long>());
-    }
-
-    [Fact]
-    public async Task ConflictingJudgeSwitchesStopBeforeReadinessOrTransport()
-    {
-        using var fixture = new Fixture();
-        var rates = new Rates(fixture.Time) { Defect = "network" };
-        var provider = new Provider(fixture.Campaign);
-        using var model = fixture.Model(rates, provider);
-        await Assert.ThrowsAsync<ArgumentException>(() => LiveWorkflowEvaluation.RunAsync(
-            ["--case", "amazon", "--run", "fresh", "--business-judge", "--no-business-judge"],
-            "plan", fixture.Campaign, model, fixture.Root));
-        Assert.Equal(0, rates.Calls);
-        Assert.Equal(0, provider.Calls);
-        Assert.Null(await fixture.Campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "run:fresh", Ct));
-    }
-
-    [Theory]
     [InlineData("missing-price")]
     [InlineData("missing-quote")]
     [InlineData("stale")]
@@ -325,12 +282,14 @@ public sealed class BenchmarkAdmissionTests
     }
 
     [Fact]
-    public async Task FreshQuotesSurviveRestartButExpiredQuotesNeverAuthorizeNewRequests()
+    public async Task AdmittedQuotesSurviveRestartButExpiredQuotesNeverAuthorizeNewRequests()
     {
         using var fixture = new Fixture();
         var rates = new Rates(fixture.Time);
-        using (var model = fixture.Model(rates)) Assert.True((await model.ReadinessAsync(Ct))["ready"]!.GetValue<bool>());
+        using (var model = fixture.Model(rates))
+            await model.CallExecutionAsync(new() { ClientRequestId = "admitted-quote:1", Prompt = "Observed fixture result", MaxTokens = 64 }, Ct);
         var original = await fixture.Campaign.LoadAsync("planning-evaluation-exchange-rates", "USD-EUR", Ct);
+        Assert.NotNull(original);
         Assert.Equal(1, rates.Calls);
         rates.Defect = "network";
         using (var restarted = fixture.Model(rates)) Assert.True((await restarted.ReadinessAsync(Ct))["ready"]!.GetValue<bool>());
@@ -342,87 +301,6 @@ public sealed class BenchmarkAdmissionTests
         using var other = new KeyVaultBenchmarkModel(new(fixture.Records, "other"), Options(), new Provider(fixture.Campaign), rates, new Price(), fixture.Time);
         Assert.False((await other.ReadinessAsync(Ct))["ready"]!.GetValue<bool>());
         Assert.Equal(3, rates.Calls);
-    }
-
-    [Fact]
-    public async Task HistoricalConstructionCannotRetryUncertainTransportButMayConsumeAnExistingReceipt()
-    {
-        using var fixture = new Fixture(); var rates = new Rates(fixture.Time);
-        var provider = new Provider(fixture.Campaign);
-        using var model = fixture.Model(rates, provider);
-        var settings = LiveWorkflowEvaluation.FreshPlanningRequest([], "fresh", "amazon", "Original request", "fixture", "pinned");
-        settings.Options.Remove(PlanningTransportPolicies.OptionName); // Retained historical single-attempt behavior.
-        await model.CapturePlanningPolicyAsync(settings, Ct);
-        var completed = new LLMRequest
-        {
-            ClientRequestId = "fresh:1", Prompt = "bounded original draft", MaxTokens = 8192,
-            StructuredOutputStrict = true,
-            StructuredOutputSchema = new JsonObject
-            {
-                ["title"] = "construction_draft", ["type"] = "object", ["additionalProperties"] = false,
-                ["properties"] = new JsonObject { ["script"] = new JsonObject { ["type"] = "string" } },
-                ["required"] = new JsonArray("script")
-            }
-        };
-        PlanningConstructionPhasePolicies.Apply(completed, settings, "construction_draft");
-        var receipt = await model.CallAsync(completed, Ct);
-        Assert.True(provider.LastDisableTransportRetries);
-        Assert.Equal(1, provider.Calls);
-        rates.Defect = "network";
-        Assert.True(JsonNode.DeepEquals(receipt.Json, (await model.CallAsync(completed, Ct)).Json));
-        Assert.Equal(1, provider.Calls);
-        provider.Failure = new IOException("Unknown completion");
-        var pending = new LLMRequest { ClientRequestId = "fresh:2", Prompt = "bounded later draft", MaxTokens = 8192,
-            StructuredOutputStrict = true, StructuredOutputSchema = completed.StructuredOutputSchema!.DeepClone() };
-        PlanningConstructionPhasePolicies.Apply(pending, settings, "construction_draft");
-        await Assert.ThrowsAsync<IOException>(() => model.CallAsync(pending, Ct));
-        var before = await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, pending.ClientRequestId, Ct);
-        Assert.True(before!["effective_transport_policy"]!["disable_transport_retries"]!.GetValue<bool>());
-        Assert.False(before["effective_transport_policy"]!["allow_http_recovery"]!.GetValue<bool>());
-        Assert.Equal(1, before["effective_transport_policy"]!["effective_retry_policy"]!["MaxAttempts"]!.GetValue<int>());
-        var costs = await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct);
-        using var restarted = fixture.Model(rates, provider);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.CallAsync(pending, Ct));
-        Assert.Equal(2, provider.Calls);
-        Assert.True(JsonNode.DeepEquals(before, await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, pending.ClientRequestId, Ct)));
-        Assert.True(JsonNode.DeepEquals(costs, await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct)));
-        Assert.Equal(1L, costs["unknown_attempts"]!.GetValue<long>());
-    }
-
-    [Fact]
-    public async Task HistoricalConstructionServerFailureStaysReservedAndCannotReplayOrAuthorizeAnotherRequestAfterRestart()
-    {
-        using var fixture = new Fixture(); var rates = new Rates(fixture.Time);
-        var provider = new Provider(fixture.Campaign) { Failure = new LLMClientException(LLMClientFailureKind.ServiceUnavailable,
-            "Retained server failure.", retryable: true, statusCode: 502, safeProviderCode: null,
-            attemptCount: 1, retryExhausted: true, retryAfterMilliseconds: null) };
-        using var model = fixture.Model(rates, provider);
-        var settings = LiveWorkflowEvaluation.FreshPlanningRequest([], "failed", "amazon", "Original request", "fixture", "pinned");
-        settings.Options.Remove(PlanningTransportPolicies.OptionName); // Retained historical single-attempt behavior.
-        await model.CapturePlanningPolicyAsync(settings, Ct);
-        var request = new LLMRequest { ClientRequestId = "failed:1", Prompt = "bounded original draft", MaxTokens = 8192,
-            StructuredOutputStrict = true, StructuredOutputSchema = new JsonObject { ["title"] = "construction_draft",
-                ["type"] = "object", ["properties"] = new JsonObject(), ["required"] = new JsonArray(), ["additionalProperties"] = false } };
-        PlanningConstructionPhasePolicies.Apply(request, settings, "construction_draft");
-        await Assert.ThrowsAsync<LLMClientException>(() => model.CallAsync(request, Ct));
-        Assert.Equal(1, provider.Calls);
-        Assert.True(provider.LastDisableTransportRetries);
-        var original = (await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, request.ClientRequestId, Ct))!;
-        Assert.Equal(502, original["transport"]!["Attempts"]![0]!["Status"]!.GetValue<int>());
-        Assert.False(original["effective_transport_policy"]!["allow_http_recovery"]!.GetValue<bool>());
-        var hash = PlanningGraphCompiler.Fingerprint(original.ToJsonString());
-        var accounting = await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct);
-        Assert.Equal(1L, accounting["unknown_attempts"]!.GetValue<long>());
-        Assert.Equal(original["cost_ceiling_eur"]!.GetValue<decimal>(), accounting["reserved_cost_eur"]!.GetValue<decimal>());
-        using var restarted = fixture.Model(rates, provider);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.CallAsync(request, Ct));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.Campaign.CallAsync(new() { ClientRequestId = "another:1" },
-            _ => throw new InvalidOperationException("Must not admit."), _ => throw new InvalidOperationException("Must not dispatch."), Ct));
-        Assert.Equal(1, provider.Calls);
-        Assert.True(JsonNode.DeepEquals(accounting, await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct)));
-        Assert.Equal(hash, PlanningGraphCompiler.Fingerprint((await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, request.ClientRequestId, Ct))!.ToJsonString()));
-        Assert.Null(await fixture.Campaign.LoadAsync("planning-evaluation-receipts", request.ClientRequestId, Ct));
-        Assert.Null(await fixture.Campaign.LoadAsync("planning-evaluation-closures", request.ClientRequestId, Ct));
     }
 
     [Fact]

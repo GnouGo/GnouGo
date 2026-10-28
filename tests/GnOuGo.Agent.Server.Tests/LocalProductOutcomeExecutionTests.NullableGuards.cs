@@ -52,17 +52,17 @@ public sealed partial class LocalProductOutcomeExecutionTests
         {
             Directory.CreateDirectory(folder);
             File.WriteAllText(Path.Combine(folder, "corrected-taskplan.json"), JsonSerializer.Serialize(corrected.Plan, PlanningJsonContext.Default.TaskPlan));
-            File.WriteAllText(Path.Combine(folder, "corrected-proposal.json"), JsonSerializer.Serialize(corrected, PlanningJsonContext.Default.PlanningProposal));
+            File.WriteAllText(Path.Combine(folder, "corrected-proposal.json"), JsonSerializer.Serialize(corrected, PlanningFixtureJsonContext.Default.TaskPlanFixture));
             File.WriteAllText(Path.Combine(folder, "corrected.yaml"), state.Yaml);
             File.WriteAllText(Path.Combine(folder, "guard-only.yaml"), before.Yaml);
         }
     }
 
-    private static PlanningProposal NullableGuardRetained(PlanningCatalog catalog)
+    private static TaskPlanFixture NullableGuardRetained(PlanningCatalog catalog)
     {
         using var file = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "NullableGuards", "initial-proposal.json.gz"));
         using var gzip = new GZipStream(file, CompressionMode.Decompress);
-        var proposal = JsonSerializer.Deserialize(gzip, PlanningJsonContext.Default.PlanningProposal)!;
+        var proposal = JsonSerializer.Deserialize(gzip, PlanningFixtureJsonContext.Default.TaskPlanFixture)!;
         foreach (var task in RetainedTasks(proposal.Plan!.Root).Where(t => t.Kind == "operation"))
         {
             var method = task.Id switch { "close_browser" => "browser_close", "write_products_xlsx" => "document_write", "accept_cookies" => "browser_click", _ => "browser_get_content" };
@@ -71,7 +71,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
         return proposal;
     }
 
-    private static PlanningProposal NullableGuardComposition(PlanningCatalog catalog)
+    private static TaskPlanFixture NullableGuardComposition(PlanningCatalog catalog)
     {
         var retained = NullableGuardRetained(catalog);
         var corrected = GuardCorrected(catalog);
@@ -103,23 +103,16 @@ public sealed partial class LocalProductOutcomeExecutionTests
         return corrected;
     }
 
-    private static async Task<PlanningSession> NullableGuardRevision(PlanningCatalog catalog, WorkflowPlanningRuntime runtime, PlanningProposal corrected, CancellationToken ct)
+    private static async Task<PlanningSession> NullableGuardRevision(PlanningCatalog catalog, WorkflowPlanningRuntime runtime, TaskPlanFixture corrected, CancellationToken ct)
     {
-        var retained = NullableGuardRetained(catalog); var planner = new HybridWorkflowPlanner();
-        var seed = GnOuGo.Planning.Examples.PlanningCorpus.RetainedSession(new PlanningSession { Catalog = catalog, Request = new() { TenantId = "local", Prompt = retained.Requirements!.Summary,
-            Policy = new() { RequireExternalConfirmation = false }, Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } });
-        var state = await planner.AdvanceAsync(seed, new(), new ProposalRuntime(runtime, retained), ct);
-        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Equal(1, state.ModelCalls);
-        var original = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
-        var copy = JsonSerializer.Deserialize(original, PlanningJsonContext.Default.PlanningSession)!;
-        var adapter = new ProposalRuntime(runtime, corrected);
-        copy = await planner.AdvanceAsync(copy, new() { Kind = "revise", ExpectedRevision = copy.Revision, ArtifactHash = copy.ComputeArtifactHash(), PreserveRequirements = true,
-            Text = "Correct adaptation and guards; remove unrequested consent work and its branches. Preserve all six requirements, public interfaces, direct search, exact destination, individual visits, order and cleanup. Use complete pages, compact decisions, offered/original lookup, verbatim facts and deterministic rows/status." }, adapter, ct);
-        copy = await planner.AdvanceAsync(copy, new() { ExpectedRevision = copy.Revision }, adapter, ct);
-        Assert.True(copy.Status == PlanningStatus.FinalReview, string.Join(';', copy.Diagnostics));
-        Assert.Single(adapter.Requests); Assert.Equal(2, copy.ModelCalls); Assert.Equal(0, copy.ReplanAttempts); Assert.Null(copy.ApprovedHash);
-        Assert.Equal(original, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
-        Assert.True(JsonNode.DeepEquals(JsonSerializer.SerializeToNode(state.Requirements, PlanningJsonContext.Default.PlanningRequirements), JsonSerializer.SerializeToNode(copy.Requirements, PlanningJsonContext.Default.PlanningRequirements)));
-        return copy;
+        ct.ThrowIfCancellationRequested();
+        await Task.CompletedTask;
+        var result = RecordedPlanCompilation.CompileStatic(corrected, catalog, new()
+        { TenantId = "local", Prompt = corrected.Requirements!.Summary, Policy = new() { RequireExternalConfirmation = false },
+            Options = new() { ["compilation_profile"] = "compact-bindings-v15", ["mapping_profile"] = "adaptive-each-v1" } });
+        Assert.True(result.Status == PlanningStatus.FinalReview, string.Join(';', result.Diagnostics));
+        Assert.Null(result.ApprovedHash); Assert.Equal(0, result.ModelCalls);
+        return result;
     }
+
 }

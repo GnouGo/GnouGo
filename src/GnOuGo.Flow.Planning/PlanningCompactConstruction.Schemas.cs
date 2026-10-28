@@ -28,7 +28,7 @@ internal static partial class PlanningCompactConstruction
         var canComplete = canClose && open.All(path => path == step.Scope) &&
             !compact.Sources.Any(s => s.Kind is "page" or "answer_page" or "revision_page" && !s.Indexed) &&
             construction.Requirements.All(r => step.CloseRequirementIds.Contains(r.Id, StringComparer.Ordinal) ||
-                r.Status == "closed" && (UsesConvergentConstruction(state) || step.Kind == "close" || !step.RequirementIds.Contains(r.Id, StringComparer.Ordinal)));
+                r.Status == "closed");
         // This narrows new presentations only. Existing semantic validation still
         // owns returned candidates, including responses to earlier issued schemas.
         return (canClose && (step.Scope != "/root" || canComplete), canComplete);
@@ -38,17 +38,8 @@ internal static partial class PlanningCompactConstruction
     {
         var step = state.Construction!.Compact!.CurrentStep!;
         var kind = step.Kind ?? throw new PlanningConflictException("Bind the immediate step implementation before issuing TaskPlan grammar.");
-        var fresh = PlanningConstructionPhasePolicies.IsFresh(state.Request);
-        // Fresh requests construct the selected kind from shared semantic
-        // definitions. Historical presentations retain their original template.
-        var definitions = fresh ? PlanningSchemas.ConstructionDefinitions(state, kind) :
-            PlanningSchemas.FullProposal(state, compact: false, admitted: new HashSet<string>(StringComparer.Ordinal),
-                scopeGuidance: false)["$defs"]!.DeepClone().AsObject();
+        var definitions = PlanningSchemas.ConstructionDefinitions(state, kind);
         var tasks = definitions["task"]!["anyOf"]!.AsArray();
-        if (!fresh)
-            foreach (var task in tasks.ToArray())
-                if (task!["properties"]!["kind"]!["enum"]![0]!.ToString() != step.Kind ||
-                    step.Kind == "transform" && task["properties"]!["mode"] is null) tasks.Remove(task);
         if (step.Kind == "operation")
             foreach (var capability in SelectedContracts(state)) tasks.Add((JsonNode)OperationTask(capability));
         if (step.Kind == "call" && step.GroupId is not null)
@@ -77,28 +68,24 @@ internal static partial class PlanningCompactConstruction
             ("requirementIds", step.RequirementIds.Count == 0 ? EmptyArray() :
                 PlanningSchemas.Array(PlanningSchemas.Enum(step.RequirementIds.ToArray()), 0, step.RequirementIds.Count)),
             ("complete", completion));
-        if (UsesAcceptedProgress(state) && step.Kind == "close" && step.CloseScopes is { } selectedClosure)
+        if (step.Kind == "close" && step.CloseScopes is { } selectedClosure)
         {
             extension["properties"]!["closeScopes"] = selectedClosure.Count == 0 ? EmptyArray() :
                 PlanningSchemas.Array(PlanningSchemas.Enum(step.Scope), 1, 1);
             extension["properties"]!["complete"] = new JsonObject { ["type"] = "boolean", ["enum"] = new JsonArray(selectedClosure.Contains("/root", StringComparer.Ordinal)) };
         }
-        if (UsesAcceptedProgress(state))
         {
             var retained = State(state).SuspendedSteps?.LastOrDefault(Active);
-            var eligible = UsesIncrementalReview(state) ? EligibleContinuationAssociations(state) :
-                retained is { Status: "waiting" } && ContinuationCurrent(state, retained) ? [retained] : [];
+            var eligible = EligibleContinuationAssociations(state);
             var association = PlanningSchemas.Object(("continuationId", PlanningSchemas.Enum(eligible.Select(item => item.Id).ToArray())),
                 ("binding", PlanningSchemas.Ref("continuationBindingValue")));
-            if (UsesIncrementalReview(state))
             {
                 association["properties"]!["dischargedContinuationIds"] = PlanningSchemas.Nullable(eligible.Length < 2 ? EmptyArray() :
                     PlanningSchemas.Array(PlanningSchemas.Enum(eligible.Skip(1).Select(item => item.Id).ToArray()), 0, 3));
                 association["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("dischargedContinuationIds"));
             }
             extension["properties"]!["continuationBinding"] = eligible.Length > 0 ? PlanningSchemas.Nullable(association) : PlanningSchemas.Type("null");
-            if (UsesAcceptedTransitions(state) ? eligible.Length > 0 :
-                retained is { Status: "waiting" } && ContinuationCurrent(state, retained))
+            if (eligible.Length > 0)
                 definitions["continuationBindingValue"] = new JsonObject { ["anyOf"] = new JsonArray(
                     PlanningSchemas.Object(("kind", PlanningSchemas.Enum("output")), ("source", Text(96)),
                         ("port", PlanningSchemas.Nullable(Text(96)))),
@@ -107,7 +94,6 @@ internal static partial class PlanningCompactConstruction
                         ("items", PlanningSchemas.Array(PlanningSchemas.Ref("continuationBindingValue"), 1, 1)))) };
             extension["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("continuationBinding"));
         }
-        if (UsesIncrementalReview(state))
         {
             var boundaries = BoundaryTargets(state, step.Scope).Where(boundary => step.RequirementIds.Count > 0 &&
                 (boundary != "/root" || state.Requirements?.Outputs is { Count: > 0 }));
@@ -123,15 +109,13 @@ internal static partial class PlanningCompactConstruction
                     new JsonObject { ["anyOf"] = new JsonArray(transitions.Cast<JsonNode>().ToArray()) }, 0, 4));
             extension["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("boundaryTransitions"));
         }
-        var publicOutputs = IsCompactPresentation(state)
-            ? step.OutputNames.ToArray()
-            : state.Requirements?.Outputs?.Select(output => output.Name).ToArray() ?? [];
+        var publicOutputs = step.OutputNames.ToArray();
         var commitments = step.OperationIds.Count == 0 || step.RequirementIds.Count == 0 ? PlanningSchemas.Type("null") :
             PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.Object(("requirementId", PlanningSchemas.Enum(step.RequirementIds.ToArray())),
                 ("operation", PlanningSchemas.Enum(step.OperationIds.ToArray())),
                 ("result", publicOutputs.Length == 0 ? PlanningSchemas.Type("null") : PlanningSchemas.Nullable(PlanningSchemas.Object(
                     ("port", PlanningSchemas.String()), ("output", PlanningSchemas.Enum(publicOutputs)))))), 0, 32));
-        if (UsesConvergentConstruction(state) && step.OperationIds.Count > 0 && step.RequirementIds.Count > 0)
+        if (step.OperationIds.Count > 0 && step.RequirementIds.Count > 0)
         {
             var alternatives = SelectedContracts(state).Select(TaskOperations.Describe).Select(operation =>
                 PlanningSchemas.Object(("requirementId", PlanningSchemas.Enum(step.RequirementIds.ToArray())),
@@ -143,14 +127,14 @@ internal static partial class PlanningCompactConstruction
             commitments = PlanningSchemas.Nullable(PlanningSchemas.Array(alternatives.Length == 1 ? alternatives[0] :
                 new JsonObject { ["anyOf"] = new JsonArray(alternatives.Cast<JsonNode>().ToArray()) }, 0, 32));
         }
-        var rollback = !fresh || state.Construction.Candidate is null && state.Phase != PlanningPhase.Replanning &&
+        var rollback = state.Construction.Candidate is null && state.Phase != PlanningPhase.Replanning &&
             state.Plan is { } accepted && TaskPlanRevisions.Tasks(accepted).Any();
         var schema = PlanningSchemas.Object(("baseHash", PlanningSchemas.Enum(step.BaseHash)), ("requirements", PlanningSchemas.Type("null")),
             ("commitments", commitments),
             ("extension", PlanningSchemas.Nullable(extension)), ("discoveryRequests", PlanningSchemas.Type("null")),
             ("clarifications", PlanningSchemas.Nullable(PlanningSchemas.Clarifications())),
             ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(new JsonObject { ["type"] = "string", ["maxLength"] = 2048 },
-                1, fresh ? 8 : IsCompactPresentation(state) ? 1 : 8))),
+                1, 8))),
             ("rollbackTask", rollback ? PlanningSchemas.Nullable(PlanningSchemas.String()) : PlanningSchemas.Type("null")),
             ("rollbackReason", rollback ? PlanningSchemas.Nullable(PlanningSchemas.String()) : PlanningSchemas.Type("null")),
             ("reselectStep", CanReselectInitialDraft(state) || !EvidenceAdmissionOnly(state) && state.Construction.Candidate?.AuthorizedPaths is null &&
@@ -158,29 +142,25 @@ internal static partial class PlanningCompactConstruction
                 ? PlanningSchemas.Nullable(new JsonObject { ["type"] = "string", ["minLength"] = 1, ["maxLength"] = 512 }) : PlanningSchemas.Type("null")));
         schema["$defs"] = definitions;
         ConstrainReselectionSchema(state, schema);
-        var reselection = fresh && schema["properties"]!["reselectStep"]!["type"]?.ToString() != "null"
+        var reselection = schema["properties"]!["reselectStep"]!["type"]?.ToString() != "null"
             ? schema["properties"]!["reselectStep"]!.DeepClone().AsObject() : null;
         var projected = PlanningContractValidation.ProjectStructuredOutputSchema(PlanningSchemas.Compact(schema));
         if (reselection is not null)
         {
-            if (UsesConvergentConstruction(state)) reselection = projected["properties"]!["reselectStep"]!.DeepClone().AsObject();
-            reselection["description"] = UsesConvergentConstruction(state)
-                ? "Abandon an unsuitable action or explicitly suspend its retained consumer for one evidenced prerequisite. Scope and original requirements remain fixed."
-                : "A precise reason to replace this tentative step, not a step ID. Explain what prevents it and identify any missing prerequisite; scope and original requirements remain fixed.";
+            reselection = projected["properties"]!["reselectStep"]!.DeepClone().AsObject();
+            reselection["description"] = "Abandon an unsuitable action or explicitly suspend its retained consumer for one evidenced prerequisite. Scope and original requirements remain fixed.";
             projected["properties"]!["reselectStep"] = reselection;
         }
         // Compact removes presentation annotations from the shared grammar. Put
         // back only the semantics needed by this selected kind and scope.
         projected["description"] = DraftSemantics(state, step);
-        if (UsesAcceptedProgress(state) && State(state).SuspendedSteps?.LastOrDefault(Active) is { Status: "waiting" })
+        if (State(state).SuspendedSteps?.LastOrDefault(Active) is { Status: "waiting" })
             projected["description"] += " When this fragment produces the retained consumer's prerequisite, continuationBinding identifies that consumer and the exact output or field binding. This is a proposed semantic association, validated and reviewed with the fragment; compatible types alone do not establish its meaning. Otherwise use null.";
         if (ResumedConsumerParent(state) is not null)
             projected["description"] += " This resumed business consumer may supply its immediate waiting parent's prerequisite. continuationBinding may name that offered parent and this fragment's exact new output; keep dischargedContinuationIds empty. Both business consumers and their original obligations remain retained. The child must pass ordinary acceptance before the parent can resume.";
-        if (UsesIncrementalReview(state))
-            projected["description"] += " boundaryTransitions optionally claims up to four exact existing boundaries, once per scope: outputs are exact exports; closeScope asserts no further work belongs in that boundary for its named original requirements. Host parent relationships determine order; this is not a future-task queue. Exports may reach the root, but these claims never close a requirement or the root. Use null when meaning or cleanup remains unresolved. An ancestor continuation association must explicitly list every bypassed prerequisite-only descendant in dischargedContinuationIds; never discharge original obligations or accepted effects.";
-        if (fresh && rollback)
-            projected["description"] += UsesConvergentConstruction(state) ? " " + RollbackSemantics :
-                " rollbackTask requests host-computed invalidation of an earlier producer and its dependent work; it cannot change accepted requirements or permissions. Explain the concrete defect in rollbackReason. Do not request rollback merely to regenerate the plan.";
+        projected["description"] += " boundaryTransitions optionally claims up to four exact existing boundaries, once per scope: outputs are exact exports; closeScope asserts no further work belongs in that boundary for its named original requirements. Host parent relationships determine order; this is not a future-task queue. Exports may reach the root, but these claims never close a requirement or the root. Use null when meaning or cleanup remains unresolved. An ancestor continuation association must explicitly list every bypassed prerequisite-only descendant in dischargedContinuationIds; never discharge original obligations or accepted effects.";
+        if (rollback)
+            projected["description"] += " " + RollbackSemantics;
         return projected;
 
         JsonObject OperationTask(PlanningCapability capability)
@@ -206,53 +186,28 @@ internal static partial class PlanningCompactConstruction
 
     private const string SelectedExpectationsSemantics = "Technical setup, handle and result-shape assumptions in selected expectedOutputs are provisional, not additional original obligations. Resolve them against exact contracts and reselect unsupported mechanisms. Preserve original business results and cleanup, and concrete task objectives and literals.";
 
-    private const string ReviewCapacitySemantics = "An unspecified input length does not require unlimited capacity. Preserve every item within admitted capacity; excess rejects the input, never returns truncated success. Report conflicts with explicit required capacities or known required item counts. Absent bounds alone are not defects or missing business facts; unspecified capacity remains unverified. Runtime ceilings still apply.";
-
-    internal static string DraftSemantics(PlanningSession state, PlanningConstructionStep step, bool review = false)
+    internal static string DraftSemantics(PlanningSession state, PlanningConstructionStep step)
     {
         var scope = new TaskPlanSymbols(state.Plan ?? new TaskPlan()).Scopes.SingleOrDefault(s => s.Path == step.Scope);
-        var hints = new List<string>();
-        if (state.Construction?.Compact?.PresentationVersion is 10 or 11) hints.Add(ReusableGroupSemantics);
-        if (UsesConvergentConstruction(state)) hints.Add(SelectedExpectationsSemantics);
-        if (review && UsesConvergentConstruction(state)) hints.Add(ReviewCapacitySemantics);
-        if (!review && UsesDeferredBinding(state) && step.Kind is "group" or "sequence" or "conditional" or "parallel" or "foreach")
-            hints.Add((UsesVerifiedReview(state) ? "A necessary opening establishes a control, reuse, cleanup or export boundary with empty children; it does not perform their business action." : "Opening creates empty child scopes, not their completed result.") + " Do not consume or export the new container's outputs until its children are complete and closed. If the selected outputNames or closeRequirementIds depend on those children, use reselectStep when offered to select only the opening, retaining its original requirements.");
+        var hints = new List<string> { ReusableGroupSemantics, SelectedExpectationsSemantics };
+        if (step.Kind is "group" or "sequence" or "conditional" or "parallel" or "foreach")
+            hints.Add("A necessary opening establishes a control, reuse, cleanup or export boundary with empty children; it does not perform their business action. Do not consume or export the new container's outputs until its children are complete and closed. If the selected outputNames or closeRequirementIds depend on those children, use reselectStep when offered to select only the opening, retaining its original requirements.");
         if (step.Kind is not ("group" or "choice" or "close"))
         {
             hints.Add("dependsOn names preceding same-scope tasks only; data bindings already imply dependencies and ancestor values use captures. requires is a Boolean assertion: false fails.");
-            hints.Add(!review && state.Construction?.Compact?.PresentationVersion == 11
-                ? "always contains cleanup on completion or failure; preserve available payloads before nested cleanup. present tests preceding local or lexical-ancestor task completion, not caller inputs or field nullability. For a null guard, compare the exact input, output or field with null."
-                : "always contains cleanup on completion or failure; preserve available payloads before nested cleanup and guard absent task results with present.");
+            hints.Add("always contains cleanup on completion or failure; preserve available payloads before nested cleanup. present tests preceding local or lexical-ancestor task completion, not caller inputs or field nullability. For a null guard, compare the exact input, output or field with null.");
         }
         if (step.Scope != "/root")
-            hints.Add(UsesVerifiedReview(state)
-                ? "Later tasks in the same scope can bind ordinary task results directly; no scope export is needed. outputs export values across the enclosing task/group boundary; /root outputs are public results. Outside consumers cannot bind hidden child tasks directly. Open containers expose no consumable results."
-                : "outputs explicitly export this scope's bound values through its enclosing task or group call; consumers cannot read hidden child tasks directly.");
-        if (step.Kind == "value")
-            hints.Add(ValueSemantics);
-        if (PlanningConstructionPhasePolicies.IsFresh(state.Request) && step.Kind == "transform")
+            hints.Add("Later tasks in the same scope can bind ordinary task results directly; no scope export is needed. outputs export values across the enclosing task/group boundary; /root outputs are public results. Outside consumers cannot bind hidden child tasks directly. Open containers expose no consumable results.");
+        if (step.Kind == "value") hints.Add(ValueSemantics);
+        if (step.Kind == "transform")
             hints.Add("transform resultType is an object of named output ports; output.port selects that field's type, not the whole result object. extract preserves observed facts; interpret uses its objective as the runtime LLM instruction, inputs as data and resultType as the output contract, without a separate expression. Neither executes external effects.");
-        if (IsCompactPresentation(state) && step.Kind == "operation")
-            hints.Add(review
-                ? "editableInputs is only the inspected subset, not the complete operation input contract; an empty list does not mean no arguments are needed."
-                : PlanningConstructionPhasePolicies.IsFresh(state.Request)
-                ? "editableInputs is only the inspected subset. Retrieve the exact schema branches needed for this business action together, up to eight addresses; the complete follow-up must fit its captured ceiling. Retrieval expands binding grammar. [] does not mean no arguments are needed."
-                : "editableInputs is only the inspected subset. Retrieve one exact schema address per call for any omitted port this business action needs; retrieval expands the binding grammar. [] does not mean no arguments are needed.");
+        if (step.Kind == "operation")
+            hints.Add("editableInputs is only the inspected subset. Retrieve the exact schema branches needed for this business action together, up to eight addresses; the complete follow-up must fit its captured ceiling. Retrieval expands binding grammar. [] does not mean no arguments are needed.");
         if (step.Kind == "foreach")
         {
             hints.Add("foreach.maxItems is the TOTAL input-item ceiling; excess fails, it never samples or truncates. maxConcurrency limits simultaneous workers, not total items. Neither bound guarantees a nonempty collection.");
-            if (IsCompactPresentation(state) && !(review && UsesConvergentConstruction(state)))
-                hints.Add(review
-                    ? UsesDeferredBinding(state)
-                        ? ReviewCapacitySemantics
-                        : "Finite supported capacity must respect explicit original bounds; unspecified capacity remains unverified. Runtime ceilings still apply."
-                    : PlanningConstructionPhasePolicies.IsFresh(state.Request)
-                    ? "Use a finite supported capacity; the TaskPlan default maxItems=" +
-                        new PlanTask().MaxItems.ToString(System.Globalization.CultureInfo.InvariantCulture) +
-                        ". Assess conflicts with explicit original bounds; unspecified capacity remains unverified. Runtime ceilings still apply."
-                    : "Without an explicit original bound, use the existing TaskPlan default maxItems=" +
-                        new PlanTask().MaxItems.ToString(System.Globalization.CultureInfo.InvariantCulture) +
-                        ". 1 is singleton capacity, not a placeholder or worker count. Runtime ceilings still apply.");
+            hints.Add("Use a finite supported capacity; the TaskPlan default maxItems=" + new PlanTask().MaxItems.ToString(System.Globalization.CultureInfo.InvariantCulture) + ". Assess conflicts with explicit original bounds; unspecified capacity remains unverified. Runtime ceilings still apply.");
         }
         if (step.Kind == "foreach" || scope?.Owner?.Kind == "foreach")
             hints.Add("Each foreach body output becomes an array on the enclosing task, preserving input order and repetitions; array-valued outputs remain nested. Within the body, item and index refer to the current iteration.");
@@ -261,19 +216,11 @@ internal static partial class PlanningCompactConstruction
         if (step.Kind == "parallel" || scope?.Owner?.Kind == "parallel")
             hints.Add("Parallel sibling branches are independent and their exported names must be distinct; maxConcurrency limits simultaneous branches.");
         if (step.Kind == "group" || scope is { Parent: null } && step.Scope != "/root")
-            hints.Add(review
-                ? "A reusable group has isolated named inputs; its body cannot capture caller inputs or tasks. Only a closed group is callable."
-                : "A reusable group has isolated named inputs; its body cannot capture caller inputs or tasks. Close its body before selecting a call.");
+            hints.Add("A reusable group has isolated named inputs; its body cannot capture caller inputs or tasks. Close its body before selecting a call.");
         if (step.Kind == "call")
-            hints.Add(review
-                ? "A call binds the selected closed group's declared input names; its explicit exports are the call's output ports."
-                : "Bind the selected closed group's declared input names; its explicit exports are the call's output ports.");
+            hints.Add("Bind the selected closed group's declared input names; its explicit exports are the call's output ports.");
         if (step.Kind == "close")
-            hints.Add(review
-                ? "A close step may finish a scope while broader requirements remain open, or confirm satisfied closeRequirementIds with empty closeScopes. Scope closure requires complete children and compatible exports; root completion requires every scope and original requirement to be complete."
-                : PlanningConstructionPhasePolicies.IsFresh(state.Request)
-                ? "A close step may finish a scope while broader requirements remain open, or confirm satisfied closeRequirementIds with empty closeScopes. Withdraw premature selected closeRequirementIds via reselectStep, preserving scope and requirementIds; an unchanged draft preserves the claim. Add needed final exports without rewriting accepted work. Close children before their parent, and root only when all scopes and original requirements are complete, with complete:true."
-                : "A close step may confirm host-issued closeRequirementIds against accepted work with empty closeScopes and no new tasks or exports. Scope closure is separate: add needed final exports without rewriting accepted work. Close children before their parent. Close root only when all scopes and original requirements are complete, with complete:true.");
+            hints.Add("A close step may finish a scope while broader requirements remain open, or confirm satisfied closeRequirementIds with empty closeScopes. Withdraw premature selected closeRequirementIds via reselectStep, preserving scope and requirementIds; an unchanged draft preserves the claim. Add needed final exports without rewriting accepted work. Close children before their parent, and root only when all scopes and original requirements are complete, with complete:true.");
         return string.Join(" ", hints);
     }
 

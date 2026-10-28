@@ -8,52 +8,6 @@ namespace GnOuGo.Planning.Examples;
 /// <summary>Scripted semantic responses for offline tests. Requests and outcome oracles are frozen separately.</summary>
 public static class PlanningCorpus
 {
-    // This corpus records the historical whole-plan response protocol. Rehydrate
-    // its captured profiles explicitly; fresh-session construction has separate
-    // extension/Judge fixtures and must never accept these responses as fallback.
-    public static PlanningSession RetainedSession(PlanningSession state)
-    {
-        state.IntentVersion ??= 3;
-        state.Request.Options.TryAdd("compilation_profile", TaskPlanCompiler.CompactProfile);
-        state.Request.Options.TryAdd("mapping_profile", TaskPlanCompiler.AdaptiveMappingProfile);
-        state.Request.Options.TryAdd("planning_validation_profile", TaskPlanCompiler.AssertionValidationProfile);
-        state.Request.Options.TryAdd("planning_diagnostics_version", 1);
-        state.Request.Options.TryAdd("planning_input_review_version", 2);
-        state.Request.Options.TryAdd("business_judge_review_version", 2);
-        return JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
-    }
-
-    // Explicit one-draft transport for small offline interaction fixtures. Large
-    // frozen corpus responses continue to exercise their retained protocol.
-    public static JsonNode? OneDraftResponse(LLMRequest request, PlanningProposal proposal)
-    {
-        var schema = request.StructuredOutputSchema!.AsObject();
-        JsonObject response;
-        if (schema["properties"]?["findings"] is not null)
-        {
-            response = new() { ["findings"] = new JsonArray(), ["uncertainty"] = "Offline review fixture; execution is independently asserted.", ["evidenceRequests"] = null };
-            if (schema["properties"]?["inconclusive"] is not null) response["inconclusive"] = null;
-        }
-        else
-        {
-            response = JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal)!.AsObject();
-            response.Remove("plan");
-            var baselineSchema = schema["properties"]?["baseHash"];
-            while (baselineSchema?["$ref"] is { } reference)
-                baselineSchema = schema["$defs"]![reference.ToString().Split('/')[^1]];
-            response["baseHash"] = baselineSchema?["enum"]?[0]?.DeepClone();
-            if (proposal.Plan is { } plan)
-            {
-                var extension = new PlanningConstructionExtension { Tasks = plan.Root.Tasks, Always = plan.Root.Always,
-                    Outputs = plan.Root.Outputs, Groups = plan.Groups, Choices = plan.Choices,
-                    CloseScopes = ["/root"], Complete = true,
-                    RequirementIds = proposal.Requirements!.Outcomes.Select(r => r.Id).ToList() };
-                response["extension"] = JsonSerializer.SerializeToNode(extension, PlanningJsonContext.Default.PlanningConstructionExtension);
-            }
-        }
-        return Transport(response, schema, schema);
-    }
-
     public static readonly string[] Names = PlanningBenchmarkCases.Names;
     public static string Prompt(string name) => PlanningBenchmarkCases.Prompt(name);
     public static PlanningValue Ref(string kind, string source, params string[] path) => new() { Kind = kind, Source = source, Path = path.ToList() };
@@ -134,73 +88,10 @@ public static class PlanningCorpus
     /// <summary>Projects fixture DTOs to the exact strict transport schema. Never used in production.</summary>
     public static JsonNode? Transport(JsonNode? value, JsonObject schema, JsonObject root)
     {
-        // Old discovery scripts do not yet specify a complete result interface.
-        // Defer accepting intent until their plan response, as the current protocol allows.
-        if (ReferenceEquals(schema, root) && value?["requirements"] is JsonObject pendingRequirements &&
-            !pendingRequirements.ContainsKey("outputs") && value["plan"] is null &&
-            root["$defs"]!.AsObject().Any(d => d.Value?["properties"] is JsonObject p && p.ContainsKey("summary") && p.ContainsKey("outputs")))
-        { value = value.DeepClone(); value["requirements"] = null; }
-        // Historical fixtures predate accepted output interfaces. Preserve their exact
-        // output names with opaque types; independent type-interface tests declare their own.
-        if (ReferenceEquals(schema, root) && value?["requirements"] is JsonObject resultRequirements &&
-            !resultRequirements.ContainsKey("outputs") && value["plan"]?["root"]?["outputs"] is JsonArray results &&
-            root["$defs"]!.AsObject().Any(d => d.Value?["properties"] is JsonObject p && p.ContainsKey("summary") && p.ContainsKey("outputs")))
-        {
-            value = value.DeepClone();
-            value["requirements"]!["outputs"] = new JsonArray(results.Select(o => (JsonNode)new JsonObject
-            { ["name"] = o!["name"]!.DeepClone(), ["type"] = new JsonObject { ["kind"] = "any" }, ["required"] = true }).ToArray());
-        }
-        // Older scripted proposals specify their caller interface on the plan only.
-        // Advertise that same interface explicitly in NEW request schemas; never alter
-        // a fixture that supplies an independent requirements interface for comparison.
-        if (ReferenceEquals(schema, root) && schema["properties"]?["clarifications"] is not null &&
-            value?["requirements"] is JsonObject requirements && requirements["inputs"] is null && value["plan"] is JsonObject plan)
-        {
-            value = value.DeepClone(); value["requirements"]!["inputs"] = plan["inputs"]?.DeepClone() ?? new JsonArray();
-        }
-        // Legacy scripted outcomes describe returned data. Supply explicit annotations
-        // only for new response schemas; focused external-outcome fixtures set their own.
-        if (ReferenceEquals(schema, root) && schema["properties"]?["outcomeBindings"] is not null && value is JsonObject)
-        {
-            value = value.DeepClone();
-            if (value["requirements"]?["outcomes"] is JsonArray outcomes)
-                foreach (var outcome in outcomes)
-                {
-                    if (outcome!["execution"] is null)
-                    { outcome["execution"] = "data"; outcome["always"] = false; outcome["conditional"] = false; }
-                    // Test-only legacy corpus uses once coverage; per-item fixtures declare it explicitly.
-                    outcome["coverage"] ??= "once";
-                    outcome["placement"] ??= outcome["always"]?.GetValue<bool>() == true ? "cleanup" : "normal";
-                }
-            if (value["plan"] is JsonObject annotatedPlan && value["outcomeBindings"] is null && value["clarifications"] is null)
-            {
-                JsonNode Resolve(JsonNode node) => node["$ref"] is { } link ? Resolve(root["$defs"]![link.ToString().Split('/')[^1]]!) : node;
-                var bindingSchema = Resolve(schema["properties"]!["outcomeBindings"]!);
-                var arraySchema = bindingSchema["anyOf"]!.AsArray().Select(n => Resolve(n!)).Single(n => n["type"]?.ToString() == "array");
-                var ids = value["requirements"]?["outcomes"]?.AsArray().Select(o => o!["id"]!.ToString()).ToArray()
-                    ?? Resolve(Resolve(arraySchema["items"]!)["properties"]!["outcomeId"]!)["enum"]?.AsArray().Select(n => n!.ToString()).ToArray() ?? [];
-                var outputs = annotatedPlan["root"]?["outputs"]?.AsArray().Select(o => o!["name"]!.ToString()).ToArray() ?? [];
-                var tasks = outputs.Length > 0 ? [] : annotatedPlan["root"]?["tasks"]?.AsArray().Select(t => t!["id"]!.ToString()).ToArray() ?? [];
-                value["outcomeBindings"] = new JsonArray(ids.Select(id => (JsonNode)new JsonObject { ["outcomeId"] = id,
-                    ["taskIds"] = new JsonArray(tasks.Select(t => (JsonNode?)JsonValue.Create(t)).ToArray()),
-                    ["outputs"] = new JsonArray(outputs.Select(o => (JsonNode?)JsonValue.Create(o)).ToArray()) }).ToArray());
-            }
-            if (value["outcomeBindings"] is JsonArray bindings)
-                foreach (var binding in bindings) binding!["inputs"] ??= new JsonArray();
-        }
         if (schema["$ref"] is { } reference) return Transport(value, root["$defs"]![reference.ToString().Split('/')[^1]]!.AsObject(), root);
         if (schema["anyOf"] is JsonArray alternatives)
         {
             var selected = alternatives.OfType<JsonObject>().FirstOrDefault(s => Matches(value, s, root));
-            // Historical scripted transforms mean interpretation. Only adapt their
-            // representation when a fresh schema requires that existing meaning
-            // explicitly; raw response/legacy-schema tests bypass this adapter.
-            if (selected is null && value is JsonObject task && task["kind"]?.ToString() == "transform" && task["mode"] is null)
-            {
-                var explicitMode = task.DeepClone(); explicitMode["mode"] = "interpret";
-                selected = alternatives.OfType<JsonObject>().FirstOrDefault(s => Matches(explicitMode, s, root));
-                if (selected is not null) value = explicitMode;
-            }
             if (selected is null) throw new InvalidOperationException("The scripted value cannot be represented by the issued schema.");
             return Transport(value, selected, root);
         }
@@ -218,6 +109,8 @@ public static class PlanningCorpus
         if (value is null) return false;
         JsonNode? Resolve(JsonNode? node) => node?["$ref"] is { } link ? Resolve(root["$defs"]![link.ToString().Split('/')[^1]]) : node;
         var properties = schema["properties"] as JsonObject;
+        foreach (var discriminator in new[] { "kind", "scope" })
+            if (properties?[discriminator] is JsonObject domain && value[discriminator] is { } supplied && !Matches(supplied, domain, root)) return false;
         if (value is JsonObject task && task["kind"]?.ToString() == "transform" && properties?.ContainsKey("mode") == true &&
             properties.ContainsKey("each") != (task["each"] is not null)) return false;
         if (properties?.ContainsKey("sourceId") == true &&
@@ -248,34 +141,30 @@ public static class PlanningCorpus
     public sealed class Runtime(string name, WorkflowEngine engine, ILLMClient? live = null) : IPlanningRuntime
     {
         private readonly WorkflowPlanningRuntime _actual = new(engine, (_, _) => Task.CompletedTask);
-        private PlanningSession? _snapshot;
         public ICapabilityCatalog Capabilities => _actual.Capabilities;
         public List<PlanningDiagnostic> DiagnosticHistory { get; } = [];
         public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => _actual.DiscoverAsync(request, ct);
         public async Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
         {
             if (live is not null) return await live.CallAsync(request, ct);
-            var catalog = _snapshot!.Catalog!;
-            var discovery = _snapshot.Discovery;
-            var proposal = new PlanningProposal { Requirements = Requirements(name) };
-            var local = name is "local" or "collections";
-            if (!local && discovery.Pages.Count == 0) proposal.DiscoveryRequests = [new(discovery.Sources[0].Id)];
-            else
-            {
-                var issued = new PlanningCatalog { Capabilities = catalog.Capabilities.Concat(discovery.Pages.SelectMany(p => p.Capabilities)
-                    .DistinctBy(c => c.Id).Where(c => catalog.Capabilities.All(resolved => resolved.Id != c.Id)).Select(c => new PlanningCapability
-                    { Id = c.Id, Method = c.Name, StepType = c.StepType, Operation = c.Operation })).ToList() };
-                // The scripted model widens only while an operation used by its unchanged
-                // business plan is missing; exhausting every distractor page is unnecessary.
-                try { proposal.Plan = Tasks(name, issued); }
-                catch (InvalidOperationException) when (!local && discovery.Pages[^1].NextCursor is not null)
-                { proposal.DiscoveryRequests = [new(discovery.Pages[^1].SourceId, discovery.Pages[^1].NextCursor)]; }
-            }
-            var json = JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal);
-            return new() { Json = Transport(json, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
+            throw new InvalidOperationException("Offline fixture '" + name + "' must provide explicit current incremental responses.");
         }
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => _actual.ValidateAsync(request, ct);
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => _actual.ValidateCatalogAsync(catalog, ct);
-        public Task CheckpointAsync(PlanningSession state, CancellationToken ct) { _snapshot = state; DiagnosticHistory.AddRange(state.Diagnostics.Where(d => !DiagnosticHistory.Contains(d))); return Task.CompletedTask; }
+        public Task CheckpointAsync(PlanningSession state, CancellationToken ct) { DiagnosticHistory.AddRange(state.Diagnostics.Where(d => !DiagnosticHistory.Contains(d))); return Task.CompletedTask; }
     }
 }
+
+/// <summary>Static TaskPlan input for compiler and oracle fixtures; never a planning response protocol.</summary>
+public sealed class TaskPlanFixture
+{
+    public PlanningRequirements? Requirements { get; set; }
+    public TaskPlan? Plan { get; set; }
+    public List<PlanningDiscoveryRequest>? DiscoveryRequests { get; set; }
+    public List<PlanningQuestion>? Clarifications { get; set; }
+    public string Explanation { get; set; } = "";
+}
+
+[System.Text.Json.Serialization.JsonSourceGenerationOptions(PropertyNamingPolicy = System.Text.Json.Serialization.JsonKnownNamingPolicy.CamelCase)]
+[System.Text.Json.Serialization.JsonSerializable(typeof(TaskPlanFixture))]
+public partial class PlanningFixtureJsonContext : System.Text.Json.Serialization.JsonSerializerContext;

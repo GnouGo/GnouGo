@@ -107,7 +107,7 @@ try {
     }
   }
   assert.deepEqual(errors, []);
-  await writeFile(`${output}/results.json`, JSON.stringify({ recommendation: true, custom: true, textOnly: true, reload: true, keyboard: true, mobile: true, cancellation: true, businessRequirementsReview: true, legacyRevisionRequired: true, separateApproval: true, savedResponseRecovery: true, errors }, null, 2));
+  await writeFile(`${output}/results.json`, JSON.stringify({ recommendation: true, custom: true, textOnly: true, reload: true, keyboard: true, mobile: true, cancellation: true, businessRequirementsReview: true, retiredSessionCaseIncluded: Object.hasOwn(cases, 'legacy'), separateApproval: true, savedResponseRecovery: true, errors }, null, 2));
 } catch (error) {
   await page.screenshot({ path: `${output}/failure.png`, fullPage: true });
   console.error((await page.locator('body').innerText()).slice(-6000)); console.error(errors); throw error;

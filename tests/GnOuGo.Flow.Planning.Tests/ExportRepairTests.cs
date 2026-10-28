@@ -19,7 +19,7 @@ public sealed class ExportRepairTests
     public async Task NestedExportsIssueOnlyMissingPortsAndOneConsumerCorrection(string container, string port, bool existing, bool selected)
     {
         var runtime = new WorkflowPlanningRuntime(new(), (_, _) => Task.CompletedTask);
-        var state = PlannerFixture.HistoricalSession(); state.IntentVersion = 2;
+        var state = PlannerFixture.Session();
         state.Catalog = await runtime.DiscoverAsync(state.Request, PlannerFixture.Ct);
         state.Requirements = new() { Summary = "Return declared values", Inputs = [], Outcomes = [new("data", "Return the selected data")] };
         var producer = new PlanTask { Id = "origin", Kind = "value", Objective = "Preserve data", Outputs = [new(port, PlanningCorpus.Business("input", "entries"))] };
@@ -50,7 +50,7 @@ public sealed class ExportRepairTests
             Assert.Equal(original, JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
             return;
         }
-        var request = new PlanningPrompt(state).Request();
+        var request = RepairPatchTests.Request(state);
         Assert.Equal(PlanningRepairPatch.CurrentVersion, PlanningRepairPatch.RequestContext(request)["repair"]!["version"]!.GetValue<int>());
         foreach (var code in new[] { "LLM_BUDGET_UNVERIFIABLE", "MODEL_DISPATCH_UNVERIFIABLE", "PLANNING_HOST_FAILURE" })
         {
@@ -61,15 +61,23 @@ public sealed class ExportRepairTests
         var slots = RepairPatchTests.Slots(state);
         Assert.Equal(existing ? 1 : 4, slots.Count);
         Assert.DoesNotContain(slots, s => s.Kind == "exports");
-        var revised = PlannerFixture.Clone(state).Plan!;
-        revised.Root.Outputs[0].Value.Source = container;
+        var edits = new List<JsonObject>
+        {
+            RepairPatchTests.Edit(state, "/root/outputs/report", "replace",
+                JsonSerializer.SerializeToNode(PlanningCorpus.Business("output", container, port), PlanningJsonContext.Default.TaskValue))
+        };
         if (!existing)
         {
-            revised.Root.Tasks[0].Body!.Tasks[0].Body!.Outputs.Add(new(port, PlanningCorpus.Business("output", "origin", port)));
-            revised.Root.Tasks[0].Body!.Outputs.Add(new(port, PlanningCorpus.Business("output", "inner", port)));
-            revised.Root.Tasks[0].Otherwise!.Outputs.Add(new(port, new() { Kind = "array", Items = [PlanningCorpus.String("fallback")] }));
+            edits.Add(RepairPatchTests.Edit(state, "/tasks/inner/body/outputs/" + port, "add",
+                JsonSerializer.SerializeToNode(PlanningCorpus.Business("output", "origin", port), PlanningJsonContext.Default.TaskValue)));
+            edits.Add(RepairPatchTests.Edit(state, "/tasks/" + container + "/body/outputs/" + port, "add",
+                JsonSerializer.SerializeToNode(PlanningCorpus.Business("output", "inner", port), PlanningJsonContext.Default.TaskValue)));
+            edits.Add(RepairPatchTests.Edit(state, "/tasks/" + container + "/otherwise/outputs/" + port, "add",
+                JsonSerializer.SerializeToNode(new TaskValue { Kind = "array", Items = [PlanningCorpus.String("fallback")] }, PlanningJsonContext.Default.TaskValue)));
         }
-        var response = TestRuntime.PatchResponse(request, state, revised);
+        var response = new JsonObject { ["discoveryRequests"] = null, ["clarifications"] = null,
+            ["patch"] = new JsonObject { ["edits"] = new JsonArray(edits.Select(edit => (JsonNode)edit).ToArray()) } };
+        response = PlanningCorpus.Transport(response, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject())!.AsObject();
         Assert.Empty(PlanningContractValidation.ValidateInstance(response, request.StructuredOutputSchema!));
         var candidate = PlanningRepairPatch.Apply(state, response.Deserialize(RepairJsonContext.Default.PlanningRepairResponse)!.Patch!, request);
         Assert.Empty(new TaskPlanCompiler().Compile(candidate, state.Catalog).Diagnostics);

@@ -16,8 +16,7 @@ public static class PlanningBenchmarkMeasurements
             ["discovery"] = JsonSerializer.SerializeToNode(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState),
             ["plan"] = JsonSerializer.SerializeToNode(state.Plan, PlanningJsonContext.Default.TaskPlan) }.ToJsonString())));
 
-    // Omitted switches retain the saved definition. Creation defaults must never
-    // become an implicit request to migrate a retained cohort.
+    // Captured limits cannot change within an active-format cohort.
     public static void ConfigureRequest(PlanningRequest request, string[] args, bool retained)
     {
         int? Number(string name, bool zeroAllowed = false)
@@ -39,7 +38,6 @@ public static class PlanningBenchmarkMeasurements
             var file = args.ElementAtOrDefault(phaseArguments[0].index + 1) ?? throw new ArgumentException("Missing phase policy file.");
             var probe = new PlanningRequest { Options = new()
             {
-                ["construction_version"] = 2,
                 ["construction_limits"] = new JsonObject { ["phasePolicy"] = JsonNode.Parse(File.ReadAllText(file)) }
             } };
             selectedPolicy = PlanningConstructionPhasePolicies.Read(probe)
@@ -53,14 +51,12 @@ public static class PlanningBenchmarkMeasurements
         if (totalTokens > 15_000_000 || elapsed > 18_000_000)
             throw new ArgumentException("Cumulative benchmark allowances cannot exceed the authorized creation ceilings.");
         var automatic = args.Contains("--automatic-correction", StringComparer.Ordinal);
-        var firstConstructionConfiguration = request.Options["construction_version"]?.GetValue<int>() is not (1 or 2);
+        var firstConstructionConfiguration = request.Options["construction_limits"] is null;
         var capturedPreset = request.Options["construction_preset"]?.ToString();
-        var enabled = args.Contains("--business-judge", StringComparer.Ordinal);
-        var disabled = args.Contains("--no-business-judge", StringComparer.Ordinal);
-        if (enabled && disabled) throw new ArgumentException("Choose one judge setting.");
+        if (args.Contains("--business-judge", StringComparer.Ordinal) || args.Contains("--no-business-judge", StringComparer.Ordinal))
+            throw new ArgumentException("Business review is mandatory and has no configuration switch.");
         if (retained && (calls is not null && calls != request.MaxModelCalls || repairs is not null && repairs != request.MaxReplanAttempts ||
             input is not null && input != request.Generation.MaxInputTokensPerRequest || output is not null && output != request.Generation.MaxOutputTokens ||
-            (enabled || disabled) && enabled != (request.Options["business_judge"]?.ToString() == "true") ||
             preset is not null && preset != request.Options["construction_preset"]?.ToString() ||
             totalTokens is not null && totalTokens != request.Options["llm_budget"]?["max_total_tokens"]?.GetValue<int>() ||
             elapsed is not null && elapsed != request.Options["llm_budget"]?["max_elapsed_ms"]?.GetValue<int>() ||
@@ -75,12 +71,8 @@ public static class PlanningBenchmarkMeasurements
             return;
         }
         PlanningTransportPolicies.Capture(request);
-        request.Options["construction_version"] = 2;
-        request.Options["construction_presentation_version"] = 11;
         request.Options["construction_preset"] = preset ?? request.Options["construction_preset"]?.ToString() ?? PlanningConstructionPresets.Ordinary;
         request.Options["construction_limits"] ??= JsonSerializer.SerializeToNode(new PlanningConstructionOptions(), PlanningJsonContext.Default.PlanningConstructionOptions);
-        request.Options["construction_input_limits"] ??= JsonSerializer.SerializeToNode(new PlanningConstructionInputLimits(), PlanningJsonContext.Default.PlanningConstructionInputLimits);
-        request.Options["construction_limits"]!["inputLimits"] = request.Options["construction_input_limits"]!.DeepClone();
         request.Options["llm_budget"] ??= new JsonObject { ["max_total_tokens"] = 15_000_000, ["max_elapsed_ms"] = 18_000_000 };
         if (totalTokens is not null) request.Options["llm_budget"]!["max_total_tokens"] = totalTokens.Value;
         if (elapsed is not null) request.Options["llm_budget"]!["max_elapsed_ms"] = elapsed.Value;
@@ -103,49 +95,33 @@ public static class PlanningBenchmarkMeasurements
         };
         request.Options["construction_limits"]!["phasePolicy"] = JsonSerializer.SerializeToNode(
             PlanningConstructionPhasePolicies.Capture(request, phasePolicy), PlanningJsonContext.Default.PlanningConstructionPhasePolicy);
-        var effectiveInputLimits = new PlanningConstructionInputLimits
-        {
-            Selection = PlanningConstructionInputPolicy.EffectiveLimit(request, "construction_select"),
-            Draft = PlanningConstructionInputPolicy.EffectiveLimit(request, "construction_draft"),
-            Review = PlanningConstructionInputPolicy.EffectiveLimit(request, "construction_local_judge")
-        };
-        request.Options["construction_input_limits"] = JsonSerializer.SerializeToNode(effectiveInputLimits, PlanningJsonContext.Default.PlanningConstructionInputLimits);
-        request.Options["construction_limits"]!["inputLimits"] = request.Options["construction_input_limits"]!.DeepClone();
         request.Options["construction_limits"] = JsonSerializer.SerializeToNode(
             request.Options["construction_limits"]!.Deserialize(PlanningJsonContext.Default.PlanningConstructionOptions)!,
             PlanningJsonContext.Default.PlanningConstructionOptions);
         if (automatic) request.Options["automatic_correction"] = true;
-        if (enabled || disabled) request.Options["business_judge"] = enabled;
     }
 
     public static JsonObject Configuration(PlanningRequest request)
     {
         var result = new JsonObject
         {
+            ["planning_format"] = 11,
             ["calls"] = request.MaxModelCalls, ["repairs"] = request.MaxReplanAttempts,
             ["input_tokens"] = request.Generation.MaxInputTokensPerRequest, ["output_tokens"] = request.Generation.MaxOutputTokens,
-            ["reasoning"] = request.Generation.Reasoning, ["business_judge"] = request.Options["business_judge"]?.ToString() == "true"
+            ["reasoning"] = request.Generation.Reasoning
         };
-        if (request.Options["construction_version"]?.GetValue<int>() is 1 or 2)
-        {
-            foreach (var key in new[] { "construction_version", "construction_preset", "construction_limits", "llm_budget", "automatic_correction" })
-                result[key] = request.Options[key]?.DeepClone();
-            foreach (var key in new[] { PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms" })
-                if (request.Options[key] is { } captured) result[key] = captured.DeepClone();
-            if (request.Options["construction_input_limits"] is { } inputLimits) result["construction_input_limits"] = inputLimits.DeepClone();
-            if (request.Options["construction_presentation_version"] is { } presentation) result["construction_presentation_version"] = presentation.DeepClone();
-            result["policy"] = JsonSerializer.SerializeToNode(request.Policy, PlanningJsonContext.Default.PlanningPolicy);
-            if (PhasePolicyHash(request) is { } profileHash) result["phase_policy_hash"] = profileHash;
-        }
+        foreach (var key in new[] { "construction_preset", "construction_limits", "llm_budget", "automatic_correction",
+            PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms" })
+            if (request.Options[key] is { } value) result[key] = value.DeepClone();
+        result["policy"] = JsonSerializer.SerializeToNode(request.Policy, PlanningJsonContext.Default.PlanningPolicy);
+        if (PhasePolicyHash(request) is { } profileHash) result["phase_policy_hash"] = profileHash;
         return result;
     }
 
-    // Historical hosts imposed thirty minutes independently of the planner budget.
-    // Only fresh benchmark creation captures the aligned host allowance.
     public static TimeSpan PlanningElapsedLimit(PlanningRequest request)
     {
         var captured = request.Options["benchmark_planning_elapsed_ms"];
-        var milliseconds = captured is null ? 1_800_000L : captured.GetValue<long>();
+        var milliseconds = captured?.GetValue<long>() ?? throw new InvalidOperationException("The captured benchmark planning duration is required.");
         if (milliseconds is <= 0 or > 18_000_000)
             throw new InvalidOperationException("The captured benchmark planning duration is invalid.");
         var host = TimeSpan.FromMilliseconds(milliseconds);
@@ -183,89 +159,26 @@ public static class PlanningBenchmarkMeasurements
 
     public static PlanningRequest RestoreConfiguration(JsonObject settings)
     {
+        if (settings["planning_format"]?.GetValue<int>() != 11)
+            throw new InvalidOperationException("The frozen configuration belongs to a retired planning format. Start a fresh cohort; its archive is unchanged.");
         var result = new PlanningRequest
         {
             MaxModelCalls = settings["calls"]!.GetValue<int>(), MaxReplanAttempts = settings["repairs"]!.GetValue<int>(),
             Generation = new() { Reasoning = settings["reasoning"]!.ToString(), MaxInputTokensPerRequest = settings["input_tokens"]!.GetValue<int>(), MaxOutputTokens = settings["output_tokens"]!.GetValue<int>() },
-            Options = new() { ["business_judge"] = settings["business_judge"]!.GetValue<bool>() }
+            Policy = settings["policy"]!.Deserialize(PlanningJsonContext.Default.PlanningPolicy)!
         };
-        if (settings["construction_version"]?.GetValue<int>() is 1 or 2)
-        {
-            foreach (var key in new[] { "construction_version", "construction_preset", "construction_limits", "llm_budget", "automatic_correction" })
-                if (settings[key] is { } value) result.Options[key] = value.DeepClone();
-            foreach (var key in new[] { PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms" })
-                if (settings[key] is { } captured) result.Options[key] = captured.DeepClone();
-            if (settings["construction_input_limits"] is { } inputLimits) result.Options["construction_input_limits"] = inputLimits.DeepClone();
-            if (settings["construction_presentation_version"] is { } presentation) result.Options["construction_presentation_version"] = presentation.DeepClone();
-            result.Policy = settings["policy"]!.Deserialize(PlanningJsonContext.Default.PlanningPolicy)!;
-        }
+        foreach (var key in new[] { "construction_preset", "construction_limits", "llm_budget", "automatic_correction",
+            PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms" })
+            if (settings[key] is { } value) result.Options[key] = value.DeepClone();
         return result;
     }
 
     public static void CaptureConstructionSettings(PlanningSession state)
     {
-        if (state.Construction is null && state.Request.Options["construction_version"]?.GetValue<int>() is 1 or 2 &&
-            state.Revision == 0 && state.ModelCalls == 0 && state.PendingCall is null && state.Plan is null &&
+        if (state.SchemaVersion != 11) throw new InvalidOperationException("Only the active planning format can construct work.");
+        if (state.Construction is null && state.Revision == 0 && state.ModelCalls == 0 && state.PendingCall is null && state.Plan is null &&
             state.Request.Options["construction_limits"] is { } limits)
-            state.Construction = new() { Version = state.Request.Options["construction_version"]!.GetValue<int>(),
-                Limits = limits.Deserialize(PlanningJsonContext.Default.PlanningConstructionOptions)!,
-                Compact = state.Request.Options["construction_version"]!.GetValue<int>() == 2 ? new PlanningCompactConstructionState
-                    { PresentationVersion = state.Request.Options["construction_presentation_version"]?.GetValue<int>() } : null };
-    }
-
-    // This report isolates the experimental variable; it intentionally does not
-    // apply the unrelated first-proposal improvement gate to post-proposal review.
-    public static JsonObject CompareArms(IReadOnlyList<JsonObject> before, IReadOnlyList<JsonObject> after, IReadOnlyList<string> cases, string variable)
-    {
-        if (variable is not ("judge" or "defaults")) throw new ArgumentException("Compare judge or defaults separately.");
-        var rows = before.Concat(after).ToArray();
-        bool Complete(IReadOnlyList<JsonObject> arm) => cases.Count > 0 && arm.Count == cases.Count * 3 &&
-            cases.All(name => Enumerable.Range(1, 3).All(i => arm.Count(r => r["case"]?.ToString() == name && r["repetition"]?.GetValue<int>() == i) == 1));
-        bool Same(string key) => rows.Length > 0 && rows.All(r => !string.IsNullOrWhiteSpace(r[key]?.ToString())) && rows.Select(r => r[key]!.ToJsonString()).Distinct(StringComparer.Ordinal).Count() == 1;
-        JsonObject? FrozenConfiguration(IReadOnlyList<JsonObject> arm)
-        {
-            var configurations = arm.Select(r => r["configuration"] as JsonObject).ToArray();
-            return configurations.Length > 0 && configurations.All(c => c is not null &&
-                new[] { "calls", "repairs", "input_tokens", "output_tokens", "reasoning", "business_judge" }.All(k => c[k] is not null) &&
-                JsonNode.DeepEquals(c, configurations[0])) ? configurations[0] : null;
-        }
-        var oldSettings = FrozenConfiguration(before); var newSettings = FrozenConfiguration(after);
-        var budgets = new[] { "calls", "repairs", "input_tokens", "output_tokens" };
-        var sameBudgets = oldSettings is not null && newSettings is not null && budgets.All(k => JsonNode.DeepEquals(oldSettings[k], newSettings[k]));
-        var sameConstruction = oldSettings is not null && newSettings is not null &&
-            new[] { "construction_version", "construction_presentation_version", "construction_preset", "construction_limits", "llm_budget", "policy", "automatic_correction" }
-                .All(k => JsonNode.DeepEquals(oldSettings[k], newSettings[k]));
-        var isolated = oldSettings is not null && newSettings is not null && JsonNode.DeepEquals(oldSettings["reasoning"], newSettings["reasoning"]) &&
-            (variable == "judge" ? sameBudgets && sameConstruction && oldSettings["business_judge"]!.GetValue<bool>() == false && newSettings["business_judge"]!.GetValue<bool>()
-                : !sameBudgets && oldSettings["business_judge"]!.GetValue<bool>() == false && newSettings["business_judge"]!.GetValue<bool>() == false);
-        var complete = Complete(before) && Complete(after);
-        var frozen = new[] { "comparison_manifest", "provider", "model", "campaign", "source_commit", "mode" }.All(Same);
-        var outcomesKnown = rows.Length > 0 && rows.All(r => r["business_review"]?["converged"] is JsonValue v && v.TryGetValue<bool>(out _));
-        var comparable = complete && frozen && isolated && outcomesKnown && rows.All(r => r["safety_violations"] is JsonArray && r["mode"]?.ToString() is "live" or "fixture" or "replay");
-        JsonObject SummaryArm(IReadOnlyList<JsonObject> arm)
-        {
-            var summary = new JsonObject { ["runs"] = arm.Count, ["business_correct"] = arm.Count(r => r["business_review"]?["converged"]?.GetValue<bool>() == true),
-                ["unknown_outcomes"] = arm.Count(r => r["business_review"]?["converged"] is null),
-                ["introduced_regressions"] = arm.Count(r => r["business_review"]?["introduced_regression"]?.GetValue<bool>() == true) };
-            foreach (var field in new[] { "calls", "input_tokens", "output_tokens", "estimated_cost_eur", "elapsed_ms" })
-            {
-                var values = arm.Select(r => double.TryParse(r[field]?.ToJsonString(), System.Globalization.NumberStyles.Float,
-                    System.Globalization.CultureInfo.InvariantCulture, out var n) && n >= 0 ? (double?)n : null).ToArray();
-                var known = values.OfType<double>().Order().ToArray();
-                summary[field] = new JsonObject { ["known_runs"] = known.Length, ["median"] = known.Length == 0 || known.Length != values.Length
-                    ? null : (known[(known.Length - 1) / 2] + known[known.Length / 2]) / 2 };
-            }
-            foreach (var field in new[] { "true_positives", "false_positives", "false_negatives", "true_negatives", "unknown_candidates", "unjudged_candidates" })
-                summary[field] = arm.All(r => r["business_review"]?[field] is not null)
-                    ? JsonValue.Create(arm.Sum(r => r["business_review"]![field]!.GetValue<int>())) : null;
-            return summary;
-        }
-        return new() { ["status"] = !comparable ? "inconclusive" : rows[0]["mode"]?.ToString() == "live" ? "measured" : "fixture_only",
-            ["variable"] = variable, ["comparable"] = comparable, ["complete_three_repetitions"] = complete,
-            ["frozen_context"] = frozen, ["isolated_variable"] = isolated, ["identical_budgets"] = sameBudgets,
-            ["independent_outcomes_known"] = outcomesKnown, ["baseline"] = SummaryArm(before), ["candidate"] = SummaryArm(after),
-            ["live_benefit_established"] = false,
-            ["interpretation"] = "Descriptive comparison of independently evaluated candidates. Fixture and replay outcomes do not establish model improvement; live benefit and activation require a separate reviewed decision." };
+            state.Construction = new() { Limits = limits.Deserialize(PlanningJsonContext.Default.PlanningConstructionOptions)!, Compact = new() };
     }
 
     public static void RecordBusinessOracle(JsonObject run, PlanningSession state, bool correct, string oracleVersion)
@@ -431,11 +344,7 @@ public static class PlanningBenchmarkMeasurements
                 settings.All(s => s![key] is not null && JsonNode.DeepEquals(s[key], settings[0]![key])));
         JsonObject PhaseGeneration(JsonObject configuration)
         {
-            // Older safe comparison rows omitted this unrelated switch. It
-            // does not affect the phase reasoning/output being compared here.
-            var phaseConfiguration = (JsonObject)configuration.DeepClone();
-            phaseConfiguration.TryAdd("business_judge", false);
-            var request = RestoreConfiguration(phaseConfiguration);
+            var request = RestoreConfiguration(configuration);
             var phases = new JsonObject();
             foreach (var purpose in new[] { "construction_select", "construction_draft", "construction_local_judge" })
             {
@@ -533,7 +442,7 @@ public static class PlanningBenchmarkMeasurements
             foreach (var (family, purposes) in new[]
             {
                 ("generation", new[] { "construction_draft", "tasks" }),
-                ("judge", new[] { "construction_local_judge", "construction_intermediate_judge", "judge" })
+                ("judge", new[] { "construction_local_judge", "construction_global_judge" })
             })
             {
                 JsonObject[] Measurements(IEnumerable<JsonObject> arm) => arm.SelectMany(r =>
@@ -787,8 +696,7 @@ public static class PlanningBenchmarkMeasurements
         {
             var request = run["session"]?["request"]; var generation = request?["generation"];
             return new() { ["calls"] = request?["maxModelCalls"]?.DeepClone(), ["repairs"] = request?["maxReplanAttempts"]?.DeepClone(),
-                ["reasoning"] = generation?["reasoning"]?.DeepClone(), ["input"] = generation?["maxInputTokensPerRequest"]?.DeepClone(), ["output"] = generation?["maxOutputTokens"]?.DeepClone(),
-                ["business_judge"] = request?["options"]?["business_judge"]?.ToString() == "true" };
+                ["reasoning"] = generation?["reasoning"]?.DeepClone(), ["input"] = generation?["maxInputTokensPerRequest"]?.DeepClone(), ["output"] = generation?["maxOutputTokens"]?.DeepClone() };
         }
         var limits = all.Select(Limits).ToArray();
         var sameLimits = limits.Length > 0 && limits.All(l => l.All(p => p.Value is not null) && JsonNode.DeepEquals(l, limits[0]));
@@ -868,7 +776,7 @@ public static class PlanningBenchmarkMeasurements
         var complete = cohorts.All(c => Complete(c.Value));
         var sameModel = rows.Length > 0 && new[] { "provider", "model", "campaign" }.All(k => rows.All(r => !string.IsNullOrWhiteSpace(r[k]?.ToString())) && rows.Select(r => r[k]!.ToString()).Distinct().Count() == 1);
         JsonObject Limits(JsonObject run) => new() { ["calls"] = run["session"]?["request"]?["maxModelCalls"]?.DeepClone(), ["repairs"] = run["session"]?["request"]?["maxReplanAttempts"]?.DeepClone(),
-            ["generation"] = run["session"]?["request"]?["generation"]?.DeepClone(), ["business_judge"] = run["session"]?["request"]?["options"]?["business_judge"]?.ToString() == "true" };
+            ["generation"] = run["session"]?["request"]?["generation"]?.DeepClone() };
         var limits = runs.Select(Limits).ToArray();
         var sameLimits = limits.Length > 0 && limits.All(l => l.All(p => p.Value is not null) && JsonNode.DeepEquals(l, limits[0]));
         var bounded = rows.Length > 0 && rows.All(r => r["usage_bounded"]?.GetValue<bool>() == true);

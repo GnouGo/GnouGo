@@ -30,7 +30,6 @@ internal static partial class PlanningCompactConstruction
     // discharged, reordered or completed merely by proposing this association.
     private static PlanningConstructionSuspendedStep? ResumedConsumerParent(PlanningSession state)
     {
-        if (!UsesAcceptedTransitions(state)) return null;
         var compact = State(state);
         var active = compact.SuspendedSteps?.Where(Active).ToArray() ?? [];
         if (active.Length is < 2 or > 4 || compact.CurrentStep is not { } step ||
@@ -61,16 +60,8 @@ internal static partial class PlanningCompactConstruction
             state.Construction!.Checkpoints.All(checkpoint => checkpoint.Step?.Id != item.Consumer.Id));
     }
 
-    private static JsonArray ContinuationDischargeProof(PlanningSession state, PlanningConstructionContinuationBinding association) =>
-        new((association.DischargedContinuationIds ?? []).Select(id => (JsonNode)new JsonObject
-        {
-            ["id"] = id,
-            ["retainedHash"] = State(state).SuspendedSteps?.SingleOrDefault(item => item.Id == id) is { } item ? ContinuationConsumerHash(item) : null
-        }).ToArray());
-
     private static void ValidateBoundaryTransition(PlanningSession state, PlanningConstructionCandidate candidate)
     {
-        if (!UsesIncrementalReview(state)) return;
         var step = State(state).CurrentStep!;
         step.BoundaryTransitions = null;
         if (candidate.Extension.BoundaryTransitions is not { } claims) return;
@@ -88,7 +79,7 @@ internal static partial class PlanningCompactConstruction
         var probe = CloneTransitionState(state);
         probe.Plan = PlanningConstruction.Clone(candidate.Plan);
         probe.Construction!.OpenScopes = candidate.OpenScopes.ToList();
-        probe.Construction.Candidate = null;
+        probe.Construction!.Candidate = null;
         foreach (var claim in OrderedBoundaryClaims(candidate.Plan, claims))
         {
             probe.Construction.Compact!.CurrentStep = BoundaryStep(probe, claim);
@@ -134,72 +125,23 @@ internal static partial class PlanningCompactConstruction
     private static PlanningSession CloneTransitionState(PlanningSession state) => JsonSerializer.Deserialize(
         JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
 
-    internal static JsonObject? BoundaryDependencyProof(PlanningSession state, PlanningConstructionCandidate candidate)
-    {
-        if (!UsesIncrementalReview(state) || candidate.Extension.BoundaryTransitions is not { Count: > 0 } claims) return null;
-        var probe = CloneTransitionState(state);
-        probe.Plan = PlanningConstruction.Clone(candidate.Plan); probe.Construction!.OpenScopes = candidate.OpenScopes.ToList();
-        probe.Construction.Candidate = null;
-        var entries = new JsonArray();
-        foreach (var claim in OrderedBoundaryClaims(candidate.Plan, claims))
-        {
-            State(probe).CurrentStep = BoundaryStep(probe, claim);
-            PlanningConstructionCandidate projected;
-            try { projected = PlanningConstruction.Apply(probe, BoundaryExtension(claim)); }
-            catch (PlanningResponseException) { return null; }
-            var proofs = new JsonArray();
-            if (claim.CloseScope)
-            {
-                var proof = PlanningConstructionDependencies.Capture(probe, projected.Plan,
-                    new JsonObject { ["kind"] = "scope", ["path"] = claim.Scope }, projected.OpenScopes);
-                if (proof is not null) proofs.Add((JsonNode)proof);
-            }
-            else
-            {
-                var sources = claim.Outputs.SelectMany(output => TaskPlanCompiler.Values(output.Value))
-                    .Where(value => value.Kind is "output" or "present").Select(value => value.Source).OfType<string>().Distinct(StringComparer.Ordinal).ToArray();
-                foreach (var source in sources)
-                {
-                    var proof = PlanningConstructionDependencies.Capture(probe, projected.Plan,
-                        new JsonObject { ["kind"] = "task", ["id"] = source }, projected.OpenScopes);
-                    if (proof is null) { proofs.Clear(); break; }
-                    proofs.Add((JsonNode)proof);
-                }
-            }
-            var entry = new JsonObject { ["scope"] = claim.Scope, ["projectedHash"] = projected.Hash, ["proofs"] = proofs };
-            if (proofs.Count == 0)
-            {
-                // Unknown behavior permits only exact prospective world equality,
-                // never an inference that later work is independent.
-                var exact = PlanningConstructionDependencies.CaptureExactTransition(probe, projected.Plan, projected.OpenScopes);
-                if (exact is null) return null;
-                entry["exactProof"] = exact;
-            }
-            entries.Add((JsonNode)entry);
-            probe.Plan = projected.Plan; probe.Construction.OpenScopes = projected.OpenScopes;
-        }
-        return new JsonObject { ["boundaries"] = entries };
-    }
-
     private static PlanningSession? PrepareReviewedBoundaryTransition(PlanningSession state, PlanningConstructionCheckpoint checkpoint)
     {
-        if (!UsesIncrementalReview(state) || state.PendingCall is not null || state.Construction!.Candidate is not null ||
+        if (state.PendingCall is not null || state.Construction!.Candidate is not null ||
             State(state).CurrentStep is not null || State(state).ReplacementScope is not null || state.EditablePaths is not null ||
             state.Diagnostics.Any(diagnostic => diagnostic.Required) ||
-            !UsesAcceptedTransitions(state) && State(state).SuspendedSteps?.Any(Active) == true ||
             state.Plan is null || state.Plan.Choices.Any(choice => choice.Selected is null) ||
             state.Construction.RebuildTasks.Any(task => !new TaskPlanSymbols(state.Plan).Tasks.ContainsKey(task.Id))) return null;
         var baseline = PlanningConstruction.Hash(state.Plan);
         if (checkpoint.Step?.BoundaryTransitions is not { Count: > 0 } claims ||
-            checkpoint.InvalidatedTaskIds.Count != 0 || PlanningConstructionReviewCoverage.ReviewedTransitionBasis(state, checkpoint) is not { } basis ||
-            basis["basis"]?["boundaryProof"]?["boundaries"] is not JsonArray entries) return null;
+            checkpoint.InvalidatedTaskIds.Count != 0 || HybridWorkflowPlanner.ReviewedCheckpoint(state, checkpoint) is not { } review ||
+            !BoundaryBaselineCurrent(state, checkpoint, review)) return null;
         foreach (var claim in OrderedBoundaryClaims(state.Plan, claims))
         {
-            if (!state.Construction.OpenScopes.Contains(claim.Scope, StringComparer.Ordinal) ||
-                entries.OfType<JsonObject>().SingleOrDefault(entry => entry["scope"]?.ToString() == claim.Scope) is not { } dependency) continue;
+            if (!state.Construction.OpenScopes.Contains(claim.Scope, StringComparer.Ordinal)) continue;
             var identity = "transition:" + PlanningGraphCompiler.Fingerprint(new JsonObject
             {
-                ["checkpoint"] = checkpoint.Sequence, ["basis"] = basis["basisHash"]?.DeepClone(),
+                ["checkpoint"] = checkpoint.Sequence, ["review"] = review["requestHash"]?.DeepClone(),
                 ["claim"] = PlanningConstruction.Node(claim, PlanningJsonContext.Default.PlanningConstructionBoundaryTransition)
             }.ToJsonString());
             if (State(state).FailedActions.Contains(identity, StringComparer.Ordinal)) continue;
@@ -208,31 +150,65 @@ internal static partial class PlanningCompactConstruction
             {
                 var compact = State(probe);
                 compact.CurrentStep = BoundaryStep(probe, claim); compact.NextStep++;
-                probe.Construction!.CandidateFailureIdentityVersion = 1;
                 var candidate = PlanningConstruction.Apply(probe, BoundaryExtension(claim));
-                if (UsesAcceptedTransitions(state) && !BoundaryPreservesConsumers(state, candidate, claim)) continue;
-                if (checkpoint.PlanHash == baseline && dependency["projectedHash"]?.ToString() != candidate.Hash) continue;
-                var preserved = dependency["proofs"] is JsonArray { Count: > 0 } proofs
-                    ? proofs.All(proof => proof is JsonObject entry && PlanningConstructionDependencies.Preserved(probe,
-                        candidate.Plan, entry, candidate.OpenScopes))
-                    : dependency["exactProof"] is JsonObject exact && PlanningConstructionDependencies.PreservedExactTransition(probe,
-                        candidate.Plan, exact, candidate.OpenScopes);
-                if (!preserved) continue;
-                candidate.NeedsIntermediateReview = true;
+                if (!BoundaryPreservesConsumers(state, candidate, claim)) continue;
+                if (TaskPlanCompiler.ValidateConstruction(candidate.Plan, state.Catalog!, state.Request,
+                    candidate.OpenScopes.ToHashSet(StringComparer.Ordinal)).Diagnostics.Count != 0) continue;
                 candidate.Reviews.Add(new JsonObject
                 {
                     ["purpose"] = "construction_transition", ["transition"] = "reviewed_boundary", ["version"] = 1,
                     ["identity"] = identity, ["checkpoint"] = checkpoint.Sequence, ["currentBaseline"] = baseline,
-                    ["originBasisHash"] = basis["basisHash"]?.DeepClone(),
+                    ["reviewRequestId"] = review["requestId"]?.DeepClone(),
+                    ["reviewRequestHash"] = review["requestHash"]?.DeepClone(),
+                    ["reviewResponseHash"] = review["responseHash"]?.DeepClone(),
                     ["claim"] = PlanningConstruction.Node(claim, PlanningJsonContext.Default.PlanningConstructionBoundaryTransition)
                 });
-                probe.Construction.Candidate = candidate;
+                probe.Construction!.Candidate = candidate;
                 compact.FailedActions.Add(identity);
                 return probe;
             }
             catch (PlanningResponseException) { /* Another exact claim can remain eligible. */ }
         }
         return null;
+    }
+
+    internal static bool ReviewedBoundaryAuthority(PlanningSession state, PlanningConstructionCandidate candidate)
+    {
+        if (candidate.Extension.Complete || candidate.AuthorizedPaths is not null ||
+            candidate.BaseHash != PlanningConstruction.Hash(state.Plan) ||
+            candidate.Reviews.LastOrDefault(row => row["purpose"]?.ToString() == "construction_transition" &&
+                row["transition"]?.ToString() == "reviewed_boundary") is not { } transition ||
+            transition["checkpoint"]?.GetValue<int>() is not { } sequence || sequence < 1 || sequence > state.Construction!.Checkpoints.Count)
+            return false;
+        var origin = state.Construction.Checkpoints[sequence - 1];
+        if (HybridWorkflowPlanner.ReviewedCheckpoint(state, origin) is not { } review ||
+            transition["currentBaseline"]?.ToString() != candidate.BaseHash ||
+            transition["reviewRequestHash"]?.ToString() != review["requestHash"]?.ToString() ||
+            transition["reviewResponseHash"]?.ToString() != review["responseHash"]?.ToString() ||
+            !BoundaryBaselineCurrent(state, origin, review)) return false;
+        var claim = origin.Step?.BoundaryTransitions?.SingleOrDefault(claim => JsonNode.DeepEquals(
+            transition["claim"], PlanningConstruction.Node(claim, PlanningJsonContext.Default.PlanningConstructionBoundaryTransition)));
+        return claim is not null && JsonNode.DeepEquals(
+            PlanningConstruction.Node(candidate.Extension, PlanningJsonContext.Default.PlanningConstructionExtension),
+            PlanningConstruction.Node(BoundaryExtension(claim), PlanningJsonContext.Default.PlanningConstructionExtension)) &&
+            BoundaryPreservesConsumers(state, candidate, claim);
+    }
+
+    // A sequence of already authorized boundary applications may advance the
+    // baseline. New business work or a revision needs its own current authority.
+    private static bool BoundaryBaselineCurrent(PlanningSession state, PlanningConstructionCheckpoint origin, JsonObject review)
+    {
+        var previous = origin.PlanHash;
+        foreach (var later in state.Construction!.Checkpoints.Skip(origin.Sequence))
+        {
+            if (later.BaseHash != previous || later.InvalidatedTaskIds.Count != 0 ||
+                !later.Reviews.Any(row => row["purpose"]?.ToString() == "construction_transition" &&
+                    row["transition"]?.ToString() == "reviewed_boundary" && row["checkpoint"]?.ToString() == origin.Sequence.ToString(System.Globalization.CultureInfo.InvariantCulture) &&
+                    row["reviewRequestHash"]?.ToString() == review["requestHash"]?.ToString() &&
+                    row["reviewResponseHash"]?.ToString() == review["responseHash"]?.ToString())) return false;
+            previous = later.PlanHash;
+        }
+        return previous == PlanningConstruction.Hash(state.Plan);
     }
 
     private static bool BoundaryPreservesConsumers(PlanningSession state, PlanningConstructionCandidate candidate,
@@ -268,14 +244,9 @@ internal static partial class PlanningCompactConstruction
         var checkpoint = state.Construction!.Checkpoints.LastOrDefault();
         if (checkpoint?.Step?.ContinuationBinding is not { DischargedContinuationIds.Count: > 0 } association ||
             !ValidContinuationDischarge(state, association) || checkpoint.PlanHash != PlanningConstruction.Hash(state.Plan) ||
-            PlanningConstructionReviewCoverage.ReviewedTransitionBasis(state, checkpoint) is not { } manifest) return false;
+            HybridWorkflowPlanner.ReviewedCheckpoint(state, checkpoint) is null) return false;
         var original = State(state).SuspendedSteps!.Single(item => item.Id == association.ContinuationId);
         if (!CurrentContinuationAuthority(state, checkpoint, original)) return false;
-        var proof = manifest["basis"]?["continuationProof"];
-        var preserved = proof?["producerProof"] is JsonObject producerProof
-            ? PlanningConstructionDependencies.Preserved(state, state.Plan!, producerProof)
-            : proof?["exactProducerProof"] is JsonObject exact && PlanningConstructionDependencies.PreservedExactTransition(state, state.Plan!, exact);
-        if (!preserved) return false;
         var probe = CloneTransitionState(state);
         foreach (var id in association.DischargedContinuationIds)
             State(probe).SuspendedSteps!.Single(item => item.Id == id).Status = "prerequisite_discharged";

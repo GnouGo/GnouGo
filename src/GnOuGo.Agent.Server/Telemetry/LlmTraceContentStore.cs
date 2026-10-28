@@ -67,10 +67,10 @@ public sealed class LlmTraceContentStore(IKeyVaultRecordStore records, IOptionsM
     private async Task<bool> OwnsSession(string id, bool workflow, CancellationToken ct)
     {
         var session = workflow
-            ? (await records.GetAsync("flow-planning-sessions-v10", Tenant, id, Author, ct) is { } value
+            ? (await records.GetAsync("flow-planning-sessions-v11", Tenant, id, Author, ct) is { } value
                 ? JsonSerializer.Deserialize(value.Value, PlanningJsonContext.Default.PlanningSession) : null)
             : await sessions.LoadAsync(Tenant, id, ct);
-        return session?.Request.SessionId == id && session.Request.TenantId == Tenant && session.SchemaVersion == 10;
+        return session?.Request.SessionId == id && session.Request.TenantId == Tenant && session.SchemaVersion == 11;
     }
 
     public async Task<IReadOnlyList<LlmJournalCall>> HistoryAsync(string session, bool workflow, CancellationToken ct)

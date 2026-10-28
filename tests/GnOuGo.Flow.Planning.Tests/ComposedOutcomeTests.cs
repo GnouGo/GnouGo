@@ -7,7 +7,18 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class ComposedOutcomeTests
 {
-    internal static PlanningSession Recorded(string name) => Recording(name)["finalSession"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
+    internal static PlanningSession Recorded(string name)
+    {
+        // Inspect archived TaskPlans/contracts as static fixtures, never resume a retired session.
+        var archived = Recording(name)["finalSession"]!; var state = PlannerFixture.Session();
+        state.Plan = archived["plan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan);
+        state.Catalog = archived["catalog"]!.Deserialize(PlanningJsonContext.Default.PlanningCatalog);
+        state.Requirements = archived["requirements"]!.Deserialize(PlanningJsonContext.Default.PlanningRequirements);
+        state.Diagnostics = new TaskPlanCompiler().Compile(state.Plan!, state.Catalog!).Diagnostics.ToList();
+        state.RevisionScope = TaskPlanRevisions.Scope(state.Plan!, state.Diagnostics).ToList();
+        state.ModelCalls = archived["modelCalls"]!.GetValue<int>(); state.ReplanAttempts = archived["replanAttempts"]!.GetValue<int>();
+        return state;
+    }
     internal static JsonNode Recording(string name) => JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "ContractAwarePlanning", "retained-" + name + ".json")))!;
 
     [Fact]
@@ -29,13 +40,13 @@ public sealed class ComposedOutcomeTests
 
     internal static async Task<PlanningSession> State()
     {
-        var state = PlannerFixture.Session(); state.IntentVersion = 2;
+        var state = PlannerFixture.Session();
         state.Catalog = await new TestRuntime().DiscoverAsync(state.Request, PlannerFixture.Ct);
         var empty = JsonNode.Parse("""{"type":"object","properties":{},"additionalProperties":false}""")!.AsObject();
         state.Catalog.Capabilities.Add(new() { Id = "external", Kind = "tool", StepType = "mcp.call", Server = "arbitrary", Method = "omega", Version = "1", EffectKind = "write", InputSchema = empty, OutputSchema = empty });
         state.Requirements = new() { Summary = "Perform requested work", Inputs = [], Outcomes = [PlanningOutcomeTests.Outcome("work") with { Coverage = "once" }] };
         state.Plan = new() { Root = new() { Tasks = [new() { Id = "perform", Objective = "Perform requested work", Operation = "external" }], Outputs = [new("report", PlanningCorpus.String("done"))] } };
-        state.OutcomeBindings = [new("work", ["perform"], ["report"])]; return state;
+        return state;
     }
 
 }

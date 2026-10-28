@@ -16,7 +16,6 @@ internal sealed partial class BenchmarkCampaign
     internal const string UnstartedPlanningRetention = "unstarted-planning-request";
 
     // Called before any continuation, approval, execution or new request in the abandoned session.
-    // Historical closures retain their original request-only behavior.
     internal async Task RequireRunNotRetainedAsync(string sessionId, CancellationToken ct = default)
     {
         foreach (var row in (await Records.ListAsync("planning-evaluation-closures", "benchmark", Author, ct))
@@ -32,12 +31,9 @@ internal sealed partial class BenchmarkCampaign
     }
 
     internal async Task<JsonObject> InspectPermanentRetentionAsync(string collection, string runKey, string requestId, CancellationToken ct,
-        string? retentionKind = null, BenchmarkFrozenBaselineArm? frozenBaseline = null)
+        string? retentionKind = null)
     {
         ValidateRetentionKind(retentionKind);
-        var frozenProof = frozenBaseline?.Read();
-        if (frozenProof is not null && retentionKind is InterruptedProcessRetention or ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention)
-            throw new InvalidOperationException("A frozen baseline proof cannot authorize interruption or captured-retry retention.");
         if (collection is not ("planning-evaluation-runs" or SchemaPortabilityCampaign.Collection))
             throw new ArgumentException("Choose an existing benchmark planning-run collection.");
         ArgumentException.ThrowIfNullOrWhiteSpace(runKey);
@@ -45,7 +41,6 @@ internal sealed partial class BenchmarkCampaign
         if (await LoadAsync("planning-evaluation-closures", requestId, ct) is { } retained)
         {
             ValidatePermanentClosure(retained, requestId);
-            BenchmarkFrozenBaselineArm.RequireSame(retained["evidence"]?["frozen_arm"], frozenProof);
             if (retained["evidence"]?["run_collection"]?.ToString() != collection ||
                 retained["evidence"]?["run_key"]?.ToString() != runKey ||
                 retained["evidence"]?["retention_kind"]?.ToString() != retentionKind)
@@ -55,19 +50,19 @@ internal sealed partial class BenchmarkCampaign
             inspection["existing_closure_hash"] = Hash(retained);
             return inspection;
         }
+        if (retentionKind is not (InterruptedProcessRetention or ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention))
+            throw new InvalidOperationException("New closures require the active captured-transport retention mode; historical closures remain immutable.");
         var run = await LoadAsync(collection, runKey, ct) ?? throw new InvalidOperationException("No retained planning run.");
-        var state = run["session"]?.Deserialize(PlanningJsonContext.Default.PlanningSession)
-            ?? throw new InvalidOperationException("No retained planning session.");
+        var state = ReadCurrentSession(run["session"]);
         var pending = state.PendingCall;
         var interrupted = retentionKind == InterruptedProcessRetention;
         var unstarted = retentionKind == UnstartedPlanningRetention;
-        var capturedRetries = retentionKind is ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention;
         var result = run["result"] as JsonObject;
-        if (state.SchemaVersion != 10 || state.Request.TenantId != "benchmark" ||
-            state.Status != (interrupted ? PlanningStatus.Generating : PlanningStatus.Stopped) || state.RequiresPlanningRevision ||
-            state.Construction?.Version is not (1 or 2) || pending is null || pending.Id != requestId ||
+        if (state.SchemaVersion != 11 || state.Request.TenantId != "benchmark" ||
+            state.Status != (interrupted ? PlanningStatus.Generating : PlanningStatus.Stopped) ||
+            state.Construction is null || pending is null || pending.Id != requestId ||
             pending.Purpose is not ("construction_intent" or "construction_select" or "construction_discovery" or
-                "construction_draft" or "construction_local_judge" or "construction_intermediate_judge" or "replan") ||
+                "construction_draft" or "construction_local_judge" or "construction_global_judge" or "replan") ||
             pending.Request.ClientRequestId != requestId || !requestId.StartsWith(state.Request.SessionId + ":", StringComparison.Ordinal) ||
             pending.Request.Tools is { Count: > 0 } || pending.Request.MaxTokens is not > 0 ||
             !interrupted && !state.Diagnostics.Any(d => d.Code == "MODEL_DISPATCH_UNVERIFIABLE") ||
@@ -94,28 +89,18 @@ internal sealed partial class BenchmarkCampaign
         var retry = await LoadAsync("planning-evaluation-configuration", "http-retry-policy", ct);
         if (request is null || !JsonNode.DeepEquals(request, JsonSerializer.SerializeToNode(pending.Request, PlanningJsonContext.Default.LLMRequest)) ||
             policy?["construction_review_headroom"]?.GetValue<int>() is not > 0 || retry is null ||
-            policy["max_physical_attempts"]?.GetValue<int>() != (capturedRetries
-                ? Math.Min(state.Request.MaxModelCalls, PlanningBudgetOptions.Parse(state.Request.Options)?.MaxCalls ?? state.Request.MaxModelCalls)
-                : state.Request.MaxModelCalls) ||
+            policy["max_physical_attempts"]?.GetValue<int>() != Math.Min(state.Request.MaxModelCalls, PlanningBudgetOptions.Parse(state.Request.Options)?.MaxCalls ?? state.Request.MaxModelCalls) ||
             policy["max_input_tokens"]?.GetValue<int>() != state.Request.Generation.MaxInputTokensPerRequest ||
             policy["max_output_tokens"]?.GetValue<int>() != state.Request.Generation.MaxOutputTokens ||
             policy["max_corrections"]?.GetValue<int>() != state.Request.MaxReplanAttempts ||
-            state.Construction.Version == 2 && policy["construction_version"]?.GetValue<int>() != 2 ||
+            policy["planning_format"]?.GetValue<int>() != 11 ||
             !JsonNode.DeepEquals(policy["construction_limits"], state.Request.Options["construction_limits"]) ||
-            !JsonNode.DeepEquals(policy["construction_input_limits"], state.Request.Options["construction_input_limits"]) ||
             journal?["transport"]?["Attempts"] is not JsonArray attempts ||
-            (unstarted ? attempts.Count != 0 : capturedRetries ? attempts.Count is < 1 or > 3 : attempts.Count != 1) ||
+            (unstarted ? attempts.Count != 0 : attempts.Count is < 1 or > 3) ||
             !unstarted && attempts[0]?["Id"]?.ToString() is not { Length: > 0 } ||
             (interrupted
-                ? failure is not null || attempts[0]?["Status"] is not null || attempts[0]?["Body"] is not null ||
-                  attempts[0]?["Failure"] is not null || attempts[0]?["ContentType"] is not null ||
-                  attempts[0]?["RetryAfter"] is not null || attempts[0]?["NotBefore"] is not null ||
-                  !attempts[0]!["Id"]!.ToString().StartsWith(requestId + ":", StringComparison.Ordinal) ||
-                  journal["transport"]?["Fingerprint"]?.ToString() is not { Length: 64 } fingerprint || !fingerprint.All(Uri.IsHexDigit)
-                : capturedRetries ? !MatchesCapturedPlanningFailure(state, policy, journal, attempts, failure, unstarted)
-                : failure?["stage"]?.ToString() != "dispatch" || failure["retry_exhausted"]?.GetValue<bool>() != true ||
-                  failure["retryable"]?.GetValue<bool>() != true || failure["attempt_count"]?.GetValue<int>() != attempts.Count ||
-                  !MatchesPermanentFailure(failure, attempts[0], retentionKind)) ||
+                ? failure is not null || !MatchesInterruptedPlanning(state, policy, journal, attempts)
+                : !MatchesCapturedPlanningFailure(state, policy, journal, attempts, failure, unstarted)) ||
             journal["input_ceiling"]?.GetValue<long>() is not { } inputCeiling ||
             inputCeiling < (JsonSerializer.SerializeToUtf8Bytes(pending.Request, PlanningJsonContext.Default.LLMRequest).LongLength + 2) / 3 + 256 ||
             journal["output_ceiling"]?.GetValue<long>() is not { } outputCeiling || outputCeiling < pending.Request.MaxTokens ||
@@ -161,25 +146,12 @@ internal sealed partial class BenchmarkCampaign
             run["manifest"] is JsonObject manifest &&
                 (manifest["production_sha"]?.ToString() != source || manifest["harness_sha"]?.ToString() != source))
             throw new InvalidOperationException("The retained source and run manifest disagree.");
-        JsonObject? frozenArm = null;
-        if (frozenProof is not null)
-        {
-            var originals = (await Records.ListAsync("planning-evaluation-requests", "benchmark", Author, ct))
-                .Where(row => row.Key.StartsWith(Id + ":" + state.Request.SessionId + ":", StringComparison.Ordinal)).ToArray();
-            if (originals.Length == 0) throw new InvalidOperationException("The original pre-dispatch request record is missing.");
-            var configuration = await LoadAsync("planning-evaluation-configuration", "configuration", ct)
-                ?? throw new InvalidOperationException("The original provider configuration is missing.");
-            frozenArm = BenchmarkFrozenBaselineArm.ValidateRun(frozenProof, Id, collection, runKey, source, state,
-                run["session"]!["request"]!.AsObject(), request, policy, journal, retry, configuration, originals.Min(row => row.CreatedAt));
-        }
         if (journal["effective_transport_policy"] is JsonObject effective &&
             (journal["effective_transport_policy_hash"]?.ToString() != Hash(effective) ||
-             effective["allow_http_recovery"]?.GetValue<bool>() != capturedRetries ||
-             !capturedRetries && frozenArm is null && (effective["version"]?.GetValue<int>() != 1 || effective["disable_transport_retries"]?.GetValue<bool>() != true ||
-             effective["effective_retry_policy"]?["MaxAttempts"]?.GetValue<int>() != 1)))
+             effective["allow_http_recovery"]?.GetValue<bool>() != true || effective["version"]?.GetValue<int>() != 2))
             throw new InvalidOperationException("The issued transport policy permits recovery; this terminal operator cannot reinterpret it.");
         if (journal["effective_transport_policy"] is null && journal["effective_transport_policy_hash"] is not null ||
-            (capturedRetries || interrupted || retentionKind is SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention) && journal["effective_transport_policy"] is not JsonObject)
+            journal["effective_transport_policy"] is not JsonObject)
             throw new InvalidOperationException("The captured effective transport policy is missing.");
         var evidence = new JsonObject
         {
@@ -198,7 +170,6 @@ internal sealed partial class BenchmarkCampaign
         };
         if (retentionKind is not null) evidence["retention_kind"] = retentionKind;
         if (unstarted) evidence["outcome_evidence"] = "no_reserved_physical_attempt";
-        if (frozenArm is not null) evidence["frozen_arm"] = frozenArm;
         if (interrupted)
         {
             evidence.Remove("failure_hash");
@@ -213,8 +184,7 @@ internal sealed partial class BenchmarkCampaign
     // The caller holds the campaign lease. Inspect is read-only; apply publishes exactly one
     // immutable closure. Neither path constructs a provider, alters evidence or settles usage.
     internal async Task<JsonObject> ApplyPermanentRetentionAsync(string collection, string runKey, string requestId,
-        string expectedEvidenceHash, string operatorIdentity, string authorization, CancellationToken ct, string? retentionKind = null,
-        BenchmarkFrozenBaselineArm? frozenBaseline = null)
+        string expectedEvidenceHash, string operatorIdentity, string authorization, CancellationToken ct, string? retentionKind = null)
     {
         ValidateRetentionKind(retentionKind);
         ArgumentException.ThrowIfNullOrWhiteSpace(operatorIdentity);
@@ -226,7 +196,6 @@ internal sealed partial class BenchmarkCampaign
         if (await LoadAsync("planning-evaluation-closures", requestId, ct) is { } existing)
         {
             ValidatePermanentClosure(existing, requestId);
-            BenchmarkFrozenBaselineArm.RequireSame(existing["evidence"]?["frozen_arm"], frozenBaseline?.Read());
             if (existing["reason"]?.ToString() != PermanentRetentionReason ||
                 existing["evidence_hash"]?.ToString() != expectedEvidenceHash ||
                 existing["authorization_hash"]?.ToString() != authorizationHash ||
@@ -236,7 +205,7 @@ internal sealed partial class BenchmarkCampaign
                 throw new InvalidOperationException("The existing closure is immutable and does not match this authorization.");
             return existing;
         }
-        var inspected = await InspectPermanentRetentionAsync(collection, runKey, requestId, ct, retentionKind, frozenBaseline);
+        var inspected = await InspectPermanentRetentionAsync(collection, runKey, requestId, ct, retentionKind);
         if (inspected["evidence_hash"]?.ToString() != expectedEvidenceHash)
             throw new InvalidOperationException("Retention evidence changed; inspect and review the exact current evidence.");
         var closure = inspected.DeepClone().AsObject();
@@ -290,8 +259,7 @@ internal sealed partial class BenchmarkCampaign
             !JsonNode.DeepEquals(effective["planning_transport_policy"], policy[PlanningTransportPolicies.OptionName]) ||
             !JsonNode.DeepEquals(policy["benchmark_planning_elapsed_ms"], state.Request.Options["benchmark_planning_elapsed_ms"]) ||
             !JsonNode.DeepEquals(policy["llm_budget"], state.Request.Options["llm_budget"]) ||
-            state.Request.Options["construction_presentation_version"]?.ToString() is "6" or "7" or "8" or "9" or "10" or "11" &&
-                !JsonNode.DeepEquals(policy["construction_presentation_version"], state.Request.Options["construction_presentation_version"]) ||
+            policy["planning_format"]?.GetValue<int>() != 11 ||
             state.PendingCall!.Request.UseBackgroundMode || !PlanningTransportPolicies.ReviewHeadroomValid(state.PendingCall.Request, state.Request) ||
             effective["disable_transport_retries"]?.GetValue<bool>() != state.PendingCall.Request.DisableTransportRetries ||
             retry?["MaxAttempts"]?.GetValue<int>() != (state.PendingCall.Request.DisableTransportRetries ? 1 : captured.MaxAttempts) ||
@@ -335,22 +303,33 @@ internal sealed partial class BenchmarkCampaign
             failure["kind"]?.ToString() is "RateLimited" or "ServiceUnavailable" or "Timeout";
     }
 
-    private static bool MatchesPermanentFailure(JsonObject failure, JsonNode? attempt, string? retentionKind)
-        => retentionKind is SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention
-            ? failure["kind"]?.ToString() == (retentionKind == SingleHttp504Retention ? "Timeout" : "ServiceUnavailable") &&
-              failure["status_code"]?.GetValue<int>() == RetentionHttpStatus(retentionKind) &&
-              attempt?["Status"]?.GetValue<int>() == RetentionHttpStatus(retentionKind) && attempt["Failure"] is null &&
-              attempt["Body"] is JsonValue body && body.TryGetValue<string>(out var text) && IsRetainedErrorOnlyBody(text)
-            : failure["kind"]?.ToString() is "Timeout" or "Transport" && failure["status_code"] is null &&
-              attempt?["Status"] is null && attempt?["Body"] is null && attempt?["Failure"]?.ToString() is "timeout" or "transport";
-
-    private static int RetentionHttpStatus(string kind) => kind switch
+    private static bool MatchesInterruptedPlanning(PlanningSession state, JsonObject policy, JsonObject journal, JsonArray attempts)
     {
-        SingleHttp500Retention => 500,
-        SingleHttp502Retention => 502,
-        SingleHttp504Retention => 504,
-        _ => throw new ArgumentException("An explicit supported HTTP retention kind is required.", nameof(kind))
-    };
+        var captured = PlanningTransportPolicies.Read(state.Request);
+        var effective = journal["effective_transport_policy"] as JsonObject;
+        var retry = effective?["effective_retry_policy"];
+        if (captured is null || effective?["version"]?.GetValue<int>() != 2 ||
+            !JsonNode.DeepEquals(policy[PlanningTransportPolicies.OptionName], state.Request.Options[PlanningTransportPolicies.OptionName]) ||
+            !JsonNode.DeepEquals(effective["planning_transport_policy"], policy[PlanningTransportPolicies.OptionName]) ||
+            !JsonNode.DeepEquals(policy["benchmark_planning_elapsed_ms"], state.Request.Options["benchmark_planning_elapsed_ms"]) ||
+            !JsonNode.DeepEquals(policy["llm_budget"], state.Request.Options["llm_budget"]) ||
+            state.PendingCall!.Request.UseBackgroundMode || !PlanningTransportPolicies.ReviewHeadroomValid(state.PendingCall.Request, state.Request) ||
+            effective["disable_transport_retries"]?.GetValue<bool>() != state.PendingCall.Request.DisableTransportRetries ||
+            retry?["MaxAttempts"]?.GetValue<int>() != (state.PendingCall.Request.DisableTransportRetries ? 1 : captured.MaxAttempts) ||
+            retry["AttemptTimeoutMilliseconds"]?.GetValue<int>() != captured.AttemptTimeoutMilliseconds ||
+            retry["BaseDelayMilliseconds"]?.GetValue<int>() != captured.BaseDelayMilliseconds ||
+            retry["MaxDelayMilliseconds"]?.GetValue<int>() != captured.MaxDelayMilliseconds ||
+            retry["MaxTotalDelayMilliseconds"]?.GetValue<int>() != captured.MaxTotalDelayMilliseconds ||
+            retry["MaxUncertainRetries"]?.GetValue<int>() != 0 || attempts.Count > retry["MaxAttempts"]!.GetValue<int>() ||
+            attempts.Select(a => a?["Id"]?.ToString()).Distinct(StringComparer.Ordinal).Count() != attempts.Count ||
+            attempts.Any(a => a?["Id"]?.ToString() is not { Length: > 0 } id || !id.StartsWith(state.PendingCall.Id + ":", StringComparison.Ordinal)) ||
+            journal["transport"]?["Fingerprint"]?.ToString() is not { Length: 64 } fingerprint || !fingerprint.All(Uri.IsHexDigit)) return false;
+        for (var index = 0; index < attempts.Count - 1; index++)
+            if (attempts[index]?["Status"]?.GetValue<int>() is not (429 or 500 or 502 or 503 or 504) ||
+                attempts[index]?["Failure"] is not null || !IsRetainedErrorOnlyBody(attempts[index]?["Body"]?.ToString())) return false;
+        var last = attempts[^1]!;
+        return new[] { "Status", "Body", "Failure", "ContentType", "RetryAfter", "NotBefore" }.All(key => last[key] is null);
+    }
 
     private static bool IsRetainedErrorOnlyBody(string? body)
     {

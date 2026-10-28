@@ -9,41 +9,25 @@ public sealed partial class CompactReviewedTransitionTests
     [Fact]
     public async Task IndependentClosureAndExportAdvanceWhileBusinessConsumerWaits()
     {
-        var control = await WaitingBoundary(9);
-        var candidate = await WaitingBoundary();
-        Assert.Equal(PlanningStatus.FinalReview, control.State.Status); Assert.Equal(PlanningStatus.FinalReview, candidate.State.Status);
-        PlanningArtifactApproval.Verify(control.State); PlanningArtifactApproval.Verify(candidate.State);
-        Assert.Equal(PlanningConstruction.Hash(control.State.Plan), PlanningConstruction.Hash(candidate.State.Plan));
-        Assert.Equal(control.State.ModelCalls - 4, candidate.State.ModelCalls);
-        Assert.Equal(control.Purposes.Count(IsJudge), candidate.Purposes.Count(IsJudge));
-        Assert.Equal(control.Purposes.Count(purpose => purpose == PlanningCompactConstruction.SelectPurpose) - 2,
-            candidate.Purposes.Count(purpose => purpose == PlanningCompactConstruction.SelectPurpose));
-        Assert.Equal(control.Purposes.Count(purpose => purpose == PlanningConstruction.DraftPurpose) - 2,
-            candidate.Purposes.Count(purpose => purpose == PlanningConstruction.DraftPurpose));
-        var transitions = candidate.State.Construction!.Checkpoints.Where(checkpoint => checkpoint.Reviews.Any(
+        var run = await WaitingBoundary();
+        Assert.Equal(PlanningStatus.FinalReview, run.State.Status);
+        PlanningArtifactApproval.Verify(run.State);
+        var transitions = run.State.Construction!.Checkpoints.Where(checkpoint => checkpoint.Reviews.Any(
             review => review["transition"]?.ToString() == "reviewed_boundary")).ToArray();
         Assert.Equal(["/tasks/outer/body", "/root"], transitions.Select(checkpoint => checkpoint.Step!.Scope));
-        var retainedBefore = Assert.Single(candidate.Runtime.Checkpoints.First(state => state.Construction!.Checkpoints.Count == 4 &&
-            state.Construction.Candidate is null).Construction!.Compact!.SuspendedSteps!);
         foreach (var transition in transitions)
         {
-            var saved = candidate.Runtime.Checkpoints.First(state => state.Construction!.Checkpoints.Count == transition.Sequence && state.Construction.Candidate is null);
+            var saved = run.Runtime.Checkpoints.First(state => state.Construction!.Checkpoints.Count == transition.Sequence && state.Construction.Candidate is null);
             var waiting = Assert.Single(saved.Construction!.Compact!.SuspendedSteps!);
             Assert.Equal("waiting", waiting.Status); Assert.Equal("/root", waiting.Consumer.Scope);
             Assert.Equal(["req_1"], waiting.Consumer.RequirementIds);
-            Assert.Equal(["laterNumber"], waiting.Consumer.OutputNames);
-            Assert.Equal(PlanningCompactConstruction.ContinuationConsumerHash(retainedBefore),
-                PlanningCompactConstruction.ContinuationConsumerHash(waiting));
-            Assert.Equal(transition.Sequence, waiting.LastPrerequisiteCheckpoint);
             Assert.Equal("in_progress", saved.Construction.Requirements.Single(requirement => requirement.Id == "req_1").Status);
+            Assert.Single(transition.Reviews, review => review["transition"]?.ToString() == "reviewed_boundary");
+            Assert.DoesNotContain(transition.Reviews, review => review["purpose"]?.ToString() == PlanningConstruction.LocalPurpose);
         }
-        foreach (var run in new[] { control, candidate })
-        {
-            Assert.Equal("completed", Assert.Single(run.State.Construction!.Compact!.SuspendedSteps!).Status);
-            var result = await ExecuteTransitionPlan(run.State);
-            Assert.Equal(7, result["number"]!.GetValue<double>()); Assert.Equal(16, result["laterNumber"]!.GetValue<double>());
-        }
-        ReportBusinessComparison("independent closure/export with waiting consumer", control, candidate);
+        Assert.Equal("completed", Assert.Single(run.State.Construction.Compact!.SuspendedSteps!).Status);
+        var result = await ExecuteTransitionPlan(run.State);
+        Assert.Equal("7", result["number"]!.ToJsonString()); Assert.Equal("16", result["laterNumber"]!.ToJsonString());
     }
 
     [Fact]
@@ -71,24 +55,18 @@ public sealed partial class CompactReviewedTransitionTests
     public async Task IndependentBoundaryRecoveryDoesNotLoseWaitingConsumerOrRepeatExport()
     {
         var run = await WaitingBoundary(stopAfterOuter: true);
-        var pending = PlannerFixture.Clone(run.Runtime.Checkpoints.Last(state => state.PendingCall is not null &&
-            state.Construction!.Candidate?.Reviews.Any(row => row["transition"]?.ToString() == "reviewed_boundary") == true));
-        var calls = run.State.ModelCalls; var physical = run.Responses.Count;
-        Assert.Null(PlanningCompactConstruction.PrepareAcceptedTransition(PlannerFixture.Clone(pending)));
-        var recovered = await Advance(pending, run.Runtime);
-        Assert.Equal(calls, recovered.ModelCalls); Assert.Equal(physical, run.Responses.Count);
-        Assert.Equal(PlanningConstruction.Hash(run.State.Plan), PlanningConstruction.Hash(recovered.Plan));
-        Assert.Equal("waiting", Assert.Single(recovered.Construction!.Compact!.SuspendedSteps!).Status);
-        Assert.Single(recovered.Construction.Checkpoints, checkpoint => checkpoint.Step!.Scope == "/tasks/outer/body" &&
-            checkpoint.Reviews.Any(row => row["transition"]?.ToString() == "reviewed_boundary"));
-        var next = await Advance(PlannerFixture.Clone(recovered), run.Runtime);
+        var accepted = PlannerFixture.Clone(run.State);
+        var calls = accepted.ModelCalls;
+        var next = PlanningCompactConstruction.PrepareAcceptedTransition(accepted);
+        Assert.NotNull(next);
         Assert.Equal(calls, next.ModelCalls);
         Assert.Equal("/root", next.Construction!.Candidate!.Extension.Scope);
         Assert.Single(next.Construction.Candidate.Extension.Outputs);
         Assert.Null(PlanningCompactConstruction.PrepareAcceptedTransition(PlannerFixture.Clone(next)));
+        Assert.Equal("waiting", Assert.Single(next.Construction.Compact!.SuspendedSteps!).Status);
     }
 
-    private static async Task<BusinessRun> WaitingBoundary(int? historical = null, bool pendingInsideBoundary = false,
+    private static async Task<BusinessRun> WaitingBoundary(bool pendingInsideBoundary = false,
         bool conflictingOutput = false, bool stopAfterProducer = false, bool stopAfterOuter = false)
     {
         const string local = "Compute seven inside the inner local boundary, preserve the outer boundary's exact local result, and return public numeric number.";
@@ -193,7 +171,7 @@ public sealed partial class CompactReviewedTransitionTests
             }
             catch (Exception error) { modelFailure = error; throw; }
         };
-        var state = NewTransitionSession(local + " " + later, historical);
+        var state = NewTransitionSession(local + " " + later);
         for (var tick = 0; tick < 160 && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); tick++)
         {
             state = await Advance(PlannerFixture.Clone(state), runtime);

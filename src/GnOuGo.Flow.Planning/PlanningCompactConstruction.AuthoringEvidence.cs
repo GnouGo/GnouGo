@@ -36,21 +36,19 @@ internal static partial class PlanningCompactConstruction
         }
     }
 
-    private static void AddTaskEvidence(PlanningSession state, JsonObject context, bool review)
+    private static void AddTaskEvidence(PlanningSession state, JsonObject context, bool useCandidate)
     {
         var construction = state.Construction!;
-        if (!IsCompactPresentation(state) || state.Plan is null) return;
-        var fresh = PlanningConstructionPhasePolicies.IsFresh(state.Request);
+        if (state.Plan is null) return;
         var draft = construction.Candidate;
-        if (!fresh && (!review || draft is null)) return;
         var step = construction.Compact!.CurrentStep!;
         var accepted = new TaskPlanSymbols(state.Plan);
-        var producers = (review && draft is not null ? draft.ImportedTaskIds : step.InputTaskIds.Concat(step.DependencyTaskIds))
+        var producers = (useCandidate && draft is not null ? draft.ImportedTaskIds : step.InputTaskIds.Concat(step.DependencyTaskIds))
             .Where(accepted.Tasks.ContainsKey).Distinct(StringComparer.Ordinal).ToArray();
         // Neighbor descriptors locate prior work without granting repair authority.
-        // Fresh v5 may also include a bounded complete original as separate evidence.
-        var siblings = fresh ? accepted.Tasks.Values.Where(site => site.Scope.Path == step.Scope)
-            .Select(site => site.Task.Id).ToArray() : [];
+        // A bounded complete original remains available as separate evidence.
+        var siblings = accepted.Tasks.Values.Where(site => site.Scope.Path == step.Scope)
+            .Select(site => site.Task.Id).ToArray();
         var selected = producers.Take(8).Concat(siblings.Where(id => !producers.Contains(id, StringComparer.Ordinal))
             .TakeLast(Math.Min(4, Math.Max(0, 8 - producers.Length)))).ToArray();
         var owner = ScopeOwnerNavigation(state, accepted);
@@ -63,15 +61,14 @@ internal static partial class PlanningCompactConstruction
             {
                 var site = accepted.Tasks[id];
                 var scopes = accepted.Scopes.Where(scope => scope.Owner?.Id == id).ToArray();
-                var entry = fresh ? TrimNavigation(TaskNavigation(state, site.Task, site.Scope.Path)) : new JsonObject();
+                var entry = TrimNavigation(TaskNavigation(state, site.Task, site.Scope.Path));
                 entry["address"] = "task:" + id;
                 entry["scopeCount"] = scopes.Length;
                 entry["scopes"] = new JsonArray(scopes.Take(4).Select(scope => (JsonNode?)JsonValue.Create("scope:" + scope.Path)).ToArray());
-                if (fresh) entry["phase"] = accepted.Phase(id);
+                entry["phase"] = accepted.Phase(id);
                 return (JsonNode)entry;
             }).ToArray())
         };
-        if (fresh)
         {
             navigation["remaining"] = count - selected.Length;
             if (count > selected.Length) navigation["remainingEvidence"] = "page:tasks:0";
@@ -83,9 +80,8 @@ internal static partial class PlanningCompactConstruction
         AddAcceptedOperationEvidence(state, context, navigation["items"]!.AsArray().OfType<JsonObject>());
     }
 
-    internal static void AddReviewGroupEvidence(PlanningSession state, JsonObject context)
+    internal static void AddCandidateGroupEvidence(PlanningSession state, JsonObject context)
     {
-        if (!IsCompactPresentation(state)) return;
         var plan = state.Construction!.Candidate?.Plan ?? state.Plan;
         if (plan is null) return;
         var symbols = new TaskPlanSymbols(plan);

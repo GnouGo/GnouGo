@@ -32,12 +32,11 @@ public sealed class AutomaticFailureRevisionTests
     [InlineData("ordinary", false)]
     [InlineData("large", false)]
     [InlineData("large", true)]
-    [InlineData("historical", false)]
     public async Task FailedExecutionGetsOneUnapprovedDraftWithExactAcceptedRequirementsAndNoSave(string sourcePreset, bool stricterHost)
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var runtime = new WorkflowPlanningRuntime(new(), (_, _) => Task.CompletedTask);
-        var original = new PlanningSession { IntentVersion = 2, Request = new() { TenantId = "planning-tests", Name = "existing", Prompt = "Return exact data",
+        var original = new PlanningSession { Request = new() { TenantId = "planning-tests", Name = "existing", Prompt = "Return exact data",
                 MaxModelCalls = 8, MaxReplanAttempts = 2, Generation = new("medium", 12000, 8192) },
             Requirements = PlanningCorpus.Requirements("local"), Plan = PlanningCorpus.LiteralResult(), Revision = 7, ModelCalls = 4, ReplanAttempts = 2,
             SavedAgentId = "saved", Status = PlanningStatus.Saved };

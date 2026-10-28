@@ -27,56 +27,19 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
         await using (var session = await Factory().OpenAsync(Context(client), initial, Ct))
         {
             id = session.Session.Request.SessionId;
-            Assert.Equal("1", session.Session.Request.Options["planning_diagnostics_version"]?.ToString());
-            Assert.Equal("2", session.Session.Request.Options["planning_input_review_version"]?.ToString());
-            Assert.Equal("2", session.Session.Request.Options["business_judge_review_version"]?.ToString());
+            Assert.Equal(11, session.Session.SchemaVersion);
+            Assert.NotNull(PlanningConstructionPhasePolicies.Read(session.Session.Request));
+            Assert.NotNull(PlanningTransportPolicies.Read(session.Session.Request));
             Assert.Equal(0, session.Session.Revision);
             Assert.Equal(0, session.Session.ModelCalls);
         }
         Assert.Equal(authored, initial.Request.Options.ToJsonString());
         var records = new KeyVaultRecordStore(Path.Combine(_directory, "keyvault.db"));
-        var definition = (await records.GetAsync("flow-planning-definitions-v10", "tenant", id, "test", Ct))!;
+        var definition = (await records.GetAsync("flow-planning-definitions-v11", "tenant", id, "test", Ct))!;
         Assert.Equal(authored, JsonNode.Parse(definition.Value)!["options"]!.ToJsonString());
         Assert.Equal(1, JsonNode.Parse(definition.Value)!["creationCheckpoint"]!["version"]!.GetValue<int>());
         await using var restored = await Factory().OpenAsync(Context(client), Initial(), Ct);
-        Assert.Equal("2", restored.Session.Request.Options["business_judge_review_version"]!.ToString());
-        Assert.Equal(0, client.Calls);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task HistoricalZeroProgressDefinitionDoesNotAcquireCreationProfiles(bool sessionCheckpointExists)
-    {
-        var client = new Client();
-        string id;
-        await using (var session = await Factory().OpenAsync(Context(client), Initial(), Ct))
-            id = session.Session.Request.SessionId;
-        var records = new KeyVaultRecordStore(Path.Combine(_directory, "keyvault.db"));
-        var definition = (await records.GetAsync("flow-planning-definitions-v10", "tenant", id, "test", Ct))!;
-        var historicalDefinition = JsonNode.Parse(definition.Value)!.AsObject();
-        historicalDefinition.Remove("creationCheckpoint");
-        await records.UpsertAsync("flow-planning-definitions-v10", "tenant", id, historicalDefinition.ToJsonString(), "test", Ct);
-        var saved = (await records.GetAsync("flow-planning-sessions-v10", "tenant", id, "test", Ct))!;
-        if (sessionCheckpointExists)
-        {
-            var historical = JsonNode.Parse(saved.Value)!;
-            historical.AsObject().Remove("construction");
-            var options = historical["request"]!["options"]!.AsObject();
-            foreach (var key in new[] { "compilation_profile", "mapping_profile", "planning_validation_profile",
-                "planning_diagnostics_version", "planning_input_review_version", "business_judge_review_version",
-                "construction_version", "construction_input_limits", "clarification_policy", "planning_transport_policy" }) options.Remove(key);
-            await records.UpsertAsync("flow-planning-sessions-v10", "tenant", id, historical.ToJsonString(), "test", Ct);
-        }
-        else Assert.True(await records.DeleteAsync("flow-planning-sessions-v10", "tenant", id, "test", Ct));
-        var reconstructed = Initial(); reconstructed.Construction = new();
-        await using var restored = await Factory().OpenAsync(Context(client), reconstructed, Ct);
-        Assert.Equal(0, restored.Session.Revision);
-        Assert.Equal(0, restored.Session.ModelCalls);
-        Assert.Null(restored.Session.Request.Options["planning_diagnostics_version"]);
-        Assert.Null(restored.Session.Request.Options["planning_input_review_version"]);
-        Assert.Null(restored.Session.Request.Options["business_judge_review_version"]);
-        Assert.Null(restored.Session.Construction);
+        Assert.NotNull(PlanningConstructionPhasePolicies.Read(restored.Session.Request));
         Assert.Equal(0, client.Calls);
     }
 
@@ -90,18 +53,18 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
         var authoredOptions = original.Request.Options.ToJsonString();
         await Assert.ThrowsAsync<IOException>(() => factory.OpenAsync(Context(client), original, Ct));
         var id = original.Request.SessionId;
-        Assert.Null(await records.GetAsync("flow-planning-sessions-v10", "tenant", id, "test", Ct));
-        var definition = (await records.GetAsync("flow-planning-definitions-v10", "tenant", id, "test", Ct))!;
+        Assert.Null(await records.GetAsync("flow-planning-sessions-v11", "tenant", id, "test", Ct));
+        var definition = (await records.GetAsync("flow-planning-definitions-v11", "tenant", id, "test", Ct))!;
         var changedDefaults = Initial(); changedDefaults.Construction = new();
         await using var restored = await Factory().OpenAsync(Context(client), changedDefaults, Ct);
         Assert.Equal(4, restored.Session.Construction!.Limits.MaxTasksPerDraft);
         Assert.Equal(4096, restored.Session.Construction.Limits.DraftOutputTokens);
         Assert.Equal(1024, restored.Session.Construction.Limits.ReviewOutputTokens);
-        Assert.Equal("2", restored.Session.Request.Options["business_judge_review_version"]!.ToString());
-        Assert.Equal("2", restored.Session.Request.Options["construction_version"]!.ToString());
+        Assert.NotNull(PlanningConstructionPhasePolicies.Read(restored.Session.Request));
+        Assert.NotNull(PlanningTransportPolicies.Read(restored.Session.Request));
         Assert.Equal(authoredOptions, original.Request.Options.ToJsonString());
         Assert.Equal(authoredOptions, changedDefaults.Request.Options.ToJsonString());
-        Assert.Equal(definition, await records.GetAsync("flow-planning-definitions-v10", "tenant", id, "test", Ct));
+        Assert.Equal(definition, await records.GetAsync("flow-planning-definitions-v11", "tenant", id, "test", Ct));
         Assert.Equal(0, restored.Session.ModelCalls); Assert.Equal(0, restored.Session.ReplanAttempts);
         Assert.Equal(0, client.Calls);
     }
@@ -116,17 +79,17 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
         var client = new Client(); var original = Initial();
         await Assert.ThrowsAsync<IOException>(() => factory.OpenAsync(Context(client), original, Ct));
         var id = original.Request.SessionId;
-        var definition = (await records.GetAsync("flow-planning-definitions-v10", "tenant", id, "test", Ct))!;
+        var definition = (await records.GetAsync("flow-planning-definitions-v11", "tenant", id, "test", Ct))!;
         var resumed = Initial();
         if (capturedCheckpoint)
         {
             var changed = JsonNode.Parse(definition.Value)!;
             changed["creationCheckpoint"]!["session"]!["request"]!["generation"]!["maxOutputTokens"] = 16000;
-            await records.UpsertAsync("flow-planning-definitions-v10", "tenant", id, changed.ToJsonString(), "test", Ct);
+            await records.UpsertAsync("flow-planning-definitions-v11", "tenant", id, changed.ToJsonString(), "test", Ct);
         }
         else resumed.Request.Generation.MaxOutputTokens = 16000;
         await Assert.ThrowsAsync<PlanningConflictException>(() => Factory().OpenAsync(Context(client), resumed, Ct));
-        Assert.Null(await records.GetAsync("flow-planning-sessions-v10", "tenant", id, "test", Ct));
+        Assert.Null(await records.GetAsync("flow-planning-sessions-v11", "tenant", id, "test", Ct));
         Assert.Equal(0, client.Calls);
     }
 
@@ -140,39 +103,11 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
             await session.Runtime.CallAsync(Request(session.Session, "one"), "intent", Ct);
         }
         var records = new KeyVaultRecordStore(Path.Combine(_directory, "keyvault.db"));
-        Assert.True(await records.DeleteAsync("flow-planning-sessions-v10", "tenant", id, "test", Ct));
+        Assert.True(await records.DeleteAsync("flow-planning-sessions-v11", "tenant", id, "test", Ct));
         var error = await Assert.ThrowsAsync<PlanningConflictException>(() => Factory().OpenAsync(Context(client), Initial(), Ct));
         Assert.Contains("cannot reset retained usage", error.Message);
         Assert.Equal(1, client.Calls);
-        Assert.Null(await records.GetAsync("flow-planning-sessions-v10", "tenant", id, "test", Ct));
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task RetiredGuardRepairSettlesOnlyItsVerifiedReceipt(bool interrupted)
-    {
-        var client = new Client { Fail = interrupted }; LLMRequest request;
-        await using (var session = await Factory().OpenAsync(Context(client), Initial(), Ct))
-        {
-            request = Request(session.Session, "retired");
-            session.Session.IntentVersion = 2;
-            session.Session.Diagnostics.Add(new("TASK_CONDITIONAL_REQUIREMENT", "/tasks/route/condition", "Retained proof repair"));
-            session.Session.PendingCall = new() { Id = request.ClientRequestId!, Purpose = "replan", Request = request };
-            await session.Runtime.CheckpointAsync(session.Session, Ct);
-            if (interrupted) await Assert.ThrowsAsync<IOException>(() => session.Runtime.CallAsync(request, "replan", Ct));
-            else await session.Runtime.CallAsync(request, "replan", Ct);
-        }
-        await using (var restored = await Factory().OpenAsync(Context(client), Initial(), Ct))
-        {
-            Assert.True(restored.Session.RequiresPlanningRevision);
-            Assert.Equal(interrupted, restored.Session.PendingCall is not null);
-            Assert.Equal(1, restored.Session.Usage!.Calls);
-            Assert.Null(restored.Session.Plan);
-            Assert.Single(restored.Session.Diagnostics, d => d.Code == "TASK_CONDITIONAL_REQUIREMENT");
-            if (!interrupted) Assert.Equal(PlanningStatus.Stopped, restored.Session.Status);
-        }
-        Assert.Equal(1, client.Calls);
+        Assert.Null(await records.GetAsync("flow-planning-sessions-v11", "tenant", id, "test", Ct));
     }
 
     [Fact]
@@ -325,23 +260,13 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
     }
 
     [Fact]
-    public async Task RuntimeResumeRetainsOmittedDefaultsButRejectsExplicitChanges()
+    public async Task ResumeRejectsChangedLimitsWithoutRewritingTheDefinition()
     {
-        var client = new Client(); var original = Initial();
-        original.Request.Options = new() { ["raw_prompt"] = "secret intent", ["generator"] = new JsonObject() };
-        original.Request.MaxModelCalls = 8; original.Request.MaxReplanAttempts = 2;
-        original.Request.Generation = new() { MaxInputTokensPerRequest = 12000, MaxOutputTokens = 8192 };
-        await using (var first = await Factory().OpenAsync(Context(client), original, Ct)) { }
-        var current = Initial(); current.Request.Options = original.Request.Options.DeepClone().AsObject();
-        current.Request.MaxModelCalls = 64; current.Request.MaxReplanAttempts = 4;
-        current.Request.Generation = new() { MaxInputTokensPerRequest = 32000, MaxOutputTokens = 32768 };
-        await using (var restored = await Factory().OpenAsync(Context(client), current, Ct))
-        {
-            Assert.Equal(8, restored.Session.Request.MaxModelCalls);
-            Assert.Equal(12000, restored.Session.Request.Generation.MaxInputTokensPerRequest);
-        }
-        current.Request.Options["generator"]!["max_input_tokens"] = 32000;
-        await Assert.ThrowsAsync<PlanningConflictException>(() => Factory().OpenAsync(Context(client), current, Ct));
+        var client = new Client();
+        await using (var first = await Factory().OpenAsync(Context(client), Initial(), Ct)) { }
+        var changed = Initial();
+        changed.Request.MaxModelCalls = 8;
+        await Assert.ThrowsAsync<PlanningConflictException>(() => Factory().OpenAsync(Context(client), changed, Ct));
         Assert.Equal(0, client.Calls);
     }
 
@@ -359,12 +284,12 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
         string id;
         await using (var session = await Factory().OpenAsync(Context(new Client()), Initial(), Ct)) { id = session.Session.Request.SessionId; }
         var records = new KeyVaultRecordStore(Path.Combine(_directory, "keyvault.db"));
-        var record = (await records.GetAsync("flow-planning-sessions-v10", "tenant", id, "test", Ct))!;
-        var json = JsonNode.Parse(record.Value)!.AsObject(); json["schemaVersion"] = 8;
-        var original = await records.UpsertAsync("flow-planning-sessions-v10", "tenant", id, json.ToJsonString(), "test", Ct);
+        var record = (await records.GetAsync("flow-planning-sessions-v11", "tenant", id, "test", Ct))!;
+        var json = JsonNode.Parse(record.Value)!.AsObject(); json["schemaVersion"] = 10;
+        var original = await records.UpsertAsync("flow-planning-sessions-v11", "tenant", id, json.ToJsonString(), "test", Ct);
         var error = await Assert.ThrowsAsync<PlanningConflictException>(() => Factory().OpenAsync(Context(new Client()), Initial(), Ct));
         Assert.Contains("Regenerate and approve", error.Message);
-        Assert.Equal(original, await records.GetAsync("flow-planning-sessions-v10", "tenant", id, "test", Ct));
+        Assert.Equal(original, await records.GetAsync("flow-planning-sessions-v11", "tenant", id, "test", Ct));
     }
 
     private static PlanningSession Initial() => new()
@@ -388,8 +313,7 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
             StructuredOutputStrict = true,
             StructuredOutputSchema = JsonNode.Parse("""{"type":"object","properties":{"value":{"type":"string"}},"required":["value"],"additionalProperties":false}""")
         };
-        if (PlanningConstructionInputPolicy.IsCompact(snapshot.Request))
-            request.StructuredOutputSchema!["title"] = "construction_intent";
+        request.StructuredOutputSchema!["title"] = "construction_intent";
         PlanningConstructionPhasePolicies.Apply(request, snapshot.Request, "construction_intent");
         if (PlanningTransportPolicies.Read(snapshot.Request) is not null) request.RequiredReviewCalls = 0;
         request.ClientRequestId = snapshot.Request.SessionId + ":" + attempt + ":intent:workflow:" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
@@ -402,7 +326,7 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
             inner.GetAsync(collection, tenantId, key, author, ct);
         public Task<KeyVaultRecordValue> UpsertAsync(string collection, string tenantId, string key, string value, string author, CancellationToken ct = default)
         {
-            if (collection == "flow-planning-sessions-v10" && !_interrupted)
+            if (collection == "flow-planning-sessions-v11" && !_interrupted)
             {
                 _interrupted = true;
                 throw new IOException("Interrupted after the authored definition, before the first session checkpoint.");

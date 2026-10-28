@@ -58,12 +58,12 @@ internal static partial class PlanningCompactConstruction
         return view;
     }
 
-    private static JsonObject? ReviewInputDeclarations(PlanningSession state, HashSet<string>? windowSources = null)
+    private static JsonObject? CandidateInputDeclarations(PlanningSession state)
     {
         var compact = State(state);
         var step = compact.CurrentStep!;
-        if (windowSources is null && ScopeGroup(state, step.Scope) is not null) return null;
-        var sources = windowSources ?? step.RequirementIds.Concat(step.CloseRequirementIds)
+        if (ScopeGroup(state, step.Scope) is not null) return null;
+        var sources = step.RequirementIds.Concat(step.CloseRequirementIds)
             .SelectMany(id => compact.RequirementSources.GetValueOrDefault(id) ?? [])
             .Concat(compact.GlobalSourceIds).ToHashSet(StringComparer.Ordinal);
         var declarations = (compact.InterfaceExtractions ?? []).Where(extraction => extraction.Complete &&
@@ -104,42 +104,6 @@ internal static partial class PlanningCompactConstruction
             ["scope"] = "/root", ["basis"] = "tentative_candidate", ["count"] = names.Length,
             ["inputs"] = entries, ["directory"] = names.Length > 8 ? "page:interfaces:0" : null
         };
-    }
-
-    // Build this after the original-clause window is chosen, including during
-    // packing probes. Declaration evidence does not widen compiler visibility.
-    internal static void AddWindowReviewEvidence(PlanningSession state, JsonObject context)
-    {
-        if (State(state).PresentationVersion != 11) return;
-        var sources = (context["requirements"] as JsonArray ?? []).OfType<JsonObject>()
-            .SelectMany(row => row["sources"] as JsonArray ?? [])
-            .Concat(context["globalConstraints"] as JsonArray ?? [])
-            .Select(source => source?["id"]?.ToString()).OfType<string>().ToHashSet(StringComparer.Ordinal);
-        context.Remove("inputDeclarations");
-        if (ReviewInputDeclarations(state, sources) is { } declarations)
-        {
-            declarations["accessibleInSelectedScope"] = ScopeGroup(state, State(state).CurrentStep!.Scope) is null;
-            context["inputDeclarations"] = declarations;
-        }
-        var candidate = state.Construction!.Candidate!;
-        var symbols = new TaskPlanSymbols(candidate.Plan);
-        var accepted = state.Plan is null ? null : new TaskPlanSymbols(state.Plan);
-        var controls = new JsonArray();
-        for (var scope = symbols.Scopes.Single(scope => scope.Path == State(state).CurrentStep!.Scope);
-             scope.Parent is not null; scope = scope.Parent)
-        {
-            if (scope.Owner is not { } owner) continue;
-            var control = PlanningConstruction.TaskNode(owner).AsObject();
-            // TaskNode retains exact child-scope addresses without recursively
-            // repeating their bodies. These are the actual control operands.
-            var unchanged = accepted?.Tasks.TryGetValue(owner.Id, out var original) == true &&
-                JsonNode.DeepEquals(PlanningConstruction.TaskNode(original.Task), PlanningConstruction.TaskNode(owner));
-            controls.Add((JsonNode)new JsonObject { ["task"] = control, ["scope"] = scope.Parent.Path,
-                ["childScope"] = scope.Path, ["evidence"] = "task:" + owner.Id,
-                ["basis"] = unchanged ? "accepted" : "tentative_candidate" });
-        }
-        if (controls.Count > 0) context["ancestorControls"] = controls;
-        else context.Remove("ancestorControls");
     }
 
     private static string ScopeInterfaceVersion(TaskPlan plan, IEnumerable<string> open, string path) =>

@@ -6,12 +6,10 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed partial class CompactDiscoveryProtocolTests
 {
-    [Theory]
-    [InlineData(2)]
-    [InlineData(3)]
-    public async Task ProviderDecisionOverviewKeepsLaterChoicesVisibleWithoutCrossingCursorAuthority(int presentationVersion)
+    [Fact]
+    public async Task ProviderDecisionOverviewKeepsLaterChoicesVisibleWithoutCrossingCursorAuthority()
     {
-        var (state, _) = await Ready(presentationVersion: presentationVersion);
+        var (state, _) = await Ready();
         AddOperations(state, 1);
         state.Discovery.Sources.AddRange([new("beta", "A remaining provider."), new("gamma", "An exhausted provider."),
             new("delta", "A provider with another exact page."), new("epsilon", "A later relevant provider.")]);
@@ -23,16 +21,16 @@ public sealed partial class CompactDiscoveryProtocolTests
         var page = Context(request)["providerRequests"]!;
         Assert.Equal(1, page["offset"]!.GetValue<int>());
         Assert.Equal(5, page["total"]!.GetValue<int>());
-        Assert.Equal(presentationVersion == 3 ? new[] { "beta", "gamma", "delta", "epsilon" } : ["beta", "gamma"],
+        Assert.Equal(new[] { "beta", "gamma", "delta", "epsilon" },
             page["items"]!.AsArray().Select(item => item!["sourceId"]!.ToString()));
         foreach (var (source, cursor, valid) in new (string, string?, bool)[]
         {
-            ("beta", null, true), ("delta", "delta-next", presentationVersion == 3), ("epsilon", null, presentationVersion == 3),
+            ("beta", null, true), ("delta", "delta-next", true), ("epsilon", null, true),
             ("alpha", null, false), ("gamma", null, false), ("delta", null, false), ("epsilon", "delta-next", false), ("unknown", null, false)
         })
         {
             var response = Discover(source, cursor);
-            if (presentationVersion == 3) { response.Remove("operationIds"); response["binding"] = null; }
+            response.Remove("operationIds"); response["binding"] = null;
             Assert.Equal(valid, PlanningContractValidation.ValidateInstance(response, request.StructuredOutputSchema!).Count == 0);
         }
         Assert.Equal(original, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
@@ -42,7 +40,7 @@ public sealed partial class CompactDiscoveryProtocolTests
     [Fact]
     public async Task ProviderOverviewIsBoundedAndItsContinuationLoadsTheUnchangedCanonicalPage()
     {
-        var (state, _) = await Ready(presentationVersion: 3);
+        var (state, _) = await Ready();
         var description = new string('界', 10_000);
         state.Discovery.Sources.AddRange(Enumerable.Range(1, 9).Select(index => new CapabilitySource("provider_" + index, description)));
         var canonical = PlanningCompactConstruction.ProviderRequestPage(state, 0).ToJsonString();
@@ -61,11 +59,10 @@ public sealed partial class CompactDiscoveryProtocolTests
         var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.DiscoveryPurpose).MaxInputTokens;
         Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, limit).EstimatedInputTokens, 1, limit);
         Assert.Equal(original, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
-        var historical = PlannerFixture.Clone(state);
-        historical.Construction!.Compact!.PresentationVersion = 2;
-        Assert.Equal(canonical, PlanningCompactConstruction.ProviderRequestPage(historical, 0).ToJsonString());
-        Assert.Equal(address, PlanningCompactConstruction.ProviderRequestAddress(historical, 0));
-        Assert.Equal(2, PlanningCompactConstruction.DiscoveryContext(historical)["providerRequests"]!["items"]!.AsArray().Count);
+        var recovered = PlannerFixture.Clone(state);
+        Assert.Equal(canonical, PlanningCompactConstruction.ProviderRequestPage(recovered, 0).ToJsonString());
+        Assert.Equal(address, PlanningCompactConstruction.ProviderRequestAddress(recovered, 0));
+        Assert.Equal(8, PlanningCompactConstruction.DiscoveryContext(recovered)["providerRequests"]!["items"]!.AsArray().Count);
 
         var next = overview["next"]!.ToString();
         Assert.Equal(PlanningCompactConstruction.ProviderRequestAddress(state, 8), next);
@@ -82,7 +79,7 @@ public sealed partial class CompactDiscoveryProtocolTests
     [Fact]
     public async Task SavedTwoProviderDecisionResumesItsExactRequestWhenTheFreshOverviewWouldBeWider()
     {
-        var (state, runtime) = await Ready(presentationVersion: 3);
+        var (state, runtime) = await Ready();
         state.Discovery.Sources.AddRange([new("beta", "Second provider."), new("gamma", "Third provider."),
             new("delta", "Fourth provider."), new("epsilon", "Fifth provider.")]);
         var historical = PlannerFixture.Clone(state);
@@ -124,14 +121,20 @@ public sealed partial class CompactDiscoveryProtocolTests
         var context = PlanningCompactConstruction.DiscoveryContext(state);
         var schema = PlanningCompactConstruction.DiscoverySchema(state);
 
-        Assert.Equal(new[] { "beta", "gamma" }, context["providerRequests"]!["items"]!.AsArray()
+        Assert.Equal(new[] { "beta", "gamma", "delta" }, context["providerRequests"]!["items"]!.AsArray()
             .Select(item => item!["sourceId"]!.ToString()));
         Assert.Empty(PlanningContractValidation.ValidateInstance(Discover("beta", "beta-next"), schema));
         Assert.Empty(PlanningContractValidation.ValidateInstance(Discover("gamma", null), schema));
         foreach (var invalid in new[] { Discover("alpha", null), Discover("beta", null), Discover("gamma", "beta-next"),
-            Discover("delta", null), Discover("beta", "page:sources:0") })
+            Discover("beta", "page:sources:0") })
             Assert.NotEmpty(PlanningContractValidation.ValidateInstance(invalid, schema));
-        Assert.True(JsonNode.DeepEquals(state.Construction!.Evidence, context["evidence"]));
+        Assert.Equal(state.Construction!.Evidence?.Count ?? 0, context["evidence"]?.AsObject().Count ?? 0);
+        foreach (var (key, value) in state.Construction.Evidence ?? new JsonObject())
+        {
+            var expected = value!.DeepClone().AsObject();
+            if (key.StartsWith("description:", StringComparison.Ordinal) || key.StartsWith("source-description:", StringComparison.Ordinal)) expected.Remove("version");
+            Assert.True(JsonNode.DeepEquals(expected, context["evidence"]![key]));
+        }
         if (description)
         {
             var evidence = context["evidence"]![DescriptionAddress(state)]!;
@@ -156,26 +159,9 @@ public sealed partial class CompactDiscoveryProtocolTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task RetainedPolicyKeepsProviderActionsSuppressedAfterOperationInspection(bool description)
+    public async Task ExplicitProviderEvidenceKeepsItsExactActionSelection(bool description)
     {
-        var (state, _) = await Ready(retainedPolicy: true);
-        AddOperations(state, 1);
-        state.Discovery.Sources.Add(new("beta", "Another provider."));
-        if (description) PlanningConstruction.LoadEvidence(state, [DescriptionAddress(state)]);
-        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
-        Assert.Null(PlanningCompactConstruction.DiscoveryContext(state)["providerRequests"]);
-        Assert.Equal("null", PlanningCompactConstruction.DiscoverySchema(state)["properties"]!["discoveryRequests"]!["type"]!.ToString());
-        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
-    }
-
-    [Theory]
-    [InlineData(false, 2)]
-    [InlineData(true, 2)]
-    [InlineData(false, 3)]
-    [InlineData(true, 3)]
-    public async Task ExplicitProviderEvidenceKeepsItsExactActionSelection(bool description, int presentationVersion)
-    {
-        var (state, _) = await Ready(presentationVersion: presentationVersion);
+        var (state, _) = await Ready();
         AddOperations(state, 1);
         state.Discovery.Sources.AddRange([new("beta", "Another provider."), new("gamma", "Selected provider."),
             new("delta", "Later provider.")]);
@@ -189,7 +175,13 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Empty(PlanningContractValidation.ValidateInstance(Wire(request, Discover("gamma", null)).Json!, schema));
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Wire(request, Discover("beta", null)).Json!, schema));
         Assert.Equal(description, PlanningContractValidation.ValidateInstance(Wire(request, Discover("delta", null)).Json!, schema).Count > 0);
-        Assert.True(JsonNode.DeepEquals(state.Construction!.Evidence, context["evidence"]));
+        Assert.Equal(state.Construction!.Evidence?.Count ?? 0, context["evidence"]?.AsObject().Count ?? 0);
+        foreach (var (key, value) in state.Construction.Evidence ?? new JsonObject())
+        {
+            var expected = value!.DeepClone().AsObject();
+            if (key.StartsWith("description:", StringComparison.Ordinal) || key.StartsWith("source-description:", StringComparison.Ordinal)) expected.Remove("version");
+            Assert.True(JsonNode.DeepEquals(expected, context["evidence"]![key]));
+        }
         if (description) Assert.Single(context["providerRequests"]!["items"]!.AsArray());
         else Assert.Null(context["providerRequests"]);
     }

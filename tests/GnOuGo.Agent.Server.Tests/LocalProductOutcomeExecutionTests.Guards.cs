@@ -31,7 +31,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
         var factory = new RealProductContracts.Factory(CaptureIsolatedProductContracts());
         var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
         var catalog = await RetainedCatalog(runtime, TestContext.Current.CancellationToken); catalog.Policy.RequireExternalConfirmation = false;
-        var retained = GuardRetained(catalog); var original = JsonSerializer.Serialize(retained, PlanningJsonContext.Default.PlanningProposal);
+        var retained = GuardRetained(catalog); var original = JsonSerializer.Serialize(retained, PlanningFixtureJsonContext.Default.TaskPlanFixture);
         var compiler = new TaskPlanCompiler(); var findings = compiler.Compile(retained.Plan!, catalog).Diagnostics;
         Assert.Equal(new[] { "/tasks/extract_choices/requires", "/tasks/extract_record/requires" }, findings.Select(d => d.Location));
         Assert.All(findings, d => { Assert.Equal("TASK_FIELD_UNKNOWN", d.Code); Assert.Contains("available},{", d.Message); });
@@ -49,7 +49,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
         AssertGuardBusinessPreserved(retained, corrected);
         var session = await GuardRevision(catalog, runtime, corrected, TestContext.Current.CancellationToken);
         Assert.Equal(PlanningStatus.FinalReview, session.Status); Assert.Null(session.ApprovedHash);
-        Assert.Equal(0, factory.InvocationAttempts); Assert.Equal(original, JsonSerializer.Serialize(retained, PlanningJsonContext.Default.PlanningProposal));
+        Assert.Equal(0, factory.InvocationAttempts); Assert.Equal(original, JsonSerializer.Serialize(retained, PlanningFixtureJsonContext.Default.TaskPlanFixture));
         Assert.Equal(new[] { "prepare_url", "choose", "choose_details" }, RetainedTasks(corrected.Plan!.Root).Where(t => t.Mode == "interpret").Select(t => t.Id));
         var after = BusinessCompilation(corrected.Plan!, catalog, "compact-bindings-v15");
         output.WriteLine($"GUARDS typo-only tasks={RetainedTasks(referenceOnly.Plan.Root).Count()},steps={before.Steps},sets={before.Sets},yaml={System.Text.Encoding.UTF8.GetByteCount(before.Yaml)}; corrected tasks={RetainedTasks(corrected.Plan.Root).Count()},steps={after.Steps},sets={after.Sets},yaml={System.Text.Encoding.UTF8.GetByteCount(after.Yaml)}; cleanup only added requirement; repairs=0");
@@ -59,7 +59,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             File.WriteAllText(Path.Combine(folder, "retained-proposal.json"), original);
             File.WriteAllText(Path.Combine(folder, "reference-only-taskplan.json"), JsonSerializer.Serialize(referenceOnly.Plan, PlanningJsonContext.Default.TaskPlan));
             File.WriteAllText(Path.Combine(folder, "reference-only.yaml"), before.Yaml);
-            File.WriteAllText(Path.Combine(folder, "corrected-proposal.json"), JsonSerializer.Serialize(corrected, PlanningJsonContext.Default.PlanningProposal));
+            File.WriteAllText(Path.Combine(folder, "corrected-proposal.json"), JsonSerializer.Serialize(corrected, PlanningFixtureJsonContext.Default.TaskPlanFixture));
             File.WriteAllText(Path.Combine(folder, "corrected-taskplan.json"), JsonSerializer.Serialize(corrected.Plan, PlanningJsonContext.Default.TaskPlan));
             File.WriteAllText(Path.Combine(folder, "corrected.yaml"), session.Yaml);
         }
@@ -89,17 +89,17 @@ public sealed partial class LocalProductOutcomeExecutionTests
         Assert.ThrowsAny<Exception>(() => AssertGuardBusinessPreserved(retained, proposal));
     }
 
-    private static PlanningProposal GuardRetained(PlanningCatalog catalog)
+    private static TaskPlanFixture GuardRetained(PlanningCatalog catalog)
     {
-        var proposal = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "GuardComposition", "retained.json")), PlanningJsonContext.Default.PlanningProposal)!;
+        var proposal = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "GuardComposition", "retained.json")), PlanningFixtureJsonContext.Default.TaskPlanFixture)!;
         foreach (var task in RetainedTasks(proposal.Plan!.Root).Where(t => t.Kind == "operation"))
             task.Operation = TaskOperations.Describe(catalog.Capabilities.Single(c => c.Method == task.Operation)).Id;
         return proposal;
     }
 
-    private static PlanningProposal GuardCorrected(PlanningCatalog catalog, PlanningProposal? retained = null)
+    private static TaskPlanFixture GuardCorrected(PlanningCatalog catalog, TaskPlanFixture? retained = null)
     {
-        retained = JsonSerializer.Deserialize(JsonSerializer.Serialize(retained ?? GuardRetained(catalog), PlanningJsonContext.Default.PlanningProposal), PlanningJsonContext.Default.PlanningProposal)!;
+        retained = JsonSerializer.Deserialize(JsonSerializer.Serialize(retained ?? GuardRetained(catalog), PlanningFixtureJsonContext.Default.TaskPlanFixture), PlanningFixtureJsonContext.Default.TaskPlanFixture)!;
         var proposal = ApprovalCorrected(catalog);
         var cleanup = proposal.Requirements!.Outcomes.Single(o => o.Id == "cleanup_browser");
         proposal.Requirements = JsonSerializer.Deserialize(JsonSerializer.Serialize(retained.Requirements, PlanningJsonContext.Default.PlanningRequirements), PlanningJsonContext.Default.PlanningRequirements)!;
@@ -146,7 +146,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
         return proposal;
     }
 
-    private static void AssertGuardBusinessPreserved(PlanningProposal retained, PlanningProposal corrected)
+    private static void AssertGuardBusinessPreserved(TaskPlanFixture retained, TaskPlanFixture corrected)
     {
         var expected = JsonSerializer.SerializeToNode(retained.Requirements, PlanningJsonContext.Default.PlanningRequirements)!;
         var actual = JsonSerializer.SerializeToNode(corrected.Requirements, PlanningJsonContext.Default.PlanningRequirements)!;
@@ -173,42 +173,17 @@ public sealed partial class LocalProductOutcomeExecutionTests
         Assert.Equal(10, corrected.Plan.Root.Tasks.Single(t => t.Id == "visit").MaxItems);
     }
 
-    private static async Task<PlanningSession> GuardRevision(PlanningCatalog catalog, WorkflowPlanningRuntime runtime, PlanningProposal corrected, CancellationToken ct)
+    private static async Task<PlanningSession> GuardRevision(PlanningCatalog catalog, WorkflowPlanningRuntime runtime, TaskPlanFixture corrected, CancellationToken ct)
     {
-        var retained = GuardRetained(catalog); AssertGuardBusinessPreserved(retained, corrected);
-        var planner = new HybridWorkflowPlanner(); var initial = new ProposalRuntime(runtime, retained);
-        var seed = GnOuGo.Planning.Examples.PlanningCorpus.RetainedSession(new PlanningSession { Catalog = catalog, Request = new() { TenantId = "local", Name = "guard-offline",
-            Prompt = retained.Requirements!.Summary, Policy = new() { RequireExternalConfirmation = false }, Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } });
-        seed.Discovery.Sources = (await runtime.Capabilities.ListSourcesAsync(ct)).ToList();
-        foreach (var source in seed.Discovery.Sources) seed.Discovery.Pages.Add(await runtime.Capabilities.ListAsync(source.Id, null, ct));
-        var state = await planner.AdvanceAsync(seed, new(), initial, ct);
-        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Single(initial.Requests); Assert.Equal(0, state.ReplanAttempts);
-        Assert.Equal(2, state.Diagnostics.Count(d => d.Code == "REVISION_REQUIRED"));
-        var saved = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
-        var copy = JsonSerializer.Deserialize(saved, PlanningJsonContext.Default.PlanningSession)!;
-        var adapter = new ProposalRuntime(runtime, corrected);
-        await Assert.ThrowsAsync<PlanningConflictException>(() => planner.AdvanceAsync(copy, new() { Kind = "revise", ExpectedRevision = copy.Revision - 1, Text = "Stale" }, adapter, ct));
-        Assert.Empty(adapter.Requests);
-        copy = await planner.AdvanceAsync(copy, new() { Kind = "revise", ExpectedRevision = copy.Revision, ArtifactHash = copy.ComputeArtifactHash(), PreserveRequirements = false,
-            Text = "Correct adaptation and producer assertions. Preserve all four requirements, article input, filePath output, ordered first ten visits, three exact columns, destination and external literals. Add only Browser cleanup. Use complete pages, compact ID decisions, offered/original lookup and deterministic rows. A missing required URL fails before dispatch; incomplete acquisition cannot produce an empty successful workbook." }, adapter, ct);
-        Assert.Null(copy.EditablePaths); Assert.Null(copy.ApprovedHash); Assert.Equal(state.ModelCalls, copy.ModelCalls);
-        var close = catalog.Capabilities.Single(c => c.Method == "browser_close");
-        var sourceId = copy.Discovery.Pages.First(p => p.Capabilities.Any(c => c.Name == "browser_get_content")).SourceId;
-        adapter.Patch = _ => JsonSerializer.SerializeToNode(new PlanningProposal { Requirements = corrected.Requirements, DiscoveryRequests = [new(sourceId, Query: "browser_close")] }, PlanningJsonContext.Default.PlanningProposal)!.AsObject();
-        copy = await planner.AdvanceAsync(copy, new() { ExpectedRevision = copy.Revision }, adapter, ct);
-        var summary = copy.Discovery.Pages.SelectMany(p => p.Capabilities).First(c => c.Id == close.Id);
-        adapter.Patch = _ => JsonSerializer.SerializeToNode(new PlanningProposal { Requirements = corrected.Requirements, DiscoveryRequests = [new(summary.SourceId, OperationIds: [summary.Operation!.Id])] }, PlanningJsonContext.Default.PlanningProposal)!.AsObject();
-        copy = await planner.AdvanceAsync(copy, new() { ExpectedRevision = copy.Revision }, adapter, ct);
-        adapter.Patch = null;
-        copy = await planner.AdvanceAsync(copy, new() { ExpectedRevision = copy.Revision }, adapter, ct);
-        Assert.True(copy.Status == PlanningStatus.FinalReview, string.Join(';', copy.Diagnostics));
-        Assert.Equal(state.ModelCalls + 3, copy.ModelCalls); Assert.Equal(3, adapter.Requests.Count); Assert.Equal(0, copy.ReplanAttempts);
-        Assert.True(copy.ActiveMilliseconds >= state.ActiveMilliseconds); Assert.Null(copy.ApprovedHash);
-        AssertGuardBusinessPreserved(retained, new() { Requirements = copy.Requirements, Plan = copy.Plan });
-        var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(copy, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
-        restored = await planner.AdvanceAsync(restored, new() { ExpectedRevision = restored.Revision }, adapter, ct);
-        Assert.Equal(3, adapter.Requests.Count); Assert.Equal(copy.Yaml, restored.Yaml);
-        Assert.Equal(saved, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
-        return copy;
+        AssertGuardBusinessPreserved(GuardRetained(catalog), corrected);
+        ct.ThrowIfCancellationRequested();
+        await Task.CompletedTask;
+        var result = RecordedPlanCompilation.CompileStatic(corrected, catalog, new()
+        { TenantId = "local", Prompt = corrected.Requirements!.Summary, Policy = new() { RequireExternalConfirmation = false },
+            Options = new() { ["compilation_profile"] = "compact-bindings-v15", ["mapping_profile"] = "adaptive-each-v1" } });
+        Assert.True(result.Status == PlanningStatus.FinalReview, string.Join(';', result.Diagnostics));
+        Assert.Null(result.ApprovedHash); Assert.Equal(0, result.ModelCalls);
+        return result;
     }
+
 }

@@ -21,44 +21,18 @@ internal static class SchemaPortabilityCampaign
         {
             material["generation"] = JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.PlanningRequest)!["generation"]!.DeepClone();
             material["calls"] = request.MaxModelCalls; material["repairs"] = request.MaxReplanAttempts;
-            material["business_judge"] = request.Options["business_judge"]?.ToString() == "true";
-            if (request.Options["construction_version"]?.GetValue<int>() == 1)
-                material["construction_configuration"] = GnOuGo.Planning.Examples.PlanningBenchmarkMeasurements.Configuration(request);
+            material["planning_format"] = 11;
+            material["construction_configuration"] = GnOuGo.Planning.Examples.PlanningBenchmarkMeasurements.Configuration(request);
         }
         return PlanningGraphCompiler.Fingerprint(material.ToJsonString());
     }
     internal const string Model = "gpt-5.5-2026-04-24";
-    private const string OriginalSession = "a425b85bb133470cbab4e5f201b9d729";
     internal const string Collection = "planning-schema-portability";
     public static async Task RunAsync(string[] args)
     {
         var phase = args.ElementAtOrDefault(1) ?? "inspect";
         var root = Path.GetFullPath(Option(args, "--workspace") ?? GnOuGoWorkspace.ResolveDefaultWorkingDirectory());
         var records = KeyVaultBenchmarkModel.WorkspaceRecords(root);
-        if (phase == "capture")
-        {
-            var folder = Option(args, "--output") ?? throw new ArgumentException("Supply --output.");
-            var requests = (await records.ListAsync("agent-planning-model-requests-v10", "default", BenchmarkCampaign.Author))
-                .Where(r => r.Key.StartsWith(OriginalSession + ":", StringComparison.Ordinal)).OrderBy(r => r.UpdatedAt).ToArray();
-            var receipts = (await records.ListAsync("agent-planning-model-receipts-v10", "default", BenchmarkCampaign.Author))
-                .Where(r => r.Key.StartsWith(OriginalSession + ":", StringComparison.Ordinal)).OrderBy(r => r.UpdatedAt).ToArray();
-            var states = (await records.ListAsync("agent-planning-sessions-v10", "default", BenchmarkCampaign.Author))
-                .Where(r => r.Key.StartsWith(OriginalSession, StringComparison.Ordinal)).OrderBy(r => r.UpdatedAt).ToArray();
-            if (requests.Length != 2 || receipts.Length != 1 || states.Length == 0) throw new InvalidOperationException("The retained reproduction has changed.");
-            var state = JsonNode.Parse(states[^1].Value)!.AsObject();
-            var retained = new JsonObject
-            {
-                ["session"] = OriginalSession, ["origin"] = "Designer", ["modelCalls"] = state["modelCalls"]?.DeepClone(),
-                ["repairs"] = state["replanAttempts"]?.DeepClone(), ["status"] = state["status"]?.DeepClone(),
-                ["diagnostics"] = state["diagnostics"]?.DeepClone(),
-                ["schemas"] = new JsonArray(requests.Select(r => JsonNode.Parse(r.Value)!["structuredOutputSchema"]!.DeepClone()).ToArray()),
-                ["discoveryResponse"] = JsonNode.Parse(receipts[0].Value)!["json"]?.DeepClone()
-            };
-            Directory.CreateDirectory(folder);
-            await File.WriteAllTextAsync(Path.Combine(folder, "retained-schema-rejection.json"), retained.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
-            Console.WriteLine("Captured two issued schemas, the discovery response and stopped-session diagnostics; request prompts and host configuration excluded.");
-            return;
-        }
         var campaignId = Option(args, "--campaign") ?? throw new ArgumentException("Supply a new --campaign.");
         var campaign = new BenchmarkCampaign(records, campaignId);
         if (phase == "retain-uncertain-request" && !args.Contains("--apply", StringComparer.Ordinal))
@@ -67,8 +41,7 @@ internal static class SchemaPortabilityCampaign
                 Option(args, "--run-collection") ?? Collection,
                 Option(args, "--run-key") ?? throw new ArgumentException("Supply the exact --run-key."),
                 Option(args, "--request-id") ?? throw new ArgumentException("Supply the exact --request-id."),
-                CancellationToken.None, Option(args, "--retention-kind"), BenchmarkFrozenBaselineArm.FromArguments(
-                    Option(args, "--frozen-baseline-proof"), Option(args, "--expected-frozen-baseline-proof-hash")))).ToJsonString());
+                CancellationToken.None, Option(args, "--retention-kind"))).ToJsonString());
             return;
         }
         if (phase == "provider-readiness")
@@ -98,7 +71,7 @@ internal static class SchemaPortabilityCampaign
         {
             var label = Option(args, "--run") ?? throw new ArgumentException("Supply --run.");
             var saved = await campaign.LoadAsync(Collection, "run:" + label) ?? throw new ArgumentException("No run.");
-            var session = saved["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
+            var session = BenchmarkCampaign.ReadCurrentSession(saved["session"]);
             var catalog = session.Catalog ?? throw new InvalidOperationException("No retained contracts.");
             if (args.Contains("--compare-bindings", StringComparer.Ordinal))
             {
@@ -214,9 +187,7 @@ internal static class SchemaPortabilityCampaign
             string Required(string name) => Option(args, name) ?? throw new ArgumentException("Supply " + name + ".");
             Console.WriteLine((await campaign.ApplyPermanentRetentionAsync(Option(args, "--run-collection") ?? Collection,
                 Required("--run-key"), Required("--request-id"), Required("--expected-evidence-hash"),
-                Required("--operator"), Required("--authorization"), CancellationToken.None, Option(args, "--retention-kind"),
-                BenchmarkFrozenBaselineArm.FromArguments(Option(args, "--frozen-baseline-proof"),
-                    Option(args, "--expected-frozen-baseline-proof-hash")))).ToJsonString());
+                Required("--operator"), Required("--authorization"), CancellationToken.None, Option(args, "--retention-kind"))).ToJsonString());
             return;
         }
         if (phase == "recover-receipt")
@@ -261,34 +232,6 @@ internal static class SchemaPortabilityCampaign
         if (phase == "mapping") { await MappingLiveEvaluation.RunAsync(args, campaign, model, root); return; }
         if (phase is "readiness" or "plan" or "revise" or "execute")
         { await LiveWorkflowEvaluation.RunAsync(args, phase, campaign, model, root); return; }
-        if (phase == "diagnose")
-        {
-            const string key = "original-rejection";
-            if (await campaign.LoadAsync(Collection, key) is not null) throw new InvalidOperationException("Diagnostic identity already retained; do not repeat.");
-            var saved = (await records.ListAsync("agent-planning-model-requests-v10", "default", BenchmarkCampaign.Author))
-                .Where(r => r.Key.StartsWith(OriginalSession + ":", StringComparison.Ordinal))
-                .Single(r => JsonSerializer.Deserialize(r.Value, PlanningJsonContext.Default.LLMRequest)!.ClientRequestId!.StartsWith(OriginalSession + ":2:", StringComparison.Ordinal));
-            var request = JsonSerializer.Deserialize(saved.Value, PlanningJsonContext.Default.LLMRequest)!;
-            var originalHash = PlanningGraphCompiler.Fingerprint(saved.Value);
-            request.ClientRequestId = "schema-diagnostic:1:" + originalHash;
-            var result = new JsonObject { ["source"] = Git("rev-parse", "HEAD"), ["phase"] = "diagnostic", ["request_id"] = request.ClientRequestId,
-                ["original_request_hash"] = originalHash, ["schema_hash"] = PlanningGraphCompiler.Fingerprint(request.StructuredOutputSchema!.ToJsonString()) };
-            await campaign.SaveAsync(Collection, key, result);
-            var timer = Stopwatch.StartNew();
-            using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(10));
-            try { await model.DiagnosticAsync(request, timeout.Token); result["provider_accepted"] = true; }
-            catch (LLMClientException ex)
-            {
-                result["provider_accepted"] = false; result["status"] = ex.StatusCode; result["provider_code"] = ex.SafeProviderCode;
-                if (ex.StatusCode == 400 && ex.SafeProviderCode == "invalid_json_schema")
-                    await campaign.RetainSchemaRejectionAsync(request.ClientRequestId, CancellationToken.None);
-            }
-            catch (Exception ex) { result["exception_type"] = ex.GetType().Name; }
-            result["latency_ms"] = timer.ElapsedMilliseconds;
-            result["accounting"] = await BenchmarkHttpJournal.AccountingAsync(campaign, request.ClientRequestId);
-            await campaign.SaveAsync(Collection, key, result);
-            Console.WriteLine(result.ToJsonString()); return;
-        }
         throw new ArgumentException("Unknown phase.");
     }
 

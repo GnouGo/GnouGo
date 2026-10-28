@@ -394,7 +394,7 @@ public sealed class GenericProofBenchmarkTests
     {
         const string campaign = "isolated-proof-test", run = "authored-proof-run", source = "authored-proof-source", reviewer = "fixture-reviewer";
         var requirement = new PlanningRequirement("read_and_compute", PlanningBenchmarkCases.Prompt(PlanningBenchmarkCases.ReadGroupProofCase));
-        var state = new PlanningSession { IntentVersion = 2, Revision = 3, Status = PlanningStatus.FinalReview, Plan = plan, Catalog = catalog,
+        var state = new PlanningSession { Revision = 3, Status = PlanningStatus.FinalReview, Plan = plan, Catalog = catalog,
             Request = new() { TenantId = "benchmark", SessionId = run, Name = PlanningBenchmarkCases.ReadGroupProofCase, Prompt = requirement.Description },
             Requirements = new() { Outcomes = [requirement], Inputs = NumericInputs(),
                 Outputs = [new() { Name = "leftResult", Type = new() { Kind = "number" } }, new() { Name = "rightResult", Type = new() { Kind = "number" } }] } };

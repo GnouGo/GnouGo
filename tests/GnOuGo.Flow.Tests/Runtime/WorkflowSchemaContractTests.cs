@@ -9,6 +9,19 @@ namespace GnOuGo.Flow.Tests.Runtime;
 
 public sealed class WorkflowSchemaContractTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void PlanningContractDoesNotExposeAnOptionalBusinessReviewSwitch(bool enabled)
+    {
+        var schema = new WorkflowEngine().Registry.GetContracts()["workflow.plan"].InputSchema;
+        Assert.Null(schema["properties"]!["business_judge"]);
+        var input = new JsonObject { ["raw_prompt"] = "Return the requested value", ["generator"] = new JsonObject { ["model"] = "fixture" } };
+        Assert.Empty(JsonSchemaInstanceValidator.ValidateInstance(input, schema));
+        input["business_judge"] = enabled;
+        Assert.NotEmpty(JsonSchemaInstanceValidator.ValidateInstance(input, schema));
+    }
+
     [Fact]
     public async Task SuccessfulFinalizationExposesOnlyProvablyAvailableResults()
     {

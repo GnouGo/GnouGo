@@ -87,7 +87,7 @@
             <MarkdownContent Content="@("```mermaid\n" + PlanningReviewFormatter.Diagram(graph) + "\n```")" />
 
         }
-        @if (!IsWorkflowSession && !_state.RequiresPlanningRevision && _state.Status == PlanningStatus.Clarification)
+        @if (!IsWorkflowSession && _state.Status == PlanningStatus.Clarification)
         {
             <PlannerChoiceCard Choices="PlanningEndpoints.ToDto(_state).Choices" Questions="PlanningEndpoints.ToDto(_state).Questions"
                 DecisionKey="@_state.Request.SessionId" Busy="_busy" Select='selections => SubmitAsync("choose", selections: selections)'
@@ -116,11 +116,7 @@
             <p>Static or simulated validation does not establish external execution success.</p>
         }
         @if (_state.Yaml is { } yaml) { <details open><summary>Workflow YAML</summary><pre><code>@yaml</code></pre></details> }
-        @if (_state.RequiresPlanningRevision && _state.Status is not (PlanningStatus.Saved or PlanningStatus.Approved or PlanningStatus.Saving or PlanningStatus.Cancelled))
-        {
-            <p role="status">This session uses a retired planning contract. Enter an explicit revision to continue with business tasks. Its saved responses, artifacts and usage remain retained; a new artifact requires approval.</p>
-        }
-        @if (!IsWorkflowSession && !_state.RequiresPlanningRevision && _state.Status == PlanningStatus.FinalReview)
+        @if (!IsWorkflowSession && _state.Status == PlanningStatus.FinalReview)
         {
             <section aria-label="Approve reviewed workflow">
                 <p id="approval-review-status" role="status" aria-live="polite">
@@ -154,17 +150,12 @@
             }
             else if (_requestInspection?.State == "receipt_available")
             {
-                <p>@(_state.RequiresPlanningRevision ? "Validate the saved response and restore its accounting before revising. Its old proposal will not be applied or dispatched again." : "A saved response is available. Resume will consume it under its original schema without another call reservation. Further planning may require subsequent calls.")</p>
-                <button class="btn btn-secondary" disabled="@_busy" @onclick='() => SubmitAsync("resume_response")'>@(_state.RequiresPlanningRevision ? "Settle saved response" : "Resume from saved response")</button>
+                <p>A saved response is available. Resume consumes the exact issued request and response without another dispatch.</p>
+                <button class="btn btn-secondary" disabled="@_busy" @onclick='() => SubmitAsync("resume_response")'>Resume from saved response</button>
             }
             else
             {
-                @if (_state.RequiresPlanningRevision)
-                { <p>The retired request cannot be retried. Unknown completion requires reconciliation; its reservation is retained.</p> }
-                else if (_state.Construction is not null)
-                { <p>The construction request has uncertain completion. Reconcile its original receipt before continuing. Its identity and accounting are retained.</p> }
-                else
-                { <p>The previous request has no confirmed result. Retrying retains its call count and conservatively reserves unknown usage.</p><button class="btn btn-secondary" disabled="@_busy" @onclick='() => SubmitAsync("retry_model")'>Retry with retained usage</button> }
+                <p>The construction request has uncertain completion. Reconcile its original receipt before continuing. Its identity and accounting are retained.</p>
             }
         }
         @if (!IsWorkflowSession && _state.Status is not (PlanningStatus.Saved or PlanningStatus.Saving or PlanningStatus.Cancelled))
@@ -197,7 +188,7 @@
             }
             <button class="btn btn-secondary" disabled="@(_busy || IsCallBudgetExhausted || string.IsNullOrWhiteSpace(_revision))" @onclick='() => SubmitAsync("revise", _revision)'>Revise workflow</button>
             <button class="btn btn-outline-secondary" disabled="@_busy" @onclick='() => SubmitAsync("cancel")'>Cancel planning</button>
-            @if (!_state.RequiresPlanningRevision && (PlanningStatus.IsWaiting(_state.Status) || _state.Status == PlanningStatus.Stopped))
+            @if ((PlanningStatus.IsWaiting(_state.Status) || _state.Status == PlanningStatus.Stopped))
             {
                 <label>Planning mode<select @bind="_mode"><option value="interactive">Interactive</option><option value="auto">Auto</option></select></label>
                 <button disabled="@_busy" @onclick='() => SubmitAsync("configure_mode", mode: _mode)'>Apply planning mode</button>
@@ -224,7 +215,7 @@
     private IEnumerable<PlanningRequirement> MissingRequirements => (_state?.Requirements?.Outcomes ?? [])
         .Where(requirement => !_reviewedRequirements.Contains(requirement.Id, StringComparer.Ordinal));
     private int ReviewedRequirementCount => (_state?.Requirements?.Outcomes.Count ?? 0) - MissingRequirements.Count();
-    private bool CanApprove => !_busy && !IsWorkflowSession && _state is { RequiresPlanningRevision: false, Status: PlanningStatus.FinalReview,
+    private bool CanApprove => !_busy && !IsWorkflowSession && _state is { Status: PlanningStatus.FinalReview,
         Requirements.Outcomes.Count: > 0 } && !MissingRequirements.Any() &&
         !_state.Diagnostics.Any(d => d.Required) && !_state.ValidationResults.Any(r => r.Id.StartsWith("coverage:", StringComparison.Ordinal) && r.Outcome == "violation");
     private readonly HashSet<string> _revisionPaths = new(StringComparer.Ordinal);
@@ -232,7 +223,7 @@
         .Where(d => d.Code == "REVISION_REQUIRED" && !string.IsNullOrWhiteSpace(d.Location) && d.Location != "/")
         .GroupBy(d => d.Location, StringComparer.Ordinal);
     private bool CanTargetRevision => !_busy && !IsWorkflowSession && !IsCallBudgetExhausted &&
-        _state is { IntentVersion: 2 or 3, RequiresPlanningRevision: false, Plan: not null, Catalog: not null,
+        _state is { Plan: not null, Catalog: not null,
             Requirements: not null, PendingCall: null, PendingQuestions: null,
             Status: PlanningStatus.Stopped or PlanningStatus.FinalReview or PlanningStatus.Approved } &&
         _requestInspection?.State != "active";

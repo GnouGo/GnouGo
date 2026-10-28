@@ -10,10 +10,10 @@ internal static partial class PlanningCompactConstruction
 {
     internal static LLMRequest Request(PlanningSession state, string instructions, JsonObject context, JsonObject schema, string purpose)
     {
-        if (!UsesDecisionView(state) || purpose is not (SelectPurpose or DiscoveryPurpose or PlanningConstruction.DraftPurpose or "replan"))
+        if (purpose is not (SelectPurpose or DiscoveryPurpose or PlanningConstruction.DraftPurpose or "replan"))
             return Request(instructions, context, schema, purpose);
-        // Typed corrections reuse a review-shaped context, but remain author
-        // decisions. Install originals before measuring that complete request.
+        // Drafts and typed corrections are authoring decisions. Install original
+        // obligations before measuring their complete request.
         context["requirements"] = OriginalRequirementRows(state);
         context["globalConstraints"] = OriginalGlobalRows(state);
         var request = Render();
@@ -23,7 +23,7 @@ internal static partial class PlanningCompactConstruction
                 request.StructuredOutputSchema!.AsObject(), state.Construction!.Limits.DraftOutputTokens)) <=
             PlanningConstructionInputPolicy.EffectiveLimit(state.Request, purpose)) return Display(request);
 
-        if (State(state).PresentationVersion == 11 && purpose is SelectPurpose or PlanningConstruction.DraftPurpose or "replan")
+        if (purpose is SelectPurpose or PlanningConstruction.DraftPurpose or "replan")
         {
             var fitted = Display(request);
             if (ModelRequestAdmission.EstimateTokens(PlanningModelCalls.PrepareRequest(state, purpose, fitted.Prompt,
@@ -49,15 +49,12 @@ internal static partial class PlanningCompactConstruction
 
         LLMRequest Display(LLMRequest chosen)
         {
-            // Choose originals and evidence authority using the unchanged full
-            // view first. Sharing is only a final fresh author presentation.
-            if (!UsesVerifiedProgress(state) || !PlanningConstructionPhasePolicies.IsFresh(state.Request)) return chosen;
             var navigation = purpose == SelectPurpose
                 ? SelectionProducerPageContext(state, context, chosen.StructuredOutputSchema!.AsObject()) : context;
             var displayed = CompactAcceptedProgressContext(navigation);
-            if (purpose == SelectPurpose && State(state).PresentationVersion == 11)
+            if (purpose == SelectPurpose)
                 return FitSelectionNavigation(state, instructions, displayed);
-            if (State(state).PresentationVersion == 11 && purpose is PlanningConstruction.DraftPurpose or "replan")
+            if (purpose is PlanningConstruction.DraftPurpose or "replan")
                 return FitDraftNavigation(state, instructions, CompactSelectedProducerContractMetadata(displayed),
                     chosen.StructuredOutputSchema!.AsObject(), purpose);
             if (!ReferenceEquals(displayed, context)) chosen.Prompt = instructions + "\n" + PlanningJsonTransport.Prompt(displayed);
@@ -66,7 +63,7 @@ internal static partial class PlanningCompactConstruction
 
         LLMRequest Render()
         {
-            var response = purpose == SelectPurpose && State(state).PresentationVersion == 11
+            var response = purpose == SelectPurpose
                 ? SelectionSchema(state, context) : schema.DeepClone().AsObject();
             if (response["properties"] is JsonObject properties && properties.ContainsKey("evidenceRequests"))
             {
@@ -222,13 +219,35 @@ internal static partial class PlanningCompactConstruction
                     target.AsObject().Remove(field);
                     target.AsObject().Remove(field == "description" ? "descriptionComplete" : ObjectiveTextCompleteField(state));
                     target[field + "Omitted"] = true;
-                    var proposed = Render(probe);
-                    var measured = Measure(proposed);
-                    var size = measured.CompleteRequestBytes;
-                    if (size >= measurement.CompleteRequestBytes || best is { } prior && (size > prior.Measurement.CompleteRequestBytes || size == prior.Measurement.CompleteRequestBytes &&
-                            string.CompareOrdinal(identity, prior.Identity) >= 0)) continue;
-                    best = (identity, probe, proposed, measured);
+                    Consider(identity, probe);
                 }
+            if (page["scopes"] is JsonArray scopes)
+            {
+                var required = (State(state).SuspendedSteps ?? []).Where(Active).Select(item => item.Consumer.Scope)
+                    .Append(State(state).ReplacementScope).Append(State(state).CurrentStep?.Scope).OfType<string>().ToHashSet(StringComparer.Ordinal);
+                // Keep the page anchor and every retained consumer/repair boundary.
+                // Optional rows remain reachable from the exact first omission.
+                var last = scopes.Count - 1;
+                if (last > 0 && scopes[last]?["path"]?.ToString() is { } path && !required.Contains(path))
+                {
+                    var offset = state.Construction!.OpenScopes.IndexOf(path);
+                    if (offset >= 0)
+                    {
+                        var probe = page.DeepClone().AsObject(); probe["scopes"]!.AsArray().RemoveAt(last);
+                        var prior = page["nextScopes"]?.ToString();
+                        if (prior?.StartsWith("page:scopes:", StringComparison.Ordinal) == true && int.TryParse(prior.AsSpan("page:scopes:".Length), out var previous)) offset = Math.Min(offset, previous);
+                        probe["nextScopes"] = "page:scopes:" + offset.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                        Consider("scopes:" + path + ":row", probe);
+                    }
+                }
+            }
+            void Consider(string identity, JsonObject probe)
+            {
+                var proposed = Render(probe); var measured = Measure(proposed); var size = measured.CompleteRequestBytes;
+                if (size >= measurement.CompleteRequestBytes || best is { } prior && (size > prior.Measurement.CompleteRequestBytes || size == prior.Measurement.CompleteRequestBytes &&
+                        string.CompareOrdinal(identity, prior.Identity) >= 0)) return;
+                best = (identity, probe, proposed, measured);
+            }
             if (best is not { } selected) break;
             page = selected.Page; request = selected.Request; measurement = selected.Measurement;
         }
@@ -271,7 +290,7 @@ internal static partial class PlanningCompactConstruction
     internal static JsonArray OriginalRequirementRows(PlanningSession state)
     {
         var rows = RequirementNodes(state, state.Requirements!.Outcomes.Select(requirement => requirement.Id));
-        var accepted = UsesAcceptedProgress(state) && state.Plan is not null ? new TaskPlanSymbols(state.Plan) : null;
+        var accepted = state.Plan is not null ? new TaskPlanSymbols(state.Plan) : null;
         foreach (var row in rows.OfType<JsonObject>())
         {
             if (accepted is not null) row["acceptedProgress"] = AcceptedRequirementProgress(state, accepted, row["id"]!.ToString());
@@ -344,17 +363,10 @@ internal static partial class PlanningCompactConstruction
 
     internal static JsonArray OriginalGlobalRows(PlanningSession state) => Sources(state, State(state).GlobalSourceIds);
 
-    internal static void AddDecisionContext(PlanningSession state, JsonObject context, bool review, bool discovery = false)
+    internal static void AddDecisionContext(PlanningSession state, JsonObject context, bool discovery = false)
     {
-        if (!UsesDecisionView(state)) return;
-        discovery &= !review;
-        if (!review)
-        {
-            context["requirements"] = OriginalRequirementRows(state);
-            context["globalConstraints"] = OriginalGlobalRows(state);
-        }
-        // Review windows own their exact original rows. The semantic producer core
-        // is common to every window and is never truncated to make a request fit.
+        context["requirements"] = OriginalRequirementRows(state);
+        context["globalConstraints"] = OriginalGlobalRows(state);
         if (state.Plan is null) return;
         if (context["interfaces"] is not JsonArray)
             context["interfaces"] = State(state).CurrentStep is { } step
@@ -398,7 +410,7 @@ internal static partial class PlanningCompactConstruction
                             : ExactSchemaView(capability, pointer))).ToArray()),
                         ["artifacts"] = TaskOperations.ArtifactPorts(capability)
                     };
-                    CompactProducerSchemaMetadata(producer["contract"]!.AsObject(), UsesVerifiedProgress(state));
+                    CompactProducerSchemaMetadata(producer["contract"]!.AsObject(), true);
                     if (discovery)
                     {
                         // These are provisional navigation bindings, not actual

@@ -39,12 +39,11 @@ internal static class StabilizationBenchmark
                 if (await campaign.LoadAsync(Collection, baseline + ":baseline:" + name + ":" + i) is { } b) before.Add(b["result"]!.AsObject());
                 if (await campaign.LoadAsync(Collection, candidate + ":final:" + name + ":" + i) is { } a) after.Add(a["result"]!.AsObject());
             }
-            var variable = args.Contains("--judge-comparison") ? "judge" : args.Contains("--defaults-comparison") ? "defaults" : null;
-            if (args.Contains("--judge-comparison") && args.Contains("--defaults-comparison")) throw new ArgumentException("Compare judge and creation defaults separately.");
-            var comparison = variable is not null ? PlanningBenchmarkMeasurements.CompareArms(before, after, Cases, variable)
-                : args.Contains("--first-proposal-gate") ? PlanningBenchmarkMeasurements.CompareFirstProposals(before, after, Cases) : Compare(before, after);
+            if (args.Contains("--judge-comparison") || args.Contains("--defaults-comparison"))
+                throw new ArgumentException("Historical optional-Judge comparison arms are retired.");
+            var comparison = args.Contains("--first-proposal-gate") ? PlanningBenchmarkMeasurements.CompareFirstProposals(before, after, Cases) : Compare(before, after);
             comparison["campaign_accounting"] = await BenchmarkHttpJournal.AccountingAsync(campaign);
-            Console.WriteLine(comparison.ToJsonString()); Environment.ExitCode = comparison[variable is null ? "passed" : "comparable"]?.GetValue<bool>() == true ? 0 : 1; return;
+            Console.WriteLine(comparison.ToJsonString()); Environment.ExitCode = comparison["passed"]?.GetValue<bool>() == true ? 0 : 1; return;
         }
         if (Git("status", "--porcelain").Length != 0) throw new InvalidOperationException("Commit the complete harness and production source before collecting evidence.");
         var source = Option("--source") ?? Git("rev-parse", "HEAD");
@@ -78,7 +77,7 @@ internal static class StabilizationBenchmark
             var run = await campaign.LoadAsync(Collection, key);
             if (run?["session"] is { } saved)
             {
-                var savedRequest = saved.Deserialize(PlanningJsonContext.Default.PlanningSession)!.Request;
+                var savedRequest = BenchmarkCampaign.ReadCurrentSession(saved).Request;
                 PlanningBenchmarkMeasurements.ConfigureRequest(savedRequest, args, true);
                 if (!JsonNode.DeepEquals(PlanningBenchmarkMeasurements.Configuration(savedRequest), PlanningBenchmarkMeasurements.Configuration(creation)))
                     throw new InvalidOperationException("The cohort contains incompatible frozen settings. Retained evidence is unchanged.");
@@ -104,7 +103,7 @@ internal static class StabilizationBenchmark
         var id = PlanningGraphCompiler.Fingerprint(campaign.Id + ":stabilization:" + key);
         var run = retained ?? new JsonObject { ["diagnostic_history"] = new JsonArray(), ["usage_receipts"] = new JsonObject(), ["usage_complete"] = true,
             ["execution_usage"] = new JsonObject { ["usage_receipts"] = new JsonObject(), ["usage_complete"] = true }, ["discovery_reads"] = 0 };
-        var state = run["session"]?.Deserialize(PlanningJsonContext.Default.PlanningSession) ?? new() { Request = new()
+        var state = (run["session"] is { } savedState ? BenchmarkCampaign.ReadCurrentSession(savedState) : null) ?? new() { Request = new()
         { TenantId = "benchmark", SessionId = id, Name = name, Mode = PlanningMode.Auto,
             Prompt = LocalExecutionCases.Names.Contains(name) ? LocalExecutionCases.Prompt(name) : PlanningBenchmarkCases.Prompt(name),
             MaxModelCalls = creation.MaxModelCalls, MaxReplanAttempts = creation.MaxReplanAttempts,
@@ -113,7 +112,7 @@ internal static class StabilizationBenchmark
             Options = (JsonObject)creation.Options.DeepClone() } };
         if (run["session"] is null) PlanningBenchmarkMeasurements.CaptureConstructionSettings(state);
         var localRoot = Path.Combine(root, GnOuGoWorkspace.WorkflowWorkspacesSubfolder, "planner-benchmark-" + id);
-        await model.CapturePlanningPolicyAsync(state.Request, CancellationToken.None, state.Construction is not null || run["session"] is null, state.ActiveMilliseconds);
+        await model.CapturePlanningPolicyAsync(state.Request, CancellationToken.None, state.ActiveMilliseconds);
         Directory.CreateDirectory(localRoot);
         await using var local = LocalExecutionCases.Names.Contains(name) ? new LocalExecutionCases(localRoot, executable) : null;
         var environment = new PlanningBenchmarkCases.Environment(name);

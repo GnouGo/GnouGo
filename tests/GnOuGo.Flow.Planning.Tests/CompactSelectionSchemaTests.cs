@@ -26,29 +26,35 @@ public sealed class CompactSelectionSchemaTests
 
         var next = context["nextScopes"]!.ToString();
         Assert.Equal("page:scopes:8", next);
-        var runtime = new TestRuntime { Respond = (_, _) => new()
-        { Json = new JsonObject { ["baseHash"] = plan, ["step"] = null, ["clarifications"] = null, ["evidenceRequests"] = new JsonArray(next) } } };
+        var runtime = new TestRuntime { Respond = (request, _) =>
+        {
+            var displayed = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
+            next = displayed["nextScopes"]!.ToString();
+            return new() { Json = new JsonObject { ["baseHash"] = plan, ["step"] = null, ["clarifications"] = null, ["evidenceRequests"] = new JsonArray(next) } };
+        } };
         var calls = state.ModelCalls;
         state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
         Assert.Empty(state.Diagnostics);
         Assert.Equal(calls + 1, state.ModelCalls);
         Assert.Equal(0, state.ReplanAttempts);
-        Assert.Equal(8, state.Construction!.ScopeCursor);
+        Assert.Equal(int.Parse(next["page:scopes:".Length..], System.Globalization.CultureInfo.InvariantCulture), state.Construction!.ScopeCursor);
         var exact = state.Construction.Evidence![next]!.ToJsonString();
         state = PlannerFixture.Clone(state);
+        string? selectedScope = null;
         runtime.Respond = (request, _) =>
         {
             var displayed = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
             Assert.Equal(exact, displayed["evidence"]![next]!.ToJsonString());
             Assert.Equal(DisplayedScopes(displayed), ScopeDomain(request.StructuredOutputSchema!.AsObject()));
             Assert.NotEmpty(PlanningContractValidation.ValidateInstance(ScopedResponse(state, "/root"), request.StructuredOutputSchema));
-            var response = ScopedResponse(state, "/tasks/scope_8/body");
+            selectedScope = ScopeDomain(request.StructuredOutputSchema!.AsObject())[0];
+            var response = ScopedResponse(state, selectedScope);
             Assert.Empty(PlanningContractValidation.ValidateInstance(response, request.StructuredOutputSchema));
             return new() { Json = response };
         };
         state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
         Assert.Empty(state.Diagnostics);
-        Assert.Equal("/tasks/scope_8/body", state.Construction!.Compact!.CurrentStep!.Scope);
+        Assert.Equal(selectedScope, state.Construction!.Compact!.CurrentStep!.Scope);
         Assert.Equal(calls + 2, state.ModelCalls);
         Assert.Equal(0, state.ReplanAttempts);
         Assert.Equal(plan, PlanningConstruction.Hash(state.Plan));
@@ -63,6 +69,7 @@ public sealed class CompactSelectionSchemaTests
         var compact = state.Construction!.Compact!;
         compact.ReplacementScope = "/tasks/scope_16/body";
         compact.ReplacementRequirements = ["req_0"];
+        compact.RejectedSteps.Add(new JsonObject { ["reason"] = "Retain the exact selected boundary." });
         var schema = PlanningCompactConstruction.SelectionSchema(state);
         Assert.Equal([compact.ReplacementScope], ScopeDomain(schema));
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(ScopedResponse(state, "/root"), schema));
@@ -73,52 +80,6 @@ public sealed class CompactSelectionSchemaTests
         Assert.Equal([compact.ReplacementScope], ScopeDomain(PlanningCompactConstruction.SelectionSchema(state)));
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task PreviouslyIssuedBroadScopeSelectionKeepsItsExactReceiptAndAccounting(bool historicalPolicy)
-    {
-        var state = await Ready();
-        AddScopes(state, 18);
-        var historical = PlannerFixture.Clone(state);
-        historical.Request.Options["construction_limits"]!.AsObject().Remove("phasePolicy");
-        historical.Construction!.Limits.PhasePolicy = null;
-        var broad = PlanningCompactConstruction.SelectionSchema(historical);
-        var response = ScopedResponse(state, "/tasks/scope_16/body");
-        Assert.Empty(PlanningContractValidation.ValidateInstance(response, broad));
-        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, PlanningCompactConstruction.SelectionSchema(state)));
-        if (historicalPolicy) state = historical;
-        var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.SelectGuidance(state),
-            PlanningCompactConstruction.SelectionContext(state), broad, PlanningCompactConstruction.SelectPurpose);
-        request = PlanningGenerationPolicy.Apply(request, state.Request.Generation);
-        request.StructuredOutputStrict = true;
-        request.UseBackgroundMode = true;
-        request.ClientRequestId = state.Request.SessionId + ":" + (state.ModelCalls + 1) + ":" +
-            PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
-        state.ModelCalls++;
-        state.PendingCall = new() { Id = request.ClientRequestId, Purpose = PlanningCompactConstruction.SelectPurpose, Request = request,
-            CorrectionAccounting = historicalPolicy ? null : 0 };
-        state = PlannerFixture.Clone(state);
-        var issued = JsonSerializer.Serialize(state.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
-        var calls = state.ModelCalls;
-        var corrections = state.ReplanAttempts;
-        var plan = PlanningConstruction.Hash(state.Plan);
-        var receipts = new Dictionary<string, LLMResponse>(StringComparer.Ordinal) { [state.PendingCall.Id] = new() { Json = response } };
-        var runtime = new TestRuntime { Respond = (saved, _) =>
-        {
-            Assert.Equal(issued, JsonSerializer.Serialize(saved, PlanningJsonContext.Default.LLMRequest));
-            return receipts[saved.ClientRequestId!];
-        } };
-        state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
-        Assert.Empty(state.Diagnostics);
-        Assert.Single(runtime.Calls);
-        Assert.Null(state.PendingCall);
-        Assert.Equal(calls, state.ModelCalls);
-        Assert.Equal(corrections, state.ReplanAttempts);
-        Assert.Equal("/tasks/scope_16/body", state.Construction!.Compact!.CurrentStep!.Scope);
-        Assert.Equal(plan, PlanningConstruction.Hash(state.Plan));
-        Assert.Empty(state.Construction.Checkpoints);
-    }
 
     [Fact]
     public async Task LargeScopeFrontierKeepsOnlyEightDisplayedChoicesInTheCompleteRequest()
@@ -133,13 +94,66 @@ public sealed class CompactSelectionSchemaTests
         Assert.Equal(DisplayedScopes(context), ScopeDomain(schema));
         Assert.Equal(8, ScopeDomain(schema).Length);
         Assert.DoesNotContain("/tasks/scope_499/body", schema.ToJsonString(), StringComparison.Ordinal);
-        var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.SelectGuidance(state),
+        var request = PlanningCompactConstruction.Request(state, PlanningCompactConstruction.SelectGuidance(state),
             context, schema, PlanningCompactConstruction.SelectPurpose);
         request = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.SelectPurpose, request.Prompt,
             request.StructuredOutputSchema!.AsObject());
         var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.SelectPurpose).MaxInputTokens;
         Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.SelectPurpose, limit).EstimatedInputTokens, 1, limit);
         Assert.Equal(500, state.Construction!.OpenScopes.Count);
+    }
+
+    [Theory]
+    [InlineData(18)]
+    [InlineData(500)]
+    public async Task EveryIndependentScopePageKeepsExactOmissionLinksAndChoiceDomains(int count)
+    {
+        var baseline = await Ready(); AddScopes(baseline, count);
+        var retained = JsonSerializer.Serialize(baseline, PlanningJsonContext.Default.PlanningSession);
+        var reached = new HashSet<string>(StringComparer.Ordinal); var offset = 0;
+        while (true)
+        {
+            // Each probe tests one independent page of the retained frontier;
+            // this is neither a model conversation nor a live efficiency claim.
+            var state = PlannerFixture.Clone(baseline); state.Construction!.ScopeCursor = offset;
+            var request = PlanningCompactConstruction.Request(state, PlanningCompactConstruction.SelectGuidance(state),
+                PlanningCompactConstruction.SelectionContext(state), PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose);
+            var page = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
+            var scopes = DisplayedScopes(page); Assert.Equal(scopes, ScopeDomain(request.StructuredOutputSchema!.AsObject()));
+            var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.SelectPurpose).MaxInputTokens;
+            var complete = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.SelectPurpose, request.Prompt, request.StructuredOutputSchema.AsObject());
+            Assert.InRange(PlanningRequestMeasurements.Measure(complete, PlanningCompactConstruction.SelectPurpose, limit).EstimatedInputTokens, 1, limit);
+            Assert.Equal(baseline.Construction!.OpenScopes[offset], scopes[0]);
+            foreach (var scope in scopes) Assert.True(reached.Add(scope), scope);
+            if (page["nextScopes"] is not { } next) break;
+            var address = next.ToString();
+            var response = new JsonObject { ["baseHash"] = PlanningConstruction.Hash(state.Plan), ["step"] = null, ["clarifications"] = null, ["evidenceRequests"] = new JsonArray(address) };
+            Assert.Empty(PlanningContractValidation.ValidateInstance(response, request.StructuredOutputSchema));
+            PlanningConstruction.LoadEvidence(state, [address]);
+            Assert.Equal(offset + scopes.Length, state.Construction.ScopeCursor);
+            offset = state.Construction.ScopeCursor;
+        }
+        Assert.Equal(baseline.Construction!.OpenScopes.Order(StringComparer.Ordinal), reached.Order(StringComparer.Ordinal));
+        Assert.Equal(retained, JsonSerializer.Serialize(baseline, PlanningJsonContext.Default.PlanningSession));
+    }
+
+    [Fact]
+    public async Task ScopeAdmissionPreservesRetainedConsumerBoundaryAndRejectsAnIndivisibleCore()
+    {
+        var state = await Ready(); AddScopes(state, 18);
+        var required = state.Construction!.OpenScopes[7];
+        state.Construction.Compact!.SuspendedSteps = [new() { Id = "waiting", Consumer = new() { Id = "consume", Scope = required, RequirementIds = ["req_0"], Objective = "Consume the exact prerequisite." },
+            Prerequisite = new() { Need = "A required original result.", ExpectedType = new() { Kind = "string" }, EvidenceAddresses = ["requirement:req_0"] } }];
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var request = PlanningCompactConstruction.Request(state, PlanningCompactConstruction.SelectGuidance(state),
+            PlanningCompactConstruction.SelectionContext(state), PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose);
+        var page = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
+        Assert.Contains(required, DisplayedScopes(page)); Assert.Contains(required, ScopeDomain(request.StructuredOutputSchema!.AsObject()));
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        var runtime = new TestRuntime();
+        var failure = await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => PlanningModelCalls.CallAsync(state, runtime,
+            PlanningCompactConstruction.SelectPurpose, request.Prompt, request.StructuredOutputSchema.AsObject(), PlannerFixture.Ct));
+        Assert.Equal("MODEL_INPUT_LIMIT", failure.Code); Assert.Empty(runtime.Calls); Assert.Null(state.PendingCall);
     }
 
     private static void AddScopes(PlanningSession state, int count)
@@ -159,15 +173,26 @@ public sealed class CompactSelectionSchemaTests
 
     private static string[] DisplayedScopes(JsonNode context) => context["scopes"]!.AsArray().Select(scope => scope!["path"]!.ToString()).ToArray();
 
+    private static IEnumerable<JsonObject> StepBranches(JsonObject schema)
+    {
+        IEnumerable<JsonObject> Visit(JsonNode node)
+        {
+            while (node["$ref"] is JsonValue reference) node = schema["$defs"]![reference.ToString()[8..]]!;
+            if (node["properties"] is JsonObject) { yield return node.AsObject(); yield break; }
+            if (node["anyOf"] is JsonArray alternatives)
+                foreach (var branch in alternatives.OfType<JsonObject>()) foreach (var candidate in Visit(branch)) yield return candidate;
+        }
+        return Visit(schema["properties"]!["step"]!);
+    }
     private static string[] ScopeDomain(JsonObject schema)
     {
         JsonNode Resolve(JsonNode node)
         {
-            while (node["$ref"] is JsonValue reference) node = schema["$defs"]![reference.ToString()["#/$defs/".Length..]]!;
+            while (node["$ref"] is JsonValue reference) node = schema["$defs"]![reference.ToString()[8..]]!;
             return node;
         }
-        var step = Resolve(Resolve(schema["properties"]!["step"]!)["anyOf"]![0]!);
-        return Resolve(step["properties"]!["scope"]!)["enum"]!.AsArray().Select(value => value!.ToString()).ToArray();
+        return StepBranches(schema).SelectMany(step => Resolve(step["properties"]!["scope"]!)["enum"]!.AsArray())
+            .Select(value => value!.ToString()).Distinct(StringComparer.Ordinal).ToArray();
     }
 
     [Theory]
@@ -218,6 +243,7 @@ public sealed class CompactSelectionSchemaTests
         PlanningConstruction.LoadEvidence(state, ["page:requirements:0"]);
         state.Construction!.Compact!.ReplacementScope = "/root";
         state.Construction.Compact.ReplacementRequirements = ["req_2", "req_1"];
+        state.Construction.Compact.RejectedSteps.Add(new JsonObject { ["reason"] = "Retain the accepted requirement boundary." });
         var schema = PlanningCompactConstruction.SelectionSchema(state);
         Assert.Equal(["req_1", "req_2"], Domain(schema));
         Assert.Equal(["req_1", "req_2"], Domain(schema, "closeRequirementIds"));
@@ -236,10 +262,6 @@ public sealed class CompactSelectionSchemaTests
         Assert.Contains(Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ValidateSelection(state, step)).Diagnostics,
             diagnostic => diagnostic.Code == "CONSTRUCTION_STEP_INVALID");
 
-        var historical = PlannerFixture.Clone(state);
-        historical.Construction!.Compact!.PresentationVersion = null;
-        Assert.Empty(PlanningContractValidation.ValidateInstance(Response(state, "req_1"),
-            PlanningCompactConstruction.SelectionSchema(historical)));
     }
 
     [Fact]
@@ -277,7 +299,7 @@ public sealed class CompactSelectionSchemaTests
         var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
         var schema = PlanningCompactConstruction.SelectionSchema(state);
         Assert.Equal(["req_0", "req_1", "req_2", "req_499"], Domain(schema));
-        var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.SelectInstructions,
+        var request = PlanningCompactConstruction.Request(state, PlanningCompactConstruction.SelectGuidance(state),
             PlanningCompactConstruction.SelectionContext(state), schema, PlanningCompactConstruction.SelectPurpose);
         request = PlanningGenerationPolicy.Apply(new LLMRequest
         {
@@ -285,9 +307,9 @@ public sealed class CompactSelectionSchemaTests
             Provider = "OpenAi", Model = "retained-model", UseBackgroundMode = true, MaxTokens = 8192,
             ClientRequestId = new string('s', 64) + ":9:" + new string('h', 64)
         }, state.Request.Generation);
-        Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.SelectPurpose, 3000).EstimatedInputTokens, 1, 3000);
-        Assert.Contains("business action to execute", request.Prompt, StringComparison.Ordinal);
-        Assert.Contains("discovery is a separate host phase", request.Prompt, StringComparison.Ordinal);
+        var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.SelectPurpose).MaxInputTokens;
+        Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.SelectPurpose, limit).EstimatedInputTokens, 1, limit);
+        Assert.Equal(["req_0", "req_1", "req_2", "req_499"], Domain(request.StructuredOutputSchema!.AsObject()));
         Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
     }
 
@@ -318,7 +340,7 @@ public sealed class CompactSelectionSchemaTests
         PlanningConstruction.LoadEvidence(state, ["page:requirements:1"]);
         var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
         var context = PlanningCompactConstruction.SelectionContext(state);
-        var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.SelectGuidance(state),
+        var request = PlanningCompactConstruction.Request(state, PlanningCompactConstruction.SelectGuidance(state),
             context, PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose);
         request = PlanningGenerationPolicy.Apply(new LLMRequest
         {
@@ -338,45 +360,8 @@ public sealed class CompactSelectionSchemaTests
         }
         Assert.True(JsonNode.DeepEquals(state.Construction.Evidence, context["evidence"]));
         Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
-        state.Construction.Compact!.PresentationVersion = null;
-        state.Request.Options["construction_limits"]!.AsObject().Remove("phasePolicy");
-        state.Construction.Limits.PhasePolicy = null;
-        Assert.Equal(PlanningCompactConstruction.SelectInstructions, PlanningCompactConstruction.SelectGuidance(state));
-        Assert.Equal(PlanningCompactConstruction.DiscoveryInstructions, PlanningCompactConstruction.DiscoveryGuidance(state));
-        Assert.Equal(state.Requirements.Outcomes.Count,
-            PlanningCompactConstruction.SelectionContext(state)["originalRequirementCount"]!.GetValue<int>());
-    }
 
-    [Fact]
-    public async Task RetainedBroadSelectionRequestResumesItsExactSchemaWithoutNarrowingAuthority()
-    {
-        var state = await Ready();
-        AppendOriginalPage(state);
-        var historical = PlannerFixture.Clone(state);
-        historical.Construction!.Compact!.PresentationVersion = null;
-        historical.Request.Options.Remove("construction_presentation_version");
-        var broad = PlanningCompactConstruction.SelectionSchema(historical);
-        Assert.Null(broad["properties"]!["step"]!["anyOf"]![0]!["properties"]!["requirementIds"]!["items"]!["enum"]);
-        Assert.Empty(PlanningContractValidation.ValidateInstance(Response(state, "req_3"), broad));
-        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Response(state, "req_3"), PlanningCompactConstruction.SelectionSchema(state)));
-        var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.SelectInstructions,
-            PlanningCompactConstruction.SelectionContext(state), broad, PlanningCompactConstruction.SelectPurpose);
-        request = PlanningGenerationPolicy.Apply(request, state.Request.Generation);
-        request.StructuredOutputStrict = true;
-        request.UseBackgroundMode = true;
-        request.ClientRequestId = state.Request.SessionId + ":" + (state.ModelCalls + 1) + ":" +
-            PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
-        state.ModelCalls++;
-        state.PendingCall = new() { Id = request.ClientRequestId, Purpose = PlanningCompactConstruction.SelectPurpose, Request = request };
-        state = PlannerFixture.Clone(state);
-        var issued = JsonSerializer.Serialize(state.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
-        var calls = state.ModelCalls;
-        var runtime = new TestRuntime { Respond = (_, _) => new() { Json = Response(state, "req_3") } };
-        state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
-        Assert.Empty(state.Diagnostics);
-        Assert.Equal(issued, JsonSerializer.Serialize(Assert.Single(runtime.Calls), PlanningJsonContext.Default.LLMRequest));
-        Assert.Equal(calls, state.ModelCalls);
-        Assert.Equal(["req_3"], state.Construction!.Compact!.CurrentStep!.RequirementIds);
+        Assert.Null(PlanningCompactConstruction.SelectionContext(state)["originalRequirementCount"]);
     }
 
     private static void AppendOriginalPage(PlanningSession state)
@@ -404,13 +389,11 @@ public sealed class CompactSelectionSchemaTests
     {
         JsonNode Resolve(JsonNode node)
         {
-            while (node["$ref"] is JsonValue reference)
-                node = schema["$defs"]![reference.ToString()["#/$defs/".Length..]]!;
+            while (node["$ref"] is JsonValue reference) node = schema["$defs"]![reference.ToString()[8..]]!;
             return node;
         }
-        var step = Resolve(Resolve(schema["properties"]!["step"]!)["anyOf"]![0]!);
-        var array = Resolve(step["properties"]![property]!);
-        return Resolve(array["items"]!)["enum"]!.AsArray().Select(value => value!.ToString()).ToArray();
+        return StepBranches(schema).SelectMany(step => Resolve(Resolve(step["properties"]![property]!)["items"]!)["enum"]!.AsArray())
+            .Select(value => value!.ToString()).Distinct(StringComparer.Ordinal).ToArray();
     }
 
     private static JsonObject Response(PlanningSession state, params string[] requirements) => new()
@@ -420,7 +403,7 @@ public sealed class CompactSelectionSchemaTests
         {
             ["scope"] = "/root", ["kind"] = "value", ["objective"] = "Preserve the original supplied values.",
             ["requirementIds"] = new JsonArray(requirements.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
-            ["inputs"] = new JsonArray(), ["groupId"] = null, ["dependencyTaskIds"] = new JsonArray(),
+            ["inputs"] = new JsonArray(), ["groupId"] = null, ["operationIds"] = new JsonArray(), ["closeScopes"] = null, ["prerequisites"] = null, ["dependencyTaskIds"] = new JsonArray(),
             ["expectedOutputs"] = new JsonArray(), ["closeRequirementIds"] = new JsonArray(), ["outputNames"] = new JsonArray()
         }
     };
@@ -438,7 +421,7 @@ public sealed class CompactSelectionSchemaTests
                 { ["text"] = text, ["kind"] = index == clauses.Length - 1 ? "global" : "requirement", ["interfaces"] = "none" }).ToArray())
             } };
         } };
-        var state = await new HybridWorkflowPlanner().AdvanceAsync(PlannerFixture.CapturedPresentation(new() { Request = new()
+        var state = await new HybridWorkflowPlanner().AdvanceAsync(PlannerFixture.Capture(new() { Request = new()
         { TenantId = "selection-schema", Prompt = string.Concat(clauses), Options = new() { ["automatic_correction"] = true } } }),
             new() { ExpectedRevision = 0 }, runtime, PlannerFixture.Ct);
         Assert.Empty(state.Diagnostics);

@@ -13,13 +13,13 @@ namespace GnOuGo.Flow.Integrations.Planning;
 public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records, string leaseDirectory) : IPlanningRuntimeFactory
 {
     internal const string Author = "GnOuGo.Flow.Planning";
-    internal const string Sessions = "flow-planning-sessions-v10";
-    private const string Definitions = "flow-planning-definitions-v10";
+    internal const string Sessions = "flow-planning-sessions-v11";
+    private const string Definitions = "flow-planning-definitions-v11";
 
     public static WorkflowPlanningRuntimeFactory CreateWorkspace(string? keyVaultPath = null, string? leasePath = null, string? baseDirectory = null)
     {
         var root = baseDirectory ?? AppContext.BaseDirectory;
-        var leases = GnOuGoWorkspace.ResolveDatabasePath(leasePath, root, ".GnOuGo/data/flow-planning-v10/leases");
+        var leases = GnOuGoWorkspace.ResolveDatabasePath(leasePath, root, ".GnOuGo/data/flow-planning-v11/leases");
         return new(KeyVaultRecordStoreFactory.CreateWorkspaceStore(keyVaultPath, root), leases);
     }
 
@@ -51,28 +51,10 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
             JsonNode? creationCheckpoint = null;
             var hasCreationCheckpoint = retainedDocument?.Remove("creationCheckpoint", out creationCheckpoint) == true;
             var retainedDefinition = retainedDocument?.Deserialize(PlanningJsonContext.Default.PlanningRequest);
-            if (savedDefinition is not null && initial.Request.Options.ContainsKey("raw_prompt"))
-            {
-                // workflow.plan reconstructs omitted defaults on every invocation.
-                // Compare authored inputs exactly, using the retained defaults only
-                // for omitted fields. Explicit changes still fail the comparison.
-                var retained = retainedDefinition!;
-                var input = initial.Request.Options;
-                if (input["max_replan_attempts"] is null && initial.Request.MaxReplanAttempts == 4)
-                    initial.Request.MaxReplanAttempts = retained.MaxReplanAttempts;
-                if (input["llm_budget"]?["max_calls"] is null && initial.Request.MaxModelCalls == 64)
-                    initial.Request.MaxModelCalls = retained.MaxModelCalls;
-                if (input["generator"]?["max_input_tokens"] is null && initial.Request.Generation.MaxInputTokensPerRequest == 32_000)
-                    initial.Request.Generation.MaxInputTokensPerRequest = retained.Generation.MaxInputTokensPerRequest;
-                if (input["generator"]?["max_output_tokens"] is null && initial.Request.Generation.MaxOutputTokens == 32_768)
-                    initial.Request.Generation.MaxOutputTokens = retained.Generation.MaxOutputTokens;
-            }
             var definition = JsonSerializer.Serialize(initial.Request, PlanningJsonContext.Default.PlanningRequest);
             if (savedDefinition is not null && JsonSerializer.Serialize(retainedDefinition, PlanningJsonContext.Default.PlanningRequest) != definition)
                 throw new PlanningConflictException("The planning request changed for this run ID. Resume the original request or start a new run.");
             var saved = await records.GetAsync(Sessions, tenant, key, Author, ct);
-            if (saved is null && (await records.GetAsync("flow-planning-sessions-v9", tenant, key, Author, ct) is not null || await records.GetAsync("flow-planning-sessions-v8", tenant, key, Author, ct) is not null))
-                throw new PlanningConflictException(PlanningSessionStorage.IncompatibleMessage);
             // Capturing profiles must not alter the authored definition or the
             // caller's options. Apply them only to the first durable session copy.
             var state = saved is null
@@ -101,12 +83,9 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
                     if (!JsonNode.DeepEquals(capturedRequest, JsonNode.Parse(definition)))
                         throw new PlanningConflictException("The planning creation checkpoint no longer matches its authored request.");
                 }
-                else
-                    // Unmarked definitions predate incremental creation. Do not
-                    // adopt the new executor's construction state on their resume.
-                    state.Construction = null;
+                else throw new PlanningConflictException("The planning creation checkpoint is missing. Start a fresh session; retained records are unchanged.");
             }
-            if (state.SchemaVersion != 10 || state.Request.TenantId != tenant || state.Request.SessionId != key || saved is not null && savedDefinition is null)
+            if (state.SchemaVersion != 11 || state.Request.TenantId != tenant || state.Request.SessionId != key || saved is not null && savedDefinition is null)
                 throw new PlanningConflictException("The planning session ownership or schema is invalid.");
             if (savedDefinition is null)
             {
@@ -150,23 +129,6 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
                 snapshot.Usage = budget.Snapshot;
                 await records.UpsertAsync(Sessions, tenant, key, JsonSerializer.Serialize(snapshot, PlanningJsonContext.Default.PlanningSession), Author, token);
             }
-            if (state.Diagnostics.Any(d => d.Code == "TASK_CONDITIONAL_REQUIREMENT") && state.PendingCall is { } retired &&
-                await records.GetAsync(WorkflowPlanningModelJournal.Receipts, tenant, retired.Id, Author, ct) is not null)
-            {
-                var original = await records.GetAsync(WorkflowPlanningModelJournal.Requests, tenant, retired.Id, Author, ct);
-                if (original is null || original.Value != JsonSerializer.Serialize(retired.Request, PlanningJsonContext.Default.LLMRequest))
-                    throw new PlanningConflictException("The retired request no longer matches its durable reservation.");
-                // The receipt already exists and the exclusive lease is held: this
-                // call can only replay it, never make a new provider dispatch.
-                var completed = await client.CallAsync(retired.Request, ct);
-                var json = completed.Json ?? System.Text.Json.Nodes.JsonNode.Parse(completed.Text);
-                if (retired.Request.StructuredOutputSchema is null ||
-                    PlanningContractValidation.ValidateInstanceFindings(json, retired.Request.StructuredOutputSchema).Count != 0)
-                    throw new PlanningConflictException("The retired response does not satisfy its original issued schema.");
-                state.PendingCall = null; state.Status = PlanningStatus.Stopped;
-                if (!state.Diagnostics.Any(d => d.Code == "PLANNING_REVISION_REQUIRED"))
-                    state.Diagnostics.Add(new("PLANNING_REVISION_REQUIRED", "/", "The retained guard repair was accounted for without applying it. Explicitly revise the plan."));
-            }
             await Checkpoint(state, ct);
             context.SetTelemetryAttribute("gnougo-flow.plan.session_id", key);
             context.SetTelemetryAttribute("gnougo-flow.plan.run_id", context.Limits.RunId);
@@ -179,9 +141,9 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
     {
         var tenant = context.Limits.TenantId ?? "default";
         var stored = await records.GetAsync(Sessions, tenant, sessionId, Author, ct)
-            ?? throw new PlanningConflictException("The approved format-10 planning session is unavailable for this tenant. Regenerate and approve the workflow.");
+            ?? throw new PlanningConflictException("The approved format-11 planning session is unavailable for this tenant. Regenerate and approve the workflow.");
         var state = PlanningSessionStorage.Read(stored.Value, tenant, sessionId);
-        if (state.SchemaVersion != 10 || state.Request.TenantId != tenant || state.Request.SessionId != sessionId ||
+        if (state.SchemaVersion != 11 || state.Request.TenantId != tenant || state.Request.SessionId != sessionId ||
             state.Status != PlanningStatus.Approved || state.ApprovedHash != artifactHash || PlanningArtifactApproval.Hash(state) != artifactHash)
             throw new PlanningConflictException("The artifact does not have a current, tenant-owned approval.");
         PlanningArtifactApproval.Verify(state);

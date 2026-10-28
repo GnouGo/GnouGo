@@ -8,13 +8,10 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class CompactConstructionClosureTests
 {
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void ReadyLeafRetainsOneDraftCompletion(bool current)
+    [Fact]
+    public void ReadyLeafRetainsOneDraftCompletion()
     {
         var state = State();
-        if (current) PlanningSessionCreation.Capture(state);
         var schema = PlanningCompactConstruction.DraftSchema(state);
         AssertCompletion(schema, allowed: true);
         AssertScopeClosure(schema, "/root", allowed: true);
@@ -45,7 +42,7 @@ public sealed class CompactConstructionClosureTests
                 state.Requirements!.Outcomes.Add(new("later", "Preserve the other original obligation."));
                 break;
             case "reopened_requirement":
-                construction.Requirements[0].Status = "closed";
+                construction.Requirements[0].Status = "remaining";
                 construction.Compact!.CurrentStep!.CloseRequirementIds.Clear();
                 break;
             case "unindexed_request": construction.Compact!.Sources[0].Indexed = false; break;
@@ -68,20 +65,14 @@ public sealed class CompactConstructionClosureTests
     }
 
     [Theory]
-    [InlineData("group", false)]
-    [InlineData("sequence", false)]
-    [InlineData("conditional", false)]
-    [InlineData("parallel", false)]
-    [InlineData("foreach", false)]
-    [InlineData("group", true)]
-    [InlineData("sequence", true)]
-    [InlineData("conditional", true)]
-    [InlineData("parallel", true)]
-    [InlineData("foreach", true)]
-    public void ANewContainerPresentationLeavesItsChildScopesForLaterDrafts(string kind, bool current)
+    [InlineData("group")]
+    [InlineData("sequence")]
+    [InlineData("conditional")]
+    [InlineData("parallel")]
+    [InlineData("foreach")]
+    public void ANewContainerPresentationLeavesItsChildScopesForLaterDrafts(string kind)
     {
         var state = State();
-        if (current) PlanningSessionCreation.Capture(state);
         var step = state.Construction!.Compact!.CurrentStep!;
         step.Kind = kind;
         step.CloseRequirementIds.Clear();
@@ -90,9 +81,7 @@ public sealed class CompactConstructionClosureTests
             PlanningCompactConstruction.SelectionContext(state), PlanningCompactConstruction.SelectionSchema(state),
             PlanningCompactConstruction.SelectPurpose);
         var request = PlanningConstruction.DraftRequest(state, repair: false);
-        Assert.Equal(current, selection.Prompt.Contains("Open a container only for a needed control, reuse, cleanup or export boundary", StringComparison.Ordinal));
-        Assert.Equal(current, request.StructuredOutputSchema!["description"]!.ToString().Contains("Do not consume or export the new container's outputs until its children are complete and closed", StringComparison.Ordinal));
-        Assert.DoesNotContain("use reselectStep when offered", PlanningCompactConstruction.DraftSemantics(state, step, review: true), StringComparison.Ordinal);
+        Assert.Contains("Do not consume or export the new container", request.StructuredOutputSchema!["description"]!.ToString(), StringComparison.Ordinal);
         var schema = request.StructuredOutputSchema!.AsObject();
         AssertCompletion(schema, allowed: false);
         AssertScopeClosure(schema, "/root", allowed: false);
@@ -114,7 +103,7 @@ public sealed class CompactConstructionClosureTests
         var open = candidate.OpenScopes.ToHashSet(StringComparer.Ordinal);
         Assert.True(open.Count > 1);
         Assert.Empty(TaskPlanCompiler.ValidateConstruction(candidate.Plan, state.Catalog!, state.Request, open).Diagnostics);
-        Assert.NotEqual("closed", Assert.Single(state.Construction.Requirements).Status);
+        Assert.NotEqual("closed", Assert.Single(state.Construction!.Requirements).Status);
         Assert.Equal(original, PlanningConstruction.Hash(state.Plan));
         if (kind == "group") candidate.Plan.Root.Tasks.Add(new() { Id = "premature", Kind = "call", Group = "reusable", Objective = "Read unfinished work." });
         else candidate.Plan.Root.Outputs.Add(new("message", new() { Kind = "output", Source = "container", Port = "message" }));
@@ -136,7 +125,7 @@ public sealed class CompactConstructionClosureTests
     {
         var state = State();
         state.Construction!.Requirements[0].Status = "closed";
-        var step = state.Construction.Compact!.CurrentStep!;
+        var step = state.Construction!.Compact!.CurrentStep!;
         step.Kind = "close";
         step.CloseRequirementIds.Clear();
         AssertCompletion(PlanningCompactConstruction.DraftSchema(state), allowed: true);
@@ -152,8 +141,8 @@ public sealed class CompactConstructionClosureTests
         if (openDescendant) selected.Body!.Tasks.Add(Container("inner"));
         state.Plan = new() { Root = new() { Tasks = [selected, Container("sibling")] } };
         state.Construction!.OpenScopes = ["/root", "/tasks/outer/body", "/tasks/sibling/body"];
-        if (openDescendant) state.Construction.OpenScopes.Add("/tasks/inner/body");
-        var step = state.Construction.Compact!.CurrentStep!;
+        if (openDescendant) state.Construction!.OpenScopes.Add("/tasks/inner/body");
+        var step = state.Construction!.Compact!.CurrentStep!;
         step.Kind = "close";
         step.Scope = "/tasks/outer/body";
         step.BaseHash = PlanningConstruction.Hash(state.Plan);
@@ -179,7 +168,7 @@ public sealed class CompactConstructionClosureTests
         Assert.Contains(PlanningCompactConstruction.CandidateFindings(WithCandidate(state, candidate)),
             d => d.Code == "CONSTRUCTION_REQUIREMENT_REMAINING" && d.Location == "/requirements/later");
         Assert.Null(state.Plan);
-        Assert.Empty(state.Construction.Checkpoints);
+        Assert.Empty(state.Construction!.Checkpoints);
     }
 
     [Fact]
@@ -192,54 +181,6 @@ public sealed class CompactConstructionClosureTests
         PlanningCompactConstruction.ValidateExtension(state, candidate);
     }
 
-    [Fact]
-    public async Task RetainedIssuedRootClosureAndFinalIndependentGroupStillRecover()
-    {
-        var state = State();
-        state.Plan = new() { Groups = [new() { Id = "reusable", Body = new() }] };
-        state.Construction!.OpenScopes.Add("/groups/reusable/body");
-        var step = state.Construction.Compact!.CurrentStep!;
-        step.BaseHash = PlanningConstruction.Hash(state.Plan);
-        step.CloseRequirementIds.Clear();
-        var currentSchema = PlanningCompactConstruction.DraftSchema(state);
-        AssertScopeClosure(currentSchema, "/root", allowed: false);
-        var issued = currentSchema.DeepClone().AsObject();
-        var properties = ExtensionProperties(issued);
-        properties["complete"] = PlanningSchemas.Type("boolean");
-        properties["closeScopes"] = PlanningSchemas.Array(PlanningSchemas.Enum("/root"), 0, 1);
-        issued["title"] = PlanningConstruction.DraftPurpose;
-        var extension = Leaf(complete: false);
-        extension.CloseScopes = ["/root"];
-        var response = Response(state, extension, issued);
-        var request = new LLMRequest { ClientRequestId = "retained:1:" + new string('a', 64), Prompt = "Exact issued presentation.", StructuredOutputSchema = issued, MaxTokens = 8192 };
-        state.ModelCalls = 1;
-        state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningConstruction.DraftPurpose, Request = request };
-        var runtime = new TestRuntime { Respond = (_, _) => new() { Json = response } };
-        var receipt = await PlanningModelCalls.CallAsync(state, runtime, PlanningConstruction.DraftPurpose,
-            "New context must not replace this pending request.", currentSchema, PlannerFixture.Ct);
-        Assert.True(JsonNode.DeepEquals(response, receipt));
-        Assert.True(JsonNode.DeepEquals(issued, Assert.Single(runtime.Calls).StructuredOutputSchema));
-        Assert.Equal(1, state.ModelCalls);
-        Assert.Null(state.PendingCall);
-        var candidate = PlanningConstruction.Apply(state, extension);
-        PlanningCompactConstruction.ValidateExtension(state, candidate);
-        Assert.Empty(PlanningCompactConstruction.CandidateFindings(WithCandidate(state, candidate)));
-        Assert.Equal(["/groups/reusable/body"], candidate.OpenScopes);
-        state.Plan = candidate.Plan;
-        state.Construction.OpenScopes = candidate.OpenScopes;
-        step.Scope = "/groups/reusable/body";
-        step.Kind = "close";
-        step.CloseRequirementIds = ["req"];
-        step.BaseHash = PlanningConstruction.Hash(state.Plan);
-        var finalSchema = PlanningCompactConstruction.DraftSchema(state);
-        AssertCompletion(finalSchema, allowed: true);
-        AssertScopeClosure(finalSchema, step.Scope, allowed: true);
-        var final = PlanningConstruction.Apply(state, new() { Scope = step.Scope, RequirementIds = ["req"], CloseScopes = [step.Scope], Complete = true });
-        PlanningCompactConstruction.ValidateExtension(state, final);
-        Assert.Empty(PlanningCompactConstruction.CandidateFindings(WithCandidate(state, final)));
-        Assert.Empty(final.OpenScopes);
-    }
-
     [Theory]
     [InlineData(null, null)]
     [InlineData(0, 0)]
@@ -247,23 +188,19 @@ public sealed class CompactConstructionClosureTests
     public void IntentArrayBoundsRetainUnboundedNullAndExplicitNumericValues(int? minimum, int? maximum)
     {
         var source = new PlanningConstructionSource { Id = "request:0", Text = "Accept the declared array interface." };
-        var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.IndexInstructions,
+        var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.InterfaceInstructions,
             new() { ["sources"] = new JsonArray(new JsonObject { ["id"] = source.Id, ["text"] = source.Text }), ["diagnostics"] = new JsonArray() },
-            PlanningCompactConstruction.IntentSchema(source), PlanningCompactConstruction.IntentPurpose);
+            PlanningCompactConstruction.InterfaceSchema(new() { Id = source.Id, Inputs = true }), PlanningCompactConstruction.IntentPurpose);
         var schema = request.StructuredOutputSchema!.AsObject();
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
-        var arrayType = schema["$defs"]!["type"]!["anyOf"]!.AsArray().OfType<JsonObject>()
-            .Single(item => item["properties"]?["kind"]?["enum"]?[0]?.ToString() == "array");
-        foreach (var name in new[] { "minItems", "maxItems" })
-            Assert.Contains("null", arrayType["properties"]![name]!["description"]!.ToString(), StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("empty", arrayType["properties"]!["maxItems"]!["description"]!.ToString(), StringComparison.OrdinalIgnoreCase);
         var response = JsonNode.Parse("""
-            {"sourceId":"request:0","clauses":[{"text":"Accept the declared array interface.","kind":"requirement"}],
+            {"sourceId":"request:0",
              "inputs":[{"name":"values","required":true,"type":{"kind":"array","nullable":false,
              "items":{"kind":"number","nullable":false},"minItems":null,"maxItems":null}}],"outputs":[]}
             """)!.AsObject();
         response["inputs"]![0]!["type"]!["minItems"] = minimum;
         response["inputs"]![0]!["type"]!["maxItems"] = maximum;
+        response = PlanningCorpus.Transport(response, schema, schema)!.AsObject();
         Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response, schema));
         var input = response["inputs"]!.Deserialize(PlanningJsonContext.Default.ListTaskInput)!.Single();
         Assert.Equal(minimum, input.Type.MinItems);
@@ -327,18 +264,18 @@ public sealed class CompactConstructionClosureTests
     {
         var state = new PlanningSession
         {
-            IntentVersion = 3,
             Request = new() { TenantId = "closure-test", Prompt = "Return the requested message.", Generation = new("medium", 32000, 8192) },
             Catalog = new(),
             Requirements = new() { Summary = "Return the requested message.", Inputs = [],
                 Outputs = [new() { Name = "message", Type = new() { Kind = "string" } }], Outcomes = [new("req", "Return the requested message.")] },
-            Construction = new() { Version = 2, Requirements = [new() { Id = "req" }], Compact = new()
+            Construction = new() { Requirements = [new() { Id = "req" }], Compact = new()
             {
                 Sources = [new() { Id = "request:0", Kind = "page", Text = "Return the requested message.", Indexed = true }],
                 CurrentStep = new() { Id = "selected", Scope = "/root", Kind = "value", RequirementIds = ["req"], CloseRequirementIds = ["req"], OutputNames = ["message"] }
             } }
         };
-        state.Construction.Compact.CurrentStep.BaseHash = PlanningConstruction.Hash(state.Plan);
+        PlanningSessionCreation.Capture(state);
+        state.Construction!.Compact!.CurrentStep!.BaseHash = PlanningConstruction.Hash(state.Plan);
         return state;
     }
 }

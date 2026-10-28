@@ -52,7 +52,7 @@ Host adapters can reuse `RoutingLLMClientAdapter.MapRequest` and `MapResponse` t
 
 Inject `HybridWorkflowPlanner` and `Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace()` into the engine. Planning remains separately publishable and depends only on Core.
 
-The factory stores format-10 sessions, reservations, receipts and cumulative budgets through public encrypted KeyVault record APIs in `flow-planning-*-v10` collections. Exclusive tenant/session leases live under `.GnOuGo/data/flow-planning-v10/leases`. Old formats are rejected. Resume the same run ID and request; completed calls replay without a new charge and uncertain dispatches stop without redispatch.
+The factory stores current format-11 sessions, reservations, receipts and cumulative budgets through public encrypted KeyVault record APIs in `flow-planning-*-v11` collections. Exclusive tenant/session leases live under `.GnOuGo/data/flow-planning-v11/leases`. Old formats are rejected. Resume the same run ID and request; completed calls replay without a new charge and uncertain dispatches stop without redispatch.
 
 Fresh captured transport policies use `PlanningHttpModelJournal`, shared with
 Agent.Server under each existing tenant/session lease. It binds encrypted HTTP
@@ -65,4 +65,4 @@ a missing outcome cannot. Historical sessions keep their original journal path.
 
 `ReadApprovedYamlAsync` verifies tenant ownership, stored approval, exact content and current capability contracts before `workflow.execute` receives YAML. Integrations propagate provider-neutral effect metadata; unknown MCP effects require conservative confirmation. See [architecture](../../docs/workflow-planning-v9.md).
 
-Typed business choices use the encrypted format-10 planning journal and exclusive owner lease. An injected `IPlanningInteraction` selects recommended alternatives separately from runtime `human.input`. Old approvals are rejected; regenerate and approve the workflow. Run `dotnet test tests/GnOuGo.Flow.Integrations.Tests -m:1 -warnaserror` to verify receipt replay, tenant ownership and approval boundaries.
+Typed business choices use the encrypted format-11 planning journal and exclusive owner lease. An injected `IPlanningInteraction` selects recommended alternatives separately from runtime `human.input`. Old approvals are rejected; regenerate and approve the workflow. Run `dotnet test tests/GnOuGo.Flow.Integrations.Tests -m:1 -warnaserror` to verify receipt replay, tenant ownership and approval boundaries.

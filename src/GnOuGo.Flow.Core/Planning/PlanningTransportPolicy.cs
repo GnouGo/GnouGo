@@ -16,7 +16,7 @@ public sealed class PlanningTransportPolicy
     public int MaxTotalDelayMilliseconds { get; set; } = 60_000;
 }
 
-/// <summary>Absence preserves historical request preparation and recovery.</summary>
+/// <summary>Captured host policy for safe physical-attempt admission and recovery.</summary>
 public static class PlanningTransportPolicies
 {
     public const string OptionName = "planning_transport_policy";
@@ -62,7 +62,7 @@ public static class PlanningTransportPolicies
 
     internal static LLMRequest Apply(LLMRequest request, PlanningRequest planning, bool explicitlyDisabled)
     {
-        if (Read(planning) is null) return request;
+        if (Read(planning) is null) throw new PlanningConflictException("The captured planning transport policy is required.");
         request.DisableTransportRetries = explicitlyDisabled;
         request.UseBackgroundMode = false;
         return request;
@@ -70,18 +70,15 @@ public static class PlanningTransportPolicies
 
     public static void ValidateIssued(LLMRequest request, PlanningRequest planning)
     {
-        if (Read(planning) is not null && (request.UseBackgroundMode || request.Tools is { Count: > 0 } ||
-            !ReviewHeadroomValid(request, planning)))
+        if (Read(planning) is null || request.UseBackgroundMode || request.Tools is { Count: > 0 } ||
+            !ReviewHeadroomValid(request, planning))
             throw new PlanningConflictException("Journaled planning transport requires synchronous tool-free generation and captured review headroom.");
     }
 
-    /// <summary>Source-window reviews use the captured call bound; older presentations retain their two-review maximum.</summary>
+    /// <summary>Remaining mandatory business reviews share the captured physical-call allowance.</summary>
     internal static bool ReviewHeadroomValid(LLMRequest request, PlanningRequest planning)
     {
-        var maximum = planning.Options["construction_presentation_version"] is JsonValue version &&
-            version.TryGetValue<int>(out var presentation) && presentation is 6 or 7 or 8 or 9 or 10 or 11
-                ? Math.Min(planning.MaxModelCalls, PlanningBudgetOptions.Parse(planning.Options)?.MaxCalls ?? planning.MaxModelCalls)
-                : 2;
+        var maximum = Math.Min(planning.MaxModelCalls, PlanningBudgetOptions.Parse(planning.Options)?.MaxCalls ?? planning.MaxModelCalls);
         return request.RequiredReviewCalls is >= 0 && request.RequiredReviewCalls <= maximum;
     }
 }

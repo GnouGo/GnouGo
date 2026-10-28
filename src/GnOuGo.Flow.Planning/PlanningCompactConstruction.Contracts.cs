@@ -52,7 +52,7 @@ internal static partial class PlanningCompactConstruction
     {
         var step = state.Construction!.Compact!.CurrentStep!;
         var query = CapabilityRelevance.Query(step.Objective);
-        var pages = !retained && PlanningConstructionPhasePolicies.IsFresh(state.Request) && UsesVerifiedReview(state)
+        var pages = !retained
             ? state.Discovery.Pages.Where(page => page.Query == step.Objective && page.ProducedArtifactKind is null)
             : state.Discovery.Pages;
         var ranked = CapabilityRelevance.Rank(DescriptorCandidates(state, pages), query).ToArray();
@@ -76,21 +76,14 @@ internal static partial class PlanningCompactConstruction
         }).ToArray());
     }
 
-    internal static JsonObject ContractDescriptorPage(PlanningSession state, int offset = 0, bool legacy = false, bool retained = false)
-    {
-        if (!legacy && IsCompactPresentation(state))
-            return new JsonObject { ["offset"] = offset,
-                ["items"] = ContractDescriptors(state, offset, CompactContractDescriptorPageSize, concise: true, retained: retained),
-                ["descriptionsOmitted"] = true };
-        var items = ContractDescriptors(state, offset, retained: retained || legacy);
-        var next = items.Count == ContractDescriptorPageSize && ContractDescriptors(state, offset + ContractDescriptorPageSize, retained: retained || legacy).Count > 0
-            ? "page:operations:" + (offset + ContractDescriptorPageSize).ToString(CultureInfo.InvariantCulture) : null;
-        return new JsonObject { ["offset"] = offset, ["items"] = items, ["next"] = next };
-    }
+    internal static JsonObject ContractDescriptorPage(PlanningSession state, int offset = 0, bool retained = false) =>
+        new() { ["offset"] = offset,
+            ["items"] = ContractDescriptors(state, offset, CompactContractDescriptorPageSize, concise: true, retained: retained),
+            ["descriptionsOmitted"] = true };
 
     private static JsonObject? CompanionOperationNavigation(PlanningSession state)
     {
-        if (!UsesConvergentConstruction(state) || State(state).CurrentStep is not { OperationIds.Count: > 0 } step)
+        if (State(state).CurrentStep is not { OperationIds.Count: > 0 } step)
             return null;
         var companions = state.Discovery.Pages.Where(page => page.Query == step.Objective && page.ProducedArtifactKind is null)
             .SelectMany(page => page.Capabilities).Where(capability => capability.Operation is not null &&
@@ -114,15 +107,13 @@ internal static partial class PlanningCompactConstruction
 
     internal static JsonObject? DescribedOperationChoices(PlanningSession state)
     {
-        if (!IsCompactPresentation(state) ||
-            !UsesConvergentConstruction(state) && state.Construction!.Evidence is not { Count: > 0 } ||
-            State(state).CurrentStep is not { } step) return null;
+        if (State(state).CurrentStep is not { } step) return null;
         var reads = state.Construction!.EvidenceRequests.ToHashSet(StringComparer.Ordinal);
         var ranked = CapabilityRelevance.Rank(DescriptorCandidates(state, state.Discovery.Pages), CapabilityRelevance.Query(step.Objective)).Where(capability =>
             state.Construction!.Evidence is { Count: > 0 } &&
             capability.Operation!.Version == capability.Version && reads.Contains(PlanningConstruction.EvidenceBatchFingerprint(state,
                 ["description:" + ContractIdentity(capability.Operation.Id, capability.Operation.Version) + ":0"]))).ToArray();
-        var accepted = UsesConvergentConstruction(state) ? AcceptedProducerOperationChoices(state).ToArray() : [];
+        var accepted = AcceptedProducerOperationChoices(state).ToArray();
         if (accepted.Length > 0)
         {
             var choices = accepted.Concat(ranked.Select(capability => new JsonObject
@@ -175,12 +166,36 @@ internal static partial class PlanningCompactConstruction
     }
 
     internal static string OperationPageAddress(PlanningSession state, int offset) =>
-        IsCompactPresentation(state)
-            ? "page:operations:" + PlanningGraphCompiler.Fingerprint(ContractDescriptorPage(state, offset).ToJsonString()) + ":" + offset.ToString(CultureInfo.InvariantCulture)
-            : "page:operations:" + offset.ToString(CultureInfo.InvariantCulture);
+        "page:operations:" + PlanningGraphCompiler.Fingerprint(ContractDescriptorPage(state, offset).ToJsonString()) + ":" + offset.ToString(CultureInfo.InvariantCulture);
 
-    internal static JsonArray ContractViews(PlanningSession state, bool review = false)
-        => new(SelectedContracts(state).Select(c => (JsonNode)ContractView(state, c, review)).ToArray());
+    internal static JsonArray ContractViews(PlanningSession state, bool useCandidate = false)
+        => new(SelectedContracts(state).Select(c => (JsonNode)ContractView(state, c, useCandidate)).ToArray());
+
+    internal static JsonArray RepairContractEvidence(PlanningSession authority, PlanningRepairContext.Selection selected)
+    {
+        var result = new JsonArray();
+        foreach (var tasks in selected.Tasks.Select(id => selected.Symbols.Tasks[id].Task)
+                     .Where(task => task.Operation is not null).GroupBy(task => task.Operation!, StringComparer.Ordinal))
+        {
+            var matches = (authority.Catalog?.Capabilities ?? []).Concat(authority.Discovery.Resolved)
+                .Where(capability => TaskOperations.Describe(capability).Id == tasks.Key).DistinctBy(capability => (capability.Id, capability.Version)).ToArray();
+            if (matches.Length != 1 || !authority.Catalog!.AllowedStepTypes.Contains(matches[0].StepType) ||
+                authority.Catalog.Policy.DeniedCapabilityIds.Contains(matches[0].Id) || TaskOperations.Validate(matches[0]).Count != 0) continue;
+            var operation = PlanningCapabilityArguments.Editable(matches[0]);
+            var identity = ContractIdentity(operation.Id, operation.Version);
+            var bound = tasks.SelectMany(task => task.Inputs).Select(input => input.Name).ToHashSet(StringComparer.Ordinal);
+            result.Add((JsonNode)new JsonObject
+            {
+                ["id"] = operation.Id, ["version"] = operation.Version,
+                ["descriptionEvidence"] = "description:" + identity + ":0",
+                ["inputs"] = CompletePortDirectory(operation.Inputs.Where(port => bound.Contains(port.Name)), identity, "/input"),
+                ["selectedInputs"] = new JsonArray(operation.Inputs.Where(port => bound.Contains(port.Name)).Select(port =>
+                    (JsonNode)ExactSchemaView(matches[0], PortPointer("/input", port.Path))).ToArray()),
+                ["outputDirectory"] = "port-page:" + identity + ":/output:0"
+            });
+        }
+        return result;
+    }
 
     private static IEnumerable<PlanningCapability> SelectedContracts(PlanningSession state)
     {
@@ -220,7 +235,6 @@ internal static partial class PlanningCompactConstruction
             entry["contractHash"] = ContractHash(capability);
             entry["outputDirectory"] = "port-page:" + ContractIdentity(operation.Id, operation.Version) + ":/output:0";
             entry["descriptionEvidence"] = "description:" + ContractIdentity(operation.Id, operation.Version) + ":0";
-            if (UsesDecisionView(state))
             {
                 entry["inputDirectory"] = "schema-page:" + ContractIdentity(operation.Id, operation.Version) + ":/input:0";
                 entry["outputs"] = CompletePortDirectory(operation.Outputs, ContractIdentity(operation.Id, operation.Version), "/output");
@@ -254,21 +268,17 @@ internal static partial class PlanningCompactConstruction
             pages.Add((index, page["items"]!.DeepClone().AsArray()));
         }
         if (displayed is null) return context;
-        // Retain every previously offered exact address before paging the display.
-        // The normal collector also offers the existing typed continuation link;
-        // nextPorts remains the separate names-only task navigation page.
-        if (State(state).PresentationVersion != 11) ConstrainSelectionEvidence(state, displayed, schema);
         foreach (var (index, items) in pages) displayed["interfaces"]![index]!["outputs"] = items;
         // Fresh requests issue evidence choices from the exact displayed page.
         // The typed continuation retains every omitted port without enumerating
         // all of its evidence addresses in this request's response grammar.
-        if (State(state).PresentationVersion == 11) ConstrainSelectionEvidence(state, displayed, schema);
+        ConstrainSelectionEvidence(state, displayed, schema);
         return displayed;
     }
 
     private static bool AcceptedProducerOutput(PlanningSession state, PlanningCapability capability)
     {
-        if (!UsesConvergentConstruction(state) || state.Plan is null) return false;
+        if (state.Plan is null) return false;
         var compact = State(state);
         var accepted = new TaskPlanSymbols(state.Plan);
         HashSet<string> selected;
@@ -316,11 +326,11 @@ internal static partial class PlanningCompactConstruction
         _ => false
     };
 
-    private static JsonObject ContractView(PlanningSession state, PlanningCapability capability, bool review)
+    private static JsonObject ContractView(PlanningSession state, PlanningCapability capability, bool useCandidate)
     {
         var operation = PlanningCapabilityArguments.Editable(capability);
         var identity = ContractIdentity(operation.Id, operation.Version);
-        if (review) return ReviewContractView(state, capability, operation, identity);
+        if (useCandidate) return CandidateContractView(state, capability, operation, identity);
         var selected = SelectedSchemaPointers(state, capability);
         var omitted = new List<string>();
         var input = ProjectCapabilityInput(state, capability, selected, omitted);
@@ -347,16 +357,10 @@ internal static partial class PlanningCompactConstruction
         var outputViews = selected.Where(p => p.StartsWith("/output", StringComparison.Ordinal)).ToArray();
         if (outputViews.Length > 0)
             node["selectedOutputs"] = new JsonArray(outputViews.Select(p => (JsonNode)ExactSchemaView(capability, p)).ToArray());
-        if (IsCompactPresentation(state))
         {
             // Output navigation is retrieved when needed; selected schemas stay
             // in the view. The directory retains every producer port alias.
-            if (UsesDecisionView(state)) node["outputs"] = CompletePortDirectory(operation.Outputs, identity, "/output");
-            else
-            {
-                node.Remove("outputs");
-                node["outputsOmitted"] = operation.Outputs.Count > 0;
-            }
+            node["outputs"] = CompletePortDirectory(operation.Outputs, identity, "/output");
             node["outputDirectory"] = "port-page:" + identity + ":/output:0";
             // Requested originals replace optional input navigation, never the
             // projected constraints or selected output schemas.
@@ -370,9 +374,9 @@ internal static partial class PlanningCompactConstruction
             new[] { "schema:", "schema-page:", "port-page:", "description:" }
                 .Any(prefix => item.Key.StartsWith(prefix + identity + ":", StringComparison.Ordinal))) == true;
 
-    private static JsonObject ReviewContractView(PlanningSession state, PlanningCapability capability, PlanningOperation operation, string identity)
+    private static JsonObject CandidateContractView(PlanningSession state, PlanningCapability capability, PlanningOperation operation, string identity)
     {
-        var operationDescription = UsesDecisionView(state) ? operation.Description : BoundedDescription(operation.Description, 384);
+        var operationDescription = operation.Description;
         var bindings = BoundInputNames(state, operation.Id);
         var boundPorts = operation.Inputs.Where(p => bindings.Contains(p.Name)).ToArray();
         // These explicitly incomplete descriptions are navigation aids. Keep their
@@ -393,16 +397,12 @@ internal static partial class PlanningCompactConstruction
                     ["schemaEvidence"] = "schema:" + identity + ":" + PortPointer("/input", p.Path) };
             }).ToArray()),
             ["artifacts"] = TaskOperations.ArtifactPorts(capability),
-            ["deterministicValidation"] = UsesConvergentConstruction(state)
-                ? "Original-contract checks are enforced by preflight; consult current diagnostics. These bounded descriptions do not replace original contracts or establish business fulfillment."
-                : "The candidate passed complete original-contract validation. Descriptions here are explicitly bounded discovery evidence, not complete normative contracts. Request original restrictions when needed; report unsupported business claims as unverified."
+            ["deterministicValidation"] = "Original-contract checks are enforced by preflight; consult current diagnostics. These bounded descriptions do not replace original contracts or establish business fulfillment."
         };
-        if (UsesVerifiedReview(state))
         {
             if (capability.Server is { } server) view["server"] = server;
             if (capability.Method is { } method) view["method"] = method;
         }
-        if (UsesDecisionView(state))
         {
             // Bound arguments need the same original schema closure used by
             // explicit contract reads: required siblings, coupling and references
@@ -416,18 +416,6 @@ internal static partial class PlanningCompactConstruction
             }
             view["outputs"] = CompletePortDirectory(operation.Outputs, identity, "/output");
             view["outputDirectory"] = "port-page:" + identity + ":/output:0";
-        }
-        if (!UsesDecisionView(state) && IsCompactPresentation(state) && state.Construction!.Evidence?.Any(item =>
-            item.Key.StartsWith("description:" + identity + ":", StringComparison.Ordinal) &&
-            item.Value is JsonObject original && original["id"]?.ToString() == operation.Id &&
-            original["version"]?.ToString() == operation.Version &&
-            original["descriptionHash"]?.ToString() == PlanningGraphCompiler.Fingerprint(operation.Description)) == true)
-        {
-            // The bounded teaser and validation reminder are navigation aids.
-            // Keep the requested original, identity, effects and bound ports.
-            view.Remove("description");
-            view.Remove("descriptionComplete");
-            view.Remove("deterministicValidation");
         }
         return view;
     }
@@ -463,7 +451,7 @@ internal static partial class PlanningCompactConstruction
     {
         if (state.Construction!.Candidate is not { } candidate) return [];
         IEnumerable<PlanTask> tasks = TaskPlanRevisions.Tasks(new TaskScope { Tasks = candidate.Extension.Tasks, Always = candidate.Extension.Always });
-        if (UsesDecisionView(state) && candidate.AuthorizedPaths is not null)
+        if (candidate.AuthorizedPaths is not null)
         {
             var symbols = new TaskPlanSymbols(candidate.Plan);
             tasks = PlanningConstruction.AuthorizedRevisionTasks(state).Select(item => symbols.Tasks[item.Id].Task);
@@ -572,17 +560,17 @@ internal static partial class PlanningCompactConstruction
         {
             if (!int.TryParse(tail, NumberStyles.None, CultureInfo.InvariantCulture, out var offset) || offset < 0)
                 PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Use the issued description address with its nonnegative integer offset.");
-            if (recordSchemaSelection && UsesConvergentConstruction(state) && State(state).CurrentStep is null &&
+            if (recordSchemaSelection && State(state).CurrentStep is null &&
                 !AcceptedProducerOutput(state, ExactContract(state, operation, version)))
                 PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Inspect only an accessible accepted producer before selecting a business step.");
             return OperationDescription(state, operation, version, identity, offset);
         }
         var capability = ExactContract(state, operation, version);
         var producerEvidence = recordSchemaSelection && state.Construction!.Compact!.CurrentStep?.OperationIds.Contains(operation, StringComparer.Ordinal) != true &&
-            (OutputEvidence(kind, tail) || UsesDecisionView(state) && InputEvidence(kind, tail)) && AcceptedProducerOutput(state, capability);
-        if (recordSchemaSelection && UsesConvergentConstruction(state) && state.Construction!.Compact!.CurrentStep is null && !producerEvidence)
+            (OutputEvidence(kind, tail) || InputEvidence(kind, tail)) && AcceptedProducerOutput(state, capability);
+        if (recordSchemaSelection && state.Construction!.Compact!.CurrentStep is null && !producerEvidence)
             PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Select a business step before inspecting its capability contracts.");
-        if (kind == "contract" && tail.Length == 0) return ContractView(state, capability, review: false);
+        if (kind == "contract" && tail.Length == 0) return ContractView(state, capability, useCandidate: false);
         if (kind == "schema")
         {
             var view = ExactSchemaView(capability, tail);
@@ -600,7 +588,7 @@ internal static partial class PlanningCompactConstruction
             var offsetSeparator = tail.LastIndexOf(':');
             if (offsetSeparator > 0 && int.TryParse(tail[(offsetSeparator + 1)..], NumberStyles.None, CultureInfo.InvariantCulture, out var page) && page >= 0)
                 return kind == "schema-page" ? SchemaDirectory(capability, tail[..offsetSeparator], page) :
-                    OperationPortDirectory(capability, tail[..offsetSeparator], page, UsesConvergentConstruction(state));
+                    OperationPortDirectory(capability, tail[..offsetSeparator], page, true);
         }
         PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Use an issued schema, schema-page, port-page or description evidence address.");
         return null;

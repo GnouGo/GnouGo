@@ -12,8 +12,6 @@ public sealed partial class HybridWorkflowPlanner
     {
         var construction = state.Construction!;
         if (construction.Compact is null) throw new PlanningConflictException("The captured compact construction state is missing.");
-        if (!PlanningCompactConstruction.CapturedPresentationValid(state))
-            throw new PlanningConflictException("The captured compact presentation protocol is unsupported or inconsistent.");
         state.Status = PlanningStatus.Generating;
         if (construction.Compact.CurrentStep?.PendingDiscovery is not null)
         {
@@ -22,24 +20,23 @@ public sealed partial class HybridWorkflowPlanner
         }
         if (construction.Complete) { await CompileAsync(state, runtime, ct); return; }
         PlanningCompactConstruction.InitializeSources(state);
-        var pendingExtraction = PlanningCompactConstruction.IsCompactPresentation(state) &&
-            state.PendingCall?.Purpose == PlanningCompactConstruction.IntentPurpose &&
+        var pendingExtraction = state.PendingCall?.Purpose == PlanningCompactConstruction.IntentPurpose &&
             state.PendingCall.Request.StructuredOutputSchema?["properties"]?["clauses"] is null;
         if (!pendingExtraction && (state.PendingCall is null || state.PendingCall.Purpose == PlanningCompactConstruction.IntentPurpose))
             if (construction.Compact.Sources.FirstOrDefault(s => s.Kind is "page" or "answer_page" or "revision_page" && !s.Indexed) is { } sourcePage)
             { await IndexConstructionIntentAsync(state, runtime, sourcePage, ct); return; }
-        if (PlanningCompactConstruction.IsCompactPresentation(state) &&
-            construction.Compact.InterfaceExtractions?.FirstOrDefault(e => !e.Complete) is { } extraction)
+        if (construction.Compact.InterfaceExtractions?.FirstOrDefault(e => !e.Complete) is { } extraction)
         { await ExtractConstructionInterfacesAsync(state, runtime, extraction, ct); return; }
         if (!PlanningCompactConstruction.IntentDeclarationsComplete(construction.Compact))
             throw new PlanningConflictException("Complete the captured original interface declarations before generation or review.");
         if (construction.Candidate is { } candidate)
         {
             if (candidate.BaseHash != PlanningConstruction.Hash(state.Plan)) throw new PlanningConflictException("The candidate baseline changed.");
+            if (HasPendingBusinessReconsideration(state))
+            { await ReviewConstructionAsync(state, runtime, candidate.Extension.Complete, ct); return; }
             if (candidate.Diagnostics.Count > 0) { await CorrectConstructionAsync(state, runtime, ct); return; }
-            if (!candidate.LocalReviewed || candidate.NeedsIntermediateReview && !candidate.IntermediateReviewed ||
-                !PlanningConstructionReviewCoverage.Complete(state, candidate))
-            { await ReviewConstructionAsync(state, runtime, candidate.LocalReviewed, ct); return; }
+            if (NeedsBusinessReview(state, candidate) && !ConstructionBusinessReviewValid(state, candidate, candidate.Extension.Complete))
+            { await ReviewConstructionAsync(state, runtime, candidate.Extension.Complete, ct); return; }
             await AcceptConstructionAsync(state, runtime, ct); return;
         }
         if (construction.Checkpoints.Count >= construction.Limits.MaxCheckpoints)
@@ -57,7 +54,7 @@ public sealed partial class HybridWorkflowPlanner
         }
         if (compact.CurrentStep is null)
         {
-            if (state.PendingCall is null && PlanningCompactConstruction.UsesConvergentConstruction(state))
+            if (state.PendingCall is null)
             {
                 var transition = PlanningCompactConstruction.PrepareAcceptedTransition(state);
                 if (transition is not null && transition.Construction!.Candidate is null)
@@ -111,8 +108,7 @@ public sealed partial class HybridWorkflowPlanner
         if (state.PendingCall is not null) return;
         // The current navigation call cannot consume the draft and its mandatory reviews.
         var construction = state.Construction!;
-        var reviews = PlanningCompactConstruction.UsesConvergentConstruction(state) ?
-            PlanningCompactConstruction.RequiredReviewCalls(state) : construction.Checkpoints.Count > 0 ? 2 : 1;
+        var reviews = PlanningCompactConstruction.RequiredReviewCalls(state);
         if (PlanningModelCalls.RemainingCalls(state) < reviews + 2)
             throw new WorkflowRuntimeException("CONSTRUCTION_REVIEW_ALLOWANCE", "The remaining allowance cannot admit this navigation call, a draft and mandatory reviews.");
         var input = PlanningConstructionInputPolicy.EffectiveLimit(state.Request, PlanningConstruction.DraftPurpose);
@@ -183,42 +179,7 @@ public sealed partial class HybridWorkflowPlanner
     private static async Task IndexConstructionIntentAsync(PlanningSession state, IPlanningRuntime runtime,
         PlanningConstructionSource source, CancellationToken ct)
     {
-        if (PlanningCompactConstruction.IsCompactPresentation(state))
         { await ClassifyConstructionIntentAsync(state, runtime, source, ct); return; }
-        var response = await CompactCallAsync(state, runtime, PlanningCompactConstruction.IntentPurpose, () =>
-            PlanningCompactConstruction.Request(PlanningCompactConstruction.IndexInstructions, new JsonObject
-            { ["sources"] = new JsonArray(new JsonObject { ["id"] = source.Id, ["version"] = source.Version, ["text"] = source.Text }),
-                ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics) },
-                PlanningCompactConstruction.IntentSchema(source), PlanningCompactConstruction.IntentPurpose), ct);
-        var clauses = response["clauses"]!.AsArray();
-        if (response["sourceId"]!.ToString() != source.Id || string.Concat(clauses.Select(c => c!["text"]!.ToString())) != source.Text)
-            PlanningConstruction.Fail("CONSTRUCTION_SOURCE_COVERAGE", "/clauses", "Verbatim clauses must cover the entire exact original source page, in order, without omissions or duplication.");
-        var compact = PlanningCompactConstruction.State(state);
-        var requirements = ReadConstructionInterfaces(state, response, source.Kind);
-        if (clauses.Any(c => c!["kind"]!.ToString() == "requirement" && string.IsNullOrWhiteSpace(c["text"]!.ToString())))
-            PlanningConstruction.Fail("REQUIREMENTS_INVALID", "/clauses", "Whitespace cannot be a business requirement; preserve it in an adjacent clause or global context.");
-        state.Requirements = requirements;
-        for (var i = 0; i < clauses.Count; i++)
-        {
-            var text = clauses[i]!["text"]!.ToString(); var kind = clauses[i]!["kind"]!.ToString();
-            var id = source.Id + ":clause:" + i;
-            compact.Sources.Add(new() { Id = id, Text = text, Kind = kind, Indexed = true, Version = PlanningGraphCompiler.Fingerprint(text) });
-            if (kind == "global") compact.GlobalSourceIds.Add(id);
-            else
-            {
-                var requirementId = "req_" + compact.RequirementSources.Count;
-                state.Requirements.Outcomes.Add(new(requirementId, text));
-                compact.RequirementSources.Add(requirementId, [id]);
-                state.Construction!.Requirements.Add(new() { Id = requirementId });
-            }
-        }
-        source.Indexed = true;
-        state.Diagnostics.Clear();
-        if (state.Construction!.Candidate is { } retainedCandidate)
-        {
-            retainedCandidate.LocalReviewed = false; retainedCandidate.IntermediateReviewed = false;
-            await ValidateConstructionCandidateAsync(state, runtime, ct);
-        }
 
     }
 
@@ -260,7 +221,7 @@ public sealed partial class HybridWorkflowPlanner
             if (findings.Count > 0) throw new PlanningResponseException(findings.Select(d =>
             {
                 var located = d with { Location = d.Location.StartsWith("/inputs", StringComparison.Ordinal) ? path + d.Location[7..] : d.Location };
-                if (!PlanningCompactConstruction.UsesVerifiedReview(state) || d.Code != "TASK_DEFAULT_INVALID") return located;
+                if (d.Code != "TASK_DEFAULT_INVALID") return located;
                 var matches = interfaces.Where(i => d.Location == "/inputs/" + i.Name).Take(2).ToList();
                 if (matches.Count != 1 || matches[0].Default is not { } supplied) return located;
                 var input = matches[0];
@@ -297,8 +258,7 @@ public sealed partial class HybridWorkflowPlanner
         var compact = PlanningCompactConstruction.State(state);
         var step = response["step"]!.Deserialize(PlanningJsonContext.Default.PlanningConstructionStep)!;
         PlanningCompactConstruction.ValidateSelection(state, step);
-        var known = PlanningCompactConstruction.UsesAcceptedProgress(state) && step.Kind == "operation";
-        if (PlanningCompactConstruction.UsesAcceptedProgress(state))
+        var known = step.Kind == "operation";
         {
             PlanningCompactConstruction.ValidateSelectedCloseScopes(state, step);
             if (step.ContinuationBinding is not null || !known && step.OperationIds.Count != 0)
@@ -325,7 +285,7 @@ public sealed partial class HybridWorkflowPlanner
         var issued = state.PendingCall?.Request;
         var exactRequest = issued;
         var correcting = state.Diagnostics.Any(d => d.Required);
-        var primary = PlanningCompactConstruction.UsesDeferredBinding(state) ? "binding" : "operationIds";
+        var primary = "binding";
         using var correction = new PlanningCorrectionAttempt(state, correcting);
         var response = await CompactCallAsync(state, runtime, PlanningCompactConstruction.DiscoveryPurpose, () =>
             exactRequest = PlanningCompactConstruction.Request(state, PlanningCompactConstruction.DiscoveryGuidance(state), PlanningCompactConstruction.DiscoveryContext(state),
@@ -399,7 +359,7 @@ public sealed partial class HybridWorkflowPlanner
             var selected = JsonSerializer.Deserialize(JsonSerializer.Serialize(step, PlanningJsonContext.Default.PlanningConstructionStep), PlanningJsonContext.Default.PlanningConstructionStep)!;
             probe.Construction!.Compact!.CurrentStep = selected;
             selected.Kind = kind; selected.GroupId = groupId;
-            if (PlanningCompactConstruction.UsesAcceptedProgress(state)) selected.CloseScopes = closeScopes;
+            selected.CloseScopes = closeScopes;
             selected.OperationIds = operations.Distinct(StringComparer.Ordinal).ToList(); selected.DiscoveryComplete = true;
             PlanningCompactConstruction.ValidateSelection(probe, selected);
             PlanningCompactConstruction.ValidateSelectedCloseScopes(probe, selected);
@@ -446,8 +406,7 @@ public sealed partial class HybridWorkflowPlanner
                             PlanningCompactConstruction.DiscoverySchema(next), purpose);
                     return PlanningModelCalls.PrepareRequest(next, purpose, request.Prompt, request.StructuredOutputSchema!.AsObject(), next.Construction!.Limits.DraftOutputTokens);
                 }, purpose: purpose, issuedDiscoverySchema: issuedDiscoverySchema);
-            if (PlanningCompactConstruction.IsCompactPresentation(state))
-                state.Diagnostics.RemoveAll(d => d.Location == "/evidenceRequests" &&
+            state.Diagnostics.RemoveAll(d => d.Location == "/evidenceRequests" &&
                     d.Code is "CONSTRUCTION_EVIDENCE_UNKNOWN" or "CONSTRUCTION_EVIDENCE_INVALID" or "CONSTRUCTION_EVIDENCE_LIMIT");
             correction?.EvidenceAccepted();
             return true;
@@ -461,20 +420,6 @@ public sealed partial class HybridWorkflowPlanner
         if (response["discoveryRequests"] is JsonArray requests)
         {
             await ConstructionDiscoveryAsync(state, runtime, requests.Deserialize(PlanningJsonContext.Default.ListPlanningDiscoveryRequest)!, ct, correction);
-            if (PlanningCompactConstruction.UsesDeferredBinding(state)) return true;
-            if (PlanningConstructionPhasePolicies.IsFresh(state.Request))
-            {
-                // Provider receipts are retained even if the enlarged follow-up
-                // cannot be admitted. Never reread a provider to retry admission.
-                var purpose = PlanningCompactConstruction.DiscoveryPurpose;
-                var request = PlanningCompactConstruction.Request(state, PlanningCompactConstruction.DiscoveryGuidance(state),
-                    PlanningCompactConstruction.DiscoveryContext(state), PlanningCompactConstruction.DiscoverySchema(state), purpose);
-                PlanningConstruction.AdmitEvidenceFollowup(state,
-                    PlanningModelCalls.PrepareRequest(state, purpose, request.Prompt, request.StructuredOutputSchema!.AsObject(),
-                        state.Construction!.Limits.DraftOutputTokens), purpose);
-            }
-            else state.Construction!.Evidence = null;
-            if (!PlanningCompactConstruction.IsCompactPresentation(state)) state.Construction.EvidenceRequests.Clear();
             return true;
         }
         return false;

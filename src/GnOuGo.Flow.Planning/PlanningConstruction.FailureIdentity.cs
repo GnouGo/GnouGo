@@ -8,10 +8,7 @@ internal static partial class PlanningConstruction
     internal static string FailureIdentity(PlanningSession state, PlanningConstructionCandidate candidate, string? planHash = null)
     {
         var hash = planHash ?? candidate.Hash;
-        if (state.Construction!.CandidateFailureIdentityVersion is null) return hash;
-        if (state.Construction.CandidateFailureIdentityVersion != 1)
-            throw new PlanningConflictException("The captured candidate failure identity is unsupported.");
-        var compact = state.Construction.Compact!;
+        var compact = state.Construction!.Compact!;
         var identity = new JsonObject
         {
             ["baseline"] = candidate.BaseHash, ["plan"] = hash,
@@ -36,10 +33,8 @@ internal static partial class PlanningConstruction
                         }).ToArray())
                 }).ToArray())
         };
-        if (PlanningCompactConstruction.UsesAcceptedProgress(state))
-            identity["continuationBinding"] = Node(candidate.Extension.ContinuationBinding, PlanningJsonContext.Default.PlanningConstructionContinuationBinding);
-        if (PlanningCompactConstruction.UsesIncrementalReview(state))
-            identity["boundaryTransitions"] = Node(candidate.Extension.BoundaryTransitions, PlanningJsonContext.Default.ListPlanningConstructionBoundaryTransition);
+        identity["continuationBinding"] = Node(candidate.Extension.ContinuationBinding, PlanningJsonContext.Default.PlanningConstructionContinuationBinding);
+        identity["boundaryTransitions"] = Node(candidate.Extension.BoundaryTransitions, PlanningJsonContext.Default.ListPlanningConstructionBoundaryTransition);
         return "candidate:v1:" + PlanningGraphCompiler.Fingerprint(identity.ToJsonString());
 
         static JsonArray Set(IEnumerable<string> values) =>
@@ -49,9 +44,7 @@ internal static partial class PlanningConstruction
     internal static bool PreviouslyRejected(PlanningSession state, PlanningConstructionCandidate candidate, string? planHash = null)
     {
         var rejected = state.Construction!.FailedCandidates;
-        // Never reinterpret or discard retained historical rejection evidence.
-        return rejected.Contains(planHash ?? candidate.Hash, StringComparer.Ordinal) ||
-            rejected.Contains(FailureIdentity(state, candidate, planHash), StringComparer.Ordinal);
+        return rejected.Contains(FailureIdentity(state, candidate, planHash), StringComparer.Ordinal);
     }
 
     internal static void RecordRejection(PlanningSession state, PlanningConstructionCandidate candidate)

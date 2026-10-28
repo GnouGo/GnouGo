@@ -7,8 +7,8 @@ namespace GnOuGo.Flow.Planning;
 internal static partial class PlanningCompactConstruction
 {
     internal static bool CanReselectInitialDraft(PlanningSession state) =>
-        state.Construction is { Version: 2, Candidate: null } construction &&
-        construction.Compact is { PresentationVersion: 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11, CurrentStep.DiscoveryComplete: true } &&
+        state.Construction is { Candidate: null } construction &&
+        construction.Compact is { CurrentStep.DiscoveryComplete: true } &&
         state.EditablePaths is null && state.Request.Options["automatic_correction"]?.ToString() != "false" &&
         construction.DraftCorrections < construction.Limits.MaxCorrectionsPerDraft &&
         PlanningModelCalls.RemainingRepairs(state) > 0;
@@ -16,7 +16,7 @@ internal static partial class PlanningCompactConstruction
     internal static void Reselect(PlanningSession state, string reason)
     {
         var construction = state.Construction!; var compact = State(state); var step = compact.CurrentStep;
-        if (construction.Version != 2 || step is null || construction.Candidate?.AuthorizedPaths is not null || state.EditablePaths is not null ||
+        if (step is null || construction.Candidate?.AuthorizedPaths is not null || state.EditablePaths is not null ||
             state.PendingCall is not null || string.IsNullOrWhiteSpace(reason) || !state.Diagnostics.Any(d => d.Required))
             PlanningConstruction.Fail("CONSTRUCTION_RESELECTION_INVALID", "/reselectStep", "Reselection requires a diagnosed tentative step and cannot expand explicit correction authority.");
         compact.RejectedSteps.Add(new JsonObject { ["step"] = JsonSerializer.SerializeToNode(step, PlanningJsonContext.Default.PlanningConstructionStep),
@@ -28,7 +28,7 @@ internal static partial class PlanningCompactConstruction
                 .Select(r => r.DeepClone()).ToArray()) });
         compact.ReplacementScope = step!.Scope; compact.ReplacementRequirements = step.RequirementIds.ToList();
         construction.DraftCorrections = Math.Max(construction.DraftCorrections, construction.Candidate?.Corrections ?? 0);
-        construction.Candidate = null; construction.CandidateFailureIdentityVersion = null;
+        construction.Candidate = null;
         compact.CurrentStep = null; compact.PendingCommitments.Clear();
         construction.PendingReviewContext = null; construction.PendingReviewHash = null; construction.Evidence = null; construction.EvidenceRequests.Clear();
     }
@@ -41,7 +41,7 @@ internal static partial class PlanningCompactConstruction
         {
             if (!step.RequirementIds.Contains(item.RequirementId, StringComparer.Ordinal) || !step.OperationIds.Contains(item.Operation, StringComparer.Ordinal))
                 PlanningConstruction.Fail("CONSTRUCTION_COMMITMENT_INVALID", "/commitments", "Bind only this step's original requirements and selected exact operations.");
-            if (IsCompactPresentation(state) && item.Result is { } result && !step.OutputNames.Contains(result.Output, StringComparer.Ordinal))
+            if (item.Result is { } result && !step.OutputNames.Contains(result.Output, StringComparer.Ordinal))
                 PlanningConstruction.Fail("CONSTRUCTION_COMMITMENT_INVALID", "/commitments", "A result commitment must name one of this step's explicitly selected public outputs.");
             var obligation = new PlanningCommitment(item.Operation) { Result = item.Result };
             var probe = new PlanningRequirements { Inputs = state.Requirements!.Inputs, Outputs = state.Requirements.Outputs,
@@ -62,7 +62,7 @@ internal static partial class PlanningCompactConstruction
             candidate.Extension.RequirementIds.Any(id => !step.RequirementIds.Contains(id, StringComparer.Ordinal)) ||
             step.CloseRequirementIds.Any(id => !candidate.Extension.RequirementIds.Contains(id, StringComparer.Ordinal)))
             PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/extension", "Keep the selected scope and requirements; a closing requirement must be associated with this fragment.");
-        if (UsesAcceptedProgress(state) && step.Kind == "close" && step.CloseScopes is { } selectedClosure &&
+        if (step.Kind == "close" && step.CloseScopes is { } selectedClosure &&
             (!candidate.Extension.CloseScopes.SequenceEqual(selectedClosure) ||
              candidate.Extension.Complete != selectedClosure.Contains("/root", StringComparer.Ordinal)))
             PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/extension/closeScopes", "Preserve the explicitly selected requirement-only or scope closure and its completion claim.");
@@ -90,8 +90,6 @@ internal static partial class PlanningCompactConstruction
         for (var i = 0; i < candidate.Extension.Choices.Count; i++)
             for (var j = 0; j < candidate.Extension.Choices[i].Alternatives.Count; j++)
                 CheckImport(candidate.Extension.Choices[i].Alternatives[j].Value, "/extension/choices/" + i + "/alternatives/" + j + "/value", step.Scope);
-        if (step.CloseRequirementIds.Any(id => state.Construction!.Requirements.Single(r => r.Id == id).Checkpoints.Count > 0))
-            candidate.NeedsIntermediateReview = true;
         ValidateContinuationBinding(state, candidate);
         ValidateBoundaryTransition(state, candidate);
 
@@ -108,7 +106,6 @@ internal static partial class PlanningCompactConstruction
                 value.Kind is "output" or "present" && !added.Contains(value.Source ?? "") ||
                 value.Kind == "choice" && candidate.Extension.Choices.All(c => c.Id != value.Source))
             {
-                if (IsCompactPresentation(state))
                 {
                     var binding = new JsonObject { ["kind"] = value.Kind };
                     if (value.Source is not null) binding["source"] = value.Source;
@@ -162,7 +159,7 @@ internal static partial class PlanningCompactConstruction
         foreach (var binding in compact.PendingCommitments.Values.SelectMany(c => c).DistinctBy(c => c.Operation))
             if (!selectedOperations.Contains(binding.Operation))
                 yield return new(PlanningCommitments.MissingOperation, "/construction/candidate", "The selected business operation is absent from this draft: " + binding.Operation);
-        if (UsesConvergentConstruction(state) && candidate.AuthorizedPaths is null && !candidate.Extension.Complete)
+        if (candidate.AuthorizedPaths is null && !candidate.Extension.Complete)
         {
             // Direct, current source dispositions bind declarations to an original
             // obligation. Corroborating evidence and shared extraction pages do not.
@@ -184,7 +181,7 @@ internal static partial class PlanningCompactConstruction
         if (compact.Sources.Any(s => s.Kind is "page" or "answer_page" or "revision_page" && !s.Indexed))
             yield return new("CONSTRUCTION_SOURCE_REMAINING", "/construction/compact/sources", "Every original source page must be indexed before completion.");
         foreach (var requirement in state.Construction.Requirements.Where(r => !step.CloseRequirementIds.Contains(r.Id, StringComparer.Ordinal) &&
-            (r.Status != "closed" || !UsesConvergentConstruction(state) && step.Kind != "close" && step.RequirementIds.Contains(r.Id, StringComparer.Ordinal))))
+            (r.Status != "closed")))
             yield return new("CONSTRUCTION_REQUIREMENT_REMAINING", "/requirements/" + requirement.Id,
                 "This original requirement has contributions but has not explicitly closed; continue its business substeps before completion.");
     }
@@ -195,7 +192,7 @@ internal static partial class PlanningCompactConstruction
         state.Requirements = CandidateRequirements(state);
         foreach (var requirement in state.Construction!.Requirements.Where(r => step.RequirementIds.Contains(r.Id, StringComparer.Ordinal)))
             requirement.Status = step.CloseRequirementIds.Contains(requirement.Id, StringComparer.Ordinal) ||
-                requirement.Status == "closed" && (UsesConvergentConstruction(state) || step.Kind == "close") ? "closed" : "in_progress";
+                requirement.Status == "closed" ? "closed" : "in_progress";
         AcceptContinuation(state);
         compact.CurrentStep = null;
         compact.PendingCommitments.Clear();
@@ -206,8 +203,7 @@ internal static partial class PlanningCompactConstruction
     internal static bool SourcesComplete(PlanningSession state)
     {
         var compact = state.Construction?.Compact;
-        if (compact is null || compact.Sources.Count == 0 || compact.CurrentStep is not null || compact.PendingCommitments.Count > 0 ||
-            !CapturedPresentationValid(state) || !IntentDeclarationsComplete(compact) ||
+        if (compact is null || compact.Sources.Count == 0 || compact.CurrentStep is not null || compact.PendingCommitments.Count > 0 || !IntentDeclarationsComplete(compact) ||
             compact.IndexedAnswers != (state.AnswerHistory?.Count ?? 0) || compact.Sources.Any(s => !s.Indexed || s.Version != PlanningGraphCompiler.Fingerprint(s.Text)) ||
             string.Concat(compact.Sources.Where(s => s.Kind is "page" or "revision_page").Select(s => s.Text)) != state.Request.Prompt) return false;
         foreach (var page in compact.Sources.Where(s => s.Kind is "page" or "answer_page" or "revision_page"))
@@ -242,8 +238,7 @@ internal static partial class PlanningCompactConstruction
         if (address.StartsWith("schema:", StringComparison.Ordinal) || address.StartsWith("schema-page:", StringComparison.Ordinal) || address.StartsWith("port-page:", StringComparison.Ordinal) ||
             address.StartsWith("description:", StringComparison.Ordinal) || address.StartsWith("contract:", StringComparison.Ordinal))
         {
-            if (compact.CurrentStep is null && (!UsesConvergentConstruction(state) ||
-                !address.StartsWith("schema:", StringComparison.Ordinal) && !address.StartsWith("schema-page:", StringComparison.Ordinal) &&
+            if (compact.CurrentStep is null && (!address.StartsWith("schema:", StringComparison.Ordinal) && !address.StartsWith("schema-page:", StringComparison.Ordinal) &&
                 !address.StartsWith("port-page:", StringComparison.Ordinal) && !address.StartsWith("description:", StringComparison.Ordinal)))
                 PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Select a business step before inspecting its capability contracts.");
             value = LoadContractEvidence(state, address); return true;
@@ -288,7 +283,6 @@ internal static partial class PlanningCompactConstruction
             value = new JsonObject { ["offset"] = next, ["total"] = state.Requirements.Outcomes.Count,
                 ["items"] = RequirementNodes(state, requirements.Select(r => r.Id)),
                 ["next"] = following < state.Requirements.Outcomes.Count ? "page:requirements:" + following : null };
-            if (IsCompactPresentation(state))
             {
                 compact.RequirementOffset = Math.Max(compact.RequirementOffset, following - 1);
                 compact.RequirementPageRequested = true;
@@ -307,7 +301,7 @@ internal static partial class PlanningCompactConstruction
                 ["items"] = new JsonArray(state.Construction.Checkpoints.Skip(next).Take(4).Select(c => (JsonNode)new JsonObject
                 { ["sequence"] = c.Sequence, ["hash"] = c.PlanHash, ["fragment"] = c.Fragment.DeepClone(),
                     ["step"] = JsonSerializer.SerializeToNode(c.Step, PlanningJsonContext.Default.PlanningConstructionStep) }).ToArray()) };
-            if (UsesConvergentConstruction(state)) value["next"] = next + 4 < state.Construction.Checkpoints.Count ? "page:checkpoints:" + (next + 4) : null;
+            value["next"] = next + 4 < state.Construction.Checkpoints.Count ? "page:checkpoints:" + (next + 4) : null;
             return true;
         }
         return false;

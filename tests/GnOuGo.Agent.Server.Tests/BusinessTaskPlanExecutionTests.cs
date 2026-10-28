@@ -22,7 +22,7 @@ public sealed class BusinessTaskPlanExecutionTests
     [InlineData("omega", "label", true, "empty")]
     [InlineData("alpha", "title", false, "missing")]
     [InlineData("omega", "label", true, "denied")]
-    public async Task FourBusinessTasksGenerateOnceAndWriteAnIndependentlyVerifiedWorkbook(string operation, string field, bool parallel, string variant)
+    public async Task StaticBusinessTasksWriteAnIndependentlyVerifiedWorkbookWithoutPlanningInference(string operation, string field, bool parallel, string variant)
     {
         var ct = TestContext.Current.CancellationToken;
         var root = Directory.CreateTempSubdirectory("gnougo-business-plan-").FullName;
@@ -72,32 +72,13 @@ public sealed class BusinessTaskPlanExecutionTests
                     Body = new() { Tasks = [new() { Id = "extract", Kind = "value", Objective = "Select name and price", Outputs = [new("row", new() { Kind = "object", Members = [new(field, Field(field)), new("cost", Field("cost"))] })] }], Outputs = [new("rows", ProductTransformationPlan.Ref("extract", "row"))] } },
                 new() { Id = "write", Objective = "Write selected rows to Excel", Operation = Id(operation + "_store"), Inputs = [new("rows", ProductTransformationPlan.Ref("products", "rows"))] }
             ], Outputs = [new("workbook", ProductTransformationPlan.Ref("write", "path"))] } };
-            var proposal = new PlanningProposal { Plan = plan, Requirements = new() { Summary = "Search products, extract names and prices, write Excel", Inputs = plan.Inputs,
-                Outputs = [new() { Name = "workbook", Type = new() { Kind = "string" } }], Outcomes = [new("report", "An Excel workbook containing the selected products")] } };
-            var runtime = new LocalProductOutcomeExecutionTests.ProposalRuntime(actual, proposal)
-            {
-                Patch = request =>
-                {
-                    var response = PlanningCorpus.OneDraftResponse(request, proposal)!.AsObject();
-                    if (response["extension"] is JsonObject extension)
-                        extension["closeScopes"] = new JsonArray("/tasks/products/body", "/root");
-                    return response;
-                }
-            };
-            var session = new PlanningSession { Catalog = catalog, Discovery = discovery, Request = new() { TenantId = "local", Prompt = proposal.Requirements.Summary } };
-            session = RetainedVersionOneConstruction.Restore(session);
-            RecordedPlanCompilation.InspectSelected(session, plan);
-            var planner = new HybridWorkflowPlanner();
-            for (var attempt = 0; attempt < 4 && !PlanningStatus.IsWaiting(session.Status) && !PlanningStatus.IsTerminal(session.Status); attempt++)
-                session = await planner.AdvanceAsync(session, new() { ExpectedRevision = session.Revision }, runtime, ct);
-            Assert.True(session.Status == PlanningStatus.FinalReview, string.Join(';', session.Diagnostics.Select(d => d.Message)));
-            Assert.Equal(2, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts); Assert.Null(session.OutcomeBindings); Assert.Null(session.OutcomeVersion);
-            Assert.True(session.Construction!.Complete); Assert.Single(session.Construction.Checkpoints);
-            Assert.Single(runtime.Requests, r => r.StructuredOutputSchema?["properties"]?["extension"] is not null);
-            Assert.Single(runtime.Requests, r => r.StructuredOutputSchema?["properties"]?["findings"] is not null);
-            Assert.All(session.Requirements!.Outcomes, o => Assert.Null(o.Execution));
-            PlanningArtifactApproval.Verify(session);
-            var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(session.Yaml!));
+            var compilation = new TaskPlanCompiler().Compile(plan, catalog);
+            Assert.Empty(compilation.Diagnostics);
+            Assert.NotNull(compilation.Graph);
+            PlanningConfirmationGuards.Apply(compilation.Graph, catalog);
+            var yaml = new PlanningGraphCompiler().Compile(compilation.Graph, catalog);
+            Assert.Empty(calls);
+            var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
             var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject { ["query"] = "requested products" }, ct);
             Assert.Equal(variant is "multiple" or "empty", result.Success);
             if (!result.Success)

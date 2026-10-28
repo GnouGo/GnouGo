@@ -29,7 +29,7 @@ Write YAML workflows that orchestrate LLMs, MCP servers, templates, loops, human
 Core owns `PlanningSession`, reviewable requirements, `TaskPlan`, `PlanningGraph`, typed contracts and provider-neutral planning interfaces. It references no other GnOuGo project. Hosts inject the separately publishable Planning implementation and Integrations persistence boundary.
 
 
-The flow is requirements → progressive discovery → semantic TaskPlan → deterministic compilation → PlanningGraph → YAML → validation → scoped TaskPlan repair → approval. Bounded task revisions preserve unaffected generated stages. Planning format 10 records TaskPlan intent and choices; execution journal schema 9 is unchanged. Generated glue uses literals, references, simple conditions and registered typed primitives. Explicit semantic `transform` tasks declare typed business results and lower to fixed prompt assembly plus strict structured inference; `value` tasks only copy or assemble values. Authored YAML retains its expression language. Runtime confirmation for protected effects is separate from final artifact approval. See [workflow planning](../../docs/workflow-planning-v9.md).
+The flow is requirements → progressive discovery → semantic TaskPlan → deterministic compilation → PlanningGraph → YAML → validation → scoped TaskPlan repair → approval. Bounded task revisions preserve unaffected generated stages. Internal planning format 11 records TaskPlan intent and choices; execution journal schema 9 is unchanged. Generated glue uses literals, references, simple conditions and registered typed primitives. Explicit semantic `transform` tasks declare typed business results and lower to fixed prompt assembly plus strict structured inference; `value` tasks only copy or assemble values. Authored YAML retains its expression language. Runtime confirmation for protected effects is separate from final artifact approval. See [workflow planning](../../docs/workflow-planning-v9.md).
 
 Workflow ports can carry an authoritative `schema` object when shorthand types cannot express a catalog contract. JSON Schema constraints and defaults survive parsing, contract export and runtime input/output validation. Planning derives these ports; the model does not reproduce their schemas.
 
@@ -1320,35 +1320,32 @@ Runs the injected hybrid planner through progressive capability discovery, seman
       reasoning: medium
       max_input_tokens: 32000
       max_output_tokens: 32768
-    business_judge: false
     max_replan_attempts: 4
     llm_budget:
-      max_calls: 12
+      max_calls: 64
       max_total_tokens: 15000000
       max_elapsed_ms: 18000000
       unverifiable: fail
 ```
 
-These are the fresh planning defaults. Explicit `generator`, `max_replan_attempts`
-and `llm_budget.max_calls` values override them; financial, elapsed-time and cumulative
-token allowances are unchanged. Resume uses the saved definition, including historical
-omissions, and rejects explicitly changed settings rather than silently migrating the
-session. Sparse historical request JSON retains eight calls, two repairs and
-12,000 input / 8,192 output tokens.
+These are the fresh planning defaults. Explicit generation settings and stricter
+host or deployment limits prevail; financial, elapsed-time and cumulative token
+allowances remain enforced. Captured phase settings distinguish presentation targets
+from complete-request hard ceilings. Current-format recovery uses exact saved requests,
+receipts and cumulative accounting. Older planning sessions are rejected unchanged.
 
-Fresh incremental sessions capture `planning_transport_policy` in their existing
-options. Its source-generated `PlanningTransportPolicy` permits up to three journaled
-attempts after confirmed transient HTTP responses and no uncertain replay. The original
-request is synchronous, and `RequiredReviewCalls` records remaining mandatory review
-headroom before hashing. These settings grant no execution authority; hosts must reserve
-each physical attempt within the existing cumulative allowances. Historical option and
-request-field omissions retain their previous bytes and behavior.
+Fresh sessions capture a source-generated `planning_transport_policy` before dispatch.
+It permits at most three journaled attempts after confirmed transient HTTP responses,
+with no uncertain replay. Tool-free synchronous requests reserve each physical attempt
+and mandatory-review headroom before dispatch. Failed attempts without verified usage
+retain their reservations.
 
-`business_judge: true` opts a new session into an independent advisory review using the
-same model before FinalReview. It shares the existing journal and allowances and grants
-no permissions or new repair scope. Findings without existing explicit revision authority
-require revision; skipped or inconclusive review is never success. Deterministic validation,
-explicit requirement acknowledgments and artifact approval remain authoritative.
+Business review is mandatory. Incremental technical checkpoints can await review of a
+coherent business block; every completed workflow receives global review before artifact
+approval. A small completed workflow can use one global review and no local reviews.
+The short verdict is `ok`, `needs_change` or `needs_context`; missing evidence cannot
+silently approve work or authorize a repair. Artifact approval and runtime confirmations
+remain separate execution authorities. There is no optional Judge-disable setting.
 
 New planning and mapping requests require declared model support for Structured Output,
 configured settings and an input allowance after output reservation. The full serialized
@@ -1356,7 +1353,7 @@ request must fit the smaller configured/model limit; unknown necessary metadata 
 before dispatch. Token estimates and independent-extraction byte bounds are labelled
 separately. Recovery reuses completed receipts and preserves issued requests.
 
-Interactive planning presents typed `PlanningChoice` alternatives with a recommendation through `IPlanningInteraction`; Auto selects validated recommendations without another model call. Choices cannot expand execution permissions or budgets. Runtime `human.input` and final approval remain separate. Planning format 10 rejects earlier saved approvals with instructions to regenerate and approve; old encrypted records are untouched and execution journals remain schema 9.
+Interactive planning presents typed `PlanningChoice` alternatives with a recommendation through `IPlanningInteraction`; Auto selects validated recommendations without another model call. Choices cannot expand execution permissions or budgets. Runtime `human.input` and final approval remain separate. Internal planning format 11 rejects older sessions unchanged; callers must generate a fresh session and approve its artifact; old encrypted records are untouched and execution journals remain schema 9.
 
 Results include status, session ID and revision. Approved results also include artifact hash and YAML obtained from trusted storage. Without a human provider, planning pauses for the host to collect review or clarification. [Architecture and persistence](../../docs/workflow-planning-v9.md).
 

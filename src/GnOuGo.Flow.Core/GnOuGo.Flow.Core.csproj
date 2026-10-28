@@ -7,7 +7,7 @@
     <IsAotCompatible>true</IsAotCompatible>
     <IsPackable>true</IsPackable>
     <PackageId>GnOuGo.Flow.Core</PackageId>
-    <PackageReleaseNotes>Breaking numeric migration: remove NumericTransformExecutor and number.add/multiply/default; workflow arithmetic uses JavaScript Number. Numeric literal APIs use double. Optional decimal MCP annotations enable validated numeric boundary conversions; saved workflows require explicit revision. Planning format 10 and journals remain unchanged.</PackageReleaseNotes>
+    <PackageReleaseNotes>Internal planning format 11 replaces retired planning sessions without migration. Preserve one TaskPlan, typed contracts, exact physical-attempt accounting, encrypted archives and independent runtime approval. Runtime journal schema 9 and JavaScript Number semantics remain unchanged.</PackageReleaseNotes>
     <Authors>GnOuGo</Authors>
     <Company>GnOuGo</Company>
     <Description>NativeAOT-compatible YAML workflow DSL engine for orchestrating LLMs, MCP servers, templates, loops, and human input.</Description>

@@ -168,12 +168,11 @@ internal static partial class PlanningConstruction
         }
         foreach (var checkpoint in construction.Checkpoints)
         {
-            var removed = (construction.Version == 2 ? checkpoint.TaskIds.Concat(checkpoint.ImportedTaskIds) : checkpoint.TaskIds).Where(invalid.Contains).ToArray();
+            var removed = (checkpoint.TaskIds.Concat(checkpoint.ImportedTaskIds)).Where(invalid.Contains).ToArray();
             if (removed.Length == 0) continue;
             checkpoint.InvalidatedTaskIds = checkpoint.InvalidatedTaskIds.Concat(removed).Distinct(StringComparer.Ordinal).ToList();
             foreach (var requirement in construction.Requirements.Where(r => checkpoint.RequirementIds.Contains(r.Id, StringComparer.Ordinal))) requirement.Status = "remaining";
         }
-        if (construction.Version == 2)
         {
             var reopened = construction.Requirements.Where(r => r.Status == "remaining").Select(r => r.Id).ToHashSet(StringComparer.Ordinal);
             foreach (var checkpoint in construction.Checkpoints.Where(c => c.ClosedRequirementIds?.Any(reopened.Contains) == true))
@@ -182,7 +181,7 @@ internal static partial class PlanningConstruction
         foreach (var id in invalid)
             if (!construction.RebuildTasks.Any(t => t.Id == id)) construction.RebuildTasks.Add(originalSnapshot.Tasks[id].Task);
         state.Plan = plan; construction.OpenScopes = open.OrderByDescending(p => p.Count(c => c == '/')).ThenBy(p => p, StringComparer.Ordinal).ToList();
-        construction.Complete = false; construction.CandidateFailureIdentityVersion = null;
+        construction.Complete = false;
         construction.Evidence = null; construction.EvidenceRequests.Clear();
         construction.PendingReviewContext = null; construction.PendingReviewHash = null;
         if (construction.Compact is { } compact)

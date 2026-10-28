@@ -31,8 +31,8 @@ public sealed partial class LocalProductOutcomeExecutionTests
         var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
         var catalog = await RetainedCatalog(runtime, TestContext.Current.CancellationToken); catalog.Policy.RequireExternalConfirmation = false;
         var retained = DesignerRetained(catalog); var corrected = DesignerCorrected(catalog);
-        Assert.True(JsonNode.DeepEquals(JsonSerializer.SerializeToNode(DesignerFixture(catalog, "corrected"), PlanningJsonContext.Default.PlanningProposal),
-            JsonSerializer.SerializeToNode(corrected, PlanningJsonContext.Default.PlanningProposal)));
+        Assert.True(JsonNode.DeepEquals(JsonSerializer.SerializeToNode(DesignerFixture(catalog, "corrected"), PlanningFixtureJsonContext.Default.TaskPlanFixture),
+            JsonSerializer.SerializeToNode(corrected, PlanningFixtureJsonContext.Default.TaskPlanFixture)));
         var diagnostics = new TaskPlanCompiler().Compile(retained.Plan!, catalog).Diagnostics;
         Assert.Contains(diagnostics, d => d.Code == "TASK_TRANSFORM_EACH" && d.Location == "/tasks/extract_choices/each");
         Assert.Contains(diagnostics, d => d.Code == "TASK_LOOKUP_INVALID" && d.Location == "/tasks/visit/body/outputs/record");
@@ -46,7 +46,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
         if (Environment.GetEnvironmentVariable("GNOU_GO_DESIGNER_EVIDENCE") is { Length: > 0 } folder)
         {
             Directory.CreateDirectory(folder);
-            File.WriteAllText(Path.Combine(folder, "corrected-proposal.json"), JsonSerializer.Serialize(corrected, PlanningJsonContext.Default.PlanningProposal));
+            File.WriteAllText(Path.Combine(folder, "corrected-proposal.json"), JsonSerializer.Serialize(corrected, PlanningFixtureJsonContext.Default.TaskPlanFixture));
             File.WriteAllText(Path.Combine(folder, "corrected.yaml"), session.Yaml);
         }
     }
@@ -97,7 +97,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
         Assert.True(result.Success, result.Error?.Message); Assert.Equal(destination is null ? "absent" : "visited", result.Outputs!["record"]!.ToString());
     }
 
-    private static void AssertDesignerBusinessPreserved(PlanningProposal retained, PlanningProposal corrected)
+    private static void AssertDesignerBusinessPreserved(TaskPlanFixture retained, TaskPlanFixture corrected)
     {
         Assert.Equal(JsonSerializer.Serialize(retained.Requirements!.Inputs, PlanningJsonContext.Default.ListTaskInput),
             JsonSerializer.Serialize(corrected.Requirements!.Inputs, PlanningJsonContext.Default.ListTaskInput));
@@ -120,69 +120,32 @@ public sealed partial class LocalProductOutcomeExecutionTests
     }
 
     private static async Task<PlanningSession> DesignerRevision(PlanningCatalog catalog, WorkflowPlanningRuntime runtime,
-        PlanningProposal corrected, CancellationToken ct, string? origin = null, bool approval = false)
+        TaskPlanFixture corrected, CancellationToken ct, string? origin = null, bool approval = false)
     {
-        var planner = new HybridWorkflowPlanner(); var retained = approval ? ApprovalRetained(catalog) : DesignerRetained(catalog, origin);
-        void AssertPreserved(PlanningProposal revised) { if (approval) AssertApprovalBusinessPreserved(retained, revised); else AssertDesignerBusinessPreserved(retained, revised); }
-        AssertPreserved(corrected);
-        var initialAdapter = new ProposalRuntime(runtime, retained);
-        var seed = GnOuGo.Planning.Examples.PlanningCorpus.RetainedSession(new PlanningSession { Catalog = catalog, Request = new() { TenantId = "local", Name = "designer-offline",
-            Prompt = retained.Requirements!.Summary, Policy = new() { RequireExternalConfirmation = false },
-            Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } });
-        seed.Discovery.Sources = (await runtime.Capabilities.ListSourcesAsync(ct)).ToList();
-        foreach (var capabilitySource in seed.Discovery.Sources)
-            seed.Discovery.Pages.Add(await runtime.Capabilities.ListAsync(capabilitySource.Id, null, ct));
-        var state = await planner.AdvanceAsync(seed, new(), initialAdapter, ct);
-        Assert.Equal(approval ? PlanningStatus.FinalReview : PlanningStatus.Stopped, state.Status); Assert.Single(initialAdapter.Requests);
-        if (!approval) Assert.Contains(state.Diagnostics, d => d.Code == "REVISION_REQUIRED"); Assert.Equal(0, state.ReplanAttempts);
-        var saved = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
-        var copy = JsonSerializer.Deserialize(saved, PlanningJsonContext.Default.PlanningSession)!;
-        var adapter = new ProposalRuntime(runtime, corrected);
-        await Assert.ThrowsAsync<PlanningConflictException>(() => planner.AdvanceAsync(copy, new() { Kind = "revise", ExpectedRevision = copy.Revision - 1,
-            Text = "Stale revision must fail before any call." }, adapter, ct));
-        Assert.Empty(adapter.Requests);
-        copy = await planner.AdvanceAsync(copy, new() { Kind = "revise", ExpectedRevision = copy.Revision, ArtifactHash = copy.ComputeArtifactHash(),
-            PreserveRequirements = false, Text = approval ? "Correct data adaptation; preserve both previous outcomes, the article input, direct search, ordered first ten visits and exact three-column workbook. Add only Browser cleanup; explicitly remove status.rowCountIncludingHeader and status.dataRowCount. Bind the accepted destination and headers literally; all remaining status fields come from the successful writer. Use complete per-page extraction, compact ID decisions, offered/original lookup, exact descriptions and deterministic rows." : "Correct only data adaptation and the URL conditional. Preserve every previous requirement, input, output, external operation, literal argument and destination. Add only the explicitly requested Browser cleanup requirement and existing finalizer. Use complete pages, compact ID decisions, strict offered/original lookup, exact observed blocks and deterministic structured rows." }, adapter, ct);
-        Assert.Null(copy.ApprovedHash); Assert.Null(copy.Yaml); Assert.Null(copy.EditablePaths);
-        Assert.Equal(state.ModelCalls, copy.ModelCalls); Assert.True(copy.ActiveMilliseconds >= state.ActiveMilliseconds);
-        var close = catalog.Capabilities.Single(c => c.Method == "browser_close");
-        var source = copy.Discovery.Pages.First(p => p.Capabilities.Any(c => c.Name == "browser_get_content")).SourceId;
-        adapter.Patch = _ => JsonSerializer.SerializeToNode(new PlanningProposal {
-            Requirements = corrected.Requirements, DiscoveryRequests = [new(source, Query: "browser_close")]
-        }, PlanningJsonContext.Default.PlanningProposal)!.AsObject();
-        copy = await planner.AdvanceAsync(copy, new() { ExpectedRevision = copy.Revision }, adapter, ct);
-        Assert.Empty(copy.Diagnostics); Assert.Null(copy.Plan);
-        var summary = copy.Discovery.Pages.SelectMany(p => p.Capabilities).First(c => c.Id == close.Id);
-        adapter.Patch = _ => JsonSerializer.SerializeToNode(new PlanningProposal {
-            Requirements = corrected.Requirements, DiscoveryRequests = [new(summary.SourceId, OperationIds: [summary.Operation!.Id])]
-        }, PlanningJsonContext.Default.PlanningProposal)!.AsObject();
-        copy = await planner.AdvanceAsync(copy, new() { ExpectedRevision = copy.Revision }, adapter, ct);
-        Assert.Empty(copy.Diagnostics); Assert.Null(copy.Plan);
-        adapter.Patch = null;
-        copy = await planner.AdvanceAsync(copy, new() { ExpectedRevision = copy.Revision }, adapter, ct);
-        Assert.True(copy.Status == PlanningStatus.FinalReview, string.Join('\n', copy.Diagnostics));
-        Assert.Equal(3, adapter.Requests.Count); Assert.Equal(state.ModelCalls + 3, copy.ModelCalls); Assert.Equal(0, copy.ReplanAttempts);
-        AssertPreserved(new() { Requirements = copy.Requirements, Plan = copy.Plan });
-        Assert.Equal(saved, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
-        var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(copy, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
-        restored = await planner.AdvanceAsync(restored, new() { ExpectedRevision = restored.Revision }, adapter, ct);
-        Assert.Equal(3, adapter.Requests.Count); Assert.Equal(copy.Yaml, restored.Yaml);
-        return copy;
+        var original = approval ? ApprovalRetained(catalog) : DesignerRetained(catalog, origin);
+        if (approval) AssertApprovalBusinessPreserved(original, corrected); else AssertDesignerBusinessPreserved(original, corrected);
+        ct.ThrowIfCancellationRequested();
+        await Task.CompletedTask;
+        var result = RecordedPlanCompilation.CompileStatic(corrected, catalog, new()
+        { TenantId = "local", Prompt = corrected.Requirements!.Summary, Policy = new() { RequireExternalConfirmation = false },
+            Options = new() { ["compilation_profile"] = "compact-bindings-v15", ["mapping_profile"] = "adaptive-each-v1" } });
+        Assert.True(result.Status == PlanningStatus.FinalReview, string.Join(';', result.Diagnostics));
+        Assert.Null(result.ApprovedHash); Assert.Equal(0, result.ModelCalls);
+        return result;
     }
+    private static TaskPlanFixture DesignerRetained(PlanningCatalog catalog, string? origin = null) => DesignerFixture(catalog, "retained", origin);
 
-    private static PlanningProposal DesignerRetained(PlanningCatalog catalog, string? origin = null) => DesignerFixture(catalog, "retained", origin);
-
-    private static PlanningProposal DesignerFixture(PlanningCatalog catalog, string name, string? origin = null)
+    private static TaskPlanFixture DesignerFixture(PlanningCatalog catalog, string name, string? origin = null)
     {
         var proposal = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,
-            "Fixtures", "DesignerComposition", name + ".json")), PlanningJsonContext.Default.PlanningProposal)!;
+            "Fixtures", "DesignerComposition", name + ".json")), PlanningFixtureJsonContext.Default.TaskPlanFixture)!;
         foreach (var task in RetainedTasks(proposal.Plan!.Root).Where(t => t.Kind == "operation"))
             task.Operation = TaskOperations.Describe(catalog.Capabilities.Single(c => c.Method == task.Operation)).Id;
         if (origin is not null) proposal.Plan.Root.Tasks.Single(t => t.Id == "open_catalogue").Inputs.Single(i => i.Name == "url").Value.Text = origin + "/";
         return proposal;
     }
 
-    private static PlanningProposal DesignerCorrected(PlanningCatalog catalog, string? origin = null)
+    private static TaskPlanFixture DesignerCorrected(PlanningCatalog catalog, string? origin = null)
     {
         var proposal = DesignerRetained(catalog, origin);
         var original = RetainedTasks(proposal.Plan!.Root).ToDictionary(t => t.Id);

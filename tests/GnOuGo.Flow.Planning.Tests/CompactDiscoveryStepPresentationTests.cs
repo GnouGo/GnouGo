@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
@@ -47,19 +48,6 @@ public sealed class CompactDiscoveryStepPresentationTests
         Assert.Equal(retained, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
     }
 
-    [Theory]
-    [InlineData(null)]
-    [InlineData(1)]
-    public void HistoricalPresentationKeepsEverySerializedStepField(int? version)
-    {
-        var state = State();
-        state.Construction!.Compact!.PresentationVersion = version;
-        var original = Node(state.Construction.Compact.CurrentStep!);
-        var context = PlanningCompactConstruction.DiscoveryContext(state);
-        Assert.True(JsonNode.DeepEquals(original, context["step"]));
-        Assert.True(context["step"]!["inputs"]![0]!.AsObject().ContainsKey("number"));
-        Assert.NotNull(context["step"]!["baseHash"]);
-    }
 
     [Fact]
     public void LongOriginalRequirementsFitTheCompleteDiscoveryEnvelopeWithoutTruncation()
@@ -68,14 +56,15 @@ public sealed class CompactDiscoveryStepPresentationTests
         var retained = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
         var context = PlanningCompactConstruction.DiscoveryContext(state);
         var compact = Complete(state, context);
-        var compactMeasurement = PlanningRequestMeasurements.Measure(compact, PlanningCompactConstruction.DiscoveryPurpose, 3000);
+        var limit = PlanningConstructionInputPolicy.EffectiveLimit(state.Request, PlanningCompactConstruction.DiscoveryPurpose);
+        var compactMeasurement = PlanningRequestMeasurements.Measure(compact, PlanningCompactConstruction.DiscoveryPurpose, limit);
         var fullContext = context.DeepClone().AsObject();
         fullContext["step"] = Node(state.Construction!.Compact!.CurrentStep!);
         var fullMeasurement = PlanningRequestMeasurements.Measure(Complete(state, fullContext),
-            PlanningCompactConstruction.DiscoveryPurpose, 3000);
-        Assert.True(fullMeasurement.EstimatedInputTokens > 3000,
-            $"Full selected-step request should reproduce excess: {fullMeasurement.EstimatedInputTokens}.");
-        Assert.True(compactMeasurement.EstimatedInputTokens <= 3000,
+            PlanningCompactConstruction.DiscoveryPurpose, limit);
+        Assert.True(fullMeasurement.EstimatedInputTokens > compactMeasurement.EstimatedInputTokens,
+            $"Selected-step projection must remove duplicated authority metadata: {fullMeasurement.EstimatedInputTokens}/{compactMeasurement.EstimatedInputTokens}.");
+        Assert.True(compactMeasurement.EstimatedInputTokens <= limit,
             $"Complete compact request is {compactMeasurement.CompleteRequestBytes} bytes/{compactMeasurement.EstimatedInputTokens} tokens; " +
             string.Join(", ", compactMeasurement.Components.Select(component => $"{component.Component}={component.SerializedBytes}")));
         Assert.Equal(compactMeasurement.CompleteRequestBytes, compactMeasurement.Components.Sum(component => component.SerializedBytes));
@@ -95,7 +84,8 @@ public sealed class CompactDiscoveryStepPresentationTests
         var context = PlanningCompactConstruction.DiscoveryContext(state);
         context["step"] = Node(state.Construction.Compact.CurrentStep);
         var issued = Complete(state, context);
-        Assert.InRange(PlanningRequestMeasurements.Measure(issued, PlanningCompactConstruction.DiscoveryPurpose, 3000).EstimatedInputTokens, 1, 3000);
+        var limit = PlanningConstructionInputPolicy.EffectiveLimit(state.Request, PlanningCompactConstruction.DiscoveryPurpose);
+        Assert.InRange(PlanningRequestMeasurements.Measure(issued, PlanningCompactConstruction.DiscoveryPurpose, limit).EstimatedInputTokens, 1, limit);
         state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = issued };
         state.ModelCalls = 1;
         var saved = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
@@ -105,6 +95,8 @@ public sealed class CompactDiscoveryStepPresentationTests
             ["operationIds"] = null, ["discoveryRequests"] = null, ["clarifications"] = null,
             ["reselectStep"] = null, ["evidenceRequests"] = new JsonArray("page:sources:0")
         } };
+        receipt.Json = PlanningCorpus.Transport(receipt.Json!.AsObject(), issued.StructuredOutputSchema!.AsObject(), issued.StructuredOutputSchema.AsObject());
+        Assert.Empty(PlanningModelCalls.ValidateResponseFindings(receipt.Json, issued.StructuredOutputSchema.AsObject()));
         var runtime = new TestRuntime { Respond = (request, purpose) =>
         {
             Assert.Equal(PlanningCompactConstruction.DiscoveryPurpose, purpose);
@@ -130,15 +122,10 @@ public sealed class CompactDiscoveryStepPresentationTests
 
     private static LLMRequest Complete(PlanningSession state, JsonObject context)
     {
-        var presentation = PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryInstructions,
+        var presentation = PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state),
             context, PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose);
-        return PlanningGenerationPolicy.Apply(new()
-        {
-            Prompt = presentation.Prompt, StructuredOutputSchema = presentation.StructuredOutputSchema,
-            StructuredOutputStrict = true, UseBackgroundMode = true, MaxTokens = 8192,
-            Provider = "OpenAi", Model = "gpt-5.5-2026-04-24",
-            ClientRequestId = "compact-discovery-presentation:5:" + new string('a', 64)
-        }, state.Request.Generation);
+        return PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.DiscoveryPurpose,
+            presentation.Prompt, presentation.StructuredOutputSchema!.AsObject(), 8192);
     }
 
     private static PlanningSession State()
@@ -147,21 +134,18 @@ public sealed class CompactDiscoveryStepPresentationTests
         var global = string.Concat(Enumerable.Repeat("Use only the authorized local workspace and preserve original provenance. ", 7));
         var state = new PlanningSession
         {
-            IntentVersion = 3,
             Request = new()
             {
                 TenantId = "compact-discovery-presentation", SessionId = "compact-discovery-presentation",
                 Prompt = requirement + global, Generation = new("medium", 32000, 8192),
-                Policy = new() { Instructions = "Never expand permissions." },
-                Options = new() { ["construction_version"] = 2, ["construction_presentation_version"] = 2 }
+                Policy = new() { Instructions = "Never expand permissions." }
             },
             Requirements = new() { Outcomes = [new("req_exact", requirement)] },
             Construction = new()
             {
-                Version = 2, Requirements = [new() { Id = "req_exact" }],
+                Requirements = [new() { Id = "req_exact" }],
                 Compact = new()
                 {
-                    PresentationVersion = 2,
                     Sources = [new() { Id = "source_requirement", Version = new string('b', 64), Text = requirement },
                         new() { Id = "source_global", Version = new string('c', 64), Text = global }],
                     RequirementSources = new() { ["req_exact"] = ["source_requirement"] },
@@ -184,6 +168,6 @@ public sealed class CompactDiscoveryStepPresentationTests
                     new("provider_" + new string('f', 24), new string('Q', 192))]
             }
         };
-        return state;
+        return PlannerFixture.Capture(state);
     }
 }

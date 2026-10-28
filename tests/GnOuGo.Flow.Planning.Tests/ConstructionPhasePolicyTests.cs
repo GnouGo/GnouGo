@@ -16,13 +16,13 @@ public sealed class ConstructionPhasePolicyTests
     [InlineData("construction_draft", 8000, 16000, 8192)]
     [InlineData("replan", 8000, 16000, 8192)]
     [InlineData("construction_local_judge", 4000, 8000, 2048)]
-    [InlineData("construction_intermediate_judge", 4000, 8000, 2048)]
+    [InlineData("construction_global_judge", 4000, 8000, 2048)]
     public void FreshCaptureSeparatesPresentationTargetFromCompleteRequestCeiling(string purpose, int target, int maximum, int output)
     {
         var state = new PlanningSession();
         PlanningSessionCreation.Capture(state);
         var settings = PlanningConstructionPhasePolicies.Resolve(state.Request, purpose);
-        Assert.True(PlanningConstructionPhasePolicies.IsFresh(state.Request));
+        Assert.NotNull(state.Construction!.Limits.PhasePolicy);
         Assert.Equal(target, settings.TargetInputTokens);
         Assert.Equal(maximum, settings.MaxInputTokens);
         Assert.Equal(output, settings.OutputTokens);
@@ -30,31 +30,18 @@ public sealed class ConstructionPhasePolicyTests
         Assert.Equal("medium", settings.Reasoning);
     }
 
-    [Fact]
-    public void HistoricalAbsenceKeepsLimitsSerializationAndIssuedRequest()
-    {
-        var state = JsonSerializer.Deserialize("""{"request":{"options":{"construction_version":2}}}""",
-            PlanningJsonContext.Default.PlanningSession)!;
-        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
-        PlanningSessionCreation.Capture(state);
-        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
-        Assert.False(PlanningConstructionPhasePolicies.IsFresh(state.Request));
-        Assert.Equal(3000, PlanningConstructionInputPolicy.EffectiveLimit(state.Request, "construction_select"));
-        Assert.DoesNotContain("phasePolicy", JsonSerializer.Serialize(new PlanningConstructionOptions(), PlanningJsonContext.Default.PlanningConstructionOptions));
-        var request = new LLMRequest { MaxTokens = 123, Prompt = "retained" };
-        PlanningConstructionPhasePolicies.Apply(request, state.Request, "construction_select");
-        Assert.Equal(123, request.MaxTokens);
-    }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void ExplicitTighterHostInputsRemainHardCeilings(bool explicitProfile)
+    [Fact]
+    public void ExplicitTighterCapturedPhaseInputsRemainHardCeilings()
     {
         var state = new PlanningSession { Construction = new() { Limits = new()
         {
-            InputLimits = new() { Selection = 2_000, Draft = 4_000, Review = 1_000 },
-            PhasePolicy = explicitProfile ? new() : null
+            PhasePolicy = new()
+            {
+                Navigation = new() { TargetInputTokens = 2_000, MaxInputTokens = 2_000 },
+                Draft = new() { TargetInputTokens = 4_000, MaxInputTokens = 4_000 },
+                Review = new() { TargetInputTokens = 1_000, MaxInputTokens = 1_000 }
+            }
         } } };
         PlanningSessionCreation.Capture(state);
         foreach (var (purpose, maximum) in new[] { ("construction_select", 2_000), ("construction_draft", 4_000), ("construction_local_judge", 1_000) })
@@ -93,9 +80,8 @@ public sealed class ConstructionPhasePolicyTests
     [InlineData("""{"version":1,"navigation":{},"draft":{},"review":{}}""")]
     public void PresentMalformedOrUnsupportedPolicyNeverFallsBack(string value)
     {
-        var request = new PlanningRequest { Options = new() { ["construction_version"] = 2,
-            ["construction_limits"] = new JsonObject { ["phasePolicy"] = JsonNode.Parse(value) } } };
-        Assert.Throws<PlanningConflictException>(() => PlanningConstructionPhasePolicies.IsFresh(request));
+        var request = new PlanningRequest { Options = new() { ["construction_limits"] = new JsonObject { ["phasePolicy"] = JsonNode.Parse(value) } } };
+        Assert.Throws<PlanningConflictException>(() => PlanningConstructionPhasePolicies.Resolve(request, "construction_select"));
         Assert.Throws<PlanningConflictException>(() => PlanningConstructionInputPolicy.EffectiveLimit(request, "construction_select"));
     }
 

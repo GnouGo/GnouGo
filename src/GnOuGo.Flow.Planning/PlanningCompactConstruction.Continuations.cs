@@ -12,7 +12,7 @@ internal static partial class PlanningCompactConstruction
 
     internal static void ConstrainReselectionSchema(PlanningSession state, JsonObject schema)
     {
-        if (!UsesConvergentConstruction(state) || schema["properties"]?["reselectStep"] is not JsonObject previous ||
+        if (schema["properties"]?["reselectStep"] is not JsonObject previous ||
             previous["type"]?.ToString() == "null") return;
         var alternatives = new JsonArray(PlanningSchemas.Object(("reason", Text(512)),
             ("disposition", PlanningSchemas.Enum("abandon")), ("prerequisite", PlanningSchemas.Type("null"))));
@@ -23,7 +23,7 @@ internal static partial class PlanningCompactConstruction
         {
             var definitions = schema["$defs"] as JsonObject ?? new JsonObject();
             if (schema["$defs"] is null) schema["$defs"] = definitions;
-            var originals = IntentSchema(new())["$defs"]!.AsObject();
+            var originals = InterfaceTypeDefinitions();
             var names = new Dictionary<string, string>(StringComparer.Ordinal)
                 { ["type"] = "continuationType", ["input"] = "continuationField", ["literal"] = "continuationLiteral" };
             foreach (var (oldName, name) in names)
@@ -44,36 +44,16 @@ internal static partial class PlanningCompactConstruction
 
     internal static PlanningConstructionReselection ReadReselection(PlanningSession state, JsonNode value, JsonNode issuedSchema)
     {
-        var structured = ReselShapes(issuedSchema["properties"]?["reselectStep"], issuedSchema, new HashSet<string>(StringComparer.Ordinal))
-            .Any(shape => shape["properties"]?["disposition"] is not null);
-        if (!structured)
-        {
-            if (value is not JsonValue scalar || !scalar.TryGetValue<string>(out var reason))
-                PlanningConstruction.Fail("CONSTRUCTION_RESELECTION_INVALID", "/reselectStep", "Use the exact issued reselection contract.");
-            return new() { Reason = value.GetValue<string>(), Disposition = "legacy" };
-        }
-        if (!UsesConvergentConstruction(state) || value is not JsonObject)
-            PlanningConstruction.Fail("CONSTRUCTION_RESELECTION_INVALID", "/reselectStep", "The captured presentation does not authorize structured reselection.");
+        if (value is not JsonObject || issuedSchema["properties"]?["reselectStep"] is not JsonObject)
+            PlanningConstruction.Fail("CONSTRUCTION_RESELECTION_INVALID", "/reselectStep", "Use the issued structured reselection action.");
         return value.Deserialize(PlanningJsonContext.Default.PlanningConstructionReselection)!;
-    }
-
-    private static IEnumerable<JsonObject> ReselShapes(JsonNode? node, JsonNode root, HashSet<string> visited)
-    {
-        if (node is not JsonObject obj) yield break;
-        yield return obj;
-        if (obj["$ref"]?.ToString() is { } reference && reference.StartsWith("#/", StringComparison.Ordinal) && visited.Add(reference))
-            foreach (var shape in ReselShapes(PlanningSchemaReferences.Read(root, reference[1..]), root, visited)) yield return shape;
-        if (obj["anyOf"] is JsonArray alternatives)
-            foreach (var alternative in alternatives)
-                foreach (var shape in ReselShapes(alternative, root, visited)) yield return shape;
     }
 
     internal static void Reselect(PlanningSession state, PlanningConstructionReselection decision)
     {
         // CallAsync owns string bounds under the issued schema's convention.
-        if (decision.Disposition == "legacy") { Reselect(state, decision.Reason); return; }
         var construction = state.Construction!; var compact = State(state); var step = compact.CurrentStep;
-        if (!UsesConvergentConstruction(state) || step is null || decision.Disposition is not ("suspend" or "abandon") ||
+        if (step is null || decision.Disposition is not ("suspend" or "abandon") ||
             string.IsNullOrWhiteSpace(decision.Reason) ||
             (decision.Disposition == "suspend") != (decision.Prerequisite is not null))
             PlanningConstruction.Fail("CONSTRUCTION_RESELECTION_INVALID", "/reselectStep", "Explicitly abandon this selection or suspend it for one evidenced typed prerequisite.");
@@ -128,17 +108,16 @@ internal static partial class PlanningCompactConstruction
     {
         var construction = state.Construction!; var compact = State(state);
         var item = compact.SuspendedSteps?.LastOrDefault(Active);
-        if (!UsesConvergentConstruction(state) || state.PendingCall is not null || construction.Candidate is not null || compact.CurrentStep is not null ||
+        if (state.PendingCall is not null || construction.Candidate is not null || compact.CurrentStep is not null ||
             item is null || item.Id != continuationId || item.Status != "waiting" || !ContinuationCurrent(state, item) ||
             compact.ReplacementScope is not null)
             PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_INVALID", "/resumeStep", "Resume only the current retained consumer after its prerequisite has been accepted.");
         var leaf = binding;
         while (leaf.Kind == "field" && leaf.Items.Count == 1) leaf = leaf.Items[0];
         if (leaf.Kind is not ("output" or "present") || leaf.Source is null ||
-            (UsesAcceptedProgress(state) ? producerCheckpoint < 1 : producerCheckpoint <= item!.SuspendedAtCheckpoint) ||
+            producerCheckpoint < 1 ||
             producerCheckpoint > construction.Checkpoints.Count)
-            PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_INVALID", "/resumeStep/binding", UsesAcceptedProgress(state)
-                ? "Select an exact current accepted producer and its owning checkpoint." : "Select an exact accepted producer from a checkpoint after suspension.");
+            PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_INVALID", "/resumeStep/binding", "Select an exact current accepted producer and its owning checkpoint.");
         var checkpoint = construction.Checkpoints[producerCheckpoint - 1];
         var symbols = new TaskPlanSymbols(state.Plan!);
         var producerExists = symbols.Tasks.TryGetValue(leaf.Source!, out var producer);
@@ -146,7 +125,7 @@ internal static partial class PlanningCompactConstruction
             !checkpoint.TaskIds.Contains(leaf.Source!, StringComparer.Ordinal) && !checkpoint.ClosedScopes.Any(path =>
                 symbols.Scopes.Any(scope => scope.Path == path && scope.Owner?.Id == leaf.Source)))
             PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_INVALID", "/resumeStep/producerCheckpoint", "The selected checkpoint must own the accepted producer or its completed container boundary.");
-        if (UsesAcceptedProgress(state) && !CheckpointProducerCurrent(state, checkpoint, leaf.Source!))
+        if (!CheckpointProducerCurrent(state, checkpoint, leaf.Source!))
             PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_INVALID", "/resumeStep/producerCheckpoint", "The owning checkpoint must retain this producer's current accepted content and completed boundary.");
         var imported = CloneStep(item!.Consumer); imported.Inputs = [binding];
         var interfaces = ImportedInterfaces(state, imported);
@@ -159,13 +138,6 @@ internal static partial class PlanningCompactConstruction
             PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_LIMIT", "/resumeStep/binding", "The resumed consumer exceeds its existing eight selected-input bound.");
         // The exact need remains on the continuation for the consumer's review.
         // Duplicating it as a note can overflow the restored consumer's four slots.
-        // Historical presentations retain their original reconstruction.
-        if (compact.PresentationVersion is not (10 or 11))
-        {
-            resumed.Prerequisites ??= [];
-            if (!resumed.Prerequisites.Any(need => need.Need == item.Prerequisite.Need && need.EvidenceAddresses.SequenceEqual(item.Prerequisite.EvidenceAddresses)))
-                resumed.Prerequisites.Add(new() { Need = item.Prerequisite.Need, EvidenceAddresses = item.Prerequisite.EvidenceAddresses.ToList() });
-        }
         // Validate on an isolated session because exact cached evidence may have left the current presentation.
         var probe = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
         var retained = compact.RejectedSteps[item.RejectedStepIndex]["evidence"] as JsonObject;
@@ -184,12 +156,11 @@ internal static partial class PlanningCompactConstruction
 
     internal static JsonObject? ContinuationContext(PlanningSession state)
     {
-        if (!UsesConvergentConstruction(state)) return null;
         var active = State(state).SuspendedSteps?.Where(Active).ToArray() ?? [];
         if (active.Length == 0) return null;
         var item = active[^1];
         var symbols = new TaskPlanSymbols(state.Plan ?? new());
-        var checkpoints = state.Construction!.Checkpoints.Where(checkpoint => (UsesAcceptedProgress(state) || checkpoint.Sequence > item.SuspendedAtCheckpoint) &&
+        var checkpoints = state.Construction!.Checkpoints.Where(checkpoint =>
             (checkpoint.TaskIds.Any(id => !checkpoint.InvalidatedTaskIds.Contains(id, StringComparer.Ordinal) && symbols.Tasks.ContainsKey(id)) ||
                 checkpoint.ClosedScopes.Any(path => !state.Construction.OpenScopes.Contains(path, StringComparer.Ordinal) &&
                     symbols.Scopes.Any(scope => scope.Path == path && scope.Owner is { } owner &&
@@ -206,10 +177,9 @@ internal static partial class PlanningCompactConstruction
             ["objective"] = item.Consumer.Objective, ["prerequisite"] = PlanningConstruction.Node(item.Prerequisite, PlanningJsonContext.Default.PlanningConstructionTypedPrerequisite),
             ["evidence"] = "rejected:" + item.RejectedStepIndex,
             ["canAttemptResume"] = item.Status == "waiting" && ContinuationCurrent(state, item) &&
-                (UsesAcceptedProgress(state) ? checkpoints.Length > 0 : item.LastPrerequisiteCheckpoint > item.SuspendedAtCheckpoint),
+                checkpoints.Length > 0,
             ["basis"] = "model_authored_navigation", ["bindingValidation"] = ContinuationValidation,
-            ["directory"] = UsesAcceptedProgress(state) ? checkpoints.Length > 0 ? "page:checkpoints:0" : null :
-                item.LastPrerequisiteCheckpoint > item.SuspendedAtCheckpoint ? "page:checkpoints:" + item.SuspendedAtCheckpoint : null,
+            ["directory"] = checkpoints.Length > 0 ? "page:checkpoints:0" : null,
             ["acceptedCheckpoints"] = new JsonArray(available.Select(checkpoint => (JsonNode)new JsonObject
                 { ["sequence"] = checkpoint.Sequence, ["evidence"] = "page:checkpoints:" + (checkpoint.Sequence - 1) }).ToArray())
         };
@@ -217,19 +187,17 @@ internal static partial class PlanningCompactConstruction
 
     internal static void ValidateContinuationBinding(PlanningSession state, PlanningConstructionCandidate candidate)
     {
-        if (!UsesAcceptedProgress(state)) return;
         var compact = State(state); var association = candidate.Extension.ContinuationBinding;
         // Replacement drafts do not inherit another candidate's proposed association.
         compact.CurrentStep!.ContinuationBinding = null;
         if (association is null) return;
-        var item = UsesIncrementalReview(state) ? compact.SuspendedSteps?.SingleOrDefault(item => item.Id == association.ContinuationId && Active(item)) :
-            compact.SuspendedSteps?.LastOrDefault(Active);
+        var item = compact.SuspendedSteps?.SingleOrDefault(item => item.Id == association.ContinuationId && Active(item));
         var leaf = association.Binding;
         while (leaf.Kind == "field" && leaf.Items.Count == 1) leaf = leaf.Items[0];
         if (candidate.AuthorizedPaths is not null || item is not { Status: "waiting" } || item.Id != association.ContinuationId ||
             !ContinuationCurrent(state, item) || leaf.Kind is not ("output" or "present") || leaf.Source is null)
             PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_INVALID", "/extension/continuationBinding", "Associate only the current waiting consumer with an exact output produced by this fragment.");
-        if (UsesIncrementalReview(state) && !ValidContinuationDischarge(state, association))
+        if (!ValidContinuationDischarge(state, association))
             PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_INVALID", "/extension/continuationBinding/dischargedContinuationIds", "Name exactly the prerequisite-only descendants bypassed by this reviewed ancestor association; preserve original obligations and ParentId order.");
         var symbols = new TaskPlanSymbols(candidate.Plan);
         if (!symbols.Tasks.ContainsKey(leaf.Source!) || !candidate.TaskIds.Contains(leaf.Source!, StringComparer.Ordinal) &&
@@ -249,49 +217,56 @@ internal static partial class PlanningCompactConstruction
     private static bool CheckpointProducerCurrent(PlanningSession state, PlanningConstructionCheckpoint checkpoint, string id)
     {
         var symbols = new TaskPlanSymbols(state.Plan!);
-        if (checkpoint.InvalidatedTaskIds.Contains(id, StringComparer.Ordinal) || !symbols.Tasks.TryGetValue(id, out var producer) ||
-            checkpoint.Fragment["tasks"] is not JsonArray tasks ||
-            !tasks.Any(task => task?["id"]?.ToString() == id && JsonNode.DeepEquals(task,
-                PlanningConstruction.Node(producer.Task, PlanningJsonContext.Default.PlanTask)))) return false;
-        if (!PlanningConstructionReviewCoverage.Reviewed(state, checkpoint, PlanningConstruction.LocalPurpose) ||
-            checkpoint.NeedsIntermediateReview && !PlanningConstructionReviewCoverage.Reviewed(state, checkpoint, PlanningConstruction.IntermediatePurpose))
-            return false;
-        return checkpoint.TaskIds.Contains(id, StringComparer.Ordinal) || checkpoint.ClosedScopes.Any(path =>
-            !state.Construction!.OpenScopes.Contains(path, StringComparer.Ordinal) &&
-            symbols.Scopes.Any(scope => scope.Path == path && scope.Owner?.Id == id));
+        if (HybridWorkflowPlanner.ReviewedCheckpoint(state, checkpoint) is null ||
+            !checkpoint.TaskIds.Contains(id, StringComparer.Ordinal) && !checkpoint.ClosedScopes.Any(path =>
+                !state.Construction!.OpenScopes.Contains(path, StringComparer.Ordinal) &&
+                symbols.Scopes.Any(scope => scope.Path == path && scope.Owner?.Id == id))) return false;
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        return Current(id);
+
+        bool Current(string taskId)
+        {
+            if (!visited.Add(taskId)) return true;
+            if (!symbols.Tasks.TryGetValue(taskId, out var site)) return false;
+            var snapshot = state.Construction!.Checkpoints.LastOrDefault(owner =>
+                !owner.InvalidatedTaskIds.Contains(taskId, StringComparer.Ordinal) &&
+                owner.Fragment["tasks"] is JsonArray tasks && tasks.Any(task => task?["id"]?.ToString() == taskId &&
+                    JsonNode.DeepEquals(task, PlanningConstruction.Node(site.Task, PlanningJsonContext.Default.PlanTask))));
+            if (snapshot is null) return false;
+            // Traverse the existing semantic references, never infer a producer
+            // from its type. Every upstream accepted task must retain exact bytes.
+            return PlanningConstruction.References(site.Task).Where(symbols.Tasks.ContainsKey).All(Current);
+        }
     }
 
     internal static bool TryResumeReviewedConsumer(PlanningSession state)
     {
-        if (!UsesAcceptedProgress(state) || state.PendingCall is not null || state.Construction!.Candidate is not null ||
+        if (state.PendingCall is not null || state.Construction!.Candidate is not null ||
             State(state).CurrentStep is not null || State(state).ReplacementScope is not null || state.Diagnostics.Any(d => d.Required) ||
             State(state).SuspendedSteps?.LastOrDefault(Active) is not { Status: "waiting" } item || !ContinuationCurrent(state, item)) return false;
-        if (UsesIncrementalReview(state) && TryResumeReviewedAncestor(state)) return true;
+        if (TryResumeReviewedAncestor(state)) return true;
         var acceptedHash = PlanningConstruction.Hash(state.Plan);
         var matches = state.Construction.Checkpoints.Where(checkpoint =>
             checkpoint.Step?.ContinuationBinding is { } association && association.ContinuationId == item.Id &&
-            (checkpoint.PlanHash == acceptedHash
-                ? !UsesVerifiedProgress(state) || CurrentContinuationAuthority(state, checkpoint, item)
-                : UsesVerifiedProgress(state) && IndependentContinuationAdditions(state, checkpoint, item)))
+            CurrentContinuationAuthority(state, checkpoint, item))
             .ToArray();
         if (matches.Length != 1) return false;
-        // Producer bytes alone cannot prove unchanged upstream meaning. Fresh
-        // independent additions need the exact prospective review-basis proof;
-        // historical records and unknown interactions keep semantic selection.
+        // Accepted work is immutable outside scoped invalidation. Retained sources,
+        // exact ownership and the original business review must all remain current.
         // Validate on a clone so failed visibility or stale evidence simply returns
         // to bounded semantic selection without partially restoring a consumer.
         var probe = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
         var selected = matches[0];
         try { ResumeStep(probe, item.Id, selected.Sequence, selected.Step!.ContinuationBinding!.Binding); }
         catch (PlanningResponseException) { return false; }
-        if (UsesVerifiedProgress(state)) RecordReviewedContinuation(probe, probe.Construction!.Checkpoints[selected.Sequence - 1], acceptedHash);
+        RecordReviewedContinuation(probe, probe.Construction!.Checkpoints[selected.Sequence - 1], acceptedHash);
         state.Construction = probe.Construction; state.Diagnostics = probe.Diagnostics;
         return true;
     }
 
     private static JsonObject? DraftContinuationContext(PlanningSession state)
     {
-        if (!UsesConvergentConstruction(state) || State(state).SuspendedSteps?.LastOrDefault(Active) is not { } item ||
+        if (State(state).SuspendedSteps?.LastOrDefault(Active) is not { } item ||
             !ContinuationCurrent(state, item)) return null;
         // Only the current prerequisite chain is relevant. Keep its exact proposed
         // need distinct from original obligations and from the current draft.
@@ -317,7 +292,6 @@ internal static partial class PlanningCompactConstruction
 
     private static JsonObject WithContinuationAncestors(this JsonObject context, PlanningSession state)
     {
-        if (!UsesIncrementalReview(state)) return context;
         var chain = EligibleContinuationAssociations(state);
         context["ancestorAssociations"] = new JsonArray(chain.Take(Math.Max(0, chain.Length - 1)).Select(item => (JsonNode)new JsonObject
         {
@@ -333,7 +307,7 @@ internal static partial class PlanningCompactConstruction
 
     internal static void ReconcileContinuations(PlanningSession state)
     {
-        if (!UsesConvergentConstruction(state) || state.PendingCall is not null) return;
+        if (state.PendingCall is not null) return;
         var compact = State(state);
         foreach (var item in compact.SuspendedSteps ?? [])
         {
@@ -355,7 +329,6 @@ internal static partial class PlanningCompactConstruction
 
     private static void AcceptContinuation(PlanningSession state)
     {
-        if (!UsesConvergentConstruction(state)) return;
         var compact = State(state); var count = state.Construction!.Checkpoints.Count;
         if (compact.ResumingStepId is { } id && compact.SuspendedSteps?.SingleOrDefault(item => item.Id == id && item.Status == "resuming") is { } resumed)
             resumed.Status = "completed";

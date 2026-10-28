@@ -26,4 +26,6 @@
   <ItemGroup><None Include="../GnOuGo.Agent.Server.Tests/Fixtures/DiscoveryBudget/retained-discovery-incomplete.json" Link="Fixtures/Discovery/retained-discovery-incomplete.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
   <ItemGroup><None Include="../GnOuGo.Agent.Server.Tests/Fixtures/DiscoveryBudget/retained-discovery-displacement.json" Link="Fixtures/Discovery/retained-discovery-displacement.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
   <ItemGroup><None Include="../GnOuGo.Agent.Server.Tests/Fixtures/EnumPlanning/retained-enums.json" Link="Fixtures/Discovery/retained-enums.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+  <ItemGroup><Compile Include="../Shared/BusinessReviewCorpus.cs" Link="BusinessReviewCorpus.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../Shared/CurrentPlanningFixture.cs" Link="CurrentPlanningFixture.cs" /></ItemGroup>
 </Project>

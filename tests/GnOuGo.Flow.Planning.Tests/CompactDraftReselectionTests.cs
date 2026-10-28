@@ -10,45 +10,10 @@ public sealed class CompactDraftReselectionTests
 {
     private const string Reason = "The selected value kind cannot format the imported text; the missing prerequisite is an accepted formatted-text producer before the operation can bind its argument.";
 
-    [Fact]
-    public async Task VersionFourActionGuidancePreservesRevisionThreeSchemasAndContext()
-    {
-        var (historical, _) = await Ready(3);
-        Assert.Equal("0cd866444892db70ccdf5c485371c2d0def3b4926bacfd71fba38ddc12fe1ea4", PlanningGraphCompiler.Fingerprint(PlanningCompactConstruction.SelectGuidance(historical)));
-        Assert.Equal("4bce0868c70e46763d9c5dfbc1c7d8e66564ab0e7e4c5c9ba9616da2756120d2", PlanningGraphCompiler.Fingerprint(PlanningCompactConstruction.DraftGuidance(historical)));
-        Assert.Equal("2f2439d234a10ffdc1db1bbf5aafe9d9f222dd51494114f2edf023a92ac4ca61", PlanningGraphCompiler.Fingerprint(PlanningCompactConstruction.DiscoveryGuidance(historical)));
-        var current = PlannerFixture.Clone(historical);
-        current.Request.Options["construction_presentation_version"] = 4;
-        current.Construction!.Compact!.PresentationVersion = 4;
-        Assert.Equal(PlanningCompactConstruction.SelectionSchema(historical).ToJsonString(), PlanningCompactConstruction.SelectionSchema(current).ToJsonString());
-        Assert.Equal(PlanningCompactConstruction.SelectionContext(historical).ToJsonString(), PlanningCompactConstruction.SelectionContext(current).ToJsonString());
-        var before = PlanningConstruction.DraftRequest(historical, repair: false);
-        var after = PlanningConstruction.DraftRequest(current, repair: false);
-        Assert.Equal(before.StructuredOutputSchema!.ToJsonString(), after.StructuredOutputSchema!.ToJsonString());
-        Assert.Equal(Context(before).ToJsonString(), Context(after).ToJsonString());
-        Assert.Equal(before.Prompt.Replace(PlanningCompactConstruction.DraftGuidance(historical),
-            PlanningCompactConstruction.DraftGuidance(current), StringComparison.Ordinal), after.Prompt);
-        Assert.Contains("Commitments accompany extension only and are null otherwise", after.Prompt, StringComparison.Ordinal);
-        Assert.Contains("evidence-only responses also keep requirements and rollbackReason null", after.Prompt, StringComparison.Ordinal);
-        const string progress = "An extension must add a task in tasks or always, a group, choice or export, close a scope, or, for a close step, close a still-open host-issued requirement.";
-        Assert.Contains(progress, after.Prompt, StringComparison.Ordinal);
-        Assert.DoesNotContain(progress, before.Prompt, StringComparison.Ordinal);
-        current.Construction.Candidate = PlanningConstruction.Apply(current, new()
-        {
-            RequirementIds = ["req_0"], Tasks = [new() { Id = "next", Kind = "value", Objective = "Preserve the supplied text.",
-                Outputs = [new("retained", new() { Kind = "output", Source = "accepted", Port = "retained" })] }]
-        });
-        foreach (var intermediate in new[] { false, true })
-        {
-            var review = HybridWorkflowPlanner.CreateConstructionReviewRequest(current, intermediate).Request;
-            Assert.DoesNotContain(progress, review.Prompt, StringComparison.Ordinal);
-        }
-    }
-
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task OfferedRollbackInvalidatesOnlyDependentWorkAndRecoversAnUnannotatedRequest(bool retainedRequest)
+    public async Task OfferedRollbackInvalidatesOnlyDependentWorkAndRecoversItsIssuedRequest(bool retainedRequest)
     {
         const string defect = "The retained producer's interface prevents the required consumer binding.";
         var (state, runtime) = await Ready();
@@ -62,11 +27,9 @@ public sealed class CompactDraftReselectionTests
         var sources = JsonSerializer.Serialize(state.Construction.Compact.Sources, PlanningJsonContext.Default.ListPlanningConstructionSource);
         var request = PlanningConstruction.DraftRequest(state, repair: false);
         Assert.NotEqual("null", request.StructuredOutputSchema!["properties"]!["rollbackTask"]!["type"]?.ToString());
-        Assert.Contains("host-computed invalidation", request.StructuredOutputSchema["description"]!.ToString(), StringComparison.Ordinal);
         string? issued = null;
         if (retainedRequest)
         {
-            request.StructuredOutputSchema["description"] = PlanningCompactConstruction.DraftSemantics(state, state.Construction.Compact.CurrentStep);
             request = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.DraftPurpose, request.Prompt, request.StructuredOutputSchema.AsObject());
             state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningConstruction.DraftPurpose,
                 Request = request, CorrectionAccounting = 0 };
@@ -82,7 +45,6 @@ public sealed class CompactDraftReselectionTests
         runtime.Respond = (actual, _) =>
         {
             if (issued is not null) Assert.Equal(issued, JsonSerializer.Serialize(actual, PlanningJsonContext.Default.LLMRequest));
-            else Assert.Contains("host-computed invalidation", actual.StructuredOutputSchema!["description"]!.ToString(), StringComparison.Ordinal);
             Assert.Empty(PlanningContractValidation.ValidateInstance(response, actual.StructuredOutputSchema!));
             return new() { Json = response };
         };
@@ -100,42 +62,15 @@ public sealed class CompactDraftReselectionTests
         Assert.Null(state.Construction.Compact.CurrentStep);
     }
 
-    [Fact]
-    public async Task RollbackDescriptionMatchesExistingActionAvailabilityAndLeavesHistoricalSchemasUnchanged()
-    {
-        var (state, _) = await Ready();
-        var historical = PlannerFixture.Clone(state);
-        historical.Request.Options["construction_limits"]!.AsObject().Remove("phasePolicy");
-        historical.Construction!.Limits.PhasePolicy = null;
-        Assert.Equal(PlanningCompactConstruction.DraftSemantics(historical, historical.Construction.Compact!.CurrentStep!),
-            PlanningCompactConstruction.DraftSchema(historical)["description"]!.ToString());
-        foreach (var candidate in new[] { false, true })
-        {
-            var blocked = PlannerFixture.Clone(state);
-            if (candidate) blocked.Construction!.Candidate = new();
-            else blocked.Phase = PlanningPhase.Replanning;
-            var schema = PlanningCompactConstruction.DraftSchema(blocked);
-            Assert.Equal("null", schema["properties"]!["rollbackTask"]!["type"]!.ToString());
-            Assert.Equal("null", schema["properties"]!["rollbackReason"]!["type"]!.ToString());
-            Assert.Equal(PlanningCompactConstruction.DraftSemantics(blocked, blocked.Construction!.Compact!.CurrentStep!), schema["description"]!.ToString());
-            var response = Reselect(PlanningConstruction.DraftRequest(state, repair: false));
-            response["reselectStep"] = null; response["rollbackTask"] = "accepted"; response["rollbackReason"] = Reason;
-            Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, schema));
-        }
-    }
 
     [Theory]
-    [InlineData(false, "operation", 2)]
-    [InlineData(true, "operation", 2)]
-    [InlineData(false, "transform", 2)]
-    [InlineData(true, "transform", 2)]
-    [InlineData(false, "transform", 3)]
-    [InlineData(true, "transform", 3)]
-    [InlineData(false, "transform", 4)]
-    [InlineData(true, "transform", 4)]
-    public async Task InitialDraftReselectionKeepsAcceptedWorkAndChargesOnceAcrossRecovery(bool interrupted, string replacementKind, int presentationVersion)
+    [InlineData(false, "operation")]
+    [InlineData(true, "operation")]
+    [InlineData(false, "transform")]
+    [InlineData(true, "transform")]
+    public async Task InitialDraftReselectionKeepsAcceptedWorkAndChargesOnceAcrossRecovery(bool interrupted, string replacementKind)
     {
-        var (state, runtime) = await Ready(presentationVersion);
+        var (state, runtime) = await Ready();
         var accepted = Accepted(state);
         var calls = state.ModelCalls;
         string? issued = null;
@@ -154,10 +89,6 @@ public sealed class CompactDraftReselectionTests
         {
             Assert.Equal(PlanningConstruction.DraftPurpose, purpose);
             Assert.Contains(PlanningCompactConstruction.ValueSemantics, request.StructuredOutputSchema!["description"]!.ToString(), StringComparison.Ordinal);
-            var reasonDescription = request.StructuredOutputSchema["properties"]!["reselectStep"]!["description"]!.ToString();
-            Assert.Contains("precise reason", reasonDescription, StringComparison.Ordinal);
-            Assert.Contains("not a step ID", reasonDescription, StringComparison.Ordinal);
-            Assert.Contains("missing prerequisite", reasonDescription, StringComparison.Ordinal);
             Assert.Empty(PlanningContractValidation.ValidateSchema(request.StructuredOutputSchema, strict: true));
             Assert.Empty(PlanningContractValidation.ValidateInstance(Reselect(request), request.StructuredOutputSchema!));
             Assert.InRange(PlanningRequestMeasurements.Measure(request, purpose, 8000).EstimatedInputTokens, 1, 8000);
@@ -191,18 +122,18 @@ public sealed class CompactDraftReselectionTests
             Assert.Contains(PlanningCompactConstruction.ValueSemantics, request.Prompt, StringComparison.Ordinal);
             var reselection = Context(request)["reselection"]!;
             Assert.Equal(Reason, reselection["reason"]!.ToString());
-            Assert.Equal(presentationVersion == 4, request.Prompt.Contains("If reselection identifies a missing producer, select that prerequisite before its consumer.", StringComparison.Ordinal));
             Assert.Equal("/root", reselection["scope"]!.ToString());
             Assert.Equal(["req_0"], reselection["requirementIds"]!.AsArray().Select(id => id!.ToString()));
             Assert.True(PlanningCompactConstruction.LoadEvidence(state, reselection["evidence"]!.ToString(), out var evidence));
             Assert.True(JsonNode.DeepEquals(rejected, evidence));
             Assert.Empty(PlanningContractValidation.ValidateInstance(Wire(request, Selection(request, replacementKind)).Json!, request.StructuredOutputSchema!));
-            Assert.InRange(PlanningRequestMeasurements.Measure(request, purpose, 3000).EstimatedInputTokens, 1, 3000);
+            var ceiling = PlanningConstructionPhasePolicies.Resolve(state.Request, purpose).MaxInputTokens;
+            Assert.InRange(PlanningRequestMeasurements.Measure(request, purpose, ceiling).EstimatedInputTokens, 1, ceiling);
             return Wire(request, Selection(request, replacementKind));
         };
         state = await Advance(state, runtime);
         Assert.Empty(state.Diagnostics);
-        Assert.Equal(replacementKind, state.Construction!.Compact!.CurrentStep!.Kind);
+        Assert.Equal(replacementKind == "operation" ? null : replacementKind, state.Construction!.Compact!.CurrentStep!.Kind);
         Assert.Equal(replacementKind != "operation", state.Construction.Compact.CurrentStep.DiscoveryComplete);
         Assert.Equal(1, state.ReplanAttempts); Assert.Equal(1, state.Construction.DraftCorrections);
         Assert.Equal(accepted, Accepted(state));
@@ -235,46 +166,11 @@ public sealed class CompactDraftReselectionTests
         }
     }
 
-    [Fact]
-    public async Task PreviouslyIssuedDraftKeepsItsUnannotatedReselectionFieldAndExactReason()
-    {
-        var (state, runtime) = await Ready();
-        var historical = PlannerFixture.Clone(state);
-        historical.Construction!.Limits.PhasePolicy = null;
-        historical.Request.Options["construction_limits"]!.AsObject().Remove("phasePolicy");
-        Assert.Null(PlanningCompactConstruction.DraftSchema(historical)["properties"]!["reselectStep"]!["description"]);
-
-        var request = PlanningConstruction.DraftRequest(state, repair: false);
-        Assert.True(request.StructuredOutputSchema!["properties"]!["reselectStep"]!.AsObject().Remove("description"));
-        request = PlanningGenerationPolicy.Apply(request, state.Request.Generation);
-        request.ClientRequestId = "retained-unannotated-reselection";
-        state.PendingCall = new() { Id = request.ClientRequestId, Purpose = PlanningConstruction.DraftPurpose, Request = request };
-        state.Construction!.IssuedBaseHash = PlanningConstruction.Hash(state.Plan);
-        state.ModelCalls++;
-        var exact = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
-        var accepted = Accepted(state); var calls = state.ModelCalls;
-        runtime.Respond = (issued, _) =>
-        {
-            Assert.Null(issued.StructuredOutputSchema!["properties"]!["reselectStep"]!["description"]);
-            return new() { Json = Reselect(issued) };
-        };
-        state = await Advance(PlannerFixture.Clone(state), runtime);
-        Assert.Empty(state.Diagnostics);
-        Assert.Equal(exact, JsonSerializer.Serialize(runtime.Calls[^1], PlanningJsonContext.Default.LLMRequest));
-        Assert.Equal(calls, state.ModelCalls);
-        Assert.Equal(1, state.ReplanAttempts); Assert.Equal(1, state.Construction!.DraftCorrections);
-        Assert.Equal(accepted, Accepted(state));
-        Assert.Equal(Reason, Assert.Single(state.Construction.Compact!.RejectedSteps)["reason"]!.ToString());
-        Assert.Equal("/root", state.Construction.Compact.ReplacementScope);
-        Assert.Equal(["req_0"], state.Construction.Compact.ReplacementRequirements);
-    }
-
     [Theory]
     [InlineData("total")]
     [InlineData("draft")]
     [InlineData("policy")]
     [InlineData("revision")]
-    [InlineData("historical")]
     public async Task InitialReselectionCannotExpandCorrectionOrRevisionAuthority(string restriction)
     {
         var (state, runtime) = await Ready();
@@ -284,11 +180,6 @@ public sealed class CompactDraftReselectionTests
             case "draft": state.Construction!.DraftCorrections = state.Construction.Limits.MaxCorrectionsPerDraft; break;
             case "policy": state.Request.Options["automatic_correction"] = false; break;
             case "revision": state.EditablePaths = ["/root/outputs/retained"]; break;
-            case "historical":
-                state.Request.Options.Remove("construction_presentation_version");
-                state.Construction!.Compact!.PresentationVersion = null;
-                state.Construction.Compact.InterfaceExtractions = null;
-                break;
         }
         Assert.False(PlanningCompactConstruction.CanReselectInitialDraft(state));
         Assert.Equal("null", PlanningCompactConstruction.DraftSchema(state)["properties"]!["reselectStep"]!["type"]!.ToString());
@@ -302,57 +193,6 @@ public sealed class CompactDraftReselectionTests
         Assert.Equal(accepted, Accepted(state));
     }
 
-    [Theory]
-    [InlineData(false, 2)]
-    [InlineData(true, 2)]
-    [InlineData(false, 3)]
-    [InlineData(true, 3)]
-    [InlineData(false, 4)]
-    [InlineData(true, 4)]
-    public async Task HistoricalPendingDraftUsesItsExactNullOnlyReselectionContract(bool attemptReselection, int presentationVersion)
-    {
-        var (state, runtime) = await Ready(presentationVersion);
-        var request = PlanningConstruction.DraftRequest(state, repair: false);
-        if (presentationVersion == 4)
-        {
-            var historical = PlannerFixture.Clone(state);
-            historical.Construction!.Compact!.PresentationVersion = 3;
-            request.Prompt = request.Prompt.Replace(PlanningCompactConstruction.DraftGuidance(state),
-                PlanningCompactConstruction.DraftGuidance(historical), StringComparison.Ordinal);
-        }
-        request.StructuredOutputSchema!["properties"]!["reselectStep"] = PlanningSchemas.Type("null");
-        request = PlanningGenerationPolicy.Apply(request, state.Request.Generation);
-        request.ClientRequestId = "retained-draft";
-        state.PendingCall = new() { Id = request.ClientRequestId, Purpose = PlanningConstruction.DraftPurpose, Request = request };
-        state.Construction!.IssuedBaseHash = PlanningConstruction.Hash(state.Plan);
-        state.ModelCalls++;
-        var exact = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
-        var accepted = Accepted(state); var calls = state.ModelCalls;
-        Assert.True(PlanningCompactConstruction.CanReselectInitialDraft(state));
-        runtime.Respond = (issued, _) =>
-        {
-            var response = Reselect(issued);
-            if (!attemptReselection)
-            {
-                response["reselectStep"] = null;
-                response["evidenceRequests"] = new JsonArray("requirement:req_0");
-            }
-            return new() { Json = response };
-        };
-        state = await Advance(PlannerFixture.Clone(state), runtime);
-        Assert.Equal(exact, JsonSerializer.Serialize(runtime.Calls[^1], PlanningJsonContext.Default.LLMRequest));
-        Assert.Equal(calls, state.ModelCalls);
-        Assert.Equal(0, state.ReplanAttempts); Assert.Equal(0, state.Construction!.DraftCorrections);
-        Assert.Empty(state.Construction.Compact!.RejectedSteps);
-        Assert.NotNull(state.Construction.Compact.CurrentStep);
-        Assert.Equal(accepted, Accepted(state));
-        if (attemptReselection) Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "PLANNING_RESPONSE_INVALID");
-        else
-        {
-            Assert.Empty(state.Diagnostics);
-            Assert.NotNull(state.Construction.Evidence!["requirement:req_0"]);
-        }
-    }
 
     [Fact]
     public async Task RepeatedUnsupportedSelectionStopsWithoutChargingAnotherCorrection()
@@ -370,22 +210,16 @@ public sealed class CompactDraftReselectionTests
         Assert.Single(state.Construction.Compact!.RejectedSteps);
     }
 
-    [Theory]
-    [InlineData(9, false)]
-    [InlineData(10, false)]
-    [InlineData(10, true)]
-    [InlineData(11, false)]
-    [InlineData(11, true)]
-    public async Task ReselectionAndPrerequisiteBoundsFollowTheIssuedSchemaAfterRecovery(int presentation, bool unmarked)
+    [Fact]
+    public async Task ReselectionAndPrerequisiteUnicodeBoundsFollowItsExactIssuedSchemaAfterRecovery()
     {
-        var (state, runtime) = await Ready(presentation);
+        var (state, runtime) = await Ready();
         runtime.Calls.Clear();
         var accepted = Accepted(state);
         var request = PlanningConstruction.DraftRequest(state, repair: false);
         request = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.DraftPurpose, request.Prompt,
             request.StructuredOutputSchema!.AsObject());
-        if (unmarked) request.StructuredOutputSchema!.AsObject().Remove("$comment");
-        var unicode = request.StructuredOutputSchema!["$comment"]?.ToString() == PlanningModelCalls.UnicodeStringLengths;
+        Assert.Equal(PlanningModelCalls.UnicodeStringLengths, request.StructuredOutputSchema!["$comment"]!.ToString());
         request.ClientRequestId = "retained-unicode-reselection";
         state.PendingCall = new() { Id = request.ClientRequestId, Purpose = PlanningConstruction.DraftPurpose,
             Request = request, CorrectionAccounting = 0 };
@@ -412,25 +246,14 @@ public sealed class CompactDraftReselectionTests
         state = await Advance(state, runtime);
         Assert.Equal(accepted, Accepted(state));
         Assert.Single(runtime.Calls);
-        if (unicode)
-        {
-            Assert.Empty(state.Diagnostics);
-            Assert.Equal(1, state.ReplanAttempts);
-            Assert.Equal(reason, Assert.Single(state.Construction!.Compact!.RejectedSteps)["reason"]!.ToString());
-            Assert.Equal(need, Assert.Single(state.Construction.Compact.SuspendedSteps!).Prerequisite.Need);
-            Assert.Null(state.Construction.Compact.CurrentStep);
-        }
-        else
-        {
-            Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "PLANNING_RESPONSE_INVALID");
-            Assert.Equal(0, state.ReplanAttempts);
-            Assert.Empty(state.Construction!.Compact!.RejectedSteps);
-            Assert.Null(state.Construction.Compact.SuspendedSteps);
-            Assert.NotNull(state.Construction.Compact.CurrentStep);
-        }
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(1, state.ReplanAttempts);
+        Assert.Equal(reason, Assert.Single(state.Construction!.Compact!.RejectedSteps)["reason"]!.ToString());
+        Assert.Equal(need, Assert.Single(state.Construction.Compact.SuspendedSteps!).Prerequisite.Need);
+        Assert.Null(state.Construction.Compact.CurrentStep);
     }
 
-    private static async Task<(PlanningSession State, TestRuntime Runtime)> Ready(int presentationVersion = 2)
+    private static async Task<(PlanningSession State, TestRuntime Runtime)> Ready()
     {
         var runtime = new TestRuntime { Respond = (request, _) => Wire(request, new()
         {
@@ -438,8 +261,8 @@ public sealed class CompactDraftReselectionTests
             ["clauses"] = new JsonArray(new JsonObject { ["text"] = Context(request)["sources"]![0]!["text"]!.DeepClone(),
                 ["kind"] = "requirement", ["interfaces"] = "none" })
         }) };
-        var state = await Advance(PlannerFixture.CapturedPresentation(new() { Request = new() { TenantId = "draft-reselection",
-            Prompt = "Preserve the supplied text and perform the requested operation.", Options = new() { ["automatic_correction"] = true } } }, presentationVersion), runtime);
+        var state = await Advance(PlannerFixture.Capture(new() { Request = new() { TenantId = "draft-reselection",
+            Prompt = "Preserve the supplied text and perform the requested operation.", Options = new() { ["automatic_correction"] = true } } }), runtime);
         Assert.Empty(state.Diagnostics);
         state.Catalog = await runtime.DiscoverAsync(state.Request, PlannerFixture.Ct);
         state.Plan = new() { Root = new() { Tasks = [new() { Id = "accepted", Kind = "value", Objective = "Preserve the exact supplied text.",
@@ -466,12 +289,12 @@ public sealed class CompactDraftReselectionTests
     {
         ["baseHash"] = Context(request)["baseHash"]!.DeepClone(), ["requirements"] = null, ["commitments"] = null,
         ["extension"] = null, ["discoveryRequests"] = null, ["clarifications"] = null, ["evidenceRequests"] = null,
-        ["rollbackTask"] = null, ["rollbackReason"] = null, ["reselectStep"] = Reason
+        ["rollbackTask"] = null, ["rollbackReason"] = null, ["reselectStep"] = new JsonObject { ["reason"] = Reason, ["disposition"] = "abandon", ["prerequisite"] = null }
     };
     private static JsonObject Selection(LLMRequest request, string kind = "operation") => new()
     {
         ["baseHash"] = request.StructuredOutputSchema!["properties"]!["baseHash"]!["enum"]![0]!.DeepClone(), ["evidenceRequests"] = null, ["clarifications"] = null,
-        ["step"] = new JsonObject { ["scope"] = "/root", ["kind"] = kind, ["objective"] = kind == "transform"
+        ["step"] = new JsonObject { ["scope"] = "/root", ["kind"] = kind == "operation" ? null : kind, ["operationIds"] = new JsonArray(), ["closeScopes"] = null, ["groupId"] = null, ["prerequisites"] = null, ["objective"] = kind == "transform"
                 ? "Format the imported text for the next operation." : "Perform the current requested business operation.",
             ["requirementIds"] = new JsonArray("req_0"), ["inputs"] = kind == "transform" ? new JsonArray(new JsonObject
                 { ["kind"] = "output", ["source"] = "accepted", ["port"] = "retained" }) : new JsonArray(), ["dependencyTaskIds"] = new JsonArray(),

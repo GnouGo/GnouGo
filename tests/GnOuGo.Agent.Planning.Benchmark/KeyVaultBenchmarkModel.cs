@@ -88,31 +88,19 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         }
         finally { _dispatchGate.Release(); }
     }
-    internal async Task CapturePlanningPolicyAsync(PlanningRequest request, CancellationToken ct, bool incremental = true, double activeMilliseconds = 0)
+    internal async Task CapturePlanningPolicyAsync(PlanningRequest request, CancellationToken ct, double activeMilliseconds = 0)
     {
         var value = new JsonObject { ["max_physical_attempts"] = PlanningTransportPolicies.Read(request) is null ? request.MaxModelCalls :
                 Math.Min(request.MaxModelCalls, PlanningBudgetOptions.Parse(request.Options)?.MaxCalls ?? request.MaxModelCalls),
             ["max_input_tokens"] = request.Generation.MaxInputTokensPerRequest, ["max_output_tokens"] = request.Generation.MaxOutputTokens,
             ["max_corrections"] = request.MaxReplanAttempts, ["construction_preset"] = request.Options["construction_preset"]?.DeepClone(),
             ["llm_budget"] = request.Options["llm_budget"]?.DeepClone() };
-        if (incremental)
-        {
-            value["construction_review_headroom"] = 2;
-            value["construction_review_output_tokens"] = PlanningConstructionPhasePolicies.IsFresh(request)
-                ? PlanningConstructionPhasePolicies.Resolve(request, "construction_local_judge").OutputTokens
-                : Math.Min(request.Options["construction_limits"]?["reviewOutputTokens"]?.GetValue<int>() ?? 2048, request.Generation.MaxOutputTokens);
-            value["construction_limits"] = request.Options["construction_limits"]?.DeepClone();
-        }
-        if (PlanningConstructionInputPolicy.IsCompact(request))
-        {
-            value["construction_version"] = 2;
-            value["construction_input_limits"] = request.Options["construction_input_limits"]?.DeepClone();
-        }
+        value["planning_format"] = 11;
+        value["construction_review_headroom"] = 2;
+        value["construction_review_output_tokens"] = PlanningConstructionPhasePolicies.Resolve(request, "construction_local_judge").OutputTokens;
+        value["construction_limits"] = request.Options["construction_limits"]?.DeepClone();
         foreach (var key in new[] { PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms" })
             if (request.Options[key] is { } captured) value[key] = captured.DeepClone();
-        if (request.Options["construction_presentation_version"] is JsonValue presentation &&
-            presentation.TryGetValue<int>(out var version) && version is 6 or 7 or 8 or 9 or 10 or 11)
-            value["construction_presentation_version"] = version;
         if (PlanningTransportPolicies.Read(request) is not null)
         {
             if (!double.IsFinite(activeMilliseconds) || activeMilliseconds < 0) throw new ArgumentOutOfRangeException(nameof(activeMilliseconds));
@@ -129,9 +117,9 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             if (!JsonNode.DeepEquals(saved, value)) throw new PlanningConflictException("The captured session transport policy cannot change during recovery.");
             return;
         }
-        // A historical session already issued under the original HTTP allowance retains it.
         if ((await _campaign.Records.ListAsync("planning-evaluation-requests", "benchmark", BenchmarkCampaign.Author, ct))
-            .Any(r => r.Key.StartsWith(_campaign.Id + ":" + request.SessionId + ":", StringComparison.Ordinal))) return;
+            .Any(r => r.Key.StartsWith(_campaign.Id + ":" + request.SessionId + ":", StringComparison.Ordinal)))
+            throw new PlanningConflictException("An issued run without its active-format policy cannot acquire new authority.");
         await _campaign.SaveAsync("planning-evaluation-session-policy", request.SessionId, value, ct);
     }
     internal async Task<JsonObject> ReadinessAsync(CancellationToken ct)
@@ -143,7 +131,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         try
         {
             var price = AdmissionPrice(96000, 32768);
-            var quote = await FreshQuoteAsync(price.Currency, ct);
+            var quote = await FreshQuoteAsync(price.Currency, ct, persist: false);
             accounting = new() { ["ready"] = true, ["quote"] = quote.DeepClone(),
                 ["reservation_estimate_eur"] = ConvertCost(price, quote, beforeDispatch: true) };
         }
@@ -362,12 +350,9 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
     private async Task<LLMResponse> CallBoundedAsync(LLMRequest request, bool execution, CancellationToken ct)
     {
         await _dispatchGate.WaitAsync(ct);
-        try { return await DispatchAsync(request, singleAttempt: false, ct, execution); }
+        try { return await DispatchAsync(request, ct, execution); }
         finally { _dispatchGate.Release(); }
     }
-
-    internal Task<LLMResponse> DiagnosticAsync(LLMRequest request, CancellationToken ct)
-        => DispatchAsync(request, singleAttempt: true, ct);
 
     private LLMProviderRetryPolicyOptions RuntimeRetryPolicy(JsonObject? captured = null)
     {
@@ -424,7 +409,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         throw new InvalidOperationException("Runtime inference has no exact completed response; another dispatch is forbidden.");
     }
 
-    private async Task<LLMResponse> DispatchAsync(LLMRequest request, bool singleAttempt, CancellationToken ct, bool execution = false)
+    private async Task<LLMResponse> DispatchAsync(LLMRequest request, CancellationToken ct, bool execution = false)
     {
         var runtimeJournal = execution ? await RuntimeJournalAsync(request, ct) : null;
         var policy = execution ? null : await _campaign.LoadAsync("planning-evaluation-session-policy", request.ClientRequestId!.Split(':')[0], ct);
@@ -438,7 +423,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         var dispatched = CreateDispatchRequest(request, Provider, Model, execution);
         if (execution && (runtimeJournal is null || BenchmarkHttpJournal.IsRuntimeSingleAttempt(runtimeJournal["effective_transport_policy"] as JsonObject)))
             dispatched.DisableTransportRetries = true;
-        if (singleAttempt || incremental && capturedTransport is null) dispatched.DisableTransportRetries = true;
+        if (incremental && capturedTransport is null) dispatched.DisableTransportRetries = true;
         else if (capturedTransport is not null) dispatched.DisableTransportRetries = request.DisableTransportRetries;
         var retryPolicy = capturedTransport is null ? _options.ResolveProvider(Provider)!.RetryPolicy.Clone() : new LLMProviderRetryPolicyOptions
         {
@@ -450,9 +435,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         if (dispatched.DisableTransportRetries) retryPolicy.MaxAttempts = 1;
         var reviewCount = capturedTransport is not null ? request.RequiredReviewCalls!.Value :
             request.StructuredOutputSchema?["properties"]?["findings"] is null ? policy?["construction_review_headroom"]?.GetValue<int>() ?? 0 : 0;
-        var reviewInput = 3L * (policy?["construction_version"]?.GetValue<int>() == 2
-            ? PlanningConstructionInputPolicy.EffectiveLimit(planning!, "construction_local_judge")
-            : policy?["max_input_tokens"]?.GetValue<int>() ?? 0);
+        var reviewInput = planning is null ? 0 : 3L * PlanningConstructionInputPolicy.EffectiveLimit(planning, "construction_local_judge");
         var reviewOutput = policy?["construction_review_output_tokens"]?.GetValue<int>() ?? 0;
         JsonObject? effectiveTransportPolicy = new JsonObject
         {
@@ -519,12 +502,13 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
 
     internal static int PlanningInputLimit(JsonObject? policy, LLMRequest request)
     {
-        if (policy?["construction_version"]?.GetValue<int>() != 2) return policy?["max_input_tokens"]?.GetValue<int>() ?? 96_000;
+        if (policy is null) return 96_000;
         return PlanningConstructionInputPolicy.EffectiveLimit(PlanningFromPolicy(policy), request);
     }
 
     private static PlanningRequest PlanningFromPolicy(JsonObject policy)
     {
+        if (policy["planning_format"]?.GetValue<int>() != 11) throw new PlanningConflictException("The captured policy belongs to a retired planning format.");
         var request = new PlanningRequest()
     {
         MaxModelCalls = policy["max_physical_attempts"]?.GetValue<int>() ?? 64,
@@ -533,21 +517,18 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             MaxInputTokensPerRequest = policy["max_input_tokens"]!.GetValue<int>(),
             MaxOutputTokens = policy["max_output_tokens"]?.GetValue<int>() ?? 32_768
         },
-        Options = new() { ["construction_version"] = 2,
-            ["construction_limits"] = policy["construction_limits"]?.DeepClone(),
-            ["construction_input_limits"] = policy["construction_input_limits"]?.DeepClone(),
+        Options = new() { ["construction_limits"] = policy["construction_limits"]?.DeepClone(),
             ["llm_budget"] = policy["llm_budget"]?.DeepClone() }
         };
-        foreach (var key in new[] { PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms", "construction_presentation_version" })
+        foreach (var key in new[] { PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms" })
             if (policy[key] is { } captured) request.Options[key] = captured.DeepClone();
         return request;
     }
 
     internal static void RequirePlanningPhasePolicy(JsonObject? policy, LLMRequest request)
     {
-        if (policy?["construction_version"]?.GetValue<int>() != 2) return;
+        if (policy is null) return;
         var planning = PlanningFromPolicy(policy);
-        if (!PlanningConstructionPhasePolicies.IsFresh(planning)) return;
         var phase = PlanningConstructionPhasePolicies.Resolve(planning, request.StructuredOutputSchema?["title"]?.GetValue<string>() ?? "");
         if (request.MaxTokens is null or <= 0 || request.MaxTokens > phase.OutputTokens || request.Reasoning != phase.Reasoning)
             throw BenchmarkCampaign.AdmissionFailure("captured_session_phase_policy");

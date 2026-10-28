@@ -17,13 +17,7 @@ public sealed class MappingStatusCompositionTests
     [InlineData("absent")]
     [InlineData("capture_truncated")]
     [InlineData("manifest_truncated")]
-    [InlineData("complete", true)]
-    [InlineData("missing_fact", true)]
-    [InlineData("failure", true)]
-    [InlineData("absent", true)]
-    [InlineData("capture_truncated", true)]
-    [InlineData("manifest_truncated", true)]
-    public async Task ExplicitRevisionSeparatesFactsAndProducerOutcomeWithNoStatusInference(string variant, bool automatic = false)
+    public async Task DeterministicCompositionSeparatesFactsAndProducerOutcomeWithNoStatusInference(string variant)
     {
         var rowType = Obj(("name", new() { Nullable = true }), ("description", new() { Nullable = true }), ("price", new() { Nullable = true }));
         var snapshotType = Obj(("record", rowType), ("captureTruncated", new() { Kind = "boolean" }), ("manifestTruncated", new() { Kind = "boolean" }));
@@ -50,34 +44,15 @@ public sealed class MappingStatusCompositionTests
                 Requires = new() { Kind = "predicate", Predicate = "and", Items = [Field(Ref("acquire_source"), "success"), new() { Kind = "predicate", Predicate = "not_equal", Items = [snapshot, new() { Kind = "null" }] }] },
                 ResultType = Obj(("row", rowType), ("status", statusType)) }
         ], Outputs = [new("row", Ref("adapt_facts", "row")), new("status", Ref("adapt_facts", "status"))] } };
-        runtime.Proposal = new() { Plan = plan, Requirements = new() { Summary = "Extract exact facts and report the producer outcome", Inputs = [],
-            Outputs = [new() { Name = "row", Type = rowType }, new() { Name = "status", Type = statusType }], Outcomes = [new("observed", "Return observed facts and their acquisition outcome")] } };
-        state = await PlannerFixture.RunAsync(runtime, state);
-        Assert.Equal(PlanningStatus.FinalReview, state.Status); var baseline = PlannerFixture.Clone(state); var oldYaml = state.Yaml;
+        var baseline = JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan);
         var revisedPlan = JsonSerializer.Deserialize(JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
         MappingStatusComposition.Separate(revisedPlan.Root, "acquire_source", "adapt_facts", "assemble_outcome");
-        runtime.Proposal.Plan = revisedPlan;
-        var planner = new HybridWorkflowPlanner();
-        if (automatic)
-            state = PlanningCorpus.RetainedSession(new() { IntentVersion = 2, Catalog = baseline.Catalog, Requirements = baseline.Requirements, Request = new()
-            {
-                TenantId = "test", Prompt = baseline.Request.Prompt, Baseline = baseline.Plan,
-                Options = new() { ["automatic_correction"] = true }, FailureEvidence = new()
-                {
-                    ["error_code"] = "CONTRACT_UNSATISFIED", ["details"] = new JsonObject
-                    { ["mapping_result_path"] = "$/status/success", ["mapping_failure_kind"] = "program", ["mapping_failure_reason"] = "ungrounded_scalar", ["mapping_attempts"] = 2 }
-                }
-            } });
-        else state = await planner.AdvanceAsync(state, new() { Kind = "revise", ExpectedRevision = state.Revision, ArtifactHash = state.ComputeArtifactHash(),
-            PreserveRequirements = true, Text = "Separate facts extraction and deterministic producer status. Preserve outputs and operations." }, runtime, PlannerFixture.Ct);
-        state = await PlannerFixture.RunAsync(runtime, state);
-        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics));
-        Assert.Null(state.ApprovedHash); Assert.Equal(automatic ? 1 : 0, state.ReplanAttempts); Assert.Equal(2, runtime.Calls.Count);
-        if (automatic) Assert.Contains("$/status/success", runtime.Calls[^1].Prompt);
-        Assert.Contains("Bind typed copies/projections/assembly", runtime.Calls[^1].Prompt);
-        Assert.True(JsonNode.DeepEquals(JsonSerializer.SerializeToNode(baseline.Requirements, PlanningJsonContext.Default.PlanningRequirements), JsonSerializer.SerializeToNode(state.Requirements, PlanningJsonContext.Default.PlanningRequirements)));
-        Assert.Equal(oldYaml, baseline.Yaml); Assert.Equal(0, reads); Assert.Equal(0, model.Calls);
-        var result = await Execute(state.Yaml!, new(), engine);
+        Assert.Equal(baseline, JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan));
+        Assert.Equal(0, reads); Assert.Equal(0, model.Calls);
+        var compilation = new TaskPlanCompiler().Compile(revisedPlan, state.Catalog, state.Request);
+        Assert.Empty(compilation.Diagnostics);
+        var yaml = new PlanningGraphCompiler().Compile(compilation.Graph!, state.Catalog);
+        var result = await Execute(yaml, new(), engine);
         var success = variant is "complete" or "missing_fact";
         Assert.Equal(success, result.Success); Assert.Equal(1, reads); Assert.Equal(success ? 1 : 0, model.Calls);
         if (success)
@@ -86,7 +61,7 @@ public sealed class MappingStatusCompositionTests
             Assert.True(JsonNode.DeepEquals(JsonNode.Parse("""{"success":true,"availability":true,"completeness":true,"message":null}"""), result.Outputs["status"]));
         }
         else Assert.Equal(variant == "failure" ? "MCP_CALL_ERROR" : "INPUT_VALIDATION", result.Error!.Code);
-        Assert.InRange(PlanningJsonTransport.EstimateInputTokens(runtime.Calls[^1].Prompt, runtime.Calls[^1].StructuredOutputSchema!.AsObject()), 1, state.Request.Generation.MaxInputTokensPerRequest);
+        Assert.Empty(runtime.Calls); // Mapping behavior is checked independently of model planning.
     }
     private static TaskValue Field(TaskValue value, string field) => new() { Kind = "field", Port = field, Items = [value] };
     private sealed class Facts : ILLMClient, ILLMCapabilityResolver

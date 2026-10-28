@@ -9,13 +9,11 @@ public sealed class PlanningRequest
 {
     public PlanningRequest() { }
 
-    // Missing persisted fields retain their original meaning. New objects use the
-    // current defaults below; issued requests and approval identities do not migrate.
     [JsonConstructor]
-    public PlanningRequest(int maxReplanAttempts = 2, int maxModelCalls = 8, PlanningGenerationOptions? generation = null)
+    public PlanningRequest(int maxReplanAttempts = 4, int maxModelCalls = 64, PlanningGenerationOptions? generation = null)
     {
         MaxReplanAttempts = maxReplanAttempts; MaxModelCalls = maxModelCalls;
-        Generation = generation ?? new PlanningGenerationOptions("medium", 12_000, 8_192);
+        Generation = generation ?? new PlanningGenerationOptions();
     }
     public string Mode { get; set; } = PlanningMode.Interactive;
     public string TenantId { get; set; } = "";
@@ -37,7 +35,7 @@ public sealed class PlanningGenerationOptions
     public PlanningGenerationOptions() { }
 
     [JsonConstructor]
-    public PlanningGenerationOptions(string reasoning = "medium", int maxInputTokensPerRequest = 12_000, int maxOutputTokens = 8_192)
+    public PlanningGenerationOptions(string reasoning = "medium", int maxInputTokensPerRequest = 32_000, int maxOutputTokens = 32_768)
     { Reasoning = reasoning; MaxInputTokensPerRequest = maxInputTokensPerRequest; MaxOutputTokens = maxOutputTokens; }
 
     public string Reasoning { get; set; } = "medium";
@@ -98,9 +96,7 @@ public sealed class PlanningSession
 {
     public PlanningSession() { IsNewlyConstructed = true; }
 
-    // A queued historical session can still have revision zero and no model
-    // calls. Deserialization must not make it a new creation again. Bind an
-    // existing wire field; the construction identity itself is never persisted.
+    // Deserialization never recaptures creation settings or replaces an issued request.
     [JsonConstructor]
     internal PlanningSession(long revision = 0) { Revision = revision; }
 
@@ -124,27 +120,14 @@ public sealed class PlanningSession
             ["options"] = Request.Options.DeepClone(),
             ["diagnostics"] = JsonSerializer.SerializeToNode(Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic)
         };
-        if (IntentVersion is 2 or 3) artifact["intentVersion"] = IntentVersion;
         if (Construction is not null)
         {
-            artifact["constructionVersion"] = Construction.Version;
             artifact["constructionLimits"] = JsonSerializer.SerializeToNode(Construction.Limits, PlanningJsonContext.Default.PlanningConstructionOptions);
-        }
-        // Absent annotations preserve byte-for-byte historical approval identities.
-        if (OutcomeVersion is not null)
-        {
-            artifact["outcomeVersion"] = OutcomeVersion;
-            artifact["outcomeBindings"] = JsonSerializer.SerializeToNode(OutcomeBindings, PlanningJsonContext.Default.ListPlanningOutcomeBinding);
         }
         return Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(artifact.ToJsonString())));
     }
 
-    [JsonIgnore]
-    public bool RequiresPlanningRevision => IntentVersion is not (2 or 3) &&
-        (IntentVersion is not null || OutcomeVersion is not null || Requirements is not null || Plan is not null || PendingCall is not null || ModelCalls > 0) ||
-        Diagnostics.Any(d => d.Code == "TASK_CONDITIONAL_REQUIREMENT");
-
-    public int SchemaVersion { get; set; } = 10;
+    public int SchemaVersion { get; set; } = 11;
     public PlanningRequest Request { get; set; } = new();
     public long Revision { get; set; }
     public string Status { get; set; } = PlanningStatus.Created;
@@ -154,13 +137,6 @@ public sealed class PlanningSession
     public double HumanWaitMilliseconds { get; set; }
     public PlanningCatalog? Catalog { get; set; }
     public PlanningRequirements? Requirements { get; set; }
-    /// <summary>Null retains historical requirements semantics until an explicit revision.</summary>
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public int? IntentVersion { get; set; }
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public int? OutcomeVersion { get; set; }
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<PlanningOutcomeBinding>? OutcomeBindings { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<PlanningQuestion>? PendingQuestions { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -196,8 +172,8 @@ public sealed class PlanningModelCall
     public string Id { get; set; } = "";
     public string Purpose { get; set; } = "tasks";
     public LLMRequest Request { get; set; } = new();
-    // Absent on historical precharged requests. New requests reserve correction
-    // authority at issuance and classify the retained response with its transition.
+    // Requests reserve correction authority at issuance and classify the retained
+    // response atomically with its transition.
     // 0 = ordinary call, 1 = navigation correction, 3 = draft correction.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? CorrectionAccounting { get; set; }
@@ -287,7 +263,6 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 [JsonSerializable(typeof(CapabilityPage))]
 [JsonSerializable(typeof(CapabilitySummary))]
 [JsonSerializable(typeof(List<CapabilitySource>))]
-[JsonSerializable(typeof(PlanningProposal))]
 [JsonSerializable(typeof(PlanningPrerequisiteContext))]
 [JsonSerializable(typeof(List<PlanningSession>))]
 [JsonSerializable(typeof(PlanningRequest))]
@@ -325,7 +300,6 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 [JsonSerializable(typeof(PlanningConstructionSource))]
 [JsonSerializable(typeof(PlanningConstructionInterfaceExtraction))]
 [JsonSerializable(typeof(PlanningConstructionCommitment))]
-[JsonSerializable(typeof(PlanningConstructionInputLimits))]
 [JsonSerializable(typeof(PlanningRequestMeasurement))]
 [JsonSerializable(typeof(List<PlanningRequestMeasurement>))]
 [JsonSerializable(typeof(List<PlanningConstructionCheckpoint>))]

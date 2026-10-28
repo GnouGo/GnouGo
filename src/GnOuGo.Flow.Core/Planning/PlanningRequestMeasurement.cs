@@ -6,42 +6,14 @@ using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Flow.Core.Planning;
 
-/// <summary>Captured complete-request ceilings for compact construction. Lower limits always win.</summary>
-public sealed class PlanningConstructionInputLimits
-{
-    public int Selection { get; set; } = 3_000;
-    public int Draft { get; set; } = 8_000;
-    public int Review { get; set; } = 4_000;
-}
-
 public static class PlanningConstructionInputPolicy
 {
-    public static bool IsCompact(PlanningRequest request) => request.Options["construction_version"]?.GetValue<int>() == 2;
-
     public static int EffectiveLimit(PlanningRequest request, string purpose)
-        => PlanningConstructionPhasePolicies.IsFresh(request)
-            ? PlanningConstructionPhasePolicies.Resolve(request, purpose).MaxInputTokens
-            : LegacyLimit(request, purpose);
-
-    internal static int LegacyLimit(PlanningRequest request, string purpose)
-    {
-        if (!IsCompact(request)) return request.Generation.MaxInputTokensPerRequest;
-        var captured = request.Options["construction_input_limits"]?.Deserialize(PlanningJsonContext.Default.PlanningConstructionInputLimits)
-            ?? new PlanningConstructionInputLimits();
-        var (limit, maximum) = purpose switch
-        {
-            "construction_intent" or "construction_select" or "construction_discovery" => (captured.Selection, 3_000),
-            "construction_draft" or "replan" => (captured.Draft, 8_000),
-            "construction_local_judge" or "construction_intermediate_judge" => (captured.Review, 4_000),
-            _ => throw new PlanningConflictException("The compact construction request has no recognized phase allowance.")
-        };
-        if (limit <= 0) throw new PlanningConflictException("The captured compact input allowance must be positive.");
-        return Math.Min(request.Generation.MaxInputTokensPerRequest, Math.Min(limit, maximum));
-    }
+        => PlanningConstructionPhasePolicies.Resolve(request, purpose).MaxInputTokens;
 
     /// <summary>The phase title is part of the immutable issued schema and request hash.</summary>
     public static int EffectiveLimit(PlanningRequest planning, LLMRequest request)
-        => EffectiveLimit(planning, IsCompact(planning) ? request.StructuredOutputSchema?["title"]?.GetValue<string>() ?? "" : "planning");
+        => EffectiveLimit(planning, request.StructuredOutputSchema?["title"]?.GetValue<string>() ?? "");
 }
 
 /// <summary>Non-executable, content-free measurements of one exact issued or rejected request.</summary>
@@ -204,8 +176,8 @@ public static class PlanningRequestMeasurements
         "requirements" or "answers" or "globalConstraints" or "requirementsPage" => "requirements",
         "operations" or "contracts" => "mcp_contracts",
         "operationDirectory" or "optionalOperationContracts" or "capabilities" or "descriptors" or "describedOperations" or "providerRequests" => "mcp_descriptors",
-        "interfaces" or "imports" or "inputDeclarations" or "scopeInterface" or "group" or "scopeGroup" or "existingInputs" or "existingOutputs" => "interfaces",
-        "draft" or "tasks" or "fragment" or "closures" => "fragment",
+        "interfaces" or "imports" or "inputDeclarations" or "scopeInterface" or "group" or "groups" or "inputs" or "publicOutputs" or "scopeGroup" or "existingInputs" or "existingOutputs" => "interfaces",
+        "draft" or "tasks" or "actions" or "fragment" or "closures" => "fragment",
         "evidence" => "evidence",
         "diagnostics" => "diagnostics",
         _ => "construction_context"

@@ -12,8 +12,7 @@ internal static partial class PlanningConstruction
     // progress findings. Retained observations grant no current repair authority.
     internal static void RetainTechnicalRejections(PlanningSession state)
     {
-        if (!PlanningCompactConstruction.UsesConvergentConstruction(state) ||
-            state.Construction?.Candidate is not { Diagnostics.Count: > 0 } candidate) return;
+        if (state.Construction?.Candidate is not { Diagnostics.Count: > 0 } candidate) return;
         var retained = candidate.Reviews.SingleOrDefault(review => review["technicalRejections"] is JsonObject);
         if (retained is null)
         {
@@ -45,7 +44,6 @@ internal static partial class PlanningConstruction
 
     internal static JsonObject? TechnicalRejectionContext(PlanningSession state)
     {
-        if (!PlanningCompactConstruction.UsesConvergentConstruction(state)) return null;
         var candidate = state.Construction!.Candidate;
         if (candidate is { Diagnostics.Count: 0 }) return null;
         var reviews = candidate?.Reviews ?? ReplacementDefectReviews(state);

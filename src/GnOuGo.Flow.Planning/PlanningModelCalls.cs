@@ -8,12 +8,11 @@ namespace GnOuGo.Flow.Planning;
 
 internal static class PlanningModelCalls
 {
-    // Standard schema annotation captures host validation semantics in the
-    // exact issued request. Unmarked receipts retain historical UTF-16 bounds.
+    // Active responses use Unicode code-point bounds; exact requests still govern recovery.
     internal const string UnicodeStringLengths = "GnOuGo planning response: string length limits count Unicode code points.";
     internal static IReadOnlyList<PlanningInstanceFinding> ValidateResponseFindings(JsonNode? response, JsonNode issuedSchema) =>
         JsonSchemaInstanceValidator.ValidateInstanceFindings(response, issuedSchema,
-            unicodeStringLengths: issuedSchema["$comment"]?.ToString() == UnicodeStringLengths);
+            unicodeStringLengths: true);
     internal static int CallLimit(PlanningSession state) => Math.Min(state.Request.MaxModelCalls,
         PlanningBudgetOptions.Parse(state.Request.Options)?.MaxCalls ?? state.Request.MaxModelCalls);
     internal static long CallsUsed(PlanningSession state) => Math.Max(state.ModelCalls, state.Usage?.Calls ?? 0);
@@ -22,11 +21,7 @@ internal static class PlanningModelCalls
     internal static bool IsRepair(PlanningSession state) => state.Diagnostics.Any(d => d.Required &&
         d.Code is not (ErrorCodes.LlmBudgetExceeded or "DISCOVERY_INCOMPLETE" or "DISCOVERY_NOT_ALLOWED"));
     internal static int ConstructionOutputLimit(PlanningSession state, string purpose) =>
-        PlanningConstructionPhasePolicies.IsFresh(state.Request)
-            ? PlanningConstructionPhasePolicies.Resolve(state.Request, purpose).OutputTokens
-            : Math.Min(purpose is PlanningConstruction.LocalPurpose or PlanningConstruction.IntermediatePurpose
-                ? state.Construction!.Limits.ReviewOutputTokens : state.Construction!.Limits.DraftOutputTokens,
-                state.Request.Generation.MaxOutputTokens);
+        PlanningConstructionPhasePolicies.Resolve(state.Request, purpose).OutputTokens;
 
     internal static void EnsureCallAvailable(PlanningSession state)
     {
@@ -38,12 +33,10 @@ internal static class PlanningModelCalls
     internal static LLMRequest PrepareRequest(PlanningSession state, string purpose, string prompt, JsonObject schema, int? outputLimit = null,
         int? requiredReviewCalls = null)
     {
-        if (PlanningConstructionInputPolicy.IsCompact(state.Request))
         {
             schema = schema.DeepClone().AsObject();
             schema["title"] = purpose;
-            if (state.Construction?.Compact?.PresentationVersion is 10 or 11)
-                schema["$comment"] = UnicodeStringLengths;
+            schema["$comment"] = UnicodeStringLengths;
         }
         var request = PlanningConstructionPhasePolicies.Apply(new LLMRequest
         {
@@ -53,16 +46,8 @@ internal static class PlanningModelCalls
             MaxTokens = outputLimit
         }, state.Request, purpose);
         if (PlanningTransportPolicies.Read(state.Request) is not null)
-            request.RequiredReviewCalls = PlanningCompactConstruction.UsesConvergentConstruction(state)
-                ? Math.Max(0, (requiredReviewCalls ?? PlanningCompactConstruction.RequiredReviewCalls(state)) -
-                    (purpose is PlanningConstruction.LocalPurpose or PlanningConstruction.IntermediatePurpose ? 1 : 0))
-                : purpose switch
-            {
-                PlanningConstruction.IntermediatePurpose => 0,
-                PlanningConstruction.LocalPurpose => state.Construction?.Candidate?.NeedsIntermediateReview == true ? 1 : 0,
-                _ => state.Construction?.Candidate?.NeedsIntermediateReview == true ||
-                    state.Construction?.Candidate is null && state.Construction?.Checkpoints.Count > 0 ? 2 : 1
-            };
+            request.RequiredReviewCalls = Math.Max(0, (requiredReviewCalls ?? PlanningCompactConstruction.RequiredReviewCalls(state)) -
+                    (purpose is PlanningConstruction.LocalPurpose or PlanningConstruction.GlobalPurpose ? 1 : 0));
         var hash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
         request.ClientRequestId = state.Request.SessionId + ":" + (state.ModelCalls + 1) + ":" + hash;
         return request;
@@ -72,12 +57,6 @@ internal static class PlanningModelCalls
         PlanningCorrectionAttempt? correction = null, Action? issued = null)
     {
         ct.ThrowIfCancellationRequested();
-        if (state.PendingCall?.Request.StructuredOutputSchema?["properties"] is JsonObject previous &&
-            (previous.ContainsKey("sourceId") || previous.ContainsKey("cursor")) &&
-            !(state.Construction?.Version == 2 && PlanningConstructionInputPolicy.IsCompact(state.Request) &&
-              state.PendingCall.Purpose == "construction_intent" &&
-              state.PendingCall.Request.StructuredOutputSchema["title"]?.ToString() == "construction_intent" && !previous.ContainsKey("cursor")))
-            throw new WorkflowRuntimeException("PLANNING_REQUEST_INCOMPATIBLE", "The pending request uses a superseded discovery response contract. Start a new planning session and regenerate the workflow. Its original request, reservation and accounting are retained.");
         if (state.PendingCall is null)
         {
             EnsureCallAvailable(state);
@@ -86,10 +65,9 @@ internal static class PlanningModelCalls
             var inputTokens = ModelRequestAdmission.EstimateTokens(request);
             var inputLimit = PlanningConstructionInputPolicy.EffectiveLimit(state.Request, purpose);
             PlanningRequestMeasurement? measurement = null;
-            if (PlanningConstructionInputPolicy.IsCompact(state.Request))
             {
                 var measured = PlanningRequestMeasurements.Measure(request, purpose, inputLimit, state.Construction?.Compact?.CurrentStep?.Id);
-                if (purpose == PlanningConstruction.IntermediatePurpose && PlanningCompactConstruction.IsCompactPresentation(state))
+                if (purpose == PlanningConstruction.GlobalPurpose)
                     measured.BaselineHash ??= state.Construction!.Candidate?.BaseHash;
                 var retainedMeasurements = state.RequestMeasurements ??= [];
                 measurement = retainedMeasurements.SingleOrDefault(m => m.RequestHash == measured.RequestHash);
@@ -106,9 +84,7 @@ internal static class PlanningModelCalls
             if (inputTokens > inputLimit)
             {
                 await RejectMeasurement();
-                var message = PlanningConstructionInputPolicy.IsCompact(state.Request)
-                    ? $"The conservative input estimate for the complete {purpose} request (prompt and response schema) is {inputTokens} tokens; the captured limit is {inputLimit}. Planning stopped before dispatch without consuming another model call or repair. Required context must fit the captured phase allowance; retained requests and cumulative budgets remain unchanged."
-                    : $"The conservative input estimate for the complete {purpose} request (prompt and response schema) is {inputTokens} tokens; the configured limit is {inputLimit}. Planning stopped before dispatch without consuming another model call or repair. Increase the input token limit in generation settings and explicitly resume planning; cumulative session budgets remain unchanged.";
+                var message = $"The conservative input estimate for the complete {purpose} request (prompt and response schema) is {inputTokens} tokens; the captured limit is {inputLimit}. Planning stopped before dispatch without consuming another model call or repair. Required context must fit the captured phase allowance; retained requests and cumulative budgets remain unchanged.";
                 throw new WorkflowRuntimeException("MODEL_INPUT_LIMIT", message,
                     details: new JsonObject { ["location"] = "/phases/" + purpose, ["limit_kind"] = "request_input_allowance",
                         ["limit"] = inputLimit, ["current"] = inputTokens, ["measurement"] = "estimated_tokens", ["unit"] = "tokens",
@@ -158,11 +134,6 @@ internal static class PlanningModelCalls
                 throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The correction repeated the same rejected construction action.");
         }
         // The issued schema, not today's counters/policy, governs recovered responses.
-        var canDecline = PlanningSchemas.AllowsNoPlan(call.Request.StructuredOutputSchema);
-        if (canDecline && json is JsonObject proposal && proposal["discoveryRequests"] is not null)
-            throw new WorkflowRuntimeException("DISCOVERY_NOT_ALLOWED",
-                "Discovery is closed for this request. No additional metadata was fetched; the remaining allowance is reserved for a proposal and repairs. Start a new planning session if more discovery is needed.",
-                details: new JsonObject { ["location"] = "/discoveryRequests" });
         var findings = ValidateResponseFindings(json, call.Request.StructuredOutputSchema!);
         if (findings.Count != 0)
         {
@@ -172,14 +143,10 @@ internal static class PlanningModelCalls
             throw new PlanningResponseException(findings.Select(f => new PlanningDiagnostic("PLANNING_RESPONSE_INVALID",
                 f.InstancePointer, f.Message, ValidationStage: purpose)).ToList())
             {
-                ReceivedReport = purpose is PlanningConstruction.LocalPurpose or PlanningConstruction.IntermediatePurpose &&
-                    HybridWorkflowPlanner.ConvergentConstructionReviewIssued(call.Request.StructuredOutputSchema) ? json.DeepClone() : null
+                ReceivedReport = purpose is PlanningConstruction.LocalPurpose or PlanningConstruction.GlobalPurpose &&
+                    HybridWorkflowPlanner.ConstructionReviewIssued(call.Request.StructuredOutputSchema) ? json.DeepClone() : null
             };
         }
-        if (canDecline && json["plan"] is null && json["clarifications"] is null)
-            throw new WorkflowRuntimeException("DISCOVERY_INCOMPLETE",
-                "The model could not propose a TaskPlan from the inspected capabilities before discovery closed. No workflow was approved. Refine the requirements and start a new planning session; existing limits and accounting are unchanged.",
-                details: new JsonObject { ["location"] = "/discoveryRequests" });
         state.RejectedProposalHash = null;
         return json;
     }
@@ -203,7 +170,7 @@ internal sealed class PlanningCorrectionAttempt : IDisposable
     {
         _state = state;
         Enabled = state.PendingCall is { } pending ? pending.CorrectionAccounting is not null
-            : PlanningConstructionPhasePolicies.IsFresh(state.Request);
+            : true;
         _mode = state.PendingCall?.CorrectionAccounting ?? (correcting ? draft ? 3 : 1 : 0);
         if (Enabled && _mode is not (0 or 1 or 3))
             throw new PlanningConflictException("The issued correction accounting mode is unsupported.");

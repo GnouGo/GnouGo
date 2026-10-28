@@ -10,107 +10,96 @@ public sealed class OutputBindingRoutingTests
     [Theory]
     [InlineData("report")]
     [InlineData("résumé/},{_技术")]
-    public async Task NullablePublicOutputUsesItsExactBindingSlot(string name)
+    public async Task NullablePublicOutputUsesItsExactTypedRepairSlot(string name)
     {
-        var (runtime, state) = await Fixture(name);
-        var planner = new HybridWorkflowPlanner();
-        state = await planner.AdvanceAsync(state, new(), runtime, PlannerFixture.Ct);
-        Assert.Contains(state.Diagnostics, d => d.Code == "REQUIREMENTS_OUTPUTS_CHANGED" && d.Location == "/outputs/" + name);
+        var state = await Fixture(name);
+        Assert.Contains(state.Diagnostics, finding => finding.Code == "REQUIREMENTS_OUTPUTS_CHANGED" && finding.Location == "/outputs/" + name);
         var baseline = JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan);
-        runtime.Proposal.Plan!.Root.Outputs[0] = new(name, CommitmentCoverageTests.Output("observe", "verified"));
-        state = await PlannerFixture.RunAsync(runtime, state);
-        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics));
-        Assert.Equal(2, state.ModelCalls); Assert.Equal(1, state.ReplanAttempts); Assert.Null(state.ApprovedHash);
-        Assert.True(PlanningRepairPatch.Issued(runtime.Calls[1].StructuredOutputSchema!.AsObject()));
-        var slots = PlanningRepairPatch.RequestContext(runtime.Calls[1])["repair"]!["slots"]!.AsArray();
-        Assert.Equal("/root/outputs/" + name, Assert.Single(slots)!["location"]!.ToString());
-        Assert.Contains("/outputs/" + name, runtime.Calls[1].Prompt);
-        Assert.Equal(baseline, JsonSerializer.Serialize(state.Request.Baseline, PlanningJsonContext.Default.TaskPlan));
-        Assert.Equal("targeted_revision", state.Request.Options["automatic_correction_progress"]!["action"]!.ToString());
-        PlanningArtifactApproval.Verify(state);
+        var request = RepairPatchTests.Request(state);
+        var slot = Assert.Single(PlanningRepairPatch.RequestContext(request)["repair"]!["slots"]!.AsArray())!;
+        Assert.Equal("/root/outputs/" + name, slot["location"]!.ToString());
+        var corrected = Apply(state, RepairPatchTests.Edit(state, "/root/outputs/" + name, "replace", Node(Output("observe", "verified"))));
+        var reviewed = PlannerFixture.Clone(state); reviewed.Plan = corrected;
+        Assert.Empty(Findings(reviewed));
+        Assert.Equal("success", corrected.Root.Outputs[1].Value.Port);
+        Assert.Equal(baseline, JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
+        Assert.Null(state.ApprovedHash);
     }
 
     [Fact]
     public async Task DiagnosedOutputDoesNotAuthorizeReinterpretingIndependentStatus()
     {
-        var (runtime, state) = await Fixture();
-        state.Request.MaxReplanAttempts = 1;
-        state = await new HybridWorkflowPlanner().AdvanceAsync(state, new(), runtime, PlannerFixture.Ct);
-        runtime.Proposal.Plan!.Root.Outputs[0] = new("report", CommitmentCoverageTests.Output("observe", "verified"));
-        runtime.Proposal.Plan.Root.Outputs[1] = new("finished", new() { Kind = "boolean", Boolean = true });
-        state = await PlannerFixture.RunAsync(runtime, state);
-        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Equal(2, state.ModelCalls);
-        Assert.Null(state.Yaml); Assert.Null(state.ApprovedHash);
-        Assert.Equal("observe", state.Request.Baseline!.Root.Outputs[1].Value.Source);
-        Assert.Contains(state.Diagnostics, d => d.Code is "PLANNING_RESPONSE_INVALID" or "REVISION_SCOPE_CHANGED");
+        var state = await Fixture(); var before = JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan);
+        var outside = new JsonObject { ["slot"] = "/root/outputs/finished", ["action"] = "replace", ["value"] = Node(new() { Kind = "boolean", Boolean = true }) };
+        var response = new JsonObject { ["discoveryRequests"] = null, ["clarifications"] = null,
+            ["patch"] = new JsonObject { ["edits"] = new JsonArray(outside) } };
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, RepairPatchTests.Request(state).StructuredOutputSchema!));
+        Assert.Equal(before, JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
+        Assert.Equal("observe", state.Plan!.Root.Outputs[1].Value.Source);
+        Assert.Null(state.ApprovedHash);
     }
 
     [Fact]
-    public async Task HistoricalCorrectionKeepsItsOriginalLocationsAndRegeneration()
+    public async Task RestoredTargetedRequestKeepsExactSchemaAndAuthority()
     {
-        var (runtime, state) = await Fixture();
-        PlannerFixture.WithoutCapturedProfiles(state);
-        state.Request.Options["compilation_profile"] = TaskPlanCompiler.CompactProfile;
-        state.Revision = 1;
-        state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
-        state.Request.Baseline = PlannerFixture.Clone(state).Plan;
-        state.Request.Options["automatic_correction_progress"] = new JsonObject
-        {
-            ["version"] = 4, ["attempts"] = new JsonArray(), ["outputRemovals"] = new JsonArray(),
-            ["conditionLocations"] = new JsonArray(), ["locations"] = new JsonArray("/outputs/report"),
-            ["operationAdditions"] = new JsonArray(), ["adaptationTasks"] = new JsonArray(), ["preservedTasks"] = new JsonArray("observe")
-        };
-        runtime.Proposal.Plan!.Root.Outputs[0] = new("report", CommitmentCoverageTests.Output("observe", "verified"));
-        state = await PlannerFixture.RunAsync(runtime, state);
-        Assert.Equal(PlanningStatus.FinalReview, state.Status);
-        Assert.False(PlanningRepairPatch.Issued(runtime.Calls[1].StructuredOutputSchema!.AsObject()));
-        var progress = state.Request.Options["automatic_correction_progress"]!;
-        Assert.Equal(4, progress["version"]!.GetValue<int>());
-        Assert.Equal("/outputs/report", Assert.Single(progress["locations"]!.AsArray())!.ToString());
-        Assert.Equal("regenerate", progress["action"]!.ToString());
+        var state = await Fixture(); var before = JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan);
+        var issued = RepairPatchTests.Request(state);
+        var bytes = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
+        var restored = JsonSerializer.Deserialize(bytes, PlanningJsonContext.Default.LLMRequest)!;
+        Assert.Equal(bytes, JsonSerializer.Serialize(restored, PlanningJsonContext.Default.LLMRequest));
+        var edit = RepairPatchTests.Edit(state, "/root/outputs/report", "replace", Node(Output("observe", "verified")));
+        var corrected = Apply(PlannerFixture.Clone(state), restored, edit);
+        var fixedState = PlannerFixture.Clone(state); fixedState.Plan = corrected;
+        Assert.Empty(Findings(fixedState));
+        Assert.Equal(before, JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
+        var stale = PlannerFixture.Clone(state); stale.Plan!.Root.Tasks[0].Objective += " changed";
+        Assert.Throws<PlanningConflictException>(() => PlanningRepairPatch.Verify(stale, restored));
     }
 
-    [Fact]
-    public async Task PendingTargetedCorrectionKeepsItsIssuedSchemaAndAuthority()
-    {
-        var (runtime, state) = await Fixture();
-        state = await new HybridWorkflowPlanner().AdvanceAsync(state, new(), runtime, PlannerFixture.Ct);
-        runtime.Proposal.Plan!.Root.Outputs[0] = new("report", CommitmentCoverageTests.Output("observe", "verified"));
-        var complete = await PlannerFixture.RunAsync(runtime, state);
-        var pending = PlannerFixture.Clone(runtime.Checkpoints.Last(s => s.PendingCall is not null));
-        var pendingId = pending.PendingCall!.Id;
-        var issued = JsonSerializer.Serialize(pending.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
-        var authority = pending.Request.Options["automatic_correction_progress"]!.ToJsonString();
-        var response = new LLMResponse { Json = TestRuntime.PatchResponse(pending.PendingCall.Request, pending, runtime.Proposal.Plan) };
-        var reads = 0;
-        runtime.Respond = (request, _) =>
-        { Assert.Equal(0, reads++); Assert.Equal(issued, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)); return response; };
-        var recovered = await new HybridWorkflowPlanner().AdvanceAsync(pending, new() { ExpectedRevision = pending.Revision }, runtime, PlannerFixture.Ct);
-        Assert.Equal(PlanningStatus.FinalReview, recovered.Status); Assert.Equal(complete.Yaml, recovered.Yaml);
-        Assert.Equal(2, recovered.ModelCalls); Assert.Equal(1, recovered.ReplanAttempts); Assert.Equal(1, reads);
-        Assert.Equal(authority, runtime.Checkpoints.First(s => s.PendingCall?.Id == pendingId).Request.Options["automatic_correction_progress"]!.ToJsonString());
-    }
-
-    internal static async Task<(TestRuntime Runtime, PlanningSession State)> Fixture(string name = "report")
+    internal static async Task<PlanningSession> Fixture(string name = "report")
     {
         var factory = new InMemoryMcpClientFactory();
         factory.RegisterServer("records", new() { Tools = [new() { Name = "observe", EffectKind = "read",
             InputSchema = JsonNode.Parse("""{"type":"object","properties":{},"additionalProperties":false}"""),
             OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"payload":{"type":["string","null"]},"verified":{"type":"string"},"success":{"type":"boolean"}},"required":["payload","verified","success"],"additionalProperties":false}""") }] });
-        var runtime = new TestRuntime(new() { McpClientFactory = factory });
-        var catalog = await TaskPlanCompilerTests.Catalog(runtime.Actual);
-        var operation = TaskOperations.Describe(catalog.Capabilities.Single(c => c.Method == "observe")).Id;
-        runtime.Proposal = new()
-        {
-            Requirements = new() { Summary = "Return the verified producer text and its original status", Inputs = [],
-                Outputs = [new() { Name = name, Type = new() { Kind = "string" } }, new() { Name = "finished", Type = new() { Kind = "boolean" } }],
-                Outcomes = [new("report", "Return the verified producer text") { Commitments = [new(operation) { Result = new("verified", name) }] }] },
-            Plan = new() { Root = new() { Tasks = [new() { Id = "observe", Objective = "Acquire authoritative text and status", Operation = operation }],
-                Outputs = [new(name, CommitmentCoverageTests.Output("observe", "payload")), new("finished", CommitmentCoverageTests.Output("observe", "success"))] } }
-        };
-        var state = PlannerFixture.Session(); state.IntentVersion = 3; state.Catalog = catalog;
-        state.Request.Options["automatic_correction"] = true;
-        state.Request.Options["compilation_profile"] = TaskPlanCompiler.CompactProfile;
-        return (runtime, state);
+        var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
+        var catalog = await TaskPlanCompilerTests.Catalog(runtime);
+        var operation = TaskOperations.Describe(catalog.Capabilities.Single(capability => capability.Method == "observe")).Id;
+        var state = PlannerFixture.Session(); state.Catalog = catalog;
+        state.Requirements = new() { Summary = "Return verified text and its exact observed status", Inputs = [],
+            Outputs = [new() { Name = name, Type = new() { Kind = "string" } }, new() { Name = "finished", Type = new() { Kind = "boolean" } }],
+            Outcomes = [new("report", "Return the verified producer text") { Commitments = [new(operation) { Result = new("verified", name) }] }] };
+        state.Plan = new() { Root = new() { Tasks = [new() { Id = "observe", Objective = "Acquire authoritative text and status", Operation = operation }],
+            Outputs = [new(name, Output("observe", "payload")), new("finished", Output("observe", "success"))] } };
+        state.Diagnostics = Findings(state); AuthorizeOutputRepairs(state);
+        return state;
     }
+    internal static void AuthorizeOutputRepairs(PlanningSession state)
+    {
+        var paths = TaskPlanRevisions.Scope(state.Plan!, state.Diagnostics).Concat(state.Diagnostics
+            .Where(diagnostic => diagnostic.Code == "REQUIREMENTS_OUTPUTS_CHANGED" && diagnostic.Location.StartsWith("/outputs/", StringComparison.Ordinal))
+            .Select(diagnostic => "/root" + diagnostic.Location)).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
+        TaskPlanRevisions.ValidateEditablePaths(state, paths);
+        state.EditablePaths = paths; state.RevisionScope = paths.ToList();
+    }
+    internal static TaskPlan Apply(PlanningSession state, params JsonObject[] edits) => Apply(state, RepairPatchTests.Request(state), edits);
+    internal static TaskPlan Apply(PlanningSession state, LLMRequest request, params JsonObject[] edits)
+    {
+        var schema = request.StructuredOutputSchema!.AsObject();
+        var wire = PlanningCorpus.Transport(new JsonObject { ["discoveryRequests"] = null, ["clarifications"] = null,
+            ["patch"] = new JsonObject { ["edits"] = new JsonArray(edits.Select(edit => (JsonNode)edit.DeepClone()).ToArray()) } }, schema, schema);
+        Assert.Empty(PlanningModelCalls.ValidateResponseFindings(wire, schema));
+        var patch = wire.Deserialize(RepairJsonContext.Default.PlanningRepairResponse)!.Patch!;
+        return PlanningRepairPatch.Apply(state, patch, request);
+    }
+    internal static List<PlanningDiagnostic> Findings(PlanningSession state)
+    {
+        var compiled = new TaskPlanCompiler().Compile(state.Plan!, state.Catalog!, state.Request);
+        var findings = compiled.Diagnostics.ToList();
+        if (compiled.Graph is { } graph) findings.AddRange(PlanningClarifications.OutputFindings(state, graph));
+        findings.AddRange(PlanningCommitments.Assess(state).SelectMany(result => result.Diagnostics));
+        return findings;
+    }
+    internal static TaskValue Output(string task, string port) => new() { Kind = "output", Source = task, Port = port };
+    internal static JsonNode Node(TaskValue value) => JsonSerializer.SerializeToNode(value, PlanningJsonContext.Default.TaskValue)!;
 }

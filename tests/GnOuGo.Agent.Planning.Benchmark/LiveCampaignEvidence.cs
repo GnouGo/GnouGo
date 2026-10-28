@@ -6,7 +6,7 @@ using GnOuGo.Planning.Examples;
 
 internal static class LiveCampaignEvidence
 {
-    internal static async Task<JsonObject> PinAsync(BenchmarkCampaign campaign, string source, string provider, string model, string configurationFingerprint, string cohort, int productLimit = 3, bool businessJudge = false, JsonObject? planningConfiguration = null)
+    internal static async Task<JsonObject> PinAsync(BenchmarkCampaign campaign, string source, string provider, string model, string configurationFingerprint, string cohort, int productLimit = 3, JsonObject? planningConfiguration = null)
     {
         var manifest = new JsonObject
         {
@@ -25,8 +25,7 @@ internal static class LiveCampaignEvidence
             ["scenario_count"] = 2, ["repetitions"] = 3, ["oracle_version"] = "real-workflows-v1"
         };
         if (productLimit != 3) manifest["max_products"] = productLimit;
-        // Absence is the historical disabled setting; never rewrite an issued manifest.
-        if (businessJudge) manifest["business_judge"] = true;
+        manifest["planning_format"] = 11;
         if (planningConfiguration is not null)
         {
             manifest["planning_configuration"] = planningConfiguration.DeepClone();

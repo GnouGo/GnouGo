@@ -38,7 +38,6 @@ internal static class LiveWorkflowEvaluation
         await campaign.RequireRunNotRetainedAsync(label);
         var continuing = phase is "execute" or "revise";
         // Reject conflicting or changed settings before readiness, transport or inference.
-        var businessJudge = ResolveBusinessJudge(args, continuing ? retained : null);
         var readiness = await model.ReadinessAsync(CancellationToken.None);
         Console.WriteLine(readiness.ToJsonString());
         KeyVaultBenchmarkModel.RequireReady(readiness);
@@ -49,7 +48,7 @@ internal static class LiveWorkflowEvaluation
         var sourceRevision = SchemaPortabilityCampaign.Git("rev-parse", "HEAD");
         if (continuing && retained?["source"]?.ToString() != sourceRevision)
             throw new InvalidOperationException("Continuation must use the retained planning build.");
-        var frozenSettings = continuing ? retained!["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!.Request
+        var frozenSettings = continuing ? BenchmarkCampaign.ReadCurrentSession(retained!["session"]).Request
             : FreshPlanningRequest(args, label, scenario, "manifest", model.Provider, model.Model);
         if (continuing)
         {
@@ -59,7 +58,7 @@ internal static class LiveWorkflowEvaluation
                 throw new PlanningConflictException("The captured construction preset cannot change during continuation.");
         }
         var manifest = label.StartsWith(cohort + "-", StringComparison.Ordinal)
-            ? await LiveCampaignEvidence.PinAsync(campaign, sourceRevision, model.Provider, model.Model, model.ConfigurationFingerprint, cohort, productLimit, businessJudge,
+            ? await LiveCampaignEvidence.PinAsync(campaign, sourceRevision, model.Provider, model.Model, model.ConfigurationFingerprint, cohort, productLimit,
                 !continuing || frozenSettings.Options.ContainsKey("construction_preset") || retained?["manifest"]?["planning_configuration"] is not null || args.Any(a => a.StartsWith("--max-", StringComparison.Ordinal))
                     ? FrozenPlanningConfiguration(frozenSettings, retained?["session"]?["construction"]?["limits"] as JsonObject) : null) : null;
         await using var proxy = await CampaignInferenceProxy.StartAsync(model, label);
@@ -76,7 +75,7 @@ internal static class LiveWorkflowEvaluation
             var document = JsonSerializer.Deserialize(await File.ReadAllTextAsync(delegatedFile), DelegatedTestJsonContext.Default.DelegatedTestReviewDocument)
                 ?? throw new ArgumentException("Missing artifact-bound delegated review.");
             delegated = new(authorization, document, campaign.Id, label, scenario, root, sourceRevision);
-            delegated.Validate(retained!["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!);
+            delegated.Validate(BenchmarkCampaign.ReadCurrentSession(retained!["session"]));
             await delegated.PinAsync(campaign, CancellationToken.None);
         }
         else if (SchemaPortabilityCampaign.Option(args, "--delegated-authorization") is not null)
@@ -98,7 +97,7 @@ internal static class LiveWorkflowEvaluation
             Telemetry = mappingTelemetry,
             // Fresh journals own physical admission; a logical wrapper must not block saved receipts.
             LLMUsageBudget = ModelBudget(phase, frozenSettings, continuing
-                ? retained!["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession) : null,
+                ? BenchmarkCampaign.ReadCurrentSession(retained!["session"]) : null,
                 retained?["result"]?["planning_ms"]?.GetValue<long>() ?? 0),
             RunStore = ExecutionStore(root),
             Limits = new() { TenantId = "benchmark", RunId = label, AgentId = campaign.Id + "-" + scenario, AgentName = "Live evaluation " + scenario, MaxMappingInputTokens = 96000 },
@@ -202,12 +201,12 @@ internal static class LiveWorkflowEvaluation
         }
         var priorMilliseconds = phase == "revise" ? run["result"]!["planning_ms"]!.GetValue<long>() : 0;
         var priorReads = phase == "revise" ? run["result"]!["discovery_reads"]!.GetValue<int>() : 0;
-        var state = phase == "revise" ? run["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)! : new PlanningSession
+        var state = phase == "revise" ? BenchmarkCampaign.ReadCurrentSession(run["session"]) : new PlanningSession
         { Request = FreshPlanningRequest(args, label, scenario, prompt, model.Provider, model.Model) };
         if (phase != "revise") PlanningBenchmarkMeasurements.CaptureConstructionSettings(state);
         var remainingTime = PlanningBenchmarkMeasurements.RemainingPlanningTime(state, priorMilliseconds);
         var clock = Stopwatch.StartNew(); using var timeout = new CancellationTokenSource(remainingTime);
-        await model.CapturePlanningPolicyAsync(state.Request, CancellationToken.None, state.Construction is not null || phase != "revise", Math.Max(priorMilliseconds, state.ActiveMilliseconds));
+        await model.CapturePlanningPolicyAsync(state.Request, CancellationToken.None, Math.Max(priorMilliseconds, state.ActiveMilliseconds));
         if (phase == "revise")
         {
             var commandPath = SchemaPortabilityCampaign.Option(args, "--revision-command") ?? throw new ArgumentException("Supply --revision-command <file> with concrete review feedback.");
@@ -245,7 +244,6 @@ internal static class LiveWorkflowEvaluation
 
     internal static PlanningRequest FreshPlanningRequest(string[] args, string label, string scenario, string prompt, string provider, string model)
     {
-        var businessJudge = ResolveBusinessJudge(args);
         var request = new PlanningRequest { SessionId = label, TenantId = "benchmark", Name = "Live " + scenario,
             Prompt = prompt, Mode = PlanningMode.Auto, MaxModelCalls = 64, MaxReplanAttempts = 4,
             Generation = new() { MaxInputTokensPerRequest = 32000, MaxOutputTokens = 8192, Reasoning = "medium" },
@@ -254,8 +252,6 @@ internal static class LiveWorkflowEvaluation
                 ["llm_budget"] = new JsonObject { ["max_elapsed_ms"] = 18_000_000, ["max_total_tokens"] = 15_000_000 } } };
         GnOuGo.Planning.Examples.PlanningBenchmarkMeasurements.ConfigureRequest(request, args, retained: false);
         if (args.Contains("--automatic-correction", StringComparer.Ordinal)) request.Options["automatic_correction"] = true;
-        if (args.Contains("--business-judge", StringComparer.Ordinal) || args.Contains("--no-business-judge", StringComparer.Ordinal))
-            request.Options["business_judge"] = businessJudge;
         return request;
     }
 
@@ -268,35 +264,22 @@ internal static class LiveWorkflowEvaluation
     internal static JsonObject FrozenPlanningConfiguration(PlanningRequest request, JsonObject? constructionLimits = null)
     {
         var result = PlanningBenchmarkMeasurements.Configuration(request);
-        result["construction_version"] = request.Options["construction_version"]?.DeepClone() ?? JsonValue.Create(1);
+        result["planning_format"] = 11;
         result["construction_preset"] = request.Options["construction_preset"]?.ToString() ?? PlanningConstructionPresets.Ordinary;
         result["llm_budget"] = request.Options["llm_budget"]?.DeepClone();
         result["require_external_confirmation"] = request.Policy.RequireExternalConfirmation;
         result["max_graph_nodes"] = request.Policy.MaxStepsTotal;
         result["max_workflows"] = request.Policy.MaxWorkflows;
         result["construction_limits"] = constructionLimits?.DeepClone() ??
-            (PlanningConstructionPhasePolicies.IsFresh(request) ? request.Options["construction_limits"]!.DeepClone() :
-                JsonSerializer.SerializeToNode(new PlanningConstructionOptions(), PlanningJsonContext.Default.PlanningConstructionOptions));
+            (request.Options["construction_limits"]?.DeepClone() ?? JsonSerializer.SerializeToNode(new PlanningConstructionOptions(), PlanningJsonContext.Default.PlanningConstructionOptions));
         return result;
-    }
-
-    internal static bool ResolveBusinessJudge(string[] args, JsonObject? retained = null)
-    {
-        var enabled = args.Contains("--business-judge", StringComparer.Ordinal);
-        var disabled = args.Contains("--no-business-judge", StringComparer.Ordinal);
-        if (enabled && disabled) throw new ArgumentException("Choose one business judge setting.");
-        if (retained is null) return enabled;
-        var saved = retained["session"]?["request"]?["options"]?["business_judge"]?.GetValue<bool>() == true;
-        if ((enabled || disabled) && enabled != saved)
-            throw new InvalidOperationException("The explicit business judge setting differs from the retained run. Start a separate cohort.");
-        return saved;
     }
 
     internal static async Task<PlanningSession> ApproveAsync(JsonObject run, PlanningCommand command, IPlanningRuntime runtime, CancellationToken ct)
     {
         if (run["execution_started"] is not null) throw new InvalidOperationException("Execution already started; never rerun an uncertain workflow.");
         if (command.Kind != "approve") throw new ArgumentException("The review command must be an explicit approval.");
-        var session = run["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
+        var session = BenchmarkCampaign.ReadCurrentSession(run["session"]);
         // The reviewer supplies the revision, hash and acknowledgments. Never infer them from the retained plan.
         session = await new HybridWorkflowPlanner().AdvanceAsync(session, command, runtime, ct);
         if (session.Status != PlanningStatus.Approved) throw new InvalidOperationException("Artifact approval failed.");
@@ -308,7 +291,7 @@ internal static class LiveWorkflowEvaluation
         if (run["execution_started"] is not null) throw new InvalidOperationException("Execution already started; never revise or replay it.");
         if (command.Kind != "revise" || command.PreserveRequirements != true)
             throw new ArgumentException("Review corrections must use revise with preserveRequirements=true.");
-        var session = run["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
+        var session = BenchmarkCampaign.ReadCurrentSession(run["session"]);
         if (session.Request.TenantId != "benchmark" || session.Request.SessionId != run["label"]?.ToString())
             throw new PlanningConflictException("The retained session does not belong to this evaluation run.");
         return new HybridWorkflowPlanner().AdvanceAsync(session, command, runtime, ct);

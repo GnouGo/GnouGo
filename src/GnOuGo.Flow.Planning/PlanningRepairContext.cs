@@ -161,6 +161,7 @@ internal static class PlanningRepairContext
             ["slots"] = new JsonArray(slots.Select(s => (JsonNode)new JsonObject { ["id"] = s.Id, ["location"] = s.Location, ["kind"] = s.Kind,
                 ["actions"] = new JsonArray(s.Actions.Select(a => (JsonNode?)JsonValue.Create(a)).ToArray()) }).ToArray()),
             ["tasks"] = taskNodes, ["scopes"] = scopeNodes,
+            ["contracts"] = PlanningCompactConstruction.RepairContractEvidence(state, selection),
             ["inputs"] = PlanningJsonTransport.TaskPlanPart(JsonSerializer.SerializeToNode(state.Plan.Inputs.Where(i => inputs.Contains(i.Name)).ToList(), PlanningJsonContext.Default.ListTaskInput)),
             ["groups"] = new JsonArray(groups.Select(g => (JsonNode)new JsonObject { ["id"] = g.Id,
                 ["inputs"] = PlanningJsonTransport.TaskPlanPart(JsonSerializer.SerializeToNode(g.Inputs, PlanningJsonContext.Default.ListTaskInput)) }).ToArray()),

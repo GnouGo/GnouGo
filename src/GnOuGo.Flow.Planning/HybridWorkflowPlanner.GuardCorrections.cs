@@ -5,7 +5,10 @@ namespace GnOuGo.Flow.Planning;
 
 public sealed partial class HybridWorkflowPlanner
 {
-    private static bool DirectGuardCorrections(JsonNode progress) => progress["version"]?.ToString() is "2" or "3" or "4" or "5" or "6" or "7" or "8";
+
+    private static bool SameValue(TaskValue? left, TaskValue? right) => JsonNode.DeepEquals(
+        System.Text.Json.JsonSerializer.SerializeToNode(left, PlanningJsonContext.Default.TaskValue),
+        System.Text.Json.JsonSerializer.SerializeToNode(right, PlanningJsonContext.Default.TaskValue));
 
     private static Dictionary<string, List<TaskPlanCompiler.RepairSource>> GuardSources(TaskPlan baseline, PlanningCatalog catalog, TaskPlan? candidate = null)
     {

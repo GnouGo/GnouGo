@@ -9,18 +9,17 @@ public sealed partial class CompactDiscoveryProtocolTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task ProviderPaginationLabelPreservesExactRetainedPagesAndActionPairs(bool continuation)
+    public async Task ProviderPaginationPreservesExactPagesAndActionPairs(bool continuation)
     {
         var (state, _) = await Ready();
         if (continuation) state.Discovery.Pages.Add(new("alpha", null, [], "opaque-next", Query: Objective));
-        var old = RetainedProviderPage(state);
+        var old = CurrentProviderPage(state);
         var address = PlanningCompactConstruction.ProviderRequestAddress(state, 0);
         state.Construction!.Evidence = new() { [address] = old };
         var exact = old.ToJsonString();
         var newPage = PlanningCompactConstruction.ProviderRequestPage(state, 0);
         Assert.Equal(old["version"]!.ToString(), newPage["version"]!.ToString());
-        Assert.True(old["items"]![0]!["available"]!.GetValue<bool>());
-        Assert.Null(old["items"]![0]!["canRequestPage"]);
+        Assert.True(old["items"]![0]!["canRequestPage"]!.GetValue<bool>());
         Assert.True(newPage["items"]![0]!["canRequestPage"]!.GetValue<bool>());
         Assert.Null(newPage["items"]![0]!["available"]);
 
@@ -37,11 +36,11 @@ public sealed partial class CompactDiscoveryProtocolTests
     [InlineData("cursor")]
     [InlineData("resultCount")]
     [InlineData("canRequestPage")]
-    public async Task RetainedProviderLabelCompatibilityDoesNotAcceptChangedActionMetadata(string changed)
+    public async Task ProviderPageRejectsChangedActionMetadata(string changed)
     {
         var (state, _) = await Ready();
         AddOperations(state, 1);
-        var page = RetainedProviderPage(state);
+        var page = CurrentProviderPage(state);
         var item = page["items"]![0]!;
         switch (changed)
         {
@@ -58,14 +57,12 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Single(state.Discovery.Pages[0].Capabilities);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task PendingDiscoveryWithOriginalProviderLabelKeepsExactRequestAndAccounting(bool retainedPolicy)
+    [Fact]
+    public async Task PendingDiscoveryKeepsExactProviderPageAndAccounting()
     {
-        var (state, runtime) = await Ready(retainedPolicy: retainedPolicy);
+        var (state, runtime) = await Ready();
         AddOperations(state, 1);
-        var page = RetainedProviderPage(state);
+        var page = CurrentProviderPage(state);
         var provider = PlanningCompactConstruction.ProviderRequestAddress(state, 0);
         state.Construction!.Evidence = new() { [provider] = page };
         var exactPage = page.ToJsonString();
@@ -75,7 +72,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         var description = DescriptionAddress(state);
         var receipt = Wire(issued, Evidence(description));
         state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose,
-            Request = issued, CorrectionAccounting = retainedPolicy ? null : 0 };
+            Request = issued, CorrectionAccounting = 0 };
         state.ModelCalls++;
         var calls = state.ModelCalls;
         var exact = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
@@ -95,24 +92,13 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Empty(state.Construction!.Checkpoints);
         Assert.Equal(state.Discovery.Pages[0].Capabilities[0].Operation!.Description,
             state.Construction.Evidence![description]!["text"]!.ToString());
-        if (!retainedPolicy)
-        {
-            Assert.Equal(exactPage, state.Construction.Evidence[provider]!.ToJsonString());
-            PlanningCompactConstruction.RemoveStaleDiscoveryDirectories(state);
-            Assert.Equal(exactPage, state.Construction.Evidence[provider]!.ToJsonString());
-        }
-        else
-        {
-            Assert.Null(PlanningCompactConstruction.ProviderRequestPage(state, 0)["items"]![0]!["canRequestPage"]);
-            Assert.False(PlanningCompactConstruction.ProviderRequestPage(state, 0)["items"]![0]!["available"]!.GetValue<bool>());
-        }
+        Assert.Equal(exactPage, state.Construction.Evidence[provider]!.ToJsonString());
+        PlanningCompactConstruction.RemoveStaleDiscoveryDirectories(state);
+        Assert.Equal(exactPage, state.Construction.Evidence[provider]!.ToJsonString());
     }
 
-    private static JsonObject RetainedProviderPage(PlanningSession state)
+    private static JsonObject CurrentProviderPage(PlanningSession state)
     {
-        var retained = PlannerFixture.Clone(state);
-        retained.Request.Options["construction_limits"]!.AsObject().Remove("phasePolicy");
-        retained.Construction!.Limits.PhasePolicy = null;
-        return PlanningCompactConstruction.ProviderRequestPage(retained, 0);
+        return PlanningCompactConstruction.ProviderRequestPage(state, 0);
     }
 }

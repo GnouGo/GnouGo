@@ -19,7 +19,7 @@ internal static class PlanningCommitments
         return matches.Length == 1 && TaskOperations.Validate(matches[0]).Count == 0 ? matches[0] : null;
     }
 
-    internal static bool CanComplete(PlanningSession state) => state.IntentVersion == 3 && state.Plan is null &&
+    internal static bool CanComplete(PlanningSession state) => state.Plan is null &&
         state.Request.Baseline is null;
 
     internal static bool SameOutcomes(PlanningSession state, PlanningRequirements next)
@@ -35,7 +35,6 @@ internal static class PlanningCommitments
 
     internal static List<PlanningDiagnostic> Validate(PlanningSession state, PlanningRequirements requirements, bool final)
     {
-        if (state.IntentVersion != 3) return [];
         var findings = new List<PlanningDiagnostic>();
         for (var i = 0; i < requirements.Outcomes.Count; i++)
         {
@@ -84,7 +83,7 @@ internal static class PlanningCommitments
 
     internal static List<PlanningValidationResult> Assess(PlanningSession state)
     {
-        if (state.IntentVersion != 3 || state.Requirements is null || state.Plan is null) return [];
+        if (state.Requirements is null || state.Plan is null) return [];
         var results = new List<PlanningValidationResult>();
         var bindings = new CommitmentBindings(state.Plan);
         for (var i = 0; i < state.Requirements.Outcomes.Count; i++)

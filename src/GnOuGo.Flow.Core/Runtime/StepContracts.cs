@@ -180,7 +180,6 @@ public static class BuiltInStepContracts
         new[] { "raw_prompt", "generator" },
         ("raw_prompt", String()), ("name", String()), ("planning_mode", Enum("auto", "interactive")),
         ("construction_preset", Enum("ordinary", "large")),
-        ("business_judge", Boolean()),
         ("llm_budget", Object(("max_calls", PositiveInteger()), ("max_total_tokens", PositiveInteger()),
             ("max_elapsed_ms", PositiveInteger()), ("max_estimated_cost", Object(new[] { "amount", "currency" },
                 ("amount", Number()), ("currency", String()))), ("unverifiable", Enum("fail")))),

@@ -88,7 +88,7 @@ internal static class MappingLiveEvaluation
             var review = SchemaPortabilityCampaign.Option(args, "--review-command");
             if (review is null)
             {
-                var state = retained["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
+                var state = BenchmarkCampaign.ReadCurrentSession(retained["session"]);
                 Console.WriteLine(new JsonObject { ["status"] = "waiting_for_explicit_review", ["run"] = label, ["variant"] = variant,
                     ["revision"] = state.Revision, ["artifact_hash"] = state.ComputeArtifactHash(),
                     ["requirements"] = retained["session"]!["requirements"]!.DeepClone(), ["plan"] = retained["session"]!["plan"]!.DeepClone(),
@@ -168,7 +168,7 @@ internal static class MappingLiveEvaluation
         PlanningConfirmationGuards.Apply(compiled.Graph, catalog);
         var validation = PlanningExecutableValidation.Validate(compiled.Graph, catalog);
         if (validation.Count > 0) throw new InvalidOperationException(string.Join("; ", validation.Select(d => d.Message)));
-        return new() { IntentVersion = 2, Revision = 1, Request = new() { SessionId = label, TenantId = "benchmark", Name = "Mapping probe", Prompt = Prompt },
+        return new() { Revision = 1, Request = new() { SessionId = label, TenantId = "benchmark", Name = "Mapping probe", Prompt = Prompt },
             Status = PlanningStatus.FinalReview, Catalog = catalog, Plan = plan, Graph = compiled.Graph,
             Yaml = new PlanningGraphCompiler().Compile(compiled.Graph, catalog, "Mapping probe"),
             Requirements = new() { Summary = "Extract source-grounded fixture values", Inputs = plan.Inputs, Outputs = [new() { Name = "result", Type = target }],

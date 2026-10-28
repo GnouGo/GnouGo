@@ -12,7 +12,7 @@ public sealed class TypedRepairSchemaTests
 
     private static PlanningSession Output(TaskType? type, string name = "result")
     {
-        var state = PlannerFixture.HistoricalSession(); state.Request.SessionId = "typed-repair";
+        var state = PlannerFixture.Session(); state.Request.SessionId = "typed-repair";
         state.Requirements = PlannerFixture.Requirements();
         state.Requirements.Outputs = type is null ? null : [new() { Name = name, Type = type }];
         state.Catalog = new() { AllowedStepTypes = ["set"] };
@@ -21,8 +21,8 @@ public sealed class TypedRepairSchemaTests
         return state;
     }
 
-    private static JsonObject Schema(PlanningSession state, int version = 11) =>
-        PlanningRepairPatch.Schema(state, PlanningRepairPatch.Template(state, version), version);
+    private static JsonObject Schema(PlanningSession state) =>
+        PlanningRepairPatch.Schema(state, PlanningRepairPatch.Template(state));
 
     private static JsonObject Response(string value) => new()
     {
@@ -105,20 +105,6 @@ public sealed class TypedRepairSchemaTests
     }
 
     [Theory]
-    [InlineData(false, 10)]
-    [InlineData(true, 11)]
-    public void OnlyCapturedFreshPolicyChangesTheNewRequestEnvelope(bool fresh, int version)
-    {
-        var state = Output(new() { Kind = "string" });
-        state.EditablePaths = state.RevisionScope;
-        if (fresh) state.Request.Options["planning_diagnostics_version"] = 1;
-        var request = new PlanningPrompt(state).Request();
-        Assert.Equal(version, PlanningRepairPatch.RequestContext(request)["repair"]!["version"]!.GetValue<int>());
-        Assert.Equal(!fresh, PlanningContractValidation.ValidateInstance(Response(Arithmetic), request.StructuredOutputSchema!).Count == 0);
-        Assert.True(PlanningRepairPatch.Verify(state, request));
-    }
-
-    [Theory]
     [InlineData("objective", false)]
     [InlineData("workspace", true)]
     public void ExplicitAgentRevisionRetainsLiteralAndWorkspaceRestrictions(string input, bool outputReference)
@@ -158,27 +144,14 @@ public sealed class TypedRepairSchemaTests
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Response(Reference), schema));
     }
 
-    [Fact]
-    public void VersionTenSchemasAndAuthorityRemainHistorical()
-    {
-        var state = Output(new() { Kind = "string" });
-        var schema = Schema(state, 10);
-        Assert.Empty(PlanningContractValidation.ValidateInstance(Response(Arithmetic), schema));
-        // Collected before changing the production repair implementation.
-        Assert.Equal("93985cb523481b0d41747e80c396e6201a19b24b1114cf4611c6e9d7c4d0770e", PlanningGraphCompiler.Fingerprint(schema.ToJsonString()));
-        Assert.Equal("9715b0097d988d8d35e026dbe44b1ab8748005534cb65b1b375df60eeed658f9", PlanningRepairPatch.Authority(state, version: 10));
-    }
 
-    [Theory]
-    [InlineData(10)]
-    [InlineData(11)]
-    public void PendingRepairRetainsIssuedSchemaAndAuthorityAfterSerialization(int version)
+    [Fact]
+    public void PendingRepairRetainsIssuedSchemaAndAuthorityAfterSerialization()
     {
         var state = Output(new() { Kind = "string" });
-        if (version == 11) state.Request.Options["planning_diagnostics_version"] = 1;
-        var request = new LLMRequest { ClientRequestId = "pending-version-" + version,
-            Prompt = "Repair\n" + new JsonObject { ["repair"] = new JsonObject { ["version"] = version, ["authority"] = PlanningRepairPatch.Authority(state, version: version) } },
-            StructuredOutputSchema = Schema(state, version) };
+        var request = new LLMRequest { ClientRequestId = "pending-current-repair",
+            Prompt = "Repair\n" + new JsonObject { ["repair"] = new JsonObject { ["version"] = PlanningRepairPatch.CurrentVersion, ["authority"] = PlanningRepairPatch.Authority(state) } },
+            StructuredOutputSchema = Schema(state) };
         state.PendingCall = new() { Id = request.ClientRequestId, Request = request, Purpose = "replan" };
         var restored = PlannerFixture.Clone(state);
         Assert.Equal(request.Prompt, restored.PendingCall!.Request.Prompt);
@@ -191,7 +164,6 @@ public sealed class TypedRepairSchemaTests
     }
 
     [Theory]
-    [InlineData(false)]
     [InlineData(true)]
     public void ReconstructedPatchUsesItsIssuedCharacterInterpretationWithoutChangingAuthority(bool unicode)
     {
@@ -203,8 +175,8 @@ public sealed class TypedRepairSchemaTests
         Assert.True(BoundText(schema) > 0);
         if (unicode) schema["$comment"] = PlanningModelCalls.UnicodeStringLengths;
         var request = new LLMRequest { ClientRequestId = "issued-unicode-repair",
-            Prompt = "Repair\n" + new JsonObject { ["repair"] = new JsonObject { ["version"] = 11,
-                ["authority"] = PlanningRepairPatch.Authority(state, version: 11) } }, StructuredOutputSchema = schema };
+            Prompt = "Repair\n" + new JsonObject { ["repair"] = new JsonObject { ["version"] = PlanningRepairPatch.CurrentVersion,
+                ["authority"] = PlanningRepairPatch.Authority(state) } }, StructuredOutputSchema = schema };
         state.PendingCall = new() { Id = request.ClientRequestId, Request = request, Purpose = "replan" };
         var restored = PlannerFixture.Clone(state);
         var issued = restored.PendingCall!.Request;

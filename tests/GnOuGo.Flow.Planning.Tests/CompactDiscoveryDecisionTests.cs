@@ -6,12 +6,10 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed partial class CompactDiscoveryProtocolTests
 {
-    [Theory]
-    [InlineData(3)]
-    [InlineData(4)]
-    public async Task ExactEvidenceAddressesFactorOnlyRedundantVersionsWithoutChangingOriginalsOrRecovery(int version)
+    [Fact]
+    public async Task ExactEvidenceAddressesFactorOnlyRedundantVersionsWithoutChangingOriginalsOrRecovery()
     {
-        var (state, runtime) = await Ready(presentationVersion: version);
+        var (state, runtime) = await Ready();
         AddOperations(state, 4);
         for (var index = 0; index < 4; index++)
         {
@@ -29,23 +27,19 @@ public sealed partial class CompactDiscoveryProtocolTests
         var request = DiscoveryFollowup(state);
         var view = Context(request)["evidence"]!.AsObject();
         var expected = original.DeepClone().AsObject();
-        if (version == 4)
-        {
-            expected[description]!.AsObject().Remove("version");
-            expected[source]!.AsObject().Remove("version");
-            foreach (var item in expected[directory]!["items"]!.AsArray()) item!.AsObject().Remove("version");
-        }
+        expected[description]!.AsObject().Remove("version");
+        expected[source]!.AsObject().Remove("version");
+        foreach (var item in expected[directory]!["items"]!.AsArray()) item!.AsObject().Remove("version");
         Assert.Equal(expected.ToJsonString(), view.ToJsonString());
         Assert.Equal(saved, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
         var control = PlannerFixture.Clone(state);
-        control.Construction!.Compact!.PresentationVersion = 3;
-        control.Request.Options["construction_presentation_version"] = 3;
+
         var unprojected = DiscoveryFollowup(control);
-        // Keep the response grammar fixed while measuring only metadata
-        // presentation; fresh v4 now constrains binding fields by task kind.
-        unprojected.StructuredOutputSchema!["properties"]!["binding"] = request.StructuredOutputSchema!["properties"]!["binding"]!.DeepClone();
+        var unprojectedContext = Context(unprojected);
+        unprojectedContext["evidence"] = original.DeepClone();
+        unprojected.Prompt = unprojected.Prompt[..(unprojected.Prompt.LastIndexOf('\n') + 1)] + unprojectedContext.ToJsonString();
         unprojected = PlanningModelCalls.PrepareRequest(control, PlanningCompactConstruction.DiscoveryPurpose,
-            unprojected.Prompt, unprojected.StructuredOutputSchema.AsObject());
+            unprojected.Prompt, unprojected.StructuredOutputSchema!.AsObject());
         Assert.Equal(original.ToJsonString(), Context(unprojected)["evidence"]!.ToJsonString());
         Assert.Equal(unprojected.StructuredOutputSchema!.ToJsonString(), request.StructuredOutputSchema!.ToJsonString());
         // This comparison isolates metadata. Keep both grammar and instructions
@@ -56,8 +50,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         var before = PlanningRequestMeasurements.Measure(measuredControl, PlanningCompactConstruction.DiscoveryPurpose, 6000);
         var after = PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, 6000);
         Assert.Equal(after.CompleteRequestBytes, after.Components.Sum(component => component.SerializedBytes));
-        if (version == 4) Assert.True(after.CompleteRequestBytes < before.CompleteRequestBytes - 400);
-        else Assert.Equal(before.CompleteRequestBytes, after.CompleteRequestBytes);
+        Assert.True(after.CompleteRequestBytes < before.CompleteRequestBytes - 400);
 
         // An already-issued full-page request remains authoritative after the
         // presentation improvement; recovery must not rebuild its prompt.
@@ -88,7 +81,7 @@ public sealed partial class CompactDiscoveryProtocolTests
     [InlineData("directory-link")]
     public async Task UnverifiedEvidenceKeepsItsVersionPresentation(string changed)
     {
-        var (state, _) = await Ready(presentationVersion: 4);
+        var (state, _) = await Ready();
         AddOperations(state, 1);
         var address = changed == "description" ? DescriptionAddress(state) : PlanningCompactConstruction.OperationPageAddress(state, 0);
         PlanningConstruction.LoadEvidence(state, [address]);
@@ -108,13 +101,12 @@ public sealed partial class CompactDiscoveryProtocolTests
     }
 
     [Theory]
-    [InlineData(3, true, "/evidenceRequests", false)]
-    [InlineData(4, true, "/evidenceRequests", true)]
-    [InlineData(4, false, "/evidenceRequests", false)]
-    [InlineData(4, true, "/operations", false)]
-    public async Task OnlyCurrentRequiredDiscoveryAdmissionFailureNarrowsUnseenEvidence(int version, bool required, string location, bool singleton)
+    [InlineData(true, "/evidenceRequests", true)]
+    [InlineData(false, "/evidenceRequests", false)]
+    [InlineData(true, "/operations", false)]
+    public async Task OnlyCurrentRequiredDiscoveryAdmissionFailureNarrowsUnseenEvidence(bool required, string location, bool singleton)
     {
-        var (state, _) = await Ready(presentationVersion: version);
+        var (state, _) = await Ready();
         AddOperations(state, 2);
         var addresses = PlanningCompactConstruction.ContractDescriptors(state, count: 2)
             .Select(item => item!["descriptionEvidence"]!.ToString()).ToArray();
@@ -135,7 +127,7 @@ public sealed partial class CompactDiscoveryProtocolTests
     [InlineData(true)]
     public async Task OversizedDiscoveryBatchRecoversThroughAdmittedSingletonWithoutLosingEvidenceOrAccounting(bool recover)
     {
-        var (state, runtime) = await Ready(presentationVersion: 4);
+        var (state, runtime) = await Ready();
         AddOperations(state, 3);
         foreach (var capability in state.Discovery.Pages[0].Capabilities)
             capability.Operation!.Description = new string('x', 1800) + " Preserve the complete observation.";
@@ -210,7 +202,7 @@ public sealed partial class CompactDiscoveryProtocolTests
     [Fact]
     public async Task AlreadyIssuedBatchKeepsItsExactBytesWhenAdmissionDiagnosticArrivesAfterIssuance()
     {
-        var (state, runtime) = await Ready(presentationVersion: 4);
+        var (state, runtime) = await Ready();
         AddOperations(state, 2);
         var addresses = PlanningCompactConstruction.ContractDescriptors(state, count: 2)
             .Select(item => item!["descriptionEvidence"]!.ToString()).ToArray();
@@ -238,22 +230,19 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Null(state.PendingCall);
     }
 
-    [Theory]
-    [InlineData(3)]
-    [InlineData(4)]
-    public async Task DiscoverySeparatesUnseenContinuationBatchesFromExactSingleDescriptionRereads(int version)
+    [Fact]
+    public async Task DiscoverySeparatesUnseenContinuationBatchesFromExactSingleDescriptionRereads()
     {
-        var (state, runtime) = await Ready(presentationVersion: version);
-        AddOperations(state, 3);
-        foreach (var capability in state.Discovery.Pages[0].Capabilities)
-            capability.Operation!.Description = new string('a', 3000) + " Preserve the complete observation.";
-        var addresses = PlanningCompactConstruction.ContractDescriptors(state, count: 3)
+        var (state, runtime) = await Ready();
+        AddOperations(state, 2);
+        state.Discovery.Pages[0].Capabilities[0].Operation!.Description = new string('a', 3000) + " Preserve the complete observation.";
+        var addresses = PlanningCompactConstruction.ContractDescriptors(state, count: 2)
             .Select(item => item!["descriptionEvidence"]!.ToString()).ToArray();
         runtime.Respond = (request, _) => Wire(request, Evidence(addresses));
         state = await Advance(state, runtime);
         Assert.Empty(state.Diagnostics);
         var originals = state.Construction!.Evidence!.ToJsonString();
-        var continuations = addresses.Select(address => state.Construction.Evidence[address]!["next"]!.ToString()).ToArray();
+        var continuations = addresses.Select(address => state.Construction.Evidence[address]!["next"]?.ToString()).OfType<string>().ToArray();
         state.Discovery.Pages.Add(new("alpha", "more", [AdditionalOperation(state)], null, Query: Objective));
         var request = DiscoveryFollowup(state);
         Assert.Empty(PlanningContractValidation.ValidateSchema(request.StructuredOutputSchema!, strict: true));
@@ -261,8 +250,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         var measurement = PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, limit);
         Assert.Equal(measurement.CompleteRequestBytes, measurement.Components.Sum(component => component.SerializedBytes));
         Assert.InRange(measurement.EstimatedInputTokens, 1, limit);
-        Assert.Contains("partial descriptions do not establish unavailable behavior", request.Prompt, StringComparison.Ordinal);
-        Assert.Contains("Follow necessary original description continuations", request.Prompt, StringComparison.Ordinal);
+        Assert.All(continuations, address => Assert.Contains(address, request.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal));
         foreach (var address in addresses)
         {
             Assert.True(Context(request)["evidence"]![address]!["textOmitted"]!.GetValue<bool>());
@@ -294,7 +282,7 @@ public sealed partial class CompactDiscoveryProtocolTests
     [InlineData(true)]
     public async Task PreviouslyIssuedDiscoveryBatchSchemaKeepsExactRecoveryAndSingleRereadAuthority(bool batch)
     {
-        var (state, runtime) = await Ready(presentationVersion: 3);
+        var (state, runtime) = await Ready();
         AddOperations(state, 2);
         var addresses = PlanningCompactConstruction.ContractDescriptors(state, count: 2)
             .Select(item => item!["descriptionEvidence"]!.ToString()).ToArray();
@@ -339,31 +327,26 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Equal(evidence, state.Construction!.Evidence!.ToJsonString());
     }
 
-    [Theory]
-    [InlineData(2)]
-    [InlineData(3)]
-    public async Task EarlierDescriptionsAreNavigationOnlyWhenTheirExactRereadIsAvailable(int presentationVersion)
+    [Fact]
+    public async Task EarlierDescriptionsAreNavigationOnlyWhenTheirExactRereadIsAvailable()
     {
-        var (state, runtime) = await Ready(presentationVersion: presentationVersion);
+        var (state, runtime) = await Ready();
         AddOperations(state, 1);
         var address = DescriptionAddress(state);
         runtime.Respond = (request, _) => Wire(request, Evidence(address));
         state = await Advance(state, runtime);
         Assert.Empty(state.Diagnostics);
         var original = state.Construction!.Evidence![address]!.ToJsonString();
-        Assert.Equal(original, PlanningCompactConstruction.DiscoveryContext(state)["evidence"]![address]!.ToJsonString());
+        var presentedOriginal = JsonNode.Parse(original)!.AsObject(); presentedOriginal.Remove("version");
+        Assert.Equal(presentedOriginal.ToJsonString(), PlanningCompactConstruction.DiscoveryContext(state)["evidence"]![address]!.ToJsonString());
         state.Discovery.Pages.Add(new("alpha", "more", [AdditionalOperation(state)], null, Query: Objective));
         var retained = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
         var context = PlanningCompactConstruction.DiscoveryContext(state);
         var presented = context["evidence"]![address]!;
-        if (presentationVersion == 3)
-        {
-            Assert.Null(presented["text"]);
-            Assert.True(presented["textOmitted"]!.GetValue<bool>());
-            Assert.Equal(address, presented["evidence"]!.ToString());
-            Assert.NotNull(context["describedOperations"]);
-        }
-        else Assert.Equal(original, presented.ToJsonString());
+        Assert.Null(presented["text"]);
+        Assert.True(presented["textOmitted"]!.GetValue<bool>());
+        Assert.Equal(address, presented["evidence"]!.ToString());
+        Assert.NotNull(context["describedOperations"]);
         Assert.Equal(retained, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
         var followup = DiscoveryFollowup(state);
         Assert.Empty(PlanningContractValidation.ValidateInstance(Wire(followup, Evidence(address)).Json!, followup.StructuredOutputSchema!));
@@ -371,25 +354,22 @@ public sealed partial class CompactDiscoveryProtocolTests
         state = await Advance(PlannerFixture.Clone(state), runtime);
         Assert.Empty(state.Diagnostics);
         Assert.Equal(original, state.Construction!.Evidence![address]!.ToJsonString());
-        Assert.Equal(original, PlanningCompactConstruction.DiscoveryContext(state)["evidence"]![address]!.ToJsonString());
+        Assert.Equal(presentedOriginal.ToJsonString(), PlanningCompactConstruction.DiscoveryContext(state)["evidence"]![address]!.ToJsonString());
         Assert.Equal(2, state.Construction.EvidenceRequests.Count(key => key.StartsWith("description-read:", StringComparison.Ordinal)));
         Assert.Equal(0, state.ReplanAttempts);
         state = await Advance(state, runtime);
-        if (presentationVersion == 2) Assert.Equal(PlanningStatus.Stopped, state.Status);
-        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code ==
-            (presentationVersion == 3 ? "PLANNING_RESPONSE_INVALID" : "REPLAN_NO_PROGRESS"));
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "PLANNING_RESPONSE_INVALID");
     }
 
     [Theory]
     [InlineData("duplicate")]
     [InlineData("cursor")]
-    [InlineData("historical-read")]
     [InlineData("prerequisite")]
     [InlineData("resuming-prerequisite")]
     [InlineData("rejected-reread")]
     public async Task DiscoveryKeepsOriginalTextWhenItCannotSafelyOfferAnotherRead(string condition)
     {
-        var (state, runtime) = await Ready(presentationVersion: condition == "resuming-prerequisite" ? 10 : 3);
+        var (state, runtime) = await Ready();
         AddOperations(state, 1);
         var address = DescriptionAddress(state);
         runtime.Respond = (request, _) => Wire(request, Evidence(address));
@@ -401,8 +381,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         else
         {
             state.Discovery.Pages.Add(new("alpha", "more", [AdditionalOperation(state)], null, Query: Objective));
-            if (condition == "historical-read") state.Construction.EvidenceRequests.RemoveAll(key => key.StartsWith("description-read:", StringComparison.Ordinal));
-            else if (condition == "rejected-reread")
+            if (condition == "rejected-reread")
             {
                 var key = PlanningCompactConstruction.DescriptionReadKey(state, PlanningCompactConstruction.DiscoverySchema(state), Evidence(address));
                 Assert.NotNull(key);
@@ -432,7 +411,7 @@ public sealed partial class CompactDiscoveryProtocolTests
             else state.Construction.Compact!.CurrentStep!.Prerequisites = [new() { Need = "Retain the inspected restriction.", EvidenceAddresses = [address] }];
         }
         var expected = JsonNode.Parse(original)!.AsObject();
-        if (condition == "resuming-prerequisite") expected.Remove("version"); // Exact address already carries the version in fresh presentation.
+        expected.Remove("version"); // The exact current address carries the contract version.
         Assert.Equal(expected.ToJsonString(), PlanningCompactConstruction.DiscoveryContext(state)["evidence"]![address]!.ToJsonString());
         Assert.Equal(original, state.Construction.Evidence![address]!.ToJsonString());
     }
@@ -440,8 +419,8 @@ public sealed partial class CompactDiscoveryProtocolTests
     [Fact]
     public async Task DiscoveryPresentationReducesPriorKnowledgeWithoutChangingMandatoryContractClosure()
     {
-        var (state, _) = await Ready(presentationVersion: 3);
-        AddOperations(state, 8);
+        var (state, _) = await Ready();
+        AddOperations(state, 4);
         for (var index = 0; index < state.Discovery.Pages[0].Capabilities.Count; index++)
         {
             var capability = state.Discovery.Pages[0].Capabilities[index];
@@ -450,7 +429,7 @@ public sealed partial class CompactDiscoveryProtocolTests
             state.Discovery.Pages[0].Capabilities[index] = capability with { Description = text };
         }
         var schema = PlanningCompactConstruction.DiscoverySchema(state);
-        foreach (var descriptor in PlanningCompactConstruction.ContractDescriptors(state, count: 8))
+        foreach (var descriptor in PlanningCompactConstruction.ContractDescriptors(state, count: 4))
         {
             var address = descriptor!["descriptionEvidence"]!.ToString();
             while (true)
@@ -467,11 +446,13 @@ public sealed partial class CompactDiscoveryProtocolTests
         var request = DiscoveryFollowup(state);
         var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.DiscoveryPurpose).MaxInputTokens;
         PlanningConstruction.AdmitEvidenceFollowup(state, request, PlanningCompactConstruction.DiscoveryPurpose);
-        var legacy = PlannerFixture.Clone(state);
-        legacy.Construction!.Compact!.PresentationVersion = 2;
-        var unprojected = DiscoveryFollowup(legacy);
-        Assert.True(PlanningRequestMeasurements.Measure(unprojected, PlanningCompactConstruction.DiscoveryPurpose, limit).EstimatedInputTokens > limit);
-        Assert.True(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, limit).EstimatedInputTokens < limit);
+        var unprojected = DiscoveryFollowup(state);
+        var unprojectedContext = Context(unprojected); unprojectedContext["evidence"] = state.Construction.Evidence.DeepClone();
+        unprojected.Prompt = unprojected.Prompt[..(unprojected.Prompt.LastIndexOf('\n') + 1)] + unprojectedContext.ToJsonString();
+        var before = PlanningRequestMeasurements.Measure(unprojected, PlanningCompactConstruction.DiscoveryPurpose, limit);
+        var after = PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, limit);
+        Assert.True(after.CompleteRequestBytes < before.CompleteRequestBytes);
+        Assert.InRange(after.EstimatedInputTokens, 1, limit);
         Assert.Equal(originals, state.Construction.Evidence.ToJsonString());
         Assert.Equal(reads, state.Construction.EvidenceRequests);
 
@@ -511,8 +492,14 @@ public sealed partial class CompactDiscoveryProtocolTests
             choices["items"]!.AsArray().Select(item => item!["id"]!.ToString()));
         foreach (var item in choices["items"]!.AsArray())
             Assert.Equal(new[] { "id", "name", "effect" }, item!.AsObject().Select(property => property.Key));
-        Assert.Null(context["descriptors"]);
-        Assert.True(JsonNode.DeepEquals(state.Construction!.Evidence, context["evidence"]));
+        Assert.NotNull(context["descriptors"]);
+        Assert.Equal(state.Construction!.Evidence!.Count, context["evidence"]!.AsObject().Count);
+        foreach (var (address, originalEvidence) in state.Construction.Evidence)
+        {
+            var expectedEvidence = originalEvidence!.DeepClone().AsObject();
+            if (address.StartsWith("description:", StringComparison.Ordinal)) expectedEvidence.Remove("version");
+            Assert.True(JsonNode.DeepEquals(expectedEvidence, context["evidence"]![address]));
+        }
         Assert.Equal(original, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
         Assert.Empty(state.Discovery.Resolved);
         Assert.Empty(state.Construction.Compact!.CurrentStep!.OperationIds);
@@ -528,7 +515,6 @@ public sealed partial class CompactDiscoveryProtocolTests
     [InlineData("step-type")]
     [InlineData("conflicting")]
     [InlineData("summary-version")]
-    [InlineData("historical")]
     [InlineData("no-evidence")]
     public async Task DescriptionChoiceRequiresItsCurrentBaselineVersionAndPolicy(string change)
     {
@@ -552,7 +538,6 @@ public sealed partial class CompactDiscoveryProtocolTests
                 state.Discovery.Pages.Add(new("alpha", "later", [conflicting], null, Query: Objective));
                 break;
             case "summary-version": state.Discovery.Pages[0].Capabilities[0] = capability with { Version = "mismatched" }; break;
-            case "historical": state.Construction!.Compact!.PresentationVersion = null; break;
             case "no-evidence": state.Construction!.Evidence = null; break;
         }
         Assert.Null(PlanningCompactConstruction.DescribedOperationChoices(state));
@@ -572,20 +557,20 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.False(PlanningCompactConstruction.DiscoveryContext(state).ContainsKey("describedOperations"));
     }
 
-    [Theory]
-    [InlineData(2)]
-    [InlineData(3)]
-    public async Task DescriptionChoicesAreBoundedAndDoNotReinjectLargeUnrelatedContractProse(int presentationVersion)
+    [Fact]
+    public async Task DescriptionChoicesAreBoundedAndDoNotReinjectLargeUnrelatedContractProse()
     {
-        var (state, _) = await Ready(presentationVersion: presentationVersion);
+        var (state, _) = await Ready();
         AddOperations(state, 12);
         var descriptors = PlanningCompactConstruction.ContractDescriptors(state, count: 12);
         foreach (var descriptor in descriptors.Take(7))
             PlanningConstruction.LoadEvidence(state, [descriptor!["descriptionEvidence"]!.ToString()]);
-        var unrelated = state.Discovery.Pages[0].Capabilities[^1];
+        var inspectedIds = descriptors.Take(7).Select(descriptor => descriptor!["id"]!.ToString()).ToHashSet(StringComparer.Ordinal);
+        var unrelatedIndex = state.Discovery.Pages[0].Capabilities.FindIndex(capability => !inspectedIds.Contains(capability.Operation!.Id));
+        var unrelated = state.Discovery.Pages[0].Capabilities[unrelatedIndex];
         var huge = new string('界', 100_000);
         unrelated.Operation!.Description = huge;
-        state.Discovery.Pages[0].Capabilities[^1] = unrelated with { Description = huge };
+        state.Discovery.Pages[0].Capabilities[unrelatedIndex] = unrelated with { Description = huge };
         PlanningConstruction.LoadEvidence(state, ["page:sources:0"]);
         var context = PlanningCompactConstruction.DiscoveryContext(state);
         var choices = context["describedOperations"]!.AsObject();
@@ -593,21 +578,25 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.False(choices["complete"]!.GetValue<bool>());
         Assert.Equal(4, choices["items"]!.AsArray().Count);
         Assert.DoesNotContain(huge, context.ToJsonString(), StringComparison.Ordinal);
-        Assert.Equal(huge, state.Discovery.Pages[0].Capabilities[^1].Operation!.Description);
+        Assert.Equal(huge, state.Discovery.Pages[0].Capabilities[unrelatedIndex].Operation!.Description);
         var request = Complete(state, PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state),
             context, PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose));
         var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.DiscoveryPurpose).MaxInputTokens;
         var measurement = PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, limit);
         Assert.InRange(measurement.EstimatedInputTokens, 1, limit);
-        Assert.True(JsonNode.DeepEquals(state.Construction!.Evidence, context["evidence"]));
+        Assert.Equal(state.Construction!.Evidence!.Count, context["evidence"]!.AsObject().Count);
+        foreach (var (address, evidence) in state.Construction.Evidence)
+        {
+            var expected = evidence!.DeepClone().AsObject();
+            if (address.StartsWith("description:", StringComparison.Ordinal) || address.StartsWith("source-description:", StringComparison.Ordinal)) expected.Remove("version");
+            Assert.True(JsonNode.DeepEquals(expected, context["evidence"]![address]), address + ": " + expected.ToJsonString() + " != " + context["evidence"]![address]!.ToJsonString());
+        }
     }
 
-    [Theory]
-    [InlineData(2)]
-    [InlineData(3)]
-    public async Task SavedDiscoveryWithoutDecisionChoicesResumesItsExactRequestAndAccounting(int presentationVersion)
+    [Fact]
+    public async Task SavedDiscoveryWithoutDecisionChoicesResumesItsExactRequestAndAccounting()
     {
-        var (state, runtime) = await Ready(presentationVersion: presentationVersion);
+        var (state, runtime) = await Ready();
         AddOperations(state, 2);
         var address = DescriptionAddress(state);
         var descriptionKey = PlanningCompactConstruction.DescriptionReadKey(state, PlanningCompactConstruction.DiscoverySchema(state), Evidence(address));
@@ -615,12 +604,12 @@ public sealed partial class CompactDiscoveryProtocolTests
         state.Discovery.Pages.Add(new("alpha", "more", [AdditionalOperation(state)], null, Query: Objective));
         var context = PlanningCompactConstruction.DiscoveryContext(state);
         Assert.NotNull(context["describedOperations"]);
-        if (presentationVersion == 3) Assert.True(context["evidence"]![address]!["textOmitted"]!.GetValue<bool>());
+        Assert.True(context["evidence"]![address]!["textOmitted"]!.GetValue<bool>());
         // A historical issued view includes full original prose even when a
         // freshly constructed request would now offer its exact retrieval link.
         context["evidence"] = state.Construction!.Evidence!.DeepClone();
         context.Remove("describedOperations");
-        var issued = Complete(state, PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryInstructions,
+        var issued = Complete(state, PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state),
             context, PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose));
         state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = issued };
         state.ModelCalls++;

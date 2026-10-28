@@ -10,51 +10,23 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class LiveWorkflowReviewTests
 {
     [Theory]
-    [InlineData("--business-judge", true)]
-    [InlineData("--no-business-judge", false)]
-    [InlineData(null, false)]
-    public void FreshLiveJudgeIsExplicitAndSharesTheFrozenModelAndBudgets(string? option, bool enabled)
-    {
-        var request = LiveWorkflowEvaluation.FreshPlanningRequest(option is null ? [] : [option],
-            "fresh-judge", "amazon", "requested work", "provider", "model");
-        Assert.Equal(enabled, request.Options["business_judge"]?.GetValue<bool>() == true);
-        Assert.Equal(option is not null, request.Options.ContainsKey("business_judge"));
-        Assert.Equal("provider", request.Options["generator"]!["provider"]!.GetValue<string>());
-        Assert.Equal("model", request.Options["generator"]!["model"]!.GetValue<string>());
-        Assert.Equal(64, request.MaxModelCalls);
-        Assert.Equal(4, request.MaxReplanAttempts);
-        Assert.Equal(32000, request.Generation.MaxInputTokensPerRequest);
-        Assert.Equal(8192, request.Generation.MaxOutputTokens);
-        Assert.True(request.Policy.RequireExternalConfirmation);
-        var recovered = JsonSerializer.Deserialize(JsonSerializer.Serialize(request, PlanningJsonContext.Default.PlanningRequest),
-            PlanningJsonContext.Default.PlanningRequest)!;
-        Assert.Equal(request.Options.ToJsonString(), recovered.Options.ToJsonString());
-    }
+    [InlineData("--business-judge")]
+    [InlineData("--no-business-judge")]
+    public void LiveReviewHasNoDisableOrAlternativeProtocolSwitch(string option)
+        => Assert.Throws<ArgumentException>(() => LiveWorkflowEvaluation.FreshPlanningRequest(
+            [option], "fresh", "amazon", "requested work", "provider", "model"));
 
     [Fact]
-    public void ConflictingFreshLiveJudgeSwitchesAreRejected()
-        => Assert.Throws<ArgumentException>(() => LiveWorkflowEvaluation.FreshPlanningRequest(
-            ["--business-judge", "--no-business-judge"], "fresh-judge", "amazon", "requested work", "provider", "model"));
-
-    [Theory]
-    [InlineData(null)]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void LiveJudgeContinuationRetainsTheExactSavedRequestAndPendingIdentity(bool? enabled)
+    public void FreshLiveConfigurationKeepsThePinnedModelAndExistingAllowances()
     {
-        var options = new JsonObject();
-        if (enabled is not null) options["business_judge"] = enabled.Value;
-        var run = new JsonObject { ["session"] = new JsonObject
-        {
-            ["request"] = new JsonObject { ["options"] = options },
-            ["pendingCall"] = new JsonObject { ["requestId"] = "issued-request", ["purpose"] = "tasks", ["prompt"] = "issued prompt" }
-        } };
-        var snapshot = run.ToJsonString();
-        Assert.Equal(enabled == true, LiveWorkflowEvaluation.ResolveBusinessJudge([], run));
-        Assert.Equal(enabled == true, LiveWorkflowEvaluation.ResolveBusinessJudge([enabled == true ? "--business-judge" : "--no-business-judge"], run));
-        Assert.Throws<InvalidOperationException>(() => LiveWorkflowEvaluation.ResolveBusinessJudge([enabled == true ? "--no-business-judge" : "--business-judge"], run));
-        Assert.Throws<ArgumentException>(() => LiveWorkflowEvaluation.ResolveBusinessJudge(["--business-judge", "--no-business-judge"], run));
-        Assert.Equal(snapshot, run.ToJsonString());
+        var request = LiveWorkflowEvaluation.FreshPlanningRequest([], "fresh", "amazon", "requested work", "provider", "model");
+        Assert.Equal("provider", request.Options["generator"]!["provider"]!.GetValue<string>());
+        Assert.Equal("model", request.Options["generator"]!["model"]!.GetValue<string>());
+        Assert.Equal(64, request.MaxModelCalls); Assert.Equal(4, request.MaxReplanAttempts);
+        Assert.Equal(32000, request.Generation.MaxInputTokensPerRequest); Assert.Equal(8192, request.Generation.MaxOutputTokens);
+        Assert.True(request.Policy.RequireExternalConfirmation);
+        Assert.False(request.Options.ContainsKey("business_judge"));
+        Assert.Equal(11, PlanningBenchmarkMeasurements.Configuration(request)["planning_format"]!.GetValue<int>());
     }
 
     [Theory]
@@ -106,7 +78,7 @@ public sealed class LiveWorkflowReviewTests
     {
         var ct = TestContext.Current.CancellationToken; var checkpoints = new List<PlanningSession>();
         var runtime = new WorkflowPlanningRuntime(new WorkflowEngine(), (s, _) => { checkpoints.Add(s); return Task.CompletedTask; });
-        var state = new PlanningSession { IntentVersion = 2, Revision = 3, ModelCalls = 2, ReplanAttempts = 1,
+        var state = new PlanningSession { Revision = 3, ModelCalls = 2, ReplanAttempts = 1,
             Request = new() { TenantId = "benchmark", SessionId = "fresh-correction", Name = "Correction fixture", Prompt = "Return a value" },
             Status = PlanningStatus.FinalReview, Requirements = PlanningCorpus.Requirements("local"), Plan = PlanningCorpus.LiteralResult() };
         state.Catalog = await runtime.DiscoverAsync(state.Request, ct);
@@ -152,7 +124,7 @@ public sealed class LiveWorkflowReviewTests
         var ct = TestContext.Current.CancellationToken;
         var checkpoints = new List<PlanningSession>();
         var runtime = new WorkflowPlanningRuntime(new WorkflowEngine(), (s, _) => { checkpoints.Add(s); return Task.CompletedTask; });
-        var state = new PlanningSession { IntentVersion = 2, Revision = 3,
+        var state = new PlanningSession { Revision = 3,
             Request = new() { TenantId = "benchmark", SessionId = "fresh-run", Name = "Review fixture", Prompt = "Return a value" },
             Status = PlanningStatus.FinalReview, Requirements = PlanningCorpus.Requirements("local"), Plan = PlanningCorpus.LiteralResult() };
         state.Catalog = await runtime.DiscoverAsync(state.Request, ct);

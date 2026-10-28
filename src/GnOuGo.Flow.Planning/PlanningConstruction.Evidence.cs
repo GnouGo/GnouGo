@@ -9,40 +9,27 @@ internal static partial class PlanningConstruction
 {
     internal static GnOuGo.Flow.Core.Runtime.LLMRequest RepairRequest(PlanningSession state, PlanningSession authority, string? guidance = null)
     {
-        var schema = PlanningSchemas.Proposal(authority);
-        var fresh = PlanningConstructionPhasePolicies.IsFresh(state.Request);
-        var singleView = !fresh && state.Construction is { Version: 2, Compact.PresentationVersion: 2 };
-        schema["properties"]!["evidenceRequests"] = PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.String(), 1, singleView ? 1 : 8));
+        var schema = PlanningSchemas.RepairSchema(authority);
+        schema["properties"]!["evidenceRequests"] = PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.String(), 1, 8));
         schema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("evidenceRequests"));
-        if (state.Construction!.Version == 2)
-        {
-            schema["properties"]!["reselectStep"] = state.Construction.Candidate?.AuthorizedPaths is null
-                ? PlanningSchemas.Nullable(new JsonObject { ["type"] = "string", ["maxLength"] = 512 }) : PlanningSchemas.Type("null");
-            schema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("reselectStep"));
-            PlanningCompactConstruction.ConstrainReselectionSchema(state, schema);
-        }
+        schema["properties"]!["reselectStep"] = state.Construction!.Candidate?.AuthorizedPaths is null
+            ? PlanningSchemas.Nullable(new JsonObject { ["type"] = "string", ["maxLength"] = 512 }) : PlanningSchemas.Type("null");
+        schema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("reselectStep"));
+        PlanningCompactConstruction.ConstrainReselectionSchema(state, schema);
         var projected = PlanningContractValidation.ProjectStructuredOutputSchema(schema);
-        return Request(state, (guidance is null ? "" : guidance + "\n") + PlanningPrompt.RepairInstructions +
-            (fresh
-                ? "\nRequest up to eight related exact evidence addresses as the only action. The complete follow-up must fit its captured phase ceiling; evidence grants no edit authority."
-                : singleView
-                ? "\nRequest one exact original evidence address per call, with patch, discoveryRequests and clarifications null; evidence grants no additional edit authority."
-                : "\nRequest original evidence using evidenceRequests with patch, discoveryRequests and clarifications null; evidence grants no additional edit authority.") +
-            (state.Construction.Version == 2 ? " If the diagnosed tentative task kind or operation cannot implement the original requirement, reselectStep may give a concrete reason as the only action. It preserves accepted work and the selected scope/requirements; explicit revision paths cannot be expanded." : ""),
-            _ => projected, state.Construction!.Limits.DraftOutputTokens, review: true,
-            enrich: context =>
-            {
-                context["repair"] = PlanningRepairContext.Build(authority);
-                // Retired observations explain earlier rejected values without
-                // adding active findings to the business Judge's resolution list.
-                if (PriorRepairObservations(state) is { } history) context["priorRepairObservations"] = history;
-            }).Request;
+        var context = PlanningCompactConstruction.Context(state, useCandidate: true);
+        context["repair"] = PlanningRepairContext.Build(authority);
+        if (PriorRepairObservations(state) is { } history) context["priorRepairObservations"] = history;
+        PlanningCompactConstruction.ConstrainDraftEvidence(state, context, projected);
+        return PlanningCompactConstruction.Request(state, (guidance is null ? "" : guidance + "\n") + PlanningPrompt.RepairInstructions +
+            "\nRequest up to eight related exact evidence addresses as the only action. The complete follow-up must fit its captured phase ceiling; evidence grants no edit authority. If exact original evidence already supports the implementation, request those addresses for bounded reconsideration without editing the plan." +
+            " If the diagnosed tentative task kind or operation cannot implement the original requirement, reselectStep may give a concrete reason as the only action. It preserves accepted work and the selected scope/requirements; explicit revision paths cannot be expanded.",
+            context, projected, "replan");
     }
 
     internal static void LoadEvidence(PlanningSession state, List<string> requests, string? descriptionReadKey = null,
         Func<PlanningSession, LLMRequest>? followup = null, string? purpose = null, JsonNode? issuedDiscoverySchema = null)
     {
-        if (PlanningConstructionPhasePolicies.IsFresh(state.Request))
         {
             // Resolve and admit on a clone: a rejected batch must not retain a
             // schema selection, page cursor or successful-read fingerprint.
@@ -65,29 +52,15 @@ internal static partial class PlanningConstruction
                 if (purpose is null) throw new ArgumentException("Evidence admission requires the follow-up purpose.", nameof(purpose));
                 AdmitEvidenceFollowup(state, followup(probe), purpose);
             }
-            if (PlanningCompactConstruction.UsesAcceptedProgress(state) && followup is not null)
+            if (followup is not null)
                 probe = FollowDescriptionContinuations(state, probe, requests, followup, purpose, issuedDiscoverySchema);
             var target = state.Construction!; var accepted = probe.Construction!;
             target.Compact = accepted.Compact;
             target.Evidence = accepted.Evidence;
             target.EvidenceRequests = accepted.EvidenceRequests;
             target.TaskCursor = accepted.TaskCursor; target.ScopeCursor = accepted.ScopeCursor; target.RequirementCursor = accepted.RequirementCursor;
-            if (PlanningCompactConstruction.UsesDecisionView(state) && accepted.Candidate is { } proposed && target.Candidate is { } candidate)
-                PlanningConstructionReviewCoverage.CopyManifest(proposed, candidate);
             ClearResolvedEvidenceDiagnostics(state);
             return;
-        }
-        if (state.Construction!.Version != 2) { LoadEvidenceCore(state, requests); return; }
-        var construction = state.Construction;
-        var compact = JsonSerializer.Deserialize(JsonSerializer.Serialize(construction.Compact, PlanningJsonContext.Default.PlanningCompactConstructionState),
-            PlanningJsonContext.Default.PlanningCompactConstructionState);
-        var taskCursor = construction.TaskCursor; var scopeCursor = construction.ScopeCursor; var requirementCursor = construction.RequirementCursor;
-        try { LoadEvidenceCore(state, requests, descriptionReadKey, issuedDiscoverySchema); }
-        catch
-        {
-            construction.Compact = compact;
-            construction.TaskCursor = taskCursor; construction.ScopeCursor = scopeCursor; construction.RequirementCursor = requirementCursor;
-            throw;
         }
     }
 
@@ -105,19 +78,17 @@ internal static partial class PlanningConstruction
             var key = EvidenceBatchFingerprint(probe, [next]);
             var expanded = JsonSerializer.Deserialize(JsonSerializer.Serialize(probe, PlanningJsonContext.Default.PlanningSession),
                 PlanningJsonContext.Default.PlanningSession)!;
-            var verified = PlanningCompactConstruction.UsesVerifiedProgress(probe);
-            var readKey = verified ? DescriptionKey() : null;
-            if (probe.Construction!.EvidenceRequests.Contains(key, StringComparer.Ordinal) && (!verified || readKey is null) ||
-                verified && readKey is not null && (probe.Construction.EvidenceRequests.Contains(readKey, StringComparer.Ordinal) ||
+            var readKey = DescriptionKey();
+            if (probe.Construction!.EvidenceRequests.Contains(key, StringComparer.Ordinal) && readKey is null ||
+                readKey is not null && (probe.Construction.EvidenceRequests.Contains(readKey, StringComparer.Ordinal) ||
                     probe.Construction.Compact!.FailedActions.Any(action => action.EndsWith(":" + readKey, StringComparison.Ordinal))))
             {
-                // Supplied bytes alone grant no reread authority. Fresh v8 may
-                // follow the same knowledge-bound singleton reread as discovery.
+                // Supplied bytes alone grant no reread authority; use the same
+                // knowledge-bound singleton authority as discovery.
                 if (probe.Construction.Evidence?.ContainsKey(next) == true)
                     _ = PlanningCompactConstruction.OriginalDescriptionContinuation(probe, next);
                 continue;
             }
-            if (!verified) readKey = DescriptionKey();
             LoadEvidenceCore(expanded, [next], readKey, issuedSchema);
             _ = PlanningCompactConstruction.OriginalDescriptionContinuation(expanded, next);
             try { AdmitEvidenceFollowup(state, followup(expanded), purpose!); }
@@ -147,14 +118,14 @@ internal static partial class PlanningConstruction
     private static void ClearResolvedEvidenceDiagnostics(PlanningSession state) => state.Diagnostics.RemoveAll(d =>
         (d.Location == "/evidenceRequests" || d.Location.StartsWith("/evidenceRequests/", StringComparison.Ordinal)) &&
         (d.Code is "CONSTRUCTION_EVIDENCE_UNKNOWN" or "CONSTRUCTION_EVIDENCE_INVALID" or "CONSTRUCTION_EVIDENCE_LIMIT" ||
-         PlanningCompactConstruction.UsesDeferredBinding(state) && d.Code == "PLANNING_RESPONSE_INVALID"));
+         d.Code == "PLANNING_RESPONSE_INVALID"));
 
     internal static void AdmitEvidenceFollowup(PlanningSession state, LLMRequest request, string purpose)
     {
         var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, purpose).MaxInputTokens;
         var estimate = ModelRequestAdmission.EstimateTokens(request);
         var measured = PlanningRequestMeasurements.Measure(request, purpose, limit, state.Construction!.Compact?.CurrentStep?.Id);
-        if (purpose == IntermediatePurpose) measured.BaselineHash ??= state.Construction.Candidate?.BaseHash;
+        if (purpose == GlobalPurpose) measured.BaselineHash ??= state.Construction.Candidate?.BaseHash;
         var measurements = state.RequestMeasurements ??= [];
         var measurement = measurements.SingleOrDefault(item => item.RequestHash == measured.RequestHash);
         if (measurement is null) { measurement = measured; measurements.Add(measurement); }
@@ -164,7 +135,7 @@ internal static partial class PlanningConstruction
             Fail("CONSTRUCTION_EVIDENCE_LIMIT", "/evidenceRequests",
                 $"The complete prospective {purpose} request needs {estimate} estimated input tokens; its captured ceiling is {limit}. Request a smaller coherent batch or exact separable view.");
         }
-        if (PlanningCompactConstruction.UsesDecisionView(state) && purpose is LocalPurpose or IntermediatePurpose)
+        if (purpose is LocalPurpose or GlobalPurpose)
         {
             var required = 1 + (request.RequiredReviewCalls ?? 0);
             var phase = PlanningConstructionPhasePolicies.Resolve(state.Request, purpose);
@@ -173,7 +144,7 @@ internal static partial class PlanningConstruction
                 tokens - (state.Usage?.TotalTokens ?? 0) < (long)required * (phase.MaxInputTokens + phase.OutputTokens))
             {
                 measurement.Admission = "rejected_before_dispatch";
-                Fail("CONSTRUCTION_REVIEW_ALLOWANCE", "/evidenceRequests", "The supplied evidence cannot fit all remaining mandatory source-window reviews within the retained allowance.");
+                Fail("CONSTRUCTION_REVIEW_ALLOWANCE", "/evidenceRequests", "The supplied evidence cannot fit the remaining mandatory business review within the retained allowance.");
             }
         }
         var violations = request.StructuredOutputSchema is { } schema
@@ -194,7 +165,6 @@ internal static partial class PlanningConstruction
     private static void LoadEvidenceCore(PlanningSession state, List<string> requests, string? descriptionReadKey = null, JsonNode? issuedSchema = null)
     {
         var construction = state.Construction!;
-        var fresh = PlanningConstructionPhasePolicies.IsFresh(state.Request);
         if (requests.Count is < 1 or > 8 || requests.Distinct(StringComparer.Ordinal).Count() != requests.Count)
             Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Request one to eight distinct original evidence identities.");
         var key = EvidenceBatchFingerprint(state, requests);
@@ -206,7 +176,7 @@ internal static partial class PlanningConstruction
                 ? "This evidence batch was already supplied for the same candidate."
                 : "This evidence batch was already supplied for the same candidate and retained knowledge.");
         var members = requests.Select(r => EvidenceBatchFingerprint(state, [r])).ToArray();
-        if (fresh && descriptionReadKey is null &&
+        if (descriptionReadKey is null &&
             (members.All(m => construction.EvidenceRequests.Contains(m, StringComparer.Ordinal)) ||
              requests.Where((r, i) => r.StartsWith("description:", StringComparison.Ordinal) &&
                  construction.EvidenceRequests.Contains(members[i], StringComparer.Ordinal)).Any()))
@@ -216,14 +186,14 @@ internal static partial class PlanningConstruction
         var symbols = new TaskPlanSymbols(plan);
         // Explicitly requested originals remain available for this decision.
         // Admission checks the whole union on the clone before it is accepted.
-        var result = fresh && construction.Evidence is { } retained ? retained.DeepClone().AsObject() : new JsonObject();
+        var result = construction.Evidence is { } retained ? retained.DeepClone().AsObject() : new JsonObject();
         foreach (var request in requests)
         {
             var split = request.IndexOf(':');
             if (split <= 0 || request.Length > 2048) Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Use a declared evidence identity.");
             var kind = request[..split]; var id = request[(split + 1)..];
             JsonNode? value = null;
-            if (construction.Version == 2 && PlanningCompactConstruction.LoadEvidence(state, request, out value, issuedSchema))
+            if (PlanningCompactConstruction.LoadEvidence(state, request, out value, issuedSchema))
             {
                 if (value is null) Fail("CONSTRUCTION_EVIDENCE_UNKNOWN", "/evidenceRequests", "The exact requested evidence is unavailable: " + request);
                 result[request] = value;
@@ -288,9 +258,9 @@ internal static partial class PlanningConstruction
                         ["always"] = new JsonArray(scope.Source.Always.Take(8).Select(t => TaskNode(t)).ToArray()),
                         ["continuation"] = "Use page:tasks:<offset> for the complete task directory; scope children retain their original identities."
                     };
-                    if (fresh && value is not null && id == "/root")
+                    if (value is not null && id == "/root")
                         value["inputs"] = Node(plan.Inputs, PlanningJsonContext.Default.ListTaskInput);
-                    if (construction.Version == 2 && value is not null && PlanningCompactConstruction.ScopeGroup(state, id) is { } scopeGroup)
+                    if (value is not null && PlanningCompactConstruction.ScopeGroup(state, id) is { } scopeGroup)
                         value["group"] = PlanningCompactConstruction.GroupInterface(state, scopeGroup.Id);
                     break;
                 case "contract":
@@ -306,7 +276,7 @@ internal static partial class PlanningConstruction
                         case "tasks" when offset < symbols.Tasks.Count:
                             value = new JsonObject { ["offset"] = offset, ["total"] = symbols.Tasks.Count,
                                 ["items"] = new JsonArray(symbols.Tasks.Values.Skip(offset).Take(8).Select(t => TaskNode(t.Task)).ToArray()) };
-                            if (PlanningCompactConstruction.UsesDeferredBinding(state) && offset + 8 < symbols.Tasks.Count)
+                            if (offset + 8 < symbols.Tasks.Count)
                                 value["next"] = "page:tasks:" + (offset + 8).ToString(System.Globalization.CultureInfo.InvariantCulture);
                             construction.TaskCursor = offset; break;
                         case "requirements" when offset < state.Requirements?.Outcomes.Count:
@@ -326,9 +296,8 @@ internal static partial class PlanningConstruction
             result[request] = value;
         }
         if (!construction.EvidenceRequests.Contains(key, StringComparer.Ordinal)) construction.EvidenceRequests.Add(key);
-        if (fresh)
-            foreach (var member in members)
-                if (!construction.EvidenceRequests.Contains(member, StringComparer.Ordinal)) construction.EvidenceRequests.Add(member);
+        foreach (var member in members)
+            if (!construction.EvidenceRequests.Contains(member, StringComparer.Ordinal)) construction.EvidenceRequests.Add(member);
         if (descriptionReadKey is not null) construction.EvidenceRequests.Add(descriptionReadKey);
         construction.Evidence = result;
     }

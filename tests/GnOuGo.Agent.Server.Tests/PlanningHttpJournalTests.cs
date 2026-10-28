@@ -20,14 +20,10 @@ public sealed class PlanningHttpJournalTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Theory]
-    [InlineData(false, 6)] [InlineData(true, 6)]
-    [InlineData(false, 7)] [InlineData(true, 7)]
-    [InlineData(false, 8)] [InlineData(true, 8)]
-    [InlineData(false, 9)] [InlineData(true, 9)]
-    [InlineData(false, 10)] [InlineData(true, 10)]
-    public async Task SourceWindowHeadroomSurvivesBothHostJournalsAndExactReceiptRecovery(bool workflow, int presentation)
+    [InlineData(false)] [InlineData(true)]
+    public async Task MandatoryReviewHeadroomSurvivesBothHostJournalsAndExactReceiptRecovery(bool workflow)
     {
-        await using var host = await Host.CreateAsync(workflow, [500, 200], presentation: presentation);
+        await using var host = await Host.CreateAsync(workflow, [500, 200]);
         await host.OpenAsync();
         var request = host.Issue(reviews: 4);
         var exact = Serialize(request);
@@ -212,7 +208,7 @@ public sealed class PlanningHttpJournalTests
         var usage = await host.UsageAsync(); Assert.Equal(2, usage.Calls);
         var state = new PlanningSession
         {
-            Request = host.Planning, IntentVersion = 2, Construction = new(), Status = PlanningStatus.Stopped,
+            Request = host.Planning, Construction = new(), Status = PlanningStatus.Stopped,
             ModelCalls = 1, ReplanAttempts = 2, ActiveMilliseconds = 123,
             PendingCall = new() { Id = request.ClientRequestId!, Purpose = "construction_intent", Request = request }
         };
@@ -231,7 +227,7 @@ public sealed class PlanningHttpJournalTests
             await host.OpenAsync(); await host.CallAsync(request);
             await PlanningModelRecovery.PrepareAsync(state = new()
             {
-                Request = host.Planning, IntentVersion = 2, Construction = new(), Status = PlanningStatus.Stopped,
+                Request = host.Planning, Construction = new(), Status = PlanningStatus.Stopped,
                 ModelCalls = 1, ReplanAttempts = 2, ActiveMilliseconds = 123, Usage = usage,
                 PendingCall = new() { Id = request.ClientRequestId!, Purpose = "construction_intent", Request = request }
             }, host.Fixture.Records, limits, new Estimator(), new TestExchangeRateProvider(), Ct);
@@ -284,10 +280,10 @@ public sealed class PlanningHttpJournalTests
         private readonly LLMUsageBudgetScope? _parent;
         private IPlanningRuntimeSession? _runtime;
         private PlanningModelJournal? _model;
-        private string BudgetCollection => _workflow ? "flow-planning-budgets-v10" : PlanningBudgetSink.Collection;
-        internal string HttpCollection => _workflow ? "flow-planning-model-http-v10" : PlanningModelJournal.HttpCollection;
+        private string BudgetCollection => _workflow ? "flow-planning-budgets-v11" : PlanningBudgetSink.Collection;
+        internal string HttpCollection => _workflow ? "flow-planning-model-http-v11" : PlanningModelJournal.HttpCollection;
 
-        private Host(PlanningPersistenceTests.StoreFixture fixture, bool workflow, int[] statuses, LLMUsageBudgetScope? parent, int? presentation)
+        private Host(PlanningPersistenceTests.StoreFixture fixture, bool workflow, int[] statuses, LLMUsageBudgetScope? parent)
         {
             Fixture = fixture; Records = new(fixture.Records); _workflow = workflow; _parent = parent;
             Handler = new(statuses); _http = new(Handler);
@@ -309,15 +305,14 @@ public sealed class PlanningHttpJournalTests
             {
                 TenantId = "tenant", SessionId = "http-session", Prompt = "secret intent", MaxModelCalls = 8,
                 Generation = new() { MaxInputTokensPerRequest = 4096, MaxOutputTokens = 128 },
-                Options = new() { ["llm_budget"] = new JsonObject { ["max_calls"] = 8, ["max_estimated_cost"] = new JsonObject { ["amount"] = 100m, ["currency"] = "USD" } }, ["construction_version"] = 2,
+                Options = new() { ["llm_budget"] = new JsonObject { ["max_calls"] = 8, ["max_estimated_cost"] = new JsonObject { ["amount"] = 100m, ["currency"] = "USD" } },
                     ["construction_limits"] = JsonSerializer.SerializeToNode(new PlanningConstructionOptions { PhasePolicy = policy }, PlanningJsonContext.Default.PlanningConstructionOptions) }
             } };
-            if (presentation is { } version) _initial.Request.Options["construction_presentation_version"] = version;
             PlanningTransportPolicies.Capture(_initial.Request, new() { BaseDelayMilliseconds = 1, MaxDelayMilliseconds = 1, MaxTotalDelayMilliseconds = 10 });
         }
 
-        internal static async Task<Host> CreateAsync(bool workflow, int[] statuses, LLMUsageBudgetScope? parent = null, int? presentation = null) =>
-            new(await PlanningPersistenceTests.StoreFixture.CreateAsync(), workflow, statuses, parent, presentation);
+        internal static async Task<Host> CreateAsync(bool workflow, int[] statuses, LLMUsageBudgetScope? parent = null) =>
+            new(await PlanningPersistenceTests.StoreFixture.CreateAsync(), workflow, statuses, parent);
 
         internal async Task OpenAsync()
         {
@@ -427,8 +422,8 @@ public sealed class PlanningHttpJournalTests
         public Task<bool> DeleteAsync(string collection, string tenantId, string key, string author, CancellationToken ct = default) => inner.DeleteAsync(collection, tenantId, key, author, ct);
         public async Task<KeyVaultRecordValue> UpsertAsync(string collection, string tenantId, string key, string value, string author, CancellationToken ct = default)
         {
-            var interrupt = !Interrupted && (Boundary == "receipt" && collection.EndsWith("model-receipts-v10", StringComparison.Ordinal) ||
-                Boundary is "http-before" or "http-after" && collection.EndsWith("model-http-v10", StringComparison.Ordinal) &&
+            var interrupt = !Interrupted && (Boundary == "receipt" && collection.EndsWith("model-receipts-v11", StringComparison.Ordinal) ||
+                Boundary is "http-before" or "http-after" && collection.EndsWith("model-http-v11", StringComparison.Ordinal) &&
                 JsonNode.Parse(value)?["transport"]?["Attempts"]?.AsArray().LastOrDefault()?["Status"]?.GetValue<int>() == 200);
             if (interrupt)
             {

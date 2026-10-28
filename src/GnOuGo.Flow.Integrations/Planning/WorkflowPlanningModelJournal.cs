@@ -14,9 +14,9 @@ namespace GnOuGo.Flow.Integrations.Planning;
 internal sealed class WorkflowPlanningModelJournal(StepExecutionContext context, IKeyVaultRecordStore records,
     PlanningRequest planning, LLMUsageBudgetScope budget, DateTimeOffset? planningDeadlineUtc = null) : ILLMClient, IModelAdmissionOwner, IPlanningConstructionAdmission
 {
-    internal const string Requests = "flow-planning-model-requests-v10";
-    internal const string Receipts = "flow-planning-model-receipts-v10";
-    internal const string Http = "flow-planning-model-http-v10";
+    internal const string Requests = "flow-planning-model-requests-v11";
+    internal const string Receipts = "flow-planning-model-receipts-v11";
+    internal const string Http = "flow-planning-model-http-v11";
     private readonly ConcurrentDictionary<string, byte> _active = new(StringComparer.Ordinal);
 
     public Task AdmitConstructionAsync(LLMRequest request, int inputTokenCeiling, IReadOnlyList<int> outputTokenCeilings, CancellationToken ct)
@@ -39,9 +39,7 @@ internal sealed class WorkflowPlanningModelJournal(StepExecutionContext context,
 
     public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
     {
-        if (PlanningConstructionPhasePolicies.IsFresh(planning))
-            PlanningConstructionPhasePolicies.ValidateIssued(request, planning);
-        else PlanningGenerationPolicy.Apply(request, planning.Generation);
+        PlanningConstructionPhasePolicies.ValidateIssued(request, planning);
         var key = request.ClientRequestId;
         var copy = JsonSerializer.Deserialize(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), PlanningJsonContext.Default.LLMRequest)!;
         copy.ClientRequestId = null;
@@ -103,7 +101,7 @@ internal sealed class WorkflowPlanningModelJournal(StepExecutionContext context,
 
 internal sealed class WorkflowPlanningBudgetSink(IKeyVaultRecordStore records, string tenant, string session) : ILLMUsageBudgetSink
 {
-    internal const string Collection = "flow-planning-budgets-v10";
+    internal const string Collection = "flow-planning-budgets-v11";
     public async ValueTask PersistAsync(LLMUsageBudgetSnapshot snapshot, CancellationToken ct)
         => await records.UpsertAsync(Collection, tenant, session, JsonSerializer.Serialize(snapshot, PlanningJsonContext.Default.LLMUsageBudgetSnapshot), WorkflowPlanningRuntimeFactory.Author, ct);
 }

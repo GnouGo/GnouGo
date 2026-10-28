@@ -24,13 +24,11 @@ public sealed class PlanningPhaseSettings
 /// <summary>One captured policy resolves planner, host and transport admission.</summary>
 public static class PlanningConstructionPhasePolicies
 {
-    public static bool IsFresh(PlanningRequest planning) => Read(planning) is not null;
-
     public static PlanningConstructionPhasePolicy? Read(PlanningRequest planning)
     {
         if (planning.Options["construction_limits"] is not JsonObject limits ||
             !limits.TryGetPropertyValue("phasePolicy", out var node)) return null;
-        if (planning.Options["construction_version"]?.GetValue<int>() != 2 || node is not JsonObject policy ||
+        if (node is not JsonObject policy ||
             policy["version"] is not JsonValue version || !version.TryGetValue<int>(out var number) || number != 1)
             throw new PlanningConflictException("The captured construction phase policy is malformed or unsupported.");
         foreach (var key in new[] { "navigation", "draft", "review" })
@@ -63,22 +61,13 @@ public static class PlanningConstructionPhasePolicies
 
     public static PlanningPhaseSettings Resolve(PlanningRequest planning, string purpose)
     {
-        var policy = Read(planning);
-        if (policy is null)
-        {
-            var input = PlanningConstructionInputPolicy.LegacyLimit(planning, purpose);
-            var review = purpose is "construction_local_judge" or "construction_intermediate_judge";
-            var output = planning.Options["construction_limits"]?[review ? "reviewOutputTokens" : "draftOutputTokens"]?.GetValue<int>()
-                ?? (review ? 2_048 : 8_192);
-            return new() { TargetInputTokens = input, MaxInputTokens = input, Reasoning = planning.Generation.Reasoning,
-                OutputTokens = Math.Min(output, planning.Generation.MaxOutputTokens) };
-        }
+        var policy = Read(planning) ?? throw new PlanningConflictException("The captured construction phase policy is required.");
         PlanningGenerationPolicy.Validate(planning.Generation);
         var selected = purpose switch
         {
             "construction_intent" or "construction_select" or "construction_discovery" => policy.Navigation,
             "construction_draft" or "replan" => policy.Draft,
-            "construction_local_judge" or "construction_intermediate_judge" => policy.Review,
+            "construction_local_judge" or "construction_global_judge" => policy.Review,
             _ => throw new PlanningConflictException("The construction request has no recognized phase policy.")
         };
         var maximum = Math.Min(selected.MaxInputTokens, planning.Generation.MaxInputTokensPerRequest);
@@ -89,8 +78,6 @@ public static class PlanningConstructionPhasePolicies
     public static LLMRequest Apply(LLMRequest request, PlanningRequest planning, string purpose)
     {
         var explicitlyDisabled = request.DisableTransportRetries;
-        if (!IsFresh(planning)) return PlanningTransportPolicies.Apply(
-            PlanningGenerationPolicy.Apply(request, planning.Generation), planning, explicitlyDisabled);
         var phase = Resolve(planning, purpose);
         // The phase reservation replaces a caller's legacy default, before hashing or dispatch.
         request.MaxTokens = phase.OutputTokens;
@@ -103,7 +90,6 @@ public static class PlanningConstructionPhasePolicies
     public static void ValidateIssued(LLMRequest request, PlanningRequest planning)
     {
         PlanningTransportPolicies.ValidateIssued(request, planning);
-        if (!IsFresh(planning)) return;
         var phase = Resolve(planning, request.StructuredOutputSchema?["title"]?.ToString() ?? "");
         if (request.Reasoning != phase.Reasoning || request.MaxTokens != phase.OutputTokens ||
             !request.RequireOutputTokenLimit || PlanningTransportPolicies.Read(planning) is null && !request.DisableTransportRetries)

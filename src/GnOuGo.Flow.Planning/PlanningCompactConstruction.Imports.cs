@@ -9,16 +9,16 @@ internal static partial class PlanningCompactConstruction
     private sealed record ActualImport(string Location, string Scope, string Phase, TaskValue Value);
 
     internal static bool UsesDerivedImports(PlanningSession state, PlanningConstructionCandidate candidate) =>
-        PlanningConstructionPhasePolicies.IsFresh(state.Request) && candidate.AuthorizedPaths is null && state.EditablePaths is null;
+        candidate.AuthorizedPaths is null && state.EditablePaths is null;
 
     internal static JsonArray ActualImportedInterfaces(PlanningSession state) => ActualImportedInterfaces(state, null);
 
-    private static JsonArray ActualImportedInterfaces(PlanningSession state, ReviewInterfaces? verified)
+    private static JsonArray ActualImportedInterfaces(PlanningSession state, CandidateInterfaces? verified)
     {
         var candidate = state.Construction!.Candidate!;
         var imports = verified?.Imports ?? ActualImports(candidate);
         if (imports.Count == 0) return [];
-        var validation = verified?.Candidate ?? ValidateReviewInterfaces(state, candidate.Plan, candidate.OpenScopes,
+        var validation = verified?.Candidate ?? ValidateCandidateInterfaces(state, candidate.Plan, candidate.OpenScopes,
             new Dictionary<string, IReadOnlyList<TaskValue>>(), ImportRequests(imports));
         var result = new JsonArray();
         foreach (var group in imports.GroupBy(import => import.Location, StringComparer.Ordinal))
@@ -26,7 +26,7 @@ internal static partial class PlanningCompactConstruction
             var exact = group.ToArray();
             if (!validation.Interfaces.TryGetValue(group.Key, out var bound) || bound.Count != exact.Length)
                 PlanningConstruction.Fail("CONSTRUCTION_STEP_INPUT_INVALID", group.Key,
-                    "Every actual draft reference must resolve at its consumer before scoped review.");
+                    "Every actual draft reference must resolve at its consumer before candidate presentation.");
             for (var index = 0; index < exact.Length; index++)
                 result.Add((JsonNode)new JsonObject
                 {
@@ -66,20 +66,20 @@ internal static partial class PlanningCompactConstruction
             foreach (var child in value.Items.Concat(value.Members.Select(member => member.Value)))
                 foreach (var reference in References(child)) yield return reference;
         }
+        static string Identity(TaskValue value) => JsonSerializer.Serialize(value, PlanningJsonContext.Default.TaskValue);
         bool IsExternalProjection(TaskValue value) => IsExternalReference(value) ||
             value.Kind == "field" && value.Items.Count == 1 && IsExternalProjection(value.Items[0]);
         bool IsExternalReference(TaskValue value) => value.Kind is "input" or "item" or "index" or "choice" ||
             value.Kind is "output" or "present" && !added.Contains(value.Source ?? "");
-        static string Identity(TaskValue value) => JsonSerializer.Serialize(value, PlanningJsonContext.Default.TaskValue);
     }
 
-    private sealed record ReviewInterfaces(IReadOnlyList<ActualImport> Imports,
+    private sealed record CandidateInterfaces(IReadOnlyList<ActualImport> Imports,
         TaskConstructionValidation Candidate, TaskConstructionValidation? Accepted);
 
     // Aggregate exact consumers/frontiers before preflight. These results live
     // only for this context construction; no validation result is persisted or
     // reused across candidate, contract or open-scope changes.
-    private static ReviewInterfaces VerifiedReviewInterfaces(PlanningSession state, bool candidateScope)
+    private static CandidateInterfaces VerifiedCandidateInterfaces(PlanningSession state, bool candidateScope)
     {
         var construction = state.Construction!;
         var candidate = construction.Candidate!;
@@ -95,10 +95,10 @@ internal static partial class PlanningCompactConstruction
         var ownerId = ScopeGroup(state, step.Scope)?.Id;
         foreach (var id in new[] { step.GroupId, ownerId }.OfType<string>().Distinct(StringComparer.Ordinal))
         {
-            // Review the owning group at the candidate boundary; called producer
+            // Validate the owning group at the candidate boundary; called producer
             // groups retain their accepted interfaces. Reuse this same preflight
             // for the displayed declarations, exports and scope facts.
-            var candidateGroup = UsesDecisionView(state) && id == ownerId;
+            var candidateGroup = id == ownerId;
             var groupPlan = candidateGroup ? candidate.Plan : state.Plan;
             var groupScopes = candidateGroup ? candidate.OpenScopes : construction.OpenScopes;
             var path = "/groups/" + id + "/body";
@@ -111,11 +111,11 @@ internal static partial class PlanningCompactConstruction
             construction.OpenScopes.ToHashSet(StringComparer.Ordinal).SetEquals(candidate.OpenScopes))
         {
             foreach (var requested in acceptedInterfaces) candidateInterfaces[requested.Key] = requested.Value;
-            var shared = ValidateReviewInterfaces(state, candidate.Plan, candidate.OpenScopes, candidateInterfaces, bindings);
+            var shared = ValidateCandidateInterfaces(state, candidate.Plan, candidate.OpenScopes, candidateInterfaces, bindings);
             return new(imports, shared, shared);
         }
-        var validated = ValidateReviewInterfaces(state, candidate.Plan, candidate.OpenScopes, candidateInterfaces, bindings);
-        var accepted = acceptedInterfaces.Count == 0 ? null : ValidateReviewInterfaces(state, state.Plan!, construction.OpenScopes,
+        var validated = ValidateCandidateInterfaces(state, candidate.Plan, candidate.OpenScopes, candidateInterfaces, bindings);
+        var accepted = acceptedInterfaces.Count == 0 ? null : ValidateCandidateInterfaces(state, state.Plan!, construction.OpenScopes,
             acceptedInterfaces, null);
         return new(imports, validated, accepted);
     }
@@ -124,7 +124,7 @@ internal static partial class PlanningCompactConstruction
         imports.GroupBy(import => import.Location, StringComparer.Ordinal).ToDictionary(group => group.Key,
             group => (IReadOnlyList<TaskValue>)group.Select(import => import.Value).ToArray(), StringComparer.Ordinal);
 
-    private static TaskConstructionValidation ValidateReviewInterfaces(PlanningSession state, TaskPlan plan, IEnumerable<string> open,
+    private static TaskConstructionValidation ValidateCandidateInterfaces(PlanningSession state, TaskPlan plan, IEnumerable<string> open,
         IReadOnlyDictionary<string, IReadOnlyList<TaskValue>> interfaces,
         IReadOnlyDictionary<string, IReadOnlyList<TaskValue>>? bindings)
     {

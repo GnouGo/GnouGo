@@ -30,8 +30,8 @@ public sealed partial class LocalProductOutcomeExecutionTests
         var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
         var catalog = await RetainedCatalog(runtime, TestContext.Current.CancellationToken); catalog.Policy.RequireExternalConfirmation = false;
         var retained = ApprovalRetained(catalog); var corrected = ApprovalCorrected(catalog);
-        Assert.True(JsonNode.DeepEquals(JsonSerializer.SerializeToNode(ApprovalRetained(catalog, "corrected"), PlanningJsonContext.Default.PlanningProposal),
-            JsonSerializer.SerializeToNode(corrected, PlanningJsonContext.Default.PlanningProposal)));
+        Assert.True(JsonNode.DeepEquals(JsonSerializer.SerializeToNode(ApprovalRetained(catalog, "corrected"), PlanningFixtureJsonContext.Default.TaskPlanFixture),
+            JsonSerializer.SerializeToNode(corrected, PlanningFixtureJsonContext.Default.TaskPlanFixture)));
         var before = BusinessCompilation(retained.Plan!, catalog, "compact-bindings-v15");
         // The original was structurally valid: static validation is not a business oracle.
         Assert.Empty(new TaskPlanCompiler().Compile(retained.Plan!, catalog).Diagnostics);
@@ -49,7 +49,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
         if (Environment.GetEnvironmentVariable("GNOU_GO_APPROVAL_EVIDENCE") is { Length: > 0 } folder)
         {
             Directory.CreateDirectory(folder);
-            File.WriteAllText(Path.Combine(folder, "corrected-proposal.json"), JsonSerializer.Serialize(corrected, PlanningJsonContext.Default.PlanningProposal));
+            File.WriteAllText(Path.Combine(folder, "corrected-proposal.json"), JsonSerializer.Serialize(corrected, PlanningFixtureJsonContext.Default.TaskPlanFixture));
             File.WriteAllText(Path.Combine(folder, "corrected-taskplan.json"), JsonSerializer.Serialize(corrected.Plan, PlanningJsonContext.Default.TaskPlan));
             File.WriteAllText(Path.Combine(folder, "corrected.yaml"), session.Yaml);
             File.WriteAllText(Path.Combine(folder, "retained.yaml"), before.Yaml);
@@ -78,16 +78,16 @@ public sealed partial class LocalProductOutcomeExecutionTests
         Assert.ThrowsAny<Exception>(() => AssertApprovalBusinessPreserved(retained, corrected));
     }
 
-    private static PlanningProposal ApprovalRetained(PlanningCatalog catalog, string name = "retained")
+    private static TaskPlanFixture ApprovalRetained(PlanningCatalog catalog, string name = "retained")
     {
         var proposal = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,
-            "Fixtures", "DesignerApproval", name + ".json")), PlanningJsonContext.Default.PlanningProposal)!;
+            "Fixtures", "DesignerApproval", name + ".json")), PlanningFixtureJsonContext.Default.TaskPlanFixture)!;
         foreach (var task in RetainedTasks(proposal.Plan!.Root).Where(t => t.Kind == "operation"))
             task.Operation = TaskOperations.Describe(catalog.Capabilities.Single(c => c.Method == task.Operation)).Id;
         return proposal;
     }
 
-    private static PlanningProposal ApprovalCorrected(PlanningCatalog catalog, string? origin = null)
+    private static TaskPlanFixture ApprovalCorrected(PlanningCatalog catalog, string? origin = null)
     {
         var retained = ApprovalRetained(catalog);
         // Reuse the independently executed exact-ID/null-branch composition, while
@@ -136,7 +136,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
         return proposal;
     }
 
-    private static void AssertApprovalBusinessPreserved(PlanningProposal retained, PlanningProposal corrected)
+    private static void AssertApprovalBusinessPreserved(TaskPlanFixture retained, TaskPlanFixture corrected)
     {
         var expected = JsonSerializer.SerializeToNode(retained.Requirements, PlanningJsonContext.Default.PlanningRequirements)!.AsObject();
         var actual = JsonSerializer.SerializeToNode(corrected.Requirements, PlanningJsonContext.Default.PlanningRequirements)!.AsObject();

@@ -24,45 +24,18 @@ public sealed class RecordedCatalogOwnedBindingTests
     }
 
     [Fact]
-    public async Task SyntheticHistoricalReplayReachesReviewWithCatalogRunnerAndOriginalContracts()
+    public async Task StaticCatalogOwnedBindingsCompileWithoutGrantingArtifactApproval()
     {
         var runtime = new Replay(); var retained = runtime.State(runtime.Recording["finalSession"]!);
-        // An isolated synthetic replay of the recorded whole-plan protocol, with no live calls or changes to the real run.
-        var state = new PlanningSession { IntentVersion = 2, Request = retained.Request, Requirements = retained.Requirements,
-            Catalog = retained.Catalog, Discovery = retained.Discovery };
-        state.Requirements!.Inputs = retained.Plan!.Inputs;
-        state.Request.SessionId = "synthetic-owned-omission";
-        // Reuse metadata receipts, not the stopped session's model inspection selections.
-        state.Discovery.Inspections = null;
-        // This captured-protocol fixture budgets its full typed contracts; the original recording remains unchanged.
-        state.Request.Generation.MaxInputTokensPerRequest = 32768;
-        var original = runtime.Recording["responses"]!.AsArray()[7]!["response"]!["json"]!["plan"]!.DeepClone();
-        var expected = original.DeepClone();
-        var expectedPlan = expected.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
-        foreach (var transform in TaskPlanRevisions.Tasks(expectedPlan).Where(t => t.Kind == "transform" && t.Mode is null)) transform.Mode = "interpret";
-        expected = JsonSerializer.SerializeToNode(expectedPlan, PlanningJsonContext.Default.TaskPlan)!;
-        var task = expected["root"]!["tasks"]!.AsArray().Single(t => t!["id"]!.ToString() == "run_project_checks")!;
-        task["inputs"]!.AsArray().Remove(task["inputs"]!.AsArray().Single(i => i!["name"]!.ToString() == "runner"));
-        state = GnOuGo.Planning.Examples.PlanningCorpus.RetainedSession(state);
-        var planner = new HybridWorkflowPlanner();
-        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
-        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join("; ", state.Diagnostics.Select(d => d.Code + ": " + d.Message)));
-        Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts); Assert.Single(runtime.Identities);
-        Assert.Equal(0, runtime.MetadataReads); Assert.Null(state.ApprovedHash);
-        Assert.NotNull(state.Plan);
-        Assert.Equal(JsonSerializer.Serialize(expected.Deserialize(PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan),
-            JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
-        var capability = state.Catalog!.Capabilities.Single(c => c.Id == state.Plan.Root.Tasks.Single(t => t.Id == "run_project_checks").Operation);
+        var plan = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "CatalogOwnedBindings", "synthetic-owned-omission.json")))!["proposal"]!["plan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
+        foreach (var task in TaskPlanRevisions.Tasks(plan).Where(t => t.Kind == "transform" && t.Mode is null)) task.Mode = "interpret";
+        var state = RecordedPlanCompilation.CompileStatic(new() { Plan = plan, Requirements = retained.Requirements }, retained.Catalog!, retained.Request);
+        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics));
+        var capability = state.Catalog!.Capabilities.Single(c => c.Id == state.Plan!.Root.Tasks.Single(t => t.Id == "run_project_checks").Operation);
         Assert.Equal("coding", capability.FixedInput["runner"]!.ToString());
         var document = GnOuGo.Flow.Core.Parsing.WorkflowParser.Parse(state.Yaml!);
-        var agent = document.Workflows.Values.SelectMany(w => w.Steps).Single(s => s.Type == "agent.run");
-        Assert.Equal("coding", agent.Input!["runner"]!.ToString());
-        PlanningArtifactApproval.Verify(state);
-        var recovered = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
-        PlanningArtifactApproval.Verify(recovered);
-        var hash = state.ComputeArtifactHash(); capability.FixedInput["runner"] = "different";
-        Assert.NotEqual(hash, state.ComputeArtifactHash()); Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(state));
-        Assert.Equal("copilot", original["root"]!["tasks"]!.AsArray().Single(t => t!["id"]!.ToString() == "run_project_checks")!["inputs"]!.AsArray().Single(i => i!["name"]!.ToString() == "runner")!["value"]!["text"]!.ToString());
+        Assert.Equal("coding", document.Workflows.Values.SelectMany(w => w.Steps).Single(s => s.Type == "agent.run").Input!["runner"]!.ToString());
+        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(state));
     }
 
     private sealed class Replay : IPlanningRuntime, ICapabilityCatalog
@@ -99,22 +72,8 @@ public sealed class RecordedCatalogOwnedBindingTests
             MetadataReads++; return Task.FromResult(Discovery.Pages.Single(p => p.SourceId == sourceId && p.Cursor == cursor && p.Query == query));
         }
         public Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct) => Task.FromResult(Discovery.Resolved.Single(c => c.Id == summary.Id && c.Version == summary.Version));
-        public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
-        {
-            if (Expected is null)
-            {
-                Identities.Add(request.ClientRequestId!);
-                var proposal = FileData("synthetic-owned-omission")["proposal"]!.DeepClone().AsObject();
-                proposal["clarifications"] = null; // New synthetic response; retained issued responses remain unchanged.
-                return Task.FromResult(new LLMResponse { Json = GnOuGo.Planning.Examples.PlanningCorpus.Transport(proposal, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) });
-            }
-            var issued = Expected["pendingSession"]!["pendingCall"]!;
-            Assert.Equal(issued["id"]!.ToString(), request.ClientRequestId);
-            Assert.Equal(issued["request"]!["prompt"]!.ToString(), request.Prompt);
-            Assert.True(JsonNode.DeepEquals(issued["request"]!["structuredOutputSchema"], request.StructuredOutputSchema));
-            Assert.DoesNotContain(request.ClientRequestId!, Identities); Identities.Add(request.ClientRequestId!);
-            return Task.FromResult(Expected["response"]!.Deserialize(PlanningJsonContext.Default.LLMResponse)!);
-        }
+        public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct) =>
+            throw new InvalidOperationException("Retired planning recordings are read-only fixtures and cannot dispatch.");
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => actual.ValidateAsync(request, ct);
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => throw new InvalidOperationException("No external approval or execution");
         public Task CheckpointAsync(PlanningSession session, CancellationToken ct) => Task.CompletedTask;

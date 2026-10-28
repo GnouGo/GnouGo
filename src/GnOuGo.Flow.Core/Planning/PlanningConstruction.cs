@@ -8,12 +8,9 @@ public sealed class PlanningConstructionOptions
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PlanningConstructionPhasePolicy? PhasePolicy { get; set; }
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public PlanningConstructionInputLimits? InputLimits { get; set; }
     public int MaxTasksPerDraft { get; set; } = 8;
     public int MaxCheckpoints { get; set; } = 128;
     public int MaxCorrectionsPerDraft { get; set; } = 3;
-    public int IntermediateReviewInterval { get; set; } = 4;
     public int DraftOutputTokens { get; set; } = 8192;
     public int ReviewOutputTokens { get; set; } = 2048;
 }
@@ -21,7 +18,6 @@ public sealed class PlanningConstructionOptions
 /// <summary>Non-executable construction journal. Plan remains the accepted semantic source of truth.</summary>
 public sealed class PlanningConstructionState
 {
-    public int Version { get; set; } = 1;
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PlanningCompactConstructionState? Compact { get; set; }
     public PlanningConstructionOptions Limits { get; set; } = new();
@@ -39,8 +35,6 @@ public sealed class PlanningConstructionState
     public int ScopeCursor { get; set; }
     public bool Complete { get; set; }
     public string? IssuedBaseHash { get; set; }
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public int? CandidateFailureIdentityVersion { get; set; }
     public List<PlanTask> RebuildTasks { get; set; } = [];
     public List<PlanningConstructionRebuildScope> RebuildScopes { get; set; } = [];
     public List<PlanningConstructionInvalidation> Invalidations { get; set; } = [];
@@ -78,9 +72,7 @@ public sealed class PlanningConstructionCandidate
     public List<PlanningDiagnostic> Diagnostics { get; set; } = [];
     public List<JsonObject> Reviews { get; set; } = [];
     public int Corrections { get; set; }
-    public bool LocalReviewed { get; set; }
-    public bool IntermediateReviewed { get; set; }
-    public bool NeedsIntermediateReview { get; set; }
+    public bool BusinessReviewed { get; set; }
     public List<string>? AuthorizedPaths { get; set; }
 }
 
@@ -117,7 +109,6 @@ public sealed class PlanningConstructionCheckpoint
     public List<string> ClosedScopes { get; set; } = [];
     public JsonObject Fragment { get; set; } = new();
     public List<JsonObject> Reviews { get; set; } = [];
-    public bool NeedsIntermediateReview { get; set; }
     public List<string> InvalidatedTaskIds { get; set; } = [];
 }
 
@@ -127,4 +118,3 @@ public sealed class PlanningConstructionRequirement
     public string Status { get; set; } = "remaining";
     public List<int> Checkpoints { get; set; } = [];
 }
-

@@ -277,25 +277,14 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
             ["evidence_hash"] = PlanningGraphCompiler.Fingerprint(string.Join('\n', evidence.OrderBy(r => r.Collection, StringComparer.Ordinal).ThenBy(r => r.Key, StringComparer.Ordinal)
                 .Select(r => new JsonArray(r.Collection, r.Key, r.Value).ToJsonString()))) };
     }
-    internal async Task<(PlanningSession State, ILLMClient Client)> ReadReplayAsync(string runKey, CancellationToken ct = default)
+    internal static PlanningSession ReadCurrentSession(JsonNode? payload)
     {
-        var evidence = await LoadAsync("planning-evaluation-runs", runKey, ct) ?? throw new InvalidOperationException("No recorded run.");
-        if (evidence["session"]?["schemaVersion"]?.GetValue<int>() != 10) throw new InvalidOperationException("Regenerate and approve incompatible planning sessions; retained evidence remains unchanged.");
-        var saved = JsonSerializer.Deserialize(evidence["session"], PlanningJsonContext.Default.PlanningSession) ?? throw new InvalidOperationException("No recorded session.");
-        if (saved.SchemaVersion != 10) throw new InvalidOperationException("Unsupported recorded session format.");
-        var prefix = Id + ":" + saved.Request.SessionId + ":1:";
-        var reservations = (await records.ListAsync("planning-evaluation-requests", "benchmark", Author, ct)).Where(r => r.Key.StartsWith(prefix, StringComparison.Ordinal)).ToArray();
-        if (reservations.Length != 1) throw new InvalidOperationException("Replay requires one original interpretation reservation.");
-        var request = JsonSerializer.Deserialize(reservations[0].Value, PlanningJsonContext.Default.LLMRequest)!;
-        if (request.ClientRequestId != reservations[0].Key[(Id.Length + 1)..]) throw new InvalidOperationException("The reservation identity does not match its stored request.");
-        var receipt = await LoadAsync("planning-evaluation-receipts", request.ClientRequestId!, ct) ?? throw new InvalidOperationException("No completion receipt; replay cannot dispatch or invent a response.");
-        var response = JsonSerializer.Deserialize(receipt, PlanningJsonContext.Default.LLMResponse)!;
-        if (request.StructuredOutputSchema is null) throw new InvalidOperationException("The original response schema is missing.");
-        // Only this detached in-memory session is bounded to one stored response.
-        saved.Request.MaxModelCalls = 1; saved.Request.MaxReplanAttempts = 0;
-        var state = new PlanningSession { Request = saved.Request, Catalog = saved.Catalog, Status = PlanningStatus.Generating,
-            ModelCalls = 1, PendingCall = new() { Id = request.ClientRequestId!, Purpose = "intent", Request = request } };
-        return (state, new ReplayReceipt(request, response));
+        if (payload?["schemaVersion"]?.GetValue<int>() != 11)
+            throw new InvalidOperationException("The retained planning session uses a retired internal format. Start a fresh run; its records and accounting are unchanged.");
+        var tenant = payload["request"]?["tenantId"]?.ToString();
+        var id = payload["request"]?["sessionId"]?.ToString();
+        if (tenant != "benchmark" || string.IsNullOrWhiteSpace(id)) throw new InvalidOperationException("The benchmark session ownership is invalid.");
+        return PlanningSessionStorage.Read(payload.ToJsonString(), tenant, id);
     }
 
     private sealed class ReplayReceipt(LLMRequest original, LLMResponse response) : ILLMClient
@@ -307,7 +296,7 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
         {
             ct.ThrowIfCancellationRequested();
             if (_used || JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest) != _request)
-                throw new InvalidOperationException("Replay accepts the original reserved request exactly once; no live client exists.");
+                throw new InvalidOperationException("Receipt recovery accepts the exact issued request once; no provider exists.");
             _used = true;
             return Task.FromResult(JsonSerializer.Deserialize(JsonSerializer.Serialize(response, PlanningJsonContext.Default.LLMResponse), PlanningJsonContext.Default.LLMResponse)!);
         }
@@ -340,8 +329,8 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
         var runKey = "run:" + label;
         var run = await LoadAsync(SchemaPortabilityCampaign.Collection, runKey, ct) ?? throw new InvalidOperationException("No retained run.");
         var originalHash = PlanningGraphCompiler.Fingerprint(run.ToJsonString());
-        var state = run["session"]?.Deserialize(PlanningJsonContext.Default.PlanningSession) ?? throw new InvalidOperationException("No retained session.");
-        if (run["execution_started"] is not null || state.SchemaVersion != 10 || state.RequiresPlanningRevision ||
+        var state = ReadCurrentSession(run["session"]);
+        if (run["execution_started"] is not null || state.SchemaVersion != 11 ||
             state.Request.TenantId != "benchmark" || state.Request.SessionId != label || state.Revision != expectedRevision ||
             state.Status != PlanningStatus.Generating || state.PendingCall?.Id != requestId || state.PendingCall.Request.ClientRequestId != requestId ||
             !requestId.StartsWith(label + ":", StringComparison.Ordinal) || state.Catalog is null ||
@@ -369,15 +358,27 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
         deadline.CancelAfter(remaining);
         var client = new ReplayReceipt(original, response);
         state.ActiveMilliseconds += interruptedMilliseconds;
+        var acceptedRequirements = JsonSerializer.SerializeToNode(state.Construction?.Candidate is not null
+            ? PlanningCompactConstruction.CandidateRequirements(state) : state.Requirements,
+            PlanningJsonContext.Default.PlanningRequirements);
         PlanningSession? checkpoint = null;
         var validation = new WorkflowPlanningRuntime(new WorkflowEngine(), (s, _) =>
         {
-            if (!client.Used || checkpoint is not null || s.Revision != expectedRevision + 1 || s.PendingCall is not null ||
-                s.ModelCalls != state.ModelCalls || s.ReplanAttempts != state.ReplanAttempts ||
-                !JsonNode.DeepEquals(JsonSerializer.SerializeToNode(s.Request, PlanningJsonContext.Default.PlanningRequest), run["session"]?["request"]) ||
-                !JsonNode.DeepEquals(JsonSerializer.SerializeToNode(s.Requirements, PlanningJsonContext.Default.PlanningRequirements), run["session"]?["requirements"]))
-                throw new InvalidOperationException("Recovery must apply only the committed response without another reservation or changed requirements.");
-            checkpoint = s;
+            var violations = new List<string>();
+            if (!client.Used) violations.Add("receipt_not_consumed");
+            if (checkpoint is not null) violations.Add("duplicate_final_checkpoint");
+            if (s.Revision != expectedRevision && s.Revision != expectedRevision + 1) violations.Add("revision");
+            if (s.PendingCall is not null) violations.Add("new_pending_request");
+            if (s.ModelCalls != state.ModelCalls || s.ReplanAttempts != state.ReplanAttempts) violations.Add("accounting");
+            if (!JsonNode.DeepEquals(JsonSerializer.SerializeToNode(s.Request, PlanningJsonContext.Default.PlanningRequest), run["session"]?["request"])) violations.Add("request");
+            var requirements = JsonSerializer.SerializeToNode(s.Requirements, PlanningJsonContext.Default.PlanningRequirements);
+            if (!JsonNode.DeepEquals(requirements, run["session"]?["requirements"]) && !JsonNode.DeepEquals(requirements, acceptedRequirements)) violations.Add("requirements");
+            if (violations.Count > 0)
+                throw new InvalidOperationException("Receipt recovery changed frozen authority: " + string.Join(", ", violations) + ".");
+            // Acceptance may checkpoint the verified fragment before Advance
+            // publishes its one new revision. Stage those checkpoints locally;
+            // the frozen run remains unchanged until the final atomic write.
+            if (s.Revision == expectedRevision + 1) checkpoint = s;
             return Task.CompletedTask;
         });
         var runtime = new ReceiptOnlyRuntime(validation, client, state.PendingCall.Purpose);

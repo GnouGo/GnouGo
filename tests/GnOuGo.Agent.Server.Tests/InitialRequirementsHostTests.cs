@@ -15,13 +15,15 @@ public sealed class InitialRequirementsHostTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task RetainedVersionOneBackgroundOwnerCorrectsOrStopsOnceAndRestartDoesNotRedispatch(bool repeatInvalid)
+    public async Task CurrentBackgroundOwnerCorrectsOriginalCoverageOrStopsWithoutRedispatch(bool repeatInvalid)
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var client = new InitialClient(repeatInvalid);
-        var expectedCalls = repeatInvalid ? 2 : 3;
+        using var client = new JournaledPlanningModel(new InitialClient(repeatInvalid));
+        var expectedCalls = repeatInvalid ? 2 : 6;
         var agents = PlanningSessionLifecycleTests.AgentCatalog();
-        var initial = await RetainedVersionOneConstruction.SeedAsync(fixture, agents, client, "initial-requirements", "Return a literal result", Ct);
+        PlanningSession initial;
+        using (var creation = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), agents, client, settings: new() { BackgroundProcessingEnabled = false }))
+            initial = await creation.StartAsync("initial-requirements", "Return the required public numeric result named result with value 42.", false, Ct);
         PlanningSession result;
         using (var service = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), agents, client))
         {
@@ -46,7 +48,7 @@ public sealed class InitialRequirementsHostTests
                 if (repeatInvalid)
                 {
                     Assert.Null(result.Requirements); Assert.Null(result.Plan); Assert.Null(result.Yaml);
-                    Assert.Contains(result.Diagnostics, d => d.Code is "REQUIREMENTS_INVALID" or "REPLAN_NO_PROGRESS");
+                    Assert.Contains(result.Diagnostics, d => d.Code is "CONSTRUCTION_SOURCE_COVERAGE" or "REPLAN_NO_PROGRESS");
                 }
                 else PlanningArtifactApproval.Verify(result);
             }
@@ -68,18 +70,15 @@ public sealed class InitialRequirementsHostTests
 
     private sealed class InitialClient(bool repeatInvalid) : ILLMClient
     {
-        internal readonly List<LLMRequest> Requests = [];
-        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+        private readonly CurrentPlanningFixture.LiteralModel _literal = new();
+        private int _indexCalls;
+        public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
-            Requests.Add(request); Assert.InRange(Requests.Count, 1, repeatInvalid ? 2 : 3);
-            var proposal = new PlanningProposal { Plan = PlanningCorpus.LiteralResult(), Requirements = PlanningCorpus.Requirements("local") };
-            proposal.Requirements!.Inputs = [];
-            proposal.Requirements.Outputs = [new() { Name = "result", Type = new() { Kind = "number" } }];
-            var response = PlanningCorpus.OneDraftResponse(request, proposal)!;
-            if (Requests.Count == 1 || repeatInvalid) response["requirements"] = null;
-            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response, request.StructuredOutputSchema!));
-            if (Requests.Count == 2) Assert.Contains("REQUIREMENTS_INVALID", request.Prompt);
-            return Task.FromResult(new LLMResponse { Json = response, Usage = new JsonObject { ["input_tokens"] = 10, ["output_tokens"] = 5 } });
+            var response = await _literal.CallAsync(request, ct);
+            if (request.StructuredOutputSchema?["properties"]?["clauses"] is not null && (++_indexCalls == 1 || repeatInvalid))
+                response.Json!["clauses"]![0]!["text"] = "Omitted exact original evidence";
+            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response.Json!, request.StructuredOutputSchema!));
+            return response;
         }
     }
 }

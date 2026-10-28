@@ -44,82 +44,22 @@ public sealed class PlanningTransportPolicyTests
         Assert.Throws<PlanningConflictException>(() => PlanningConstructionPhasePolicies.ValidateIssued(request, state.Request));
     }
 
+
     [Theory]
-    [InlineData(2)]
-    [InlineData(3)]
-    [InlineData(4)]
-    [InlineData(5)]
-    [InlineData(6)]
-    [InlineData(7)]
-    [InlineData(8)]
-    [InlineData(9)]
-    [InlineData(10)]
-    [InlineData(11)]
-    public void SourceWindowHeadroomIsBoundedByCapturedCallsWithoutChangingHistoricalRequests(int presentation)
+    [InlineData("construction_select", false, false, 1)]
+    [InlineData("construction_discovery", false, false, 1)]
+    [InlineData("construction_draft", false, false, 1)]
+    [InlineData("construction_local_judge", true, false, 1)]
+    [InlineData("construction_global_judge", false, true, 0)]
+    public void IssuedRequestCapturesRemainingMandatoryReviews(string phase, bool association, bool complete, int expected)
     {
         var state = Fresh();
-        state.Request.Options["construction_presentation_version"] = presentation;
-        state.Construction!.Compact!.PresentationVersion = presentation;
-        state.Request.MaxModelCalls = 7;
-        state.Request.Options["llm_budget"] = new JsonObject { ["max_calls"] = 5 };
-        var request = Prepare(state, "construction_select");
-        var original = JsonSerializer.Serialize(state.Request, PlanningJsonContext.Default.PlanningRequest);
-        foreach (var count in new[] { 0, 1, 2, 3, 5, 6, 8 })
-        {
-            request.RequiredReviewCalls = count;
-            if (count <= (presentation is 6 or 7 or 8 or 9 or 10 or 11 ? 5 : 2)) PlanningTransportPolicies.ValidateIssued(request, state.Request);
-            else Assert.Throws<PlanningConflictException>(() => PlanningTransportPolicies.ValidateIssued(request, state.Request));
-        }
-        request.RequiredReviewCalls = null;
-        Assert.Throws<PlanningConflictException>(() => PlanningTransportPolicies.ValidateIssued(request, state.Request));
-        request.RequiredReviewCalls = -1;
-        Assert.Throws<PlanningConflictException>(() => PlanningTransportPolicies.ValidateIssued(request, state.Request));
-        Assert.Equal(original, JsonSerializer.Serialize(state.Request, PlanningJsonContext.Default.PlanningRequest));
+        if (association || complete)
+            state.Construction!.Candidate = new() { Extension = new() { Complete = complete,
+                ContinuationBinding = association ? new() { ContinuationId = "consumer", Binding = new() } : null } };
+        Assert.Equal(expected, Prepare(state, phase).RequiredReviewCalls);
     }
 
-    [Theory]
-    [InlineData("construction_select", false, false, 1, 1)]
-    [InlineData("construction_discovery", false, true, 2, 1)]
-    [InlineData("construction_draft", true, true, 2, 1)]
-    [InlineData("construction_local_judge", true, false, 1, 0)]
-    [InlineData("construction_local_judge", false, true, 0, 0)]
-    [InlineData("construction_intermediate_judge", true, true, 0, 0)]
-    public void IssuedRequestCapturesRemainingMandatoryReviews(string phase, bool intermediate, bool accepted, int historical, int current)
-    {
-        foreach (var version in new[] { 4, 5 })
-        {
-            var state = Fresh();
-            state.Construction!.Compact!.PresentationVersion = version;
-            state.Request.Options["construction_presentation_version"] = version;
-            if (accepted) state.Construction.Checkpoints.Add(new());
-            if (intermediate || phase.Contains("judge", StringComparison.Ordinal))
-                state.Construction.Candidate = new() { NeedsIntermediateReview = intermediate };
-            Assert.Equal(version == 4 ? historical : current, Prepare(state, phase).RequiredReviewCalls);
-        }
-    }
-
-    [Theory]
-    [InlineData(3)][InlineData(4)]
-    public async Task HistoricalFutureAndPendingRequestsRetainSingleAttemptBackgroundAndExactBytes(int presentation)
-    {
-        var state = Fresh(); state.Request.Options.Remove(PlanningTransportPolicies.OptionName);
-        state.Request.Options["construction_presentation_version"] = presentation;
-        state.Construction!.Compact!.PresentationVersion = presentation;
-        var request = Prepare(state, "construction_select");
-        Assert.True(request.DisableTransportRetries); Assert.True(request.UseBackgroundMode); Assert.Null(request.RequiredReviewCalls);
-        Assert.DoesNotContain("requiredReviewCalls", JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
-        state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = "construction_select", Request = request };
-        state.ModelCalls = 1;
-        var saved = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
-        state = JsonSerializer.Deserialize(saved, PlanningJsonContext.Default.PlanningSession)!;
-        PlanningSessionCreation.Capture(state);
-        Assert.Equal(saved, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
-        var exact = JsonSerializer.Serialize(state.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
-        var runtime = new TestRuntime { Respond = (_, _) => new() { Json = new JsonObject { ["value"] = "retained" } } };
-        await PlanningModelCalls.CallAsync(state, runtime, "construction_select", "new context must not replace pending bytes", Schema(), PlannerFixture.Ct);
-        Assert.Equal(exact, JsonSerializer.Serialize(Assert.Single(runtime.Calls), PlanningJsonContext.Default.LLMRequest));
-        Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
-    }
 
     [Theory]
     [InlineData("null")][InlineData("{}")]

@@ -2,7 +2,7 @@
 
 [Issue #112](https://github.com/GnouGo/GnouGo/issues/112) · [Draft PR #113](https://github.com/GnouGo/GnouGo/pull/113)
 
-Current architecture: Requirements → progressive discovery → LLM TaskPlan → deterministic compiler → PlanningGraph → YAML → validation → approval. The compiler validates semantic intent before lowering. Scoped TaskPlan repair stays inside the existing bounded planning loop. Planning storage is format 10; execution journals remain schema 9. See [architecture, APIs and migration](workflow-planning-v9.md).
+Current architecture: Requirements → progressive discovery → LLM TaskPlan → deterministic compiler → PlanningGraph → YAML → validation → approval. The compiler validates semantic intent before lowering. Scoped TaskPlan repair stays inside the existing bounded planning loop. Planning storage is format 11; retired planning formats are rejected unchanged. Execution journals remain schema 9. Incremental generation uses deterministic technical checkpoints, coherent business reviews and a mandatory final global review. See [architecture, APIs and migration](workflow-planning-v9.md).
 
 ## Dependency boundaries
 

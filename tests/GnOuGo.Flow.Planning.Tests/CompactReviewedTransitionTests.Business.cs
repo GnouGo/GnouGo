@@ -12,32 +12,22 @@ public sealed partial class CompactReviewedTransitionTests
     [Fact]
     public async Task ResumedBusinessChildEstablishesParentBindingWithoutDiscardingEitherConsumer()
     {
-        var control = await BusinessConsumers(9);
-        var candidate = await BusinessConsumers();
-        Assert.Equal(PlanningStatus.FinalReview, control.State.Status);
-        Assert.Equal(PlanningStatus.FinalReview, candidate.State.Status);
-        PlanningArtifactApproval.Verify(control.State); PlanningArtifactApproval.Verify(candidate.State);
-        Assert.Equal(PlanningConstruction.Hash(control.State.Plan), PlanningConstruction.Hash(candidate.State.Plan));
-        Assert.Equal(control.State.ModelCalls - 1, candidate.State.ModelCalls);
-        Assert.Equal(control.Purposes.Count(p => p == PlanningCompactConstruction.SelectPurpose) - 1,
-            candidate.Purposes.Count(p => p == PlanningCompactConstruction.SelectPurpose));
-        Assert.Equal(control.Purposes.Count(IsJudge), candidate.Purposes.Count(IsJudge));
-        Assert.Equal(2, control.State.ReplanAttempts); Assert.Equal(2, candidate.State.ReplanAttempts);
-        foreach (var run in new[] { control, candidate })
-        {
-            var retained = run.State.Construction!.Compact!.SuspendedSteps!;
-            Assert.Equal(2, retained.Count); Assert.All(retained, item => Assert.Equal("completed", item.Status));
-            Assert.Equal(retained[0].Id, retained[1].ParentId);
-            Assert.Equal(["seed", "subtotal", "total"], run.State.Plan!.Root.Tasks.Select(task => task.Id));
-            using var result = JsonDocument.Parse((await ExecuteTransitionPlan(run.State))["number"]!.ToJsonString());
-            Assert.Equal(16, result.RootElement.GetDouble());
-        }
-        var child = candidate.State.Construction!.Checkpoints.Single(checkpoint => checkpoint.TaskIds.Contains("subtotal"));
-        Assert.Equal(candidate.State.Construction.Compact!.SuspendedSteps![0].Id, child.Step!.ContinuationBinding!.ContinuationId);
+        var run = await BusinessConsumers();
+        Assert.Equal(PlanningStatus.FinalReview, run.State.Status);
+        PlanningArtifactApproval.Verify(run.State);
+        var retained = run.State.Construction!.Compact!.SuspendedSteps!;
+        Assert.Equal(2, retained.Count); Assert.All(retained, item => Assert.Equal("completed", item.Status));
+        Assert.Equal(retained[0].Id, retained[1].ParentId);
+        Assert.Equal(["seed", "subtotal", "total"], run.State.Plan!.Root.Tasks.Select(task => task.Id));
+        Assert.Equal(16, JsonSerializer.Deserialize<double>((await ExecuteTransitionPlan(run.State))["number"]!.ToJsonString()));
+        var child = run.State.Construction.Checkpoints.Single(checkpoint => checkpoint.TaskIds.Contains("subtotal"));
+        Assert.Equal(retained[0].Id, child.Step!.ContinuationBinding!.ContinuationId);
         Assert.Empty(child.Step.ContinuationBinding.DischargedContinuationIds ?? []);
-        Assert.True(PlanningConstructionReviewCoverage.Reviewed(candidate.State, child, PlanningConstruction.LocalPurpose));
+        Assert.NotNull(HybridWorkflowPlanner.ReviewedCheckpoint(run.State, child));
         Assert.Single(child.Reviews, row => row["transition"]?.ToString() == "resume_reviewed_consumer");
-        ReportBusinessComparison("two retained business consumers", control, candidate);
+        // Exactly the three semantic action selections and final closure selection;
+        // neither ready consumer goes through selection a second time.
+        Assert.Equal(4, run.Purposes.Count(purpose => purpose == PlanningCompactConstruction.SelectPurpose));
     }
 
     [Fact]
@@ -94,7 +84,7 @@ public sealed partial class CompactReviewedTransitionTests
     private sealed record BusinessRun(PlanningSession State, TestRuntime Runtime, List<string> Purposes,
         Dictionary<string, LLMResponse> Responses);
 
-    private static async Task<BusinessRun> BusinessConsumers(int? historical = null, bool stopAfterChild = false)
+    private static async Task<BusinessRun> BusinessConsumers(bool stopAfterChild = false)
     {
         const string subtotal = "Compute the separately required subtotal by adding one to a separately produced seed of seven.";
         const string total = "Then compute twice that subtotal and return the public numeric result named number.";
@@ -129,13 +119,7 @@ public sealed partial class CompactReviewedTransitionTests
                     }
                     else if (current!.Construction!.Compact!.SuspendedSteps!.Any(item => item.Status == "waiting"))
                     {
-                        Assert.Equal(9, historical); response["step"] = null;
-                        response["resumeStep"] = new JsonObject
-                        {
-                            ["continuationId"] = current!.Construction!.Compact!.SuspendedSteps![0].Id,
-                            ["producerCheckpoint"] = 2,
-                            ["binding"] = PlanningJsonTransport.TaskPlanPart(PlanningConstruction.Node(Output("subtotal"), PlanningJsonContext.Default.TaskValue))
-                        };
+                        throw new InvalidOperationException("A ready reviewed consumer unexpectedly required selection.");
                     }
                     else
                     {
@@ -161,8 +145,7 @@ public sealed partial class CompactReviewedTransitionTests
                         else if (step.Objective == childGoal)
                         {
                             extension.Tasks = [Computed("subtotal", "add", Output("seed"), 1)];
-                            if (historical is null)
-                                extension.ContinuationBinding = new() { ContinuationId = chain[0].Id, Binding = Output("subtotal") };
+                            extension.ContinuationBinding = new() { ContinuationId = chain[0].Id, Binding = Output("subtotal") };
                         }
                         else
                         {
@@ -178,24 +161,26 @@ public sealed partial class CompactReviewedTransitionTests
             }
             catch (Exception error) { modelFailure = error; throw; }
         };
-        var state = NewTransitionSession(subtotal + " " + total, historical);
+        var state = NewTransitionSession(subtotal + " " + total);
         for (var tick = 0; tick < 100 && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); tick++)
         {
             state = await Advance(PlannerFixture.Clone(state), runtime);
             Assert.True(modelFailure is null, modelFailure?.ToString());
             Assert.True(state.Diagnostics.All(diagnostic => !diagnostic.Required), string.Join(";", state.Diagnostics.Select(diagnostic => diagnostic.Code + ":" + diagnostic.Message)));
+            if (state.Construction!.Candidate is null && state.Construction.Checkpoints.LastOrDefault() is { Step.ContinuationBinding: not null } associated)
+                Assert.True(HybridWorkflowPlanner.ReviewedCheckpoint(state, associated) is not null,
+                    "The accepted association lost its host review: " + JsonSerializer.Serialize(associated, PlanningJsonContext.Default.PlanningConstructionCheckpoint));
             if (stopAfterChild && state.Construction!.Checkpoints.Count == 2 && state.Construction.Candidate is null) break;
         }
         return new(state, runtime, purposes, responses);
     }
 
-    private static PlanningSession NewTransitionSession(string prompt, int? historical)
+    private static PlanningSession NewTransitionSession(string prompt)
     {
         var state = new PlanningSession { Request = new() { TenantId = "business-transitions", Prompt = prompt,
             MaxModelCalls = 64, MaxReplanAttempts = 4, Generation = new("medium", 32_000, 8_192),
             Options = new() { ["automatic_correction"] = true } } };
-        if (historical is { } version) state = PlannerFixture.CapturedPresentation(state, version);
-        else { PlanningSessionCreation.Capture(state); Assert.Equal(11, state.Construction!.Compact!.PresentationVersion); }
+        PlanningSessionCreation.Capture(state);
         // Matched initial allowances in both arms; no request is issued before capture.
         state.Construction!.Limits.PhasePolicy!.Navigation.MaxInputTokens = 12_000;
         state.Request.Options["construction_limits"]!["phasePolicy"]!["navigation"]!["maxInputTokens"] = 12_000;
@@ -224,17 +209,7 @@ public sealed partial class CompactReviewedTransitionTests
         Outputs = [new("number", new() { Kind = "arithmetic", Text = operation,
             Items = [input, new() { Kind = "number", Number = literal }] })]
     };
-    private static bool IsJudge(string purpose) => purpose is PlanningConstruction.LocalPurpose or PlanningConstruction.IntermediatePurpose;
-    private void ReportBusinessComparison(string name, BusinessRun control, BusinessRun candidate)
-    {
-        Assert.Equal(control.State.ModelCalls, control.Responses.Count);
-        Assert.Equal(candidate.State.ModelCalls, candidate.Responses.Count);
-        Assert.Equal(control.State.ModelCalls, control.Purposes.Count);
-        Assert.Equal(candidate.State.ModelCalls, candidate.Purposes.Count);
-        output.WriteLine($"{name}: historical9={control.State.ModelCalls}, fresh10={candidate.State.ModelCalls}; initial authority calls included; equal executable result.");
-        output.WriteLine("v9: " + string.Join(" -> ", control.Purposes));
-        output.WriteLine("v10: " + string.Join(" -> ", candidate.Purposes));
-    }
+    private static bool IsJudge(string purpose) => purpose is PlanningConstruction.LocalPurpose or "construction_global_judge";
     private static async Task<JsonObject> ExecuteTransitionPlan(PlanningSession state)
     {
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));

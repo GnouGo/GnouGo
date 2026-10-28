@@ -10,12 +10,9 @@ namespace GnOuGo.Flow.Planning;
 internal static class PlanningClarifications
 {
     private const string ContextKey = "clarification_context";
-    internal static bool PreservesIntent(PlanningSession state) => state.Request.Options["clarification_policy"]?.ToString() == "1";
-
     internal static void Suspend(PlanningSession state, List<PlanningQuestion> questions)
     {
         ValidateQuestions(questions);
-        if (!PreservesIntent(state)) return;
         if (state.AnswerHistory?.Any(batch => batch.Questions.Any(old => questions.Any(next =>
             old.Question == next.Question && old.Recommended == next.Recommended && old.Alternatives.SequenceEqual(next.Alternatives)))) == true)
             throw new WorkflowRuntimeException("CLARIFICATION_NO_PROGRESS", "An answered question was repeated. Retain the recorded decision; no additional question or allowance was created.");
@@ -24,21 +21,13 @@ internal static class PlanningClarifications
         state.Request.Options[ContextKey] = new JsonObject
         {
             ["version"] = 1, ["baseline"] = Baseline(state), ["requirements"] = Requirements(state),
-            ["scope"] = Scope(state), ["action"] = state.Request.Options["automatic_correction_progress"]?["action"]?.DeepClone(),
-            ["resume"] = false
+            ["scope"] = Scope(state)
         };
         Activity.Current?.AddEvent(new("planning.clarification.requested", tags: new ActivityTagsCollection
         { ["question.ids"] = string.Join(',', questions.Select(q => q.Id)), ["question.count"] = questions.Count,
             ["diagnostic.locations"] = string.Join(',', state.Diagnostics.Where(d => d.Required).Take(8)
-                .Select(d => d.Location[..Math.Min(d.Location.Length, 192)])),
-            ["correction.action"] = state.Request.Options[ContextKey]!["action"]?.ToString() }));
+                .Select(d => d.Location[..Math.Min(d.Location.Length, 192)])) }));
     }
-
-    internal static string? CorrectionContinuation(PlanningSession state) => PreservesIntent(state) &&
-        state.Request.Options[ContextKey]?["resume"]?.ToString() == "true"
-        ? state.Request.Options[ContextKey]?["action"]?.ToString() : null;
-
-    internal static void ConsumedContinuation(PlanningSession state) => state.Request.Options.Remove(ContextKey);
 
     private static string Baseline(PlanningSession state) => PlanningGraphCompiler.Fingerprint(
         JsonSerializer.Serialize(state.Plan ?? state.Request.Baseline, PlanningJsonContext.Default.TaskPlan));
@@ -83,28 +72,23 @@ internal static class PlanningClarifications
         // The existing choose command is the model-free path for finite literal selections.
         if (state.PendingQuestions is null && answers.All(a => a.Text is null))
             throw new ArgumentException("Use choose for declared literal alternatives.");
-        var context = PreservesIntent(state) ? state.Request.Options[ContextKey] as JsonObject : null;
-        if (PreservesIntent(state) && context is null && state.Requirements is not null)
+        var context = state.Request.Options[ContextKey] as JsonObject;
+        if (context is null)
             throw new PlanningConflictException("The clarification has no retained intent-preserving scope. Use an explicit revision; accepted requirements remain unchanged.");
-        if (context is not null && (context["version"]?.ToString() != "1" || context["baseline"]?.ToString() != Baseline(state) || context["requirements"]?.ToString() != Requirements(state) ||
-            context["scope"]?.ToString() != Scope(state)))
+        if (context["version"]?.ToString() != "1" || context["baseline"]?.ToString() != Baseline(state) || context["requirements"]?.ToString() != Requirements(state) ||
+            context["scope"]?.ToString() != Scope(state))
             throw new PlanningConflictException("The clarification baseline or correction scope changed. Reload the current decision.");
         // A custom answer to a compiled literal choice can change its domain. Keep
         // that change on the explicit revision path instead of granting edit authority.
-        if (PreservesIntent(state) && state.PendingQuestions is null)
+        if (state.PendingQuestions is null)
             throw new PlanningConflictException("A different business alternative requires an explicit revision. The accepted requirements and choices remain unchanged.");
         state.AnswerHistory ??= [];
         state.AnswerHistory.Add(new(state.Revision, questions, [.. answers]));
-        if (context is null) Revise(state);
-        else
-        {
-            context["resume"] = true;
-            state.PendingQuestions = null; state.Graph = null; state.Yaml = null; state.ApprovedHash = null;
-            state.Status = PlanningStatus.Generating;
-            Activity.Current?.AddEvent(new("planning.clarification.answered", tags: new ActivityTagsCollection
-            { ["question.ids"] = string.Join(',', questions.Select(q => q.Id)), ["question.count"] = questions.Count,
-                ["correction.action"] = context["action"]?.ToString() }));
-        }
+        state.Request.Options.Remove(ContextKey);
+        state.PendingQuestions = null; state.Graph = null; state.Yaml = null; state.ApprovedHash = null;
+        state.Status = PlanningStatus.Generating;
+        Activity.Current?.AddEvent(new("planning.clarification.answered", tags: new ActivityTagsCollection
+        { ["question.ids"] = string.Join(',', questions.Select(q => q.Id)), ["question.count"] = questions.Count }));
     }
 
     internal static void Revise(PlanningSession state, bool preserveRequirements = false, List<string>? editablePaths = null)
@@ -117,7 +101,6 @@ internal static class PlanningClarifications
         if (!preserveRequirements) state.Requirements = null;
         state.Request.Options["compilation_profile"] = TaskPlanCompiler.CompactProfile;
         state.Request.Options["mapping_profile"] = TaskPlanCompiler.AdaptiveMappingProfile;
-        if (state.IntentVersion is not (2 or 3)) state.IntentVersion = 3; state.OutcomeVersion = null; state.OutcomeBindings = null;
         state.EditablePaths = editablePaths?.Order(StringComparer.Ordinal).ToList();
         if (editablePaths is null) state.Plan = null;
         state.Graph = null; state.PendingQuestions = null;

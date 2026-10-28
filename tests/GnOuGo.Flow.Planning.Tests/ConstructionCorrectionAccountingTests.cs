@@ -65,15 +65,12 @@ public sealed class ConstructionCorrectionAccountingTests
     }
 
     [Theory]
-    [InlineData(3, false)]
-    [InlineData(3, true)]
-    [InlineData(4, false)]
-    [InlineData(4, true)]
-    public async Task EvidenceWithCommitmentsIsRejectedWithoutStagingOrLoadingAcrossRecovery(int presentationVersion, bool interrupted)
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task EvidenceWithCommitmentsIsRejectedWithoutStagingOrLoadingAcrossRecovery(bool interrupted)
     {
         var (state, runtime) = await Ready(draft: true);
-        state.Request.Options["construction_presentation_version"] = presentationVersion;
-        state.Construction!.Compact!.PresentationVersion = presentationVersion;
+
         state.Catalog!.AllowedStepTypes.Add("mcp.call");
         state.Discovery.Resolved.Add(new()
         {
@@ -83,7 +80,7 @@ public sealed class ConstructionCorrectionAccountingTests
             OutputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject
                 { ["result"] = new JsonObject { ["type"] = "number" } }, ["required"] = new JsonArray("result"), ["additionalProperties"] = false }
         });
-        state.Construction.Compact.CurrentStep!.Kind = "operation";
+        state.Construction!.Compact!.CurrentStep!.Kind = "operation";
         state.Construction.Compact.CurrentStep.OperationIds = ["read"];
         state.Diagnostics = [new("TEST_REPAIR", "/extension", "Resolve the diagnosed fragment.")];
         var accepted = PlanningConstruction.Hash(state.Plan);
@@ -137,28 +134,6 @@ public sealed class ConstructionCorrectionAccountingTests
         else Assert.Equal(3, state.PendingCall!.CorrectionAccounting);
     }
 
-    [Fact]
-    public async Task HistoricalPrechargedRequestKeepsExactBytesAndChargesWithoutRefund()
-    {
-        var (state, runtime) = await Ready(draft: true);
-        state.Diagnostics = [new("TEST_REPAIR", "/extension", "Repair.")];
-        runtime.Respond = (_, _) => throw new OperationCanceledException();
-        _ = await Advance(state, runtime);
-        state = PlannerFixture.Clone(runtime.Checkpoints.Last(s => s.PendingCall is not null && s.Status == PlanningStatus.Generating));
-        state.PendingCall!.CorrectionAccounting = null;
-        state.ReplanAttempts = 1; state.Construction!.DraftCorrections = 1;
-        var exact = JsonSerializer.Serialize(state.PendingCall.Request, PlanningJsonContext.Default.LLMRequest);
-        runtime.Respond = (request, _) =>
-        {
-            Assert.Equal(exact, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
-            return Evidence(request, "requirement:req_0");
-        };
-        state = await Advance(state, runtime);
-        Assert.Equal(1, state.ReplanAttempts);
-        Assert.Equal(1, state.Construction!.DraftCorrections);
-        Assert.Null(state.PendingCall);
-        Assert.NotNull(state.Construction.Evidence);
-    }
 
     [Fact]
     public async Task RequiredCorrectionCapacityIsReservedEvenForAnEvidenceResponse()
@@ -204,17 +179,10 @@ public sealed class ConstructionCorrectionAccountingTests
         Assert.Null(state.PendingCall);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task RecoveredTypedRepairExpiresOnlyFreshCandidateEvidenceAndKeepsConsumedHistory(bool historical)
+    [Fact]
+    public async Task RecoveredTypedRepairExpiresCandidateEvidenceAndKeepsConsumedHistory()
     {
         var (state, runtime) = await Ready(draft: true);
-        if (historical)
-        {
-            state.Request.Options["construction_limits"]!.AsObject().Remove("phasePolicy");
-            state.Construction!.Limits.PhasePolicy = null;
-        }
         state.Construction!.Candidate = PlanningConstruction.Apply(state, new()
         {
             Scope = "/root", RequirementIds = ["req_0"],
@@ -225,7 +193,6 @@ public sealed class ConstructionCorrectionAccountingTests
         candidate.Diagnostics = [new("TASK_VALUE_TYPE", "/tasks/constant/outputs/value", "Correct this value.")];
         state.Diagnostics = candidate.Diagnostics;
         PlanningConstruction.LoadEvidence(state, ["task:constant"]);
-        var originalEvidence = state.Construction.Evidence!.ToJsonString();
         var fingerprints = state.Construction.EvidenceRequests.ToArray();
         var accepted = PlanningConstruction.Hash(state.Plan);
         var before = candidate.Hash;
@@ -259,8 +226,7 @@ public sealed class ConstructionCorrectionAccountingTests
         Assert.Equal(1, state.Construction!.Candidate!.Corrections);
         Assert.NotEqual(before, state.Construction.Candidate.Hash);
         Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
-        if (historical) Assert.Equal(originalEvidence, state.Construction.Evidence!.ToJsonString());
-        else Assert.Null(state.Construction.Evidence);
+        Assert.Null(state.Construction.Evidence);
         Assert.All(fingerprints, fingerprint => Assert.Contains(fingerprint, state.Construction.EvidenceRequests));
         Assert.Empty(state.Construction.Checkpoints);
         Assert.Null(state.PendingCall);
@@ -288,19 +254,15 @@ public sealed class ConstructionCorrectionAccountingTests
     }
 
     [Theory]
-    [InlineData(5, false)]
-    [InlineData(5, true)]
-    [InlineData(6, false)]
-    [InlineData(6, true)]
-    public async Task CandidateRepairReceivesTheRejectedEvidenceDiagnosticAndClearsItOnlyAfterSuccess(int presentation, bool typed)
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CandidateRepairReceivesTheRejectedEvidenceDiagnosticAndClearsItOnlyAfterSuccess(bool typed)
     {
         var (state, runtime) = await Ready(draft: true);
-        state.Request.Options["construction_presentation_version"] = presentation;
-        state.Construction!.Compact!.PresentationVersion = presentation;
+
         var candidate = DiagnoseCandidate(state, typed);
         var finding = Assert.Single(candidate.Diagnostics);
-        var loaderRejects = typed && presentation < 6;
-        var evidenceCode = loaderRejects ? "CONSTRUCTION_EVIDENCE_UNKNOWN" : "PLANNING_RESPONSE_INVALID";
+        const string evidenceCode = "PLANNING_RESPONSE_INVALID";
         var accepted = PlanningConstruction.Hash(state.Plan);
         var hash = candidate.Hash;
         runtime.Respond = (request, purpose) =>
@@ -325,7 +287,7 @@ public sealed class ConstructionCorrectionAccountingTests
             Assert.Single(diagnostics, diagnostic => diagnostic!["code"]!.ToString() == finding.Code);
             var rejected = Assert.Single(diagnostics, diagnostic => diagnostic!["code"]!.ToString() == evidenceCode)!;
             Assert.Contains("requirement:missing", rejected["message"]!.ToString(), StringComparison.Ordinal);
-            Assert.Equal(loaderRejects ? "/evidenceRequests" : "/evidenceRequests/1", Assert.Single(rejected["locations"]!.AsArray())!.ToString());
+            Assert.Equal("/evidenceRequests/1", Assert.Single(rejected["locations"]!.AsArray())!.ToString());
             return Evidence(request, "requirement:req_0");
         };
         state = await Advance(state, runtime);
@@ -377,36 +339,6 @@ public sealed class ConstructionCorrectionAccountingTests
         Assert.NotNull(state.Construction.Evidence!["requirement:req_0"]);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task EvidenceCleanupPreservesOtherDiagnosticsAndHistoricalProjection(bool historical)
-    {
-        var (state, _) = await Ready(draft: true);
-        var candidate = DiagnoseCandidate(state, typed: false);
-        var finding = Assert.Single(candidate.Diagnostics);
-        if (historical)
-        {
-            state.Request.Options["construction_limits"]!.AsObject().Remove("phasePolicy");
-            state.Construction!.Limits.PhasePolicy = null;
-        }
-        state.Diagnostics =
-        [
-            finding,
-            new("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests/0", "The requested address was invalid."),
-            new("CONSTRUCTION_EVIDENCE_INVALID", "/extension", "An unrelated location remains diagnosed."),
-            new("OTHER_FAILURE", "/evidenceRequests", "An unrelated failure remains diagnosed.")
-        ];
-        var before = PlanningCompactConstruction.Context(state)["diagnostics"]!.AsArray();
-        Assert.Equal(historical ? 1 : 4, before.Count);
-        Assert.Single(before, diagnostic => diagnostic!["code"]!.ToString() == finding.Code);
-        PlanningConstruction.LoadEvidence(state, ["requirement:req_0"]);
-        Assert.Equal(historical ? 4 : 3, state.Diagnostics.Count);
-        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Location == "/extension");
-        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "OTHER_FAILURE");
-        Assert.Equal(finding, Assert.Single(candidate.Diagnostics));
-        Assert.Equal(historical ? 1 : 3, PlanningCompactConstruction.Context(state)["diagnostics"]!.AsArray().Count);
-    }
 
     private static PlanningConstructionCandidate DiagnoseCandidate(PlanningSession state, bool typed)
     {
@@ -440,7 +372,7 @@ public sealed class ConstructionCorrectionAccountingTests
         var state = await Advance(new() { Request = new() { TenantId = "accounting", Prompt = "Produce a constant value.",
             Options = new() { ["automatic_correction"] = true } } }, runtime);
         Assert.Empty(state.Diagnostics);
-        Assert.True(PlanningConstructionPhasePolicies.IsFresh(state.Request));
+        Assert.NotNull(state.Construction!.Limits.PhasePolicy);
         state.Catalog = await runtime.DiscoverAsync(state.Request, PlannerFixture.Ct);
         state.Plan = new();
         if (draft)

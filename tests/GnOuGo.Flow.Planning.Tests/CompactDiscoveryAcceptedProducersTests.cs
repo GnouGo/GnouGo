@@ -138,24 +138,6 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Equal(address, PlanningCompactConstruction.OperationPageAddress(state, 0));
     }
 
-    [Theory]
-    [InlineData(2)]
-    [InlineData(3)]
-    [InlineData(4)]
-    public async Task HistoricalDiscoveryBytesDoNotExposeAcceptedProducerCache(int version)
-    {
-        var (state, _) = await AcceptedDiscovery(true, version: version);
-        var capability = state.Catalog!.Capabilities.Single();
-        state.Catalog.Capabilities.Clear();
-        var before = JsonSerializer.Serialize(DiscoveryFollowup(state), PlanningJsonContext.Default.LLMRequest);
-        state.Catalog.Capabilities.Add(capability);
-        Assert.Equal(before, JsonSerializer.Serialize(DiscoveryFollowup(state), PlanningJsonContext.Default.LLMRequest));
-        Assert.Null(PlanningCompactConstruction.DescribedOperationChoices(state));
-        // Historical no-evidence navigation also short-circuits a partially
-        // restored catalog, before inspecting any retained discovery pages.
-        state.Catalog = null;
-        Assert.Null(PlanningCompactConstruction.DescribedOperationChoices(state));
-    }
 
     [Fact]
     public async Task PendingVersionFiveDiscoveryWithoutCachedChoicesKeepsItsExactIssuedBytes()
@@ -188,9 +170,9 @@ public sealed partial class CompactDiscoveryProtocolTests
         ["discoveryRequests"] = null, ["evidenceRequests"] = null, ["reselectStep"] = null, ["clarifications"] = null
     };
 
-    private static async Task<(PlanningSession State, TestRuntime Runtime)> AcceptedDiscovery(bool dependency, int count = 1, int version = 5)
+    private static async Task<(PlanningSession State, TestRuntime Runtime)> AcceptedDiscovery(bool dependency, int count = 1)
     {
-        var (state, runtime) = await Ready(presentationVersion: version);
+        var (state, runtime) = await Ready();
         AddOperations(state, count);
         foreach (var summary in state.Discovery.Pages[0].Capabilities)
         {
@@ -203,7 +185,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         }
         state.Discovery.Pages[0] = state.Discovery.Pages[0] with { Query = "Earlier accepted business action." };
         var step = state.Construction!.Compact!.CurrentStep!;
-        step.Kind = version >= 3 ? null : "operation";
+        step.Kind = null;
         if (dependency) step.DependencyTaskIds = Enumerable.Range(0, count).Select(index => "producer_" + index).ToList();
         else step.Inputs = [new() { Kind = "output", Source = "producer_0" }];
         PlanningCompactConstruction.ValidateSelection(state, step);

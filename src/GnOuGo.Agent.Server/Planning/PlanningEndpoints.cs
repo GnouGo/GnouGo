@@ -25,7 +25,7 @@ internal static class PlanningEndpoints
             await service.GetAsync(id, ct) is { } state ? Results.Json(await service.ToDtoAsync(state, ct), ChatJsonContext.Default.PlanningSessionDto) : Results.NotFound());
         app.MapPost("/api/planning", async (PlanningStartDto request, PlanningSessionService service, CancellationToken ct) =>
         {
-            try { return Results.Json(ToDto(await service.StartAsync(request.Name, request.Prompt, request.ReviseExisting, ct, mode: request.Mode, businessJudge: request.BusinessJudge, constructionPreset: request.ConstructionPreset)), ChatJsonContext.Default.PlanningSessionDto); }
+            try { return Results.Json(ToDto(await service.StartAsync(request.Name, request.Prompt, request.ReviseExisting, ct, mode: request.Mode, constructionPreset: request.ConstructionPreset)), ChatJsonContext.Default.PlanningSessionDto); }
             catch (ArgumentException) { return Results.BadRequest("Invalid planning request."); }
             catch (InvalidOperationException ex) { return Results.Conflict(ex.Message); }
         });
@@ -73,7 +73,6 @@ internal static class PlanningEndpoints
     {
         SchemaVersion = state.SchemaVersion,
         RequestText = state.Request.Prompt,
-        BusinessJudge = state.Request.Options["business_judge"]?.ToString() == "true",
         RevisionScope = state.RevisionScope.ToArray(),
         DiscoveryLimitations = state.Discovery.Limitations.ToArray(),
         Questions = state.PendingQuestions?.Select(q => new PlanningQuestionDto(q.Id, q.Question,

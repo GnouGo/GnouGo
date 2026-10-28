@@ -20,9 +20,9 @@ internal sealed class PlanningModelJournal(
     ILLMCapabilityResolver? capabilities = null, PlanningRequest? planning = null,
     DateTimeOffset? planningDeadlineUtc = null) : ILLMClient, IModelAdmissionOwner, IPlanningConstructionAdmission
 {
-    internal const string Collection = "agent-planning-model-receipts-v10";
-    internal const string RequestCollection = "agent-planning-model-requests-v10";
-    internal const string HttpCollection = "agent-planning-model-http-v10";
+    internal const string Collection = "agent-planning-model-receipts-v11";
+    internal const string RequestCollection = "agent-planning-model-requests-v11";
+    internal const string HttpCollection = "agent-planning-model-http-v11";
     private static readonly Meter Metrics = new("GnOuGo.Agent.Planning");
     private static readonly Histogram<double> ProviderDuration = Metrics.CreateHistogram<double>("gen_ai.client.operation.duration", "s");
     private static readonly Histogram<long> TokenUsage = Metrics.CreateHistogram<long>("gen_ai.client.token.usage", "{token}");
@@ -46,7 +46,7 @@ internal sealed class PlanningModelJournal(
 
     public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
     {
-        if (planning is not null && PlanningConstructionPhasePolicies.IsFresh(planning))
+        if (planning is not null)
             PlanningConstructionPhasePolicies.ValidateIssued(request, planning);
         else PlanningGenerationPolicy.Apply(request, generation ?? new());
         var key = request.ClientRequestId;
@@ -139,7 +139,7 @@ internal sealed class PlanningModelJournal(
 
 internal sealed class PlanningBudgetSink(IKeyVaultRecordStore records, string tenantId, string sessionId) : ILLMUsageBudgetSink
 {
-    internal const string Collection = "agent-planning-budgets-v10";
+    internal const string Collection = "agent-planning-budgets-v11";
     public async ValueTask PersistAsync(LLMUsageBudgetSnapshot snapshot, CancellationToken ct)
         => await records.UpsertAsync(Collection, tenantId, sessionId, JsonSerializer.Serialize(snapshot, PlanningJsonContext.Default.LLMUsageBudgetSnapshot), EfPlanningSessionStore.Author, ct);
 }

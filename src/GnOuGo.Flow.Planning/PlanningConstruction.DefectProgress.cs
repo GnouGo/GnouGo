@@ -13,13 +13,13 @@ internal static partial class PlanningConstruction
 
     internal static JsonObject? DefectWitness(PlanningSession state, JsonObject context, JsonArray findings)
     {
-        if (!PlanningCompactConstruction.UsesConvergentConstruction(state) || state.Construction!.Candidate is not { } candidate ||
+        if (state.Construction!.Candidate is not { } candidate ||
             findings.Count is 0 or > 3) return null;
         var entries = new JsonArray();
         foreach (var finding in findings.OfType<JsonObject>())
         {
             if (finding["evidence"] is not JsonArray { Count: 2 } evidence ||
-                !HybridWorkflowPlanner.ConstructionBusinessFindingSupported(context, finding, locationEvidence: true)) continue;
+                !HybridWorkflowPlanner.ConstructionBusinessFindingSupported(context, finding)) continue;
             var obligation = evidence[0]!.ToString(); var implementation = evidence[1]!.ToString();
             // A correctable location can be more precise than its supporting
             // task, but only within that exact concrete implementation.
@@ -34,11 +34,8 @@ internal static partial class PlanningConstruction
                 ["implementationPointer"] = affected, ["selector"] = selector,
                 ["before"] = DefectSnapshot(DefectProjection(before)),
                 ["explanation"] = finding["explanation"]?.DeepClone(), ["uncertainty"] = finding["uncertainty"]?.DeepClone(),
-                ["fact"] = finding["fact"]?.DeepClone(), ["requiredBinding"] = DefectRequiredBinding(context, finding["requiredBinding"] as JsonObject),
                 ["evidenceAddresses"] = DefectAddresses(context, obligation, affected)
             };
-            if (PlanningCompactConstruction.UsesDecisionView(state))
-                entry["obligationSourceIds"] = DefectObligationSources(context, obligation);
             entry["id"] = DefectHash(entry);
             entries.Add((JsonNode)entry);
         }
@@ -54,24 +51,23 @@ internal static partial class PlanningConstruction
                 ["authorizedPaths"] = candidate.AuthorizedPaths is null ? null : Set(candidate.AuthorizedPaths)
             }),
             ["sourceHash"] = DefectSources(state), ["claimHash"] = DefectClaims(state, candidate),
-            ["evidenceHashes"] = DefectEvidenceHashes(context), ["supportHashes"] = DefectSupportHashes(context), ["findings"] = entries
+            ["evidenceHashes"] = DefectEvidenceHashes(context), ["findings"] = entries
         };
     }
 
     internal static void CarryDefectWitnesses(PlanningSession state, PlanningConstructionCandidate? previous,
         PlanningConstructionCandidate next)
     {
-        if (!PlanningCompactConstruction.UsesConvergentConstruction(state)) return;
         // Carry only this replacement chain or the explicitly resumed consumer.
         // Acceptance ends a replacement chain; old pointers remain historical.
         var reviews = previous?.Reviews ?? ReplacementDefectReviews(state);
-        foreach (var retained in reviews.Where(review => review["defectWitness"] is JsonObject || review["technicalRejections"] is JsonObject || review["response"]?["resolutions"] is JsonArray))
+        foreach (var retained in reviews.Where(review => review["defectWitness"] is JsonObject || review["technicalRejections"] is JsonObject || review["resolvedWitnesses"] is JsonArray))
             if (!next.Reviews.Any(review => JsonNode.DeepEquals(review, retained))) next.Reviews.Add(retained.DeepClone().AsObject());
     }
 
     internal static List<JsonObject> ReplacementDefectReviews(PlanningSession state)
     {
-        if (state.Construction?.Compact is not { PresentationVersion: 5 or 6 or 7 or 8 or 9 or 10 or 11, CurrentStep: { } step } compact) return [];
+        if (state.Construction?.Compact is not { CurrentStep: { } step } compact) return [];
         JsonObject? rejected = null;
         if (compact.ResumingStepId is { } id)
         {
@@ -85,15 +81,15 @@ internal static partial class PlanningConstruction
         if (rejected is null || rejected["step"]?["scope"]?.ToString() != step.Scope || rejected["step"]?["requirementIds"] is not JsonArray ids ||
             !ids.Select(item => item!.ToString()).ToHashSet(StringComparer.Ordinal).SetEquals(step.RequirementIds)) return [];
         return (rejected["reviews"] as JsonArray ?? []).OfType<JsonObject>()
-            .Where(review => review["defectWitness"] is JsonObject || review["technicalRejections"] is JsonObject || review["response"]?["resolutions"] is JsonArray).ToList();
+            .Where(review => review["defectWitness"] is JsonObject || review["technicalRejections"] is JsonObject || review["resolvedWitnesses"] is JsonArray).ToList();
     }
 
     internal static JsonArray? DefectProgressContext(PlanningSession state, JsonObject currentContext)
     {
-        if (!PlanningCompactConstruction.UsesConvergentConstruction(state) || state.Construction!.Candidate is not { } candidate) return null;
+        if (state.Construction!.Candidate is not { } candidate) return null;
+        if (currentContext["actions"] is not JsonArray) currentContext = PlanningBusinessProjection.Build(state, global: false);
         var active = ActiveDefects(candidate);
         if (active.Count > 3) Fail("CONSTRUCTION_REVIEW_INCONCLUSIVE", "/defectProgress", "More unresolved prior findings exist than this bounded review can assess.");
-        RestoreAcceptedDefectEvidence(state, currentContext, active);
         var result = new JsonArray();
         foreach (var (witness, entry) in active)
         {
@@ -102,7 +98,7 @@ internal static partial class PlanningConstruction
             var sameClaims = witness["claimHash"]?.ToString() == DefectClaims(state, candidate);
             var addedEvidence = DefectEvidenceHashes(currentContext).Where(pair => pair.Value?.ToString() != witness["evidenceHashes"]?[pair.Key]?.ToString()).Select(pair => pair.Key).ToArray();
             var relevantEvidence = entry["evidenceAddresses"]!.AsArray().Any(address => addedEvidence.Contains(address!.ToString(), StringComparer.Ordinal));
-            var selector = CurrentDefectSelector(state, currentContext, witness, entry);
+            var selector = entry["selector"] as JsonArray;
             var found = DefectRead(currentContext, selector, out var current, out var currentPointer);
             var snapshot = found ? DefectSnapshot(DefectProjection(current)) : null;
             var status = !sameBasis || !sameSource ? "basis_changed" : !sameClaims ? "claims_changed" : !found ? "unverified" :
@@ -119,69 +115,22 @@ internal static partial class PlanningConstruction
                 ["obligationPointerInPriorContext"] = entry["obligationPointer"]!.DeepClone(), ["obligation"] = entry["obligation"]!.DeepClone(),
                 ["implementationPointerInPriorContext"] = entry["implementationPointer"]!.DeepClone(),
                 ["currentImplementationPointer"] = currentPointer, ["before"] = entry["before"]!.DeepClone(), ["current"] = snapshot,
-                ["explanation"] = entry["explanation"]?.DeepClone(), ["uncertainty"] = entry["uncertainty"]?.DeepClone(), ["factInPriorContext"] = entry["fact"]?.DeepClone(),
-                ["requiredBinding"] = DefectBindingProgress(currentContext, entry["requiredBinding"] as JsonObject),
+                ["explanation"] = entry["explanation"]?.DeepClone(), ["uncertainty"] = entry["uncertainty"]?.DeepClone(),
                 ["assessment"] = "Prior finding is advisory. Changed bytes or added evidence do not establish resolution; unchanged bytes do not establish that the finding was true."
             };
-            if (PlanningCompactConstruction.UsesDecisionView(state))
-                progress["obligationSourceIds"] = entry["obligationSourceIds"]?.DeepClone();
             result.Add((JsonNode)progress);
         }
         return result.Count == 0 ? null : result;
     }
 
-    private static void RestoreAcceptedDefectEvidence(PlanningSession state, JsonObject context,
-        List<(JsonObject Witness, JsonObject Entry)> active)
-    {
-        if (state.Plan is null || active.Count == 0) return;
-        var candidate = state.Construction!.Candidate!;
-        var accepted = new TaskPlanSymbols(state.Plan); var current = new TaskPlanSymbols(candidate.Plan);
-        var baseline = Hash(state.Plan); var sources = DefectSources(state);
-        foreach (var (witness, entry) in active)
-        {
-            if (candidate.BaseHash != baseline || witness["baseline"]?.ToString() != baseline ||
-                witness["sourceHash"]?.ToString() != sources ||
-                entry["implementationPointer"]?.ToString().Split('/') is not ["", "evidence", var encoded]) continue;
-            var address = encoded.Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal);
-            if (!address.StartsWith("task:", StringComparison.Ordinal) || context["evidence"]?[address] is not null ||
-                !accepted.Tasks.TryGetValue(address[5..], out var before) || !current.Tasks.TryGetValue(address[5..], out var after) ||
-                before.Scope.Path != after.Scope.Path || accepted.Phase(address[5..]) != current.Phase(address[5..]) ||
-                !JsonNode.DeepEquals(Node(before.Task, PlanningJsonContext.Default.PlanTask), Node(after.Task, PlanningJsonContext.Default.PlanTask))) continue;
-            // Re-resolve only the cited accepted original. A prior snapshot is
-            // historical evidence, never a replacement for the current TaskPlan.
-            var value = TaskNode(after.Task); value["scope"] = after.Scope.Path; value["phase"] = current.Phase(address[5..]);
-            if (Encoding.UTF8.GetByteCount(value.ToJsonString()) > DefectSnapshotBytes ||
-                witness["evidenceHashes"]?[address]?.ToString() != DefectHash(value)) continue;
-            (context["evidence"] ??= new JsonObject())[address] = value;
-        }
-    }
-
-    internal static bool HasNewDefectEvidence(PlanningSession state, JsonObject context, JsonObject prior, string obligation, string implementation)
-    {
-        if (!PlanningCompactConstruction.UsesConvergentConstruction(state) || state.Construction!.Candidate is not { } candidate) return false;
-        var witness = candidate.Reviews.Select(review => review["defectWitness"]).OfType<JsonObject>().LastOrDefault(item =>
-            item["findings"] is JsonArray findings && findings.Any(finding => finding?["id"]?.ToString() == prior["id"]?.ToString()));
-        if (witness?["supportHashes"] is not JsonObject support) return false;
-        foreach (var pointer in new[] { obligation, implementation })
-        {
-            if (!TryPointer(context, pointer, out var node) || node is null || DefectSelector(context, pointer) is not { } selector) continue;
-            var key = DefectHash(selector);
-            if (support[key] is { } before && before.ToString() != DefectHash(DefectProjection(node)) || support[key] is null && support["complete"]?.GetValue<bool>() == true) return true;
-        }
-        return false;
-    }
-
-    internal static bool UnresolvedDefects(PlanningConstructionCandidate candidate) => ActiveDefects(candidate).Count > 0;
-
     internal static JsonObject? PriorRepairObservations(PlanningSession state)
     {
-        if (state.Construction is not { Compact.PresentationVersion: 11, Candidate: { } candidate } ||
+        if (state.Construction is not { Candidate: { } candidate } ||
             candidate.BaseHash != Hash(state.Plan)) return null;
         var active = ActiveDefects(candidate).Select(item => item.Entry["id"]!.ToString()).ToHashSet(StringComparer.Ordinal);
         if (active.Count == 0) return null;
-        var resolutions = candidate.Reviews.SelectMany(review => (review["response"]?["resolutions"] as JsonArray ?? []).OfType<JsonObject>())
-            .Where(row => row["id"] is not null && row["status"]?.ToString() is "resolved" or "invalidated_by_evidence")
-            .GroupBy(row => row["id"]!.ToString(), StringComparer.Ordinal).ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
+        var resolutions = candidate.Reviews.SelectMany(review => (review["resolvedWitnesses"] as JsonArray ?? []).Select(id => id!.ToString()))
+            .Distinct(StringComparer.Ordinal).ToDictionary(id => id, id => new JsonObject { ["id"] = id, ["status"] = "resolved" }, StringComparer.Ordinal);
         var sources = DefectSources(state); var claims = DefectClaims(state, candidate);
         var entries = new JsonArray(); var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var review in candidate.Reviews.AsEnumerable().Reverse())
@@ -214,7 +163,7 @@ internal static partial class PlanningConstruction
 
     internal static void AddAuthorizedRevisionDraft(PlanningSession state, JsonObject context)
     {
-        if (!PlanningCompactConstruction.UsesDecisionView(state) || state.Construction?.Candidate?.AuthorizedPaths is not { } paths ||
+        if (state.Construction?.Candidate?.AuthorizedPaths is not { } paths ||
             context["draft"] is not JsonObject draft) return;
         draft["basis"] = "authorized_revision";
         draft["authorizedPaths"] = Set(paths);
@@ -238,27 +187,6 @@ internal static partial class PlanningConstruction
         return result;
     }
 
-    private static JsonArray? CurrentDefectSelector(PlanningSession state, JsonObject context, JsonObject witness, JsonObject entry)
-    {
-        var selector = entry["selector"] as JsonArray;
-        if (!PlanningCompactConstruction.UsesDecisionView(state) || state.Construction?.Candidate?.AuthorizedPaths is null ||
-            selector is not { Count: >= 2 } || selector[0]?.ToString() != "evidence" ||
-            selector[1]?.ToString() is not { } address || !address.StartsWith("task:", StringComparison.Ordinal)) return selector;
-        // Retained evidence and the witness keep the original bytes. Only an
-        // explicit revision can rebind this current comparison to the same task.
-        var id = address[5..];
-        if (state.Plan is null || witness["baseline"]?.ToString() != Hash(state.Plan) ||
-            !AuthorizedRevisionTasks(state).Any(item => item.Id == id) || context["draft"]?["basis"]?.ToString() != "authorized_revision" ||
-            context["draft"]?["tasks"] is not JsonArray tasks || tasks.Count(task => task?["id"]?.ToString() == id) != 1) return null;
-        var before = new TaskPlanSymbols(state.Plan);
-        if (!before.Tasks.TryGetValue(id, out var original)) return null;
-        var value = TaskNode(original.Task); value["scope"] = original.Scope.Path; value["phase"] = before.Phase(id);
-        if (witness["evidenceHashes"]?[address]?.ToString() != DefectHash(value)) return null;
-        var current = new JsonArray("draft", "tasks", new JsonObject { ["key"] = "id", ["value"] = id });
-        foreach (var part in selector.Skip(2)) current.Add(part?.DeepClone());
-        return current;
-    }
-
     private static List<(JsonObject Witness, JsonObject Entry)> ActiveDefects(PlanningConstructionCandidate candidate)
     {
         var active = new Dictionary<string, (JsonObject Witness, JsonObject Entry)>(StringComparer.Ordinal);
@@ -266,9 +194,8 @@ internal static partial class PlanningConstruction
         {
             // Only validated completed reviews are retained in this shape. A
             // still-present finding must be reissued by that same report.
-            if (review["response"]?["resolutions"] is JsonArray resolutions)
-                foreach (var resolution in resolutions.OfType<JsonObject>())
-                    if (resolution["status"]?.ToString() is "resolved" or "still_present" or "invalidated_by_evidence" && resolution["id"] is { } id) active.Remove(id.ToString());
+            if (review["resolvedWitnesses"] is JsonArray resolutions)
+                foreach (var id in resolutions) active.Remove(id!.ToString());
             if (review["defectWitness"] is not JsonObject witness || witness["version"]?.GetValue<int>() != 1 || witness["findings"] is not JsonArray findings) continue;
             foreach (var entry in findings.OfType<JsonObject>()) active[entry["id"]!.ToString()] = (witness, entry);
         }
@@ -277,18 +204,6 @@ internal static partial class PlanningConstruction
 
     private static JsonObject DefectEvidenceHashes(JsonObject context) => new((context["evidence"] as JsonObject ?? [])
         .Where(pair => pair.Value is not null).Select(pair => new KeyValuePair<string, JsonNode?>(pair.Key, JsonValue.Create(DefectHash(pair.Value)))));
-
-    private static JsonObject DefectSupportHashes(JsonObject context)
-    {
-        var schema = HybridWorkflowPlanner.ConstructionReviewSchema(context, verified: true);
-        var pointers = schema["properties"]!["findings"]!["anyOf"]!.AsArray().Single(item => item?["type"]?.ToString() == "array")!
-            ["items"]!["properties"]!["evidence"]!["items"]!["enum"]!.AsArray();
-        var hashes = new JsonObject { ["complete"] = pointers.Count <= 128 };
-        foreach (var pointer in pointers.Take(128))
-            if (TryPointer(context, pointer!.ToString(), out var node) && DefectSelector(context, pointer.ToString()) is { } selector)
-                hashes[DefectHash(selector)] = DefectHash(DefectProjection(node));
-        return hashes;
-    }
 
     private static JsonArray DefectAddresses(JsonObject context, string obligation, string affected)
     {
@@ -301,70 +216,12 @@ internal static partial class PlanningConstruction
                 if (TryPointer(context, string.Join('/', tokens.Take(count)), out var node) && node is JsonObject obj)
                 {
                     if (obj["id"] is { } id && obj["kind"] is not null) addresses.Add("task:" + id);
-                    if (obj["id"] is { } requirement && obj["sources"] is JsonArray sources)
-                    {
-                        addresses.Add("requirement:" + requirement);
-                        foreach (var source in sources.OfType<JsonObject>()) if (source["id"] is { } sourceId) addresses.Add("source:" + sourceId);
-                    }
+                    if (obj["id"] is { } requirement && obj["original"] is not null) addresses.Add("requirement:" + requirement);
+                    if (obj["id"] is { } sourceId && obj["text"] is not null) addresses.Add("source:" + sourceId);
                     if (obj["declaration"]?["name"] is { } name) addresses.Add("input:" + name);
                 }
         }
         return Set(addresses);
-    }
-
-    private static JsonArray DefectObligationSources(JsonObject context, string pointer)
-    {
-        var requirements = (context["requirements"] as JsonArray ?? []).OfType<JsonObject>();
-        var globals = (context["globalConstraints"] as JsonArray ?? []).OfType<JsonObject>();
-        var tokens = pointer.Split('/');
-        IEnumerable<JsonObject> sources = [];
-        if (tokens.Length >= 3 && tokens[1] == "requirements" && int.TryParse(tokens[2], out var requirementIndex) && requirementIndex >= 0)
-            sources = (requirements.ElementAtOrDefault(requirementIndex)?["sources"] as JsonArray ?? []).OfType<JsonObject>();
-        else if (tokens is ["", "globalConstraints"])
-            sources = globals;
-        else if (tokens.Length >= 3 && tokens[1] == "globalConstraints" && int.TryParse(tokens[2], out var globalIndex) && globalIndex >= 0)
-            sources = globals.Skip(globalIndex).Take(1);
-        else if (tokens is ["", "evidence", var encoded])
-        {
-            var address = encoded.Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal);
-            if (address.StartsWith("requirement:", StringComparison.Ordinal))
-                sources = requirements.Where(row => "requirement:" + row["id"] == address)
-                    .SelectMany(row => (row["sources"] as JsonArray ?? []).OfType<JsonObject>());
-            else if (address.StartsWith("source:", StringComparison.Ordinal))
-                sources = requirements.SelectMany(row => (row["sources"] as JsonArray ?? []).OfType<JsonObject>())
-                    .Concat(globals).Where(row => "source:" + row["id"] == address);
-        }
-        return Set(sources.Select(source => source["id"]!.ToString()));
-    }
-
-    private static JsonObject? DefectRequiredBinding(JsonObject context, JsonObject? assertion)
-    {
-        if (assertion?["source"] is not { } sourcePointer || assertion["consumer"] is not { } consumerPointer ||
-            !TryPointer(context, sourcePointer.ToString(), out var source) || !TryPointer(context, consumerPointer.ToString(), out var consumer) ||
-            source is not JsonObject original || consumer is not JsonObject { } argument || argument["name"] is null || argument["value"] is null) return null;
-        var binding = original["binding"]?.DeepClone() ?? (original["declaration"]?["name"] is { } name
-            ? new JsonObject { ["kind"] = "input", ["source"] = name.DeepClone() } : null);
-        if (binding is null || DefectSelector(context, consumerPointer.ToString()) is not { } selector || selector.Count < 2) return null;
-        var taskSelector = new JsonArray(selector.Take(selector.Count - 2).Select(part => part?.DeepClone()).ToArray());
-        if (!DefectRead(context, taskSelector, out var task, out _) || task?["kind"]?.ToString() != "operation") return null;
-        return new JsonObject { ["source"] = binding, ["consumerSelector"] = selector, ["taskSelector"] = taskSelector, ["operation"] = task["operation"]?.DeepClone(),
-            ["sourcePointerInPriorContext"] = sourcePointer.DeepClone(), ["consumerPointerInPriorContext"] = consumerPointer.DeepClone() };
-    }
-
-    private static JsonObject? DefectBindingProgress(JsonObject context, JsonObject? binding)
-    {
-        if (binding is null) return null;
-        var found = DefectRead(context, binding["consumerSelector"] as JsonArray, out var consumer, out var pointer) &&
-            DefectRead(context, binding["taskSelector"] as JsonArray, out var task, out _) && task?["kind"]?.ToString() == "operation" &&
-            JsonNode.DeepEquals(task["operation"], binding["operation"]);
-        var value = consumer?["value"]?.Deserialize(PlanningJsonContext.Default.TaskValue);
-        var source = binding["source"]!.Deserialize(PlanningJsonContext.Default.TaskValue)!;
-        var operands = value is null ? [] : TaskPlanCompiler.Values(value).ToArray();
-        var status = !found || value is null ? "unknown" : operands.Any(operand => JsonNode.DeepEquals(Node(operand, PlanningJsonContext.Default.TaskValue), Node(source, PlanningJsonContext.Default.TaskValue)))
-            ? "established" : operands.Any(operand => operand.Kind is "output" or "present" or "choice" ||
-                source.Kind == "field" && operand.Kind == "input") ? "unknown" : "disconnected";
-        return new JsonObject { ["source"] = DefectSnapshot(binding["source"]), ["consumerPointer"] = pointer, ["dependency"] = status,
-            ["meaning"] = "Exact structural source dependency at this argument only; the asserted business need and semantic resolution still require review." };
     }
 
     private static string DefectSources(PlanningSession state) => DefectHash(new JsonObject

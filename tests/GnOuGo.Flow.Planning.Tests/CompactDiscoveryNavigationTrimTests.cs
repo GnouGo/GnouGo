@@ -24,38 +24,24 @@ public sealed partial class CompactDiscoveryProtocolTests
         };
         var retained = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
         var fresh = PlanningCompactConstruction.DiscoveryContext(state);
-        var historicalState = PlannerFixture.Clone(state);
-        historicalState.Construction!.Compact!.PresentationVersion = null;
-        var historical = PlanningCompactConstruction.DiscoveryContext(historicalState);
-
         Assert.False(fresh.ContainsKey("sources"));
         Assert.False(fresh.ContainsKey("descriptors"));
         Assert.False(fresh.ContainsKey("diagnostics"));
         Assert.Equal(instructions, fresh.ContainsKey("instructions"));
-        Assert.True(historical.ContainsKey("sources"));
-        Assert.True(historical.ContainsKey("descriptors"));
-        Assert.True(historical.ContainsKey("diagnostics"));
-        Assert.True(historical.ContainsKey("instructions"));
-        foreach (var field in new[] { "requirements", "globalConstraints", "evidence" })
-            Assert.True(JsonNode.DeepEquals(historical[field], fresh[field]), field);
         Assert.True(JsonNode.DeepEquals(state.Construction.Evidence, fresh["evidence"]));
         Assert.Equal(retained, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
 
-        // Measure the same complete schema/envelope, varying only this context.
-        // Historical step and directory projections intentionally differ.
         var untrimmed = fresh.DeepClone().AsObject();
-        foreach (var (key, value) in historical.Where(entry => !fresh.ContainsKey(entry.Key)))
-        {
-            Assert.True(value is null or JsonArray { Count: 0 } ||
-                value is JsonValue scalar && scalar.TryGetValue<string>(out var text) && text.Length == 0, key);
-            untrimmed[key] = value?.DeepClone();
-        }
+        untrimmed["sources"] = new JsonArray();
+        untrimmed["descriptors"] = new JsonArray();
+        untrimmed["diagnostics"] = new JsonArray();
+        if (!instructions) untrimmed["instructions"] = "";
         var schema = PlanningCompactConstruction.DiscoverySchema(state);
         var before = PlanningRequestMeasurements.Measure(Complete(state, PlanningCompactConstruction.Request(
-            PlanningCompactConstruction.DiscoveryInstructions, untrimmed, schema.DeepClone().AsObject(),
+            PlanningCompactConstruction.DiscoveryGuidance(state), untrimmed, schema.DeepClone().AsObject(),
             PlanningCompactConstruction.DiscoveryPurpose)), PlanningCompactConstruction.DiscoveryPurpose, 3000);
         var after = PlanningRequestMeasurements.Measure(Complete(state, PlanningCompactConstruction.Request(
-            PlanningCompactConstruction.DiscoveryInstructions, fresh, schema.DeepClone().AsObject(),
+            PlanningCompactConstruction.DiscoveryGuidance(state), fresh, schema.DeepClone().AsObject(),
             PlanningCompactConstruction.DiscoveryPurpose)), PlanningCompactConstruction.DiscoveryPurpose, 3000);
         Assert.True(after.CompleteRequestBytes < before.CompleteRequestBytes);
         Assert.True(after.EstimatedInputTokens < before.EstimatedInputTokens);
@@ -67,14 +53,14 @@ public sealed partial class CompactDiscoveryProtocolTests
     {
         var (state, runtime) = await Ready();
         state.Request.Policy.Instructions = "";
-        state.Construction!.Compact!.PresentationVersion = null;
-        var request = Complete(state, PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryInstructions,
+
+        var request = Complete(state, PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state),
             PlanningCompactConstruction.DiscoveryContext(state), PlanningCompactConstruction.DiscoverySchema(state),
             PlanningCompactConstruction.DiscoveryPurpose));
-        Assert.True(Context(request).ContainsKey("sources"));
+        Assert.False(Context(request).ContainsKey("sources"));
         state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = request };
         state.ModelCalls++;
-        state.Construction.Compact.PresentationVersion = 2;
+
         Assert.False(PlanningCompactConstruction.DiscoveryContext(state).ContainsKey("sources"));
         var issued = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
         var calls = state.ModelCalls;

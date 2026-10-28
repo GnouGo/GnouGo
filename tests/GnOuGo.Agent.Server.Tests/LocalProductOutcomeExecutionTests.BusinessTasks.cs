@@ -185,64 +185,13 @@ public sealed partial class LocalProductOutcomeExecutionTests
             catalog.Policy.RequireExternalConfirmation = false;
             var proposal = (initialComposition || variant.StartsWith("union_compact", StringComparison.Ordinal)) ? CompactUnionProposal(catalog) : unionRevision ? UnionRevisionProposal(catalog) : BusinessProposal(verbatim ? "verbatim_rows" : variant == "exact_rows" ? variant : "compact", catalog);
             var expectedPlan = JsonSerializer.Serialize(proposal.Plan, PlanningJsonContext.Default.TaskPlan);
-            var corrections = new Dictionary<string, JsonNode?>();
-            if (variant == "producer_revision")
-            {
-                var extraction = proposal.Plan!.Root.Tasks.Single(t => t.Id == "extract_choices");
-                corrections["/tasks/extract_choices/each"] = JsonNode.Parse("""{"input":"pages","output":"pageViews"}""");
-                corrections["/tasks/extract_choices/resultType"] = JsonSerializer.SerializeToNode(extraction.ResultType, PlanningJsonContext.Default.TaskType);
-                corrections["/tasks/extract_choices/requires"] = JsonSerializer.SerializeToNode(extraction.Requires, PlanningJsonContext.Default.TaskValue);
-                extraction.Each = new("page", "pageViews");
-                extraction.ResultType!.Fields[0].Type.Items = extraction.ResultType.Fields[0].Type.Items!.Items;
-                extraction.Requires = new() { Kind = "choice", Source = "acquire" };
-            }
             if (variant == "denied") proposal.Plan!.Root.Tasks.Single(t => t.Id == "write").Inputs.Single(i => i.Name == "filePath").Value.Text = "../outside.xlsx";
-            var adapter = new ProposalRuntime(runtime, proposal);
-            var initial = GnOuGo.Planning.Examples.PlanningCorpus.RetainedSession(new PlanningSession { Catalog = catalog, Request = new() {
-                TenantId = "local", Prompt = proposal.Requirements!.Summary, Policy = new() { RequireExternalConfirmation = false },
-                Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } });
-            var session = unionRevision && !initialComposition ? await ReviseUnionFixture(initial, runtime, proposal, ct) :
-                await new HybridWorkflowPlanner().AdvanceAsync(initial, new(), adapter, ct);
-            if (variant == "producer_revision")
-            {
-                Assert.Equal(PlanningStatus.Stopped, session.Status); Assert.Equal(1, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts);
-                Assert.Contains(session.Diagnostics, d => d.Code == "TASK_TRANSFORM_EACH");
-                Assert.Contains(session.Diagnostics, d => d.Code == "TASK_FLATTEN_INVALID");
-                Assert.Contains(session.Diagnostics, d => d.Code == "CHOICE_UNKNOWN");
-                Assert.Empty(visits); Assert.Empty(model.Requests);
-                adapter.Patch = request =>
-                {
-                    var context = JsonNode.Parse(request.Prompt[request.Prompt.IndexOf("\n{", StringComparison.Ordinal)..])!["repair"]!;
-                    var edits = context["slots"]!.AsArray().Select(slot => (JsonNode)new JsonObject {
-                        ["slot"] = slot!["id"]!.ToString(), ["action"] = "replace", ["value"] = corrections[slot["location"]!.ToString()]!.DeepClone() }).ToArray();
-                    Assert.Equal(3, edits.Length);
-                    return new() { ["discoveryRequests"] = null, ["clarifications"] = null, ["patch"] = new JsonObject { ["edits"] = new JsonArray(edits) } };
-                };
-                session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { Kind = "revise", PreserveRequirements = true,
-                    ExpectedRevision = session.Revision, ArtifactHash = session.ComputeArtifactHash(), EditablePaths = corrections.Keys.ToList(),
-                    Text = "Correct only the extraction declaration and its assertion. Preserve every business operation and accepted output." }, adapter, ct);
-                session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { ExpectedRevision = session.Revision }, adapter, ct);
-                Assert.Equal(expectedPlan, JsonSerializer.Serialize(session.Plan, PlanningJsonContext.Default.TaskPlan));
-            }
+            var session = RecordedPlanCompilation.CompileStatic(proposal, catalog, new()
+            { TenantId = "local", Prompt = proposal.Requirements!.Summary, Policy = new() { RequireExternalConfirmation = false },
+                Options = new() { ["compilation_profile"] = "compact-bindings-v15", ["mapping_profile"] = "adaptive-each-v1" } });
             Assert.True(session.Status == PlanningStatus.FinalReview, string.Join('\n', session.Diagnostics));
-            Assert.Equal("compact-bindings-v15", session.Request.Options["compilation_profile"]!.ToString());
-            Assert.Contains("expression_contracts:", session.Yaml!);
-            Assert.DoesNotContain("checkedMapping(", session.Yaml!);
-            Assert.Equal(variant == "producer_revision" || unionRevision && !initialComposition ? 2 : 1, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts); Assert.Empty(visits); Assert.Empty(model.Requests);
-            if (initialComposition)
-            {
-                var request = Assert.Single(adapter.Requests);
-                Assert.Contains("each.input: bound input", request.StructuredOutputSchema!.ToJsonString());
-                Assert.Contains("resultType: complete assembled", request.StructuredOutputSchema!.ToJsonString());
-                Assert.DoesNotContain("Lookup offered IDs before originals", request.Prompt);
-                Assert.Contains("Bind typed copies/projections/assembly", request.Prompt);
-                Assert.Contains("Return the smallest sufficient executable business plan", request.Prompt);
-                Assert.InRange(adapter.InputEstimate, 1, initial.Request.Generation.MaxInputTokensPerRequest);
-                output.WriteLine($"INITIAL REQUEST: estimatedTokens={adapter.InputEstimate}; calls=1; repairs=0; tasks=18");
-            }
-            session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { Kind = "approve", ExpectedRevision = session.Revision,
-                ArtifactHash = session.ComputeArtifactHash(), ReviewedRequirementIds = unionRevision ? ["search_amazon_fr", "collect_up_to_10_products", "extract_product_fields", "save_excel_file", "cleanup_browser", "truthful_status"] : ["search", "select_first", "visit_extract", "write_workbook", "release"] }, new ProposalRuntime(runtime, proposal), ct);
-            Assert.Equal(PlanningStatus.Approved, session.Status);
+            Assert.Contains("expression_contracts:", session.Yaml!); Assert.DoesNotContain("checkedMapping(", session.Yaml!);
+            Assert.Equal(0, session.ModelCalls); Assert.Null(session.ApprovedHash); Assert.Empty(visits); Assert.Empty(model.Requests);
             var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(session.Yaml!)); var timer = Stopwatch.StartNew();
             var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject { ["query"] = "observed lamps" }, ct);
             var journal = (await store.ReadAsync("local", engine.Limits.RunId, ct))!;
@@ -396,9 +345,9 @@ public sealed partial class LocalProductOutcomeExecutionTests
 
     private static string FeatureDescription(int product, int block) => $"Feature {block}: stable base, model {product}.";
 
-    private static PlanningProposal BusinessProposal(string name, PlanningCatalog catalog)
+    private static TaskPlanFixture BusinessProposal(string name, PlanningCatalog catalog)
     {
-        var proposal = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "BusinessTaskComposition", (name is "exact_rows" or "verbatim_rows" ? "compact" : name) + ".json")), PlanningJsonContext.Default.PlanningProposal)!;
+        var proposal = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "BusinessTaskComposition", (name is "exact_rows" or "verbatim_rows" ? "compact" : name) + ".json")), PlanningFixtureJsonContext.Default.TaskPlanFixture)!;
         if (name is "exact_rows" or "verbatim_rows")
         {
             var formatting = proposal.Plan!.Root.Tasks.Single(t => t.Id == "format");

@@ -249,55 +249,27 @@ public sealed partial class LocalProductOutcomeExecutionTests(ITestOutputHelper 
             var write = plan.Root.Tasks.Single(t => t.Id == "write"); write.Inputs[0] = new("filePath", ProductTransformationPlan.Text(variant == "denied" ? "../outside.xlsx" : ProductTransformationFixture.OutputPath));
             plan.Root.Outputs[0] = new("file", ProductTransformationPlan.Ref("write", "filePath"));
             plan.Root.Tasks.Single(t => t.Id == "products").MaxItems = 3;
-            var proposal = new PlanningProposal { Plan = plan, Requirements = new() { Summary = "Read products and save an XLSX document, always close the browser", Inputs = plan.Inputs,
+            var proposal = new TaskPlanFixture { Plan = plan, Requirements = new() { Summary = "Read products and save an XLSX document, always close the browser", Inputs = plan.Inputs,
                 Outputs = [new() { Name = "file", Type = new() { Kind = "string" } }],
                 Outcomes = [new("search", "Read search results"), new("products", "Read each product"),
                     new("save", "Save workbook"), new("close", "Close browser")] } };
-            var planning = new ProposalRuntime(runtime, proposal);
-            var session = PlanningCorpus.RetainedSession(new() { Catalog = catalog, Request = new() { Prompt = proposal.Requirements.Summary, TenantId = "local", Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } });
-            var timer = Stopwatch.StartNew();
-            for (var i = 0; i < 5 && !PlanningStatus.IsWaiting(session.Status) && !PlanningStatus.IsTerminal(session.Status); i++)
-                session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { ExpectedRevision = session.Revision }, planning, ct);
-            var planningMs = timer.Elapsed.TotalMilliseconds;
-            Assert.True(session.Status == PlanningStatus.FinalReview, string.Join("; ", session.Diagnostics.Select(d => d.Code + " " + d.Location + " " + d.Message)));
-            PlanningArtifactApproval.Verify(session); Assert.Equal(1, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts);
+            // Static compiler/runtime oracle: no model-generated proposal or planning approval is claimed.
             if (variant == "pages-compact-scoped")
             {
-                var before = JsonSerializer.Serialize(session.Plan, PlanningJsonContext.Default.TaskPlan);
-                var paths = new List<string> { "/tasks/write/inputs", "/tasks/write/requires" };
-                session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { Kind = "revise", PreserveRequirements = true,
-                    ExpectedRevision = session.Revision, ArtifactHash = session.ComputeArtifactHash(), EditablePaths = paths,
-                    Text = "Explicitly disable append and require the formatted table before writing; preserve all observations, product visits and cleanup." }, planning, ct);
-                Assert.Equal(before, JsonSerializer.Serialize(session.Plan, PlanningJsonContext.Default.TaskPlan));
                 write.Inputs.Add(new("append", new() { Kind = "boolean", Boolean = false }));
-                planning.Patch = request =>
-                {
-                    var context = JsonNode.Parse(request.Prompt[(request.Prompt.IndexOf("\n{", StringComparison.Ordinal) + 1)..])!;
-                    var edits = context["repair"]!["slots"]!.AsArray().Select(slot => (JsonNode)new JsonObject
-                    {
-                        ["slot"] = slot!["id"]!.ToString(), ["action"] = "replace",
-                        ["value"] = slot["location"]!.ToString().EndsWith("/inputs", StringComparison.Ordinal)
-                            ? JsonSerializer.SerializeToNode(write.Inputs, PlanningJsonContext.Default.ListTaskOutput)
-                            : new JsonObject { ["kind"] = "present", ["source"] = "table" }
-                    }).ToArray();
-                    return new() { ["discoveryRequests"] = null, ["clarifications"] = null, ["patch"] = new JsonObject { ["edits"] = new JsonArray(edits) } };
-                };
-                session = JsonSerializer.SerializeToNode(session, PlanningJsonContext.Default.PlanningSession)!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
-                session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { ExpectedRevision = session.Revision }, planning, ct);
-                Assert.True(session.Status == PlanningStatus.FinalReview, string.Join(';', session.Diagnostics));
-                Assert.Equal(2, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts);
-                Assert.Equal(plan.Root.Tasks.Select(t => t.Id), session.Plan!.Root.Tasks.Select(t => t.Id));
-                Assert.Equal(plan.Root.Always.Select(t => t.Id), session.Plan.Root.Always.Select(t => t.Id));
-                Assert.Equal("write", session.Plan.Root.Outputs[0].Value.Source);
-                PlanningArtifactApproval.Verify(session);
+                write.Requires = new() { Kind = "present", Source = "table" };
             }
-            session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { Kind = "approve", ExpectedRevision = session.Revision,
-                ArtifactHash = session.ComputeArtifactHash(), ReviewedRequirementIds = proposal.Requirements.Outcomes.Select(r => r.Id).ToList() }, planning, ct);
-            Assert.Equal(PlanningStatus.Approved, session.Status);
+            var timer = Stopwatch.StartNew();
+            var session = RecordedPlanCompilation.CompileStatic(proposal, catalog, new()
+            { TenantId = "local", Prompt = proposal.Requirements.Summary,
+                Options = new() { ["compilation_profile"] = "compact-bindings-v15" } });
+            var compilationMs = timer.Elapsed.TotalMilliseconds;
+            Assert.True(session.Status == PlanningStatus.FinalReview, string.Join("; ", session.Diagnostics));
+            Assert.Equal(0, session.ModelCalls); Assert.Null(session.ApprovedHash);
             var doc = new WorkflowCompiler().Compile(WorkflowParser.Parse(session.Yaml!)); timer.Restart();
             var result = await engine.ExecuteAsync(doc.Workflows[doc.Entrypoint!], new JsonObject { ["search"] = site.Urls.Single() + "/search" }, ct);
             var executionMs = timer.Elapsed.TotalMilliseconds;
-            output.WriteLine($"LOCAL {variant}: success={result.Success}, calls={session.ModelCalls}, discovery={reads}, repairs={session.ReplanAttempts}, inputEstimate={planning.InputEstimate}, executionAdapterCalls={model.Calls.Count}, planningMs={planningMs:F1}, executionMs={executionMs:F1}; error={result.Error?.Code} {result.Error?.Message}");
+            output.WriteLine($"LOCAL {variant}: success={result.Success}, calls={session.ModelCalls}, discovery={reads}, repairs={session.ReplanAttempts}, executionAdapterCalls={model.Calls.Count}, compilationMs={compilationMs:F1}, executionMs={executionMs:F1}; error={result.Error?.Code} {result.Error?.Message}");
             Assert.Equal(informationalNotice || compact || variant is "nominal" or "changed" or "empty" or "missing" or "extract" or "observation" or "each" or "each-parallel" or "pages" or "pages-parallel", result.Success);
             if (informationalNotice)
             {
@@ -372,23 +344,6 @@ public sealed partial class LocalProductOutcomeExecutionTests(ITestOutputHelper 
         finally { await site.StopAsync(ct); Directory.Delete(root, true); }
     }
 
-    internal sealed class ProposalRuntime(WorkflowPlanningRuntime actual, PlanningProposal proposal) : IPlanningRuntime
-    {
-        public int InputEstimate;
-        public List<LLMRequest> Requests { get; } = [];
-        public Func<LLMRequest, JsonObject>? Patch;
-        public ICapabilityCatalog Capabilities => actual.Capabilities;
-        public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => actual.DiscoverAsync(request, ct);
-        public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
-        {
-            Requests.Add(request);
-            InputEstimate = (System.Text.Encoding.UTF8.GetByteCount(request.Prompt) + System.Text.Encoding.UTF8.GetByteCount(request.StructuredOutputSchema!.ToJsonString()) + 2) / 3 + 256;
-            return Task.FromResult(new LLMResponse { Json = PlanningCorpus.Transport(Patch?.Invoke(request) ?? JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal), request.StructuredOutputSchema.AsObject(), request.StructuredOutputSchema.AsObject()) });
-        }
-        public Task CheckpointAsync(PlanningSession state, CancellationToken ct) => Task.CompletedTask;
-        public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => actual.ValidateAsync(request, ct);
-        public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => actual.ValidateCatalogAsync(catalog, ct);
-    }
     private sealed class PagedModel(ILLMClient next, bool compact = false, bool flattened = false, bool lookup = false) : ILLMClient
     {
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)

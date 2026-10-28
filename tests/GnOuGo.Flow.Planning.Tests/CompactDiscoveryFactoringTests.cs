@@ -19,9 +19,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         if (second is not null) state.Discovery.Pages.Add(new("beta", null, [], second, Query: Objective));
         var original = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
         var fresh = PlanningCompactConstruction.DiscoverySchema(state);
-        var historicalState = PlannerFixture.Clone(state);
-        historicalState.Construction!.Compact!.PresentationVersion = null;
-        var historical = PlanningCompactConstruction.DiscoverySchema(historicalState);
+        Assert.True(JsonNode.DeepEquals(fresh, PlanningCompactConstruction.DiscoverySchema(PlannerFixture.Clone(state))));
 
         Assert.Empty(PlanningContractValidation.ValidateSchema(fresh, strict: true));
         foreach (var source in new[] { "alpha", "beta", "unissued" })
@@ -31,11 +29,9 @@ public sealed partial class CompactDiscoveryProtocolTests
             var response = Discover(source, cursor, query);
             var expected = query is null && (source == "alpha" && cursor == first || source == "beta" && cursor == second);
             Assert.Equal(expected, PlanningContractValidation.ValidateInstance(response, fresh).Count == 0);
-            Assert.Equal(expected, PlanningContractValidation.ValidateInstance(response, historical).Count == 0);
         }
         if (first == second)
         {
-            Assert.True(fresh.ToJsonString().Length < historical.ToJsonString().Length);
             var items = fresh["properties"]!["discoveryRequests"]!["anyOf"]![0]!["items"]!;
             Assert.Null(items["anyOf"]);
             Assert.Equal(2, items["properties"]!["sourceId"]!["enum"]!.AsArray().Count);
@@ -58,19 +54,20 @@ public sealed partial class CompactDiscoveryProtocolTests
     }
 
     [Fact]
-    public async Task PreviouslyIssuedUnfactoredDiscoveryResumesUnchanged()
+    public async Task IssuedDiscoveryResumesUnchanged()
     {
         var (state, runtime) = await Ready();
         state.Discovery.Sources.Add(new("beta", "Another provider."));
-        state.Construction!.Compact!.PresentationVersion = null;
+
         var schema = PlanningCompactConstruction.DiscoverySchema(state);
-        Assert.Equal(2, schema["properties"]!["discoveryRequests"]!["anyOf"]![0]!["items"]!["anyOf"]!.AsArray().Count);
-        var request = Complete(state, PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryInstructions,
+        Assert.Empty(PlanningContractValidation.ValidateInstance(Discover("alpha", null), schema));
+        Assert.Empty(PlanningContractValidation.ValidateInstance(Discover("beta", null), schema));
+        var request = Complete(state, PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state),
             PlanningCompactConstruction.DiscoveryContext(state), schema, PlanningCompactConstruction.DiscoveryPurpose));
         state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = request };
         state.ModelCalls++;
         // New presentation availability must not replace a durably issued request.
-        state.Construction.Compact.PresentationVersion = 2;
+
         var issued = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
         var calls = state.ModelCalls;
         var plan = PlanningConstruction.Hash(state.Plan);

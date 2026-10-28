@@ -28,9 +28,10 @@ public sealed class CompactSelectionScopeTests
         Assert.Equal("/groups/isolated/body", nested["inputScope"]!.ToString());
         Assert.Null(nested["inputs"]);
 
-        var request = Complete(state, PlanningCompactConstruction.Request(PlanningCompactConstruction.SelectInstructions,
+        var request = Complete(state, PlanningCompactConstruction.Request(PlanningCompactConstruction.SelectGuidance(state),
             context, PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose));
-        Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.SelectPurpose, 3000).EstimatedInputTokens, 1, 3000);
+        var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.SelectPurpose).MaxInputTokens;
+        Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.SelectPurpose, limit).EstimatedInputTokens, 1, limit);
         Assert.Equal(original, Snapshot(state));
         // Caller ownership remains explicit before the first TaskPlan exists too.
         state.Plan = null;
@@ -92,20 +93,6 @@ public sealed class CompactSelectionScopeTests
         Assert.DoesNotContain("missing-unrelated-producer", diagnostic.Message, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public async Task RetainedPresentationKeepsItsOriginalDirectoriesAndImportDiagnostic()
-    {
-        var state = await Ready();
-        state.Construction!.Compact!.PresentationVersion = null;
-        state.Request.Options.Remove("construction_presentation_version");
-        var context = PlanningCompactConstruction.SelectionContext(state);
-        var group = context["scopes"]!.AsArray().Single(scope => scope!["kind"]?.ToString() == "group")!;
-        Assert.Null(group["isolated"]); Assert.Null(group["inputCount"]); Assert.Null(group["inputs"]);
-        Assert.All(context["interfaces"]!.AsArray().Where(item => item!["input"] is not null), item => Assert.Null(item!["scope"]));
-        var error = Assert.Throws<PlanningResponseException>(() =>
-            PlanningCompactConstruction.ValidateSelection(state, Step("/groups/isolated/body", CallerReference("input"))));
-        Assert.Equal("/step/inputs", Assert.Single(error.Diagnostics).Location);
-    }
 
     [Fact]
     public async Task CorrectedSelectionChargesOneCorrectionAndPreservesAcceptedGroupAndCallerBindings()
@@ -140,12 +127,6 @@ public sealed class CompactSelectionScopeTests
     {
         var state = await Ready();
         var context = PlanningCompactConstruction.SelectionContext(state);
-        foreach (var item in context["interfaces"]!.AsArray().OfType<JsonObject>().Where(item => item.ContainsKey("input"))) item.Remove("scope");
-        foreach (var scope in context["scopes"]!.AsArray().OfType<JsonObject>())
-        {
-            scope.Remove("isolated"); scope.Remove("inputCount"); scope.Remove("inputScope");
-            if (scope["inputs"] is JsonArray { Count: 0 }) scope.Remove("inputs");
-        }
         var issued = Complete(state, PlanningCompactConstruction.Request("Retained instructions: select one exact business step.",
             context, PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose));
         state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.SelectPurpose, Request = issued };
@@ -170,7 +151,7 @@ public sealed class CompactSelectionScopeTests
 
     private static PlanningConstructionStep Step(string scope, params TaskValue[] inputs) => new()
     {
-        Scope = scope, Kind = "operation", Objective = "Read the supplied value using an inspected capability.",
+        Scope = scope, Kind = null, Objective = "Read the supplied value using an inspected capability.",
         RequirementIds = ["req_0"], Inputs = inputs.ToList(), ExpectedOutputs = ["Observed value"]
     };
 
@@ -211,7 +192,7 @@ public sealed class CompactSelectionScopeTests
                 ["clauses"] = new JsonArray(new JsonObject { ["text"] = objective, ["kind"] = "requirement", ["interfaces"] = "none" })
             });
         } };
-        var state = await Advance(PlannerFixture.CapturedPresentation(new() { Request = new() { TenantId = "selection-scopes", Prompt = objective,
+        var state = await Advance(PlannerFixture.Capture(new() { Request = new() { TenantId = "selection-scopes", Prompt = objective,
             Options = new() { ["automatic_correction"] = true } } }), runtime);
         Assert.Empty(state.Diagnostics);
         state.Catalog = await runtime.DiscoverAsync(state.Request, PlannerFixture.Ct);

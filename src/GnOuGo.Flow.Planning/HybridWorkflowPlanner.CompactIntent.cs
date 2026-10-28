@@ -79,7 +79,7 @@ public sealed partial class HybridWorkflowPlanner
         if (state.Construction!.Candidate is { } candidate && PlanningCompactConstruction.IntentDeclarationsComplete(compact) &&
             compact.Sources.All(s => s.Indexed))
         {
-            candidate.LocalReviewed = false; candidate.IntermediateReviewed = false;
+            candidate.BusinessReviewed = false;
             await ValidateConstructionCandidateAsync(state, runtime, ct);
         }
     }
@@ -87,27 +87,7 @@ public sealed partial class HybridWorkflowPlanner
     private static async Task ExtractConstructionInterfacesAsync(PlanningSession state, IPlanningRuntime runtime,
         PlanningConstructionInterfaceExtraction extraction, CancellationToken ct)
     {
-        if (PlanningCompactConstruction.UsesDeferredBinding(state))
         { await ResolveConstructionInterfacesAsync(state, runtime, extraction, ct); return; }
-        var response = await CompactCallAsync(state, runtime, PlanningCompactConstruction.IntentPurpose, () =>
-            PlanningCompactConstruction.Request(PlanningCompactConstruction.InterfaceGuidance(state),
-                PlanningCompactConstruction.InterfaceContext(state, extraction),
-                PlanningCompactConstruction.InterfaceSchema(extraction, PlanningConstructionPhasePolicies.IsFresh(state.Request)),
-                PlanningCompactConstruction.IntentPurpose), ct);
-        if (response["sourceId"]!.ToString() != extraction.Id)
-            PlanningConstruction.Fail("CONSTRUCTION_SOURCE_COVERAGE", "/sourceId", "Use the exact issued interface declaration source.");
-        var compact = PlanningCompactConstruction.State(state);
-        var source = compact.Sources.Single(s => s.Id == extraction.SourceIds[0]);
-        var page = compact.Sources.Single(s => source.Id.StartsWith(s.Id + ":clause:", StringComparison.Ordinal));
-        var requirements = ReadConstructionInterfaces(state, response, page.Kind);
-        state.Requirements = requirements;
-        extraction.Complete = true;
-        state.Diagnostics.Clear();
-        if (state.Construction!.Candidate is { } candidate && PlanningCompactConstruction.IntentDeclarationsComplete(compact))
-        {
-            candidate.LocalReviewed = false; candidate.IntermediateReviewed = false;
-            await ValidateConstructionCandidateAsync(state, runtime, ct);
-        }
     }
 
     private static LLMRequest ResolvableInterfaceRequest(PlanningSession state, string extractionId)
@@ -171,7 +151,7 @@ public sealed partial class HybridWorkflowPlanner
         state.Diagnostics.Clear();
         if (state.Construction!.Candidate is { } candidate && PlanningCompactConstruction.IntentDeclarationsComplete(compact))
         {
-            candidate.LocalReviewed = false; candidate.IntermediateReviewed = false;
+            candidate.BusinessReviewed = false;
             await ValidateConstructionCandidateAsync(state, runtime, ct);
         }
     }
@@ -227,8 +207,7 @@ public sealed partial class HybridWorkflowPlanner
             var typed = names.ToHashSet(StringComparer.Ordinal);
             var required = referenced.ToHashSet(StringComparer.Ordinal);
             if (names.Count == typed.Count && typed.SetEquals(required)) return;
-            if (PlanningCompactConstruction.UsesConvergentConstruction(state))
-                PlanningConstruction.Fail("CONSTRUCTION_SOURCE_COVERAGE", "/interfaces/" + direction,
+            PlanningConstruction.Fail("CONSTRUCTION_SOURCE_COVERAGE", "/interfaces/" + direction,
                     "Typed " + direction + " must match current-source dispositions." +
                     Describe("duplicate typed names", names.GroupBy(name => name, StringComparer.Ordinal).Where(group => group.Count() > 1).Select(group => group.Key)) +
                     Describe("missing typed declarations", required.Except(typed, StringComparer.Ordinal)) +

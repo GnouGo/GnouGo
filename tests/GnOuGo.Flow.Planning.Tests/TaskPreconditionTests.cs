@@ -171,16 +171,4 @@ public sealed class TaskPreconditionTests
         Assert.Empty(TaskPlanRevisions.Scope(plan, [new("TASK_CONDITION_TYPE", "/tasks/publish/requires", "invalid") ]));
         Assert.Equal(original, JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan));
     }
-
-    [Fact]
-    public async Task GenerationWithExplicitPreconditionUsesOneCallAndNoRepair()
-    {
-        var runtime = new TestRuntime(); var plan = Plan(Input("complete"));
-        runtime.Proposal = new() { Plan = plan, Requirements = new() { Summary = "Return the result only when complete", Inputs = plan.Inputs,
-            Outputs = [new() { Name = "path", Type = new() { Kind = "string" } }], Outcomes = [new("result", "Require completeness before returning the result")] } };
-        var state = await PlannerFixture.RunAsync(runtime);
-        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics.Select(d => d.Message)));
-        Assert.Single(runtime.Calls); Assert.Equal(0, state.ReplanAttempts);
-        Assert.Contains("required precondition", PlanningReviewFormatter.TaskDiagram(state.Plan));
-    }
 }

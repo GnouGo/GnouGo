@@ -53,32 +53,12 @@ internal static partial class PlanningCompactConstruction
                 var source = state.Discovery.Sources.Single(s => s.Id == option.SourceId);
                 var description = NavigationDescription(source.Description);
                 return (JsonNode)new JsonObject { ["sourceId"] = source.Id, ["cursor"] = option.Cursor,
-                    [ProviderPageActionName(state)] = option.Available, ["unavailable"] = option.Unavailable, ["resultCount"] = option.ResultCount,
+                    ["canRequestPage"] = option.Available, ["unavailable"] = option.Unavailable, ["resultCount"] = option.ResultCount,
                     ["description"] = description, ["descriptionComplete"] = description.Length == source.Description.Length,
                     ["descriptionEvidence"] = "source-description:" + Uri.EscapeDataString(source.Id) + "@" + PlanningGraphCompiler.Fingerprint(source.Description) + ":0" };
             }).ToArray()),
             ["next"] = offset + count < options.Count ? ProviderRequestAddress(state, offset + count) : null
         };
-    }
-
-    private static string ProviderPageActionName(PlanningSession state) =>
-        PlanningConstructionPhasePolicies.IsFresh(state.Request) ? "canRequestPage" : "available";
-
-    private static bool ProviderPageMatches(PlanningSession state, JsonNode? value, JsonNode? current)
-    {
-        if (JsonNode.DeepEquals(value, current)) return true;
-        if (!PlanningConstructionPhasePolicies.IsFresh(state.Request) || current is not JsonObject page ||
-            page["items"] is not JsonArray) return false;
-        // Retained pages keep their exact bytes and content address. Only the
-        // presentation label changed; every original field must still match.
-        var retainedShape = page.DeepClone();
-        foreach (var item in retainedShape["items"]!.AsArray())
-        {
-            var row = item!.AsObject();
-            if (!row.Remove("canRequestPage", out var action)) return false;
-            row["available"] = action;
-        }
-        return JsonNode.DeepEquals(value, retainedShape);
     }
 
     private static JsonObject? ProviderEvidencePage(PlanningSession state) => ProviderEvidencePages(state).FirstOrDefault();
@@ -88,7 +68,7 @@ internal static partial class PlanningCompactConstruction
         foreach (var (address, value) in state.Construction!.Evidence ?? new JsonObject())
             if (address.StartsWith("page:provider-requests:", StringComparison.Ordinal) && value is JsonObject page &&
                 page["offset"] is JsonValue position && position.TryGetValue<int>(out var offset) && offset >= 0 &&
-                address == ProviderRequestAddress(state, offset) && ProviderPageMatches(state, page, ProviderRequestPage(state, offset))) yield return page;
+                address == ProviderRequestAddress(state, offset) && JsonNode.DeepEquals(page, ProviderRequestPage(state, offset))) yield return page;
     }
 
     internal static void RemoveStaleDiscoveryDirectories(PlanningSession state)
@@ -103,45 +83,37 @@ internal static partial class PlanningCompactConstruction
             catch (PlanningResponseException) { current = null; }
             // Only current action directories expire. Original requested prose,
             // schemas and requirements, and every consumed identity, are retained.
-            if (!(address.StartsWith("page:provider-requests:", StringComparison.Ordinal)
-                    ? ProviderPageMatches(state, value, current) : JsonNode.DeepEquals(value, current))) evidence.Remove(address);
+            if (!JsonNode.DeepEquals(value, current)) evidence.Remove(address);
         }
     }
 
     private static JsonObject? PresentedProviderRequests(PlanningSession state)
     {
         if (ProviderEvidencePage(state) is { } page) return page;
-        if (IsCompactPresentation(state) && DescribedProviderRequests(state) is { } described) return described;
-        if (PlanningConstructionPhasePolicies.IsFresh(state.Request))
+        if (DescribedProviderRequests(state) is { } described) return described;
         {
             // Inspecting one operation does not exhaust other providers for this
             // substep. Keep their exact bounded actions beside the original evidence.
             var firstAvailable = ProviderRequestOptions(state).FindIndex(option => option.Available);
             // The decision overview can expose more choices without changing
             // canonical evidence pages or selecting any provider automatically.
-            return ProviderRequestPage(state, Math.Max(0, firstAvailable), UsesDeferredBinding(state) ? 8 : 2);
+            return ProviderRequestPage(state, Math.Max(0, firstAvailable), 8);
         }
-        if (state.Construction!.Evidence is { Count: > 0 } || ContractDescriptors(state).Count > 0) return null;
-        return ProviderRequestPage(state, 0);
     }
 
     private static JsonObject? DecisionOperationPage(PlanningSession state)
     {
-        if (state.Construction!.Evidence is { Count: > 0 } && !UsesDeferredBinding(state)) return null;
-        if (!IsCompactPresentation(state)) return UnseenOperationPage(state);
         var page = ContractDescriptorPage(state);
         // A consumed directory is not an inspected contract. Stateless decisions
         // still need bounded identities and exact description links.
-        return page["items"]!.AsArray().Count == 0 || JsonNode.DeepEquals(state.Construction.Evidence?[OperationPageAddress(state, 0)], page) ? null : page;
+        return page["items"]!.AsArray().Count == 0 || JsonNode.DeepEquals(state.Construction!.Evidence?[OperationPageAddress(state, 0)], page) ? null : page;
     }
 
     private static string? SourceDirectoryContinuation(PlanningSession state) =>
-        !IsCompactPresentation(state) ? "page:sources:0" :
-            UnconsumedDirectory(state, "page:sources:", state.Discovery.Sources.Count, SourceDirectoryPageSize);
+        UnconsumedDirectory(state, "page:sources:", state.Discovery.Sources.Count, SourceDirectoryPageSize);
 
     private static string? ProviderDirectoryContinuation(PlanningSession state) =>
-        !IsCompactPresentation(state) ? ProviderRequestAddress(state, 0) :
-            UnconsumedDirectory(state, "page:provider-requests:" + ProviderRequestVersion(state) + ":",
+        UnconsumedDirectory(state, "page:provider-requests:" + ProviderRequestVersion(state) + ":",
                 ProviderRequestOptions(state).Count, 2);
 
     private static string? UnconsumedDirectory(PlanningSession state, string prefix, int count, int pageSize)
@@ -157,14 +129,12 @@ internal static partial class PlanningCompactConstruction
 
     private static string? OperationDirectoryContinuation(PlanningSession state, JsonObject? displayed)
     {
-        if (!IsCompactPresentation(state)) return "page:operations:0";
         return UnseenOperationPage(state, displayed) is { } page
             ? OperationPageAddress(state, page["offset"]!.GetValue<int>()) : null;
     }
 
     private static JsonObject? UnseenOperationPage(PlanningSession state, JsonObject? displayed = null)
     {
-        if (!IsCompactPresentation(state)) return ContractDescriptorPage(state);
         for (var offset = 0; ; offset += CompactContractDescriptorPageSize)
         {
             var page = ContractDescriptorPage(state, offset);
@@ -180,7 +150,6 @@ internal static partial class PlanningCompactConstruction
 
     internal static void RecordPresentedOperations(PlanningSession state, string issuedPrompt)
     {
-        if (!IsCompactPresentation(state)) return;
         JsonObject? context;
         try { context = JsonNode.Parse(issuedPrompt[(issuedPrompt.LastIndexOf('\n') + 1)..]) as JsonObject; }
         catch (System.Text.Json.JsonException) { return; }
@@ -192,9 +161,7 @@ internal static partial class PlanningCompactConstruction
         catch (PlanningResponseException) { return; }
         if (!JsonNode.DeepEquals(page, canonical)) return;
         var continuation = directory["operations"]?.ToString();
-        // Older issued requests advertise page zero again. Do not retrospectively
-        // consume an address their captured presentation still offered to fetch.
-        if (continuation == "page:operations:0" || continuation != OperationDirectoryContinuation(state, page) ||
+        if (continuation != OperationDirectoryContinuation(state, page) ||
             page["items"]!.AsArray().Count == 0) return;
         var key = PlanningConstruction.EvidenceBatchFingerprint(state, [OperationPageAddress(state, offset)]);
         if (!state.Construction!.EvidenceRequests.Contains(key, StringComparer.Ordinal))
@@ -207,24 +174,15 @@ internal static partial class PlanningCompactConstruction
         if (!address.StartsWith("page:operations:", StringComparison.Ordinal)) return false;
         if (State(state).CurrentStep is null)
         {
-            if (UsesAcceptedProgress(state)) value = LoadKnownOperationPage(state, address);
+            value = LoadKnownOperationPage(state, address);
             return true;
         }
         var parts = address.Split(':');
-        if (parts is ["page", "operations", var originalOffset] &&
-            int.TryParse(originalOffset, NumberStyles.None, CultureInfo.InvariantCulture, out var legacyOffset) && legacyOffset >= 0)
-        {
-            // Offset-only addresses belong to retained issued requests. Preserve
-            // their two-row payload and original continuation representation.
-            value = ContractDescriptorPage(state, legacyOffset, legacy: true);
-            return true;
-        }
-        if (IsCompactPresentation(state) && parts is ["page", "operations", _, var position] &&
+        if (parts is ["page", "operations", _, var position] &&
             int.TryParse(position, NumberStyles.None, CultureInfo.InvariantCulture, out var offset) && offset >= 0)
         {
             // Pending requests may have issued a directory over all retained queries.
             // Its exact address must remain issued authority; a valid old hash alone is insufficient.
-            if (PlanningConstructionPhasePolicies.IsFresh(state.Request) && UsesVerifiedReview(state))
             {
                 var issued = issuedSchema?["properties"]?["evidenceRequests"]?["anyOf"] is JsonArray alternatives &&
                     alternatives.Any(option => option?["type"]?.ToString() == "array" &&
@@ -251,7 +209,7 @@ internal static partial class PlanningCompactConstruction
             response["evidenceRequests"] is not JsonArray requests) return;
         if (requests.Any(request => request?.ToString().Split(':') is ["page", "operations", _]))
             PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests",
-                "Use the exact content-addressed operation page issued by this request; a legacy offset-only alias does not grant another inspection.");
+                "Use the exact content-addressed operation page issued by this request; an offset-only alias grants no inspection.");
     }
 
     private static string? IssuedDescriptionKnowledge(JsonNode issuedSchema)
@@ -267,7 +225,7 @@ internal static partial class PlanningCompactConstruction
     private static JsonObject? DiscoveryEvidence(PlanningSession state)
     {
         var evidence = state.Construction!.Evidence?.DeepClone().AsObject();
-        if (evidence is null || !UsesDeferredBinding(state) || !PlanningConstructionPhasePolicies.IsFresh(state.Request)) return evidence;
+        if (evidence is null) return evidence;
         var prerequisiteAddresses = CurrentPrerequisiteAddresses(state);
         var schema = new JsonObject { ["description"] = DescriptionKnowledgePrefix +
             DescriptionKnowledgeHash(DescriptionKnowledge(state, state.Discovery.Pages.Count)) };
@@ -288,8 +246,7 @@ internal static partial class PlanningCompactConstruction
             page["textOmitted"] = true;
             page["evidence"] = address;
         }
-        if (UsesVerifiedReview(state))
-            FactorDiscoveryVersions(state, evidence);
+        FactorDiscoveryVersions(state, evidence);
         return evidence;
     }
 
@@ -354,7 +311,7 @@ internal static partial class PlanningCompactConstruction
         if (!state.Construction!.EvidenceRequests.Contains(ordinary, StringComparer.Ordinal) ||
             state.Construction.EvidenceRequests.Contains(key, StringComparer.Ordinal)) return key;
         var previous = state.Construction.EvidenceRequests.LastOrDefault(read => read.StartsWith(prefix, StringComparison.Ordinal));
-        if (previous is null) return null; // A historical read retains its original repeat guard.
+        if (previous is null) return null; // Missing issued knowledge grants no reread authority.
         var previousHash = previous[prefix.Length..];
         // Reconstruct the earlier identity set from retained immutable provider
         // receipts; only a strict append of knowledge permits another exact read.
@@ -389,7 +346,7 @@ internal static partial class PlanningCompactConstruction
                 ["version"] = ProviderRequestVersion(state), ["sourceId"] = sourceId, ["total"] = selected.Length,
                 ["items"] = new JsonArray(selected.Take(2).Select(option => (JsonNode)new JsonObject
                 {
-                    ["sourceId"] = option.SourceId, ["cursor"] = option.Cursor, [ProviderPageActionName(state)] = option.Available,
+                    ["sourceId"] = option.SourceId, ["cursor"] = option.Cursor, ["canRequestPage"] = option.Available,
                     ["unavailable"] = option.Unavailable, ["resultCount"] = option.ResultCount
                 }).ToArray()),
                 ["next"] = selected.Length > 2 ? ProviderRequestAddress(state, offset + 2) : null
@@ -399,7 +356,6 @@ internal static partial class PlanningCompactConstruction
 
     private static bool DiscoveryCloseCanProgress(PlanningSession state)
     {
-        if (!UsesDecisionView(state)) return true;
         var step = State(state).CurrentStep!;
         // A close binding adds no task. Reuse the existing draft/Apply progress
         // choices; nested scopes may export even when a child is still open.
@@ -411,7 +367,6 @@ internal static partial class PlanningCompactConstruction
     {
         var requests = PresentedProviderRequests(state)?["items"]?.AsArray() ?? [];
         IEnumerable<JsonNode?> visible = requests;
-        if (PlanningConstructionPhasePolicies.IsFresh(state.Request))
         {
             var supplied = ProviderEvidencePages(state).Concat(DescribedProviderRequestPages(state))
                 .SelectMany(page => page["items"]!.AsArray())
@@ -421,10 +376,8 @@ internal static partial class PlanningCompactConstruction
         var available = visible.Where(request => (request!["canRequestPage"] ?? request["available"])!.GetValue<bool>()).ToArray();
         // Factor only identical cursor branches. The accepted source/cursor pairs
         // stay exact; grouping every source with every cursor would widen authority.
-        var choices = IsCompactPresentation(state)
-            ? available.GroupBy(request => request!["cursor"]?.ToString(), StringComparer.Ordinal)
-                .Select(group => (Sources: group.Select(request => request!["sourceId"]!.ToString()).ToArray(), Cursor: group.Key))
-            : available.Select(request => (Sources: new[] { request!["sourceId"]!.ToString() }, Cursor: request["cursor"]?.ToString()));
+        var choices = available.GroupBy(request => request!["cursor"]?.ToString(), StringComparer.Ordinal)
+                .Select(group => (Sources: group.Select(request => request!["sourceId"]!.ToString()).ToArray(), Cursor: group.Key));
         var alternatives = new JsonArray(choices.Select(choice => (JsonNode)PlanningSchemas.Object(
             ("sourceId", PlanningSchemas.Enum(choice.Sources)),
             ("cursor", choice.Cursor is { } cursor ? PlanningSchemas.Enum(cursor) : PlanningSchemas.Type("null")),
@@ -434,25 +387,20 @@ internal static partial class PlanningCompactConstruction
             ("discoveryRequests", alternatives.Count == 0 ? PlanningSchemas.Type("null") : PlanningSchemas.Nullable(
                 PlanningSchemas.Array(alternatives.Count == 1 ? alternatives[0]!.DeepClone().AsObject() : new JsonObject { ["anyOf"] = alternatives }, 1, 2))),
             ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(Text(2048), 1,
-                PlanningConstructionPhasePolicies.IsFresh(state.Request) ? 8 : IsCompactPresentation(state) ? 1 : 4))),
+                8))),
             ("reselectStep", CanReselectDiscovery(state) ? PlanningSchemas.Nullable(new JsonObject { ["type"] = "string", ["minLength"] = 1, ["maxLength"] = 512 }) : PlanningSchemas.Type("null")),
             ("clarifications", PlanningSchemas.Nullable(PlanningSchemas.Clarifications())));
-        if (UsesDeferredBinding(state))
         {
             schema["properties"]!.AsObject().Remove("operationIds");
             schema["required"]!.AsArray().RemoveAt(0);
-            var binding = State(state).PresentationVersion >= 4
-                ? new JsonObject { ["anyOf"] = new JsonArray(
+            var binding = new JsonObject { ["anyOf"] = new JsonArray(
                     PlanningSchemas.Object(("kind", PlanningSchemas.Enum("operation")),
                         ("operationIds", Strings(1, 2)), ("groupId", PlanningSchemas.Type("null"))),
                     PlanningSchemas.Object(("kind", PlanningSchemas.Enum("call")),
                         ("operationIds", Strings(0, 0)), ("groupId", Text(96))),
                     PlanningSchemas.Object(("kind", PlanningSchemas.Enum(TaskKinds.Where(kind => kind is not ("operation" or "call") &&
                         (kind != "close" || DiscoveryCloseCanProgress(state))).ToArray())),
-                        ("operationIds", Strings(0, 0)), ("groupId", PlanningSchemas.Type("null")))) }
-                : PlanningSchemas.Object(("kind", PlanningSchemas.Enum(TaskKinds)), ("operationIds", Strings(0, 2)),
-                    ("groupId", PlanningSchemas.Nullable(Text(96))));
-            if (UsesAcceptedProgress(state))
+                        ("operationIds", Strings(0, 0)), ("groupId", PlanningSchemas.Type("null")))) };
             {
                 var branches = binding["anyOf"]!.AsArray();
                 branches[2]!["properties"]!["kind"] = PlanningSchemas.Enum(TaskKinds.Where(kind => kind is not ("operation" or "call" or "close")).ToArray());
@@ -472,10 +420,8 @@ internal static partial class PlanningCompactConstruction
             schema["properties"]!["binding"] = PlanningSchemas.Nullable(binding);
             schema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("binding"));
         }
-        if (IsCompactPresentation(state))
-            schema["description"] = DescriptionKnowledgePrefix + DescriptionKnowledgeHash(DescriptionKnowledge(state, state.Discovery.Pages.Count));
-        if (UsesDeferredBinding(state) && PlanningConstructionPhasePolicies.IsFresh(state.Request))
-            ConstrainDiscoveryEvidence(state, DiscoveryContext(state), schema);
+        schema["description"] = DescriptionKnowledgePrefix + DescriptionKnowledgeHash(DescriptionKnowledge(state, state.Discovery.Pages.Count));
+        ConstrainDiscoveryEvidence(state, DiscoveryContext(state), schema);
         ConstrainReselectionSchema(state, schema);
         return schema;
     }
@@ -483,8 +429,8 @@ internal static partial class PlanningCompactConstruction
     internal static bool CanReselectDiscovery(PlanningSession state)
     {
         var construction = state.Construction!; var step = State(state).CurrentStep;
-        if (construction.Version != 2 || step is null || step.DiscoveryComplete ||
-            (step.Kind != "operation" && !(UsesDeferredBinding(state) && step.Kind is null)) || construction.Candidate is not null ||
+        if (step is null || step.DiscoveryComplete ||
+            (step.Kind != "operation" && !(step.Kind is null)) || construction.Candidate is not null ||
             state.EditablePaths is not null || state.Request.Options["automatic_correction"]?.ToString() == "false" ||
             construction.DraftCorrections >= construction.Limits.MaxCorrectionsPerDraft) return false;
         var diagnosed = state.Diagnostics.Any(d => d.Required);

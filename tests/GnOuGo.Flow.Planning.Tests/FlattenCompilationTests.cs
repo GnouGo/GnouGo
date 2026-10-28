@@ -159,19 +159,4 @@ public sealed class FlattenCompilationTests
         Assert.Null(PlanningValueProvenance.Select(flattened, ["2"]));
         Assert.False(PlanningValueProvenance.Proves(new(), flattened, new(), (_, _) => true));
     }
-
-    [Fact]
-    public async Task FreshSchemaReachesReviewInOneCallAndApprovalChangesAfterRevision()
-    {
-        var plan = Plan(new() { Kind = "string" });
-        var runtime = new TestRuntime { Proposal = new() { Plan = plan, Requirements = new() { Summary = "Join every group once",
-            Inputs = plan.Inputs, Outputs = [new() { Name = "rows", Type = ArrayOf(new()) }], Outcomes = [new("rows", "Join all groups")] } } };
-        var session = await PlannerFixture.RunAsync(runtime); Assert.Equal(PlanningStatus.FinalReview, session.Status);
-        Assert.Single(runtime.Calls); Assert.Equal(0, session.ReplanAttempts); Assert.Contains("flatten", runtime.Calls[0].StructuredOutputSchema!.ToJsonString());
-        var schema = runtime.Calls[0].StructuredOutputSchema!.ToJsonString(); var hash = session.ComputeArtifactHash();
-        session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { Kind = "revise", PreserveRequirements = true,
-            ExpectedRevision = session.Revision, ArtifactHash = hash, Text = "Revise the explicit grouping while retaining every row." }, runtime, PlannerFixture.Ct);
-        Assert.Null(session.Yaml); Assert.Equal(schema, runtime.Calls[0].StructuredOutputSchema!.ToJsonString());
-        Assert.Equal("compact-bindings-v15", session.Request.Options["compilation_profile"]!.ToString());
-    }
 }

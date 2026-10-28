@@ -26,7 +26,7 @@ public sealed class PlanningClarificationExecutionTests
         {
             var model = new Model(); var human = new Human(custom); var decisions = new Decisions(custom);
             var engine = new WorkflowEngine { WorkflowPlanner = new HybridWorkflowPlanner(), LLMClient = model,
-                PlanningRuntimeFactory = new RetainedVersionOnePlanningFactory(new KeyVaultRecordStore(Path.Combine(root, "vault.db")), Path.Combine(root, "leases")),
+                PlanningRuntimeFactory = new WorkflowPlanningRuntimeFactory(new KeyVaultRecordStore(Path.Combine(root, "vault.db")), Path.Combine(root, "leases")),
                 HumanInputProvider = human, PlanningInteraction = interaction ? decisions : null, DefaultPlanningMode = "auto",
                 Limits = new() { RunId = "stable", TenantId = "one" } };
             var document = new WorkflowCompiler().Compile(WorkflowParser.Parse("""
@@ -37,7 +37,7 @@ public sealed class PlanningClarificationExecutionTests
                       - id: plan
                         type: workflow.plan
                         input:
-                          raw_prompt: Return a value using the requested presentation
+                          raw_prompt: Return the required public numeric result named result with value 42 using the requested presentation.
                           generator: { model: deterministic }
                       - id: execute
                         type: workflow.execute
@@ -45,14 +45,17 @@ public sealed class PlanningClarificationExecutionTests
                     outputs:
                       result: { type: number, expr: '${data.steps.execute.outputs.result}' }
                 """));
+            var firstCalls = 0;
             for (var i = 0; i < 2; i++)
             {
                 var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject(), TestContext.Current.CancellationToken);
                 Assert.True(result.Success, result.Error?.Message); Assert.Equal(42, result.Outputs!["result"]!.GetValue<int>());
+                if (i == 0) firstCalls = model.Calls;
+                else Assert.Equal(firstCalls, model.Calls);
             }
-            Assert.Equal(3, model.Calls); Assert.Equal(1, human.Reviews);
+            Assert.InRange(model.Calls, 6, 10); Assert.Equal(1, human.Reviews);
             Assert.Equal(interaction ? 1 : 0, decisions.Questions); Assert.Equal(interaction ? 0 : 1, human.Questions);
-            Assert.Contains(custom ? "CUSTOM_INTENT" : "compact", model.Requests[1].Prompt);
+            Assert.Contains(model.Requests.Skip(2), request => request.Prompt.Contains(custom ? "CUSTOM_INTENT" : "compact", StringComparison.Ordinal));
             if (interaction) Assert.True(decisions.AnswerCheckpointed);
             foreach (var file in Directory.GetFiles(root, "*", SearchOption.AllDirectories))
                 Assert.DoesNotContain("CUSTOM_INTENT", System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, TestContext.Current.CancellationToken)));
@@ -67,7 +70,7 @@ public sealed class PlanningClarificationExecutionTests
         try
         {
             var model = new Model(); var engine = new WorkflowEngine { WorkflowPlanner = new HybridWorkflowPlanner(), LLMClient = model,
-                PlanningRuntimeFactory = new RetainedVersionOnePlanningFactory(new KeyVaultRecordStore(Path.Combine(root, "vault.db")), Path.Combine(root, "leases")),
+                PlanningRuntimeFactory = new WorkflowPlanningRuntimeFactory(new KeyVaultRecordStore(Path.Combine(root, "vault.db")), Path.Combine(root, "leases")),
                 Limits = new() { RunId = "waiting", TenantId = "one" } };
             var document = new WorkflowCompiler().Compile(WorkflowParser.Parse("""
                 version: 1
@@ -77,7 +80,7 @@ public sealed class PlanningClarificationExecutionTests
                       - id: plan
                         type: workflow.plan
                         input:
-                          raw_prompt: Return a value
+                          raw_prompt: Return the required public numeric result named result with value 42 using the requested presentation.
                           generator: { model: deterministic }
                     outputs:
                       status: { type: string, expr: '${data.steps.plan.status}' }
@@ -85,7 +88,7 @@ public sealed class PlanningClarificationExecutionTests
                 """));
             var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject(), TestContext.Current.CancellationToken);
             Assert.True(result.Success, result.Error?.Message); Assert.Equal("clarification", result.Outputs!["status"]!.GetValue<string>());
-            Assert.False(string.IsNullOrEmpty(result.Outputs["session"]!.GetValue<string>())); Assert.Equal(1, model.Calls);
+            Assert.False(string.IsNullOrEmpty(result.Outputs["session"]!.GetValue<string>())); Assert.Equal(2, model.Calls);
         }
         finally { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); Directory.Delete(root, true); }
     }
@@ -98,18 +101,31 @@ public sealed class PlanningClarificationExecutionTests
 
         internal int Calls;
         internal readonly List<LLMRequest> Requests = [];
+        private readonly CurrentPlanningFixture.LiteralModel _literal = new();
+        private bool _asked;
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             Calls++; Requests.Add(request);
-            var proposal = Calls == 1 ? new PlanningProposal { Clarifications = [new("presentation", "Which presentation?",
-                [new("compact", "Compact numeric result"), new("detailed", "Detailed numeric result")], "compact")] }
-                : new PlanningProposal { Requirements = PlanningCorpus.Requirements("local"), Plan = PlanningCorpus.LiteralResult() };
-            if (proposal.Requirements is { } requirements)
+            var schema = request.StructuredOutputSchema!.AsObject();
+            var context = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!.AsObject();
+            if (!_asked && schema["properties"]?["interfaces"] is not null)
             {
-                requirements.Inputs = [];
-                requirements.Outputs = [new() { Name = "result", Type = new() { Kind = "number" } }];
+                _asked = true;
+                var response = new JsonObject { ["sourceId"] = context["sources"]![0]!["id"]!.DeepClone(),
+                    ["clarifications"] = JsonSerializer.SerializeToNode(new List<PlanningQuestion> { new("presentation", "Which presentation?",
+                        [new("compact", "Compact numeric result"), new("detailed", "Detailed numeric result")], "compact") }, PlanningJsonContext.Default.ListPlanningQuestion) };
+                return Task.FromResult(new LLMResponse { Json = PlanningCorpus.Transport(response, schema, schema),
+                    Usage = new JsonObject { ["input_tokens"] = 10, ["output_tokens"] = 5 } });
             }
-            return Task.FromResult(new LLMResponse { Json = PlanningCorpus.OneDraftResponse(request, proposal), Usage = new JsonObject { ["total_tokens"] = 15 } });
+            if (schema["properties"]?["clauses"] is not null && context["sources"]![0]!["text"]!.ToString() is var text &&
+                !text.Contains("Return the required public", StringComparison.Ordinal))
+            {
+                var response = new JsonObject { ["sourceId"] = context["sources"]![0]!["id"]!.DeepClone(),
+                    ["clauses"] = new JsonArray(new JsonObject { ["text"] = text, ["kind"] = "global", ["interfaces"] = "none" }) };
+                return Task.FromResult(new LLMResponse { Json = PlanningCorpus.Transport(response, schema, schema),
+                    Usage = new JsonObject { ["input_tokens"] = 10, ["output_tokens"] = 5 } });
+            }
+            return _literal.CallAsync(request, ct);
         }
     }
     private sealed class Human(bool custom) : IHumanInputProvider
@@ -141,7 +157,7 @@ public sealed class PlanningClarificationExecutionTests
         }
         public Task CheckpointedAsync(PlanningSession state, CancellationToken ct)
         {
-            if (state.AnswerHistory is not null && state.ModelCalls == 1)
+            if (state.AnswerHistory is not null && state.ModelCalls == 2)
             { Assert.Equal(PlanningStatus.Generating, state.Status); Assert.Null(state.ApprovedHash); AnswerCheckpointed = true; }
             return Task.CompletedTask;
         }

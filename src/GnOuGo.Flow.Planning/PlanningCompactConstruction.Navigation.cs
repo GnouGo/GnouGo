@@ -28,13 +28,11 @@ internal static partial class PlanningCompactConstruction
         addresses.UnionWith(NavigationEvidence(new[] { "nextRequirements", "requirementsDirectory", "nextScopes", "scopes", "interfaces",
             "nextInterfaces", "publicOutputs", "rebuild", "reselection" }.Select(name => context[name])
             .Concat((state.Construction!.Evidence ?? []).Select(item => item.Value).Where(value => value is JsonObject or JsonArray))));
-        if (UsesConvergentConstruction(state))
         {
             addresses.UnionWith(NavigationEvidence([context["interfacesDirectory"], context["continuation"]]));
             addresses.UnionWith(NavigationEvidence((context["continuation"]?["acceptedCheckpoints"] as JsonArray ?? []).Cast<JsonNode?>()));
             addresses.UnionWith(NavigationEvidence((context["scopes"] as JsonArray ?? []).Select(scope => scope?["acceptedExports"])));
         }
-        if (UsesAcceptedProgress(state))
         {
             addresses.UnionWith(NavigationEvidence([context["knownOperations"]]));
             addresses.UnionWith(NavigationEvidence((context["requirements"] as JsonArray ?? []).Select(row => row?["acceptedProgress"])));
@@ -44,7 +42,7 @@ internal static partial class PlanningCompactConstruction
 
     private static void AddRequirementNavigation(PlanningSession state, JsonObject context)
     {
-        if (!UsesConvergentConstruction(state) || !state.Requirements!.Outcomes.Any(requirement =>
+        if (!state.Requirements!.Outcomes.Any(requirement =>
                 !State(state).CurrentStep!.RequirementIds.Contains(requirement.Id, StringComparer.Ordinal))) return;
         var evidence = state.Construction!.Evidence;
         if (evidence?.ContainsKey("page:requirements:0") != true)
@@ -60,8 +58,7 @@ internal static partial class PlanningCompactConstruction
     {
         var addresses = PrerequisiteAddresses(state, State(state).CurrentStep!.RequirementIds)
             .Where(IsOriginalAddress).ToHashSet(StringComparer.Ordinal);
-        var citations = State(state).PresentationVersion is 10 or 11 ? CurrentPrerequisiteAddresses(state) :
-            State(state).CurrentStep!.Prerequisites?.SelectMany(note => note.EvidenceAddresses) ?? [];
+        var citations = CurrentPrerequisiteAddresses(state);
         addresses.UnionWith(citations.Intersect(PrerequisiteAddresses(state,
             state.Construction!.Requirements.Select(requirement => requirement.Id)), StringComparer.Ordinal).Where(IsOriginalAddress));
         return addresses;
@@ -72,24 +69,26 @@ internal static partial class PlanningCompactConstruction
         // Original requirement/source identities are already present in this
         // context. Contract addresses come only from host-owned view navigation.
         var addresses = StepOriginalEvidence(state);
-        if (UsesDecisionView(state))
-            addresses.UnionWith(PrerequisiteAddresses(state, (context["requirements"] as JsonArray ?? []).Select(row => row!["id"]!.ToString())).Where(IsOriginalAddress));
-        if (UsesConvergentConstruction(state))
-            addresses.UnionWith(NavigationEvidence([context["requirementsDirectory"], context["nextRequirements"]]));
+        addresses.UnionWith(PrerequisiteAddresses(state, (context["requirements"] as JsonArray ?? []).Select(row => row!["id"]!.ToString())).Where(IsOriginalAddress));
+        addresses.UnionWith(NavigationEvidence([context["requirementsDirectory"], context["nextRequirements"]]));
         addresses.UnionWith(NavigationEvidence(new[] { "scopeEvidence", "interfacesDirectory", "reusableInterfaces", "taskEvidence", "scopeInterface",
             "operations", "companionOperations", "rebuild", "continuation" }.Select(name => context[name])
             .Append(context["taskEvidence"]?["scopeOwner"])
             .Concat((state.Construction!.Evidence ?? []).Select(item => item.Value).Where(value => value is JsonObject or JsonArray))));
-        if (UsesDecisionView(state)) addresses.UnionWith(NavigationEvidence([context["interfaces"]]));
-        if (UsesAcceptedProgress(state)) addresses.UnionWith(NavigationEvidence((context["requirements"] as JsonArray ?? []).Select(row => row?["acceptedProgress"])));
-        ConstrainEvidenceChoices(state, schema, addresses, maximum: HasEvidenceAdmissionLimit(state) ? 1 : 8);
+        addresses.UnionWith(NavigationEvidence([context["interfaces"]]));
+        addresses.UnionWith(NavigationEvidence([context["repair"]?["contracts"]]));
+        addresses.UnionWith(NavigationEvidence((context["requirements"] as JsonArray ?? []).Select(row => row?["acceptedProgress"])));
+        var findingEvidence = HybridWorkflowPlanner.BusinessReviewReconsiderationEvidence(state);
+        if (findingEvidence.Length > 0)
+            context["findingEvidence"] = new JsonArray(findingEvidence.Select(address => (JsonNode?)JsonValue.Create(address)).ToArray());
+        ConstrainEvidenceChoices(state, schema, addresses, maximum: HasEvidenceAdmissionLimit(state) ? 1 : 8,
+            supportedRereads: findingEvidence);
     }
 
     internal static bool IsEvidenceAdmissionLimit(PlanningDiagnostic diagnostic) => diagnostic.Required &&
         diagnostic.Code == "CONSTRUCTION_EVIDENCE_LIMIT" && diagnostic.Location == "/evidenceRequests";
 
-    private static bool HasEvidenceAdmissionLimit(PlanningSession state) => UsesVerifiedReview(state) &&
-        PlanningConstructionPhasePolicies.IsFresh(state.Request) && state.Diagnostics.Any(IsEvidenceAdmissionLimit);
+    private static bool HasEvidenceAdmissionLimit(PlanningSession state) => state.Diagnostics.Any(IsEvidenceAdmissionLimit);
 
     internal static bool EvidenceAdmissionOnly(PlanningSession state) => HasEvidenceAdmissionLimit(state) &&
         state.Construction!.Candidate is null && state.Diagnostics.Where(diagnostic => diagnostic.Required).All(IsEvidenceAdmissionLimit);
@@ -97,20 +96,17 @@ internal static partial class PlanningCompactConstruction
     private static void ConstrainDiscoveryEvidence(PlanningSession state, JsonObject context, JsonObject schema)
     {
         var addresses = StepOriginalEvidence(state);
-        if (UsesDecisionView(state))
         {
             addresses.UnionWith(PrerequisiteAddresses(state, (context["requirements"] as JsonArray ?? []).Select(row => row!["id"]!.ToString())).Where(IsOriginalAddress));
             addresses.UnionWith(NavigationEvidence([context["interfaces"], context["continuation"]]));
             addresses.UnionWith(NavigationEvidence((context["continuation"]?["acceptedCheckpoints"] as JsonArray ?? []).Cast<JsonNode?>()));
         }
-        if (UsesConvergentConstruction(state))
-            addresses.UnionWith(NavigationEvidence([context["requirementsDirectory"], context["nextRequirements"]]));
-        if (UsesAcceptedProgress(state)) addresses.UnionWith(NavigationEvidence((context["requirements"] as JsonArray ?? []).Select(row => row?["acceptedProgress"])));
+        addresses.UnionWith(NavigationEvidence([context["requirementsDirectory"], context["nextRequirements"]]));
+        addresses.UnionWith(NavigationEvidence((context["requirements"] as JsonArray ?? []).Select(row => row?["acceptedProgress"])));
         addresses.UnionWith(NavigationEvidence(new[] { context["descriptors"], context["providerRequests"], context["scopeOwner"] }
             .Concat((context["directoryEvidence"] as JsonObject ?? []).Select(item => item.Value))
             .Concat((context["evidence"] as JsonObject ?? []).Select(item => item.Value))));
-        if (UsesConvergentConstruction(state))
-            addresses.UnionWith(NavigationEvidence([context["describedOperations"]]));
+        addresses.UnionWith(NavigationEvidence([context["describedOperations"]]));
         // DiscoveryEvidence only omits original descriptions when the existing
         // exact single-read knowledge guard permits them to be restored.
         var rereads = (context["evidence"] as JsonObject ?? []).Where(item =>
@@ -119,7 +115,7 @@ internal static partial class PlanningCompactConstruction
             .Select(item => item.Key).Order(StringComparer.Ordinal).ToArray();
         addresses.RemoveWhere(address => state.Construction!.EvidenceRequests.Contains(
             PlanningConstruction.EvidenceBatchFingerprint(state, [address]), StringComparer.Ordinal));
-        var maximum = State(state).PresentationVersion is 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 && state.Diagnostics.Any(diagnostic =>
+        var maximum = state.Diagnostics.Any(diagnostic =>
             diagnostic.Required && diagnostic.Code == "CONSTRUCTION_EVIDENCE_LIMIT" && diagnostic.Location == "/evidenceRequests") ? 1 : 8;
         var alternatives = new JsonArray();
         if (addresses.Count > 0)
@@ -134,10 +130,12 @@ internal static partial class PlanningCompactConstruction
     private static bool IsOriginalAddress(string address) => address.StartsWith("requirement:", StringComparison.Ordinal) ||
         address.StartsWith("source:", StringComparison.Ordinal);
 
-    private static void ConstrainEvidenceChoices(PlanningSession state, JsonObject schema, HashSet<string> addresses, int maximum)
+    private static void ConstrainEvidenceChoices(PlanningSession state, JsonObject schema, HashSet<string> addresses, int maximum,
+        IEnumerable<string>? supportedRereads = null)
     {
         // Retained evidence is already supplied, never a new request or progress.
         addresses.ExceptWith((state.Construction!.Evidence ?? []).Select(item => item.Key));
+        if (supportedRereads is not null) addresses.UnionWith(supportedRereads);
         schema["properties"]!["evidenceRequests"] = addresses.Count == 0 ? PlanningSchemas.Type("null") :
             PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.Enum(addresses.Order(StringComparer.Ordinal).ToArray()), 1, maximum));
     }
@@ -185,7 +183,7 @@ internal static partial class PlanningCompactConstruction
 
     private static JsonObject? ScopeOwnerNavigation(PlanningSession state, TaskPlanSymbols? accepted = null)
     {
-        if (!UsesVerifiedReview(state) || state.Plan is null) return null;
+        if (state.Plan is null) return null;
         accepted ??= new TaskPlanSymbols(state.Plan);
         var owner = accepted.Scopes.SingleOrDefault(scope => scope.Path == State(state).CurrentStep!.Scope)?.Owner;
         if (owner is null) return null;
@@ -200,7 +198,6 @@ internal static partial class PlanningCompactConstruction
         var entry = new JsonObject { ["task"] = task.Id, ["scope"] = scope, ["kind"] = task.Kind,
             ["objective"] = description, [ObjectiveTextCompleteField(state)] = description == task.Objective,
             ["objectiveEvidence"] = description == task.Objective ? null : TaskObjectiveAddress(task, 0) };
-        if (IsCompactPresentation(state) && PlanningConstructionPhasePolicies.IsFresh(state.Request))
         {
             if (task.Kind == "call" && task.Group is not null) entry["group"] = task.Group;
             if (task.Kind == "operation" && task.Operation is not null) entry["operation"] = task.Operation;
@@ -209,11 +206,11 @@ internal static partial class PlanningCompactConstruction
     }
 
     private static string ObjectiveTextCompleteField(PlanningSession state) =>
-        UsesDecisionView(state) ? "objectiveTextComplete" : "objectiveComplete";
+        "objectiveTextComplete";
 
     private static void AddAcceptedOperationEvidence(PlanningSession state, JsonObject context, IEnumerable<JsonObject> entries)
     {
-        if (!UsesConvergentConstruction(state) || state.Plan is null) return;
+        if (state.Plan is null) return;
         var accepted = new TaskPlanSymbols(state.Plan);
         var rows = entries.ToArray();
         AddAcceptedProducerPorts(state, rows, ImportedProducerIds(context["interfaces"] as JsonArray ?? []));
@@ -268,7 +265,6 @@ internal static partial class PlanningCompactConstruction
     {
         var outcomes = state.Requirements!.Outcomes;
         var first = outcomes[offset];
-        if (!PlanningConstructionPhasePolicies.IsFresh(state.Request)) return [first];
         var page = OriginalPage(first.Id);
         if (page is null) return [first];
         var selected = new List<PlanningRequirement> { first };

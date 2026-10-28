@@ -19,7 +19,7 @@ public sealed class CompactSelectionActionTests
             ["sourceId"] = Context(request)["sources"]![0]!["id"]!.DeepClone(),
             ["clauses"] = new JsonArray(new JsonObject { ["text"] = objective, ["kind"] = "requirement", ["interfaces"] = "none" })
         }) };
-        var state = await Advance(PlannerFixture.CapturedPresentation(new() { Request = new() { TenantId = "selection-actions", Prompt = objective,
+        var state = await Advance(PlannerFixture.Capture(new() { Request = new() { TenantId = "selection-actions", Prompt = objective,
             Options = new() { ["automatic_correction"] = true } } }), runtime);
         Assert.Empty(state.Diagnostics);
         state.Request.MaxReplanAttempts = 1;
@@ -102,7 +102,8 @@ public sealed class CompactSelectionActionTests
             ["requirementIds"] = new JsonArray("req_0"),
             ["inputs"] = new JsonArray(new JsonObject { ["kind"] = "output", ["source"] = "accepted", ["port"] = "message" }),
             ["dependencyTaskIds"] = new JsonArray(), ["expectedOutputs"] = new JsonArray("The exact accepted greeting."),
-            ["closeRequirementIds"] = new JsonArray(), ["outputNames"] = new JsonArray(), ["groupId"] = null
+            ["closeRequirementIds"] = new JsonArray(), ["outputNames"] = new JsonArray(), ["groupId"] = null,
+            ["operationIds"] = new JsonArray(), ["prerequisites"] = null, ["closeScopes"] = null
         },
         ["evidenceRequests"] = null, ["clarifications"] = null
     };

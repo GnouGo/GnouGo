@@ -62,12 +62,11 @@ public sealed class ReportFinalizationExecutionTests
             var plan = new TaskPlan { Inputs = [new() { Name = "instruction" }], Root = new() { Tasks = [Operation("prepare"), work],
                 Always = [new() { Id = "finish", Kind = "sequence", Objective = "Preserve available evidence, then release temporary resources even if preservation fails",
                     Body = new() { Tasks = [Operation("preserve")], Always = [Operation("release")] } }] } };
-            var proposal = new PlanningProposal { Plan = plan, Requirements = new() { Summary = "Preserve observed work evidence before cleanup, including verified failure",
+            var proposal = new TaskPlanFixture { Plan = plan, Requirements = new() { Summary = "Preserve observed work evidence before cleanup, including verified failure",
                 Inputs = plan.Inputs, Outputs = [], Outcomes = [new("evidence", "Preserve the observed report"), new("cleanup", "Release temporary resources")] } };
-            var runtime = new LocalProductOutcomeExecutionTests.ProposalRuntime(actual, proposal);
-            var session = await new HybridWorkflowPlanner().AdvanceAsync(PlanningCorpus.RetainedSession(new() { Catalog = catalog, Request = new() { TenantId = "fixture", Prompt = proposal.Requirements.Summary } }), new(), runtime, ct);
+            var session = RecordedPlanCompilation.CompileStatic(proposal, catalog);
             Assert.True(session.Status == PlanningStatus.FinalReview, string.Join(';', session.Diagnostics.Select(d => d.Message)));
-            Assert.Equal(1, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts);
+            Assert.Equal(0, session.ModelCalls); Assert.Null(session.ApprovedHash);
             var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(session.Yaml!));
             var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject { ["instruction"] = "actual caller value" }, ct);
             Assert.Equal(variant == "success", result.Success);

@@ -55,19 +55,12 @@ public sealed class DelegatedTestReviewTests
     [InlineData("requirement")]
     [InlineData("requirement_checkpoint")]
     [InlineData("local_review")]
-    [InlineData("intermediate_review")]
+    [InlineData("global_review")]
     [InlineData("stale_review")]
     public async Task CompilableArtifactCannotBypassIncompleteConstruction(string defect)
     {
         var (state, _, _, _, _) = await Fixture();
-        var hash = PlanningConstruction.Hash(state.Plan);
-        var checkpoint = new PlanningConstructionCheckpoint { Sequence = 1, BaseHash = new('a', 64), PlanHash = hash,
-            RequirementIds = state.Requirements!.Outcomes.Select(r => r.Id).ToList(),
-            Reviews = [new JsonObject { ["purpose"] = PlanningConstruction.LocalPurpose, ["candidateHash"] = hash,
-                ["fingerprint"] = new string('b', 64), ["outcome"] = "unverified", ["response"] = new JsonObject {
-                    ["findings"] = new JsonArray(), ["uncertainty"] = "Business outcome remains unverified.", ["evidenceRequests"] = null } }] };
-        state.Construction = new() { Complete = true, OpenScopes = [], Checkpoints = [checkpoint],
-            Requirements = state.Requirements!.Outcomes.Select(r => new PlanningConstructionRequirement { Id = r.Id, Status = "declared", Checkpoints = [1] }).ToList() };
+        var checkpoint = state.Construction!.Checkpoints.Last();
         PlanningArtifactApproval.Verify(state);
         switch (defect)
         {
@@ -77,7 +70,7 @@ public sealed class DelegatedTestReviewTests
             case "requirement": state.Construction.Requirements[0].Status = "remaining"; break;
             case "requirement_checkpoint": state.Construction.Requirements[0].Checkpoints = [999]; break;
             case "local_review": checkpoint.Reviews.Clear(); break;
-            case "intermediate_review": checkpoint.NeedsIntermediateReview = true; break;
+            case "global_review": checkpoint.Reviews[0]["purpose"] = "construction_local_judge"; break;
             case "stale_review": checkpoint.Reviews[0]["candidateHash"] = new string('c', 64); break;
         }
         Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(state));
@@ -279,15 +272,9 @@ public sealed class DelegatedTestReviewTests
     private static async Task<(PlanningSession, IPlanningRuntime, DelegatedTestAuthorization, DelegatedReviewEvidence, PlanningApprovalReview)> Fixture()
     {
         var runtime = new WorkflowPlanningRuntime(new WorkflowEngine(), (_, _) => Task.CompletedTask);
-        var state = new PlanningSession { IntentVersion = 2, Revision = 3,
-            Request = new() { TenantId = "benchmark", SessionId = "test-run", Name = "Review fixture", Prompt = "Return a value" },
-            Status = PlanningStatus.FinalReview, Requirements = PlanningCorpus.Requirements("local"), Plan = PlanningCorpus.LiteralResult() };
-        state.Catalog = await runtime.DiscoverAsync(state.Request, Ct);
-        state.Plan = PlanningCorpus.Tasks("local", state.Catalog);
-        state.Graph = new TaskPlanCompiler().Compile(state.Plan, state.Catalog).Graph!;
-        state.Yaml = new PlanningGraphCompiler().Compile(state.Graph, state.Catalog, state.Request.Name);
-        var requirement = Assert.Single(state.Requirements.Outcomes);
-        var task = Assert.Single(state.Plan.Root.Tasks);
+        var state = await CurrentPlanningFixture.LiteralAsync("benchmark", "test-run", null, Ct);
+        var requirement = Assert.Single(state.Requirements!.Outcomes);
+        var task = Assert.Single(state.Plan!.Root.Tasks);
         var authorization = new DelegatedTestAuthorization("explicit-delegation", "User delegates this isolated test review", "codex",
             "campaign", "test-run", "synthetic", Path.GetTempPath(), "frozen-source");
         var evidence = new DelegatedReviewEvidence([new(requirement.Id,
@@ -297,7 +284,7 @@ public sealed class DelegatedTestReviewTests
                 "Independent arithmetic fixture checks exact numeric result; no external operations", "reviewed")]);
         var receipt = new PlanningApprovalReview("concrete-review", "delegated_test", "codex", PlanningGraphCompiler.Fingerprint(
             JsonSerializer.Serialize(authorization, DelegatedTestJsonContext.Default.DelegatedTestAuthorization)), EvidenceHash(evidence),
-            "benchmark", "test-run", 3, state.ComputeArtifactHash()!, [requirement.Id], DateTimeOffset.UtcNow);
+            "benchmark", "test-run", state.Revision, state.ComputeArtifactHash()!, [requirement.Id], DateTimeOffset.UtcNow);
         return (state, runtime, authorization, evidence, receipt);
     }
 }

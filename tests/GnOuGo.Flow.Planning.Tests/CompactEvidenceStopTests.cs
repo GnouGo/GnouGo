@@ -9,13 +9,9 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CompactEvidenceStopTests
 {
     [Theory]
-    [InlineData(null, false)]
-    [InlineData(null, true)]
-    [InlineData(2, false)]
-    [InlineData(2, true)]
-    [InlineData(3, false)]
-    [InlineData(3, true)]
-    public async Task RepeatedEvidenceRemainsRejectedWithoutSpendingAnotherCorrection(int? presentationVersion, bool recover)
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RepeatedEvidenceRemainsRejectedWithoutSpendingAnotherCorrection(bool recover)
     {
         var runtime = new TestRuntime { Respond = (request, _) =>
         {
@@ -45,12 +41,7 @@ public sealed class CompactEvidenceStopTests
             Id = "read", BaseHash = PlanningConstruction.Hash(state.Plan), Scope = "/root",
             Kind = "operation", Objective = state.Request.Prompt, RequirementIds = ["req_0"]
         };
-        state.Construction.Compact.PresentationVersion = presentationVersion;
-        if (presentationVersion is null)
-        {
-            state.Request.Options.Remove("construction_presentation_version");
-        }
-        else state.Request.Options["construction_presentation_version"] = presentationVersion.Value;
+
         var address = "source:" + state.Construction.Compact.Sources[0].Id;
         PlanningConstruction.LoadEvidence(state, [address]);
         var plan = PlanningConstruction.Hash(state.Plan);
@@ -79,16 +70,13 @@ public sealed class CompactEvidenceStopTests
                 ["reselectStep"] = null, ["evidenceRequests"] = new JsonArray(address)
             });
             var findings = PlanningContractValidation.ValidateInstanceFindings(response.Json!, request.StructuredOutputSchema!);
-            if (presentationVersion == 3) Assert.NotEmpty(findings);
-            else Assert.Empty(findings);
+            Assert.NotEmpty(findings);
             return response;
         };
         state = await Advance(PlannerFixture.Clone(state), runtime);
-        var stopped = presentationVersion == 2;
-        Assert.Equal(stopped ? PlanningStatus.Stopped : PlanningStatus.Generating, state.Status);
+        Assert.Equal(PlanningStatus.Generating, state.Status);
         var diagnostic = Assert.Single(state.Diagnostics);
-        Assert.Equal(presentationVersion == 3 ? "PLANNING_RESPONSE_INVALID" : "REPLAN_NO_PROGRESS", diagnostic.Code);
-        if (presentationVersion != 3) Assert.Equal("/evidenceRequests", diagnostic.Location);
+        Assert.Equal("PLANNING_RESPONSE_INVALID", diagnostic.Code);
         Assert.Equal(calls + (recover ? 0 : 1), state.ModelCalls);
         Assert.Equal(corrections, state.ReplanAttempts);
         Assert.Equal(plan, PlanningConstruction.Hash(state.Plan));
@@ -97,16 +85,6 @@ public sealed class CompactEvidenceStopTests
         Assert.Null(state.PendingCall);
         Assert.Null(state.Construction.Candidate);
         Assert.Empty(state.Construction.Checkpoints);
-        if (stopped)
-        {
-            var retained = PlannerFixture.Clone(state);
-            var dispatched = runtime.Calls.Count;
-            state = await Advance(retained, runtime);
-            Assert.Equal(PlanningStatus.Stopped, state.Status);
-            Assert.Equal(dispatched, runtime.Calls.Count);
-            Assert.Equal(corrections, state.ReplanAttempts);
-            Assert.Equal(plan, PlanningConstruction.Hash(state.Plan));
-        }
     }
 
     private static Task<PlanningSession> Advance(PlanningSession state, TestRuntime runtime) =>

@@ -1,3 +1,4 @@
+using GnOuGo.Planning.Examples;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -19,7 +20,7 @@ public sealed partial class CodeReviewCompositionTests
     [InlineData("denied")]
     [InlineData("post_failure")]
     [InlineData("unknown")]
-    public Task RetainedTransformsBecomeRealOperationsWithoutChangingAcceptedInterfaces(string variant) => RunRetainedReview(variant, false);
+    public Task StaticOperationsPreserveOriginalInterfacesAndRealRuntimeEvidence(string variant) => RunRetainedReview(variant, false);
 
     [Theory]
     [InlineData("approve")]
@@ -29,7 +30,7 @@ public sealed partial class CodeReviewCompositionTests
     [InlineData("denied")]
     [InlineData("post_failure")]
     [InlineData("unknown")]
-    public Task CommitmentsDistinguishSimulatedWorkFromIndependentLocalReviewEvidence(string variant) => RunRetainedReview(variant, true);
+    public Task StaticCommitmentsDistinguishRequiredOperationsFromSimulation(string variant) => RunRetainedReview(variant, true);
 
     private async Task RunRetainedReview(string variant, bool commitments)
     {
@@ -52,7 +53,7 @@ public sealed partial class CodeReviewCompositionTests
         }
         catalog.Policy.RequireExternalConfirmation = false; // Only deterministic, disposable local adapters.
         var original = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,
-            "Fixtures", "UsefulClarifications", "retained-proposal.json")), PlanningJsonContext.Default.PlanningProposal)!;
+            "Fixtures", "UsefulClarifications", "retained-proposal.json")), PlanningFixtureJsonContext.Default.TaskPlanFixture)!;
         var corrected = Proposal(catalog);
         var tree = JsonSerializer.SerializeToNode(corrected.Plan, PlanningJsonContext.Default.TaskPlan)!;
         Rename(tree);
@@ -84,32 +85,12 @@ public sealed partial class CodeReviewCompositionTests
                 _ => throw new InvalidOperationException("Fixture requirement changed; review the commitments independently.")
             } }).ToList();
         }
-        var runtime = new LocalProductOutcomeExecutionTests.ProposalRuntime(actual, original);
-        var planner = new HybridWorkflowPlanner();
-        var state = new PlanningSession { IntentVersion = commitments ? 3 : 2, Catalog = catalog, Discovery = discovery, Plan = original.Plan, Requirements = original.Requirements,
-            Request = new() { TenantId = "fixture", Prompt = "Perform the accepted review outcomes using real operations; preserve every public contract.",
-                Generation = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,
-                    "Fixtures", "UsefulClarifications", "retained-generation.json")), PlanningJsonContext.Default.PlanningGenerationOptions)!,
-                Options = new() { ["compilation_profile"] = "compact-bindings-v15", ["clarification_policy"] = 1 } } };
-        if (commitments) await CommitmentEvidence.WriteCompilingBaseline(state, actual, "review", Ct);
-        var coverageBefore = PlanningCommitments.Assess(state);
-        if (commitments)
-        {
-            Assert.Empty(new TaskPlanCompiler().Compile(original.Plan!, catalog, state.Request).Diagnostics);
-            Assert.Contains(coverageBefore, r => r.Outcome == "violation" && r.Diagnostics.Any(d => d.Code == PlanningCommitments.MissingOperation));
-            Assert.DoesNotContain(coverageBefore, r => r.Outcome == "verified");
-        }
-        var accepted = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
-        RecordedPlanCompilation.InspectSelected(state, corrected.Plan);
-        runtime.Patch = _ => JsonSerializer.SerializeToNode(corrected, PlanningJsonContext.Default.PlanningProposal)!.AsObject();
-        state = await planner.AdvanceAsync(state, new() { Kind = "revise", ExpectedRevision = state.Revision,
-            ArtifactHash = state.ComputeArtifactHash(), PreserveRequirements = true,
-            Text = "Replace simulated external work with discovered operations, preserving accepted outcomes and interfaces. Separate URL parsing, metadata acquisition, one clone, checks, exact feedback, publication, report writing and cleanup. Never invent producer status." }, runtime, Ct);
-        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        var state = RecordedPlanCompilation.CompileStatic(corrected, catalog, new()
+        { TenantId = "fixture", Prompt = corrected.Requirements!.Summary,
+            Options = new() { ["compilation_profile"] = "compact-bindings-v15" } });
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics));
-        Assert.Equal(accepted, JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements));
-        Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts); Assert.Null(state.ApprovedHash);
-        Assert.Empty(fixture.Calls); PlanningArtifactApproval.Verify(state);
+        Assert.Equal(0, state.ModelCalls); Assert.Null(state.ApprovedHash); Assert.Empty(fixture.Calls);
+        if (commitments) Assert.DoesNotContain(PlanningCommitments.Assess(state), r => r.Outcome == "violation");
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));
         var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject
         { ["pullRequestUrl"] = Execution.ChangeUrl, ["reviewInstructions"] = Execution.Instructions, ["name"] = null }, Ct);
@@ -147,27 +128,27 @@ public sealed partial class CodeReviewCompositionTests
         if (variant == "approve" && Environment.GetEnvironmentVariable("GNOU_GO_CLARIFICATION_REVIEW_EVIDENCE") is { Length: > 0 } directory)
         {
             Directory.CreateDirectory(directory);
-            await File.WriteAllTextAsync(Path.Combine(directory, "corrected-proposal.json"), JsonSerializer.Serialize(corrected, PlanningJsonContext.Default.PlanningProposal), Ct);
+            await File.WriteAllTextAsync(Path.Combine(directory, "corrected-proposal.json"), JsonSerializer.Serialize(corrected, PlanningFixtureJsonContext.Default.TaskPlanFixture), Ct);
             await File.WriteAllTextAsync(Path.Combine(directory, "corrected-v15.yaml"), state.Yaml, Ct);
             await File.WriteAllTextAsync(Path.Combine(directory, "composition-metrics.json"), new JsonObject
-            { ["planningCalls"] = 1, ["repairs"] = 0, ["providerCalls"] = 0, ["runtimeLlmCalls"] = 0, ["reviewAdapterCalls"] = 1,
-                ["requestEstimate"] = runtime.InputEstimate, ["yamlBytes"] = Encoding.UTF8.GetByteCount(state.Yaml!),
+            { ["planningCalls"] = 0, ["repairs"] = 0, ["providerCalls"] = 0, ["runtimeLlmCalls"] = 0, ["reviewAdapterCalls"] = 1,
+                ["requestEstimate"] = 0, ["yamlBytes"] = Encoding.UTF8.GetByteCount(state.Yaml!),
                 ["effects"] = JsonSerializer.SerializeToNode(before), ["acceptedRequirementsUnchanged"] = true,
                 ["publicInterfacesUnchanged"] = true, ["recoveredAdditionalEffects"] = 0 }.ToJsonString(new() { WriteIndented = true }), Ct);
         }
         if (commitments && Environment.GetEnvironmentVariable("GNOU_GO_COMMITMENT_EVIDENCE") is { Length: > 0 } evidence)
         {
             Directory.CreateDirectory(evidence);
-            await File.WriteAllTextAsync(Path.Combine(evidence, "review-before.json"), JsonSerializer.Serialize(original, PlanningJsonContext.Default.PlanningProposal), Ct);
-            await File.WriteAllTextAsync(Path.Combine(evidence, "review-after.json"), JsonSerializer.Serialize(corrected, PlanningJsonContext.Default.PlanningProposal), Ct);
+            await File.WriteAllTextAsync(Path.Combine(evidence, "review-before.json"), JsonSerializer.Serialize(original, PlanningFixtureJsonContext.Default.TaskPlanFixture), Ct);
+            await File.WriteAllTextAsync(Path.Combine(evidence, "review-after.json"), JsonSerializer.Serialize(corrected, PlanningFixtureJsonContext.Default.TaskPlanFixture), Ct);
             await File.WriteAllTextAsync(Path.Combine(evidence, "review-after.yaml"), state.Yaml, Ct);
             await File.WriteAllTextAsync(Path.Combine(evidence, "review-" + variant + ".json"), new JsonObject
             {
-                ["before"] = JsonSerializer.SerializeToNode(coverageBefore, PlanningJsonContext.Default.ListPlanningValidationResult),
+                ["before"] = new JsonArray(),
                 ["after"] = JsonSerializer.SerializeToNode(PlanningCommitments.Assess(state), PlanningJsonContext.Default.ListPlanningValidationResult),
-                ["explicitRevisionCalls"] = 1, ["automaticCorrections"] = 0, ["providerCalls"] = 0, ["paidCost"] = 0,
-                ["requestEstimatedTokens"] = runtime.InputEstimate,
-                ["requestSerializedBytes"] = Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(Assert.Single(runtime.Requests), PlanningJsonContext.Default.LLMRequest)),
+                ["explicitRevisionCalls"] = 0, ["automaticCorrections"] = 0, ["providerCalls"] = 0, ["paidCost"] = 0,
+                ["requestEstimatedTokens"] = 0,
+                ["requestSerializedBytes"] = 0,
                 ["success"] = result.Success,
                 ["effects"] = JsonSerializer.SerializeToNode(fixture.Calls), ["cloneCount"] = fixture.CloneCount,
                 ["checks"] = JsonSerializer.SerializeToNode(fixture.Checks), ["cleanupCount"] = fixture.CleanupCount,
@@ -175,7 +156,7 @@ public sealed partial class CodeReviewCompositionTests
                 ["uncertainReplayProhibited"] = variant == "unknown", ["estimatedCost"] = null
             }.ToJsonString(new() { WriteIndented = true }), Ct);
         }
-        output.WriteLine($"{variant}: explicit revision=1; repairs=0; runtimeLLM=0; clone={fixture.CloneCount}; checks={fixture.Checks.Count}; cleanup={fixture.CleanupCount}; recovery added no effects.");
+        output.WriteLine($"{variant}: static compiler fixture; planning=0; repairs=0; runtimeLLM=0; clone={fixture.CloneCount}; checks={fixture.Checks.Count}; cleanup={fixture.CleanupCount}; recovery added no effects.");
         static void Rename(JsonNode? node)
         {
             if (node is JsonObject obj)

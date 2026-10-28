@@ -1,3 +1,4 @@
+using GnOuGo.Planning.Examples;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Compilation;
@@ -38,13 +39,10 @@ public sealed partial class CodeReviewCompositionTests
         proposal.Plan.Root.Tasks.Single(t => t.Id == "inspect").Inputs.Add(new("number", new()
         { Kind = "field", Port = "number", Items = [new() { Kind = "output", Source = "extract_identifier" }] }));
         proposal.Plan.Root.Tasks.Single(t => t.Id == "clone").Inputs.Add(new("revision", Ref("inspect", "revision")));
-        var runtime = new LocalProductOutcomeExecutionTests.ProposalRuntime(actual, proposal);
-        var state = GnOuGo.Planning.Examples.PlanningCorpus.RetainedSession(new() { Catalog = catalog, Request = new() { TenantId = "fixture", Prompt = "Perform the requested review using the observed change identifier and exact producer revision.",
-            Options = new() { ["compilation_profile"] = "compact-bindings-v15" } } });
-        for (var i = 0; i < 4 && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); i++)
-            state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        var state = RecordedPlanCompilation.CompileStatic(proposal, catalog, new() { TenantId = "fixture",
+            Prompt = proposal.Requirements!.Summary, Options = new() { ["compilation_profile"] = "compact-bindings-v15" } });
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics));
-        Assert.Single(runtime.Requests); Assert.Null(state.ApprovedHash);
+        Assert.Equal(0, state.ModelCalls); Assert.Null(state.ApprovedHash);
         var workflow = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!)).Workflows["main"];
         var result = await engine.ExecuteAsync(workflow, new JsonObject { ["changeUrl"] = Execution.ChangeUrl, ["instructions"] = Execution.Instructions }, Ct);
         var success = variant is "approve" or "findings" or "failed_checks";
@@ -68,10 +66,10 @@ public sealed partial class CodeReviewCompositionTests
         if (Environment.GetEnvironmentVariable("GNOU_GO_EXTRACTION_EVIDENCE") is { Length: > 0 } evidence)
         {
             Directory.CreateDirectory(evidence);
-            await File.WriteAllTextAsync(Path.Combine(evidence, variant + "-proposal.json"), JsonSerializer.Serialize(proposal, PlanningJsonContext.Default.PlanningProposal), Ct);
+            await File.WriteAllTextAsync(Path.Combine(evidence, variant + "-proposal.json"), JsonSerializer.Serialize(proposal, PlanningFixtureJsonContext.Default.TaskPlanFixture), Ct);
             await File.WriteAllTextAsync(Path.Combine(evidence, variant + ".yaml"), state.Yaml, Ct);
             await File.WriteAllTextAsync(Path.Combine(evidence, variant + "-result.json"), new JsonObject
-            { ["success"] = result.Success, ["planningCalls"] = 1, ["mappingCalls"] = model.Calls, ["mappingRepairs"] = 0,
+            { ["success"] = result.Success, ["planningCalls"] = 0, ["mappingCalls"] = model.Calls, ["mappingRepairs"] = 0,
                 ["cloneCount"] = fixture.CloneCount, ["cleanupCount"] = fixture.CleanupCount,
                 ["revision"] = fixture.ExactRevision, ["checks"] = new JsonArray(fixture.Checks.Select(c => (JsonNode?)JsonValue.Create(c)).ToArray()),
                 ["feedbackExact"] = success, ["recoveryAdditionalEffects"] = 0 }.ToJsonString(), Ct);

@@ -5,14 +5,6 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningCompactConstruction
 {
-    internal static bool CapturedPresentationValid(PlanningSession state)
-    {
-        var version = state.Construction?.Compact?.PresentationVersion;
-        var captured = state.Request.Options["construction_presentation_version"];
-        return version is null && captured is null ||
-            version is 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 && captured is JsonValue value && value.TryGetValue<int>(out var number) && number == version;
-    }
-
     internal const string ClassifyInstructions = """
         Classify this exact page into consecutive verbatim clauses concatenating to the whole page, including whitespace. Preserve order; never summarize, omit, invent or plan tasks. Isolate standalone caller/public declarations using exact contiguous spans; retain their names and constraints. Keep an action with adjacent composition/result constraints as one requirement, even across sentences or when declaring a public result. Interface marking does not require splitting that obligation. Actions, results, setup and cleanup have completion obligations. Global means a crosscutting invariant. Mark explicit caller inputs/public results: none, input, output or both; effect payloads, files and resources do not imply public outputs. No types/defaults here. A continuation's first clause inherits its exact preceding text's kind. Other pages and answers remain authoritative.
         """;
@@ -21,17 +13,11 @@ internal static partial class PlanningCompactConstruction
         Extract only the minimum sufficient caller/public result interfaces from these exact clauses. Combine clauses about the same interface into one declaration. Preserve stated names, meaning, types, enums, nullability and literal defaults; no aliases or invented restrictions. Existing declarations are immutable. No task, tool-argument, file-content, effect or resource design. Use only permitted directions; return [] for a direction only when these clauses declare no interface in it. Examples impose no restrictions. An absent array bound is null; maxItems:0 permits only an empty array. Public outputs have no defaults.
         """;
 
-    internal static string InterfaceGuidance(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 5 or 6 or 7 or 8 or 9 or 10 or 11 ? """
+    internal static string InterfaceGuidance(PlanningSession state) => """
         Resolve whether each current candidate source declares caller inputs/public results; classifications are provisional. originalContext and existing names supply context, not additional candidates. Return exactly one of interfaces, evidenceRequests or clarifications. Reuse supplied evidence; retrieve missing originals or clarify missing names/types for a declared interface. Use any only for explicitly unconstrained data.
         For interfaces, give each candidate source one disposition with its exact ID/version, displayed evidence citations, declared names and reason. Extract all interfaces declared by these sources, matching typed declarations exactly to their disposition names and merging only the same interface. A current source may explicitly link an unchanged existing interface. Otherwise use no_public_interface, retaining business obligations. Artifact contents, effects and resources alone are not public results; explicitly returned paths/contents are.
         Preserve names, types, constraints, enums, nullability and literal defaults; existing declarations are immutable. Examples add no restrictions. Absent array bounds are null; maxItems:0 permits only []. String enum:null means unrestricted values; a list is the declared exhaustive set. default:null means no default; {"kind":"null"} is an explicit null literal. Outputs have no defaults. Emit compact JSON without whitespace outside strings; preserve string contents and verbatim originals exactly.
-        """ : state.Construction?.Compact?.PresentationVersion == 4 ? """
-        Resolve provisional classifications from exact original context. Return one action: interfaces, original evidence requests, or clarification. Emit compact JSON without formatting whitespace outside string values; preserve string contents and any verbatim original text exactly. Every candidate source needs a disposition citing exact displayed source identities/versions and evidence, with a reason. Extract every explicit caller input/public result in the candidate sources. A public result is a value returned to the caller; writing an artifact and specifying its contents do not themselves declare one. Use no_public_interface when no caller interface is declared, retaining all business obligations. Explicitly returned paths or contents still declare interfaces. Effect payloads and resources alone remain business obligations. Combine only declarations of the same interface. Preserve names, types, constraints and literal defaults; existing declarations are immutable. Missing names/types require original evidence or clarification; any is valid only for explicitly unconstrained data. Use existing evidence instead of rereading it. Examples impose no restrictions; an absent array bound is null, and maxItems:0 permits only an empty array. For strings, enum:null means unrestricted values; a list is the exact declared exhaustive set. default:null means no default; {"kind":"null"} is an explicit null literal. Public outputs have no defaults.
-        """ : UsesDeferredBinding(state) ? """
-        Resolve each candidate source's provisional interface classification using its exact original context. Return one action: interfaces, original evidence requests, or clarification. Emit compact JSON without formatting whitespace outside string values; preserve string contents and any verbatim original text exactly. First decide whether the source declares a caller input or public result. A public result is a value returned to the caller; writing an artifact and specifying its contents do not themselves declare one. Use no_public_interface when no caller interface is declared, retaining all business obligations. Explicitly returned paths or contents still declare interfaces. Extract every explicit caller input/public result in the candidate sources; combine only declarations of the same interface. Preserve names, types, constraints and literal defaults. Existing declarations are immutable. Effect payloads and resources alone remain business obligations. Every disposition must cite exact displayed original source identities/versions and explain its declaration or non-interface decision. Missing type or naming context requires original evidence or clarification, never a fallback to any; any remains valid only for explicitly unconstrained data. Use existing evidence instead of rereading it. Examples impose no restrictions; an absent array bound is null, and maxItems:0 permits only an empty array. For strings, enum:null means unrestricted values; a list is the exact declared exhaustive set. default:null means no default; {"kind":"null"} is an explicit null literal. Public outputs have no defaults.
-        """ : PlanningConstructionPhasePolicies.IsFresh(state.Request) ? """
-        Extract every explicitly declared caller input and public result from these exact clauses. Combine clauses only when they describe the same interface; preserve distinct named declarations. Preserve stated meaning, types, exhaustive enums, nullability and literal defaults; no aliases or invented restrictions. Existing declarations are immutable. No task, tool-argument, file-content, effect or resource design. Use only permitted directions; return [] only when no interface is declared in that direction. Examples impose no restrictions. An absent array bound is null; maxItems:0 permits only an empty array. Public outputs have no defaults.
-        """ : InterfaceInstructions;
+        """;
 
     internal static (int Count, bool Continues) CoherentOriginalPageLength(string text, int start)
     {
@@ -85,39 +71,17 @@ internal static partial class PlanningCompactConstruction
         return schema;
     }
 
-    internal static JsonObject InterfaceSchema(PlanningConstructionInterfaceExtraction extraction, bool requireDeclared = false, bool provisional = false)
+    internal static JsonObject InterfaceSchema(PlanningConstructionInterfaceExtraction extraction)
     {
-        var schema = IntentSchema(new() { Id = extraction.Id });
-        schema["properties"]!.AsObject().Remove("clauses");
-        schema["required"] = new JsonArray("sourceId", "inputs", "outputs");
-        if (!extraction.Inputs) schema["properties"]!["inputs"] = PlanningSchemas.Array(Text(1), 0, 0);
-        else if (requireDeclared && !provisional) schema["properties"]!["inputs"]!["minItems"] = 1;
-        if (!extraction.Outputs) schema["properties"]!["outputs"] = PlanningSchemas.Array(Text(1), 0, 0);
-        else if (requireDeclared && !provisional) schema["properties"]!["outputs"]!["minItems"] = 1;
-        if (!extraction.Inputs)
-            schema["$defs"]!["type"]!["anyOf"]![3]!["properties"]!["fields"]!["items"] = PlanningSchemas.Ref("output");
-        else if (requireDeclared)
-        {
-            // The existing DTO distinguishes an absent default from a literal
-            // null. Keep one input shape instead of duplicating the declaration.
-            var input = schema["$defs"]!["output"]!.DeepClone().AsObject();
-            input["properties"]!["default"] = PlanningSchemas.Nullable(PlanningSchemas.Ref("literal"));
-            input["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("default"));
-            schema["$defs"]!["input"] = input;
-        }
-        if (requireDeclared)
-        {
-            var types = schema["$defs"]!["type"]!["anyOf"]!.AsArray();
-            types[0]!["properties"]!["kind"] = PlanningSchemas.Enum("number", "integer", "boolean", "any");
-            types[1]!["properties"]!["enum"] = PlanningSchemas.Nullable(types[1]!["properties"]!["enum"]!.DeepClone().AsObject());
-        }
+        var schema = PlanningSchemas.Object(("sourceId", PlanningSchemas.Enum(extraction.Id)),
+            ("inputs", PlanningSchemas.Array(PlanningSchemas.Ref("input"), 0, 16)),
+            ("outputs", PlanningSchemas.Array(PlanningSchemas.Ref("output"), 0, 16)));
+        schema["$defs"] = InterfaceTypeDefinitions();
         // Bound guidance remains in InterfaceInstructions. Factoring may replace
         // these schemas with references, which cannot carry sibling annotations
         // in the provider's strict structured-output profile.
         var compact = PlanningSchemas.Compact(schema);
-        if (requireDeclared)
-            compact["description"] = "For strings, enum:null means unrestricted values. An enum list is the exact exhaustive set declared by the source, never a placeholder or default." +
-                (extraction.Inputs ? " default:null means no default; {\"kind\":\"null\"} is an explicit null literal." : "");
+        compact["description"] = "For strings, enum:null means unrestricted values. An enum list is the exact exhaustive set declared by the source, never a placeholder or default. default:null means no default; {\"kind\":\"null\"} is an explicit null literal.";
         return compact;
     }
 
@@ -126,8 +90,7 @@ internal static partial class PlanningCompactConstruction
         // Classification is provisional in both directions. A file obligation
         // can be declined, and a mistaken direction can be corrected here without
         // another phase. Both declarations still use the existing shared types.
-        var shared = InterfaceSchema(new() { Id = extraction.Id, Inputs = true, Outputs = true },
-            requireDeclared: true, provisional: true);
+        var shared = InterfaceSchema(extraction);
         var originals = InterfaceEvidenceSources(state, extraction).ToList();
         var disposition = PlanningSchemas.Object(
             ("sourceId", PlanningSchemas.Enum(extraction.SourceIds.ToArray())),
@@ -161,11 +124,11 @@ internal static partial class PlanningCompactConstruction
         // originals are exact navigable evidence, not a workflow-wide summary.
         return pages.Take(1).Concat(containing.Take(1))
             .Concat(pages.Where(s => s.Kind == "answer_page").TakeLast(1)).Concat(containing.Skip(1))
-            .Concat(UsesConvergentConstruction(state) ? containing.SelectMany(page =>
+            .Concat(containing.SelectMany(page =>
             {
                 var index = pages.IndexOf(page);
                 return pages.Skip(Math.Max(0, index - 1)).Take(index == 0 ? 2 : 3);
-            }) : [])
+            }))
             .DistinctBy(s => s.Id, StringComparer.Ordinal).Take(3);
     }
 
@@ -224,45 +187,16 @@ internal static partial class PlanningCompactConstruction
 
     internal static JsonObject InterfaceContext(PlanningSession state, PlanningConstructionInterfaceExtraction extraction)
     {
-        if (UsesDeferredBinding(state)) return ResolvableInterfaceContext(state, extraction);
-        var sources = State(state).Sources;
-        var text = string.Concat(extraction.SourceIds.Select(id => sources.Single(s => s.Id == id).Text));
-        return new JsonObject
-        {
-            ["sources"] = new JsonArray(extraction.SourceIds.Select(id =>
-            {
-                var source = sources.Single(s => s.Id == id);
-                return (JsonNode)new JsonObject { ["id"] = source.Id, ["version"] = source.Version, ["text"] = source.Text };
-            }).ToArray()),
-            ["existingInputs"] = new JsonArray((state.Requirements?.Inputs ?? []).Where(i => Mentions(i.Name))
-                .Select(i => (JsonNode?)JsonValue.Create(i.Name)).ToArray()),
-            ["existingOutputs"] = new JsonArray((state.Requirements?.Outputs ?? []).Where(i => Mentions(i.Name))
-                .Select(i => (JsonNode?)JsonValue.Create(i.Name)).ToArray()),
-            ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics)
-        };
-
-        bool Mentions(string name)
-        {
-            for (var start = 0; name.Length > 0 && start <= text.Length - name.Length;)
-            {
-                var position = text.IndexOf(name, start, StringComparison.Ordinal);
-                if (position < 0) return false;
-                var end = position + name.Length;
-                if ((position == 0 || !Identifier(text[position - 1])) && (end == text.Length || !Identifier(text[end]))) return true;
-                start = position + 1;
-            }
-            return false;
-        }
-        static bool Identifier(char value) => char.IsLetterOrDigit(value) || value == '_';
+        return ResolvableInterfaceContext(state, extraction);
     }
 
     internal static bool IntentDeclarationsComplete(PlanningCompactConstructionState compact) =>
-        compact.PresentationVersion is null || compact.PresentationVersion is 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 &&
+
         compact.InterfaceExtractions is not null && compact.InterfaceExtractions.All(e => e.Complete && e.SourceIds.Count > 0 &&
             e.SourceIds.All(id => compact.Sources.Count(s => s.Id == id && s.Indexed) == 1) &&
             e.Inputs == e.SourceIds.Any(id => compact.Sources.Single(s => s.Id == id).InterfaceKind is "input" or "both") &&
             e.Outputs == e.SourceIds.Any(id => compact.Sources.Single(s => s.Id == id).InterfaceKind is "output" or "both") &&
-            (compact.PresentationVersion == 2 || DispositionsComplete(compact, e))) &&
+            (DispositionsComplete(compact, e))) &&
         compact.Sources.Where(s => s.Kind is "requirement" or "global").All(s =>
             s.InterfaceKind == "none" || s.InterfaceKind is "input" or "output" or "both" &&
             compact.InterfaceExtractions.Count(e => e.SourceIds.Contains(s.Id, StringComparer.Ordinal)) == 1);
