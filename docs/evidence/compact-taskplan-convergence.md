@@ -2,7 +2,9 @@
 
 ## Current qualification (28 October 2026)
 
-Production **6469a1a3** extends the existing draft pager to unused names on producer-owned port directories. Consumed schemas, arguments, descriptions, explicitly retrieved evidence and shared anchors remain intact. The [exact-hash repair reconstruction](compact-taskplan-v11-producer-navigation-repair-admission.json) improves **22,659→21,731 estimated tokens** under the unchanged22k ceiling and retains all five original requirement rows instead of two. [Technical qualification](compact-taskplan-6469a1a3-technical-validation.json) passes **290 focused and3,705 full Planning cases** with warnings as errors; counts overlap. All12 independently verified package/AOT/encrypted-storage stages pass, and its benchmark build verifies568 MCP pins. Fresh Collections recovered from one recorded HTTP500 retry and is in selection. No new-source runtime result is claimed.
+Production **6469a1a3** extends the existing draft pager to unused names on producer-owned port directories. Consumed schemas, arguments, descriptions, explicitly retrieved evidence and shared anchors remain intact. The [exact-hash repair reconstruction](compact-taskplan-v11-producer-navigation-repair-admission.json) improves **22,659→21,731 estimated tokens** under the unchanged22k ceiling and retains all five original requirement rows instead of two. [Technical qualification](compact-taskplan-6469a1a3-technical-validation.json) passes **290 focused and3,705 full Planning cases** with warnings as errors; counts overlap. All12 independently verified package/AOT/encrypted-storage stages pass, and its benchmark build verifies568 MCP pins.
+
+[Fresh Collections](compact-taskplan-6469a1a3-collections-runtime.json) passes both actual runtime variants with ordered duplicate-preserving results, three contributive tasks, no forwarding alias, corrections or unwanted effects. It uses **26 logical requests /28 attempts**; request2 records HTTP500, HTTP500, then a successful response. Known cost is **€1.404056** plus **€1.861740** retained failed-attempt reservations. Planning takes1,733,772ms, longer than the retained b2ee run despite fewer calls. This is one success, not reproducibility or causal efficiency evidence. Fresh Amazon is active under matching retained settings; Review PR follows. Final-source solution validation runs independently.
 
 ### Retained b2ee diagnostic cohort
 
@@ -24,7 +26,7 @@ The latest before-Review-PR allowance was **€166.22021254326761730140459891**,
 | A — conservation | Controlled equal-result savings; partially realized | No matched live savings established | Real-model efficiency |
 | B — transitions | Controlled equivalent traces; partially realized | e44 resumes reviewed prerequisite/consumer association without selection | Matched completed-trace savings |
 
-The current-source gate is **0/6 on6469a1a3** (b2ee retains one Collections success); the preceding source successes remain attributed to their actual revisions. Two intervention-free successes per scenario on one final source, both Collections variants each time, are required before the 18 baseline comparisons. No baseline comparison has begun. PR #120 stays Draft.
+The current-source gate is **1/6 on6469a1a3** (one Collections success); the preceding source successes remain attributed to their actual revisions. Two intervention-free successes per scenario on one final source, both Collections variants each time, are required before the 18 baseline comparisons. No baseline comparison has begun. PR #120 stays Draft.
 
 ### Retained e44 control outcomes
 
