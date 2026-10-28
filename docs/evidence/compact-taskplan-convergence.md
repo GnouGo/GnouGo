@@ -1586,3 +1586,19 @@ Collections on `de905b24` received three HTTP 500 routing failures at request 2:
 Amazon on `821f16a6` received all 29 logical responses across 30 attempts, using 165,917 provider input, 49,999 output and 43,373 reasoning tokens. Planning took 1,621,316 ms; known cost is €2.079032 plus the retained €0.930870 reservation from a failed attempt before success. One declaration checkpoint produced no executable task. Three reselections did not establish the missing prerequisite; the final implementation clarification is not a business success. The candidate focus correction is evaluated separately. [Outcome](compact-taskplan-821f16a6-amazon-outcome.json), [phase sizes and reconciled components](compact-taskplan-821f16a6-amazon-measurements.json).
 
 After these runs, the read-only campaign check found €254.793383 known cost and €83.255767 retained reservations, an upper bound of €338.049151 and €201.980953 available under the unchanged €540.030104 ceiling. These are dated observations, not future balance guarantees. No calls-per-success ratio or A/B efficiency claim is available when no business outcome succeeds.
+
+
+### Final prerequisite-context source: local technical qualification
+
+Production `09ac9ff5` passes all 3,681 Planning cases with warnings as errors. The preceding `acc10c07` full run remains a retained 3,680-pass/one-failure result; its missing-catalog exception was fixed before any paid cohort on that source. Focused counts are overlapping and are not added to full-suite totals.
+
+Twelve publication stages also pass: six independent packages, managed and Native AOT planning smoke with historical versions 2–10 and fresh 11, and published format-10 encrypted persistence/tenant isolation. Independent verification checks all 4,744 committed blobs/modes, 213 output hashes and each package repository commit. Server publication excludes existing ClientApp/bundled-tool staging. Full solution validation and fresh Review PR planning remain in progress. No runtime business result or six-run qualification is inferred from these technical checks. [Exact validation record](compact-taskplan-09ac9ff5-technical-validation.json).
+
+
+### Review PR on final prerequisite-context source
+
+The fresh `09ac9ff5` Review PR diagnostic stopped at intent request 4 after three confirmed HTTP 500s: four logical requests, six attempts, three received responses and no checkpoint, artifact or execution. It used 1,554 known provider input / 2,807 output / 2,048 reasoning tokens over 1,063,527 ms. Known cost is €0.082088; all €2.872932 failed-attempt reservations remain. Exact delegated retention is idempotent and fresh-process guards verify permanent request/run rejection, unchanged originals and unchanged accounting. This does not demonstrate received reasoning exhaustion. [Outcome and phase measurements](compact-taskplan-09ac9ff5-code-outcome.json).
+
+The post-retention check found €254.875472 known cost plus €86.128699 retained reservations, upper bound €341.004171 and €199.025933 available. The next Collections cohort uses the same production source and retained profile; the balance is observed before that dispatch.
+
+The baseline accounting/oracle overlay also now has a truthful clean private commit, `3dbec5f5`, with all 1,128 baseline production blobs unchanged. Its 280 focused offline tests and benchmark build pass with warnings as errors. This advances source/build provenance, not live authorization: final operator CLI proof and runtime-input parity remain prerequisites, and the six-run candidate gate is still unmet. [Offline qualification](compact-taskplan-baseline-3dbec5f5-offline-validation.json).
