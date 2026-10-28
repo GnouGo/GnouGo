@@ -344,6 +344,87 @@ public sealed partial class ConstructionDefectProgressTests
         Assert.Equal(retainedId, Single(state)["id"]!.ToString());
     }
 
+    [Theory]
+    [InlineData(10, false, false)]
+    [InlineData(10, false, true)]
+    [InlineData(11, true, false)]
+    [InlineData(11, true, true)]
+    public void RepairRetainsResolvedRejectedValuesWithoutReactivatingTheirFindings(int version, bool presented, bool typedPatch)
+    {
+        var state = CoordinatorReady();
+        state.Construction!.Compact!.PresentationVersion = version;
+        state.Request.Options["construction_presentation_version"] = version;
+        Attach(state, PlanningConstruction.DefectWitness(state, PlanningCompactConstruction.Context(state, review: true),
+            new JsonArray(Finding("/draft/tasks/0")))!);
+        var first = Single(state)["id"]!.ToString();
+        var candidate = state.Construction.Candidate!;
+        candidate.Plan.Root.Tasks.Single().Inputs[0] = new("text", new() { Kind = "input", Source = "text" });
+        Refresh(state);
+        var finding = Finding("/draft/tasks/0/inputs/0/value");
+        finding["kind"] = "inconsistency";
+        finding["explanation"] = "The caller locator needs conversion to the operation's representation; restoring the old literal would omit the caller again.";
+        var witness = PlanningConstruction.DefectWitness(state, PlanningCompactConstruction.Context(state, review: true), new JsonArray(finding))!;
+        candidate.Reviews.Add(new JsonObject { ["defectWitness"] = witness,
+            ["response"] = new JsonObject { ["resolutions"] = new JsonArray(new JsonObject { ["id"] = first,
+                ["status"] = "resolved", ["explanation"] = "The exact argument now reads the caller." }) } });
+        var second = Single(state)["id"]!.ToString();
+        Assert.NotEqual(first, second);
+        candidate.Diagnostics = [new("CONSTRUCTION_BUSINESS_REVIEW", "/tasks/consumer/inputs/text", finding["explanation"]!.ToString())];
+        var authority = PlannerFixture.Clone(state);
+        authority.Plan = candidate.Plan;
+        authority.RevisionScope = ["/tasks/consumer/inputs/text"];
+        authority.Diagnostics = candidate.Diagnostics;
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var request = typedPatch ? PlanningConstruction.RepairRequest(state, authority) : PlanningConstruction.DraftRequest(state, repair: true);
+        var context = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!.AsObject();
+        Assert.Equal(second, Assert.Single(context["defectProgress"]!.AsArray())!["id"]!.ToString());
+        if (presented)
+        {
+            Assert.NotNull(context["priorRepairObservations"]);
+            var history = Assert.Single(context["priorRepairObservations"]!["entries"]!.AsArray())!;
+            Assert.Equal(first, history["id"]!.ToString());
+            Assert.Equal("resolved", history["resolution"]!["status"]!.ToString());
+            Assert.Equal("Unrelated literal", history["before"]!["value"]!["inputs"]![0]!["value"]!["text"]!.ToString());
+            Assert.Equal(candidate.Reviews[0]["defectWitness"]!["contextHash"]!.ToString(), history["priorContextHash"]!.ToString());
+            Assert.Contains("advisory", context["priorRepairObservations"]!["meaning"]!.ToString(), StringComparison.Ordinal);
+        }
+        else Assert.Null(context["priorRepairObservations"]);
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        var review = HybridWorkflowPlanner.CreateConstructionReviewRequest(PlannerFixture.Clone(state), intermediate: false);
+        Assert.Null(review.Context["priorRepairObservations"]);
+        Assert.DoesNotContain(first, review.Request.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
+        Assert.Contains(second, review.Request.StructuredOutputSchema.ToJsonString(), StringComparison.Ordinal);
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        Assert.Null(candidate.AuthorizedPaths);
+        Assert.Empty(state.Construction.Checkpoints);
+    }
+
+    [Theory]
+    [InlineData("source")]
+    [InlineData("baseline")]
+    [InlineData("claims")]
+    [InlineData("no_active_finding")]
+    public void RetiredRepairObservationsCannotCrossTheirOriginalBasis(string change)
+    {
+        var state = Ready(); state.Construction!.Compact!.PresentationVersion = 11;
+        Reject(state);
+        var first = Single(state)["id"]!.ToString();
+        var resolution = new JsonObject { ["response"] = new JsonObject { ["resolutions"] = new JsonArray(new JsonObject
+            { ["id"] = first, ["status"] = "resolved", ["explanation"] = "Exact advisory resolution." }) } };
+        state.Construction.Candidate!.Reviews.Add(resolution);
+        if (change != "no_active_finding")
+        {
+            var finding = Finding("/draft/tasks/0"); finding["explanation"] = "A different current issue.";
+            Attach(state, PlanningConstruction.DefectWitness(state, Context(state), new JsonArray(finding))!);
+        }
+        if (change == "source") state.Construction.Compact.Sources[0].Version = "different-source";
+        if (change == "baseline") state.Plan!.Inputs.Add(new() { Name = "different", Type = new() { Kind = "string" } });
+        if (change == "claims") state.Construction.Compact.CurrentStep!.CloseRequirementIds = ["req_0"];
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        Assert.Null(PlanningConstruction.PriorRepairObservations(state));
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+    }
+
     [Fact]
     public void AnUnresolvedOverflowStopsRatherThanSilentlyDroppingOlderFindings()
     {

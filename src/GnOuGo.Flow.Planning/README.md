@@ -99,6 +99,11 @@ requirements, and retains explicitly suspended consumers across prerequisite
 checkpoints. It also requires one Judge action with separate obligation and
 implementation citations, carries grounded repair witnesses, and combines
 simultaneous local/intermediate obligations in one adequately scoped review.
+Version-11 typed correction and replacement drafts retain bounded resolved observations from their own
+repair chain as historical context. Current baseline/source/claim identities must
+match; the observations neither reactivate findings nor enter the Judge's required
+resolution list. Active diagnostics and current typed edit authority still govern
+the repair, validation and mandatory review.
 Draft and review context retain the active continuation's complete model-authored
 typed prerequisite and a bounded consumer summary, without promoting either to an
 original obligation. `canAttemptResume` permits proposing a binding; the existing

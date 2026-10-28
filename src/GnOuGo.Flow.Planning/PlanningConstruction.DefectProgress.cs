@@ -173,6 +173,45 @@ internal static partial class PlanningConstruction
 
     internal static bool UnresolvedDefects(PlanningConstructionCandidate candidate) => ActiveDefects(candidate).Count > 0;
 
+    internal static JsonObject? PriorRepairObservations(PlanningSession state)
+    {
+        if (state.Construction is not { Compact.PresentationVersion: 11, Candidate: { } candidate } ||
+            candidate.BaseHash != Hash(state.Plan)) return null;
+        var active = ActiveDefects(candidate).Select(item => item.Entry["id"]!.ToString()).ToHashSet(StringComparer.Ordinal);
+        if (active.Count == 0) return null;
+        var resolutions = candidate.Reviews.SelectMany(review => (review["response"]?["resolutions"] as JsonArray ?? []).OfType<JsonObject>())
+            .Where(row => row["id"] is not null && row["status"]?.ToString() is "resolved" or "invalidated_by_evidence")
+            .GroupBy(row => row["id"]!.ToString(), StringComparer.Ordinal).ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
+        var sources = DefectSources(state); var claims = DefectClaims(state, candidate);
+        var entries = new JsonArray(); var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var review in candidate.Reviews.AsEnumerable().Reverse())
+        {
+            if (review["defectWitness"] is not JsonObject witness || witness["version"]?.GetValue<int>() != 1 ||
+                witness["baseline"]?.ToString() != candidate.BaseHash || witness["sourceHash"]?.ToString() != sources ||
+                witness["claimHash"]?.ToString() != claims || witness["findings"] is not JsonArray findings) continue;
+            foreach (var entry in findings.OfType<JsonObject>())
+            {
+                var id = entry["id"]!.ToString();
+                if (active.Contains(id) || !resolutions.TryGetValue(id, out var resolution) || !seen.Add(id)) continue;
+                entries.Add((JsonNode)new JsonObject
+                {
+                    ["id"] = id, ["priorContextHash"] = witness["contextHash"]!.DeepClone(),
+                    ["priorCandidateIdentity"] = witness["candidateIdentity"]!.DeepClone(),
+                    ["obligation"] = entry["obligation"]!.DeepClone(), ["obligationPointer"] = entry["obligationPointer"]!.DeepClone(),
+                    ["implementationPointer"] = entry["implementationPointer"]!.DeepClone(), ["before"] = entry["before"]!.DeepClone(),
+                    ["explanation"] = entry["explanation"]?.DeepClone(), ["resolution"] = resolution.DeepClone()
+                });
+                if (entries.Count == 3) break;
+            }
+            if (entries.Count == 3) break;
+        }
+        return entries.Count == 0 ? null : new JsonObject
+        {
+            ["meaning"] = "Historical advisory observations from this repair chain, tied to their original contexts. Avoid restoring rejected values without resolving their original concern. Prior findings remain contestable; these observations neither reactivate findings nor grant edits or require Judge resolutions.",
+            ["entries"] = entries
+        };
+    }
+
     internal static void AddAuthorizedRevisionDraft(PlanningSession state, JsonObject context)
     {
         if (!PlanningCompactConstruction.UsesDecisionView(state) || state.Construction?.Candidate?.AuthorizedPaths is not { } paths ||

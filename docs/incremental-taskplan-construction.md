@@ -416,6 +416,14 @@ executable objectives and literals. Historical edit-authority snapshots are evid
 only the current repair contract grants edits. Repeated affected values without new relevant
 support require a different authorized local strategy and then stop on non-progress.
 All findings remain advisory; deterministic grounding is not semantic proof.
+Fresh version-11 typed correction and replacement drafts also present up to three resolved observations
+from the same replacement chain, with exact rejected-value snapshots and original
+context identities. The baseline, sources and completion claims must still match.
+These historical observations are omitted from business-review requests: they do
+not reactivate findings, add resolution IDs or grant edit authority. Oversized
+values retain the existing hash-bound omission; ordinary request admission still
+applies. A later argument mismatch must not silently erase the earlier rejected
+argument's concern, but either finding remains contestable with evidence.
 Version-5 correction context also retains historical technical rejection feedback
 in the existing candidate review records. At most three observations fit within
 6,144 serialized bytes, using the existing 1,024-byte whole-value snapshots.

@@ -701,6 +701,8 @@ internal static partial class PlanningCompactConstruction
             context["historicalTechnicalRejections"] = technicalHistory;
         if (UsesConvergentConstruction(state) && PlanningConstruction.DefectProgressContext(state, context) is { } progress)
             context["defectProgress"] = progress;
+        if (!review && PlanningConstruction.PriorRepairObservations(state) is { } history)
+            context["priorRepairObservations"] = history;
         AddDecisionContext(state, context, review);
         return context;
     }

@@ -1,0 +1,102 @@
+{
+  "base_revision": "ba1a77f04e2ee14ef7660f0df6580a56eea43ffd",
+  "tested_postimages": {
+    ".agents/skills/gnougo-planning/SKILL.md": "6e5b79c536b6f7e8cf93c1c1e2c847e44a47aeeddb0cce582b0ef1cfa6e493a8",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs": "858cee237511f9b833ab53070bcb8a277c6ca572de1f1e7bf6f43dccdbd2835f",
+    "src/GnOuGo.Flow.Planning/PlanningConstruction.DefectProgress.cs": "44e60b82e6091bec07d109195280d0737ac316b510dbd3b86ee087405c3bef26",
+    "src/GnOuGo.Flow.Planning/PlanningConstruction.Evidence.cs": "61ba9e82a32c4bdccc02e1cda74d6b35a2c896a83c6f81a98816bbacdbc5d64f",
+    "tests/GnOuGo.Flow.Planning.Tests/ConstructionDefectProgressTests.cs": "c1203403b8ff3ff528da1fa8c5da1732f1c817ec501f0718a4eb96ce5fcd89fb"
+  },
+  "demonstrated_failure": "A resolved binding finding and its rejected value disappear from repair presentation when a new finding replaces it; the received replacement restored the exact earlier rejected extension.",
+  "fix": "Fresh-v11 typed repairs and replacement drafts present at most three retired observations from the same baseline/source/claim repair chain. Historical snapshots remain advisory, absent from Judge requests and active resolution domains.",
+  "metadata_or_response_schema_added": false,
+  "historical_2_to_10_behavior_changed": false,
+  "cycle_detector_or_edit_authority_changed": false,
+  "focused_validation": {
+    "exit_code": 0,
+    "counts": {
+      "Passed": 275
+    },
+    "elapsed_seconds": 25.88704008300556,
+    "source_unchanged": true,
+    "log_sha256": "c4e549d25725dfa4cac83ee6398d0e40a6d714f0366bc13053530161680c459a",
+    "manifest_sha256": "0943ebceb4be0ab4815419d131cbdb090827c528f0b2a65cc1be14acd4248efb",
+    "filter": null
+  },
+  "development_failures_and_reproductions": [
+    {
+      "directory_name": "gnougo-final-validation-i17bf02u",
+      "result_sha256": "b4e0bdb0f5afa3bdcee30240f420c61563b95ffcc6c8c06522c842a8d24c1a8f",
+      "exit_code": 1,
+      "counts": {
+        "Failed": 2
+      },
+      "log_sha256": "e6c1fe26c3dd5a428545ad246aa1a1487ce150d40db72efc58dacc575da56c62"
+    },
+    {
+      "directory_name": "gnougo-final-validation-03vtsrtk",
+      "result_sha256": "124f94ccafa3f9b5aaa6d82c792751c06fafeee1616d49000099157cc1862c6b",
+      "exit_code": 1,
+      "counts": {
+        "Passed": 1,
+        "Failed": 1
+      },
+      "log_sha256": "f5c4e23b3ba9fa353f186ef48a36706f29ccd0a4e2b42df0e3be47d08fdd7585"
+    },
+    {
+      "directory_name": "gnougo-final-validation-90xu40f8",
+      "result_sha256": "9639d6b78595b582f8ccdc9792c971641ad728897b76834b574e1947bdb66780",
+      "exit_code": 1,
+      "counts": {},
+      "log_sha256": "f06f426f4c7ba82192c507481957745683deee30da15cc471ff7000451171763"
+    },
+    {
+      "directory_name": "gnougo-final-validation-tajhcdef",
+      "result_sha256": "4e8698a6637fd7eef46713ae6f5f0a3ecbf1378b4c5d08f9141bc50546256318",
+      "exit_code": 1,
+      "counts": {
+        "Passed": 273
+      },
+      "log_sha256": "254589884d59b961d416147848af49d6c12e1202d3ff3e4afa2dd9ad75b20092"
+    },
+    {
+      "directory_name": "gnougo-final-validation-nrn_mirb",
+      "result_sha256": "40f4f36d986d49bb1f872f7a0b8e1e0cb0a2a9a422bb58ec37da250861fe1e23",
+      "exit_code": 0,
+      "counts": {
+        "Passed": 273
+      },
+      "log_sha256": "d6da30aa40a51e5f2dfa38af867c1c54181389f8142ca240066c03fdb5ae4d75"
+    },
+    {
+      "directory_name": "gnougo-final-validation-1z2onao_",
+      "result_sha256": "ea131ea3315f79317b1ba0b1855ace9c94f13cb64359ab559d0da7014ab595a9",
+      "exit_code": 1,
+      "counts": {
+        "Passed": 3,
+        "Failed": 1
+      },
+      "log_sha256": "7fdfbef28c06e6c1ce3bfacd8638f51704af56bf84f857c2e4f4c1390a78920d"
+    }
+  ],
+  "development_limitations": "Initial fixture/source-identity setup errors and a typed JsonArray AOT overload were corrected. The first corrected typed-only implementation did not cover replacement drafts; the expanded regression reproduced that gap (3 pass / 1 fail). No failed validation is counted as green.",
+  "retained_request_projection_measurement": {
+    "basis": "Exact retained request with the prospective history field; no coordinator replay or provider call.",
+    "requestHash": "efbfd6ab147d5c8404ff5830801b93d50ad9d5e2210b39b151d11e970dd212c9",
+    "beforeBytes": 50573,
+    "afterBytes": 54556,
+    "beforeTokens": 17114,
+    "afterTokens": 18442,
+    "inputLimit": 20000,
+    "entries": 1,
+    "schemaChanged": false,
+    "modelCalls": 0,
+    "storeWrites": 0,
+    "rawPayloadPersisted": false,
+    "helper_sha256": "3df3f86eb7d0b79227a33b365ae1a1fd6aa493fad09972ed3aff91d2d49e8484",
+    "build_log_sha256": "a9c8aa5408b739f1669022461d816de9d5f5ab7e284baeb05b3f5f2cdaf1d3e9",
+    "limitation": "Exact retained request with only the prospective history field added, not a full coordinator replay or an issued request."
+  },
+  "live_benefit_verified": false,
+  "business_acceptance": false
+}

@@ -30,7 +30,13 @@ internal static partial class PlanningConstruction
                 : "\nRequest original evidence using evidenceRequests with patch, discoveryRequests and clarifications null; evidence grants no additional edit authority.") +
             (state.Construction.Version == 2 ? " If the diagnosed tentative task kind or operation cannot implement the original requirement, reselectStep may give a concrete reason as the only action. It preserves accepted work and the selected scope/requirements; explicit revision paths cannot be expanded." : ""),
             _ => projected, state.Construction!.Limits.DraftOutputTokens, review: true,
-            enrich: context => context["repair"] = PlanningRepairContext.Build(authority)).Request;
+            enrich: context =>
+            {
+                context["repair"] = PlanningRepairContext.Build(authority);
+                // Retired observations explain earlier rejected values without
+                // adding active findings to the business Judge's resolution list.
+                if (PriorRepairObservations(state) is { } history) context["priorRepairObservations"] = history;
+            }).Request;
     }
 
     internal static void LoadEvidence(PlanningSession state, List<string> requests, string? descriptionReadKey = null,
