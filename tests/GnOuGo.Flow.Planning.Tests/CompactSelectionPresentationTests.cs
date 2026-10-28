@@ -153,6 +153,7 @@ public sealed class CompactSelectionPresentationTests(ITestOutputHelper output)
         state.Construction.Evidence = new JsonObject { ["task:producer_0"] = PlanningConstruction.TaskNode(state.Plan.Root.Tasks[0]) };
         var full = Request();
         var originalContext = Context(full);
+        Assert.Null(originalContext["nextDecision"]?["localComputations"]); // An absent catalog is unknown, not a grant or denial.
         var originalSchema = full.StructuredOutputSchema!.ToJsonString();
         var estimate = Complete(full).EstimatedInputTokens;
         state.Request.Generation.MaxInputTokensPerRequest = checked((int)estimate - 25);

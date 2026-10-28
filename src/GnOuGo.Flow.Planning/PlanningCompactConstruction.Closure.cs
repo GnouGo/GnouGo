@@ -191,13 +191,13 @@ internal static partial class PlanningCompactConstruction
             ["acceptedCheckpoint"] = state.Construction!.Checkpoints.LastOrDefault()?.Sequence ?? 0 };
         if (compact.PresentationVersion == 11)
         {
-            var allowed = state.Catalog!.AllowedStepTypes;
-            result["localComputations"] = new JsonObject
-            {
-                ["basis"] = "catalog_eligibility_only", ["value"] = allowed.Contains("set"),
-                ["extract"] = allowed.Contains("mapping.dynamic"),
-                ["interpret"] = allowed.Contains("llm.call") && allowed.Contains("template.render")
-            };
+            if (state.Catalog is { } catalog)
+                result["localComputations"] = new JsonObject
+                {
+                    ["basis"] = "catalog_eligibility_only", ["value"] = catalog.AllowedStepTypes.Contains("set"),
+                    ["extract"] = catalog.AllowedStepTypes.Contains("mapping.dynamic"),
+                    ["interpret"] = catalog.AllowedStepTypes.Contains("llm.call") && catalog.AllowedStepTypes.Contains("template.render")
+                };
             if (reason == "resolve_unproven_consumer_binding" && continuation?["status"]?.ToString() == "waiting")
             {
                 result["reason"] = "resolve_current_prerequisite";
