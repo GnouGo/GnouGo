@@ -27,6 +27,9 @@ accepting a checkpoint and selecting a different objective. Provider results rem
 bound to their own query; cached metadata does not establish query completeness,
 resolve a contract or authorize execution.
 Discover unknown capabilities for that action before fixing its implementation.
+Discovery includes the actual owning control or reusable group's isolated interface
+and retained opening intent, as drafting does. An open declaration remains unreviewed
+navigation; its exports are not consumable results and root inputs gain no group access.
 Operation metadata describes contracts, not executed producer results. Existing eligible
 interpretation can derive typed data from supplied inputs without another utility MCP;
 missing external facts require authorized observation, preserving original permissions.

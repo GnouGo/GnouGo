@@ -647,6 +647,8 @@ internal static partial class PlanningCompactConstruction
         if (LocalComputationEligibility(state) is { } local) context["localComputations"] = local;
         if (ScopeOwnerNavigation(state) is { } owner)
             context["scopeOwner"] = owner;
+        if (ScopeGroup(state, step.Scope) is { } scopeGroup)
+            context["scopeGroup"] = GroupInterface(state, scopeGroup.Id);
         AddDecisionContext(state, context, discovery: true);
         // These are optional navigation slots, not fields inside original
         // evidence. Preserve historical issued presentation and nested values.

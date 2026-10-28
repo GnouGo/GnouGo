@@ -11,7 +11,9 @@ are rejected without migration; original encrypted records remain unchanged. Tas
 and execution journal schema 9 are separate from this storage rupture.
 
 Each generation request addresses immediate work using original requirements, accepted
-producers and selected original contracts. Compiler preflight validates exact technical
+producers and selected original contracts. Discovery receives the owning control or
+isolated group interface and opening intent before choosing an implementation; this
+context grants no completion authority. Compiler preflight validates exact technical
 bindings before acceptance. Business review is decoupled from fragment generation:
 coherent blocks can contain several checkpoints; mechanical openings/exports/closures
 need no Judge call. A completed small workflow may receive one global review and no

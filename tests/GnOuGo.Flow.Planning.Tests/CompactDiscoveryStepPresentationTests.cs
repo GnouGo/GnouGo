@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Planning.Examples;
@@ -28,6 +29,7 @@ public sealed class CompactDiscoveryStepPresentationTests
         ] });
         var retained = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
         var context = PlanningCompactConstruction.DiscoveryContext(state);
+        Assert.Null(context["scopeGroup"]);
         var view = context["step"]!.AsObject();
         foreach (var field in new[] { "id", "scope", "kind", "objective", "expectedOutputs",
             "inputTaskIds", "dependencyTaskIds", "operationIds", "schemaPointers" })
@@ -46,6 +48,68 @@ public sealed class CompactDiscoveryStepPresentationTests
         Assert.Equal(state.Construction.Compact.Sources[1].Text, context["globalConstraints"]![0]!["text"]!.ToString());
         Assert.Equal(state.Request.Policy.Instructions, context["instructions"]!.ToString());
         Assert.Equal(retained, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DiscoveryRetainsTheActualIsolatedGroupInterfaceAndUnreviewedOpeningIntent(bool nestedControl)
+    {
+        var state = GroupState(nestedControl);
+        var retained = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var context = PlanningCompactConstruction.DiscoveryContext(state);
+        var group = context["scopeGroup"]!;
+        Assert.True(JsonNode.DeepEquals(PlanningCompactConstruction.GroupInterface(state, "worker"), group));
+        Assert.True(JsonNode.DeepEquals(PlanningCompactConstruction.Context(state)["scopeGroup"], group));
+        Assert.Equal("worker", group["id"]!.ToString());
+        Assert.True(group["open"]!.GetValue<bool>());
+        Assert.Equal("accepted_declarations", group["basis"]!.ToString());
+        Assert.Null(group["outputs"]); // Existing exports of an open group are not consumable results.
+        Assert.True(JsonNode.DeepEquals(JsonSerializer.SerializeToNode(state.Plan!.Groups[0].Inputs,
+            PlanningJsonContext.Default.ListTaskInput), group["inputs"]));
+        Assert.True(group["inputs"]![1]!["type"]!["nullable"]!.GetValue<bool>());
+        Assert.False(group["inputs"]![1]!["required"]!.GetValue<bool>());
+        Assert.Equal("preserve", group["inputs"]![1]!["type"]!["fields"]![0]!["type"]!["enum"]![0]!.ToString());
+        var opening = state.Construction!.Checkpoints[0].Step!;
+        Assert.Equal(opening.Objective, group["intent"]!["objective"]!.ToString());
+        Assert.Equal(opening.ExpectedOutputs, group["intent"]!["expectedOutputs"]!.AsArray().Select(value => value!.ToString()));
+        Assert.Equal(opening.RequirementIds, group["intent"]!["requirementIds"]!.AsArray().Select(value => value!.ToString()));
+        Assert.Equal(nestedControl ? "task:nested" : null, context["scopeOwner"]?["address"]?.ToString());
+        Assert.DoesNotContain("root_only_secret", context.ToJsonString(), StringComparison.Ordinal);
+        Assert.Empty(state.Construction.Checkpoints[0].Reviews);
+        Assert.True(state.Construction.Checkpoints[0].Fragment["businessReviewPending"]!.GetValue<bool>());
+        Assert.Null(state.Construction.Compact!.CurrentStep!.Kind);
+        var request = Complete(state, context);
+        var withoutGroup = context.DeepClone().AsObject(); withoutGroup.Remove("scopeGroup");
+        Assert.True(JsonNode.DeepEquals(Complete(state, withoutGroup).StructuredOutputSchema, request.StructuredOutputSchema));
+        var limit = PlanningConstructionInputPolicy.EffectiveLimit(state.Request, PlanningCompactConstruction.DiscoveryPurpose);
+        var measured = PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, limit);
+        Assert.InRange(measured.EstimatedInputTokens, 1, limit);
+        Assert.Equal(measured.CompleteRequestBytes, measured.Components.Sum(component => component.SerializedBytes));
+        Assert.Equal(retained, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+    }
+
+    [Fact]
+    public async Task MandatoryGroupContextCannotBypassCompleteRequestAdmission()
+    {
+        var state = GroupState(nestedControl: false);
+        state.Construction!.Checkpoints[0].Step!.Objective = new string('x', 30000);
+        var request = Complete(state, PlanningCompactConstruction.DiscoveryContext(state));
+        var limit = PlanningConstructionInputPolicy.EffectiveLimit(state.Request, PlanningCompactConstruction.DiscoveryPurpose);
+        var measured = PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, limit);
+        Assert.True(measured.EstimatedInputTokens > limit);
+        Assert.Contains(state.Construction.Checkpoints[0].Step!.Objective, request.Prompt, StringComparison.Ordinal);
+        var plan = PlanningConstruction.Hash(state.Plan);
+        var runtime = new TestRuntime { Respond = (_, _) => throw new InvalidOperationException("Oversized discovery must stop before dispatch.") };
+        var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => PlanningModelCalls.CallAsync(state, runtime,
+            PlanningCompactConstruction.DiscoveryPurpose, request.Prompt, request.StructuredOutputSchema!.AsObject(), PlannerFixture.Ct, 8192));
+        Assert.Equal("MODEL_INPUT_LIMIT", error.Code);
+        Assert.Empty(runtime.Calls);
+        Assert.Equal(0, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Null(state.PendingCall);
+        Assert.Equal(plan, PlanningConstruction.Hash(state.Plan));
+        Assert.Null(state.Construction.Compact!.CurrentStep!.Kind);
     }
 
 
@@ -169,5 +233,34 @@ public sealed class CompactDiscoveryStepPresentationTests
             }
         };
         return PlannerFixture.Capture(state);
+    }
+
+    private static PlanningSession GroupState(bool nestedControl)
+    {
+        // This is accepted technical navigation with pending business review,
+        // not a manufactured reviewed checkpoint or callable completed group.
+        var state = State();
+        var group = new TaskGroup
+        {
+            Id = "worker", Inputs = [new() { Name = "query", Type = new() { Kind = "string" } },
+                new() { Name = "options", Required = false, Default = new() { Kind = "null" },
+                    Type = new() { Kind = "object", Nullable = true, Fields = [new() { Name = "mode",
+                        Type = new() { Kind = "string", Enum = ["preserve", "inspect"] } }] } }],
+            Body = new() { Outputs = [new("pending_export", new() { Kind = "string", Text = "Not a completed result." })] }
+        };
+        if (nestedControl) group.Body.Tasks.Add(new() { Id = "nested", Kind = "sequence", Objective = "Keep the existing cleanup owner.", Body = new() });
+        state.Plan = new() { Inputs = [new() { Name = "root_only_secret", Type = new() { Kind = "string" } }], Groups = [group] };
+        var construction = state.Construction!;
+        construction.OpenScopes = new TaskPlanSymbols(state.Plan).Scopes.Select(scope => scope.Path).ToList();
+        construction.Checkpoints = [new() { Sequence = 1, PlanHash = PlanningConstruction.Hash(state.Plan),
+            Step = new() { Scope = "/root", Kind = "group", Objective = "Preserve the exact requested observations and their original identities within the declared reusable interface.",
+                RequirementIds = ["req_exact"], ExpectedOutputs = ["All requested observations with exact provenance, or explicit observed errors."] },
+            Fragment = new() { ["groups"] = new JsonArray("worker"), ["businessReviewPending"] = true } }];
+        var step = construction.Compact!.CurrentStep!;
+        step.Scope = nestedControl ? "/tasks/nested/body" : "/groups/worker/body";
+        step.Kind = null; step.DiscoveryComplete = false; step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        step.Inputs = [new() { Kind = "input", Source = "query" }];
+        step.CloseRequirementIds = []; step.OutputNames = [];
+        return state;
     }
 }
