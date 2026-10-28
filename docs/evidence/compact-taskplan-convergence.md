@@ -1647,3 +1647,8 @@ At root closure, Judge 31 requested six evidence addresses. Their prospective fo
 The two-successes-per-scenario gate is **0/6 on dbe1ad97**. The earlier successful Collections execution remains attributed to `09ac9ff5`, and supplies no qualification for changed source. The next Amazon diagnostic retains identical scenario settings after a campaign check found €190.952060 available, 40 permanent closures and no unresolved request. No supplement or reservation was changed.
 
 The first dbe1ad97 full-solution attempt was stopped as invalid validation evidence: 4,003 tracked files disappeared from its temporary snapshot during execution, causing missing-fixture errors. The cause is not established. Its log and source manifest are retained; it is not a source-qualified test verdict. A fresh isolated run uses a durable private directory and verifies all postimages. Planning and publication results above remain separately attributed.
+
+
+### Separate received output exhaustion in benchmark history
+
+The saved dbe1ad97 receipt exposed a reporting mismatch: `MODEL_OUTPUT_LIMIT` was categorized as provider transport failure. A generic history fixture reproduces that distinction (three pass / one fail), and all 54 owning measurement cases now pass with warnings as errors. New reports use `received_output_exhaustion`; unverifiable dispatch/accounting remain transport failures. These provisional labels neither explain the model's reasoning nor grant retry authority. Historical rows, frozen dbe1ad97 sessions, receipts and reservations are unchanged. This is a harness correction, with no claimed planning or runtime benefit. [Reproduction and exact postimages](compact-taskplan-output-classification-validation.json).

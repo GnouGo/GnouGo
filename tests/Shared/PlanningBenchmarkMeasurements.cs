@@ -707,7 +707,8 @@ public static class PlanningBenchmarkMeasurements
     // Codes supply a provisional diagnosis; reproduction and business evidence establish the final classification.
     public static string Category(string code) => code switch
     {
-        "MODEL_DISPATCH_UNVERIFIABLE" or "MODEL_OUTPUT_LIMIT" or "LLM_BUDGET_UNVERIFIABLE" => "provider_transport_failure",
+        "MODEL_OUTPUT_LIMIT" => "received_output_exhaustion",
+        "MODEL_DISPATCH_UNVERIFIABLE" or "LLM_BUDGET_UNVERIFIABLE" => "provider_transport_failure",
         "PLANNING_HOST_CONTRACT" or "TASK_COMPILER_VALIDATION" => "deterministic_builder_defect",
         "HOLE_UNRESOLVED" or "SCHEMA_UNESTABLISHED" => "type_inference_limitation",
         "CAPABILITY_NOT_EXPOSED" => "capability_retrieval_miss",

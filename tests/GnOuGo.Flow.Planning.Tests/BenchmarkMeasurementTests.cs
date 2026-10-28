@@ -337,8 +337,22 @@ public sealed class BenchmarkMeasurementTests
         PlanningBenchmarkMeasurements.Capture(run, state);
         state.PendingCall = null; state.Diagnostics.Clear(); PlanningBenchmarkMeasurements.Capture(run, state);
         var entry = Assert.Single(run["diagnostic_history"]!.AsArray()); Assert.Equal("invalid_intent", entry!["category"]!.ToString());
-        Assert.Equal("provider_transport_failure", PlanningBenchmarkMeasurements.Category("MODEL_OUTPUT_LIMIT"));
-        Assert.Equal("deterministic_builder_defect", PlanningBenchmarkMeasurements.Category("PLANNING_HOST_CONTRACT"));
+    }
+    [Theory]
+    [InlineData("MODEL_OUTPUT_LIMIT", "received_output_exhaustion")]
+    [InlineData("MODEL_DISPATCH_UNVERIFIABLE", "provider_transport_failure")]
+    [InlineData("LLM_BUDGET_UNVERIFIABLE", "provider_transport_failure")]
+    [InlineData("PLANNING_HOST_CONTRACT", "deterministic_builder_defect")]
+    public void DiagnosticHistorySeparatesReceivedOutputExhaustionFromUncertainDispatch(string code, string expected)
+    {
+        var run = new JsonObject { ["diagnostic_history"] = new JsonArray() };
+        var state = new PlanningSession { ModelCalls = 1, Status = PlanningStatus.Stopped,
+            Diagnostics = [new(code, "/phases/construction_local_judge", "Retained failure")] };
+        PlanningBenchmarkMeasurements.Capture(run, state);
+        var entry = Assert.Single(run["diagnostic_history"]!.AsArray());
+        Assert.Equal(code, entry!["code"]!.ToString());
+        Assert.Equal(expected, entry["category"]!.ToString());
+        Assert.Equal("provisional", entry["classification_status"]!.ToString());
     }
     [Theory]
     [InlineData(null)]

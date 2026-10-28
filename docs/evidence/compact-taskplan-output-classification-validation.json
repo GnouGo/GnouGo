@@ -1,0 +1,44 @@
+{
+  "scope": "Benchmark reporting only; frozen production dbe1ad97 sessions, requests, receipts, retry eligibility and accounting unchanged.",
+  "reproduction": {
+    "exit_code": 1,
+    "counts": {
+      "Passed": 3,
+      "Failed": 1
+    },
+    "elapsed_seconds": 34.170607792038936,
+    "source_unchanged": true,
+    "log_sha256": "65db474be1d8cc54fa45a1a644e2ccc2104255f3244e21c3a8bd1b07e5e81d2f"
+  },
+  "corrected": {
+    "exit_code": 0,
+    "counts": {
+      "Passed": 54
+    },
+    "elapsed_seconds": 25.40241858398076,
+    "source_unchanged": true,
+    "log_sha256": "8b753ab4f0c4044946eb79ab2057628f7423642e442031a9f53a3992df6823f0"
+  },
+  "harness_fixture_error": {
+    "result": {
+      "exit_code": 1,
+      "counts": {
+        "Failed": 4
+      },
+      "elapsed_seconds": 40.20841600000858,
+      "source_unchanged": true,
+      "log_sha256": "0a73cc27fc8d48a3731f980e634b0c91ea7a7384c12c5fd7f197001d60d7d78c"
+    },
+    "reason": "First draft omitted the required diagnostic_history fixture array. It failed before reaching classification and is not the behavioral reproduction."
+  },
+  "source_postimages": {
+    ".agents/skills/gnougo-planning/SKILL.md": "664ee8bc059a1ba3fee9e4db701a3a48d3a8eb1eda04f9d33ac6aa7d88ec1531",
+    "tests/Shared/PlanningBenchmarkMeasurements.cs": "ddc9a0d4715d59456412287e50022f07aa6f15bfc04aa04eb166fd0f92f10603",
+    "tests/GnOuGo.Flow.Planning.Tests/BenchmarkMeasurementTests.cs": "7b3c1be9f44e812abda3c3d2cf4a017a63c41ce82f7ce6bdc3dd743561c658ac",
+    "tests/GnOuGo.Agent.Planning.Benchmark/README.md": "89835a468b1aebc96a29695f8ef44d8d4655465d2ee64e15e7be5029e194bc5f"
+  },
+  "behavior": "New diagnostic history records MODEL_OUTPUT_LIMIT as received_output_exhaustion; unverifiable dispatch/accounting retains provider_transport_failure. Categories remain provisional. Historical rows are not rewritten.",
+  "runtime_acceptance": false,
+  "paid_calls": 0,
+  "overlap": "The 54 focused measurement cases are not added to full-suite totals."
+}
