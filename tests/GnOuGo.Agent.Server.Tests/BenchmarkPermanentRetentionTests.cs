@@ -26,21 +26,24 @@ public sealed partial class BenchmarkPermanentRetentionTests
     private const string ErrorBody = """{"errorCode":"upstream_failure","errorMessage":"Provider unavailable.","errorDetail":"No completion receipt."}""";
 
     [Theory]
-    [InlineData(false, null)]
-    [InlineData(true, null)]
-    [InlineData(false, 500)]
-    [InlineData(false, 502)]
-    [InlineData(true, 502)]
-    [InlineData(false, 503)]
-    [InlineData(false, 504)]
-    public async Task UnstartedPlanningRetentionPreservesZeroAttemptEvidenceAndSurvivesInterruptedPublication(bool afterCommit, int? status)
+    [InlineData(false, null, "Unknown")]
+    [InlineData(true, null, "Unknown")]
+    [InlineData(false, null, "Transport")]
+    [InlineData(true, null, "Transport")]
+    [InlineData(false, null, "Timeout")]
+    [InlineData(false, 500, "ServiceUnavailable")]
+    [InlineData(false, 502, "ServiceUnavailable")]
+    [InlineData(true, 502, "ServiceUnavailable")]
+    [InlineData(false, 503, "ServiceUnavailable")]
+    [InlineData(false, 504, "Timeout")]
+    public async Task UnstartedPlanningRetentionPreservesZeroAttemptEvidenceAndSurvivesInterruptedPublication(bool afterCommit, int? status, string failureKind)
     {
         var records = new Records(); var campaign = await SeedUnstartedPlanningAsync(records);
-        if (status is not null)
+        if (failureKind != "Unknown")
         {
             var failure = (await campaign.LoadAsync("planning-evaluation-failures", RequestId, Ct))!;
             failure["status_code"] = status;
-            failure["kind"] = status == 504 ? "Timeout" : "ServiceUnavailable";
+            failure["kind"] = failureKind;
             failure["retryable"] = true;
             await campaign.SaveAsync("planning-evaluation-failures", RequestId, failure, Ct);
         }

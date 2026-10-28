@@ -309,8 +309,9 @@ internal sealed partial class BenchmarkCampaign
             // AI.Core reserves an attempt before sending generation HTTP. Authentication
             // may fail earlier; the default exception count of one is not an attempt.
             // Preserve that failure verbatim without inferring its cause or a receipt.
-            var noHttpFailure = failure["kind"]?.ToString() == "Unknown" && failure["status_code"] is null &&
-                failure["retryable"]?.GetValue<bool>() == false;
+            var noHttpFailure = failure["status_code"] is null &&
+                (failure["kind"]?.ToString() == "Unknown" && failure["retryable"]?.GetValue<bool>() == false ||
+                 failure["kind"]?.ToString() is "Transport" or "Timeout" && failure["retryable"]?.GetValue<bool>() == true);
             var upstreamFailure = failure["retryable"]?.GetValue<bool>() == true &&
                 (failure["kind"]?.ToString() == "ServiceUnavailable" && failure["status_code"]?.GetValue<int>() is 500 or 502 or 503 ||
                  failure["kind"]?.ToString() == "Timeout" && failure["status_code"]?.GetValue<int>() == 504);

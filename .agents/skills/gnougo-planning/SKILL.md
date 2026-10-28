@@ -55,7 +55,7 @@ Capture fresh behavior and effective settings prospectively. Preserve historical
 
 One owner reserves each physical attempt before dispatch against cumulative calls, tokens, time, money and mandatory-review headroom. Only captured, journaled confirmed transient HTTP failures permit retries. Missing outcomes, invalid responses, output exhaustion and uncertain effects do not. Saved successes recover without dispatch. Keep every unknown-usage reservation. Exact authorized abandonment preserves evidence and funds and permanently forbids replay/continuation; frozen provenance must establish any historical exception.
 
-An issued request and a physical generation attempt are different accounting facts. Preserve an empty generation journal when the client fails before that boundary; administrative retention must bind the exact client failure and unchanged zero-attempt accounting, without inventing usage or a reservation.
+Separate issued requests, pre-generation client failures and reserved generation attempts. The journal establishes the dispatch boundary; the typed failure describes what failed. Administrative retention must bind both and preserve zero-attempt accounting when applicable, without inventing usage or a reservation.
 
 Execution requires artifact-bound approval, exact permissions and tenant/workspace confinement. Benchmark delegation records `delegated_test_reviewed`, never human review or expanded effect authority. Keep individual invocation confirmations exact; compilation and favorable Judges cannot authorize effects.
 
