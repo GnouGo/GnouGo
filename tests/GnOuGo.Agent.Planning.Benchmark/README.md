@@ -11,6 +11,11 @@ The existing Collections 12k freeze is an undispatched configuration experiment,
 not a code result. Recheck the shared ledger before dispatch; the single 27 October
 supplement is already registered and grants no second increase.
 
+Retain native authoring semantics when compacting hints: `present` tests task
+completion, while null checks apply to the exact caller input or business value.
+Treat this hint-only correction separately from schema-shape or model tuning;
+prior frozen runs and Judge instructions remain unchanged.
+
 ## Revision-10 business fidelity and matched mechanism evaluation
 
 Use `65db90d9` as the immediate v9 control; its relevant implementation is unchanged

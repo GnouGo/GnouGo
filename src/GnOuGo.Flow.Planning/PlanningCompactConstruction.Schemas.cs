@@ -220,7 +220,9 @@ internal static partial class PlanningCompactConstruction
         if (step.Kind is not ("group" or "choice" or "close"))
         {
             hints.Add("dependsOn names preceding same-scope tasks only; data bindings already imply dependencies and ancestor values use captures. requires is a Boolean assertion: false fails.");
-            hints.Add("always contains cleanup on completion or failure; preserve available payloads before nested cleanup and guard absent task results with present.");
+            hints.Add(!review && state.Construction?.Compact?.PresentationVersion == 11
+                ? "always contains cleanup on completion or failure; preserve available payloads before nested cleanup. present tests preceding local or lexical-ancestor task completion, not caller inputs or field nullability. For a null guard, compare the exact input, output or field with null."
+                : "always contains cleanup on completion or failure; preserve available payloads before nested cleanup and guard absent task results with present.");
         }
         if (step.Scope != "/root")
             hints.Add(UsesVerifiedReview(state)

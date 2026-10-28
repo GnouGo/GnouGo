@@ -1105,6 +1105,11 @@ When a version-11 consumer is waiting without a reviewed exact binding, selectio
 
 Deferred implementation discovery carries those same version-11 eligibility facts through the existing shared renderer. Before binding a native kind, it also receives the shared value semantics already used by selection and drafting: eligibility for `set` does not imply string formatting or encoding support. Interpret eligibility requires both `llm.call` and `template.render`; extraction requires `mapping.dynamic`. A missing catalog supplies no eligibility claim. This projection leaves the current kind unset, retains original contracts and grants no resumption or execution authority. Response schemas, model settings and historical contexts remain unchanged.
 
+Version-11 draft hints retain the distinction between task completion (`present`)
+and caller-input or field nullability. A null guard compares the exact business
+value with null. The clarification changes author presentation only; compiler
+reference checks, executable grammar, Judge guidance and saved requests stay intact.
+
 Version 11 builds selection grammar from its displayed request-local page. Before omitting unrelated original rows, it tries deterministic reductions of optional navigation descriptions, ordered by measured complete-request byte savings and stable identity. Every omitted description keeps an exact original retrieval address. Active obligations, globals, explicit evidence, scopes and operation choices stay intact; exceeding a target alone triggers no reduction. A mandatory core that still exceeds the captured hard ceiling remains an ordinary admission failure.
 
 An admitted v11 evidence-recovery control retains the rejected prospective

@@ -1013,6 +1013,50 @@ public sealed class CompactConstructionContractsTests
     }
 
     [Theory]
+    [InlineData("transform")]
+    [InlineData("value")]
+    public void CompactDraftDistinguishesTaskPresenceFromBusinessValueNullability(string kind)
+    {
+        const string previous = "always contains cleanup on completion or failure; preserve available payloads before nested cleanup and guard absent task results with present.";
+        const string current = "always contains cleanup on completion or failure; preserve available payloads before nested cleanup. present tests preceding local or lexical-ancestor task completion, not caller inputs or field nullability. For a null guard, compare the exact input, output or field with null.";
+        var state = State();
+        state.Construction!.Compact!.PresentationVersion = 11;
+        var step = state.Construction.Compact.CurrentStep!;
+        step.Kind = kind; step.OperationIds.Clear();
+        var schema = PlanningCompactConstruction.DraftSchema(state);
+        Assert.Contains(current, schema["description"]!.ToString(), StringComparison.Ordinal);
+        Assert.Contains(previous, PlanningCompactConstruction.DraftSemantics(state, step, review: true), StringComparison.Ordinal);
+        Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
+
+        // Only the author hint changes. Historical grammar and Judge guidance
+        // stay unchanged; the compiler still owns reference validation.
+        schema["description"] = schema["description"]!.ToString().Replace(current, previous, StringComparison.Ordinal);
+        state.Construction.Compact.PresentationVersion = 10;
+        Assert.Equal(PlanningCompactConstruction.DraftSchema(state).ToJsonString(), schema.ToJsonString());
+        if (kind != "value") return;
+
+        var plan = new TaskPlan
+        {
+            Inputs = [new() { Name = "caller_text", Type = new() { Kind = "string", Nullable = true } }],
+            Root = new() { Tasks =
+            [
+                new() { Id = "producer", Kind = "value", Objective = "Retain the supplied value.",
+                    Outputs = [new("text", new() { Kind = "input", Source = "caller_text" })] },
+                new() { Id = "consumer", Kind = "value", Objective = "Use the supplied value under the assertion.",
+                    Requires = new() { Kind = "present", Source = "caller_text" },
+                    Outputs = [new("text", new() { Kind = "input", Source = "caller_text" })] }
+            ] }
+        };
+        var open = new HashSet<string>(StringComparer.Ordinal) { "/root" };
+        Assert.NotEmpty(TaskPlanCompiler.ValidateConstruction(plan, state.Catalog!, state.Request, open).Diagnostics);
+        plan.Root.Tasks[1].Requires = new() { Kind = "predicate", Predicate = "not_equal",
+            Items = [new() { Kind = "input", Source = "caller_text" }, new() { Kind = "null" }] };
+        Assert.Empty(TaskPlanCompiler.ValidateConstruction(plan, state.Catalog!, state.Request, open).Diagnostics);
+        plan.Root.Tasks[1].Requires = new() { Kind = "present", Source = "producer" };
+        Assert.Empty(TaskPlanCompiler.ValidateConstruction(plan, state.Catalog!, state.Request, open).Diagnostics);
+    }
+
+    [Theory]
     [InlineData("foreach", "array on the enclosing task")]
     [InlineData("conditional", "matching names, types, nullability and requiredness")]
     public void CompleteClosureRequestExplainsItsSelectedBoundaryWithoutReintroducingTaskGrammar(string ownerKind, string expected)

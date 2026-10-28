@@ -8,6 +8,11 @@ Evidence about a root declaration does not grant an isolated group access to it.
 The compiler, coverage verifier and execution-authority boundary are unchanged;
 versions 2–10 retain their captured request construction and interpretation.
 
+Version-11 draft hints distinguish `present(taskId)`, which tests preceding local
+or ancestor task completion, from null checks on caller inputs and business fields.
+Compare the exact business value with null when needed. This authoring clarification
+does not change TaskValue grammar, compiler validation, Judge guidance or saved requests.
+
 Fresh presentation revision 10 additionally offers an exact new deterministic task
 as a local subject when existing output/boundary subjects do not apply. A bounded
 mixed-plan proof preserves an opaque sequential root prefix exactly; opaque result
