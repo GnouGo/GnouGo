@@ -57,7 +57,7 @@ Execution requires artifact-bound approval, exact permissions and tenant/workspa
 
 Freeze source, harness, settings, contracts, inputs and oracles before experiments. Separate source, instruction, schema and setting changes. Distinguish admission failures, received output exhaustion, formatting anomalies and transport uncertainty in both diagnostic history and reports. A received output-limit receipt is not an unknown transport outcome. Compare completed traces, including proof-producing calls; earlier termination is not savings. Report actual provider usage separately from component estimates. Accepted checkpoints cannot inflate independently defined business obligations; with none fulfilled, calls-per-success is undefined.
 
-Use explicit private workspaces in tests. Validate affected components, historical recovery and JavaScript → YAML v15. Mocked models and technical passes do not establish live convergence. Retain failures and report generation, artifact approval and independent runtime acceptance separately.
+Use explicit private workspaces in tests. Separate fixture setup from the boundary under assertion while retaining complete deadline and cancellation checks. Validate affected components, historical recovery and JavaScript → YAML v15. Mocked models and technical passes do not establish live convergence. Retain failures and report generation, artifact approval and independent runtime acceptance separately.
 
 ## Maintained references
 

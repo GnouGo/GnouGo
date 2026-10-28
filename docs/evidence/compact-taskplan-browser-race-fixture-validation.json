@@ -1,0 +1,33 @@
+{
+  "production_source_unchanged": "e44e08fd04a4f50b3bc89824d3bc3821def7f864",
+  "ci_reproduction": {
+    "revision": "3a36e692c35b31c6c66b1f4e96550e74282fb8b3",
+    "run": "https://github.com/GnouGo/GnouGo/actions/runs/40638082448",
+    "failed_case": "NavigationDiscardsWholeGenerationAndRetriesWithoutRenavigation(publish, false)",
+    "error": "Complete snapshot acquisition exceeded its shared timeout during startup.",
+    "asserted_race_not_reached": true,
+    "log_sha256": "66fe5af7f9c66044491e1cea1f9c953a49c96b1ef4e179f876cd056a48b44ec5"
+  },
+  "correction": "Warm the real browser using ordinary text acquisition during fixture setup, before the activity and complete-observation request. The checkpoint remains untriggered during setup.",
+  "preserved": "The five-second complete-observation deadline, generation invalidation, three-attempt ceiling, no recovery re-navigation, full paging, expiration, telemetry and dedicated cancellation/deadline assertions remain unchanged.",
+  "tested_postimages": {
+    ".agents/skills/gnougo-planning/SKILL.md": "fa8a3fe006938ff93511f4710b0e9b59d74584c0f9001b4cf9828927768a00d0",
+    "tests/GnOuGo.Browser.Mcp.Tests/BrowserCompleteObservationTests.cs": "aa6eac0d01af43533e7884a6b8c84da8b66218d04955a2b5200888ef031ec2c7"
+  },
+  "validation": {
+    "exit_code": 0,
+    "counts": {
+      "Passed": 142
+    },
+    "elapsed_seconds": 26.58481741696596,
+    "source_unchanged": true,
+    "log_sha256": "f72339954761bd8f10f9dcfc67f90a9c1a6cd4ef10fc11fed73ee382bf79b68b",
+    "source_manifest_sha256": "a57f057a75ef4ad7fc39fe26d323391b045b24933c9af478c74a333641230f82",
+    "command_sha256": "5da1925093a0706517c042d696a8f6a8a955a12655d71eb9900c15a3922c6ce6"
+  },
+  "limitations": "The CI cold-start timing was not recreated locally. All 142 real Browser cases pass; final-revision CI remains required. Existing full-solution observers retain their actual pre-fixture snapshots. Focused counts are not added to full-suite totals.",
+  "planner_or_runtime_production_code_changed": false,
+  "mcp_contracts_or_binaries_changed": false,
+  "paid_profile_changed": false,
+  "business_acceptance_claimed": false
+}

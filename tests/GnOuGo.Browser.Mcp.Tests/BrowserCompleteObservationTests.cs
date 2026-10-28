@@ -20,7 +20,6 @@ public sealed class BrowserCompleteObservationTests
         var ct = TestContext.Current.CancellationToken;
         await using var site = new Site();
         var injected = false;
-        using var activity = new Activity("snapshot-acquisition-test").Start();
         await using var host = new PlaywrightBrowserHost(Options.Create(Settings()), NullLogger<PlaywrightBrowserHost>.Instance)
         {
             ObservationCheckpoint = async (page, checkpoint, token) =>
@@ -32,6 +31,11 @@ public sealed class BrowserCompleteObservationTests
                 else await page.GotoAsync(site.Origin + "/new").WaitAsync(token);
             }
         };
+        // Cold process startup is not the navigation race under assertion.
+        // Keep the complete-acquisition deadline unchanged after setup is ready.
+        var ready = await host.GetContentAsync(site.Origin + "/warmup", "load", 5000, "main", "text", 1000, false, ct);
+        Assert.True(ready.Success); Assert.False(injected);
+        using var activity = new Activity("snapshot-acquisition-test").Start();
         var result = await host.GetContentAsync(site.Origin, "load", 5000, "main", "observation_complete", 2400, false, ct, maxRecords: 2);
         Assert.True(result.Success); Assert.False(result.Truncated); Assert.Empty(result.Content);
         Assert.Null(result.ObservationManifest); Assert.Null(result.Observation); Assert.Equal(200, result.StatusCode);
