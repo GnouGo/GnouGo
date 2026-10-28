@@ -1636,3 +1636,14 @@ The generic reproduction preserves a suspended consumer while implementation rem
 
 
 The shared-eligibility candidate `dbe1ad97` passes all **3,685 Planning tests** with warnings as errors and all 12 publication stages. Independent verification covers 4,756 committed blobs/modes, 213 output hashes, six package commits, managed/Native AOT planning and published encrypted persistence/tenant isolation. Full solution validation is running on this source. Its fresh Collections cohort is frozen under unchanged settings; no prior execution is attributed to this candidate. [Source-qualified technical checks](compact-taskplan-dbe1ad97-technical-validation.json).
+
+
+### Shared-eligibility candidate: Collections closure review stopped
+
+The unchanged-profile `dbe1ad97` run stopped before approval after **33 logical requests / 33 physical attempts**, with zero corrections and no artifact or runtime execution. It had constructed a reusable numeric group and parallel per-item calls, but that partial accepted work is not business completion. Known usage is 118,012 input / 51,926 output tokens; known cost is €1.916859 with no unknown reservation from this run. Planning took 1,288,959 ms.
+
+At root closure, Judge 31 requested six evidence addresses. Their prospective follow-up was rejected locally at 32,048 bytes / 10,939 estimated tokens against the captured 8,000 limit. The bounded recovery requested one exact task address, which was admitted. Judge 33 then returned a saved `output_limit` receipt with zero text and all 8,192 output tokens used as reasoning. These are distinct admission and received-output failures; the trace does not establish a common cause or authorize replay. All 34 constructed requests reconcile their component bytes; all 33 dispatched requests fit their captured ceilings. [Exact outcome and phase measurements](compact-taskplan-dbe1ad97-collections-outcome.json).
+
+The two-successes-per-scenario gate is **0/6 on dbe1ad97**. The earlier successful Collections execution remains attributed to `09ac9ff5`, and supplies no qualification for changed source. The next Amazon diagnostic retains identical scenario settings after a campaign check found €190.952060 available, 40 permanent closures and no unresolved request. No supplement or reservation was changed.
+
+The first dbe1ad97 full-solution attempt was stopped as invalid validation evidence: 4,003 tracked files disappeared from its temporary snapshot during execution, causing missing-fixture errors. The cause is not established. Its log and source manifest are retained; it is not a source-qualified test verdict. A fresh isolated run uses a durable private directory and verifies all postimages. Planning and publication results above remain separately attributed.
