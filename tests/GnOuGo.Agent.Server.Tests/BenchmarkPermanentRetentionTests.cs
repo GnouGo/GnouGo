@@ -26,11 +26,24 @@ public sealed partial class BenchmarkPermanentRetentionTests
     private const string ErrorBody = """{"errorCode":"upstream_failure","errorMessage":"Provider unavailable.","errorDetail":"No completion receipt."}""";
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task UnstartedPlanningRetentionPreservesZeroAttemptEvidenceAndSurvivesInterruptedPublication(bool afterCommit)
+    [InlineData(false, null)]
+    [InlineData(true, null)]
+    [InlineData(false, 500)]
+    [InlineData(false, 502)]
+    [InlineData(true, 502)]
+    [InlineData(false, 503)]
+    [InlineData(false, 504)]
+    public async Task UnstartedPlanningRetentionPreservesZeroAttemptEvidenceAndSurvivesInterruptedPublication(bool afterCommit, int? status)
     {
         var records = new Records(); var campaign = await SeedUnstartedPlanningAsync(records);
+        if (status is not null)
+        {
+            var failure = (await campaign.LoadAsync("planning-evaluation-failures", RequestId, Ct))!;
+            failure["status_code"] = status;
+            failure["kind"] = status == 504 ? "Timeout" : "ServiceUnavailable";
+            failure["retryable"] = true;
+            await campaign.SaveAsync("planning-evaluation-failures", RequestId, failure, Ct);
+        }
         var original = records.Snapshot();
         var accounting = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
         var kind = BenchmarkCampaign.UnstartedPlanningRetention;
@@ -70,11 +83,26 @@ public sealed partial class BenchmarkPermanentRetentionTests
     [InlineData("policy")]
     [InlineData("usage")]
     [InlineData("receipt")]
+    [InlineData("http_success")]
+    [InlineData("http_client_error")]
+    [InlineData("http_kind")]
+    [InlineData("http_retryable")]
+    [InlineData("http_exhausted")]
+    [InlineData("http_retry_after")]
+    [InlineData("http_provider_code")]
+    [InlineData("http_attempt")]
+    [InlineData("http_fingerprint")]
+    [InlineData("http_usage")]
+    [InlineData("http_receipt")]
     public async Task UnstartedPlanningRetentionRejectsAnyConflictingDispatchEvidence(string defect)
     {
         var records = new Records(); var campaign = await SeedUnstartedPlanningAsync(records);
         var journal = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct))!;
         var failure = (await campaign.LoadAsync("planning-evaluation-failures", RequestId, Ct))!;
+        if (defect.StartsWith("http_", StringComparison.Ordinal))
+        {
+            failure["kind"] = "ServiceUnavailable"; failure["status_code"] = 502; failure["retryable"] = true;
+        }
         switch (defect)
         {
             case "attempt": journal["transport"]!["Attempts"]!.AsArray().Add(new JsonObject { ["Id"] = RequestId + ":reserved" }); break;
@@ -87,6 +115,17 @@ public sealed partial class BenchmarkPermanentRetentionTests
             case "policy": journal["effective_transport_policy"]!["effective_retry_policy"]!["MaxUncertainRetries"] = 1; break;
             case "usage": journal["usage"] = new JsonObject(); break;
             case "receipt": await campaign.SaveAsync("planning-evaluation-receipts", RequestId, new(), Ct); break;
+            case "http_success": failure["status_code"] = 200; break;
+            case "http_client_error": failure["status_code"] = 401; break;
+            case "http_kind": failure["kind"] = "Timeout"; break;
+            case "http_retryable": failure["retryable"] = false; break;
+            case "http_exhausted": failure["retry_exhausted"] = true; break;
+            case "http_retry_after": failure["retry_after_ms"] = 1000; break;
+            case "http_provider_code": failure["safe_provider_code"] = "unverified"; break;
+            case "http_attempt": journal["transport"]!["Attempts"]!.AsArray().Add(new JsonObject { ["Id"] = RequestId + ":reserved" }); break;
+            case "http_fingerprint": journal["transport"]!["Fingerprint"] = new string('a', 64); break;
+            case "http_usage": journal["usage"] = new JsonObject(); break;
+            case "http_receipt": await campaign.SaveAsync("planning-evaluation-receipts", RequestId, new(), Ct); break;
         }
         journal["effective_transport_policy_hash"] = PlanningGraphCompiler.Fingerprint(journal["effective_transport_policy"]!.ToJsonString());
         await campaign.SaveAsync(BenchmarkHttpJournal.Collection, RequestId, journal, Ct);

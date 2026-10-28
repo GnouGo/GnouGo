@@ -607,9 +607,14 @@ The older `retain-exhausted-request` shortcut cannot close this new policy.
 `--retention-kind unstarted-planning-request` covers a stopped, unexecuted
 tool-free request whose captured confirmed-response policy has an initialized
 generation journal with an empty fingerprint, zero attempts and zero backoff.
-It additionally requires the exact non-retryable `Unknown` client failure with no
-HTTP status, receipt or usage. Authentication can fail before the generation
-journal boundary; the exception's default attempt count is not physical usage.
+It additionally requires either the historical non-retryable `Unknown` client
+failure without HTTP status, or a retryable pre-generation HTTP500/502/503
+`ServiceUnavailable` failure (HTTP504 requires `Timeout`). Both paths require
+the original `LLMClientException`, default count1, no exhausted retry, provider
+code, retry-after, receipt or usage. Authentication or other client preparation
+can fail before the generation journal boundary; the exception's default attempt
+count is not physical generation usage. A recorded attempt, fingerprint or
+backoff rejects this mode, even when the client reports the same HTTP status.
 This mode binds the same original identities, policy and accounting hashes and
 permanently rejects replay and continuation. It changes no reservation or usage,
 creates no physical attempt or receipt, and makes no claim about the failure's

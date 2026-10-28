@@ -305,15 +305,21 @@ internal sealed partial class BenchmarkCampaign
             attempts.Select(a => a?["Id"]?.ToString()).Distinct(StringComparer.Ordinal).Count() != attempts.Count ||
             attempts.Any(a => a?["Id"]?.ToString() is not { Length: > 0 } id || !id.StartsWith(state.PendingCall.Id + ":", StringComparison.Ordinal))) return false;
         if (unstarted)
+        {
             // AI.Core reserves an attempt before sending generation HTTP. Authentication
             // may fail earlier; the default exception count of one is not an attempt.
             // Preserve that failure verbatim without inferring its cause or a receipt.
+            var noHttpFailure = failure["kind"]?.ToString() == "Unknown" && failure["status_code"] is null &&
+                failure["retryable"]?.GetValue<bool>() == false;
+            var upstreamFailure = failure["retryable"]?.GetValue<bool>() == true &&
+                (failure["kind"]?.ToString() == "ServiceUnavailable" && failure["status_code"]?.GetValue<int>() is 500 or 502 or 503 ||
+                 failure["kind"]?.ToString() == "Timeout" && failure["status_code"]?.GetValue<int>() == 504);
             return attempts.Count == 0 && journal["transport"]?["Fingerprint"]?.ToString() == "" &&
                 journal["transport"]?["DelayMilliseconds"]?.GetValue<double>() == 0 &&
-                failure["exception_type"]?.ToString() == "LLMClientException" && failure["kind"]?.ToString() == "Unknown" &&
-                failure["status_code"] is null && failure["safe_provider_code"] is null &&
-                failure["retryable"]?.GetValue<bool>() == false && failure["retry_exhausted"]?.GetValue<bool>() == false &&
+                failure["exception_type"]?.ToString() == "LLMClientException" && (noHttpFailure || upstreamFailure) &&
+                failure["safe_provider_code"] is null && failure["retry_exhausted"]?.GetValue<bool>() == false &&
                 failure["attempt_count"]?.GetValue<int>() == 1 && failure["retry_after_ms"] is null;
+        }
         for (var i = 0; i < attempts.Count; i++)
         {
             var attempt = attempts[i]!;
