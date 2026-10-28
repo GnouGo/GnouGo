@@ -1,5 +1,19 @@
 # Compact TaskPlan convergence
 
+## Current qualification (28 October 2026)
+
+Production **e44e08fd** retains resolved repair observations without restoring their authority. It passes 3,699 Planning cases, 789 focused host cases and 12 independently verified publication stages; full solution qualification remains pending. The package verifier caught and retained a private harness revision-tag error before the successful fresh publication. Targeted tests are not added to full-suite totals. [Technical evidence](compact-taskplan-e44e08fd-technical-validation.json).
+
+| Area | Corrected / tested | Live and business result | Unproven |
+| --- | --- | --- | --- |
+| Review evidence and admission | Window-specific originals, declarations/controls, measured atomic fallback | Source-identical a6bd5978 Collections **12k-only** experiment passes both real variants | Reproducibility and other scenarios |
+| Native implementation context | Shared eligibility and value semantics before discovery binding | Amazon remains unqualified | Complete business benefit |
+| Repair history | Both replacement drafts and typed patches retain bounded historical rejected values | e44e08fd diagnostics active; prior a6bd5978 Review PR cycle retained | Whether the context resolves the demonstrated semantic cycle |
+| A — conservation | Controlled equal-result call savings; partially realized | Successful control has 36 broad acknowledgments, zero reuse | Live savings |
+| B — transitions | Controlled equivalent traces; partially realized | No transition row in successful control | Matched live eliminated calls |
+
+The current production gate is **0/6**: two intervention-free successes per scenario on the same production source, both Collections variants each time, then the 18 baseline comparisons. The successful configuration control below is a6bd5978, not e44e08fd. Latest pre-e44e08fd dispatch readiness verified **€181.417468 available**, 42 permanent closures, no unresolved request and the unchanged €540.030104 ceiling. All unknown reservations and the single supplement remain retained. PR #120 stays Draft.
+
 ## Revision 9 Collections: final Judge transport uncertainty
 
 [Exact stopped outcome](compact-taskplan-93d3-collections-outcome.json) and [phase measurements](compact-taskplan-93d3-collections-phase-measurements.json) retain the captured requests, costs and limitations.
@@ -1699,3 +1713,12 @@ A source-identical Collections configuration experiment is frozen separately wit
 
 
 The focused repair-context correction keeps up to three retired advisory observations in fresh-v11 typed repairs and replacement drafts, gated by unchanged baseline, originals/contracts and completion claims. It does not reactivate findings, enter Judge resolution lists, widen edit paths or change cycle detection. A generic two-finding locator fixture reproduces both existing repair paths; all **275 affected cases pass with warnings as errors**. Adding the actual retained observation to request 20 increases complete size from **50,573 to 54,556 bytes / 17,114 to 18,442 estimated tokens**, within its 20k ceiling, with the response schema unchanged. This is a prospective presentation measurement, not an issued request or model-performance claim. [Reproduction, failed development checks and qualification](compact-taskplan-v11-repair-history-validation.json).
+
+
+### a6bd5978 Collections: source-identical Judge-ceiling experiment succeeds
+
+With only the Judge-input ceiling changed from 8k to 12k, Collections completes **26 logical requests / 26 attempts**, zero corrections, one reusable arithmetic group and parallel per-item calls. Both unchanged runtime oracles pass ordered/duplicate-preserving results, without effects or runtime inference, after exact artifact-bound delegated review. Planning took **1,057,461 ms**; nominal runtime **391.1113 ms**, alternate **4.982 ms**. Known usage is **88,442 input / 30,777 output / 24,546 reasoning tokens**, **€1.218670**, with no new unknown reservation. Approval/execution added no model call or planning charge. [Outcome, component reconciliation, original response audit and review provenance](compact-taskplan-a6bd5978-collections-judge12k-success.json).
+
+Three Judge requests exceed the old 8k ceiling; the maximum is **9,225 estimated tokens / 26,905 complete bytes**, within the captured 12k limit. All 26 original completion texts match saved receipts, with zero empty responses, output-limit markers or whitespace outside strings. This is one successful configuration diagnostic; the stopped 8k control cannot supply completed-trace efficiency or architecture-only causal evidence. The independent whole-case denominator is one, giving 26 calls per completed business unit. Stable host obligation metrics are retained separately.
+
+The run has 36 broad proposition acknowledgments, zero reuse and zero transition rows: it establishes no live A/B savings. Exactly three contributive tasks were independently reviewed; no redundant alias was observed. The initial delegated-review metadata used descriptive labels rather than frozen obligation IDs and was rejected before receipt files, application writes or execution; correcting only that administrative mapping did not alter planning, expected results or oracles. This is not a planning intervention. A fresh e44e08fd Collections diagnostic now uses the same 12k profile.
