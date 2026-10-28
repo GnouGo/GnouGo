@@ -115,7 +115,7 @@ public sealed class GenericProofBenchmarkTests
             new JsonObject { ["commandName"] = "cat_file", ["parameters"] = new JsonObject { ["path"] = "seed.txt" } }, Ct));
         Assert.Empty(sample.Calls);
         Assert.True(JsonNode.DeepEquals(before, sample.Snapshot()));
-        var reviewed = ReviewRead(plan, catalog, root);
+        var reviewed = await ReviewReadAsync(plan, catalog, root);
         var authority = reviewed.Authority();
         var approved = await new HybridWorkflowPlanner().AdvanceAsync(reviewed.State, authority.Command(),
             new DelegatedTestReviewAuthority.Runtime(new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask), authority), Ct);
@@ -218,7 +218,7 @@ public sealed class GenericProofBenchmarkTests
         foreach (var defect in new[] { "authorization", "scenario", "source", "workspace", "request_name", "task", "requirement", "obligation", "evidence",
             "receipt_origin", "receipt_tenant", "receipt_session", "receipt_revision", "receipt_artifact", "receipt_requirements", "duplicate_requirements" })
         {
-            var fixture = ReviewRead(ReadGroup(operation), catalog, root);
+            var fixture = await ReviewReadAsync(ReadGroup(operation), catalog, root);
             switch (defect)
             {
                 case "authorization": fixture = fixture with { Authorization = fixture.Authorization with { UserAuthorization = "" } }; break;
@@ -236,7 +236,7 @@ public sealed class GenericProofBenchmarkTests
                 case "receipt_revision": fixture = fixture with { Receipt = fixture.Receipt with { ReviewedRevision = 2 } }; break;
                 case "receipt_artifact": fixture = fixture with { Receipt = fixture.Receipt with { ArtifactHash = new('0', 64) } }; break;
                 case "receipt_requirements": fixture = fixture with { Receipt = fixture.Receipt with { ReviewedRequirementIds = ["another-requirement"] } }; break;
-                case "duplicate_requirements": fixture = fixture with { Receipt = fixture.Receipt with { ReviewedRequirementIds = ["read_and_compute", "read_and_compute"] } }; break;
+                case "duplicate_requirements": fixture = fixture with { Receipt = fixture.Receipt with { ReviewedRequirementIds = [fixture.State.Requirements!.Outcomes[0].Id, fixture.State.Requirements.Outcomes[0].Id] } }; break;
             }
             fixture = fixture with { Receipt = fixture.Receipt with { AuthorizationHash = AuthorizationHash(fixture.Authorization) } };
             if (defect is "requirement" or "obligation") fixture = fixture with { Receipt = fixture.Receipt with { EvidenceHash = EvidenceHash(fixture.Evidence) } };
@@ -244,7 +244,7 @@ public sealed class GenericProofBenchmarkTests
             Assert.Throws<PlanningConflictException>(() => fixture.Authority().Validate(fixture.State));
             Assert.Equal(snapshot, JsonSerializer.Serialize(fixture.State, PlanningJsonContext.Default.PlanningSession));
         }
-        var valid = ReviewRead(ReadGroup(operation), catalog, root);
+        var valid = await ReviewReadAsync(ReadGroup(operation), catalog, root);
         var authority = valid.Authority();
         authority.Validate(valid.State);
         sample.BindProofAuthority(authority);
@@ -265,7 +265,7 @@ public sealed class GenericProofBenchmarkTests
         var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
         foreach (var defect in new[] { "revision", "artifact", "reviewer", "owner", "missing_host_authority" })
         {
-            var fixture = ReviewRead(ReadGroup(operation), catalog, root);
+            var fixture = await ReviewReadAsync(ReadGroup(operation), catalog, root);
             fixture = defect switch
             {
                 "revision" => fixture with { Receipt = fixture.Receipt with { ReviewedRevision = 2 } },
@@ -280,7 +280,7 @@ public sealed class GenericProofBenchmarkTests
                 defect == "missing_host_authority" ? runtime : new DelegatedTestReviewAuthority.Runtime(runtime, authority), Ct));
             Assert.Equal(snapshot, JsonSerializer.Serialize(fixture.State, PlanningJsonContext.Default.PlanningSession));
         }
-        var valid = ReviewRead(ReadGroup(operation), catalog, root);
+        var valid = await ReviewReadAsync(ReadGroup(operation), catalog, root);
         var accepted = valid.Authority();
         var approved = await new HybridWorkflowPlanner().AdvanceAsync(valid.State, accepted.Command(),
             new DelegatedTestReviewAuthority.Runtime(runtime, accepted), Ct);
@@ -300,7 +300,7 @@ public sealed class GenericProofBenchmarkTests
         var engine = new WorkflowEngine { McpClientFactory = sample.Factory };
         var catalog = await Discover(engine);
         var operation = TaskOperations.Describe(Assert.Single(catalog.Capabilities, c => c.Server == "filesystem" && c.Method == "cmd_run")).Id;
-        var fixture = ReviewRead(ReadGroup(operation), catalog, root);
+        var fixture = await ReviewReadAsync(ReadGroup(operation), catalog, root);
         var authority = fixture.Authority();
         authority.Validate(fixture.State);
         sample.BindProofAuthority(authority);
@@ -390,19 +390,39 @@ public sealed class GenericProofBenchmarkTests
         }
     }
 
-    private static ReadReview ReviewRead(TaskPlan plan, PlanningCatalog catalog, string workspace)
+    private static async Task<ReadReview> ReviewReadAsync(TaskPlan plan, PlanningCatalog catalog, string workspace)
     {
         const string campaign = "isolated-proof-test", run = "authored-proof-run", source = "authored-proof-source", reviewer = "fixture-reviewer";
-        var requirement = new PlanningRequirement("read_and_compute", PlanningBenchmarkCases.Prompt(PlanningBenchmarkCases.ReadGroupProofCase));
-        var state = new PlanningSession { Revision = 3, Status = PlanningStatus.FinalReview, Plan = plan, Catalog = catalog,
-            Request = new() { TenantId = "benchmark", SessionId = run, Name = PlanningBenchmarkCases.ReadGroupProofCase, Prompt = requirement.Description },
-            Requirements = new() { Outcomes = [requirement], Inputs = NumericInputs(),
-                Outputs = [new() { Name = "leftResult", Type = new() { Kind = "number" } }, new() { Name = "rightResult", Type = new() { Kind = "number" } }] } };
-        var compilation = new TaskPlanCompiler().Compile(plan, catalog);
-        Assert.Empty(compilation.Diagnostics);
-        state.Graph = compilation.Graph!;
-        PlanningConfirmationGuards.Apply(state.Graph, catalog);
-        state.Yaml = new PlanningGraphCompiler().Compile(state.Graph, catalog, state.Request.Name);
+        var model = new AuthoredReadReviewModel(plan);
+        var operation = Assert.Single(plan.Root.Tasks, task => task.Kind == "operation").Operation;
+        var reviewedCatalog = JsonSerializer.Deserialize(JsonSerializer.Serialize(catalog, PlanningJsonContext.Default.PlanningCatalog),
+            PlanningJsonContext.Default.PlanningCatalog)!;
+        reviewedCatalog.Capabilities.RemoveAll(capability => TaskOperations.Describe(capability).Id != operation);
+        Assert.Single(reviewedCatalog.Capabilities);
+        var state = new PlanningSession { Catalog = reviewedCatalog, Request = new()
+        {
+            TenantId = "benchmark", SessionId = run, Name = PlanningBenchmarkCases.ReadGroupProofCase,
+            Prompt = PlanningBenchmarkCases.Prompt(PlanningBenchmarkCases.ReadGroupProofCase), Baseline = plan,
+            Policy = catalog.Policy, Options = new()
+            {
+                ["construction_limits"] = JsonSerializer.SerializeToNode(new PlanningConstructionOptions
+                {
+                    PhasePolicy = new() { Navigation = new() { TargetInputTokens = 3_000, MaxInputTokens = 12_000 } }
+                }, PlanningJsonContext.Default.PlanningConstructionOptions)
+            }
+        } };
+        var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { LLMClient = model }, (_, _) => Task.CompletedTask);
+        var planner = new HybridWorkflowPlanner();
+        for (var advance = 0; advance < 20 && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); advance++)
+            state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        Assert.Null(model.Failure);
+        Assert.True(state.Status == PlanningStatus.FinalReview,
+            state.Status + "; " + string.Join("; ", state.Diagnostics.Select(diagnostic => diagnostic.Code + ":" + diagnostic.Message)));
+        Assert.Equal(JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan),
+            JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
+        Assert.Equal(["construction_global_judge"], model.Reviews);
+        PlanningArtifactApproval.Verify(state);
+        var requirement = Assert.Single(state.Requirements!.Outcomes);
         var authorization = new DelegatedTestAuthorization("isolated-proof-authorization", "Explicit authored test delegation for this disposable seed read only",
             reviewer, campaign, run, PlanningBenchmarkCases.ReadGroupProofCase, workspace, source);
         var evidence = new DelegatedReviewEvidence([new(requirement.Id,
@@ -416,6 +436,71 @@ public sealed class GenericProofBenchmarkTests
             PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(evidence, DelegatedTestJsonContext.Default.DelegatedReviewEvidence)),
             "benchmark", run, state.Revision, state.ComputeArtifactHash()!, [requirement.Id], DateTimeOffset.UtcNow);
         return new(state, authorization, evidence, receipt, workspace);
+    }
+
+    // The caller supplies an authored baseline, not an already approved artifact.
+    // Index it and review its unchanged executable behavior through ordinary requests.
+    private sealed class AuthoredReadReviewModel(TaskPlan plan) : ILLMClient, ILLMCapabilityResolver
+    {
+        private readonly CurrentPlanningFixture.LiteralModel _capabilities = new();
+        internal List<string> Reviews { get; } = [];
+        internal Exception? Failure;
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct)
+            => _capabilities.InputTokenAllowanceAsync(provider, model, outputTokens, ct);
+        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct)
+            => _capabilities.SupportsStructuredOutputAsync(provider, model, ct);
+        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct)
+            => _capabilities.SupportedReasoningLevelsAsync(provider, model, ct);
+
+        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+        {
+            try
+            {
+                var schema = request.StructuredOutputSchema!.AsObject();
+                var context = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!.AsObject();
+                var purpose = schema["title"]!.ToString();
+                JsonObject response;
+                if (purpose == "construction_intent" && schema["properties"]!["clauses"] is not null)
+                    response = new() { ["sourceId"] = context["sources"]![0]!["id"]!.DeepClone(), ["clauses"] = new JsonArray(new JsonObject
+                        { ["text"] = context["sources"]![0]!["text"]!.DeepClone(), ["kind"] = "requirement", ["interfaces"] = "both" }) };
+                else if (purpose == "construction_intent")
+                {
+                    var outputs = new List<TaskInput> { new() { Name = "leftResult", Type = new() { Kind = "number" } },
+                        new() { Name = "rightResult", Type = new() { Kind = "number" } } };
+                    response = new() { ["sourceId"] = context["sources"]![0]!["id"]!.DeepClone(), ["interfaces"] = new JsonObject
+                    {
+                        ["inputs"] = JsonSerializer.SerializeToNode(plan.Inputs, PlanningJsonContext.Default.ListTaskInput),
+                        ["outputs"] = JsonSerializer.SerializeToNode(outputs, PlanningJsonContext.Default.ListTaskInput),
+                        ["dispositions"] = new JsonArray(context["sources"]!.AsArray().Select(item => (JsonNode)new JsonObject
+                        {
+                            ["sourceId"] = item!["id"]!.DeepClone(), ["version"] = item["version"]!.DeepClone(), ["kind"] = "interfaces",
+                            ["inputs"] = new JsonArray("left", "right"), ["outputs"] = new JsonArray("leftResult", "rightResult"),
+                            ["reason"] = "The original declares required numeric caller inputs and numeric public results; seed.txt is an internal audit observation.",
+                            ["evidence"] = new JsonArray(new JsonObject { ["sourceId"] = item["id"]!.DeepClone(), ["version"] = item["version"]!.DeepClone() })
+                        }).ToArray())
+                    } };
+                }
+                else if (purpose == "construction_select")
+                    response = new() { ["baseHash"] = schema["properties"]!["baseHash"]!["enum"]![0]!.DeepClone(), ["step"] = new JsonObject
+                    {
+                        ["scope"] = "/root", ["kind"] = "close", ["objective"] = "Review and close the authored read and contributing reusable computations.",
+                        ["requirementIds"] = new JsonArray("req_0"), ["closeRequirementIds"] = new JsonArray("req_0"),
+                        ["inputs"] = new JsonArray(), ["dependencyTaskIds"] = new JsonArray(), ["expectedOutputs"] = new JsonArray(),
+                        ["operationIds"] = new JsonArray(), ["outputNames"] = new JsonArray(), ["closeScopes"] = new JsonArray("/root")
+                    } };
+                else if (purpose == "construction_global_judge")
+                {
+                    Reviews.Add(purpose);
+                    response = new() { ["decision"] = new JsonObject { ["verdict"] = "ok",
+                        ["reason"] = "The exact seed audit is isolated from the contributing group calls; public numeric results, ordering and effect restrictions match the original." } };
+                }
+                else throw new InvalidOperationException("Unexpected authored-baseline review request: " + purpose);
+                var wire = PlanningCorpus.Transport(response, schema, schema);
+                Assert.Empty(PlanningContractValidation.ValidateInstance(wire, schema));
+                return Task.FromResult(new LLMResponse { Json = wire, Usage = new JsonObject { ["input_tokens"] = 10, ["output_tokens"] = 5 } });
+            }
+            catch (Exception error) { Failure = error; throw; }
+        }
     }
 
     private static async Task<PlanningCatalog> Discover(WorkflowEngine engine, bool requireExternalConfirmation = false)

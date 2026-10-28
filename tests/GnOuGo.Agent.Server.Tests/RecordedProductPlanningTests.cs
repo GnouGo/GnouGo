@@ -75,7 +75,7 @@ public sealed class RecordedProductPlanningTests(ITestOutputHelper output)
     [InlineData("invalid", "chaussure geox homme 45", true)]
     [InlineData("cancelled", "chaussure geox homme 45", true)]
     [InlineData("write_failed", "chaussure geox homme 45", true)]
-    public async Task CapturedOrSyntheticPlanBindsProductQueriesAndWritesActualXlsx(string variant, string query, bool compact = false)
+    public async Task SyntheticCurrentProjectionBindsProductQueriesAndWritesActualXlsx(string variant, string query, bool compact = false)
     {
         var root = Path.Combine(Path.GetTempPath(), "gnougo-recorded-product-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -89,7 +89,11 @@ public sealed class RecordedProductPlanningTests(ITestOutputHelper output)
             var replay = compact ? new Replay(Recording("synthetic-compact")) : new Replay(Recording("retained-complete"), Recording("retained-complete-schemas"));
             var session = await Plan(factory, replay);
             Assert.True(session.Status == PlanningStatus.FinalReview, string.Join("; ", session.Diagnostics.Select(d => d.Code + ": " + d.Location + ": " + d.Message)));
-            Assert.Equal(0, replay.Calls); Assert.Equal(2, session.Discovery.Pages.Count);
+            Assert.Equal(0, replay.Calls);
+            // Every configured source gets its own real metadata page, including empty sources.
+            Assert.Equal(factory.ServerMetadata.Count, session.Discovery.Sources.Count);
+            Assert.Equal(session.Discovery.Sources.Select(source => source.Id).Order(StringComparer.Ordinal),
+                session.Discovery.Pages.Select(page => page.SourceId).Order(StringComparer.Ordinal));
             Assert.Equal(0, factory.InvocationAttempts); Assert.Null(session.ApprovedHash);
             Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(session));
 
@@ -168,6 +172,21 @@ public sealed class RecordedProductPlanningTests(ITestOutputHelper output)
         var plan = proposals.Last(r => r?["plan"] is not null)!["plan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
         var requirements = proposals.First(r => r?["requirements"] is not null)!["requirements"]!.Deserialize(PlanningJsonContext.Default.PlanningRequirements)!;
         foreach (var task in TaskPlanRevisions.Tasks(plan).Where(t => t.Kind == "transform" && t.Mode is null)) task.Mode = "interpret";
+        // Synthetic current-runtime adaptation only; original recording bytes remain immutable.
+        // Preserve the foreach aggregate's existing row export under its exact named port.
+        // The current compiler validates the explicit object against those producer contracts.
+        var aggregateIndex = plan.Root.Outputs.FindIndex(export => export.Name == "articlesExtraits");
+        if (aggregateIndex >= 0)
+        {
+            var previous = plan.Root.Outputs[aggregateIndex];
+            var loop = plan.Root.Tasks.Single(task => task.Id == previous.Value.Source);
+            Assert.Equal("foreach", loop.Kind); Assert.Null(previous.Value.Port);
+            plan.Root.Outputs[aggregateIndex] = new(previous.Name, new()
+            {
+                Kind = "object", Members = loop.Body!.Outputs.Select(export => new TaskOutput(export.Name,
+                    new() { Kind = "output", Source = loop.Id, Port = export.Name })).ToList()
+            });
+        }
         var state = RecordedPlanCompilation.CompileStatic(new() { Plan = plan, Requirements = requirements }, catalog, request);
         state.Discovery = discovery;
         return state;

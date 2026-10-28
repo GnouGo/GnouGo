@@ -124,14 +124,9 @@ public sealed class LiveWorkflowReviewTests
         var ct = TestContext.Current.CancellationToken;
         var checkpoints = new List<PlanningSession>();
         var runtime = new WorkflowPlanningRuntime(new WorkflowEngine(), (s, _) => { checkpoints.Add(s); return Task.CompletedTask; });
-        var state = new PlanningSession { Revision = 3,
-            Request = new() { TenantId = "benchmark", SessionId = "fresh-run", Name = "Review fixture", Prompt = "Return a value" },
-            Status = PlanningStatus.FinalReview, Requirements = PlanningCorpus.Requirements("local"), Plan = PlanningCorpus.LiteralResult() };
-        state.Catalog = await runtime.DiscoverAsync(state.Request, ct);
-        state.Graph = new TaskPlanCompiler().Compile(state.Plan, state.Catalog).Graph!;
-        state.Yaml = new PlanningGraphCompiler().Compile(state.Graph, state.Catalog, state.Request.Name);
+        var state = await CurrentPlanningFixture.LiteralAsync("benchmark", "fresh-run", null, ct);
         var run = new JsonObject { ["session"] = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession) };
-        var id = Assert.Single(state.Requirements.Outcomes).Id;
+        var id = Assert.Single(state.Requirements!.Outcomes).Id;
         var command = new PlanningCommand { Kind = "approve", ExpectedRevision = state.Revision,
             ArtifactHash = state.ComputeArtifactHash(), ReviewedRequirementIds = [id] };
         switch (variant)

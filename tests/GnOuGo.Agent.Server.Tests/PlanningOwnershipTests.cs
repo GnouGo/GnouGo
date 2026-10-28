@@ -15,7 +15,7 @@ public sealed class PlanningOwnershipTests
     public async Task CompetingCoordinatorsLeaveAnActiveRequestRunningAndDispatchOnlyOnce()
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var state = new PlanningSession { Request = new() { TenantId = "planning-tests", Prompt = "Return a value" } };
+        var state = CapturedSession();
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         var client = new PausedClient();
         var planner = new OneCallPlanner();
@@ -43,7 +43,7 @@ public sealed class PlanningOwnershipTests
     public async Task CancellationFromAnotherCoordinatorPreservesLateReceiptAndAccounting()
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var state = new PlanningSession { Request = new() { TenantId = "planning-tests", Prompt = "Return a value" } };
+        var state = CapturedSession();
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         var client = new PausedClient { CompleteOnCancellation = true };
         using var first = PlanningSessionLifecycleTests.Create(fixture, new OneCallPlanner(), PlanningSessionLifecycleTests.AgentCatalog(), client);
@@ -89,6 +89,15 @@ public sealed class PlanningOwnershipTests
         }
     }
 
+    private static PlanningSession CapturedSession()
+    {
+        var state = new PlanningSession { Request = new() { TenantId = "planning-tests", Prompt = "Return a value" } };
+        state.Request.Options["construction_limits"] = JsonSerializer.SerializeToNode(
+            new PlanningConstructionOptions { PhasePolicy = new() }, PlanningJsonContext.Default.PlanningConstructionOptions);
+        PlanningTransportPolicies.Capture(state.Request, new() { MaxAttempts = 1 });
+        return state;
+    }
+
     private sealed class PausedClient : ILLMClient, ILLMCapabilityResolver
     {
         public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(128000);
@@ -115,14 +124,20 @@ public sealed class PlanningOwnershipTests
         {
             state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
             if (command.Kind == "cancel") { state.Status = PlanningStatus.Cancelled; state.Revision++; return state; }
-            var request = PlanningGenerationPolicy.Apply(new LLMRequest { Provider = "openai", Model = "gpt-4o-mini", Prompt = "Return a value" }, state.Request.Generation);
+            const string purpose = "construction_draft";
+            var request = PlanningConstructionPhasePolicies.Apply(new LLMRequest
+            {
+                Provider = "openai", Model = "gpt-4o-mini", Prompt = "Return a value",
+                StructuredOutputSchema = new JsonObject { ["title"] = purpose, ["type"] = "object" },
+                RequiredReviewCalls = 0
+            }, state.Request, purpose);
             request.ClientRequestId = state.Request.SessionId + ":1:" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
-            state.PendingCall = new() { Id = request.ClientRequestId, Purpose = "tasks", Request = request };
+            state.PendingCall = new() { Id = request.ClientRequestId, Purpose = purpose, Request = request };
             state.ModelCalls = 1;
             state.Status = PlanningStatus.Generating;
             state.Revision++;
             await runtime.CheckpointAsync(state, ct);
-            await runtime.CallAsync(request, "tasks", ct);
+            await runtime.CallAsync(request, purpose, ct);
             ct.ThrowIfCancellationRequested();
             state.PendingCall = null;
             state.Status = PlanningStatus.FinalReview;

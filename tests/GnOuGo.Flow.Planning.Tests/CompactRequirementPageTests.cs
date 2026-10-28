@@ -188,19 +188,22 @@ public sealed class CompactRequirementPageTests
     [Fact]
     public async Task CardinalityAndOriginalPageBoundariesStayStableAsUnrelatedRequirementsGrow()
     {
-        var clauses = Enumerable.Range(0, 10).Select(index => $"Preserve value {index}, including 界😀. ").ToArray();
+        var clauses = Enumerable.Range(0, 10).Select(index => $"Preserve {index}: 界😀. ").ToArray();
         var (state, _) = await Ready(clauses);
         AppendPage(state, "Keep the next independent result.");
         PlanningConstruction.LoadEvidence(state, ["page:requirements:0"], followup: Followup,
             purpose: PlanningCompactConstruction.SelectPurpose);
         var page = state.Construction!.Evidence!["page:requirements:0"]!;
         Assert.Equal(8, page["items"]!.AsArray().Count);
+        Assert.Equal(clauses.Take(8), page["items"]!.AsArray().Select(item => item!["original"]!.ToString()));
         Assert.Equal("page:requirements:8", page["next"]!.ToString());
         Assert.Equal(7, state.Construction.Compact!.RequirementOffset);
         Assert.Equal(11, PlanningCompactConstruction.SelectionContext(state)["requirements"]!.AsArray().Count);
         PlanningConstruction.LoadEvidence(state, ["page:requirements:8"], followup: Followup,
             purpose: PlanningCompactConstruction.SelectPurpose);
         Assert.Equal(["req_8", "req_9"], Ids(state.Construction.Evidence!["page:requirements:8"]!["items"]!));
+        Assert.Equal(clauses.Skip(8), state.Construction.Evidence["page:requirements:8"]!["items"]!.AsArray()
+            .Select(item => item!["original"]!.ToString()));
         Assert.Equal("page:requirements:10", state.Construction.Evidence!["page:requirements:8"]!["next"]!.ToString());
         Assert.Equal(9, state.Construction.Compact.RequirementOffset);
         var before = Followup(state);
