@@ -2,7 +2,7 @@
 
 ## Current qualification (28 October 2026)
 
-Production **6469a1a3** extends the existing draft pager to unused names on producer-owned port directories. Consumed schemas, arguments, descriptions, explicitly retrieved evidence and shared anchors remain intact. The [exact-hash repair reconstruction](compact-taskplan-v11-producer-navigation-repair-admission.json) improves **22,659→21,731 estimated tokens** under the unchanged22k ceiling and retains all five original requirement rows instead of two. It passes **290 focused and3,705 full Planning cases** with warnings as errors; counts overlap. Its isolated benchmark build verifies all568 MCP pins. Fresh live qualification is pending on this new source.
+Production **6469a1a3** extends the existing draft pager to unused names on producer-owned port directories. Consumed schemas, arguments, descriptions, explicitly retrieved evidence and shared anchors remain intact. The [exact-hash repair reconstruction](compact-taskplan-v11-producer-navigation-repair-admission.json) improves **22,659→21,731 estimated tokens** under the unchanged22k ceiling and retains all five original requirement rows instead of two. [Technical qualification](compact-taskplan-6469a1a3-technical-validation.json) passes **290 focused and3,705 full Planning cases** with warnings as errors; counts overlap. All12 independently verified package/AOT/encrypted-storage stages pass, and its benchmark build verifies568 MCP pins. Fresh Collections recovered from one recorded HTTP500 retry and is in selection. No new-source runtime result is claimed.
 
 ### Retained b2ee diagnostic cohort
 
