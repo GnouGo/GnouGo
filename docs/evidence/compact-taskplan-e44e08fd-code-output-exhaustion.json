@@ -1,0 +1,163 @@
+{
+  "source": "e44e08fd04a4f50b3bc89824d3bc3821def7f864",
+  "harness_source": "e44e08fd04a4f50b3bc89824d3bc3821def7f864",
+  "cohort": "compactre44e08fdcode20nhv11a",
+  "original_observed_freeze_sha256": "58e83e72b155b1c5e5632cae8c81c6cd1d05ddb1bcce865aae8371ae24a45e06",
+  "profile": {
+    "version": 1,
+    "navigation": {
+      "targetInputTokens": 3000,
+      "maxInputTokens": 18000,
+      "reasoning": "high",
+      "outputTokens": 32768
+    },
+    "draft": {
+      "targetInputTokens": 8000,
+      "maxInputTokens": 20000,
+      "reasoning": "medium",
+      "outputTokens": 16384
+    },
+    "review": {
+      "targetInputTokens": 4000,
+      "maxInputTokens": 20000,
+      "reasoning": "high",
+      "outputTokens": 8192
+    }
+  },
+  "logical_calls": 31,
+  "physical_attempts": 32,
+  "corrections": 1,
+  "checkpoints": 3,
+  "artifact": false,
+  "runtime_started": false,
+  "planning_ms": 2011614,
+  "accounting": {
+    "planning": {
+      "logical_calls": 31,
+      "physical_attempts": 32,
+      "known_input_tokens": 248247,
+      "known_output_tokens": 66247,
+      "known_cost_eur": "2.8814323962516733601070950469",
+      "unknown_attempts": 1,
+      "reserved_input_tokens": 18000,
+      "reserved_output_tokens": 32768,
+      "reserved_cost_eur": "0.9576439089692101740294511379"
+    },
+    "execution": {
+      "logical_calls": 0,
+      "physical_attempts": 0,
+      "known_input_tokens": 0,
+      "known_output_tokens": 0,
+      "known_cost_eur": 0,
+      "unknown_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0
+    },
+    "campaign": {
+      "calls": 5415,
+      "session_calls": 0,
+      "known_input_tokens": 18816808,
+      "known_output_tokens": 7123880,
+      "known_cost_eur": "274.53286106064115462412462717",
+      "reserved_input_tokens": 1748265,
+      "reserved_output_tokens": 3211264,
+      "reserved_cost_eur": "93.75716409760610022066404782",
+      "cost_upper_bound_eur": "368.29002515824725484478867499",
+      "unknown_attempts": 113
+    }
+  },
+  "reasoning_tokens": 56787,
+  "last_response": {
+    "purpose": "construction_local_judge",
+    "completion_status": "output_limit",
+    "content_bytes": 0,
+    "reasoning_tokens": 8192
+  },
+  "failure": "Received mandatory-Judge output exhaustion.8192output tokens, all reasoning; no visible text. Not transport uncertainty.",
+  "classification": "CONSTRUCTION_REVIEW_INCONCLUSIVE / MODEL_OUTPUT_LIMIT",
+  "review_coverage": "Two clean windows do not accept the candidate when another mandatory window cannot complete.",
+  "progress_observation": "A reviewed transform bound the exact missing repository URL and resumed the waiting clone at the next draft without another selection. No equivalent complete control trace or saved-call claim.",
+  "repair_history_fix_exercised": false,
+  "independent_business_success": false,
+  "calls_per_complete_business_outcome": null,
+  "measurements": {
+    "construction_discovery": {
+      "constructed": 9,
+      "admitted": 9,
+      "complete_bytes": {
+        "p50": 43712.0,
+        "p95": 52315,
+        "maximum": 52315
+      },
+      "estimated_input_tokens": {
+        "p50": 14827.0,
+        "p95": 17695,
+        "maximum": 17695
+      },
+      "component_bytes_reconcile": true
+    },
+    "construction_draft": {
+      "constructed": 6,
+      "admitted": 6,
+      "complete_bytes": {
+        "p50": 43505.0,
+        "p95": 59110,
+        "maximum": 59110
+      },
+      "estimated_input_tokens": {
+        "p50": 14758.0,
+        "p95": 19960,
+        "maximum": 19960
+      },
+      "component_bytes_reconcile": true
+    },
+    "construction_intent": {
+      "constructed": 6,
+      "admitted": 6,
+      "complete_bytes": {
+        "p50": 7115.0,
+        "p95": 11875,
+        "maximum": 11875
+      },
+      "estimated_input_tokens": {
+        "p50": 2628.0,
+        "p95": 4215,
+        "maximum": 4215
+      },
+      "component_bytes_reconcile": true
+    },
+    "construction_local_judge": {
+      "constructed": 6,
+      "admitted": 6,
+      "complete_bytes": {
+        "p50": 55104.5,
+        "p95": 59117,
+        "maximum": 59117
+      },
+      "estimated_input_tokens": {
+        "p50": 18624.5,
+        "p95": 19962,
+        "maximum": 19962
+      },
+      "component_bytes_reconcile": true
+    },
+    "construction_select": {
+      "constructed": 4,
+      "admitted": 4,
+      "complete_bytes": {
+        "p50": 23649.0,
+        "p95": 33963,
+        "maximum": 33963
+      },
+      "estimated_input_tokens": {
+        "p50": 8139.5,
+        "p95": 11577,
+        "maximum": 11577
+      },
+      "component_bytes_reconcile": true
+    }
+  },
+  "retained_encrypted_run_sha256": "10b1fd64a32d5262c98912e88040c1c99123d686b926428679eecbac29dc9aaf",
+  "external_evidence_gap": "User deleted old cohort directory while planning active. Encrypted records reinspected; terminal directory restored only for actual exit status. No old freeze recreated, no replay or reservation release."
+}
