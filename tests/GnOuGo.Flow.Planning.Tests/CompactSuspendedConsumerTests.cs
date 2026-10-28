@@ -13,6 +13,49 @@ public sealed class CompactSuspendedConsumerTests
     private const string ResumeAction = "resumeStep (only when offered, with its exact producer checkpoint and binding), ";
 
     [Theory]
+    [InlineData(10)]
+    [InlineData(11)]
+    public void DeferredBindingPresentsTheSharedNativeValueContractBeforeDrafting(int presentation)
+    {
+        var state = State(presentation);
+        state.Diagnostics.Clear();
+        state.Catalog!.AllowedStepTypes = ["set", "mapping.dynamic", "llm.call", "template.render"];
+        state.Requirements!.Inputs = [new() { Name = "amount", Type = new() { Kind = "number" }, Required = true }];
+        state.Plan!.Inputs = state.Requirements.Inputs.ToList();
+        state.Construction!.Compact!.CurrentStep = new()
+        {
+            Id = "format_prerequisite", Scope = "/root", Kind = null, RequirementIds = ["req"],
+            Objective = "Produce a formatted label from the numeric caller input.",
+            Inputs = [new() { Kind = "input", Source = "amount" }], ExpectedOutputs = ["label"]
+        };
+        var before = Snapshot(state);
+        var context = PlanningCompactConstruction.DiscoveryContext(state);
+        var schema = PlanningCompactConstruction.DiscoverySchema(state);
+        var proposal = PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state), context,
+            schema, PlanningCompactConstruction.DiscoveryPurpose);
+        var request = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.DiscoveryPurpose, proposal.Prompt,
+            schema, state.Construction.Limits.DraftOutputTokens);
+        if (presentation == 11)
+        {
+            Assert.Contains(PlanningCompactConstruction.ValueSemantics, request.Prompt, StringComparison.Ordinal);
+            Assert.Equal(2, request.Prompt.Split(PlanningCompactConstruction.ValueSemantics, StringSplitOptions.None).Length);
+            Assert.Contains(PlanningCompactConstruction.ValueSemantics, PlanningCompactConstruction.SelectGuidance(state), StringComparison.Ordinal);
+        }
+        else Assert.DoesNotContain(PlanningCompactConstruction.ValueSemantics, request.Prompt, StringComparison.Ordinal);
+        Assert.Contains(PlanningCompactConstruction.TransformSemantics, request.Prompt, StringComparison.Ordinal);
+        var response = PlanningCorpus.Transport(new JsonObject { ["binding"] = new JsonObject
+        {
+            ["kind"] = "value", ["operationIds"] = new JsonArray(), ["groupId"] = null, ["closeScopes"] = null
+        } }, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject());
+        Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response, request.StructuredOutputSchema!));
+        var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.DiscoveryPurpose).MaxInputTokens;
+        var measurement = PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, limit);
+        Assert.InRange(measurement.EstimatedInputTokens, 1, limit);
+        Assert.Equal(measurement.CompleteRequestBytes, measurement.Components.Sum(component => component.SerializedBytes));
+        Assert.Equal(before, Snapshot(state));
+    }
+
+    [Theory]
     [InlineData(10, 0)]
     [InlineData(11, 0)]
     [InlineData(11, 1)]

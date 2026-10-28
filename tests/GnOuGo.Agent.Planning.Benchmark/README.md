@@ -1509,7 +1509,7 @@ evidence rather than a general reliability claim.
 
 Fresh presentation 11 retains source-window review headroom under the captured physical-call limit. Permanent retention compares the exact captured presentation for versions 6–11; a missing or mismatched capture cannot establish abandonment eligibility or release any reservation.
 
-Fresh version-11 selection and deferred discovery share captured local-computation eligibility. These catalog facts are navigation evidence only. Freeze the source correction separately from any model/output experiment; a received output-limit response is retained and is not replayed to test the new context.
+Fresh version-11 selection and deferred discovery share captured local-computation eligibility and native value semantics before implementation binding. These catalog facts are navigation evidence only. Freeze the source correction separately from any model/output experiment; a received output-limit response is retained and is not replayed to test the new context.
 
 The opt-in generic proof oracle is `generic-proof-artifact-v2`. Forbidden dependencies on the opaque read include `output` and `present` recursively in values and control predicates. Contribution remains result-dataflow based: a presence guard cannot stand in for consuming the shared numeric result. Collections keeps `synthetic-artifact-v1`; measured generic arms must both capture v2 before comparison.
 

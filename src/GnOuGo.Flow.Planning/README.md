@@ -1164,4 +1164,4 @@ fixtures and replay establish mechanism behavior, not real-model benefit. The Ju
 remains disabled by default; paid evaluation and any future default activation require
 separate decisions based on frozen, comparable evidence.
 
-Version-11 navigation presents the same captured local-computation eligibility during selection and deferred discovery. It changes neither compiler semantics nor runtime availability/permission checks; implementation bindings still require normal validation and scoped review.
+Version-11 navigation presents the same captured local-computation eligibility during selection and deferred discovery. Discovery also receives the existing shared native value semantics before binding a kind, rather than learning its restrictions only during drafting. It changes neither compiler semantics nor runtime availability/permission checks; implementation bindings still require normal validation and scoped review.
