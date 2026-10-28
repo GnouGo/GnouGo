@@ -4,17 +4,19 @@
 
 Production **b2ee3732** adds lossless selected-schema metadata sharing and optional output-port pagination before draft admission. The [retained-state reconstruction](compact-taskplan-v11-draft-admission-projection.json) falls from **70,979 bytes / 23,916 estimated tokens to 64,149 / 21,639**, within the unchanged 22k limit. It is a structural reconstruction, not an exact issued-request replay. Explicit evidence, selected closures, consumed producer facts, permissions and model settings remain unchanged. [Technical validation](compact-taskplan-b2ee3732-technical-validation.json): 3,703 Planning tests and 12 independently verified package/AOT/encrypted-storage stages pass. The 288 focused tests overlap; full solution and CI remain pending.
 
-A fresh Collections diagnostic is active on b2ee3732. Its new manifest binds the same profile recovered from the encrypted e44 control, unchanged scenario/oracle sources and all 568 MCP pins. The campaign lease check verified **€171.74007867445904969765627231 available**, 42 permanent closures, no unresolved identity and unchanged €540.0301038327063045424449473 ceiling. This predates the active run; unknown reservations and the single supplement remain retained.
+[Fresh b2ee Collections](compact-taskplan-b2ee3732-collections-runtime.json) passes both real variants, with no unwanted effects or planning correction: **29 logical requests /30 attempts**, three contributive tasks and no forwarding alias. Known cost is **€1.540888**, plus **€0.930870** retained for an earlier failed physical attempt. Planning took **1,510,095ms**. The private reviewer initially used prose instead of the required fixed obligation IDs; authority validation rejected this before receipt creation or approval. Only the metadata labels were corrected; no plan, model request or validator changed. That operator error is retained separately from planning/runtime outcomes.
+
+Amazon is now active on the same production source and its retained profile. The [before-dispatch ledger capture](compact-taskplan-b2ee3732-before-amazon-accounting.json) verified **€169.26832053077319516842824909 available**,42 permanent closures, no unresolved identity and unchanged€540.0301038327063045424449473 ceiling. This is not the balance during the active run. Read-only reinspection confirms one supplement entry and byte-identical authorization to27October; no extension or reservation release occurred.
 
 | Area | Corrected / tested | Live and business result | Unproven |
 | --- | --- | --- | --- |
-| Review evidence/admission | Whole-clause windows, declarations/controls, atomic fallback; exact draft sharing/paging | Earlier e44 Collections passes both variants; new-source diagnostic active | Reproducibility and other scenarios |
+| Review evidence/admission | Whole-clause windows, declarations/controls, atomic fallback; exact draft sharing/paging | b2ee Collections passes both variants; Amazon active | Reproducibility and other scenarios |
 | Native implementation context | Shared eligibility and value semantics before discovery binding | Earlier Amazon repeatedly selects a waiting consumer | Complete business benefit |
 | Repair history | Typed and replacement repairs retain historical rejected values | No live benefit established; e44 Review PR stops on received Judge exhaustion | Resolution of earlier semantic cycles |
 | A — conservation | Controlled equal-result savings; partially realized | No matched live savings established | Real-model efficiency |
 | B — transitions | Controlled equivalent traces; partially realized | e44 resumes reviewed prerequisite/consumer association without selection | Matched completed-trace savings |
 
-The current-source gate is **0/6 on b2ee3732**; the preceding e44 source has one qualifying Collections run. Two intervention-free successes per scenario on one final source, both Collections variants each time, are required before the 18 baseline comparisons. No baseline comparison has begun. PR #120 stays Draft.
+The current-source gate is **1/6 on b2ee3732**; the preceding e44 source has one qualifying Collections run. Two intervention-free successes per scenario on one final source, both Collections variants each time, are required before the 18 baseline comparisons. No baseline comparison has begun. PR #120 stays Draft.
 
 ### Retained e44 control outcomes
 
