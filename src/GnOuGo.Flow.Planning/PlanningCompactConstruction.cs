@@ -728,6 +728,7 @@ internal static partial class PlanningCompactConstruction
         AddRequirementNavigation(state, context);
         if (UsesDecisionView(state)) context["continuation"] = ContinuationContext(state);
         if (DescribedOperationChoices(state) is { } described) context["describedOperations"] = described;
+        if (LocalComputationEligibility(state) is { } local) context["localComputations"] = local;
         if (PlanningConstructionPhasePolicies.IsFresh(state.Request) && ScopeOwnerNavigation(state) is { } owner)
             context["scopeOwner"] = owner;
         AddDecisionContext(state, context, review: false, discovery: true);

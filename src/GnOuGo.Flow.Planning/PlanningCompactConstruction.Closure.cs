@@ -191,13 +191,8 @@ internal static partial class PlanningCompactConstruction
             ["acceptedCheckpoint"] = state.Construction!.Checkpoints.LastOrDefault()?.Sequence ?? 0 };
         if (compact.PresentationVersion == 11)
         {
-            if (state.Catalog is { } catalog)
-                result["localComputations"] = new JsonObject
-                {
-                    ["basis"] = "catalog_eligibility_only", ["value"] = catalog.AllowedStepTypes.Contains("set"),
-                    ["extract"] = catalog.AllowedStepTypes.Contains("mapping.dynamic"),
-                    ["interpret"] = catalog.AllowedStepTypes.Contains("llm.call") && catalog.AllowedStepTypes.Contains("template.render")
-                };
+            if (LocalComputationEligibility(state) is { } local)
+                result["localComputations"] = local;
             if (reason == "resolve_unproven_consumer_binding" && continuation?["status"]?.ToString() == "waiting")
             {
                 result["reason"] = "resolve_current_prerequisite";
@@ -209,6 +204,15 @@ internal static partial class PlanningCompactConstruction
             { ["kind"] = item.Kind, ["reason"] = item.Reason, ["checkpoint"] = item.Checkpoint }).ToArray());
         return result;
     }
+
+    private static JsonObject? LocalComputationEligibility(PlanningSession state) =>
+        State(state).PresentationVersion == 11 && state.Catalog is { } catalog
+            ? new JsonObject
+            {
+                ["basis"] = "catalog_eligibility_only", ["value"] = catalog.AllowedStepTypes.Contains("set"),
+                ["extract"] = catalog.AllowedStepTypes.Contains("mapping.dynamic"),
+                ["interpret"] = catalog.AllowedStepTypes.Contains("llm.call") && catalog.AllowedStepTypes.Contains("template.render")
+            } : null;
 
     private static string[] ClosureRequirements(PlanningSession state, TaskPlanSymbols symbols, string boundary)
     {

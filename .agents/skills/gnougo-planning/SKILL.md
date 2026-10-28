@@ -23,7 +23,7 @@ Accepted tasks and reviewed requirements remain immutable outside explicit revis
 
 Index authoritative originals with exact coverage and explicit interface dispositions. Resolve neighboring naming/type clauses before clarification; never invent `any` or treat an empty interface array as complete disposition. Keep recursive type, default, enum and null semantics. Unresolved sources block completion.
 
-Each request addresses the immediate business action. Defer implementation choices that depend on undiscovered capabilities; retain direct local computation and known-contract paths. When the captured catalog is available, present its permitted local primitives as eligibility facts, alongside targeted MCP discovery. Eligibility adds neither an execution client nor permission. Cached inspections remain retrievable without routine reinjection.
+Each request addresses the immediate business action. Defer implementation choices that depend on undiscovered capabilities; retain direct local computation and known-contract paths. When the captured catalog is available, carry the same local eligibility facts through selection and deferred implementation discovery, alongside targeted MCP evidence. Eligibility adds neither an execution client nor permission. Cached inspections remain retrievable without routine reinjection.
 
 Present exact consumed bindings, producer arguments, nullable interfaces, original descriptions and required schema closures. Preserve required siblings, alternatives, references, coupled constraints and mode-dependent meaning. Descriptors are navigation, not executable contracts. Omitted presentation material needs an exact retrieval address; an indivisible mandatory closure exceeding admission stops explicitly.
 

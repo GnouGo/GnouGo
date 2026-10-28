@@ -13,6 +13,46 @@ public sealed class CompactSuspendedConsumerTests
     private const string ResumeAction = "resumeStep (only when offered, with its exact producer checkpoint and binding), ";
 
     [Theory]
+    [InlineData(10, 0)]
+    [InlineData(11, 0)]
+    [InlineData(11, 1)]
+    [InlineData(11, 2)]
+    public void DeferredDiscoveryRetainsTheSameCapturedLocalEligibility(int presentation, int missingPrimitive)
+    {
+        var state = State(presentation);
+        state.Catalog!.AllowedStepTypes = ["set", "mapping.dynamic", "llm.call", "template.render", "mcp.call"];
+        if (missingPrimitive == 1) state.Catalog.AllowedStepTypes.Remove("llm.call");
+        if (missingPrimitive == 2) state.Catalog.AllowedStepTypes.Remove("template.render");
+        PlanningCompactConstruction.Reselect(state, Suspend()); state.Diagnostics.Clear();
+        state.Construction!.Compact!.CurrentStep = new()
+        {
+            Id = "prerequisite_step", Scope = "/root", Kind = null, RequirementIds = ["req_0"],
+            Objective = "Produce the missing typed value using an available implementation."
+        };
+        var before = Snapshot(state);
+        var selection = PlanningCompactConstruction.SelectionContext(state);
+        var discovery = PlanningCompactConstruction.DiscoveryContext(state);
+        if (presentation == 10)
+        {
+            Assert.Null(selection["nextDecision"]!["localComputations"]);
+            Assert.Null(discovery["localComputations"]);
+        }
+        else
+        {
+            Assert.NotNull(discovery["localComputations"]);
+            Assert.True(JsonNode.DeepEquals(selection["nextDecision"]!["localComputations"], discovery["localComputations"]));
+            Assert.Equal("catalog_eligibility_only", discovery["localComputations"]!["basis"]!.ToString());
+            Assert.True(discovery["localComputations"]!["value"]!.GetValue<bool>());
+            Assert.True(discovery["localComputations"]!["extract"]!.GetValue<bool>());
+            Assert.Equal(missingPrimitive == 0, discovery["localComputations"]!["interpret"]!.GetValue<bool>());
+        }
+        Assert.Equal(before, Snapshot(state));
+        Assert.Null(state.Construction.Compact.CurrentStep.Kind);
+        Assert.Empty(state.Construction.Compact.CurrentStep.OperationIds);
+        Assert.Null(state.Construction.Compact.ResumingStepId);
+    }
+
+    [Theory]
     [InlineData(10, false)]
     [InlineData(11, false)]
     [InlineData(11, true)]
