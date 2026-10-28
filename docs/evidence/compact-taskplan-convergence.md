@@ -2,21 +2,29 @@
 
 ## Current qualification (28 October 2026)
 
-Production **b2ee3732** adds lossless selected-schema metadata sharing and optional output-port pagination before draft admission. The [retained-state reconstruction](compact-taskplan-v11-draft-admission-projection.json) falls from **70,979 bytes / 23,916 estimated tokens to 64,149 / 21,639**, within the unchanged 22k limit. It is a structural reconstruction, not an exact issued-request replay. Explicit evidence, selected closures, consumed producer facts, permissions and model settings remain unchanged. [Technical validation](compact-taskplan-b2ee3732-technical-validation.json): 3,703 Planning tests and 12 independently verified package/AOT/encrypted-storage stages pass. The 288 focused tests overlap; full solution and CI remain pending.
+Production **6469a1a3** extends the existing draft pager to unused names on producer-owned port directories. Consumed schemas, arguments, descriptions, explicitly retrieved evidence and shared anchors remain intact. The [exact-hash repair reconstruction](compact-taskplan-v11-producer-navigation-repair-admission.json) improves **22,659→21,731 estimated tokens** under the unchanged22k ceiling and retains all five original requirement rows instead of two. It passes **290 focused and3,705 full Planning cases** with warnings as errors; counts overlap. Its isolated benchmark build verifies all568 MCP pins. Fresh live qualification is pending on this new source.
 
-[Fresh b2ee Collections](compact-taskplan-b2ee3732-collections-runtime.json) passes both real variants, with no unwanted effects or planning correction: **29 logical requests /30 attempts**, three contributive tasks and no forwarding alias. Known cost is **€1.540888**, plus **€0.930870** retained for an earlier failed physical attempt. Planning took **1,510,095ms**. The private reviewer initially used prose instead of the required fixed obligation IDs; authority validation rejected this before receipt creation or approval. Only the metadata labels were corrected; no plan, model request or validator changed. That operator error is retained separately from planning/runtime outcomes.
+### Retained b2ee diagnostic cohort
 
-Amazon is now active on the same production source and its retained profile. The [before-dispatch ledger capture](compact-taskplan-b2ee3732-before-amazon-accounting.json) verified **€169.26832053077319516842824909 available**,42 permanent closures, no unresolved identity and unchanged€540.0301038327063045424449473 ceiling. This is not the balance during the active run. Read-only reinspection confirms one supplement entry and byte-identical authorization to27October; no extension or reservation release occurred.
+[Collections](compact-taskplan-b2ee3732-collections-runtime.json) passes both real variants without unwanted effects or planning corrections: **29 logical requests /30 attempts**, three contributive tasks and no forwarding alias. Known cost€1.540888 plus€0.930870 retained failed-attempt reservation; planning1,510,095ms. A private obligation-label metadata mistake was rejected before approval; only those labels were corrected, with no plan or validator change.
+
+[Amazon](compact-taskplan-b2ee3732-amazon-port-repair-admission.json) stopped after28 logical requests. A reviewed URL prerequisite resumed the waiting reader and the correct browser producer was accepted. The next consumer used flat content in complete-observation mode; the Judge correctly rejected that semantic mismatch. Its replacement then exceeded22k before dispatch. No uncertain replay, paid repair or extra correction charge occurred. The new producer-directory projection addresses that local admission failure; successful repair and runtime remain unverified.
+
+[Review PR](compact-taskplan-b2ee3732-code-output-exhaustion.json) stopped after30 logical requests on another received mandatory-Judge output exhaustion: all8,192 output tokens were reasoning, with no visible response. Prior clean windows do not complete review. No artifact or runtime execution followed, and no unchanged failed request was retried. The cause of exhaustion remains unestablished.
+
+The [full b2ee solution](compact-taskplan-b2ee3732-solution-validation.json) passed **9,037 tests with13 skipped**, without adding overlapping targeted counts. Its packages/AOT/encrypted-storage stages also passed. These are technical results for b2ee, not qualification of changed source or business acceptance.
+
+The latest before-Review-PR allowance was **€166.22021254326761730140459891**, with no unresolved identity and unchanged€540.0301038327063045424449473 ceiling; it is not the current balance. Every reservation and permanent closure remains retained. Under-lease reinspection before new freezes checks the byte-identical single supplement authorization; no increase is reapplied.
 
 | Area | Corrected / tested | Live and business result | Unproven |
 | --- | --- | --- | --- |
-| Review evidence/admission | Whole-clause windows, declarations/controls, atomic fallback; exact draft sharing/paging | b2ee Collections passes both variants; Amazon active | Reproducibility and other scenarios |
+| Review evidence/admission | Whole-clause windows, declarations/controls, atomic fallback; exact draft sharing/paging | b2ee Collections passes; Amazon stops at semantic repair admission | Reproducibility and other scenarios |
 | Native implementation context | Shared eligibility and value semantics before discovery binding | Earlier Amazon repeatedly selects a waiting consumer | Complete business benefit |
 | Repair history | Typed and replacement repairs retain historical rejected values | No live benefit established; e44 Review PR stops on received Judge exhaustion | Resolution of earlier semantic cycles |
 | A — conservation | Controlled equal-result savings; partially realized | No matched live savings established | Real-model efficiency |
 | B — transitions | Controlled equivalent traces; partially realized | e44 resumes reviewed prerequisite/consumer association without selection | Matched completed-trace savings |
 
-The current-source gate is **1/6 on b2ee3732**; the preceding e44 source has one qualifying Collections run. Two intervention-free successes per scenario on one final source, both Collections variants each time, are required before the 18 baseline comparisons. No baseline comparison has begun. PR #120 stays Draft.
+The current-source gate is **0/6 on6469a1a3** (b2ee retains one Collections success); the preceding source successes remain attributed to their actual revisions. Two intervention-free successes per scenario on one final source, both Collections variants each time, are required before the 18 baseline comparisons. No baseline comparison has begun. PR #120 stays Draft.
 
 ### Retained e44 control outcomes
 
