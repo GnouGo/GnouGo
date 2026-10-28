@@ -180,7 +180,7 @@ internal static partial class PlanningCompactConstruction
             yield return new("closure", "all_original_obligations_reviewed", null, closure);
     }
 
-    internal static JsonObject SelectionDecision(PlanningSession state)
+    internal static JsonObject SelectionDecision(PlanningSession state, JsonObject? continuation = null)
     {
         var compact = State(state);
         var reason = state.Diagnostics.Any(d => d.Required) ? "resolve_retained_diagnostic" :
@@ -189,6 +189,22 @@ internal static partial class PlanningCompactConstruction
         var result = new JsonObject { ["kind"] = "semantic_selection", ["reason"] = reason,
             ["baseline"] = PlanningConstruction.Hash(state.Plan),
             ["acceptedCheckpoint"] = state.Construction!.Checkpoints.LastOrDefault()?.Sequence ?? 0 };
+        if (compact.PresentationVersion == 11)
+        {
+            var allowed = state.Catalog!.AllowedStepTypes;
+            result["localComputations"] = new JsonObject
+            {
+                ["basis"] = "catalog_eligibility_only", ["value"] = allowed.Contains("set"),
+                ["extract"] = allowed.Contains("mapping.dynamic"),
+                ["interpret"] = allowed.Contains("llm.call") && allowed.Contains("template.render")
+            };
+            if (reason == "resolve_unproven_consumer_binding" && continuation?["status"]?.ToString() == "waiting")
+            {
+                result["reason"] = "resolve_current_prerequisite";
+                result["continuationId"] = continuation["id"]!.DeepClone();
+                result["prerequisite"] = continuation["prerequisite"]!.DeepClone();
+            }
+        }
         if (UsesIncrementalReview(state)) result["reviewedTransitions"] = new JsonArray(AcceptedTransitions(state).Take(4).Select(item => (JsonNode)new JsonObject
             { ["kind"] = item.Kind, ["reason"] = item.Reason, ["checkpoint"] = item.Checkpoint }).ToArray());
         return result;

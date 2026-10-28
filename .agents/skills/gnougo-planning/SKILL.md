@@ -13,7 +13,7 @@ Exact original requests, answer revisions and unchanged MCP contracts establish 
 
 Derive immediate work from original obligations, accepted checkpoints, accessible producers, suspended consumers and legal closures. Contribution, availability and reviewed completion are different facts. Reuse a correct producer's exact result; use authorized revision for a demonstrated accepted defect. Operation names and compatible types alone prove neither suitability nor redundancy. Do not introduce a separate executable outline or scheduler.
 
-Recover pending work before selecting another business action. Automate proven contract reads, pagination, reference resolution and established transitions through existing journals. Resume a consumer only from its reviewed exact binding and valid checkpoint/dependency authority. Preserve ParentId relationships and retained business consumers. Apply one clone-validated transition at a time; unknown interactions require semantic choice.
+Recover pending work before selecting another business action. Automate proven contract reads, pagination, reference resolution and established transitions through existing journals. Resume a consumer only from its reviewed exact binding and valid checkpoint/dependency authority. Otherwise make its exact unmet prerequisite the next semantic target, retaining the consumer's business goal as context. Preserve ParentId relationships and retained business consumers. Apply one clone-validated transition at a time; unknown interactions require semantic choice.
 
 Keep requirement closure, scope closure, local export and public return distinct. An artifact or file content is not automatically a caller output. Open containers expose no consumable completion. Group bodies are isolated: a group declares reusable inputs/exports, a call invokes it, and an inline control body is not a reusable declaration. Scope identities require actual parent relationships, not path-prefix assumptions.
 
@@ -23,7 +23,7 @@ Accepted tasks and reviewed requirements remain immutable outside explicit revis
 
 Index authoritative originals with exact coverage and explicit interface dispositions. Resolve neighboring naming/type clauses before clarification; never invent `any` or treat an empty interface array as complete disposition. Keep recursive type, default, enum and null semantics. Unresolved sources block completion.
 
-Each request addresses the immediate business action. Defer implementation choices that depend on undiscovered capabilities; retain direct local computation and known-contract paths. Discover only relevant authorized capabilities. Cached inspections remain retrievable without routine reinjection.
+Each request addresses the immediate business action. Defer implementation choices that depend on undiscovered capabilities; retain direct local computation and known-contract paths. Present the catalog's permitted local primitives as eligibility facts, alongside targeted MCP discovery. Eligibility adds neither an execution client nor permission. Cached inspections remain retrievable without routine reinjection.
 
 Present exact consumed bindings, producer arguments, nullable interfaces, original descriptions and required schema closures. Preserve required siblings, alternatives, references, coupled constraints and mode-dependent meaning. Descriptors are navigation, not executable contracts. Omitted presentation material needs an exact retrieval address; an indivisible mandatory closure exceeding admission stops explicitly.
 

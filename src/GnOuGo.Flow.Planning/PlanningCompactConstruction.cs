@@ -480,7 +480,14 @@ internal static partial class PlanningCompactConstruction
             context["continuation"] = ContinuationContext(state);
         }
         if (UsesAcceptedProgress(state)) context["knownOperations"] = KnownOperations(state);
-        if (UsesVerifiedProgress(state)) context["nextDecision"] = SelectionDecision(state);
+        if (UsesVerifiedProgress(state))
+        {
+            context["nextDecision"] = SelectionDecision(state, context["continuation"] as JsonObject);
+            // Keep the exact need once, as the immediate semantic target. The
+            // waiting consumer's original objective and authority remain visible.
+            if (State(state).PresentationVersion == 11 && context["nextDecision"]!["prerequisite"] is not null)
+                context["continuation"]!.AsObject().Remove("prerequisite");
+        }
         AddDecisionContext(state, context, review: false);
         return TrimNavigation(context);
     }

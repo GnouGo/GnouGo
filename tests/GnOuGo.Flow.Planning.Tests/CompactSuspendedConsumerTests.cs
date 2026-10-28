@@ -13,6 +13,58 @@ public sealed class CompactSuspendedConsumerTests
     private const string ResumeAction = "resumeStep (only when offered, with its exact producer checkpoint and binding), ";
 
     [Theory]
+    [InlineData(10, false)]
+    [InlineData(11, false)]
+    [InlineData(11, true)]
+    public void SelectionTargetsTheRetainedPrerequisiteWithExactLocalEligibility(int presentation, bool denyInterpretation)
+    {
+        var state = State(presentation);
+        state.Catalog!.AllowedStepTypes = ["set", "template.render", "mcp.call"];
+        if (!denyInterpretation) state.Catalog.AllowedStepTypes.Add("llm.call");
+        var decision = Suspend();
+        PlanningCompactConstruction.Reselect(state, decision);
+        state.Diagnostics.Clear();
+        var before = Snapshot(state);
+        var context = PlanningCompactConstruction.SelectionContext(state);
+        var target = context["nextDecision"]!;
+        if (presentation == 10)
+        {
+            Assert.Equal("resolve_unproven_consumer_binding", target["reason"]!.ToString());
+            Assert.Null(target["prerequisite"]); Assert.Null(target["localComputations"]);
+            Assert.NotNull(context["continuation"]!["prerequisite"]);
+        }
+        else
+        {
+            Assert.Equal("resolve_current_prerequisite", target["reason"]!.ToString());
+            Assert.Equal(context["continuation"]!["id"]!.ToString(), target["continuationId"]!.ToString());
+            Assert.True(JsonNode.DeepEquals(PlanningConstruction.Node(decision.Prerequisite!,
+                PlanningJsonContext.Default.PlanningConstructionTypedPrerequisite), target["prerequisite"]));
+            Assert.Null(context["continuation"]!["prerequisite"]); // One exact copy, kept in the primary decision.
+            Assert.Equal("Use the missing number to produce the result.", context["continuation"]!["objective"]!.ToString());
+            Assert.Equal("catalog_eligibility_only", target["localComputations"]!["basis"]!.ToString());
+            Assert.True(target["localComputations"]!["value"]!.GetValue<bool>());
+            Assert.False(target["localComputations"]!["extract"]!.GetValue<bool>());
+            Assert.Equal(!denyInterpretation, target["localComputations"]!["interpret"]!.GetValue<bool>());
+        }
+        Assert.Equal(before, Snapshot(state));
+        Assert.Null(state.Construction!.Compact!.CurrentStep);
+        Assert.Equal("waiting", Assert.Single(state.Construction.Compact.SuspendedSteps!).Status);
+    }
+
+    [Fact]
+    public void RetainedDiagnosticPrecedesPrerequisiteSelectionAndDoesNotAuthorizeABinding()
+    {
+        var state = State(11); PlanningCompactConstruction.Reselect(state, Suspend());
+        state.Diagnostics = [new("EXACT_REPAIR", "/root", "Resolve the retained technical diagnosis.")];
+        var context = PlanningCompactConstruction.SelectionContext(state);
+        Assert.Equal("resolve_retained_diagnostic", context["nextDecision"]!["reason"]!.ToString());
+        Assert.Null(context["nextDecision"]!["prerequisite"]);
+        Assert.NotNull(context["continuation"]!["prerequisite"]);
+        Assert.False(context["continuation"]!["canAttemptResume"]!.GetValue<bool>());
+        Assert.Null(state.Construction!.Compact!.ResumingStepId);
+    }
+
+    [Theory]
     [InlineData(7, false)]
     [InlineData(7, true)]
     [InlineData(8, false)]
