@@ -1602,3 +1602,19 @@ The fresh `09ac9ff5` Review PR diagnostic stopped at intent request 4 after thre
 The post-retention check found €254.875472 known cost plus €86.128699 retained reservations, upper bound €341.004171 and €199.025933 available. The next Collections cohort uses the same production source and retained profile; the balance is observed before that dispatch.
 
 The baseline accounting/oracle overlay also now has a truthful clean private commit, `3dbec5f5`, with all 1,128 baseline production blobs unchanged. Its 280 focused offline tests and benchmark build pass with warnings as errors. This advances source/build provenance, not live authorization: final operator CLI proof and runtime-input parity remain prerequisites, and the six-run candidate gate is still unmet. [Offline qualification](compact-taskplan-baseline-3dbec5f5-offline-validation.json).
+
+
+### First qualifying Collections execution on `09ac9ff5`
+
+The fresh retained-profile run completed one TaskPlan, passed the frozen `synthetic-artifact-v1` structure oracle, received exact artifact-bound `delegated_test` review and executed both real WorkflowEngine input variants. Nominal and alternate—including duplicates and a negative item—both passed exact ordered-output/no-effect oracles (388.0953 ms / 2.2973 ms). No runtime inference or external operation was added.
+
+Planning used 31 logical requests / 33 attempts and one automatic typed correction: finalization had claimed completion while `/root` remained open. The repair closed that boundary and renewed scoped review without replacing accepted group/loop work. Eight checkpoints are not the success denominator. One redundant pure array-copy task remains and no A/B saved-call claim is established.
+
+Known usage is 106,543 input / 53,161 output tokens; planning took 1,984,023 ms. Known priced usage cost is €1.898746 plus €1.861740 retained from two HTTP 500 attempts before the successful retry. All complete admitted requests fit their original captured phase limits. The primary denominator is one complete business outcome (31 logical calls), separate from the legacy three-obligation artifact metric, which includes vacuous cleanup.
+
+This is qualification **1/6**, with no planning intervention. The second fresh Collections execution and two each for Amazon and Review PR remain required on this same production source. Before the next Amazon dispatch, read-only admission found €195.265447 available; no reservation or supplement was changed. [Source-bound outcome, approval and phase measurements](compact-taskplan-09ac9ff5-collections-success.json).
+
+
+Original-journal lexical inspection verifies all 31 Collections completion JSON values against their saved receipts. The successful interface extraction contains 130,721 UTF-8 bytes with 129,433 whitespace bytes outside strings (largest internal run 129,432); the other completions are at most 1,078 bytes. There are no received empty texts or output-limit markers. This is a formatting anomaly, separate from reasoning exhaustion or the two failed HTTP attempts; its cause remains unproven. No instruction/schema/profile change was combined with this source experiment. [Original formatting measurements](compact-taskplan-09ac9ff5-original-formatting.json).
+
+All 12 accepted review rows retain matching issued-request, receipt and raw-response hashes. They contain 43 issued propositions, eight offered subjects, 43 broad acknowledgments and no subject acknowledgment or reuse. No established transition was applied. This successful business execution therefore establishes no live A/B call saving. A/B mechanisms remain partially realized in controlled fixtures; their measured live efficiency remains unproven. [Provenance and eligibility](compact-taskplan-09ac9ff5-review-provenance.json).

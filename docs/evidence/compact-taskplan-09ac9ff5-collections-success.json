@@ -1,0 +1,285 @@
+{
+  "production_source": "09ac9ff58fed9a772d4c6bd063f2bb7f8876a753",
+  "harness_source": "09ac9ff58fed9a772d4c6bd063f2bb7f8876a753",
+  "cohort": "compactr09ac9ff5colhighv11a",
+  "freeze_sha256": "d81e936ff1d98fde6b98438457cfb0de16edb194c19debe825c5673d74c1f2a7",
+  "artifact_hash": "382ba0d0f459f0aa3d35cb82c1b909c56181efeec31a64ecab70677656e59378",
+  "artifact_oracle": {
+    "version": "synthetic-artifact-v1",
+    "artifact_hash": "382ba0d0f459f0aa3d35cb82c1b909c56181efeec31a64ecab70677656e59378",
+    "passed": true,
+    "findings": []
+  },
+  "planning_logical_requests": 31,
+  "physical_attempts": 33,
+  "automatic_corrections": 1,
+  "planning_interventions": 0,
+  "planning_ms": 1984023,
+  "known_provider_input_tokens": 106543,
+  "known_provider_output_tokens": 53161,
+  "known_provider_reasoning_tokens": 33418,
+  "known_usage_cost_eur": "1.8987460954930834448906738061",
+  "retained_unknown_reservations_eur": "1.8617402945113788487282463186",
+  "usage_complete": false,
+  "execution_variants": [
+    {
+      "variant": "nominal",
+      "correct": true,
+      "runtime_success": true,
+      "elapsed_ms": "388.0953",
+      "error": null,
+      "effects": [],
+      "violations": []
+    },
+    {
+      "variant": "alternate",
+      "correct": true,
+      "runtime_success": true,
+      "elapsed_ms": "2.2973",
+      "error": null,
+      "effects": [],
+      "violations": []
+    }
+  ],
+  "safety_violations": [],
+  "declared_effects": [],
+  "receipt_origin": "delegated_test",
+  "authorization_hash": "5880a49617a269f15a88c3de57b9e527082241a4da3fe59c6f654b05758d03dc",
+  "evidence_hash": "42d6c6e84cd7783510123e04f587249c23da226951c1b1e98b5e33beae9da65b",
+  "independent_review_spec_sha256": "5c7e61098e0d9666bbe56a5b6a1d0df90cb877eca594e54b5509e1b7fe98c680",
+  "review_file_sha256": "8e46e4eadd99b86dd28e93f748d502911062b76f01a0b82f38caff831eb43c97",
+  "whole_business_outcomes_satisfied": 1,
+  "logical_calls_per_complete_business_outcome": 31,
+  "physical_attempts_per_complete_business_outcome": 33,
+  "legacy_artifact_obligations": [
+    "cleanup",
+    "declared_effects",
+    "exact_outputs"
+  ],
+  "denominator_note": "Primary success denominator is one frozen complete business outcome. The legacy three-obligation artifact metric includes vacuous cleanup; it is retained separately and does not triple business success.",
+  "supported_redundancy": [
+    {
+      "task": "copy_iterate_values_doubled_to_result",
+      "assessment": "One pure copy of the already available ordered array; no added effect. No eliminated-call claim."
+    }
+  ],
+  "resolved_defect": "Automatic typed repair closed the remaining /root boundary; it did not regenerate accepted group/loop fragments.",
+  "remaining_qualification": "First qualifying fresh Collections run on this production source: gate 1/6. Second Collections and both Amazon/Review PR repetitions remain.",
+  "phase_measurements": [
+    {
+      "phase": "construction_intent",
+      "logical_requests": 2,
+      "physical_attempts": 4,
+      "known_input_tokens": 2018,
+      "known_output_tokens": 14051,
+      "known_reasoning_tokens": 1220,
+      "known_cost_eur": "0.3852030343596608656849620705",
+      "unknown_reserved_cost_eur": "1.8617402945113788487282463186",
+      "peak_complete_request_bytes": 8651,
+      "peak_estimated_input_tokens": 3140,
+      "p50_estimated_input_tokens": "2118.5",
+      "p95_estimated_input_tokens": 3140,
+      "admitted_within_captured_limits": true,
+      "admitted_component_bytes": {
+        "diagnostics": 52,
+        "envelope": 872,
+        "instructions": 2367,
+        "intent": 1811,
+        "response_schema": 5990,
+        "evidence": 23,
+        "interfaces": 59
+      },
+      "admitted_complete_request_bytes": {
+        "count": 2,
+        "p50": "5587",
+        "p95": 8651,
+        "maximum": 8651
+      },
+      "admitted_estimated_input_tokens": {
+        "count": 2,
+        "p50": "2118.5",
+        "p95": 3140,
+        "maximum": 3140
+      },
+      "constructed_requests": 2,
+      "rejected_before_dispatch": 0
+    },
+    {
+      "phase": "construction_select",
+      "logical_requests": 8,
+      "physical_attempts": 8,
+      "known_input_tokens": 24871,
+      "known_output_tokens": 9607,
+      "known_reasoning_tokens": 7840,
+      "known_cost_eur": "0.3681972333779562695225345827",
+      "unknown_reserved_cost_eur": 0,
+      "peak_complete_request_bytes": 19893,
+      "peak_estimated_input_tokens": 6887,
+      "p50_estimated_input_tokens": "5557.5",
+      "p95_estimated_input_tokens": 6887,
+      "admitted_within_captured_limits": true,
+      "admitted_component_bytes": {
+        "construction_context": 14662,
+        "envelope": 3533,
+        "instructions": 30112,
+        "interfaces": 6559,
+        "requirements": 23761,
+        "response_schema": 48809
+      },
+      "admitted_complete_request_bytes": {
+        "count": 8,
+        "p50": "15904",
+        "p95": 19893,
+        "maximum": 19893
+      },
+      "admitted_estimated_input_tokens": {
+        "count": 8,
+        "p50": "5557.5",
+        "p95": 6887,
+        "maximum": 6887
+      },
+      "constructed_requests": 8,
+      "rejected_before_dispatch": 0
+    },
+    {
+      "phase": "construction_draft",
+      "logical_requests": 8,
+      "physical_attempts": 8,
+      "known_input_tokens": 32130,
+      "known_output_tokens": 8646,
+      "known_reasoning_tokens": 7047,
+      "known_cost_eur": "0.3748594377510040160642570280",
+      "unknown_reserved_cost_eur": 0,
+      "peak_complete_request_bytes": 26300,
+      "peak_estimated_input_tokens": 9023,
+      "p50_estimated_input_tokens": 7559,
+      "p95_estimated_input_tokens": 9023,
+      "admitted_within_captured_limits": true,
+      "admitted_component_bytes": {
+        "construction_context": 16464,
+        "diagnostics": 208,
+        "envelope": 3598,
+        "evidence": 200,
+        "fragment": 176,
+        "instructions": 10184,
+        "interfaces": 10061,
+        "mcp_contracts": 200,
+        "objective": 1414,
+        "requirements": 23761,
+        "response_schema": 109284
+      },
+      "admitted_complete_request_bytes": {
+        "count": 8,
+        "p50": "21908",
+        "p95": 26300,
+        "maximum": 26300
+      },
+      "admitted_estimated_input_tokens": {
+        "count": 8,
+        "p50": "7559",
+        "p95": 9023,
+        "maximum": 9023
+      },
+      "constructed_requests": 8,
+      "rejected_before_dispatch": 0
+    },
+    {
+      "phase": "construction_local_judge",
+      "logical_requests": 12,
+      "physical_attempts": 12,
+      "known_input_tokens": 43102,
+      "known_output_tokens": 19055,
+      "known_reasoning_tokens": 15775,
+      "known_cost_eur": "0.7025078090138331102186523873",
+      "unknown_reserved_cost_eur": 0,
+      "peak_complete_request_bytes": 23147,
+      "peak_estimated_input_tokens": 7972,
+      "p50_estimated_input_tokens": 6993,
+      "p95_estimated_input_tokens": 7972,
+      "admitted_within_captured_limits": true,
+      "admitted_component_bytes": {
+        "construction_context": 54455,
+        "diagnostics": 312,
+        "envelope": 5480,
+        "evidence": 300,
+        "fragment": 8081,
+        "instructions": 76446,
+        "interfaces": 30144,
+        "mcp_contracts": 300,
+        "objective": 2056,
+        "requirements": 21643,
+        "response_schema": 42878
+      },
+      "admitted_complete_request_bytes": {
+        "count": 12,
+        "p50": "20210",
+        "p95": 23147,
+        "maximum": 23147
+      },
+      "admitted_estimated_input_tokens": {
+        "count": 12,
+        "p50": "6993",
+        "p95": 7972,
+        "maximum": 7972
+      },
+      "constructed_requests": 12,
+      "rejected_before_dispatch": 0
+    },
+    {
+      "phase": "replan",
+      "logical_requests": 1,
+      "physical_attempts": 1,
+      "known_input_tokens": 4422,
+      "known_output_tokens": 1802,
+      "known_reasoning_tokens": 1536,
+      "known_cost_eur": "0.0679785809906291834002677376",
+      "unknown_reserved_cost_eur": 0,
+      "peak_complete_request_bytes": 23804,
+      "peak_estimated_input_tokens": 8191,
+      "p50_estimated_input_tokens": 8191,
+      "p95_estimated_input_tokens": 8191,
+      "admitted_within_captured_limits": true,
+      "admitted_component_bytes": {
+        "construction_context": 2615,
+        "diagnostics": 252,
+        "envelope": 451,
+        "evidence": 25,
+        "fragment": 22,
+        "instructions": 1392,
+        "interfaces": 1261,
+        "mcp_contracts": 25,
+        "objective": 151,
+        "requirements": 4460,
+        "response_schema": 13150
+      },
+      "admitted_complete_request_bytes": {
+        "count": 1,
+        "p50": "23804",
+        "p95": 23804,
+        "maximum": 23804
+      },
+      "admitted_estimated_input_tokens": {
+        "count": 1,
+        "p50": "8191",
+        "p95": 8191,
+        "maximum": 8191
+      },
+      "constructed_requests": 1,
+      "rejected_before_dispatch": 0
+    }
+  ],
+  "components_reconcile": true,
+  "provider_components_are_not_billed_measurements": true,
+  "original_whitespace_measurement": {
+    "original_texts_verified": 31,
+    "empty_received_texts": 0,
+    "received_output_limits": 0,
+    "largest_text_utf8_bytes": 130721,
+    "outside_string_whitespace_bytes": 129433,
+    "maximum_whitespace_run": 129432,
+    "raw_json_matches_receipt": true,
+    "source": "compact-taskplan-09ac9ff5-original-formatting.json"
+  },
+  "known_response_reasoning_included_in_output_tokens": true,
+  "admitted_requests_within_limits": true
+}
