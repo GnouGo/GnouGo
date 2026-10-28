@@ -136,17 +136,26 @@ internal static partial class PlanningCompactConstruction
         {
             (string Identity, JsonObject Page, LLMRequest Request, PlanningRequestMeasurement Measurement)? best = null;
             var operations = page["operations"] as JsonArray ?? [];
+            var locations = new List<(JsonObject Contract, int Operation, int Row, int Producer)>();
             for (var index = 0; index < operations.Count; index++)
+                if (operations[index] is JsonObject operation) locations.Add((operation, index, -1, -1));
+            var interfaces = page["interfaces"] as JsonArray ?? [];
+            for (var row = 0; row < interfaces.Count; row++)
             {
-                if (operations[index] is not JsonObject operation || operation["outputs"] is not JsonArray outputs ||
+                var producers = interfaces[row]?["producers"] as JsonArray ?? [];
+                for (var producer = 0; producer < producers.Count; producer++)
+                    if (producers[producer]?["contract"] is JsonObject contract) locations.Add((contract, -1, row, producer));
+            }
+            foreach (var location in locations)
+            {
+                var operation = location.Contract;
+                if (operation["outputs"] is not JsonArray outputs ||
                     operation["outputsOmitted"] is not null || outputs.Count <= ContractDirectoryPageSize) continue;
-                // Consumed producer facts remain complete, including when their
-                // directory is shared with this operation. Only optional names
-                // on a selected operation are candidates for pagination.
-                var producers = (page["interfaces"] as JsonArray ?? []).SelectMany(row =>
-                    (row?["producers"] as JsonArray ?? []).OfType<JsonObject>());
-                if (producers.Any(producer => producer["contract"] is JsonObject contract &&
-                        new[] { "id", "version", "hash" }.All(key => JsonNode.DeepEquals(contract[key], operation[key])))) continue;
+                // A shared directory keeps its existing anchor complete. A
+                // producer's own optional names can be paged independently;
+                // every consumed schema, argument and description stays exact.
+                if (location.Operation >= 0 && locations.Any(other => other.Operation < 0 &&
+                        new[] { "id", "version", "hash" }.All(key => JsonNode.DeepEquals(other.Contract[key], operation[key])))) continue;
                 var identity = ContractIdentity(operation["id"]!.ToString(), operation["version"]!.ToString());
                 var selected = (operation["selectedOutputs"] as JsonArray ?? []).OfType<JsonObject>()
                     .Select(view => "schema:" + identity + ":" + view["pointer"]).ToHashSet(StringComparer.Ordinal);
@@ -155,12 +164,15 @@ internal static partial class PlanningCompactConstruction
                 var omitted = Enumerable.Range(0, outputs.Count).FirstOrDefault(position => retained.All(item => item.position != position), outputs.Count);
                 if (omitted == outputs.Count) continue;
                 var probe = page.DeepClone().AsObject();
-                var target = probe["operations"]![index]!;
+                var target = location.Operation >= 0 ? probe["operations"]![location.Operation]! :
+                    probe["interfaces"]![location.Row]!["producers"]![location.Producer]!["contract"]!;
                 target["outputs"] = new JsonArray(retained.Select(item => item.row!.DeepClone()).ToArray());
+                target["outputCount"] = outputs.Count;
                 target["outputsOmitted"] = outputs.Count - retained.Length;
                 target["nextPorts"] = "port-page:" + identity + ":/output:" + omitted.ToString(System.Globalization.CultureInfo.InvariantCulture);
                 var proposed = Render(probe);
                 var measured = Measure(proposed);
+                identity += $":{location.Operation}:{location.Row}:{location.Producer}";
                 if (measured.CompleteRequestBytes >= measurement.CompleteRequestBytes || best is { } prior &&
                     (measured.CompleteRequestBytes > prior.Measurement.CompleteRequestBytes || measured.CompleteRequestBytes == prior.Measurement.CompleteRequestBytes &&
                         string.CompareOrdinal(identity, prior.Identity) >= 0)) continue;

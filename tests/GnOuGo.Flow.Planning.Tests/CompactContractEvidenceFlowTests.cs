@@ -10,9 +10,11 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CompactContractEvidenceFlowTests
 {
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task DraftAdmissionPagesOnlyOptionalPortsAndPreservesSelectedOriginalClosures(bool correction)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task DraftAdmissionPagesOnlyOptionalPortsAndPreservesSelectedOriginalClosures(bool correction, bool producerImport)
     {
         var (state, _) = await Ready();
         state.Construction!.Compact!.PresentationVersion = 11;
@@ -31,6 +33,16 @@ public sealed class CompactContractEvidenceFlowTests
         capability.OutputSchema["required"] = new JsonArray("result0", "result9");
         foreach (var port in new[] { "result0", "result9" })
             state.Construction.Compact.CurrentStep!.SchemaPointers.Add("schema:read@v1:/output/properties/" + port);
+        if (producerImport)
+        {
+            state.Catalog!.Capabilities.Add(capability);
+            state.Catalog.AllowedStepTypes.Add("set");
+            state.Plan = new() { Root = new() { Tasks = [new() { Id = "producer", Kind = "operation", Operation = "read",
+                Objective = "Read the exact authorized original.", Inputs = [new("target", new() { Kind = "string", Text = "EXACT" })] }] } };
+            var step = state.Construction.Compact.CurrentStep!;
+            step.Kind = "value"; step.OperationIds.Clear(); step.BaseHash = PlanningConstruction.Hash(state.Plan);
+            step.Inputs = [new() { Kind = "output", Source = "producer", Port = "result0" }, new() { Kind = "output", Source = "producer", Port = "result9" }];
+        }
         var originals = state.Construction.Compact.CurrentStep!.SchemaPointers.ToDictionary(address => address,
             address => PlanningCompactConstruction.LoadContractEvidence(state, address, recordSchemaSelection: false)!.ToJsonString());
         var purpose = correction ? "replan" : PlanningConstruction.DraftPurpose;
@@ -38,21 +50,22 @@ public sealed class CompactContractEvidenceFlowTests
         var full = PlanningConstruction.DraftRequest(state, correction);
         var fullPrepared = Prepare(full);
         var maximum = checked((int)PlanningRequestMeasurements.Measure(fullPrepared, purpose, 32000).EstimatedInputTokens - 1);
-        Assert.Equal(40, Context(full)["operations"]![0]!["outputs"]!.AsArray().Count);
+        Assert.Equal(40, Contract(Context(full))["outputs"]!.AsArray().Count);
         SetLimit(maximum);
         var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
         var paged = PlanningConstruction.DraftRequest(state, correction);
         var context = Context(paged);
-        var operation = context["operations"]![0]!.AsObject();
+        var operation = Contract(context);
         Assert.InRange(PlanningRequestMeasurements.Measure(Prepare(paged), purpose, maximum).EstimatedInputTokens, 1, maximum);
         Assert.InRange(operation["outputs"]!.AsArray().Count, 8, 9);
         Assert.Equal(40, operation["outputCount"]!.GetValue<int>());
         Assert.Contains(operation["outputs"]!.AsArray(), row => row!["name"]!.ToString() == "result9");
         Assert.Equal(capability.Description, operation["description"]!.ToString());
-        var firstOmitted = Context(full)["operations"]![0]!["outputs"]!.AsArray().Select((row, index) => (row, index))
+        if (producerImport) Assert.Equal("EXACT", context["interfaces"]![0]!["producers"]![0]!["task"]!["inputs"]![0]!["value"]!["text"]!.ToString());
+        var firstOmitted = Contract(Context(full))["outputs"]!.AsArray().Select((row, index) => (row, index))
             .First(item => !operation["outputs"]!.AsArray().Any(row => row!["name"]!.ToString() == item.row!["name"]!.ToString())).index;
         Assert.Equal("port-page:read@v1:/output:" + firstOmitted, operation["nextPorts"]!.ToString());
-        var addresses = PlanningCompactConstruction.NavigationEvidence([context["operations"]]);
+        var addresses = PlanningCompactConstruction.NavigationEvidence([operation]);
         Assert.Contains(operation["nextPorts"]!.ToString(), addresses);
         Assert.Contains(operation["nextPorts"]!.ToString(), paged.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
         var directory = PlanningCompactConstruction.LoadContractEvidence(state, operation["nextPorts"]!.ToString())!;
@@ -70,8 +83,9 @@ public sealed class CompactContractEvidenceFlowTests
         SetLimit(512);
         var rejected = PlanningConstruction.DraftRequest(state, correction);
         Assert.True(PlanningRequestMeasurements.Measure(Prepare(rejected), purpose, 512).EstimatedInputTokens > 512);
-        Assert.Equal(operation["selectedOutputs"]!.ToJsonString(), Context(rejected)["operations"]![0]!["selectedOutputs"]!.ToJsonString());
+        Assert.Equal(operation["selectedOutputs"]!.ToJsonString(), Contract(Context(rejected))["selectedOutputs"]!.ToJsonString());
 
+        JsonObject Contract(JsonObject view) => (producerImport ? view["interfaces"]![0]!["producers"]![0]!["contract"] : view["operations"]![0])!.AsObject();
         LLMRequest Prepare(LLMRequest request) => PlanningModelCalls.PrepareRequest(state, purpose,
             request.Prompt, request.StructuredOutputSchema!.AsObject(), state.Construction.Limits.DraftOutputTokens);
         void SetLimit(int limit)
@@ -85,7 +99,7 @@ public sealed class CompactContractEvidenceFlowTests
     [Theory]
     [InlineData(10)]
     [InlineData(11)]
-    public async Task AdmissionDoesNotPageConsumedProducerFactsOrHistoricalDrafts(int version)
+    public async Task AdmissionKeepsSharedConsumedDirectoriesAndHistoricalDrafts(int version)
     {
         var (state, _) = await Ready();
         state.Construction!.Compact!.PresentationVersion = version;

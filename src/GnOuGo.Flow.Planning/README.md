@@ -227,8 +227,9 @@ change saved requests, accepted TaskPlans, JavaScript or YAML lowering.
 Revision-11 draft admission shares identical selected-schema metadata under its
 exact contract. Only when still oversized, it pages optional output names with the
 existing eight-port capacity, retaining selected ports and the first omitted link.
-The same display determines evidence choices. Actual consumed producer directories,
-explicit originals and required schema closures are preserved; an oversized
+The same display determines evidence choices. Producer-owned directories can page
+unused names while retaining consumed ports; shared anchors remain complete. Actual
+arguments, descriptions, explicit originals and required schema closures are preserved; an oversized
 mandatory core still fails admission without changing settings or evidence state.
 Fresh protocol-2 selection uses shorter guidance and omits redundant page counters,
 retaining the unresolved count, anchor, exact source versions and continuation

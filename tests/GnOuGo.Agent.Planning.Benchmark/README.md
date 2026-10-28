@@ -1440,7 +1440,11 @@ Label read-only reconstructions from stopped state as structural measurements wh
 the original prospective payload was never issued. Preserve that distinction from
 exact issued-request replay. Fresh revision-11 drafting can factor identical schema
 metadata and page optional output names before rejecting mandatory evidence; selected
-closures, explicit evidence and consumed producer facts remain intact. Record the
+closures, explicit evidence and consumed producer facts remain intact. The same
+projection can page unused names on producer-owned directories without changing
+actual bindings or required schemas. Distinguish a genuine business finding from
+a later repair-admission failure; neither a blocked repair nor received output
+exhaustion grants new corrections or an unchanged retry. Record the
 complete request and its emitted evidence domain after projection, with unchanged
 settings. A measured admission improvement is not a runtime success.
 Recorded failures and accounting for Amazon, Collections and Review PR are in the
