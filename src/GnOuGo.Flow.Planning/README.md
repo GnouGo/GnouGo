@@ -16,6 +16,10 @@ bindings before acceptance. Business review is decoupled from fragment generatio
 coherent blocks can contain several checkpoints; mechanical openings/exports/closures
 need no Judge call. A completed small workflow may receive one global review and no
 local reviews. Every complete artifact requires global business review before approval.
+Requirement-only closures without new or related pending executable behavior remain
+technical checkpoints with business review pending. Empty controls and uncalled group
+definitions do not create a business block. These checkpoints grant no reviewed
+continuation or boundary authority; the final global review still covers every obligation.
 
 The Judge receives only faithful decision-relevant behavior and original business
 semantics. Full contract schemas remain host-validated and retrievable. The response is

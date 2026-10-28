@@ -18,18 +18,41 @@ public sealed partial class HybridWorkflowPlanner
         var step = construction.Compact!.CurrentStep!;
         if (construction.Requirements.All(requirement => requirement.Status == "closed" ||
             step.CloseRequirementIds.Contains(requirement.Id, StringComparer.Ordinal))) return false;
-        if (step.CloseRequirementIds.Count > 0) return true;
         var symbols = new TaskPlanSymbols(candidate.Plan);
+        var behavior = ExecutableBusinessTasks(candidate.Plan);
+        if (step.CloseRequirementIds.Count > 0 && (candidate.TaskIds.Any(behavior.Contains) ||
+            construction.Checkpoints.Any(checkpoint => checkpoint.Fragment["businessReviewPending"]?.GetValue<bool>() == true &&
+                checkpoint.RequirementIds.Any(id => step.CloseRequirementIds.Contains(id, StringComparer.Ordinal)) &&
+                checkpoint.TaskIds.Any(behavior.Contains)))) return true;
         foreach (var path in candidate.Extension.CloseScopes.Where(path => path != "/root" && !path.StartsWith("/groups/", StringComparison.Ordinal)))
         {
             var scope = symbols.Scopes.SingleOrDefault(scope => scope.Path == path);
             if (scope is null) continue;
             var tasks = TaskPlanRevisions.Tasks(scope.Source).Select(task => task.Id).ToHashSet(StringComparer.Ordinal);
-            if (candidate.TaskIds.Any(tasks.Contains) || construction.Checkpoints.Any(checkpoint =>
-                checkpoint.Fragment["businessReviewPending"]?.GetValue<bool>() == true && checkpoint.TaskIds.Any(tasks.Contains))) return true;
+            if (candidate.TaskIds.Any(id => tasks.Contains(id) && behavior.Contains(id)) || construction.Checkpoints.Any(checkpoint =>
+                checkpoint.Fragment["businessReviewPending"]?.GetValue<bool>() == true &&
+                checkpoint.TaskIds.Any(id => tasks.Contains(id) && behavior.Contains(id)))) return true;
         }
         return false;
     }
+    private static HashSet<string> ExecutableBusinessTasks(TaskPlan plan)
+    {
+        var tasks = TaskPlanRevisions.Tasks(plan.Root).ToList();
+        var called = new HashSet<string>(StringComparer.Ordinal);
+        for (var index = 0; index < tasks.Count; index++)
+            if (tasks[index].Group is { } id && called.Add(id) && plan.Groups.SingleOrDefault(group => group.Id == id) is { } group)
+                tasks.AddRange(TaskPlanRevisions.Tasks(group.Body));
+        // Definitions and empty control openings have no executed business block.
+        // Real computations, calls and effects retain review, including cleanup.
+        var behavior = tasks.Where(task => task.Kind is not ("sequence" or "conditional" or "parallel" or "foreach"))
+            .Select(task => task.Id).ToHashSet(StringComparer.Ordinal);
+        foreach (var task in tasks.Where(task => task.Kind is "sequence" or "conditional" or "parallel" or "foreach"))
+            if ((task.Body is { } body && TaskPlanRevisions.Tasks(body).Any(child => behavior.Contains(child.Id))) ||
+                (task.Otherwise is { } otherwise && TaskPlanRevisions.Tasks(otherwise).Any(child => behavior.Contains(child.Id))) ||
+                task.Branches.SelectMany(TaskPlanRevisions.Tasks).Any(child => behavior.Contains(child.Id))) behavior.Add(task.Id);
+        return behavior;
+    }
+
     // Evidence-only use of the existing correction flow cannot edit accepted work.
     private static async Task RetrieveBusinessFindingEvidenceAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
     {
