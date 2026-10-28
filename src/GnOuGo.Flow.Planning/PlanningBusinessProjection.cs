@@ -69,8 +69,21 @@ internal static class PlanningBusinessProjection
             globals.Add((JsonNode)new JsonObject { ["id"] = "catalog-policy:instructions", ["text"] = state.Catalog.Policy.Instructions });
         var actions = new JsonArray(symbols.Tasks.Where(pair => selected.Contains(pair.Key))
             .Select(pair => (JsonNode)Action(state, pair.Value.Task, pair.Value.Scope.Path)).ToArray());
-        // Root declarations describe only bindings actually visible to this
-        // fragment. A declaration in the prompt does not grant group access.
+        // A public-interface completion claim needs the actual declarations even
+        // without an executable consumer. Other fragments retain consumed inputs
+        // only; presenting a public declaration never grants isolated group access.
+        var compact = construction.Compact!;
+        var claimedSources = compact.CurrentStep!.CloseRequirementIds
+            .SelectMany(id => compact.RequirementSources.GetValueOrDefault(id) ?? []).ToHashSet(StringComparer.Ordinal);
+        var interfaceClaims = (compact.InterfaceExtractions ?? []).Where(extraction => extraction.Complete)
+            .SelectMany(extraction => extraction.Dispositions ?? [])
+            .Where(disposition => disposition.Kind == "interfaces" && disposition.Inputs.Count > 0 &&
+                compact.Sources.Any(source => source.Id == disposition.SourceId && source.Version == disposition.Version && source.Indexed) &&
+                (global || claimedSources.Contains(disposition.SourceId) || disposition.Evidence.Any(evidence =>
+                    claimedSources.Contains(evidence.Key) && compact.Sources.Any(source => source.Id == evidence.Key &&
+                        source.Version == evidence.Value && source.Kind is "requirement" or "global"))))
+            .SelectMany(disposition => disposition.Inputs).ToHashSet(StringComparer.Ordinal);
+        var isolated = !global && symbols.Scopes.SingleOrDefault(scope => scope.Path == candidate.Extension.Scope) is { } reviewedScope && InGroup(reviewedScope);
         var rootValues = symbols.Tasks.Where(pair => selected.Contains(pair.Key) && !InGroup(pair.Value.Scope))
             .SelectMany(pair => TaskPlanCompiler.Values(pair.Value.Task))
             .Concat(exportScopes.Where(scope => !InGroup(scope)).SelectMany(scope => scope.Source.Outputs).SelectMany(output => TaskPlanCompiler.Values(output.Value)))
@@ -93,8 +106,14 @@ internal static class PlanningBusinessProjection
             ["review"] = global ? "completed_workflow" : "current_fragment",
             ["technicalValidation"] = "Present types, contracts, references, scopes and bindings passed host/compiler checks; this does not establish business meaning, runtime success or execution authority.",
             ["requirements"] = requirements, ["globalConstraints"] = globals,
-            ["inputs"] = new JsonArray(plan.Inputs.Where(input => global || rootInputs.Contains(input.Name))
-                .Select(input => (JsonNode)Declaration(input, rootValues, "input:" + input.Name)).ToArray()),
+            ["inputs"] = new JsonArray(plan.Inputs.Where(input => global || interfaceClaims.Count > 0 || rootInputs.Contains(input.Name))
+                .Select(input =>
+                {
+                    var declaration = Declaration(input, rootValues, "input:" + input.Name, completeType: interfaceClaims.Contains(input.Name));
+                    declaration["scope"] = "/root";
+                    if (isolated) declaration["availableInReviewedScope"] = false;
+                    return (JsonNode)declaration;
+                }).ToArray()),
             ["actions"] = actions, ["scopes"] = scopes,
             ["groups"] = new JsonArray(plan.Groups.Where(group => groups.Contains(group.Id)).Select(group => (JsonNode)new JsonObject
             {
@@ -232,9 +251,9 @@ internal static class PlanningBusinessProjection
         return result;
     }
 
-    private static JsonObject Declaration(TaskInput input, IEnumerable<TaskValue>? values = null, string? evidence = null)
+    private static JsonObject Declaration(TaskInput input, IEnumerable<TaskValue>? values = null, string? evidence = null, bool completeType = false)
     {
-        var result = new JsonObject { ["name"] = input.Name, ["type"] = Type(input.Type), ["required"] = input.Required };
+        var result = new JsonObject { ["name"] = input.Name, ["type"] = completeType ? ResultShape(input.Type, includeEnum: true) : Type(input.Type), ["required"] = input.Required };
         if (input.Default is not null) result["default"] = Value(input.Default);
         if (evidence is not null) result["evidence"] = evidence;
         if (values is not null)
@@ -258,15 +277,16 @@ internal static class PlanningBusinessProjection
 
     // Extraction/interpretation targets are executable behavior, unlike an
     // unrelated input schema. Keep their complete semantic field structure.
-    private static JsonNode? ResultShape(TaskType? type)
+    private static JsonNode? ResultShape(TaskType? type, bool includeEnum = false)
     {
         if (type is null) return null;
         var result = Type(type)!.AsObject();
-        if (type.Items is { } item) result["items"] = ResultShape(item);
+        if (includeEnum && type.Enum is { } alternatives) result["enum"] = Strings(alternatives);
+        if (type.Items is { } item) result["items"] = ResultShape(item, includeEnum);
         if (type.Fields.Count > 0)
             result["fields"] = new JsonArray(type.Fields.Select(field =>
             {
-                var value = new JsonObject { ["name"] = field.Name, ["required"] = field.Required, ["type"] = ResultShape(field.Type) };
+                var value = new JsonObject { ["name"] = field.Name, ["required"] = field.Required, ["type"] = ResultShape(field.Type, includeEnum) };
                 if (field.Default is not null) value["default"] = Value(field.Default);
                 return (JsonNode)value;
             }).ToArray());

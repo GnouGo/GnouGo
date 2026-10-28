@@ -63,6 +63,11 @@ producer provenance, consumed ports, controls, ordering, groups/calls, outputs a
 Operation labels are intentions, not behavior. Transform interpretation instructions
 are executable and remain visible.
 
+A public-interface completion claim includes the actual declarations even without an
+executable consumer, including wrong or extra names and relevant nested types, defaults,
+enums and nullability. Exact linked naming/type clauses establish relevance. Public root
+declarations remain separate from isolated group parameters and grant no field access.
+
 Code validates full schemas and technical constraints. The Judge normally receives
 only original MCP descriptions and effective modes needed to distinguish business
 behavior, such as target identity or append versus overwrite. Detailed originals remain
