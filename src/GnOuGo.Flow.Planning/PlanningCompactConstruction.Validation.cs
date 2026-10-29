@@ -181,18 +181,19 @@ internal static partial class PlanningCompactConstruction
         if (compact.Sources.Any(s => s.Kind is "page" or "answer_page" or "revision_page" && !s.Indexed))
             yield return new("CONSTRUCTION_SOURCE_REMAINING", "/construction/compact/sources", "Every original source page must be indexed before completion.");
         foreach (var requirement in state.Construction.Requirements.Where(r => !step.CloseRequirementIds.Contains(r.Id, StringComparer.Ordinal) &&
-            (r.Status != "closed")))
+            !RequirementCompletionClaimed(state, r.Id)))
             yield return new("CONSTRUCTION_REQUIREMENT_REMAINING", "/requirements/" + requirement.Id,
                 "This original requirement has contributions but has not explicitly closed; continue its business substeps before completion.");
     }
 
-    internal static void Accept(PlanningSession state)
+    internal static void Accept(PlanningSession state, bool reviewed)
     {
         var compact = State(state); var step = compact.CurrentStep!;
         state.Requirements = CandidateRequirements(state);
-        foreach (var requirement in state.Construction!.Requirements.Where(r => step.RequirementIds.Contains(r.Id, StringComparer.Ordinal)))
-            requirement.Status = step.CloseRequirementIds.Contains(requirement.Id, StringComparer.Ordinal) ||
-                requirement.Status == "closed" ? "closed" : "in_progress";
+        var complete = reviewed && state.Construction!.Candidate!.Extension.Complete;
+        foreach (var requirement in state.Construction!.Requirements.Where(r => complete || step.RequirementIds.Contains(r.Id, StringComparer.Ordinal)))
+            requirement.Status = requirement.Status == "closed" || complete || reviewed && step.CloseRequirementIds.Contains(requirement.Id, StringComparer.Ordinal)
+                ? "closed" : "in_progress";
         AcceptContinuation(state);
         compact.CurrentStep = null;
         compact.PendingCommitments.Clear();

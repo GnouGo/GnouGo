@@ -738,6 +738,7 @@ public sealed class CompactConstructionTests
     {
         var state = await PlannerFixture.RunAsync(new TestRuntime { Respond = Simple }, Fresh());
         state.Construction!.OpenScopes = ["/root"]; state.Construction.Requirements[0].Status = "remaining";
+        state.Construction.Requirements[0].Checkpoints.Clear();
         var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.SelectGuidance(state),
             PlanningCompactConstruction.SelectionContext(state), PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose);
         var response = Select(request, "group", close: false);
@@ -765,6 +766,7 @@ public sealed class CompactConstructionTests
     {
         var state = await PlannerFixture.RunAsync(new TestRuntime { Respond = Simple }, Fresh());
         state.Construction!.Requirements[0].Status = "remaining"; state.Construction.OpenScopes = ["/root"];
+        state.Construction.Requirements[0].Checkpoints.Clear();
         state.Requirements!.Outputs = Enumerable.Range(0, 500).Select(i => new TaskInput
             { Name = "result_" + i, Type = new() { Kind = "string" } }).ToList();
         var context = PlanningCompactConstruction.SelectionContext(state);
@@ -848,7 +850,7 @@ public sealed class CompactConstructionTests
     }
 
     [Fact]
-    public async Task ClosingRootAfterBusinessClosurePreservesClosedRequirementAndReviewedReceipt()
+    public async Task ClosingRootReviewsPendingRequirementCompletionBeforeBusinessClosure()
     {
         var step = 0;
         var runtime = new TestRuntime { Respond = (request, purpose) =>
@@ -866,7 +868,7 @@ public sealed class CompactConstructionTests
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics.Select(d => d.Message)));
         Assert.Equal("closed", Assert.Single(state.Construction!.Requirements).Status);
         Assert.Equal(["req_0"], state.Construction!.Checkpoints[0].ClosedRequirementIds);
-        Assert.Empty(state.Construction!.Checkpoints[1].ClosedRequirementIds!);
+        Assert.Equal(["req_0"], state.Construction!.Checkpoints[1].ClosedRequirementIds);
         PlanningArtifactApproval.Verify(state);
     }
 

@@ -6,8 +6,29 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningCompactConstruction
 {
+    // A retained claim can propose final review; it cannot establish business
+    // closure or authority for another transition. Rollback invalidates these
+    // checkpoint associations along with the affected requirement.
+    internal static bool RequirementCompletionClaimed(PlanningSession state, string id)
+        => state.Construction!.Requirements.Single(item => item.Id == id).Status == "closed" || CompletionClaims(state, id).Any();
+
+    internal static bool CanClaimRequirementCompletion(PlanningSession state, string id)
+        => state.Construction!.Requirements.Single(item => item.Id == id).Status != "closed" &&
+            !CompletionClaims(state, id).Any(checkpoint => checkpoint.PlanHash == PlanningConstruction.Hash(state.Plan));
+
+    private static IEnumerable<PlanningConstructionCheckpoint> CompletionClaims(PlanningSession state, string id)
+    {
+        var construction = state.Construction!;
+        var requirement = construction.Requirements.Single(item => item.Id == id);
+        return construction.Checkpoints.Where(checkpoint =>
+            checkpoint.InvalidatedTaskIds.Count == 0 && requirement.Checkpoints.Contains(checkpoint.Sequence) &&
+            checkpoint.RequirementIds.Contains(id, StringComparer.Ordinal) &&
+            checkpoint.ClosedRequirementIds?.Contains(id, StringComparer.Ordinal) == true &&
+            checkpoint.Step?.CloseRequirementIds.Contains(id, StringComparer.Ordinal) == true);
+    }
+
     internal static bool CompletionOnly(PlanningSession state) =>
-        state.Construction!.Requirements.Count > 0 && state.Construction.Requirements.All(requirement => requirement.Status == "closed") &&
+        state.Construction!.Requirements.Count > 0 && state.Construction.Requirements.All(requirement => RequirementCompletionClaimed(state, requirement.Id)) &&
         State(state).ReplacementScope is null && !state.Diagnostics.Any(diagnostic => diagnostic.Required) &&
         state.Plan is { } plan && plan.Choices.All(choice => choice.Selected is not null) &&
         State(state).Sources.All(source => source.Kind is not ("page" or "answer_page" or "revision_page") || source.Indexed) &&
@@ -52,7 +73,7 @@ internal static partial class PlanningCompactConstruction
             step.CloseScopes.Contains("/root", StringComparer.Ordinal) &&
                 ((state.Requirements!.Outputs ?? []).Any(output => output.Required && state.Plan.Root.Outputs.All(binding => binding.Name != output.Name)) ||
                  state.Plan.Choices.Any(choice => choice.Selected is null) || compact.SuspendedSteps?.Any(Active) == true) ||
-            step.CloseScopes.Count == 0 && !step.CloseRequirementIds.Any(id => construction.Requirements.Any(item => item.Id == id && item.Status != "closed")))
+            step.CloseScopes.Count == 0 && !step.CloseRequirementIds.Any(id => CanClaimRequirementCompletion(state, id)))
             return null;
         var probe = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession),
             PlanningJsonContext.Default.PlanningSession)!;
@@ -102,7 +123,7 @@ internal static partial class PlanningCompactConstruction
             Id = "step_" + (++next.NextStep), BaseHash = PlanningConstruction.Hash(state.Plan), Scope = boundary, Kind = "close",
             Objective = "Close this technically complete boundary; final business review still checks all original obligations.",
             RequirementIds = requirements.ToList(), DiscoveryComplete = true,
-            CloseScopes = [boundary]
+            CloseRequirementIds = requirements.ToList(), CloseScopes = [boundary]
         };
         probe.Construction!.Candidate = PlanningConstruction.Apply(probe, new()
         {

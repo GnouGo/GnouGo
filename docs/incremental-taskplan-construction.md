@@ -41,7 +41,13 @@ completion or outputs. Concrete references resolve immediately; future obligatio
 remain non-executable metadata. Apply candidates to clones, then run the compiler's
 semantic preflight against original contracts, permissions and provenance. Invalid
 candidates never replace accepted state. Checkpointing establishes technical acceptance,
-not business fulfillment.
+not business fulfillment. Unreviewed completion claims stay in checkpoint metadata;
+their original obligations remain selectable until an applicable successful business
+review closes them. Retained claims may propose final review without establishing
+fulfillment. Host-prepared closure reissues the full claim set, including sets larger
+than a model selection page; unchanged claim repetition is not progress. A successful
+completed-workflow global review closes every original obligation, including retained
+claims outside the final step. Local review closes only its explicit current claims.
 
 Local requests derive their originals before packing: selected obligations, consumed
 producers and their accepted requirement associations, ancestor controls/groups,

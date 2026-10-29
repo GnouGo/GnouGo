@@ -54,7 +54,7 @@ internal static partial class PlanningConstruction
         if (additions.Length > construction.Limits.MaxTasksPerDraft || extension.Groups.Count > construction.Limits.MaxTasksPerDraft || extension.Choices.Count > construction.Limits.MaxTasksPerDraft)
             Fail("CONSTRUCTION_DRAFT_LIMIT", extension.Scope, "The extension exceeds its captured recursive task limit.");
         var closesRequirement = construction.Compact?.CurrentStep is { Kind: "close" } step &&
-            step.CloseRequirementIds.Any(id => construction.Requirements.Any(r => r.Id == id && r.Status != "closed"));
+            step.CloseRequirementIds.Any(id => PlanningCompactConstruction.CanClaimRequirementCompletion(state, id));
         if (additions.Length == 0 && extension.Outputs.Count == 0 && extension.CloseScopes.Count == 0 &&
             (extension.Groups.Count == 0 && extension.Choices.Count == 0) && !closesRequirement)
             Fail("REPLAN_NO_PROGRESS", extension.Scope, "An extension must add work, declare an output or close an existing obligation.");

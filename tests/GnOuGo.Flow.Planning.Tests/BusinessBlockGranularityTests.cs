@@ -15,7 +15,7 @@ public sealed class BusinessBlockGranularityTests
         Assert.Empty(runtime.Calls);
         Assert.Equal(0, state.ReplanAttempts);
         Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
-        Assert.Equal("closed", state.Construction!.Requirements.Single(requirement => requirement.Id == "work").Status);
+        Assert.Equal("in_progress", state.Construction!.Requirements.Single(requirement => requirement.Id == "work").Status);
         var checkpoint = Assert.Single(state.Construction.Checkpoints);
         Assert.True(checkpoint.Fragment["businessReviewPending"]!.GetValue<bool>());
         Assert.Null(HybridWorkflowPlanner.ReviewedCheckpoint(state, checkpoint));

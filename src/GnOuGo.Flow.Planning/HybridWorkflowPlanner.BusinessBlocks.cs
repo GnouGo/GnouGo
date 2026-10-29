@@ -16,7 +16,7 @@ public sealed partial class HybridWorkflowPlanner
         if (candidate.Extension.ContinuationBinding is not null || candidate.Extension.BoundaryTransitions is { Count: > 0 }) return true;
         var construction = state.Construction!;
         var step = construction.Compact!.CurrentStep!;
-        if (construction.Requirements.All(requirement => requirement.Status == "closed" ||
+        if (construction.Requirements.All(requirement => PlanningCompactConstruction.RequirementCompletionClaimed(state, requirement.Id) ||
             step.CloseRequirementIds.Contains(requirement.Id, StringComparer.Ordinal))) return false;
         var symbols = new TaskPlanSymbols(candidate.Plan);
         var behavior = ExecutableBusinessTasks(candidate.Plan);

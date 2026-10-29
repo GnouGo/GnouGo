@@ -430,7 +430,8 @@ public sealed partial class HybridWorkflowPlanner
     private static async Task AcceptConstructionAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
     {
         var construction = state.Construction!; var draft = construction.Candidate!;
-        if (draft.Diagnostics.Count > 0 || NeedsBusinessReview(state, draft) && !ConstructionBusinessReviewValid(state, draft, draft.Extension.Complete))
+        var reviewed = ConstructionBusinessReviewValid(state, draft, draft.Extension.Complete);
+        if (draft.Diagnostics.Count > 0 || NeedsBusinessReview(state, draft) && !reviewed)
             throw new PlanningConflictException("The candidate has not completed its required deterministic and advisory reviews.");
         PlanningConstruction.PreserveAccepted(state, draft.Plan);
         var symbols = new TaskPlanSymbols(draft.Plan);
@@ -451,7 +452,7 @@ public sealed partial class HybridWorkflowPlanner
                 ["tasks"] = new JsonArray(retainedTasks.Where(symbols.Tasks.ContainsKey)
                     .Select(id => PlanningConstruction.Node(symbols.Tasks[id].Task, PlanningJsonContext.Default.PlanTask)).ToArray()),
                 ["outputs"] = PlanningConstruction.Node(draft.Extension.Outputs, PlanningJsonContext.Default.ListTaskOutput),
-                ["businessReviewPending"] = !draft.BusinessReviewed
+                ["businessReviewPending"] = !reviewed
             }
         };
         {
@@ -464,7 +465,7 @@ public sealed partial class HybridWorkflowPlanner
         state.Plan = draft.Plan; construction.OpenScopes = draft.OpenScopes; construction.Checkpoints.Add(checkpoint);
         foreach (var requirement in construction.Requirements.Where(r => draft.Extension.RequirementIds.Contains(r.Id, StringComparer.Ordinal)))
         { requirement.Checkpoints.Add(checkpoint.Sequence); }
-        PlanningCompactConstruction.Accept(state);
+        PlanningCompactConstruction.Accept(state, reviewed);
         construction.Complete = draft.Extension.Complete; construction.Candidate = null;
         construction.DraftCorrections = 0; construction.LastProposalHash = null;
         construction.PendingReviewContext = null; construction.PendingReviewHash = null; construction.Evidence = null; construction.EvidenceRequests.Clear();

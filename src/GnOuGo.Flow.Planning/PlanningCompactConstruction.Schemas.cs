@@ -28,7 +28,7 @@ internal static partial class PlanningCompactConstruction
         var canComplete = canClose && open.All(path => path == step.Scope) &&
             !compact.Sources.Any(s => s.Kind is "page" or "answer_page" or "revision_page" && !s.Indexed) &&
             construction.Requirements.All(r => step.CloseRequirementIds.Contains(r.Id, StringComparer.Ordinal) ||
-                r.Status == "closed");
+                RequirementCompletionClaimed(state, r.Id));
         // This narrows new presentations only. Existing semantic validation still
         // owns returned candidates, including responses to earlier issued schemas.
         return (canClose && (step.Scope != "/root" || canComplete), canComplete);

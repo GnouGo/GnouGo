@@ -317,8 +317,9 @@ internal static partial class PlanningCompactConstruction
         return new()
         {
             // Associations describe accepted contributions, never fulfillment or
-            // execution. Current requirement status remains the separate claim.
+            // execution. Only applicable business review closes the requirement.
             ["basis"] = "accepted_checkpoint_associations_not_fulfillment", ["checkpointCount"] = checkpoints.Length,
+            ["completionClaimPendingReview"] = requirement.Status != "closed" && RequirementCompletionClaimed(state, requirementId),
             ["directory"] = checkpoints.Length > 4 ? "page:checkpoints:0" : null,
             ["items"] = new JsonArray(checkpoints.TakeLast(4).Select(item =>
             {

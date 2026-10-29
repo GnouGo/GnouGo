@@ -360,7 +360,7 @@ internal static partial class PlanningCompactConstruction
         // A close binding adds no task. Reuse the existing draft/Apply progress
         // choices; nested scopes may export even when a child is still open.
         return step.Scope != "/root" || step.OutputNames.Count > 0 || ClosurePresentation(state).CloseScope ||
-            step.CloseRequirementIds.Any(id => state.Construction!.Requirements.Any(r => r.Id == id && r.Status != "closed"));
+            step.CloseRequirementIds.Any(id => CanClaimRequirementCompletion(state, id));
     }
 
     private static JsonObject CompactDiscoverySchema(PlanningSession state)

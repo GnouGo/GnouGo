@@ -22,6 +22,12 @@ Requirement-only closures without new or related pending executable behavior rem
 technical checkpoints with business review pending. Empty controls and uncalled group
 definitions do not create a business block. These checkpoints grant no reviewed
 continuation or boundary authority; the final global review still covers every obligation.
+Their completion claims also leave requirements in progress and visible to selection.
+Only a matching successful review commits business closure. Existing checkpoint claims
+can prepare final review; they cannot replace it. The host reissues the exact claim IDs
+at that boundary, preserving one global review for a small completed workflow. An exact
+successful global completion review closes all originals; local review commits only its
+current explicit claims.
 
 Optional draft port directories can be paged through shared contract anchors without
 removing consumed schema closures. Exact original coordinates remain retrievable;
