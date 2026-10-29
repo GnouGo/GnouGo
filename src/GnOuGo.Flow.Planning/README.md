@@ -52,7 +52,8 @@ selected scope, clean validation and the issued closure claim.
 
 Optional draft port directories can be paged through shared contract anchors without
 removing consumed schema closures. Exact original coordinates remain retrievable;
-an oversized mandatory core still fails admission before dispatch.
+mandatory evidence is never discarded to fit a target. Effective hard provider limits
+and non-advisory host constraints still stop admission before dispatch.
 
 Local evidence is selected before serialization from current obligations, consumed
 producers, their checkpoint associations, controls, linked declarations and repair claims.
