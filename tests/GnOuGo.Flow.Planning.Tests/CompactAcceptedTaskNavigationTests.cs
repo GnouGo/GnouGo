@@ -1267,7 +1267,10 @@ public sealed class CompactAcceptedTaskNavigationTests
                 if (!displayedAddresses.Contains(address)) Assert.NotEmpty(findings);
                 else Assert.Empty(findings);
             }
-            var expectedSchema = original.StructuredOutputSchema!.DeepClone();
+            // Exact producer-port domains now follow the displayed page too;
+            // undisplayed ports cannot remain in the response grammar.
+            var expectedSchema = PlanningCompactConstruction.Request(PlanningCompactConstruction.SelectGuidance(state), presented,
+                PlanningCompactConstruction.SelectionSchema(state, presented), PlanningCompactConstruction.SelectPurpose).StructuredOutputSchema!.DeepClone();
             expectedSchema["properties"]!["evidenceRequests"] = raw.StructuredOutputSchema!["properties"]!["evidenceRequests"]!.DeepClone();
             Assert.True(JsonNode.DeepEquals(expectedSchema, raw.StructuredOutputSchema));
             row["outputs"] = full["outputs"]!.DeepClone(); row.AsObject().Remove("outputCount"); row.AsObject().Remove("next");

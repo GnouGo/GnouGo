@@ -11,7 +11,7 @@ internal static partial class PlanningCompactConstruction
     {
         var plan = state.Plan ?? new TaskPlan { Inputs = state.Requirements!.Inputs!.ToList() };
         var symbols = new TaskPlanSymbols(plan);
-        var offered = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        var offered = new Dictionary<string, HashSet<string?>>(StringComparer.Ordinal);
         void Collect(JsonNode? node)
         {
             if (node is JsonArray array) { foreach (var child in array) Collect(child); return; }
@@ -20,6 +20,7 @@ internal static partial class PlanningCompactConstruction
             if (id is not null && symbols.Tasks.ContainsKey(id))
             {
                 if (!offered.TryGetValue(id, out var ports)) offered[id] = ports = new(StringComparer.Ordinal);
+                if (obj["wholeResult"]?.GetValue<bool>() == true) ports.Add(null);
                 foreach (var port in obj["ports"] as JsonArray ?? [])
                     if (port is JsonValue value && value.TryGetValue<string>(out var name)) ports.Add(name);
                 foreach (var output in obj["outputs"] as JsonArray ?? [])
@@ -28,6 +29,17 @@ internal static partial class PlanningCompactConstruction
             foreach (var (_, child) in obj) Collect(child);
         }
         Collect(page["interfaces"]); Collect(page["evidence"]); Collect(page["requirements"]);
+        // An exact contract port page has an operation identity, not a task ID.
+        // Join it only to already displayed producers of that original operation.
+        foreach (var (address, node) in page["evidence"] as JsonObject ?? [])
+        {
+            if (!address.StartsWith("port-page:", StringComparison.Ordinal) || node?["direction"]?.ToString() != "/output") continue;
+            if (!JsonNode.DeepEquals(node, LoadContractEvidence(state, address, recordSchemaSelection: false)))
+                PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "The displayed original port page is stale.");
+            foreach (var producer in offered.Where(pair => symbols.Tasks[pair.Key].Task.Kind == "operation" &&
+                symbols.Tasks[pair.Key].Task.Operation == node!["id"]!.ToString()))
+                foreach (var port in node!["items"]!.AsArray()) producer.Value.Add(port!["name"]!.ToString());
+        }
         var definitions = new JsonObject(); schema["$defs"] = definitions;
         var serial = 0;
         var cached = new Dictionary<(string Scope, int Checkpoint), JsonObject>();
@@ -60,8 +72,13 @@ internal static partial class PlanningCompactConstruction
             var available = verified.Interfaces.GetValueOrDefault(scope) ?? [];
             var branches = new JsonArray();
             foreach (var group in available.Select(item => item.Value).Where(value => value.Kind == "output").GroupBy(value => value.Source))
+            {
+                var names = group.Where(value => value.Port is not null).Select(value => value.Port!).Distinct().ToArray();
+                var port = names.Length == 0 ? PlanningSchemas.Type("null") : group.Any(value => value.Port is null)
+                    ? PlanningSchemas.Nullable(PlanningSchemas.Enum(names)) : PlanningSchemas.Enum(names);
                 branches.Add((JsonNode)PlanningSchemas.Object(("kind", PlanningSchemas.Enum("output")),
-                    ("source", PlanningSchemas.Enum(group.Key!)), ("port", PlanningSchemas.Enum(group.Select(value => value.Port!).Distinct().ToArray()))));
+                    ("source", PlanningSchemas.Enum(group.Key!)), ("port", port)));
+            }
             foreach (var kind in new[] { "present", "input", "choice" })
             {
                 var sources = available.Select(item => item.Value).Where(value => value.Kind == kind).Select(value => value.Source!).Distinct().ToArray();

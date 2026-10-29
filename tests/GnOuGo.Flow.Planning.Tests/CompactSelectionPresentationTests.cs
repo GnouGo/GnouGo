@@ -40,6 +40,8 @@ public sealed class CompactSelectionPresentationTests(ITestOutputHelper output)
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, schema));
         response["step"]!["inputs"]![0]!["port"] = "different";
         Assert.Empty(PlanningContractValidation.ValidateInstance(response, schema));
+        response["step"]!["inputs"]![0]!["port"] = null;
+        Assert.Empty(PlanningContractValidation.ValidateInstance(response, schema));
         response["step"]!["inputs"]![0]!["source"] = "unknown";
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, schema));
     }

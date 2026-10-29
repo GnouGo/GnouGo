@@ -719,6 +719,7 @@ internal static partial class PlanningCompactConstruction
             if (open) continue;
             var ports = NavigationPorts(state, task).ToArray();
             var entry = TaskNavigation(state, task, site.Scope.Path);
+            entry["wholeResult"] = task.Kind is "operation" or "transform" || ports.Length > 0;
             entry["ports"] = new JsonArray(ports.Take(8).Select(p => (JsonNode?)JsonValue.Create(p)).ToArray());
             entry["portCount"] = ports.Length;
             entry["nextPorts"] = ports.Length > 8 ? TaskPortsAddress(task.Id, ports, 8) : null;
