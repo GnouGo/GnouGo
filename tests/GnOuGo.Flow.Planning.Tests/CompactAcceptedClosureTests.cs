@@ -95,6 +95,7 @@ public sealed class CompactAcceptedClosureTests
     [InlineData("new_work")]
     [InlineData("repair")]
     [InlineData("stale")]
+    [InlineData("pending")]
     public async Task SelectedClosureCannotInventBindingsOrBypassRepair(string reason)
     {
         var state = await State();
@@ -108,10 +109,61 @@ public sealed class CompactAcceptedClosureTests
             case "new_work": step.ExpectedOutputs = ["A still missing business result."]; break;
             case "repair": state.EditablePaths = ["/tasks/producer/outputs/number"]; break;
             case "stale": step.BaseHash = new string('0', 64); break;
+            case "pending": state.PendingCall = new() { Id = "exact-issued-closure", Purpose = PlanningConstruction.DraftPurpose,
+                Request = new() { Prompt = "Retain these exact issued bytes.", StructuredOutputSchema = new JsonObject { ["type"] = "object" } } }; break;
         }
         var original = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
         Assert.Null(PlanningCompactConstruction.PrepareSelectedClosure(state));
         Assert.Equal(original, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SelectedUnchangedClosureRetainsEvidenceNotesWithoutAnotherDraft(bool complete)
+    {
+        var state = await State(2);
+        if (!complete)
+        {
+            foreach (var requirement in state.Construction!.Requirements) requirement.Status = "remaining";
+            state.Construction.Checkpoints[0].ClosedRequirementIds = [];
+        }
+        var note = new PlanningConstructionPrerequisite
+        {
+            Need = "The retained original obligation and accepted numeric result remain subject to business review.",
+            EvidenceAddresses = ["requirement:req_0"]
+        };
+        var step = new PlanningConstructionStep { Id = "selected_close", Kind = "close", Scope = "/root",
+            Objective = "Record the selected completion claim without changing accepted behavior.",
+            DiscoveryComplete = true, RequirementIds = ["req_0"], CloseRequirementIds = ["req_0"],
+            CloseScopes = complete ? ["/root"] : [], Prerequisites = [note] };
+        state.Construction!.Compact!.CurrentStep = step;
+        PlanningCompactConstruction.ValidateSelection(state, step);
+        var original = PlanningConstruction.Hash(state.Plan);
+        var prepared = Assert.IsType<PlanningSession>(PlanningCompactConstruction.PrepareSelectedClosure(state));
+        Assert.Equal(original, prepared.Construction!.Candidate!.Hash);
+        Assert.Equal(note.Need, Assert.Single(prepared.Construction.Compact!.CurrentStep!.Prerequisites!).Need);
+        Assert.False(prepared.Construction.Candidate.BusinessReviewed);
+        var runtime = new TestRuntime { Respond = (_, purpose) =>
+        {
+            Assert.True(complete, "A requirement-only technical closure must not dispatch a draft or Judge.");
+            Assert.Equal(PlanningConstruction.GlobalPurpose, purpose);
+            return new() { Json = new JsonObject { ["decision"] = new JsonObject { ["verdict"] = "ok",
+                ["reason"] = "The complete numeric result fulfills both original obligations." } } };
+        } };
+        for (var tick = 0; tick < (complete ? 12 : 2) && state.Status != PlanningStatus.FinalReview; tick++)
+            state = await new HybridWorkflowPlanner().AdvanceAsync(PlannerFixture.Clone(state), new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+        Assert.Equal(original, PlanningConstruction.Hash(state.Plan));
+        Assert.Equal(complete ? 1 : 0, runtime.Calls.Count);
+        Assert.Null(state.ApprovedHash);
+        if (complete) Assert.Equal(PlanningStatus.FinalReview, state.Status);
+        else
+        {
+            Assert.Equal("in_progress", state.Construction!.Requirements[0].Status);
+            Assert.Equal("remaining", state.Construction.Requirements[1].Status);
+            Assert.False(HybridWorkflowPlanner.ConstructionArtifactReviewValid(state));
+            Assert.Equal(note.Need, state.Construction.Checkpoints[^1].Step!.Prerequisites![0].Need);
+        }
     }
 
     [Fact]

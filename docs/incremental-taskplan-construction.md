@@ -97,6 +97,12 @@ completed workflow must pass that global review before approval; it covers all o
 obligations, interactions, public results and success/failure cleanup. It absorbs a
 coincident local review. There is no checkpoint-count review interval.
 
+Selected unchanged-plan closure can retain evidence-linked prerequisite notes without
+another model call merely echoing the selected requirement IDs. The notes remain
+attached to the claim, unresolved business meaning stays pending, and ordinary
+deterministic validation and required business review still apply. Issued requests,
+repairs, new bindings and actual generation retain their existing paths.
+
 A local review assesses actual present behavior and explicit completion claims.
 Legitimate future work in an open scope is not an omission. A finite execution ceiling
 is not an unstated required result cardinality. Requirement closure, scope closure,

@@ -64,7 +64,9 @@ internal static partial class PlanningCompactConstruction
             step.BaseHash != PlanningConstruction.Hash(state.Plan) || compact.ReplacementScope is not null ||
             compact.ResumingStepId is not null || step.ContinuationBinding is not null ||
             step.Inputs.Count > 0 || step.DependencyTaskIds.Count > 0 || step.ExpectedOutputs.Count > 0 ||
-            step.Prerequisites is { Count: > 0 } || compact.PendingCommitments.Any(item => item.Value.Count > 0)) return null;
+            compact.PendingCommitments.Any(item => item.Value.Count > 0)) return null;
+        // Evidence notes remain attached to the selected claim for business review.
+        // They do not add executable content for another model call to generate.
         if (construction.RebuildTasks.Any(task => !new TaskPlanSymbols(state.Plan).Tasks.ContainsKey(task.Id))) return null;
         ValidateSelectedCloseScopes(state, step);
         // Selection names desired public outputs, not their value expressions.

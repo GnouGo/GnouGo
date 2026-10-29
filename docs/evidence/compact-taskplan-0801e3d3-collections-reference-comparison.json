@@ -1,0 +1,64 @@
+{
+  "reference_source": "6469a1a38b5ad645fa2777f8b699c01bd3f54e64",
+  "candidate_source": "0801e3d3107a73874232c6d2cdc26f1b71b5e399",
+  "one_run_per_arm": true,
+  "phase_profiles_identical": true,
+  "threshold_policy": {
+    "reference": "enforced",
+    "candidate": "trusted_benchmark_advisory"
+  },
+  "same_business_obligation_denominator": 1,
+  "independent_runtime_oracles_passed_both_arms": true,
+  "comparison": {
+    "logical_calls": {
+      "reference": 26,
+      "candidate": 23
+    },
+    "physical_attempts": {
+      "reference": 28,
+      "candidate": 23
+    },
+    "judges": {
+      "reference": 8,
+      "candidate": 2
+    },
+    "peak_complete_judge_request_bytes": {
+      "reference": 26394,
+      "candidate": 9035
+    },
+    "peak_complete_request_bytes_all_phases": {
+      "reference": 26394,
+      "candidate": 80754
+    },
+    "provider_input_tokens": {
+      "reference": 87489,
+      "candidate": 79739
+    },
+    "provider_output_including_reasoning_tokens": {
+      "reference": 37860,
+      "candidate": 60156
+    },
+    "provider_reasoning_tokens": {
+      "reference": 31115,
+      "candidate": 55926
+    },
+    "known_cost_eur": {
+      "reference": "1.4040562248995983935742971886",
+      "candidate": "1.9791385969639809575136980148"
+    },
+    "retained_unknown_reservations_eur": {
+      "reference": "1.8617402945113788487282463186",
+      "candidate": 0
+    },
+    "planning_ms": {
+      "reference": 1733772,
+      "candidate": 1355696
+    },
+    "redundant_pure_aliases": {
+      "reference": 0,
+      "candidate": 2
+    }
+  },
+  "interpretation": "Fewer logical calls, Judges and Judge bytes; the candidate has a larger peak drafting request, more reasoning/output tokens, higher known cost and two pure aliases. The reference retains two failed HTTP-attempt reservations. A single run and changed source/advisory policy do not establish architecture-only causality or reproducibility.",
+  "historical_byte_p50_p95": "Unavailable in reference artifact; not reconstructed or invented."
+}

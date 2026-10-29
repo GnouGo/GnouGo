@@ -25,6 +25,9 @@ continuation or boundary authority; the final global review still covers every o
 Their completion claims also leave requirements in progress and visible to selection.
 A consumed closed control retains its actual child actions, calls, exports and cleanup
 in the review projection, including previously reviewed producers.
+Evidence-only prerequisite notes do not veto host preparation of an already selected
+unchanged-plan closure. They remain attached to its pending claim for review; no
+completion or execution authority is gained.
 Only a matching successful review commits business closure. Existing checkpoint claims
 can prepare final review; they cannot replace it. The host reissues the exact claim IDs
 at that boundary, preserving one global review for a small completed workflow. An exact
