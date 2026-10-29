@@ -222,7 +222,10 @@ internal static partial class PlanningCompactConstruction
         while (measurement.EstimatedInputTokens > phase.TargetInputTokens)
         {
             (string Identity, JsonObject Page, LLMRequest Request, PlanningRequestMeasurement Measurement)? best = null;
-            foreach (var (directory, rows) in new[] { ("scopes", page["scopes"] as JsonArray),
+            // A boundary's purpose is needed to choose work inside it. Keep its
+            // bounded objective with every offered scope rather than fitting it
+            // away and making the model rediscover the accepted business action.
+            foreach (var (directory, rows) in new[] {
                 ("interfaces", page["interfaces"] as JsonArray), ("knownOperations", page["knownOperations"]?["items"] as JsonArray) })
                 for (var index = 0; index < (rows?.Count ?? 0); index++)
                 {

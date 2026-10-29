@@ -237,44 +237,7 @@ internal static partial class PlanningCompactConstruction
             ("step", requirements is { Length: 0 } || scopes is { Length: 0 } ? PlanningSchemas.Type("null") : PlanningSchemas.Nullable(step)),
             ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(Text(2048), 1, 4))),
             ("clarifications", PlanningSchemas.Nullable(PlanningSchemas.Clarifications())));
-        schema["$defs"] = new JsonObject { ["import"] = new JsonObject { ["anyOf"] = new JsonArray(
-            PlanningSchemas.Object(("kind", PlanningSchemas.Enum("output")), ("source", Text(96)), ("port", PlanningSchemas.Nullable(Text(96)))),
-            PlanningSchemas.Object(("kind", PlanningSchemas.Enum("input", "choice", "present")), ("source", Text(96))),
-            PlanningSchemas.Object(("kind", PlanningSchemas.Enum("item", "index"))),
-            PlanningSchemas.Object(("kind", PlanningSchemas.Enum("field")), ("port", Text(96)),
-                ("items", PlanningSchemas.Array(PlanningSchemas.Ref("import"), 1, 1)))) } };
-        if ((state.Plan is null || new TaskPlanSymbols(state.Plan).Tasks.Count == 0))
-        {
-            var imports = schema["$defs"]!["import"]!["anyOf"]!.AsArray();
-            imports.RemoveAt(0);
-            imports[0]!["properties"]!["kind"] = PlanningSchemas.Enum("input", "choice");
-        }
-        {
-            var imports = schema["$defs"]!["import"]!["anyOf"]!.AsArray();
-            var references = imports.Single(import => import?["properties"]?["kind"]?["enum"] is JsonArray kinds &&
-                kinds.Any(kind => kind?.ToString() == "input"))!;
-            references["properties"]!["kind"] = PlanningSchemas.Enum(references["properties"]!["kind"]!["enum"]!
-                .AsArray().Select(kind => kind!.ToString()).Where(kind => kind != "input").ToArray());
-            var inputScopes = replacement is not null ? [replacement] : scopes ?? state.Construction!.OpenScopes.ToArray();
-            var inputNames = inputScopes
-                .SelectMany(scope => ScopeGroup(state, scope)?.Inputs ?? state.Plan?.Inputs ?? state.Requirements!.Inputs!)
-                .Select(input => input.Name).Distinct(StringComparer.Ordinal).ToArray();
-            if (inputNames.Length > 0)
-            {
-                var source = PlanningSchemas.Enum(inputNames); source["maxLength"] = 96;
-                imports.Insert(0, PlanningSchemas.Object(("kind", PlanningSchemas.Enum("input")), ("source", source)));
-            }
-        }
-        if (ContinuationContext(state) is { } continuation)
-        {
-            var checkpoints = continuation["acceptedCheckpoints"]!.AsArray().Select(item => item!["sequence"]!.GetValue<int>()).ToArray();
-            var checkpoint = PlanningSchemas.Type("integer");
-            checkpoint["enum"] = new JsonArray(checkpoints.Select(number => (JsonNode?)JsonValue.Create(number)).ToArray());
-            schema["properties"]!["resumeStep"] = continuation["canAttemptResume"]!.GetValue<bool>() && checkpoints.Length > 0
-                ? PlanningSchemas.Nullable(PlanningSchemas.Object(("continuationId", PlanningSchemas.Enum(continuation["id"]!.ToString())),
-                    ("producerCheckpoint", checkpoint), ("binding", PlanningSchemas.Ref("import")))) : PlanningSchemas.Type("null");
-            schema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("resumeStep"));
-        }
+        ConstrainSelectionBindings(state, page ?? SelectionContext(state), schema);
         ConstrainSelectionEvidence(state, page ?? SelectionContext(state), schema);
         return PlanningSchemas.Compact(schema);
     }

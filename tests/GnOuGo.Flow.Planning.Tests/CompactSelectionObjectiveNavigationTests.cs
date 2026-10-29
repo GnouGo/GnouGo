@@ -108,7 +108,7 @@ public sealed class CompactSelectionObjectiveNavigationTests
             }
             var response = EvidenceAction(state, runtime.EvidenceId(request, address));
             Assert.Empty(PlanningContractValidation.ValidateInstance(response, request.StructuredOutputSchema!.AsObject()));
-            Assert.True(JsonNode.DeepEquals(grammar, EvidenceFreeSchema(host)));
+            Assert.Empty(PlanningContractValidation.ValidateInstance(LocalInputAction(state, "caller_value"), host.StructuredOutputSchema!));
             return new() { Json = response };
         };
         for (var index = 0; index < expectedCalls; index++)
@@ -372,13 +372,13 @@ public sealed class CompactSelectionObjectiveNavigationTests
         var state = await EmptyState();
         if (missingPlan) state.Plan = null;
         var schema = ImportSchema(PlanningCompactConstruction.SelectionSchema(state));
-        foreach (var kind in new[] { "input", "choice", "item", "index" })
+        foreach (var kind in new[] { "input" })
         {
             var value = Import(kind);
             Assert.Empty(PlanningContractValidation.ValidateInstance(value, schema));
             Assert.Empty(PlanningContractValidation.ValidateInstance(Field(value), schema));
         }
-        foreach (var kind in new[] { "output", "present" })
+        foreach (var kind in new[] { "output", "present", "choice", "item", "index" })
         {
             var value = Import(kind);
             Assert.NotEmpty(PlanningContractValidation.ValidateInstance(value, schema));
@@ -393,7 +393,7 @@ public sealed class CompactSelectionObjectiveNavigationTests
     [InlineData("always")]
     [InlineData("nested")]
     [InlineData("group")]
-    public async Task AnyAcceptedTaskKeepsTaskImportGrammar(string placement)
+    public async Task OnlyVisibleAcceptedTaskPortsEnterSelectionGrammar(string placement)
     {
         var state = await EmptyState();
         var task = new PlanTask { Id = "accepted", Kind = "value", Objective = "Keep the accepted value.",
@@ -402,14 +402,14 @@ public sealed class CompactSelectionObjectiveNavigationTests
         {
             case "root": state.Plan!.Root.Tasks.Add(task); break;
             case "always": state.Plan!.Root.Always.Add(task); break;
-            case "nested": state.Plan!.Root.Tasks.Add(new() { Id = "container", Kind = "group", Body = new() { Tasks = [task] } }); break;
+            case "nested": state.Plan!.Root.Tasks.Add(new() { Id = "container", Kind = "sequence", Body = new() { Tasks = [task] } }); break;
             case "group": state.Plan!.Groups.Add(new() { Id = "reusable", Body = new() { Tasks = [task] } }); break;
         }
         var schema = ImportSchema(PlanningCompactConstruction.SelectionSchema(state));
         foreach (var kind in new[] { "output", "present" })
         {
-            Assert.Empty(PlanningContractValidation.ValidateInstance(Import(kind), schema));
-            Assert.Empty(PlanningContractValidation.ValidateInstance(Field(Import(kind)), schema));
+            Assert.Equal(placement == "root", PlanningContractValidation.ValidateInstance(Import(kind), schema).Count == 0);
+            Assert.Equal(placement == "root", PlanningContractValidation.ValidateInstance(Field(Import(kind)), schema).Count == 0);
         }
         // Offered syntax never grants access to a different task identity.
         var invalid = new PlanningConstructionStep { Scope = "/root", Kind = "value", Objective = "Use the supplied value.",
@@ -479,12 +479,21 @@ public sealed class CompactSelectionObjectiveNavigationTests
     private static JsonObject Field(JsonObject value) => new()
         { ["kind"] = "field", ["port"] = "nested", ["items"] = new JsonArray(value) };
 
-    private static string ImportKey(JsonObject schema) => schema["$defs"]!.AsObject().Single(definition =>
-        definition.Value?["anyOf"] is JsonArray alternatives && alternatives.Any(alternative =>
-            alternative?["properties"]?["kind"]?["enum"] is JsonArray kinds && kinds.Any(kind => kind?.ToString() == "field"))).Key;
-
-    private static JsonObject ImportSchema(JsonObject schema) => new()
-        { ["$ref"] = "#/$defs/" + ImportKey(schema), ["$defs"] = schema["$defs"]!.DeepClone() };
+    private static JsonObject ImportSchema(JsonObject schema)
+    {
+        JsonNode? Resolve(JsonNode? node)
+        {
+            while (node is JsonObject obj && obj["$ref"] is JsonValue reference)
+                node = schema["$defs"]![reference.ToString()[8..]];
+            return node;
+        }
+        var names = schema["$defs"]!.AsObject().Where(definition => Resolve(definition.Value)?["anyOf"] is JsonArray alternatives &&
+            alternatives.Any(alternative => Resolve(Resolve(alternative)?["properties"]?["kind"])?["enum"] is JsonArray kinds &&
+                kinds.Any(kind => kind?.ToString() == "field"))).Select(definition => definition.Key).ToArray();
+        if (names.Length == 0) return PlanningSchemas.Type("null");
+        return new() { ["anyOf"] = new JsonArray(names.Select(name => (JsonNode)new JsonObject { ["$ref"] = "#/$defs/" + name }).ToArray()),
+            ["$defs"] = schema["$defs"]!.DeepClone() };
+    }
 
     private static JsonObject EvidenceFreeSchema(LLMRequest request)
     {

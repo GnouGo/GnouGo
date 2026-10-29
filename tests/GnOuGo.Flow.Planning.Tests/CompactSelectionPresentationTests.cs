@@ -8,6 +8,43 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CompactSelectionPresentationTests(ITestOutputHelper output)
 {
     [Fact]
+    public async Task TargetFittingKeepsBusinessPurposeWithEveryOfferedOpenBoundary()
+    {
+        var state = await Ready();
+        state.Plan = new() { Root = new() { Tasks = [new() { Id = "boundary", Kind = "sequence",
+            Objective = string.Concat(Enumerable.Repeat("Build the requested observation inside this boundary before exporting its result. ", 6)), Body = new() }] } };
+        state.Construction!.OpenScopes = ["/tasks/boundary/body", "/root"];
+        state.Request.Options["construction_limits"]!["phasePolicy"]!["navigation"]!["targetInputTokens"] = 512;
+        var request = PlanningCompactConstruction.Request(state, PlanningCompactConstruction.SelectGuidance(state),
+            PlanningCompactConstruction.SelectionContext(state), PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose);
+        var context = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf("\n{", StringComparison.Ordinal) + 1)..])!;
+        var boundary = Assert.Single(context["scopes"]!.AsArray(), entry => entry?["owner"]?.ToString() == "boundary");
+        Assert.StartsWith(boundary!["objective"]!.ToString(), state.Plan.Root.Tasks[0].Objective, StringComparison.Ordinal);
+        Assert.Null(boundary["objectiveOmitted"]);
+        Assert.NotNull(boundary["objectiveEvidence"]);
+        Assert.True(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.SelectPurpose, 6000).EstimatedInputTokens > 512);
+    }
+
+    [Fact]
+    public async Task ExistingProducerAndPortChoicesStayCoupledToTheDisplayedScope()
+    {
+        var state = await Ready();
+        state.Plan = new() { Root = new() { Tasks = [
+            new() { Id = "accepted", Kind = "value", Objective = "Keep the first result.", Outputs = [new("payload", new() { Kind = "number", Number = 3 })] },
+            new() { Id = "other", Kind = "value", Objective = "Keep a distinct result.", Outputs = [new("different", new() { Kind = "number", Number = 7 })] }] } };
+        var schema = PlanningCompactConstruction.SelectionSchema(state);
+        var response = Response(state);
+        response["step"]!["inputs"] = new JsonArray(new JsonObject { ["kind"] = "output", ["source"] = "accepted", ["port"] = "payload" });
+        Assert.Empty(PlanningContractValidation.ValidateInstance(response, schema));
+        response["step"]!["inputs"]![0]!["source"] = "other";
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, schema));
+        response["step"]!["inputs"]![0]!["port"] = "different";
+        Assert.Empty(PlanningContractValidation.ValidateInstance(response, schema));
+        response["step"]!["inputs"]![0]!["source"] = "unknown";
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, schema));
+    }
+
+    [Fact]
     public async Task CurrentSelectionPreservesStrictDomainsAndEverySchemaConstraint()
     {
         var state = await Ready();

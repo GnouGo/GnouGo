@@ -103,13 +103,14 @@ public sealed class CompactSelectionScopeTests
         var runtime = new TestRuntime { Respond = (request, _) => Wire(request, Response(state,
             Step("/groups/isolated/body", CallerReference("output")))) };
         state = await Advance(state, runtime);
-        Assert.Equal("/step/inputs/0", Assert.Single(state.Diagnostics).Location);
+        Assert.Equal("/step", Assert.Single(state.Diagnostics).Location);
+        Assert.Equal("PLANNING_RESPONSE_INVALID", state.Diagnostics[0].Code);
         Assert.Null(state.Construction!.Compact!.CurrentStep);
         Assert.Equal(0, state.ReplanAttempts);
         Assert.Equal(calls + 1, state.ModelCalls);
         runtime.Respond = (request, _) =>
         {
-            Assert.Contains("declares 0 inputs: []", request.Prompt, StringComparison.Ordinal);
+            Assert.Contains("isolated", request.Prompt, StringComparison.Ordinal);
             return Wire(request, Response(state, Step("/root", CallerReference("input"))));
         };
         state = await Advance(PlannerFixture.Clone(state), runtime);
