@@ -13,7 +13,7 @@ Original requests, answers and unchanged MCP contracts establish authority. Reta
 
 Keep public returns distinct from local exports, files and effects. A group declares reusable inputs and a body; a call invokes it. An inline control body is not a reusable group. Open containers expose no consumable completion. Preserve captures, guards, ordering, iteration bounds, permissions, provenance and failure cleanup.
 
-Recover issued work before selecting another action. Automate exact contract retrieval, pagination, reference resolution and authorized mechanical transitions. Offered accepted-scope evidence must be retrievable before selecting that scope; reading its declarations grants no binding visibility. Validate on clones and journal each accepted transition once. Do not introduce another plan, scheduler or execution engine.
+Recover issued work before selecting another action. Automate exact contract retrieval, pagination, reference resolution and authorized mechanical transitions. Offered accepted-scope evidence must be retrievable before selecting that scope; reading its declarations grants no binding visibility. An explicit consumer binding may use technically accepted work whose business review is pending; validate and review its composition normally. Automatic resumption still requires its exact reviewed authority. Validate on clones and journal each accepted transition once. Do not introduce another plan, scheduler or execution engine.
 
 ## Context and contracts
 

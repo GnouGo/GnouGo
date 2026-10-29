@@ -49,6 +49,12 @@ than a model selection page; unchanged claim repetition is not progress. A succe
 completed-workflow global review closes every original obligation, including retained
 claims outside the final step. Local review closes only its explicit current claims.
 
+An explicitly selected consumer binding may use an exact technically accepted
+prerequisite while business review is pending. Ownership, transitive content,
+scope, contracts and typed accessibility still validate; its composition remains
+part of the pending business work. Automatic resumption additionally requires its
+applicable reviewed association. Content freshness alone creates no review authority.
+
 Local requests derive their originals before packing: selected obligations, consumed
 producers and their accepted requirement associations, ancestor controls/groups,
 completion claims, explicit evidence and retained repair witnesses. Linked interface

@@ -29,6 +29,11 @@ at that boundary, preserving one global review for a small completed workflow. A
 successful global completion review closes all originals; local review commits only its
 current explicit claims.
 
+Explicit consumer selection may bind an exact accepted prerequisite before its business
+review. Its composition remains pending; technical ownership, transitive freshness,
+scope and contract checks still apply. Automatic resumption separately requires the
+applicable reviewed association and cannot borrow authority from an explicit selection.
+
 Draft and repair navigation can reduce prior checkpoints to their existing exact links
 once actual consumed interfaces are present. Producer arguments remain local. Only
 byte-identical presentation fields under the same contract identity/version/hash share

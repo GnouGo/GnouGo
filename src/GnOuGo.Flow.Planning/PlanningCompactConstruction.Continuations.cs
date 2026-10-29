@@ -216,9 +216,9 @@ internal static partial class PlanningCompactConstruction
 
     private static bool CheckpointProducerCurrent(PlanningSession state, PlanningConstructionCheckpoint checkpoint, string id)
     {
+        // Explicit bindings await composition review; automatic callers separately require reviewed authority.
         var symbols = new TaskPlanSymbols(state.Plan!);
-        if (HybridWorkflowPlanner.ReviewedCheckpoint(state, checkpoint) is null ||
-            !checkpoint.TaskIds.Contains(id, StringComparer.Ordinal) && !checkpoint.ClosedScopes.Any(path =>
+        if (!checkpoint.TaskIds.Contains(id, StringComparer.Ordinal) && !checkpoint.ClosedScopes.Any(path =>
                 !state.Construction!.OpenScopes.Contains(path, StringComparer.Ordinal) &&
                 symbols.Scopes.Any(scope => scope.Path == path && scope.Owner?.Id == id))) return false;
         var visited = new HashSet<string>(StringComparer.Ordinal);
