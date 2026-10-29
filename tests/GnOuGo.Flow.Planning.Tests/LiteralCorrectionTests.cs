@@ -26,7 +26,9 @@ public sealed class LiteralCorrectionTests
         Assert.True(PlanningRepairPatch.Verify(state, request));
         Assert.Empty(PlanningContractValidation.ValidateSchema(request.StructuredOutputSchema!, strict: true));
         var encoded = new TaskValue { Kind = "json", Items = [original] };
-        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(PatchResponse(encoded), request.StructuredOutputSchema!));
+        Assert.Empty(PlanningContractValidation.ValidateInstance(PatchResponse(encoded), request.StructuredOutputSchema!));
+        var rejected = Assert.Throws<PlanningResponseException>(() => PlanningRepairPatch.Apply(state, Patch(encoded), request));
+        Assert.Contains(rejected.Diagnostics, diagnostic => diagnostic.Code == "TASK_LITERAL_INVALID");
         Assert.DoesNotContain("${callerValue}", request.StructuredOutputSchema!.ToJsonString());
         // A multiline replacement is ordinary data, not an inferred reference or escaped interpolation.
         var corrected = new TaskValue { Kind = "string", Text = "Keep the exact first line.\nKeep the exact second line." };

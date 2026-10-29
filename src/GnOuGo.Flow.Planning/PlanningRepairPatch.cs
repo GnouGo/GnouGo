@@ -109,7 +109,7 @@ internal static class PlanningRepairPatch
                 {
                     var contract = sources.GetValueOrDefault(export.ProducerScope.Path + "/outputs")?.FirstOrDefault(s => JsonNode.DeepEquals(JsonSerializer.SerializeToNode(s.Value, PlanningJsonContext.Default.TaskValue), JsonSerializer.SerializeToNode(export.Producer, PlanningJsonContext.Default.TaskValue)))?.Schema;
                     if (contract is null) throw new WorkflowRuntimeException("REPAIR_SCOPE_INVALID", "The missing conditional export has no authoritative producer contract.");
-                    schema = RepairValue(contract, export.Scope.Path + "/outputs");
+                    schema = PlanningBindingSchemas.For(contract, definitions, constrainResult: true);
                 }
             }
             else if (exportRepair.Consumers.TryGetValue(path, out var reference) == true)
@@ -138,7 +138,7 @@ internal static class PlanningRepairPatch
                     {
                         var contracts = state.Catalog!.Capabilities.Where(c => TaskOperations.Describe(c).Id == task.Task.Operation).ToArray();
                         if (contracts.Length == 1 && TaskOperations.Describe(contracts[0]).Inputs.SingleOrDefault(p => p.Name == name) is { } port)
-                            schema = RepairValue(port.Schema, path,
+                            schema = PlanningBindingSchemas.For(port.Schema, definitions, constrainResult: true,
                                 literalOnly: TaskPlanCompiler.LiteralScopeInput(contracts[0].StepType, port.Path[0]),
                                 workspace: TaskPlanCompiler.FixedWorkspaceInput(contracts[0].StepType, port.Path[0]));
                         if (TaskPlanRevisions.RemovableInput(task.Task, name, state.Catalog)) actions.Add("remove");
@@ -226,20 +226,6 @@ internal static class PlanningRepairPatch
             return PlanningBindingSchemas.For(ports[0].Schema, definitions,
                 literalOnly: TaskPlanCompiler.LiteralScopeInput(contracts[0].StepType, ports[0].Path[0]),
                 workspace: TaskPlanCompiler.FixedWorkspaceInput(contracts[0].StepType, ports[0].Path[0]), constrainResult: true);
-        }
-
-        JsonObject RepairValue(JsonObject contract, string location, bool literalOnly = false, bool workspace = false)
-        {
-            var literal = PlanningBindingSchemas.For(contract, definitions, literalOnly: true);
-            var alternatives = new JsonArray(literal);
-            if (!literalOnly)
-                foreach (var source in sources.GetValueOrDefault(location) ?? [])
-                    if ((!workspace || source.Value.Kind == "output") && PlanningGraphValidation.TypesFit(source.Schema, contract))
-                        alternatives.Add((JsonNode)Exact(source.Value, definitions));
-            if (!literalOnly && !workspace && (contract["type"]?.ToString() == "string" || contract["type"] is JsonArray types && types.Any(t => t?.ToString() == "string")) && symbols.Values.TryGetValue(location, out var original) &&
-                (!state.Diagnostics.Any(d => d.Required && d.Code == "TASK_LITERAL_INVALID" && d.Location == location)))
-                alternatives.Add((JsonNode)Exact(new() { Kind = "json", Items = [original.Value] }, definitions));
-            return alternatives.Count == 1 ? literal.DeepClone().AsObject() : new() { ["anyOf"] = alternatives };
         }
     }
 

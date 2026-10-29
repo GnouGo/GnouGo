@@ -70,6 +70,11 @@ remains available alongside repair. Actual changes invalidate the existing depen
 closure's review/continuation authority and receive renewed review. Independent task
 bytes and checkpoint hashes remain unchanged; reviewed or stale targets grant no edits.
 
+Diagnosed operation values reuse the shared typed binding grammar. Expression repairs
+can assemble actual inputs and producer results; they do not echo an invalid expression
+inside a fixed JSON wrapper or embed unchanged multiline instructions in schema enums.
+The compiler still checks every reference, original contract and authorized edit.
+
 Issued calls store an encrypted request-bound short-ID map for evidence navigation.
 Validate the raw response under its issued schema before resolving canonical addresses;
 preserve raw receipts and use canonical identities for repeat/progress checks. Recovery
