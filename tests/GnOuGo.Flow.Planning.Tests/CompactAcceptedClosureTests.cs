@@ -167,6 +167,37 @@ public sealed class CompactAcceptedClosureTests
     }
 
     [Fact]
+    public async Task InitialRequirementClosureUsesDeclaredInputsWithoutGeneratingAnEmptyPlan()
+    {
+        var state = await State(2, unstarted: true);
+        Assert.Null(state.Plan);
+        Assert.Empty(state.Construction!.Checkpoints);
+        var step = new PlanningConstructionStep { Id = "initial_claim", Kind = "close", Scope = "/root",
+            Objective = "Record the already declared caller interface; substantive behavior remains unfinished.",
+            RequirementIds = ["req_0"], CloseRequirementIds = ["req_0"], CloseScopes = [], DiscoveryComplete = true,
+            Prerequisites = [new() { Need = "The original clause declares the required numeric caller input.", EvidenceAddresses = ["requirement:req_0"] }] };
+        state.Construction.Compact!.CurrentStep = step;
+        PlanningCompactConstruction.ValidateSelection(state, step);
+        var prepared = Assert.IsType<PlanningSession>(PlanningCompactConstruction.PrepareSelectedClosure(state));
+        Assert.Null(state.Plan); // Preparation must not mutate the authoritative baseline.
+        Assert.Equal(PlanningConstruction.Hash(null), prepared.Construction!.Candidate!.BaseHash);
+        var input = Assert.Single(prepared.Construction.Candidate.Plan.Inputs);
+        Assert.Equal("term", input.Name); Assert.Equal("number", input.Type.Kind); Assert.True(input.Required); Assert.Null(input.Default);
+        Assert.Empty(prepared.Construction.Candidate.Plan.Root.Tasks);
+        Assert.False(prepared.Construction.Candidate.BusinessReviewed);
+        var runtime = new TestRuntime { Respond = (_, purpose) => throw new InvalidOperationException("Unexpected model dispatch: " + purpose) };
+        for (var tick = 0; tick < 2; tick++)
+            state = await new HybridWorkflowPlanner().AdvanceAsync(PlannerFixture.Clone(state), new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+        Assert.Empty(runtime.Calls); Assert.Equal(0, state.ModelCalls); Assert.Null(state.PendingCall);
+        Assert.Equal("term", Assert.Single(state.Plan!.Inputs).Name);
+        Assert.Empty(state.Plan.Root.Tasks); Assert.Empty(state.Plan.Root.Outputs);
+        Assert.Single(state.Construction!.Checkpoints);
+        Assert.Equal("in_progress", state.Construction.Requirements[0].Status);
+        Assert.Equal("remaining", state.Construction.Requirements[1].Status);
+        Assert.False(HybridWorkflowPlanner.ConstructionArtifactReviewValid(state)); Assert.Null(state.ApprovedHash);
+    }
+
+    [Fact]
     public async Task AParentCannotCloseWhileItsChildRemainsOpen()
     {
         var state = await State(nested: true);
@@ -178,15 +209,15 @@ public sealed class CompactAcceptedClosureTests
         Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ValidateSelectedCloseScopes(state, state.Construction.Compact.CurrentStep));
     }
 
-    private static async Task<PlanningSession> State(int requirements = 1, bool nested = false)
+    private static async Task<PlanningSession> State(int requirements = 1, bool nested = false, bool unstarted = false)
     {
         var outcomes = Enumerable.Range(0, requirements).Select(index => new PlanningRequirement("req_" + index,
-            "Preserve the public numeric result and original obligation " + index + "." + (index + 1 < requirements ? " " : ""))).ToList();
+            (unstarted && index == 0 ? "Accept required numeric input term without a default." : "Preserve the public numeric result and original obligation " + index + ".") + (index + 1 < requirements ? " " : ""))).ToList();
         var prompt = string.Concat(outcomes.Select(outcome => outcome.Description));
         var state = new PlanningSession { Request = new() { TenantId = "accepted-closure", Prompt = prompt, MaxModelCalls = 64 } };
         PlanningSessionCreation.Capture(state);
         state.Revision = 1; state.Status = PlanningStatus.Generating;
-        state.Requirements = new() { Inputs = [], Outputs = [new() { Name = "number", Required = true, Type = new() { Kind = "number" } }], Outcomes = outcomes };
+        state.Requirements = new() { Inputs = unstarted ? [new() { Name = "term", Type = new() { Kind = "number" }, Required = true }] : [], Outputs = [new() { Name = "number", Required = true, Type = new() { Kind = "number" } }], Outcomes = outcomes };
         var producer = new PlanTask { Id = "producer", Kind = "value", Objective = "Produce the required numeric seven.",
             Outputs = [new("number", new() { Kind = "number", Number = 7 })] };
         var root = new TaskScope();
@@ -218,6 +249,11 @@ public sealed class CompactAcceptedClosureTests
             Step = new() { Scope = nested ? "/tasks/outer/body" : "/root", Kind = "value", RequirementIds = outcomes.Select(outcome => outcome.Id).ToList() },
             Fragment = new JsonObject { ["tasks"] = new JsonArray(root.Tasks.Select(task => PlanningConstruction.Node(task, PlanningJsonContext.Default.PlanTask)).ToArray()) } }];
         state.Catalog = await new TestRuntime().DiscoverAsync(state.Request, PlannerFixture.Ct);
+        if (unstarted)
+        {
+            state.Plan = null; state.Construction.Checkpoints = [];
+            foreach (var requirement in state.Construction.Requirements) requirement.Status = "remaining";
+        }
         return state;
     }
     private static TaskValue Output(string source) => new() { Kind = "output", Source = source, Port = "number" };

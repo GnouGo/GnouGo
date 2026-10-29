@@ -100,7 +100,9 @@ coincident local review. There is no checkpoint-count review interval.
 Selected unchanged-plan closure can retain evidence-linked prerequisite notes without
 another model call merely echoing the selected requirement IDs. The notes remain
 attached to the claim, unresolved business meaning stays pending, and ordinary
-deterministic validation and required business review still apply. Issued requests,
+deterministic validation and required business review still apply. If no TaskPlan exists
+yet, ordinary candidate application initializes it from the validated declarations;
+this creates no executable task or approval authority. Issued requests,
 repairs, new bindings and actual generation retain their existing paths.
 
 A local review assesses actual present behavior and explicit completion claims.

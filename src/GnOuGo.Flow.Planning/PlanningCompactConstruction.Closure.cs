@@ -56,7 +56,7 @@ internal static partial class PlanningCompactConstruction
     // preflight, final output checks when applicable, and mandatory scoped review.
     internal static PlanningSession? PrepareSelectedClosure(PlanningSession state)
     {
-        if (state.Plan is null || state.PendingCall is not null ||
+        if (state.PendingCall is not null ||
             state.Construction!.Candidate is not null || state.EditablePaths is not null || state.Diagnostics.Any(item => item.Required)) return null;
         var construction = state.Construction!;
         var compact = State(state);
@@ -67,23 +67,27 @@ internal static partial class PlanningCompactConstruction
             compact.PendingCommitments.Any(item => item.Value.Count > 0)) return null;
         // Evidence notes remain attached to the selected claim for business review.
         // They do not add executable content for another model call to generate.
-        if (construction.RebuildTasks.Any(task => !new TaskPlanSymbols(state.Plan).Tasks.ContainsKey(task.Id))) return null;
+        if (construction.RebuildTasks.Count > 0 && (state.Plan is null ||
+            construction.RebuildTasks.Any(task => !new TaskPlanSymbols(state.Plan).Tasks.ContainsKey(task.Id)))) return null;
         ValidateSelectedCloseScopes(state, step);
-        // Selection names desired public outputs, not their value expressions.
-        // Only an already accepted binding can be preserved without a draft.
-        if (step.OutputNames.Any(name => state.Plan.Root.Outputs.All(output => output.Name != name)) ||
-            step.CloseScopes.Contains("/root", StringComparer.Ordinal) &&
-                ((state.Requirements!.Outputs ?? []).Any(output => output.Required && state.Plan.Root.Outputs.All(binding => binding.Name != output.Name)) ||
-                 state.Plan.Choices.Any(choice => choice.Selected is null) || compact.SuspendedSteps?.Any(Active) == true) ||
-            step.CloseScopes.Count == 0 && !step.CloseRequirementIds.Any(id => CanClaimRequirementCompletion(state, id)))
-            return null;
+        if (step.CloseScopes.Count == 0 && !step.CloseRequirementIds.Any(id => CanClaimRequirementCompletion(state, id))) return null;
         var probe = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession),
             PlanningJsonContext.Default.PlanningSession)!;
+        // Ordinary application also owns initial TaskPlan/interface construction.
+        // Preparing a selected claim must not require a model to initialize it again.
         probe.Construction!.Candidate = PlanningConstruction.Apply(probe, new()
         {
             Scope = step.Scope, RequirementIds = step.RequirementIds.ToList(), CloseScopes = step.CloseScopes.ToList(),
             Complete = step.CloseScopes.Contains("/root", StringComparer.Ordinal)
         });
+        var plan = probe.Construction.Candidate.Plan;
+        // Selection names desired public outputs, not their value expressions.
+        // Only an existing binding can be preserved without a draft.
+        if (step.OutputNames.Any(name => plan.Root.Outputs.All(output => output.Name != name)) ||
+            step.CloseScopes.Contains("/root", StringComparer.Ordinal) &&
+                ((state.Requirements!.Outputs ?? []).Any(output => output.Required && plan.Root.Outputs.All(binding => binding.Name != output.Name)) ||
+                 plan.Choices.Any(choice => choice.Selected is null) || compact.SuspendedSteps?.Any(Active) == true))
+            return null;
         return probe;
     }
 
