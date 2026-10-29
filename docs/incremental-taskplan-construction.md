@@ -103,6 +103,9 @@ If only mandatory context remains and cannot fit, construction stops before disp
 
 ## Generation and judgment have different boundaries
 
+An explicit repair retains only established requirement-completion claims. Editing
+an intermediate producer does not claim that the remaining business workflow is done.
+
 Several generated fragments may form one coherent business block. Empty openings,
 unused group declarations and exact mechanical exports/closures do not independently
 trigger a Judge. Review completed business blocks when construction continues beyond

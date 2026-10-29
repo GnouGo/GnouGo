@@ -1988,3 +1988,53 @@ no public return for the workbook effect: 7,295 complete request bytes, 2,688
 conservative estimated input tokens, 1,212 provider input and 1,368 provider output
 tokens (including 1,024 reasoning tokens). This is preparation evidence only.
 Business qualification and a complete matched efficiency comparison remain pending.
+
+
+### Complete intent does not establish Amazon convergence
+
+The frozen `11eac1ad` [Amazon diagnostic](compact-taskplan-11eac1ad-amazon-semantic-stop.json)
+stops after **49 logical calls / 49 physical attempts**, four correction charges and
+€3.731793 known cost. All responses were received; no new reservation or transport
+closure is needed. One initial intent call takes 35,867.9042 ms, but the complete
+workflow has no artifact or runtime result. A local review approved extraction from
+flat content despite the producer requesting complete structured observations.
+Later selection repeats product navigation and the final draft duplicates an
+accepted task identity; deterministic validation rejects it. These are planner/model
+failures, not provider incidents or efficiency savings.
+
+The focused [retrieval correction](compact-taskplan-36cc35f7-optional-input-context.json)
+in `36cc35f7` restores original field paths beside short optional-input evidence IDs
+and retains the remaining choices after another schema branch is read. It does not
+authorize an omitted input, repair semantic port selection, prohibit repeated operations
+or create another recovery mechanism. All 2,284 Planning tests pass with warnings
+as errors (the 114 focused cases overlap). The production change removes eleven and
+adds six C# lines; live benefit remains unproven. A fresh unchanged-profile Amazon
+run follows a new campaign inspection: **€187.10773691182781876476274714 available**,
+50 permanent closures, zero unresolved identities and all earlier unknown reservations
+retained. That amount is the pre-dispatch snapshot, not a current balance.
+
+
+### Partial revision must not claim completion
+
+The [unchanged-profile `36cc35f7` Amazon trace](compact-taskplan-36cc35f7-amazon-revision-claims-stop.json)
+first stops at 23 received calls: a genuine `maxItems: 0` output declaration forbids
+product results. The Judge correctly blocks it; zero remains a real constraint.
+An explicitly authorized two-path diagnostic revision changes the candidate's main
+array bound and consumes observation snapshot pages, preserving independent tasks.
+It receives renewed review, but no clean acceptance: the host incorrectly presents
+the still-open requirement as complete. The same report also flags genuinely
+zero-bounded marker arrays. No blanket false-positive or avoided-correction claim
+is inferred from this mixed report.
+
+The run ends at **27 cumulative calls/attempts**, four correction charges and
+**€1.944449 known cost**, with no transport uncertainty, artifact or execution.
+It contains an operator intervention and cannot qualify. The follow-up host correction
+retains only previously closed requirement claims during revision; open obligations
+remain present and unfinished. Existing typed authority, mandatory review and
+no-progress guards remain enforced. Source and model settings are kept separate
+from any later schema or output-allocation experiment.
+
+The claim correction passes 82 focused regressions and the full 2,285-case Planning
+suite with warnings as errors; those counts overlap. It preserves already-reviewed
+closed claims and exact typed-repair recovery. These controlled tests do not qualify
+a live workflow. The separate `df2886b8` full-solution observer remains source-bound.

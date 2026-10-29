@@ -8,10 +8,12 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class CompactExplicitRevisionTests
 {
-    [Fact]
-    public async Task ReindexingCannotDischargeAnUnchangedAuthorizedRepair()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReindexingCannotDischargeAnUnchangedAuthorizedRepair(bool previouslyClosed)
     {
-        var (state, runtime) = await PendingRevision();
+        var (state, runtime) = await PendingRevision(previouslyClosed);
         var accepted = PlanningConstruction.Hash(state.Plan);
         var independent = JsonSerializer.Serialize(state.Plan!.Root.Tasks.Single(task => task.Id == "independent"), PlanningJsonContext.Default.PlanTask);
         const string clarification = " Keep the original numerical result and repair only its implementation.";
@@ -47,6 +49,11 @@ public sealed class CompactExplicitRevisionTests
         runtime.Respond = (request, purpose) =>
         {
             Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
+            // Only an original successful completion review can establish this
+            // claim. A partial repair does not close its remaining business work.
+            Assert.Equal(previouslyClosed ? ["work"] : Array.Empty<string>(),
+                Context(request)["claims"]!["completedRequirements"]!.AsArray().Select(id => id!.ToString()));
+            Assert.False(Context(request)["claims"]!["workflowComplete"]!.GetValue<bool>());
             return new() { Json = BusinessReviewProtocolTests.Report("ok") };
         };
         state = await BusinessReviewProtocolTests.Advance(BusinessReviewProtocolTests.Clone(state), runtime);
@@ -73,16 +80,18 @@ public sealed class CompactExplicitRevisionTests
         Assert.True(state.ReplanAttempts == 1, string.Join(";", state.Diagnostics.Select(d => d.Code + ":" + d.Message)));
     }
 
-    private static async Task<(PlanningSession State, TestRuntime Runtime)> PendingRevision()
+    private static async Task<(PlanningSession State, TestRuntime Runtime)> PendingRevision(bool previouslyClosed = true)
     {
         var (state, runtime) = await BusinessReviewProtocolTests.Ready();
         var candidate = state.Construction!.Candidate!;
         candidate.Plan.Root.Tasks[0].Outputs[0].Value.Items[1].Number = 3;
         candidate.Plan.Root.Tasks.Add(new() { Id = "independent", Kind = "value", Objective = "Retain the independent constant.", Outputs = [new("constant", new() { Kind = "number", Number = 42 })] });
         candidate.TaskIds.Add("independent"); candidate.Hash = PlanningConstruction.Hash(candidate.Plan);
+        if (!previouslyClosed) state.Construction.Compact!.CurrentStep!.CloseRequirementIds.Clear();
         runtime.Respond = (_, _) => new() { Json = BusinessReviewProtocolTests.Report("ok") };
         state = await BusinessReviewProtocolTests.Advance(state, runtime);
         Assert.Single(state.Construction!.Checkpoints);
+        Assert.Equal(previouslyClosed ? "closed" : "in_progress", state.Construction.Requirements.Single(requirement => requirement.Id == "work").Status);
         state = await new HybridWorkflowPlanner().AdvanceAsync(BusinessReviewProtocolTests.Clone(state), new()
         { Kind = "revise", ExpectedRevision = state.Revision, ArtifactHash = state.ComputeArtifactHash(), PreserveRequirements = true,
             EditablePaths = ["/tasks/compute/outputs/result"], Text = "Restore multiplication by two within the original result binding." }, runtime, TestContext.Current.CancellationToken);

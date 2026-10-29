@@ -129,7 +129,8 @@ internal static partial class PlanningCompactConstruction
         if (requirements.Count == 0) requirements = state.Requirements!.Outcomes.Select(r => r.Id).ToList();
         compact.CurrentStep = new() { Id = "revision_" + (++compact.NextStep), BaseHash = candidate.BaseHash,
             Scope = candidate.Extension.Scope, Kind = "revision", Objective = objective, RequirementIds = requirements,
-            CloseRequirementIds = requirements.ToList(), DiscoveryComplete = true,
+            CloseRequirementIds = requirements.Where(id => state.Construction.Requirements.Any(requirement =>
+                requirement.Id == id && requirement.Status == "closed")).ToList(), DiscoveryComplete = true,
             OperationIds = candidate.TaskIds.Where(symbols.Tasks.ContainsKey).Select(id => symbols.Tasks[id].Task.Operation).OfType<string>().Distinct(StringComparer.Ordinal).ToList() };
         candidate.Extension.RequirementIds = requirements;
     }

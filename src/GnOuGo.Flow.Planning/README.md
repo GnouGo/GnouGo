@@ -87,6 +87,8 @@ including after other branches were inspected. Reading a row's exact schema is s
 required before that optional branch enters the editable input grammar.
 Host-fixed draft facts come from the frozen step, with unavailable branches omitted from
 the model grammar and complete semantic validation retained.
+Scoped revision associates its affected requirements without completing open work.
+Only previously closed requirements retain completion claims, with renewed review.
 
 The Judge receives only faithful decision-relevant behavior and original business
 semantics. Full contract schemas remain host-validated and retrievable. The response is

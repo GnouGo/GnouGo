@@ -163,7 +163,11 @@ public sealed class CompactRequirementClosureReselectionTests
         }, runtime, PlannerFixture.Ct);
         Assert.Equal([path], state.Construction!.Candidate!.AuthorizedPaths);
         Assert.False(state.Construction.Candidate.Extension.Complete);
-        Assert.Equal(["req_0"], state.Construction.Compact!.CurrentStep!.CloseRequirementIds);
+        Assert.Empty(state.Construction.Compact!.CurrentStep!.CloseRequirementIds);
+        var business = PlanningBusinessProjection.Build(state, global: false);
+        Assert.Empty(business["claims"]!["completedRequirements"]!.AsArray());
+        Assert.False(business["claims"]!["workflowComplete"]!.GetValue<bool>());
+        Assert.Contains(business["requirements"]!.AsArray(), requirement => requirement!["id"]!.ToString() == "req_0");
         var calls = state.ModelCalls;
         var corrections = state.ReplanAttempts;
         // Use the actual revise-created authority with the existing typed-patch
