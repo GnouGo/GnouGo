@@ -34,6 +34,7 @@ internal static class ModelRequestAdmission
         if (request.MaxTokens is not > 0) throw Unverifiable("A positive output reservation is required.");
         var allowance = await resolver.InputTokenAllowanceAsync(request.Provider, request.Model, request.MaxTokens.Value, ct);
         if (allowance is null) throw Unverifiable("The input allowance after reserving the configured output is unverifiable or incompatible.");
+        if (allowance <= 0) throw Incompatible("The configured output reservation leaves no declared input capacity.");
         var limit = Math.Min(hostLimit, allowance.Value);
         var current = EstimateTokens(request);
         if (current > limit && advisoryTokens)
