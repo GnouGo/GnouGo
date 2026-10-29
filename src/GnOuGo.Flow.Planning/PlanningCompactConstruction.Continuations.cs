@@ -175,6 +175,8 @@ internal static partial class PlanningCompactConstruction
             ["activeCount"] = active.Length, ["id"] = item.Id, ["status"] = item.Status,
             ["scope"] = item.Consumer.Scope, ["requirementIds"] = new JsonArray(item.Consumer.RequirementIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
             ["objective"] = item.Consumer.Objective, ["prerequisite"] = PlanningConstruction.Node(item.Prerequisite, PlanningJsonContext.Default.PlanningConstructionTypedPrerequisite),
+            ["rejectionReason"] = item.RejectedStepIndex >= 0 && item.RejectedStepIndex < State(state).RejectedSteps.Count
+                ? State(state).RejectedSteps[item.RejectedStepIndex]["reason"]?.DeepClone() : null,
             ["evidence"] = "rejected:" + item.RejectedStepIndex,
             ["canAttemptResume"] = item.Status == "waiting" && ContinuationCurrent(state, item) &&
                 checkpoints.Length > 0,

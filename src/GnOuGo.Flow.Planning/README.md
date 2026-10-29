@@ -50,6 +50,11 @@ Accepted export navigation resolves the exact requested scope even during select
 its declarations remain non-consumable. Candidate export pages still require the exact
 selected scope, clean validation and the issued closure claim.
 
+Suspended-consumer presentation retains its own bounded rejection reason through
+selection and discovery. It comes from the indexed rejected step, not the latest
+unrelated failure; the explanation grants no contract, effect or repair authority.
+Already issued requests recover their captured presentation unchanged.
+
 Optional draft port directories can be paged through shared contract anchors without
 removing consumed schema closures. Exact original coordinates remain retrievable;
 mandatory evidence is never discarded to fit a target. Effective hard provider limits

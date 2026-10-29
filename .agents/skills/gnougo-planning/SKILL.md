@@ -47,6 +47,8 @@ Context retrieval does not consume the separate single opportunity to correct a 
 
 Retain exact defects, affected values, permitted edits and failed attempts through repair. A grounded defect in an earlier technically accepted checkpoint awaiting business review permits bounded typed repair through existing revision authority; a null-patch reconsideration must not be its only route. Establish exact ownership and edit paths, invalidate affected dependencies and approval, preserve independent checkpoints, and require renewed review. A partial repair contributes to its requirement without claiming that requirement complete; retain only established completion claims. Reuse the shared typed binding grammar for diagnosed values. Do not offer a fixed wrapper around an invalid expression as a repair, or force unchanged multiline instructions into response-schema constants. A changed hash proves novelty, not resolution. Cosmetic edits do not repair an unchanged binding. Technical revalidation cannot discharge an unchanged explicit repair obligation.
 
+Carry a suspended consumer's exact bounded rejection reason through implementation discovery as well as selection. Its typed prerequisite alone need not explain why the preceding strategy failed. Keep that model-authored explanation beside its existing evidence link; it creates no original obligation, permission or repair authority.
+
 ## Recovery, accounting and execution
 
 Maintain one active internal planning format. Reject retired sessions without upgrading or changing their records. Preserve archives and financial journals as historical data, without old planning readers or execution paths. Current issued requests and receipts recover exactly; never rebuild a pending request from newer context.

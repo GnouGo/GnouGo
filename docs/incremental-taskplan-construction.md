@@ -49,6 +49,9 @@ interpretation can derive typed data from supplied inputs without another utilit
 missing external facts require authorized observation, preserving original permissions.
 A group declares reusable inputs/body/exports; a call invokes it. An inline loop body
 is not a reusable declaration. Preserve consumers waiting for exact prerequisites.
+Their continuation presents the exact bounded reason from its own rejected step
+through implementation discovery, retaining the evidence link. This model-authored
+explanation does not create an original obligation or authorize effects or repair.
 
 Drafts append at most eight tasks recursively. Open containers have no consumable
 completion or outputs. Concrete references resolve immediately; future obligations

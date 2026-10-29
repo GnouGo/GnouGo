@@ -11,6 +11,51 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CompactSuspendedConsumerTests
 {
     [Fact]
+    public async Task PrerequisiteDiscoveryRetainsItsOwnRejectionReasonAndExactIssuedRecovery()
+    {
+        var (state, runtime) = await TentativeProducer();
+        var construction = state.Construction!;
+        var compact = construction.Compact!;
+        construction.Candidate = null;
+        compact.CurrentStep!.Kind = null;
+        compact.CurrentStep.DiscoveryComplete = false;
+        var reason = compact.RejectedSteps[0]["reason"]!.ToString();
+        // Another retained rejection must not replace this consumer's evidence.
+        compact.RejectedSteps.Add(new() { ["reason"] = "An unrelated action failed for a different reason." });
+        var plan = PlanningConstruction.Hash(state.Plan);
+        var corrections = state.ReplanAttempts;
+        LLMResponse? response = null;
+        string? issued = null;
+        runtime.Respond = (request, purpose) =>
+        {
+            Assert.Equal(PlanningCompactConstruction.DiscoveryPurpose, purpose);
+            var context = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
+            Assert.Equal(reason, context["continuation"]!["rejectionReason"]?.ToString());
+            if (issued is not null)
+            {
+                Assert.Equal(issued, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+                return response!;
+            }
+            issued = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
+            var decision = new JsonObject { ["binding"] = new JsonObject { ["kind"] = "value", ["operationIds"] = new JsonArray(), ["groupId"] = null, ["closeScopes"] = null } };
+            var wire = PlanningCorpus.Transport(decision, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject())!;
+            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(wire, request.StructuredOutputSchema));
+            return response = new() { Json = wire, Text = wire.ToJsonString() };
+        };
+        var next = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(next.Diagnostics);
+        Assert.Equal(plan, PlanningConstruction.Hash(next.Plan));
+        Assert.Equal(corrections, next.ReplanAttempts);
+        var retained = PlannerFixture.Clone(runtime.Checkpoints.Last(saved => saved.PendingCall?.Purpose == PlanningCompactConstruction.DiscoveryPurpose));
+        retained.Construction!.Compact!.RejectedSteps[0]["reason"] = "Newer navigation must not rebuild the issued request.";
+        var recovered = await Advance(retained, runtime);
+        Assert.Empty(recovered.Diagnostics);
+        Assert.Equal(next.ModelCalls, recovered.ModelCalls);
+        Assert.Equal(corrections, recovered.ReplanAttempts);
+        Assert.Equal(plan, PlanningConstruction.Hash(recovered.Plan));
+    }
+
+    [Fact]
     public async Task ExplicitResumeComposesPendingAcceptedWorkBeforeMandatoryBusinessReviews()
     {
         var run = await PendingPrerequisite();

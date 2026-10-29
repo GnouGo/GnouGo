@@ -236,6 +236,9 @@ requests before paging genuinely large sources. It does not change MCP eligibili
 output allocations, business oracles or the advisory campaign's strict non-token guards.
 Report initial preparation calls/time and the first independently correct constructed
 business producer separately from final artifact and actual runtime acceptance.
+Retain a suspended consumer's exact rejection explanation in subsequent discovery,
+not just its typed prerequisite. This is model-authored navigation with its original
+evidence link, not permission or a host-established business finding.
 Source comparisons retain identical profiles; output-allocation trials use separate
 frozen identities. A received reasoning-only exhaustion is not a transport incident.
 The six-run business qualification remains two consecutive intervention-free successes
