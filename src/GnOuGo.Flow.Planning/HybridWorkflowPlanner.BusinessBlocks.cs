@@ -53,7 +53,39 @@ public sealed partial class HybridWorkflowPlanner
         return behavior;
     }
 
-    // Evidence-only use of the existing correction flow cannot edit accepted work.
+    // Only exact technically accepted tasks still awaiting business review receive
+    // repair authority. The existing typed patch verifier enforces every edit.
+    private static void AuthorizePendingBusinessRepair(PlanningSession state, JsonObject review, string[] targets)
+    {
+        var construction = state.Construction!; var candidate = construction.Candidate!;
+        if (state.Plan is null || candidate.BaseHash != PlanningConstruction.Hash(state.Plan)) return;
+        var accepted = new TaskPlanSymbols(state.Plan); var current = new TaskPlanSymbols(candidate.Plan);
+        var paths = new List<string>(); var tasks = new List<string>();
+        foreach (var target in targets.Where(target => !candidate.TaskIds.Contains(target, StringComparer.Ordinal)))
+        {
+            if (!accepted.Tasks.TryGetValue(target, out var task) || !current.Tasks.TryGetValue(target, out var next) ||
+                task.Scope.Path != next.Scope.Path || accepted.Phase(target) != current.Phase(target) ||
+                !JsonNode.DeepEquals(PlanningConstruction.TaskNode(task.Task), PlanningConstruction.TaskNode(next.Task))) return;
+            var owners = construction.Checkpoints.Where(checkpoint => checkpoint.TaskIds.Contains(target, StringComparer.Ordinal) &&
+                !checkpoint.InvalidatedTaskIds.Contains(target, StringComparer.Ordinal)).ToArray();
+            if (owners.Length == 0 || owners[^1].Fragment["businessReviewPending"]?.GetValue<bool>() != true ||
+                owners[^1].Fragment["tasks"] is not JsonArray original || !original.Any(node => node?["id"]?.ToString() == target &&
+                    JsonNode.DeepEquals(node, PlanningConstruction.Node(task.Task, PlanningJsonContext.Default.PlanTask)))) return;
+            var offered = task.Task.Kind is "operation" or "transform" or "call"
+                ? new[] { "/tasks/" + target + "/inputs" }
+                : accepted.Values.Keys.Where(path => path.StartsWith("/tasks/" + target + "/outputs/", StringComparison.Ordinal)).ToArray();
+            if (offered.Length == 0) return;
+            try { TaskPlanRevisions.ValidateEditablePaths(state, offered); }
+            catch (ArgumentException) { return; }
+            paths.AddRange(offered); tasks.Add(target);
+        }
+        if (tasks.Count == 0) return;
+        candidate.AuthorizedPaths = (candidate.AuthorizedPaths ?? []).Concat(paths).Distinct(StringComparer.Ordinal).ToList();
+        candidate.TaskIds = candidate.TaskIds.Concat(tasks).Distinct(StringComparer.Ordinal).ToList();
+        review["pendingRepairPaths"] = new JsonArray(paths.Select(path => (JsonNode?)JsonValue.Create(path)).ToArray());
+    }
+
+    // Unsupported or already reviewed targets retain evidence-only authority.
     private static async Task RetrieveBusinessFindingEvidenceAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
     {
         await ReserveConstructionReviewAsync(state, runtime, ct);

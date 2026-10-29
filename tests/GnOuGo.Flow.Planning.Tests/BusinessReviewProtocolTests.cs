@@ -9,6 +9,89 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class BusinessReviewProtocolTests
 {
+    [Theory]
+    [InlineData("reviewed")]
+    [InlineData("stale")]
+    public async Task PendingRepairDoesNotGrantAuthorityOverReviewedOrChangedCheckpointEvidence(string change)
+    {
+        var (state, runtime) = await Ready();
+        state.Construction!.Compact!.CurrentStep!.CloseRequirementIds = [];
+        state = await Advance(state, runtime);
+        var checkpoint = Assert.Single(state.Construction!.Checkpoints);
+        if (change == "reviewed") checkpoint.Fragment["businessReviewPending"] = false;
+        else checkpoint.Fragment["tasks"]![0]!["objective"] = "A different retained implementation.";
+        state.Requirements!.Outputs = [new() { Name = "result", Type = new() { Kind = "number" } }];
+        state.Construction.Compact!.CurrentStep = new() { Id = "complete", Kind = "close", Scope = "/root", RequirementIds = ["work", "later"],
+            CloseRequirementIds = ["work", "later"], CloseScopes = ["/root"], OutputNames = ["result"],
+            Objective = "Return the computed result.", BaseHash = PlanningConstruction.Hash(state.Plan), DiscoveryComplete = true };
+        state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["work", "later"],
+            Outputs = [new("result", new() { Kind = "output", Source = "compute", Port = "result" })], CloseScopes = ["/root"], Complete = true });
+        runtime.Respond = (_, _) => new() { Json = Change() };
+        state = await Advance(state, runtime);
+        Assert.Null(state.Construction!.Candidate!.AuthorizedPaths);
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "BUSINESS_REVIEW_REQUIRED");
+        Assert.Equal(0, state.ReplanAttempts);
+    }
+
+    [Fact]
+    public async Task MaintainedRealFindingRepairsEarlierPendingCheckpointAndPreservesIndependentWork()
+    {
+        var (state, runtime) = await Ready();
+        state.Requirements!.Outputs = [new() { Name = "result", Type = new() { Kind = "number" } }];
+        var candidate = state.Construction!.Candidate!;
+        candidate.Plan.Root.Tasks[0].Outputs[0].Value.Items[1].Number = 3;
+        candidate.Hash = PlanningConstruction.Hash(candidate.Plan);
+        state.Construction.Compact!.CurrentStep!.CloseRequirementIds = [];
+        state = await Advance(state, runtime); // Technical acceptance deliberately precedes business review.
+        state.Construction!.Compact!.CurrentStep = new() { Id = "independent", Kind = "value", Scope = "/root", RequirementIds = ["later"],
+            Objective = "Build the independent numeric result.", BaseHash = PlanningConstruction.Hash(state.Plan), DiscoveryComplete = true };
+        state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["later"], Tasks = [new()
+        { Id = "independent", Kind = "value", Objective = "Keep the independent constant.", Outputs = [new("value", new() { Kind = "number", Number = 42 })] }] });
+        state = await Advance(state, runtime);
+        var independent = state.Construction!.Checkpoints[1];
+        var independentHash = independent.PlanHash; var independentBytes = independent.Fragment["tasks"]!.ToJsonString();
+        state.Construction.Compact!.CurrentStep = new() { Id = "complete", Kind = "close", Scope = "/root", RequirementIds = ["work", "later"],
+            CloseRequirementIds = ["work", "later"], CloseScopes = ["/root"], OutputNames = ["result"],
+            Objective = "Return the doubled input.", BaseHash = PlanningConstruction.Hash(state.Plan), DiscoveryComplete = true };
+        state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["work", "later"],
+            Outputs = [new("result", new() { Kind = "output", Source = "compute", Port = "result" })], CloseScopes = ["/root"], Complete = true });
+        var reviews = 0;
+        runtime.Respond = (request, purpose) =>
+        {
+            if (purpose == "replan")
+            {
+                var context = PlanningRepairPatch.RequestContext(request);
+                Assert.NotNull(context["defectProgress"]);
+                var slot = context["repair"]!["slots"]!.AsArray().Single(slot => slot!["location"]!.ToString() == "/tasks/compute/outputs/result")!;
+                return new() { Json = PlanningCorpus.Transport(new JsonObject { ["patch"] = new JsonObject { ["edits"] = new JsonArray(new JsonObject
+                { ["slot"] = slot["id"]!.DeepClone(), ["action"] = "replace", ["value"] = new JsonObject { ["kind"] = "arithmetic", ["text"] = "multiply",
+                    ["items"] = new JsonArray(new JsonObject { ["kind"] = "input", ["source"] = "x" }, new JsonObject { ["kind"] = "number", ["number"] = 2 }) } }) } },
+                    request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
+            }
+            Assert.Equal(PlanningConstruction.GlobalPurpose, purpose);
+            reviews++;
+            return new() { Json = reviews == 1 ? Change() : Report("ok") };
+        };
+        state = await Advance(state, runtime);
+        Assert.Contains("/tasks/compute/outputs/result", state.Construction!.Candidate!.AuthorizedPaths!);
+        state = await Advance(Clone(state), runtime);
+        Assert.Equal(1, state.ReplanAttempts); Assert.Empty(state.Diagnostics);
+        Assert.Equal(2, state.Construction!.Candidate!.Plan.Root.Tasks[0].Outputs[0].Value.Items[1].Number);
+        state = await Advance(Clone(state), runtime);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status);
+        Assert.Equal(2, reviews); Assert.Equal(3, state.ModelCalls);
+        Assert.Contains("compute", state.Construction!.Checkpoints[0].InvalidatedTaskIds);
+        Assert.Empty(state.Construction.Checkpoints[1].InvalidatedTaskIds);
+        Assert.Equal(independentHash, state.Construction.Checkpoints[1].PlanHash);
+        Assert.Equal(independentBytes, state.Construction.Checkpoints[1].Fragment["tasks"]!.ToJsonString());
+        PlanningArtifactApproval.Verify(state);
+        var document = new GnOuGo.Flow.Core.Compilation.WorkflowCompiler().Compile(GnOuGo.Flow.Core.Parsing.WorkflowParser.Parse(state.Yaml!));
+        var engine = new WorkflowEngine();
+        var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject { ["x"] = 7 }, TestContext.Current.CancellationToken);
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(14, result.Outputs!["result"]!.GetValue<int>());
+    }
+
     [Fact]
     public async Task VerdictSchemaExcludesEmptyActionsAndUnsupportedContextAddresses()
     {
@@ -216,7 +299,8 @@ public sealed class BusinessReviewProtocolTests
             if (purpose == "replan")
             {
                 Assert.True(reconsiderAcceptedFinding);
-                Assert.Equal("null", request.StructuredOutputSchema!["properties"]!["patch"]!["type"]!.ToString());
+                Assert.True(PlanningRepairPatch.Issued(request.StructuredOutputSchema!.AsObject()));
+                Assert.NotNull(PlanningRepairPatch.RequestContext(request)["repair"]!["slots"]);
                 return new() { Json = PlanningCorpus.Transport(new JsonObject { ["evidenceRequests"] = new JsonArray("task:compute") },
                     request.StructuredOutputSchema.AsObject(), request.StructuredOutputSchema.AsObject()) };
             }
@@ -250,7 +334,7 @@ public sealed class BusinessReviewProtocolTests
         state = await Advance(state, runtime);
         if (reconsiderAcceptedFinding)
         {
-            Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "BUSINESS_REVIEW_REQUIRED");
+            Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_BUSINESS_REVIEW");
             var unchanged = state.Construction!.Candidate!.Hash;
             state = await Advance(Clone(state), runtime);
             Assert.True(HybridWorkflowPlanner.HasPendingBusinessReconsideration(state));

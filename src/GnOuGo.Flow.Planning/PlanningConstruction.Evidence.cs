@@ -334,7 +334,28 @@ internal static partial class PlanningConstruction
         if (state.Plan is null) return;
         if (state.Construction?.Candidate?.AuthorizedPaths is { } authorized)
         {
-            var diagnostics = TaskPlanRevisions.Validate(state.Plan, candidate, authorized, state.Catalog, authorized).ToList();
+            // A pending business-block repair can coexist with its unchanged new
+            // fragment. Compare accepted structure separately; the typed patch
+            // verifier still compares the complete candidate before/after.
+            var pendingRepair = state.Construction.Candidate.Reviews.Any(review => review["pendingRepairPaths"] is JsonArray);
+            if (!pendingRepair)
+            {
+                var explicitDiagnostics = TaskPlanRevisions.Validate(state.Plan, candidate, authorized, state.Catalog, authorized).ToList();
+                if (explicitDiagnostics.Count > 0) throw new PlanningResponseException(explicitDiagnostics);
+                return;
+            }
+            var retained = Clone(candidate);
+            var accepted = new TaskPlanSymbols(state.Plan);
+            retained.Groups.RemoveAll(group => state.Plan.Groups.All(original => original.Id != group.Id));
+            retained.Choices.RemoveAll(choice => state.Plan.Choices.All(original => original.Id != choice.Id));
+            foreach (var scope in new TaskPlanSymbols(retained).Scopes)
+            {
+                scope.Source.Tasks.RemoveAll(task => !accepted.Tasks.ContainsKey(task.Id));
+                scope.Source.Always.RemoveAll(task => !accepted.Tasks.ContainsKey(task.Id));
+                var original = accepted.Scopes.SingleOrDefault(original => original.Path == scope.Path);
+                if (original is not null) scope.Source.Outputs.RemoveAll(output => original.Source.Outputs.All(prior => prior.Name != output.Name));
+            }
+            var diagnostics = TaskPlanRevisions.Validate(state.Plan, retained, authorized, state.Catalog, authorized).ToList();
             if (diagnostics.Count > 0) throw new PlanningResponseException(diagnostics.ToList());
             return;
         }

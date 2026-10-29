@@ -102,33 +102,8 @@ internal static partial class PlanningConstruction
         if (construction.RebuildTasks.Any(t => !symbols.Tasks.ContainsKey(t.Id)))
             Fail("CONSTRUCTION_ROLLBACK_UNPROVEN", "/rollbackTask", "Complete the retained original rebuild obligations before requesting another rollback region.");
         if (!symbols.Tasks.ContainsKey(taskId)) Fail("CONSTRUCTION_ROLLBACK_SCOPE", "/rollbackTask", "Choose an existing accepted task identity.");
-        var invalid = new HashSet<string>(StringComparer.Ordinal); var unavailable = new HashSet<string>(StringComparer.Ordinal);
         var open = construction.OpenScopes.ToHashSet(StringComparer.Ordinal);
-        void Invalidate(string id)
-        {
-            var task = symbols.Tasks[id].Task;
-            foreach (var nested in TaskPlanRevisions.Tasks(new TaskScope { Tasks = [task] }))
-            { invalid.Add(nested.Id); unavailable.Add(nested.Id); }
-            for (var scope = symbols.Tasks[id].Scope; scope is not null; scope = scope.Parent)
-                if (scope.Owner is not null) unavailable.Add(scope.Owner.Id);
-        }
-        Invalidate(taskId);
-        bool changed;
-        do
-        {
-            var count = invalid.Count + unavailable.Count;
-            foreach (var scope in symbols.Scopes)
-                if (scope.Owner is not null && scope.Source.Outputs.SelectMany(o => TaskPlanCompiler.Values(o.Value))
-                    .Any(v => v.Kind is "output" or "present" && v.Source is not null && unavailable.Contains(v.Source)))
-                    unavailable.Add(scope.Owner.Id);
-            foreach (var (task, _) in symbols.Tasks.Values.Where(t => !invalid.Contains(t.Task.Id)))
-            {
-                var group = task.Kind == "call" ? plan.Groups.SingleOrDefault(g => g.Id == task.Group) : null;
-                if (References(task).Any(unavailable.Contains) || group is not null && TaskPlanRevisions.Tasks(group.Body).Any(t => invalid.Contains(t.Id)))
-                    Invalidate(task.Id);
-            }
-            changed = count != invalid.Count + unavailable.Count;
-        } while (changed);
+        var (invalid, unavailable) = DependentTaskRegion(plan, [taskId]);
         foreach (var id in invalid)
             for (var scope = symbols.Tasks[id].Scope; scope is not null; scope = scope.Parent) open.Add(scope.Path);
         var placements = symbols.Scopes.Where(s => s.Source.Tasks.Concat(s.Source.Always).Any(t => invalid.Contains(t.Id)))
@@ -188,5 +163,58 @@ internal static partial class PlanningConstruction
         { compact.CurrentStep = null; compact.PendingCommitments.Clear(); compact.ReplacementScope = null; compact.ReplacementRequirements = null; }
         PlanningCompactConstruction.ReconcileContinuations(state);
         state.Graph = null; state.Yaml = null; state.ApprovedHash = null; state.ApprovalReview = null; state.ValidationResults.Clear(); state.Diagnostics.Clear();
+    }
+    private static (HashSet<string> Affected, HashSet<string> Unavailable) DependentTaskRegion(TaskPlan plan, IEnumerable<string> seeds)
+    {
+        var symbols = new TaskPlanSymbols(plan);
+        var affected = new HashSet<string>(StringComparer.Ordinal); var unavailable = new HashSet<string>(StringComparer.Ordinal);
+        void Include(string id)
+        {
+            foreach (var nested in TaskPlanRevisions.Tasks(new TaskScope { Tasks = [symbols.Tasks[id].Task] }))
+            { affected.Add(nested.Id); unavailable.Add(nested.Id); }
+            for (var scope = symbols.Tasks[id].Scope; scope is not null; scope = scope.Parent)
+                if (scope.Owner is not null) unavailable.Add(scope.Owner.Id);
+        }
+        foreach (var id in seeds) Include(id);
+        bool changed;
+        do
+        {
+            var count = affected.Count + unavailable.Count;
+            foreach (var scope in symbols.Scopes)
+                if (scope.Owner is not null && scope.Source.Outputs.SelectMany(output => TaskPlanCompiler.Values(output.Value))
+                    .Any(value => value.Kind is "output" or "present" && value.Source is not null && unavailable.Contains(value.Source)))
+                    unavailable.Add(scope.Owner.Id);
+            foreach (var (task, _) in symbols.Tasks.Values.Where(site => !affected.Contains(site.Task.Id)))
+            {
+                var group = task.Kind == "call" ? plan.Groups.SingleOrDefault(group => group.Id == task.Group) : null;
+                if (References(task).Any(unavailable.Contains) || group is not null && TaskPlanRevisions.Tasks(group.Body).Any(child => affected.Contains(child.Id)))
+                    Include(task.Id);
+            }
+            changed = count != affected.Count + unavailable.Count;
+        } while (changed);
+        return (affected, unavailable);
+    }
+
+    internal static void InvalidateRevisedCheckpoints(PlanningSession state)
+    {
+        var candidate = state.Construction!.Candidate!;
+        if (candidate.AuthorizedPaths is null || state.Plan is null) return;
+        var previous = new TaskPlanSymbols(state.Plan); var revised = new TaskPlanSymbols(candidate.Plan);
+        var changed = previous.Tasks.Where(pair => revised.Tasks.TryGetValue(pair.Key, out var next) &&
+            !JsonNode.DeepEquals(TaskNode(pair.Value.Task), TaskNode(next.Task))).Select(pair => pair.Key).ToArray();
+        if (changed.Length == 0) return;
+        var (affected, _) = DependentTaskRegion(state.Plan, changed);
+        foreach (var checkpoint in state.Construction.Checkpoints)
+        {
+            var dependent = checkpoint.TaskIds.Concat(checkpoint.ImportedTaskIds).Where(affected.Contains).ToArray();
+            if (dependent.Length == 0) continue;
+            checkpoint.InvalidatedTaskIds = checkpoint.InvalidatedTaskIds.Concat(dependent).Distinct(StringComparer.Ordinal).ToList();
+            checkpoint.Fragment["businessReviewPending"] = true;
+            foreach (var requirement in state.Construction.Requirements.Where(requirement => checkpoint.RequirementIds.Contains(requirement.Id)))
+                requirement.Status = "in_progress";
+        }
+        candidate.TaskIds = candidate.TaskIds.Concat(affected).Distinct(StringComparer.Ordinal).ToList();
+        candidate.Extension.ContinuationBinding = null; candidate.Extension.BoundaryTransitions = null;
+        state.ApprovedHash = null; state.ApprovalReview = null;
     }
 }

@@ -119,6 +119,7 @@ public sealed partial class HybridWorkflowPlanner
             { row["outcome"] = "unsupported_report"; Incomplete("A defect must cite original obligations and concrete implementation IDs."); return; }
             if (PlanningConstruction.DefectWitness(state, context, findings) is { } witness) row["defectWitness"] = witness;
             var targets = decision["targets"]!.AsArray().Select(target => target!.ToString()).ToArray();
+            AuthorizePendingBusinessRepair(state, row, targets);
             var permitted = targets.All(target => candidate.TaskIds.Contains(target, StringComparer.Ordinal) ||
                 target == candidate.Extension.Scope || target.StartsWith("output:", StringComparison.Ordinal) && candidate.Extension.Outputs.Any(output => "output:" + output.Name == target) ||
                 candidate.AuthorizedPaths?.Any(path => path == "/tasks/" + target || path.StartsWith("/tasks/" + target + "/", StringComparison.Ordinal)) == true);

@@ -419,6 +419,7 @@ public sealed partial class HybridWorkflowPlanner
         if (hash == draft.Hash || PlanningConstruction.PreviouslyRejected(state, draft, hash))
             throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The correction repeated a rejected candidate or made no semantic change.");
         draft.Plan = revised; draft.Hash = hash; draft.BusinessReviewed = false;
+        PlanningConstruction.InvalidateRevisedCheckpoints(state);
         // Task/scope evidence describes the previous candidate. Its consumed
         // fingerprints remain auditable and already include that candidate hash.
         construction.Evidence = null;

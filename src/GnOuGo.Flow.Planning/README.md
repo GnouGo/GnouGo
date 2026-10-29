@@ -55,6 +55,13 @@ can capture advisory project token thresholds throughout admission and journals;
 hosts reject that authority. Warnings never enter candidate diagnostics or artifact approval
 hashes. Financial, call, time, permission and physical API guards remain enforced.
 
+A grounded business finding may authorize typed slots of an exact earlier checkpoint
+whose business review is still pending. Its retained task bytes and ownership must match.
+The current candidate, finding and defect witness survive; evidence reconsideration
+remains available alongside repair. Actual changes invalidate the existing dependency
+closure's review/continuation authority and receive renewed review. Independent task
+bytes and checkpoint hashes remain unchanged; reviewed or stale targets grant no edits.
+
 Issued calls store an encrypted request-bound short-ID map for evidence navigation.
 Validate the raw response under its issued schema before resolving canonical addresses;
 preserve raw receipts and use canonical identities for repeat/progress checks. Recovery
