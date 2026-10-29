@@ -2122,3 +2122,27 @@ legal ancestor claims and mandatory review remain. Both reproductions fail befor
 the correction, then 55 focused cases and all 2,288 Planning tests pass with warnings
 as errors. The focused count overlaps the full Planning total. Live benefit on the
 corrected source remains unproven; the stopped run is not continued under new code.
+
+### `68dba9af`: retained Amazon transport uncertainty
+
+The [fresh Amazon run](compact-taskplan-68dba9af-amazon-retained-uncertainty.json)
+receives 11 completions, then stops at request 12 without an HTTP outcome or receipt.
+No search operation, artifact or execution is accepted. Known cost is
+€0.6566199586813976466361268301; the full €1.0158717326866073834545944489
+unknown reservation remains retained. Exact delegated retention binds evidence
+`d8f144e8…0cd982d`, preserves all six original records and timestamps, is idempotent,
+and rejects request replay and run continuation after restart. This provider incident
+does not establish either a planner defect or improved convergence.
+
+The [completed `bb24cbe5` solution run](compact-taskplan-bb24cbe5-full-validation.json)
+has 7,151 passes, zero failures, 12 retained skips and zero compiler diagnostics across
+33 assemblies. `68dba9af` passes 2,288 Planning tests and all ten independent
+package/AOT/published-storage checks; its full solution run is active. These results
+are not relabeled across source revisions.
+
+The [change inventory](compact-taskplan-68dba9af-change-inventory.json), measured from
+`2d09aaee` through `68dba9af`, records 220 added / 493 removed production C# lines
+and 768 added / 1,865 removed test lines. The total diff grows by 852 lines because
+immutable evidence is retained. There is no claim of an overall PR net reduction.
+Fresh Review PR uses the corrected source and unchanged profile; complete current-source
+runtime qualification remains outstanding.

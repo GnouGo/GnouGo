@@ -1,0 +1,52 @@
+{
+  "comparison_source": "2d09aaee916a88caf39e4cf1df674d407c161a2d",
+  "production_source": "68dba9af2728110720e03e223aa1ae3852aa668b",
+  "all_files": {
+    "files": 85,
+    "added_lines": 3217,
+    "deleted_lines": 2365,
+    "net_lines": 852
+  },
+  "production_csharp": {
+    "files": 19,
+    "added_lines": 220,
+    "deleted_lines": 493,
+    "net_lines": -273
+  },
+  "tests": {
+    "files": 49,
+    "added_lines": 768,
+    "deleted_lines": 1865,
+    "net_lines": -1097
+  },
+  "immutable_evidence_growth": {
+    "files": 13,
+    "added_lines": 2172,
+    "deleted_lines": 0,
+    "net_lines": 2172
+  },
+  "overall_net_deletion_claimed": false,
+  "scope": "Counts are this implementation interval, not the whole PR. Code and exclusive protocol tests shrink; preserved evidence makes the total diff grow.",
+  "removed_types": [
+    "PlanningConstructionInterfaceExtraction",
+    "PlanningConstructionInterfaceDisposition"
+  ],
+  "removed_orchestration": [
+    "ClassifyConstructionIntentAsync",
+    "ExtractConstructionInterfacesAsync",
+    "ResolveConstructionInterfacesAsync"
+  ],
+  "removed_schemas": [
+    "ClassificationSchema",
+    "InterfaceSchema",
+    "ResolvableInterfaceSchema"
+  ],
+  "retired_exclusive_tests": [
+    "CompactIntentResolutionTests.cs",
+    "CompactInterfaceCoverageTests.cs"
+  ],
+  "new_execution_engine": false,
+  "new_planning_protocol": false,
+  "active_internal_format": 11,
+  "original_contract_or_execution_authority_weakened": false
+}
