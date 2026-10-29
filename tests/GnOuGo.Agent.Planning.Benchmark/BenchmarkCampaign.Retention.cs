@@ -65,7 +65,8 @@ internal sealed partial class BenchmarkCampaign
                 "construction_draft" or "construction_local_judge" or "construction_global_judge" or "replan") ||
             pending.Request.ClientRequestId != requestId || !requestId.StartsWith(state.Request.SessionId + ":", StringComparison.Ordinal) ||
             pending.Request.Tools is { Count: > 0 } || pending.Request.MaxTokens is not > 0 ||
-            !interrupted && !state.Diagnostics.Any(d => d.Code == "MODEL_DISPATCH_UNVERIFIABLE") ||
+            !interrupted && !state.Diagnostics.Any(d => d.Code == "MODEL_DISPATCH_UNVERIFIABLE" ||
+                retentionKind == ExhaustedPlanningRetriesRetention && d.Code == "MODEL_REQUEST_REJECTED") ||
             state.Yaml is not null || state.ApprovedHash is not null || state.ApprovalReview is not null || state.SavedAgentId is not null ||
             run["artifact_hash"] is not null || run["execution_id"] is not null || run["execution_run_id"] is not null ||
             run["execution_started"] is not null || run["execution"] is not null ||
@@ -258,6 +259,9 @@ internal sealed partial class BenchmarkCampaign
         var captured = PlanningTransportPolicies.Read(state.Request);
         var effective = journal["effective_transport_policy"] as JsonObject;
         var retry = effective?["effective_retry_policy"];
+        if (state.Diagnostics.Any(d => d.Code == "MODEL_REQUEST_REJECTED") &&
+            (failure?["kind"]?.ToString() != "InvalidRequest" || failure["status_code"]?.GetValue<int>() != 400 ||
+             attempts.LastOrDefault()?["Status"]?.GetValue<int>() != 400)) return false;
         if (captured is null || effective?["version"]?.GetValue<int>() != 2 ||
             !JsonNode.DeepEquals(policy[PlanningTransportPolicies.OptionName], state.Request.Options[PlanningTransportPolicies.OptionName]) ||
             !JsonNode.DeepEquals(effective["planning_transport_policy"], policy[PlanningTransportPolicies.OptionName]) ||

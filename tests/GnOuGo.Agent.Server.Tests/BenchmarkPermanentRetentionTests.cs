@@ -278,6 +278,7 @@ public sealed partial class BenchmarkPermanentRetentionTests
     [InlineData("body")]
     [InlineData("usage")]
     [InlineData("prior_success")]
+    [InlineData("diagnostic")]
     public async Task NonretryableRetentionRejectsInconsistentErrorEvidence(string defect)
     {
         var records = new Records(); var campaign = await SeedInvalidRequestAsync(records, 2);
@@ -291,6 +292,10 @@ public sealed partial class BenchmarkPermanentRetentionTests
             case "body": journal["transport"]!["Attempts"]![1]!["Body"] = "{\"choices\":[]}"; break;
             case "usage": journal["usage"] = new JsonObject(); break;
             case "prior_success": journal["transport"]!["Attempts"]![0]!["Status"] = 200; break;
+            case "diagnostic":
+                var run = (await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, Ct))!;
+                run["session"]!["diagnostics"]![0]!["code"] = "TASK_INPUT_TYPE";
+                await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, run, Ct); break;
         }
         await campaign.SaveAsync(BenchmarkHttpJournal.Collection, RequestId, journal, Ct);
         await campaign.SaveAsync("planning-evaluation-failures", RequestId, failure, Ct);
@@ -303,6 +308,9 @@ public sealed partial class BenchmarkPermanentRetentionTests
     private static async Task<BenchmarkCampaign> SeedInvalidRequestAsync(Records records, int count)
     {
         var campaign = await SeedCapturedRetriesAsync(records, count, false);
+        var run = (await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, Ct))!;
+        run["session"]!["diagnostics"]![0]!["code"] = "MODEL_REQUEST_REJECTED";
+        await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, run, Ct);
         var journal = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct))!;
         foreach (var attempt in journal["transport"]!["Attempts"]!.AsArray()) attempt!["Status"] = 500;
         journal["transport"]!["Attempts"]![count - 1]!["Status"] = 400;
