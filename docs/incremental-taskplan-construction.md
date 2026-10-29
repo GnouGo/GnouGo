@@ -57,6 +57,11 @@ cursors reset when a checkpoint replaces the accepted frontier and clears its ev
 so earlier waiting consumers remain reachable. Selection
 offers bounded remaining work with exact continuation links. Unrelated originals stay
 retrievable. The final global review still receives every original obligation.
+During drafting and correction, actual consumed interfaces retain the original producer
+arguments and required contract closures. Prior checkpoint rows can therefore use their
+existing exact evidence links; selection and discovery retain their progression facts.
+Byte-identical fields of the same exact contract may share an earlier displayed view.
+The original contract, its coordinates and differing schema branches remain intact.
 
 Selection, discovery, drafting and correction compact optional navigation toward their
 captured targets. A selected operation and a producer sharing the same exact contract share

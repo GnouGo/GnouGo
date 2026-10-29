@@ -149,6 +149,117 @@ public sealed class CompactContractEvidenceFlowTests
     }
 
     [Fact]
+    public async Task ThreeAcceptedProducersShareExactContractMetadataWithoutSharingTheirArguments()
+    {
+        var state = await ThreeProducerState();
+        var context = PlanningCompactConstruction.Context(state);
+        var before = context.ToJsonString();
+        var stateBefore = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var original = ProducerContracts(context).ToArray();
+        Assert.Equal(3, original.Length);
+        Assert.All(original, contract => Assert.Single(contract["selectedInputs"]!.AsArray()));
+
+        var compact = PlanningCompactConstruction.CompactSelectedProducerContractMetadata(context);
+        var contracts = ProducerContracts(compact).ToArray();
+        Assert.Equal(2, contracts.Count(contract => contract["sharedContractMetadata"] is not null));
+        Assert.All(contracts.Skip(1), contract => Assert.Contains(contract["sharedContractMetadata"]!["fields"]!.AsArray(),
+            field => field!.ToString() == "selectedInputs"));
+        Assert.True(JsonNode.DeepEquals(context, RestoreProducerContracts(compact)));
+        Assert.Equal(new[] { "EXACT", "SECOND", "THIRD" }, compact["interfaces"]!.AsArray()
+            .SelectMany(row => (row?["producers"] as JsonArray ?? []).OfType<JsonObject>())
+            .Select(producer => producer["task"]!["inputs"]![0]!["value"]!["text"]!.ToString()));
+        Assert.Equal(compact.ToJsonString(), PlanningCompactConstruction.CompactSelectedProducerContractMetadata(compact).ToJsonString());
+        Assert.Equal(before, context.ToJsonString());
+        Assert.Equal(stateBefore, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+
+        var schema = PlanningCompactConstruction.DraftSchema(state);
+        PlanningCompactConstruction.ConstrainDraftEvidence(state, context, schema);
+        var plain = PlanningCompactConstruction.Request("Preserve every original binding and contract.", context, schema, PlanningConstruction.DraftPurpose);
+        var shared = PlanningCompactConstruction.Request("Preserve every original binding and contract.", compact, schema, PlanningConstruction.DraftPurpose);
+        var plainIssued = Prepare(plain);
+        var sharedIssued = Prepare(shared);
+        var plainSize = PlanningRequestMeasurements.Measure(plainIssued, PlanningConstruction.DraftPurpose, 32000);
+        var sharedSize = PlanningRequestMeasurements.Measure(sharedIssued, PlanningConstruction.DraftPurpose, 32000);
+        Assert.True(sharedSize.CompleteRequestBytes < plainSize.CompleteRequestBytes);
+        Assert.Equal(sharedSize.CompleteRequestBytes, sharedSize.Components.Sum(component => component.SerializedBytes));
+
+        LLMRequest Prepare(LLMRequest request) => PlanningModelCalls.PrepareRequest(state, PlanningConstruction.DraftPurpose,
+            request.Prompt, request.StructuredOutputSchema!.AsObject(), null);
+    }
+
+    [Theory]
+    [InlineData("id")]
+    [InlineData("version")]
+    [InlineData("hash")]
+    [InlineData("selectedInputs")]
+    [InlineData("selectedOutputs")]
+    public async Task ProducerSharingRetainsDistinctIdentitiesAndSelectedClosures(string difference)
+    {
+        var state = await ThreeProducerState(difference);
+        var context = PlanningCompactConstruction.Context(state);
+        var original = ProducerContracts(context).ToArray();
+        if (difference is "id" or "version" or "hash") original[1][difference] = "different-original";
+        var before = context.ToJsonString();
+
+        var compact = PlanningCompactConstruction.CompactSelectedProducerContractMetadata(context);
+        var middle = ProducerContracts(compact).ElementAt(1);
+        if (difference is "id" or "version" or "hash") Assert.Null(middle["sharedContractMetadata"]);
+        else
+        {
+            Assert.NotEqual(original[0][difference]!.ToJsonString(), original[1][difference]!.ToJsonString());
+            Assert.Equal(original[1][difference]!.ToJsonString(), middle[difference]!.ToJsonString());
+            Assert.DoesNotContain(middle["sharedContractMetadata"]!["fields"]!.AsArray(), field => field!.ToString() == difference);
+        }
+        Assert.True(JsonNode.DeepEquals(context, RestoreProducerContracts(compact)));
+        Assert.Equal(before, context.ToJsonString());
+    }
+
+    [Fact]
+    public async Task AuthoringCheckpointLinksKeepActualBindingsOriginalsAndRequestedEvidence()
+    {
+        var state = await ThreeProducerState();
+        const string exact = "schema:read@v1:/output/properties/result11";
+        state.Construction!.Evidence = new() { [exact] = PlanningCompactConstruction.LoadContractEvidence(state, exact, false) };
+        state.Construction.Checkpoints = [new()
+        {
+            Sequence = 1, BaseHash = PlanningConstruction.Hash(new TaskPlan()), PlanHash = PlanningConstruction.Hash(state.Plan),
+            RequirementIds = ["req_0"], TaskIds = state.Plan!.Root.Tasks.Select(task => task.Id).ToList(),
+            Step = new() { Scope = "/root", RequirementIds = ["req_0"] },
+            Fragment = new JsonObject { ["scope"] = "/root", ["tasks"] = new JsonArray(state.Plan.Root.Tasks.Select(task =>
+                PlanningConstruction.Node(task, PlanningJsonContext.Default.PlanTask)).ToArray()) }
+        }];
+        state.Construction.Requirements[0].Checkpoints = [1];
+        var context = PlanningCompactConstruction.Context(state);
+        var before = context.ToJsonString();
+        var displayed = context.DeepClone().AsObject();
+        var selection = context.DeepClone().AsObject();
+
+        PlanningCompactConstruction.CompactAuthoringNavigation(selection);
+        Assert.Equal(3, selection["requirements"]![0]!["acceptedProgress"]!["items"]![0]!["tasks"]!.AsArray().Count);
+        PlanningCompactConstruction.CompactAuthoringNavigation(displayed, compactCheckpoints: true);
+
+        var checkpoint = Assert.Single(displayed["requirements"]![0]!["acceptedProgress"]!["items"]!.AsArray())!;
+        Assert.Equal(1, checkpoint["sequence"]!.GetValue<int>());
+        Assert.Equal("page:checkpoints:0", checkpoint["evidence"]!.ToString());
+        Assert.Null(checkpoint["tasks"]);
+        Assert.Equal(1, displayed["requirements"]![0]!["acceptedProgress"]!["checkpointCount"]!.GetValue<int>());
+        Assert.Equal(context["requirements"]![0]!["acceptedProgress"]!["completionClaimPendingReview"]!.ToJsonString(),
+            displayed["requirements"]![0]!["acceptedProgress"]!["completionClaimPendingReview"]!.ToJsonString());
+        Assert.True(JsonNode.DeepEquals(context["interfaces"], displayed["interfaces"]));
+        Assert.True(JsonNode.DeepEquals(context["evidence"], displayed["evidence"]));
+        Assert.True(JsonNode.DeepEquals(context["requirements"]![0]!["original"], displayed["requirements"]![0]!["original"]));
+        Assert.True(JsonNode.DeepEquals(context["requirements"]![0]!["sources"], displayed["requirements"]![0]!["sources"]));
+        var schema = PlanningCompactConstruction.DraftSchema(state);
+        PlanningCompactConstruction.ConstrainDraftEvidence(state, displayed, schema);
+        Assert.Contains("page:checkpoints:0", schema.ToJsonString(), StringComparison.Ordinal);
+        Assert.Contains(exact, displayed["evidence"]!.AsObject().Select(pair => pair.Key));
+        var retrieval = PlannerFixture.Clone(state);
+        Assert.True(PlanningCompactConstruction.LoadEvidence(retrieval, checkpoint["evidence"]!.ToString(), out var page));
+        Assert.True(JsonNode.DeepEquals(state.Construction.Checkpoints[0].Fragment, page!["items"]![0]!["fragment"]));
+        Assert.Equal(before, context.ToJsonString());
+    }
+
+    [Fact]
     public async Task SharedOutputDirectoryFitsIterativelyWithoutLosingConsumedOrRequestedOriginals()
     {
         var (state, _) = await Ready();
@@ -518,6 +629,59 @@ public sealed class CompactContractEvidenceFlowTests
         Assert.Null(resumed.PendingCall);
         Assert.Contains("schema:read@v1:/input/properties/target", resumed.Construction!.Compact!.CurrentStep!.SchemaPointers);
         Assert.NotNull(resumed.Construction!.Evidence!["schema:read@v1:/input/properties/target"]);
+    }
+
+    private static async Task<PlanningSession> ThreeProducerState(string? difference = null)
+    {
+        var (state, _) = await Ready();
+        state.Catalog!.Capabilities.Add(state.Discovery.Resolved[0]);
+        state.Catalog.AllowedStepTypes.Add("set");
+        var values = new[] { "EXACT", "SECOND", "THIRD" };
+        state.Plan = new() { Root = new() { Tasks = values.Select((value, index) => new PlanTask
+        {
+            Id = "producer_" + index, Kind = "operation", Operation = "read", Objective = "Read the exact authorized original " + value + ".",
+            Inputs = [new("target", new() { Kind = "string", Text = value })]
+        }).ToList() } };
+        if (difference == "selectedInputs") state.Plan.Root.Tasks[1].Inputs.Add(new("unrelated", new() { Kind = "string", Text = "SECONDDETAILS" }));
+        var step = state.Construction!.Compact!.CurrentStep!;
+        step.Kind = "value"; step.OperationIds.Clear(); step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        step.InputTaskIds = state.Plan.Root.Tasks.Select(task => task.Id).ToList();
+        step.Inputs = state.Plan.Root.Tasks.Select((task, index) => new TaskValue
+            { Kind = "output", Source = task.Id, Port = difference == "selectedOutputs" && index == 1 ? "result1" : "result0" }).ToList();
+        return state;
+    }
+
+    private static IEnumerable<JsonObject> ProducerContracts(JsonObject context) => (context["interfaces"] as JsonArray ?? [])
+        .SelectMany(row => (row?["producers"] as JsonArray ?? []).OfType<JsonObject>()).Select(producer => producer["contract"]!.AsObject());
+
+    private static JsonObject RestoreProducerContracts(JsonObject context)
+    {
+        var restored = context.DeepClone().AsObject();
+        var original = ProducerContracts(context).ToArray();
+        var copies = ProducerContracts(restored).ToArray();
+        for (var index = 0; index < original.Length; index++)
+        {
+            var expanded = Expand(original[index], new HashSet<string>(StringComparer.Ordinal));
+            copies[index].Clear();
+            foreach (var (name, value) in expanded) copies[index][name] = value?.DeepClone();
+        }
+        return restored;
+
+        JsonObject Expand(JsonObject contract, HashSet<string> seen)
+        {
+            var copy = contract.DeepClone().AsObject();
+            if (contract["sharedContractMetadata"] is not JsonObject shared) return copy;
+            var pointer = shared["detailsPointer"]!.ToString();
+            Assert.True(seen.Add(pointer), "Contract-sharing pointers must be acyclic.");
+            var source = Expand(PlanningSchemaReferences.Read(context, pointer)!.AsObject(), seen);
+            foreach (var field in shared["fields"]!.AsArray().Select(field => field!.ToString()))
+            {
+                Assert.Null(copy[field]);
+                copy[field] = source[field]!.DeepClone();
+            }
+            copy.Remove("sharedContractMetadata");
+            return copy;
+        }
     }
 
     private static async Task<(PlanningSession State, TestRuntime Runtime)> Ready()

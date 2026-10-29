@@ -5,7 +5,7 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningCompactConstruction
 {
-    internal static void CompactAuthoringNavigation(JsonObject context)
+    internal static void CompactAuthoringNavigation(JsonObject context, bool compactCheckpoints = false)
     {
         // Actual operands, producer tasks/contracts, ancestor controls, originals
         // and explicitly retrieved evidence remain complete. Only optional
@@ -20,7 +20,17 @@ internal static partial class PlanningCompactConstruction
                 continue;
             }
             foreach (var checkpoint in (requirement["acceptedProgress"]?["items"] as JsonArray ?? []).OfType<JsonObject>())
-                if (checkpoint["tasks"] is JsonArray contributions) CompactTasks(contributions);
+            {
+                if (compactCheckpoints && checkpoint["sequence"] is JsonValue sequence && sequence.TryGetValue<int>(out var id) && id > 0 &&
+                    checkpoint["evidence"]?.ToString() is { } address && address.StartsWith("page:checkpoints:", StringComparison.Ordinal))
+                {
+                    // Actual consumed interfaces and original obligations are
+                    // already present. Prior checkpoints are navigation here.
+                    foreach (var key in checkpoint.Select(pair => pair.Key).Except(["sequence", "evidence"], StringComparer.Ordinal).ToArray())
+                        checkpoint.Remove(key);
+                }
+                else if (checkpoint["tasks"] is JsonArray contributions) CompactTasks(contributions);
+            }
         }
         if (context["companionOperations"]?["items"] is JsonArray operations)
             foreach (var operation in operations.OfType<JsonObject>())

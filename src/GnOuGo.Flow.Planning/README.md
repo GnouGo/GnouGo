@@ -29,6 +29,11 @@ at that boundary, preserving one global review for a small completed workflow. A
 successful global completion review closes all originals; local review commits only its
 current explicit claims.
 
+Draft and repair navigation can reduce prior checkpoints to their existing exact links
+once actual consumed interfaces are present. Producer arguments remain local. Only
+byte-identical presentation fields under the same contract identity/version/hash share
+an earlier view; differing required closures remain separate and reconstruct exactly.
+
 Optional draft port directories can be paged through shared contract anchors without
 removing consumed schema closures. Exact original coordinates remain retrievable;
 an oversized mandatory core still fails admission before dispatch.

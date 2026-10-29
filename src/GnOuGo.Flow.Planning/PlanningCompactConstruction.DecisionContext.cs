@@ -23,7 +23,7 @@ internal static partial class PlanningCompactConstruction
                 request.StructuredOutputSchema!.AsObject(), state.Construction!.Limits.DraftOutputTokens)) > target)
         {
             displayed = displayed.DeepClone().AsObject();
-            CompactAuthoringNavigation(displayed);
+            CompactAuthoringNavigation(displayed, compactCheckpoints: purpose is PlanningConstruction.DraftPurpose or "replan");
         }
         if (purpose == SelectPurpose) return FitSelectionNavigation(state, instructions, displayed);
         if (purpose is DiscoveryPurpose or PlanningConstruction.DraftPurpose or "replan")
@@ -47,36 +47,49 @@ internal static partial class PlanningCompactConstruction
     internal static JsonObject CompactSelectedProducerContractMetadata(JsonObject context)
     {
         // Only the same original contract can share presentation metadata. Task
-        // arguments and selected schema closures remain local to each producer.
+        // arguments remain local; shared closures retain their original coordinates.
         var operations = context["operations"] as JsonArray ?? [];
         var interfaces = context["interfaces"] as JsonArray ?? [];
         JsonObject? displayed = null;
+        var anchors = operations.Select((contract, index) => (Contract: contract as JsonObject,
+            Pointer: "/operations/" + index.ToString(System.Globalization.CultureInfo.InvariantCulture), Selected: true)).ToList();
         for (var row = 0; row < interfaces.Count; row++)
         {
             var producers = interfaces[row]?["producers"] as JsonArray ?? [];
             for (var producer = 0; producer < producers.Count; producer++)
             {
                 if (producers[producer]?["contract"] is not JsonObject contract || contract["sharedContractMetadata"] is not null) continue;
-                for (var operation = 0; operation < operations.Count; operation++)
+                JsonObject? best = null;
+                var bytes = Encoding.UTF8.GetByteCount(contract.ToJsonString());
+                foreach (var anchor in anchors)
                 {
-                    if (operations[operation] is not JsonObject selected || new[] { "id", "version", "hash" }.Any(key =>
+                    if (anchor.Contract is not { } original || new[] { "id", "version", "hash" }.Any(key =>
                             contract[key] is not JsonValue value || !value.TryGetValue<string>(out var identity) ||
-                            string.IsNullOrEmpty(identity) || !JsonNode.DeepEquals(contract[key], selected[key]))) continue;
-                    var fields = new[] { "description", "outputs", "artifacts" }.Where(key => contract[key] is { } original &&
-                        string.Equals(original.ToJsonString(), selected[key]?.ToJsonString(), StringComparison.Ordinal)).ToArray();
+                            string.IsNullOrEmpty(identity) || !JsonNode.DeepEquals(contract[key], original[key]))) continue;
+                    var fields = (anchor.Selected ? new[] { "description", "outputs", "artifacts" } :
+                            contract.Select(field => field.Key).Except(["id", "version", "hash", "sharedContractMetadata"], StringComparer.Ordinal))
+                        .Where(key => contract[key] is { } field &&
+                            string.Equals(field.ToJsonString(), original[key]?.ToJsonString(), StringComparison.Ordinal)).ToArray();
                     if (fields.Length == 0) continue;
                     var compact = contract.DeepClone().AsObject();
                     foreach (var field in fields) compact.Remove(field);
                     compact["sharedContractMetadata"] = new JsonObject
                     {
-                        ["detailsPointer"] = "/operations/" + operation.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        ["detailsPointer"] = anchor.Pointer,
                         ["fields"] = new JsonArray(fields.Select(field => (JsonNode)JsonValue.Create(field)!).ToArray())
                     };
-                    if (Encoding.UTF8.GetByteCount(compact.ToJsonString()) >= Encoding.UTF8.GetByteCount(contract.ToJsonString())) continue;
-                    displayed ??= context.DeepClone().AsObject();
-                    displayed["interfaces"]![row]!["producers"]![producer]!["contract"] = compact;
-                    break;
+                    var proposed = Encoding.UTF8.GetByteCount(compact.ToJsonString());
+                    if (proposed >= bytes) continue;
+                    best = compact; bytes = proposed;
                 }
+                if (best is not null)
+                {
+                    displayed ??= context.DeepClone().AsObject();
+                    displayed["interfaces"]![row]!["producers"]![producer]!["contract"] = best;
+                }
+                // Earlier original views are acyclic anchors. Their arguments
+                // stay with their own producer; distinct closures never merge.
+                anchors.Add((contract, $"/interfaces/{row}/producers/{producer}/contract", false));
             }
         }
         foreach (var (operation, index) in operations.Select((operation, index) => (operation, index)))
