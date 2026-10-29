@@ -53,7 +53,7 @@ public sealed class PlanningClarificationExecutionTests
                 if (i == 0) firstCalls = model.Calls;
                 else Assert.Equal(firstCalls, model.Calls);
             }
-            Assert.InRange(model.Calls, 6, 10); Assert.Equal(1, human.Reviews);
+            Assert.Equal(6, model.Calls); Assert.Equal(1, human.Reviews);
             Assert.Equal(interaction ? 1 : 0, decisions.Questions); Assert.Equal(interaction ? 0 : 1, human.Questions);
             Assert.Contains(model.Requests.Skip(2), request => request.Prompt.Contains(custom ? "CUSTOM_INTENT" : "compact", StringComparison.Ordinal));
             if (interaction) Assert.True(decisions.AnswerCheckpointed);
@@ -88,7 +88,7 @@ public sealed class PlanningClarificationExecutionTests
                 """));
             var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject(), TestContext.Current.CancellationToken);
             Assert.True(result.Success, result.Error?.Message); Assert.Equal("clarification", result.Outputs!["status"]!.GetValue<string>());
-            Assert.False(string.IsNullOrEmpty(result.Outputs["session"]!.GetValue<string>())); Assert.Equal(2, model.Calls);
+            Assert.False(string.IsNullOrEmpty(result.Outputs["session"]!.GetValue<string>())); Assert.Equal(1, model.Calls);
         }
         finally { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); Directory.Delete(root, true); }
     }
@@ -108,7 +108,7 @@ public sealed class PlanningClarificationExecutionTests
             Calls++; Requests.Add(request);
             var schema = request.StructuredOutputSchema!.AsObject();
             var context = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!.AsObject();
-            if (!_asked && schema["properties"]?["interfaces"] is not null)
+            if (!_asked && schema["properties"]?["clauses"] is not null)
             {
                 _asked = true;
                 var response = new JsonObject { ["sourceId"] = context["sources"]![0]!["id"]!.DeepClone(),
@@ -121,7 +121,7 @@ public sealed class PlanningClarificationExecutionTests
                 !text.Contains("Return the required public", StringComparison.Ordinal))
             {
                 var response = new JsonObject { ["sourceId"] = context["sources"]![0]!["id"]!.DeepClone(),
-                    ["clauses"] = new JsonArray(new JsonObject { ["text"] = text, ["kind"] = "global", ["interfaces"] = "none" }) };
+                    ["clauses"] = new JsonArray(new JsonObject { ["text"] = text, ["kind"] = "global", ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray() }) };
                 return Task.FromResult(new LLMResponse { Json = PlanningCorpus.Transport(response, schema, schema),
                     Usage = new JsonObject { ["input_tokens"] = 10, ["output_tokens"] = 5 } });
             }

@@ -48,7 +48,7 @@ public sealed class ApprovedExecutionTests
                 if (i == 0) firstCalls = calls;
                 else Assert.Equal(firstCalls, calls);
             }
-            Assert.Equal(5, calls); Assert.Equal(1, human.Reviews);
+            Assert.Equal(4, calls); Assert.Equal(1, human.Reviews);
             await Assert.ThrowsAsync<PlanningConflictException>(() => factory.ReadApprovedYamlAsync(new() { Engine = engine, Limits = new() { TenantId = "other" }, Step = new(), Data = new() }, "unknown", "forged", TestContext.Current.CancellationToken));
         }
         finally { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); Directory.Delete(directory, true); }
