@@ -1,0 +1,26 @@
+{
+  "source": "8a5997d37b1a3102e2ad672e9c9fd726bc99512b",
+  "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror",
+  "exit_code": 0,
+  "elapsed_seconds": 4602.221,
+  "assemblies": 33,
+  "counters": {
+    "total": 7192,
+    "executed": 7180,
+    "passed": 7180,
+    "failed": 0,
+    "error": 0,
+    "timeout": 0,
+    "aborted": 0,
+    "inconclusive": 0,
+    "notExecuted": 0
+  },
+  "retained_skips": 12,
+  "build_diagnostics": [],
+  "tracked_source_unchanged": true,
+  "paid_calls": 0,
+  "not_final_source": true,
+  "superseded_by": "0801e3d3107a73874232c6d2cdc26f1b71b5e399",
+  "source_manifest_sha256": "1c0715a9b626ad4ebb348f2f841596fab656f34f7c40f0a522cf93f781a3dc68",
+  "log_sha256": "38ae2cbb3dca2fc031b0c1fbcb897837410e7ed52ba08ed3b630bab4d1ee3d95"
+}
