@@ -37,10 +37,18 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
     internal async Task<JsonObject> ExtendBudgetAsync(decimal expected, decimal ceiling, string authorization, CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(authorization);
-        if (expected != await CostCeilingAsync(ct) || ceiling <= expected)
-            throw new InvalidOperationException("The budget extension must identify the current ceiling and explicitly increase it.");
         var saved = await LoadAsync("planning-evaluation-configuration", "spending-authorization", ct)
             ?? new JsonObject { ["history"] = new JsonArray() };
+        var matching = saved["history"]!.AsArray().Where(entry => entry?["authorization"]?.ToString() == authorization).ToArray();
+        if (matching.Length > 0)
+        {
+            if (matching.Length != 1 || matching[0]!["previous_ceiling_eur"]?.GetValue<decimal>() != expected ||
+                matching[0]!["ceiling_eur"]?.GetValue<decimal>() != ceiling || await CostCeilingAsync(ct) < ceiling)
+                throw new InvalidOperationException("The authorization already identifies a conflicting budget extension.");
+            return saved;
+        }
+        if (expected != await CostCeilingAsync(ct) || ceiling <= expected)
+            throw new InvalidOperationException("The budget extension must identify the current ceiling and explicitly increase it.");
         saved["history"]!.AsArray().Add(new JsonObject { ["previous_ceiling_eur"] = expected, ["ceiling_eur"] = ceiling,
             ["authorization"] = authorization, ["authorized_at"] = DateTimeOffset.UtcNow.ToString("O"),
             ["accounting_before"] = await BenchmarkHttpJournal.AccountingAsync(this, ct: ct) });

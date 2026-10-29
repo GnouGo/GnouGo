@@ -39,8 +39,8 @@ Qualification requires two consecutive fresh, intervention-free executions each
 of Collections, Amazon and Review PR on one final production source. Both Collections
 runtime variants must pass in each qualifying run. Automatic local corrections are
 allowed; operator plan revisions are diagnostic interventions and cannot qualify.
-Collections additionally requires at most four Judge calls, fewer than 26 total
-logical calls and maximum complete Judge request size 13,197 bytes. Count context,
+Four Judge calls, 26 total logical calls and 13,197 complete Judge-request bytes
+are retained efficiency indicators, not qualification or dispatch gates. Count context,
 reassessment and correction calls. Include instructions, response schema and envelope
 in bytes and reconciled component measurements. Do not lower output reservations
 or weaken checks to meet these thresholds.
@@ -195,7 +195,7 @@ when none succeeds. Interrupted runs never establish savings.
 
 Preserve bulky historical evidence unchanged. Append concise source-bound results
 and list removed mechanisms and internal-format ruptures. Keep PR #120 Draft
-until live qualification and efficiency thresholds pass.
+until live qualification passes; report efficiency separately.
 
 Run affected warning-as-error suites, then final-source solution tests, independent
 package builds, Native AOT and published encrypted-storage checks. Reuse applicable

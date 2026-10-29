@@ -339,6 +339,9 @@ public sealed class BenchmarkCampaignTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => request.SaveAsync(attempt, Ct));
         var before = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
         var authorization = await campaign.ExtendBudgetAsync(50m, 100m, "Explicit test operator authorization", Ct);
+        Assert.True(JsonNode.DeepEquals(authorization,
+            await campaign.ExtendBudgetAsync(50m, 100m, "Explicit test operator authorization", Ct)));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.ExtendBudgetAsync(100m, 150m, "Explicit test operator authorization", Ct));
         var restarted = new BenchmarkCampaign(records, "extension");
         Assert.Equal(100m, await restarted.CostCeilingAsync(Ct));
         Assert.Equal(50m, await new BenchmarkCampaign(records, "other").CostCeilingAsync(Ct));
