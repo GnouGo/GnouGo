@@ -2067,3 +2067,34 @@ The shared closure-eligibility correction passes 55 focused review/closure cases
 all 2,286 Planning tests with warnings as errors; the counts overlap. Its production
 diff is four added / two deleted C# lines, with no new state or Judge calls. Live
 benefit and complete business qualification remain unproven.
+
+### `bb24cbe5`: Collections executes both variants
+
+The [fresh Collections run](compact-taskplan-bb24cbe5-collections-runtime.json)
+passes the unchanged independent artifact and runtime oracles: nominal `[2,4,8]`
+and duplicate-preserving alternate `[6,6,-4]`, with no effects or violations.
+The exact artifact uses a contributive isolated group, parallel per-item calls and
+an extra pass-through alias. Approval is `delegated_test`; no operator planning
+revision or runtime inference was used.
+
+It takes **17 logical requests, 19 physical attempts, three Judges and zero repairs**.
+The global Judge's finite-capacity finding is withdrawn through the existing single
+supported reconsideration on the unchanged plan. Complete Judge requests are
+7,588 / 8,767 / 13,233 bytes, including reconsideration. The peak exceeds the old
+13,197-byte efficiency indicator by 36 bytes; that indicator is not the current
+qualification gate. The retained successful reference has 26 calls, eight Judges
+and a 26,394-byte peak; configuration-matched causal savings are not established.
+
+Known receipt cost is €1.1115961555735201652744094136. Both received HTTP 500
+attempts before the successful intent response retain their full
+€1.8737806521153327943950417678 reservation. Planning takes 1,489.465 seconds
+including those incidents; the runtime variants take 398.9218 / 2.4827 milliseconds.
+This is one qualifying Collections run, not two consecutive successes or complete
+three-scenario qualification. A fresh Review PR diagnostic is active; Amazon and
+Review PR runtime acceptance remain unproven.
+
+The [full `7af268ab` validation](compact-taskplan-7af268ab-full-validation.json)
+finishes with **7,150 passed, zero failed and 12 retained skips**, across 33 assemblies,
+with zero compiler diagnostics. Its ten independent package/AOT/published-storage
+checks also pass. The same ten publication checks pass on `bb24cbe5`; that revision's
+full solution run is active. Focused tests are not added again to these totals.
