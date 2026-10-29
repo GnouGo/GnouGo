@@ -50,8 +50,10 @@ Local evidence is selected before serialization from current obligations, consum
 producers, their checkpoint associations, controls, linked declarations and repair claims.
 Indexed globals remain visible; final review retains every original obligation. Optional
 navigation is fitted toward the captured target in selection, discovery and authoring.
-Necessary requests above target continue with measurement warnings; hard ceilings remain
-blocking. Warnings never enter candidate diagnostics or artifact approval hashes.
+Necessary requests above target continue with measurement warnings. A trusted benchmark
+can capture advisory project token thresholds throughout admission and journals; production
+hosts reject that authority. Warnings never enter candidate diagnostics or artifact approval
+hashes. Financial, call, time, permission and physical API guards remain enforced.
 
 Issued calls store an encrypted request-bound short-ID map for evidence navigation.
 Validate the raw response under its issued schema before resolving canonical addresses;

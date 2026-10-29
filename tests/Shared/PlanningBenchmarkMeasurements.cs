@@ -19,6 +19,10 @@ public static class PlanningBenchmarkMeasurements
     // Captured limits cannot change within an active-format cohort.
     public static void ConfigureRequest(PlanningRequest request, string[] args, bool retained)
     {
+        var advisory = args.Contains("--advisory-token-thresholds", StringComparer.Ordinal);
+        if (retained && advisory && !PlanningTokenThresholds.Advisory(request))
+            throw new InvalidOperationException("Token policy differs from the frozen run. Start a separate cohort.");
+        if (!retained && advisory) request.Options[PlanningTokenThresholds.OptionName] = "advisory";
         int? Number(string name, bool zeroAllowed = false)
         {
             var positions = args.Select((value, index) => (value, index)).Where(p => p.value == name).Select(p => p.index).ToArray();
@@ -48,7 +52,7 @@ public static class PlanningBenchmarkMeasurements
         var preset = presetPositions.Length == 0 ? null : PlanningConstructionPresets.Validate(
             args.ElementAtOrDefault(presetPositions[0].index + 1) ?? throw new ArgumentException("Missing construction preset."));
         var totalTokens = Number("--max-total-tokens"); var elapsed = Number("--max-elapsed-ms");
-        if (totalTokens > 15_000_000 || elapsed > 18_000_000)
+        if (totalTokens > 15_000_000 && !PlanningTokenThresholds.Advisory(request) || elapsed > 18_000_000)
             throw new ArgumentException("Cumulative benchmark allowances cannot exceed the authorized creation ceilings.");
         var automatic = args.Contains("--automatic-correction", StringComparer.Ordinal);
         var firstConstructionConfiguration = request.Options["construction_limits"] is null;
@@ -111,7 +115,7 @@ public static class PlanningBenchmarkMeasurements
             ["reasoning"] = request.Generation.Reasoning
         };
         foreach (var key in new[] { "construction_preset", "construction_limits", "llm_budget", "automatic_correction",
-            PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms" })
+            PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms", PlanningTokenThresholds.OptionName })
             if (request.Options[key] is { } value) result[key] = value.DeepClone();
         result["policy"] = JsonSerializer.SerializeToNode(request.Policy, PlanningJsonContext.Default.PlanningPolicy);
         if (PhasePolicyHash(request) is { } profileHash) result["phase_policy_hash"] = profileHash;
@@ -168,7 +172,7 @@ public static class PlanningBenchmarkMeasurements
             Policy = settings["policy"]!.Deserialize(PlanningJsonContext.Default.PlanningPolicy)!
         };
         foreach (var key in new[] { "construction_preset", "construction_limits", "llm_budget", "automatic_correction",
-            PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms" })
+            PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms", PlanningTokenThresholds.OptionName })
             if (settings[key] is { } value) result.Options[key] = value.DeepClone();
         return result;
     }

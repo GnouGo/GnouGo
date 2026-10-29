@@ -325,6 +325,7 @@ public sealed partial class PlanningSessionService(
 
     private async Task<PlanningSession> AdvanceAsync(PlanningSession current, PlanningCommand command, CancellationToken ct)
     {
+        PlanningTokenThresholds.RejectReserved(current.Request.Options);
         using var activity = Activities.StartActivity("planning.advance", ActivityKind.Internal, default(ActivityContext),
             tags: new ActivityTagsCollection { ["tenant.id"] = Tenant, ["gnougo.planning.session_id"] = current.Request.SessionId });
         var clock = Stopwatch.StartNew();

@@ -189,15 +189,15 @@ public sealed partial class LLMUsageBudgetScope
         var entry = snapshot.JournaledAttempts![id];
         var usage = entry.VerifiedUsage!;
         var ceiling = (long)entry.InputTokenCeiling + entry.OutputTokenCeiling;
-        if (usage.InputTokens > entry.InputTokenCeiling)
+        if (usage.InputTokens > entry.InputTokenCeiling && !WarnTokenThreshold(stage, "reserved_input_tokens", entry.InputTokenCeiling, usage.InputTokens))
             throw CreateExceeded(stage, "reserved_input_tokens", entry.InputTokenCeiling, usage.InputTokens, snapshot);
-        if (usage.OutputTokens > entry.OutputTokenCeiling)
+        if (usage.OutputTokens > entry.OutputTokenCeiling && !WarnTokenThreshold(stage, "reserved_output_tokens", entry.OutputTokenCeiling, usage.OutputTokens))
             throw CreateExceeded(stage, "reserved_output_tokens", entry.OutputTokenCeiling, usage.OutputTokens, snapshot);
-        if (usage.TotalTokens > ceiling)
+        if (usage.TotalTokens > ceiling && !WarnTokenThreshold(stage, "reserved_tokens", ceiling, usage.TotalTokens))
             throw CreateExceeded(stage, "reserved_tokens", ceiling, usage.TotalTokens, snapshot);
         if (usage.EstimatedCost > entry.ReservedEstimatedCost || usage.EstimatedCostUsd > entry.ReservedEstimatedCostUsd)
             throw CreateExceeded(stage, "reserved_cost", entry.ReservedEstimatedCost, usage.EstimatedCost, snapshot);
-        if (Limits.MaxTotalTokens is { } tokens && snapshot.TotalTokens > tokens)
+        if (Limits.MaxTotalTokens is { } tokens && snapshot.TotalTokens > tokens && !WarnTokenThreshold(stage, "total_tokens", tokens, snapshot.TotalTokens))
             throw CreateExceeded(stage, "total_tokens", tokens, snapshot.TotalTokens, snapshot);
         if (_costLimit is { } cost && snapshot.EstimatedCost > cost.Amount)
             throw CreateExceeded(stage, ResolveEstimatedCostLimitKind(), cost.Amount, snapshot.EstimatedCost, snapshot);

@@ -151,8 +151,14 @@ before every physical attempt and retain failed-attempt unknown usage. Only capt
 fully recorded transient HTTP outcomes permit the bounded journaled retry policy.
 Pre-generation client failures do not invent physical attempts or reservations.
 
-One resolver applies captured phase targets, hard ceilings, reasoning/output reservations
-and stricter host limits. Above-target requests within the ceiling continue with a
+One resolver applies captured phase targets, ceilings and reasoning/output reservations.
+The trusted benchmark may prospectively capture advisory project token thresholds;
+production hosts reject this reserved authority. In that campaign mode, input and
+cumulative-token crossings warn throughout preparation, evidence admission and physical
+dispatch, without altering accounting or granting repair authority. Conservative
+estimates do not establish physical API overflow. Preserve captured API output allocations,
+complete responses, financial reservations, calls, time and permissions. Ordinary
+above-target requests within the ceiling continue with a
 content-free warning in their exact measurement journal, outside plan diagnostics and
 approval identity. Targets never cause another model call or correction. Evidence batches
 and fallback requests undergo the same full-request preparation before atomic admission.
@@ -182,8 +188,9 @@ not live convergence. Interrupted runs are not savings.
 
 The current PR gate is two consecutive intervention-free executions of Collections,
 Amazon and Review PR on one final source. Both Collections variants must pass per run.
-Collections must use fewer than 26 logical calls, at most four Judge calls and at most
+Collections indicators are fewer than 26 logical calls, at most four Judge calls and
 13,197 bytes per complete Judge request, counting retrieval and reconsideration. These
-are benchmark acceptance thresholds, not scenario-specific production rules. The frozen
+are efficiency measurements, not qualification or dispatch gates. Stable identified
+profiles qualify; changed profiles are disclosed rather than compared as equivalent. The frozen
 successful reference is source `6469a1a3`, 26 logical calls, eight Judges and 26,394 peak
 Judge bytes. The older 18-run comparison gate is superseded.

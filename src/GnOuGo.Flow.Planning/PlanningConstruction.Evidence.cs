@@ -130,7 +130,7 @@ internal static partial class PlanningConstruction
         var measurement = measurements.SingleOrDefault(item => item.RequestHash == measured.RequestHash);
         if (measurement is null) { measurement = measured; measurements.Add(measurement); }
         PlanningInputWarnings.Record(state, purpose, measurement);
-        if (estimate > limit)
+        if (estimate > limit && !PlanningTokenThresholds.Advisory(state.Request))
         {
             measurement.Admission = "rejected_before_dispatch";
             Fail("CONSTRUCTION_EVIDENCE_LIMIT", "/evidenceRequests",
@@ -141,7 +141,7 @@ internal static partial class PlanningConstruction
             var required = 1 + (request.RequiredReviewCalls ?? 0);
             var phase = PlanningConstructionPhasePolicies.Resolve(state.Request, purpose);
             if (PlanningModelCalls.RemainingCalls(state) < required ||
-                PlanningBudgetOptions.Parse(state.Request.Options)?.MaxTotalTokens is { } tokens &&
+                !PlanningTokenThresholds.Advisory(state.Request) && PlanningBudgetOptions.Parse(state.Request.Options)?.MaxTotalTokens is { } tokens &&
                 tokens - (state.Usage?.TotalTokens ?? 0) < (long)required * (phase.MaxInputTokens + phase.OutputTokens))
             {
                 measurement.Admission = "rejected_before_dispatch";

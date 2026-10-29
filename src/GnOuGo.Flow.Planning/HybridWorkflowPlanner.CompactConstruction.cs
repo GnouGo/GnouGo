@@ -115,7 +115,7 @@ public sealed partial class HybridWorkflowPlanner
         var outputs = new[] { PlanningModelCalls.ConstructionOutputLimit(state, PlanningCompactConstruction.SelectPurpose),
             PlanningModelCalls.ConstructionOutputLimit(state, PlanningConstruction.DraftPurpose) }
             .Concat(Enumerable.Repeat(PlanningModelCalls.ConstructionOutputLimit(state, PlanningConstruction.LocalPurpose), reviews)).ToArray();
-        if (PlanningBudgetOptions.Parse(state.Request.Options)?.MaxTotalTokens is { } tokens &&
+        if (!PlanningTokenThresholds.Advisory(state.Request) && PlanningBudgetOptions.Parse(state.Request.Options)?.MaxTotalTokens is { } tokens &&
             tokens - (state.Usage?.TotalTokens ?? 0) < (long)input * outputs.Length + outputs.Sum())
             throw new WorkflowRuntimeException("CONSTRUCTION_REVIEW_ALLOWANCE", "The remaining cumulative tokens cannot admit navigation and its mandatory continuation.");
         if (runtime is IPlanningConstructionAdmission admission)

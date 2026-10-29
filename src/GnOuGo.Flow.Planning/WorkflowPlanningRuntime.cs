@@ -25,9 +25,9 @@ public sealed class WorkflowPlanningRuntime : IPlanningRuntime, IPlanningConstru
     public WorkflowPlanningRuntime(StepExecutionContext context, ILLMClient model, Func<PlanningSession, CancellationToken, Task> checkpoint)
     { _context = context; _engine = context.Engine; Capabilities = new CapabilityDiscovery(context.Engine); _model = model; _checkpoint = checkpoint; }
     public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => CapabilityDiscovery.DiscoverAsync(_engine, request, ct);
-    internal Task AdmitAsync(LLMRequest request, int inputLimit, string purpose, CancellationToken ct) =>
+    internal Task AdmitAsync(LLMRequest request, int inputLimit, string purpose, CancellationToken ct, bool advisoryTokens = false) =>
         ModelRequestAdmission.ValidateAsync(request, _engine.LLMCapabilities ?? _model as ILLMCapabilityResolver ??
-            _engine.LLMClient as ILLMCapabilityResolver, inputLimit, purpose, ct);
+            _engine.LLMClient as ILLMCapabilityResolver, inputLimit, purpose, ct, advisoryTokens);
     public Task AdmitConstructionAsync(LLMRequest request, int inputTokenCeiling, IReadOnlyList<int> outputTokenCeilings, CancellationToken ct)
     {
         if ((_model ?? _engine.LLMClient) is IPlanningConstructionAdmission journal)

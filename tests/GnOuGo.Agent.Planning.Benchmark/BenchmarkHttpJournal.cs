@@ -104,9 +104,14 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
                         ?? throw new InvalidOperationException("Captured cumulative token allowance is required.");
                     var reviewTokens = _effectiveTransportPolicy?["review_token_headroom"]?.GetValue<long>()
                         ?? throw new InvalidOperationException("Captured review token headroom is required.");
-                    if (tokenLimit is <= 0 or > 15_000_000 || reviewTokens < 0 ||
-                        totals["session_token_upper_bound"]!.GetValue<long>() > tokenLimit - reviewTokens)
-                        sessionExhausted = true;
+                    if (tokenLimit <= 0 || reviewTokens < 0) throw new InvalidOperationException("Captured token thresholds are invalid.");
+                    if (tokenLimit > 15_000_000 || totals["session_token_upper_bound"]!.GetValue<long>() > tokenLimit - reviewTokens)
+                    {
+                        if (!PlanningTokenThresholds.Advisory(_effectiveTransportPolicy)) sessionExhausted = true;
+                        else record["token_threshold_warning"] = new JsonObject { ["kind"] = "cumulative_tokens",
+                            ["threshold"] = tokenLimit, ["current"] = totals["session_token_upper_bound"]!.DeepClone(),
+                            ["review_headroom"] = reviewTokens };
+                    }
                 }
             }
             if (totals["cost_upper_bound_eur"]!.GetValue<decimal>() + reviewCostHeadroom > await campaign.CostCeilingAsync(ct) || sessionExhausted)

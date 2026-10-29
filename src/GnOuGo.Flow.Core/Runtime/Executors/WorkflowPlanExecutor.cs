@@ -14,6 +14,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
     {
         var input = ctx.Engine.GetResolvedInput(ctx) as JsonObject
             ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "workflow.plan requires an object input.");
+        PlanningTokenThresholds.RejectReserved(input);
         var planner = ctx.Engine.WorkflowPlanner ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, "Workflow planning requires an injected IWorkflowPlanner.");
         var factory = ctx.Engine.PlanningRuntimeFactory ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, "Workflow planning requires an injected IPlanningRuntimeFactory.");
         var generator = input["generator"] as JsonObject ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "A generator is required.");

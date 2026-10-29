@@ -14,6 +14,43 @@ public sealed class BenchmarkCampaignTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
+    public async Task AdvisoryJournalRetainsTokenOverrunsAndReservationsAcrossRestart()
+    {
+        var campaign = new BenchmarkCampaign(new Records(), "advisory-journal");
+        var policy = StrictTransport(); policy["token_threshold_policy"] = "advisory";
+        policy["max_total_tokens"] = 1L;
+        var journal = new BenchmarkHttpJournal(campaign, "session:1:hash", 100, 20, .1m, 64, .1m, 1, policy);
+        var state = new LLMHttpRetryState { Attempts = [new() { Id = "session:1:hash:1" }] };
+        await journal.SaveAsync(state, Ct);
+        state.Attempts[0].Status = 500; state.Attempts[0].Body = "received failure";
+        await journal.SaveAsync(state, Ct);
+        var restarted = new BenchmarkHttpJournal(campaign, "session:1:hash", 100, 20, .1m, 64, .1m, 1, policy);
+        state = (await restarted.LoadAsync(Ct))!;
+        state.Attempts.Add(new() { Id = "session:1:hash:2" });
+        await restarted.SaveAsync(state, Ct);
+        var row = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, "session:1:hash", Ct))!;
+        Assert.NotNull(row["token_threshold_warning"]);
+        var totals = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
+        Assert.Equal(2L, totals["calls"]!.GetValue<long>());
+        Assert.Equal(.2m, totals["reserved_cost_eur"]!.GetValue<decimal>());
+        Assert.Equal(240L, totals["reserved_input_tokens"]!.GetValue<long>() + totals["reserved_output_tokens"]!.GetValue<long>());
+    }
+
+    [Fact]
+    public void AdvisoryModeIsCapturedOnceAndCannotBecomeProductionAuthority()
+    {
+        var request = new PlanningRequest();
+        PlanningBenchmarkMeasurements.ConfigureRequest(request, ["--advisory-token-thresholds"], retained: false);
+        var saved = PlanningBenchmarkMeasurements.Configuration(request);
+        var restored = PlanningBenchmarkMeasurements.RestoreConfiguration(saved);
+        Assert.Equal("advisory", restored.Options["token_threshold_policy"]!.ToString());
+        Assert.Throws<PlanningConflictException>(() => PlanningTokenThresholds.RejectReserved(restored.Options));
+        var strict = new PlanningRequest(); PlanningBenchmarkMeasurements.ConfigureRequest(strict, [], retained: false);
+        Assert.Throws<InvalidOperationException>(() => PlanningBenchmarkMeasurements.ConfigureRequest(strict,
+            ["--advisory-token-thresholds"], retained: true));
+    }
+
+    [Fact]
     public async Task CapturedRetriesReserveEveryFailedPhysicalAttemptIncludingRateLimits()
     {
         var campaign = new BenchmarkCampaign(new Records(), "confirmed-retries");

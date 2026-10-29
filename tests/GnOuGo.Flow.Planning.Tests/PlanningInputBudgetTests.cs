@@ -11,6 +11,23 @@ public sealed class PlanningInputBudgetTests
     private static CancellationToken Ct => PlannerFixture.Ct;
 
     [Fact]
+    public async Task AdvisoryOversizedRequestDispatchesOnceWithDurableWarningAndExactRecovery()
+    {
+        var state = PlannerFixture.Session(); state.Request.Options["token_threshold_policy"] = "advisory";
+        var runtime = new TestRuntime { Respond = (_, _) => new() { Json = new JsonObject { ["answer"] = "received" } } };
+        var response = await PlanningModelCalls.CallAsync(state, runtime, PlanningCompactConstruction.SelectPurpose,
+            new string('x', 96_000), PlanningSchemas.Object(("answer", PlanningSchemas.String())), Ct);
+        Assert.Equal("received", response["answer"]!.ToString());
+        Assert.Single(runtime.Calls); Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+        var measurement = Assert.Single(state.RequestMeasurements!);
+        Assert.Equal("admitted", measurement.Admission);
+        Assert.Contains("advisory", measurement.TargetWarning!);
+        Assert.True(measurement.EstimatedInputTokens > measurement.InputLimit);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(state.Request.Options.ToJsonString(), PlannerFixture.Clone(state).Request.Options.ToJsonString());
+    }
+
+    [Fact]
     public async Task UnrelatedDetailedCatalogDoesNotExpandLocalPlanningRequests()
     {
         var catalog = new DescribedCatalog(); var model = new CurrentPlanningFixture.LiteralModel();

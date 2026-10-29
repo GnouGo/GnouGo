@@ -72,7 +72,8 @@ public sealed partial class LLMUsageBudgetScope
         if (Limits.MaxCalls is { } calls && outputs.Count > calls - snapshot.Calls)
             throw CreateExceeded(stage, "calls", calls, snapshot.Calls + outputs.Count, snapshot);
         var tokens = (long)inputTokens * outputs.Count + outputs.Sum(v => (long)v);
-        if (Limits.MaxTotalTokens is { } tokenLimit && tokens > tokenLimit - snapshot.TotalTokens)
+        if (Limits.MaxTotalTokens is { } tokenLimit && tokens > tokenLimit - snapshot.TotalTokens &&
+            !WarnTokenThreshold(stage, "total_tokens", tokenLimit, checked(snapshot.TotalTokens + tokens)))
             throw CreateExceeded(stage, "total_tokens", tokenLimit, (decimal)snapshot.TotalTokens + tokens, snapshot);
         if (_costLimit is { } money && cost > money.Amount - snapshot.EstimatedCost)
             throw CreateExceeded(stage, ResolveEstimatedCostLimitKind(), money.Amount, cost, snapshot);

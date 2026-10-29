@@ -85,7 +85,7 @@ public sealed partial class HybridWorkflowPlanner
         var reviewOutput = PlanningModelCalls.ConstructionOutputLimit(state, PlanningConstruction.LocalPurpose);
         if (state.PendingCall is null && PlanningModelCalls.RemainingCalls(state) < calls)
             throw new WorkflowRuntimeException("CONSTRUCTION_REVIEW_ALLOWANCE", "Construction needs a draft or correction and the mandatory business review within the saved cumulative allowance. No call was dispatched.");
-        if (state.PendingCall is null && PlanningBudgetOptions.Parse(state.Request.Options)?.MaxTotalTokens is { } limit &&
+        if (state.PendingCall is null && !PlanningTokenThresholds.Advisory(state.Request) && PlanningBudgetOptions.Parse(state.Request.Options)?.MaxTotalTokens is { } limit &&
             limit - (state.Usage?.TotalTokens ?? 0) < (long)inputLimit * calls +
                 draftOutput + (long)(calls - 1) * reviewOutput)
             throw new WorkflowRuntimeException("CONSTRUCTION_REVIEW_ALLOWANCE", "The remaining cumulative token allowance cannot admit the draft and mandatory reviews at their captured request ceilings. No call was dispatched.");

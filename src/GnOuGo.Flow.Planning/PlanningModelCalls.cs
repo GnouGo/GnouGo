@@ -90,7 +90,7 @@ internal static partial class PlanningModelCalls
                     "The response schema is outside the supported structured-output profile. Planning stopped before dispatch without consuming a model call or repair. " + string.Join("; ", violations),
                     details: new JsonObject { ["location"] = "/phases/" + purpose });
             }
-            if (inputTokens > inputLimit)
+            if (inputTokens > inputLimit && !PlanningTokenThresholds.Advisory(state.Request))
             {
                 await RejectMeasurement();
                 var message = $"The conservative input estimate for the complete {purpose} request (prompt and response schema) is {inputTokens} tokens; the captured limit is {inputLimit}. Planning stopped before dispatch without consuming another model call or repair. Required context must fit the captured phase allowance; retained requests and cumulative budgets remain unchanged.";
@@ -99,7 +99,7 @@ internal static partial class PlanningModelCalls
                         ["limit"] = inputLimit, ["current"] = inputTokens, ["measurement"] = "estimated_tokens", ["unit"] = "tokens",
                         ["stage"] = purpose, ["dispatch_status"] = "not_started" });
             }
-            try { if (runtime is WorkflowPlanningRuntime actual) await actual.AdmitAsync(request, inputLimit, purpose, ct); }
+            try { if (runtime is WorkflowPlanningRuntime actual) await actual.AdmitAsync(request, inputLimit, purpose, ct, PlanningTokenThresholds.Advisory(state.Request)); }
             catch { await RejectMeasurement(); throw; }
             correction?.Reserve();
             if (measurement is not null) measurement.Admission = "admitted";
@@ -135,7 +135,9 @@ internal static partial class PlanningModelCalls
                         if (usage[name] is JsonValue value && long.TryParse(value.ToString(), System.Globalization.NumberStyles.None,
                             System.Globalization.CultureInfo.InvariantCulture, out var count)) reported = Math.Max(reported ?? 0, count);
                 var measured = reported ?? (System.Text.Encoding.UTF8.GetByteCount(json.ToJsonString()) + 2L) / 3L;
-                if (measured > maximum)
+                if (reported is null && measured > maximum && PlanningTokenThresholds.Advisory(state.Request))
+                    PlanningTokenThresholds.Warn(purpose, "estimated_response_tokens", measured, maximum);
+                if (measured > maximum && (reported.HasValue || !PlanningTokenThresholds.Advisory(state.Request)))
                     throw new WorkflowRuntimeException("MODEL_OUTPUT_LIMIT", "The completed construction response exceeded its issued output allowance; no fragment was accepted.", details: new JsonObject
                     { ["location"] = "/phases/" + purpose, ["limit"] = maximum, ["current"] = measured,
                         ["measurement"] = reported.HasValue ? "reported_output_tokens" : "conservative_serialized_response_tokens", ["unit"] = "tokens", ["stage"] = purpose });

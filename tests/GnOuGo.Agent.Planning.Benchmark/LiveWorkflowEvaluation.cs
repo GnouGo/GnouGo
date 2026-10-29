@@ -61,6 +61,7 @@ internal static class LiveWorkflowEvaluation
             ? await LiveCampaignEvidence.PinAsync(campaign, sourceRevision, model.Provider, model.Model, model.ConfigurationFingerprint, cohort, productLimit,
                 !continuing || frozenSettings.Options.ContainsKey("construction_preset") || retained?["manifest"]?["planning_configuration"] is not null || args.Any(a => a.StartsWith("--max-", StringComparison.Ordinal))
                     ? FrozenPlanningConfiguration(frozenSettings, retained?["session"]?["construction"]?["limits"] as JsonObject) : null) : null;
+        model.CaptureTokenPolicy(frozenSettings);
         await using var proxy = await CampaignInferenceProxy.StartAsync(model, label);
         var configurations = Configuration(model.McpServers, scenario, proxy.Endpoint);
         DelegatedTestReviewAuthority? delegated = null;

@@ -25,6 +25,7 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
 
     public async Task<IPlanningRuntimeSession> OpenAsync(StepExecutionContext context, PlanningSession initial, CancellationToken ct)
     {
+        PlanningTokenThresholds.RejectReserved(initial.Request.Options);
         if (initial.Request.TenantId != (context.Limits.TenantId ?? "default"))
             throw new PlanningConflictException("The planning tenant must match the execution owner.");
         context.Limits.RunId ??= Guid.NewGuid().ToString("N");
@@ -104,6 +105,7 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
                 state.ActiveMilliseconds += (completion.UpdatedAt - state.UpdatedAtUtc).TotalMilliseconds;
                 state.UpdatedAtUtc = completion.UpdatedAt;
             }
+            PlanningTokenThresholds.RejectReserved(state.Request.Options);
             var receipt = await records.GetAsync(WorkflowPlanningBudgetSink.Collection, tenant, key, Author, ct);
             var usage = receipt is null ? state.Usage : JsonSerializer.Deserialize(receipt.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot)
                 ?? throw new PlanningConflictException("The encrypted planning budget is invalid.");
@@ -143,6 +145,7 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
         var stored = await records.GetAsync(Sessions, tenant, sessionId, Author, ct)
             ?? throw new PlanningConflictException("The approved format-11 planning session is unavailable for this tenant. Regenerate and approve the workflow.");
         var state = PlanningSessionStorage.Read(stored.Value, tenant, sessionId);
+        PlanningTokenThresholds.RejectReserved(state.Request.Options);
         if (state.SchemaVersion != 11 || state.Request.TenantId != tenant || state.Request.SessionId != sessionId ||
             state.Status != PlanningStatus.Approved || state.ApprovedHash != artifactHash || PlanningArtifactApproval.Hash(state) != artifactHash)
             throw new PlanningConflictException("The artifact does not have a current, tenant-owned approval.");

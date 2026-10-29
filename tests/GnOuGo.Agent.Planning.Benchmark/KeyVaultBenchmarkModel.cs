@@ -39,6 +39,8 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
     private readonly IModelUsageCostEstimator _estimator;
     private readonly TimeProvider _time;
     private readonly Dictionary<string, DateTimeOffset> _planningDeadlines = new(StringComparer.Ordinal);
+    private bool _advisoryTokens;
+    internal void CaptureTokenPolicy(PlanningRequest request) => _advisoryTokens = PlanningTokenThresholds.Advisory(request);
     private static readonly TimeSpan MaxQuoteAge = new EcbExchangeRateProviderOptions().MaxQuoteAge;
     private readonly SemaphoreSlim _dispatchGate = new(1, 1);
     private static readonly Lazy<TiktokenTokenizer> ExecutionTokenizer = new(() => TiktokenTokenizer.CreateForEncoding("o200k_base"));
@@ -72,7 +74,11 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             JsonObject? quote = null;
             foreach (var output in outputTokenCeilings)
             {
-                var price = AdmissionPrice(checked(3L * inputTokenCeiling), output);
+                var exposure = _advisoryTokens
+                    ? await InputTokenAllowanceAsync(Provider, Model, output, ct)
+                        ?? throw BenchmarkCampaign.AdmissionFailure("declared_review_exposure")
+                    : checked(3L * inputTokenCeiling);
+                var price = AdmissionPrice(exposure, output);
                 quote ??= await FreshQuoteAsync(price.Currency, ct, persist: false);
                 if (quote["source_currency"]?.ToString() != price.Currency)
                     throw BenchmarkCampaign.AdmissionFailure("review_price_currency_changed");
@@ -90,6 +96,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
     }
     internal async Task CapturePlanningPolicyAsync(PlanningRequest request, CancellationToken ct, double activeMilliseconds = 0)
     {
+        CaptureTokenPolicy(request);
         var value = new JsonObject { ["max_physical_attempts"] = PlanningTransportPolicies.Read(request) is null ? request.MaxModelCalls :
                 Math.Min(request.MaxModelCalls, PlanningBudgetOptions.Parse(request.Options)?.MaxCalls ?? request.MaxModelCalls),
             ["max_input_tokens"] = request.Generation.MaxInputTokensPerRequest, ["max_output_tokens"] = request.Generation.MaxOutputTokens,
@@ -99,7 +106,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         value["construction_review_headroom"] = 2;
         value["construction_review_output_tokens"] = PlanningConstructionPhasePolicies.Resolve(request, "construction_local_judge").OutputTokens;
         value["construction_limits"] = request.Options["construction_limits"]?.DeepClone();
-        foreach (var key in new[] { PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms" })
+        foreach (var key in new[] { PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms", PlanningTokenThresholds.OptionName })
             if (request.Options[key] is { } captured) value[key] = captured.DeepClone();
         if (PlanningTransportPolicies.Read(request) is not null)
         {
@@ -301,7 +308,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         => Path.GetFullPath(Path.Combine(Path.GetFullPath(root), string.IsNullOrWhiteSpace(configuredPath) ? defaultPath : configuredPath));
     internal static IKeyVaultRecordStore WorkspaceRecords(string root)
         => KeyVaultRecordStoreFactory.CreateWorkspaceStore(WorkspaceDatabasePath(root, null, KeyVaultDatabasePathResolver.DefaultRelativePath), root);
-    internal static LLMRequest CreateDispatchRequest(LLMRequest request, string provider, string model, bool execution = false)
+    internal static LLMRequest CreateDispatchRequest(LLMRequest request, string provider, string model, bool execution = false, bool advisoryTokens = false)
     {
         if (request.Tools is { Count: > 0 })
             throw new InvalidOperationException("Benchmark recovery permits only side-effect-free generation without tools.");
@@ -315,7 +322,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         dispatched.UseBackgroundMode = false;
         if (execution)
         {
-            if (dispatched.MaxTokens is <= 0 or > 32768)
+            if (dispatched.MaxTokens is <= 0 || dispatched.MaxTokens > 32768 && !advisoryTokens)
                 throw new GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException(GnOuGo.Flow.Core.Models.ErrorCodes.LlmBudgetExceeded,
                     "Execution request exceeds the campaign output allowance.", details: new JsonObject
                     {
@@ -324,7 +331,8 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                         ["measurement"] = "declared_output_tokens"
                     });
             var estimate = ExecutionInputEstimate(JsonSerializer.Serialize(dispatched, PlanningJsonContext.Default.LLMRequest));
-            if (estimate > 96000)
+            if (estimate > 96000 && advisoryTokens) PlanningTokenThresholds.Warn("execution", "estimated_input_tokens", estimate, 96000);
+            if (estimate > 96000 && !advisoryTokens)
                 throw new GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException(GnOuGo.Flow.Core.Models.ErrorCodes.LlmBudgetExceeded,
                     "Execution request exceeds the campaign input allowance.", details: new JsonObject
                     {
@@ -415,12 +423,13 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         var policy = execution ? null : await _campaign.LoadAsync("planning-evaluation-session-policy", request.ClientRequestId!.Split(':')[0], ct);
         var incremental = policy?["construction_review_headroom"]?.GetValue<int>() > 0;
         var planning = policy is null ? null : PlanningFromPolicy(policy);
+        var advisoryTokens = execution ? _advisoryTokens : planning is not null && PlanningTokenThresholds.Advisory(planning);
         var capturedTransport = planning is null ? null : PlanningTransportPolicies.Read(planning);
         if (capturedTransport is not null) PlanningTransportPolicies.ValidateIssued(request, planning!);
         if (capturedTransport is not null && await _campaign.LoadAsync("planning-evaluation-requests", request.ClientRequestId!, ct) is { } reserved &&
             !JsonNode.DeepEquals(reserved, JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)))
             throw new InvalidOperationException("The reserved request changed.");
-        var dispatched = CreateDispatchRequest(request, Provider, Model, execution);
+        var dispatched = CreateDispatchRequest(request, Provider, Model, execution, advisoryTokens);
         if (execution && (runtimeJournal is null || BenchmarkHttpJournal.IsRuntimeSingleAttempt(runtimeJournal["effective_transport_policy"] as JsonObject)))
             dispatched.DisableTransportRetries = true;
         if (incremental && capturedTransport is null) dispatched.DisableTransportRetries = true;
@@ -437,6 +446,9 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             request.StructuredOutputSchema?["properties"]?["findings"] is null ? policy?["construction_review_headroom"]?.GetValue<int>() ?? 0 : 0;
         var reviewInput = planning is null ? 0 : 3L * PlanningConstructionInputPolicy.EffectiveLimit(planning, "construction_local_judge");
         var reviewOutput = policy?["construction_review_output_tokens"]?.GetValue<int>() ?? 0;
+        if (advisoryTokens && reviewCount > 0)
+            reviewInput = await InputTokenAllowanceAsync(Provider, Model, reviewOutput, ct)
+                ?? throw BenchmarkCampaign.AdmissionFailure("declared_review_exposure");
         JsonObject? effectiveTransportPolicy = new JsonObject
         {
             ["version"] = capturedTransport is null ? 1 : 2, ["disable_transport_retries"] = dispatched.DisableTransportRetries,
@@ -448,8 +460,11 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                 runtimeJournal["effective_transport_policy"]?.DeepClone().AsObject();
         if (capturedTransport is not null)
         {
+            if (advisoryTokens) effectiveTransportPolicy![PlanningTokenThresholds.OptionName] = "advisory";
             effectiveTransportPolicy!["planning_transport_policy"] = policy![PlanningTransportPolicies.OptionName]!.DeepClone();
-            effectiveTransportPolicy["max_total_tokens"] = Math.Min(15_000_000L, PlanningBudgetOptions.Parse(planning!.Options)?.MaxTotalTokens ?? 15_000_000L);
+            effectiveTransportPolicy["max_total_tokens"] = advisoryTokens
+                ? PlanningBudgetOptions.Parse(planning!.Options)?.MaxTotalTokens ?? 15_000_000L
+                : Math.Min(15_000_000L, PlanningBudgetOptions.Parse(planning!.Options)?.MaxTotalTokens ?? 15_000_000L);
             effectiveTransportPolicy["max_elapsed_ms"] = (long)PlanningBenchmarkMeasurements.PlanningElapsedLimit(planning).TotalMilliseconds;
             effectiveTransportPolicy["review_token_headroom"] = checked(reviewCount * (reviewInput + reviewOutput));
             var retainedTransport = (await _campaign.LoadAsync(BenchmarkHttpJournal.Collection, request.ClientRequestId!, ct))?["effective_transport_policy"];
@@ -469,13 +484,13 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             var last = retained?["transport"]?["Attempts"]?.AsArray().LastOrDefault();
             if (capturedTransport is not null && !(last?["Status"]?.GetValue<int>() is >= 200 and < 300 &&
                 last["Body"] is not null && last["Failure"] is null))
-                await ModelRequestAdmission.ValidateAsync(request, this, phaseInputLimit, "planning", token);
+                await ModelRequestAdmission.ValidateAsync(request, this, phaseInputLimit, "planning", token, advisoryTokens);
             var input = Math.Max(phaseInputLimit, Encoding.UTF8.GetByteCount(json));
             var output = dispatched.MaxTokens ?? 32_768;
             // Match the retained planning estimator, including the issued envelope rather than only its prompt.
             var estimatedPlanningInput = ((long)Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)) + 2) / 3 + 256;
             if (policy is not null && (output > policy["max_output_tokens"]!.GetValue<int>() ||
-                estimatedPlanningInput > phaseInputLimit))
+                estimatedPlanningInput > phaseInputLimit && !advisoryTokens))
                 throw BenchmarkCampaign.AdmissionFailure("captured_session_request_allowance");
             journal = await PrepareAdmissionAsync(request.ClientRequestId!, input, output,
                 execution ? null : policy?["max_physical_attempts"]?.GetValue<int>() ?? 8, token, reviewCount,
@@ -520,7 +535,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         Options = new() { ["construction_limits"] = policy["construction_limits"]?.DeepClone(),
             ["llm_budget"] = policy["llm_budget"]?.DeepClone() }
         };
-        foreach (var key in new[] { PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms" })
+        foreach (var key in new[] { PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms", PlanningTokenThresholds.OptionName })
             if (policy[key] is { } captured) request.Options[key] = captured.DeepClone();
         return request;
     }
@@ -564,7 +579,11 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             var output = (payload["max_completion_tokens"] ?? payload["max_tokens"] ?? payload["max_output_tokens"])?.GetValue<int>();
             if (output is null || output <= 0 || output > 32768) throw new InvalidOperationException("Execution inference lacks a bounded output allowance.");
             var input = Math.Max(96000, checked(Encoding.UTF8.GetByteCount(body) + 4096));
-            if (ExecutionInputEstimate(body) > 96000) throw new InvalidOperationException("Execution request exceeds the campaign input allowance.");
+            if (ExecutionInputEstimate(body) > 96000)
+            {
+                if (!_advisoryTokens) throw new InvalidOperationException("Execution request exceeds the campaign input allowance.");
+                PlanningTokenThresholds.Warn("sdk_proxy", "estimated_input_tokens", ExecutionInputEstimate(body), 96000);
+            }
             var id = run + "-copilot:" + PlanningGraphCompiler.Fingerprint(sdkId);
             var request = new LLMRequest { ClientRequestId = id, Provider = Provider, Model = Model, Prompt = body, MaxTokens = output };
             BenchmarkHttpJournal? journal = null;

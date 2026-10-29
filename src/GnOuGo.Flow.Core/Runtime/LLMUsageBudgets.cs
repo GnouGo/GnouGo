@@ -119,7 +119,15 @@ public sealed partial class LLMUsageBudgetScope
     private readonly IExchangeRateProvider? _exchangeRateProvider;
     private readonly TimeProvider _timeProvider;
     private readonly MonetaryAmount? _costLimit;
+    private readonly bool _advisoryTokens;
+    private readonly HashSet<string> _tokenWarnings = new(StringComparer.Ordinal);
     private LLMUsageBudgetSnapshot _snapshot;
+
+    internal LLMUsageBudgetScope(bool advisoryTokens, LLMUsageBudgetLimits limits,
+        LLMUsageBudgetSnapshot? initialSnapshot = null, LLMUsageBudgetScope? parent = null,
+        ILLMUsageBudgetSink? sink = null, TimeProvider? timeProvider = null, IExchangeRateProvider? exchangeRateProvider = null)
+        : this(limits, initialSnapshot, parent, sink, timeProvider, exchangeRateProvider)
+        => _advisoryTokens = advisoryTokens;
 
     public LLMUsageBudgetScope(
         LLMUsageBudgetLimits limits,
@@ -134,6 +142,7 @@ public sealed partial class LLMUsageBudgetScope
 
         Limits = limits;
         _parent = parent;
+        _advisoryTokens = parent?._advisoryTokens ?? false;
         _sink = sink;
         _exchangeRateProvider = exchangeRateProvider ?? parent?._exchangeRateProvider;
         _timeProvider = timeProvider ?? TimeProvider.System;
@@ -374,7 +383,8 @@ public sealed partial class LLMUsageBudgetScope
         if (Limits.MaxCalls is { } maxCalls && snapshot.Calls >= maxCalls)
             throw CreateExceeded(stage, "calls", maxCalls, snapshot.Calls, snapshot);
 
-        if (Limits.MaxTotalTokens is { } maxTokens && snapshot.TotalTokens >= maxTokens)
+        if (Limits.MaxTotalTokens is { } maxTokens && snapshot.TotalTokens >= maxTokens &&
+            !WarnTokenThreshold(stage, "total_tokens", maxTokens, snapshot.TotalTokens))
             throw CreateExceeded(stage, "total_tokens", maxTokens, snapshot.TotalTokens, snapshot);
 
         if (_costLimit is { } maxCost)
@@ -459,7 +469,8 @@ public sealed partial class LLMUsageBudgetScope
 
         await PersistAsync(snapshot, stage, ct).ConfigureAwait(false);
 
-        if (Limits.MaxTotalTokens is { } maxTokens && snapshot.TotalTokens > maxTokens)
+        if (Limits.MaxTotalTokens is { } maxTokens && snapshot.TotalTokens > maxTokens &&
+            !WarnTokenThreshold(stage, "total_tokens", maxTokens, snapshot.TotalTokens))
             throw CreateExceeded(stage, "total_tokens", maxTokens, snapshot.TotalTokens, snapshot);
         if (_costLimit is { } maxCost && snapshot.EstimatedCost > maxCost.Amount)
         {
@@ -470,6 +481,15 @@ public sealed partial class LLMUsageBudgetScope
                 snapshot.EstimatedCost,
                 snapshot);
         }
+    }
+
+    private bool WarnTokenThreshold(string stage, string kind, long threshold, long current)
+    {
+        if (!_advisoryTokens) return false;
+        lock (_gate)
+            if (_tokenWarnings.Add($"{stage}:{kind}:{_snapshot.Calls}:{threshold}"))
+                GnOuGo.Flow.Core.Planning.PlanningTokenThresholds.Warn(stage, kind, current, threshold);
+        return true;
     }
 
     private decimal ResolveLegacyUsdIncrement(

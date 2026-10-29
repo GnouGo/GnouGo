@@ -17,6 +17,32 @@ public sealed class LLMJournaledAttemptBudgetTests
         { ["input_tokens"] = input, ["output_tokens"] = output, ["total_tokens"] = input + output };
 
     [Fact]
+    public async Task AdvisoryTokenLimitsPropagateToChildrenAndRecoveryWithoutWaivingCallOrMoneyGuards()
+    {
+        var limits = new LLMUsageBudgetLimits { MaxCalls = 2, MaxTotalTokens = 1 };
+        var parent = new LLMUsageBudgetScope(true, limits);
+        var child = parent.CreateChild(limits);
+        await child.ReserveJournaledAttemptAsync("first", Request(), null, 10, 20, [], "planning", Ct);
+        await child.SettleJournaledAttemptAsync("first", Request(), null, Usage(11, 21), "planning", Ct);
+        var recovered = new LLMUsageBudgetScope(true, limits, child.Snapshot);
+        await recovered.ReserveJournaledAttemptAsync("first", Request(), null, 10, 20, [], "planning", Ct);
+        await recovered.ReserveJournaledAttemptAsync("second", Request(), null, 10, 20, [], "planning", Ct);
+        Assert.Equal(62, recovered.Snapshot.TotalTokens);
+        Assert.Equal(2, recovered.Snapshot.Calls);
+        var calls = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => recovered.ReserveJournaledAttemptAsync(
+            "third", Request(), null, 10, 20, [], "planning", Ct));
+        Assert.Equal(ErrorCodes.LlmBudgetExceeded, calls.Code);
+        var money = new LLMUsageBudgetScope(true, new() { MaxTotalTokens = 1, MaxEstimatedCostUsd = 1 });
+        await Assert.ThrowsAsync<WorkflowRuntimeException>(() => money.ReserveJournaledAttemptAsync(
+            "cost", Request(), Pricing, 10, 20, [], "planning", Ct));
+        Assert.Equal(0, money.Snapshot.Calls);
+        var strictParent = new LLMUsageBudgetScope(limits);
+        var advisoryChild = new LLMUsageBudgetScope(true, limits, parent: strictParent);
+        await Assert.ThrowsAsync<WorkflowRuntimeException>(() => advisoryChild.ReserveJournaledAttemptAsync(
+            "no-parent-authority", Request(), null, 10, 20, [], "planning", Ct));
+    }
+
+    [Fact]
     public async Task ReservationAndSettlementAccountEachPhysicalAttemptOnceInEveryCurrency()
     {
         var order = new List<string>();

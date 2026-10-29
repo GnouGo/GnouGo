@@ -75,8 +75,15 @@ disconnects, invalid model output and output exhaustion do not retry automatical
 All failed-attempt reservations remain unknown usage until independently verified;
 a later successful attempt does not release them.
 
-Preserve the existing physical-call, correction, token, time, output and financial
-ceilings. Captured input targets guide presentation; ceilings govern admission.
+Preserve physical-call, correction, time, captured API output and financial guards.
+The trusted campaign builder may capture `--advisory-token-thresholds` before fresh
+session creation. This stores `token_threshold_policy: "advisory"` in the frozen
+configuration and HTTP policy. All project input and cumulative-token thresholds
+then warn throughout preparation, evidence admission and dispatch. Production hosts
+reject this reserved authority. Estimates are not physical model limits; unsupported
+API settings and incomplete responses still fail. Financial reservations cover full
+request exposure and declared deployment capacity for otherwise unknown future reviews.
+Without this captured mode, ceilings continue to govern admission.
 Optional navigation is compacted toward targets of 3k navigation, 8k drafting/correction
 and 4k review tokens. An irreducible request above target can proceed below its captured
 maximum; its exact measurement retains a nonblocking warning with bytes, estimate,
@@ -96,9 +103,9 @@ They are never selected automatically. Fresh launches must also capture
 `--max-input-tokens 32000 --max-output-tokens 32768` to retain these phase
 reservations; explicit tighter general limits continue to clamp the profile. Preserve each scenario's
 reasoning/output reservations and all cumulative limits. Do not modify an existing
-session or qualification profile, and do not count an enlarged-profile run toward the
-unchanged qualification gate. Deployment capacity after output reservation and explicit
-tighter host limits still prevail. Reports distinguish serialized bytes, conservative
+session or qualification profile. Qualification uses stable identified profiles;
+different profiles are disclosed rather than presented as matched comparisons.
+Reports distinguish serialized bytes, conservative
 component estimates, actual whole-call provider usage and retained unknown reservations.
 
 Short evidence IDs are scoped to one issued request and its encrypted map. Reports
@@ -114,6 +121,13 @@ EUR 440.0301038327063045424449473 → EUR 540.0301038327063045424449473.
 Inspect the existing authorization entry under the campaign lease and recognize
 that exact entry on recovery. Never derive another increase from the current
 ceiling. See the immutable [authorization evidence](../../docs/evidence/compact-taskplan-v10-accounting-authorization.json).
+
+The separately authorized 29 October EUR 100 supplement uses
+`gnougo-pr120-2026-10-29-supplement-100-eur-once` and fixed ceilings
+EUR 540.0301038327063045424449473 → EUR 640.0301038327063045424449473.
+The leased operator recognizes an identical entry idempotently and rejects a
+conflicting authorization; it never derives another increase from the current ceiling.
+See the [recorded operation](../../docs/evidence/compact-taskplan-20261029-supplement.json).
 
 Read-only readiness and accounting:
 
