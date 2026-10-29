@@ -95,7 +95,7 @@ public sealed class PlanningClarificationBrowserTests
         {
             var state = (await service.GetAsync(id!.ToString(), ct))!;
             Assert.Equal(name == "cancel" ? PlanningStatus.Cancelled : PlanningStatus.FinalReview, state.Status);
-            Assert.Null(state.ApprovedHash); Assert.Equal(name == "cancel" ? 2 : 7, state.ModelCalls);
+            Assert.Null(state.ApprovedHash); Assert.Equal(name == "cancel" ? 1 : 6, state.ModelCalls);
             if (name != "cancel")
             {
                 Assert.True(state.Construction!.Complete);
@@ -104,7 +104,7 @@ public sealed class PlanningClarificationBrowserTests
                 PlanningArtifactApproval.Verify(state);
             }
         }
-        Assert.Equal(30, model.Calls); // Five classifications/questions plus four complete current continuations; receipt replay dispatches nothing.
+        Assert.Equal(25, model.Calls); // Five one-pass questions plus four five-call continuations; receipt replay dispatches nothing.
     }
 
     private sealed class RecoveryEstimator : IModelUsageCostEstimator

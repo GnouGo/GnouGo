@@ -185,8 +185,10 @@ public sealed partial class PlanningTraceUiTests
                 var context = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
                 var text = context["sources"]![0]!["text"]!.ToString();
                 var split = text.IndexOf("Preserve", StringComparison.Ordinal);
-                json["clauses"] = new JsonArray(new JsonObject { ["text"] = text[..split], ["kind"] = "requirement", ["interfaces"] = "output" },
-                    new JsonObject { ["text"] = text[split..], ["kind"] = "requirement", ["interfaces"] = "none" });
+                var declaration = json["clauses"]![0]!;
+                json["clauses"] = new JsonArray(new JsonObject { ["text"] = text[..split], ["kind"] = "requirement",
+                    ["inputs"] = declaration["inputs"]!.DeepClone(), ["outputs"] = declaration["outputs"]!.DeepClone() },
+                    new JsonObject { ["text"] = text[split..], ["kind"] = "requirement", ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray() });
             }
             if (json["step"] is JsonObject step)
             { step["requirementIds"] = new JsonArray("req_0", "req_1"); step["closeRequirementIds"] = new JsonArray("req_0", "req_1"); }
