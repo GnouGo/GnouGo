@@ -9,7 +9,7 @@ Build one incremental semantic TaskPlan through the existing coordinator, compil
 
 ## Authority and progression
 
-Original requests, answers and unchanged MCP contracts establish authority. Retain them encrypted with tenant ownership. Derive immediate work from accepted producers, exact bindings, suspended consumers and remaining obligations. Reuse suitable results; repair demonstrated accepted defects through explicit scoped revision. Compatible types and operation names alone do not establish business suitability.
+Original requests, answers and unchanged MCP contracts establish authority. Retain them encrypted with tenant ownership. Derive immediate work from accepted producers, exact bindings, suspended consumers and remaining obligations. An original clause states the complete obligation; an immediate substep can contribute one producer or prerequisite without claiming that obligation complete. Reuse suitable results; repair demonstrated accepted defects through explicit scoped revision. Compatible types and operation names alone do not establish business suitability.
 
 Keep public returns distinct from local exports, files and effects. A group declares reusable inputs and a body; a call invokes it. An inline control body is not a reusable group. Open containers expose no consumable completion. Preserve captures, guards, ordering, iteration bounds, permissions, provenance and failure cleanup.
 

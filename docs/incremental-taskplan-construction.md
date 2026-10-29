@@ -55,6 +55,8 @@ scope, contracts and typed accessibility still validate; its composition remains
 part of the pending business work. Automatic resumption additionally requires its
 applicable reviewed association. Content freshness alone creates no review authority.
 
+Selection requests the next executable contribution inside an offered scope. Attaching an original clause does not require completing that whole clause in one substep; a producer or prerequisite may contribute while its obligation remains open.
+
 Local requests derive their originals before packing: selected obligations, consumed
 producers and their accepted requirement associations, ancestor controls/groups,
 completion claims, explicit evidence and retained repair witnesses. Linked interface
