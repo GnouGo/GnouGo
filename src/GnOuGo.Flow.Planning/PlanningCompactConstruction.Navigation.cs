@@ -168,7 +168,9 @@ internal static partial class PlanningCompactConstruction
             foreach (var name in new[] { "items", "inputs", "outputs", "groups", "tasks", "ancestors", "selectedOutputs", "selectedInputs", "producers" })
                 if (value[name] is JsonArray entries) foreach (var entry in entries) Navigation(entry);
             if (value["contract"] is JsonObject contract) Navigation(contract);
-            foreach (var name in new[] { "scopes", "omittedOptionalInputs", "omittedOptionalSiblings" })
+            if (value["omittedOptionalInputs"] is JsonArray optionalInputs)
+                foreach (var entry in optionalInputs) Navigation(entry);
+            foreach (var name in new[] { "scopes", "omittedOptionalSiblings" })
                 if (value[name] is JsonArray entries) foreach (var entry in entries) Address(entry);
         }
     }

@@ -709,7 +709,7 @@ public sealed class CompactDeferredBindingTests
             Assert.NotNull(view["inputSchema"]!["properties"]!["target"]);
             Assert.Contains("target", view["inputSchema"]!["required"]!.AsArray().Select(value => value!.ToString()));
             Assert.Null(view["inputSchema"]!["properties"]!["large"]);
-            Assert.Contains("schema:read@v1:/input/properties/large", view["omittedOptionalInputs"]!.AsArray().Select(n => n!.ToString()));
+            Assert.Contains("schema:read@v1:/input/properties/large", view["omittedOptionalInputs"]!.AsArray().Select(n => n!["evidence"]!.ToString()));
         }
     }
 

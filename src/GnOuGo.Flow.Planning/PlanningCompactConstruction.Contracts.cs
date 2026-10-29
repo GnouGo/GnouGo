@@ -382,7 +382,8 @@ internal static partial class PlanningCompactConstruction
             ["editableInputs"] = new JsonArray(inputs.Select(p => (JsonNode)new JsonObject
                 { ["name"] = p.Name, ["pointer"] = PortPointer("/input", p.Path), ["required"] = p.Required }).ToArray()),
             ["omittedOptionalInputCount"] = omitted.Count,
-            ["omittedOptionalInputs"] = new JsonArray(omitted.Take(ContractDirectoryPageSize).Select(p => (JsonNode?)JsonValue.Create("schema:" + identity + ":" + p)).ToArray()),
+            ["omittedOptionalInputs"] = new JsonArray(omitted.Take(ContractDirectoryPageSize).Select(p => (JsonNode)new JsonObject
+                { ["pointer"] = p, ["evidence"] = "schema:" + identity + ":" + p }).ToArray()),
             ["inputDirectory"] = "schema-page:" + identity + ":/input:0",
             ["outputs"] = PortDirectory(operation.Outputs, identity, "/output"),
             ["outputCount"] = operation.Outputs.Count,
@@ -399,17 +400,9 @@ internal static partial class PlanningCompactConstruction
             // in the view. The directory retains every producer port alias.
             node["outputs"] = CompletePortDirectory(operation.Outputs, identity, "/output");
             node["outputDirectory"] = "port-page:" + identity + ":/output:0";
-            // Requested originals replace optional input navigation, never the
-            // projected constraints or selected output schemas.
-            if (SuppliedContractEvidence(state, identity)) node.Remove("omittedOptionalInputs");
         }
         return node;
     }
-
-    private static bool SuppliedContractEvidence(PlanningSession state, string identity) =>
-        state.Construction!.Evidence?.Any(item => item.Key == "contract:" + identity ||
-            new[] { "schema:", "schema-page:", "port-page:", "description:" }
-                .Any(prefix => item.Key.StartsWith(prefix + identity + ":", StringComparison.Ordinal))) == true;
 
     private static JsonObject CandidateContractView(PlanningSession state, PlanningCapability capability, PlanningOperation operation, string identity)
     {

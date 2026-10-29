@@ -82,6 +82,9 @@ Issued calls store an encrypted request-bound short-ID map for evidence navigati
 Validate the raw response under its issued schema before resolving canonical addresses;
 preserve raw receipts and use canonical identities for repeat/progress checks. Recovery
 cannot rebuild a missing map. TaskPlan references and original contracts are unchanged.
+Optional input retrieval rows retain their original field pointers beside those IDs,
+including after other branches were inspected. Reading a row's exact schema is still
+required before that optional branch enters the editable input grammar.
 Host-fixed draft facts come from the frozen step, with unavailable branches omitted from
 the model grammar and complete semantic validation retained.
 

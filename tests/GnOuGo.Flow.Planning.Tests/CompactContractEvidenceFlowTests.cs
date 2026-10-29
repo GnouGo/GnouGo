@@ -480,6 +480,53 @@ public sealed class CompactContractEvidenceFlowTests
     }
 
     [Fact]
+    public async Task OptionalInputPathsRemainReadableAndRetrievableAfterOtherEvidence()
+    {
+        var (state, runtime) = await Ready();
+        var capability = state.Discovery.Resolved[0];
+        capability.InputSchema["properties"]!["endpoint"] = new JsonObject
+            { ["type"] = "string", ["pattern"] = "^https://", ["description"] = "Exact authorized endpoint for this read." };
+        var original = JsonSerializer.Serialize(capability, PlanningJsonContext.Default.PlanningCapability);
+        var drafts = 0;
+        runtime.Respond = (request, purpose) =>
+        {
+            Assert.Equal(PlanningConstruction.DraftPurpose, purpose);
+            var issued = Context(request);
+            var view = issued["operations"]![0]!;
+            if (drafts++ == 0)
+            {
+                var choice = Assert.Single(Assert.IsType<JsonArray>(view["omittedOptionalInputs"]),
+                    row => row is JsonObject && row["pointer"]?.ToString() == "/input/properties/endpoint")!;
+                Assert.Null(view["inputSchema"]!["properties"]!["endpoint"]);
+                Assert.DoesNotContain(view["editableInputs"]!.AsArray(), row => row!["name"]!.ToString() == "endpoint");
+                var shortId = choice["evidence"]!.ToString();
+                Assert.StartsWith("e", shortId, StringComparison.Ordinal);
+                Assert.DoesNotContain("schema:", shortId, StringComparison.Ordinal);
+                var response = Wire(request, DraftAction(issued, evidence: shortId));
+                Assert.Empty(PlanningContractValidation.ValidateInstance(response.Json!, request.StructuredOutputSchema!));
+                return response;
+            }
+            var context = HostContext(runtime, request);
+            Assert.True(JsonNode.DeepEquals(capability.InputSchema["properties"]!["endpoint"],
+                context["operations"]![0]!["inputSchema"]!["properties"]!["endpoint"]));
+            Assert.Contains(view["omittedOptionalInputs"]!.AsArray(), row => row!["pointer"]!.ToString() == "/input/properties/unrelated");
+            return Wire(request, DraftAction(context, task: new() { Id = "read_exact", Kind = "operation", Operation = "read",
+                Objective = "Read the caller-authorized endpoint.", Inputs = [new("target", new() { Kind = "string", Text = "EXACT" }),
+                    new("endpoint", new() { Kind = "string", Text = "https://example.test/authorized" })] }));
+        };
+        // A different inspected branch must not hide the remaining optional input.
+        PlanningConstruction.LoadEvidence(state, ["schema:read@v1:/input/properties/target"]);
+        for (var count = 0; count < 5 && state.Construction!.Checkpoints.Count == 0; count++)
+            state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Single(state.Construction!.Checkpoints);
+        Assert.Equal(2, drafts);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(original, JsonSerializer.Serialize(state.Discovery.Resolved[0], PlanningJsonContext.Default.PlanningCapability));
+        Assert.Equal("https://example.test/authorized", state.Plan!.Root.Tasks.Single().Inputs.Single(input => input.Name == "endpoint").Value.Text);
+    }
+
+    [Fact]
     public async Task EvidencePresentationKeepsSelectedOutputsAndEveryOriginalPortRetrievable()
     {
         var (state, _) = await Ready();
@@ -492,7 +539,7 @@ public sealed class CompactContractEvidenceFlowTests
         Assert.True(JsonNode.DeepEquals(contract.InputSchema["properties"]!["target"], view["inputSchema"]!["properties"]!["target"]));
         Assert.NotNull(view["selectedOutputs"]);
         Assert.Equal(view["outputCount"]!.GetValue<int>(), view["outputs"]!.AsArray().Count);
-        Assert.False(view["omittedOptionalInputs"] is JsonArray);
+        Assert.Contains(view["omittedOptionalInputs"]!.AsArray(), row => row!["pointer"]!.ToString() == "/input/properties/unrelated");
         var names = new List<string>();
         string? address = view["outputDirectory"]!.ToString();
         while (address is not null)

@@ -96,6 +96,9 @@ captured targets. A selected operation and a producer sharing the same exact con
 one directory anchor; fitting that anchor retains every consumed port and complete
 schema view. Continuations use the first omitted original coordinate. Explicitly
 retrieved evidence, producer arguments and mandatory constraints remain unchanged.
+Omitted optional inputs retain bounded original-pointer/retrieval-ID rows; inspecting
+another branch does not erase them or authorize the omitted input. Larger directories
+remain reachable through their existing exact continuation links.
 If only mandatory context remains and cannot fit, construction stops before dispatch.
 
 ## Generation and judgment have different boundaries
