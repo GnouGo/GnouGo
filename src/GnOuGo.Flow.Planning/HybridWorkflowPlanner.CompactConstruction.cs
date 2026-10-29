@@ -152,11 +152,10 @@ public sealed partial class HybridWorkflowPlanner
         if (purpose == PlanningCompactConstruction.DiscoveryPurpose)
             PlanningCompactConstruction.RecordPresentedOperations(state, request.Prompt);
         var compact = PlanningCompactConstruction.State(state);
-        var legacyHash = purpose + ":" + compact.CurrentStep?.Id + ":" + PlanningConstruction.Hash(state.Plan) + ":" + PlanningGraphCompiler.Fingerprint(response.ToJsonString());
-        var ordinaryHash = CompactActionFingerprint(state, legacyHash);
+        var actionHash = purpose + ":" + compact.CurrentStep?.Id + ":" + PlanningConstruction.Hash(state.Plan) + ":" + PlanningGraphCompiler.Fingerprint(response.ToJsonString());
+        var ordinaryHash = CompactActionFingerprint(state, actionHash);
         var hash = descriptionReadKey is null ? ordinaryHash : ordinaryHash + ":" + descriptionReadKey;
-        if (compact.FailedActions.Contains(hash, StringComparer.Ordinal) || compact.FailedActions.Contains(ordinaryHash, StringComparer.Ordinal) ||
-            compact.FailedActions.Contains(legacyHash, StringComparer.Ordinal))
+        if (compact.FailedActions.Contains(hash, StringComparer.Ordinal) || compact.FailedActions.Contains(ordinaryHash, StringComparer.Ordinal))
             throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The model repeated a rejected compact construction action.");
         // Retain the attempt before validation. Successful state transitions change phase/context.
         compact.FailedActions.Add(hash);

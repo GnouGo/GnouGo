@@ -35,17 +35,17 @@ if (args.FirstOrDefault() == "--schema-portability") { await SchemaPortabilityCa
 string? Option(string name) { var index = Array.IndexOf(args, name); return index < 0 ? null : args.ElementAtOrDefault(index + 1) ?? throw new ArgumentException("Missing " + name); }
 if (Option("--replay-run") is not null) throw new ArgumentException("Archived planning protocols cannot be replayed. Inspect their immutable evidence or start a fresh run.");
 var inspectKey = Option("--inspect-run");
-var retainKey = Option("--retain-inconclusive-run"); var compareParent = Option("--compare-parent");
+var compareParent = Option("--compare-parent");
+if (Option("--retain-inconclusive-run") is not null) throw new ArgumentException("Use exact retain-uncertain-request inspection and apply.");
 var inspectCampaign = args.Contains("--inspect-campaign", StringComparer.Ordinal);
-if ((inspectKey is null ? 0 : 1) + (inspectCampaign ? 1 : 0) + (retainKey is null ? 0 : 1) + (compareParent is null ? 0 : 1) > 1) throw new ArgumentException("Choose one replay or inspection command.");
-var readOnly = inspectKey is not null || inspectCampaign || retainKey is not null || compareParent is not null;
+if ((inspectKey is null ? 0 : 1) + (inspectCampaign ? 1 : 0) + (compareParent is null ? 0 : 1) > 1) throw new ArgumentException("Choose one replay or inspection command.");
+var readOnly = inspectKey is not null || inspectCampaign || compareParent is not null;
 var command = Option("--live-command"); var providerName = Option("--keyvault-provider"); var live = !readOnly && (command is not null || providerName is not null);
 var campaignId = Option("--campaign") ?? (live || readOnly ? throw new ArgumentException("--campaign is required for live runs and recorded evidence.") : "offline");
 var phase = Option("--phase") ?? (live ? "pilot" : "fixture");
 if (phase is not ("pilot" or "measured" or "fixture")) throw new ArgumentException("Invalid phase.");
 if (Option("--arm") is not null || args.Contains("--judge-comparison") || args.Contains("--defaults-comparison"))
     throw new ArgumentException("Optional Judge and historical configuration arms are retired; business review is mandatory.");
-string? arm = null;
 var cohort = PlanningBenchmarkMeasurements.Cohort(args);
 var repetitions = int.Parse(Option("--repetitions") ?? (phase == "measured" ? "3" : "1"), System.Globalization.CultureInfo.InvariantCulture);
 if (repetitions is < 1 or > 20 || phase == "measured" && repetitions != 3 || phase == "pilot" && repetitions != 1) throw new ArgumentException("Pilot requires one repetition; measured requires three.");
@@ -84,10 +84,9 @@ if (live && Git("status --porcelain").Length != 0) throw new InvalidOperationExc
 var workspace = Path.GetFullPath(Option("--workspace") ?? GnOuGoWorkspace.ResolveDefaultWorkingDirectory());
 BenchmarkCampaign? evidenceStore = live || readOnly ? new(KeyVaultBenchmarkModel.WorkspaceRecords(workspace), campaignId) : null;
 BenchmarkCampaign? campaign = live ? evidenceStore : null;
-var leasePath = live || retainKey is not null ? Path.Combine(workspace, ".GnOuGo", "data", "planning-evaluation", campaignId + ".lock") : null;
+var leasePath = live ? Path.Combine(workspace, ".GnOuGo", "data", "planning-evaluation", campaignId + ".lock") : null;
 if (leasePath is not null) Directory.CreateDirectory(Path.GetDirectoryName(leasePath)!);
 await using var lease = leasePath is null ? null : new FileStream(leasePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-if (retainKey is not null) { Console.WriteLine((await evidenceStore!.RetainInconclusiveAsync(retainKey, CancellationToken.None)).ToJsonString()); return; }
 if (inspectCampaign) { Console.WriteLine((await evidenceStore!.InspectAsync()).ToJsonString()); return; }
 if (compareParent is not null)
 {
@@ -166,7 +165,7 @@ if (inspectKey is { } inspect)
 using var configured = !live || providerName is null ? null : await KeyVaultBenchmarkModel.CreateAsync(providerName, Option("--model"), campaign!, workspace, CancellationToken.None);
 ILLMClient? model = (ILLMClient?)configured ?? (!live || command is null ? null : new CommandModel(command));
 string RunKey(string runPhase, string name, int repetition)
-    => PlanningBenchmarkMeasurements.CorpusRunKey(source, runPhase, arm, cohort, name, repetition);
+    => PlanningBenchmarkMeasurements.CorpusRunKey(source, runPhase, null, cohort, name, repetition);
 if (live && phase == "measured")
 {
     var pilot = new List<JsonObject>();
@@ -177,7 +176,7 @@ if (live && phase == "measured")
 var creation = new PlanningRequest();
 if (campaign is not null)
 {
-    var configurationKey = "corpus-settings:" + source + ":" + phase + ":" + (arm ?? "control") +
+    var configurationKey = "corpus-settings:" + source + ":" + phase + ":" + "control" +
         (cohort is null ? "" : ":cohort:" + cohort);
     var configuration = await campaign.LoadAsync("planning-evaluation-configuration", configurationKey);
     if (configuration is null)
@@ -399,7 +398,7 @@ foreach (var name in names)
         ["manifest"] = SchemaPortabilityCampaign.MeasurementManifest(state.Request),
         ["comparison_manifest"] = SchemaPortabilityCampaign.MeasurementManifest(state.Request, comparison: true),
         ["configuration"] = PlanningBenchmarkMeasurements.Configuration(state.Request),
-        ["arm"] = arm,
+        ["arm"] = null,
         ["case"] = name, ["repetition"] = repetition, ["session_id"] = state.Request.SessionId, ["mode"] = live ? "live" : "fixture",
         ["provider"] = configured?.Provider, ["model"] = configured?.Model, ["first_pass_valid"] = run["first_pass_valid"]!.DeepClone(), ["final_review"] = run["final_review"]!.DeepClone(),
         ["execution_correct"] = execution, ["execution_variants"] = variants, ["safety_violations"] = safety, ["calls"] = state.ModelCalls + PlanningBenchmarkMeasurements.ExtraTransportCalls(run), ["repairs"] = state.ReplanAttempts,
@@ -441,7 +440,7 @@ if (campaign is not null) summary["campaign_accounting"] = await BenchmarkHttpJo
 if (cohort is not null) summary["cohort"] = cohort;
 Console.WriteLine(summary.ToJsonString());
 if (campaign is not null) await campaign.SaveAsync("planning-evaluation-summaries", source + ":" + phase +
-    (cohort is null ? "" : (arm is null ? "" : ":" + arm) + ":cohort:" + cohort) + (firstRepetition == 1 ? "" : ":repetitions:" + firstRepetition + "-" + repetitions), summary);
+    (cohort is null ? "" : ":cohort:" + cohort) + (firstRepetition == 1 ? "" : ":repetitions:" + firstRepetition + "-" + repetitions), summary);
 if (!summary["gates_passed"]!.GetValue<bool>()) Environment.ExitCode = 1;
 
 sealed class MeasuredRuntime(IPlanningRuntime inner, ILLMClient? live, JsonObject run, Func<PlanningSession, CancellationToken, Task> checkpoint) : IPlanningRuntime, IPlanningConstructionAdmission

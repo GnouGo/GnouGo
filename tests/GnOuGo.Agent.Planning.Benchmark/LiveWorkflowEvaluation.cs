@@ -368,10 +368,7 @@ internal static class LiveWorkflowEvaluation
     {
         if (oracle["passed"] is JsonValue value && value.TryGetValue<bool>(out var correct))
             PlanningBenchmarkMeasurements.RecordBusinessOracle(run, session, correct, run["oracle_version"]?.ToString() ?? "real-workflows-v1");
-        // Older retained candidates have only the approval-artifact identity.
-        if (run["first_proposal"] is JsonObject first && first["candidate_hash"] is null &&
-            session.ComputeArtifactHash() is { } artifactHash && first["artifact_hash"]?.ToString() == artifactHash)
-            first["business_correct"] = oracle["passed"]?.DeepClone();
+
     }
 
     internal static LLMUsageBudgetScope? ModelBudget(string phase, PlanningRequest request, PlanningSession? retained = null, long elapsedMilliseconds = 0)

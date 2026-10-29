@@ -206,23 +206,11 @@ internal static class SchemaPortabilityCampaign
                 Option(args, "--authorization") ?? throw new ArgumentException("Supply the explicit authorization."), CancellationToken.None)).ToJsonString());
             return;
         }
-        if (phase == "retain-exhausted-request")
-        {
-            Console.WriteLine((await campaign.RetainExhaustedRequestAsync(
-                Option(args, "--request-id") ?? throw new ArgumentException("Supply the exact --request-id."), CancellationToken.None)).ToJsonString());
-            return;
-        }
         if (phase == "retain-schema-rejection")
         {
             var requestId = Option(args, "--request-id") ?? throw new ArgumentException("Supply the exact --request-id.");
             await campaign.RetainSchemaRejectionAsync(requestId, CancellationToken.None);
             Console.WriteLine((await campaign.LoadAsync("planning-evaluation-closures", requestId))!.ToJsonString());
-            return;
-        }
-        if (phase == "retain-inconclusive")
-        {
-            var label = Option(args, "--run") ?? throw new ArgumentException("Supply the exact --run.");
-            Console.WriteLine((await campaign.RetainInconclusiveAsync("run:" + label, CancellationToken.None, liveWorkflow: true)).ToJsonString());
             return;
         }
         if (phase is "plan" or "revise" or "execute")

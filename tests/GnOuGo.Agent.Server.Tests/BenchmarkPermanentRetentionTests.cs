@@ -180,7 +180,6 @@ public sealed partial class BenchmarkPermanentRetentionTests
         var accounting = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
         Assert.Equal(count, accounting["unknown_attempts"]!.GetValue<long>());
         Assert.Equal((decimal)count, accounting["reserved_cost_eur"]!.GetValue<decimal>());
-        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.RetainExhaustedRequestAsync(RequestId, Ct));
         await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.InspectPermanentRetentionAsync(
             SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, Ct, Http502));
         var proposal = await campaign.InspectPermanentRetentionAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, Ct,
