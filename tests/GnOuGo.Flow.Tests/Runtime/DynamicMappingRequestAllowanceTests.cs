@@ -10,12 +10,16 @@ namespace GnOuGo.Flow.Tests.Runtime;
 public sealed partial class DynamicMappingCollectionTests
 {
     [Theory]
-    [InlineData(12000, 96000)]
-    [InlineData(96000, 12000)]
-    public async Task TrustedAdvisoryRuntimeKeepsWholeExamplesAndDispatchesPastEstimatedThresholds(int hostLimit, int modelLimit)
+    [InlineData(12000, 96000, false)]
+    [InlineData(96000, 12000, false)]
+    [InlineData(12000, 96000, true)]
+    [InlineData(96000, 12000, true)]
+    public async Task TrustedAdvisoryRuntimeKeepsWholeExamplesAndDispatchesPastEstimatedThresholds(int hostLimit, int modelLimit, bool durable)
     {
         var model = new Model("item.label") { Allowance = modelLimit };
         var engine = AdaptiveEngine(model); engine.Limits.MaxMappingInputTokens = hostLimit;
+        var journal = new InMemoryWorkflowRunStore();
+        if (durable) { engine.RunStore = journal; engine.Limits.RunId = "trusted-advisory"; }
         engine.LLMUsageBudget = new LLMUsageBudgetScope(true, new() { MaxCalls = 1, MaxTotalTokens = 1 });
         var input = new JsonArray(new JsonObject { ["label"] = "first", ["text"] = new string('x', 24000) },
             new JsonObject { ["label"] = "second", ["text"] = new string('x', 24000) });
@@ -29,8 +33,10 @@ public sealed partial class DynamicMappingCollectionTests
         Assert.NotEmpty(data["examples"]!.AsArray());
         foreach (var example in data["examples"]!.AsArray())
             Assert.True(JsonNode.DeepEquals(input[example!["index"]!.GetValue<int>()], example["item"]));
-        Assert.Equal(1, engine.LLMUsageBudget.Snapshot.Calls);
-        Assert.True(engine.LLMUsageBudget.Snapshot.TotalTokens > 1);
+        var usage = durable ? (await journal.ReadAsync("tenant", "trusted-advisory", Ct))!.ModelUsage! : engine.LLMUsageBudget.Snapshot;
+        Assert.Equal(1, usage.Calls);
+        Assert.True(usage.TotalTokens > 1);
+        Assert.True(engine.LLMUsageBudget.AdvisoryTokenThresholds);
     }
 
     [Theory]

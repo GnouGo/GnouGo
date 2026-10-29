@@ -88,7 +88,7 @@ Execution receives the mode from its frozen run configuration and trusted budget
 never inference input or headers. Mapping keeps complete required examples and original
 context when estimates cross thresholds; sampling still targets small requests. Completed
 agent usage may warn, while incomplete outcomes, call/time limits, evidence verification
-and exact receipt recovery remain enforced.
+and exact receipt recovery remain enforced. Durable budget reconstruction retains the incoming trusted mode with the saved limits and usage; it never derives authority from archived data.
 Optional navigation is compacted toward targets of 3k navigation, 8k drafting/correction
 and 4k review tokens. An irreducible request above target can proceed below its captured
 maximum; its exact measurement retains a nonblocking warning with bytes, estimate,

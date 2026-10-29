@@ -45,7 +45,8 @@ public sealed partial class WorkflowEngine
         var inheritedBudget = LLMUsageBudget;
         Journal = new WorkflowRunJournal(lease);
         if (run.ModelBudget is { } budget)
-            LLMUsageBudget = new LLMUsageBudgetScope(budget, run.ModelUsage, sink: Journal, exchangeRateProvider: ExchangeRateProvider);
+            LLMUsageBudget = new LLMUsageBudgetScope(inheritedBudget?.AdvisoryTokenThresholds == true,
+                budget, run.ModelUsage, sink: Journal, exchangeRateProvider: ExchangeRateProvider);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct);
         using var polling = new CancellationTokenSource();
         var monitor = MonitorCancellationAsync(lease, linked, polling.Token);
