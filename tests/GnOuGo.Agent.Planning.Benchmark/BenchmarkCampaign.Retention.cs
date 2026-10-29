@@ -87,6 +87,10 @@ internal sealed partial class BenchmarkCampaign
         var failure = await LoadAsync("planning-evaluation-failures", requestId, ct);
         var policy = await LoadAsync("planning-evaluation-session-policy", state.Request.SessionId, ct);
         var retry = await LoadAsync("planning-evaluation-configuration", "http-retry-policy", ct);
+        if (journal?["usage"] is not null || await LoadAsync("planning-evaluation-receipts", requestId, ct) is not null)
+            throw new InvalidOperationException("A response or usage receipt cannot be retained as unexecuted uncertainty.");
+        var accounting = await BenchmarkHttpJournal.AccountingAsync(this, requestId, ct: ct);
+        _ = PlanningTokenThresholds.Advisory(state.Request);
         if (request is null || !JsonNode.DeepEquals(request, JsonSerializer.SerializeToNode(pending.Request, PlanningJsonContext.Default.LLMRequest)) ||
             policy?["construction_review_headroom"]?.GetValue<int>() is not > 0 || retry is null ||
             policy["max_physical_attempts"]?.GetValue<int>() != Math.Min(state.Request.MaxModelCalls, PlanningBudgetOptions.Parse(state.Request.Options)?.MaxCalls ?? state.Request.MaxModelCalls) ||
@@ -95,19 +99,19 @@ internal sealed partial class BenchmarkCampaign
             policy["max_corrections"]?.GetValue<int>() != state.Request.MaxReplanAttempts ||
             policy["planning_format"]?.GetValue<int>() != 11 ||
             !JsonNode.DeepEquals(policy["construction_limits"], state.Request.Options["construction_limits"]) ||
+            !JsonNode.DeepEquals(policy[PlanningTokenThresholds.OptionName], state.Request.Options[PlanningTokenThresholds.OptionName]) ||
+            !JsonNode.DeepEquals(journal?["effective_transport_policy"]?[PlanningTokenThresholds.OptionName], state.Request.Options[PlanningTokenThresholds.OptionName]) ||
             journal?["transport"]?["Attempts"] is not JsonArray attempts ||
             (unstarted ? attempts.Count != 0 : attempts.Count is < 1 or > 3) ||
             !unstarted && attempts[0]?["Id"]?.ToString() is not { Length: > 0 } ||
             (interrupted
                 ? failure is not null || !MatchesInterruptedPlanning(state, policy, journal, attempts)
-                : !MatchesCapturedPlanningFailure(state, policy, journal, attempts, failure, unstarted)) ||
+                : !MatchesCapturedPlanningFailure(state, policy, journal, attempts, failure, accounting, unstarted)) ||
             journal["input_ceiling"]?.GetValue<long>() is not { } inputCeiling ||
             inputCeiling < (JsonSerializer.SerializeToUtf8Bytes(pending.Request, PlanningJsonContext.Default.LLMRequest).LongLength + 2) / 3 + 256 ||
             journal["output_ceiling"]?.GetValue<long>() is not { } outputCeiling || outputCeiling < pending.Request.MaxTokens ||
             journal["cost_ceiling_eur"]?.GetValue<decimal>() is not >= 0 ||
-            !ValidRetainedQuote(journal["exchange_quote"] as JsonObject) ||
-            journal["usage"] is not null ||
-            await LoadAsync("planning-evaluation-receipts", requestId, ct) is not null)
+            !ValidRetainedQuote(journal["exchange_quote"] as JsonObject))
             throw new InvalidOperationException("Permanent retention requires matching unknown transport evidence and a complete unchanged reservation.");
         var source = (run["source"] ?? result?["source_commit"])?.ToString();
         string? configurationHash = null;
@@ -166,7 +170,7 @@ internal sealed partial class BenchmarkCampaign
             ["effective_transport_policy_hash"] = journal["effective_transport_policy"] is JsonObject transport ? Hash(transport) : null,
             ["transport_policy_evidence"] = journal["effective_transport_policy"] is null
                 ? "retained_incremental_session_policy_and_original_source" : "captured_effective_request_policy",
-            ["accounting"] = await BenchmarkHttpJournal.AccountingAsync(this, requestId, ct: ct)
+            ["accounting"] = accounting
         };
         if (retentionKind is not null) evidence["retention_kind"] = retentionKind;
         if (unstarted) evidence["outcome_evidence"] = "no_reserved_physical_attempt";
@@ -248,7 +252,7 @@ internal sealed partial class BenchmarkCampaign
             throw new ArgumentException("Choose an exact supported permanent-retention kind.", nameof(retentionKind));
     }
 
-    private static bool MatchesCapturedPlanningFailure(PlanningSession state, JsonObject policy, JsonObject journal, JsonArray attempts, JsonObject? failure,
+    private static bool MatchesCapturedPlanningFailure(PlanningSession state, JsonObject policy, JsonObject journal, JsonArray attempts, JsonObject? failure, JsonObject accounting,
         bool unstarted = false)
     {
         var captured = PlanningTransportPolicies.Read(state.Request);
@@ -283,11 +287,19 @@ internal sealed partial class BenchmarkCampaign
             var upstreamFailure = failure["retryable"]?.GetValue<bool>() == true &&
                 (failure["kind"]?.ToString() == "ServiceUnavailable" && failure["status_code"]?.GetValue<int>() is 500 or 502 or 503 ||
                  failure["kind"]?.ToString() == "Timeout" && failure["status_code"]?.GetValue<int>() == 504);
+            var callHeadroomExhausted = failure["exception_type"]?.ToString() == "InvalidOperationException" &&
+                new[] { "kind", "status_code", "safe_provider_code", "retryable", "attempt_count", "retry_exhausted", "retry_after_ms" }
+                    .All(key => failure[key] is null) &&
+                journal["session_attempt_limit"]?.GetValue<int>() is > 0 and var limit &&
+                limit == policy["max_physical_attempts"]?.GetValue<int>() &&
+                journal["construction_review_attempt_headroom"]?.GetValue<int>() is >= 0 and var reviews &&
+                reviews == state.PendingCall.Request.RequiredReviewCalls &&
+                checked(accounting["session_calls"]!.GetValue<long>() + 1 + reviews) > limit;
             return attempts.Count == 0 && journal["transport"]?["Fingerprint"]?.ToString() == "" &&
                 journal["transport"]?["DelayMilliseconds"]?.GetValue<double>() == 0 &&
-                failure["exception_type"]?.ToString() == "LLMClientException" && (noHttpFailure || upstreamFailure) &&
-                failure["safe_provider_code"] is null && failure["retry_exhausted"]?.GetValue<bool>() == false &&
-                failure["attempt_count"]?.GetValue<int>() == 1 && failure["retry_after_ms"] is null;
+                (callHeadroomExhausted || failure["exception_type"]?.ToString() == "LLMClientException" && (noHttpFailure || upstreamFailure) &&
+                 failure["safe_provider_code"] is null && failure["retry_exhausted"]?.GetValue<bool>() == false &&
+                 failure["attempt_count"]?.GetValue<int>() == 1 && failure["retry_after_ms"] is null);
         }
         for (var i = 0; i < attempts.Count; i++)
         {

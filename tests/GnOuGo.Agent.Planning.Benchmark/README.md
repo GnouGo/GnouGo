@@ -167,7 +167,7 @@ preserves originals. Apply requires the inspected evidence hash, operator identi
 and actual delegated authorization. It permanently forbids request replay and run
 continuation; it releases no reservations and invents no response or provider
 termination. Administrative retention delegation does not authorize active-effect
-cancellation or execution.
+cancellation or execution. The existing unstarted-request mode also permits a zero-attempt call-admission stop only when the captured physical-call limit, exact mandatory-review headroom and unchanged session accounting independently prove that another reservation cannot fit. No receipt is created and every earlier failed-attempt reservation remains intact. Advisory mode must match the session, policy and journal.
 
 ```sh
 dotnet run --project tests/GnOuGo.Agent.Planning.Benchmark -- \
