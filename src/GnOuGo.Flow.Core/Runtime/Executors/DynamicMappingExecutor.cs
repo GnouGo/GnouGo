@@ -205,7 +205,8 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
             // Newly dispatched learning requests include every bound source, even
             // when the declared output or iteration is small.
             await ModelRequestAdmission.ValidateAsync(request, ctx.Engine.LLMCapabilities ?? inferenceClient as ILLMCapabilityResolver,
-                ctx.Limits.MaxMappingInputTokens ?? 12_000, "mapping.dynamic", ct);
+                ctx.Limits.MaxMappingInputTokens ?? 12_000, "mapping.dynamic", ct,
+                ctx.LLMUsageBudget?.AdvisoryTokenThresholds == true);
             async Task<JsonNode?> Dispatch(string? id)
             {
                 JsonObject receipt;

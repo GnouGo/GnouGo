@@ -372,7 +372,7 @@ internal static class LiveWorkflowEvaluation
     }
 
     internal static LLMUsageBudgetScope? ModelBudget(string phase, PlanningRequest request, PlanningSession? retained = null, long elapsedMilliseconds = 0)
-        => phase == "execute" ? new(new() { MaxElapsed = TimeSpan.FromMinutes(30) }) :
+        => phase == "execute" ? new(PlanningTokenThresholds.Advisory(request), new() { MaxElapsed = TimeSpan.FromMinutes(30) }) :
             PlanningTransportPolicies.Read(request) is not null ? null : new(new()
             {
                 MaxElapsed = retained is null ? PlanningBenchmarkMeasurements.PlanningElapsedLimit(request)

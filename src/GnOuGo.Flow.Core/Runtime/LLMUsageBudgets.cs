@@ -167,6 +167,7 @@ public sealed partial class LLMUsageBudgetScope
     }
 
     public LLMUsageBudgetLimits Limits { get; }
+    internal bool AdvisoryTokenThresholds => _advisoryTokens;
 
     public LLMUsageBudgetSnapshot Snapshot
     {

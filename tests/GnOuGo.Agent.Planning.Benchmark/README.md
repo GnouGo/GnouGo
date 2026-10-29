@@ -84,6 +84,11 @@ reject this reserved authority. Estimates are not physical model limits; unsuppo
 API settings and incomplete responses still fail. Financial reservations cover full
 request exposure and declared deployment capacity for otherwise unknown future reviews.
 Without this captured mode, ceilings continue to govern admission.
+Execution receives the mode from its frozen run configuration and trusted budget scope,
+never inference input or headers. Mapping keeps complete required examples and original
+context when estimates cross thresholds; sampling still targets small requests. Completed
+agent usage may warn, while incomplete outcomes, call/time limits, evidence verification
+and exact receipt recovery remain enforced.
 Optional navigation is compacted toward targets of 3k navigation, 8k drafting/correction
 and 4k review tokens. An irreducible request above target can proceed below its captured
 maximum; its exact measurement retains a nonblocking warning with bytes, estimate,

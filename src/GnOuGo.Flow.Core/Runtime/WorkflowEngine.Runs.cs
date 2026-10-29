@@ -110,7 +110,9 @@ public sealed partial class WorkflowEngine
             await journal.ObserveAsync(invocationId, JsonSerializer.SerializeToNode(observed, AgentTaskJsonContext.Default.AgentTaskResult), ct);
             try
             {
-                var output = await AgentRunExecutor.ValidateResultAsync(context, observed, AgentTaskVerifier, ct, verified => journal.ObserveAsync(invocationId, JsonSerializer.SerializeToNode(verified, AgentTaskJsonContext.Default.AgentTaskResult), ct));
+                var output = await AgentRunExecutor.ValidateResultAsync(context, observed, AgentTaskVerifier, ct,
+                    verified => journal.ObserveAsync(invocationId, JsonSerializer.SerializeToNode(verified, AgentTaskJsonContext.Default.AgentTaskResult), ct),
+                    advisoryTokenThresholds: LLMUsageBudget?.AdvisoryTokenThresholds == true);
                 await journal.ResolveOutputAsync(invocationId, output, ct);
             }
             catch (WorkflowRuntimeException ex) { await journal.ResolveAsFailedAsync(invocationId, ex.ToWorkflowError(), ct); }

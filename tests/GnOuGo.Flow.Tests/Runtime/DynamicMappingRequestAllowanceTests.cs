@@ -2,12 +2,37 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
 using Xunit;
 
 namespace GnOuGo.Flow.Tests.Runtime;
 
 public sealed partial class DynamicMappingCollectionTests
 {
+    [Theory]
+    [InlineData(12000, 96000)]
+    [InlineData(96000, 12000)]
+    public async Task TrustedAdvisoryRuntimeKeepsWholeExamplesAndDispatchesPastEstimatedThresholds(int hostLimit, int modelLimit)
+    {
+        var model = new Model("item.label") { Allowance = modelLimit };
+        var engine = AdaptiveEngine(model); engine.Limits.MaxMappingInputTokens = hostLimit;
+        engine.LLMUsageBudget = new LLMUsageBudgetScope(true, new() { MaxCalls = 1, MaxTotalTokens = 1 });
+        var input = new JsonArray(new JsonObject { ["label"] = "first", ["text"] = new string('x', 24000) },
+            new JsonObject { ["label"] = "second", ["text"] = new string('x', 24000) });
+        var result = await AdaptiveRun(engine, input);
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.True(JsonNode.DeepEquals(new JsonArray("first", "second"), Result(result)));
+        var request = Assert.Single(model.Requests);
+        Assert.True(ModelRequestAdmission.EstimateTokens(request) > 12000 ||
+            Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)) + 4096 > 12000);
+        var data = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
+        Assert.NotEmpty(data["examples"]!.AsArray());
+        foreach (var example in data["examples"]!.AsArray())
+            Assert.True(JsonNode.DeepEquals(input[example!["index"]!.GetValue<int>()], example["item"]));
+        Assert.Equal(1, engine.LLMUsageBudget.Snapshot.Calls);
+        Assert.True(engine.LLMUsageBudget.Snapshot.TotalTokens > 1);
+    }
+
     [Theory]
     [InlineData(12000, 96000, "host")]
     [InlineData(96000, 12000, "model")]
