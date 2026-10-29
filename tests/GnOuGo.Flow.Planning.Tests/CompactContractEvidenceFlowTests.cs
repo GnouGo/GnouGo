@@ -689,8 +689,7 @@ public sealed class CompactContractEvidenceFlowTests
         var runtime = new TestRuntime { Respond = (request, _) =>
         {
             var source = Context(request)["sources"]![0]!;
-            return Wire(request, new() { ["sourceId"] = source["id"]!.ToString(),
-                ["clauses"] = new JsonArray(new JsonObject { ["text"] = source["text"]!.ToString(), ["kind"] = "requirement", ["interfaces"] = "none" }) });
+            return Wire(request, new() { ["evidenceRequests"] = null, ["clarifications"] = null, ["clauses"] = new JsonArray(new JsonObject { ["text"] = source["text"]!.ToString(), ["kind"] = "requirement", ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray() }) });
         } };
         var state = await Advance(PlannerFixture.Capture(new() { Request = new() { TenantId = "contract-evidence-flow",
             Prompt = "Read the caller-authorized record EXACT.", Options = new JsonObject { ["automatic_correction"] = true } } }), runtime);

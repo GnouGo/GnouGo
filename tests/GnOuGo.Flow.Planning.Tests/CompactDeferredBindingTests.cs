@@ -540,7 +540,7 @@ public sealed class CompactDeferredBindingTests
         {
             var source = "request:0:clause:" + index;
             compact.Sources.Add(new() { Id = source, Version = PlanningGraphCompiler.Fingerprint(text), Text = text,
-                Kind = "requirement", InterfaceKind = "none", Indexed = true });
+                Kind = "requirement", Inputs = [], Outputs = [], Indexed = true });
             compact.RequirementSources["req_" + index] = [source];
         }
         var input = new TaskInput { Name = "sourceValue", Type = new() { Kind = "number" } };
@@ -570,8 +570,8 @@ public sealed class CompactDeferredBindingTests
         Assert.Equal(["req_1"], state.Construction!.Compact!.CurrentStep!.RequirementIds);
         Assert.Null(state.Construction!.Evidence);
         var originals = PlanningCompactConstruction.SelectionContext(state)["requirements"]!.AsArray();
-        Assert.Equal(new[] { "req_1" }, originals.Select(row => row!["id"]!.ToString()));
-        Assert.Equal(new[] { work }, originals.Select(row => row!["original"]!.ToString()));
+        Assert.Equal(new[] { "req_0", "req_1" }, originals.Select(row => row!["id"]!.ToString()));
+        Assert.Equal(new[] { declaration, work }, originals.Select(row => row!["original"]!.ToString()));
         Assert.Equal(declaration, state.Construction.Compact!.Sources.Single(source => source.Id == declarationSource[7..]).Text);
         var discovery = PlanningCompactConstruction.DiscoveryContext(state);
         Assert.Equal(new[] { "requirement:req_0", declarationSource }, discovery["step"]!["prerequisites"]![0]!["evidenceAddresses"]!.AsArray().Select(address => address!.ToString()));
@@ -865,7 +865,8 @@ public sealed class CompactDeferredBindingTests
         var initialContext = OriginalContext(initial);
         Assert.Equal("page:requirements:0", initialContext["requirementsDirectory"]!.ToString());
         var firstPage = initialContext["nextRequirements"]!.ToString();
-        var secondPage = "page:requirements:" + (int.Parse(firstPage[(firstPage.LastIndexOf(':') + 1)..], System.Globalization.CultureInfo.InvariantCulture) + 8);
+        Assert.True(PlanningCompactConstruction.LoadEvidence(state, firstPage, out var preview));
+        var secondPage = preview!["next"]!.ToString();
         if (recover)
         {
             // A saved request predates the new navigation; its exact envelope is retained.
@@ -876,17 +877,13 @@ public sealed class CompactDeferredBindingTests
                     foreach (var value in values.Where(value => value?.ToString().StartsWith("page:requirements:", StringComparison.Ordinal) == true).ToArray())
                         values.Remove(value);
             var old = PlanningCompactConstruction.Request(initial.Prompt[..initial.Prompt.LastIndexOf('\n')], initialContext, schema,
-                phase == "judge" ? PlanningConstruction.LocalPurpose : phase == "draft" ? PlanningConstruction.DraftPurpose : PlanningCompactConstruction.DiscoveryPurpose);
-            initial = PlanningModelCalls.PrepareRequest(state, phase == "judge" ? PlanningConstruction.LocalPurpose : phase == "draft" ? PlanningConstruction.DraftPurpose : PlanningCompactConstruction.DiscoveryPurpose,
+                phase == "draft" ? PlanningConstruction.DraftPurpose : PlanningCompactConstruction.DiscoveryPurpose);
+            initial = PlanningModelCalls.PrepareRequest(state, phase == "draft" ? PlanningConstruction.DraftPurpose : PlanningCompactConstruction.DiscoveryPurpose,
                 old.Prompt, old.StructuredOutputSchema!.AsObject(), null, null, out var issuedMap);
             state.PendingCall = new() { Id = initial.ClientRequestId!, Purpose = initial.StructuredOutputSchema!["title"]!.ToString(), Request = initial, CorrectionAccounting = 0, EvidenceAddresses = issuedMap };
             runtime.CaptureIssued(state.PendingCall);
             if (phase == "draft") state.Construction!.IssuedBaseHash = accepted;
-            if (phase == "judge")
-            {
-                state.Construction!.PendingReviewContext = initialContext;
-                state.Construction!.PendingReviewHash = PlanningGraphCompiler.Fingerprint(PlanningConstruction.LocalPurpose + "\n" + candidate + "\n" + initialContext.ToJsonString());
-            }
+
             state.ModelCalls++;
             var exact = JsonSerializer.Serialize(initial, PlanningJsonContext.Default.LLMRequest);
             runtime.Respond = (request, _) =>
@@ -931,30 +928,11 @@ public sealed class CompactDeferredBindingTests
         Assert.Equal(recover ? 4 : 3, state.ModelCalls);
         var followup = OriginalRequest(state, phase);
         var displayed = OriginalContext(followup);
-        Assert.Null(displayed["requirementsDirectory"]); Assert.Null(displayed["nextRequirements"]);
-        if (phase != "judge")
-        {
-            var wire = PlanningModelCalls.PrepareRequest(state, phase == "draft" ? PlanningConstruction.DraftPurpose : PlanningCompactConstruction.DiscoveryPurpose,
-                followup.Prompt, followup.StructuredOutputSchema!.AsObject());
-            Assert.DoesNotContain("page:requirements:", wire.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
-        }
-        else
-        {
-            var requirement = displayed["requirements"]!.AsArray().Select((node, index) => (node, index))
-                .Single(item => item.node!["id"]!.ToString() == "req_10");
-            var finding = new JsonObject { ["kind"] = "inconsistency", ["location"] = "/draft/tasks/0",
-                ["obligation"] = "/requirements/" + requirement.index, ["implementation"] = "/draft/tasks/0",
-                ["explanation"] = "The current value does not fulfill this retrieved original obligation.",
-                ["uncertainty"] = "Advisory business interpretation.", ["fact"] = null, ["requiredBinding"] = null };
-            runtime.Respond = (request, _) => Wire(request, new JsonObject
-            { ["action"] = new JsonObject { ["kind"] = "findings", ["findings"] = new JsonArray(finding.DeepClone()) }, ["uncertainty"] = "No execution observed." });
-            state = await Advance(state, runtime);
-            Assert.Equal("CONSTRUCTION_BUSINESS_REVIEW", Assert.Single(state.Diagnostics).Code);
-            Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan)); Assert.Empty(state.Construction!.Checkpoints);
-            Assert.Equal(stepBytes, JsonSerializer.Serialize(state.Construction!.Compact!.CurrentStep, PlanningJsonContext.Default.PlanningConstructionStep));
-            Assert.Null(state.Construction!.Candidate!.AuthorizedPaths); Assert.Null(state.EditablePaths);
-            Assert.Equal(0, state.ReplanAttempts); Assert.Equal(0, state.Construction!.DraftCorrections);
-        }
+        Assert.Equal("page:requirements:0", displayed["requirementsDirectory"]!.ToString());
+        Assert.Equal("page:requirements:3", displayed["nextRequirements"]!.ToString());
+        var wire = PlanningModelCalls.PrepareRequest(state, phase == "draft" ? PlanningConstruction.DraftPurpose : PlanningCompactConstruction.DiscoveryPurpose,
+            followup.Prompt, followup.StructuredOutputSchema!.AsObject());
+        Assert.DoesNotContain("page:requirements:", wire.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
         var replay = Assert.Throws<PlanningResponseException>(() => PlanningConstruction.LoadEvidence(state, [firstPage]));
         Assert.Contains(replay.Diagnostics, item => item.Code == "REPLAN_NO_PROGRESS");
         var invalid = state.Construction!.Compact!.CurrentStep!;
@@ -968,9 +946,9 @@ public sealed class CompactDeferredBindingTests
         var (state, runtime) = Ready(); var construction = state.Construction!; var compact = construction.Compact!;
         for (var index = 1; index < count; index++)
         {
-            var id = "req_" + index; var original = "Retain exact label " + index + ". "; var source = "request:0:clause:" + index;
+            var id = "req_" + index; var original = "Retain exact label " + index + ": " + new string('x', 1500) + ". "; var source = "request:0:clause:" + index;
             state.Requirements!.Outcomes.Add(new(id, original)); construction.Requirements.Add(new() { Id = id });
-            compact.Sources.Add(new() { Id = source, Text = original, Version = PlanningGraphCompiler.Fingerprint(original), Kind = "requirement", InterfaceKind = "none", Indexed = true });
+            compact.Sources.Add(new() { Id = source, Text = original, Version = PlanningGraphCompiler.Fingerprint(original), Kind = "requirement", Inputs = [], Outputs = [], Indexed = true });
             compact.RequirementSources[id] = [source];
         }
         var text = string.Concat(state.Requirements!.Outcomes.Select(item => item.Description));
@@ -979,26 +957,20 @@ public sealed class CompactDeferredBindingTests
         if (phase != "discovery")
         {
             compact.CurrentStep!.Kind = "value"; compact.CurrentStep.DiscoveryComplete = true;
-            if (phase == "judge")
-            {
 
-                construction.Candidate = PlanningConstruction.Apply(state, JsonSerializer.Deserialize(Draft(state)["extension"], PlanningJsonContext.Default.PlanningConstructionExtension)!);
-            }
         }
         return (state, runtime);
     }
 
     private static LLMRequest OriginalRequest(PlanningSession state, string phase) => phase switch
     {
-        "judge" => HybridWorkflowPlanner.CreateConstructionReviewRequest(state, false).Request,
         "draft" => PlanningConstruction.DraftRequest(state, repair: false),
         _ => PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state), PlanningCompactConstruction.DiscoveryContext(state),
             PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose)
     };
     private static JsonObject OriginalContext(LLMRequest request) => JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!.AsObject();
-    private static LLMResponse OriginalEvidence(LLMRequest request, string phase, string address) => Wire(request, phase == "judge"
-        ? new JsonObject { ["action"] = new JsonObject { ["kind"] = "evidenceRequests", ["addresses"] = new JsonArray(address) }, ["uncertainty"] = "Need the exact original obligation." }
-        : new JsonObject { ["baseHash"] = request.StructuredOutputSchema!["properties"]?["baseHash"]?["enum"]?[0]?.DeepClone(),
+    private static LLMResponse OriginalEvidence(LLMRequest request, string phase, string address) => Wire(request,
+        new JsonObject { ["baseHash"] = request.StructuredOutputSchema!["properties"]?["baseHash"]?["enum"]?[0]?.DeepClone(),
             ["evidenceRequests"] = new JsonArray(address) });
 
     private static (PlanningSession, TestRuntime) Ready(bool selected = true)
@@ -1011,7 +983,7 @@ public sealed class CompactDeferredBindingTests
         PlanningCompactConstruction.InitializeSources(state);
         compact.Sources[0].Indexed = true;
         compact.Sources.Add(new() { Id = "request:0:clause:0", Version = PlanningGraphCompiler.Fingerprint(Objective),
-            Text = Objective, Kind = "requirement", InterfaceKind = "none", Indexed = true });
+            Text = Objective, Kind = "requirement", Inputs = [], Outputs = [], Indexed = true });
         compact.RequirementSources["req_0"] = ["request:0:clause:0"];
 
         state.Requirements = new() { Summary = Objective, Outcomes = [new("req_0", Objective) { Commitments = [] }], Inputs = [], Outputs = [] };

@@ -27,8 +27,10 @@ testing and routine commands belong inside an approved agent task.
 ## Planning, review and approval
 
 Retain authoritative originals and answers encrypted with tenant ownership. Index
-sources, resolve public interfaces, select the immediate business action, discover its
-unknown capabilities and draft a bounded extension. Reuse available producers and
+sources and typed public interfaces atomically in one pass for short requests, then
+select the immediate business contribution, discover its unknown capabilities and
+draft a bounded extension of related tasks. Measure complete requests before paging
+large originals; source clauses are acceptance criteria, never required task boundaries. Reuse available producers and
 inspected contracts. Concrete bindings must validate before checkpoint acceptance.
 
 Generation and review have independent granularity. Accumulate coherent business work

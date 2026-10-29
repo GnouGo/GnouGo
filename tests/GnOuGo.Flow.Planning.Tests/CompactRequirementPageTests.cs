@@ -45,8 +45,8 @@ public sealed class CompactRequirementPageTests
         runtime.Respond = (request, _) =>
         {
             var context = Context(request);
-            Assert.Equal(["req_1", "req_2"], Ids(context["requirements"]!));
-            Assert.Equal(clauses.Skip(1), context["requirements"]!.AsArray().Select(requirement => requirement!["original"]!.ToString()));
+            Assert.Equal(["req_0", "req_1", "req_2"], Ids(context["requirements"]!));
+            Assert.Equal(clauses, context["requirements"]!.AsArray().Select(requirement => requirement!["original"]!.ToString()));
             Assert.All(context["requirements"]!.AsArray(), requirement => Assert.NotEmpty(requirement!["sources"]!.AsArray()));
             Assert.Null(context["nextRequirements"]);
             var selection = Selection(state, "req_1", "req_2");
@@ -62,7 +62,7 @@ public sealed class CompactRequirementPageTests
         Assert.Equal(calls + 1, state.ModelCalls);
         Assert.Equal(["req_1", "req_2"], state.Construction!.Compact!.CurrentStep!.RequirementIds);
         var draft = PlanningConstruction.DraftRequest(state, repair: false);
-        Assert.Equal(["req_1", "req_2"], Ids(Context(draft)["requirements"]!));
+        Assert.Equal(["req_0", "req_1", "req_2"], Ids(Context(draft)["requirements"]!));
         Assert.Equal(["closed", "remaining", "remaining"], state.Construction.Requirements.Select(requirement => requirement.Status));
         Assert.Empty(state.Construction.Checkpoints);
         Assert.Equal(originals, Originals(state));
@@ -350,9 +350,8 @@ public sealed class CompactRequirementPageTests
         clauses ??= ["Read the original values. ", "Preserve their order and duplicates. ", "Return the complete result."];
         var runtime = new TestRuntime { Respond = (request, _) => new() { Json = new JsonObject
         {
-            ["sourceId"] = Context(request)["sources"]![0]!["id"]!.DeepClone(),
-            ["clauses"] = new JsonArray(clauses.Select(text => (JsonNode)new JsonObject
-            { ["text"] = text, ["kind"] = "requirement", ["interfaces"] = "none" }).ToArray())
+            ["evidenceRequests"] = null, ["clarifications"] = null, ["clauses"] = new JsonArray(clauses.Select(text => (JsonNode)new JsonObject
+            { ["text"] = text, ["kind"] = "requirement", ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray() }).ToArray())
         } } };
         var state = await Advance(PlannerFixture.Capture(new() { Request = new()
         { TenantId = "requirement-pages", Prompt = string.Concat(clauses), Options = new() { ["automatic_correction"] = true } } }), runtime);
@@ -368,7 +367,7 @@ public sealed class CompactRequirementPageTests
         state.Request.Prompt += text;
         compact.Sources.Add(new() { Id = page, Kind = "page", Text = text, Indexed = true, Version = PlanningGraphCompiler.Fingerprint(text) });
         var id = page + ":clause:0";
-        compact.Sources.Add(new() { Id = id, Kind = "requirement", Text = text, Indexed = true, InterfaceKind = "none", Version = PlanningGraphCompiler.Fingerprint(text) });
+        compact.Sources.Add(new() { Id = id, Kind = "requirement", Text = text, Indexed = true, Inputs = [], Outputs = [], Version = PlanningGraphCompiler.Fingerprint(text) });
         var requirement = "req_" + state.Requirements!.Outcomes.Count;
         state.Requirements.Outcomes.Add(new(requirement, text));
         state.Construction.Requirements.Add(new() { Id = requirement });

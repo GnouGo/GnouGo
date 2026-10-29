@@ -5,8 +5,6 @@ namespace GnOuGo.Flow.Core.Planning;
 /// <summary>Source, immediate-step and continuation metadata; never an executable plan.</summary>
 public sealed class PlanningCompactConstructionState
 {
-    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    public List<PlanningConstructionInterfaceExtraction>? InterfaceExtractions { get; set; }
     public List<PlanningConstructionSource> Sources { get; set; } = [];
     public Dictionary<string, List<string>> RequirementSources { get; set; } = new(StringComparer.Ordinal);
     public List<string> GlobalSourceIds { get; set; } = [];
@@ -74,33 +72,9 @@ public sealed class PlanningConstructionSource
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? ContinuationOf { get; set; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    public string? InterfaceKind { get; set; }
-}
-
-/// <summary>A bounded original declaration awaiting typed interface extraction, never executable work.</summary>
-public sealed class PlanningConstructionInterfaceExtraction
-{
-    public string Id { get; set; } = "";
-    public List<string> SourceIds { get; set; } = [];
-    public bool Inputs { get; set; }
-    public bool Outputs { get; set; }
-    public bool Complete { get; set; }
+    public List<TaskInput>? Inputs { get; set; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    public List<PlanningConstructionInterfaceDisposition>? Dispositions { get; set; }
-    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? EvidenceSourceIds { get; set; }
-}
-
-/// <summary>A source-bound interface decision; the original business obligation remains authoritative.</summary>
-public sealed class PlanningConstructionInterfaceDisposition
-{
-    public string SourceId { get; set; } = "";
-    public string Version { get; set; } = "";
-    public string Kind { get; set; } = "";
-    public List<string> Inputs { get; set; } = [];
-    public List<string> Outputs { get; set; } = [];
-    public string Reason { get; set; } = "";
-    public Dictionary<string, string> Evidence { get; set; } = new(StringComparer.Ordinal);
+    public List<TaskInput>? Outputs { get; set; }
 }
 
 /// <summary>One immediate business step and its host-checked selection, not a future workflow outline.</summary>

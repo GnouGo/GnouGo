@@ -365,9 +365,8 @@ public sealed class ConstructionCorrectionAccountingTests
             var source = context["sources"]![0]!;
             return Wire(request, new()
             {
-                ["sourceId"] = source["id"]!.DeepClone(),
-                ["clauses"] = new JsonArray(new JsonObject { ["text"] = source["text"]!.DeepClone(),
-                    ["kind"] = "requirement", ["interfaces"] = "none" })
+                ["evidenceRequests"] = null, ["clarifications"] = null, ["clauses"] = new JsonArray(new JsonObject { ["text"] = source["text"]!.DeepClone(),
+                    ["kind"] = "requirement", ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray() })
             });
         } };
         var state = await Advance(new() { Request = new() { TenantId = "accounting", Prompt = "Produce a constant value.",

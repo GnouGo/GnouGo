@@ -110,6 +110,14 @@ See [compiled and bounded runtime mappings](../../docs/runtime-mappings.md) for 
 
 See [compact observations, accepted outputs and resource lifecycle](../../docs/compact-observations-and-execution.md) for the current producer/compiler boundaries and executor simplification.
 
+Short originals are indexed with typed caller/public interfaces in a single model
+response. Exact source coverage and existing interface preflight commit atomically.
+Whole-request measurement, including schema and evidence links, determines whether
+large sources need natural-boundary pagination. Targets remain presentation guides.
+Original clauses do not require separate tasks, containers or closing calls. Current
+intent receipts retain their issued schema and raw response; archived earlier intent
+protocols remain owned by their frozen binaries, without a compatibility adapter.
+
 ## Ordinary arithmetic and decimal boundaries
 
 TaskPlan `arithmetic` values describe closed formulas using `text` (`add`, `subtract`, `multiply`, `divide`, `remainder`, `negate`) and `items`. Operand contracts must be numeric and nonnullable. The compiler retains structured values through contract closure, then emits JavaScript into existing checked `set` steps. There is no numeric executor or runtime inference. Exact business arithmetic is an MCP responsibility; explicitly declared decimal fields are converted automatically at the MCP boundary. See [migration and validation](../../docs/numeric-compilation.md).

@@ -39,7 +39,7 @@ internal static partial class PlanningCompactConstruction
         """;
 
     internal static string DraftGuidance(PlanningSession state) => """
-        Implement only the selected immediate substep, scope and task kind using exact contracts. Preserve accepted work, original constraints and complete observations. Input hints are not a whitelist: every actual binding resolves at its consumer and supplies the entity/value required by original contract meaning, not merely a compatible type. Never invent inputs, permissions or external results.
+        Implement the selected contribution, scope and task kind using exact contracts; related selected operations and known dependencies can share this bounded fragment. Preserve accepted work, original constraints and complete observations. Input hints are not a whitelist: every actual binding resolves at its consumer and supplies the entity/value required by original contract meaning, not merely a compatible type. Never invent inputs, permissions or external results.
         New containers open empty. scopeInterface contains existing exports; extension.outputs adds exports, [] preserves them. Close complete children/exports only. requirementIds associates work without proving completion. Add actual tasks, groups, choices or exports, close a scope, or close an offered still-open requirement.
         Return one permitted action; other action fields null. Commitments accompany extension only. Evidence-only responses keep requirements, commitments and rollbackReason null. Reselect an unsuitable kind or premature claim, retrieve exact originals, or clarify missing business facts. No outline, JavaScript or YAML.
         """;
@@ -72,18 +72,73 @@ internal static partial class PlanningCompactConstruction
         compact.IndexedAnswers = answers.Count;
         void AddPages(string prefix, string text)
         {
-            // Exact spans are retained and bounded after both JSON escaping layers.
-            string? continuation = null;
-            for (var start = 0; start < text.Length;)
+            var pages = new List<PlanningConstructionSource> { Page(0, text.Length, null) };
+            var limit = PlanningConstructionInputPolicy.EffectiveLimit(state.Request, IntentPurpose);
+            for (var index = 0; index < pages.Count; index++)
             {
-                var (count, continues) = CoherentOriginalPageLength(text, start);
-                var original = text.Substring(start, count);
-                var id = prefix + ":" + start;
-                compact.Sources.Add(new() { Id = id, Version = PlanningGraphCompiler.Fingerprint(original), Text = original, ContinuationOf = continuation,
-                    Kind = prefix.StartsWith("answer:", StringComparison.Ordinal) ? "answer_page" :
-                        prefix.StartsWith("revision:", StringComparison.Ordinal) ? "revision_page" : "page" });
-                continuation = continues ? id : null;
-                start += count;
+                var source = pages[index];
+                if (Measure(source, pages) <= limit) continue;
+                var low = 1; var high = source.Text.Length - 1; var best = 0;
+                while (low <= high)
+                {
+                    var candidate = low + (high - low) / 2;
+                    var count = candidate;
+                    if (count < source.Text.Length && char.IsHighSurrogate(source.Text[count - 1]) && char.IsLowSurrogate(source.Text[count])) count--;
+                    if (count > 0 && Measure(Page(Offset(source), count, source.ContinuationOf), pages) <= limit) { best = count; low = candidate + 1; }
+                    else high = candidate - 1;
+                }
+                // If the schema/envelope itself exceeds the guide, further source
+                // fragmentation cannot help. Ordinary admission still owns the stop
+                // or trusted advisory warning, with the source retained intact.
+                if (best == 0) continue;
+                var (length, continues) = CoherentSourceLength(source.Text, best);
+                var left = Page(Offset(source), length, source.ContinuationOf);
+                var right = Page(Offset(source) + length, source.Text.Length - length, continues ? left.Id : null);
+                pages[index] = left;
+                pages.Insert(index + 1, right);
+                if (index + 2 < pages.Count && pages[index + 2].ContinuationOf == source.Id)
+                    pages[index + 2].ContinuationOf = right.Id;
+                // Directory growth is part of the complete request too. Recheck
+                // earlier unissued pages against the actual prospective directory.
+                index = -1;
+            }
+            // Repacking earlier pages can leave small adjacent remainders. They
+            // are still unissued: coalesce them using the complete prospective
+            // request, instead of turning packing artifacts into model calls.
+            for (var index = 0; index + 1 < pages.Count; index++)
+            {
+                var left = pages[index]; var right = pages[index + 1];
+                var merged = Page(Offset(left), left.Text.Length + right.Text.Length, left.ContinuationOf);
+                var prospective = pages.ToList();
+                prospective[index] = merged; prospective.RemoveAt(index + 1);
+                if (Measure(merged, prospective) > limit) continue;
+                pages[index] = merged; pages.RemoveAt(index + 1);
+                if (index + 1 < pages.Count && pages[index + 1].ContinuationOf == right.Id)
+                    pages[index + 1].ContinuationOf = merged.Id;
+                index = Math.Max(-1, index - 2);
+            }
+            compact.Sources.AddRange(pages);
+
+            long Measure(PlanningConstructionSource probe, IEnumerable<PlanningConstructionSource> prospective)
+            {
+                var request = IntentRequest(state, probe, prospective);
+                var prepared = PlanningModelCalls.PrepareRequest(state, IntentPurpose,
+                    request.Prompt, request.StructuredOutputSchema!.AsObject());
+                // Pages may be issued after the ordinal gains a digit. Size
+                // that host-owned field against the captured call allowance.
+                var suffix = prepared.ClientRequestId!.IndexOf(':', state.Request.SessionId.Length + 1);
+                prepared.ClientRequestId = state.Request.SessionId + ":" + PlanningModelCalls.CallLimit(state).ToString(System.Globalization.CultureInfo.InvariantCulture) +
+                    prepared.ClientRequestId[suffix..];
+                return ModelRequestAdmission.EstimateTokens(prepared);
+            }
+
+            int Offset(PlanningConstructionSource source) => int.Parse(source.Id[(prefix.Length + 1)..], System.Globalization.CultureInfo.InvariantCulture);
+            PlanningConstructionSource Page(int start, int length, string? continuation)
+            {
+                var original = text.Substring(start, length);
+                return new() { Id = prefix + ":" + start, Version = PlanningGraphCompiler.Fingerprint(original), Text = original,
+                    ContinuationOf = continuation, Kind = prefix.StartsWith("answer:", StringComparison.Ordinal) ? "answer_page" :
+                        prefix.StartsWith("revision:", StringComparison.Ordinal) ? "revision_page" : "page" };
             }
         }
     }

@@ -54,24 +54,22 @@ public sealed class BusinessProjectionDeclarationsTests
     }
 
     [Fact]
-    public async Task LinkedNamingClauseRemainsRelevantWhenItsInterfaceDispositionBelongsToAnotherRequirement()
+    public async Task LinkedNamingClauseRemainsRelevantWhenItsDeclarationBelongsToAnotherRequirement()
     {
         var (state, _) = await Ready();
         var compact = state.Construction!.Compact!;
-        var disposition = compact.InterfaceExtractions![0].Dispositions![0];
+        var declaration = compact.Sources.Single(source => source.Id == "request:0:clause:0");
         var other = compact.Sources.Single(source => source.Id == "request:0:clause:1");
-        other.InterfaceKind = "input";
-        compact.Sources.Single(source => source.Id == disposition.SourceId).InterfaceKind = "none";
-        compact.InterfaceExtractions[0].SourceIds = [other.Id];
-        disposition.SourceId = other.Id; disposition.Version = other.Version;
-        disposition.Evidence[other.Id] = other.Version;
+        other.Inputs = declaration.Inputs;
+        declaration.Inputs = [];
+        other.ContinuationOf = declaration.Id;
         var projection = PlanningBusinessProjection.Build(state, global: false);
         Assert.Equal("request", Assert.Single(projection["inputs"]!.AsArray())!["name"]!.ToString());
         Assert.Equal(new[] { "work" }, projection["claims"]!["completedRequirements"]!.AsArray().Select(item => item!.ToString()));
     }
 
     [Fact]
-    public async Task UnrelatedInputDispositionDoesNotExpandAnOrdinaryLocalReview()
+    public async Task UnrelatedInputDeclarationDoesNotExpandAnOrdinaryLocalReview()
     {
         var (state, _) = await Ready();
         var compact = state.Construction!.Compact!;
@@ -115,8 +113,6 @@ public sealed class BusinessProjectionDeclarationsTests
         var compact = state.Construction!.Compact!;
         var clause = compact.Sources.Single(source => source.Id == "request:0:clause:0");
         clause.Text = original; clause.Version = Hash(original);
-        var disposition = compact.InterfaceExtractions![0].Dispositions![0];
-        disposition.Version = clause.Version; disposition.Evidence[clause.Id] = clause.Version;
         state.Requirements!.Outcomes[0] = new("work", original);
         var candidate = state.Construction.Candidate!;
         candidate.Plan.Inputs[0].Type = new() { Kind = "object", Fields = [new() { Name = "rules", Required = true,
@@ -151,12 +147,10 @@ public sealed class BusinessProjectionDeclarationsTests
         const string later = "Compute twice the caller number plus one and return the result.";
         var compact = state.Construction!.Compact!;
         state.Request.Prompt = declaration + later;
-        compact.Sources = [new() { Id = "request:0", Text = declaration + later, Kind = "page", Indexed = true, InterfaceKind = "none", Version = Hash(declaration + later) },
-            new() { Id = "request:0:clause:0", Text = declaration, Kind = "requirement", Indexed = true, InterfaceKind = "input", Version = Hash(declaration) },
-            new() { Id = "request:0:clause:1", Text = later, Kind = "requirement", Indexed = true, InterfaceKind = "none", Version = Hash(later) }];
-        compact.InterfaceExtractions = [new() { Id = "declaration", Complete = true, Inputs = true, SourceIds = ["request:0:clause:0"],
-            Dispositions = [new() { SourceId = "request:0:clause:0", Version = Hash(declaration), Kind = "interfaces", Inputs = ["request"],
-                Reason = "The original names one required public input.", Evidence = new(StringComparer.Ordinal) { ["request:0:clause:0"] = Hash(declaration) } }] }];
+        compact.Sources = [new() { Id = "request:0", Text = declaration + later, Kind = "page", Indexed = true, Inputs = [], Outputs = [], Version = Hash(declaration + later) },
+            new() { Id = "request:0:clause:0", Text = declaration, Kind = "requirement", Indexed = true, Inputs = [], Outputs = [], Version = Hash(declaration) },
+            new() { Id = "request:0:clause:1", Text = later, Kind = "requirement", Indexed = true, Inputs = [], Outputs = [], Version = Hash(later) }];
+        compact.Sources[1].Inputs = [new() { Name = "request", Type = new() { Kind = numeric ? "number" : "string" } }];
         state.Requirements!.Outcomes = [new("work", declaration), new("later", later)];
         state.Requirements.Inputs = [new() { Name = "request", Type = new() { Kind = numeric ? "number" : "string" }, Required = true }];
         state.Plan = new() { Inputs = state.Requirements.Inputs.ToList() };

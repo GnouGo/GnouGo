@@ -1296,9 +1296,8 @@ public sealed partial class CompactDiscoveryProtocolTests
         var runtime = new TestRuntime { Capabilities = new EmptyCatalog(), Respond = (request, _) =>
         {
             var source = Context(request)["sources"]![0]!;
-            return Wire(request, new() { ["sourceId"] = source["id"]!.ToString(),
-                ["clauses"] = new JsonArray(new JsonObject { ["text"] = "Return exactly Hello. ", ["kind"] = "requirement", ["interfaces"] = "none" },
-                    new JsonObject { ["text"] = "No remote publication.", ["kind"] = "global", ["interfaces"] = "none" }) });
+            return Wire(request, new() { ["evidenceRequests"] = null, ["clarifications"] = null, ["clauses"] = new JsonArray(new JsonObject { ["text"] = "Return exactly Hello. ", ["kind"] = "requirement", ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray() },
+                    new JsonObject { ["text"] = "No remote publication.", ["kind"] = "global", ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray() }) });
         } };
         var initial = new PlanningSession { Request = new() { TenantId = "compact-discovery", Prompt = "Return exactly Hello. No remote publication.",
             Options = new JsonObject { ["automatic_correction"] = true } } };
@@ -1306,7 +1305,7 @@ public sealed partial class CompactDiscoveryProtocolTests
 
         var state = await Advance(PlannerFixture.Clone(initial), runtime);
         Assert.Empty(state.Diagnostics);
-        Assert.Empty(state.Construction!.Compact!.InterfaceExtractions!);
+        Assert.True(PlanningCompactConstruction.IntentDeclarationsComplete(state.Construction!.Compact!));
         Assert.True(PlanningCompactConstruction.SourcesComplete(state));
         state.Request.Policy.Instructions = "Never expand permissions.";
         state.Catalog = await runtime.DiscoverAsync(state.Request, PlannerFixture.Ct); state.Catalog.Capabilities.Clear();

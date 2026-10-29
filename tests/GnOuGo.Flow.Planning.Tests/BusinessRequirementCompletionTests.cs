@@ -372,13 +372,13 @@ public sealed class BusinessRequirementCompletionTests
         construction.Requirements = originals.Select(item => new PlanningConstructionRequirement { Id = item.Id }).ToList();
         var compact = construction.Compact!;
         compact.Sources.Clear(); compact.RequirementSources.Clear();
-        compact.Sources.Add(new() { Id = "request:0", Kind = "page", Indexed = true, InterfaceKind = "none",
+        compact.Sources.Add(new() { Id = "request:0", Kind = "page", Indexed = true, Inputs = [], Outputs = [],
             Text = state.Request.Prompt, Version = PlanningGraphCompiler.Fingerprint(state.Request.Prompt) });
         for (var index = 0; index < originals.Length; index++)
         {
             var (id, text) = originals[index];
             var source = "request:0:clause:" + index;
-            compact.Sources.Add(new() { Id = source, Kind = "requirement", Indexed = true, InterfaceKind = "none", Text = text,
+            compact.Sources.Add(new() { Id = source, Kind = "requirement", Indexed = true, Inputs = [], Outputs = [], Text = text,
                 Version = PlanningGraphCompiler.Fingerprint(text) });
             compact.RequirementSources[id] = [source];
         }

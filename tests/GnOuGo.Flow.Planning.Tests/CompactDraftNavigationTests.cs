@@ -84,7 +84,7 @@ public sealed class CompactDraftNavigationTests
             var source = "request:" + i;
             compact.Sources.Add(new() { Id = source, Version = PlanningGraphCompiler.Fingerprint(text), Text = text, Kind = "page", Indexed = true });
             compact.Sources.Add(new() { Id = source + ":clause:0", Version = PlanningGraphCompiler.Fingerprint(text), Text = text,
-                Kind = "requirement", InterfaceKind = "none", Indexed = true });
+                Kind = "requirement", Inputs = [], Outputs = [], Indexed = true });
             compact.RequirementSources["req_" + i] = [source + ":clause:0"];
             state.Requirements!.Outcomes.Add(new("req_" + i, text) { Commitments = [] });
             state.Construction.Requirements.Add(new() { Id = "req_" + i });
@@ -214,7 +214,7 @@ public sealed class CompactDraftNavigationTests
         var compact = state.Construction!.Compact!;
         compact.Sources[0].Indexed = true;
         compact.Sources.Add(new() { Id = "request:0:clause:0", Version = PlanningGraphCompiler.Fingerprint(objective), Text = objective,
-            Kind = "requirement", InterfaceKind = "none", Indexed = true });
+            Kind = "requirement", Inputs = [], Outputs = [], Indexed = true });
         compact.RequirementSources["req"] = ["request:0:clause:0"];
         state.Requirements = new() { Summary = objective, Outcomes = [new("req", objective) { Commitments = [] }], Inputs = [], Outputs = [] };
         state.Construction.Requirements = [new() { Id = "req" }];

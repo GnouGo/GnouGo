@@ -161,16 +161,11 @@ internal static partial class PlanningCompactConstruction
                 yield return new(PlanningCommitments.MissingOperation, "/construction/candidate", "The selected business operation is absent from this draft: " + binding.Operation);
         if (candidate.AuthorizedPaths is null && !candidate.Extension.Complete)
         {
-            // Direct, current source dispositions bind declarations to an original
-            // obligation. Corroborating evidence and shared extraction pages do not.
-            var dispositions = (compact.InterfaceExtractions ?? []).Where(extraction => extraction.Complete &&
-                DispositionsComplete(compact, extraction)).SelectMany(extraction => extraction.Dispositions!)
-                .Where(disposition => disposition.Kind == "interfaces").ToArray();
             foreach (var id in step.CloseRequirementIds)
             {
                 var sources = compact.RequirementSources.GetValueOrDefault(id) ?? [];
-                var names = dispositions.Where(disposition => sources.Contains(disposition.SourceId, StringComparer.Ordinal))
-                    .SelectMany(disposition => disposition.Outputs).ToHashSet(StringComparer.Ordinal);
+                var names = compact.Sources.Where(source => source.Indexed && source.Version == PlanningGraphCompiler.Fingerprint(source.Text) && sources.Contains(source.Id))
+                    .SelectMany(source => source.Outputs ?? []).Select(output => output.Name).ToHashSet(StringComparer.Ordinal);
                 foreach (var output in (state.Requirements!.Outputs ?? []).Where(output => output.Required && names.Contains(output.Name)))
                     if (!candidate.Plan.Root.Outputs.Any(binding => binding.Name == output.Name))
                         yield return new("CONSTRUCTION_REQUIREMENT_OUTPUT_MISSING", "/step/closeRequirementIds",

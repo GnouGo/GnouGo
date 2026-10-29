@@ -31,13 +31,13 @@ public sealed class PlanningLifecycleTests
     {
         var state = await CurrentPlanningFixture.LiteralAsync("test", "current-lifecycle", null, PlannerFixture.Ct);
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
-        Assert.Equal(5, state.ModelCalls);
+        Assert.Equal(4, state.ModelCalls);
         Assert.Single(state.Construction!.Checkpoints);
         var runtime = new TestRuntime { Respond = (_, _) => throw new InvalidOperationException("Final artifacts must not regenerate.") };
         var before = state.ComputeArtifactHash();
         state = await new HybridWorkflowPlanner().AdvanceAsync(PlannerFixture.Clone(state), new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
         Assert.Equal(before, state.ComputeArtifactHash());
-        Assert.Equal(5, state.ModelCalls);
+        Assert.Equal(4, state.ModelCalls);
         Assert.Empty(runtime.Calls);
         PlanningArtifactApproval.Verify(state);
     }

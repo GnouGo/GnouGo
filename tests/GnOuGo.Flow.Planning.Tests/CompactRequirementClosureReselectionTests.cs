@@ -78,7 +78,6 @@ public sealed class CompactRequirementClosureReselectionTests
     [InlineData("optional", false)]
     [InlineData("unlinked", false)]
     [InlineData("global_evidence_only", false)]
-    [InlineData("shared_extraction", false)]
     [InlineData("stale", false)]
     [InlineData("incomplete", false)]
     [InlineData("split_source", true)]
@@ -88,33 +87,19 @@ public sealed class CompactRequirementClosureReselectionTests
     {
         var (state, _) = await Ready();
         var compact = state.Construction!.Compact!;
-        var extraction = Assert.Single(compact.InterfaceExtractions!);
-        var disposition = Assert.Single(extraction.Dispositions!);
+        var original = compact.Sources.First(source => source.Outputs is { Count: > 0 });
         if (variation == "optional") state.Requirements!.Outputs![0].Required = false;
         if (variation == "unlinked") compact.RequirementSources["req_0"] = [];
-        if (variation == "stale") disposition.Version = "stale";
-        if (variation == "incomplete") extraction.Complete = false;
-        if (variation is "global_evidence_only" or "shared_extraction" or "split_source")
+        if (variation == "stale") original.Version = "stale";
+        if (variation == "incomplete") original.Indexed = false;
+        if (variation is "global_evidence_only" or "split_source")
         {
-            var original = compact.Sources.Single(source => source.Id == disposition.SourceId);
             var other = new PlanningConstructionSource { Id = "other", Text = "Another exact original declaration.",
-                Kind = variation == "split_source" ? "requirement" : "global", InterfaceKind = "output", Indexed = true,
+                Kind = variation == "split_source" ? "requirement" : "global", Inputs = [], Outputs = [], Indexed = true,
                 Version = PlanningGraphCompiler.Fingerprint("Another exact original declaration.") };
             compact.Sources.Add(other);
             if (variation == "split_source") compact.RequirementSources["req_0"] = [other.Id, original.Id];
-            else
-            {
-                disposition.SourceId = other.Id; disposition.Version = other.Version;
-                extraction.SourceIds = [other.Id];
-                // Corroborating the claimed original is not direct declaration ownership.
-                disposition.Evidence = new(StringComparer.Ordinal) { [original.Id] = original.Version, [other.Id] = other.Version };
-                if (variation == "shared_extraction")
-                {
-                    extraction.SourceIds.Add(original.Id);
-                    extraction.Dispositions!.Add(new() { SourceId = original.Id, Version = original.Version, Kind = "no_public_interface",
-                        Reason = "This original has no public interface.", Evidence = new(StringComparer.Ordinal) { [original.Id] = original.Version } });
-                }
-            }
+            else { other.Outputs = original.Outputs; original.Outputs = []; }
         }
         if (variation == "no_claim") compact.CurrentStep!.CloseRequirementIds.Clear();
         if (variation == "root_bound") state.Plan!.Root.Outputs.Add(new("result", NumericArray()));
@@ -190,7 +175,7 @@ public sealed class CompactRequirementClosureReselectionTests
         authority.Diagnostics = authority.Construction.Candidate.Diagnostics;
         var request = PlanningConstruction.RepairRequest(state, authority);
         Assert.True(PlanningRepairPatch.Issued(request.StructuredOutputSchema!.AsObject()));
-        Assert.Equal("null", request.StructuredOutputSchema["properties"]!["reselectStep"]!["type"]!.ToString());
+        Assert.Equal("null", request.StructuredOutputSchema!["properties"]!["reselectStep"]!["type"]!.ToString());
         var slot = Assert.Single(PlanningRepairPatch.RequestContext(request)["repair"]!["slots"]!.AsArray())!;
         Assert.Equal(path, slot["location"]!.ToString());
         var revised = PlanningRepairPatch.Apply(authority, new RepairPatch { Edits = [new RepairEdit
@@ -216,32 +201,16 @@ public sealed class CompactRequirementClosureReselectionTests
     {
         var runtime = new TestRuntime { Respond = (request, _) =>
         {
-            var source = request.StructuredOutputSchema!["properties"]!["sourceId"]!["enum"]![0]!.DeepClone();
-            JsonObject response = request.StructuredOutputSchema["properties"]!["clauses"] is not null
-                ? new() { ["sourceId"] = source, ["clauses"] = new JsonArray(new JsonObject
-                    { ["text"] = Context(request)["sources"]![0]!["text"]!.DeepClone(), ["kind"] = "requirement", ["interfaces"] = declaresPublicOutput ? "output" : "none" }) }
-                : new JsonObject { ["sourceId"] = source, ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray(new JsonObject
-                    { ["name"] = "result", ["required"] = true, ["type"] = new JsonObject { ["kind"] = "array", ["nullable"] = false,
-                        ["items"] = new JsonObject { ["kind"] = "number", ["nullable"] = false }, ["minItems"] = null, ["maxItems"] = null } }) };
-            if (request.StructuredOutputSchema["properties"]!["interfaces"] is not null)
-                response = new JsonObject { ["sourceId"] = source.DeepClone(), ["interfaces"] = new JsonObject
-                {
-                    ["inputs"] = response["inputs"]!.DeepClone(), ["outputs"] = response["outputs"]!.DeepClone(),
-                    ["dispositions"] = new JsonArray(Context(request)["sources"]!.AsArray().Select(original => (JsonNode)new JsonObject
-                    {
-                        ["sourceId"] = original!["id"]!.DeepClone(), ["version"] = original["version"]!.DeepClone(),
-                        ["kind"] = "interfaces", ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray("result"),
-                        ["reason"] = "The original clause declares the ordered numeric array as the public result.",
-                        ["evidence"] = new JsonArray(new JsonObject { ["sourceId"] = original["id"]!.DeepClone(), ["version"] = original["version"]!.DeepClone() })
-                    }).ToArray())
-                }, ["evidenceRequests"] = null, ["clarifications"] = null };
+            var outputs = declaresPublicOutput ? new JsonArray(new JsonObject { ["name"] = "result", ["required"] = true,
+                ["type"] = new JsonObject { ["kind"] = "array", ["nullable"] = false,
+                    ["items"] = new JsonObject { ["kind"] = "number", ["nullable"] = false }, ["minItems"] = null, ["maxItems"] = null } }) : new JsonArray();
+            var response = CurrentPlanningFixture.Intent(Context(request), outputs: outputs);
             return Wire(request, response);
         } };
         var state = await Advance(PlannerFixture.Capture(new() { Request = new() { TenantId = "requirement-closure",
             Prompt = declaresPublicOutput ? "Apply reusable numeric processing to every item and return the ordered numeric array as result." :
                 "Apply reusable numeric processing to every item.",
             Options = new() { ["automatic_correction"] = true } } }), runtime);
-        if (declaresPublicOutput) state = await Advance(state, runtime);
         Assert.Empty(state.Diagnostics);
         state.Catalog = await runtime.DiscoverAsync(state.Request, PlannerFixture.Ct);
         state.Plan = new() { Groups = [new() { Id = "worker", Inputs = [new() { Name = "item", Type = new() { Kind = "number" } }] }] };

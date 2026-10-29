@@ -19,7 +19,7 @@ public sealed class InitialRequirementsHostTests
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         using var client = new JournaledPlanningModel(new InitialClient(repeatInvalid));
-        var expectedCalls = repeatInvalid ? 2 : 6;
+        var expectedCalls = repeatInvalid ? 2 : 5;
         var agents = PlanningSessionLifecycleTests.AgentCatalog();
         PlanningSession initial;
         using (var creation = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), agents, client, settings: new() { BackgroundProcessingEnabled = false }))

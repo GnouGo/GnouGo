@@ -23,22 +23,9 @@ public sealed class CompactScopeInterfaceTests
                 var context = Context(request);
                 if (purpose == PlanningCompactConstruction.IntentPurpose)
                 {
-                    var source = request.StructuredOutputSchema!["properties"]!["sourceId"]!["enum"]![0]!.ToString();
-                    return StrictWire(request, request.StructuredOutputSchema["properties"]!["clauses"] is not null
-                        ? new JsonObject { ["sourceId"] = source, ["clauses"] = new JsonArray(new JsonObject
-                            { ["text"] = context["sources"]![0]!["text"]!.ToString(), ["kind"] = "requirement", ["interfaces"] = "both" }) }
-                        : new JsonObject { ["sourceId"] = source, ["interfaces"] = new JsonObject
-                            {
-                                ["inputs"] = JsonSerializer.SerializeToNode(new List<TaskInput> { new() { Name = "values", Type = NumericArray(), Required = true } }, PlanningJsonContext.Default.ListTaskInput),
-                                ["outputs"] = JsonSerializer.SerializeToNode(new List<TaskInput> { new() { Name = "result", Type = NumericArray(), Required = true } }, PlanningJsonContext.Default.ListTaskInput),
-                                ["dispositions"] = new JsonArray(context["sources"]!.AsArray().Select(item => (JsonNode)new JsonObject
-                                {
-                                    ["sourceId"] = item!["id"]!.DeepClone(), ["version"] = item["version"]!.DeepClone(), ["kind"] = "interfaces",
-                                    ["inputs"] = new JsonArray("values"), ["outputs"] = new JsonArray("result"),
-                                    ["reason"] = "The original explicitly declares these numeric caller/result interfaces.",
-                                    ["evidence"] = new JsonArray(new JsonObject { ["sourceId"] = item["id"]!.DeepClone(), ["version"] = item["version"]!.DeepClone() })
-                                }).ToArray())
-                            }, ["evidenceRequests"] = null, ["clarifications"] = null });
+                    return StrictWire(request, CurrentPlanningFixture.Intent(context,
+                        JsonSerializer.SerializeToNode(new List<TaskInput> { new() { Name = "values", Type = NumericArray(), Required = true } }, PlanningJsonContext.Default.ListTaskInput)!.AsArray(),
+                        JsonSerializer.SerializeToNode(new List<TaskInput> { new() { Name = "result", Type = NumericArray(), Required = true } }, PlanningJsonContext.Default.ListTaskInput)!.AsArray()));
                 }
                 if (purpose == PlanningCompactConstruction.SelectPurpose)
                 {
@@ -205,7 +192,7 @@ public sealed class CompactScopeInterfaceTests
         } };
         var state = await PlannerFixture.RunAsync(runtime, Fresh("Return exactly Hello as message."));
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics.Select(d => d.Code + ":" + d.Message)));
-        Assert.True(Assert.Single(state.Construction!.Compact!.InterfaceExtractions!).Complete);
+        Assert.True(PlanningCompactConstruction.IntentDeclarationsComplete(state.Construction!.Compact!));
         Assert.True(reviewed);
     }
 
@@ -371,7 +358,7 @@ public sealed class CompactScopeInterfaceTests
         var state = await PlannerFixture.RunAsync(runtime, Fresh());
         Assert.Null(failure);
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics.Select(d => d.Code + ":" + d.Message)));
-        Assert.True(Assert.Single(state.Construction!.Compact!.InterfaceExtractions!).Complete);
+        Assert.True(PlanningCompactConstruction.IntentDeclarationsComplete(state.Construction!.Compact!));
         return state;
     }
 
@@ -383,26 +370,8 @@ public sealed class CompactScopeInterfaceTests
     { Json = PlanningCorpus.Transport(response, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
 
     private static JsonObject Reviewed() => BusinessReviewProtocolTests.Report("ok");
-    private static JsonObject Index(LLMRequest request)
-    {
-        var sourceId = request.StructuredOutputSchema!["properties"]!["sourceId"]!["enum"]![0]!.ToString();
-        return request.StructuredOutputSchema["properties"]!["clauses"] is not null
-            ? new()
-            {
-                ["sourceId"] = sourceId,
-                ["clauses"] = new JsonArray(new JsonObject { ["text"] = Context(request)["sources"]![0]!["text"]!.ToString(),
-                    ["kind"] = "requirement", ["interfaces"] = "output" })
-            }
-            : new()
-            {
-                ["sourceId"] = sourceId, ["interfaces"] = new JsonObject { ["inputs"] = new JsonArray(),
-                    ["outputs"] = new JsonArray(new JsonObject { ["name"] = "message", ["type"] = new JsonObject { ["kind"] = "string", ["nullable"] = false }, ["required"] = true }),
-                    ["dispositions"] = new JsonArray(Context(request)["sources"]!.AsArray().Select(item => (JsonNode)new JsonObject {
-                        ["sourceId"] = item!["id"]!.DeepClone(), ["version"] = item["version"]!.DeepClone(), ["kind"] = "interfaces", ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray("message"),
-                        ["reason"] = "The source declares the public message.", ["evidence"] = new JsonArray(new JsonObject { ["sourceId"] = item["id"]!.DeepClone(), ["version"] = item["version"]!.DeepClone() }) }).ToArray()) },
-                ["evidenceRequests"] = null, ["clarifications"] = null
-            };
-    }
+    private static JsonObject Index(LLMRequest request) => CurrentPlanningFixture.Intent(Context(request), outputs:
+        new JsonArray(new JsonObject { ["name"] = "message", ["required"] = true, ["type"] = new JsonObject { ["kind"] = "string", ["nullable"] = false } }));
 
     private static JsonObject Select(LLMRequest request, string kind, string scope, bool complete) => new()
     {

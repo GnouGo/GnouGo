@@ -189,8 +189,7 @@ public sealed class CompactSelectionScopeTests
             var context = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
             return Wire(request, new()
             {
-                ["sourceId"] = context["sources"]![0]!["id"]!.DeepClone(),
-                ["clauses"] = new JsonArray(new JsonObject { ["text"] = objective, ["kind"] = "requirement", ["interfaces"] = "none" })
+                ["evidenceRequests"] = null, ["clarifications"] = null, ["clauses"] = new JsonArray(new JsonObject { ["text"] = objective, ["kind"] = "requirement", ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray() })
             });
         } };
         // These cases isolate scope/import correction, with the whole small

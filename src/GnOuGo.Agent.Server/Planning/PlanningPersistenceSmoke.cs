@@ -72,8 +72,8 @@ internal static class PlanningPersistenceSmoke
             {
                 Compact = new()
                 {
-                    Sources = [new() { Id = "request:0", Version = "exact-source", Text = secret, Indexed = true }],
-                    InterfaceExtractions = [new() { Id = "request:0", SourceIds = ["request:0"], Inputs = true }],
+                    Sources = [new() { Id = "request:0", Version = "exact-source", Text = secret, Indexed = true,
+                        Inputs = [new() { Name = "secret", Type = new() { Kind = "string" } }], Outputs = [] }],
                     CurrentStep = new() { Id = "step_1", BaseHash = PlanningConstruction.Hash(plan), Objective = secret, Kind = null },
                     SuspendedSteps = [new() { Id = "consumer", Prerequisite = new() { Need = secret, ExpectedType = new() { Kind = "number", Nullable = true } } }]
                 },

@@ -87,14 +87,8 @@ internal static class PlanningBusinessProjection
         var compact = construction.Compact!;
         var claimedSources = compact.CurrentStep!.CloseRequirementIds
             .SelectMany(id => compact.RequirementSources.GetValueOrDefault(id) ?? []).ToHashSet(StringComparer.Ordinal);
-        var interfaceClaims = (compact.InterfaceExtractions ?? []).Where(extraction => extraction.Complete)
-            .SelectMany(extraction => extraction.Dispositions ?? [])
-            .Where(disposition => disposition.Kind == "interfaces" && disposition.Inputs.Count > 0 &&
-                compact.Sources.Any(source => source.Id == disposition.SourceId && source.Version == disposition.Version && source.Indexed) &&
-                (global || claimedSources.Contains(disposition.SourceId) || disposition.Evidence.Any(evidence =>
-                    claimedSources.Contains(evidence.Key) && compact.Sources.Any(source => source.Id == evidence.Key &&
-                        source.Version == evidence.Value && source.Kind is "requirement" or "global"))))
-            .SelectMany(disposition => disposition.Inputs).ToHashSet(StringComparer.Ordinal);
+        var interfaceClaims = compact.Sources.Where(source => source.Indexed && source.Version == PlanningGraphCompiler.Fingerprint(source.Text) && (global || claimedSources.Contains(source.Id) || source.ContinuationOf is { } previous && claimedSources.Contains(previous)))
+            .SelectMany(source => source.Inputs ?? []).Select(input => input.Name).ToHashSet(StringComparer.Ordinal);
         var isolated = !global && symbols.Scopes.SingleOrDefault(scope => scope.Path == candidate.Extension.Scope) is { } reviewedScope && InGroup(reviewedScope);
         var rootValues = symbols.Tasks.Where(pair => selected.Contains(pair.Key) && !InGroup(pair.Value.Scope))
             .SelectMany(pair => TaskPlanCompiler.Values(pair.Value.Task))

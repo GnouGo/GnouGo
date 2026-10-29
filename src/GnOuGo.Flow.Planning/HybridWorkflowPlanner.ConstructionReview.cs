@@ -300,7 +300,8 @@ public sealed partial class HybridWorkflowPlanner
     }
     private static JsonArray BusinessSources(PlanningSession state) => new(state.Construction!.Compact!.Sources.OrderBy(source => source.Id, StringComparer.Ordinal)
         .Select(source => (JsonNode)new JsonObject { ["id"] = source.Id, ["version"] = source.Version, ["kind"] = source.Kind,
-            ["continuationOf"] = source.ContinuationOf, ["interfaces"] = source.InterfaceKind, ["hash"] = PlanningGraphCompiler.Fingerprint(source.Text) }).ToArray());
+            ["continuationOf"] = source.ContinuationOf, ["inputs"] = new JsonArray((source.Inputs ?? []).Select(input => (JsonNode?)JsonValue.Create(input.Name)).ToArray()),
+            ["outputs"] = new JsonArray((source.Outputs ?? []).Select(output => (JsonNode?)JsonValue.Create(output.Name)).ToArray()), ["hash"] = PlanningGraphCompiler.Fingerprint(source.Text) }).ToArray());
     private static string BusinessIntentHash(PlanningSession state) => PlanningGraphCompiler.Fingerprint(new JsonObject
     {
         ["request"] = state.Request.Prompt,

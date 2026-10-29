@@ -53,7 +53,7 @@ public sealed class CompactConstructionTests
         PlanningSessionCreation.Capture(state);
         PlanningCompactConstruction.InitializeSources(state);
         var pageCount = state.Construction!.Compact!.Sources.Count;
-        Assert.InRange(pageCount, 2, 40);
+        Assert.InRange(pageCount, 1, 40);
         var runtime = new TestRuntime { Respond = Simple };
         var planner = new HybridWorkflowPlanner();
         for (var page = 0; page < pageCount; page++)
@@ -62,7 +62,7 @@ public sealed class CompactConstructionTests
             Assert.DoesNotContain(state.Diagnostics, d => d.Required);
             var measurement = state.RequestMeasurements![^1];
             Assert.Equal(PlanningCompactConstruction.IntentPurpose, measurement.Phase);
-            Assert.InRange(measurement.EstimatedInputTokens, 1, 3000);
+            Assert.InRange(measurement.EstimatedInputTokens, 1, PlanningConstructionInputPolicy.EffectiveLimit(state.Request, PlanningCompactConstruction.IntentPurpose));
         }
         var pages = state.Construction!.Compact!.Sources.Where(s => s.Kind == "page").ToArray();
         Assert.All(pages, page => Assert.True(page.Indexed));
@@ -85,27 +85,12 @@ public sealed class CompactConstructionTests
         var clauses = two ? new JsonArray(new JsonObject { ["text"] = original[..(original.Length / 2)], ["kind"] = "requirement" },
             new JsonObject { ["text"] = original[(original.Length / 2)..], ["kind"] = "requirement" })
             : new JsonArray(new JsonObject { ["text"] = original, ["kind"] = "requirement" });
-        if (request.StructuredOutputSchema!["properties"]!["clauses"] is not null)
-        {
-            foreach (var clause in clauses) clause!["interfaces"] = "output";
-            return new() { ["sourceId"] = source["id"]!.DeepClone(), ["clauses"] = clauses };
-        }
         var outputs = new JsonArray(new JsonObject { ["name"] = "message", ["type"] = new JsonObject { ["kind"] = "string", ["nullable"] = false }, ["required"] = true });
-        return InterfaceResponse(request, new JsonArray(), outputs);
+        foreach (var clause in clauses) { clause!["inputs"] = new JsonArray(); clause["outputs"] = outputs.DeepClone(); }
+        return new() { ["clauses"] = clauses };
     }
-    private static JsonObject InterfaceResponse(LLMRequest request, JsonArray inputs, JsonArray outputs) => new()
-    {
-        ["sourceId"] = request.StructuredOutputSchema!["properties"]!["sourceId"]!["enum"]![0]!.DeepClone(),
-        ["interfaces"] = new JsonObject { ["inputs"] = inputs, ["outputs"] = outputs,
-            ["dispositions"] = new JsonArray(Context(request)["sources"]!.AsArray().Select(item => (JsonNode)new JsonObject
-            {
-                ["sourceId"] = item!["id"]!.DeepClone(), ["version"] = item["version"]!.DeepClone(), ["kind"] = "interfaces",
-                ["inputs"] = new JsonArray(inputs.Select(input => input!["name"]!.DeepClone()).ToArray()),
-                ["outputs"] = new JsonArray(outputs.Select(output => output!["name"]!.DeepClone()).ToArray()),
-                ["reason"] = "These exact clauses declare the named caller and public result interfaces.",
-                ["evidence"] = new JsonArray(new JsonObject { ["sourceId"] = item["id"]!.DeepClone(), ["version"] = item["version"]!.DeepClone() })
-            }).ToArray()) }, ["evidenceRequests"] = null, ["clarifications"] = null
-    };
+    private static JsonObject InterfaceResponse(LLMRequest request, JsonArray inputs, JsonArray outputs) =>
+        CurrentPlanningFixture.Intent(Context(request), inputs, outputs);
 
     private static JsonObject Select(LLMRequest request, string kind = "value", string scope = "/root", bool close = true,
         string[]? inputs = null) => new()
@@ -142,7 +127,7 @@ public sealed class CompactConstructionTests
         var runtime = new TestRuntime { Respond = Simple };
         var state = await PlannerFixture.RunAsync(runtime, Fresh());
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics.Select(d => d.Code + ":" + d.Message)));
-        Assert.Equal(5, runtime.Calls.Count);
+        Assert.Equal(4, runtime.Calls.Count);
         Assert.Equal(11, state.SchemaVersion);
         Assert.Equal(64, state.Request.MaxModelCalls);
         Assert.True(PlanningCompactConstruction.SourcesComplete(state));
@@ -194,7 +179,7 @@ public sealed class CompactConstructionTests
             {
                 if (request.StructuredOutputSchema!["properties"]!["clauses"] is null) return Wire(request, Index(request));
                 var response = Index(request);
-                response["clauses"] = new JsonArray(clauses.Select((text, index) => (JsonNode)new JsonObject { ["text"] = text, ["kind"] = "requirement", ["interfaces"] = index == 1 ? "output" : "none" }).ToArray());
+                response["clauses"] = new JsonArray(clauses.Select((text, index) => (JsonNode)new JsonObject { ["text"] = text, ["kind"] = "requirement", ["inputs"] = new JsonArray(), ["outputs"] = index == 1 ? Index(request)["clauses"]![0]!["outputs"]!.DeepClone() : new JsonArray() }).ToArray());
                 return Wire(request, response);
             }
             if (purpose == PlanningCompactConstruction.SelectPurpose)
@@ -333,7 +318,7 @@ public sealed class CompactConstructionTests
             if (purpose == PlanningCompactConstruction.IntentPurpose)
             {
                 response = Index(request);
-                if (kind == "foreach" && response["interfaces"] is not null) response["interfaces"]!["outputs"]![0]!["type"] = new JsonObject
+                if (kind == "foreach") response["clauses"]![0]!["outputs"]![0]!["type"] = new JsonObject
                     { ["kind"] = "array", ["nullable"] = false, ["items"] = new JsonObject { ["kind"] = "string", ["nullable"] = false } };
             }
             else if (purpose == PlanningCompactConstruction.SelectPurpose)
@@ -360,14 +345,12 @@ public sealed class CompactConstructionTests
     {
         var runtime = new TestRuntime { Respond = (request, _) =>
         {
-            if (request.StructuredOutputSchema!["properties"]!["clauses"] is not null) return Wire(request, Index(request));
             return Wire(request, InterfaceResponse(request, new JsonArray(new JsonObject { ["name"] = "new_input", ["type"] = new JsonObject { ["kind"] = "string" }, ["required"] = true }),
                 new JsonArray(new JsonObject { ["name"] = "", ["type"] = new JsonObject { ["kind"] = "string" }, ["required"] = true })));
         } };
         var state = Fresh();
         state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
-        state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
-        Assert.Empty(state.Requirements!.Inputs!);
+        Assert.Empty(state.Requirements?.Inputs ?? []);
         Assert.False(PlanningCompactConstruction.SourcesComplete(state));
     }
 
@@ -416,7 +399,7 @@ public sealed class CompactConstructionTests
         var runtime = new TestRuntime { Respond = (request, _) =>
         {
             var response = Index(request);
-            response["clauses"] = new JsonArray(clauses.Select(text => (JsonNode)new JsonObject { ["text"] = text, ["kind"] = "requirement", ["interfaces"] = "none" }).ToArray());
+            response["clauses"] = new JsonArray(clauses.Select(text => (JsonNode)new JsonObject { ["text"] = text, ["kind"] = "requirement", ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray() }).ToArray());
             return Wire(request, response);
         } };
         var state = await new HybridWorkflowPlanner().AdvanceAsync(Fresh(string.Concat(clauses)), new() { ExpectedRevision = 0 }, runtime, PlannerFixture.Ct);
@@ -590,23 +573,20 @@ public sealed class CompactConstructionTests
             "Return the retained values. ", "Close acquired resources. ", "Never change the supplied identities."];
         // This corpus tests navigation across distinct original source pages.
         // Same-page clause cohesion has separate fresh-policy coverage.
-        clauses = clauses.Select(text => text.TrimEnd().TrimEnd('.') + ": " + new string('x', 540) + ". ").ToArray();
+        clauses = clauses.Select(text => text.TrimEnd().TrimEnd('.') + ": " + new string('x', 3500) + ". ").ToArray();
         var runtime = new TestRuntime { Respond = (request, _) =>
         {
             var source = Context(request)["sources"]![0]!;
             var text = source["text"]!.ToString();
-            Assert.Contains(text, clauses);
-            return Wire(request, new JsonObject
-            {
-                ["sourceId"] = source["id"]!.DeepClone(),
-                ["clauses"] = new JsonArray(new JsonObject
-                { ["text"] = text, ["kind"] = text == clauses[^1] ? "global" : "requirement", ["interfaces"] = "none" })
-            });
+            Assert.Equal(text, string.Concat(clauses.Where(clause => text.Contains(clause, StringComparison.Ordinal))));
+            return Wire(request, new JsonObject { ["clauses"] = new JsonArray(clauses.Where(clause => text.Contains(clause, StringComparison.Ordinal)).Select(clause => (JsonNode)new JsonObject
+            { ["text"] = clause, ["kind"] = clause == clauses[^1] ? "global" : "requirement", ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray() }).ToArray()) });
         } };
         var state = PlannerFixture.Capture(NewSession(string.Concat(clauses)));
-        for (var index = 0; index < clauses.Length; index++)
-            state = await new HybridWorkflowPlanner().AdvanceAsync(state,
-                new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+        PlanningCompactConstruction.InitializeSources(state);
+        var count = state.Construction!.Compact!.Sources.Count;
+        for (var index = 0; index < count; index++)
+            state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
         Assert.Empty(state.Diagnostics);
         return state;
     }
@@ -617,7 +597,6 @@ public sealed class CompactConstructionTests
         var state = await PlannerFixture.RunAsync(new TestRuntime { Respond = Simple }, Fresh());
         var compact = state.Construction!.Compact!;
 
-        compact.InterfaceExtractions = [];
         state.Requirements!.Outcomes.Clear(); state.Construction!.Requirements.Clear();
         compact.Sources.Clear(); compact.RequirementSources.Clear(); compact.GlobalSourceIds.Clear();
         var originals = new[]
@@ -822,15 +801,14 @@ public sealed class CompactConstructionTests
     }
 
     [Fact]
-    public async Task SourcePagesRetainEveryOriginalCharacterAcrossBoundaries()
+    public async Task ShortOriginalRetainsEveryCharacterWithoutArtificialPages()
     {
         var prompt = new string('a', 999) + "🦊" + new string('b', 1000) + " Keep exactly Hello.";
         var state = Fresh(prompt);
         var runtime = new TestRuntime { Respond = (request, _) => Wire(request, Index(request)) };
         var planner = new HybridWorkflowPlanner();
-        for (var i = 0; i < 3; i++)
-            state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
-        Assert.Equal(3, runtime.Calls.Count);
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+        Assert.Single(runtime.Calls);
         Assert.All(state.Construction!.Compact!.Sources, source => Assert.True(source.Indexed));
         Assert.Equal(prompt, string.Concat(state.Requirements!.Outcomes.Select(r => r.Description)));
         Assert.All(runtime.Calls, call => Assert.InRange(PlanningRequestMeasurements.Measure(call, PlanningCompactConstruction.IntentPurpose, 3000).EstimatedInputTokens, 1, 12000));
@@ -992,9 +970,8 @@ public sealed class CompactConstructionTests
     {
         var runtime = new TestRuntime { Respond = (request, _) =>
         {
-            if (request.StructuredOutputSchema!["properties"]!["clauses"] is not null) return Wire(request, Index(request));
             var response = Index(request);
-            response["interfaces"]!["inputs"] = JsonNode.Parse("""
+            response["clauses"]![0]!["inputs"] = JsonNode.Parse("""
                 [{"name":"selection","required":false,"type":{"kind":"string","nullable":false,"enum":["A","B"]},"default":{"kind":"string","text":"B"}},
                  {"name":"labels","required":false,"type":{"kind":"array","nullable":false,"items":{"kind":"string","nullable":false},"minItems":1,"maxItems":2},
                   "default":{"kind":"array","items":[{"kind":"string","text":"A"}]}},
@@ -1002,11 +979,10 @@ public sealed class CompactConstructionTests
                  {"name":"record","required":false,"type":{"kind":"object","nullable":false,"fields":[{"name":"enabled","required":true,"type":{"kind":"boolean","nullable":false}}]},
                   "default":{"kind":"object","members":[{"name":"enabled","value":{"kind":"boolean","boolean":false}}]}}]
                 """);
-            return Wire(request, InterfaceResponse(request, response["interfaces"]!["inputs"]!.DeepClone().AsArray(), response["interfaces"]!["outputs"]!.DeepClone().AsArray()));
+            return Wire(request, InterfaceResponse(request, response["clauses"]![0]!["inputs"]!.DeepClone().AsArray(), response["clauses"]![0]!["outputs"]!.DeepClone().AsArray()));
         } };
         var state = await new HybridWorkflowPlanner().AdvanceAsync(Fresh("Allow selection A or B with default B; one or two labels defaulting to A; nullable missing defaults to null; record.enabled defaults to false. Return Hello."),
             new() { ExpectedRevision = 0 }, runtime, PlannerFixture.Ct);
-        state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
         Assert.Empty(state.Diagnostics);
         var inputs = state.Requirements!.Inputs!;
         Assert.Equal(["A", "B"], inputs[0].Type.Enum);
@@ -1027,20 +1003,18 @@ public sealed class CompactConstructionTests
     {
         var runtime = new TestRuntime { Respond = (request, _) =>
         {
-            if (request.StructuredOutputSchema!["properties"]!["clauses"] is not null) return Wire(request, Index(request));
             var response = Index(request);
-            response["interfaces"]!["inputs"] = invalid == "missing_default" ? JsonNode.Parse("""
+            response["clauses"]![0]!["inputs"] = invalid == "missing_default" ? JsonNode.Parse("""
                 [{"name":"selection","required":false,"type":{"kind":"string","nullable":false}}]
                 """) : invalid == "default" ? JsonNode.Parse("""
                 [{"name":"selection","required":false,"type":{"kind":"string","nullable":false,"enum":["A","B"]},"default":{"kind":"string","text":"C"}}]
                 """) : JsonNode.Parse("""
                 [{"name":"labels","required":true,"type":{"kind":"array","nullable":false,"items":{"kind":"string","nullable":false},"minItems":3,"maxItems":2}}]
                 """);
-            return Wire(request, InterfaceResponse(request, response["interfaces"]!["inputs"]!.DeepClone().AsArray(), response["interfaces"]!["outputs"]!.DeepClone().AsArray()));
+            return Wire(request, InterfaceResponse(request, response["clauses"]![0]!["inputs"]!.DeepClone().AsArray(), response["clauses"]![0]!["outputs"]!.DeepClone().AsArray()));
         } };
         var state = await new HybridWorkflowPlanner().AdvanceAsync(Fresh(), new() { ExpectedRevision = 0 }, runtime, PlannerFixture.Ct);
-        state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
-        Assert.Empty(state.Requirements!.Inputs!);
+        Assert.Empty(state.Requirements?.Inputs ?? []);
         Assert.Contains(state.Diagnostics, d => d.Code == (invalid switch { "default" => "TASK_DEFAULT_INVALID", "bounds" => "TASK_TYPE_INVALID", _ => "TASK_DEFAULT_REQUIRED" }));
         Assert.False(PlanningCompactConstruction.SourcesComplete(state));
     }
@@ -1050,14 +1024,12 @@ public sealed class CompactConstructionTests
     {
         var runtime = new TestRuntime { Respond = (request, _) =>
         {
-            if (request.StructuredOutputSchema!["properties"]!["clauses"] is not null) return Wire(request, Index(request));
             var response = Index(request);
-            response["interfaces"]!["outputs"]![0]!["default"] = new JsonObject { ["kind"] = "string", ["text"] = "Invented result" };
+            response["clauses"]![0]!["outputs"]![0]!["default"] = new JsonObject { ["kind"] = "string", ["text"] = "Invented result" };
             return new() { Json = response }; // Exercise exact response-schema rejection without fixture projection.
         } };
         var state = await new HybridWorkflowPlanner().AdvanceAsync(Fresh(), new() { ExpectedRevision = 0 }, runtime, PlannerFixture.Ct);
-        state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
-        Assert.Empty(state.Requirements!.Outputs!);
+        Assert.Empty(state.Requirements?.Outputs ?? []);
         Assert.NotEmpty(state.Diagnostics);
         Assert.False(PlanningCompactConstruction.SourcesComplete(state));
     }

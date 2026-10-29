@@ -66,11 +66,8 @@ internal static partial class PlanningCompactConstruction
         var sources = step.RequirementIds.Concat(step.CloseRequirementIds)
             .SelectMany(id => compact.RequirementSources.GetValueOrDefault(id) ?? [])
             .Concat(compact.GlobalSourceIds).ToHashSet(StringComparer.Ordinal);
-        var declarations = (compact.InterfaceExtractions ?? []).Where(extraction => extraction.Complete &&
-                DispositionsComplete(compact, extraction)).SelectMany(extraction => extraction.Dispositions!)
-            .Where(disposition => disposition.Kind == "interfaces" &&
-                (sources.Contains(disposition.SourceId) || disposition.Evidence.Keys.Any(sources.Contains)))
-            .SelectMany(disposition => disposition.Inputs.Select(name => (Name: name, disposition.SourceId)))
+        var declarations = compact.Sources.Where(source => source.Indexed && sources.Contains(source.Id))
+            .SelectMany(source => (source.Inputs ?? []).Select(input => (Name: input.Name, SourceId: source.Id)))
             .Distinct().ToArray();
         if (declarations.Length == 0)
             return state.Construction!.Candidate!.Plan.Inputs.Count == 0 ? null : new JsonObject

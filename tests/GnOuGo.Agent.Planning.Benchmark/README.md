@@ -227,3 +227,16 @@ Run affected warning-as-error suites, then final-source solution tests, independ
 package builds, Native AOT and published encrypted-storage checks. Reuse applicable
 validation observers and attribute each result to its actual source. Financial or
 provider stops leave precise incomplete criteria and a rechecked remaining balance.
+
+### Preparation simplification diagnostics
+
+The combined intent experiment retains the full short original, extracts exact
+acceptance clauses and typed public interfaces in one call, and measures complete
+requests before paging genuinely large sources. It does not change MCP eligibility,
+output allocations, business oracles or the advisory campaign's strict non-token guards.
+Report initial preparation calls/time and the first independently correct constructed
+business producer separately from final artifact and actual runtime acceptance.
+Source comparisons retain identical profiles; output-allocation trials use separate
+frozen identities. A received reasoning-only exhaustion is not a transport incident.
+The six-run business qualification remains two consecutive intervention-free successes
+per scenario on the same production source/profile, including both Collections variants.

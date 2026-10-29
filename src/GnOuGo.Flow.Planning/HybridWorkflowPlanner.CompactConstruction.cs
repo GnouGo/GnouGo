@@ -20,13 +20,9 @@ public sealed partial class HybridWorkflowPlanner
         }
         if (construction.Complete) { await CompileAsync(state, runtime, ct); return; }
         PlanningCompactConstruction.InitializeSources(state);
-        var pendingExtraction = state.PendingCall?.Purpose == PlanningCompactConstruction.IntentPurpose &&
-            state.PendingCall.Request.StructuredOutputSchema?["properties"]?["clauses"] is null;
-        if (!pendingExtraction && (state.PendingCall is null || state.PendingCall.Purpose == PlanningCompactConstruction.IntentPurpose))
+        if (state.PendingCall is null || state.PendingCall.Purpose == PlanningCompactConstruction.IntentPurpose)
             if (construction.Compact.Sources.FirstOrDefault(s => s.Kind is "page" or "answer_page" or "revision_page" && !s.Indexed) is { } sourcePage)
             { await IndexConstructionIntentAsync(state, runtime, sourcePage, ct); return; }
-        if (construction.Compact.InterfaceExtractions?.FirstOrDefault(e => !e.Complete) is { } extraction)
-        { await ExtractConstructionInterfacesAsync(state, runtime, extraction, ct); return; }
         if (!PlanningCompactConstruction.IntentDeclarationsComplete(construction.Compact))
             throw new PlanningConflictException("Complete the captured original interface declarations before generation or review.");
         if (construction.Candidate is { } candidate)
@@ -177,13 +173,6 @@ public sealed partial class HybridWorkflowPlanner
                 .Select(s => (JsonNode?)JsonValue.Create(s.Id + "@" + s.Version)).ToArray())
         };
         return action + ":progress:" + PlanningGraphCompiler.Fingerprint(progress.ToJsonString());
-    }
-
-    private static async Task IndexConstructionIntentAsync(PlanningSession state, IPlanningRuntime runtime,
-        PlanningConstructionSource source, CancellationToken ct)
-    {
-        { await ClassifyConstructionIntentAsync(state, runtime, source, ct); return; }
-
     }
 
     private static PlanningRequirements ReadConstructionInterfaces(PlanningSession state, JsonNode response, string sourceKind)

@@ -14,8 +14,7 @@ public sealed class DescriptionSelectionTests
             var context = JsonNode.Parse(issued.Prompt[(issued.Prompt.LastIndexOf('\n') + 1)..])!;
             return new() { Json = PlanningCorpus.Transport(new JsonObject
             {
-                ["sourceId"] = context["sources"]![0]!["id"]!.DeepClone(),
-                ["clauses"] = new JsonArray(new JsonObject { ["text"] = criteria, ["kind"] = "requirement", ["interfaces"] = "none" })
+                ["evidenceRequests"] = null, ["clarifications"] = null, ["clauses"] = new JsonArray(new JsonObject { ["text"] = criteria, ["kind"] = "requirement", ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray() })
             }, issued.StructuredOutputSchema!.AsObject(), issued.StructuredOutputSchema.AsObject()) };
         } };
         var initial = PlannerFixture.Session(); initial.Request.Prompt = criteria;

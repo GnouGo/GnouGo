@@ -62,8 +62,7 @@ public sealed class CompactAcceptedTaskNavigationTests
         construction.Checkpoints = [new() { Sequence = 1, TaskIds = ["root_value"], RequirementIds = ["producer"] },
             new() { Sequence = 2, TaskIds = ["container"], RequirementIds = ["control"] }];
         var declaration = compact.Sources.Single(source => source.Id == "declaration:0");
-        compact.InterfaceExtractions = [new() { Complete = true, Dispositions = [new() { SourceId = declaration.Id,
-            Version = declaration.Version, Kind = "interfaces", Inputs = ["records"] }] }];
+        declaration.Inputs = [new() { Name = "records", Type = new() { Kind = "array", Items = new() { Kind = "number" } } }];
         construction.Candidate!.Reviews.Add(new() { ["defectWitness"] = new JsonObject { ["findings"] = new JsonArray(
             new JsonObject { ["obligation"] = new JsonObject { ["value"] = new JsonObject { ["id"] = "repair" } } }) } });
         Assert.True(PlanningCompactConstruction.LocalRequirementIds(state).SetEquals(["req_0", "producer", "control", "declaration", "repair"]));
@@ -1385,10 +1384,9 @@ public sealed class CompactAcceptedTaskNavigationTests
         var contract = JsonSerializer.Serialize(producer, PlanningJsonContext.Default.PlanningCapability);
         var compact = state.Construction!.Compact!;
         compact.CurrentStep = null;
-        compact.InterfaceExtractions = [];
         var source = compact.Sources[0];
         compact.Sources.Add(new() { Id = source.Id + ":clause:0", Version = source.Version, Text = source.Text,
-            Kind = "requirement", InterfaceKind = "none", Indexed = true });
+            Kind = "requirement", Inputs = [], Outputs = [], Indexed = true });
         compact.RequirementSources["req_0"] = [source.Id + ":clause:0"];
         Assert.True(PlanningCompactConstruction.SourcesComplete(state));
         var baseline = PlanningConstruction.Hash(state.Plan);

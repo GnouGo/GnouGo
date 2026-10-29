@@ -188,9 +188,9 @@ public sealed class CompactConstructionClosureTests
     public void IntentArrayBoundsRetainUnboundedNullAndExplicitNumericValues(int? minimum, int? maximum)
     {
         var source = new PlanningConstructionSource { Id = "request:0", Text = "Accept the declared array interface." };
-        var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.InterfaceInstructions,
+        var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.IntentInstructions,
             new() { ["sources"] = new JsonArray(new JsonObject { ["id"] = source.Id, ["text"] = source.Text }), ["diagnostics"] = new JsonArray() },
-            PlanningCompactConstruction.InterfaceSchema(new() { Id = source.Id, Inputs = true }), PlanningCompactConstruction.IntentPurpose);
+            PlanningCompactConstruction.IntentSchema(source), PlanningCompactConstruction.IntentPurpose);
         var schema = request.StructuredOutputSchema!.AsObject();
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
         var response = JsonNode.Parse("""
@@ -200,9 +200,11 @@ public sealed class CompactConstructionClosureTests
             """)!.AsObject();
         response["inputs"]![0]!["type"]!["minItems"] = minimum;
         response["inputs"]![0]!["type"]!["maxItems"] = maximum;
+        response = new JsonObject { ["clauses"] = new JsonArray(new JsonObject { ["text"] = source.Text, ["kind"] = "requirement",
+            ["inputs"] = response["inputs"]!.DeepClone(), ["outputs"] = response["outputs"]!.DeepClone() }) };
         response = PlanningCorpus.Transport(response, schema, schema)!.AsObject();
         Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response, schema));
-        var input = response["inputs"]!.Deserialize(PlanningJsonContext.Default.ListTaskInput)!.Single();
+        var input = response["clauses"]![0]!["inputs"]!.Deserialize(PlanningJsonContext.Default.ListTaskInput)!.Single();
         Assert.Equal(minimum, input.Type.MinItems);
         Assert.Equal(maximum, input.Type.MaxItems);
         var roundTrip = JsonSerializer.Deserialize(JsonSerializer.Serialize(input, PlanningJsonContext.Default.TaskInput), PlanningJsonContext.Default.TaskInput)!;

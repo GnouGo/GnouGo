@@ -228,18 +228,11 @@ public sealed class CompactSuspendedConsumerTests
             JsonObject response;
             if (purpose == PlanningCompactConstruction.IntentPurpose)
             {
-                var source = request.StructuredOutputSchema!["properties"]!["sourceId"]!["enum"]![0]!.ToString();
-                response = request.StructuredOutputSchema["properties"]!["clauses"] is not null
-                    ? new() { ["sourceId"] = source, ["clauses"] = new JsonArray(
-                        new JsonObject { ["text"] = work + " ", ["kind"] = "requirement", ["interfaces"] = "none" },
-                        new JsonObject { ["text"] = finish, ["kind"] = "requirement", ["interfaces"] = "output" }) }
-                    : new() { ["sourceId"] = source, ["interfaces"] = new JsonObject {
-                        ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray(new JsonObject { ["name"] = "number", ["required"] = true,
-                            ["type"] = new JsonObject { ["kind"] = "number", ["nullable"] = false } }),
-                        ["dispositions"] = new JsonArray(context["sources"]!.AsArray().Select(item => (JsonNode)new JsonObject {
-                            ["sourceId"] = item!["id"]!.DeepClone(), ["version"] = item["version"]!.DeepClone(), ["kind"] = "interfaces",
-                            ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray("number"), ["reason"] = "The original declares this public numeric result.",
-                            ["evidence"] = new JsonArray(new JsonObject { ["sourceId"] = item["id"]!.DeepClone(), ["version"] = item["version"]!.DeepClone() }) }).ToArray()) } };
+                response = new() { ["clauses"] = new JsonArray(
+                    new JsonObject { ["text"] = work + " ", ["kind"] = "requirement", ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray() },
+                    new JsonObject { ["text"] = finish, ["kind"] = "requirement", ["inputs"] = new JsonArray(),
+                        ["outputs"] = new JsonArray(new JsonObject { ["name"] = "number", ["required"] = true,
+                            ["type"] = new JsonObject { ["kind"] = "number", ["nullable"] = false } }) }) };
             }
             else if (purpose == PlanningCompactConstruction.SelectPurpose)
             {
@@ -330,8 +323,7 @@ public sealed class CompactSuspendedConsumerTests
         state.Construction!.Requirements = [new() { Id = "req", Status = "in_progress" }];
         PlanningCompactConstruction.InitializeSources(state);
         var compact = state.Construction.Compact!;
-        foreach (var source in compact.Sources) { source.Indexed = true; source.InterfaceKind = "none"; }
-        compact.InterfaceExtractions = [];
+        foreach (var source in compact.Sources) { source.Indexed = true; source.Inputs = []; source.Outputs = []; }
         var originalSource = compact.Sources.First(); compact.RequirementSources["req"] = [originalSource.Id];
         compact.CurrentStep = Consumer(state, "consumer");
         state.Diagnostics = [new("CONSTRUCTION_TENTATIVE_SELECTION", "/step", "This exact consumer needs its typed prerequisite.")];

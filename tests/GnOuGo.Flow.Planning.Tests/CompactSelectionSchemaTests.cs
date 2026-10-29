@@ -384,7 +384,7 @@ public sealed class CompactSelectionSchemaTests
         {
             var id = "req_" + state.Requirements!.Outcomes.Count;
             var source = page + ":clause:" + index;
-            compact.Sources.Add(new() { Id = source, Text = clauses[index], Kind = "requirement", InterfaceKind = "none", Indexed = true,
+            compact.Sources.Add(new() { Id = source, Text = clauses[index], Kind = "requirement", Inputs = [], Outputs = [], Indexed = true,
                 Version = PlanningGraphCompiler.Fingerprint(clauses[index]) });
             compact.RequirementSources.Add(id, [source]);
             state.Requirements.Outcomes.Add(new(id, clauses[index]));
@@ -427,9 +427,8 @@ public sealed class CompactSelectionSchemaTests
             var context = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
             return new() { Json = new JsonObject
             {
-                ["sourceId"] = context["sources"]![0]!["id"]!.DeepClone(),
-                ["clauses"] = new JsonArray(clauses.Select((text, index) => (JsonNode)new JsonObject
-                { ["text"] = text, ["kind"] = index == clauses.Length - 1 ? "global" : "requirement", ["interfaces"] = "none" }).ToArray())
+                ["evidenceRequests"] = null, ["clarifications"] = null, ["clauses"] = new JsonArray(clauses.Select((text, index) => (JsonNode)new JsonObject
+                { ["text"] = text, ["kind"] = index == clauses.Length - 1 ? "global" : "requirement", ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray() }).ToArray())
             } };
         } };
         var state = await new HybridWorkflowPlanner().AdvanceAsync(PlannerFixture.Capture(new() { Request = new()

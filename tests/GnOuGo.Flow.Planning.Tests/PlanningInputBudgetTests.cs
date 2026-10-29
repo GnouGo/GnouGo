@@ -35,7 +35,7 @@ public sealed class PlanningInputBudgetTests
         var state = PlannerFixture.Session(); state.Request.Prompt = "Return the required public numeric result named result with value 42.";
         state = await PlannerFixture.RunAsync(runtime, state);
         Assert.Equal(PlanningStatus.FinalReview, state.Status); PlanningArtifactApproval.Verify(state);
-        Assert.Equal(5, runtime.Calls.Count); Assert.Equal(0, catalog.Pages);
+        Assert.Equal(4, runtime.Calls.Count); Assert.Equal(0, catalog.Pages);
         Assert.All(runtime.Calls, request => Assert.DoesNotContain("Authoritative business port description", request.Prompt, StringComparison.Ordinal));
         Assert.Equal(0, state.ReplanAttempts);
     }

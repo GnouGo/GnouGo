@@ -17,11 +17,11 @@ public sealed class PlanningClarificationTests
         var (state, runtime) = await Asking(mode);
         Assert.Equal(PlanningStatus.Clarification, state.Status);
         Assert.Single(state.PendingQuestions!); Assert.Null(state.Plan); Assert.Null(state.ApprovedHash);
-        Assert.Equal(2, state.ModelCalls);
+        Assert.Equal(1, state.ModelCalls);
         state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { Kind = "configure_mode", ExpectedRevision = state.Revision,
             Mode = mode == PlanningMode.Auto ? PlanningMode.Interactive : PlanningMode.Auto }, runtime, PlannerFixture.Ct);
         Assert.Equal(PlanningStatus.Clarification, state.Status);
-        Assert.Equal(2, state.ModelCalls); Assert.Equal(2, runtime.Calls.Count);
+        Assert.Equal(1, state.ModelCalls); Assert.Single(runtime.Calls);
     }
 
     [Theory]
@@ -45,7 +45,7 @@ public sealed class PlanningClarificationTests
         await Assert.ThrowsAsync<ArgumentException>(() => new HybridWorkflowPlanner().AdvanceAsync(state,
             new() { Kind = "answer", ExpectedRevision = state.Revision, Answers = answers }, runtime, PlannerFixture.Ct));
         Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
-        Assert.Equal(2, runtime.Calls.Count);
+        Assert.Single(runtime.Calls);
     }
 
     [Theory]
@@ -77,7 +77,7 @@ public sealed class PlanningClarificationTests
         state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { Kind = "cancel", ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
         Assert.Equal(PlanningStatus.Cancelled, state.Status);
         Assert.Null(state.ApprovedHash); Assert.Null(state.AnswerHistory);
-        Assert.Equal(2, runtime.Calls.Count);
+        Assert.Single(runtime.Calls);
     }
 
     [Theory]

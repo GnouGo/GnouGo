@@ -87,20 +87,11 @@ public sealed partial class CompactReviewedTransitionTests
                 var current = runtime.Checkpoints.LastOrDefault();
                 if (purpose == PlanningCompactConstruction.IntentPurpose)
                 {
-                    if (request.StructuredOutputSchema!["properties"]!["clauses"] is not null)
-                        response = new() { ["sourceId"] = context["sources"]![0]!["id"]!.DeepClone(), ["clauses"] = new JsonArray(
-                            new JsonObject { ["text"] = local + " ", ["kind"] = "requirement", ["interfaces"] = "output" },
-                            new JsonObject { ["text"] = later, ["kind"] = "requirement", ["interfaces"] = "output" }) };
-                    else
-                    {
-                        var names = context["sources"]!.AsArray().Select(source => source!["text"]?.ToString() ?? source["original"]?.ToString() ?? "")
-                            .Select(text => text.Contains("laterNumber", StringComparison.Ordinal) ? "laterNumber" : "number").Distinct().ToArray();
-                        response = ResolveNumber(context);
-                        response["interfaces"]!["outputs"] = PlanningConstruction.Node(names.Select(name => new TaskInput
-                            { Name = name, Required = true, Type = new() { Kind = "number" } }).ToList(), PlanningJsonContext.Default.ListTaskInput);
-                        foreach (var row in response["interfaces"]!["dispositions"]!.AsArray())
-                            row!["outputs"] = new JsonArray(names.Select(name => (JsonNode?)JsonValue.Create(name)).ToArray());
-                    }
+                    response = new() { ["clauses"] = new JsonArray(
+                        new JsonObject { ["text"] = local + " ", ["kind"] = "requirement", ["inputs"] = new JsonArray(),
+                            ["outputs"] = new JsonArray(new JsonObject { ["name"] = "number", ["required"] = true, ["type"] = new JsonObject { ["kind"] = "number", ["nullable"] = false } }) },
+                        new JsonObject { ["text"] = later, ["kind"] = "requirement", ["inputs"] = new JsonArray(),
+                            ["outputs"] = new JsonArray(new JsonObject { ["name"] = "laterNumber", ["required"] = true, ["type"] = new JsonObject { ["kind"] = "number", ["nullable"] = false } }) }) };
                 }
                 else if (purpose == PlanningCompactConstruction.SelectPurpose)
                 {

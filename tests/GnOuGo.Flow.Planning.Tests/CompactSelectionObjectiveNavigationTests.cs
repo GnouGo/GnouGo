@@ -550,8 +550,7 @@ public sealed class CompactSelectionObjectiveNavigationTests
         const string objective = "Preserve every supplied value and its ordering in the requested result.";
         var runtime = new TestRuntime { Respond = (request, _) => new() { Json = new JsonObject
         {
-            ["sourceId"] = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!["sources"]![0]!["id"]!.DeepClone(),
-            ["clauses"] = new JsonArray(new JsonObject { ["text"] = objective, ["kind"] = "requirement", ["interfaces"] = "none" })
+            ["evidenceRequests"] = null, ["clarifications"] = null, ["clauses"] = new JsonArray(new JsonObject { ["text"] = objective, ["kind"] = "requirement", ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray() })
         } } };
         var state = await new HybridWorkflowPlanner().AdvanceAsync(new() { Request = new()
         { TenantId = "selection-objectives", Prompt = objective, Options = new() { ["automatic_correction"] = true } } },

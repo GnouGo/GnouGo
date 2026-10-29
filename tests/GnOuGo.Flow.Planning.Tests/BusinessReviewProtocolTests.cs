@@ -123,7 +123,7 @@ public sealed class BusinessReviewProtocolTests
         var (context, request) = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, global: false);
         var branches = request.StructuredOutputSchema!["properties"]!["decision"]!["anyOf"]!.AsArray();
         var change = Assert.Single(branches, branch => branch?["properties"]?["verdict"]?["enum"]?[0]?.ToString() == "needs_change")!;
-        Assert.Equal(new[] { "work" }, change["properties"]!["obligations"]!["items"]!["enum"]!.AsArray().Select(id => id!.ToString()));
+        Assert.Equal(new[] { "later", "work" }, change["properties"]!["obligations"]!["items"]!["enum"]!.AsArray().Select(id => id!.ToString()));
         Assert.Contains("compute", change["properties"]!["targets"]!["items"]!["enum"]!.AsArray().Select(id => id!.ToString()));
         Assert.DoesNotContain("task:compute", change["properties"]!["targets"]!["items"]!["enum"]!.AsArray().Select(id => id!.ToString()));
         runtime.Respond = (issued, _) =>
@@ -205,7 +205,7 @@ public sealed class BusinessReviewProtocolTests
         var projection = PlanningBusinessProjection.Build(state, global: false);
         Assert.Contains(projection["actions"]!.AsArray(), action => action!["id"]!.ToString() == "compute");
         Assert.Contains(projection["actions"]!.AsArray(), action => action!["id"]!.ToString() == "sequence");
-        Assert.Equal(new[] { "work" }, projection["requirements"]!.AsArray().Select(original => original!["id"]!.ToString()));
+        Assert.Equal(new[] { "work", "later" }, projection["requirements"]!.AsArray().Select(original => original!["id"]!.ToString()));
         Assert.False(projection["scopes"]!.AsArray().Single(row => row!["id"]!.ToString() == scope)!["open"]!.GetValue<bool>());
     }
 
@@ -367,9 +367,9 @@ public sealed class BusinessReviewProtocolTests
         state.Requirements = new() { Inputs = [new() { Name = "x", Type = new() { Kind = "number" } }], Outputs = [],
             Outcomes = [new("work", first), new("later", later)] };
         var compact = state.Construction!.Compact!;
-        compact.Sources.Add(new() { Id = "request:0", Kind = "page", Indexed = true, InterfaceKind = "none", Text = first + later, Version = Fingerprint(first + later) });
-        compact.Sources.Add(new() { Id = "request:0:clause:0", Kind = "requirement", Indexed = true, InterfaceKind = "none", Text = first, Version = Fingerprint(first) });
-        compact.Sources.Add(new() { Id = "request:0:clause:1", Kind = "requirement", Indexed = true, InterfaceKind = "none", Text = later, Version = Fingerprint(later) });
+        compact.Sources.Add(new() { Id = "request:0", Kind = "page", Indexed = true, Inputs = [], Outputs = [], Text = first + later, Version = Fingerprint(first + later) });
+        compact.Sources.Add(new() { Id = "request:0:clause:0", Kind = "requirement", Indexed = true, Inputs = [], Outputs = [], Text = first, Version = Fingerprint(first) });
+        compact.Sources.Add(new() { Id = "request:0:clause:1", Kind = "requirement", Indexed = true, Inputs = [], Outputs = [], Text = later, Version = Fingerprint(later) });
         compact.RequirementSources["work"] = ["request:0:clause:0"]; compact.RequirementSources["later"] = ["request:0:clause:1"];
         state.Construction.Requirements = [new() { Id = "work" }, new() { Id = "later" }];
         state.Plan = new() { Inputs = state.Requirements.Inputs.ToList() };

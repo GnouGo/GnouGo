@@ -62,7 +62,7 @@ public static class BusinessReviewCorpus
         compact.Sources =
         [
             new() { Id = "request:0", Kind = "page", Indexed = true, Text = item.Original, Version = PlanningGraphCompiler.Fingerprint(item.Original) },
-            new() { Id = "request:0:clause:0", Kind = "requirement", InterfaceKind = "none", Indexed = true,
+            new() { Id = "request:0:clause:0", Kind = "requirement", Inputs = [], Outputs = [], Indexed = true,
                 Text = item.Original, Version = PlanningGraphCompiler.Fingerprint(item.Original) }
         ];
         compact.RequirementSources["intent"] = ["request:0:clause:0"];

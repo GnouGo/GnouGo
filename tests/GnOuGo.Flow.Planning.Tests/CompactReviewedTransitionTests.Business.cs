@@ -102,11 +102,12 @@ public sealed partial class CompactReviewedTransitionTests
                 purposes.Add(purpose); var context = Context(request); JsonObject response;
                 var current = runtime.Checkpoints.LastOrDefault();
                 if (purpose == PlanningCompactConstruction.IntentPurpose)
-                    response = request.StructuredOutputSchema!["properties"]!["clauses"] is null ? ResolveNumber(context) : new()
+                    response = new()
                     {
-                        ["sourceId"] = context["sources"]![0]!["id"]!.DeepClone(), ["clauses"] = new JsonArray(
-                            new JsonObject { ["text"] = subtotal + " ", ["kind"] = "requirement", ["interfaces"] = "none" },
-                            new JsonObject { ["text"] = total, ["kind"] = "requirement", ["interfaces"] = "output" })
+                        ["evidenceRequests"] = null, ["clarifications"] = null, ["clauses"] = new JsonArray(
+                            new JsonObject { ["text"] = subtotal + " ", ["kind"] = "requirement", ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray() },
+                            new JsonObject { ["text"] = total, ["kind"] = "requirement", ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray(new JsonObject {
+                ["name"] = "number", ["type"] = new JsonObject { ["kind"] = "number", ["nullable"] = false }, ["required"] = true }) })
                     };
                 else if (purpose == PlanningCompactConstruction.SelectPurpose)
                 {

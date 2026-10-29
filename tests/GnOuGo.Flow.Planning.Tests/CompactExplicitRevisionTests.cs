@@ -8,10 +8,8 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class CompactExplicitRevisionTests
 {
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task ReindexingCannotDischargeAnUnchangedAuthorizedRepair(bool extractDisposition)
+    [Fact]
+    public async Task ReindexingCannotDischargeAnUnchangedAuthorizedRepair()
     {
         var (state, runtime) = await PendingRevision();
         var accepted = PlanningConstruction.Hash(state.Plan);
@@ -24,18 +22,12 @@ public sealed class CompactExplicitRevisionTests
         {
             Assert.Equal(PlanningCompactConstruction.IntentPurpose, purpose);
             var context = Context(request); var source = context["sources"]![0]!;
-            var response = request.StructuredOutputSchema!["properties"]?["clauses"] is not null
-                ? new JsonObject { ["sourceId"] = source["id"]!.DeepClone(), ["clauses"] = new JsonArray(new JsonObject
-                { ["text"] = source["text"]!.DeepClone(), ["kind"] = "global", ["interfaces"] = extractDisposition ? "output" : "none" }) }
-                : new JsonObject { ["sourceId"] = source["id"]!.DeepClone(), ["interfaces"] = new JsonObject
-                { ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray(), ["dispositions"] = new JsonArray(context["sources"]!.AsArray()
-                    .Select(item => (JsonNode)new JsonObject { ["sourceId"] = item!["id"]!.DeepClone(), ["version"] = item["version"]!.DeepClone(),
-                        ["kind"] = "no_public_interface", ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray(), ["reason"] = "Implementation revision, not a new caller output.",
-                        ["evidence"] = new JsonArray(new JsonObject { ["sourceId"] = item["id"]!.DeepClone(), ["version"] = item["version"]!.DeepClone() }) }).ToArray()) } };
+            var response = CurrentPlanningFixture.Intent(context);
+            response["clauses"]![0]!["kind"] = "global";
             return Wire(request, response);
         };
         for (var i = 0; i < 3 && (state.Construction!.Compact!.Sources.Any(source => !source.Indexed) ||
-            state.Construction.Compact.InterfaceExtractions!.Any(extraction => !extraction.Complete)); i++)
+            !PlanningCompactConstruction.IntentDeclarationsComplete(state.Construction.Compact)); i++)
             state = await BusinessReviewProtocolTests.Advance(BusinessReviewProtocolTests.Clone(state), runtime);
         Assert.Equal(accepted, state.Construction!.Candidate!.Hash);
         Assert.Contains(state.Construction.Candidate.Diagnostics, diagnostic => diagnostic.Code == "JUDGE_SCOPED_REVIEW" && diagnostic.Location == "/tasks/compute/outputs/result");

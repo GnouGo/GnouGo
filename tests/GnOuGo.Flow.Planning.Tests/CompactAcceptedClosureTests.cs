@@ -233,14 +233,13 @@ public sealed class CompactAcceptedClosureTests
         state.Construction.Requirements = outcomes.Select(outcome => new PlanningConstructionRequirement
             { Id = outcome.Id, Status = "closed", Checkpoints = [1] }).ToList();
         PlanningCompactConstruction.InitializeSources(state);
-        foreach (var source in state.Construction.Compact!.Sources) { source.Indexed = true; source.InterfaceKind = "none"; }
-        state.Construction.Compact.InterfaceExtractions = [];
+        foreach (var source in state.Construction.Compact!.Sources) { source.Indexed = true; source.Inputs = []; source.Outputs = []; }
         var page = Assert.Single(state.Construction.Compact.Sources);
         foreach (var (outcome, index) in outcomes.Select((outcome, index) => (outcome, index)))
         {
             var id = page.Id + ":clause:" + index;
             state.Construction.Compact.Sources.Add(new() { Id = id, Kind = "requirement", Text = outcome.Description,
-                Version = PlanningGraphCompiler.Fingerprint(outcome.Description), Indexed = true, InterfaceKind = "none" });
+                Version = PlanningGraphCompiler.Fingerprint(outcome.Description), Indexed = true, Inputs = [], Outputs = [] });
             state.Construction.Compact.RequirementSources[outcome.Id] = [id];
         }
         state.Construction.Checkpoints = [new() { Sequence = 1, BaseHash = PlanningConstruction.Hash(new TaskPlan()), PlanHash = PlanningConstruction.Hash(state.Plan),

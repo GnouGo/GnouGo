@@ -9,6 +9,13 @@ namespace GnOuGo.Planning.Examples;
 /// <summary>Explicit responses for a current-protocol literal workflow, using ordinary indexing, drafting and review.</summary>
 public static class CurrentPlanningFixture
 {
+    public static JsonObject Intent(JsonObject context, JsonArray? inputs = null, JsonArray? outputs = null) => new()
+    {
+        ["clauses"] = new JsonArray(new JsonObject { ["text"] = context["sources"]![0]!["text"]!.DeepClone(),
+            ["kind"] = "requirement", ["inputs"] = inputs?.DeepClone() ?? new JsonArray(),
+            ["outputs"] = outputs?.DeepClone() ?? new JsonArray() })
+    };
+
     public static async Task<PlanningSession> LiteralAsync(string tenantId, string? sessionId, PlanningPolicy? policy, CancellationToken ct)
         => await RunAsync(tenantId, sessionId, policy, interruptReview: false, ct);
 
@@ -51,7 +58,7 @@ public static class CurrentPlanningFixture
             var context = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!.AsObject();
             var purpose = schema["title"]!.ToString();
             if (interruptReview && purpose == "construction_global_judge") throw new IOException("Interrupted at the exact issued review request.");
-            if (!_asked && questions is not null && purpose == "construction_intent" && schema["properties"]?["interfaces"] is not null)
+            if (!_asked && questions is not null && purpose == "construction_intent")
             {
                 _asked = true;
                 var clarification = new JsonObject { ["sourceId"] = context["sources"]![0]!["id"]!.DeepClone(),
@@ -61,8 +68,7 @@ public static class CurrentPlanningFixture
             }
             var response = purpose switch
             {
-                "construction_intent" when schema["properties"]!["clauses"] is not null => Classify(context),
-                "construction_intent" => Interfaces(context),
+                "construction_intent" => Index(context),
                 "construction_select" => new JsonObject
                 {
                     ["baseHash"] = schema["properties"]!["baseHash"]!["enum"]![0]!.DeepClone(),
@@ -90,29 +96,14 @@ public static class CurrentPlanningFixture
                 Usage = new JsonObject { ["input_tokens"] = 10, ["output_tokens"] = 5 } });
         }
 
-        private static JsonObject Classify(JsonObject context)
+        private static JsonObject Index(JsonObject context)
         {
             var source = context["sources"]![0]!;
             var answer = source["id"]!.ToString().StartsWith("answer:", StringComparison.Ordinal);
-            return new() { ["sourceId"] = source["id"]!.DeepClone(), ["clauses"] = new JsonArray(new JsonObject
-                { ["text"] = source["text"]!.DeepClone(), ["kind"] = answer ? "global" : "requirement", ["interfaces"] = answer ? "none" : "output" }) };
+            return new() { ["clauses"] = new JsonArray(new JsonObject
+                { ["text"] = source["text"]!.DeepClone(), ["kind"] = answer ? "global" : "requirement",
+                  ["inputs"] = new JsonArray(), ["outputs"] = answer ? new JsonArray() :
+                    JsonSerializer.SerializeToNode(new List<TaskInput> { new() { Name = "result", Type = new() { Kind = "number" } } }, PlanningJsonContext.Default.ListTaskInput) }) };
         }
-
-        private static JsonObject Interfaces(JsonObject context) => new()
-        {
-            ["sourceId"] = context["sources"]![0]!["id"]!.DeepClone(),
-            ["interfaces"] = new JsonObject
-            {
-                ["inputs"] = new JsonArray(), ["outputs"] = JsonSerializer.SerializeToNode(new List<TaskInput>
-                    { new() { Name = "result", Type = new() { Kind = "number" } } }, PlanningJsonContext.Default.ListTaskInput),
-                ["dispositions"] = new JsonArray(context["sources"]!.AsArray().Select(source => (JsonNode)new JsonObject
-                {
-                    ["sourceId"] = source!["id"]!.DeepClone(), ["version"] = source["version"]!.DeepClone(), ["kind"] = "interfaces",
-                    ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray("result"),
-                    ["reason"] = "The exact original explicitly declares the required public numeric result.",
-                    ["evidence"] = new JsonArray(new JsonObject { ["sourceId"] = source["id"]!.DeepClone(), ["version"] = source["version"]!.DeepClone() })
-                }).ToArray())
-            }
-        };
     }
 }

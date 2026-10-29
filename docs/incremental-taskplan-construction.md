@@ -20,6 +20,20 @@ interfaces and original MCP contracts. Source indexing never replaces authoritat
 text. Resolve neighboring naming/type clauses before asking for missing business facts.
 Artifacts and file contents are not automatically public return values.
 
+Short requests are understood in one intent call: exact clauses and their typed
+caller/public declarations are validated together on a clone and committed atomically.
+There is no provisional classification queue or mandatory second extraction call.
+Each clause retains its declaration lists; empty lists mean no public interface,
+while its business obligation remains. The shared compiler checks types and defaults.
+
+Source boundaries follow measurement of the complete initial request, including its
+schema, envelope and prospective evidence directory. Keep a whole original when it
+fits the captured navigation presentation allowance; crossing the target alone does
+not cause another call. Large sources use natural boundaries and exact continuations.
+Short originals accompany subsequent decisions and relevant reviews once, without
+repeating their text in source metadata. Larger originals retain local projection,
+global constraints and exact retrieval. Capability filtering is independent.
+
 Select only the next business action, using accepted producers and exact available
 results. Reuse known authorized contracts and deterministic pagination/cache reads.
 Cached operation identities, original descriptions and exact links remain visible after

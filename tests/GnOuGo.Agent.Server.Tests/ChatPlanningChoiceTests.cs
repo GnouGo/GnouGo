@@ -259,11 +259,10 @@ public sealed class ChatPlanningChoiceTests
             if (!EarlyQuestion)
             {
                 var json = response.Json!.AsObject();
-                if (purpose == "construction_intent" && json["interfaces"] is JsonObject interfaces)
+                if (purpose == "construction_intent" && json["clauses"]?[0] is JsonObject interfaces)
                 {
                     interfaces["outputs"]!.AsArray().Add((JsonNode)JsonSerializer.SerializeToNode(new TaskInput
                         { Name = "presentation", Type = new() { Kind = "string" } }, PlanningJsonContext.Default.TaskInput)!);
-                    foreach (var disposition in interfaces["dispositions"]!.AsArray()) disposition!["outputs"]!.AsArray().Add((JsonNode)JsonValue.Create("presentation")!);
                 }
                 if (purpose == "construction_select")
                 {

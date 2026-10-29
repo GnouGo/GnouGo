@@ -14,7 +14,7 @@ public sealed class AgentPlanningPolicyTests
         Assert.Equal(11, state.SchemaVersion);
         Assert.NotNull(PlanningTransportPolicies.Read(state.Request));
         Assert.NotNull(PlanningConstructionPhasePolicies.Read(state.Request));
-        Assert.Equal(5, state.ModelCalls);
+        Assert.Equal(4, state.ModelCalls);
         Assert.Null(state.ApprovedHash);
         Assert.Single(state.Plan!.Root.Tasks);
         Assert.Equal(42, state.Plan.Root.Tasks[0].Outputs[0].Value.Number);

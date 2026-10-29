@@ -45,17 +45,17 @@ public sealed class CompactConstructionHostTests
             }
             finally { await service.StopAsync(Ct); }
         }
-        Assert.Equal(new[] { "construction_intent", "construction_intent", "construction_select", "construction_draft", "construction_global_judge" }, model.Requests.Select(request => request.StructuredOutputSchema!["title"]!.ToString()));
-        Assert.Equal(5, state.ModelCalls);
+        Assert.Equal(new[] { "construction_intent", "construction_select", "construction_draft", "construction_global_judge" }, model.Requests.Select(request => request.StructuredOutputSchema!["title"]!.ToString()));
+        Assert.Equal(4, state.ModelCalls);
         Assert.Equal(0, effects);
         Assert.Null(state.ApprovedHash); Assert.Null(state.SavedAgentId);
         Assert.True(state.Construction!.Complete);
-        Assert.True(Assert.Single(state.Construction.Compact!.InterfaceExtractions!).Complete);
+        Assert.True(state.Construction.Compact!.Sources.All(source => source.Indexed));
         Assert.Equal("closed", Assert.Single(state.Construction.Requirements).Status);
         Assert.Single(state.Construction.Checkpoints);
         Assert.Null(state.Construction.Candidate);
         PlanningArtifactApproval.Verify(state);
-        Assert.Equal(5, state.RequestMeasurements!.Count);
+        Assert.Equal(4, state.RequestMeasurements!.Count);
         Assert.All(state.RequestMeasurements, m =>
         {
             Assert.True(m.EstimatedInputTokens <= m.InputLimit);
@@ -68,14 +68,14 @@ public sealed class CompactConstructionHostTests
         Assert.Equal(state.ComputeArtifactHash(), stored.ComputeArtifactHash());
         Assert.Null(await fixture.Store.LoadAsync("another-tenant", state.Request.SessionId, Ct));
         var receipts = await fixture.Records.ListAsync(PlanningModelJournal.Collection, "planning-tests", EfPlanningSessionStore.Author, Ct);
-        Assert.Equal(5, receipts.Count);
+        Assert.Equal(4, receipts.Count);
         using var reopened = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), catalog, model);
         await reopened.StartAsync(Ct);
         try
         {
             var recovered = (await reopened.GetAsync(state.Request.SessionId, Ct))!;
             Assert.Equal(state.Revision, recovered.Revision);
-            Assert.Equal(5, model.Requests.Count);
+            Assert.Equal(4, model.Requests.Count);
             Assert.Equal(0, effects);
             Assert.Equal(state.ComputeArtifactHash(), recovered.ComputeArtifactHash());
             foreach (var receipt in receipts)

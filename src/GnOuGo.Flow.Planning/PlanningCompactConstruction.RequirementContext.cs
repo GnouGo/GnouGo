@@ -1,3 +1,4 @@
+using GnOuGo.Flow.Core.Runtime;
 using System.Globalization;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
@@ -15,6 +16,18 @@ internal static partial class PlanningCompactConstruction
         var compact = State(state);
         var step = compact.CurrentStep;
         var candidate = construction.Candidate;
+        // A single complete source is cheaper and safer than deriving applicability
+        // between small clauses. Its original restrictions accompany every decision.
+        var originals = compact.Sources.Where(source => source.Kind is "page" or "answer_page" or "revision_page").ToArray();
+        if (originals.Length == 1 && originals[0].Indexed &&
+            state.Requirements!.Outcomes.All(requirement => compact.RequirementSources.ContainsKey(requirement.Id)) &&
+            string.Concat(compact.Sources.Where(source => source.Kind is "requirement" or "global").Select(source => source.Text)) == originals[0].Text)
+        {
+            var original = IntentRequest(state, originals[0]);
+            if (ModelRequestAdmission.EstimateTokens(PlanningModelCalls.PrepareRequest(state, IntentPurpose,
+                original.Prompt, original.StructuredOutputSchema!.AsObject())) <= PlanningConstructionInputPolicy.EffectiveLimit(state.Request, IntentPurpose))
+                return state.Requirements.Outcomes.Select(requirement => requirement.Id).ToHashSet(StringComparer.Ordinal);
+        }
         var requirements = (step?.RequirementIds.AsEnumerable() ?? SelectionRequirementIds(state))
             .Concat(step?.CloseRequirementIds ?? []).Concat(EvidenceRequirementIds(state))
             .Concat(candidate?.Extension.RequirementIds ?? []).ToHashSet(StringComparer.Ordinal);
@@ -109,16 +122,9 @@ internal static partial class PlanningCompactConstruction
             foreach (var source in compact.Sources.Where(source => source.Kind is "requirement" or "global" && source.ContinuationOf is not null))
                 if (sources.Contains(source.Id) || sources.Contains(source.ContinuationOf!))
                 { sources.Add(source.Id); sources.Add(source.ContinuationOf!); }
-            foreach (var disposition in (compact.InterfaceExtractions ?? []).Where(extraction => extraction.Complete)
-                .SelectMany(extraction => extraction.Dispositions ?? []))
-            {
-                if (!compact.Sources.Any(source => source.Id == disposition.SourceId && source.Version == disposition.Version) ||
-                    !sources.Contains(disposition.SourceId) && !disposition.Inputs.Any(inputNames.Contains) &&
-                    !disposition.Outputs.Any(outputNames.Contains) && !disposition.Evidence.Keys.Any(sources.Contains)) continue;
-                sources.Add(disposition.SourceId);
-                foreach (var (id, version) in disposition.Evidence)
-                    if (compact.Sources.Any(source => source.Id == id && source.Version == version)) sources.Add(id);
-            }
+            foreach (var source in compact.Sources.Where(source => source.Indexed))
+                if ((source.Inputs ?? []).Any(input => inputNames.Contains(input.Name)) ||
+                    (source.Outputs ?? []).Any(output => outputNames.Contains(output.Name))) sources.Add(source.Id);
             foreach (var (id, originalSources) in compact.RequirementSources)
                 if (originalSources.Any(sources.Contains)) requirements.Add(id);
             changed = before != sources.Count + requirements.Count;

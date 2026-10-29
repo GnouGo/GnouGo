@@ -460,26 +460,11 @@ public sealed class GenericProofBenchmarkTests
                 var context = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!.AsObject();
                 var purpose = schema["title"]!.ToString();
                 JsonObject response;
-                if (purpose == "construction_intent" && schema["properties"]!["clauses"] is not null)
-                    response = new() { ["sourceId"] = context["sources"]![0]!["id"]!.DeepClone(), ["clauses"] = new JsonArray(new JsonObject
-                        { ["text"] = context["sources"]![0]!["text"]!.DeepClone(), ["kind"] = "requirement", ["interfaces"] = "both" }) };
-                else if (purpose == "construction_intent")
-                {
-                    var outputs = new List<TaskInput> { new() { Name = "leftResult", Type = new() { Kind = "number" } },
-                        new() { Name = "rightResult", Type = new() { Kind = "number" } } };
-                    response = new() { ["sourceId"] = context["sources"]![0]!["id"]!.DeepClone(), ["interfaces"] = new JsonObject
-                    {
-                        ["inputs"] = JsonSerializer.SerializeToNode(plan.Inputs, PlanningJsonContext.Default.ListTaskInput),
-                        ["outputs"] = JsonSerializer.SerializeToNode(outputs, PlanningJsonContext.Default.ListTaskInput),
-                        ["dispositions"] = new JsonArray(context["sources"]!.AsArray().Select(item => (JsonNode)new JsonObject
-                        {
-                            ["sourceId"] = item!["id"]!.DeepClone(), ["version"] = item["version"]!.DeepClone(), ["kind"] = "interfaces",
-                            ["inputs"] = new JsonArray("left", "right"), ["outputs"] = new JsonArray("leftResult", "rightResult"),
-                            ["reason"] = "The original declares required numeric caller inputs and numeric public results; seed.txt is an internal audit observation.",
-                            ["evidence"] = new JsonArray(new JsonObject { ["sourceId"] = item["id"]!.DeepClone(), ["version"] = item["version"]!.DeepClone() })
-                        }).ToArray())
-                    } };
-                }
+                if (purpose == "construction_intent")
+                    response = CurrentPlanningFixture.Intent(context,
+                        JsonSerializer.SerializeToNode(plan.Inputs, PlanningJsonContext.Default.ListTaskInput)!.AsArray(),
+                        JsonSerializer.SerializeToNode(new List<TaskInput> { new() { Name = "leftResult", Type = new() { Kind = "number" } },
+                            new() { Name = "rightResult", Type = new() { Kind = "number" } } }, PlanningJsonContext.Default.ListTaskInput)!.AsArray());
                 else if (purpose == "construction_select")
                     response = new() { ["baseHash"] = schema["properties"]!["baseHash"]!["enum"]![0]!.DeepClone(), ["step"] = new JsonObject
                     {

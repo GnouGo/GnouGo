@@ -7,21 +7,6 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed partial class CompactReviewedTransitionTests
 {
-    private static JsonObject ResolveNumber(JsonObject context) => new()
-    {
-        ["sourceId"] = context["sources"]![0]!["id"]!.DeepClone(), ["interfaces"] = new JsonObject
-        {
-            ["inputs"] = new JsonArray(), ["outputs"] = PlanningConstruction.Node(new List<TaskInput>
-                { new() { Name = "number", Required = true, Type = new() { Kind = "number" } } }, PlanningJsonContext.Default.ListTaskInput),
-            ["dispositions"] = new JsonArray(context["sources"]!.AsArray().Select(source => (JsonNode)new JsonObject
-            {
-                ["sourceId"] = source!["id"]!.DeepClone(), ["version"] = source["version"]!.DeepClone(), ["kind"] = "interfaces",
-                ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray("number"), ["reason"] = "The original explicitly declares the public numeric result.",
-                ["evidence"] = new JsonArray(new JsonObject { ["sourceId"] = source["id"]!.DeepClone(), ["version"] = source["version"]!.DeepClone() })
-            }).ToArray())
-        }, ["evidenceRequests"] = null, ["clarifications"] = null
-    };
-
     private static JsonObject Selection(LLMRequest request, string scope, string kind, bool close, bool export)
     {
         var response = new JsonObject

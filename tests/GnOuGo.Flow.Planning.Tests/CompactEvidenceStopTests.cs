@@ -18,10 +18,9 @@ public sealed class CompactEvidenceStopTests
             var source = Context(request)["sources"]![0]!;
             return Wire(request, new()
             {
-                ["sourceId"] = source["id"]!.DeepClone(),
-                ["clauses"] = new JsonArray(new JsonObject
+                ["evidenceRequests"] = null, ["clarifications"] = null, ["clauses"] = new JsonArray(new JsonObject
                 {
-                    ["text"] = source["text"]!.DeepClone(), ["kind"] = "requirement", ["interfaces"] = "none"
+                    ["text"] = source["text"]!.DeepClone(), ["kind"] = "requirement", ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray()
                 })
             });
         } };
