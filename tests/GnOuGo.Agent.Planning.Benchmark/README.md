@@ -169,6 +169,13 @@ continuation; it releases no reservations and invents no response or provider
 termination. Administrative retention delegation does not authorize active-effect
 cancellation or execution. The existing unstarted-request mode also permits a zero-attempt call-admission stop only when the captured physical-call limit, exact mandatory-review headroom and unchanged session accounting independently prove that another reservation cannot fit. No receipt is created and every earlier failed-attempt reservation remains intact. Advisory mode must match the session, policy and journal.
 
+Captured-policy retention also admits a fully received terminal HTTP 400 request
+rejection when the retained error-only body and normalized `InvalidRequest`,
+nonretryable, non-exhausted failure agree. Every earlier attempt must be an eligible
+recorded transient error. Success, usage, conflicting status or uncertain prior
+attempts reject inspection. This administrative closure never retries the request
+or releases its conservative reservation.
+
 ```sh
 dotnet run --project tests/GnOuGo.Agent.Planning.Benchmark -- \
   --schema-portability retain-uncertain-request --workspace <workspace> \

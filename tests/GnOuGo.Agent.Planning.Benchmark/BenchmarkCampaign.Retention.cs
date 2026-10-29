@@ -307,6 +307,12 @@ internal sealed partial class BenchmarkCampaign
             if (attempt["Status"] is null)
                 return i == attempts.Count - 1 && attempt["Body"] is null && attempt["Failure"]?.ToString() is "timeout" or "transport" &&
                     failure["status_code"] is null && failure["kind"]?.ToString() is "Timeout" or "Transport";
+            // A fully received nonretryable request rejection also exhausts the
+            // captured policy. Retention preserves its unknown exposure; it never retries it.
+            if (attempt["Status"]!.GetValue<int>() == 400)
+                return i == attempts.Count - 1 && attempt["Failure"] is null && IsRetainedErrorOnlyBody(attempt["Body"]?.ToString()) &&
+                    failure["status_code"]?.GetValue<int>() == 400 && failure["kind"]?.ToString() == "InvalidRequest" &&
+                    failure["retryable"]?.GetValue<bool>() == false && failure["retry_exhausted"]?.GetValue<bool>() == false;
             if (attempt["Status"]!.GetValue<int>() is not (429 or 500 or 502 or 503 or 504) ||
                 attempt["Failure"] is not null || !IsRetainedErrorOnlyBody(attempt["Body"]?.ToString())) return false;
         }

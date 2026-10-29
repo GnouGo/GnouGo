@@ -249,6 +249,72 @@ public sealed partial class BenchmarkPermanentRetentionTests
     }
 
     [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task CapturedNonretryableRequestRejectionRetainsAllAttemptsWithoutReceipt(int count)
+    {
+        var records = new Records(); var campaign = await SeedInvalidRequestAsync(records, count);
+        var before = records.Snapshot(excludeClosures: true);
+        var accounting = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
+        var proposal = await campaign.InspectPermanentRetentionAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, Ct,
+            BenchmarkCampaign.ExhaustedPlanningRetriesRetention);
+        await campaign.ApplyPermanentRetentionAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId,
+            proposal["evidence_hash"]!.ToString(), Operator, Authorization, Ct, BenchmarkCampaign.ExhaustedPlanningRetriesRetention);
+        var restarted = new BenchmarkCampaign(records, "retention");
+        await restarted.ApplyPermanentRetentionAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId,
+            proposal["evidence_hash"]!.ToString(), Operator, Authorization, Ct, BenchmarkCampaign.ExhaustedPlanningRetriesRetention);
+        Assert.Equal(count, accounting["unknown_attempts"]!.GetValue<long>());
+        Assert.Equal((decimal)count, accounting["reserved_cost_eur"]!.GetValue<decimal>());
+        Assert.Equal(before, records.Snapshot(excludeClosures: true));
+        Assert.True(JsonNode.DeepEquals(accounting, await BenchmarkHttpJournal.AccountingAsync(restarted, ct: Ct)));
+        Assert.Null(await campaign.LoadAsync("planning-evaluation-receipts", RequestId, Ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.RequireRunNotRetainedAsync(Session, Ct));
+    }
+
+    [Theory]
+    [InlineData("retryable")]
+    [InlineData("failure_kind")]
+    [InlineData("status")]
+    [InlineData("body")]
+    [InlineData("usage")]
+    [InlineData("prior_success")]
+    public async Task NonretryableRetentionRejectsInconsistentErrorEvidence(string defect)
+    {
+        var records = new Records(); var campaign = await SeedInvalidRequestAsync(records, 2);
+        var journal = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct))!;
+        var failure = (await campaign.LoadAsync("planning-evaluation-failures", RequestId, Ct))!;
+        switch (defect)
+        {
+            case "retryable": failure["retryable"] = true; break;
+            case "failure_kind": failure["kind"] = "Transport"; break;
+            case "status": failure["status_code"] = 500; break;
+            case "body": journal["transport"]!["Attempts"]![1]!["Body"] = "{\"choices\":[]}"; break;
+            case "usage": journal["usage"] = new JsonObject(); break;
+            case "prior_success": journal["transport"]!["Attempts"]![0]!["Status"] = 200; break;
+        }
+        await campaign.SaveAsync(BenchmarkHttpJournal.Collection, RequestId, journal, Ct);
+        await campaign.SaveAsync("planning-evaluation-failures", RequestId, failure, Ct);
+        var before = records.Snapshot();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.InspectPermanentRetentionAsync(
+            SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, Ct, BenchmarkCampaign.ExhaustedPlanningRetriesRetention));
+        Assert.Equal(before, records.Snapshot());
+    }
+
+    private static async Task<BenchmarkCampaign> SeedInvalidRequestAsync(Records records, int count)
+    {
+        var campaign = await SeedCapturedRetriesAsync(records, count, false);
+        var journal = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct))!;
+        foreach (var attempt in journal["transport"]!["Attempts"]!.AsArray()) attempt!["Status"] = 500;
+        journal["transport"]!["Attempts"]![count - 1]!["Status"] = 400;
+        journal["transport"]!["Attempts"]![count - 1]!["Body"] = "{\"error\":{\"message\":\"Invalid response schema.\",\"type\":\"invalid_request_error\",\"param\":\"response_format\",\"code\":null}}";
+        await campaign.SaveAsync(BenchmarkHttpJournal.Collection, RequestId, journal, Ct);
+        var failure = (await campaign.LoadAsync("planning-evaluation-failures", RequestId, Ct))!;
+        failure["kind"] = "InvalidRequest"; failure["retryable"] = false; failure["retry_exhausted"] = false; failure["status_code"] = 400;
+        await campaign.SaveAsync("planning-evaluation-failures", RequestId, failure, Ct);
+        return campaign;
+    }
+
+    [Theory]
     [InlineData("prior_success")]
     [InlineData("prior_unknown")]
     [InlineData("duplicate_identity")]
