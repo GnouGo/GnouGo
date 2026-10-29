@@ -29,6 +29,9 @@ internal static class PlanningBusinessProjection
         var fragment = selected.ToArray();
         var groups = new HashSet<string>(StringComparer.Ordinal);
         var pending = new Queue<string>(selected);
+        var openScopes = candidate.OpenScopes.ToHashSet(StringComparer.Ordinal);
+        var closedChildren = symbols.Scopes.Where(scope => scope.Owner is not null && !openScopes.Contains(scope.Path))
+            .ToLookup(scope => scope.Owner!.Id, StringComparer.Ordinal);
         var exportScopes = symbols.Scopes.Where(scope => global || scope.Path == candidate.Extension.Scope ||
             candidate.Extension.CloseScopes.Contains(scope.Path, StringComparer.Ordinal)).ToArray();
         var claimedValues = (candidate.Extension.BoundaryTransitions ?? []).SelectMany(transition => transition.Outputs)
@@ -41,6 +44,14 @@ internal static class PlanningBusinessProjection
         while (pending.TryDequeue(out var id))
         {
             if (!symbols.Tasks.TryGetValue(id, out var entry)) continue;
+            // A consumed closed control is behavior, not only an output type.
+            // Prior review does not make its executable children disappear.
+            foreach (var scope in closedChildren[id])
+            {
+                foreach (var child in TaskPlanRevisions.Tasks(scope.Source)) Include(child.Id);
+                foreach (var value in scope.Source.Outputs.SelectMany(output => TaskPlanCompiler.Values(output.Value)))
+                    if (value.Kind is "output" or "present" && value.Source is { } producer) Include(producer);
+            }
             foreach (var dependency in entry.Task.DependsOn.Concat(TaskPlanCompiler.Values(entry.Task)
                 .Where(value => value.Kind is "output" or "present").Select(value => value.Source).OfType<string>()))
                 Include(dependency);
@@ -97,7 +108,7 @@ internal static class PlanningBusinessProjection
                 scope.Path.StartsWith("/groups/", StringComparison.Ordinal) && groups.Any(group => scope.Path == "/groups/" + group + "/body"))
             .Select(scope => (JsonNode)new JsonObject
             {
-                ["id"] = scope.Path, ["open"] = candidate.OpenScopes.Contains(scope.Path, StringComparer.Ordinal), ["evidence"] = "scope:" + scope.Path,
+                ["id"] = scope.Path, ["open"] = openScopes.Contains(scope.Path), ["evidence"] = "scope:" + scope.Path,
                 ["tasks"] = Strings(scope.Source.Tasks.Select(task => task.Id).Where(selected.Contains)),
                 ["cleanup"] = Strings(scope.Source.Always.Select(task => task.Id).Where(selected.Contains)),
                 ["outputs"] = Outputs(scope.Source.Outputs)

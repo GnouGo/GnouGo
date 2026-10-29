@@ -109,6 +109,10 @@ applicable originals, actual operations and effective arguments, expressions, me
 producer provenance, consumed ports, controls, ordering, groups/calls, outputs and cleanup.
 Operation labels are intentions, not behavior. Transform interpretation instructions
 are executable and remain visible.
+A consumed closed control includes its actual owned child actions, reusable calls,
+exports and cleanup, even when their checkpoint was reviewed earlier. Omitting those
+actions must not manufacture a missing-behavior finding. Unrelated open work stays
+behind navigation.
 
 A public-interface completion claim includes the actual declarations even without an
 executable consumer, including wrong or extra names and relevant nested types, defaults,

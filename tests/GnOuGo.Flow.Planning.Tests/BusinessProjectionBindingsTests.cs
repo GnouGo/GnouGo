@@ -32,6 +32,47 @@ public sealed class BusinessProjectionBindingsTests
         Assert.Equal(global, Assert.Single(complete["globalConstraints"]!.AsArray())!["text"]!.ToString());
     }
 
+    [Fact]
+    public async Task ConsumingClosedControlRetainsReviewedNestedCallsExportsAndCleanup()
+    {
+        var (state, _) = await BusinessReviewProtocolTests.Ready();
+        var inputs = Assert.IsType<List<TaskInput>>(state.Requirements!.Inputs);
+        state.Plan = new() { Inputs = inputs.ToList(), Groups = [new()
+        {
+            Id = "shared", Inputs = [new() { Name = "argument", Type = new() { Kind = "number" } }],
+            Body = new() { Tasks = [new() { Id = "group_value", Kind = "value", Objective = "Compute the supplied value.",
+                Outputs = [new("result", new() { Kind = "arithmetic", Text = "multiply", Items = [new() { Kind = "input", Source = "argument" }, new() { Kind = "number", Number = 2 }] })] }],
+                Outputs = [new("result", Output("group_value", "result"))] }
+        }], Root = new() { Tasks = [
+            new() { Id = "loop", Kind = "foreach", Objective = "Evaluate the collection.", Parallel = true,
+                Items = new() { Kind = "array", Items = [new() { Kind = "input", Source = "x" }] },
+                Body = new() { Tasks = [new() { Id = "nested", Kind = "sequence", Objective = "Own the reusable call.", Body = new()
+                {
+                    Tasks = [new() { Id = "invoke", Kind = "call", Group = "shared", Objective = "Invoke the reusable computation.", Inputs = [new("argument", new() { Kind = "item" })] }],
+                    Outputs = [new("result", Output("invoke", "result"))],
+                    Always = [new() { Id = "cleanup", Kind = "value", Objective = "Record local finalization.", Outputs = [new("value", new() { Kind = "boolean", Boolean = true })] }]
+                } }], Outputs = [new("result", Output("nested", "result"))] } },
+            new() { Id = "unrelated", Kind = "sequence", Objective = "Future independent work.", Body = new() { Tasks = [new()
+                { Id = "future", Kind = "value", Objective = "Keep unrelated work outside this review.", Outputs = [new("value", new() { Kind = "number", Number = 9 })] }] } }] } };
+        state.Construction!.OpenScopes = ["/root", "/tasks/unrelated/body"];
+        state.Construction.Checkpoints.Add(new() { Sequence = 1, TaskIds = ["invoke"], RequirementIds = ["work"],
+            Fragment = new() { ["businessReviewPending"] = false } });
+        state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["work"],
+            Outputs = [new("result", Output("loop", "result"))] });
+        var candidate = state.Construction.Candidate;
+        Assert.Empty(TaskPlanCompiler.ValidateConstruction(candidate.Plan, state.Catalog!, state.Request,
+            candidate.OpenScopes.ToHashSet(StringComparer.Ordinal)).Diagnostics);
+        var projection = PlanningBusinessProjection.Build(state, global: false);
+        Assert.Equal(new[] { "loop", "nested", "invoke", "cleanup", "group_value" }, projection["actions"]!.AsArray().Select(action => action!["id"]!.ToString()));
+        var call = Assert.Single(projection["actions"]!.AsArray(), action => action!["id"]!.ToString() == "invoke")!;
+        Assert.Equal("item", call["arguments"]![0]!["value"]!["kind"]!.ToString());
+        Assert.Equal("shared", call["group"]!.ToString());
+        var body = Assert.Single(projection["scopes"]!.AsArray(), scope => scope!["id"]!.ToString() == "/tasks/nested/body")!;
+        Assert.Equal("invoke", Assert.Single(body["tasks"]!.AsArray())!.ToString());
+        Assert.Equal("cleanup", Assert.Single(body["cleanup"]!.AsArray())!.ToString());
+        Assert.DoesNotContain(projection["actions"]!.AsArray(), action => action!["id"]!.ToString() is "unrelated" or "future");
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

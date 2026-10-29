@@ -23,6 +23,8 @@ technical checkpoints with business review pending. Empty controls and uncalled 
 definitions do not create a business block. These checkpoints grant no reviewed
 continuation or boundary authority; the final global review still covers every obligation.
 Their completion claims also leave requirements in progress and visible to selection.
+A consumed closed control retains its actual child actions, calls, exports and cleanup
+in the review projection, including previously reviewed producers.
 Only a matching successful review commits business closure. Existing checkpoint claims
 can prepare final review; they cannot replace it. The host reissues the exact claim IDs
 at that boundary, preserving one global review for a small completed workflow. An exact
