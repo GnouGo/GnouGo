@@ -2146,3 +2146,55 @@ and 768 added / 1,865 removed test lines. The total diff grows by 852 lines beca
 immutable evidence is retained. There is no claim of an overall PR net reduction.
 Fresh Review PR uses the corrected source and unchanged profile; complete current-source
 runtime qualification remains outstanding.
+
+### `68dba9af`: Review PR transport stop before the first draft
+
+The [fresh Review PR diagnostic](compact-taskplan-68dba9af-review-pr-retained-uncertainty.json)
+receives 13 completions: one complete intent response, one selection and eleven
+discovery responses. The first draft request, number 14, stops without an HTTP
+outcome or completion receipt. There is no accepted executable plan, artifact or
+runtime result. Known cost is €1.26691817120273062067726576 and the full
+€0.5481182071319500583849815863 unknown reservation remains retained. All fourteen
+issued-request byte measurements reconcile with their components; their maximum
+is 36,305 bytes. This incomplete trajectory does not establish efficiency savings.
+
+Exact delegated retention binds evidence `5368712c…8d06c`, preserves the six
+original records and timestamps, and remains identical on repeated application.
+A fresh read-only process verifies rejection of both run continuation and the exact
+issued request before preflight or dispatch. No reservation, receipt or provider
+termination is inferred. The new Collections diagnostic remains active on the same
+production source and unchanged retained profile.
+
+### `68dba9af`: Collections executes both variants; complete solution passes
+
+The [Collections run](compact-taskplan-68dba9af-collections-runtime.json) completes
+with **20 logical/physical calls, two Judges and one automatic selection correction**.
+An invalid projection of the array input is replaced with the actual input reference;
+this is not presented as repair of an earlier business defect. Both real runtime
+variants pass the unchanged independent oracle, including ordered duplicates and
+negative values, with no external effects or runtime inference. Concrete artifact
+review and artifact-bound `delegated_test` approval precede execution. Runtime takes
+322.101 / 2.3146 milliseconds; planning takes 1,118.396 seconds and costs
+€1.65461690469774544148028384, with no unknown usage in this run.
+
+Complete Judge requests are **7,449 / 8,582 bytes**, and all twenty request/component
+measurements reconcile. One original-intent call replaces classification/extraction;
+four evidence-only responses are included in the twenty-call total. All retained
+Collections efficiency indicators pass. The older 26-call/eight-Judge reference has
+different captured profiles, so these numbers do not establish architecture-only
+causality. The existing pass-through value task remains visible rather than being
+declared an independently proved redundant effect.
+
+The [complete solution validation](compact-taskplan-68dba9af-full-validation.json)
+passes **7,153 tests, zero failures and 12 retained skips** across 33 assemblies,
+with no compiler diagnostics and unchanged source. Five independent package builds,
+Native AOT publish/run, and published encrypted-storage checks also pass. Focused
+tests are included in those totals, not added again.
+
+This is one successful current-source Collections diagnostic. Two consecutive
+successes per scenario have not been demonstrated. Before the next independent
+Amazon launch, exact inspection finds **€168.94299694955349917435584873 available**,
+52 permanent closures and no unresolved request; unknown reservations remain
+€116.14307098032425389166711158. These figures precede that new active run.
+No supplement is reapplied. Amazon uses the same `68dba9af` production source,
+captured profile, model, binaries, inputs, permissions and oracles with a fresh identity.
