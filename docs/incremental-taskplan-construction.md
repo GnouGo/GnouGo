@@ -62,6 +62,10 @@ arguments and required contract closures. Prior checkpoint rows can therefore us
 existing exact evidence links; selection and discovery retain their progression facts.
 Byte-identical fields of the same exact contract may share an earlier displayed view.
 The original contract, its coordinates and differing schema branches remain intact.
+Accepted scope-export evidence can be read through its exact link before selecting
+that scope. It validates at the requested scope’s own frontier and grants no import
+or result visibility. Tentative candidate pages retain their selected-scope and
+clean-closure guards.
 
 Selection, discovery, drafting and correction compact optional navigation toward their
 captured targets. A selected operation and a producer sharing the same exact contract share

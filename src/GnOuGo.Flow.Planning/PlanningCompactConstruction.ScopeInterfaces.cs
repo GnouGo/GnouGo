@@ -6,19 +6,19 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningCompactConstruction
 {
-    // This is evidence inside the selected scope, never an externally consumable container result.
-    internal static JsonObject? ScopeInterface(PlanningSession state, bool candidate, int offset = 0, bool navigationOnly = false, TaskConstructionValidation? verified = null)
+    // Exports are evidence at their own frontier, never consumable results or imports.
+    internal static JsonObject? ScopeInterface(PlanningSession state, bool candidate, int offset = 0, bool navigationOnly = false, TaskConstructionValidation? verified = null, string? scopePath = null)
     {
         var construction = state.Construction!;
-        var step = State(state).CurrentStep;
+        var path = scopePath ?? State(state).CurrentStep?.Scope;
         var plan = candidate ? construction.Candidate?.Plan : state.Plan;
-        if (step is null || plan is null) return null;
+        if (path is null || plan is null || candidate && State(state).CurrentStep?.Scope != path) return null;
         var open = candidate ? construction.Candidate!.OpenScopes : construction.OpenScopes;
-        var scope = new TaskPlanSymbols(plan).Scopes.SingleOrDefault(s => s.Path == step.Scope);
+        var scope = new TaskPlanSymbols(plan).Scopes.SingleOrDefault(s => s.Path == path);
         if (scope is null || offset < 0 || offset > 0 && offset >= scope.Source.Outputs.Count) return null;
         if (!candidate && scope.Source.Outputs.Count == 0) return null;
         var outputs = scope.Source.Outputs.Skip(offset).Take(8).ToArray();
-        var frontier = step.Scope + "/always"; // Scope outputs are resolved after its cleanup frontier.
+        var frontier = path + "/always"; // Scope outputs are resolved after its cleanup frontier.
         var validation = verified;
         if (validation is null)
         {
@@ -29,12 +29,12 @@ internal static partial class PlanningCompactConstruction
                     { [frontier] = outputs.Select(o => o.Value).ToArray() });
         }
         if (!validation.Interfaces.TryGetValue(frontier, out var ports) || ports.Count != outputs.Length)
-            PlanningConstruction.Fail("CONSTRUCTION_SCOPE_INTERFACE_INVALID", step.Scope, "The selected scope's exact export interfaces must validate before presentation.");
-        var version = ScopeInterfaceVersion(plan, open, step.Scope);
+            PlanningConstruction.Fail("CONSTRUCTION_SCOPE_INTERFACE_INVALID", path, "The requested scope's exact export interfaces must validate before presentation.");
+        var version = ScopeInterfaceVersion(plan, open, path);
         var view = new JsonObject
         {
-            ["scope"] = step.Scope, ["basis"] = candidate ? "tentative_candidate" : "accepted_declarations",
-            ["open"] = open.Contains(step.Scope, StringComparer.Ordinal), ["consumable"] = false,
+            ["scope"] = path, ["basis"] = candidate ? "tentative_candidate" : "accepted_declarations",
+            ["open"] = open.Contains(path, StringComparer.Ordinal), ["consumable"] = false,
             ["version"] = version, ["offset"] = offset, ["outputCount"] = scope.Source.Outputs.Count,
             ["outputs"] = new JsonArray(outputs.Zip(ports!).Select(pair =>
             {
@@ -46,14 +46,14 @@ internal static partial class PlanningCompactConstruction
                 if (!navigationOnly) output["schema"] = pair.Second.Schema.DeepClone();
                 return (JsonNode)output;
             }).ToArray()),
-            ["next"] = offset + 8 < scope.Source.Outputs.Count ? ScopeInterfaceAddress(step.Scope, candidate, version, offset + 8) : null
+            ["next"] = offset + 8 < scope.Source.Outputs.Count ? ScopeInterfaceAddress(path, candidate, version, offset + 8) : null
         };
         if (navigationOnly)
         {
             // These accepted declarations are unchanged by this fragment. Its
             // actual typed operands remain in interfaces; the original export
             // types remain available through the existing exact evidence page.
-            view["evidence"] = ScopeInterfaceAddress(step.Scope, candidate, version, offset);
+            view["evidence"] = ScopeInterfaceAddress(path, candidate, version, offset);
         }
         return view;
     }
@@ -122,17 +122,17 @@ internal static partial class PlanningCompactConstruction
         var separator = identity.LastIndexOf('@');
         if (separator <= 0) return true;
         var encoded = identity[..separator]; var scope = Uri.UnescapeDataString(encoded);
-        if (Uri.EscapeDataString(scope) != encoded || State(state).CurrentStep?.Scope != scope) return true;
+        if (Uri.EscapeDataString(scope) != encoded) return true;
         var candidate = pieces[1] == "candidate";
         var construction = state.Construction!;
-        if (candidate && (construction.Candidate is not { Diagnostics.Count: 0 } draft ||
+        if (candidate && (State(state).CurrentStep?.Scope != scope || construction.Candidate is not { Diagnostics.Count: 0 } draft ||
             !draft.Extension.CloseScopes.Contains(scope, StringComparer.Ordinal))) return true;
         var plan = candidate ? construction.Candidate?.Plan : state.Plan;
         if (plan is null) return true;
         var open = candidate ? construction.Candidate!.OpenScopes : construction.OpenScopes;
         var version = ScopeInterfaceVersion(plan, open, scope);
         if (address != ScopeInterfaceAddress(scope, candidate, version, offset)) return true;
-        value = ScopeInterface(state, candidate, offset);
+        value = ScopeInterface(state, candidate, offset, scopePath: scope);
         return true;
     }
 }

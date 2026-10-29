@@ -244,6 +244,95 @@ public sealed class CompactScopeInterfaceTests
         if (kind == "foreach") { Assert.Equal(2, resumed.Plan!.Root.Tasks[0].MaxItems); Assert.Equal(1, resumed.Plan.Root.Tasks[0].MaxConcurrency); }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task OfferedAcceptedGroupExportLoadsAcrossSelectionBoundariesWithoutGrantingBindings(bool selectedElsewhere)
+    {
+        var state = await ReusableGroup();
+        var construction = state.Construction!;
+        construction.OpenScopes = ["/root"];
+        construction.Compact!.CurrentStep = selectedElsewhere ? new()
+        {
+            Id = "root-work", Scope = "/root", Kind = "value", RequirementIds = ["req_0"],
+            Objective = "Continue independent caller work.", BaseHash = PlanningConstruction.Hash(state.Plan), DiscoveryComplete = true
+        } : null;
+        const string groupScope = "/groups/reusable/body";
+        var context = PlanningCompactConstruction.SelectionContext(state);
+        var exports = context["requirements"]!.AsArray().SelectMany(requirement =>
+            (requirement!["acceptedProgress"]?["items"] as JsonArray ?? []).OfType<JsonObject>())
+            .SelectMany(checkpoint => (checkpoint["outputs"] as JsonArray ?? []).OfType<JsonObject>()).ToArray();
+        var offered = Assert.Single(exports, export => export["scope"]?.ToString() == groupScope && export["name"]?.ToString() == "message");
+        var address = offered["evidence"]!.ToString();
+        var acceptedPlan = JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan);
+        var selected = JsonSerializer.Serialize(construction.Compact.CurrentStep, PlanningJsonContext.Default.PlanningConstructionStep);
+        var calls = state.ModelCalls;
+
+        PlanningConstruction.LoadEvidence(state, [address]);
+
+        var view = construction.Evidence![address]!;
+        Assert.Equal(groupScope, view["scope"]!.ToString());
+        Assert.Equal("accepted_declarations", view["basis"]!.ToString());
+        Assert.False(view["consumable"]!.GetValue<bool>());
+        Assert.Equal("message", Assert.Single(view["outputs"]!.AsArray())!["name"]!.ToString());
+        Assert.Equal("string", view["outputs"]![0]!["schema"]!["type"]!.ToString());
+        Assert.Null(view["tasks"]);
+        Assert.Equal(selected, JsonSerializer.Serialize(construction.Compact.CurrentStep, PlanningJsonContext.Default.PlanningConstructionStep));
+        Assert.Equal(calls, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+        var invalid = PlanningConstruction.Clone(state.Plan!);
+        invalid.Root.Tasks.Add(new()
+        {
+            Id = "illegal-group-leak", Kind = "value", Objective = "Attempt to bypass the isolated reusable group boundary.",
+            Outputs = [new("message", new() { Kind = "output", Source = "assemble", Port = "message" })]
+        });
+        var validation = TaskPlanCompiler.ValidateConstruction(invalid, state.Catalog!, state.Request,
+            construction.OpenScopes.ToHashSet(StringComparer.Ordinal));
+        Assert.Contains(validation.Diagnostics, diagnostic => diagnostic.Code == "TASK_REFERENCE_UNKNOWN" &&
+            diagnostic.Location.StartsWith("/tasks/illegal-group-leak", StringComparison.Ordinal));
+        var isolated = PlanningConstruction.Clone(state.Plan!);
+        isolated.Inputs.Add(new() { Name = "caller_only", Type = new() { Kind = "number" } });
+        isolated.Groups[0].Body.Tasks.Add(new()
+        {
+            Id = "illegal-caller-capture", Kind = "value", Objective = "Attempt to capture an undeclared caller input inside the isolated group.",
+            Outputs = [new("number", new() { Kind = "input", Source = "caller_only" })]
+        });
+        var isolatedValidation = TaskPlanCompiler.ValidateConstruction(isolated, state.Catalog!, state.Request,
+            construction.OpenScopes.ToHashSet(StringComparer.Ordinal));
+        Assert.Contains(isolatedValidation.Diagnostics, diagnostic => diagnostic.Code == "TASK_REFERENCE_UNKNOWN" &&
+            diagnostic.Location.StartsWith("/tasks/illegal-caller-capture", StringComparison.Ordinal));
+        Assert.Equal(acceptedPlan, JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
+    }
+
+    [Theory]
+    [InlineData("scope")]
+    [InlineData("claim")]
+    [InlineData("diagnostic")]
+    public async Task CandidateGroupExportStillRequiresItsOwnCurrentCleanClosure(string rejected)
+    {
+        var state = await ReusableGroup();
+        const string groupScope = "/groups/reusable/body";
+        var construction = state.Construction!;
+        construction.OpenScopes = ["/root", groupScope];
+        construction.Compact!.CurrentStep = new()
+        {
+            Id = "group-close", Scope = groupScope, Kind = "close", RequirementIds = ["req_0"], CloseScopes = [groupScope],
+            Objective = "Review the tentative group closure.", BaseHash = PlanningConstruction.Hash(state.Plan), DiscoveryComplete = true
+        };
+        construction.Candidate = PlanningConstruction.Apply(state, new()
+            { Scope = groupScope, RequirementIds = ["req_0"], CloseScopes = [groupScope] });
+        var address = PlanningCompactConstruction.ScopeInterface(state, candidate: true, navigationOnly: true)!["evidence"]!.ToString();
+        if (rejected == "scope") construction.Compact.CurrentStep.Scope = "/root";
+        if (rejected == "claim") construction.Candidate.Extension.CloseScopes.Clear();
+        if (rejected == "diagnostic") construction.Candidate.Diagnostics.Add(new("INVALID_CANDIDATE", groupScope, "The candidate is not technically valid."));
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+
+        var failure = Assert.Throws<PlanningResponseException>(() => PlanningConstruction.LoadEvidence(state, [address]));
+
+        Assert.Contains(failure.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_EVIDENCE_UNKNOWN");
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+    }
+
     private static async Task<PlanningSession> ReusableGroup(Action<LLMRequest, string, int>? observe = null)
     {
         var stage = 0;

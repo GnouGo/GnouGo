@@ -33,6 +33,9 @@ Draft and repair navigation can reduce prior checkpoints to their existing exact
 once actual consumed interfaces are present. Producer arguments remain local. Only
 byte-identical presentation fields under the same contract identity/version/hash share
 an earlier view; differing required closures remain separate and reconstruct exactly.
+Accepted export navigation resolves the exact requested scope even during selection;
+its declarations remain non-consumable. Candidate export pages still require the exact
+selected scope, clean validation and the issued closure claim.
 
 Optional draft port directories can be paged through shared contract anchors without
 removing consumed schema closures. Exact original coordinates remain retrievable;
