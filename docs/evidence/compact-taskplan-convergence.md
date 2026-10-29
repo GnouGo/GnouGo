@@ -1960,3 +1960,31 @@ The [exact-state prospective repair comparison](compact-taskplan-repair-grammar-
 The [fresh unchanged-profile run](compact-taskplan-8d9a936e-amazon-provider-stop.json) stops during intent extraction after **two logical requests / three physical attempts**, one received response, zero corrections and **703,611 ms**. Known usage is 543 input / 2,868 output tokens, including 2,560 received reasoning tokens, **€0.079722**. Request 2 records HTTP 500 (“backend not available”), followed by transport failure with no response. Both full reservations, **€1.873781**, remain unknown; no reasoning or output is inferred for either failed attempt. No checkpoint, Judge, artifact or runtime result exists, so calls per satisfied business obligation is undefined and the repair correction is unexercised.
 
 Exact delegated closure is idempotent and rejects continuation after restart, with eight original records and accounting unchanged. There are **49 permanent closures, zero unresolved identities, €332.327064 known cost, €111.768410 retained unknown exposure and €195.934630 available** at that inspection. No uncertain replay, refund or additional supplement occurred. The next code correction addresses the independently reproduced original-page presentation loss, with unchanged model/settings.
+
+
+### 29 October — complete short intent (`11eac1ad`)
+
+The preparation refactor removes the mandatory classification/extraction split and
+1 KB authoritative-source slicing. Its [removal inventory](compact-taskplan-11eac1ad-preparation-removal-inventory.json)
+records 797 added / 2,318 removed lines, including 192 added / 471 removed production
+C# lines. The full retained French Review PR request and faulty clone are regression
+fixtures; controlled corrections are not live acceptance. Planning validation passes
+2,283 tests with warnings as errors. Separate integration fixtures needed follow-up
+in `df2886b8`: four-call construction, explicit first-phase clarification and the Native
+AOT smoke counter. Its 103 integration tests and corrected Native AOT smoke pass.
+
+The earlier `2d09aaee` [Review PR trajectory](compact-taskplan-2d09aaee-review-pr-repair-stop.json)
+retains 41 received calls and a real earlier-task argument repair; renewed review
+exhausted 8,192 reasoning tokens, so no artifact or execution succeeded. Its separate
+[full validation](compact-taskplan-2d09aaee-final-validation.json) passed 7,204 tests
+with 12 skips across 33 assemblies and all ten publication stages. These results
+do not qualify newer production source. The stopped Collections request is
+[permanently retained](compact-taskplan-2d09aaee-collections-retention.json), with
+its entire reservation and original records unchanged. No supplement was reapplied.
+
+The fresh Amazon `compactm11eac1adamz11a` diagnostic is still running under the
+retained profile. One received initial call established required text `query` and
+no public return for the workbook effect: 7,295 complete request bytes, 2,688
+conservative estimated input tokens, 1,212 provider input and 1,368 provider output
+tokens (including 1,024 reasoning tokens). This is preparation evidence only.
+Business qualification and a complete matched efficiency comparison remain pending.
