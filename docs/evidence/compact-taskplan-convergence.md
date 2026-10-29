@@ -1936,3 +1936,16 @@ The [reference comparison](compact-taskplan-0801e3d3-collections-reference-compa
 
 
 The full retained-state check found a second independent guard: the initial Amazon accepted TaskPlan is null. The `8ef372a0` note-only fixture used an existing plan, so it did not yet reproduce this first-checkpoint case. Its completed freeze remains **undispatched**, with zero paid calls. The follow-up uses ordinary candidate application on a clone to initialize the validated declarations; it adds no task, type system, state store or semantic authority. The new initial-state case fails before the fix; **56 focused cases pass with warnings as errors**, retaining one pending technical checkpoint, unfinished business status and zero model calls. This corrects the earlier “note alone” interpretation; the original failure and note-only evidence remain archived. [Exact correction and regression](compact-taskplan-selected-closure-initial-state-validation.json).
+
+
+### 9c1d9303: transport retention and a concrete repair-schema rejection
+
+[Amazon](compact-taskplan-9c1d9303-amazon-transport.json) stops after 21 logical requests/attempts, with 20 responses, three structural checkpoints and no executable business producer, Judge, artifact or runtime result. Its exact transport-failed request is permanently closed with the full €1.006135 reservation retained. This trace does not exercise the initial host-closure fix and supplies no matched eliminated-call claim.
+
+[Review PR](compact-taskplan-9c1d9303-review-pr-request-rejection.json) stops after **27 logical requests / 28 attempts**, two correction charges, **1,791,235 ms**, €2.158663 known usage and €1.701055 retained unknown reservations. Request 27 receives terminal HTTP 400: the repair schema repeats a multiline instruction in a fixed string enum. This is an API request rejection, not empty output or reasoning exhaustion. The executable repair needs to assemble actual strings and references using the existing typed expression grammar. The redundant custom palette is removed; **2,338 Planning cases** pass with warnings as errors, including unchanged literal/reference rejection by semantic preflight. The live benefit remains unproven.
+
+The accepted clone also has a wrong directory and missing required branch; the exact original restriction is hidden behind an unselected source page. No business Judge or runtime has accepted it. This is retained evidence of semantic nonconvergence, not a successful workflow. No scenario-specific URL, duplicate or scope-opening rule is added.
+
+Delegated exact retention of request 27 is idempotent and verifies restart rejection, **83 unchanged original records**, no receipt and unchanged accounting: **€332.247341 known / €109.894629 unknown / €197.888133 available**, 48 permanent closures and zero unresolved identities. No reservation or supplement is recreated or released.
+
+The separate [9c1d9303 technical validation](compact-taskplan-9c1d9303-technical-validation.json) passes **7,193 tests, 12 retained skips, 33 assemblies**, zero build diagnostics, five independent packages, Native AOT and published encrypted-storage checks. These passes are not relabeled for the subsequent repair source. PR #120 remains Draft; final-source reproducible business acceptance and a live effective pending-work repair are still incomplete.
