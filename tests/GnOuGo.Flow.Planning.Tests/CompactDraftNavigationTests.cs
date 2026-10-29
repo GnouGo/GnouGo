@@ -78,7 +78,9 @@ public sealed class CompactDraftNavigationTests
         else compact.CurrentStep = null;
         for (var i = 1; i < 3; i++)
         {
-            var text = "Preserve original obligation " + i + ".";
+            // Exercise the actual byte bound rather than assuming an indexing
+            // page boundary also limits business requirement presentation.
+            var text = "Preserve original obligation " + i + ". " + new string('x', 930);
             var source = "request:" + i;
             compact.Sources.Add(new() { Id = source, Version = PlanningGraphCompiler.Fingerprint(text), Text = text, Kind = "page", Indexed = true });
             compact.Sources.Add(new() { Id = source + ":clause:0", Version = PlanningGraphCompiler.Fingerprint(text), Text = text,

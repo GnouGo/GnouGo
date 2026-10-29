@@ -57,6 +57,8 @@ and non-advisory host constraints still stop admission before dispatch.
 
 Local evidence is selected before serialization from current obligations, consumed
 producers, their checkpoint associations, controls, linked declarations and repair claims.
+Bounded requirement navigation packs whole adjacent clauses across indexing-page
+boundaries, retaining exact source identities and the same byte/cardinality limits.
 Indexed globals remain visible; final review retains every original obligation. Optional
 navigation is fitted toward the captured target in selection, discovery and authoring.
 Necessary requests above target continue with measurement warnings. A trusted benchmark

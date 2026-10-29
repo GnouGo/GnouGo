@@ -210,7 +210,7 @@ public sealed class CompactSelectionSchemaTests
     [InlineData("unknown")]
     public async Task FreshSchemaRejectsUndisplayedRequirementsAndSourceIdentities(string invalid)
     {
-        var state = await Ready();
+        var state = await Ready(fillPage: true);
         AppendOriginalPage(state);
         var schema = PlanningCompactConstruction.SelectionSchema(state);
         Assert.Equal(["req_0", "req_1", "req_2"], Domain(schema));
@@ -231,7 +231,7 @@ public sealed class CompactSelectionSchemaTests
     [InlineData("version")]
     public async Task RequirementEvidenceExpandsTheDomainOnlyWhileItsExactRecordMatches(string changed)
     {
-        var state = await Ready();
+        var state = await Ready(fillPage: true);
         AppendOriginalPage(state);
         PlanningConstruction.LoadEvidence(state, ["page:requirements:3"]);
         Assert.Equal(["req_0", "req_1", "req_2", "req_3", "req_4"], Domain(PlanningCompactConstruction.SelectionSchema(state)));
@@ -416,9 +416,12 @@ public sealed class CompactSelectionSchemaTests
         }
     };
 
-    private static async Task<PlanningSession> Ready()
+    private static async Task<PlanningSession> Ready(bool fillPage = false)
     {
         string[] clauses = ["Read the original values. ", "Keep their order. ", "Return the retained values. ", "Preserve exact identities."];
+        // Omission/retrieval tests must reach the real presentation byte bound;
+        // an indexing-page boundary alone no longer hides adjacent originals.
+        if (fillPage) clauses[0] += new string('x', 900);
         var runtime = new TestRuntime { Respond = (request, _) =>
         {
             var context = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;

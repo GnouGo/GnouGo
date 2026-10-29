@@ -8,6 +8,32 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CompactRequirementPageTests
 {
     [Fact]
+    public async Task AdjacentOriginalConstraintRemainsSelectableAcrossIndexingPages()
+    {
+        var (state, runtime) = await Ready(["Inspect the supplied source. ", "Retain the requested report. "]);
+        const string constraint = "Use the declared source revision and the caller-owned local directory for that inspection.";
+        AppendPage(state, constraint);
+        var originals = Originals(state);
+        runtime.Respond = (request, _) =>
+        {
+            var rows = Context(request)["requirements"]!.AsArray();
+            Assert.Equal(["req_0", "req_1", "req_2"], Ids(rows));
+            Assert.Equal(constraint, rows[2]!["original"]!.ToString());
+            Assert.NotEqual(rows[0]!["sources"]![0]!["id"]!.ToString(), rows[2]!["sources"]![0]!["id"]!.ToString());
+            var response = Wire(runtime, request, Selection(state, "req_0", "req_2"));
+            Assert.Empty(PlanningContractValidation.ValidateInstance(response, request.StructuredOutputSchema!));
+            return new() { Json = response };
+        };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        var draft = PlanningConstruction.DraftRequest(state, repair: false);
+        Assert.Equal(["req_0", "req_2"], Ids(Context(draft)["requirements"]!));
+        Assert.Equal(constraint, Context(draft)["requirements"]![1]!["original"]!.ToString());
+        Assert.Equal(originals, Originals(state));
+        Assert.Equal(0, state.ReplanAttempts);
+    }
+
+    [Fact]
     public async Task InitialSelectionShowsAdjacentOriginalConstraintsBeforeChoosingAContainer()
     {
         string[] clauses = ["Accept the original observations. ", "Transform each observation in a reusable group. ",
@@ -217,7 +243,7 @@ public sealed class CompactRequirementPageTests
     }
 
     [Fact]
-    public async Task CardinalityAndOriginalPageBoundariesStayStableAsUnrelatedRequirementsGrow()
+    public async Task BoundedWholeClausesAndRetainedPagesStayStableAsUnrelatedRequirementsGrow()
     {
         var clauses = Enumerable.Range(0, 10).Select(index => $"Preserve {index}: 界😀. ").ToArray();
         var (state, _) = await Ready(clauses);
@@ -239,11 +265,11 @@ public sealed class CompactRequirementPageTests
         {
             Assert.Fail(string.Join("; ", error.Diagnostics.Select(diagnostic => diagnostic.Code + ": " + diagnostic.Message)));
         }
-        Assert.Equal(["req_8", "req_9"], Ids(state.Construction.Evidence!["page:requirements:8"]!["items"]!));
-        Assert.Equal(clauses.Skip(8), state.Construction.Evidence["page:requirements:8"]!["items"]!.AsArray()
+        Assert.Equal(["req_8", "req_9", "req_10"], Ids(state.Construction.Evidence!["page:requirements:8"]!["items"]!));
+        Assert.Equal(clauses.Skip(8).Append("Keep the next independent result."), state.Construction.Evidence["page:requirements:8"]!["items"]!.AsArray()
             .Select(item => item!["original"]!.ToString()));
-        Assert.Equal("page:requirements:10", state.Construction.Evidence!["page:requirements:8"]!["next"]!.ToString());
-        Assert.Equal(9, state.Construction.Compact.RequirementOffset);
+        Assert.Null(state.Construction.Evidence!["page:requirements:8"]!["next"]);
+        Assert.Equal(10, state.Construction.Compact.RequirementOffset);
         var before = Followup(state, out var beforeAddresses);
         var beforeContext = HostContext(before, beforeAddresses);
         for (var index = state.Requirements!.Outcomes.Count; index < 500; index++)
@@ -342,7 +368,7 @@ public sealed class CompactRequirementPageTests
         state.Request.Prompt += text;
         compact.Sources.Add(new() { Id = page, Kind = "page", Text = text, Indexed = true, Version = PlanningGraphCompiler.Fingerprint(text) });
         var id = page + ":clause:0";
-        compact.Sources.Add(new() { Id = id, Kind = "requirement", Text = text, Indexed = true, Version = PlanningGraphCompiler.Fingerprint(text) });
+        compact.Sources.Add(new() { Id = id, Kind = "requirement", Text = text, Indexed = true, InterfaceKind = "none", Version = PlanningGraphCompiler.Fingerprint(text) });
         var requirement = "req_" + state.Requirements!.Outcomes.Count;
         state.Requirements.Outcomes.Add(new(requirement, text));
         state.Construction.Requirements.Add(new() { Id = requirement });

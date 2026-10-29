@@ -271,7 +271,7 @@ internal static partial class PlanningCompactConstruction
         var text = first.Description;
         foreach (var requirement in outcomes.Skip(offset + 1).Take(7))
         {
-            if (OriginalPage(requirement.Id) != page) break;
+            if (OriginalPage(requirement.Id) is null) break;
             var combined = text + requirement.Description;
             // Keep whole original obligations. The first, potentially indivisible
             // requirement is admitted by the complete-request ceiling as usual.
