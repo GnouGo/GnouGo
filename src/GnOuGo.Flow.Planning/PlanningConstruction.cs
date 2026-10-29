@@ -89,10 +89,16 @@ internal static partial class PlanningConstruction
         return new()
         {
             BaseHash = Hash(state.Plan), Plan = plan, Hash = Hash(plan), Extension = extension,
-            OpenScopes = open.OrderByDescending(p => p.Count(c => c == '/')).ThenBy(p => p, StringComparer.Ordinal).ToList(),
+            OpenScopes = OrderOpenScopes(symbols, open),
             TaskIds = addedIds.Order(StringComparer.Ordinal).ToList(), ImportedTaskIds = imported,
 
         };
+    }
+
+    private static List<string> OrderOpenScopes(TaskPlanSymbols symbols, IEnumerable<string> paths)
+    {
+        var depths = symbols.Scopes.ToDictionary(scope => scope.Path, scope => scope.Depth, StringComparer.Ordinal);
+        return paths.OrderByDescending(path => depths.GetValueOrDefault(path, -1)).ThenBy(path => path, StringComparer.Ordinal).ToList();
     }
 
     private static bool IsDescendantScope(TaskPlanSymbols symbols, string path, string parent)

@@ -38,6 +38,8 @@ Draft and repair navigation can reduce prior checkpoints to their existing exact
 once actual consumed interfaces are present. Producer arguments remain local. Only
 byte-identical presentation fields under the same contract identity/version/hash share
 an earlier view; differing required closures remain separate and reconstruct exactly.
+Open-frontier ordering follows existing scope ownership rather than the shape of canonical task addresses. Target fitting keeps its deepest offered boundary and exact links to the remainder; this grants no visibility or closure authority.
+
 Accepted export navigation resolves the exact requested scope even during selection;
 its declarations remain non-consumable. Candidate export pages still require the exact
 selected scope, clean validation and the issued closure claim.

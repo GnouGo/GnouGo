@@ -26,6 +26,30 @@ public sealed class CompactSelectionPresentationTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public async Task NewNestedScopeSurvivesTargetFittingBeforeShallowerLongerAddresses()
+    {
+        var state = await Ready();
+        state.Plan = new() { Root = new() { Tasks = [
+            new() { Id = "a_parent", Kind = "sequence", Objective = "Own the sequential work.", Body = new() },
+            new() { Id = "b_shallow", Kind = "parallel", Objective = "Own separate work.", Branches = [new(), new()] }] },
+            Groups = [new() { Id = "reusable", Body = new() }] };
+        state.Construction!.OpenScopes = ["/root", "/groups/reusable/body", "/tasks/a_parent/body", "/tasks/b_shallow/branches/0", "/tasks/b_shallow/branches/1"];
+        state.Construction.Compact!.CurrentStep = new() { Id = "selected", Scope = "/tasks/a_parent/body", Kind = "sequence", RequirementIds = ["req_0"] };
+        var candidate = PlanningConstruction.Apply(state, new() { Scope = "/tasks/a_parent/body", RequirementIds = ["req_0"], Tasks = [
+            new() { Id = "z_child", Kind = "sequence", Objective = "Own the next contribution.", Body = new() }] });
+        Assert.Equal("/tasks/z_child/body", candidate.OpenScopes[0]);
+        Assert.True(candidate.OpenScopes.IndexOf("/groups/reusable/body") < candidate.OpenScopes.IndexOf("/tasks/b_shallow/branches/0"));
+        state.Plan = candidate.Plan; state.Construction.OpenScopes = candidate.OpenScopes;
+        state.Construction.Compact.CurrentStep = null;
+        state.Request.Options["construction_limits"]!["phasePolicy"]!["navigation"]!["targetInputTokens"] = 512;
+        var request = PlanningCompactConstruction.Request(state, PlanningCompactConstruction.SelectGuidance(state),
+            PlanningCompactConstruction.SelectionContext(state), PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose);
+        var context = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf("\n{", StringComparison.Ordinal) + 1)..])!;
+        Assert.Equal("/tasks/z_child/body", context["scopes"]![0]!["path"]!.ToString());
+        Assert.NotNull(context["nextScopes"]);
+    }
+
+    [Fact]
     public async Task ExistingProducerAndPortChoicesStayCoupledToTheDisplayedScope()
     {
         var state = await Ready();

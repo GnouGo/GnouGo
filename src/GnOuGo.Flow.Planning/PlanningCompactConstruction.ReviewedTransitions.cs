@@ -97,13 +97,8 @@ internal static partial class PlanningCompactConstruction
         IEnumerable<PlanningConstructionBoundaryTransition> claims)
     {
         var symbols = new TaskPlanSymbols(plan);
-        int Depth(string path)
-        {
-            var depth = 0;
-            for (var scope = symbols.Scopes.SingleOrDefault(scope => scope.Path == path); scope?.Parent is not null; scope = scope.Parent) depth++;
-            return depth;
-        }
-        return claims.OrderByDescending(claim => Depth(claim.Scope)).ThenBy(claim => claim.Scope, StringComparer.Ordinal);
+        return claims.OrderByDescending(claim => symbols.Scopes.SingleOrDefault(scope => scope.Path == claim.Scope)?.Depth ?? 0)
+            .ThenBy(claim => claim.Scope, StringComparer.Ordinal);
     }
 
     private static PlanningConstructionStep BoundaryStep(PlanningSession state, PlanningConstructionBoundaryTransition claim) => new()

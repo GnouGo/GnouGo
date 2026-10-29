@@ -55,6 +55,8 @@ scope, contracts and typed accessibility still validate; its composition remains
 part of the pending business work. Automatic resumption additionally requires its
 applicable reviewed association. Content freshness alone creates no review authority.
 
+Open-frontier pages order actual owning boundaries before their parents, including isolated group bodies. Canonical task addresses are flat identities, so their slash count does not establish ancestry. Acceptance and rollback use the existing symbols; paging retains exact continuation links.
+
 Selection requests the next executable contribution inside an offered scope. Attaching an original clause does not require completing that whole clause in one substep; a producer or prerequisite may contribute while its obligation remains open.
 
 Local requests derive their originals before packing: selected obligations, consumed
