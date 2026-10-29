@@ -2038,3 +2038,32 @@ The claim correction passes 82 focused regressions and the full 2,285-case Plann
 suite with warnings as errors; those counts overlap. It preserves already-reviewed
 closed claims and exact typed-repair recovery. These controlled tests do not qualify
 a live workflow. The separate `df2886b8` full-solution observer remains source-bound.
+
+
+### Review PR: preparation gain, retained-claim stall
+
+The [frozen `b6a220d5` Review PR run](compact-taskplan-b6a220d5-review-pr-pending-claim-stop.json)
+reduces initial understanding from 7 calls / 433.6 seconds / €0.6250 on `2d09aaee`
+to 1 call / 34.7 seconds / €0.0432 under the same profile. The first clone draft,
+at call 7, matches the independent repository URL, pinned branch and directory
+expectations. Actual clone provenance is still unverified.
+
+The complete run stops at **22 received calls, zero Judges, zero corrections and
+€1.909593 known cost**. A retained completion claim awaiting review is offered again
+on the unchanged plan, then rejected by the existing application/no-progress check.
+Earlier termination is not whole-workflow efficiency. The correction makes selection
+reuse that same closure eligibility check; no new review protocol or closure authority
+is introduced. The literal review task also leaves `reviewText` unconsumed; runtime
+commands, report and cleanup remain unproven.
+
+The [complete `df2886b8` validation](compact-taskplan-df2886b8-host-fixture-validation.json)
+retains 7,130 passes / 18 host-fixture failures / 12 skips across 33 assemblies, with
+zero compiler diagnostics and all ten publication checks passing. `7af268ab` fixes
+the stale one-pass call counts and retired approval-fixture flags; all 47 focused
+host/UI tests, including the real browser smoke, pass without skips. A fresh full
+run is source-bound to that fixture revision; no older technical pass is relabeled.
+
+The shared closure-eligibility correction passes 55 focused review/closure cases and
+all 2,286 Planning tests with warnings as errors; the counts overlap. Its production
+diff is four added / two deleted C# lines, with no new state or Judge calls. Live
+benefit and complete business qualification remain unproven.

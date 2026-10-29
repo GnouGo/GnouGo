@@ -202,6 +202,7 @@ internal static partial class PlanningCompactConstruction
         var replacement = compact.ReplacementScope;
         var outputs = OutputPage(state).Select(o => o.Name).ToArray();
         var requirements = SelectionRequirementIds(state);
+        var closingRequirements = requirements.Where(id => CanClaimRequirementCompletion(state, id)).ToArray();
         var scopes = replacement is null
             ? (page?["scopes"] as JsonArray ?? ScopeDirectory(state)).Select(scope => scope!["path"]!.ToString()).ToArray() : null;
         var hasClosedGroup = state.Plan?.Groups.Any(group =>
@@ -219,7 +220,8 @@ internal static partial class PlanningCompactConstruction
             ("objective", Text(512)), ("requirementIds", selectedRequirements), ("inputs", PlanningSchemas.Array(PlanningSchemas.Ref("import"), 0, 8)),
             ("groupId", hasClosedGroup ? PlanningSchemas.Nullable(Text(96)) : PlanningSchemas.Type("null")),
             ("dependencyTaskIds", Strings(0, 8)), ("expectedOutputs", Strings(0, 4)),
-            ("closeRequirementIds", RequirementIds(0)), ("outputNames", outputs.Length == 0
+            ("closeRequirementIds", closingRequirements.Length == 0 ? EmptyArray() :
+                PlanningSchemas.Array(PlanningSchemas.Enum(closingRequirements), 0, 4)), ("outputNames", outputs.Length == 0
                 ? PlanningSchemas.Array(Text(256), 0, 0) : PlanningSchemas.Array(PlanningSchemas.Enum(outputs), 0, 8)));
         {
             var prerequisites = PrerequisiteAddresses(state, requirements ?? []).ToArray();
@@ -260,7 +262,7 @@ internal static partial class PlanningCompactConstruction
                 close["properties"]!["scope"] = PlanningSchemas.Enum(scope);
                 close["properties"]!["kind"] = PlanningSchemas.Enum("close");
                 var selected = new PlanningConstructionStep { Scope = scope, Kind = "close",
-                    CloseRequirementIds = state.Construction!.Requirements.Where(requirement => requirement.Status != "closed").Select(requirement => requirement.Id).ToList() };
+                    CloseRequirementIds = closingRequirements.ToList() };
                 var target = (scope != "/root" || selected.CloseRequirementIds.Count <= 4) && ClosurePresentation(state, selected).CloseScope
                     ? PlanningSchemas.Array(PlanningSchemas.Enum(scope), 0, 1) : EmptyArray();
                 AddSelectionFields(close, EmptyArray(), target);

@@ -9,6 +9,50 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class BusinessReviewProtocolTests
 {
+    [Fact]
+    public async Task RetainedCompletionClaimIsVisibleButCannotBeSelectedAgainOnUnchangedPlan()
+    {
+        var (state, runtime) = await Ready();
+        state.Construction!.Compact!.CurrentStep!.CloseRequirementIds.Clear();
+        runtime.Respond = (_, _) => throw new InvalidOperationException("These technical contributions defer review to a coherent block or finalization.");
+        state = await Advance(state, runtime);
+        var baseline = PlanningConstruction.Hash(state.Plan);
+        state.Construction!.Compact!.CurrentStep = new() { Id = "claim", BaseHash = baseline, Scope = "/root", Kind = "close",
+            Objective = "Propose completion of the later obligation using the accepted result.", RequirementIds = ["later"], CloseRequirementIds = ["later"],
+            Inputs = [new() { Kind = "output", Source = "compute", Port = "result" }], InputTaskIds = ["compute"], DiscoveryComplete = true };
+        state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["later"] });
+        state = await Advance(Clone(state), runtime);
+        Assert.Null(state.Construction!.Candidate);
+        Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
+        Assert.True(PlanningCompactConstruction.RequirementCompletionClaimed(state, "later"));
+        Assert.False(PlanningCompactConstruction.CanClaimRequirementCompletion(state, "later"));
+        Assert.NotEqual("closed", state.Construction.Requirements.Single(requirement => requirement.Id == "later").Status);
+        var row = PlanningCompactConstruction.OriginalRequirementRows(state).Single(item => item!["id"]!.ToString() == "later")!;
+        Assert.True(row["acceptedProgress"]!["completionClaimPendingReview"]!.GetValue<bool>());
+        var schema = PlanningCompactConstruction.SelectionSchema(state);
+        var choices = Nodes(schema).OfType<JsonObject>().Select(node => node["properties"]?["closeRequirementIds"])
+            .OfType<JsonObject>().SelectMany(Values).ToArray();
+        Assert.Contains("work", choices);
+        Assert.DoesNotContain("later", choices);
+
+        IEnumerable<string> Values(JsonNode node)
+        {
+            if (node is JsonObject obj && obj["$ref"] is JsonValue reference)
+            {
+                Assert.True(PlanningConstruction.TryPointer(schema, reference.ToString()[1..], out var resolved));
+                return Values(resolved!);
+            }
+            return Nodes(node).OfType<JsonObject>().SelectMany(obj => obj["enum"] as JsonArray ?? [])
+                .OfType<JsonValue>().Select(value => value.TryGetValue<string>(out var text) ? text : null).OfType<string>();
+        }
+        static IEnumerable<JsonNode> Nodes(JsonNode node)
+        {
+            yield return node;
+            var children = node is JsonObject obj ? obj.Select(pair => pair.Value) : node is JsonArray array ? array : [];
+            foreach (var child in children.OfType<JsonNode>()) foreach (var nested in Nodes(child)) yield return nested;
+        }
+    }
+
     [Theory]
     [InlineData("reviewed")]
     [InlineData("stale")]

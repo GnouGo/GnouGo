@@ -105,6 +105,9 @@ If only mandatory context remains and cannot fit, construction stops before disp
 
 An explicit repair retains only established requirement-completion claims. Editing
 an intermediate producer does not claim that the remaining business workflow is done.
+Selection distinguishes an unverified retained completion claim from a new closure
+opportunity, using the existing host check for both its response choices and scope
+closure presentation. Pending claims still require business review.
 
 Several generated fragments may form one coherent business block. Empty openings,
 unused group declarations and exact mechanical exports/closures do not independently

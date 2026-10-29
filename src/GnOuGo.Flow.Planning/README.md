@@ -89,6 +89,8 @@ Host-fixed draft facts come from the frozen step, with unavailable branches omit
 the model grammar and complete semantic validation retained.
 Scoped revision associates its affected requirements without completing open work.
 Only previously closed requirements retain completion claims, with renewed review.
+Selection uses the same eligibility check as application for requirement closures;
+an unchanged claim awaiting review remains visible but cannot be offered again.
 
 The Judge receives only faithful decision-relevant behavior and original business
 semantics. Full contract schemas remain host-validated and retrievable. The response is
