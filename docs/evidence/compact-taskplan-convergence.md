@@ -2098,3 +2098,27 @@ finishes with **7,150 passed, zero failed and 12 retained skips**, across 33 ass
 with zero compiler diagnostics. Its ten independent package/AOT/published-storage
 checks also pass. The same ten publication checks pass on `bb24cbe5`; that revision's
 full solution run is active. Focused tests are not added again to these totals.
+
+### `bb24cbe5`: Review PR reaches a conflicting closure choice
+
+The [new Review PR diagnostic](compact-taskplan-bb24cbe5-review-pr-boundary-stop.json)
+stops at **53 received logical/physical calls, four correction charges, one local
+Judge and €6.1831761429982933620767088836**, with no artifact or execution. There is
+no new uncertain request to abandon. Thirteen requests above their captured project
+input maximum are dispatched with host warnings and received responses; deployment,
+financial, output, call, time and permission controls remain enforced.
+
+The first clone at request 13 has the correct static arguments. The subsequent
+Copilot task consumes both actual public inputs through the existing JSON encoding.
+A reviewed prerequisite association resumes its consumer without another selection,
+and the consumer reuses the observation instead of creating a second probe. These
+subtraces do not establish complete-trace savings or successful runtime behavior.
+
+Requests 52 and 53 repeat an invalid deferred transition on the exact scope that
+their selected extension must close. The schema offered that choice even though
+validation rejects the now-closed target. The focused correction removes those
+impossible choices and reports the exact scope and ordinary export alternative;
+legal ancestor claims and mandatory review remain. Both reproductions fail before
+the correction, then 55 focused cases and all 2,288 Planning tests pass with warnings
+as errors. The focused count overlaps the full Planning total. Live benefit on the
+corrected source remains unproven; the stopped run is not continued under new code.

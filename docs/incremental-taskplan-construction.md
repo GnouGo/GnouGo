@@ -108,6 +108,9 @@ an intermediate producer does not claim that the remaining business workflow is 
 Selection distinguishes an unverified retained completion claim from a new closure
 opportunity, using the existing host check for both its response choices and scope
 closure presentation. Pending claims still require business review.
+The draft schema also removes deferred claims for boundaries that its selected
+closure necessarily closes. Existing exports are preserved; new exports use the
+ordinary extension. Legal ancestor claims keep their validation and required review.
 
 Several generated fragments may form one coherent business block. Empty openings,
 unused group declarations and exact mechanical exports/closures do not independently

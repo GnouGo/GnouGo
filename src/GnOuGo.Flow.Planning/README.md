@@ -91,6 +91,9 @@ Scoped revision associates its affected requirements without completing open wor
 Only previously closed requirements retain completion claims, with renewed review.
 Selection uses the same eligibility check as application for requirement closures;
 an unchanged claim awaiting review remains visible but cannot be offered again.
+Draft boundary choices exclude scopes that the selected action must close. Their
+exports belong in `extension.outputs`; deferred claims target still-open boundaries.
+Validation reports the exact conflicting scope and retains ordinary ancestor review.
 
 The Judge receives only faithful decision-relevant behavior and original business
 semantics. Full contract schemas remain host-validated and retrievable. The response is

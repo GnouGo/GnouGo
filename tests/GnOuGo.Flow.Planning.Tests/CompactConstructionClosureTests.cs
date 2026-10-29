@@ -172,6 +172,71 @@ public sealed class CompactConstructionClosureTests
     }
 
     [Fact]
+    public void SelectedClosureCannotAlsoDeferTheSameBoundaryButRetainsItsParent()
+    {
+        var state = State();
+        var outer = Container("outer");
+        outer.Body!.Tasks.Add(Container("inner"));
+        state.Plan = new() { Root = new() { Tasks = [outer] } };
+        state.Construction!.OpenScopes = ["/root", "/tasks/outer/body", "/tasks/inner/body"];
+        var step = state.Construction.Compact!.CurrentStep!;
+        step.Kind = "close";
+        step.Scope = "/tasks/inner/body";
+        step.CloseScopes = [step.Scope];
+        step.CloseRequirementIds.Clear();
+        step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        var schema = PlanningCompactConstruction.DraftSchema(state);
+        var extension = new PlanningConstructionExtension
+        {
+            Scope = step.Scope, CloseScopes = [step.Scope], RequirementIds = ["req"]
+        };
+        var wire = Response(state, extension, schema);
+        extension.BoundaryTransitions = [new() { Scope = step.Scope, RequirementIds = ["req"], CloseScope = true }];
+        wire["extension"]!["boundaryTransitions"] = JsonSerializer.SerializeToNode(extension.BoundaryTransitions,
+            PlanningJsonContext.Default.ListPlanningConstructionBoundaryTransition);
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(wire, schema));
+        var error = Assert.Throws<PlanningResponseException>(() =>
+            PlanningCompactConstruction.ValidateExtension(state, PlanningConstruction.Apply(state, extension)));
+        Assert.Contains(error.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_TRANSITION_INVALID" &&
+            diagnostic.Message.Contains(step.Scope, StringComparison.Ordinal) &&
+            diagnostic.Message.Contains("extension.outputs", StringComparison.Ordinal));
+
+        extension.BoundaryTransitions[0].Scope = "/tasks/outer/body";
+        wire["extension"]!["boundaryTransitions"] = JsonSerializer.SerializeToNode(extension.BoundaryTransitions,
+            PlanningJsonContext.Default.ListPlanningConstructionBoundaryTransition);
+        Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(wire, schema));
+        PlanningCompactConstruction.ValidateExtension(state, PlanningConstruction.Apply(state, extension));
+        Assert.Contains(step.Scope, state.Construction.OpenScopes);
+        Assert.Empty(state.Construction.Checkpoints);
+    }
+
+    [Fact]
+    public void SelectedRootCompletionOffersNoDeferredBoundaryClaim()
+    {
+        var state = State();
+        var leaf = Leaf(complete: true);
+        state.Plan = new() { Root = new() { Tasks = leaf.Tasks, Outputs = leaf.Outputs } };
+        var step = state.Construction!.Compact!.CurrentStep!;
+        step.Kind = "close";
+        step.CloseScopes = ["/root"];
+        step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        var schema = PlanningCompactConstruction.DraftSchema(state);
+        var extension = new PlanningConstructionExtension { Scope = "/root", CloseScopes = ["/root"],
+            RequirementIds = ["req"], Complete = true };
+        var wire = Response(state, extension, schema);
+        extension.BoundaryTransitions = [new() { Scope = "/root", RequirementIds = ["req"],
+            Outputs = [new("message", new() { Kind = "string", Text = "Hello" })] }];
+        wire["extension"]!["boundaryTransitions"] = JsonNode.Parse("""
+            [{"scope":"/root","requirementIds":["req"],"outputs":[{"name":"message",
+              "value":{"kind":"string","text":"Hello"}}],"closeScope":false}]
+            """);
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(wire, schema));
+        extension.BoundaryTransitions = null;
+        Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(Response(state, extension, schema), schema));
+        PlanningCompactConstruction.ValidateExtension(state, PlanningConstruction.Apply(state, extension));
+    }
+
+    [Fact]
     public void ExplicitTypedRevisionRetainsItsExistingAuthority()
     {
         var state = State();

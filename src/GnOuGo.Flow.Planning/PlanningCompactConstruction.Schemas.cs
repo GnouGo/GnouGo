@@ -96,6 +96,9 @@ internal static partial class PlanningCompactConstruction
         var hasBoundaryTransitions = false;
         {
             var boundaries = BoundaryTargets(state, step.Scope).Where(boundary => step.RequirementIds.Count > 0 &&
+                // Selected closures are mandatory in this draft, so their
+                // boundaries cannot remain open for a deferred action.
+                (step.Kind != "close" || step.CloseScopes?.Contains(boundary, StringComparer.Ordinal) != true) &&
                 (boundary != "/root" || state.Requirements?.Outputs is { Count: > 0 }));
             var transitions = boundaries.Select(boundary => PlanningSchemas.Object(("scope", PlanningSchemas.Enum(boundary)),
                 ("requirementIds", PlanningSchemas.Array(PlanningSchemas.Enum(step.RequirementIds.ToArray()), 1, step.RequirementIds.Count)),

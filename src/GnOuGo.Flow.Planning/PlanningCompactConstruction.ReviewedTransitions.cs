@@ -68,14 +68,19 @@ internal static partial class PlanningCompactConstruction
         if (claims.Count > 4 || claims.Select(claim => claim.Scope).Distinct(StringComparer.Ordinal).Count() != claims.Count)
             PlanningConstruction.Fail("CONSTRUCTION_TRANSITION_INVALID", "/extension/boundaryTransitions", "At most four exact existing boundaries may be claimed, once each; their parent relationships determine order.");
         foreach (var claim in claims)
-        if (candidate.AuthorizedPaths is not null || candidate.Extension.Complete || claim.RequirementIds.Count == 0 ||
-            claim.RequirementIds.Count > step.RequirementIds.Count || claim.RequirementIds.Distinct(StringComparer.Ordinal).Count() != claim.RequirementIds.Count ||
-            claim.RequirementIds.Any(id => !step.RequirementIds.Contains(id, StringComparer.Ordinal)) ||
-            !BoundaryTargets(state, step.Scope).Contains(claim.Scope, StringComparer.Ordinal) ||
-            claim.Outputs.Count > state.Construction!.Limits.MaxTasksPerDraft || !claim.CloseScope && claim.Outputs.Count == 0 ||
-            claim.Scope == "/root" && (claim.CloseScope || claim.Outputs.Any(output => state.Requirements!.Outputs?.All(item => item.Name != output.Name) != false)) ||
-            !candidate.OpenScopes.Contains(claim.Scope, StringComparer.Ordinal))
-            PlanningConstruction.Fail("CONSTRUCTION_TRANSITION_INVALID", "/extension/boundaryTransitions", "Propose exact existing boundary actions for this fragment's original obligations; root exports must name declared public outputs, and root or requirement completion remain separate claims.");
+        {
+            if (candidate.Extension.CloseScopes.Contains(claim.Scope, StringComparer.Ordinal))
+                PlanningConstruction.Fail("CONSTRUCTION_TRANSITION_INVALID", "/extension/boundaryTransitions",
+                    $"Boundary '{claim.Scope}' is already closed by this extension. Put its exports in extension.outputs and omit its boundaryTransitions claim; deferred actions require a still-open boundary.");
+            if (candidate.AuthorizedPaths is not null || candidate.Extension.Complete || claim.RequirementIds.Count == 0 ||
+                claim.RequirementIds.Count > step.RequirementIds.Count || claim.RequirementIds.Distinct(StringComparer.Ordinal).Count() != claim.RequirementIds.Count ||
+                claim.RequirementIds.Any(id => !step.RequirementIds.Contains(id, StringComparer.Ordinal)) ||
+                !BoundaryTargets(state, step.Scope).Contains(claim.Scope, StringComparer.Ordinal) ||
+                claim.Outputs.Count > state.Construction!.Limits.MaxTasksPerDraft || !claim.CloseScope && claim.Outputs.Count == 0 ||
+                claim.Scope == "/root" && (claim.CloseScope || claim.Outputs.Any(output => state.Requirements!.Outputs?.All(item => item.Name != output.Name) != false)) ||
+                !candidate.OpenScopes.Contains(claim.Scope, StringComparer.Ordinal))
+                PlanningConstruction.Fail("CONSTRUCTION_TRANSITION_INVALID", "/extension/boundaryTransitions", "Propose exact existing boundary actions for this fragment's original obligations; root exports must name declared public outputs, and root or requirement completion remain separate claims.");
+        }
         var probe = CloneTransitionState(state);
         probe.Plan = PlanningConstruction.Clone(candidate.Plan);
         probe.Construction!.OpenScopes = candidate.OpenScopes.ToList();
