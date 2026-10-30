@@ -49,6 +49,11 @@ internal static partial class PlanningConstruction
         var construction = state.Construction!;
         var issued = IssuedScopes(state).ToHashSet(StringComparer.Ordinal);
         if (!issued.Contains(extension.Scope)) Fail("CONSTRUCTION_SCOPE_INVALID", extension.Scope, "Choose an issued open scope.");
+        // Host-derived closure must not mutate the received response or a retained
+        // caller-owned fragment. The candidate owns its normalized edit envelope.
+        if (construction.Compact?.CurrentStep is { } block && PlanningCompactConstruction.SupportsBusinessFragment(block.Kind))
+            extension = JsonSerializer.Deserialize(JsonSerializer.Serialize(extension, PlanningJsonContext.Default.PlanningConstructionExtension),
+                PlanningJsonContext.Default.PlanningConstructionExtension)!;
         var additions = TaskPlanRevisions.Tasks(new TaskScope { Tasks = extension.Tasks, Always = extension.Always })
             .Concat(extension.Groups.SelectMany(g => TaskPlanRevisions.Tasks(g.Body))).ToArray();
         if (additions.Length > construction.Limits.MaxTasksPerDraft || extension.Groups.Count > construction.Limits.MaxTasksPerDraft || extension.Choices.Count > construction.Limits.MaxTasksPerDraft)
@@ -71,6 +76,7 @@ internal static partial class PlanningConstruction
         var symbols = new TaskPlanSymbols(plan);
         var open = construction.OpenScopes.Concat(symbols.Scopes.Where(s => previous.Scopes.All(p => p.Path != s.Path)).Select(s => s.Path))
             .Distinct(StringComparer.Ordinal).ToHashSet(StringComparer.Ordinal);
+        CompleteNewBusinessScopes(state, extension, previous, symbols);
         foreach (var path in extension.CloseScopes)
             if ((!issued.Contains(path) && previous.Scopes.Any(s => s.Path == path)) || !open.Remove(path))
                 Fail("CONSTRUCTION_SCOPE_INVALID", path, "Only an issued open scope or a newly introduced child may close, once.");

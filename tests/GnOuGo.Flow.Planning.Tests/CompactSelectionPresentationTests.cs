@@ -34,7 +34,8 @@ public sealed class CompactSelectionPresentationTests(ITestOutputHelper output)
             new() { Id = "b_shallow", Kind = "parallel", Objective = "Own separate work.", Branches = [new(), new()] }] },
             Groups = [new() { Id = "reusable", Body = new() }] };
         state.Construction!.OpenScopes = ["/root", "/groups/reusable/body", "/tasks/a_parent/body", "/tasks/b_shallow/branches/0", "/tasks/b_shallow/branches/1"];
-        state.Construction.Compact!.CurrentStep = new() { Id = "selected", Scope = "/tasks/a_parent/body", Kind = "sequence", RequirementIds = ["req_0"] };
+        state.Construction.Compact!.CurrentStep = new() { Id = "selected", Scope = "/tasks/a_parent/body", Kind = "sequence", RequirementIds = ["req_0"],
+            Prerequisites = [new() { Need = "An exact producer is still needed inside the new child.", EvidenceAddresses = ["requirement:req_0"] }] };
         var candidate = PlanningConstruction.Apply(state, new() { Scope = "/tasks/a_parent/body", RequirementIds = ["req_0"], Tasks = [
             new() { Id = "z_child", Kind = "sequence", Objective = "Own the next contribution.", Body = new() }] });
         Assert.Equal("/tasks/z_child/body", candidate.OpenScopes[0]);

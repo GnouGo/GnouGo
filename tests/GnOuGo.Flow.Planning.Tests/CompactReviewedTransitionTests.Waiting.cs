@@ -140,11 +140,23 @@ public sealed partial class CompactReviewedTransitionTests
                         var extension = new PlanningConstructionExtension { Scope = step.Scope, RequirementIds = step.RequirementIds.ToList() };
                         if (step.Kind == "sequence")
                         {
-                            var outer = Container("outer");
-                            var inner = Container("inner");
-                            inner.Body!.Tasks = [Number("producer")];
-                            outer.Body!.Tasks = [inner];
-                            extension.Tasks = [outer];
+                            if (!new TaskPlanSymbols(current.Plan ?? new()).Tasks.ContainsKey("outer"))
+                            {
+                                var outer = Container("outer");
+                                var inner = Container("inner");
+                                inner.Body!.Tasks = [new()
+                                {
+                                    Id = "localSeed", Kind = "value", Objective = "Supply three for the required local calculation of seven.",
+                                    Outputs = [new("number", new() { Kind = "number", Number = 3 })]
+                                }];
+                                outer.Body!.Tasks = [inner];
+                                extension.Tasks = [outer];
+                                extension.ContinueInScope = "/tasks/inner/body";
+                            }
+                            else extension.Tasks = [Computed("producer", "add", Output("localSeed"), 4)];
+                            // Finish the calculation across two productive fragments;
+                            // the independent consumer and reviewed boundary exports
+                            // are selected separately below.
                         }
                         else if (step.Objective == seedGoal) extension.Tasks = [new()
                         {
@@ -198,8 +210,10 @@ public sealed partial class CompactReviewedTransitionTests
                 Assert.Equal(0, state.Construction.ScopeCursor);
                 Assert.Null(state.Construction.Evidence);
             }
-            if (state.Construction!.Candidate is null && (stopAfterProducer && state.Construction.Checkpoints.Count == 3 ||
-                stopAfterOuter && state.Construction.Checkpoints.Count == 4)) break;
+            if (state.Construction!.Candidate is null && (stopAfterProducer && state.Construction.Checkpoints.Any(
+                    checkpoint => checkpoint.ClosedScopes.Contains("/tasks/inner/body", StringComparer.Ordinal)) ||
+                stopAfterOuter && state.Construction.Checkpoints.Any(
+                    checkpoint => checkpoint.ClosedScopes.Contains("/tasks/outer/body", StringComparer.Ordinal)))) break;
         }
         if (pendingInsideBoundary)
             Assert.True(acceptedAfterScopeNavigation, "The nested-consumer trace must accept a checkpoint after inspecting a later scope page.");

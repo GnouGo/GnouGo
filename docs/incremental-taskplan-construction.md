@@ -79,6 +79,12 @@ Necessary controls and groups may contain their body, exports and cleanup immedi
 Their nested scopes may combine sequence, conditional, foreach and parallel controls;
 the selected anchor still constrains the top-level fragment, and every descendant
 counts toward the same recursive task allowance.
+Newly supplied complete control/group bodies close mechanically before checking
+same-fragment consumers, including intentionally empty optional branches. The host
+records those derived closures without changing the received response. An explicit
+`continueInScope` retains that boundary and its ancestors; evidenced empty prerequisite
+openings and their ancestors also remain open. Existing boundaries and the workflow
+root still require their ordinary explicit closure authority.
 An empty-only opening requires a current evidence-linked unresolved prerequisite,
 or a still-current waiting prerequisite for the same original responsibility.
 Use accepted producers and exact available results. Reuse known authorized contracts

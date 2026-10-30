@@ -1058,26 +1058,13 @@ public sealed class CompactConstructionTests
             if (purpose == PlanningCompactConstruction.IntentPurpose) return Wire(request, Index(request));
             if (purpose == PlanningCompactConstruction.SelectPurpose)
             {
-                var response = Select(request, step switch { 0 => "group", 1 => "value", _ => "call" },
-                    step == 1 ? "/groups/reusable/body" : "/root", close: step == 2);
+                Assert.NotEqual(1, step); // The retained group responsibility drafts its next fragment directly.
+                var response = Select(request, step == 0 ? "group" : "call", "/root", close: step == 2);
                 if (step < 2) response["step"]!["outputNames"] = new JsonArray();
                 if (step == 0)
                 {
                     response["step"]!["objective"] = "Build the reusable greeting interface.";
                     response["step"]!["expectedOutputs"] = new JsonArray("Return the exact supplied word as message.");
-                }
-                if (step == 1)
-                {
-                    Assert.Contains("\"input\":\"word\"", Context(request)["scopes"]!.ToJsonString(), StringComparison.Ordinal);
-                    var scope = Context(request)["scopes"]!.AsArray().Single(s => s!["kind"]?.ToString() == "group")!;
-                    if (scope["objective"] is { } objective)
-                        Assert.Equal("Build the reusable greeting interface.", objective.ToString());
-                    else Assert.True(scope["objectiveOmitted"]!.GetValue<bool>());
-                    Assert.Equal(runtime.EvidenceId(request, "group:reusable"), scope["evidence"]!.ToString());
-                    Assert.Equal("Build the reusable greeting interface.", PlanningCompactConstruction.GroupInterface(
-                        runtime.Checkpoints.Last(), "reusable")!["intent"]!["objective"]!.ToString());
-                    Assert.Null(scope["expectedOutputs"]);
-                    response["step"]!["inputs"] = new JsonArray(new JsonObject { ["kind"] = "input", ["source"] = "word" });
                 }
                 if (step == 2)
                 {
@@ -1091,6 +1078,7 @@ public sealed class CompactConstructionTests
                 if (step == 1)
                 {
                     var scope = Context(request)["scopeGroup"]!;
+                    Assert.Equal("word", Assert.Single(scope["inputs"]!.AsArray())!["name"]!.ToString());
                     Assert.Equal("Build the reusable greeting interface.", scope["intent"]!["objective"]!.ToString());
                     Assert.Equal("Return the exact supplied word as message.", scope["intent"]!["expectedOutputs"]![0]!.ToString());
                     Assert.Null(scope["body"]);
@@ -1099,7 +1087,8 @@ public sealed class CompactConstructionTests
                 {
                     0 => new PlanningConstructionExtension { Groups = [new() { Id = "reusable", Inputs = [new() { Name = "word", Type = new() { Kind = "string" } }],
                         Body = new() { Tasks = [new() { Id = "assemble", Kind = "value", Objective = "Return the supplied word.",
-                            Outputs = [new("message", new() { Kind = "input", Source = "word" })] }] } }], RequirementIds = ["req_0"] },
+                            Outputs = [new("message", new() { Kind = "input", Source = "word" })] }] } }], RequirementIds = ["req_0"],
+                        ContinueInScope = "/groups/reusable/body" },
                     1 => new() { Scope = "/groups/reusable/body",
                         Outputs = [new("message", new() { Kind = "output", Source = "assemble", Port = "message" })], CloseScopes = ["/groups/reusable/body"], RequirementIds = ["req_0"] },
                     _ => new() { Tasks = [new() { Id = "invoke", Kind = "call", Group = "reusable", Objective = "Return the greeting using the requested reusable group.",

@@ -54,12 +54,17 @@ internal static partial class PlanningCompactConstruction
         if (!opens || extension.Outputs.Count > 0 || tasks.Any(task => task.Kind is not ("sequence" or "conditional" or "parallel" or "foreach")) ||
             tasks.Any(task => task.Body?.Outputs.Count > 0 || task.Otherwise?.Outputs.Count > 0 || task.Branches.Any(branch => branch.Outputs.Count > 0)) ||
             extension.Groups.Any(group => group.Body.Outputs.Count > 0)) return;
-        var step = State(state).CurrentStep!;
-        ValidatePrerequisites(state, step);
-        if (step.Prerequisites is { Count: > 0 } || (State(state).SuspendedSteps ?? []).Any(item => item.Status == "waiting" &&
-            item.Consumer.RequirementIds.Any(id => step.RequirementIds.Contains(id, StringComparer.Ordinal)) && ContinuationCurrent(state, item))) return;
+        if (HasCurrentOpeningPrerequisite(state)) return;
         PlanningConstruction.Fail("CONSTRUCTION_EMPTY_OPENING", "/extension",
             "Populate this business block's control or group body. An empty-only opening requires an existing evidence-linked unresolved prerequisite for the current responsibility.");
+    }
+
+    internal static bool HasCurrentOpeningPrerequisite(PlanningSession state)
+    {
+        var step = State(state).CurrentStep!;
+        ValidatePrerequisites(state, step);
+        return step.Prerequisites is { Count: > 0 } || (State(state).SuspendedSteps ?? []).Any(item => item.Status == "waiting" &&
+            item.Consumer.RequirementIds.Any(id => step.RequirementIds.Contains(id, StringComparer.Ordinal)) && ContinuationCurrent(state, item));
     }
 
     private static void ValidateBlockContinuation(PlanningSession state, PlanningConstructionCandidate candidate)

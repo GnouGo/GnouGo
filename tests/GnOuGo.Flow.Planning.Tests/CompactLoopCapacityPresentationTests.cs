@@ -74,6 +74,7 @@ public sealed class CompactLoopCapacityPresentationTests
         state.Construction.Candidate = PlanningConstruction.Apply(state, new()
         {
             Scope = "/root", RequirementIds = ["req_0"], CloseScopes = open ? [] : ["/tasks/iterate/body", "/root"], Complete = !open,
+            ContinueInScope = open ? "/tasks/iterate/body" : null,
             Tasks = [new() { Id = "iterate", Kind = "foreach", Objective = original, Items = new() { Kind = "input", Source = "values" }, MaxItems = 1,
                 Body = open ? new() : new() { Outputs = [new("number", new() { Kind = "item" })] } }],
             Outputs = open ? [] : [new("result", new() { Kind = "output", Source = "iterate", Port = "number" })]

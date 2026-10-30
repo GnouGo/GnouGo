@@ -86,6 +86,8 @@ public sealed class CompactConstructionClosureTests
         AssertCompletion(schema, allowed: false);
         AssertScopeClosure(schema, "/root", allowed: false);
         var extension = new PlanningConstructionExtension { RequirementIds = ["req"] };
+        extension.ContinueInScope = kind == "group" ? "/groups/reusable/body" : kind == "parallel"
+            ? "/tasks/container/branches/0" : "/tasks/container/body";
         if (kind == "group") extension.Groups.Add(new() { Id = "reusable", Body = Body("group_value") });
         else
         {

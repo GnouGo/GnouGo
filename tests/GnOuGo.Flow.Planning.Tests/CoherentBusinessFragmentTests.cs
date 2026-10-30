@@ -88,15 +88,18 @@ public sealed class CoherentBusinessFragmentTests
         Assert.Equal("in_progress", state.Construction.Requirements.Single(requirement => requirement.Id == "work").Status);
     }
 
-    [Fact]
-    public async Task PopulatedReusableGroupCanOwnTypedIterationAndCleanupInOneFragment()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PopulatedReusableGroupCanOwnTypedIterationAndCleanupInOneFragment(bool explicitClosures)
     {
         var (state, _) = await BusinessReviewProtocolTests.Ready();
         state.Construction!.Candidate = null;
         state.Construction.Compact!.CurrentStep!.Kind = "group";
         var extension = new PlanningConstructionExtension
         {
-            Scope = "/root", RequirementIds = ["work"], CloseScopes = ["/tasks/iterate/body", "/groups/worker/body"],
+            Scope = "/root", RequirementIds = ["work"],
+            CloseScopes = explicitClosures ? ["/tasks/iterate/body", "/groups/worker/body"] : [],
             Groups = [new()
             {
                 Id = "worker", Inputs = [new() { Name = "numbers", Type = new() { Kind = "array", Items = new() { Kind = "number" } } }],
@@ -114,8 +117,12 @@ public sealed class CoherentBusinessFragmentTests
                             Always = [new() { Id = "final_item", Kind = "value", Objective = "Retain the exact item on finalization.",
                                 Outputs = [new("number", new() { Kind = "item" })] }]
                         }
+                    }, new()
+                    {
+                        Id = "collect", Kind = "value", Objective = "Consume the completed loop in this same fragment.", DependsOn = ["iterate"],
+                        Outputs = [new("numbers", new() { Kind = "output", Source = "iterate", Port = "number" })]
                     }],
-                    Outputs = [new("numbers", new() { Kind = "output", Source = "iterate", Port = "number" })]
+                    Outputs = [new("numbers", new() { Kind = "output", Source = "collect", Port = "numbers" })]
                 }
             }]
         };
@@ -125,7 +132,10 @@ public sealed class CoherentBusinessFragmentTests
         Assert.Empty(TaskPlanCompiler.ValidateConstruction(candidate.Plan, state.Catalog!, state.Request,
             candidate.OpenScopes.ToHashSet(StringComparer.Ordinal)).Diagnostics);
         Assert.Empty(new TaskPlanCompiler().Compile(candidate.Plan, state.Catalog!, state.Request).Diagnostics);
-        Assert.Equal(3, candidate.TaskIds.Count);
+        Assert.Equal(4, candidate.TaskIds.Count);
+        Assert.Equal(["/root"], candidate.OpenScopes);
+        Assert.Equal(["/tasks/iterate/body", "/groups/worker/body"], candidate.Extension.CloseScopes);
+        if (!explicitClosures) Assert.Empty(extension.CloseScopes); // received response remains unchanged
         Assert.Equal("final_item", Assert.Single(candidate.Plan.Groups[0].Body.Tasks[0].Body!.Always).Id);
     }
 
@@ -428,6 +438,7 @@ public sealed class CoherentBusinessFragmentTests
         if (hasPrerequisite)
         {
             PlanningCompactConstruction.ValidateExtension(state, candidate);
+            Assert.Contains(kind == "group" ? "/groups/deferred/body" : "/tasks/deferred/body", candidate.OpenScopes);
             Assert.False(HybridWorkflowPlanner.NeedsBusinessReview(state, candidate));
             PlanningProgress.Initialize(state);
             state.Construction.Candidate = candidate;
