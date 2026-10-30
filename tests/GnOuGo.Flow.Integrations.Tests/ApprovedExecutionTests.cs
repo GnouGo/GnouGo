@@ -20,7 +20,10 @@ public sealed class ApprovedExecutionTests
         Directory.CreateDirectory(directory);
         try
         {
-            var calls = 0; var model = new CurrentPlanningFixture.LiteralModel(onRequest: _ => calls++); var human = new Human();
+            var calls = 0; var phases = new List<string>();
+            var model = new CurrentPlanningFixture.LiteralModel(onRequest: request =>
+            { calls++; phases.Add(request.StructuredOutputSchema!["title"]!.GetValue<string>()); });
+            var human = new Human();
             var factory = new WorkflowPlanningRuntimeFactory(new KeyVaultRecordStore(Path.Combine(directory, "vault.db")), Path.Combine(directory, "leases"));
             var engine = new WorkflowEngine { WorkflowPlanner = new HybridWorkflowPlanner(), PlanningRuntimeFactory = factory, LLMClient = model, HumanInputProvider = human, DefaultPlanningMode = mode,
                 Limits = new() { RunId = "stable-run", TenantId = "one" } };
@@ -48,7 +51,8 @@ public sealed class ApprovedExecutionTests
                 if (i == 0) firstCalls = calls;
                 else Assert.Equal(firstCalls, calls);
             }
-            Assert.Equal(4, calls); Assert.Equal(1, human.Reviews);
+            Assert.Equal(5, calls); Assert.Equal(1, human.Reviews);
+            Assert.Equal(["construction_intent", "construction_select", "construction_implementation", "construction_draft", "construction_global_judge"], phases);
             await Assert.ThrowsAsync<PlanningConflictException>(() => factory.ReadApprovedYamlAsync(new() { Engine = engine, Limits = new() { TenantId = "other" }, Step = new(), Data = new() }, "unknown", "forged", TestContext.Current.CancellationToken));
         }
         finally { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); Directory.Delete(directory, true); }

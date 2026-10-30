@@ -53,7 +53,10 @@ public sealed class PlanningClarificationExecutionTests
                 if (i == 0) firstCalls = model.Calls;
                 else Assert.Equal(firstCalls, model.Calls);
             }
-            Assert.Equal(6, model.Calls); Assert.Equal(1, human.Reviews);
+            Assert.Equal(7, model.Calls); Assert.Equal(1, human.Reviews);
+            Assert.Equal(["construction_intent", "construction_intent", "construction_intent", "construction_select",
+                "construction_implementation", "construction_draft", "construction_global_judge"],
+                model.Requests.Select(request => request.StructuredOutputSchema!["title"]!.GetValue<string>()));
             Assert.Equal(interaction ? 1 : 0, decisions.Questions); Assert.Equal(interaction ? 0 : 1, human.Questions);
             Assert.Contains(model.Requests.Skip(2), request => request.Prompt.Contains(custom ? "CUSTOM_INTENT" : "compact", StringComparison.Ordinal));
             if (interaction) Assert.True(decisions.AnswerCheckpointed);
