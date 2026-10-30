@@ -27,7 +27,8 @@ internal static class PlanningProgress
         if (state.PendingCall is not null || state.Construction?.Compact is not { } compact) return;
         var limit = state.Construction.Limits.MaxNonProductiveModelCalls;
         if (limit is null) return; // Retained sessions keep their original captured limits.
-        if (limit is < 1 or > 64) throw new PlanningConflictException("The captured nonproductive-call allowance is invalid.");
+        if (limit < 1 || limit > 64 && !PlanningTokenThresholds.OptimizationAdvisory(state.Request))
+            throw new PlanningConflictException("The captured nonproductive-call allowance is invalid.");
         if (compact.Progress is { } retained && SuppliedOriginals(state).Except(retained.Evidence, StringComparer.Ordinal).Any())
             Record(state, null, annotate: false);
         if (compact.Progress is null || compact.Progress.NonProductiveModelCalls < limit.Value) return;
@@ -43,6 +44,14 @@ internal static class PlanningProgress
         var attempts = strategies.TakeLast(limit.Value).ToArray();
         var missing = prerequisites.Length > 0 ? string.Join("; ", prerequisites) :
             "No validated executable contribution or new evidence for the open obligations was produced; no more specific prerequisite was established.";
+        if (PlanningTokenThresholds.OptimizationAdvisory(state.Request))
+        {
+            PlanningOptimizationThresholds.Record(state, "progress", "nonproductive_calls", compact.Progress.NonProductiveModelCalls, limit.Value,
+                new JsonObject { ["attemptedStrategies"] = Strings(strategies), ["missingPrerequisites"] = Strings(prerequisites),
+                    ["requirements"] = Strings(requirements), ["explanation"] = missing,
+                    ["attempts"] = new JsonArray((state.StrategyAttempts ?? []).TakeLast(limit.Value).Select(attempt => attempt.DeepClone()).ToArray()) });
+            return;
+        }
         throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS",
             $"{compact.Progress.NonProductiveModelCalls} model calls produced no new useful evidence, executable behavior or reviewed completion. " +
             "Unfinished obligations: " + string.Join(", ", requirements) +
@@ -84,6 +93,7 @@ internal static class PlanningProgress
         if (annotate && state.RequestMeasurements?.LastOrDefault(measurement => measurement.Admission == "admitted" &&
             measurement.RequestId.StartsWith(requestPrefix, StringComparison.Ordinal)) is { } measurement)
         {
+            measurement.BlockId ??= compact.CurrentBlockId ?? state.Construction.Checkpoints.LastOrDefault()?.Step?.BlockId;
             measurement.StepId ??= compact.CurrentStep?.Id ?? state.Construction.Checkpoints.LastOrDefault()?.Step?.Id;
             (measurement.Transitions ??= []).Add(new(state.Revision + 1, kind, evidence.Length, behaviors.Length, completed.Length,
                 progress.NonProductiveModelCalls));
@@ -98,7 +108,63 @@ internal static class PlanningProgress
             ["completed"] = Strings(facts.Completed.Order(StringComparer.Ordinal)) });
     }
 
-    internal static string Strategy(PlanningSession state, string purpose, JsonNode response)
+    internal static string Strategy(PlanningSession state, string purpose, JsonNode response) => Strategy(state, purpose, response, out _);
+
+    internal static string Strategy(PlanningSession state, string purpose, JsonNode response, out JsonObject evidence)
+    {
+        evidence = Canonical(StrategyEvidence(state, response))!.AsObject();
+        return purpose + ":" + Hash(evidence);
+    }
+
+    // Exact receipt recovery reuses its original assessment. Only distinct issued
+    // requests can demonstrate a repeated strategy on unchanged useful state.
+    internal static string AssessAttempt(PlanningSession state, string purpose, JsonNode response, string requestId,
+        string prefix = "", string? suffix = null, JsonNode? issuedSchema = null, JsonNode? strategyResponse = null, JsonNode? exactIssuedSchema = null)
+    {
+        var attempts = state.StrategyAttempts ??= [];
+        var responseHash = Hash(response);
+        var schema = issuedSchema?.DeepClone();
+        if (schema is JsonObject annotated) { annotated.Remove("title"); annotated.Remove("$comment"); }
+        var schemaHash = schema is null ? null : Hash(schema);
+        var exactSchemaHash = exactIssuedSchema is null ? null : Hash(exactIssuedSchema);
+        var kind = issuedSchema is null ? "strategy" : "invalid_response";
+        if (attempts.SingleOrDefault(attempt => attempt["requestId"]?.ToString() == requestId) is { } recovered)
+        {
+            if (recovered["responseHash"]?.ToString() != responseHash || recovered["schemaHash"]?.ToString() != schemaHash ||
+                recovered["kind"]?.ToString() != kind || recovered["exactSchemaHash"]?.ToString() != exactSchemaHash)
+                throw new PlanningConflictException("The recovered strategy attempt does not match its exact received response and issued schema.");
+            if (recovered["repeated"]?.GetValue<bool>() == true) Repeated(recovered);
+            return recovered["identity"]!.ToString();
+        }
+        var strategy = Strategy(state, purpose, strategyResponse ?? response, out var evidence);
+        var usefulState = Fingerprint(state);
+        var ordinary = prefix + strategy + ":progress:" + usefulState + (schemaHash is null ? "" : ":schema:" + schemaHash);
+        var identity = suffix is null ? ordinary : ordinary + ":" + suffix;
+        var previous = Previous(identity, ordinary);
+        var attempted = new JsonObject { ["identity"] = identity, ["phase"] = purpose, ["requestId"] = requestId,
+            ["blockId"] = state.Construction?.Compact?.CurrentBlockId, ["usefulState"] = usefulState,
+            ["strategy"] = evidence, ["kind"] = kind, ["responseHash"] = responseHash, ["schemaHash"] = schemaHash,
+            ["exactSchemaHash"] = exactSchemaHash, ["repeated"] = previous is not null, ["previousRequestId"] = previous?["requestId"]?.ToString() };
+        attempts.Add(attempted);
+        if (previous is not null) Repeated(attempted, previous);
+        return identity;
+
+        JsonObject? Previous(string identity, string? ordinary = null) => attempts.FirstOrDefault(attempt =>
+            attempt["requestId"]?.ToString() != requestId &&
+            (attempt["identity"]?.ToString() == identity || ordinary is not null && attempt["identity"]?.ToString() == ordinary));
+        void Repeated(JsonObject current, JsonObject? previous = null)
+        {
+            previous ??= attempts.SingleOrDefault(attempt => attempt["requestId"]?.ToString() == current["previousRequestId"]?.ToString());
+            throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS",
+                "The same canonical strategy was repeated on unchanged useful evidence and accepted behavior" +
+                (schemaHash is null ? "." : " under the same issued response schema.") + " Current request: " + requestId +
+                "; prior request: " + previous?["requestId"]?.ToString() +
+                ". Exact arguments, bindings, obligations and available evidence remain in the strategy-attempt journal.",
+                details: new JsonObject { ["previousAttempt"] = previous?.DeepClone(), ["currentAttempt"] = current.DeepClone() });
+        }
+    }
+
+    private static JsonObject StrategyEvidence(PlanningSession state, JsonNode response)
     {
         var projected = response.DeepClone();
         var behavior = new Behavior(state.Plan ?? new(), state.Construction?.OpenScopes ?? []);
@@ -107,7 +173,8 @@ internal static class PlanningProgress
         {
             Tasks(extension["tasks"], "/tasks"); Tasks(extension["always"], "/always");
             if (extension["groups"] is JsonArray groups)
-                for (var index = 0; index < groups.Count; index++) Scope(groups[index]?["body"], "/groups/" + index + "/body");
+                for (var index = 0; index < groups.Count; index++)
+                    if (groups[index] is JsonObject group) Scope(group["body"], "/groups/" + index + "/body");
         }
         var locals = declarations.GroupBy(item => item.Id, StringComparer.Ordinal).ToDictionary(group => group.Key,
             group => (group.Count() == 1 ? "local:" : "duplicate:") + group.First().Path, StringComparer.Ordinal);
@@ -139,14 +206,14 @@ internal static class PlanningProgress
                 ["evidence"] = Strings(item.Prerequisite.EvidenceAddresses)
             }).ToArray());
         Normalize(consumers, local: false);
-        return purpose + ":" + Hash(new JsonObject { ["action"] = projected, ["selected"] = selected, ["consumers"] = consumers });
+        return new JsonObject { ["action"] = projected, ["selected"] = selected, ["consumers"] = consumers };
 
         void Tasks(JsonNode? node, string path)
         {
             if (node is not JsonArray tasks) return;
             for (var index = 0; index < tasks.Count; index++)
             {
-                if (tasks[index] is not JsonObject task || task["id"] is not JsonValue id) continue;
+                if (tasks[index] is not JsonObject task || task["id"] is not JsonValue id || !id.TryGetValue<string>(out _)) continue;
                 var location = path + "/" + index.ToString(System.Globalization.CultureInfo.InvariantCulture);
                 declarations.Add((task, id.ToString(), location));
                 Scope(task["body"], location + "/body"); Scope(task["otherwise"], location + "/otherwise");
@@ -163,26 +230,29 @@ internal static class PlanningProgress
                 return declared + path[("/tasks/" + id).Length..];
             return behavior.ScopeIdentity(path, includeSequence: true);
         }
+        static bool StringArray(JsonArray values) => values.All(value => value is JsonValue item && item.TryGetValue<string>(out _));
         void Normalize(JsonNode? node, bool local = true)
         {
             if (node is JsonArray array) { foreach (var child in array) Normalize(child, local); return; }
             if (node is not JsonObject value) return;
+            if (value.ContainsKey("requirementIds") && value.ContainsKey("successCriteria"))
+                foreach (var key in new[] { "informationNeeds", "expectedResults", "successCriteria" }) value.Remove(key);
             // Only navigation prose is removed. Typed literals (including Text)
             // and actual operation bindings remain part of the attempted strategy.
             foreach (var key in new[] { "objective", "reason", "expectedOutputs", "need", "id", "baseHash" })
                 if (!(key == "objective" && value["kind"]?.ToString() == "transform" && value.ContainsKey("resultType"))) value.Remove(key);
             if (local && localTasks.TryGetValue(value, out var declaration)) value["id"] = declaration;
             foreach (var key in new[] { "inputTaskIds", "dependencyTaskIds", "dependsOn" })
-                if (value[key] is JsonArray ids) value[key] = Strings(ids.Select(id => TaskIdentity(id!.ToString(), local)).Order(StringComparer.Ordinal));
+                if (value[key] is JsonArray ids && StringArray(ids)) value[key] = Strings(ids.Select(id => TaskIdentity(id!.GetValue<string>(), local)).Order(StringComparer.Ordinal));
             foreach (var key in new[] { "requirementIds", "closeRequirementIds", "operationIds", "outputNames" })
-                if (value[key] is JsonArray ids) value[key] = Strings(ids.Select(id => id!.ToString()).Order(StringComparer.Ordinal));
+                if (value[key] is JsonArray ids && StringArray(ids)) value[key] = Strings(ids.Select(id => id!.GetValue<string>()).Order(StringComparer.Ordinal));
             foreach (var key in new[] { "scope", "continueInScope" })
-                if (value[key] is JsonValue scope) value[key] = ScopeIdentity(scope.ToString(), local);
-            if (value["closeScopes"] is JsonArray scopes) value["closeScopes"] = Strings(scopes.Select(scope => ScopeIdentity(scope!.ToString(), local)));
-            if (value["kind"]?.ToString() is "output" or "present" && value["source"] is JsonValue producer)
-                value["source"] = TaskIdentity(producer.ToString(), local);
-            if (value["rollbackTask"] is JsonValue rollback) value["rollbackTask"] = TaskIdentity(rollback.ToString(), local);
-            if (value["reselectStep"] is JsonValue) value["reselectStep"] = "reselect";
+                if (value[key] is JsonValue scope && scope.TryGetValue<string>(out var path)) value[key] = ScopeIdentity(path, local);
+            if (value["closeScopes"] is JsonArray scopes && StringArray(scopes)) value["closeScopes"] = Strings(scopes.Select(scope => ScopeIdentity(scope!.GetValue<string>(), local)));
+            if (value["kind"]?.ToString() is "output" or "present" && value["source"] is JsonValue producer && producer.TryGetValue<string>(out var source))
+                value["source"] = TaskIdentity(source, local);
+            if (value["rollbackTask"] is JsonValue rollback && rollback.TryGetValue<string>(out var target)) value["rollbackTask"] = TaskIdentity(target, local);
+            if (value["reselectStep"] is JsonValue reselection && reselection.TryGetValue<string>(out _)) value["reselectStep"] = "reselect";
             foreach (var child in value.Select(pair => pair.Value).ToArray()) Normalize(child, local);
         }
     }

@@ -81,6 +81,9 @@ public sealed class PlanningConstructionCandidate
 /// <summary>A bounded edit envelope containing only existing semantic TaskPlan types.</summary>
 public sealed class PlanningConstructionExtension
 {
+    /// <summary>Explicit business completion claim; scope closure and fragment completion imply no such claim.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? CompleteBlock { get; set; }
     public string Scope { get; set; } = "/root";
     /// <summary>Continue this business block in its current or owned open scope after accepting the bounded fragment.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

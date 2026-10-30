@@ -13,8 +13,8 @@ internal static partial class PlanningConstruction
 
     internal static JsonObject? DefectWitness(PlanningSession state, JsonObject context, JsonArray findings)
     {
-        if (state.Construction!.Candidate is not { } candidate ||
-            findings.Count is 0 or > 3) return null;
+        if (state.Construction!.Candidate is not { } candidate || findings.Count == 0 ||
+            PlanningOptimizationThresholds.Exceeded(state, "business_review", "finding_count", findings.Count, 3)) return null;
         var entries = new JsonArray();
         foreach (var finding in findings.OfType<JsonObject>())
         {
@@ -26,6 +26,10 @@ internal static partial class PlanningConstruction
             var location = finding["location"]!.ToString();
             var affected = location.StartsWith(implementation + "/", StringComparison.Ordinal) ? location : implementation;
             if (!TryPointer(context, obligation, out var original) || !TryPointer(context, affected, out var before)) continue;
+            var obligations = (finding["obligationPointers"] as JsonArray ?? new JsonArray(obligation))
+                .Select(item => item!.ToString()).Distinct(StringComparer.Ordinal).ToArray();
+            if (obligations.Any(pointer => !(pointer.StartsWith("/requirements/", StringComparison.Ordinal) || pointer.StartsWith("/globalConstraints/", StringComparison.Ordinal)) ||
+                !TryPointer(context, pointer, out _))) continue;
             var selector = DefectSelector(context, affected);
             var entry = new JsonObject
             {
@@ -34,8 +38,14 @@ internal static partial class PlanningConstruction
                 ["implementationPointer"] = affected, ["selector"] = selector,
                 ["before"] = DefectSnapshot(DefectProjection(before)),
                 ["explanation"] = finding["explanation"]?.DeepClone(), ["uncertainty"] = finding["uncertainty"]?.DeepClone(),
-                ["evidenceAddresses"] = DefectAddresses(context, obligation, affected)
+                ["evidenceAddresses"] = DefectAddresses(context, obligations, affected)
             };
+            if (obligations.Length > 1)
+                entry["obligations"] = new JsonArray(obligations.Select(pointer =>
+                {
+                    TryPointer(context, pointer, out var value);
+                    return (JsonNode)new JsonObject { ["pointer"] = pointer, ["snapshot"] = DefectSnapshot(value) };
+                }).ToArray());
             entry["id"] = DefectHash(entry);
             entries.Add((JsonNode)entry);
         }
@@ -95,6 +105,8 @@ internal static partial class PlanningConstruction
         var result = new JsonArray();
         foreach (var (witness, entry) in active)
         {
+            var priorContext = candidate.Reviews.Select(review => review["context"]).OfType<JsonObject>()
+                .FirstOrDefault(context => DefectHash(context) == witness["contextHash"]?.ToString());
             var sameBasis = witness["baseline"]?.ToString() == candidate.BaseHash && candidate.BaseHash == Hash(state.Plan);
             var sameSource = witness["sourceHash"]?.ToString() == DefectSources(state);
             var sameClaims = witness["claimHash"]?.ToString() == DefectClaims(state, candidate);
@@ -117,13 +129,37 @@ internal static partial class PlanningConstruction
                     ["claim"] = witness["claimHash"]!.DeepClone(), ["selector"] = entry["selector"]?.DeepClone(), ["before"] = entry["before"]!["hash"]!.DeepClone() }),
                 ["obligationPointerInPriorContext"] = entry["obligationPointer"]!.DeepClone(), ["obligation"] = entry["obligation"]!.DeepClone(),
                 ["implementationPointerInPriorContext"] = entry["implementationPointer"]!.DeepClone(),
-                ["currentImplementationPointer"] = currentPointer, ["before"] = entry["before"]!.DeepClone(), ["current"] = snapshot,
+                ["currentImplementationPointer"] = currentPointer,
+                ["before"] = ExactSnapshot(entry["before"]!, priorContext, entry["implementationPointer"]!.ToString()),
+                ["current"] = ExactSnapshot(snapshot, currentContext, currentPointer),
+                ["obligations"] = new JsonArray((entry["obligations"] as JsonArray ?? new JsonArray(new JsonObject
+                    { ["pointer"] = entry["obligationPointer"]!.DeepClone(), ["snapshot"] = entry["obligation"]!.DeepClone() }))
+                    .Select(obligation => ExactSnapshot(obligation!["snapshot"], priorContext, obligation["pointer"]!.ToString())?["value"]?.DeepClone()).ToArray()),
+                ["targets"] = DefectTarget(selector) is { } target ? new JsonArray(target) : new JsonArray(),
                 ["explanation"] = entry["explanation"]?.DeepClone(), ["uncertainty"] = entry["uncertainty"]?.DeepClone(),
                 ["assessment"] = "Prior finding is advisory. Changed bytes or added evidence do not establish resolution; unchanged bytes do not establish that the finding was true."
             };
             result.Add((JsonNode)progress);
         }
         return result.Count == 0 ? null : result;
+    }
+
+    private static JsonObject? ExactSnapshot(JsonNode? snapshot, JsonObject? context, string? pointer)
+    {
+        if (snapshot is not JsonObject saved) return null;
+        var result = saved.DeepClone().AsObject();
+        // The compact witness keeps its original hash. Its exact retained review
+        // supplies values omitted from that storage summary; no new authority is inferred.
+        if (!result.ContainsKey("value") && context is not null && pointer is not null && TryPointer(context, pointer, out var value))
+            result["value"] = DefectProjection(value);
+        return result;
+    }
+
+    private static string? DefectTarget(JsonArray? selector)
+    {
+        if (selector?.ElementAtOrDefault(1) is not JsonObject subject || subject["value"]?.ToString() is not { } id) return null;
+        return selector[0]?.ToString() switch { "actions" or "scopes" => id, "groups" => "group:" + id,
+            "publicOutputs" => "output:" + id, _ => null };
     }
 
     private static bool DefectDependencyChanged(PlanningConstructionCandidate candidate, JsonObject witness,
@@ -229,10 +265,10 @@ internal static partial class PlanningConstruction
     private static JsonObject DefectEvidenceHashes(JsonObject context) => new((context["evidence"] as JsonObject ?? [])
         .Where(pair => pair.Value is not null).Select(pair => new KeyValuePair<string, JsonNode?>(pair.Key, JsonValue.Create(DefectHash(pair.Value)))));
 
-    private static JsonArray DefectAddresses(JsonObject context, string obligation, string affected)
+    private static JsonArray DefectAddresses(JsonObject context, IEnumerable<string> obligations, string affected)
     {
         var addresses = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var pointer in new[] { obligation, affected })
+        foreach (var pointer in obligations.Append(affected))
         {
             var tokens = pointer.Split('/');
             if (tokens is ["", "evidence", var encoded]) addresses.Add(encoded.Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal));

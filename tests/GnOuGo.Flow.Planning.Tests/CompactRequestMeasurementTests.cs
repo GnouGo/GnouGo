@@ -44,6 +44,7 @@ public sealed class CompactRequestMeasurementTests
         var request = new LLMRequest { ClientRequestId = "session:1:issued", Prompt = "one complete request" };
         var measurement = PlanningRequestMeasurements.Measure(request, "construction_draft", 1000, "block");
         measurement.Admission = "admitted";
+        measurement.BlockId = "business_block";
         measurement.Warnings = [new("input_target", 1100, 1000, "conservative_token_estimate", "construction_draft")];
         measurement.Transitions = [new(3, "executable_behavior", 0, 2, 0, 0)];
         var run = new JsonObject
@@ -74,6 +75,31 @@ public sealed class CompactRequestMeasurementTests
         Assert.Equal(1, metrics["productive_business_blocks"]!.GetValue<int>());
         Assert.Single(metrics["warnings"]!.AsArray());
         Assert.Equal(original, run.ToJsonString());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SeveralImplementationCursorsCountAsOneKnownBlockWithoutInventingHistoricalBlocks(bool historical)
+    {
+        var records = new JsonArray();
+        for (var index = 0; index < 2; index++)
+        {
+            var measurement = PlanningRequestMeasurements.Measure(new() { ClientRequestId = "session:" + index, Prompt = "An exact request " + index },
+                "construction_draft", 1000, "cursor_" + index);
+            measurement.BlockId = historical ? null : "one_business_block";
+            measurement.Admission = "admitted";
+            measurement.Transitions = [new(index, "executable_behavior", 0, 1, 0, 0)];
+            records.Add(JsonSerializer.SerializeToNode(measurement, PlanningJsonContext.Default.PlanningRequestMeasurement));
+        }
+        var run = new JsonObject { ["session"] = new JsonObject { ["requestMeasurements"] = records } };
+        var before = run.ToJsonString();
+        var metrics = PlanningBenchmarkMeasurements.RequestMetrics(run);
+        Assert.Equal(2, metrics["productive_implementation_steps"]!.GetValue<int>());
+        Assert.Equal(!historical, metrics["business_block_identity_complete"]!.GetValue<bool>());
+        if (historical) Assert.Null(metrics["productive_business_blocks"]);
+        else Assert.Equal(1, metrics["productive_business_blocks"]!.GetValue<int>());
+        Assert.Equal(before, run.ToJsonString());
     }
 
     [Theory]

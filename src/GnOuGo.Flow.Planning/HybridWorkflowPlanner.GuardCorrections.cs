@@ -10,7 +10,7 @@ public sealed partial class HybridWorkflowPlanner
         System.Text.Json.JsonSerializer.SerializeToNode(left, PlanningJsonContext.Default.TaskValue),
         System.Text.Json.JsonSerializer.SerializeToNode(right, PlanningJsonContext.Default.TaskValue));
 
-    private static Dictionary<string, List<TaskPlanCompiler.RepairSource>> GuardSources(TaskPlan baseline, PlanningCatalog catalog, TaskPlan? candidate = null)
+    private static Dictionary<string, List<TaskPlanCompiler.RepairSource>> GuardSources(TaskPlan baseline, PlanningCatalog catalog, TaskPlan? candidate = null, PlanningRequest? request = null)
     {
         var references = new Dictionary<string, List<TaskValue>>(StringComparer.Ordinal);
         foreach (var plan in candidate is null ? new[] { baseline } : new[] { baseline, candidate })
@@ -22,7 +22,7 @@ public sealed partial class HybridWorkflowPlanner
             }
         // The compiler resolves visibility, fields, references and nullability. This
         // optional inspection does not change repair presentation or old requests.
-        return TaskPlanCompiler.RepairSources(baseline, catalog, references);
+        return TaskPlanCompiler.RepairSources(baseline, catalog, references, request);
     }
 
     private static string? GuardProducer(TaskValue value) => value.Kind switch

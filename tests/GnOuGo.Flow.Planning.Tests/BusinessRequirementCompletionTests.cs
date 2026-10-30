@@ -8,42 +8,47 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class BusinessRequirementCompletionTests
 {
     [Fact]
-    public async Task EmptyGroupOpeningRetainsUnreviewedClaimWithoutHidingOriginalWork()
+    public async Task EmptyGroupOpeningRetainsUnreviewedContributionWithoutClaimingOriginalCompletion()
     {
         var (state, runtime) = await Opening();
         state = await Advance(state, runtime);
 
         Assert.Empty(runtime.Calls);
         var checkpoint = Assert.Single(state.Construction!.Checkpoints);
-        Assert.Equal(new[] { "work" }, checkpoint.ClosedRequirementIds);
+        Assert.Empty(checkpoint.ClosedRequirementIds!);
         Assert.True(checkpoint.Fragment["businessReviewPending"]!.GetValue<bool>());
         Assert.Empty(checkpoint.Reviews);
         Assert.Equal("in_progress", Requirement(state, "work").Status);
         Assert.Contains(checkpoint.Sequence, Requirement(state, "work").Checkpoints);
-        var context = PlanningCompactConstruction.SelectionContext(state);
+        var context = PlanningCompactConstruction.ImplementationContext(state);
         var original = Assert.Single(context["requirements"]!.AsArray(), item => item!["id"]!.ToString() == "work")!;
         Assert.Equal("Double the supplied number. ", original["original"]!.ToString());
         Assert.NotEqual("closed", original["status"]!.ToString());
-        Assert.True(original["acceptedProgress"]!["completionClaimPendingReview"]!.GetValue<bool>());
+        Assert.False(original["acceptedProgress"]!["completionClaimPendingReview"]!.GetValue<bool>());
         Assert.False(PlanningCompactConstruction.CompletionOnly(state));
         Assert.False(HybridWorkflowPlanner.ConstructionArtifactReviewValid(state));
     }
 
     [Fact]
-    public async Task LocalOkCommitsOnlyItsExplicitClaimAndLeavesUncalledGroupClaimPending()
+    public async Task LocalOkCommitsOnlyItsExplicitClaimAndLeavesUncalledGroupContributionPending()
     {
         var (state, runtime) = await Opening(extraRequirement: true);
         state = await Advance(state, runtime);
         var opening = Assert.Single(state.Construction!.Checkpoints);
         var accepted = PlanningConstruction.Hash(state.Plan);
+        // This direct review fixture retains an independent earlier contribution;
+        // the current block's review cannot close that earlier obligation.
+        state.Construction.Compact!.Blocks!.Add(new() { Id = "later-block", Objective = "Compute the independent requested number.",
+            RequirementIds = ["later"], ExpectedResults = ["The requested number seven."], SuccessCriteria = ["The independent result equals seven."] });
+        state.Construction.Compact.CurrentBlockId = "later-block";
         state.Construction.Compact!.CurrentStep = new()
         {
-            Id = "later-value", Scope = "/root", Kind = "value", BaseHash = accepted,
+            Id = "later-value", BlockId = "later-block", Scope = "/root", Kind = "value", BaseHash = accepted,
             Objective = "Compute the later independent number.", RequirementIds = ["later"], CloseRequirementIds = ["later"], DiscoveryComplete = true
         };
         state.Construction.Candidate = PlanningConstruction.Apply(state, new()
         {
-            Scope = "/root", RequirementIds = ["later"], Tasks = [new()
+            Scope = "/root", RequirementIds = ["later"], CompleteBlock = true, Tasks = [new()
             {
                 Id = "later-value", Kind = "value", Objective = "Compute the later independent number.",
                 Outputs = [new("number", new() { Kind = "number", Number = 7 })]
@@ -107,13 +112,13 @@ public sealed class BusinessRequirementCompletionTests
         var (state, runtime) = await PendingDeclarations();
         state.Construction!.Compact!.CurrentStep = new()
         {
-            Id = "finalize-explicitly", BaseHash = PlanningConstruction.Hash(state.Plan), Scope = "/root", Kind = "close",
+            Id = "finalize-explicitly", BlockId = state.Construction.Compact.CurrentBlockId, BaseHash = PlanningConstruction.Hash(state.Plan), Scope = "/root", Kind = "close",
             Objective = "Finish the whole workflow against all original obligations.", RequirementIds = ["requirement_0"],
             CloseRequirementIds = ["requirement_0"], CloseScopes = ["/root"], DiscoveryComplete = true
         };
         state.Construction.Candidate = PlanningConstruction.Apply(state, new()
         {
-            Scope = "/root", RequirementIds = ["requirement_0"], CloseScopes = ["/root"], Complete = true
+            Scope = "/root", RequirementIds = ["requirement_0"], CloseScopes = ["/root"], Complete = true, CompleteBlock = true
         });
         runtime.Respond = (request, purpose) =>
         {
@@ -211,7 +216,7 @@ public sealed class BusinessRequirementCompletionTests
         Assert.Single(recovery.Calls);
         Assert.Equal(1, recovered.ModelCalls);
         Assert.Equal(0, recovered.ReplanAttempts);
-        Assert.Equal(7, recovered.Construction!.Checkpoints.Count);
+        Assert.Equal(2, recovered.Construction!.Checkpoints.Count);
         Assert.All(recovered.Construction.Requirements, requirement => Assert.Equal("closed", requirement.Status));
         PlanningArtifactApproval.Verify(recovered);
         var checkpointCount = recovered.Construction.Checkpoints.Count;
@@ -238,46 +243,49 @@ public sealed class BusinessRequirementCompletionTests
     [Fact]
     public async Task SameBasisPendingClaimIsNotProgressButNewAcceptedWorkCanRenewIt()
     {
-        var (state, runtime) = await Opening();
-        state = await Advance(state, runtime);
+        var (state, runtime) = await PendingDeclarations();
+        var ids = state.Requirements!.Outcomes.Select(requirement => requirement.Id).ToList();
         SetCloseStep(state);
         var repeated = Assert.Throws<PlanningResponseException>(() => PlanningConstruction.Apply(state,
-            new() { Scope = "/root", RequirementIds = ["work"] }));
+            new() { Scope = "/root", RequirementIds = ids, CompleteBlock = true }));
         Assert.Contains(repeated.Diagnostics, diagnostic => diagnostic.Code == "REPLAN_NO_PROGRESS");
         Assert.Empty(runtime.Calls);
 
         state.Construction!.Compact!.CurrentStep = new()
         {
-            Id = "build-work", BaseHash = PlanningConstruction.Hash(state.Plan), Scope = "/root", Kind = "value",
-            Objective = "Implement the original multiplication.", RequirementIds = ["work"], CloseRequirementIds = ["work"], DiscoveryComplete = true
+            Id = "build-work", BlockId = state.Construction.Compact!.CurrentBlockId, BaseHash = PlanningConstruction.Hash(state.Plan), Scope = "/root", Kind = "value",
+            Objective = "Preserve the original caller value in an accepted computation.", RequirementIds = ids, CloseRequirementIds = ids.ToList(),
+            Inputs = [new() { Kind = "input", Source = "input_0" }], DiscoveryComplete = true
         };
         state.Construction.Candidate = PlanningConstruction.Apply(state, new()
         {
-            Scope = "/root", RequirementIds = ["work"], ContinueInScope = "/root", Tasks = [new()
+            Scope = "/root", RequirementIds = ids, CompleteBlock = false, ContinueInScope = "/root", Tasks = [new()
             {
-                Id = "implemented-work", Kind = "value", Objective = "Double the actual caller number.",
-                Outputs = [new("result", new() { Kind = "arithmetic", Text = "multiply",
-                    Items = [new() { Kind = "input", Source = "x" }, new() { Kind = "number", Number = 2 }] })]
+                Id = "implemented-work", Kind = "value", Objective = "Preserve the actual caller number.",
+                Outputs = [new("result", new() { Kind = "arithmetic", Text = "add",
+                    Items = [new() { Kind = "input", Source = "input_0" }, new() { Kind = "number", Number = 0 }] })]
             }]
         });
         state = await Advance(state, runtime);
         Assert.Empty(runtime.Calls);
         Assert.Equal("build-work", state.Construction!.Compact!.CurrentStep!.Id);
-        state.Construction!.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["work"] });
+        state.Construction!.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ids,
+            CloseScopes = ["/root"], CompleteBlock = true, Complete = true });
         runtime.Respond = (_, purpose) =>
         {
-            Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
+            Assert.Equal(PlanningConstruction.GlobalPurpose, purpose);
             return Ok();
         };
         state = await Advance(state, runtime);
         Assert.Single(runtime.Calls);
-        Assert.Equal("closed", Requirement(state, "work").Status);
+        Assert.All(state.Construction!.Requirements, requirement => Assert.Equal("closed", requirement.Status));
         Assert.Equal(0, state.ReplanAttempts);
 
         static void SetCloseStep(PlanningSession session) => session.Construction!.Compact!.CurrentStep = new()
         {
-            Id = "claim-work", BaseHash = PlanningConstruction.Hash(session.Plan), Scope = "/root", Kind = "close",
-            Objective = "Claim the original numeric work complete.", RequirementIds = ["work"], CloseRequirementIds = ["work"],
+            Id = "claim-work", BlockId = session.Construction.Compact!.CurrentBlockId, BaseHash = PlanningConstruction.Hash(session.Plan), Scope = "/root", Kind = "close",
+            Objective = "Claim the original numeric work complete.", RequirementIds = session.Requirements!.Outcomes.Select(requirement => requirement.Id).ToList(),
+            CloseRequirementIds = session.Requirements.Outcomes.Select(requirement => requirement.Id).ToList(),
             CloseScopes = [], DiscoveryComplete = true
         };
     }
@@ -291,12 +299,13 @@ public sealed class BusinessRequirementCompletionTests
         state.Construction!.Candidate = null;
         state.Construction.Compact!.CurrentStep = new()
         {
-            Id = "open-helper", BaseHash = PlanningConstruction.Hash(state.Plan), Scope = "/root", Kind = "group",
-            Objective = "Open the reusable helper for the original numeric work.", RequirementIds = ["work"], CloseRequirementIds = ["work"], DiscoveryComplete = true
+            Id = "open-helper", BlockId = state.Construction.Compact.CurrentBlockId, BaseHash = PlanningConstruction.Hash(state.Plan), Scope = "/root", Kind = "group",
+            Objective = "Open the reusable helper for the original numeric work.", RequirementIds = ["work"], CloseRequirementIds = ["work"], DiscoveryComplete = true,
+            Prerequisites = [new() { Need = "The reusable numeric computation is still required.", EvidenceAddresses = ["requirement:work"] }]
         };
         state.Construction.Candidate = PlanningConstruction.Apply(state, new()
         {
-            Scope = "/root", RequirementIds = ["work"], Groups = [new()
+            Scope = "/root", RequirementIds = ["work"], CompleteBlock = false, Groups = [new()
             {
                 Id = "unbuilt-helper", Inputs = [new() { Name = "x", Type = new() { Kind = "number" }, Required = true }], Body = new()
             }]
@@ -321,20 +330,26 @@ public sealed class BusinessRequirementCompletionTests
             Inputs = state.Requirements.Inputs.ToList(), Root = new() { Outputs = Enumerable.Range(0, 6).Select(index => new TaskOutput(
                 "result_" + index, new() { Kind = "input", Source = "input_" + index })).ToList() }
         };
-        runtime.Respond = (_, _) => throw new InvalidOperationException("A declaration-only claim must not dispatch a Judge.");
-        foreach (var requirement in state.Requirements.Outcomes)
+        var ids = state.Requirements.Outcomes.Select(requirement => requirement.Id).ToList();
+        state.Construction.Compact.Blocks = [new()
         {
-            state.Construction!.Compact!.CurrentStep = new()
-            {
-                Id = "declare-" + requirement.Id, BaseHash = PlanningConstruction.Hash(state.Plan), Scope = "/root", Kind = "close",
-                Objective = "Retain the declared interface and its pending completion claim.", RequirementIds = [requirement.Id],
-                CloseRequirementIds = [requirement.Id], CloseScopes = [], DiscoveryComplete = true
-            };
-            state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = [requirement.Id] });
-            state = await Advance(state, runtime);
-            Assert.Null(state.Construction!.Candidate);
-            Assert.DoesNotContain(state.Diagnostics, diagnostic => diagnostic.Required);
-        }
+            Id = "declarations", Objective = "Return all six caller values through their declared public results.", RequirementIds = ids,
+            ExpectedResults = ["All six public results preserve their corresponding caller values."],
+            SuccessCriteria = ["Every declared result references its original input without alteration."]
+        }];
+        state.Construction.Compact.CurrentBlockId = "declarations";
+        state.Construction.Compact.CurrentStep = new()
+        {
+            Id = "declare-all", BlockId = "declarations", BaseHash = PlanningConstruction.Hash(state.Plan), Scope = "/root", Kind = "close",
+            Objective = state.Construction.Compact.Blocks[0].Objective, RequirementIds = ids,
+            CloseRequirementIds = ids.ToList(), CloseScopes = [], DiscoveryComplete = true
+        };
+        state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ids, CompleteBlock = true });
+        runtime.Respond = (_, _) => throw new InvalidOperationException("This final block claim is absorbed by the mandatory global review.");
+        state = await Advance(state, runtime);
+        Assert.Null(state.Construction!.Candidate);
+        Assert.DoesNotContain(state.Diagnostics, diagnostic => diagnostic.Required);
+        Assert.Equal(ids, Assert.Single(state.Construction.Checkpoints).ClosedRequirementIds);
         return (state, runtime);
     }
 

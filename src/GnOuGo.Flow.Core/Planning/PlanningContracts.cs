@@ -158,6 +158,12 @@ public sealed class PlanningSession
     public PlanningModelCall? PendingCall { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<PlanningRequestMeasurement>? RequestMeasurements { get; set; }
+    /// <summary>Durable advisory targets, separate from validation and repair diagnostics.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<PlanningThresholdWarning>? ThresholdWarnings { get; set; }
+    /// <summary>Canonical attempted strategies and exact request identities; never business review input.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<JsonObject>? StrategyAttempts { get; set; }
     public string? RejectedProposalHash { get; set; }
     public LLMUsageBudgetSnapshot? Usage { get; set; }
     public string? Yaml { get; set; }
@@ -305,6 +311,8 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 [JsonSerializable(typeof(PlanningConstructionExtension))]
 [JsonSerializable(typeof(PlanningCompactConstructionState))]
 [JsonSerializable(typeof(PlanningConstructionStep))]
+[JsonSerializable(typeof(PlanningConstructionBlock))]
+[JsonSerializable(typeof(List<PlanningConstructionBlock>))]
 [JsonSerializable(typeof(PlanningConstructionReselection))]
 [JsonSerializable(typeof(PlanningConstructionTypedPrerequisite))]
 [JsonSerializable(typeof(PlanningConstructionSuspendedStep))]

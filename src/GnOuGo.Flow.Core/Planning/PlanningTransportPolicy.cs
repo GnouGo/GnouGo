@@ -75,10 +75,11 @@ public static class PlanningTransportPolicies
             throw new PlanningConflictException("Journaled planning transport requires synchronous tool-free generation and captured review headroom.");
     }
 
-    /// <summary>Remaining mandatory business reviews share the captured physical-call allowance.</summary>
+    /// <summary>Remaining mandatory reviews retain exact headroom even when the captured call count is diagnostic.</summary>
     internal static bool ReviewHeadroomValid(LLMRequest request, PlanningRequest planning)
     {
         var maximum = Math.Min(planning.MaxModelCalls, PlanningBudgetOptions.Parse(planning.Options)?.MaxCalls ?? planning.MaxModelCalls);
-        return request.RequiredReviewCalls is >= 0 && request.RequiredReviewCalls <= maximum;
+        return request.RequiredReviewCalls is >= 0 &&
+            (PlanningTokenThresholds.OptimizationAdvisory(planning) || request.RequiredReviewCalls <= maximum);
     }
 }

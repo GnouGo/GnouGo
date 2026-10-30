@@ -18,6 +18,7 @@ public sealed partial class TaskPlanCompiler
         var compiler = new TaskPlanCompiler
         {
             _plan = plan, _symbols = new(plan), _catalog = catalog,
+            _advisoryOptimization = PlanningTokenThresholds.OptimizationAdvisory(request),
             _preciseDeclarations = request.Options["planning_diagnostics_version"]?.ToString() == "1",
             _constructionUnavailable = new(StringComparer.Ordinal),
             _constructionAllowsUnboundChoices = openScopes.Count > 0
@@ -61,7 +62,13 @@ public sealed partial class TaskPlanCompiler
 
         if (requestedInterfaces is not null)
         {
-            if (requestedInterfaces.Count > 8 || requestedInterfaces.Values.Sum(v => (long)v.Count) > 128)
+            var references = requestedInterfaces.Values.Sum(v => (long)v.Count);
+            var advisory = PlanningTokenThresholds.OptimizationAdvisory(request);
+            if (advisory && requestedInterfaces.Count > 8)
+                PlanningTokenThresholds.Warn("construction_interfaces", "frontier_scopes", requestedInterfaces.Count, 8);
+            if (advisory && references > 128)
+                PlanningTokenThresholds.Warn("construction_interfaces", "boundary_references", references, 128);
+            if (!advisory && (requestedInterfaces.Count > 8 || references > 128))
                 findings.Add(new("TASK_INTERFACE_LIMIT", "/construction/interfaces", "Request at most eight frontier scopes and 128 exact boundary references at once."));
             foreach (var path in requestedInterfaces.Keys)
                 if (!scopes.Any(s => s.Path == path || s.Path + "/always" == path))

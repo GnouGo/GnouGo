@@ -119,7 +119,7 @@ public sealed class CompactDraftReselectionTests
         state = PlannerFixture.Clone(state);
         runtime.Respond = (request, purpose) =>
         {
-            Assert.Equal(PlanningCompactConstruction.SelectPurpose, purpose);
+            Assert.Equal(PlanningCompactConstruction.ImplementationPurpose, purpose);
             Assert.Contains(PlanningCompactConstruction.ValueSemantics, request.Prompt, StringComparison.Ordinal);
             var reselection = Context(request)["reselection"]!;
             Assert.Equal(Reason, reselection["reason"]!.ToString());
@@ -151,7 +151,7 @@ public sealed class CompactDraftReselectionTests
                 response["reselectStep"] = null;
                 response["extension"] = JsonSerializer.SerializeToNode(new PlanningConstructionExtension
                 {
-                    Scope = "/root", RequirementIds = ["req_0"], Tasks = [new()
+                    Scope = "/root", RequirementIds = ["req_0"], CompleteBlock = false, Tasks = [new()
                     {
                         Id = "formatted", Kind = "transform", Mode = "interpret", Objective = "Format the imported text for the next operation.",
                         Inputs = [new("text", new() { Kind = "output", Source = "accepted", Port = "retained" })],
@@ -280,6 +280,13 @@ public sealed class CompactDraftReselectionTests
         state.Construction.Compact!.CurrentStep = new() { Id = "tentative", BaseHash = PlanningConstruction.Hash(state.Plan), Scope = "/root",
             Kind = "value", Objective = "Format the imported text for the next operation.", RequirementIds = ["req_0"],
             Inputs = [new() { Kind = "output", Source = "accepted", Port = "retained" }], InputTaskIds = ["accepted"], DiscoveryComplete = true };
+        state.Construction.Compact.Blocks = [new() { Id = "fixture_block", Objective = state.Request.Prompt,
+            RequirementIds = ["req_0"], ExpectedResults = ["The requested result preserves its original meaning."],
+            SuccessCriteria = ["The implementation fulfills the complete original requirement."] }];
+        state.Construction.Compact.CurrentBlockId = "fixture_block";
+        state.Construction.Compact.CurrentStep!.BlockId = "fixture_block";
+        state.Construction.Compact.CurrentStep.Objective = state.Construction.Compact.Blocks[0].Objective;
+        state.Construction.Compact.CurrentStep.ExpectedOutputs = state.Construction.Compact.Blocks[0].ExpectedResults.ToList();
         return (state, runtime);
     }
     private static Task<PlanningSession> Advance(PlanningSession state, TestRuntime runtime) =>
@@ -306,10 +313,9 @@ public sealed class CompactDraftReselectionTests
     private static JsonObject Selection(LLMRequest request, string kind = "operation") => new()
     {
         ["baseHash"] = request.StructuredOutputSchema!["properties"]!["baseHash"]!["enum"]![0]!.DeepClone(), ["evidenceRequests"] = null, ["clarifications"] = null,
-        ["step"] = new JsonObject { ["scope"] = "/root", ["kind"] = kind == "operation" ? null : kind, ["operationIds"] = new JsonArray(), ["closeScopes"] = null, ["groupId"] = null, ["prerequisites"] = null, ["objective"] = kind == "transform"
-                ? "Format the imported text for the next operation." : "Perform the current requested business operation.",
-            ["requirementIds"] = new JsonArray("req_0"), ["inputs"] = kind == "transform" ? new JsonArray(new JsonObject
+        ["step"] = new JsonObject { ["scope"] = "/root", ["kind"] = kind == "operation" ? null : kind, ["operationIds"] = new JsonArray(), ["closeScopes"] = null, ["groupId"] = null, ["prerequisites"] = null,
+            ["inputs"] = kind == "transform" ? new JsonArray(new JsonObject
                 { ["kind"] = "output", ["source"] = "accepted", ["port"] = "retained" }) : new JsonArray(), ["dependencyTaskIds"] = new JsonArray(),
-            ["expectedOutputs"] = new JsonArray("The requested result."), ["closeRequirementIds"] = new JsonArray(), ["outputNames"] = new JsonArray() }
+            ["closeRequirementIds"] = new JsonArray(), ["outputNames"] = new JsonArray() }
     };
 }

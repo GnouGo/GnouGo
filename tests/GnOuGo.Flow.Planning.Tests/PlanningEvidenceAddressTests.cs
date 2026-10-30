@@ -244,12 +244,59 @@ public sealed class PlanningEvidenceAddressTests
     public async Task CorrectionIdentityUsesCanonicalResponseAfterIssuedSchemaValidation()
     {
         var state = PlannerFixture.Session();
-        state.Construction!.LastProposalHash = "proposal:" + PlanningGraphCompiler.Fingerprint(Response(First).ToJsonString());
         var runtime = new TestRuntime { Respond = (request, _) => new() { Json = Response(FirstOffered(request)) } };
-        var error = await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => PlanningModelCalls.CallAsync(state, runtime,
-            "replan", "Read exact evidence.\n" + Context().ToJsonString(), Schema(), PlannerFixture.Ct));
+        await Attempt();
+        state = PlannerFixture.Clone(state);
+        var error = await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(Attempt);
         Assert.Equal("REPLAN_NO_PROGRESS", error.Code);
-        Assert.Single(runtime.Calls);
+        Assert.Equal(2, runtime.Calls.Count);
+        Assert.NotEqual(FirstOffered(runtime.Calls[0]), FirstOffered(runtime.Calls[1]));
+        Assert.Equal(First, error.Details!["currentAttempt"]!["strategy"]!["action"]!["evidenceRequests"]![0]!.ToString());
+
+        async Task Attempt()
+        {
+            PlanningModelCall? completed = null;
+            var response = await PlanningModelCalls.CallAsync(state, runtime, "replan", "Read exact evidence.\n" + Context().ToJsonString(),
+                Schema(), PlannerFixture.Ct, received: (call, _) => completed = call);
+            Assert.Equal(First, response["evidenceRequests"]![0]!.ToString());
+            PlanningProgress.AssessAttempt(state, PlanningConstruction.DraftPurpose, response, completed!.Id, prefix: "strategy:");
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InvalidResponsesCompareCanonicalIssuedEvidenceWithoutAcceptingMalformedIds(bool malformed)
+    {
+        var state = PlannerFixture.Session();
+        var runtime = new TestRuntime { EncodeCanonicalEvidence = false, Respond = (request, _) =>
+        {
+            var response = Response(FirstOffered(request));
+            response["unexpected"] = true;
+            if (malformed)
+            {
+                response["evidenceRequests"]!.AsArray().Add((JsonNode?)null);
+                response["evidenceRequests"]!.AsArray().Add("unknown-issued-id");
+            }
+            return new() { Json = response };
+        } };
+        var invalid = await Assert.ThrowsAsync<PlanningResponseException>(() => Call(state, runtime));
+        Assert.Contains(invalid.Diagnostics, diagnostic => diagnostic.Code == "PLANNING_RESPONSE_INVALID");
+        state = PlannerFixture.Clone(state);
+        var repeated = await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => Call(state, runtime));
+        Assert.Equal("REPLAN_NO_PROGRESS", repeated.Code);
+        Assert.NotEqual(FirstOffered(runtime.Calls[0]), FirstOffered(runtime.Calls[1]));
+        var attempts = state.StrategyAttempts!;
+        Assert.Equal(2, attempts.Count);
+        Assert.NotEqual(attempts[0]["responseHash"]!.ToString(), attempts[1]["responseHash"]!.ToString());
+        Assert.NotEqual(attempts[0]["exactSchemaHash"]!.ToString(), attempts[1]["exactSchemaHash"]!.ToString());
+        Assert.Equal(attempts[0]["schemaHash"]!.ToString(), attempts[1]["schemaHash"]!.ToString());
+        Assert.True(JsonNode.DeepEquals(attempts[0]["strategy"], attempts[1]["strategy"]));
+        var evidence = attempts[1]["strategy"]!["action"]!["evidenceRequests"]!.AsArray();
+        Assert.Equal(First, evidence[0]!.ToString());
+        if (malformed) { Assert.Null(evidence[1]); Assert.Equal("unknown-issued-id", evidence[2]!.ToString()); }
+        Assert.Null(state.Construction!.Candidate);
+        Assert.Empty(state.Construction.Checkpoints);
     }
 
     [Fact]

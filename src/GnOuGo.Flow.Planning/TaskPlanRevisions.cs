@@ -41,7 +41,7 @@ internal static class TaskPlanRevisions
         // As in complete patch validation, a local witness permits preflight of
         // finite choices. No selection is applied to the session or approved.
         foreach (var choice in sourcePlan.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
-        var sources = TaskPlanCompiler.RepairSources(sourcePlan, state.Catalog!).GetValueOrDefault(path) ?? [];
+        var sources = TaskPlanCompiler.RepairSources(sourcePlan, state.Catalog!, request: state.Request).GetValueOrDefault(path) ?? [];
         var broken = references.Where(v => !PlanningRepairContext.Ports(symbols.Tasks[v.Source!].Task, state).Contains(v.Port ?? "", StringComparer.Ordinal)).ToArray();
         if (broken.Length != 1) return [];
         var reference = broken[0]; var values = new List<TaskValue>();
@@ -50,7 +50,7 @@ internal static class TaskPlanRevisions
         foreach (var source in sources.Where(s => s.Value.Kind == "output" && s.Value.Source == reference.Source))
         {
             if (ReferenceEquals(site.Value, reference) && outputType is not null &&
-                !PlanningGraphValidation.TypesFit(source.Schema, TaskPlanCompiler.TypeSchema(outputType))) continue;
+                !PlanningGraphValidation.TypesFit(source.Schema, TaskPlanCompiler.TypeSchema(outputType, state.Request))) continue;
             var replacement = Rewrite(site.Value);
             var tree = JsonSerializer.SerializeToNode(state.Plan, PlanningJsonContext.Default.TaskPlan)!;
             var target = PlanningRepairPatch.Index(tree)[path];
@@ -59,7 +59,7 @@ internal static class TaskPlanRevisions
             else target.Set(JsonSerializer.SerializeToNode(replacement, PlanningJsonContext.Default.TaskValue));
             var probe = tree.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
             foreach (var choice in probe.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
-            if (!new TaskPlanCompiler().Compile(probe, state.Catalog!).Diagnostics.Any(d => d.Required &&
+            if (!new TaskPlanCompiler().Compile(probe, state.Catalog!, false, false, advisoryOptimization: PlanningTokenThresholds.OptimizationAdvisory(state.Request)).Diagnostics.Any(d => d.Required &&
                 (d.Location == path || d.Location.StartsWith(path + "/", StringComparison.Ordinal)))) values.Add(replacement);
 
             TaskValue Rewrite(TaskValue value)

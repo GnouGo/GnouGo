@@ -52,7 +52,8 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
                 planning["max_physical_attempts"]?.GetValue<int>() == capturedLimit &&
                 planning[PlanningTransportPolicies.OptionName] is JsonObject transport &&
                 JsonNode.DeepEquals(transport, _effectiveTransportPolicy["planning_transport_policy"]))
-                maximumReviews = capturedLimit;
+                maximumReviews = PlanningTokenThresholds.OptimizationAdvisory(planning) &&
+                    PlanningTokenThresholds.OptimizationAdvisory(_effectiveTransportPolicy) ? reviewAttemptHeadroom : capturedLimit;
         }
         if (reviewCostHeadroom < 0 || reviewAttemptHeadroom < 0 || reviewAttemptHeadroom > maximumReviews || existing is not null &&
             ((existing["construction_review_cost_headroom_eur"]?.GetValue<decimal>() ?? 0) != reviewCostHeadroom ||
@@ -82,6 +83,13 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
                 throw new InvalidOperationException("Each new dispatch must have one reserved identity.");
             var totals = await AccountingAsync(campaign, requestId, record, ct);
             var sessionExhausted = sessionAttemptLimit is { } limit && totals["session_calls"]!.GetValue<long>() + reviewAttemptHeadroom > limit;
+            var diagnostic = PlanningTokenThresholds.OptimizationAdvisory(_effectiveTransportPolicy);
+            if (sessionExhausted && diagnostic)
+            {
+                OptimizationWarning(record, "physical_calls", totals["session_calls"]!.GetValue<long>() + reviewAttemptHeadroom,
+                    sessionAttemptLimit!.Value, reviewAttemptHeadroom);
+                sessionExhausted = false;
+            }
             if (PlanningBenchmarkMeasurements.RetainsAllHttpFailures(record))
             {
                 if (_effectiveTransportPolicy?["effective_retry_policy"]?["MaxAttempts"]?.GetValue<int>() is not (>= 1 and <= 3) ||
@@ -97,9 +105,18 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
                 else
                 {
                     if (!DateTimeOffset.TryParseExact(_effectiveTransportPolicy?["deadline_utc"]?.GetValue<string>(), "O",
-                        System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var deadline) ||
-                        (time ?? TimeProvider.System).GetUtcNow() >= deadline)
+                        System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var deadline))
+                        throw new InvalidOperationException("The captured planning deadline is invalid.");
+                    var elapsedOverrun = (time ?? TimeProvider.System).GetUtcNow() - deadline;
+                    if (elapsedOverrun >= TimeSpan.Zero && !diagnostic)
                         throw new InvalidOperationException("The captured planning deadline cannot cover another HTTP attempt.");
+                    if (diagnostic)
+                    {
+                        var elapsedTarget = _effectiveTransportPolicy?["max_elapsed_ms"]?.GetValue<long>();
+                        if (elapsedTarget is not > 0) throw new InvalidOperationException("The captured planning elapsed target is invalid.");
+                        if (elapsedOverrun >= TimeSpan.Zero)
+                            OptimizationWarning(record, "elapsed_ms", checked(elapsedTarget.Value + (long)elapsedOverrun.TotalMilliseconds), elapsedTarget.Value);
+                    }
                     var tokenLimit = _effectiveTransportPolicy?["max_total_tokens"]?.GetValue<long>()
                         ?? throw new InvalidOperationException("Captured cumulative token allowance is required.");
                     var reviewTokens = _effectiveTransportPolicy?["review_token_headroom"]?.GetValue<long>()
@@ -118,6 +135,16 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
             { campaign.BudgetExceeded(sessionExhausted); throw new InvalidOperationException("The campaign or session cannot cover another HTTP attempt."); }
         }
         await campaign.SaveAsync(Collection, requestId, record, ct);
+    }
+
+    private void OptimizationWarning(JsonObject record, string kind, long current, long threshold, int reviewHeadroom = 0)
+    {
+        PlanningTokenThresholds.Warn("benchmark_http", kind, current, threshold);
+        var warning = new JsonObject { ["kind"] = kind, ["current"] = current, ["threshold"] = threshold,
+            ["stage"] = "benchmark_http", ["basis"] = "retained_transport_accounting", ["request_id"] = requestId };
+        if (reviewHeadroom > 0) warning["review_attempt_headroom"] = reviewHeadroom;
+        var warnings = (record["optimization_threshold_warnings"] ??= new JsonArray()).AsArray();
+        if (!warnings.Any(saved => JsonNode.DeepEquals(saved, warning))) warnings.Add(warning);
     }
 
     internal async Task<JsonObject> CompleteAsync(JsonObject usage, CancellationToken ct)

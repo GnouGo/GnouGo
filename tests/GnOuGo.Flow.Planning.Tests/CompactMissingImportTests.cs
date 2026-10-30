@@ -39,7 +39,7 @@ public sealed class CompactMissingImportTests
         state.Construction!.Compact!.CurrentStep!.Kind = "value";
         var candidate = PlanningConstruction.Apply(state, new()
         {
-            Scope = Scope, RequirementIds = ["req_0"], Tasks = [new()
+            Scope = Scope, RequirementIds = ["req_0"], CompleteBlock = false, Tasks = [new()
             {
                 Id = "consumer", Kind = "value", Objective = "Retain the exact selected numeric value.",
                 Outputs = [new("result", new() { Kind = "object", Members = [new("selected", new() { Kind = kind, Source = source, Port = port })] })]
@@ -81,15 +81,15 @@ public sealed class CompactMissingImportTests
     {
         var state = await Ready(); state.Construction!.Compact!.CurrentStep = null;
         var request = Prepared(state);
-        var ceiling = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.SelectPurpose).MaxInputTokens;
-        Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.SelectPurpose, ceiling).EstimatedInputTokens, 1, ceiling);
+        var ceiling = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.ImplementationPurpose).MaxInputTokens;
+        Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.ImplementationPurpose, ceiling).EstimatedInputTokens, 1, ceiling);
         var context = Context(Canonical(state, request));
         if (!context["scopes"]!.AsArray().Any(row => row?["path"]?.ToString() == Scope))
         {
             var next = context["nextScopes"]!.ToString();
-            PlanningConstruction.LoadEvidence(state, [next], followup: Prepared, purpose: PlanningCompactConstruction.SelectPurpose);
+            PlanningConstruction.LoadEvidence(state, [next], followup: Prepared, purpose: PlanningCompactConstruction.ImplementationPurpose);
             request = Prepared(state);
-            Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.SelectPurpose, ceiling).EstimatedInputTokens, 1, ceiling);
+            Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.ImplementationPurpose, ceiling).EstimatedInputTokens, 1, ceiling);
             context = Context(Canonical(state, request));
         }
         var group = Assert.Single(context["scopes"]!.AsArray(), row => row?["path"]?.ToString() == Scope)!;
@@ -99,15 +99,15 @@ public sealed class CompactMissingImportTests
 
         LLMRequest Prepared(PlanningSession current)
         {
-            var raw = PlanningCompactConstruction.Request(current, PlanningCompactConstruction.SelectGuidance(current),
-                PlanningCompactConstruction.SelectionContext(current), PlanningCompactConstruction.SelectionSchema(current), PlanningCompactConstruction.SelectPurpose);
-            return PlanningModelCalls.PrepareRequest(current, PlanningCompactConstruction.SelectPurpose, raw.Prompt, raw.StructuredOutputSchema!.AsObject());
+            var raw = PlanningCompactConstruction.Request(current, PlanningCompactConstruction.ImplementationGuidance(current),
+                PlanningCompactConstruction.ImplementationContext(current), PlanningCompactConstruction.ImplementationSchema(current), PlanningCompactConstruction.ImplementationPurpose);
+            return PlanningModelCalls.PrepareRequest(current, PlanningCompactConstruction.ImplementationPurpose, raw.Prompt, raw.StructuredOutputSchema!.AsObject());
         }
         LLMRequest Canonical(PlanningSession current, LLMRequest prepared)
         {
-            var raw = PlanningCompactConstruction.Request(current, PlanningCompactConstruction.SelectGuidance(current),
-                PlanningCompactConstruction.SelectionContext(current), PlanningCompactConstruction.SelectionSchema(current), PlanningCompactConstruction.SelectPurpose);
-            var exact = PlanningModelCalls.PrepareRequest(current, PlanningCompactConstruction.SelectPurpose, raw.Prompt,
+            var raw = PlanningCompactConstruction.Request(current, PlanningCompactConstruction.ImplementationGuidance(current),
+                PlanningCompactConstruction.ImplementationContext(current), PlanningCompactConstruction.ImplementationSchema(current), PlanningCompactConstruction.ImplementationPurpose);
+            var exact = PlanningModelCalls.PrepareRequest(current, PlanningCompactConstruction.ImplementationPurpose, raw.Prompt,
                 raw.StructuredOutputSchema!.AsObject(), null, null, out var exactMap);
             Assert.Equal(JsonSerializer.Serialize(prepared, PlanningJsonContext.Default.LLMRequest), JsonSerializer.Serialize(exact, PlanningJsonContext.Default.LLMRequest));
             return PlanningModelCalls.CanonicalEvidenceRequest(new() { Id = exact.ClientRequestId!, Request = exact, EvidenceAddresses = exactMap });
@@ -131,9 +131,16 @@ public sealed class CompactMissingImportTests
         state.Construction!.OpenScopes = ["/root", Scope];
         state.Construction.Compact!.CurrentStep = new() { Id = "export", BaseHash = PlanningConstruction.Hash(state.Plan), Kind = "close", Scope = Scope,
             Objective = "Export the transformed parameter.", RequirementIds = ["req_0"], DiscoveryComplete = true };
+        state.Construction.Compact.Blocks = [new() { Id = "fixture_block", Objective = state.Request.Prompt,
+            RequirementIds = ["req_0"], ExpectedResults = ["The requested result preserves its original meaning."],
+            SuccessCriteria = ["The implementation fulfills the complete original requirement."] }];
+        state.Construction.Compact.CurrentBlockId = "fixture_block";
+        state.Construction.Compact.CurrentStep!.BlockId = "fixture_block";
+        state.Construction.Compact.CurrentStep.Objective = state.Construction.Compact.Blocks[0].Objective;
+        state.Construction.Compact.CurrentStep.ExpectedOutputs = state.Construction.Compact.Blocks[0].ExpectedResults.ToList();
         return state;
     }
-    private static PlanningConstructionExtension Extension() => new() { Scope = Scope, RequirementIds = ["req_0"], CloseScopes = [Scope],
+    private static PlanningConstructionExtension Extension() => new() { Scope = Scope, RequirementIds = ["req_0"], CloseScopes = [Scope], CompleteBlock = false,
         Outputs = [new("result", new() { Kind = "arithmetic", Text = "multiply", Items = [new() { Kind = "input", Source = "parameter" }, new() { Kind = "number", Number = 3 }] })] };
     private static string Accepted(PlanningSession state) => new JsonObject
     {

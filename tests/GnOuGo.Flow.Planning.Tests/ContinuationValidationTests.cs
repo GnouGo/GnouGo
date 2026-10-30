@@ -15,7 +15,7 @@ public sealed class ContinuationValidationTests
         var (state, _) = await BusinessReviewProtocolTests.Ready();
         state.Construction!.Candidate = null;
         state.Construction.Compact!.CurrentStep!.Inputs = [new() { Kind = "input", Source = "x" }];
-        var extension = new PlanningConstructionExtension { Scope = "/root", RequirementIds = ["work"], ContinueInScope = "/root", Tasks =
+        var extension = new PlanningConstructionExtension { CompleteBlock = false, Scope = "/root", RequirementIds = ["work"], ContinueInScope = "/root", Tasks =
         [new() { Id = "records", Kind = "value", Objective = "Retain numeric records.",
             Outputs = [new("items", new() { Kind = "array", Items = [new() { Kind = "number", Number = 1 }] })] },
          new() { Id = "invalid", Kind = "value", Objective = "Attempt an invalid object field on an array.",
@@ -38,6 +38,7 @@ public sealed class ContinuationValidationTests
     {
         var (state, _) = await BusinessReviewProtocolTests.Ready();
         var candidate = state.Construction!.Candidate!;
+        candidate.Extension.CompleteBlock = false;
         candidate.Extension.ContinueInScope = "/root";
         state.Construction.Compact!.CurrentStep!.Inputs = [new() { Kind = "input", Source = "not_declared" }];
         Assert.Empty(TaskPlanCompiler.ValidateConstruction(candidate.Plan, state.Catalog!, state.Request,
@@ -63,7 +64,7 @@ public sealed class ContinuationValidationTests
         state.Catalog!.AllowedStepTypes.Add("mcp.call");
         state.Discovery.Resolved.Add(Contract("v1"));
         if (ambiguous) state.Discovery.Resolved.Add(Contract("v2"));
-        var candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["work"], ContinueInScope = "/root",
+        var candidate = PlanningConstruction.Apply(state, new() { CompleteBlock = false, Scope = "/root", RequirementIds = ["work"], ContinueInScope = "/root",
             Tasks = [new() { Id = "read", Kind = "operation", Operation = "read", Objective = "Read the caller's exact record.",
                 Inputs = [new("number", new() { Kind = "input", Source = "x" })] }] });
         var original = Snapshot(state);

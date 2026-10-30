@@ -13,7 +13,7 @@ public sealed class CompactSelectionScopeTests
     {
         var state = await Ready();
         var original = Snapshot(state);
-        var context = PlanningCompactConstruction.SelectionContext(state);
+        var context = PlanningCompactConstruction.ImplementationContext(state);
         var group = context["scopes"]!.AsArray().Single(scope => scope!["kind"]?.ToString() == "group")!;
         Assert.True(group["isolated"]!.GetValue<bool>());
         Assert.Equal(0, group["inputCount"]!.GetValue<int>());
@@ -28,10 +28,10 @@ public sealed class CompactSelectionScopeTests
         Assert.Equal("/groups/isolated/body", nested["inputScope"]!.ToString());
         Assert.Null(nested["inputs"]);
 
-        var request = Complete(state, PlanningCompactConstruction.Request(PlanningCompactConstruction.SelectGuidance(state),
-            context, PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose));
-        var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.SelectPurpose).MaxInputTokens;
-        Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.SelectPurpose, limit).EstimatedInputTokens, 1, limit);
+        var request = Complete(state, PlanningCompactConstruction.Request(PlanningCompactConstruction.ImplementationGuidance(state),
+            context, PlanningCompactConstruction.ImplementationSchema(state), PlanningCompactConstruction.ImplementationPurpose));
+        var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.ImplementationPurpose).MaxInputTokens;
+        Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.ImplementationPurpose, limit).EstimatedInputTokens, 1, limit);
         Assert.Equal(original, Snapshot(state));
         // Caller ownership remains explicit before the first TaskPlan exists too.
         state.Plan = null;
@@ -128,10 +128,10 @@ public sealed class CompactSelectionScopeTests
     public async Task PreviouslyIssuedSelectionKeepsItsExactPromptSchemaAndCallAccounting()
     {
         var state = await Ready();
-        var context = PlanningCompactConstruction.SelectionContext(state);
-        var issued = Complete(state, PlanningCompactConstruction.Request("Retained instructions: select one exact business step.",
-            context, PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose), out var evidenceAddresses);
-        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.SelectPurpose, Request = issued,
+        var context = PlanningCompactConstruction.ImplementationContext(state);
+        var issued = Complete(state, PlanningCompactConstruction.Request("Retained instructions: implement the selected business responsibility.",
+            context, PlanningCompactConstruction.ImplementationSchema(state), PlanningCompactConstruction.ImplementationPurpose), out var evidenceAddresses);
+        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.ImplementationPurpose, Request = issued,
             EvidenceAddresses = evidenceAddresses };
         state.ModelCalls++;
         var exact = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
@@ -164,7 +164,14 @@ public sealed class CompactSelectionScopeTests
 
     private static JsonObject Response(PlanningSession state, PlanningConstructionStep step) => new()
     {
-        ["baseHash"] = PlanningConstruction.Hash(state.Plan), ["step"] = JsonSerializer.SerializeToNode(step, PlanningJsonContext.Default.PlanningConstructionStep),
+        ["baseHash"] = PlanningConstruction.Hash(state.Plan), ["step"] = new JsonObject
+        {
+            ["scope"] = step.Scope, ["kind"] = step.Kind,
+            ["inputs"] = JsonSerializer.SerializeToNode(step.Inputs, PlanningJsonContext.Default.ListTaskValue),
+            ["dependencyTaskIds"] = new JsonArray(), ["operationIds"] = new JsonArray(),
+            ["closeRequirementIds"] = new JsonArray(), ["outputNames"] = new JsonArray(),
+            ["groupId"] = null, ["prerequisites"] = null, ["closeScopes"] = null
+        },
         ["evidenceRequests"] = null, ["clarifications"] = null
     };
 
@@ -174,7 +181,7 @@ public sealed class CompactSelectionScopeTests
     private static LLMRequest Complete(PlanningSession state, LLMRequest request) => Complete(state, request, out _);
 
     private static LLMRequest Complete(PlanningSession state, LLMRequest request, out PlanningEvidenceAddresses? evidenceAddresses) =>
-        PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.SelectPurpose, request.Prompt,
+        PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.ImplementationPurpose, request.Prompt,
             request.StructuredOutputSchema!.AsObject(), 8192, null, out evidenceAddresses);
 
     private static string Snapshot(PlanningSession state) => JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
@@ -214,6 +221,18 @@ public sealed class CompactSelectionScopeTests
             ] } }]
         };
         state.Construction!.OpenScopes = ["/root", "/groups/isolated/body", "/tasks/lexical/body", "/tasks/nested/body"];
+        runtime.Respond = (request, purpose) =>
+        {
+            Assert.Equal(PlanningCompactConstruction.SelectPurpose, purpose);
+            return Wire(request, new() { ["block"] = new JsonObject
+            {
+                ["objective"] = objective, ["requirementIds"] = new JsonArray("req_0"),
+                ["informationNeeds"] = new JsonArray(), ["expectedResults"] = new JsonArray("The supplied value is preserved."),
+                ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray("Each declared boundary retains its ownership and exact value.")
+            }, ["evidenceRequests"] = null, ["clarifications"] = null });
+        };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
         return state;
     }
 }

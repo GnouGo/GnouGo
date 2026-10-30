@@ -60,6 +60,7 @@ internal static partial class PlanningCompactConstruction
             state.Construction!.Candidate is not null || state.EditablePaths is not null || state.Diagnostics.Any(item => item.Required)) return null;
         var construction = state.Construction!;
         var compact = State(state);
+        if (compact.CurrentStep?.BlockId is not null) return null;
         if (compact.CurrentStep is not { Kind: "close", DiscoveryComplete: true, CloseScopes: not null } step ||
             step.BaseHash != PlanningConstruction.Hash(state.Plan) || compact.ReplacementScope is not null ||
             compact.ResumingStepId is not null || step.ContinuationBinding is not null ||
@@ -126,14 +127,14 @@ internal static partial class PlanningCompactConstruction
         var next = probe.Construction!.Compact!;
         next.CurrentStep = new()
         {
-            Id = "step_" + (++next.NextStep), BaseHash = PlanningConstruction.Hash(state.Plan), Scope = boundary, Kind = "close",
+            BlockId = next.CurrentBlockId, Id = "step_" + (++next.NextStep), BaseHash = PlanningConstruction.Hash(state.Plan), Scope = boundary, Kind = "close",
             Objective = "Close this technically complete boundary; final business review still checks all original obligations.",
             RequirementIds = requirements.ToList(), DiscoveryComplete = true,
             CloseRequirementIds = requirements.ToList(), CloseScopes = [boundary]
         };
         probe.Construction!.Candidate = PlanningConstruction.Apply(probe, new()
         {
-            Scope = boundary, CloseScopes = [boundary], Complete = boundary == "/root",
+            Scope = boundary, CloseScopes = [boundary], Complete = boundary == "/root", CompleteBlock = boundary == "/root",
             RequirementIds = next.CurrentStep.RequirementIds.ToList()
         });
         probe.Construction.Candidate.Reviews.Add(new JsonObject
@@ -166,6 +167,11 @@ internal static partial class PlanningCompactConstruction
             PlanningConstruction.Node(State(resumed), PlanningJsonContext.Default.PlanningCompactConstructionState)))
         {
             yield return new("navigation", "invalidate_stale_prerequisite_navigation", null, resumed);
+            yield break;
+        }
+        if (TryResumeAcceptedBlockConsumer(resumed))
+        {
+            yield return new("consumer", "exact_accepted_binding_pending_block_review", resumed.Construction!.Checkpoints.LastOrDefault()?.Sequence, resumed);
             yield break;
         }
         if (TryResumeReviewedConsumer(resumed))

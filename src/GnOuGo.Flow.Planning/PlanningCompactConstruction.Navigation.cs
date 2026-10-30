@@ -17,7 +17,7 @@ internal static partial class PlanningCompactConstruction
             .Concat((state.Construction!.Evidence ?? []).Select(item => item.Key).Where(address =>
                 address.StartsWith("schema:", StringComparison.Ordinal) || address.StartsWith("description:", StringComparison.Ordinal) ||
                 address.StartsWith("contract:", StringComparison.Ordinal)))
-            .Where(address => address.Length <= 2048).Distinct(StringComparer.Ordinal);
+            .Where(address => address.Length <= 2048 || PlanningTokenThresholds.OptimizationAdvisory(state.Request)).Distinct(StringComparer.Ordinal);
     }
 
     internal static void ConstrainSelectionEvidence(PlanningSession state, JsonObject context, JsonObject schema)
@@ -25,17 +25,17 @@ internal static partial class PlanningCompactConstruction
         var requirements = (context["requirements"] as JsonArray ?? []).Select(item => item!["id"]!.ToString())
             .Concat(EvidenceRequirementIds(state));
         var addresses = PrerequisiteAddresses(state, requirements).Where(IsOriginalAddress).ToHashSet(StringComparer.Ordinal);
-        addresses.UnionWith(NavigationEvidence(new[] { "nextRequirements", "requirementsDirectory", "nextScopes", "scopes", "interfaces",
+        addresses.UnionWith(NavigationEvidence(state, new[] { "nextRequirements", "requirementsDirectory", "nextScopes", "scopes", "interfaces",
             "nextInterfaces", "publicOutputs", "rebuild", "reselection" }.Select(name => context[name])
             .Concat((state.Construction!.Evidence ?? []).Select(item => item.Value).Where(value => value is JsonObject or JsonArray))));
         {
-            addresses.UnionWith(NavigationEvidence([context["interfacesDirectory"], context["continuation"]]));
-            addresses.UnionWith(NavigationEvidence((context["continuation"]?["acceptedCheckpoints"] as JsonArray ?? []).Cast<JsonNode?>()));
-            addresses.UnionWith(NavigationEvidence((context["scopes"] as JsonArray ?? []).Select(scope => scope?["acceptedExports"])));
+            addresses.UnionWith(NavigationEvidence(state, [context["interfacesDirectory"], context["continuation"]]));
+            addresses.UnionWith(NavigationEvidence(state, (context["continuation"]?["acceptedCheckpoints"] as JsonArray ?? []).Cast<JsonNode?>()));
+            addresses.UnionWith(NavigationEvidence(state, (context["scopes"] as JsonArray ?? []).Select(scope => scope?["acceptedExports"])));
         }
         {
-            addresses.UnionWith(NavigationEvidence([context["knownOperations"]]));
-            addresses.UnionWith(NavigationEvidence((context["requirements"] as JsonArray ?? []).Select(row => row?["acceptedProgress"])));
+            addresses.UnionWith(NavigationEvidence(state, [context["knownOperations"]]));
+            addresses.UnionWith(NavigationEvidence(state, (context["requirements"] as JsonArray ?? []).Select(row => row?["acceptedProgress"])));
         }
         ConstrainEvidenceChoices(state, schema, addresses, maximum: 4);
     }
@@ -70,14 +70,14 @@ internal static partial class PlanningCompactConstruction
         // context. Contract addresses come only from host-owned view navigation.
         var addresses = StepOriginalEvidence(state);
         addresses.UnionWith(PrerequisiteAddresses(state, (context["requirements"] as JsonArray ?? []).Select(row => row!["id"]!.ToString())).Where(IsOriginalAddress));
-        addresses.UnionWith(NavigationEvidence([context["requirementsDirectory"], context["nextRequirements"]]));
-        addresses.UnionWith(NavigationEvidence(new[] { "scopeEvidence", "interfacesDirectory", "reusableInterfaces", "taskEvidence", "scopeInterface",
+        addresses.UnionWith(NavigationEvidence(state, [context["requirementsDirectory"], context["nextRequirements"]]));
+        addresses.UnionWith(NavigationEvidence(state, new[] { "scopeEvidence", "interfacesDirectory", "reusableInterfaces", "taskEvidence", "scopeInterface",
             "operations", "companionOperations", "rebuild", "continuation" }.Select(name => context[name])
             .Append(context["taskEvidence"]?["scopeOwner"])
             .Concat((state.Construction!.Evidence ?? []).Select(item => item.Value).Where(value => value is JsonObject or JsonArray))));
-        addresses.UnionWith(NavigationEvidence([context["interfaces"]]));
-        addresses.UnionWith(NavigationEvidence([context["repair"]?["contracts"]]));
-        addresses.UnionWith(NavigationEvidence((context["requirements"] as JsonArray ?? []).Select(row => row?["acceptedProgress"])));
+        addresses.UnionWith(NavigationEvidence(state, [context["interfaces"]]));
+        addresses.UnionWith(NavigationEvidence(state, [context["repair"]?["contracts"]]));
+        addresses.UnionWith(NavigationEvidence(state, (context["requirements"] as JsonArray ?? []).Select(row => row?["acceptedProgress"])));
         var findingEvidence = HybridWorkflowPlanner.BusinessReviewReconsiderationEvidence(state);
         if (findingEvidence.Length > 0)
             context["findingEvidence"] = new JsonArray(findingEvidence.Select(address => (JsonNode?)JsonValue.Create(address)).ToArray());
@@ -98,15 +98,15 @@ internal static partial class PlanningCompactConstruction
         var addresses = StepOriginalEvidence(state);
         {
             addresses.UnionWith(PrerequisiteAddresses(state, (context["requirements"] as JsonArray ?? []).Select(row => row!["id"]!.ToString())).Where(IsOriginalAddress));
-            addresses.UnionWith(NavigationEvidence([context["interfaces"], context["continuation"]]));
-            addresses.UnionWith(NavigationEvidence((context["continuation"]?["acceptedCheckpoints"] as JsonArray ?? []).Cast<JsonNode?>()));
+            addresses.UnionWith(NavigationEvidence(state, [context["interfaces"], context["continuation"]]));
+            addresses.UnionWith(NavigationEvidence(state, (context["continuation"]?["acceptedCheckpoints"] as JsonArray ?? []).Cast<JsonNode?>()));
         }
-        addresses.UnionWith(NavigationEvidence([context["requirementsDirectory"], context["nextRequirements"]]));
-        addresses.UnionWith(NavigationEvidence((context["requirements"] as JsonArray ?? []).Select(row => row?["acceptedProgress"])));
-        addresses.UnionWith(NavigationEvidence(new[] { context["descriptors"], context["providerRequests"], context["scopeOwner"] }
+        addresses.UnionWith(NavigationEvidence(state, [context["requirementsDirectory"], context["nextRequirements"]]));
+        addresses.UnionWith(NavigationEvidence(state, (context["requirements"] as JsonArray ?? []).Select(row => row?["acceptedProgress"])));
+        addresses.UnionWith(NavigationEvidence(state, new[] { context["descriptors"], context["providerRequests"], context["scopeOwner"] }
             .Concat((context["directoryEvidence"] as JsonObject ?? []).Select(item => item.Value))
             .Concat((context["evidence"] as JsonObject ?? []).Select(item => item.Value))));
-        addresses.UnionWith(NavigationEvidence([context["describedOperations"]]));
+        addresses.UnionWith(NavigationEvidence(state, [context["describedOperations"]]));
         // DiscoveryEvidence only omits original descriptions when the existing
         // exact single-read knowledge guard permits them to be restored.
         var rereads = (context["evidence"] as JsonObject ?? []).Where(item =>
@@ -119,7 +119,7 @@ internal static partial class PlanningCompactConstruction
             diagnostic.Required && diagnostic.Code == "CONSTRUCTION_EVIDENCE_LIMIT" && diagnostic.Location == "/evidenceRequests") ? 1 : 8;
         var alternatives = new JsonArray();
         if (addresses.Count > 0)
-            alternatives.Add((JsonNode)PlanningSchemas.Array(PlanningSchemas.Enum(addresses.Order(StringComparer.Ordinal).ToArray()), 1, maximum));
+            alternatives.Add((JsonNode)PlanningSchemas.Array(PlanningSchemas.Enum(addresses.Order(StringComparer.Ordinal).ToArray()), 1, PlanningOptimizationThresholds.Maximum(state, maximum)));
         if (rereads.Length > 0)
             alternatives.Add((JsonNode)PlanningSchemas.Array(PlanningSchemas.Enum(rereads), 1, 1));
         alternatives.Add((JsonNode)PlanningSchemas.Type("null"));
@@ -137,10 +137,13 @@ internal static partial class PlanningCompactConstruction
         addresses.ExceptWith((state.Construction!.Evidence ?? []).Select(item => item.Key));
         if (supportedRereads is not null) addresses.UnionWith(supportedRereads);
         schema["properties"]!["evidenceRequests"] = addresses.Count == 0 ? PlanningSchemas.Type("null") :
-            PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.Enum(addresses.Order(StringComparer.Ordinal).ToArray()), 1, maximum));
+            PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.Enum(addresses.Order(StringComparer.Ordinal).ToArray()), 1, PlanningOptimizationThresholds.Maximum(state, maximum)));
     }
 
-    internal static HashSet<string> NavigationEvidence(IEnumerable<JsonNode?> nodes)
+    private static HashSet<string> NavigationEvidence(PlanningSession state, IEnumerable<JsonNode?> nodes) =>
+        NavigationEvidence(nodes, PlanningTokenThresholds.OptimizationAdvisory(state.Request));
+
+    internal static HashSet<string> NavigationEvidence(IEnumerable<JsonNode?> nodes, bool advisoryOptimization = false)
     {
         var addresses = new HashSet<string>(StringComparer.Ordinal);
         foreach (var node in nodes)
@@ -149,7 +152,8 @@ internal static partial class PlanningCompactConstruction
 
         void Address(JsonNode? node)
         {
-            if (node is JsonValue scalar && scalar.TryGetValue<string>(out var address) && address.Length <= 2048 &&
+            if (node is JsonValue scalar && scalar.TryGetValue<string>(out var address) &&
+                (address.Length <= 2048 || advisoryOptimization) &&
                 new[] { "source:", "source-description:", "requirement:", "input:", "output:", "choice:", "group:", "task:", "scope:", "scope-exports:",
                     "task-objective:", "page:", "schema:", "schema-page:", "port-page:", "description:", "contract:", "original:", "originalScope:", "rejected:" }
                     .Any(prefix => address.StartsWith(prefix, StringComparison.Ordinal)))

@@ -28,14 +28,14 @@ public sealed class CompactScopeInterfaceTests
                         JsonSerializer.SerializeToNode(new List<TaskInput> { new() { Name = "result", Type = NumericArray(), Required = true } }, PlanningJsonContext.Default.ListTaskInput)!.AsArray()));
                 }
                 if (purpose == PlanningCompactConstruction.SelectPurpose)
+                    return StrictWire(request, Block(request), exact: true);
+                if (purpose == PlanningCompactConstruction.ImplementationPurpose)
                 {
                     Assert.Contains(PlanningCompactConstruction.ReusableGroupSemantics, request.Prompt, StringComparison.Ordinal);
                     var selection = Select(request, stage switch { 0 => "group", 1 or 4 => "value", 2 => "foreach", _ => "call" },
                         stage switch { 1 => "/groups/double/body", 3 => "/tasks/iterate/body", _ => "/root" }, complete: stage == 4);
                     var step = selection["step"]!.AsObject();
-                    step["objective"] = stage switch { 0 => "Declare the reusable numeric doubling interface.", 1 => "Double the isolated numeric parameter.",
-                        2 => "Open parallel ordered iteration over every input item.", 3 => "Invoke the reusable doubling group for this item.", _ => "Return the ordered doubled values." };
-                    step["expectedOutputs"] = new JsonArray(); step["outputNames"] = stage == 4 ? new JsonArray("result") : new JsonArray();
+                    step["outputNames"] = stage == 4 ? new JsonArray("result") : new JsonArray();
                     step["inputs"] = stage switch { 1 => Values(new() { Kind = "input", Source = "number" }),
                         2 => Values(new() { Kind = "input", Source = "values" }), 3 => Values(new() { Kind = "item" }),
                         4 => Values(new() { Kind = "output", Source = "iterate", Port = "doubled" }), _ => new JsonArray() };
@@ -49,18 +49,18 @@ public sealed class CompactScopeInterfaceTests
                     Assert.Contains(PlanningCompactConstruction.ReusableGroupSemantics, request.StructuredOutputSchema!["description"]!.ToString(), StringComparison.Ordinal);
                     var extension = stage++ switch
                     {
-                        0 => new PlanningConstructionExtension { Groups = [new() { Id = "double", Inputs = [new() { Name = "number", Type = new() { Kind = "number" } }],
+                        0 => new PlanningConstructionExtension { CompleteBlock = false, Groups = [new() { Id = "double", Inputs = [new() { Name = "number", Type = new() { Kind = "number" } }],
                             Body = new() { Tasks = [new() { Id = "multiply", Kind = "value", Objective = "Double the isolated numeric parameter.",
                                 Outputs = [new("doubled", new() { Kind = "arithmetic", Text = "multiply", Items = [new() { Kind = "input", Source = "number" }, new() { Kind = "number", Number = 2 }] })] }] } }], RequirementIds = ["req_0"], ContinueInScope = "/groups/double/body" },
-                        1 => new() { Scope = "/groups/double/body",
+                        1 => new() { CompleteBlock = false, Scope = "/groups/double/body",
                             Outputs = [new("doubled", new() { Kind = "output", Source = "multiply", Port = "doubled" })], CloseScopes = ["/groups/double/body"], RequirementIds = ["req_0"] },
-                        2 => new() { Tasks = [new() { Id = "iterate", Kind = "foreach", Objective = "Open parallel ordered iteration over every input item.",
+                        2 => new() { CompleteBlock = false, Tasks = [new() { Id = "iterate", Kind = "foreach", Objective = "Open parallel ordered iteration over every input item.",
                             Items = new() { Kind = "input", Source = "values" }, Body = new() { Tasks = [new() { Id = "invoke", Kind = "call", Group = "double",
                                 Objective = "Invoke the reusable doubling group for this item.", Inputs = [new("number", new() { Kind = "item" })] }] },
                             Parallel = true, MaxItems = 100, MaxConcurrency = 4 }], RequirementIds = ["req_0"], ContinueInScope = "/tasks/iterate/body" },
-                        3 => new() { Scope = "/tasks/iterate/body", Outputs = [new("doubled", new() { Kind = "output", Source = "invoke", Port = "doubled" })],
+                        3 => new() { CompleteBlock = false, Scope = "/tasks/iterate/body", Outputs = [new("doubled", new() { Kind = "output", Source = "invoke", Port = "doubled" })],
                             CloseScopes = ["/tasks/iterate/body"], RequirementIds = ["req_0"] },
-                        _ => new() { Outputs = [new("result", new() { Kind = "output", Source = "iterate", Port = "doubled" })], CloseScopes = ["/root"], RequirementIds = ["req_0"], Complete = true }
+                        _ => new() { CompleteBlock = true, Outputs = [new("result", new() { Kind = "output", Source = "iterate", Port = "doubled" })], CloseScopes = ["/root"], RequirementIds = ["req_0"], Complete = true }
                     };
                     return StrictWire(request, Draft(request, extension));
                 }
@@ -175,14 +175,15 @@ public sealed class CompactScopeInterfaceTests
         var runtime = new TestRuntime { Respond = (request, purpose) =>
         {
             if (purpose == PlanningCompactConstruction.IntentPurpose) return Wire(request, Index(request));
-            if (purpose == PlanningCompactConstruction.SelectPurpose) return Wire(request, Select(request, kind, "/root", complete: true));
+            if (purpose == PlanningCompactConstruction.SelectPurpose) return Wire(request, Block(request));
+            if (purpose == PlanningCompactConstruction.ImplementationPurpose) return Wire(request, Select(request, kind, "/root", complete: true));
             if (purpose == PlanningConstruction.DraftPurpose)
             {
                 var task = kind == "value" ? Greeting() : new PlanTask { Id = "assemble", Kind = "transform", Mode = "extract", Objective = "Return the exact supplied greeting.",
                     Inputs = [new("message", new() { Kind = "string", Text = "Hello" })],
                     ResultType = new() { Kind = "object", Fields = [new() { Name = "message", Type = new() { Kind = "string" } }] } };
                 return Wire(request, Draft(request, new() { Tasks = [task], Outputs = [new("message", new() { Kind = "output", Source = "assemble", Port = "message" })],
-                    RequirementIds = ["req_0"], CloseScopes = ["/root"], Complete = true }));
+                    RequirementIds = ["req_0"], CloseScopes = ["/root"], Complete = true, CompleteBlock = true }));
             }
             if (purpose == PlanningConstruction.GlobalPurpose)
             {
@@ -211,7 +212,7 @@ public sealed class CompactScopeInterfaceTests
             state.Construction!.Compact!.CurrentStep!.Kind = "foreach";
             state.Construction.Candidate = PlanningConstruction.Apply(state, new()
             {
-                RequirementIds = ["work"], CloseScopes = ["/tasks/iterate/body"], Tasks = [new() { Id = "iterate", Kind = "foreach",
+                RequirementIds = ["work"], CompleteBlock = true, CloseScopes = ["/tasks/iterate/body"], Tasks = [new() { Id = "iterate", Kind = "foreach",
                     Objective = "Preserve the ordered literal items.", Items = new() { Kind = "array", Items = [new() { Kind = "number", Number = 1 }, new() { Kind = "number", Number = 2 }] },
                     MaxItems = 2, MaxConcurrency = 1, Body = new() { Tasks = [new() { Id = "keep", Kind = "value", Objective = "Preserve this literal item.",
                         Outputs = [new("number", new() { Kind = "item" })] }] } }]
@@ -249,7 +250,7 @@ public sealed class CompactScopeInterfaceTests
             Objective = "Continue independent caller work.", BaseHash = PlanningConstruction.Hash(state.Plan), DiscoveryComplete = true
         } : null;
         const string groupScope = "/groups/reusable/body";
-        var context = PlanningCompactConstruction.SelectionContext(state);
+        var context = PlanningCompactConstruction.ImplementationContext(state);
         var exports = context["requirements"]!.AsArray().SelectMany(requirement =>
             (requirement!["acceptedProgress"]?["items"] as JsonArray ?? []).OfType<JsonObject>())
             .SelectMany(checkpoint => (checkpoint["outputs"] as JsonArray ?? []).OfType<JsonObject>()).ToArray();
@@ -335,6 +336,8 @@ public sealed class CompactScopeInterfaceTests
             observe?.Invoke(request, purpose, stage);
             if (purpose == PlanningCompactConstruction.IntentPurpose) return Wire(request, Index(request));
             if (purpose == PlanningCompactConstruction.SelectPurpose)
+                return Wire(request, Block(request));
+            if (purpose == PlanningCompactConstruction.ImplementationPurpose)
             {
                 var selection = Select(request, stage switch { 0 => "group", 1 => "value", 2 => "close", _ => "call" },
                     stage is 1 or 2 ? "/groups/reusable/body" : "/root", complete: stage == 3);
@@ -346,11 +349,11 @@ public sealed class CompactScopeInterfaceTests
             {
                 var extension = stage++ switch
                 {
-                    0 => new PlanningConstructionExtension { Groups = [new() { Id = "reusable", Inputs = [new() { Name = "word", Type = new() { Kind = "string" } }],
+                    0 => new PlanningConstructionExtension { CompleteBlock = false, Groups = [new() { Id = "reusable", Inputs = [new() { Name = "word", Type = new() { Kind = "string" } }],
                         Body = new() { Tasks = [Greeting(input: true)] } }], RequirementIds = ["req_0"], ContinueInScope = "/groups/reusable/body" },
-                    1 => new() { Scope = "/groups/reusable/body", Outputs = [new("message", new() { Kind = "output", Source = "assemble", Port = "message" })], RequirementIds = ["req_0"], ContinueInScope = "/groups/reusable/body" },
-                    2 => new() { Scope = "/groups/reusable/body", CloseScopes = ["/groups/reusable/body"], RequirementIds = ["req_0"] },
-                    _ => new() { Tasks = [new() { Id = "invoke", Kind = "call", Group = "reusable", Objective = "Return the greeting from the reusable group.",
+                    1 => new() { CompleteBlock = false, Scope = "/groups/reusable/body", Outputs = [new("message", new() { Kind = "output", Source = "assemble", Port = "message" })], RequirementIds = ["req_0"], ContinueInScope = "/groups/reusable/body" },
+                    2 => new() { CompleteBlock = false, Scope = "/groups/reusable/body", CloseScopes = ["/groups/reusable/body"], RequirementIds = ["req_0"] },
+                    _ => new() { CompleteBlock = true, Tasks = [new() { Id = "invoke", Kind = "call", Group = "reusable", Objective = "Return the greeting from the reusable group.",
                         Inputs = [new("word", new() { Kind = "string", Text = "Hello" })] }],
                         Outputs = [new("message", new() { Kind = "output", Source = "invoke", Port = "message" })], RequirementIds = ["req_0"], CloseScopes = ["/root"], Complete = true }
                 };
@@ -380,9 +383,21 @@ public sealed class CompactScopeInterfaceTests
 
     private static JsonObject Select(LLMRequest request, string kind, string scope, bool complete) => new()
     {
-        ["baseHash"] = request.StructuredOutputSchema!["properties"]!["baseHash"]!["enum"]![0]!.ToString(), ["step"] = new JsonObject { ["scope"] = scope, ["kind"] = kind, ["objective"] = "Preserve the exact greeting through the reusable interface.",
-            ["requirementIds"] = new JsonArray("req_0"), ["operationIds"] = new JsonArray(), ["inputs"] = new JsonArray(), ["closeScopes"] = kind == "close" ? new JsonArray(scope) : null, ["dependencyTaskIds"] = new JsonArray(), ["expectedOutputs"] = new JsonArray("The exact greeting."),
+        ["baseHash"] = request.StructuredOutputSchema!["properties"]!["baseHash"]!["enum"]![0]!.ToString(), ["step"] = new JsonObject { ["scope"] = scope, ["kind"] = kind,
+            ["operationIds"] = new JsonArray(), ["inputs"] = new JsonArray(), ["closeScopes"] = kind == "close" ? new JsonArray(scope) : null, ["dependencyTaskIds"] = new JsonArray(),
             ["closeRequirementIds"] = complete ? new JsonArray("req_0") : new JsonArray(), ["outputNames"] = complete ? new JsonArray("message") : new JsonArray() },
+        ["clarifications"] = null, ["evidenceRequests"] = null
+    };
+    private static JsonObject Block(LLMRequest request) => new()
+    {
+        ["block"] = new JsonObject
+        {
+            ["objective"] = string.Join(" ", Context(request)["requirements"]!.AsArray().Select(row => row!["original"]!.ToString())),
+            ["requirementIds"] = Context(request)["remainingObligations"]!.DeepClone(),
+            ["informationNeeds"] = new JsonArray("The declared caller inputs."),
+            ["expectedResults"] = new JsonArray("The exact requested public result."), ["dependencies"] = new JsonArray(),
+            ["successCriteria"] = new JsonArray("Preserve the exact requested values, reuse and ordering requirements.")
+        },
         ["clarifications"] = null, ["evidenceRequests"] = null
     };
     private static PlanTask Greeting(bool input = false) => new() { Id = "assemble", Kind = "value", Objective = "Return the exact supplied greeting.",

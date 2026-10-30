@@ -326,11 +326,11 @@ public sealed partial class TaskPlanCompiler
                             PlanningContractShapes.IterationItems(collected.Schema) is null)
                             findings.Add(new("TASK_TRANSFORM_EACH", path + "/inputs/" + each.Input, "Independent extraction requires an authoritative array; its contents may be opaque."));
                     }
-                    var typeFindings = TransformTypeFindings(task.ResultType, path + "/resultType").ToArray();
+                    var typeFindings = TransformTypeFindings(task.ResultType, path + "/resultType", _advisoryOptimization).ToArray();
                     findings.AddRange(typeFindings);
                     if (typeFindings.Length == 0)
                     {
-                        ports = task.Mode == "extract" ? Result(task.Id, "set", TypeSchema(task.ResultType!)) : StructuredResult(task.Id, TypeSchema(task.ResultType!), path + "/resultType");
+                        ports = task.Mode == "extract" ? Result(task.Id, "set", TypeSchema(task.ResultType!, _advisoryOptimization)) : StructuredResult(task.Id, TypeSchema(task.ResultType!, _advisoryOptimization), path + "/resultType");
                         if (task.Mode == "extract") foreach (var port in ports.Values) port.Value.Path.Insert(0, "value");
                     }
                     else scope.Blocked.Add(("output", task.Id, "*"));

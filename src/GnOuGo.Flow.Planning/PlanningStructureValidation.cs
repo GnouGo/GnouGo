@@ -4,13 +4,13 @@ namespace GnOuGo.Flow.Planning;
 
 internal static class PlanningStructureValidation
 {
-    internal static IReadOnlyList<PlanningDiagnostic> Validate(PlanningGraph graph, PlanningCatalog catalog)
+    internal static IReadOnlyList<PlanningDiagnostic> Validate(PlanningGraph graph, PlanningCatalog catalog, bool advisoryOptimization = false)
     {
         var findings = new List<PlanningDiagnostic>();
         var limits = PlanningGraphLimits.From(catalog.Policy);
         if (limits.Workflows < 1 || limits.StepsPerWorkflow < 1 || catalog.Policy.MaxStepsTotal < 1)
             return [new("PLANNING_LIMIT_INVALID", "/policy", "Captured workflow and step ceilings must be positive.")];
-        if (graph.Workflows.Count < 1 || graph.Workflows.Count > limits.Workflows || graph.Workflows.Select(w => w.Key).Distinct(StringComparer.Ordinal).Count() != graph.Workflows.Count)
+        if (graph.Workflows.Count < 1 || Exceeded(graph.Workflows.Count, limits.Workflows, "workflows") || graph.Workflows.Select(w => w.Key).Distinct(StringComparer.Ordinal).Count() != graph.Workflows.Count)
             findings.Add(new("WORKFLOW_IDENTITIES_INVALID", "/workflows", "Declare 1–" + limits.Workflows + " workflows with unique identifiers."));
         if (!graph.Workflows.Any(w => w.Key == graph.Entrypoint)) findings.Add(new("ENTRYPOINT_INVALID", "/entrypoint", "The entrypoint must identify a declared workflow."));
         long total = 0;
@@ -19,7 +19,7 @@ internal static class PlanningStructureValidation
             var path = "/workflows/" + graph.Workflows.IndexOf(workflow);
             var nodes = PlanningGraphValidation.Located(workflow.Steps, path + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, path + "/finally")).ToArray();
             total += nodes.Length;
-            if (nodes.Length > limits.StepsPerWorkflow)
+            if (Exceeded(nodes.Length, limits.StepsPerWorkflow, "workflow_steps"))
                 findings.Add(new("STEP_LIMIT", path, "The workflow exceeds its captured " + limits.StepsPerWorkflow + "-node limit."));
             if (nodes.Select(n => n.Node.Key).Distinct(StringComparer.Ordinal).Count() != nodes.Length)
             { findings.Add(new("NODE_IDENTITIES_INVALID", path, "Step identifiers must be unique within each workflow.")); continue; }
@@ -76,9 +76,17 @@ internal static class PlanningStructureValidation
             _ = keys.Any(Cycle);
         }
         // The three host-owned confirmation steps are outside the user's graph allowance.
-        if (total > (long)catalog.Policy.MaxStepsTotal + (graph.Workflows.Any(w => w.Key == PlanningConfirmationGuards.Body) ? 3 : 0))
+        if (Exceeded(total, (long)catalog.Policy.MaxStepsTotal + (graph.Workflows.Any(w => w.Key == PlanningConfirmationGuards.Body) ? 3 : 0), "total_steps"))
             findings.Add(new("STEP_LIMIT", "/workflows", "The workflow exceeds the configured step limit."));
         return findings;
+
+        bool Exceeded(long current, long target, string kind)
+        {
+            if (current <= target) return false;
+            if (!advisoryOptimization) return true;
+            PlanningTokenThresholds.Warn("graph_validation", kind, current, target);
+            return false;
+        }
     }
 
     // Relative graph paths keep confirmation wrappers and reordered steps out of intent context.

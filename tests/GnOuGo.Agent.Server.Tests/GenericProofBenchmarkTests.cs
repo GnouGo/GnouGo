@@ -399,18 +399,16 @@ public sealed class GenericProofBenchmarkTests
             PlanningJsonContext.Default.PlanningCatalog)!;
         reviewedCatalog.Capabilities.RemoveAll(capability => TaskOperations.Describe(capability).Id != operation);
         Assert.Single(reviewedCatalog.Capabilities);
-        var state = new PlanningSession { Catalog = reviewedCatalog, Request = new()
+        var state = new PlanningSession { Catalog = reviewedCatalog, Construction = new()
+        {
+            Limits = new() { PhasePolicy = new() { Navigation = new() { TargetInputTokens = 3_000, MaxInputTokens = 12_000 } } }
+        }, Request = new()
         {
             TenantId = "benchmark", SessionId = run, Name = PlanningBenchmarkCases.ReadGroupProofCase,
             Prompt = PlanningBenchmarkCases.Prompt(PlanningBenchmarkCases.ReadGroupProofCase), Baseline = plan,
-            Policy = catalog.Policy, Options = new()
-            {
-                ["construction_limits"] = JsonSerializer.SerializeToNode(new PlanningConstructionOptions
-                {
-                    PhasePolicy = new() { Navigation = new() { TargetInputTokens = 3_000, MaxInputTokens = 12_000 } }
-                }, PlanningJsonContext.Default.PlanningConstructionOptions)
-            }
+            Policy = catalog.Policy
         } };
+        PlanningSessionCreation.Capture(state);
         var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { LLMClient = model }, (_, _) => Task.CompletedTask);
         var planner = new HybridWorkflowPlanner();
         for (var advance = 0; advance < 20 && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); advance++)
@@ -466,6 +464,15 @@ public sealed class GenericProofBenchmarkTests
                         JsonSerializer.SerializeToNode(new List<TaskInput> { new() { Name = "leftResult", Type = new() { Kind = "number" } },
                             new() { Name = "rightResult", Type = new() { Kind = "number" } } }, PlanningJsonContext.Default.ListTaskInput)!.AsArray());
                 else if (purpose == "construction_select")
+                    response = new() { ["block"] = new JsonObject
+                    {
+                        ["objective"] = "Read the exact seed and return the numeric results from the reusable computations.",
+                        ["requirementIds"] = new JsonArray("req_0"), ["informationNeeds"] = new JsonArray(),
+                        ["expectedResults"] = new JsonArray("The public leftResult and rightResult contain the required numeric results."),
+                        ["dependencies"] = new JsonArray(),
+                        ["successCriteria"] = new JsonArray("Use only the exact seed read, preserve ordering, and leave the workspace unchanged.")
+                    } };
+                else if (purpose == "construction_implementation")
                     response = new() { ["baseHash"] = schema["properties"]!["baseHash"]!["enum"]![0]!.DeepClone(), ["step"] = new JsonObject
                     {
                         ["scope"] = "/root", ["kind"] = "close", ["objective"] = "Review and close the authored read and contributing reusable computations.",
@@ -473,6 +480,13 @@ public sealed class GenericProofBenchmarkTests
                         ["inputs"] = new JsonArray(), ["dependencyTaskIds"] = new JsonArray(), ["expectedOutputs"] = new JsonArray(),
                         ["operationIds"] = new JsonArray(), ["outputNames"] = new JsonArray(), ["closeScopes"] = new JsonArray("/root")
                     } };
+                else if (purpose == "construction_draft")
+                    response = new() { ["baseHash"] = context["baseHash"]!.DeepClone(),
+                        ["extension"] = JsonSerializer.SerializeToNode(new PlanningConstructionExtension
+                        {
+                            Scope = "/root", RequirementIds = ["req_0"], CloseScopes = ["/root"],
+                            CompleteBlock = true, Complete = true
+                        }, PlanningJsonContext.Default.PlanningConstructionExtension) };
                 else if (purpose == "construction_global_judge")
                 {
                     Reviews.Add(purpose);

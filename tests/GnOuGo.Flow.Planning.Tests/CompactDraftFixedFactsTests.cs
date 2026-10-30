@@ -145,7 +145,7 @@ public sealed class CompactDraftFixedFactsTests
     {
         ["extension"] = JsonSerializer.SerializeToNode(new PlanningConstructionExtension
         {
-            Scope = "/tasks/outer/body", RequirementIds = ["req"], Tasks = [new()
+            CompleteBlock = false, Scope = "/tasks/outer/body", RequirementIds = ["req"], Tasks = [new()
             {
                 Id = "result", Kind = "value", Objective = "Produce the requested exact result.",
                 Outputs = [new("text", new() { Kind = "string", Text = "retained" })]
@@ -166,7 +166,10 @@ public sealed class CompactDraftFixedFactsTests
                 OpenScopes = ["/root", "/tasks/outer/body", "/tasks/inner/body"], Requirements = [new() { Id = "req" }], Compact = new()
                 {
                     Sources = [new() { Id = "request:0", Kind = "page", Text = "Produce the requested exact result.", Indexed = true }],
-                    CurrentStep = new() { Id = "selected", Scope = "/tasks/outer/body", Kind = "value", DiscoveryComplete = true,
+                    CurrentBlockId = "block_1", Blocks = [new() { Id = "block_1", Objective = "Produce the requested exact result.",
+                        RequirementIds = ["req"], ExpectedResults = ["The declared result remains exact."],
+                        SuccessCriteria = ["Preserve the exact declared result."] }],
+                    CurrentStep = new() { BlockId = "block_1", Id = "selected", Scope = "/tasks/outer/body", Kind = "value", DiscoveryComplete = true,
                         RequirementIds = ["req"], OutputNames = ["text"] }
                 }
             }

@@ -11,8 +11,11 @@ namespace GnOuGo.Flow.Planning;
 public static class PlanningExecutableValidation
 {
     public static IReadOnlyList<PlanningDiagnostic> Validate(PlanningGraph graph, PlanningCatalog catalog)
+        => Validate(graph, catalog, advisoryOptimization: false);
+
+    internal static IReadOnlyList<PlanningDiagnostic> Validate(PlanningGraph graph, PlanningCatalog catalog, bool advisoryOptimization)
     {
-        var errors = PlanningStructureValidation.Validate(graph, catalog).ToList();
+        var errors = PlanningStructureValidation.Validate(graph, catalog, advisoryOptimization).ToList();
         // Only broken identities or cycles prevent safe traversal. Report independent
         // contract errors together so one scope error does not consume an entire replan.
         if (errors.Any(d => d.Code is "WORKFLOW_IDENTITIES_INVALID" or "NODE_IDENTITIES_INVALID" or "PORT_IDENTITIES_INVALID" or "ENTRYPOINT_INVALID" or "DEPENDENCY_CYCLE")) return errors;

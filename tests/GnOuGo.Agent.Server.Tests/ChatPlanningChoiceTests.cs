@@ -71,14 +71,14 @@ public sealed class ChatPlanningChoiceTests
         Assert.False(submitted.IsCompleted);
         state = await planner.AdvanceAsync(state, delivered, owned.Runtime, Ct);
         await bridge.CheckpointedAsync(state, Ct);
-        Assert.Single((await submitted).Choices); Assert.Equal(model.EarlyQuestion ? 1 : 3, model.Calls);
+        Assert.Single((await submitted).Choices); Assert.Equal(model.EarlyQuestion ? 1 : 4, model.Calls);
         Assert.Equal(PlanningStatus.Generating, state.Status); Assert.Equal(0, model.Reviews);
         var stored = await fixture.Records.GetAsync("flow-planning-sessions-v11", "planning-tests", state.Request.SessionId, "test", Ct);
         Assert.Contains("PRIVATE_DECISION_CONTEXT", stored!.Value);
         foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
             Assert.DoesNotContain("PRIVATE_DECISION_CONTEXT", System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
         state = await ContinueAsync(planner, state, owned.Runtime);
-        Assert.Equal(6, model.Calls); Assert.Equal(1, model.Reviews); Assert.Null(state.ApprovedHash);
+        Assert.Equal(7, model.Calls); Assert.Equal(1, model.Reviews); Assert.Null(state.ApprovedHash);
     }
     [Theory]
     [InlineData(false)]
@@ -99,7 +99,7 @@ public sealed class ChatPlanningChoiceTests
         var pending = Assert.Single(await reopened.ListAsync("chat", Ct)); Assert.Single(pending.Choices);
         var cancelled = await reopened.SubmitAsync("chat", id, new() { Kind = answer ? "choose" : "cancel", ExpectedRevision = revision,
             Selections = answer ? new() { ["tone"] = "brief" } : null }, Ct);
-        Assert.Equal(answer ? PlanningStatus.FinalReview : PlanningStatus.Cancelled, cancelled.Status); Assert.Equal(answer ? 6 : 3, model.Calls);
+        Assert.Equal(answer ? PlanningStatus.FinalReview : PlanningStatus.Cancelled, cancelled.Status); Assert.Equal(answer ? 7 : 4, model.Calls);
         Assert.Equal(answer ? 1 : 0, model.Reviews);
         Assert.Null(cancelled.ApprovedHash);
         await Assert.ThrowsAsync<ArgumentException>(() => reopened.SubmitAsync("chat", id, new() { Kind = "approve", ExpectedRevision = cancelled.Revision }, Ct));
@@ -120,7 +120,7 @@ public sealed class ChatPlanningChoiceTests
         Assert.False(await fixture.Store.TrySaveAsync(answered, restored.Revision, Ct));
         var resumed = (await fixture.Store.LoadAsync("planning-tests", pending.Request.SessionId, Ct))!;
         resumed = await ContinueAsync(planner, resumed, runtime);
-        Assert.Equal(PlanningStatus.FinalReview, resumed.Status); Assert.Equal(6, model.Calls); Assert.Equal(1, model.Reviews); Assert.Single(resumed.GetChoices());
+        Assert.Equal(PlanningStatus.FinalReview, resumed.Status); Assert.Equal(7, model.Calls); Assert.Equal(1, model.Reviews); Assert.Single(resumed.GetChoices());
     }
 
     [Theory]
@@ -157,7 +157,7 @@ public sealed class ChatPlanningChoiceTests
         response.EnsureSuccessStatusCode();
         var result = (await response.Content.ReadFromJsonAsync(ChatJsonContext.Default.PlanningSessionDto, Ct))!;
         Assert.Equal(PlanningStatus.FinalReview, result.Status);
-        Assert.Single(result.Choices); Assert.Null(result.ApprovedHash); Assert.Equal(6, model.Calls); Assert.Equal(1, model.Reviews);
+        Assert.Single(result.Choices); Assert.Null(result.ApprovedHash); Assert.Equal(7, model.Calls); Assert.Equal(1, model.Reviews);
         await Assert.ThrowsAsync<PlanningConflictException>(() => reopened.SubmitAsync("scope-chat", id, command, Ct));
     }
     [Theory]
@@ -192,11 +192,11 @@ public sealed class ChatPlanningChoiceTests
         var wrong = await http.PostAsJsonAsync(endpoint.Replace("early-chat", "unrelated", StringComparison.Ordinal), command, ChatJsonContext.Default.PlanningCommandDto, Ct);
         Assert.Equal(System.Net.HttpStatusCode.NotFound, wrong.StatusCode);
         var invalid = await http.PostAsJsonAsync(endpoint, command with { Kind = "answer", Answers = [null!] }, ChatJsonContext.Default.PlanningCommandDto, Ct);
-        Assert.Equal(System.Net.HttpStatusCode.BadRequest, invalid.StatusCode); Assert.Equal(model.EarlyQuestion ? 1 : 3, model.Calls);
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, invalid.StatusCode); Assert.Equal(model.EarlyQuestion ? 1 : 4, model.Calls);
         var response = await http.PostAsJsonAsync(endpoint, command, ChatJsonContext.Default.PlanningCommandDto, Ct); response.EnsureSuccessStatusCode();
         var result = (await response.Content.ReadFromJsonAsync(ChatJsonContext.Default.PlanningSessionDto, Ct))!;
         Assert.Equal(action == "cancel" ? PlanningStatus.Cancelled : PlanningStatus.FinalReview, result.Status);
-        Assert.Equal(action == "cancel" ? 1 : 6, model.Calls); Assert.Equal(action == "cancel" ? 0 : 1, model.Reviews); Assert.Null(result.ApprovedHash);
+        Assert.Equal(action == "cancel" ? 1 : 7, model.Calls); Assert.Equal(action == "cancel" ? 0 : 1, model.Reviews); Assert.Null(result.ApprovedHash);
         var replay = await http.PostAsJsonAsync(endpoint, command, ChatJsonContext.Default.PlanningCommandDto, Ct);
         Assert.Equal(System.Net.HttpStatusCode.Conflict, replay.StatusCode);
         foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
@@ -217,11 +217,11 @@ public sealed class ChatPlanningChoiceTests
             Answers = [new("interface", "reference")] }, Ct);
         var command = await waiting; Assert.False(submitted.IsCompleted);
         state = await planner.AdvanceAsync(state, command, owned.Runtime, Ct);
-        Assert.Equal(model.EarlyQuestion ? 1 : 3, model.Calls); Assert.Single(state.AnswerHistory!);
+        Assert.Equal(model.EarlyQuestion ? 1 : 4, model.Calls); Assert.Single(state.AnswerHistory!);
         await bridge.CheckpointedAsync(state, Ct);
         Assert.Equal(PlanningStatus.Generating, (await submitted).Status);
         state = await ContinueAsync(planner, state, owned.Runtime);
-        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(6, model.Calls); Assert.Equal(1, model.Reviews); Assert.Null(state.ApprovedHash);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(7, model.Calls); Assert.Equal(1, model.Reviews); Assert.Null(state.ApprovedHash);
     }
 
     private sealed class Lifetime : IHostApplicationLifetime
@@ -266,6 +266,12 @@ public sealed class ChatPlanningChoiceTests
                 }
                 if (purpose == "construction_select")
                 {
+                    json["block"]!["objective"] = "Return the required numeric result and the caller's chosen presentation.";
+                    json["block"]!["expectedResults"]!.AsArray().Add("The public string presentation reflects the caller's selection.");
+                    json["block"]!["successCriteria"]!.AsArray().Add("Honor the caller's explicit presentation decision.");
+                }
+                if (purpose == "construction_implementation")
+                {
                     if (!_choiceIssued)
                     {
                         _choiceIssued = true;
@@ -289,6 +295,7 @@ public sealed class ChatPlanningChoiceTests
                         json["extension"]!["outputs"] = new JsonArray();
                         json["extension"]!["closeScopes"] = new JsonArray();
                         json["extension"]!["complete"] = false;
+                        json["extension"]!["completeBlock"] = false;
                     }
                     else json["extension"]!["outputs"]!.AsArray().Add((JsonNode)JsonSerializer.SerializeToNode(new TaskOutput("presentation", new() { Kind = "choice", Source = choice.Id }), PlanningJsonContext.Default.TaskOutput)!);
                 }

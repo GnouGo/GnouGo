@@ -124,16 +124,36 @@ public sealed partial class LLMUsageBudgetScope
     private readonly TimeProvider _timeProvider;
     private readonly MonetaryAmount? _costLimit;
     private readonly bool _advisoryTokens;
-    private readonly HashSet<string> _tokenWarnings = new(StringComparer.Ordinal);
+    private readonly bool _advisoryOptimization;
+    private readonly bool _advisoryOptimizationLimits;
+    private readonly HashSet<string> _thresholdWarnings = new(StringComparer.Ordinal);
     private static readonly AsyncLocal<string?> WarningRequestId = new();
     private List<PlanningThresholdWarning>? _warnings;
     private LLMUsageBudgetSnapshot _snapshot;
 
     internal LLMUsageBudgetScope(bool advisoryTokens, LLMUsageBudgetLimits limits,
         LLMUsageBudgetSnapshot? initialSnapshot = null, LLMUsageBudgetScope? parent = null,
-        ILLMUsageBudgetSink? sink = null, TimeProvider? timeProvider = null, IExchangeRateProvider? exchangeRateProvider = null)
+        ILLMUsageBudgetSink? sink = null, TimeProvider? timeProvider = null, IExchangeRateProvider? exchangeRateProvider = null,
+        bool advisoryOptimization = false)
         : this(limits, initialSnapshot, parent, sink, timeProvider, exchangeRateProvider)
-        => _advisoryTokens = advisoryTokens;
+    {
+        _advisoryTokens = advisoryTokens || advisoryOptimization;
+        _advisoryOptimization = advisoryOptimization || _advisoryOptimization;
+        _advisoryOptimizationLimits = advisoryOptimization;
+    }
+
+    private LLMUsageBudgetScope(LLMUsageBudgetScope authority, LLMUsageBudgetLimits limits,
+        LLMUsageBudgetSnapshot? snapshot, ILLMUsageBudgetSink? sink, IExchangeRateProvider? exchangeRateProvider)
+        : this(authority._advisoryTokens, limits, snapshot, sink: sink, timeProvider: authority._timeProvider,
+            exchangeRateProvider: exchangeRateProvider ?? authority._exchangeRateProvider,
+            advisoryOptimization: authority._advisoryOptimizationLimits)
+        => _advisoryOptimization = authority._advisoryOptimization;
+
+    // Restore accounting under the same trusted host authority. No policy is
+    // inferred from warning records, and explicit execution bounds stay explicit.
+    internal LLMUsageBudgetScope RestoreSnapshot(LLMUsageBudgetLimits limits, LLMUsageBudgetSnapshot? snapshot,
+        ILLMUsageBudgetSink? sink = null, IExchangeRateProvider? exchangeRateProvider = null)
+        => new(this, limits, snapshot, sink, exchangeRateProvider);
 
     public LLMUsageBudgetScope(
         LLMUsageBudgetLimits limits,
@@ -149,6 +169,7 @@ public sealed partial class LLMUsageBudgetScope
         Limits = limits;
         _parent = parent;
         _advisoryTokens = parent?._advisoryTokens ?? false;
+        _advisoryOptimization = parent?._advisoryOptimization ?? false;
         _sink = sink;
         _exchangeRateProvider = exchangeRateProvider ?? parent?._exchangeRateProvider;
         _timeProvider = timeProvider ?? TimeProvider.System;
@@ -175,6 +196,9 @@ public sealed partial class LLMUsageBudgetScope
 
     public LLMUsageBudgetLimits Limits { get; }
     internal bool AdvisoryTokenThresholds => _advisoryTokens;
+    // Authority propagates to runtime optimization choices. Publicly created
+    // child scopes still enforce their own explicit execution call/time limits.
+    internal bool AdvisoryOptimizationThresholds => _advisoryOptimization;
 
     public LLMUsageBudgetSnapshot Snapshot
     {
@@ -412,11 +436,13 @@ public sealed partial class LLMUsageBudgetScope
         if (Limits.MaxElapsed is { } maxElapsed)
         {
             var elapsed = _timeProvider.GetUtcNow() - snapshot.StartedAtUtc;
-            if (elapsed >= maxElapsed)
+            if (elapsed >= maxElapsed && !WarnOptimizationThreshold(stage, "elapsed_ms",
+                (long)Math.Ceiling(maxElapsed.TotalMilliseconds), (long)Math.Ceiling(elapsed.TotalMilliseconds)))
                 throw CreateExceeded(stage, "elapsed_ms", maxElapsed.TotalMilliseconds, elapsed.TotalMilliseconds, snapshot);
         }
 
-        if (Limits.MaxCalls is { } maxCalls && snapshot.Calls >= maxCalls)
+        if (Limits.MaxCalls is { } maxCalls && snapshot.Calls >= maxCalls &&
+            !WarnOptimizationThreshold(stage, "calls", maxCalls, checked(snapshot.Calls + 1)))
             throw CreateExceeded(stage, "calls", maxCalls, snapshot.Calls, snapshot);
 
         if (Limits.MaxTotalTokens is { } maxTokens && snapshot.TotalTokens >= maxTokens &&
@@ -521,10 +547,15 @@ public sealed partial class LLMUsageBudgetScope
     }
 
     private bool WarnTokenThreshold(string stage, string kind, long threshold, long current)
+        => _advisoryTokens && WarnThreshold(stage, kind, threshold, current);
+
+    private bool WarnOptimizationThreshold(string stage, string kind, long threshold, long current)
+        => _advisoryOptimizationLimits && WarnThreshold(stage, kind, threshold, current);
+
+    private bool WarnThreshold(string stage, string kind, long threshold, long current)
     {
-        if (!_advisoryTokens) return false;
         lock (_gate)
-            if (_tokenWarnings.Add($"{stage}:{kind}:{WarningRequestId.Value ?? _snapshot.Calls.ToString(System.Globalization.CultureInfo.InvariantCulture)}:{current}:{threshold}"))
+            if (_thresholdWarnings.Add($"{stage}:{kind}:{WarningRequestId.Value ?? _snapshot.Calls.ToString(System.Globalization.CultureInfo.InvariantCulture)}:{current}:{threshold}"))
             {
                 RecordTokenWarning(stage, kind, current, threshold);
                 PlanningTokenThresholds.Warn(stage, kind, current, threshold);

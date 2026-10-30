@@ -119,7 +119,7 @@ internal static partial class PlanningCompactConstruction
         context["groupEvidence"] = new JsonObject
         {
             ["count"] = groups.Count,
-            ["items"] = new JsonArray(groups.Order(StringComparer.Ordinal).Take(8).Select(id => (JsonNode)new JsonObject
+            ["items"] = new JsonArray(groups.Order(StringComparer.Ordinal).Select(id => (JsonNode)new JsonObject
             {
                 ["id"] = id, ["address"] = "scope:/groups/" + id + "/body"
             }).ToArray())

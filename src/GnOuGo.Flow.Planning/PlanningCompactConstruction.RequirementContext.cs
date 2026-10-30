@@ -24,7 +24,8 @@ internal static partial class PlanningCompactConstruction
             string.Concat(compact.Sources.Where(source => source.Kind is "requirement" or "global").Select(source => source.Text)) == originals[0].Text)
         {
             var original = IntentRequest(state, originals[0]);
-            if (ModelRequestAdmission.EstimateTokens(PlanningModelCalls.PrepareRequest(state, IntentPurpose,
+            if (PlanningTokenThresholds.OptimizationAdvisory(state.Request) ||
+                ModelRequestAdmission.EstimateTokens(PlanningModelCalls.PrepareRequest(state, IntentPurpose,
                 original.Prompt, original.StructuredOutputSchema!.AsObject())) <= PlanningConstructionInputPolicy.EffectiveLimit(state.Request, IntentPurpose))
                 return state.Requirements.Outcomes.Select(requirement => requirement.Id).ToHashSet(StringComparer.Ordinal);
         }

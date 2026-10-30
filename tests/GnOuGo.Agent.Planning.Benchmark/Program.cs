@@ -280,7 +280,7 @@ foreach (var name in names)
     long? planningMilliseconds = null;
     try
     {
-        for (var advance = 0; advance < Math.Max(40, state.Request.MaxModelCalls * 4) && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); advance++)
+        for (long advance = 0; PlanningBenchmarkMeasurements.CanAdvance(state, advance); advance++)
         {
             state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, CancellationToken.None);
             state = BenchmarkCampaign.ReadCurrentSession(run["session"]);
@@ -416,6 +416,7 @@ foreach (var name in names)
         ["diagnostics"] = new JsonArray(state.Diagnostics.Select(d => d.Code).Distinct().Select(d => (JsonNode)JsonValue.Create(d)).ToArray()),
         ["failure_history"] = new JsonArray(run["diagnostic_history"]!.AsArray().Select(d => { var entry = d!.DeepClone().AsObject(); entry.Remove("message"); return (JsonNode)entry; }).ToArray()) };
     if (cohort is not null) rowResult["cohort"] = cohort;
+    if (campaign is not null) rowResult["accounting"] = await LiveCampaignEvidence.AccountingAsync(campaign, state.Request.SessionId);
     foreach (var (field, value) in PlanningBenchmarkMeasurements.Usage(run, live)) rowResult[field] = value?.DeepClone();
     if (variants.Count == (name.StartsWith("review_", StringComparison.Ordinal) ? 8 : name == "protected_cleanup" ? 5 : 2)) PlanningBenchmarkMeasurements.RecordBusinessOracle(run, state, execution, proofCase ? "generic-proof-variants-v1" : "existing-business-variants-v1");
     PlanningBenchmarkMeasurements.ProposalMetrics(run, rowResult);

@@ -19,11 +19,11 @@ internal static partial class PlanningCompactConstruction
     internal const string ReusableGroupSemantics = "group declares a named reusable subworkflow with isolated inputs and explicit exports; call invokes that closed group. A control's inline body is not a callable group, even when compilation creates an internal workflow for it. Objectives and labels do not change these executable kinds. At closure, assess the actual contributing tasks and bindings against the original structural obligations.";
 
     private static readonly string[] TaskKinds = ["operation", "value", "transform", "sequence", "conditional", "parallel", "foreach", "call", "close", "group", "choice"];
-    internal const string IntentPurpose = "construction_intent", SelectPurpose = "construction_select", DiscoveryPurpose = "construction_discovery";
+    internal const string IntentPurpose = "construction_intent", SelectPurpose = "construction_select", ImplementationPurpose = "construction_implementation", DiscoveryPurpose = "construction_discovery";
     private const string ContainerBoundaryGuidance = "Open a container only for needed control, reuse, cleanup or export ownership; append sequential work to an existing appropriate scope.";
 
-    internal static string SelectGuidance(PlanningSession state) => $"""
-        Choose the next coherent business block inside an offered scope, using accepted results and inspected contracts. Its objective, inputs and expected outputs describe one responsibility; related operations and their local mappings belong together. Original clauses are obligations, not a list of tasks or checkpoints. Resume a retained consumer when its exact binding is ready, otherwise resolve the missing prerequisite. Keep closed requirements closed until explicit invalidation.
+    internal static string ImplementationGuidance(PlanningSession state) => $"""
+        Implement the retained business block using accepted results and inspected contracts. Select an implementation cursor, never a new business responsibility. Its objective and success criteria remain fixed through every technical helper, scope change and fragment. Original clauses are obligations, not a list of tasks or checkpoints. Resume a retained consumer when its exact binding is ready, otherwise implement its missing prerequisite within this same block. Keep closed requirements closed until explicit invalidation.
         Keep original requirements attached without treating them as this substep's completion claim. Caller inputs bind at runtime; discovery needs their declared interfaces, not concrete values. Use kind:null when unknown capabilities determine implementation. An inspected offered operationIds contract can bind kind:operation directly. Local and structural kinds need no discovery when their semantics suffice.
         {ContainerBoundaryGuidance} Populate necessary containers/groups with their related work within the bounded fragment. Groups isolate declared inputs; controls capture ancestors. call requires a closed groupId. {ReusableGroupSemantics}
         {ValueSemantics} {TransformSemantics} Input/dependency hints resolve now. Prerequisites cite original evidence, not future task IDs. expectedOutputs are internal; outputNames selects public root results. {SelectedExpectationsSemantics}
@@ -40,7 +40,7 @@ internal static partial class PlanningCompactConstruction
 
     internal static string DraftGuidance(PlanningSession state) => $"""
         Implement the selected business block using its anchor kind, related value/transform helpers and exact selected operations. Generate connected operations together when they fit within maxTasksPerDraft. Selected operationIds and expectedOutputs describe the whole block, not mandatory content for every fragment. A partial fragment may contribute only a subset; selected operation coverage is checked across the block when continueInScope is null. Operation presence alone does not establish required arguments, call multiplicity or business completion. Preserve accepted work, original constraints and complete observations. Input hints are not a whitelist: every actual binding resolves at its consumer and supplies the entity/value required by original contract meaning, not merely a compatible type. Never invent inputs, permissions or external results.
-        {RecursiveTaskBudgetSemantics}
+        {RecursiveTaskBudgetGuidance(state)}
         Populate necessary containers with their related work and cleanup. scopeInterface contains existing exports; extension.outputs adds exports, [] preserves them. Close complete children/exports only. If the remaining block cannot fit, return a useful connected executable prefix with its required cleanup and set continueInScope to the exact original or block-owned open scope. Leave later operations and outputs for the next fragment of this same block; null finishes the block. requirementIds associates work without proving completion. Keep unfinished original obligations open. Reuse accepted producers without repeating their tasks or introducing wrappers merely to mark progress.
         Return one permitted action; other action fields null. Commitments accompany extension only. Evidence-only responses keep requirements, commitments and rollbackReason null. Reselect an unsuitable kind or premature claim, retrieve exact originals, or clarify missing business facts. No outline, JavaScript or YAML.
         """;
@@ -78,7 +78,7 @@ internal static partial class PlanningCompactConstruction
             for (var index = 0; index < pages.Count; index++)
             {
                 var source = pages[index];
-                if (Measure(source, pages) <= limit) continue;
+                if (PlanningTokenThresholds.OptimizationAdvisory(state.Request) || Measure(source, pages) <= limit) continue;
                 var low = 1; var high = source.Text.Length - 1; var best = 0;
                 while (low <= high)
                 {
@@ -165,8 +165,9 @@ internal static partial class PlanningCompactConstruction
         return best;
     }
 
-    internal static JsonObject InterfaceTypeDefinitions()
+    internal static JsonObject InterfaceTypeDefinitions(bool diagnostic = false)
     {
+        JsonObject OriginalText(int maximum) => diagnostic ? PlanningSchemas.String() : Text(maximum);
         var minimum = PlanningSchemas.Nullable(PlanningSchemas.Integer(0, int.MaxValue));
         minimum["description"] = "Explicit minimum array length from the original source; null when no lower bound is declared. Preserve explicit zero.";
         var maximum = PlanningSchemas.Nullable(PlanningSchemas.Integer(0, int.MaxValue));
@@ -174,20 +175,20 @@ internal static partial class PlanningCompactConstruction
         var type = new JsonObject { ["anyOf"] = new JsonArray(
             PlanningSchemas.Object(("kind", PlanningSchemas.Enum("string", "number", "integer", "boolean", "any")), ("nullable", PlanningSchemas.Type("boolean"))),
             PlanningSchemas.Object(("kind", PlanningSchemas.Enum("string")), ("nullable", PlanningSchemas.Type("boolean")),
-                ("enum", PlanningSchemas.Array(Text(1000), 1, 256))),
+                ("enum", PlanningSchemas.Array(OriginalText(1000), 1, diagnostic ? null : 256))),
             PlanningSchemas.Object(("kind", PlanningSchemas.Enum("array")), ("nullable", PlanningSchemas.Type("boolean")), ("items", PlanningSchemas.Ref("type")),
                 ("minItems", minimum), ("maxItems", maximum)),
             PlanningSchemas.Object(("kind", PlanningSchemas.Enum("object")), ("nullable", PlanningSchemas.Type("boolean")),
-                ("fields", PlanningSchemas.Array(PlanningSchemas.Ref("input"), 0, 32)))) };
-        var input = PlanningSchemas.Object(("name", Text(96)), ("type", PlanningSchemas.Ref("type")), ("required", PlanningSchemas.Type("boolean")));
+                ("fields", PlanningSchemas.Array(PlanningSchemas.Ref("input"), 0, diagnostic ? null : 32)))) };
+        var input = PlanningSchemas.Object(("name", OriginalText(96)), ("type", PlanningSchemas.Ref("type")), ("required", PlanningSchemas.Type("boolean")));
         var literal = new JsonObject { ["anyOf"] = new JsonArray(
             PlanningSchemas.Object(("kind", PlanningSchemas.Enum("null"))),
-            PlanningSchemas.Object(("kind", PlanningSchemas.Enum("string")), ("text", Text(1000))),
+            PlanningSchemas.Object(("kind", PlanningSchemas.Enum("string")), ("text", OriginalText(1000))),
             PlanningSchemas.Object(("kind", PlanningSchemas.Enum("number")), ("number", PlanningSchemas.Type("number"))),
             PlanningSchemas.Object(("kind", PlanningSchemas.Enum("boolean")), ("boolean", PlanningSchemas.Type("boolean"))),
-            PlanningSchemas.Object(("kind", PlanningSchemas.Enum("array")), ("items", PlanningSchemas.Array(PlanningSchemas.Ref("literal"), 0, 256))),
+            PlanningSchemas.Object(("kind", PlanningSchemas.Enum("array")), ("items", PlanningSchemas.Array(PlanningSchemas.Ref("literal"), 0, diagnostic ? null : 256))),
             PlanningSchemas.Object(("kind", PlanningSchemas.Enum("object")), ("members", PlanningSchemas.Array(
-                PlanningSchemas.Object(("name", Text(96)), ("value", PlanningSchemas.Ref("literal"))), 0, 32)))) };
+                PlanningSchemas.Object(("name", OriginalText(96)), ("value", PlanningSchemas.Ref("literal"))), 0, diagnostic ? null : 32)))) };
         var withDefault = input.DeepClone().AsObject();
         withDefault["properties"]!["default"] = PlanningSchemas.Nullable(PlanningSchemas.Ref("literal"));
         withDefault["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("default"));
@@ -197,12 +198,12 @@ internal static partial class PlanningCompactConstruction
         return new JsonObject { ["type"] = type, ["literal"] = literal, ["output"] = input, ["input"] = withDefault };
     }
 
-    internal static JsonObject SelectionSchema(PlanningSession state, JsonObject? page = null)
+    internal static JsonObject ImplementationSchema(PlanningSession state, JsonObject? page = null)
     {
         var compact = State(state);
         var replacement = compact.ReplacementScope;
         var outputs = OutputPage(state).Select(o => o.Name).ToArray();
-        var requirements = SelectionRequirementIds(state);
+        var requirements = CurrentBlock(state)?.RequirementIds.ToArray() ?? SelectionRequirementIds(state);
         var closingRequirements = requirements.Where(id => CanClaimRequirementCompletion(state, id)).ToArray();
         var scopes = replacement is null
             ? (page?["scopes"] as JsonArray ?? ScopeDirectory(state)).Select(scope => scope!["path"]!.ToString()).ToArray() : null;
@@ -211,24 +212,26 @@ internal static partial class PlanningCompactConstruction
         var completionOnly = CompletionOnly(state);
         var kinds = completionOnly ? ["close"] : TaskKinds.Where(kind => (kind != "call" || hasClosedGroup) && (kind != "operation")).ToArray();
         JsonObject RequirementIds(int minimum) => requirements is { Length: > 0 }
-            ? PlanningSchemas.Array(PlanningSchemas.Enum(requirements), minimum, 4) : Strings(minimum, 4);
+            ? PlanningSchemas.Array(PlanningSchemas.Enum(requirements), minimum, PlanningOptimizationThresholds.Maximum(state, 4)) : Strings(state, minimum, PlanningOptimizationThresholds.Maximum(state, 4));
         var selectedRequirements = replacement is not null && requirements is { Length: > 0 }
             ? PlanningSchemas.Array(PlanningSchemas.Enum(requirements), requirements.Length, requirements.Length)
             : RequirementIds(1);
         var step = PlanningSchemas.Object(("scope", replacement is not null ? PlanningSchemas.Enum(replacement)
-                : scopes is { Length: > 0 } ? PlanningSchemas.Enum(scopes) : Text(192)),
+                : scopes is { Length: > 0 } ? PlanningSchemas.Enum(scopes) : Text(state, 192)),
             ("kind", !completionOnly ? PlanningSchemas.Nullable(PlanningSchemas.Enum(kinds)) : PlanningSchemas.Enum(kinds)),
-            ("objective", Text(512)), ("requirementIds", selectedRequirements), ("inputs", PlanningSchemas.Array(PlanningSchemas.Ref("import"), 0, 8)),
-            ("groupId", hasClosedGroup ? PlanningSchemas.Nullable(Text(96)) : PlanningSchemas.Type("null")),
-            ("dependencyTaskIds", Strings(0, 8)), ("expectedOutputs", Strings(0, 4)),
+            ("objective", Text(state, 512)), ("requirementIds", selectedRequirements), ("inputs", PlanningSchemas.Array(PlanningSchemas.Ref("import"), 0, PlanningOptimizationThresholds.Maximum(state, 8))),
+            ("groupId", hasClosedGroup ? PlanningSchemas.Nullable(Text(state, 96)) : PlanningSchemas.Type("null")),
+            ("dependencyTaskIds", Strings(state, 0, PlanningOptimizationThresholds.Maximum(state, 8))), ("expectedOutputs", Strings(state, 0, PlanningOptimizationThresholds.Maximum(state, 4))),
             ("closeRequirementIds", closingRequirements.Length == 0 ? EmptyArray() :
-                PlanningSchemas.Array(PlanningSchemas.Enum(closingRequirements), 0, 4)), ("outputNames", outputs.Length == 0
-                ? PlanningSchemas.Array(Text(256), 0, 0) : PlanningSchemas.Array(PlanningSchemas.Enum(outputs), 0, 8)));
+                PlanningSchemas.Array(PlanningSchemas.Enum(closingRequirements), 0, PlanningOptimizationThresholds.Maximum(state, 4))), ("outputNames", outputs.Length == 0
+                ? PlanningSchemas.Array(Text(state, 256), 0, 0) : PlanningSchemas.Array(PlanningSchemas.Enum(outputs), 0, PlanningOptimizationThresholds.Maximum(state, 8))));
         {
-            var prerequisites = PrerequisiteAddresses(state, requirements ?? []).ToArray();
+            var prerequisiteRequirements = requirements.Concat((page?["requirements"] as JsonArray ?? []).Select(row => row!["id"]!.ToString()))
+                .Concat(EvidenceRequirementIds(state)).Distinct(StringComparer.Ordinal);
+            var prerequisites = PrerequisiteAddresses(state, prerequisiteRequirements).ToArray();
             step["properties"]!["prerequisites"] = prerequisites.Length == 0 ? PlanningSchemas.Type("null") :
                 PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.Object(
-                    ("need", Text(256)), ("evidenceAddresses", PlanningSchemas.Array(PlanningSchemas.Enum(prerequisites), 1, 4))), 0, 4));
+                    ("need", Text(state, 256)), ("evidenceAddresses", PlanningSchemas.Array(PlanningSchemas.Enum(prerequisites), 1, PlanningOptimizationThresholds.Maximum(state, 4)))), 0, PlanningOptimizationThresholds.Maximum(state, 4)));
             step["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("prerequisites"));
             // A block may invoke one explicitly selected closed reusable group.
             // Its exact interface remains checked for each call in the fragment.
@@ -239,7 +242,7 @@ internal static partial class PlanningCompactConstruction
             if (hasClosedGroup && !completionOnly)
             {
                 step["properties"]!["kind"] = PlanningSchemas.Enum("call");
-                step["properties"]!["groupId"] = Text(96);
+                step["properties"]!["groupId"] = Text(state, 96);
                 step = new JsonObject { ["anyOf"] = new JsonArray(local, step) };
             }
             else step = local;
@@ -261,7 +264,7 @@ internal static partial class PlanningCompactConstruction
                     local["properties"]!["kind"] = PlanningSchemas.Nullable(PlanningSchemas.Enum(kinds.Where(kind => kind is not ("call" or "close")).ToArray()));
                 AddSelectionFields(local, local["properties"]!["kind"]?["enum"] is JsonArray selectedKinds &&
                     selectedKinds.Any(selected => selected?.ToString() == "call") && known.Length > 0
-                    ? PlanningSchemas.Array(PlanningSchemas.Enum(known), 0, state.Construction!.Limits.MaxTasksPerDraft) : EmptyArray(), PlanningSchemas.Type("null"));
+                    ? PlanningSchemas.Array(PlanningSchemas.Enum(known), 0, PlanningOptimizationThresholds.Maximum(state, state.Construction!.Limits.MaxTasksPerDraft)) : EmptyArray(), PlanningSchemas.Type("null"));
                 choices.Add((JsonNode)local);
             }
             foreach (var scope in replacement is not null ? [replacement] : scopes ?? state.Construction!.OpenScopes.ToArray())
@@ -282,19 +285,30 @@ internal static partial class PlanningCompactConstruction
                 var operation = template.DeepClone().AsObject();
                 operation["properties"]!["kind"] = PlanningSchemas.Enum(new[] { "operation" }
                     .Concat(kinds.Where(kind => SupportsBusinessFragment(kind) && kind != "call")).ToArray());
-                AddSelectionFields(operation, PlanningSchemas.Array(PlanningSchemas.Enum(known), 1, state.Construction!.Limits.MaxTasksPerDraft), PlanningSchemas.Type("null"));
+                AddSelectionFields(operation, PlanningSchemas.Array(PlanningSchemas.Enum(known), 1, PlanningOptimizationThresholds.Maximum(state, state.Construction!.Limits.MaxTasksPerDraft)), PlanningSchemas.Type("null"));
                 choices.Add((JsonNode)operation);
             }
             if (!completionOnly && hasClosedGroup)
             {
                 var composedCall = template.DeepClone().AsObject();
                 composedCall["properties"]!["kind"] = PlanningSchemas.Enum(kinds.Where(kind => SupportsBusinessFragment(kind) && kind != "call").ToArray());
-                composedCall["properties"]!["groupId"] = Text(96);
+                composedCall["properties"]!["groupId"] = Text(state, 96);
                 AddSelectionFields(composedCall, known.Length == 0 ? EmptyArray()
-                    : PlanningSchemas.Array(PlanningSchemas.Enum(known), 0, state.Construction!.Limits.MaxTasksPerDraft), PlanningSchemas.Type("null"));
+                    : PlanningSchemas.Array(PlanningSchemas.Enum(known), 0, PlanningOptimizationThresholds.Maximum(state, state.Construction!.Limits.MaxTasksPerDraft)), PlanningSchemas.Type("null"));
                 choices.Add((JsonNode)composedCall);
             }
             step = new JsonObject { ["anyOf"] = choices };
+
+            // The business selection is immutable construction metadata. The
+            // implementation response cannot redefine its goal or obligations.
+            foreach (var branch in choices.OfType<JsonObject>())
+                foreach (var field in new[] { "objective", "requirementIds", "expectedOutputs" })
+                {
+                    branch["properties"]!.AsObject().Remove(field);
+                    var required = branch["required"]!.AsArray();
+                    var item = required.FirstOrDefault(value => value?.ToString() == field);
+                    if (item is not null) required.Remove(item);
+                }
 
             static void AddSelectionFields(JsonObject branch, JsonObject operations, JsonObject closes)
             {
@@ -306,10 +320,10 @@ internal static partial class PlanningCompactConstruction
         }
         var schema = PlanningSchemas.Object(("baseHash", PlanningSchemas.Enum(PlanningConstruction.Hash(state.Plan))),
             ("step", requirements is { Length: 0 } || scopes is { Length: 0 } ? PlanningSchemas.Type("null") : PlanningSchemas.Nullable(step)),
-            ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(Text(2048), 1, 4))),
-            ("clarifications", PlanningSchemas.Nullable(PlanningSchemas.Clarifications())));
-        ConstrainSelectionBindings(state, page ?? SelectionContext(state), schema);
-        ConstrainSelectionEvidence(state, page ?? SelectionContext(state), schema);
+            ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(Text(state, 2048), 1, PlanningOptimizationThresholds.Maximum(state, 4)))),
+            ("clarifications", PlanningSchemas.Nullable(PlanningSchemas.Clarifications(PlanningTokenThresholds.OptimizationAdvisory(state.Request)))));
+        ConstrainSelectionBindings(state, page ?? ImplementationContext(state), schema);
+        ConstrainSelectionEvidence(state, page ?? ImplementationContext(state), schema);
         return PlanningSchemas.Compact(schema);
     }
 
@@ -375,7 +389,10 @@ internal static partial class PlanningCompactConstruction
     internal static JsonObject DiscoverySchema(PlanningSession state) => CompactDiscoverySchema(state);
 
     private static JsonObject Text(int maximum) => new() { ["type"] = "string", ["maxLength"] = maximum };
-    private static JsonObject Strings(int minimum, int maximum) => PlanningSchemas.Array(Text(256), minimum, maximum);
+    private static JsonObject Text(PlanningSession state, int maximum) =>
+        PlanningTokenThresholds.OptimizationAdvisory(state.Request) ? PlanningSchemas.String() : Text(maximum);
+    private static JsonObject Strings(PlanningSession state, int minimum, int? maximum) =>
+        PlanningSchemas.Array(Text(state, 256), minimum, maximum);
 
     internal static LLMRequest Request(string instructions, JsonObject context, JsonObject schema, string purpose)
     {
@@ -404,7 +421,7 @@ internal static partial class PlanningCompactConstruction
         return state.Requirements!.Outcomes.Where(r => selected.Contains(r.Id) && valid.Contains(r.Id)).Select(r => r.Id).ToArray();
     }
 
-    internal static JsonObject SelectionContext(PlanningSession state)
+    internal static JsonObject ImplementationContext(PlanningSession state)
     {
         var compact = State(state);
         var scopeOffset = ScopeOffset(state);
@@ -422,6 +439,7 @@ internal static partial class PlanningCompactConstruction
                 suppliedRequirements.Contains(outcomes[nextRequirement].Id)) nextRequirement++;
         var context = new JsonObject
         {
+            ["block"] = CurrentBlock(state) is { } block ? BusinessBlockContext(block) : null,
             ["baseHash"] = PlanningConstruction.Hash(state.Plan),
             ["requirements"] = RequirementNodes(state, selected.Select(r => r.Id).Where(id => !suppliedRequirements.Contains(id))),
             ["requirementCount"] = remaining.Count, ["requirementPage"] = selected.Length == 0 ? 0 : outcomes.FindIndex(r => r.Id == selected[0].Id),
@@ -543,6 +561,7 @@ internal static partial class PlanningCompactConstruction
         {
             ["baseHash"] = PlanningConstruction.Hash(state.Plan), ["candidateHash"] = draft?.Hash,
             ["maxTasksPerDraft"] = construction.Limits.MaxTasksPerDraft,
+            ["block"] = CurrentBlock(state) is { } businessBlock ? BusinessBlockContext(businessBlock) : null,
             ["step"] = JsonSerializer.SerializeToNode(step, PlanningJsonContext.Default.PlanningConstructionStep),
             ["requirements"] = RequirementNodes(state, step.RequirementIds.Concat(EvidenceRequirementIds(state))),
             ["globalConstraints"] = Sources(state, compact.GlobalSourceIds), ["instructions"] = state.Request.Policy.Instructions,
@@ -970,7 +989,7 @@ internal static partial class PlanningCompactConstruction
     private static void ValidatePrerequisites(PlanningSession state, PlanningConstructionStep step)
     {
         if (step.Prerequisites is null) return;
-        if (step.Prerequisites.Count > 4)
+        if (PlanningOptimizationThresholds.Exceeded(state, "implementation", "prerequisites", step.Prerequisites.Count, 4))
             PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/step/prerequisites", "Retain at most four evidence-linked current prerequisites.");
         // Issued schemas bound new citations to displayed originals. Once a step
         // is retained, its prerequisite may still cite an earlier declaration
@@ -983,7 +1002,7 @@ internal static partial class PlanningCompactConstruction
         {
             var addresses = prerequisite.EvidenceAddresses.Distinct(StringComparer.Ordinal).ToList();
             if (string.IsNullOrWhiteSpace(prerequisite.Need) ||
-                prerequisite.EvidenceAddresses.Count is < 1 or > 4)
+                prerequisite.EvidenceAddresses.Count < 1 || PlanningOptimizationThresholds.Exceeded(state, "implementation", "prerequisite_evidence", prerequisite.EvidenceAddresses.Count, 4))
                 PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/step/prerequisites", "A prerequisite needs a bounded description and distinct original evidence addresses.");
             foreach (var address in addresses)
             {

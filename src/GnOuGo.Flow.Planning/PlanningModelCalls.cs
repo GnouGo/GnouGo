@@ -18,6 +18,12 @@ internal static partial class PlanningModelCalls
     internal static long CallsUsed(PlanningSession state) => Math.Max(state.ModelCalls, state.Usage?.Calls ?? 0);
     internal static long RemainingCalls(PlanningSession state) => Math.Max(0, CallLimit(state) - CallsUsed(state));
     internal static int RemainingRepairs(PlanningSession state) => Math.Max(0, state.Request.MaxReplanAttempts - state.ReplanAttempts);
+    internal static bool HasCallCapacity(PlanningSession state, long required = 1) =>
+        PlanningTokenThresholds.OptimizationAdvisory(state.Request) || RemainingCalls(state) >= required;
+    internal static bool HasRepairCapacity(PlanningSession state) =>
+        PlanningTokenThresholds.OptimizationAdvisory(state.Request) || RemainingRepairs(state) > 0;
+    internal static bool HasDraftRepairCapacity(PlanningSession state, int corrections) =>
+        PlanningTokenThresholds.OptimizationAdvisory(state.Request) || corrections < state.Construction!.Limits.MaxCorrectionsPerDraft;
     internal static bool IsRepair(PlanningSession state) => state.Diagnostics.Any(d => d.Required &&
         d.Code is not (ErrorCodes.LlmBudgetExceeded or "DISCOVERY_INCOMPLETE" or "DISCOVERY_NOT_ALLOWED"));
     internal static int ConstructionOutputLimit(PlanningSession state, string purpose) =>
@@ -25,7 +31,9 @@ internal static partial class PlanningModelCalls
 
     internal static void EnsureCallAvailable(PlanningSession state)
     {
-        if (RemainingCalls(state) == 0)
+        if (PlanningTokenThresholds.OptimizationAdvisory(state.Request) && CallsUsed(state) >= CallLimit(state))
+            PlanningOptimizationThresholds.Record(state, "dispatch", "model_calls", CallsUsed(state) + 1, CallLimit(state));
+        if (!HasCallCapacity(state))
             throw new WorkflowRuntimeException(ErrorCodes.LlmBudgetExceeded,
                 $"The session model-call budget was exhausted ({CallsUsed(state)}/{CallLimit(state)} calls). Input/output token settings do not extend this cumulative allowance. Start a new planning session; retained requests and accounting remain unchanged.");
     }
@@ -82,6 +90,7 @@ internal static partial class PlanningModelCalls
             PlanningRequestMeasurement? measurement = null;
             {
                 var measured = PlanningRequestMeasurements.Measure(request, purpose, inputLimit, state.Construction?.Compact?.CurrentStep?.Id);
+                measured.BlockId = state.Construction?.Compact?.CurrentBlockId;
                 if (purpose == PlanningConstruction.GlobalPurpose)
                     measured.BaselineHash ??= state.Construction!.Candidate?.BaseHash;
                 var retainedMeasurements = state.RequestMeasurements ??= [];
@@ -185,9 +194,10 @@ internal static partial class PlanningModelCalls
                         if (usage[name] is JsonValue value && long.TryParse(value.ToString(), System.Globalization.NumberStyles.None,
                             System.Globalization.CultureInfo.InvariantCulture, out var count)) reported = Math.Max(reported ?? 0, count);
                 var measured = reported ?? (System.Text.Encoding.UTF8.GetByteCount(json.ToJsonString()) + 2L) / 3L;
-                if (reported is null && measured > maximum && PlanningTokenThresholds.Advisory(state.Request))
-                    PlanningTokenThresholds.Warn(purpose, "estimated_response_tokens", measured, maximum);
-                if (measured > maximum && (reported.HasValue || !PlanningTokenThresholds.Advisory(state.Request)))
+                if (measured > maximum && (PlanningTokenThresholds.OptimizationAdvisory(state.Request) ||
+                    reported is null && PlanningTokenThresholds.Advisory(state.Request)))
+                    PlanningTokenThresholds.Warn(purpose, reported.HasValue ? "reported_response_tokens" : "estimated_response_tokens", measured, maximum);
+                if (measured > maximum && !PlanningTokenThresholds.OptimizationAdvisory(state.Request) && (reported.HasValue || !PlanningTokenThresholds.Advisory(state.Request)))
                 {
                     if (activeMeasurement is not null) activeMeasurement.Result = "output_allowance_exceeded";
                     throw new WorkflowRuntimeException("MODEL_OUTPUT_LIMIT", "The completed construction response exceeded its issued output allowance; no fragment was accepted.", details: new JsonObject
@@ -202,9 +212,9 @@ internal static partial class PlanningModelCalls
         if (findings.Count != 0)
         {
             if (activeMeasurement is not null) activeMeasurement.Result = "invalid_response";
-            var rejectedHash = PlanningGraphCompiler.Fingerprint(json.ToJsonString());
-            if (state.RejectedProposalHash == rejectedHash) throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The model repeated an unchanged invalid proposal.");
-            state.RejectedProposalHash = rejectedHash;
+            PlanningProgress.AssessAttempt(state, purpose == "replan" ? PlanningConstruction.DraftPurpose : purpose,
+                json, call.Id, prefix: "invalid:", issuedSchema: CanonicalEvidenceRequest(call).StructuredOutputSchema,
+                strategyResponse: InvalidResponseStrategy(json, call.EvidenceAddresses), exactIssuedSchema: call.Request.StructuredOutputSchema);
             throw new PlanningResponseException(findings.Select(f => new PlanningDiagnostic("PLANNING_RESPONSE_INVALID",
                 f.InstancePointer, f.Message, ValidationStage: purpose)).ToList())
             {
@@ -214,8 +224,6 @@ internal static partial class PlanningModelCalls
         }
         state.RejectedProposalHash = null;
         var normalized = NormalizeEvidenceResponse(json, call.EvidenceAddresses);
-        if (purpose == "replan" && state.Construction?.LastProposalHash == "proposal:" + PlanningGraphCompiler.Fingerprint(normalized.ToJsonString()))
-            throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The correction repeated the same rejected construction action.");
         return normalized;
     }
 
@@ -269,8 +277,8 @@ internal sealed class PlanningCorrectionAttempt : IDisposable
     private void Reserve(int mode)
     {
         if (!Enabled || mode == 0) return;
-        if (PlanningModelCalls.RemainingRepairs(_state) == 0 || _state.Request.Options["automatic_correction"]?.ToString() == "false" ||
-            mode == 3 && (_state.Construction!.Candidate?.Corrections ?? _state.Construction!.DraftCorrections) >= _state.Construction!.Limits.MaxCorrectionsPerDraft)
+        if (!PlanningModelCalls.HasRepairCapacity(_state) || _state.Request.Options["automatic_correction"]?.ToString() == "false" ||
+            mode == 3 && !PlanningModelCalls.HasDraftRepairCapacity(_state, _state.Construction!.Candidate?.Corrections ?? _state.Construction!.DraftCorrections))
             throw new WorkflowRuntimeException("CONSTRUCTION_CORRECTION_ALLOWANCE", "The captured allowance cannot reserve this correction attempt.");
     }
 
@@ -289,10 +297,13 @@ internal sealed class PlanningCorrectionAttempt : IDisposable
         _disposed = true;
         if (!Enabled || !_received || _evidence || _mode == 0) return;
         _state.ReplanAttempts++;
+        _ = PlanningOptimizationThresholds.Exceeded(_state, "correction", "session_corrections", _state.ReplanAttempts, _state.Request.MaxReplanAttempts);
         if (_mode == 3)
         {
             if (_state.Construction!.Candidate is { } candidate) candidate.Corrections++;
             else _state.Construction.DraftCorrections++;
+            _ = PlanningOptimizationThresholds.Exceeded(_state, "correction", "draft_corrections",
+                _state.Construction.Candidate?.Corrections ?? _state.Construction.DraftCorrections, _state.Construction.Limits.MaxCorrectionsPerDraft);
         }
     }
 }

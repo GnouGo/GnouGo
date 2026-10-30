@@ -44,7 +44,7 @@ internal static partial class PlanningCompactConstruction
         var serial = 0;
         var cached = new Dictionary<(string Scope, int Checkpoint), JsonObject>();
         var resumeType = State(state).SuspendedSteps?.LastOrDefault(Active)?.Prerequisite.ExpectedType;
-        var resumeContract = resumeType is null ? null : TaskPlanCompiler.TypeSchema(resumeType);
+        var resumeContract = resumeType is null ? null : TaskPlanCompiler.TypeSchema(resumeType, state.Request);
         var emptyObject = PlanningSchemas.Type("object"); emptyObject["maxProperties"] = 0;
         JsonObject Imports(string scope, PlanningConstructionCheckpoint? owner = null)
         {
@@ -79,7 +79,7 @@ internal static partial class PlanningCompactConstruction
             if (owner is null)
             {
                 if (branches.Count == 0) return PlanningSchemas.Array(PlanningSchemas.String(), 0, 0);
-                branches.Add((JsonNode)Field(name));
+                branches.Add((JsonNode)Field(state, name));
             }
             else
             {
@@ -92,14 +92,14 @@ internal static partial class PlanningCompactConstruction
                 if (anchors.Length > 0)
                 {
                     var fieldName = name + "_fields";
-                    var fields = ReferenceBranches(anchors); fields.Add((JsonNode)Field(fieldName));
+                    var fields = ReferenceBranches(anchors); fields.Add((JsonNode)Field(state, fieldName));
                     definitions[fieldName] = new JsonObject { ["anyOf"] = fields };
-                    branches.Add((JsonNode)Field(fieldName));
+                    branches.Add((JsonNode)Field(state, fieldName));
                 }
             }
             if (branches.Count == 0) return PlanningSchemas.Array(PlanningSchemas.String(), 0, 0);
             definitions[name] = new JsonObject { ["anyOf"] = branches };
-            var result = PlanningSchemas.Array(PlanningSchemas.Ref(name), 0, 8);
+            var result = PlanningSchemas.Array(PlanningSchemas.Ref(name), 0, PlanningOptimizationThresholds.Maximum(state, 8));
             cached[(scope, owner?.Sequence ?? 0)] = result;
             return result.DeepClone().AsObject();
         }
@@ -143,7 +143,7 @@ internal static partial class PlanningCompactConstruction
         }
     }
 
-    private static JsonObject Field(string reference) => PlanningSchemas.Object(("kind", PlanningSchemas.Enum("field")), ("port", Text(96)),
+    private static JsonObject Field(PlanningSession state, string reference) => PlanningSchemas.Object(("kind", PlanningSchemas.Enum("field")), ("port", Text(state, 96)),
         ("items", PlanningSchemas.Array(PlanningSchemas.Ref(reference), 1, 1)));
 
     private static JsonArray ReferenceBranches(IEnumerable<TaskPlanCompiler.RepairSource> available)

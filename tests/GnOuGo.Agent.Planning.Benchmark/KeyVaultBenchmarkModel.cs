@@ -106,7 +106,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         value["construction_review_headroom"] = 2;
         value["construction_review_output_tokens"] = PlanningConstructionPhasePolicies.Resolve(request, "construction_local_judge").OutputTokens;
         value["construction_limits"] = request.Options["construction_limits"]?.DeepClone();
-        foreach (var key in new[] { PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms", PlanningTokenThresholds.OptionName })
+        foreach (var key in new[] { PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms", PlanningTokenThresholds.OptionName, PlanningTokenThresholds.OptimizationOptionName })
             if (request.Options[key] is { } captured) value[key] = captured.DeepClone();
         if (PlanningTransportPolicies.Read(request) is not null)
         {
@@ -462,7 +462,10 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                 runtimeJournal["effective_transport_policy"]?.DeepClone().AsObject();
         if (capturedTransport is not null)
         {
-            if (advisoryTokens) effectiveTransportPolicy![PlanningTokenThresholds.OptionName] = "advisory";
+            if (planning!.Options[PlanningTokenThresholds.OptionName] is { } tokenMode)
+                effectiveTransportPolicy![PlanningTokenThresholds.OptionName] = tokenMode.DeepClone();
+            if (PlanningTokenThresholds.OptimizationAdvisory(planning!))
+                effectiveTransportPolicy![PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
             effectiveTransportPolicy!["planning_transport_policy"] = policy![PlanningTransportPolicies.OptionName]!.DeepClone();
             effectiveTransportPolicy["max_total_tokens"] = advisoryTokens
                 ? PlanningBudgetOptions.Parse(planning!.Options)?.MaxTotalTokens ?? 15_000_000L
@@ -538,7 +541,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         Options = new() { ["construction_limits"] = policy["construction_limits"]?.DeepClone(),
             ["llm_budget"] = policy["llm_budget"]?.DeepClone() }
         };
-        foreach (var key in new[] { PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms", PlanningTokenThresholds.OptionName })
+        foreach (var key in new[] { PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms", PlanningTokenThresholds.OptionName, PlanningTokenThresholds.OptimizationOptionName })
             if (policy[key] is { } captured) request.Options[key] = captured.DeepClone();
         return request;
     }

@@ -8,7 +8,7 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed partial class CompactDiscoveryProtocolTests
 {
     [Fact]
-    public async Task AcceptedStructuralStepRetainsCachedOperationMeaningForTheNextBusinessAction()
+    public async Task AcceptedStructuralStepRetainsCachedOperationMeaningForTheNextImplementation()
     {
         var (state, runtime) = await Ready();
         AddOperations(state, 3);
@@ -19,6 +19,10 @@ public sealed partial class CompactDiscoveryProtocolTests
         foreach (var address in addresses) PlanningConstruction.LoadEvidence(state, [address]);
         Assert.Equal(3, state.Construction!.Evidence!.Count);
         Assert.Empty(state.Discovery.Resolved);
+        // These exact contracts were discovered for an earlier responsibility;
+        // changing technical scope must not pretend its provider query has run for this block.
+        state.Discovery.Pages = state.Discovery.Pages.Select(page => page with
+            { Query = "Inspect provider operations for an earlier independent responsibility." }).ToList();
         var oldPages = JsonSerializer.Serialize(state.Discovery.Pages, PlanningJsonContext.Default.ListCapabilityPage);
         var step = state.Construction.Compact!.CurrentStep!;
         step.Kind = "sequence"; step.DiscoveryComplete = true;
@@ -28,7 +32,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         {
             Assert.Equal(PlanningConstruction.DraftPurpose, purpose);
             return Wire(request, new JsonObject { ["baseHash"] = step.BaseHash,
-                ["extension"] = JsonSerializer.SerializeToNode(new PlanningConstructionExtension { Scope = "/root", RequirementIds = ["req_0"],
+                ["extension"] = JsonSerializer.SerializeToNode(new PlanningConstructionExtension { CompleteBlock = false, Scope = "/root", RequirementIds = ["req_0"],
                     Tasks = [new() { Id = "work", Kind = "sequence", Objective = "Own the requested local result and cleanup.", Body = new() }] },
                     PlanningJsonContext.Default.PlanningConstructionExtension) });
         };
@@ -41,20 +45,21 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Single(state.Construction.Checkpoints);
         Assert.Null(state.Construction.Evidence);
         Assert.Empty(state.Construction.EvidenceRequests);
-        const string nextObjective = "Acquire the original record needed by this local result.";
+        var block = PlanningCompactConstruction.CurrentBlock(state)!;
+        var business = JsonSerializer.Serialize(block, PlanningJsonContext.Default.PlanningConstructionBlock);
         runtime.Respond = (request, purpose) =>
         {
-            Assert.Equal(PlanningCompactConstruction.SelectPurpose, purpose);
-            var response = Select(request);
+            Assert.Equal(PlanningCompactConstruction.ImplementationPurpose, purpose);
+            var response = Implement(request);
             response["step"]!["scope"] = "/tasks/work/body";
             response["step"]!["kind"] = null;
-            response["step"]!["objective"] = nextObjective;
-            response["step"]!["expectedOutputs"] = new JsonArray("The original observed record.");
             return Wire(request, response);
         };
         state = await Advance(PlannerFixture.Clone(state), runtime);
         Assert.Empty(state.Diagnostics);
-        Assert.Equal(nextObjective, state.Construction!.Compact!.CurrentStep!.Objective);
+        Assert.Equal(block.Objective, state.Construction!.Compact!.CurrentStep!.Objective);
+        Assert.Equal(block.Id, state.Construction.Compact.CurrentStep.BlockId);
+        Assert.Equal(business, JsonSerializer.Serialize(PlanningCompactConstruction.CurrentBlock(state), PlanningJsonContext.Default.PlanningConstructionBlock));
         var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
         var context = PlanningCompactConstruction.DiscoveryContext(state);
         var cached = context["describedOperations"]!["items"]!.AsArray();

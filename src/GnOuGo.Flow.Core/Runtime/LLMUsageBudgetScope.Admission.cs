@@ -70,7 +70,8 @@ public sealed partial class LLMUsageBudgetScope
         IReadOnlyList<int> outputs, decimal cost, string stage)
     {
         EnsurePreCallLimits(snapshot, stage);
-        if (Limits.MaxCalls is { } calls && outputs.Count > calls - snapshot.Calls)
+        if (Limits.MaxCalls is { } calls && outputs.Count > calls - snapshot.Calls &&
+            !WarnOptimizationThreshold(stage, "calls", calls, checked(snapshot.Calls + outputs.Count)))
             throw CreateExceeded(stage, "calls", calls, snapshot.Calls + outputs.Count, snapshot);
         var tokens = (long)inputTokens * outputs.Count + outputs.Sum(v => (long)v);
         if (Limits.MaxTotalTokens is { } tokenLimit && tokens > tokenLimit - snapshot.TotalTokens &&

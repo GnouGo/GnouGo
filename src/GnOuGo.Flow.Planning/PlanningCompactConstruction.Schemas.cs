@@ -9,6 +9,10 @@ internal static partial class PlanningCompactConstruction
     internal const string RollbackSemantics = "Rollback reconstructs every invalidated task in its original scope, phase and order; it cannot discard accepted work. Preserve original objectives, effects, literal arguments, assertions, decisions and iteration limits. Any reference repair must still pass validation. Explain the reconstruction defect in rollbackReason and retrieve exact originals as needed.";
     internal const string RecursiveTaskBudgetSemantics = "maxTasksPerDraft is one total for all new tasks in this fragment. Count control tasks and every task in tasks and always, including nested body, otherwise, branches and group bodies. Array maxItems do not grant separate allowances.";
 
+    internal static string RecursiveTaskBudgetGuidance(PlanningSession state) => PlanningTokenThresholds.OptimizationAdvisory(state.Request)
+        ? "maxTasksPerDraft is an advisory target for the whole recursive contribution, including nested bodies and cleanup. Retain coherent behavior intact; exceeding the target produces a host warning and never permits truncation. Contract cardinalities and runtime resource limits still apply."
+        : RecursiveTaskBudgetSemantics;
+
     internal static (bool CloseScope, bool Complete) ClosurePresentation(PlanningSession state, PlanningConstructionStep? selected = null)
     {
         var construction = state.Construction!;
@@ -49,7 +53,7 @@ internal static partial class PlanningCompactConstruction
             foreach (var task in tasks.Where(task => task?["properties"]?["kind"]?["enum"]?.AsArray().Any(value => value?.ToString() == "call") == true))
                 task!["properties"]!["group"] = PlanningSchemas.Enum(step.GroupId);
 
-        var maximum = state.Construction.Limits.MaxTasksPerDraft;
+        var maximum = PlanningOptimizationThresholds.Maximum(state, state.Construction.Limits.MaxTasksPerDraft);
         var nestedTask = "task";
         if (SupportsBusinessFragment(kind) && NestedControlKinds.Except(kinds, StringComparer.Ordinal).ToArray() is { Length: > 0 } controls)
         {
@@ -80,7 +84,7 @@ internal static partial class PlanningCompactConstruction
         if (closure.CloseScope) scopeChoices.Add((JsonNode)PlanningSchemas.Enum(step.Scope));
         if (createsScopes)
         {
-            var childScope = Text(192);
+            var childScope = Text(state, 192);
             childScope["pattern"] = "^/(tasks|groups)/";
             scopeChoices.Add((JsonNode)childScope);
         }
@@ -95,10 +99,10 @@ internal static partial class PlanningCompactConstruction
             ("closeScopes", closeScopes),
             ("requirementIds", step.RequirementIds.Count == 0 ? EmptyArray() :
                 PlanningSchemas.Array(PlanningSchemas.Enum(step.RequirementIds.ToArray()), 0, step.RequirementIds.Count)),
-            ("complete", completion));
+            ("complete", completion), ("completeBlock", PlanningSchemas.Type("boolean")));
         if (SupportsBusinessFragment(step.Kind))
         {
-            extension["properties"]!["continueInScope"] = PlanningSchemas.Nullable(Text(192));
+            extension["properties"]!["continueInScope"] = PlanningSchemas.Nullable(Text(state, 192));
             extension["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("continueInScope"));
         }
         if (step.Kind == "close" && step.CloseScopes is { } selectedClosure)
@@ -113,16 +117,16 @@ internal static partial class PlanningCompactConstruction
                 ("binding", PlanningSchemas.Ref("continuationBindingValue")));
             {
                 association["properties"]!["dischargedContinuationIds"] = PlanningSchemas.Nullable(eligible.Length < 2 ? EmptyArray() :
-                    PlanningSchemas.Array(PlanningSchemas.Enum(eligible.Skip(1).Select(item => item.Id).ToArray()), 0, 3));
+                    PlanningSchemas.Array(PlanningSchemas.Enum(eligible.Skip(1).Select(item => item.Id).ToArray()), 0, PlanningOptimizationThresholds.Maximum(state, 3)));
                 association["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("dischargedContinuationIds"));
             }
             extension["properties"]!["continuationBinding"] = eligible.Length > 0 ? PlanningSchemas.Nullable(association) : PlanningSchemas.Type("null");
             if (eligible.Length > 0)
                 definitions["continuationBindingValue"] = new JsonObject { ["anyOf"] = new JsonArray(
-                    PlanningSchemas.Object(("kind", PlanningSchemas.Enum("output")), ("source", Text(96)),
-                        ("port", PlanningSchemas.Nullable(Text(96)))),
-                    PlanningSchemas.Object(("kind", PlanningSchemas.Enum("present")), ("source", Text(96))),
-                    PlanningSchemas.Object(("kind", PlanningSchemas.Enum("field")), ("port", Text(96)),
+                    PlanningSchemas.Object(("kind", PlanningSchemas.Enum("output")), ("source", Text(state, 96)),
+                        ("port", PlanningSchemas.Nullable(Text(state, 96)))),
+                    PlanningSchemas.Object(("kind", PlanningSchemas.Enum("present")), ("source", Text(state, 96))),
+                    PlanningSchemas.Object(("kind", PlanningSchemas.Enum("field")), ("port", Text(state, 96)),
                         ("items", PlanningSchemas.Array(PlanningSchemas.Ref("continuationBindingValue"), 1, 1)))) };
             extension["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("continuationBinding"));
         }
@@ -143,7 +147,7 @@ internal static partial class PlanningCompactConstruction
             hasBoundaryTransitions = transitions.Length > 0;
             extension["properties"]!["boundaryTransitions"] = transitions.Length == 0 ? PlanningSchemas.Type("null") :
                 PlanningSchemas.Nullable(PlanningSchemas.Array(transitions.Length == 1 ? transitions[0] :
-                    new JsonObject { ["anyOf"] = new JsonArray(transitions.Cast<JsonNode>().ToArray()) }, 0, 4));
+                    new JsonObject { ["anyOf"] = new JsonArray(transitions.Cast<JsonNode>().ToArray()) }, 0, PlanningOptimizationThresholds.Maximum(state, 4)));
             extension["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("boundaryTransitions"));
         }
         var publicOutputs = step.OutputNames.ToArray();
@@ -151,7 +155,7 @@ internal static partial class PlanningCompactConstruction
             PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.Object(("requirementId", PlanningSchemas.Enum(step.RequirementIds.ToArray())),
                 ("operation", PlanningSchemas.Enum(step.OperationIds.ToArray())),
                 ("result", publicOutputs.Length == 0 ? PlanningSchemas.Type("null") : PlanningSchemas.Nullable(PlanningSchemas.Object(
-                    ("port", PlanningSchemas.String()), ("output", PlanningSchemas.Enum(publicOutputs)))))), 0, 32));
+                    ("port", PlanningSchemas.String()), ("output", PlanningSchemas.Enum(publicOutputs)))))), 0, PlanningOptimizationThresholds.Maximum(state, 32)));
         if (step.OperationIds.Count > 0 && step.RequirementIds.Count > 0)
         {
             var alternatives = SelectedContracts(state).Select(TaskOperations.Describe).Select(operation =>
@@ -162,16 +166,16 @@ internal static partial class PlanningCompactConstruction
                             ("port", PlanningSchemas.Enum(operation.Outputs.Select(port => port.Name).ToArray())),
                             ("output", PlanningSchemas.Enum(publicOutputs))))))).ToArray();
             commitments = PlanningSchemas.Nullable(PlanningSchemas.Array(alternatives.Length == 1 ? alternatives[0] :
-                new JsonObject { ["anyOf"] = new JsonArray(alternatives.Cast<JsonNode>().ToArray()) }, 0, 32));
+                new JsonObject { ["anyOf"] = new JsonArray(alternatives.Cast<JsonNode>().ToArray()) }, 0, PlanningOptimizationThresholds.Maximum(state, 32)));
         }
         var rollback = state.Construction.Candidate is null && state.Phase != PlanningPhase.Replanning &&
             state.Plan is { } accepted && TaskPlanRevisions.Tasks(accepted).Any();
         var schema = PlanningSchemas.Object(("requirements", PlanningSchemas.Type("null")),
             ("commitments", commitments),
             ("extension", PlanningSchemas.Nullable(extension)), ("discoveryRequests", PlanningSchemas.Type("null")),
-            ("clarifications", PlanningSchemas.Nullable(PlanningSchemas.Clarifications())),
-            ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(new JsonObject { ["type"] = "string", ["maxLength"] = 2048 },
-                1, 8))),
+            ("clarifications", PlanningSchemas.Nullable(PlanningSchemas.Clarifications(PlanningTokenThresholds.OptimizationAdvisory(state.Request)))),
+            ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(Text(state, 2048),
+                1, PlanningOptimizationThresholds.Maximum(state, 8)))),
             ("rollbackTask", rollback ? PlanningSchemas.Nullable(PlanningSchemas.String()) : PlanningSchemas.Type("null")),
             ("rollbackReason", rollback ? PlanningSchemas.Nullable(PlanningSchemas.String()) : PlanningSchemas.Type("null")),
             ("reselectStep", CanReselectInitialDraft(state) || !EvidenceAdmissionOnly(state) && state.Construction.Candidate?.AuthorizedPaths is null &&
@@ -197,7 +201,7 @@ internal static partial class PlanningCompactConstruction
         if (eligible.Length > 0 && ResumedConsumerParent(state) is not null)
             projected["description"] += " This resumed business consumer may supply its immediate waiting parent's prerequisite. continuationBinding may name that offered parent and this fragment's exact new output; keep dischargedContinuationIds empty. Both business consumers and their original obligations remain retained. The child must pass ordinary acceptance before the parent can resume.";
         if (hasBoundaryTransitions)
-            projected["description"] += " boundaryTransitions optionally claims up to four exact existing boundaries, once per scope: outputs are exact exports; closeScope asserts no further work belongs in that boundary for its named original requirements. Host parent relationships determine order; this is not a future-task queue. Exports may reach the root, but these claims never close a requirement or the root. Use null when meaning or cleanup remains unresolved.";
+            projected["description"] += " boundaryTransitions optionally claims exact existing boundaries, once per scope: outputs are exact exports; closeScope asserts no further work belongs in that boundary for its named original requirements. Host parent relationships determine order; this is not a future-task queue. Exports may reach the root, but these claims never close a requirement or the root. Use null when meaning or cleanup remains unresolved.";
         if (eligible.Length > 1)
             projected["description"] += " An ancestor continuation association must explicitly list every bypassed prerequisite-only descendant in dischargedContinuationIds; never discharge original obligations or accepted effects.";
         if (rollback)
@@ -256,7 +260,7 @@ internal static partial class PlanningCompactConstruction
         var scope = new TaskPlanSymbols(state.Plan ?? new TaskPlan()).Scopes.SingleOrDefault(s => s.Path == step.Scope);
         var hints = new List<string> { ReusableGroupSemantics, SelectedExpectationsSemantics };
         if (SupportsBusinessFragment(step.Kind))
-            hints.Add("Build one coherent business block with its related value/transform helpers and selected operations. The captured maxTasksPerDraft is shared by this entire extension. Newly supplied complete control/group bodies close automatically, including empty optional branches; no closeScopes bookkeeping is needed for them. continueInScope retains its exact original or block-owned scope and ancestors only when more work remains in this same block; null claims the block finished. Evidenced empty prerequisite openings remain open. A continuation does not close original requirements or discharge consumers. Existing boundaries still close explicitly; unfinished containers expose no usable result.");
+            hints.Add("Build one coherent business block with its related value/transform helpers and selected operations. The captured maxTasksPerDraft is shared by this entire extension. Newly supplied complete control/group bodies close automatically, including empty optional branches; no closeScopes bookkeeping is needed for them. continueInScope retains its exact original or block-owned scope and ancestors when this implementation cursor continues; null finishes only this cursor. completeBlock explicitly claims that the retained business objective, expected results and success criteria are fulfilled across all its accepted fragments. Keep completeBlock false for technical prerequisites, helper computations and incomplete contributions, including a finished technical scope. A completed block cannot retain continueInScope. Evidenced empty prerequisite openings remain open. A continuation does not close original requirements or discharge consumers. Existing boundaries still close explicitly; unfinished containers expose no usable result.");
         if (step.Kind is not ("group" or "choice" or "close"))
         {
             hints.Add("dependsOn names preceding same-scope tasks only; data bindings already imply dependencies and ancestor values use captures. requires is a Boolean assertion: false fails.");

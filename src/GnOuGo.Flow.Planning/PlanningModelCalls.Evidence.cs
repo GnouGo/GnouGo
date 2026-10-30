@@ -22,15 +22,15 @@ internal static partial class PlanningModelCalls
         "sources", "requirements", "globalConstraints", "originals", "scopes", "scopeInterface", "scopeOwner", "scopeGroup", "interfaces",
         "reusableInterfaces", "tasks", "acceptedTasks", "producers", "operations", "knownOperations", "describedOperations", "descriptors",
         "providerRequests", "continuation", "repair", "availableInputs", "groups", "inputs", "publicOutputs", "actions", "step", "diagnostics", "originalDirectory",
-        "taskEvidence", "groupEvidence", "rebuild", "reselection", "companionOperations"
+        "taskEvidence", "groupEvidence", "rebuild", "reselection", "companionOperations", "priorConcerns"
     };
     private static readonly HashSet<string> MetadataLists = new(StringComparer.Ordinal)
     {
         "items", "inputs", "outputs", "groups", "tasks", "ancestors", "selectedOutputs", "selectedInputs", "producers", "scopes",
-        "acceptedCheckpoints", "acceptedProgress", "descendants", "contracts", "ports", "originals", "prerequisites", "sources", "omittedOptionalInputs"
+        "acceptedCheckpoints", "acceptedProgress", "descendants", "contracts", "ports", "originals", "prerequisites", "sources", "omittedOptionalInputs", "obligations"
     };
     private static readonly HashSet<string> MetadataObjects = new(StringComparer.Ordinal)
-    { "contract", "consumer", "prerequisite", "scopeOwner", "scopeGroup", "bindings", "interface", "resumption", "suspendedConsumer", "acceptedProgress", "acceptedExports" };
+    { "contract", "consumer", "prerequisite", "scopeOwner", "scopeGroup", "bindings", "interface", "resumption", "suspendedConsumer", "acceptedProgress", "acceptedExports", "before", "current" };
 
     private static PlanningEvidenceAddresses? PrepareEvidenceAddresses(PlanningSession state, LLMRequest request)
     {
@@ -85,7 +85,7 @@ internal static partial class PlanningModelCalls
             foreach (var child in (continuation["descendants"] as JsonArray ?? []).OfType<JsonObject>()) Consumer(child["consumer"]);
         }
         foreach (var concern in (context["priorConcerns"] as JsonArray ?? []).OfType<JsonObject>())
-        { Snapshot(concern["before"]); Snapshot(concern["current"]); }
+        { Targets(concern["targets"]); Snapshot(concern["before"]); Snapshot(concern["current"]); }
         Targets(context["interpretationReconsideration"]?["priorReport"]?["decision"]?["targets"]);
         if (schema?["properties"]?["decision"]?["anyOf"] is JsonArray decisions)
             foreach (var decision in decisions) Targets(decision?["properties"]?["targets"]?["items"]?["enum"]);
@@ -185,7 +185,11 @@ internal static partial class PlanningModelCalls
         catch (JsonException) { return (prompt, null); }
     }
 
-    private static bool CanonicalAddress(string value) => PlanningCompactConstruction.NavigationEvidence([JsonValue.Create(value)]).Count == 1;
+    // Canonical identity recognition validates frozen maps independently of presentation targets.
+    // State-aware schemas and context navigation control which addresses are offered.
+    private static bool CanonicalAddress(string value) => CanonicalBusinessResult(value) || PlanningCompactConstruction.NavigationEvidence([JsonValue.Create(value)], advisoryOptimization: true).Count == 1;
+    private static bool CanonicalBusinessResult(string value) => value.StartsWith("result:block_", StringComparison.Ordinal) &&
+        value.Length > 13 && value.AsSpan(13).IndexOfAnyExceptInRange('0', '9') < 0;
     private static bool ShortAddress(string value) => value.Length > 10 && value[0] == 'e' && value[9] == '_' &&
         value.AsSpan(1, 8).IndexOfAnyExcept("0123456789abcdef") < 0 && value[10] is >= '1' and <= '9' &&
         value.AsSpan(10).IndexOfAnyExceptInRange('0', '9') < 0;
@@ -195,6 +199,11 @@ internal static partial class PlanningModelCalls
     private static void VisitContext(JsonNode? node, Func<string, string> replace)
     {
         if (node is not JsonObject context) return;
+        foreach (var result in (context["availableResults"] as JsonArray ?? []).OfType<JsonObject>())
+            if (result["id"] is JsonValue resultId) result["id"] = replace(resultId.GetValue<string>());
+        foreach (var block in new[] { context["businessBlock"], context["block"] }.OfType<JsonObject>())
+            foreach (var dependency in (block["dependencies"] as JsonArray ?? []).OfType<JsonObject>())
+                if (dependency["resultId"] is JsonValue resultId) dependency["resultId"] = replace(resultId.GetValue<string>());
         foreach (var pair in context.ToArray())
         {
             if (pair.Key == "evidence" && pair.Value is JsonObject evidence)
@@ -265,7 +274,7 @@ internal static partial class PlanningModelCalls
                         if (choices[index] is JsonValue value && value.TryGetValue<string>(out var text)) choices[index] = replace(text);
                 }
                 else if (pair.Key is not ("$defs" or "extension" or "patch" or "interfaces"))
-                    Visit(pair.Value, evidence || EvidenceFields.Contains(pair.Key), references);
+                    Visit(pair.Value, evidence || EvidenceFields.Contains(pair.Key) || pair.Key == "resultId", references);
             }
         }
         bool ContainsEvidence(JsonNode? node, HashSet<string> references)
@@ -279,7 +288,7 @@ internal static partial class PlanningModelCalls
                 if (found) return true;
             }
             return obj.Any(pair => pair.Key is not ("$defs" or "extension" or "patch" or "interfaces") &&
-                (EvidenceFields.Contains(pair.Key) || ContainsEvidence(pair.Value, references)));
+                ((EvidenceFields.Contains(pair.Key) || pair.Key == "resultId") || ContainsEvidence(pair.Value, references)));
         }
     }
 
@@ -348,10 +357,49 @@ internal static partial class PlanningModelCalls
             throw new PlanningConflictException("The saved evidence mapping is missing, stale or conflicting.");
     }
 
+    // This projection is only repetition evidence. It never validates a rejected
+    // response or supplies a value to planning: unknown/malformed IDs stay intact.
+    private static JsonNode InvalidResponseStrategy(JsonNode response, PlanningEvidenceAddresses? mapping)
+    {
+        var projected = response.DeepClone();
+        if (mapping is null) return projected;
+        Visit(projected);
+        if (projected is JsonObject root && root["block"] is JsonObject block && block["dependencies"] is JsonArray dependencies)
+            foreach (var dependency in dependencies.OfType<JsonObject>())
+                if (Resolve(dependency["resultId"]) is { } canonical && CanonicalBusinessResult(canonical)) dependency["resultId"] = canonical;
+        if (mapping.ReviewImplementationIds && projected is JsonObject review && review["decision"] is JsonObject decision && decision["targets"] is JsonArray targets)
+            for (var index = 0; index < targets.Count; index++)
+                if (Resolve(targets[index]) is { } canonical && (canonical.StartsWith("task:", StringComparison.Ordinal) || canonical.StartsWith("scope:", StringComparison.Ordinal)))
+                    targets[index] = canonical[(canonical.IndexOf(':') + 1)..];
+        return projected;
+
+        string? Resolve(JsonNode? value) => value is JsonValue scalar && scalar.TryGetValue<string>(out var id) &&
+            mapping.Addresses.TryGetValue(id, out var canonical) ? canonical : null;
+        void Visit(JsonNode? node)
+        {
+            if (node is JsonArray array) { foreach (var item in array) Visit(item); return; }
+            if (node is not JsonObject obj) return;
+            foreach (var pair in obj)
+                if (EvidenceFields.Contains(pair.Key) && pair.Value is JsonArray addresses)
+                {
+                    for (var index = 0; index < addresses.Count; index++)
+                        if (Resolve(addresses[index]) is { } canonical) addresses[index] = canonical;
+                }
+                else if (pair.Key is not ("extension" or "patch" or "interfaces")) Visit(pair.Value);
+        }
+    }
+
     internal static JsonNode NormalizeEvidenceResponse(JsonNode response, PlanningEvidenceAddresses? mapping)
     {
         var normalized = response.DeepClone();
         VisitResponse(normalized);
+        foreach (var dependency in (normalized["block"]?["dependencies"] as JsonArray ?? []).OfType<JsonObject>())
+        {
+            var id = dependency["resultId"]?.GetValue<string>();
+            if (id is null || mapping is null || !mapping.Addresses.TryGetValue(id, out var canonical) || !CanonicalBusinessResult(canonical))
+                throw new PlanningConflictException("The business dependency used an unknown issued result reference.");
+            dependency["resultId"] = canonical;
+        }
         if (mapping?.ReviewImplementationIds == true && normalized["decision"]?["targets"] is JsonArray targets)
             for (var index = 0; index < targets.Count; index++)
             {

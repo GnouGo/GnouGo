@@ -153,7 +153,6 @@ internal static class LiveWorkflowEvaluation
                 delegated is null ? null : observed.ProbeBrowserClosureAsync);
             run["oracle"] = oracle;
             RecordExecutionOracle(run, session, oracle);
-            GnOuGo.Planning.Examples.PlanningBenchmarkMeasurements.ProposalMetrics(run, run["result"]!.AsObject());
             run["result"]!["execution_success"] = run["execution"]!["success"]!.DeepClone();
             run["result"]!["execution_oracle"] = oracle["passed"]!.DeepClone();
             run["result"]!["execution_status"] = "completed";
@@ -161,6 +160,7 @@ internal static class LiveWorkflowEvaluation
             run["result"]!["execution_model_usage"] = run["execution_model_usage"]?.DeepClone();
             run["result"]!["total_ms"] = run["result"]!["planning_ms"]!.GetValue<long>() + timer.ElapsedMilliseconds;
             run["result"]!["accounting"] = await LiveCampaignEvidence.AccountingAsync(campaign, label);
+            GnOuGo.Planning.Examples.PlanningBenchmarkMeasurements.ProposalMetrics(run, run["result"]!.AsObject());
             var planningUsage = PlanningBenchmarkMeasurements.Usage(new JsonObject
             {
                 ["usage_receipts"] = run["usage_receipts"]?.DeepClone() ?? new JsonObject(),
@@ -224,7 +224,7 @@ internal static class LiveWorkflowEvaluation
         }
         try
         {
-            for (var i = 0; i < Math.Max(40, state.Request.MaxModelCalls * 4) && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); i++)
+            for (long i = 0; PlanningBenchmarkMeasurements.CanAdvance(state, i); i++)
             {
                 state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, timeout.Token);
                 await runtime.CheckpointAsync(state, CancellationToken.None);
@@ -377,12 +377,23 @@ internal static class LiveWorkflowEvaluation
     }
 
     internal static LLMUsageBudgetScope? ModelBudget(string phase, PlanningRequest request, PlanningSession? retained = null, long elapsedMilliseconds = 0)
-        => phase == "execute" ? new(PlanningTokenThresholds.Advisory(request), new() { MaxElapsed = TimeSpan.FromMinutes(30) }) :
-            PlanningTransportPolicies.Read(request) is not null ? null : new(new()
+    {
+        if (phase == "execute")
+        {
+            var resources = new LLMUsageBudgetLimits { MaxElapsed = TimeSpan.FromMinutes(30) };
+            // Diagnostic mapping targets inherit trusted authority; this explicit
+            // execution resource deadline stays hard, including durable recovery.
+            return PlanningTokenThresholds.OptimizationAdvisory(request)
+                ? new LLMUsageBudgetScope(PlanningTokenThresholds.Advisory(request), new() { MaxCalls = request.MaxModelCalls },
+                    advisoryOptimization: true).CreateChild(resources)
+                : new(PlanningTokenThresholds.Advisory(request), resources);
+        }
+        return PlanningTransportPolicies.Read(request) is not null ? null : new(PlanningTokenThresholds.Advisory(request), new()
             {
-                MaxElapsed = retained is null ? PlanningBenchmarkMeasurements.PlanningElapsedLimit(request)
+                MaxElapsed = retained is null || PlanningTokenThresholds.OptimizationAdvisory(request) ? PlanningBenchmarkMeasurements.PlanningElapsedLimit(request)
                     : PlanningBenchmarkMeasurements.RemainingPlanningTime(retained, elapsedMilliseconds)
-            });
+            }, advisoryOptimization: PlanningTokenThresholds.OptimizationAdvisory(request));
+    }
 
     internal sealed class JournaledPlanningModel(KeyVaultBenchmarkModel model, JsonObject run)
         : PlanningModel(model, run), IModelAdmissionOwner;

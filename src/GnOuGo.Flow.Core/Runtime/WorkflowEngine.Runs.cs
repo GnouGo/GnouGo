@@ -45,8 +45,8 @@ public sealed partial class WorkflowEngine
         var inheritedBudget = LLMUsageBudget;
         Journal = new WorkflowRunJournal(lease);
         if (run.ModelBudget is { } budget)
-            LLMUsageBudget = new LLMUsageBudgetScope(inheritedBudget?.AdvisoryTokenThresholds == true,
-                budget, run.ModelUsage, sink: Journal, exchangeRateProvider: ExchangeRateProvider);
+            LLMUsageBudget = inheritedBudget?.RestoreSnapshot(budget, run.ModelUsage, sink: Journal, exchangeRateProvider: ExchangeRateProvider)
+                ?? new LLMUsageBudgetScope(budget, run.ModelUsage, sink: Journal, exchangeRateProvider: ExchangeRateProvider);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct);
         using var polling = new CancellationTokenSource();
         var monitor = MonitorCancellationAsync(lease, linked, polling.Token);
@@ -110,7 +110,7 @@ public sealed partial class WorkflowEngine
             }
             await journal.ObserveAsync(invocationId, JsonSerializer.SerializeToNode(observed, AgentTaskJsonContext.Default.AgentTaskResult), ct);
             var usage = lease.Run.ModelBudget is { } limits
-                ? new LLMUsageBudgetScope(LLMUsageBudget?.AdvisoryTokenThresholds == true, limits, lease.Run.ModelUsage)
+                ? LLMUsageBudget?.RestoreSnapshot(limits, lease.Run.ModelUsage) ?? new LLMUsageBudgetScope(limits, lease.Run.ModelUsage)
                 : LLMUsageBudget;
             using var warnings = usage?.ObserveTokenWarnings();
             try

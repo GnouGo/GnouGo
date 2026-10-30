@@ -12,6 +12,7 @@ public sealed partial class HybridWorkflowPlanner
     {
         var construction = state.Construction!;
         if (construction.Compact is null) throw new PlanningConflictException("The captured compact construction state is missing.");
+        PlanningCompactConstruction.ValidateBusinessContract(state);
         state.Status = PlanningStatus.Generating;
         if (construction.Compact.CurrentStep?.PendingDiscovery is not null)
         {
@@ -35,7 +36,7 @@ public sealed partial class HybridWorkflowPlanner
             { await ReviewConstructionAsync(state, runtime, candidate.Extension.Complete, ct); return; }
             await AcceptConstructionAsync(state, runtime, ct); return;
         }
-        if (construction.Checkpoints.Count >= construction.Limits.MaxCheckpoints)
+        if (PlanningOptimizationThresholds.Exceeded(state, "construction", "checkpoints", construction.Checkpoints.Count + 1L, construction.Limits.MaxCheckpoints))
         {
             state.Diagnostics = [new("CONSTRUCTION_CHECKPOINT_LIMIT", "/construction", "The captured checkpoint allowance is exhausted.")];
             Stop(state); return;
@@ -43,7 +44,7 @@ public sealed partial class HybridWorkflowPlanner
         var compact = construction.Compact;
         if (state.Requirements is null || state.Requirements.Outcomes.Count == 0)
             throw new WorkflowRuntimeException("CONSTRUCTION_INTENT_EMPTY", "The retained source pages contain no explicit business requirement.");
-        if (state.Catalog is null)
+        if (state.Catalog is null && compact.CurrentBlockId is not null)
         {
             state.Catalog = await runtime.DiscoverAsync(state.Request, ct);
             state.Discovery.Sources = (await runtime.Capabilities.ListSourcesAsync(ct)).ToList();
@@ -79,7 +80,9 @@ public sealed partial class HybridWorkflowPlanner
                     state.Diagnostics = closure.Diagnostics;
                 }
             }
-            await SelectConstructionStepAsync(state, runtime, ct); return;
+            if (compact.CurrentBlockId is null) await SelectBusinessBlockAsync(state, runtime, ct);
+            else await SelectConstructionStepAsync(state, runtime, ct);
+            return;
         }
         if (compact.CurrentStep.BaseHash != PlanningConstruction.Hash(state.Plan)) throw new PlanningConflictException("The selected step has a stale baseline.");
         if (!compact.CurrentStep.DiscoveryComplete) { await DiscoverConstructionStepAsync(state, runtime, ct); return; }
@@ -94,7 +97,7 @@ public sealed partial class HybridWorkflowPlanner
             await runtime.CheckpointAsync(state, ct);
             return;
         }
-        if (repair && state.PendingCall is null && (construction.DraftCorrections >= construction.Limits.MaxCorrectionsPerDraft || PlanningModelCalls.RemainingRepairs(state) == 0))
+        if (repair && state.PendingCall is null && (!PlanningModelCalls.HasDraftRepairCapacity(state, construction.DraftCorrections) || !PlanningModelCalls.HasRepairCapacity(state)))
         { Stop(state); return; }
         await GenerateConstructionAsync(state, runtime, repair, ct);
     }
@@ -105,10 +108,10 @@ public sealed partial class HybridWorkflowPlanner
         // The current navigation call cannot consume the draft and its mandatory reviews.
         var construction = state.Construction!;
         var reviews = PlanningCompactConstruction.RequiredReviewCalls(state);
-        if (PlanningModelCalls.RemainingCalls(state) < reviews + 2)
+        if (!PlanningModelCalls.HasCallCapacity(state, reviews + 2))
             throw new WorkflowRuntimeException("CONSTRUCTION_REVIEW_ALLOWANCE", "The remaining allowance cannot admit this navigation call, a draft and mandatory reviews.");
         var input = PlanningConstructionInputPolicy.EffectiveLimit(state.Request, PlanningConstruction.DraftPurpose);
-        var outputs = new[] { PlanningModelCalls.ConstructionOutputLimit(state, PlanningCompactConstruction.SelectPurpose),
+        var outputs = new[] { PlanningModelCalls.ConstructionOutputLimit(state, PlanningCompactConstruction.ImplementationPurpose),
             PlanningModelCalls.ConstructionOutputLimit(state, PlanningConstruction.DraftPurpose) }
             .Concat(Enumerable.Repeat(PlanningModelCalls.ConstructionOutputLimit(state, PlanningConstruction.LocalPurpose), reviews)).ToArray();
         if (!PlanningTokenThresholds.Advisory(state.Request) && PlanningBudgetOptions.Parse(state.Request.Options)?.MaxTotalTokens is { } tokens &&
@@ -118,7 +121,7 @@ public sealed partial class HybridWorkflowPlanner
         {
             var probe = PlanningConstructionPhasePolicies.Apply(new LLMRequest { MaxTokens = outputs[0],
                 Provider = state.Request.Options["generator"]?["provider"]?.GetValue<string>(),
-                Model = state.Request.Options["generator"]?["model"]?.GetValue<string>() ?? "" }, state.Request, PlanningCompactConstruction.SelectPurpose);
+                Model = state.Request.Options["generator"]?["model"]?.GetValue<string>() ?? "" }, state.Request, PlanningCompactConstruction.ImplementationPurpose);
             await admission.AdmitConstructionAsync(probe, input, outputs, ct);
         }
     }
@@ -130,7 +133,7 @@ public sealed partial class HybridWorkflowPlanner
         correction ??= ownedCorrection!;
         if (state.PendingCall is null && state.Diagnostics.Any(d => d.Required))
         {
-            if (PlanningModelCalls.RemainingRepairs(state) == 0 || state.Request.Options["automatic_correction"]?.ToString() == "false")
+            if (!PlanningModelCalls.HasRepairCapacity(state) || state.Request.Options["automatic_correction"]?.ToString() == "false")
                 throw new WorkflowRuntimeException("CONSTRUCTION_CORRECTION_ALLOWANCE", "The captured correction allowance cannot retry this rejected navigation action.");
             if (!correction.Enabled) state.ReplanAttempts++;
         }
@@ -148,11 +151,7 @@ public sealed partial class HybridWorkflowPlanner
         if (purpose == PlanningCompactConstruction.DiscoveryPurpose)
             PlanningCompactConstruction.RecordPresentedOperations(state, request.Prompt);
         var compact = PlanningCompactConstruction.State(state);
-        var actionHash = PlanningProgress.Strategy(state, purpose, response);
-        var ordinaryHash = CompactActionFingerprint(state, actionHash);
-        var hash = descriptionReadKey is null ? ordinaryHash : ordinaryHash + ":" + descriptionReadKey;
-        if (compact.FailedActions.Contains(hash, StringComparer.Ordinal) || compact.FailedActions.Contains(ordinaryHash, StringComparer.Ordinal))
-            throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The model repeated a rejected compact construction action.");
+        var hash = PlanningProgress.AssessAttempt(state, purpose, response, completedCall!.Id, suffix: descriptionReadKey);
         // Retain the attempt before validation. Successful state transitions change phase/context.
         compact.FailedActions.Add(hash);
         if (purpose == PlanningCompactConstruction.DiscoveryPurpose)
@@ -220,9 +219,9 @@ public sealed partial class HybridWorkflowPlanner
     {
         using var correction = new PlanningCorrectionAttempt(state, state.Diagnostics.Any(d => d.Required));
         var exactRequest = state.PendingCall?.Request;
-        var response = await CompactCallAsync(state, runtime, PlanningCompactConstruction.SelectPurpose, () =>
-            exactRequest = PlanningCompactConstruction.Request(state, PlanningCompactConstruction.SelectGuidance(state), PlanningCompactConstruction.SelectionContext(state),
-                PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose), ct, correction, request => exactRequest = request);
+        var response = await CompactCallAsync(state, runtime, PlanningCompactConstruction.ImplementationPurpose, () =>
+            exactRequest = PlanningCompactConstruction.Request(state, PlanningCompactConstruction.ImplementationGuidance(state), PlanningCompactConstruction.ImplementationContext(state),
+                PlanningCompactConstruction.ImplementationSchema(state), PlanningCompactConstruction.ImplementationPurpose), ct, correction, request => exactRequest = request);
         if (response["baseHash"]!.ToString() != PlanningConstruction.Hash(state.Plan))
             throw new PlanningConflictException("The step selection identifies a stale accepted checkpoint.");
         if (response["resumeStep"] is { } resume)
@@ -239,6 +238,9 @@ public sealed partial class HybridWorkflowPlanner
         if (await CompactOtherActionAsync(state, runtime, response, "step", ct, correction: correction)) return;
         var compact = PlanningCompactConstruction.State(state);
         var step = response["step"]!.Deserialize(PlanningJsonContext.Default.PlanningConstructionStep)!;
+        var block = PlanningCompactConstruction.CurrentBlock(state) ?? throw new PlanningConflictException("Implementation requires a retained business block.");
+        step.BlockId = block.Id; step.Objective = block.Objective;
+        step.RequirementIds = block.RequirementIds.ToList(); step.ExpectedOutputs = block.ExpectedResults.ToList();
         PlanningCompactConstruction.ValidateSelection(state, step);
         var known = step.OperationIds.Count > 0;
         {
@@ -286,7 +288,7 @@ public sealed partial class HybridWorkflowPlanner
             if (new[] { primary, "evidenceRequests", "clarifications", "discoveryRequests" }.Any(name => response[name] is not null) ||
                 !PlanningCompactConstruction.CanReselectDiscovery(state) || string.IsNullOrWhiteSpace(decision.Reason))
                 PlanningConstruction.Fail("CONSTRUCTION_RESELECTION_INVALID", "/reselectStep", "Reselect only an inspected tentative operation step, as one bounded action within its retained correction authority.");
-            if (!correcting && PlanningModelCalls.RemainingRepairs(state) == 0)
+            if (!correcting && !PlanningModelCalls.HasRepairCapacity(state))
                 PlanningConstruction.Fail("CONSTRUCTION_CORRECTION_ALLOWANCE", "/reselectStep", "The retained correction allowance cannot admit tentative-step reselection.");
             if (correction.Enabled) correction.Reselect();
             else
@@ -316,7 +318,7 @@ public sealed partial class HybridWorkflowPlanner
     private static async Task BindConstructionStepAsync(PlanningSession state, IPlanningRuntime runtime, PlanningConstructionStep step,
         string kind, string[] operations, string? groupId, List<string>? closeScopes, bool knownOnly, bool admit, CancellationToken ct)
     {
-        if (operations.Length > state.Construction!.Limits.MaxTasksPerDraft ||
+        if (PlanningOptimizationThresholds.Exceeded(state, "binding", "operations", operations.Length, state.Construction!.Limits.MaxTasksPerDraft) ||
             kind == "operation" && operations.Length == 0 ||
             !PlanningCompactConstruction.SupportsBusinessFragment(kind) && operations.Length != 0 ||
             kind == "call" && groupId is null ||
@@ -381,13 +383,13 @@ public sealed partial class HybridWorkflowPlanner
             PlanningConstruction.Fail("PROPOSAL_ACTION_INVALID", "/", "Return exactly one compact construction action.");
         if (response["evidenceRequests"] is JsonArray evidence)
         {
-            var purpose = primary == "step" ? PlanningCompactConstruction.SelectPurpose : PlanningCompactConstruction.DiscoveryPurpose;
+            var purpose = primary == "step" ? PlanningCompactConstruction.ImplementationPurpose : PlanningCompactConstruction.DiscoveryPurpose;
             PlanningConstruction.LoadEvidence(state, evidence.Select(e => e!.ToString()).ToList(), descriptionReadKey,
                 followup: next =>
                 {
                     var request = primary == "step"
-                        ? PlanningCompactConstruction.Request(next, PlanningCompactConstruction.SelectGuidance(next), PlanningCompactConstruction.SelectionContext(next),
-                            PlanningCompactConstruction.SelectionSchema(next), purpose)
+                        ? PlanningCompactConstruction.Request(next, PlanningCompactConstruction.ImplementationGuidance(next), PlanningCompactConstruction.ImplementationContext(next),
+                            PlanningCompactConstruction.ImplementationSchema(next), purpose)
                         : PlanningCompactConstruction.Request(next, PlanningCompactConstruction.DiscoveryGuidance(next), PlanningCompactConstruction.DiscoveryContext(next),
                             PlanningCompactConstruction.DiscoverySchema(next), purpose);
                     return PlanningModelCalls.PrepareRequest(next, purpose, request.Prompt, request.StructuredOutputSchema!.AsObject(), next.Construction!.Limits.DraftOutputTokens);

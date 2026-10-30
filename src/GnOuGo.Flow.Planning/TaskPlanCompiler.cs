@@ -99,6 +99,7 @@ public sealed partial class TaskPlanCompiler
     private bool _indexedProjections;
     private bool _fusedBindings;
     private bool _preciseDeclarations;
+    private bool _advisoryOptimization;
     private HashSet<string>? _constructionUnavailable;
     private bool _constructionAllowsUnboundChoices;
     private string _location = "/tasks";
@@ -110,10 +111,11 @@ public sealed partial class TaskPlanCompiler
         => Compile(plan, catalog, UsesCompactBindings(request), UsesNormalExports(request), request.Options["mapping_profile"]?.ToString() == AdaptiveMappingProfile,
             request.Options["compilation_profile"]?.ToString() is "compact-bindings-v3" or "compact-bindings-v4" or "compact-bindings-v5" or "compact-bindings-v6" or "compact-bindings-v7" or "compact-bindings-v8" or "compact-bindings-v9" or "compact-bindings-v10" or "compact-bindings-v11" or "compact-bindings-v12" or "compact-bindings-v13" or "compact-bindings-v14" or CompactProfile, UsesFusedBindings(request),
             request.Options["planning_validation_profile"]?.ToString() == AssertionValidationProfile,
-            request.Options["planning_diagnostics_version"]?.ToString() == "1");
+            request.Options["planning_diagnostics_version"]?.ToString() == "1", PlanningTokenThresholds.OptimizationAdvisory(request));
 
-    internal TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, bool compactBindings, bool normalExports, bool adaptiveMappings = false, bool indexedProjections = false, bool fusedBindings = false, bool validateAssertions = false, bool preciseDeclarations = false)
+    internal TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, bool compactBindings, bool normalExports, bool adaptiveMappings = false, bool indexedProjections = false, bool fusedBindings = false, bool validateAssertions = false, bool preciseDeclarations = false, bool advisoryOptimization = false)
     {
+        _advisoryOptimization = advisoryOptimization;
         _preciseDeclarations = preciseDeclarations;
         _constructionUnavailable = null;
         _constructionAllowsUnboundChoices = false;
@@ -141,12 +143,17 @@ public sealed partial class TaskPlanCompiler
         catch (InvalidTask error) { return new(null, [error.Diagnostic with { Code = "TASK_COMPILER_VALIDATION", Message = error.Diagnostic.Code + ": " + error.Message }], new Dictionary<string, string>(_sources)); }
     }
 
-    public static JsonObject TypeSchema(TaskType type)
+    public static JsonObject TypeSchema(TaskType type) => TypeSchema(type, advisoryOptimization: false);
+
+    internal static JsonObject TypeSchema(TaskType type, PlanningRequest request) =>
+        TypeSchema(type, PlanningTokenThresholds.OptimizationAdvisory(request));
+
+    private static JsonObject TypeSchema(TaskType type, bool advisoryOptimization)
     {
         if ((type.MinItems is not null || type.MaxItems is not null) && type.Kind != "array" ||
             type.MinItems < 0 || type.MaxItems < 0 || type.MinItems > type.MaxItems)
             throw new ArgumentException("Array cardinality requires nonnegative bounds with minItems <= maxItems.");
-        if (!ValidEnum(type)) throw new ArgumentException("A string enum requires 1–256 distinct non-null strings; declare nullability separately.");
+        if (!ValidEnum(type, advisoryOptimization)) throw new ArgumentException(EnumDeclarationError(advisoryOptimization));
         if (type.Kind is not ("string" or "number" or "integer" or "boolean" or "object" or "array" or "any"))
             throw new ArgumentException("Unknown business type.");
         if (type.Kind == "any") return new();
@@ -158,14 +165,14 @@ public sealed partial class TaskPlanCompiler
         }
         if (type.Kind == "array")
         {
-            schema["items"] = TypeSchema(type.Items ?? throw new ArgumentException("Array items require a business type."));
+            schema["items"] = TypeSchema(type.Items ?? throw new ArgumentException("Array items require a business type."), advisoryOptimization);
             if (type.MinItems is { } min) schema["minItems"] = min;
             if (type.MaxItems is { } max) schema["maxItems"] = max;
         }
         if (type.Kind == "object")
         {
             if (type.Fields.Select(f => f.Name).Distinct(StringComparer.Ordinal).Count() != type.Fields.Count) throw new ArgumentException("Duplicate business fields.");
-            schema["properties"] = new JsonObject(type.Fields.Select(f => new KeyValuePair<string, JsonNode?>(f.Name, TypeSchema(f.Type))));
+            schema["properties"] = new JsonObject(type.Fields.Select(f => new KeyValuePair<string, JsonNode?>(f.Name, TypeSchema(f.Type, advisoryOptimization))));
             schema["required"] = new JsonArray(type.Fields.Where(f => f.Required).Select(f => (JsonNode?)JsonValue.Create(f.Name)).ToArray());
             schema["additionalProperties"] = false;
         }
@@ -923,7 +930,7 @@ public sealed partial class TaskPlanCompiler
     private static string ValueIdentity(PlanningValue value) => JsonSerializer.Serialize(value, PlanningJsonContext.Default.PlanningValue);
     private static bool Literal(TaskValue value) => value.Kind is "null" or "string" or "number" or "boolean" || value.Kind == "object" && value.Members.All(m => Literal(m.Value)) || value.Kind == "array" && value.Items.All(Literal);
     private void RequireBoolean(Bound value) { if (value.Schema["type"]?.ToString() != "boolean") Fail("TASK_CONDITION_TYPE", "Conditions require a boolean business value."); }
-    private JsonObject Schema(TaskType type) { try { return TypeSchema(type); } catch (ArgumentException ex) { Fail("TASK_TYPE_INVALID", ex.Message); return null!; } }
+    private JsonObject Schema(TaskType type) { try { return TypeSchema(type, _advisoryOptimization); } catch (ArgumentException ex) { Fail("TASK_TYPE_INVALID", ex.Message); return null!; } }
     private void Unique(IEnumerable<string> names)
     {
         var list = names.ToArray();

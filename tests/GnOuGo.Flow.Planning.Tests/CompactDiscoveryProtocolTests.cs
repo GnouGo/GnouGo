@@ -235,7 +235,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Equal("No remote publication.", context["globalConstraints"]![0]!["text"]!.ToString());
         Assert.Equal("Never expand permissions.", context["instructions"]!.ToString());
 
-        Assert.Contains("declared arithmetic", PlanningCompactConstruction.SelectGuidance(state), StringComparison.Ordinal);
+        Assert.Contains("declared arithmetic", PlanningCompactConstruction.ImplementationGuidance(state), StringComparison.Ordinal);
 
     }
 
@@ -959,7 +959,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         runtime.Respond = (request, _) =>
         {
             Assert.Equal(Reason, Context(request)["reselection"]!["reason"]!.ToString());
-            return Wire(request, Select(request));
+            return Wire(request, Implement(request));
         };
         state = await Advance(state, runtime);
         Assert.Equal(1, state.ReplanAttempts); Assert.Equal(1, state.Construction!.DraftCorrections);
@@ -987,7 +987,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Equal(1, resumed.ReplanAttempts); Assert.Equal(1, resumed.Construction!.DraftCorrections);
         Assert.Single(resumed.Construction!.Compact!.RejectedSteps);
         var durable = PlannerFixture.Clone(resumed);
-        recovery.Respond = (issued, _) => Wire(issued, Select(issued));
+        recovery.Respond = (issued, _) => Wire(issued, Implement(issued));
         durable = await Advance(durable, recovery);
         Assert.Equal(1, durable.ReplanAttempts); Assert.Equal(1, durable.Construction!.DraftCorrections);
         Assert.Single(durable.Construction!.Compact!.RejectedSteps);
@@ -1312,7 +1312,13 @@ public sealed partial class CompactDiscoveryProtocolTests
         state.Discovery.Sources = [new("alpha", "Declared metadata for business operations.")];
         state.Plan = new() { Root = new() { Tasks = [new() { Id = "accepted", Kind = "value", Objective = "Preserve this accepted fragment.",
             Outputs = [new("retained", new() { Kind = "string", Text = "Unchanged" })] }] } };
-        state.Construction!.Compact!.CurrentStep = new() { Id = "tentative", BaseHash = PlanningConstruction.Hash(state.Plan), Scope = "/root", Kind = "operation",
+        PlanningCompactConstruction.SelectBlock(state, new JsonObject
+        {
+            ["objective"] = Objective, ["requirementIds"] = new JsonArray("req_0"),
+            ["informationNeeds"] = new JsonArray(), ["expectedResults"] = new JsonArray("The exact requested greeting without remote publication."),
+            ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray("Preserve all original constraints and exact result meaning.")
+        });
+        state.Construction!.Compact!.CurrentStep = new() { BlockId = state.Construction!.Compact!.CurrentBlockId, Id = "tentative", BaseHash = PlanningConstruction.Hash(state.Plan), Scope = "/root", Kind = "operation",
             Objective = Objective, RequirementIds = ["req_0"] };
         if (inspected) state.Discovery.Pages.Add(new("alpha", null, [], null, Query: Objective));
         return (state, runtime);
@@ -1331,12 +1337,11 @@ public sealed partial class CompactDiscoveryProtocolTests
         ["discoveryRequests"] = new JsonArray(new JsonObject { ["sourceId"] = source, ["cursor"] = cursor, ["query"] = query, ["operationIds"] = null })
     };
     private static JsonObject Reselect() => new() { ["binding"] = null, ["discoveryRequests"] = null, ["evidenceRequests"] = null, ["clarifications"] = null, ["reselectStep"] = new JsonObject { ["reason"] = Reason, ["disposition"] = "abandon", ["prerequisite"] = null } };
-    private static JsonObject Select(LLMRequest request) => new()
+    private static JsonObject Implement(LLMRequest request) => new()
     {
         ["baseHash"] = request.StructuredOutputSchema!["properties"]!["baseHash"]!["enum"]![0]!.ToString(), ["evidenceRequests"] = null, ["clarifications"] = null,
-        ["step"] = new JsonObject { ["scope"] = "/root", ["kind"] = "value", ["objective"] = "Assemble the exact literal greeting.",
-            ["requirementIds"] = new JsonArray("req_0"), ["operationIds"] = new JsonArray(), ["inputs"] = new JsonArray(), ["dependencyTaskIds"] = new JsonArray(),
-            ["expectedOutputs"] = new JsonArray("The exact greeting."), ["closeRequirementIds"] = new JsonArray(), ["outputNames"] = new JsonArray() }
+        ["step"] = new JsonObject { ["scope"] = "/root", ["kind"] = "value", ["operationIds"] = new JsonArray(), ["inputs"] = new JsonArray(), ["dependencyTaskIds"] = new JsonArray(),
+            ["closeRequirementIds"] = new JsonArray(), ["outputNames"] = new JsonArray() }
     };
     private static LLMRequest Complete(PlanningSession state, LLMRequest request) => PlanningGenerationPolicy.Apply(new LLMRequest
     {

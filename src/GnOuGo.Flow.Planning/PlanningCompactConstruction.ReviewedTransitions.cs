@@ -19,7 +19,7 @@ internal static partial class PlanningCompactConstruction
     {
         if (ResumedConsumerParent(state) is { } parent) return [parent];
         var active = State(state).SuspendedSteps?.Where(Active).ToArray() ?? [];
-        if (active.Length == 0 || active.Length > 4 || active.Any(item => item.Status != "waiting" || !ContinuationCurrent(state, item))) return [];
+        if (active.Length == 0 || active.Length > 4 && !PlanningTokenThresholds.OptimizationAdvisory(state.Request) || active.Any(item => item.Status != "waiting" || !ContinuationCurrent(state, item))) return [];
         for (var i = 1; i < active.Length; i++)
             if (active[i].ParentId != active[i - 1].Id) return [active[^1]];
         return active;
@@ -32,7 +32,7 @@ internal static partial class PlanningCompactConstruction
     {
         var compact = State(state);
         var active = compact.SuspendedSteps?.Where(Active).ToArray() ?? [];
-        if (active.Length is < 2 or > 4 || compact.CurrentStep is not { } step ||
+        if (active.Length < 2 || active.Length > 4 && !PlanningTokenThresholds.OptimizationAdvisory(state.Request) || compact.CurrentStep is not { } step ||
             active[^1] is not { Status: "resuming", ParentId: not null } child || compact.ResumingStepId != child.Id ||
             active.Take(active.Length - 1).Any(item => item.Status != "waiting") || active.Any(item => !ContinuationCurrent(state, item)) ||
             step.Scope != child.Consumer.Scope || step.Objective != child.Consumer.Objective ||
@@ -65,7 +65,7 @@ internal static partial class PlanningCompactConstruction
         var step = State(state).CurrentStep!;
         step.BoundaryTransitions = null;
         if (candidate.Extension.BoundaryTransitions is not { } claims) return;
-        if (claims.Count > 4 || claims.Select(claim => claim.Scope).Distinct(StringComparer.Ordinal).Count() != claims.Count)
+        if (PlanningOptimizationThresholds.Exceeded(state, "boundary_transition", "boundaries", claims.Count, 4) || claims.Select(claim => claim.Scope).Distinct(StringComparer.Ordinal).Count() != claims.Count)
             PlanningConstruction.Fail("CONSTRUCTION_TRANSITION_INVALID", "/extension/boundaryTransitions", "At most four exact existing boundaries may be claimed, once each; their parent relationships determine order.");
         foreach (var claim in claims)
         {
@@ -76,7 +76,7 @@ internal static partial class PlanningCompactConstruction
                 claim.RequirementIds.Count > step.RequirementIds.Count || claim.RequirementIds.Distinct(StringComparer.Ordinal).Count() != claim.RequirementIds.Count ||
                 claim.RequirementIds.Any(id => !step.RequirementIds.Contains(id, StringComparer.Ordinal)) ||
                 !BoundaryTargets(state, step.Scope).Contains(claim.Scope, StringComparer.Ordinal) ||
-                claim.Outputs.Count > state.Construction!.Limits.MaxTasksPerDraft || !claim.CloseScope && claim.Outputs.Count == 0 ||
+                PlanningOptimizationThresholds.Exceeded(state, "boundary_transition", "outputs", claim.Outputs.Count, state.Construction!.Limits.MaxTasksPerDraft) || !claim.CloseScope && claim.Outputs.Count == 0 ||
                 claim.Scope == "/root" && (claim.CloseScope || claim.Outputs.Any(output => state.Requirements!.Outputs?.All(item => item.Name != output.Name) != false)) ||
                 !candidate.OpenScopes.Contains(claim.Scope, StringComparer.Ordinal))
                 PlanningConstruction.Fail("CONSTRUCTION_TRANSITION_INVALID", "/extension/boundaryTransitions", "Propose exact existing boundary actions for this fragment's original obligations; root exports must name declared public outputs, and root or requirement completion remain separate claims.");
@@ -108,7 +108,7 @@ internal static partial class PlanningCompactConstruction
 
     private static PlanningConstructionStep BoundaryStep(PlanningSession state, PlanningConstructionBoundaryTransition claim) => new()
     {
-        Id = "step_" + (State(state).NextStep + 1), BaseHash = PlanningConstruction.Hash(state.Plan), Scope = claim.Scope,
+        BlockId = State(state).CurrentBlockId, Id = "step_" + (State(state).NextStep + 1), BaseHash = PlanningConstruction.Hash(state.Plan), Scope = claim.Scope,
         Kind = "close", DiscoveryComplete = true, RequirementIds = claim.RequirementIds.ToList(),
         CloseScopes = claim.CloseScope ? [claim.Scope] : [],
         OutputNames = claim.Scope == "/root" ? claim.Outputs.Select(output => output.Name).ToList() : [],
@@ -117,7 +117,7 @@ internal static partial class PlanningCompactConstruction
 
     private static PlanningConstructionExtension BoundaryExtension(PlanningConstructionBoundaryTransition claim) => new()
     {
-        Scope = claim.Scope, RequirementIds = claim.RequirementIds.ToList(), Outputs = claim.Outputs.Select(output =>
+        Scope = claim.Scope, RequirementIds = claim.RequirementIds.ToList(), CompleteBlock = false, Outputs = claim.Outputs.Select(output =>
             new TaskOutput(output.Name, JsonSerializer.Deserialize(JsonSerializer.Serialize(output.Value, PlanningJsonContext.Default.TaskValue),
                 PlanningJsonContext.Default.TaskValue)!)).ToList(), CloseScopes = claim.CloseScope ? [claim.Scope] : []
     };
@@ -133,15 +133,17 @@ internal static partial class PlanningCompactConstruction
             state.Plan is null || state.Plan.Choices.Any(choice => choice.Selected is null) ||
             state.Construction.RebuildTasks.Any(task => !new TaskPlanSymbols(state.Plan).Tasks.ContainsKey(task.Id))) return null;
         var baseline = PlanningConstruction.Hash(state.Plan);
+        var review = HybridWorkflowPlanner.ReviewedCheckpoint(state, checkpoint);
         if (checkpoint.Step?.BoundaryTransitions is not { Count: > 0 } claims ||
-            checkpoint.InvalidatedTaskIds.Count != 0 || HybridWorkflowPlanner.ReviewedCheckpoint(state, checkpoint) is not { } review ||
+            checkpoint.InvalidatedTaskIds.Count != 0 || review is null && !AcceptedBlockCheckpointAuthority(state, checkpoint) ||
             !BoundaryBaselineCurrent(state, checkpoint, review)) return null;
         foreach (var claim in OrderedBoundaryClaims(state.Plan, claims))
         {
             if (!state.Construction.OpenScopes.Contains(claim.Scope, StringComparer.Ordinal)) continue;
             var identity = "transition:" + PlanningGraphCompiler.Fingerprint(new JsonObject
             {
-                ["checkpoint"] = checkpoint.Sequence, ["review"] = review["requestHash"]?.DeepClone(),
+                ["checkpoint"] = checkpoint.Sequence, ["review"] = review?["requestHash"]?.DeepClone(),
+                ["originCandidateHash"] = checkpoint.PlanHash,
                 ["claim"] = PlanningConstruction.Node(claim, PlanningJsonContext.Default.PlanningConstructionBoundaryTransition)
             }.ToJsonString());
             if (State(state).FailedActions.Contains(identity, StringComparer.Ordinal)) continue;
@@ -156,11 +158,12 @@ internal static partial class PlanningCompactConstruction
                     candidate.OpenScopes.ToHashSet(StringComparer.Ordinal)).Diagnostics.Count != 0) continue;
                 candidate.Reviews.Add(new JsonObject
                 {
-                    ["purpose"] = "construction_transition", ["transition"] = "reviewed_boundary", ["version"] = 1,
+                    ["purpose"] = "construction_transition", ["transition"] = review is null ? "accepted_block_boundary" : "reviewed_boundary", ["version"] = 1,
+                    ["originCandidateHash"] = checkpoint.PlanHash,
                     ["identity"] = identity, ["checkpoint"] = checkpoint.Sequence, ["currentBaseline"] = baseline,
-                    ["reviewRequestId"] = review["requestId"]?.DeepClone(),
-                    ["reviewRequestHash"] = review["requestHash"]?.DeepClone(),
-                    ["reviewResponseHash"] = review["responseHash"]?.DeepClone(),
+                    ["reviewRequestId"] = review?["requestId"]?.DeepClone(),
+                    ["reviewRequestHash"] = review?["requestHash"]?.DeepClone(),
+                    ["reviewResponseHash"] = review?["responseHash"]?.DeepClone(),
                     ["claim"] = PlanningConstruction.Node(claim, PlanningJsonContext.Default.PlanningConstructionBoundaryTransition)
                 });
                 probe.Construction!.Candidate = candidate;
@@ -177,15 +180,16 @@ internal static partial class PlanningCompactConstruction
         if (candidate.Extension.Complete || candidate.AuthorizedPaths is not null ||
             candidate.BaseHash != PlanningConstruction.Hash(state.Plan) ||
             candidate.Reviews.LastOrDefault(row => row["purpose"]?.ToString() == "construction_transition" &&
-                row["transition"]?.ToString() == "reviewed_boundary") is not { } transition ||
+                row["transition"]?.ToString() is "reviewed_boundary" or "accepted_block_boundary") is not { } transition ||
             transition["checkpoint"]?.GetValue<int>() is not { } sequence || sequence < 1 || sequence > state.Construction!.Checkpoints.Count)
             return false;
         var origin = state.Construction.Checkpoints[sequence - 1];
-        if (HybridWorkflowPlanner.ReviewedCheckpoint(state, origin) is not { } review ||
-            transition["currentBaseline"]?.ToString() != candidate.BaseHash ||
-            transition["reviewRequestHash"]?.ToString() != review["requestHash"]?.ToString() ||
-            transition["reviewResponseHash"]?.ToString() != review["responseHash"]?.ToString() ||
-            !BoundaryBaselineCurrent(state, origin, review)) return false;
+        var review = transition["transition"]?.ToString() == "reviewed_boundary" ? HybridWorkflowPlanner.ReviewedCheckpoint(state, origin) : null;
+        if (review is null ? transition["transition"]?.ToString() != "accepted_block_boundary" || !AcceptedBlockCheckpointAuthority(state, origin) ||
+                transition["originCandidateHash"]?.ToString() != origin.PlanHash
+            : transition["reviewRequestHash"]?.ToString() != review["requestHash"]?.ToString() ||
+                transition["reviewResponseHash"]?.ToString() != review["responseHash"]?.ToString()) return false;
+        if (transition["currentBaseline"]?.ToString() != candidate.BaseHash || !BoundaryBaselineCurrent(state, origin, review)) return false;
         var claim = origin.Step?.BoundaryTransitions?.SingleOrDefault(claim => JsonNode.DeepEquals(
             transition["claim"], PlanningConstruction.Node(claim, PlanningJsonContext.Default.PlanningConstructionBoundaryTransition)));
         return claim is not null && JsonNode.DeepEquals(
@@ -196,16 +200,18 @@ internal static partial class PlanningCompactConstruction
 
     // A sequence of already authorized boundary applications may advance the
     // baseline. New business work or a revision needs its own current authority.
-    private static bool BoundaryBaselineCurrent(PlanningSession state, PlanningConstructionCheckpoint origin, JsonObject review)
+    private static bool BoundaryBaselineCurrent(PlanningSession state, PlanningConstructionCheckpoint origin, JsonObject? review)
     {
         var previous = origin.PlanHash;
         foreach (var later in state.Construction!.Checkpoints.Skip(origin.Sequence))
         {
             if (later.BaseHash != previous || later.InvalidatedTaskIds.Count != 0 ||
                 !later.Reviews.Any(row => row["purpose"]?.ToString() == "construction_transition" &&
-                    row["transition"]?.ToString() == "reviewed_boundary" && row["checkpoint"]?.ToString() == origin.Sequence.ToString(System.Globalization.CultureInfo.InvariantCulture) &&
-                    row["reviewRequestHash"]?.ToString() == review["requestHash"]?.ToString() &&
-                    row["reviewResponseHash"]?.ToString() == review["responseHash"]?.ToString())) return false;
+                    row["checkpoint"]?.ToString() == origin.Sequence.ToString(System.Globalization.CultureInfo.InvariantCulture) &&
+                    row["currentBaseline"]?.ToString() == previous && (review is null
+                        ? row["transition"]?.ToString() == "accepted_block_boundary" && row["originCandidateHash"]?.ToString() == origin.PlanHash
+                        : row["transition"]?.ToString() == "reviewed_boundary" && row["reviewRequestHash"]?.ToString() == review["requestHash"]?.ToString() &&
+                            row["reviewResponseHash"]?.ToString() == review["responseHash"]?.ToString()))) return false;
             previous = later.PlanHash;
         }
         return previous == PlanningConstruction.Hash(state.Plan);

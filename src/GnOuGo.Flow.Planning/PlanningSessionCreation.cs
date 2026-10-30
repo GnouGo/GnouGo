@@ -17,6 +17,8 @@ internal static class PlanningSessionCreation
         options.TryAdd("planning_validation_profile", TaskPlanCompiler.AssertionValidationProfile);
         state.Construction ??= new();
         state.Construction.Compact ??= new();
+        state.Construction.Compact.Blocks ??= [];
+        options.TryAdd("business_selection_contract", 1);
         state.Construction.Limits.MaxNonProductiveModelCalls ??= 6;
         var policy = state.Construction.Limits.PhasePolicy ?? PlanningConstructionPhasePolicies.Read(state.Request) ??
             new PlanningConstructionPhasePolicy

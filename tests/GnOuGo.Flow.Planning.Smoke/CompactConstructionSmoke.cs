@@ -12,7 +12,7 @@ internal static class CompactConstructionSmoke
     internal static async Task RunAsync()
     {
         var fresh = await CurrentPlanningFixture.LiteralAsync("smoke", "current-literal", null, CancellationToken.None);
-        if (fresh.SchemaVersion != 11 || fresh.ModelCalls != 4 || fresh.Construction is not { Complete: true, Candidate: null } ||
+        if (fresh.SchemaVersion != 11 || fresh.ModelCalls != 5 || fresh.Construction is not { Complete: true, Candidate: null } ||
             fresh.ApprovedHash is not null || fresh.RequestMeasurements?.Any(measurement =>
                 measurement.Components.Sum(component => component.SerializedBytes) != measurement.CompleteRequestBytes) != false)
             throw new InvalidOperationException("Current construction or reconciled measurements failed under Native AOT.");
@@ -43,7 +43,7 @@ internal static class CompactConstructionSmoke
         var archive = JsonSerializer.SerializeToNode(reviewed, PlanningJsonContext.Default.PlanningSession)!;
         archive["schemaVersion"] = 10;
         try { PlanningSessionStorage.Read(archive.ToJsonString(), "smoke", "current-recovery"); }
-        catch (PlanningConflictException) { Console.WriteLine("current construction: four calls, exact global receipt recovery, explicit approval, format-11 rejection and executed result passed"); return; }
+        catch (PlanningConflictException) { Console.WriteLine("current construction: five calls, exact global receipt recovery, explicit approval, format-11 rejection and executed result passed"); return; }
         throw new InvalidOperationException("The obsolete planning format was accepted.");
     }
 

@@ -41,35 +41,41 @@ public static class PlanningConstructionPhasePolicies
                 throw new PlanningConflictException("The captured construction phase policy is incomplete.");
         }
         var result = policy.Deserialize(PlanningJsonContext.Default.PlanningConstructionPhasePolicy)!;
-        Validate(result);
+        Validate(result, PlanningTokenThresholds.OptimizationAdvisory(planning));
         return result;
     }
 
-    public static void Validate(PlanningConstructionPhasePolicy policy)
+    public static void Validate(PlanningConstructionPhasePolicy policy) => Validate(policy, advisoryOptimization: false);
+
+    public static void Validate(PlanningConstructionPhasePolicy policy, bool advisoryOptimization)
     {
         if (policy.Version != 1) throw new PlanningConflictException("Unsupported construction phase policy version.");
         foreach (var phase in new[] { policy.Navigation, policy.Draft, policy.Review })
         {
             if (phase is null || phase.TargetInputTokens <= 0 || phase.TargetInputTokens > phase.MaxInputTokens)
-                throw new PlanningConflictException("Construction input targets must be positive and within their hard ceilings.");
+                throw new PlanningConflictException("Construction input targets must be positive and no greater than their configured maxima.");
             PlanningGenerationPolicy.Validate(new()
             {
                 MaxInputTokensPerRequest = phase.MaxInputTokens, MaxOutputTokens = phase.OutputTokens, Reasoning = phase.Reasoning
-            });
+            }, advisoryOptimization);
         }
     }
 
     public static PlanningPhaseSettings Resolve(PlanningRequest planning, string purpose)
     {
         var policy = Read(planning) ?? throw new PlanningConflictException("The captured construction phase policy is required.");
-        PlanningGenerationPolicy.Validate(planning.Generation);
+        var advisoryOptimization = PlanningTokenThresholds.OptimizationAdvisory(planning);
+        PlanningGenerationPolicy.Validate(planning.Generation, advisoryOptimization);
         var selected = purpose switch
         {
-            "construction_intent" or "construction_select" or "construction_discovery" => policy.Navigation,
+            "construction_intent" or "construction_select" or "construction_implementation" or "construction_discovery" => policy.Navigation,
             "construction_draft" or "replan" => policy.Draft,
             "construction_local_judge" or "construction_global_judge" => policy.Review,
             _ => throw new PlanningConflictException("The construction request has no recognized phase policy.")
         };
+        if (advisoryOptimization)
+            return new() { TargetInputTokens = selected.TargetInputTokens, MaxInputTokens = selected.MaxInputTokens,
+                Reasoning = selected.Reasoning, OutputTokens = selected.OutputTokens };
         var maximum = Math.Min(selected.MaxInputTokens, planning.Generation.MaxInputTokensPerRequest);
         return new() { TargetInputTokens = Math.Min(selected.TargetInputTokens, maximum), MaxInputTokens = maximum,
             Reasoning = selected.Reasoning, OutputTokens = Math.Min(selected.OutputTokens, planning.Generation.MaxOutputTokens) };
@@ -84,7 +90,7 @@ public static class PlanningConstructionPhasePolicies
         return PlanningTransportPolicies.Apply(PlanningGenerationPolicy.Apply(request, new()
         {
             MaxInputTokensPerRequest = phase.MaxInputTokens, MaxOutputTokens = phase.OutputTokens, Reasoning = phase.Reasoning
-        }), planning, explicitlyDisabled);
+        }, PlanningTokenThresholds.OptimizationAdvisory(planning)), planning, explicitlyDisabled);
     }
 
     public static void ValidateIssued(LLMRequest request, PlanningRequest planning)
@@ -98,10 +104,12 @@ public static class PlanningConstructionPhasePolicies
 
     public static PlanningConstructionPhasePolicy Capture(PlanningRequest request, PlanningConstructionPhasePolicy policy)
     {
-        Validate(policy);
-        PlanningGenerationPolicy.Validate(request.Generation);
+        var advisoryOptimization = PlanningTokenThresholds.OptimizationAdvisory(request);
+        Validate(policy, advisoryOptimization);
+        PlanningGenerationPolicy.Validate(request.Generation, advisoryOptimization);
         var clone = JsonSerializer.SerializeToNode(policy, PlanningJsonContext.Default.PlanningConstructionPhasePolicy)!
             .Deserialize(PlanningJsonContext.Default.PlanningConstructionPhasePolicy)!;
+        if (advisoryOptimization) return clone;
         foreach (var phase in new[] { clone.Navigation, clone.Draft, clone.Review })
         {
             phase.MaxInputTokens = Math.Min(phase.MaxInputTokens, request.Generation.MaxInputTokensPerRequest);

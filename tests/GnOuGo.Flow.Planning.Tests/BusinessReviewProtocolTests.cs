@@ -10,27 +10,22 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class BusinessReviewProtocolTests
 {
     [Fact]
-    public async Task RetainedCompletionClaimIsVisibleButCannotBeSelectedAgainOnUnchangedPlan()
+    public async Task PartialContributionsKeepOriginalClosuresOpenWithinTheSelectedBusinessBlock()
     {
         var (state, runtime) = await Ready();
         state.Construction!.Compact!.CurrentStep!.CloseRequirementIds.Clear();
-        state.Construction.Candidate!.Extension.ContinueInScope = "/root";
+        state.Construction.Candidate!.Extension.CompleteBlock = false;
+        state.Construction.Candidate.Extension.ContinueInScope = "/root";
         runtime.Respond = (_, _) => throw new InvalidOperationException("These technical contributions defer review to a coherent block or finalization.");
         state = await Advance(state, runtime);
-        var baseline = PlanningConstruction.Hash(state.Plan);
-        state.Construction!.Compact!.CurrentStep = new() { Id = "claim", BaseHash = baseline, Scope = "/root", Kind = "close",
-            Objective = "Propose completion of the later obligation using the accepted result.", RequirementIds = ["later"], CloseRequirementIds = ["later"],
-            Inputs = [new() { Kind = "output", Source = "compute", Port = "result" }], InputTaskIds = ["compute"], DiscoveryComplete = true };
-        state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["later"] });
-        state = await Advance(Clone(state), runtime);
         Assert.Null(state.Construction!.Candidate);
-        Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
-        Assert.True(PlanningCompactConstruction.RequirementCompletionClaimed(state, "later"));
-        Assert.False(PlanningCompactConstruction.CanClaimRequirementCompletion(state, "later"));
-        Assert.NotEqual("closed", state.Construction.Requirements.Single(requirement => requirement.Id == "later").Status);
-        var row = PlanningCompactConstruction.OriginalRequirementRows(state).Single(item => item!["id"]!.ToString() == "later")!;
-        Assert.True(row["acceptedProgress"]!["completionClaimPendingReview"]!.GetValue<bool>());
-        var schema = PlanningCompactConstruction.SelectionSchema(state);
+        Assert.False(PlanningCompactConstruction.RequirementCompletionClaimed(state, "work"));
+        Assert.True(PlanningCompactConstruction.CanClaimRequirementCompletion(state, "work"));
+        Assert.NotEqual("closed", state.Construction.Requirements.Single(requirement => requirement.Id == "work").Status);
+        var row = PlanningCompactConstruction.OriginalRequirementRows(state).Single(item => item!["id"]!.ToString() == "work")!;
+        Assert.False(row["acceptedProgress"]!["completionClaimPendingReview"]!.GetValue<bool>());
+        state.Construction.Compact!.CurrentStep = null;
+        var schema = PlanningCompactConstruction.ImplementationSchema(state);
         var choices = Nodes(schema).OfType<JsonObject>().Select(node => node["properties"]?["closeRequirementIds"])
             .OfType<JsonObject>().SelectMany(Values).ToArray();
         Assert.Contains("work", choices);
@@ -61,17 +56,18 @@ public sealed class BusinessReviewProtocolTests
     {
         var (state, runtime) = await Ready();
         state.Construction!.Compact!.CurrentStep!.CloseRequirementIds = [];
-        state.Construction.Candidate!.Extension.ContinueInScope = "/root";
+        state.Construction.Candidate!.Extension.CompleteBlock = false;
+        state.Construction.Candidate.Extension.ContinueInScope = "/root";
         state = await Advance(state, runtime);
         var checkpoint = Assert.Single(state.Construction!.Checkpoints);
         if (change == "reviewed") checkpoint.Fragment["businessReviewPending"] = false;
         else checkpoint.Fragment["tasks"]![0]!["objective"] = "A different retained implementation.";
         state.Requirements!.Outputs = [new() { Name = "result", Type = new() { Kind = "number" } }];
-        state.Construction.Compact!.CurrentStep = new() { Id = "complete", Kind = "close", Scope = "/root", RequirementIds = ["work", "later"],
+        state.Construction.Compact!.CurrentStep = new() { BlockId = state.Construction!.Compact!.CurrentBlockId, Id = "complete", Kind = "close", Scope = "/root", RequirementIds = ["work", "later"],
             CloseRequirementIds = ["work", "later"], CloseScopes = ["/root"], OutputNames = ["result"],
             Objective = "Return the computed result.", BaseHash = PlanningConstruction.Hash(state.Plan), DiscoveryComplete = true };
         state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["work", "later"],
-            Outputs = [new("result", new() { Kind = "output", Source = "compute", Port = "result" })], CloseScopes = ["/root"], Complete = true });
+            Outputs = [new("result", new() { Kind = "output", Source = "compute", Port = "result" })], CloseScopes = ["/root"], CompleteBlock = true, Complete = true });
         runtime.Respond = (_, _) => new() { Json = Change() };
         state = await Advance(state, runtime);
         Assert.Null(state.Construction!.Candidate!.AuthorizedPaths);
@@ -96,11 +92,12 @@ public sealed class BusinessReviewProtocolTests
         }
         candidate.Hash = PlanningConstruction.Hash(candidate.Plan);
         state.Construction.Compact!.CurrentStep!.CloseRequirementIds = [];
+        candidate.Extension.CompleteBlock = false;
         candidate.Extension.ContinueInScope = "/root";
         state = await Advance(state, runtime); // Technical acceptance deliberately precedes business review.
-        state.Construction!.Compact!.CurrentStep = new() { Id = "independent", Kind = "value", Scope = "/root", RequirementIds = ["later"],
+        state.Construction!.Compact!.CurrentStep = new() { BlockId = state.Construction!.Compact!.CurrentBlockId, Id = "independent", Kind = "value", Scope = "/root", RequirementIds = ["later"],
             Objective = "Build the independent numeric result.", BaseHash = PlanningConstruction.Hash(state.Plan), DiscoveryComplete = true };
-        state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["later"], Tasks = [new()
+        state.Construction.Candidate = PlanningConstruction.Apply(state, new() { CompleteBlock = false, Scope = "/root", RequirementIds = ["later"], Tasks = [new()
         { Id = "independent", Kind = "value", Objective = "Keep the independent constant.", Outputs = [new("value", new() { Kind = "number", Number = 42 })] }] });
         runtime.Respond = (_, purpose) =>
         {
@@ -110,11 +107,11 @@ public sealed class BusinessReviewProtocolTests
         state = await Advance(state, runtime);
         var independent = state.Construction!.Checkpoints[1];
         var independentHash = independent.PlanHash; var independentBytes = independent.Fragment["tasks"]!.ToJsonString();
-        state.Construction.Compact!.CurrentStep = new() { Id = "complete", Kind = "close", Scope = "/root", RequirementIds = ["work", "later"],
+        state.Construction.Compact!.CurrentStep = new() { BlockId = state.Construction!.Compact!.CurrentBlockId, Id = "complete", Kind = "close", Scope = "/root", RequirementIds = ["work", "later"],
             CloseRequirementIds = ["work", "later"], CloseScopes = ["/root"], OutputNames = ["result"],
             Objective = "Return the doubled input.", BaseHash = PlanningConstruction.Hash(state.Plan), DiscoveryComplete = true };
         state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["work", "later"],
-            Outputs = [new("result", new() { Kind = "output", Source = downstream ? "consumer" : "compute", Port = "result" })], CloseScopes = ["/root"], Complete = true });
+            Outputs = [new("result", new() { Kind = "output", Source = downstream ? "consumer" : "compute", Port = "result" })], CloseScopes = ["/root"], CompleteBlock = true, Complete = true });
         var consumerBytes = downstream ? PlanningConstruction.TaskNode(state.Construction.Candidate.Plan.Root.Tasks[1]).ToJsonString() : null;
         var reviews = 0;
         runtime.Respond = (request, purpose) =>
@@ -147,7 +144,7 @@ public sealed class BusinessReviewProtocolTests
         }
         state = await Advance(Clone(state), runtime);
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
-        Assert.Equal(2, reviews); Assert.Equal(4, state.ModelCalls);
+        Assert.Equal(2, reviews); Assert.Equal(3, state.ModelCalls);
         Assert.Contains("compute", state.Construction!.Checkpoints[0].InvalidatedTaskIds);
         Assert.Empty(state.Construction.Checkpoints[1].InvalidatedTaskIds);
         Assert.Equal(independentHash, state.Construction.Checkpoints[1].PlanHash);
@@ -322,7 +319,12 @@ public sealed class BusinessReviewProtocolTests
             var response = judges switch { 1 => Context(runtime.EvidenceId(request, "task:compute")), 2 => Change(), 3 => Report("ok"), _ => throw new InvalidOperationException("Unexpected extra business review.") };
             if (judges == 3)
             {
-                Assert.Equal("needs_change", context["interpretationReconsideration"]!["priorReport"]!["decision"]!["verdict"]!.ToString());
+                Assert.Null(context["interpretationReconsideration"]);
+                var concern = Assert.Single(context["priorConcerns"]!.AsArray())!;
+                Assert.Equal("work", Assert.Single(concern["obligations"]!.AsArray())!["id"]!.ToString());
+                Assert.Single(concern["targets"]!.AsArray());
+                Assert.True(JsonNode.DeepEquals(concern["before"], concern["current"]));
+                Assert.Null(concern["priorReport"]); Assert.Null(concern["instruction"]);
                 Assert.Equal(candidateHash, state.Construction!.Candidate!.Hash);
             }
             Assert.Empty(PlanningModelCalls.ValidateResponseFindings(runtime.WireResponse(request, response), request.StructuredOutputSchema!));
@@ -386,7 +388,8 @@ public sealed class BusinessReviewProtocolTests
         var selected = state.Construction!.Compact!.CurrentStep!;
         selected.RequirementIds = ["work", "later"]; selected.CloseRequirementIds = ["work", "later"]; selected.OutputNames = ["result"];
         selected.Objective = "Compute both requested results and return the final number.";
-        state.Construction.Candidate!.Extension.ContinueInScope = "/root";
+        state.Construction.Candidate!.Extension.CompleteBlock = false;
+        state.Construction.Candidate.Extension.ContinueInScope = "/root";
         var globalCalls = 0;
         runtime.Respond = (request, purpose) =>
         {
@@ -422,7 +425,7 @@ public sealed class BusinessReviewProtocolTests
         Assert.All(state.Construction.Checkpoints, checkpoint => Assert.Equal(selected.Id, checkpoint.Step!.Id));
         Assert.Equal(selected.Id, state.Construction.Compact!.CurrentStep!.Id);
         state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["work", "later"],
-            Outputs = [new("result", new() { Kind = "output", Source = "finish", Port = "result" })], CloseScopes = ["/root"], Complete = true });
+            Outputs = [new("result", new() { Kind = "output", Source = "finish", Port = "result" })], CloseScopes = ["/root"], CompleteBlock = true, Complete = true });
         state = await Advance(state, runtime);
         if (reconsiderAcceptedFinding)
         {
@@ -446,13 +449,14 @@ public sealed class BusinessReviewProtocolTests
         Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(state));
     }
 
-    internal static async Task<(PlanningSession State, TestRuntime Runtime)> Ready()
+    internal static async Task<(PlanningSession State, TestRuntime Runtime)> Ready(bool advisoryOptimization = false)
     {
         const string first = "Double the supplied number. ";
         const string later = "The later independent result will be added next.";
         var state = new PlanningSession { Request = new() { TenantId = "business-review", Prompt = first + later,
             MaxModelCalls = 64, MaxReplanAttempts = 4, Generation = new("medium", 32_000, 8_192),
             Options = new() { ["automatic_correction"] = true } } };
+        if (advisoryOptimization) state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
         PlanningSessionCreation.Capture(state);
         var runtime = new TestRuntime();
         state.Catalog = await runtime.DiscoverAsync(state.Request, TestContext.Current.CancellationToken);
@@ -465,9 +469,15 @@ public sealed class BusinessReviewProtocolTests
         compact.RequirementSources["work"] = ["request:0:clause:0"]; compact.RequirementSources["later"] = ["request:0:clause:1"];
         state.Construction.Requirements = [new() { Id = "work" }, new() { Id = "later" }];
         state.Plan = new() { Inputs = state.Requirements.Inputs.ToList() };
-        compact.CurrentStep = new() { Id = "calculation", BaseHash = PlanningConstruction.Hash(state.Plan), Scope = "/root", Kind = "value",
+        PlanningCompactConstruction.SelectBlock(state, new JsonObject
+        {
+            ["objective"] = first, ["requirementIds"] = new JsonArray("work"),
+            ["informationNeeds"] = new JsonArray("The supplied number"), ["expectedResults"] = new JsonArray("The doubled number"),
+            ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray("The result is twice the supplied number")
+        });
+        compact.CurrentStep = new() { BlockId = compact.CurrentBlockId, Id = "calculation", BaseHash = PlanningConstruction.Hash(state.Plan), Scope = "/root", Kind = "value",
             Objective = "Compute the actual doubled number.", RequirementIds = ["work"], CloseRequirementIds = ["work"], DiscoveryComplete = true };
-        state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["work"], Tasks = [new()
+        state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["work"], CompleteBlock = true, Tasks = [new()
         {
             Id = "compute", Kind = "value", Objective = "Double the caller number.", Outputs = [new("result", new() { Kind = "arithmetic", Text = "multiply",
                 Items = [new() { Kind = "input", Source = "x" }, new() { Kind = "number", Number = 2 }] })]

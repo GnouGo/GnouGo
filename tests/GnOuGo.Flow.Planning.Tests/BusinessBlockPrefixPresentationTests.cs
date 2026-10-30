@@ -9,13 +9,16 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class BusinessBlockPrefixPresentationTests
 {
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task TenOperationCallsUseOneActualSelectionAndTwoDraftsAcrossRestart(bool resolvedOnly)
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    public async Task TenOperationCallsUseOneActualSelectionAndTwoDraftsAcrossRestart(bool resolvedOnly, bool continueCursor)
     {
         const string original = "Using the caller's string query, read records 0 through 7 using the first source, then records 8 and 9 using the second source.";
         const string later = " Produce a separate summary after reading the records.";
-        var state = PlannerFixture.Capture(new() { Request = new() { TenantId = "block-prefix", Prompt = original + later,
+        var state = PlannerFixture.Capture(new() { Construction = new() { Limits = new() { PhasePolicy = new()
+            { Navigation = new() { TargetInputTokens = 3000, MaxInputTokens = 12000 } } } }, Request = new() { TenantId = "block-prefix", Prompt = original + later,
             MaxModelCalls = 64, Generation = new("medium", 32_000, 8_192), Options = new() { ["automatic_correction"] = true } } });
         var runtime = new TestRuntime();
         var selections = 0; var drafts = 0; var reviews = 0;
@@ -34,6 +37,16 @@ public sealed class BusinessBlockPrefixPresentationTests
             if (purpose == PlanningCompactConstruction.SelectPurpose)
             {
                 selections++;
+                return Wire(request, new() { ["block"] = new JsonObject
+                {
+                    ["objective"] = original, ["requirementIds"] = new JsonArray("req_0"),
+                    ["informationNeeds"] = new JsonArray("The caller query"),
+                    ["expectedResults"] = new JsonArray("The ten exact requested records have been read."),
+                    ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray("Read exact indices zero through nine from their requested sources")
+                } });
+            }
+            if (purpose == PlanningCompactConstruction.ImplementationPurpose)
+            {
                 return Wire(request, new()
                 {
                     ["baseHash"] = request.StructuredOutputSchema!["properties"]!["baseHash"]!["enum"]![0]!.DeepClone(),
@@ -63,7 +76,7 @@ public sealed class BusinessBlockPrefixPresentationTests
             drafts++;
             return Wire(request, new() { ["extension"] = JsonSerializer.SerializeToNode(new PlanningConstructionExtension
             {
-                Scope = "/root", RequirementIds = ["req_0"], ContinueInScope = drafts == 1 ? "/root" : null,
+                Scope = "/root", RequirementIds = ["req_0"], CompleteBlock = drafts == 2, ContinueInScope = drafts == 1 && continueCursor ? "/root" : null,
                 Tasks = Enumerable.Range(drafts == 1 ? 0 : 8, drafts == 1 ? 8 : 2).Select(index => Operation(index, index < 8 ? "a_first" : "a_second", query: true)).ToList()
             }, PlanningJsonContext.Default.PlanningConstructionExtension) });
         };
@@ -71,7 +84,10 @@ public sealed class BusinessBlockPrefixPresentationTests
         Assert.Empty(state.Diagnostics);
         state.Catalog = await runtime.DiscoverAsync(state.Request, PlannerFixture.Ct);
         AddOperations(state, resolvedOnly, query: true);
-        state = await Advance(state, runtime); // actual model selection of both exact contracts
+        state = await Advance(state, runtime); // actual business-only selection
+        Assert.NotNull(state.Construction!.Compact!.CurrentBlockId);
+        Assert.Null(state.Construction.Compact.CurrentStep);
+        state = await Advance(PlannerFixture.Clone(state), runtime); // implementation selection of both exact contracts
         Assert.Empty(state.Diagnostics);
         Assert.Equal(1, selections);
         if (resolvedOnly) Assert.Empty(state.Catalog!.Capabilities);
@@ -89,12 +105,24 @@ public sealed class BusinessBlockPrefixPresentationTests
         Assert.Equal(8, state.Plan!.Root.Tasks.Count);
         Assert.All(state.Plan.Root.Tasks, task => Assert.Equal("operation", task.Kind));
         Assert.Equal(0, reviews);
-        Assert.Equal(stepId, state.Construction!.Compact!.CurrentStep!.Id);
-        Assert.Equal(["a_first", "a_second"], state.Construction.Compact.CurrentStep.OperationIds);
-        var continuedSelection = JsonNode.Parse(selected)!;
-        continuedSelection["baseHash"] = state.Construction.Compact.CurrentStep.BaseHash;
-        Assert.True(JsonNode.DeepEquals(continuedSelection,
-            JsonSerializer.SerializeToNode(state.Construction.Compact.CurrentStep, PlanningJsonContext.Default.PlanningConstructionStep)));
+        var blockId = state.Construction!.Compact!.CurrentBlockId;
+        if (continueCursor)
+        {
+            Assert.Equal(stepId, state.Construction.Compact.CurrentStep!.Id);
+            Assert.Equal(["a_first", "a_second"], state.Construction.Compact.CurrentStep.OperationIds);
+            var continuedSelection = JsonNode.Parse(selected)!;
+            continuedSelection["baseHash"] = state.Construction.Compact.CurrentStep.BaseHash;
+            Assert.True(JsonNode.DeepEquals(continuedSelection,
+                JsonSerializer.SerializeToNode(state.Construction.Compact.CurrentStep, PlanningJsonContext.Default.PlanningConstructionStep)));
+        }
+        else
+        {
+            Assert.Null(state.Construction.Compact.CurrentStep);
+            state = await Advance(PlannerFixture.Clone(state), runtime);
+            Assert.Empty(state.Diagnostics);
+            Assert.NotEqual(stepId, state.Construction!.Compact!.CurrentStep!.Id);
+            Assert.Equal(blockId, state.Construction.Compact.CurrentStep.BlockId);
+        }
         Assert.Empty(Assert.Single(state.Construction.Checkpoints).ClosedRequirementIds!);
         Assert.True(state.Construction.Checkpoints[0].Fragment["businessReviewPending"]!.GetValue<bool>());
         Assert.Equal("in_progress", state.Construction.Requirements.Single(requirement => requirement.Id == "req_0").Status);
@@ -103,7 +131,7 @@ public sealed class BusinessBlockPrefixPresentationTests
         var restored = PlannerFixture.Clone(state);
         Assert.Equal(PlanningConstruction.DraftRequest(state, false).Prompt, PlanningConstruction.DraftRequest(restored, false).Prompt);
         var unfinished = PlannerFixture.Clone(restored);
-        var premature = PlanningConstruction.Apply(unfinished, new() { Scope = "/root", RequirementIds = ["req_0"], Tasks = [Operation(8, "a_first", query: true)] });
+        var premature = PlanningConstruction.Apply(unfinished, new() { Scope = "/root", RequirementIds = ["req_0"], CompleteBlock = true, Tasks = [Operation(8, "a_first", query: true)] });
         unfinished.Construction!.Candidate = premature;
         PlanningCompactConstruction.StageCommitments(unfinished, null, premature);
         var missing = PlanningCompactConstruction.CandidateFindings(unfinished);
@@ -119,7 +147,9 @@ public sealed class BusinessBlockPrefixPresentationTests
         Assert.Equal(Enumerable.Range(0, 10).Select(index => (double)index), state.Plan.Root.Tasks.Select(task => task.Inputs.Single(input => input.Name == "index").Value.Number!.Value));
         Assert.All(state.Plan.Root.Tasks, task => Assert.Equal("query", task.Inputs.Single(input => input.Name == "query").Value.Source));
         Assert.Equal(2, state.Construction!.Checkpoints.Count);
-        Assert.All(state.Construction.Checkpoints, checkpoint => Assert.Equal(stepId, checkpoint.Step!.Id));
+        Assert.All(state.Construction.Checkpoints, checkpoint => Assert.Equal(blockId, checkpoint.Step!.BlockId));
+        if (continueCursor) Assert.All(state.Construction.Checkpoints, checkpoint => Assert.Equal(stepId, checkpoint.Step!.Id));
+        Assert.Null(state.Construction.Compact!.CurrentBlockId);
         Assert.Null(state.Construction.Compact!.CurrentStep);
         Assert.Equal("closed", state.Construction.Requirements.Single(requirement => requirement.Id == "req_0").Status);
         Assert.NotEqual("closed", state.Construction.Requirements.Single(requirement => requirement.Id == "req_1").Status);

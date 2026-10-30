@@ -19,6 +19,10 @@ public static class PlanningBenchmarkMeasurements
     // Captured limits cannot change within an active-format cohort.
     public static void ConfigureRequest(PlanningRequest request, string[] args, bool retained)
     {
+        var diagnostic = args.Contains("--diagnostic-optimization-thresholds", StringComparer.Ordinal);
+        if (retained && diagnostic && !PlanningTokenThresholds.OptimizationAdvisory(request))
+            throw new InvalidOperationException("Optimization policy differs from the frozen run. Start a separate cohort.");
+        if (!retained && diagnostic) request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
         var advisory = args.Contains("--advisory-token-thresholds", StringComparer.Ordinal);
         if (retained && advisory && !PlanningTokenThresholds.Advisory(request))
             throw new InvalidOperationException("Token policy differs from the frozen run. Start a separate cohort.");
@@ -44,6 +48,8 @@ public static class PlanningBenchmarkMeasurements
             {
                 ["construction_limits"] = new JsonObject { ["phasePolicy"] = JsonNode.Parse(File.ReadAllText(file)) }
             } };
+            if (request.Options.TryGetPropertyValue(PlanningTokenThresholds.OptimizationOptionName, out var optimization))
+                probe.Options[PlanningTokenThresholds.OptimizationOptionName] = optimization?.DeepClone();
             selectedPolicy = PlanningConstructionPhasePolicies.Read(probe)
                 ?? throw new ArgumentException("Supply a complete phase policy.");
         }
@@ -52,7 +58,8 @@ public static class PlanningBenchmarkMeasurements
         var preset = presetPositions.Length == 0 ? null : PlanningConstructionPresets.Validate(
             args.ElementAtOrDefault(presetPositions[0].index + 1) ?? throw new ArgumentException("Missing construction preset."));
         var totalTokens = Number("--max-total-tokens"); var elapsed = Number("--max-elapsed-ms");
-        if (totalTokens > 15_000_000 && !PlanningTokenThresholds.Advisory(request) || elapsed > 18_000_000)
+        if (totalTokens > 15_000_000 && !PlanningTokenThresholds.Advisory(request) ||
+            elapsed > 18_000_000 && !PlanningTokenThresholds.OptimizationAdvisory(request))
             throw new ArgumentException("Cumulative benchmark allowances cannot exceed the authorized creation ceilings.");
         var automatic = args.Contains("--automatic-correction", StringComparer.Ordinal);
         var firstConstructionConfiguration = request.Options["construction_limits"] is null;
@@ -116,7 +123,7 @@ public static class PlanningBenchmarkMeasurements
             ["reasoning"] = request.Generation.Reasoning
         };
         foreach (var key in new[] { "construction_preset", "construction_limits", "llm_budget", "automatic_correction",
-            PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms", PlanningTokenThresholds.OptionName })
+            PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms", PlanningTokenThresholds.OptionName, PlanningTokenThresholds.OptimizationOptionName })
             if (request.Options[key] is { } value) result[key] = value.DeepClone();
         result["policy"] = JsonSerializer.SerializeToNode(request.Policy, PlanningJsonContext.Default.PlanningPolicy);
         if (PhasePolicyHash(request) is { } profileHash) result["phase_policy_hash"] = profileHash;
@@ -127,7 +134,7 @@ public static class PlanningBenchmarkMeasurements
     {
         var captured = request.Options["benchmark_planning_elapsed_ms"];
         var milliseconds = captured?.GetValue<long>() ?? throw new InvalidOperationException("The captured benchmark planning duration is required.");
-        if (milliseconds is <= 0 or > 18_000_000)
+        if (milliseconds <= 0 || milliseconds > 18_000_000 && !PlanningTokenThresholds.OptimizationAdvisory(request))
             throw new InvalidOperationException("The captured benchmark planning duration is invalid.");
         var host = TimeSpan.FromMilliseconds(milliseconds);
         return PlanningBudgetOptions.Parse(request.Options)?.MaxElapsed is { } planner && planner < host ? planner : host;
@@ -138,9 +145,39 @@ public static class PlanningBenchmarkMeasurements
         if (!double.IsFinite(priorMilliseconds) || !double.IsFinite(interruptedMilliseconds) || priorMilliseconds < 0 || interruptedMilliseconds < 0)
             throw new ArgumentOutOfRangeException(nameof(priorMilliseconds));
         var elapsed = Math.Max(priorMilliseconds, state.ActiveMilliseconds) + interruptedMilliseconds;
-        var remaining = PlanningElapsedLimit(state.Request) - TimeSpan.FromMilliseconds(elapsed);
+        var target = PlanningElapsedLimit(state.Request);
+        if (PlanningTokenThresholds.OptimizationAdvisory(state.Request))
+        {
+            if (elapsed >= target.TotalMilliseconds)
+                OptimizationWarning(state, "elapsed_ms", checked((long)elapsed), checked((long)target.TotalMilliseconds));
+            return Timeout.InfiniteTimeSpan;
+        }
+        var remaining = target - TimeSpan.FromMilliseconds(elapsed);
         if (remaining <= TimeSpan.Zero) throw new InvalidOperationException("Active planning time is exhausted; continuation cannot reset it.");
         return remaining;
+    }
+
+    public static bool CanAdvance(PlanningSession state, long advances)
+    {
+        if (advances < 0) throw new ArgumentOutOfRangeException(nameof(advances));
+        if (PlanningStatus.IsWaiting(state.Status) || PlanningStatus.IsTerminal(state.Status)) return false;
+        var target = Math.Max(40L, (long)state.Request.MaxModelCalls * 4);
+        if (advances < target) return true;
+        if (!PlanningTokenThresholds.OptimizationAdvisory(state.Request)) return false;
+        OptimizationWarning(state, "host_advances", checked(advances + 1), target);
+        return true;
+    }
+
+    private static void OptimizationWarning(PlanningSession state, string kind, long current, long threshold)
+    {
+        PlanningTokenThresholds.Warn("benchmark_host", kind, current, threshold);
+        var warning = new PlanningThresholdWarning(kind, current, threshold, "retained_host_measurement", "benchmark_host")
+        {
+            SessionId = state.Request.SessionId, RequestId = state.PendingCall?.Id,
+            BlockId = state.Construction?.Compact?.CurrentBlockId, StepId = state.Construction?.Compact?.CurrentStep?.Id, Checkpoint = state.Construction?.Checkpoints.Count
+        };
+        var warnings = state.ThresholdWarnings ??= [];
+        if (!warnings.Contains(warning)) warnings.Add(warning);
     }
 
     public static string? Cohort(string[] args)
@@ -173,7 +210,7 @@ public static class PlanningBenchmarkMeasurements
             Policy = settings["policy"]!.Deserialize(PlanningJsonContext.Default.PlanningPolicy)!
         };
         foreach (var key in new[] { "construction_preset", "construction_limits", "llm_budget", "automatic_correction",
-            PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms", PlanningTokenThresholds.OptionName })
+            PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms", PlanningTokenThresholds.OptionName, PlanningTokenThresholds.OptimizationOptionName })
             if (settings[key] is { } value) result.Options[key] = value.DeepClone();
         return result;
     }
@@ -283,7 +320,7 @@ public static class PlanningBenchmarkMeasurements
         measured.TryAdd(measurement.RequestHash, JsonSerializer.SerializeToNode(measurement, PlanningJsonContext.Default.PlanningRequestMeasurement));
     }
 
-    public static JsonObject RequestMetrics(JsonObject run)
+    public static JsonObject RequestMetrics(JsonObject run, JsonObject? accounting = null)
     {
         var records = new Dictionary<string, JsonObject>(StringComparer.Ordinal);
         foreach (var measurement in (run["request_measurements"] as JsonObject ?? []).Select(p => p.Value).OfType<JsonObject>())
@@ -304,11 +341,47 @@ public static class PlanningBenchmarkMeasurements
             measurement["elapsed_ms"] = run["call_stages"]?[id]?["elapsed_ms"]?.DeepClone();
             measurement["completion_status"] = (response?["completion_status"] ?? measurement["result"])?.DeepClone();
         }
-        return RequestMetricsForRecords(records.Values.ToArray());
+        var result = RequestMetricsForRecords(records.Values.ToArray());
+        var warnings = result["warnings"]!.AsArray();
+        var combined = new JsonArray();
+        foreach (var row in warnings.OfType<JsonObject>()) Add(row, "request");
+        foreach (var warning in (run["session"]?["thresholdWarnings"] as JsonArray ?? []).OfType<JsonObject>())
+            Add(new JsonObject { ["request_id"] = warning["requestId"]?.DeepClone(), ["phase"] = warning["stage"]?.DeepClone(),
+                ["block"] = warning["blockId"]?.DeepClone(), ["step"] = warning["stepId"]?.DeepClone(), ["warning"] = warning.DeepClone() }, "session");
+        accounting ??= run["result"]?["accounting"] as JsonObject;
+        foreach (var scope in new[] { "planning", "execution" })
+            foreach (var warning in (accounting?[scope]?["warnings"] as JsonArray ?? []).OfType<JsonObject>())
+                Add(new JsonObject { ["request_id"] = warning["request_id"]?.DeepClone(), ["phase"] = warning["stage"]?.DeepClone(),
+                    ["warning"] = warning.DeepClone() }, "http_" + scope);
+        result["warnings"] = combined;
+        return result;
+
+        void Add(JsonObject row, string origin)
+        {
+            var warning = row["warning"]!.AsObject();
+            var id = row["request_id"]?.ToString();
+            var existing = combined.OfType<JsonObject>().FirstOrDefault(previous =>
+                previous["request_id"]?.ToString() == id &&
+                new[] { "kind", "current", "threshold", "stage" }.All(key => JsonNode.DeepEquals(previous["warning"]?[key], warning[key])) &&
+                (id is not null || new[] { "sessionId", "blockId", "stepId", "checkpoint" }.All(key => JsonNode.DeepEquals(previous["warning"]?[key], warning[key]))));
+            if (existing is null)
+            {
+                existing = row.DeepClone().AsObject(); existing["origins"] = new JsonArray(origin); combined.Add(existing);
+            }
+            else
+            {
+                var origins = existing["origins"]!.AsArray();
+                if (!origins.Any(value => value?.ToString() == origin)) origins.Add(origin);
+                foreach (var (key, value) in warning)
+                    if (existing["warning"]![key] is null) existing["warning"]![key] = value?.DeepClone();
+            }
+        }
     }
 
     private static JsonObject RequestMetricsForRecords(IReadOnlyList<JsonObject> records)
     {
+        var productive = records.Where(m => (m["transitions"] as JsonArray ?? []).Any(t => t?["productiveChanges"]?.GetValue<int>() > 0)).ToArray();
+        var knownBlocks = productive.All(record => record["blockId"] is JsonValue);
         var phases = new JsonObject();
         foreach (var group in records.GroupBy(m => m["phase"]!.ToString()))
         {
@@ -346,11 +419,12 @@ public static class PlanningBenchmarkMeasurements
         return new()
         {
             ["estimator"] = "serialized_utf8_div3_plus256_v1", ["phases"] = phases,
-            ["productive_business_blocks"] = records.Where(m => (m["transitions"] as JsonArray ?? []).Any(t => t?["productiveChanges"]?.GetValue<int>() > 0))
-                .Select(m => m["stepId"]?.ToString()).OfType<string>().Distinct(StringComparer.Ordinal).Count(),
+            ["productive_business_blocks"] = knownBlocks ? productive.Select(m => m["blockId"]!.ToString()).Distinct(StringComparer.Ordinal).Count() : (int?)null,
+            ["business_block_identity_complete"] = knownBlocks,
+            ["productive_implementation_steps"] = productive.Select(m => m["stepId"]?.ToString()).OfType<string>().Distinct(StringComparer.Ordinal).Count(),
             ["warnings"] = new JsonArray(records.SelectMany(m => (m["warnings"] as JsonArray ?? []).OfType<JsonObject>()
                 .Select(warning => (JsonNode)new JsonObject { ["request_id"] = m["requestId"]?.DeepClone(),
-                    ["phase"] = m["phase"]?.DeepClone(), ["block"] = m["stepId"]?.DeepClone(), ["warning"] = warning.DeepClone() })).ToArray()),
+                    ["phase"] = m["phase"]?.DeepClone(), ["block"] = m["blockId"]?.DeepClone(), ["step"] = m["stepId"]?.DeepClone(), ["warning"] = warning.DeepClone() })).ToArray()),
             ["requests"] = new JsonArray(records.Select(m => (JsonNode)m.DeepClone()).ToArray()),
             ["interpretation"] = "Peaks, percentiles and component sums include all prepared requests, including rejected requests. Requests counts admitted requests; admitted peaks and limits are explicit. Component estimates describe serialized request bytes, not billed usage. Judge is a phase; component token rounding is not additive. Provider input/output usage is measured for each whole call."
         };
@@ -611,7 +685,7 @@ public static class PlanningBenchmarkMeasurements
 
     public static void ProposalMetrics(JsonObject run, JsonObject result)
     {
-        result["request_metrics"] = RequestMetrics(run);
+        result["request_metrics"] = RequestMetrics(run, result["accounting"] as JsonObject);
         result["response_metrics"] = run["response_measurements"]?.DeepClone();
         var first = run["first_proposal"];
         result["first_proposal_call"] = first?["call"]?.DeepClone();

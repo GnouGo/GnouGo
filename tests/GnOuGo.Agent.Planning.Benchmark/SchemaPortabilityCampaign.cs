@@ -165,6 +165,8 @@ internal static class SchemaPortabilityCampaign
             Console.WriteLine(new JsonObject
             {
                 ["responses"] = responses,
+                ["threshold_warnings"] = saved["session"]?["thresholdWarnings"]?.DeepClone(),
+                ["request_metrics"] = GnOuGo.Planning.Examples.PlanningBenchmarkMeasurements.RequestMetrics(saved),
                 ["runtime_mapping_receipts"] = mappings,
                 ["mapping_telemetry"] = saved["mapping_telemetry"]?.DeepClone(),
                 ["execution_model_usage"] = executionRun?.ModelUsage is { } executionUsage

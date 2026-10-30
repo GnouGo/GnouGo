@@ -22,6 +22,49 @@ public sealed class CompactIntentIndexingTests
         new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
 
     [Fact]
+    public void DiagnosticIntentRetainsLargeExactDeclarationsAndLiteralDefaults()
+    {
+        var input = new TaskInput { Name = new string('n', 97), Required = false,
+            Type = new() { Kind = "array", Items = new() { Kind = "string" }, MaxItems = 300 },
+            Default = new() { Kind = "array", Items = Enumerable.Range(0, 257)
+                .Select(index => new TaskValue { Kind = "string", Text = index == 0 ? new string('x', 1001) : index.ToString(System.Globalization.CultureInfo.InvariantCulture) }).ToList() } };
+        var inputs = Declarations(Enumerable.Range(0, 17).Select(index => new TaskInput
+        { Name = "input_" + index, Type = new() { Kind = "string" } }).Append(input).ToArray());
+        var outputs = Declarations(Enumerable.Range(0, 17).Select(index => new TaskInput
+        { Name = "output_" + index, Type = new() { Kind = "string" } }).ToArray());
+        var source = new PlanningConstructionSource { Text = "Keep every declared caller value and default exactly." };
+        var response = new JsonObject { ["evidenceRequests"] = null, ["clarifications"] = null,
+            ["clauses"] = new JsonArray(Enumerable.Range(0, 129).Select(index => (JsonNode)new JsonObject
+            {
+                ["text"] = "Keep.", ["kind"] = "requirement",
+                ["inputs"] = index == 0 ? inputs.DeepClone() : new JsonArray(),
+                ["outputs"] = index == 0 ? outputs.DeepClone() : new JsonArray()
+            }).ToArray()) };
+        var strict = PlanningCompactConstruction.IntentSchema(source);
+        var diagnostic = PlanningCompactConstruction.IntentSchema(source, diagnostic: true);
+        response = PlanningCorpus.Transport(response, diagnostic, diagnostic)!.AsObject();
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(response, strict));
+        Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response, diagnostic));
+        Assert.Equal(300, TaskPlanCompiler.TypeSchema(input.Type)["maxItems"]!.GetValue<int>());
+        response["clauses"]![0]!["inputs"]![0]!["type"]!["kind"] = "invented";
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(response, diagnostic));
+    }
+
+    [Fact]
+    public void DiagnosticIntentEvidenceBatchStillRequiresExactIssuedOriginals()
+    {
+        var source = new PlanningConstructionSource { Text = "Preserve the exact linked originals." };
+        var addresses = Enumerable.Range(0, 9).Select(index => "source:original_" + index).ToArray();
+        var response = new JsonObject { ["clauses"] = null, ["clarifications"] = null,
+            ["evidenceRequests"] = new JsonArray(addresses.Select(address => (JsonNode)JsonValue.Create(address)!).ToArray()) };
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(response, PlanningCompactConstruction.IntentSchema(source, addresses)));
+        var diagnostic = PlanningCompactConstruction.IntentSchema(source, addresses, diagnostic: true);
+        Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response, diagnostic));
+        response["evidenceRequests"]![8] = "source:unissued";
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(response, diagnostic));
+    }
+
+    [Fact]
     public async Task ShortOriginalCoverageAndBothInterfacesCommitInOneCall()
     {
         var runtime = new TestRuntime { Respond = (request, _) => Wire(request, Index(request)) };
@@ -209,7 +252,7 @@ public sealed class CompactIntentIndexingTests
             Declarations(new TaskInput() { Name = "pullRequestUrl", Type = new() { Kind = "string" } }, new() { Name = "reviewText", Type = new() { Kind = "string" } }))) });
         Assert.Empty(state.Diagnostics);
         Assert.Single(state.Construction!.Compact!.Sources, source => source.Kind == "page");
-        var selection = PlanningCompactConstruction.SelectionContext(state).ToJsonString();
+        var selection = PlanningCompactConstruction.ImplementationContext(state).ToJsonString();
         foreach (var required in new[] { "branch=", "targetDirectory=", "review.json", "LOCAUX", "unique", "même en cas" })
             Assert.Contains(required, System.Text.RegularExpressions.Regex.Unescape(selection), StringComparison.Ordinal);
         var contract = retained["cloneContract"]!.Deserialize(PlanningJsonContext.Default.PlanningCapability)!;
@@ -220,7 +263,13 @@ public sealed class CompactIntentIndexingTests
         faultyPlan.Root.Tasks.Add(faulty);
         Assert.Empty(TaskPlanCompiler.ValidateConstruction(faultyPlan, state.Catalog, state.Request, new HashSet<string> { "/root" }).Diagnostics);
         Assert.False(CloneMatchesOriginal(faulty, retained["firstClone"]!));
-        state.Construction.Compact.CurrentStep = new() { Id = "clone", Kind = "operation", Scope = "/root", Objective = "Clone the exact repository, revision and directory.",
+        PlanningCompactConstruction.SelectBlock(state, new JsonObject
+        {
+            ["objective"] = "Clone the exact repository, revision and directory.", ["requirementIds"] = new JsonArray("req_0"),
+            ["informationNeeds"] = new JsonArray(), ["expectedResults"] = new JsonArray("The exact requested repository checkout."),
+            ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray("The checkout respects the original URL, branch and directory constraints.")
+        });
+        state.Construction.Compact.CurrentStep = new() { Id = "clone", BlockId = state.Construction.Compact.CurrentBlockId, Kind = "operation", Scope = "/root", Objective = "Clone the exact repository, revision and directory.",
             RequirementIds = ["req_0"], OperationIds = [contract.Id], BaseHash = PlanningConstruction.Hash(state.Plan), DiscoveryComplete = true };
         var operation = TaskOperations.Describe(contract);
         PlanningConstruction.LoadEvidence(state, ["schema:" + operation.Id + "@" + operation.Version + ":/input/properties/branch"]);
@@ -237,7 +286,7 @@ public sealed class CompactIntentIndexingTests
         {
             Assert.Equal(PlanningConstruction.DraftPurpose, purpose);
             return Wire(request, new JsonObject { ["extension"] = JsonSerializer.SerializeToNode(new PlanningConstructionExtension
-                { Scope = "/root", Tasks = [corrected], RequirementIds = ["req_0"] }, PlanningJsonContext.Default.PlanningConstructionExtension) });
+                { Scope = "/root", Tasks = [corrected], RequirementIds = ["req_0"], CompleteBlock = false }, PlanningJsonContext.Default.PlanningConstructionExtension) });
         } };
         state = await Advance(state, runtime);
         Assert.Empty(state.Diagnostics);

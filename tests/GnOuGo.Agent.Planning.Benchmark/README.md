@@ -98,7 +98,8 @@ disconnects, invalid model output and output exhaustion do not retry automatical
 All failed-attempt reservations remain unknown usage until independently verified;
 a later successful attempt does not release them.
 
-Preserve physical-call, correction, time, captured API output and financial guards.
+Ordinary sessions preserve physical-call, correction and time targets as guards.
+Captured API allocations and financial guards remain explicit.
 The trusted campaign builder may capture `--advisory-token-thresholds` before fresh
 session creation. This stores `token_threshold_policy: "advisory"` in the frozen
 configuration and HTTP policy. All project input and cumulative-token thresholds
@@ -112,6 +113,36 @@ never inference input or headers. Mapping keeps complete required examples and o
 context when estimates cross thresholds; sampling still targets small requests. Completed
 agent usage may warn, while incomplete outcomes, call/time limits, evidence verification
 and exact receipt recovery remain enforced. Durable budget reconstruction retains the incoming trusted mode with the saved limits and usage; it never derives authority from archived data.
+For a **new authorized diagnostic session**, `--diagnostic-optimization-thresholds`
+captures the distinct `optimization_threshold_policy: "diagnostic-v1"`. It also makes
+planning task/operation/checkpoint/graph, call/correction/session-duration and six
+nonproductive-call targets advisory. Complete contributions—including nested bodies
+and cleanup above eight tasks—retain ordinary correctness checks. Warnings persist
+against their session, request, business block or checkpoint and never trigger repair,
+rejection or approval. Demonstrated repeated strategies on unchanged useful state still
+stop with exact attempt evidence. Production hosts reject this reserved policy; existing
+token-only captures retain their narrower meaning.
+
+The diagnostic policy applies through schemas, candidate repair, compilation, Core
+budgets, HTTP accounting, host advancement and reports. Exact contracts, semantic
+cardinalities, permissions, provenance, financial ceilings and mandatory review
+reservations remain blocking. Per-request timeouts, sandbox protections and explicit
+execution resource budgets—including the live execution time budget—remain enforced.
+Incomplete receipts retain their exact allocation, usage and finish reason and cannot
+approve a fragment or authorize replay. Reasoning usage already included in output
+is never counted twice.
+
+After received output exhaustion, the opt-in
+[`larger-draft-output-amazon.json`](Profiles/larger-draft-output-amazon.json),
+[`larger-draft-output-review-pr.json`](Profiles/larger-draft-output-review-pr.json) and
+[`larger-draft-output-collections.json`](Profiles/larger-draft-output-collections.json)
+profiles increase only draft allocation from 16,384 to 32,768. Use a fresh cohort and a
+recorded hypothesis; these files do not change existing or default profiles. An exhausted
+8,192-token review may instead be tested at 16,384 in its own fresh profile. A later
+65,536-token experiment requires a separate hypothesis and verified provider support.
+Admission prices actual phase allocations without silent clamping. Recheck usable
+funds and required review/execution exposure before every run.
+
 Optional navigation is compacted toward targets of 3k navigation, 8k drafting/correction
 and 4k review tokens. An irreducible request above target can proceed below its captured
 maximum; its exact measurement retains a nonblocking warning with bytes, estimate,
@@ -273,7 +304,8 @@ provider stops leave precise incomplete criteria and a rechecked remaining balan
 The combined intent experiment retains the full short original, extracts exact
 acceptance clauses and typed public interfaces in one call, and measures complete
 requests before paging genuinely large sources. It does not change MCP eligibility,
-output allocations, business oracles or the advisory campaign's strict non-token guards.
+output allocations, business oracles or historical token-only captures. Fresh comprehensive diagnostic
+policy is separately captured as described above.
 Report initial preparation calls/time and the first independently correct constructed
 business producer separately from final artifact and actual runtime acceptance.
 Retain a suspended consumer's exact rejection explanation in subsequent discovery,

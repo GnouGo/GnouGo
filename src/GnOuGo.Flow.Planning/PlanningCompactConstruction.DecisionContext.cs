@@ -10,13 +10,17 @@ internal static partial class PlanningCompactConstruction
 {
     internal static LLMRequest Request(PlanningSession state, string instructions, JsonObject context, JsonObject schema, string purpose)
     {
-        if (purpose is not (SelectPurpose or DiscoveryPurpose or PlanningConstruction.DraftPurpose or "replan"))
+        if (purpose is not (ImplementationPurpose or DiscoveryPurpose or PlanningConstruction.DraftPurpose or "replan"))
             return Request(instructions, context, schema, purpose);
         // Original applicability is derived before packing, independently of
         // whether the unrelated originals would happen to fit this request.
         AddOriginalDecisionContext(state, context);
-        var displayed = CompactAcceptedProgressContext(purpose == SelectPurpose
+        var displayed = CompactAcceptedProgressContext(purpose == ImplementationPurpose
             ? SelectionProducerPageContext(state, context, schema) : context);
+        // A diagnostic token target cannot remove useful context or force an
+        // evidence round trip. Exact duplicate metadata can still share a view.
+        if (PlanningTokenThresholds.OptimizationAdvisory(state.Request))
+            return Render(purpose == SelectPurpose ? displayed : CompactSelectedProducerContractMetadata(displayed));
         var request = Render(displayed);
         var target = PlanningConstructionPhasePolicies.Resolve(state.Request, purpose).TargetInputTokens;
         if (ModelRequestAdmission.EstimateTokens(PlanningModelCalls.PrepareRequest(state, purpose, request.Prompt,
@@ -25,18 +29,18 @@ internal static partial class PlanningCompactConstruction
             displayed = displayed.DeepClone().AsObject();
             CompactAuthoringNavigation(displayed, compactCheckpoints: purpose is PlanningConstruction.DraftPurpose or "replan");
         }
-        if (purpose == SelectPurpose) return FitSelectionNavigation(state, instructions, displayed);
+        if (purpose == ImplementationPurpose) return FitSelectionNavigation(state, instructions, displayed);
         if (purpose is DiscoveryPurpose or PlanningConstruction.DraftPurpose or "replan")
             return FitDraftNavigation(state, instructions, CompactSelectedProducerContractMetadata(displayed), schema, purpose);
         return Render(displayed);
 
         LLMRequest Render(JsonObject page)
         {
-            var response = purpose == SelectPurpose
-                ? SelectionSchema(state, page) : schema.DeepClone().AsObject();
+            var response = purpose == ImplementationPurpose
+                ? ImplementationSchema(state, page) : schema.DeepClone().AsObject();
             if (response["properties"] is JsonObject properties && properties.ContainsKey("evidenceRequests"))
             {
-                if (purpose == SelectPurpose) ConstrainSelectionEvidence(state, page, response);
+                if (purpose == ImplementationPurpose) ConstrainSelectionEvidence(state, page, response);
                 else if (purpose == DiscoveryPurpose) ConstrainDiscoveryEvidence(state, page, response);
                 else ConstrainDraftEvidence(state, page, response);
             }
@@ -215,7 +219,7 @@ internal static partial class PlanningCompactConstruction
         // this presentation reduction; only bounded navigation descriptions are.
         var page = initial.DeepClone().AsObject();
         var request = Render(page);
-        var phase = PlanningConstructionPhasePolicies.Resolve(state.Request, SelectPurpose);
+        var phase = PlanningConstructionPhasePolicies.Resolve(state.Request, ImplementationPurpose);
         var limit = phase.MaxInputTokens;
         var reviewHeadroom = RequiredReviewCalls(state);
         var measurement = Measure(request);
@@ -274,9 +278,9 @@ internal static partial class PlanningCompactConstruction
         // cursor/evidence mutation or extra semantic call is introduced here.
         return request;
 
-        LLMRequest Render(JsonObject displayed) => Request(instructions, displayed, SelectionSchema(state, displayed), SelectPurpose);
-        PlanningRequestMeasurement Measure(LLMRequest candidate) => PlanningRequestMeasurements.Measure(PlanningModelCalls.PrepareRequest(state, SelectPurpose,
-            candidate.Prompt, candidate.StructuredOutputSchema!.AsObject(), requiredReviewCalls: reviewHeadroom), SelectPurpose, limit);
+        LLMRequest Render(JsonObject displayed) => Request(instructions, displayed, ImplementationSchema(state, displayed), ImplementationPurpose);
+        PlanningRequestMeasurement Measure(LLMRequest candidate) => PlanningRequestMeasurements.Measure(PlanningModelCalls.PrepareRequest(state, ImplementationPurpose,
+            candidate.Prompt, candidate.StructuredOutputSchema!.AsObject(), requiredReviewCalls: reviewHeadroom), ImplementationPurpose, limit);
     }
 
     internal static JsonObject CompactAcceptedProgressContext(JsonObject context)

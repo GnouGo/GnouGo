@@ -18,24 +18,30 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
         ct.ThrowIfCancellationRequested();
         if (session.SchemaVersion != 11) throw new PlanningConflictException("This planning format is no longer executable. Regenerate and approve the workflow.");
         if (session.Revision != command.ExpectedRevision) throw new PlanningConflictException("The session changed. Reload its revision.");
+        if (command.Kind != "cancel" && session.Request.Options.ContainsKey("construction_limits"))
+            PlanningCompactConstruction.ValidateBusinessContract(session);
         if (string.IsNullOrWhiteSpace(session.Request.TenantId) || string.IsNullOrWhiteSpace(session.Request.SessionId) || string.IsNullOrWhiteSpace(session.Request.Prompt))
             throw new ArgumentException("Tenant, session identity and request are required.");
-        if (session.Request.MaxModelCalls is < 1 or > 1000 || session.Request.MaxReplanAttempts < 0 ||
-            session.Request.MaxReplanAttempts > (session.Request.Options["construction_preset"]?.ToString() == PlanningConstructionPresets.Large ? 64 : 10))
+        if (session.Request.MaxModelCalls < 1 || session.Request.MaxReplanAttempts < 0 ||
+            !PlanningTokenThresholds.OptimizationAdvisory(session.Request) &&
+            (session.Request.MaxModelCalls > 1000 ||
+             session.Request.MaxReplanAttempts > (session.Request.Options["construction_preset"]?.ToString() == PlanningConstructionPresets.Large ? 64 : 10)))
             throw new ArgumentException("Invalid planning limits.");
         PlanningMode.Validate(session.Request.Mode);
-        PlanningGenerationPolicy.Validate(session.Request.Generation);
+        PlanningGenerationPolicy.Validate(session.Request.Generation, PlanningTokenThresholds.OptimizationAdvisory(session.Request));
         if (command.EditablePaths is not null && (command.Kind != "revise" || command.PreserveRequirements != true))
             throw new ArgumentException("EditablePaths requires an explicit implementation revision with preserveRequirements: true.");
         if (command.Kind == "advance" && (PlanningStatus.IsWaiting(session.Status) || PlanningStatus.IsTerminal(session.Status))) return session;
         if (session.Status is PlanningStatus.Saved or PlanningStatus.Saving or PlanningStatus.Cancelled)
             throw new PlanningConflictException("This planning session is closed.");
-        if (command.Kind is "configure_generation" or "revise" && PlanningModelCalls.RemainingCalls(session) == 0)
+        if (command.Kind is "configure_generation" or "revise" && !PlanningModelCalls.HasCallCapacity(session))
             throw new PlanningConflictException("The session model-call budget is exhausted. Token settings and revisions cannot extend it. Start a new planning session; retained requests and accounting remain unchanged.");
         var state = JsonSerializer.Deserialize(JsonSerializer.Serialize(session, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
         PlanningSessionCreation.Capture(state, session);
+        using var warnings = PlanningTokenThresholds.Observe((stage, kind, current, threshold) =>
+            PlanningOptimizationThresholds.Record(state, stage, kind, current, threshold));
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        if (PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed is { } maximum)
+        if (!PlanningTokenThresholds.OptimizationAdvisory(state.Request) && PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed is { } maximum)
         {
             var remaining = maximum.TotalMilliseconds - state.ActiveMilliseconds;
             if (remaining <= 0) deadline.Cancel(); else deadline.CancelAfter(TimeSpan.FromMilliseconds(remaining));
@@ -124,7 +130,7 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
                     if (state.Construction is not null && (command.Generation.MaxInputTokensPerRequest > state.Request.Generation.MaxInputTokensPerRequest ||
                         command.Generation.MaxOutputTokens > state.Request.Generation.MaxOutputTokens))
                         throw new PlanningConflictException("Construction request ceilings were captured at creation. A larger allowance requires an explicitly configured new session; existing accounting is retained.");
-                    PlanningGenerationPolicy.Validate(command.Generation); state.Request.Generation = command.Generation;
+                    PlanningGenerationPolicy.Validate(command.Generation, PlanningTokenThresholds.OptimizationAdvisory(state.Request)); state.Request.Generation = command.Generation;
                     state.Diagnostics.RemoveAll(d => d.Code is "MODEL_INPUT_LIMIT" or "MODEL_OUTPUT_LIMIT");
                     state.Status = PlanningStatus.Generating; break;
                 case "revise":
@@ -187,6 +193,8 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
         { state.Diagnostics.Add(new(state.PendingCall is null ? "PLANNING_HOST_FAILURE" : "MODEL_DISPATCH_UNVERIFIABLE", "/", "Planning could not safely complete this operation.")); Stop(state); }
         if (command.Kind == "advance") PlanningProgress.Record(state);
         state.ActiveMilliseconds += elapsed.Elapsed.TotalMilliseconds;
+        if (PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed is { } elapsedTarget)
+            _ = PlanningOptimizationThresholds.Exceeded(state, "checkpoint", "session_elapsed_ms", (long)state.ActiveMilliseconds, (long)elapsedTarget.TotalMilliseconds);
         state.Revision++; state.UpdatedAtUtc = _time.GetUtcNow();
         if (PlanningStatus.IsWaiting(state.Status)) state.WaitingSinceUtc = state.UpdatedAtUtc;
         await runtime.CheckpointAsync(state, ct);
@@ -241,13 +249,13 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
             Stop(state); return;
         }
         PlanningConfirmationGuards.Apply(graph, state.Catalog!);
-        findings = PlanningExecutableValidation.Validate(graph, state.Catalog!).Select(compilation.Locate).ToList();
+        findings = PlanningExecutableValidation.Validate(graph, state.Catalog!, PlanningTokenThresholds.OptimizationAdvisory(state.Request)).Select(compilation.Locate).ToList();
         if (findings.Count == 0)
         {
             string yaml;
             try
             {
-                yaml = new PlanningGraphCompiler().Compile(graph, state.Catalog!, state.Request.Name, TaskPlanCompiler.UsesNormalExports(state.Request), TaskPlanCompiler.UsesFusedBindings(state.Request), TaskPlanCompiler.UsesConsumerBindings(state.Request), TaskPlanCompiler.UsesDirectProjections(state.Request), TaskPlanCompiler.UsesNativeMappings(state.Request), TaskPlanCompiler.UsesReadableMappings(state.Request), TaskPlanCompiler.UsesLeanMappings(state.Request), TaskPlanCompiler.UsesCompactProjections(state.Request), TaskPlanCompiler.UsesInlineConsumers(state.Request), TaskPlanCompiler.UsesDirectValues(state.Request), TaskPlanCompiler.UsesCheckedControls(state.Request), TaskPlanCompiler.UsesReadableBranches(state.Request), TaskPlanCompiler.UsesSimplifiedLocals(state.Request));
+                yaml = new PlanningGraphCompiler().Compile(graph, state.Catalog!, state.Request.Name, TaskPlanCompiler.UsesNormalExports(state.Request), TaskPlanCompiler.UsesFusedBindings(state.Request), TaskPlanCompiler.UsesConsumerBindings(state.Request), TaskPlanCompiler.UsesDirectProjections(state.Request), TaskPlanCompiler.UsesNativeMappings(state.Request), TaskPlanCompiler.UsesReadableMappings(state.Request), TaskPlanCompiler.UsesLeanMappings(state.Request), TaskPlanCompiler.UsesCompactProjections(state.Request), TaskPlanCompiler.UsesInlineConsumers(state.Request), TaskPlanCompiler.UsesDirectValues(state.Request), TaskPlanCompiler.UsesCheckedControls(state.Request), TaskPlanCompiler.UsesReadableBranches(state.Request), TaskPlanCompiler.UsesSimplifiedLocals(state.Request), PlanningTokenThresholds.OptimizationAdvisory(state.Request));
             }
             catch (GnOuGo.Flow.Core.Compilation.WorkflowCompilationException ex)
             {
@@ -330,7 +338,7 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
         {
             if (outputs.Any(o => string.IsNullOrWhiteSpace(o.Name) || o.Default is not null) || outputs.Select(o => o.Name).Distinct(StringComparer.Ordinal).Count() != outputs.Count)
                 Reject("REQUIREMENTS_INVALID", "/requirements/outputs", "Declare distinct business outputs without defaults; a default is not evidence of a produced result.");
-            try { foreach (var output in outputs) _ = TaskPlanCompiler.TypeSchema(output.Type); }
+            try { foreach (var output in outputs) _ = TaskPlanCompiler.TypeSchema(output.Type, state.Request); }
             catch (ArgumentException) { Reject("REQUIREMENTS_INVALID", "/requirements/outputs", "Declare valid business output types."); }
         }
     }

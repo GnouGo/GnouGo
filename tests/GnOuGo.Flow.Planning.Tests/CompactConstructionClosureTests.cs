@@ -77,15 +77,15 @@ public sealed class CompactConstructionClosureTests
         step.Kind = kind;
         step.CloseRequirementIds.Clear();
         step.OutputNames.Clear();
-        var selection = PlanningCompactConstruction.Request(PlanningCompactConstruction.SelectGuidance(state),
-            PlanningCompactConstruction.SelectionContext(state), PlanningCompactConstruction.SelectionSchema(state),
+        var selection = PlanningCompactConstruction.Request(PlanningCompactConstruction.ImplementationGuidance(state),
+            PlanningCompactConstruction.ImplementationContext(state), PlanningCompactConstruction.ImplementationSchema(state),
             PlanningCompactConstruction.SelectPurpose);
         var request = PlanningConstruction.DraftRequest(state, repair: false);
         Assert.Contains("unfinished containers expose no usable result", request.StructuredOutputSchema!["description"]!.ToString(), StringComparison.Ordinal);
         var schema = request.StructuredOutputSchema!.AsObject();
         AssertCompletion(schema, allowed: false);
         AssertScopeClosure(schema, "/root", allowed: false);
-        var extension = new PlanningConstructionExtension { RequirementIds = ["req"] };
+        var extension = new PlanningConstructionExtension { RequirementIds = ["req"], CompleteBlock = false };
         extension.ContinueInScope = kind == "group" ? "/groups/reusable/body" : kind == "parallel"
             ? "/tasks/container/branches/0" : "/tasks/container/body";
         if (kind == "group") extension.Groups.Add(new() { Id = "reusable", Body = Body("group_value") });
@@ -156,7 +156,7 @@ public sealed class CompactConstructionClosureTests
         AssertScopeClosure(schema, step.Scope, allowed: !openDescendant);
         if (!openDescendant)
         {
-            var candidate = PlanningConstruction.Apply(state, new() { Scope = step.Scope, CloseScopes = [step.Scope], RequirementIds = ["req"] });
+            var candidate = PlanningConstruction.Apply(state, new() { Scope = step.Scope, CloseScopes = [step.Scope], RequirementIds = ["req"], CompleteBlock = false });
             PlanningCompactConstruction.ValidateExtension(state, candidate);
             Assert.Contains("/tasks/sibling/body", candidate.OpenScopes);
         }
@@ -193,7 +193,7 @@ public sealed class CompactConstructionClosureTests
         var schema = PlanningCompactConstruction.DraftSchema(state);
         var extension = new PlanningConstructionExtension
         {
-            Scope = step.Scope, CloseScopes = [step.Scope], RequirementIds = ["req"]
+            Scope = step.Scope, CloseScopes = [step.Scope], RequirementIds = ["req"], CompleteBlock = false
         };
         var wire = Response(state, extension, schema);
         extension.BoundaryTransitions = [new() { Scope = step.Scope, RequirementIds = ["req"], CloseScope = true }];
@@ -227,7 +227,7 @@ public sealed class CompactConstructionClosureTests
         step.BaseHash = PlanningConstruction.Hash(state.Plan);
         var schema = PlanningCompactConstruction.DraftSchema(state);
         var extension = new PlanningConstructionExtension { Scope = "/root", CloseScopes = ["/root"],
-            RequirementIds = ["req"], Complete = true };
+            RequirementIds = ["req"], Complete = true, CompleteBlock = true };
         var wire = Response(state, extension, schema);
         extension.BoundaryTransitions = [new() { Scope = "/root", RequirementIds = ["req"],
             Outputs = [new("message", new() { Kind = "string", Text = "Hello" })] }];
@@ -337,7 +337,7 @@ public sealed class CompactConstructionClosureTests
     {
         Tasks = [new() { Id = "value", Kind = "value", Objective = "Produce the requested message.", Outputs = [new("message", new() { Kind = "string", Text = "Hello" })] }],
         Outputs = [new("message", new() { Kind = "output", Source = "value", Port = "message" })], RequirementIds = ["req"],
-        CloseScopes = complete ? ["/root"] : [], Complete = complete
+        CloseScopes = complete ? ["/root"] : [], Complete = complete, CompleteBlock = complete
     };
 
     private static PlanTask Container(string id) => new() { Id = id, Kind = "sequence", Objective = "Preserve the selected scope boundary.", Body = new() };
@@ -357,6 +357,10 @@ public sealed class CompactConstructionClosureTests
             } }
         };
         PlanningSessionCreation.Capture(state);
+        state.Construction!.Compact!.Blocks = [new() { Id = "block_1", Objective = state.Request.Prompt,
+            RequirementIds = ["req"], ExpectedResults = ["The exact requested message."], SuccessCriteria = ["The message is returned unchanged."] }];
+        state.Construction.Compact.CurrentBlockId = "block_1";
+        state.Construction.Compact.CurrentStep!.BlockId = "block_1";
         state.Construction!.Compact!.CurrentStep!.BaseHash = PlanningConstruction.Hash(state.Plan);
         return state;
     }

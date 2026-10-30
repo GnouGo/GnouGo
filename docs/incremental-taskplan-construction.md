@@ -19,23 +19,27 @@ metadata is a non-executable journal, never another workflow or scheduler.
 
 ```mermaid
 flowchart TD
-    O[Original obligations, inputs and permissions] --> S[Select one business responsibility]
-    S --> K[Reuse exact contracts; discover missing capabilities]
-    K --> D[Draft up to eight related tasks recursively]
-    D --> V[Deterministic types, bindings, scopes and provenance]
-    V --> P[One accepted TaskPlan and checkpoint journal]
-    P -->|continueInScope: same block and contracts| D
-    P -->|completed block; more work| L[Local business review]
-    L --> S
-    P -->|workflow complete| G[Global business review]
+    O[Original obligations and indispensable constraints] --> S[Business-only selection]
+    S --> B[Immutable business block and existing-result dependencies]
+    B --> I[Implementation cursor: reuse producers and exact contracts]
+    I --> K[Discover only missing capabilities]
+    K --> D[Coherent fragment with completeBlock and continueInScope]
+    D --> V[Deterministic types, references, scopes, provenance and compilation]
+    V --> P[One accepted TaskPlan and encrypted checkpoint journal]
+    P -->|technical continuation| D
+    P -->|new anchor or prerequisite in same block| I
+    P -->|completeBlock; more business work| L[Review all block contributions and preserved criteria]
+    L -->|ok| S
+    P -->|workflow complete| G[Mandatory global business review]
     G --> C[Compiler-owned JS to YAML v15]
     C --> A[Artifact-bound delegated or human approval]
-    A --> E[Existing runtime and invocation permissions]
+    A --> E[Existing runtime, permissions and execution resource limits]
     E --> R[Independent runtime oracle]
     V --> T[Shared transition assessment]
     L --> T
     G --> T
-    T -->|six nonproductive model calls| X[Stop with obligations, strategies and missing prerequisites]
+    T -->|diagnostic target crossed| W[Durable warning, normal validation continues]
+    T -->|same strategy on unchanged useful state| X[Stop with repeated-attempt evidence]
 ```
 
 The diagram shows authority boundaries, not a second scheduler. Technical compilation
@@ -48,7 +52,11 @@ The host rejects retired sessions before deserialization, without rewriting reco
 upgrading approvals or resuming old requests. Create and approve a fresh session.
 Execution journals remain schema 9; TaskPlan semantics and compiler v15 are unchanged.
 Historical reports, encrypted records, financial reservations and permanent request
-closures remain audit data, without an executable compatibility reader.
+closures remain audit data, without an executable compatibility reader. Fresh sessions
+capture `business_selection_contract: "1"` within format 11. A retained session without
+this exact selection contract is rejected before cloning, checkpointing or recovery.
+The host never infers business blocks from historical technical steps or rebuilds an
+old issued request with the new schema.
 
 ## Build from accepted work
 
@@ -71,10 +79,60 @@ Short originals accompany subsequent decisions and relevant reviews once, withou
 repeating their text in source metadata. Larger originals retain local projection,
 global constraints and exact retrieval. Capability filtering is independent.
 
-Select the next coherent business block, identifying one responsibility, its inputs,
-expected result and original obligations. The selected kind anchors the block; related
-value/transform helpers, exact selected operations and calls to its selected closed
-group share its bounded fragment.
+Business selection has one strict business object; evidence retrieval and clarification
+are separate, mutually exclusive actions:
+
+```typescript
+type BusinessBlock = {
+  objective: string;
+  requirementIds: OriginalObligationReference[];
+  informationNeeds: string[];
+  expectedResults: string[];
+  dependencies: { resultId: ExistingResultReference; reason: string }[];
+  successCriteria: string[];
+};
+type SelectionResponse = {
+  block: BusinessBlock | null;
+  evidenceRequests: OfferedEvidenceReference[] | null;
+  clarifications: BusinessQuestion[] | null;
+}; // Exactly one non-null action.
+```
+
+The context contains relevant originals, indispensable global constraints, remaining
+obligations, established feasibility evidence and available planned business results.
+Planned results are never runtime observations. References identify existing work;
+there is no future-block executable graph. Kinds, scopes, MCP identifiers, typed
+bindings, container transitions and fragment budgets belong to implementation and
+never enter business selection. Recorded unavailable or unfinished discovery checks
+appear only as plain feasibility observations: they do not establish that a capability
+exists or is absent. Raw provider errors and model-authored rejected strategies are not
+promoted into business facts. Original clarification answers retain their own authority.
+
+The separate `construction_implementation` response uses `baseHash` and exactly one
+of `step`, `evidenceRequests`, or `clarifications`. Its state-dependent `step` grammar
+contains `scope`, `kind`, `operationIds`, `inputs`, `groupId`, `dependencyTaskIds`,
+`closeScopes`, `closeRequirementIds`, `outputNames`, and `prerequisites`. Exact offered
+scopes, retained contracts, accepted producers and closed groups constrain those fields.
+The host copies `objective`, `requirementIds` and `expectedOutputs` from the immutable
+block; the implementation response cannot redefine them. Unavailable actions are null.
+[ImplementationSchema](../src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs)
+constructs the exact issued grammar, including conditional branches and bindings.
+
+The fragment response uses `extension` with required `completeBlock` and nullable
+`continueInScope`, plus the available evidence/clarification/reselection action. Its
+technical scope and unavailable/default-only fields are omitted by
+[DraftSchema](../src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Schemas.cs),
+then supplied from the retained cursor. Literal values, actual tasks, exports, cleanup
+and semantic choices retain their full typed grammar. `complete`, when available,
+claims workflow completion separately from `completeBlock`.
+
+Immutable block metadata and an active block ID retain the business responsibility.
+`CurrentStep` is the implementation cursor: `Step.Id` owns its technical anchor and
+reuse; `BlockId` groups contributions, preserved criteria, review and business completion.
+Discovery, mappings, prerequisite suspension, repairs and scope changes preserve that
+block. Implementation first reuses exact retained contracts and suitable accepted
+producers, including pending-review outputs whose scope and provenance remain valid.
+Related transforms, explicitly bound operations and populated controls share a fragment.
 Necessary controls and groups may contain their body, exports and cleanup immediately.
 Their nested scopes may combine sequence, conditional, foreach and parallel controls;
 the selected anchor still constrains the top-level fragment, and every descendant
@@ -106,21 +164,23 @@ Their continuation presents the exact bounded reason from its own rejected step
 through implementation discovery, retaining the evidence link. This model-authored
 explanation does not create an original obligation or authorize effects or repair.
 
-Drafts present the captured `maxTasksPerDraft` (eight by default) as one total for
-all new tasks, counting controls themselves and every task in nested bodies,
-alternatives, branches, group bodies and `always` cleanup. Per-array schema maxima
-are not separate budgets. Draft and repair requests retain this numeric host fact
-through context compaction and restart; business Judge projections omit it.
-Oversized fragments keep the existing rejection code and report actual and maximum
-counts. Larger business work uses bounded partial fragments under the same limit.
-The selected contract allowance uses that same task bound. A nullable extension field,
-`continueInScope`, retains the current block across fragments: an exact original or
-block-owned open scope requests another fragment; `null` claims the block finished.
-Partial acceptance retains the step identity, objective and original requirements,
-refreshes its validated baseline and goes directly to drafting. It neither closes
-requirements nor discharges a suspended consumer. New prerequisites use the existing
-suspension flow. No future task queue or second plan is introduced. A completed
-continued block is reviewed with all of its accepted contributing checkpoints.
+The recursive task target counts controls and all nested bodies and cleanup once.
+Ordinary sessions enforce their captured eight-task default. New trusted diagnostic
+sessions omit optimization-only `maxItems` and retain complete larger contributions;
+10- and 25-task fragments undergo the same schema, repair, compilation and restart checks.
+Genuine contract cardinalities, expression arities and explicit execution limits remain
+hard constraints. Separate per-operation optimization bounds do not replace this policy.
+
+Fresh fragment responses require `completeBlock`. `completeBlock:false` retains the
+business responsibility even when `continueInScope:null`: technical closure exposes
+valid outputs but supplies no business approval. A non-null `continueInScope` retains
+the same technical cursor and refreshes bindings against accepted work before drafting
+again. Null permits another implementation anchor inside the same business block.
+`completeBlock:true` requests review of all relevant contributions under the preserved
+criteria. It cannot simultaneously request technical continuation. Only a successful
+business review completes a block. Workflow `complete` remains separate and requires
+mandatory global review, which absorbs coincident final local review. Partial work
+cannot close original obligations or discharge suspended business consumers.
 Continuation probes use a cloned session with the same exact resolved-contract
 admission as ordinary candidate validation. Missing or ambiguous contracts remain
 invalid. Compiler failures retain their original task diagnostics instead of being
@@ -154,10 +214,14 @@ claims outside the final step. Local review closes only its explicit current cla
 
 One selected discovery action follows exact provider cursors in host batches of four
 reads, retaining the action across checkpoints instead of requesting another model
-decision for pagination. Cycles, unavailable providers, cancellation and elapsed-time
-guards remain enforced. A 1,024-page safety ceiling stops an unbounded provider action
-with its received pages and exact remaining cursor retained; it does not fabricate
-query completeness or missing capabilities.
+decision for pagination. Cycles, unavailable providers, caller cancellation and actual
+provider/request resource limits remain enforced. The host's 1,024-page count is an
+optimization target: ordinary sessions stop with the exact pending cursor retained;
+fresh diagnostic sessions warn and continue. It is not a physical provider limit.
+The ordinary two-request response target and four-request host admission bound are
+also advisory for fresh diagnostics. Distinct source/cursor identities, exact query
+ownership and completeness checks remain unchanged. Host batches of four are lossless
+checkpoint scheduling, not a limit on the complete discovery action.
 
 Typed `string_operation` values provide deterministic mappings: `text: "concat"`
 accepts two through sixteen non-nullable string items; `text: "uri_component"`
@@ -168,12 +232,18 @@ Computed text carries no artifact provenance, even when it equals a producer pat
 An explicitly selected consumer binding may use an exact technically accepted
 prerequisite while business review is pending. Ownership, transitive content,
 scope, contracts and typed accessibility still validate; its composition remains
-part of the pending business work. Automatic resumption additionally requires its
-applicable reviewed association. Content freshness alone creates no review authority.
+part of the pending business work. Automatic resumption requires an applicable
+reviewed association or an explicit technically accepted association in the same
+active block. The latter retains the exact accepted claims, complete consumer snapshot
+membership, ownership chain, bindings and current producer content. Its `implemented`
+consumer status exposes technical progress while the business responsibility remains
+pending. Successful block review promotes the covered consumers to completion.
+Cross-block resumption still requires reviewed authority; content freshness alone
+creates no review authority.
 
 Open-frontier pages order actual owning boundaries before their parents, including isolated group bodies. Canonical task addresses are flat identities, so their slash count does not establish ancestry. Acceptance and rollback use the existing symbols; paging retains exact continuation links.
 
-Selection requests the next executable contribution inside an offered scope. Attaching an original clause does not require completing that whole clause in one substep; a producer or prerequisite may contribute while its obligation remains open.
+Implementation selection requests the next executable contribution inside an offered scope. Attaching an original clause does not require completing that whole clause in one substep; a producer or prerequisite may contribute while its obligation remains open. Business selection retains its separate, implementation-free context.
 
 Local requests derive their originals before packing: selected obligations, consumed
 producers and their accepted requirement associations, ancestor controls/groups,
@@ -201,7 +271,9 @@ retrieved evidence, producer arguments and mandatory constraints remain unchange
 Omitted optional inputs retain bounded original-pointer/retrieval-ID rows; inspecting
 another branch does not erase them or authorize the omitted input. Larger directories
 remain reachable through their existing exact continuation links.
-If only mandatory context remains and cannot fit, construction stops before dispatch.
+If mandatory context exceeds an ordinary profile's enforced input limit, construction
+stops before dispatch. A captured advisory token or diagnostic policy retains that
+context and warns; actual provider capabilities and financial admission still apply.
 
 ## Generation and judgment have different boundaries
 
@@ -277,8 +349,9 @@ available through exact targeted retrieval. Missing evidence cannot establish a 
 Keep receipts, hashes, session/tenant identities, version checks and recovery authority
 in host journals. These never become a Judge manifest. Short business identifiers locate
 obligations, actions and requested evidence. Measure the complete serialized request,
-including instructions, response grammar and envelope. An indivisible mandatory request
-exceeding its captured ceiling stops explicitly; no truncation or automatic escalation.
+including instructions, response grammar and envelope. Diagnostic optimization targets
+warn without truncating mandatory context. Actual provider capabilities and incomplete
+responses remain separate enforced boundaries; no in-session allocation escalation occurs.
 
 ## Verdicts and repairs
 
@@ -289,8 +362,7 @@ not the truth of a natural-language conclusion. No keyword or confidence filter 
 business meaning, and no verdict grants execution permissions.
 
 The issued response contract has exactly one required `decision` object. Every branch
-rejects additional properties; `reason` is a nonempty string of at most 768 Unicode
-code points. Its strict union is:
+rejects additional properties; `reason` is a nonempty string. Its strict union is:
 
 ```typescript
 type Decision =
@@ -302,24 +374,37 @@ type Decision =
 type ReviewResponse = { decision: Decision };
 ```
 
-For `needs_change`, both arrays contain one through three members from the exact
-issued domains; that branch is absent if either domain is empty. For `needs_context`,
-one through eight offered references are required; when no evidence is offered the
-only legal array is empty, which records incomplete review and cannot approve work.
-`ConstructionReviewSchema` in `HybridWorkflowPlanner.ConstructionReview.cs` generates
-the exact per-request JSON Schema and validates the raw response before resolution.
+For `needs_change`, both arrays contain references from the exact issued domains;
+the branch is absent if either domain is empty. `needs_context` requires offered exact
+references; when none are offered the only legal array is empty, recording incomplete
+review without approval. Ordinary profiles retain reason 768, target/obligation 3 and
+evidence 8 optimization bounds. New diagnostic profiles remove those maxima while
+preserving nonempty values, exact domains, union shape and deterministic grounding.
+`ConstructionReviewSchema` generates and validates the exact request-local grammar.
 
-The request's business object contains `review`, `requirements`, `globalConstraints`,
-`inputs`, `actions`, `scopes`, `groups`, `publicOutputs`, `claims` and `fragment`.
-Optional `choices`, `continuation` and `transitions` describe actual selected values
-and proposed producer/boundary associations. `evidence` contains only requested facts.
-An outstanding finding may add `priorConcerns` with its reason and actual `before` /
-`current` behavior; the existing single interpretation reconsideration may retain its
-prior report, reason and instruction. These objects contain no repair-status labels,
-checkpoint sequence numbers, technical-validation badges, session identities or hashes.
-Every unresolved concern from the current repair chain remains available to review.
-The three-target response bound limits newly reported targets, not accumulated
-concerns; only a completed business review can resolve them.
+The request's business object contains review scope, original obligations, global
+constraints, preserved block criteria, relevant inputs, actual actions/arguments,
+transformations, producer provenance/dependencies, controls, reusable groups/calls,
+results, effects, cleanup and completion claims. Only explicitly requested evidence
+and relevant before/current behavior for outstanding findings supplement that view.
+`fragment`, internal continuation/disposition/repair mechanisms, checkpoint numbers,
+hashes, budgets and technical-validation badges are absent. Canonical identities and
+review coverage remain in host journals. Exact public names and constraints remain
+visible when they are original business obligations. Every unresolved concern remains
+available; technical validation cannot resolve a business finding.
+
+The exact top-level projection is `review`, `businessBlock`, `requirements`,
+`globalConstraints`, `inputs`, `actions`, `scopes`, `groups`, `publicOutputs`, and
+`claims`. Optional `choices`, explicitly requested `evidence`, and `priorConcerns`
+appear when relevant. `claims` contains `completedRequirements`, `workflowComplete`
+and, when claimed, boundary `results`. Each prior concern contains only `reason`,
+original `obligations`, request-local `targets`, and exact relevant `before`/`current`
+behavior. Large before/current values come from their hash-matching retained review;
+compact journal summaries do not truncate the Judge's evidence. Internal reconsideration
+and repair statuses are absent. The canonical builder is
+[PlanningBusinessProjection](../src/GnOuGo.Flow.Planning/PlanningBusinessProjection.cs);
+[CreateConstructionReviewRequest](../src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.ConstructionReview.cs)
+adds outstanding business concerns and freezes request-local references.
 
 Applicable original public-input obligations expose the actual declarations even
 when a candidate omits their consumers or makes no completion claim. Declared types
@@ -356,9 +441,10 @@ rows cannot reset the guard. Accepted arguments, bindings, executable transform
 instructions and meaningful control behavior establish executable progress. Only reviewed closure establishes completion.
 
 Fresh sessions capture `MaxNonProductiveModelCalls = 6`. After six model calls without
-useful evidence, executable progress or reviewed completion, the next dispatch stops
-with the affected obligations, retained strategy identities and any established missing
-prerequisite. Exact repeated strategies stop earlier. Strategy identity includes actual
+useful evidence, executable progress or reviewed completion, ordinary sessions stop.
+Fresh diagnostic sessions warn with affected obligations, attempted strategies and
+established missing prerequisites, then continue normal accounting and validation.
+A demonstrated exact repeated strategy on unchanged useful state still stops. Strategy identity includes actual
 arguments, producers, obligations, consumer prerequisites and available evidence; new
 step names, planning objectives, raw response hashes, checkpoint numbers and empty
 wrappers do not renew a failed strategy. Transform objectives remain executable
@@ -381,8 +467,11 @@ status; incomplete responses cannot be accepted or replayed.
 
 The superseded single-kind fragment restriction, two-operation allowance, empty-body
 requirement, per-four-page semantic rediscovery and hash/checkpoint progress credit
-are removed. The eight-task recursive bound, scoped repair/dependency invalidation,
-strict review union, exact recovery and retired-format rejection remain active.
+are removed. Technical selection has moved into implementation; business-only selection
+and explicit block completion replace the former coupling of technical closure to
+business completion. Scoped repair/dependency invalidation, strict review union, exact
+recovery and retired-format rejection remain active. Production eight-task enforcement
+and historical token-only captures keep their original meaning.
 
 ## Recovery, budgets and execution
 
@@ -392,19 +481,53 @@ before every physical attempt and retain failed-attempt unknown usage. Only capt
 fully recorded transient HTTP outcomes permit the bounded journaled retry policy.
 Pre-generation client failures do not invent physical attempts or reservations.
 
-One resolver applies captured phase targets, ceilings and reasoning/output reservations.
-The trusted benchmark may prospectively capture advisory project token thresholds;
-production hosts reject this reserved authority. In that campaign mode, input and
-cumulative-token crossings warn throughout preparation, evidence admission and physical
-dispatch, without altering accounting or granting repair authority. Conservative
-estimates do not establish physical API overflow. Preserve captured API output allocations,
-complete responses, financial reservations, calls, time and permissions. Ordinary
-above-target requests within the ceiling continue with a
-content-free warning in their exact measurement journal, outside plan diagnostics and
-approval identity. Targets never cause another model call or correction. Evidence batches
-and fallback requests undergo the same full-request preparation before atomic admission.
-Calls, corrections,
-graph size, cumulative time/tokens and financial controls remain independent limits.
+An explicit user revision that changes the original intent retains the exact revision
+text, historical business blocks, receipts and cumulative accounting. It invalidates
+removed accepted work and records the authorized old-plan-to-empty-baseline transition
+as a task-free host checkpoint. Fresh block identities and new review follow; the strict
+checkpoint hash chain and artifact verifier are unchanged. Historical results cannot
+reappear as available work merely because new requirements reuse their identifiers.
+
+One resolver applies captured phase targets and exact reasoning/output allocations.
+The host-owned `optimization_threshold_policy: "diagnostic-v1"` is available only to
+new authorized diagnostic sessions. Production hosts reject this reserved option.
+Historical `token_threshold_policy: "advisory"` remains token-only authority.
+
+| Provenance | Fresh diagnostic behavior |
+| --- | --- |
+| Task, operation, checkpoint, graph/frontier targets | Warn; preserve and validate the complete contribution |
+| Planning calls, corrections, session time, six nonproductive calls | Warn; retain accounting and attempted-strategy evidence |
+| Input/output estimates, context, prompt/response and reasoning targets | Warn through preparation, admission, dispatch, recovery and reports |
+| Navigation display windows | Exact lossless continuation; no silent truncation or semantic rediscovery |
+| Repeated strategy on unchanged useful state | Stop with retained attempt evidence |
+| Financial ceiling and mandatory future review reservations | Block dispatch |
+| Contract cardinality, expression arity, references, types, permissions and provenance | Reject invalid behavior |
+| Actual provider capability, per-request timeout/retries, sandbox memory/statements/recursion and explicit execution budgets | Remain enforced |
+| Incomplete responses or uncertain effects | Preserve exact receipts/reservations; never accept or blindly replay |
+
+Concrete host targets include eight recursive tasks, four active prerequisite consumers,
+three new finding targets/questions/alternatives, eight evidence requests, 256 enum
+members, and 1,024 discovery pages. Fresh diagnostic policy keeps their complete data;
+ordinary and historical token-only sessions retain their existing enforcement. Enum
+membership, uniqueness, nullability, exact evidence addresses and valid alternatives
+remain semantic checks. Positive diagnostic target values can exceed the old configuration
+ranges; the captured values still define the reported warning thresholds.
+
+Execution controls remain explicit: foreach declares its total iteration ceiling within
+1–10,000 and concurrency within 1–100; parallel requires at least two branches and the
+same concurrency range. These govern actual runtime work. String expression arity remains
+`concat` 2–16 and `uri_component` exactly one. The current profile configuration accepts
+output allocations 1–65,536; this is the supported host allocation range, not a claim
+about a model's physical maximum. Provider readiness and actual admission remain separate.
+
+Warnings are durable against the exact session, request, block or checkpoint and stay
+outside candidate diagnostics, repair counts and approval identity. Host advancement
+loops cannot silently substitute another call ceiling. Reasoning tokens remain part
+of reported output, never an extra billed total. Fresh explicit phase profiles preserve
+their actual allocations without silent clamping. After received exhaustion, a separate
+hypothesis may raise only the exhausted phase 16,384 to 32,768 tokens (review 8,192 to
+16,384); 65,536 requires a subsequent hypothesis and verified support. Every run
+recalculates exposure and required review reservations from actual allocations.
 
 Navigation uses short IDs bound to one exact issued request. Its encrypted call metadata
 retains the canonical address map and identity checks before dispatch. Raw responses must

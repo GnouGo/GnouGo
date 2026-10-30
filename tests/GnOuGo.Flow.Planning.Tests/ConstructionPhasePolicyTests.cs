@@ -10,6 +10,117 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class ConstructionPhasePolicyTests
 {
     [Theory]
+    [InlineData(1, 7)]
+    [InlineData(256000, 512000)]
+    public async Task FreshDiagnosticInputTargetsSurviveCaptureRecoveryAndPlannerDispatch(int generationInput, int maximum)
+    {
+        var state = new PlanningSession { Request = new() { TenantId = "diagnostic-input-target", Prompt = "Preserve the supplied observations.",
+            Generation = new("medium", generationInput, 8192),
+            Options = new() { [PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1" } },
+            Construction = new() { Limits = new() { PhasePolicy = InputPolicy(generationInput, maximum) } } };
+        PlanningSessionCreation.Capture(state);
+        var captured = state.Request.Options.ToJsonString();
+        state = PlannerFixture.Clone(state);
+        foreach (var purpose in new[] { "construction_intent", "construction_implementation", "construction_draft", "construction_local_judge" })
+        {
+            var phase = PlanningConstructionPhasePolicies.Resolve(state.Request, purpose);
+            Assert.Equal(generationInput, phase.TargetInputTokens); Assert.Equal(maximum, phase.MaxInputTokens);
+            var issued = PlanningConstructionPhasePolicies.Apply(new() { RequiredReviewCalls = 1,
+                StructuredOutputSchema = new JsonObject { ["title"] = purpose } }, state.Request, purpose);
+            PlanningConstructionPhasePolicies.ValidateIssued(issued, state.Request);
+            Assert.Equal(8192, issued.MaxTokens);
+        }
+        var runtime = new TestRuntime { Respond = (_, purpose) =>
+        {
+            Assert.Equal("construction_intent", purpose);
+            return new() { Json = new JsonObject { ["evidenceRequests"] = null, ["clarifications"] = null,
+                ["clauses"] = new JsonArray(new JsonObject { ["text"] = state.Request.Prompt, ["kind"] = "requirement",
+                    ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray() }) } };
+        } };
+        state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+        Assert.Empty(state.Diagnostics); Assert.Single(runtime.Calls);
+        Assert.Equal(captured, state.Request.Options.ToJsonString());
+        Assert.Equal(generationInput, state.Request.Generation.MaxInputTokensPerRequest);
+        Assert.Equal(maximum, state.Construction!.Limits.PhasePolicy!.Navigation.MaxInputTokens);
+        if (maximum < 512)
+        {
+            var warnings = Assert.Single(state.RequestMeasurements!).Warnings!;
+            Assert.Contains(warnings, warning => warning.Kind == "input_target" && warning.Threshold == generationInput);
+            Assert.Contains(warnings, warning => warning.Kind == "input_maximum" && warning.Threshold == maximum);
+        }
+        state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { Kind = "configure_generation", ExpectedRevision = state.Revision,
+            Generation = new("medium", 1, 8192) }, runtime, PlannerFixture.Ct);
+        Assert.Empty(state.Diagnostics); Assert.Single(runtime.Calls);
+        Assert.Equal(1, state.Request.Generation.MaxInputTokensPerRequest);
+        Assert.Equal(captured, state.Request.Options.ToJsonString());
+    }
+
+    [Theory]
+    [InlineData(false, 1)]
+    [InlineData(true, 1)]
+    [InlineData(false, 128001)]
+    [InlineData(true, 128001)]
+    public void OrdinaryAndTokenOnlyProfilesKeepTheirInputConfigurationRange(bool tokenOnly, int input)
+    {
+        var request = new PlanningRequest { Generation = new("medium", input, 8192) };
+        if (tokenOnly) request.Options[PlanningTokenThresholds.OptionName] = "advisory";
+        Assert.Throws<ArgumentException>(() => PlanningConstructionPhasePolicies.Capture(request, new()));
+        request.Generation.MaxInputTokensPerRequest = 16000;
+        request.Options["construction_limits"] = new JsonObject { ["phasePolicy"] = JsonSerializer.SerializeToNode(InputPolicy(input, input),
+            PlanningJsonContext.Default.PlanningConstructionPhasePolicy) };
+        Assert.Throws<ArgumentException>(() => PlanningConstructionPhasePolicies.Read(request));
+        Assert.Throws<ArgumentException>(() => PlanningConstructionPhasePolicies.Resolve(request, "construction_draft"));
+    }
+
+    [Theory]
+    [InlineData(0, 1)]
+    [InlineData(-1, 1)]
+    [InlineData(2, 1)]
+    [InlineData(1, 0)]
+    public void DiagnosticPhaseTargetsStillRequirePositiveOrderedValues(int target, int maximum)
+    {
+        var request = new PlanningRequest { Options = new() { [PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1" } };
+        Assert.Throws<PlanningConflictException>(() => PlanningConstructionPhasePolicies.Capture(request, InputPolicy(target, maximum)));
+    }
+
+    [Theory]
+    [InlineData("null")]
+    [InlineData("true")]
+    [InlineData("\"diagnostic-v2\"")]
+    public void MalformedDiagnosticAuthorityCannotEnableWiderInputTargets(string option)
+    {
+        var request = new PlanningRequest { Options = new() { [PlanningTokenThresholds.OptimizationOptionName] = JsonNode.Parse(option) } };
+        Assert.Throws<PlanningConflictException>(() => PlanningConstructionPhasePolicies.Capture(request, InputPolicy(256000, 512000)));
+    }
+
+    [Theory]
+    [InlineData(1, 7)]
+    [InlineData(256000, 512000)]
+    public void DiagnosticProfileFileUsesItsCapturedAuthorityWithoutClamping(int target, int maximum)
+    {
+        var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".json");
+        try
+        {
+            File.WriteAllText(path, JsonSerializer.Serialize(InputPolicy(target, maximum), PlanningJsonContext.Default.PlanningConstructionPhasePolicy));
+            var request = new PlanningRequest();
+            PlanningBenchmarkMeasurements.ConfigureRequest(request, ["--diagnostic-optimization-thresholds", "--phase-policy", path], retained: false);
+            var captured = PlanningBenchmarkMeasurements.Configuration(request).ToJsonString();
+            var phase = PlanningConstructionPhasePolicies.Read(request)!.Draft;
+            Assert.Equal(target, phase.TargetInputTokens); Assert.Equal(maximum, phase.MaxInputTokens);
+            PlanningBenchmarkMeasurements.ConfigureRequest(request, ["--phase-policy", path], retained: true);
+            Assert.Equal(captured, PlanningBenchmarkMeasurements.Configuration(request).ToJsonString());
+        }
+        finally { File.Delete(path); }
+    }
+
+    private static PlanningConstructionPhasePolicy InputPolicy(int target, int maximum) => new()
+    {
+        Navigation = new() { TargetInputTokens = target, MaxInputTokens = maximum },
+        Draft = new() { TargetInputTokens = target, MaxInputTokens = maximum },
+        Review = new() { TargetInputTokens = target, MaxInputTokens = maximum }
+    };
+
+    [Theory]
     [InlineData("collections", "high", "high", 8192)]
     [InlineData("amazon", "medium", "medium", 16384)]
     [InlineData("review-pr", "medium", "high", 8192)]
@@ -40,6 +151,7 @@ public sealed class ConstructionPhasePolicyTests
     [Theory]
     [InlineData("construction_intent", 3000, 6000, 8192)]
     [InlineData("construction_select", 3000, 6000, 8192)]
+    [InlineData("construction_implementation", 3000, 6000, 8192)]
     [InlineData("construction_discovery", 3000, 6000, 8192)]
     [InlineData("construction_draft", 8000, 16000, 8192)]
     [InlineData("replan", 8000, 16000, 8192)]
@@ -58,6 +170,31 @@ public sealed class ConstructionPhasePolicyTests
         Assert.Equal("medium", settings.Reasoning);
     }
 
+
+    [Theory]
+    [InlineData(false, 8192)]
+    [InlineData(true, 32768)]
+    public void DiagnosticPhaseAllocationIsCapturedAndIssuedWithoutLegacyDefaultClamping(bool diagnostic, int expected)
+    {
+        var state = new PlanningSession { Construction = new() { Limits = new() { PhasePolicy = new()
+        {
+            Draft = new() { TargetInputTokens = 12000, MaxInputTokens = 32000, OutputTokens = 32768 }
+        } } } };
+        if (diagnostic) state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        state.Request.Generation = new("medium", 16000, 8192);
+        PlanningSessionCreation.Capture(state);
+        var restored = PlannerFixture.Clone(state);
+        var phase = PlanningConstructionPhasePolicies.Resolve(restored.Request, PlanningConstruction.DraftPurpose);
+        Assert.Equal(expected, phase.OutputTokens);
+        Assert.Equal(diagnostic ? 32000 : 16000, phase.MaxInputTokens);
+        var request = PlanningConstructionPhasePolicies.Apply(new() { RequiredReviewCalls = 1, StructuredOutputSchema = new JsonObject
+            { ["title"] = PlanningConstruction.DraftPurpose } }, restored.Request, PlanningConstruction.DraftPurpose);
+        Assert.Equal(expected, request.MaxTokens);
+        Assert.Equal(expected, PlanningModelCalls.ConstructionOutputLimit(restored, PlanningConstruction.DraftPurpose));
+        PlanningConstructionPhasePolicies.ValidateIssued(request, restored.Request);
+        Assert.Equal(JsonSerializer.Serialize(state.Request.Options, PlanningJsonContext.Default.JsonObject),
+            JsonSerializer.Serialize(restored.Request.Options, PlanningJsonContext.Default.JsonObject));
+    }
 
     [Fact]
     public void ExplicitTighterCapturedPhaseInputsRemainHardCeilings()

@@ -10,7 +10,7 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed partial class CompactReviewedTransitionTests
 {
     [Fact]
-    public async Task ResumedBusinessChildEstablishesParentBindingWithoutDiscardingEitherConsumer()
+    public async Task AcceptedBusinessChildEstablishesParentBindingWithoutDiscardingEitherConsumer()
     {
         var run = await BusinessConsumers();
         Assert.Equal(PlanningStatus.FinalReview, run.State.Status);
@@ -23,36 +23,42 @@ public sealed partial class CompactReviewedTransitionTests
         var child = run.State.Construction.Checkpoints.Single(checkpoint => checkpoint.TaskIds.Contains("subtotal"));
         Assert.Equal(retained[0].Id, child.Step!.ContinuationBinding!.ContinuationId);
         Assert.Empty(child.Step.ContinuationBinding.DischargedContinuationIds ?? []);
-        Assert.NotNull(HybridWorkflowPlanner.ReviewedCheckpoint(run.State, child));
-        Assert.Single(child.Reviews, row => row["transition"]?.ToString() == "resume_reviewed_consumer");
-        // Exactly the three semantic action selections and final closure selection;
-        // neither ready consumer goes through selection a second time.
-        Assert.Equal(4, run.Purposes.Count(purpose => purpose == PlanningCompactConstruction.SelectPurpose));
+        Assert.Null(HybridWorkflowPlanner.ReviewedCheckpoint(run.State, child));
+        Assert.DoesNotContain(child.Reviews, row => row["purpose"]?.ToString() == PlanningConstruction.LocalPurpose);
+        Assert.Single(child.Reviews, row => row["transition"]?.ToString() == "resume_accepted_block_consumer");
+        Assert.Equal(1, run.Purposes.Count(purpose => purpose == PlanningCompactConstruction.SelectPurpose));
+        Assert.Equal(3, run.Purposes.Count(purpose => purpose == PlanningCompactConstruction.ImplementationPurpose));
+        Assert.Equal(1, run.Purposes.Count(IsJudge));
+        Assert.Contains(run.State.ThresholdWarnings ?? [], warning => warning.Kind == "nonproductive_calls" && warning.Threshold == 6);
     }
 
     [Fact]
-    public async Task ParentHandoffRecoveryKeepsIssuedReviewAndCompletesEachConsumerOnce()
+    public async Task ParentHandoffRecoveryKeepsIssuedProducerReceiptAndResumesEachConsumerOnce()
     {
         var run = await BusinessConsumers(stopAfterChild: true);
         var accepted = run.State;
-        var pending = PlannerFixture.Clone(run.Runtime.Checkpoints.Last(state => state.PendingCall is not null &&
-            state.Construction!.Candidate?.TaskIds.Contains("subtotal") == true));
+        var child = accepted.Construction!.Checkpoints.Single(checkpoint => checkpoint.TaskIds.Contains("subtotal"));
+        var pending = PlannerFixture.Clone(run.Runtime.Checkpoints.Last(state => state.PendingCall?.Purpose == PlanningConstruction.DraftPurpose &&
+            state.Construction!.Compact!.CurrentStep?.Id == child.Step!.Id));
         var request = JsonSerializer.Serialize(pending.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
         Assert.Null(PlanningCompactConstruction.PrepareAcceptedTransition(PlannerFixture.Clone(pending)));
         var physical = run.Responses.Count;
         var recovered = await Advance(pending, run.Runtime);
+        if (recovered.Construction!.Candidate is not null) recovered = await Advance(recovered, run.Runtime);
         Assert.Equal(request, JsonSerializer.Serialize(run.Runtime.Calls[^1], PlanningJsonContext.Default.LLMRequest));
         Assert.Equal(physical, run.Responses.Count); Assert.Equal(accepted.ModelCalls, recovered.ModelCalls);
         Assert.Equal(PlanningConstruction.Hash(accepted.Plan), PlanningConstruction.Hash(recovered.Plan));
         Assert.Equal(2, recovered.Construction!.Checkpoints.Count);
         var retained = recovered.Construction.Compact!.SuspendedSteps!;
-        Assert.Equal("waiting", retained[0].Status); Assert.Equal("completed", retained[1].Status);
+        Assert.Equal("waiting", retained[0].Status); Assert.Equal("implemented", retained[1].Status);
         recovered = await Advance(PlannerFixture.Clone(recovered), run.Runtime);
         Assert.Equal(accepted.ModelCalls, recovered.ModelCalls);
         Assert.Equal("resuming", recovered.Construction!.Compact!.SuspendedSteps![0].Status);
-        Assert.Equal("completed", recovered.Construction.Compact.SuspendedSteps[1].Status);
+        Assert.Equal("implemented", recovered.Construction.Compact.SuspendedSteps[1].Status);
         Assert.Null(PlanningCompactConstruction.PrepareAcceptedTransition(PlannerFixture.Clone(recovered)));
-        Assert.Single(recovered.Construction.Checkpoints[1].Reviews, row => row["transition"]?.ToString() == "resume_reviewed_consumer");
+        Assert.True(recovered.Construction.Checkpoints[1].Fragment["businessReviewPending"]!.GetValue<bool>());
+        Assert.DoesNotContain(recovered.Construction.Checkpoints[1].Reviews, row => row["purpose"]?.ToString() == PlanningConstruction.LocalPurpose);
+        Assert.Single(recovered.Construction.Checkpoints[1].Reviews, row => row["transition"]?.ToString() == "resume_accepted_block_consumer");
     }
 
     [Theory]
@@ -78,7 +84,7 @@ public sealed partial class CompactReviewedTransitionTests
         Assert.True(transition is null || transition.Construction!.Compact!.CurrentStep is null);
         Assert.Equal(calls, state.ModelCalls);
         Assert.DoesNotContain(state.Construction.Checkpoints.SelectMany(checkpoint => checkpoint.Reviews),
-            row => row["transition"]?.ToString() == "resume_reviewed_consumer" && row["checkpoint"]?.GetValue<int>() == 2);
+            row => row["transition"]?.ToString() == "resume_accepted_block_consumer" && row["checkpoint"]?.GetValue<int>() == 2);
     }
 
     private sealed record BusinessRun(PlanningSession State, TestRuntime Runtime, List<string> Purposes,
@@ -94,6 +100,7 @@ public sealed partial class CompactReviewedTransitionTests
         var runtime = new TestRuntime(); var purposes = new List<string>();
         var responses = new Dictionary<string, LLMResponse>(StringComparer.Ordinal); Exception? modelFailure = null;
         var selected = 0;
+        var roles = new Dictionary<string, string>(StringComparer.Ordinal);
         runtime.Respond = (request, purpose) =>
         {
             if (responses.TryGetValue(request.ClientRequestId!, out var retained)) return retained;
@@ -110,13 +117,18 @@ public sealed partial class CompactReviewedTransitionTests
                 ["name"] = "number", ["type"] = new JsonObject { ["kind"] = "number", ["nullable"] = false }, ["required"] = true }) })
                     };
                 else if (purpose == PlanningCompactConstruction.SelectPurpose)
+                    response = BusinessSelection(request);
+                else if (purpose == PlanningCompactConstruction.ImplementationPurpose)
                 {
                     response = Selection(request, "/root", "value", false, false);
-                    response["step"]!["requirementIds"] = new JsonArray("req_0", "req_1");
                     if (selected < 3)
                     {
-                        response["step"]!["objective"] = new[] { parentGoal, childGoal, seedGoal }[selected++];
-                        if (selected == 1) response["step"]!["outputNames"] = new JsonArray("number");
+                        selected++;
+                        if (selected == 1)
+                        {
+                            response["step"]!["outputNames"] = new JsonArray("number");
+                            response["step"]!["closeRequirementIds"] = new JsonArray("req_0", "req_1");
+                        }
                     }
                     else if (current!.Construction!.Compact!.SuspendedSteps!.Any(item => item.Status == "waiting"))
                     {
@@ -132,27 +144,35 @@ public sealed partial class CompactReviewedTransitionTests
                 else if (purpose == PlanningConstruction.DraftPurpose)
                 {
                     var step = current!.Construction!.Compact!.CurrentStep!;
-                    if (step.Objective != seedGoal && step.Inputs.Count == 0)
-                        response = Suspend(context, step.Objective == parentGoal ? "The exact required subtotal." : "The exact required seed.", "req_0");
+                    if (!roles.TryGetValue(step.Id, out var role))
+                    {
+                        var resumed = current.Construction.Compact.ResumingStepId;
+                        role = resumed is null ? new[] { parentGoal, childGoal, seedGoal }[selected - 1]
+                            : roles[current.Construction.Compact.SuspendedSteps!.Single(item => item.Id == resumed).Consumer.Id];
+                        roles.Add(step.Id, role);
+                    }
+                    if (role != seedGoal && step.Inputs.Count == 0)
+                        response = Suspend(context, role == parentGoal ? "The exact required subtotal." : "The exact required seed.", "req_0");
                     else
                     {
                         var chain = current.Construction.Compact.SuspendedSteps!;
-                        var extension = new PlanningConstructionExtension { RequirementIds = ["req_0", "req_1"] };
-                        if (step.Objective == seedGoal)
+                        var extension = new PlanningConstructionExtension { RequirementIds = ["req_0", "req_1"], CompleteBlock = false };
+                        if (role == seedGoal)
                         {
                             extension.Tasks = [Number("seed")];
                             extension.ContinuationBinding = new() { ContinuationId = chain[1].Id, Binding = Output("seed") };
                         }
-                        else if (step.Objective == childGoal)
+                        else if (role == childGoal)
                         {
                             extension.Tasks = [Computed("subtotal", "add", Output("seed"), 1)];
                             extension.ContinuationBinding = new() { ContinuationId = chain[0].Id, Binding = Output("subtotal") };
                         }
                         else
                         {
-                            Assert.Equal(parentGoal, step.Objective);
+                            Assert.Equal(parentGoal, role);
                             extension.Tasks = [Computed("total", "multiply", Output("subtotal"), 2)];
                             extension.Outputs = [new("number", Output("total"))];
+                            extension.CloseScopes = ["/root"]; extension.Complete = true; extension.CompleteBlock = true;
                         }
                         response = Draft(context, extension);
                     }
@@ -169,8 +189,8 @@ public sealed partial class CompactReviewedTransitionTests
             Assert.True(modelFailure is null, modelFailure?.ToString());
             Assert.True(state.Diagnostics.All(diagnostic => !diagnostic.Required), string.Join(";", state.Diagnostics.Select(diagnostic => diagnostic.Code + ":" + diagnostic.Message)));
             if (state.Construction!.Candidate is null && state.Construction.Checkpoints.LastOrDefault() is { Step.ContinuationBinding: not null } associated)
-                Assert.True(HybridWorkflowPlanner.ReviewedCheckpoint(state, associated) is not null,
-                    "The accepted association lost its host review: " + JsonSerializer.Serialize(associated, PlanningJsonContext.Default.PlanningConstructionCheckpoint));
+                Assert.True(associated.Fragment["businessReviewPending"]!.GetValue<bool>(),
+                    "A technical prerequisite association must retain the pending business review.");
             if (stopAfterChild && state.Construction!.Checkpoints.Count == 2 && state.Construction.Candidate is null) break;
         }
         return new(state, runtime, purposes, responses);
@@ -180,7 +200,7 @@ public sealed partial class CompactReviewedTransitionTests
     {
         var state = new PlanningSession { Request = new() { TenantId = "business-transitions", Prompt = prompt,
             MaxModelCalls = 64, MaxReplanAttempts = 4, Generation = new("medium", 32_000, 8_192),
-            Options = new() { ["automatic_correction"] = true } } };
+            Options = new() { ["automatic_correction"] = true, [PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1" } } };
         PlanningSessionCreation.Capture(state);
         // Matched initial allowances in both arms; no request is issued before capture.
         state.Construction!.Limits.PhasePolicy!.Navigation.MaxInputTokens = 12_000;

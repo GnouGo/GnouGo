@@ -477,7 +477,7 @@ public sealed class CompactConstructionContractsTests
         PlanningConstruction.LoadEvidence(state, ["page:sources:0"]);
         var selection = new JsonObject { ["baseHash"] = PlanningConstruction.Hash(state.Plan), ["step"] = null,
             ["evidenceRequests"] = new JsonArray(sourceAddress), ["clarifications"] = null };
-        Assert.Empty(PlanningContractValidation.ValidateInstance(selection, PlanningCompactConstruction.SelectionSchema(state)));
+        Assert.Empty(PlanningContractValidation.ValidateInstance(selection, PlanningCompactConstruction.ImplementationSchema(state)));
         var discovery = new JsonObject { ["binding"] = null, ["discoveryRequests"] = null,
             ["evidenceRequests"] = new JsonArray(sourceAddress), ["clarifications"] = null, ["reselectStep"] = null };
         Assert.Empty(PlanningContractValidation.ValidateInstance(discovery, PlanningCompactConstruction.DiscoverySchema(state)));
@@ -796,13 +796,23 @@ public sealed class CompactConstructionContractsTests
     public void AContainerFragmentIncludesRelatedChildTasksUnderTheRecursiveAllowance()
     {
         var state = State();
-        state.Construction!.Compact!.CurrentStep!.Kind = "foreach";
+        var step = state.Construction!.Compact!.CurrentStep!;
+        state.Construction.Compact.CurrentStep = null;
+        PlanningCompactConstruction.SelectBlock(state, new JsonObject
+        {
+            ["objective"] = "Read the exact requested value", ["requirementIds"] = new JsonArray("result"),
+            ["informationNeeds"] = new JsonArray(), ["expectedResults"] = new JsonArray("The requested value."),
+            ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray("Read only the caller-authorized value.")
+        });
+        step.BlockId = state.Construction.Compact.CurrentBlockId;
+        step.Kind = "foreach";
+        state.Construction.Compact.CurrentStep = step;
         var schema = PlanningCompactConstruction.DraftSchema(state);
         var response = JsonNode.Parse("""
             {"baseHash":"","requirements":null,"commitments":null,"discoveryRequests":null,"clarifications":null,"evidenceRequests":null,"rollbackTask":null,"rollbackReason":null,"reselectStep":null,
              "extension":{"scope":"/root","tasks":[{"id":"loop","kind":"foreach","objective":"Visit every supplied item","dependsOn":[],"requires":null,
              "items":{"kind":"array","items":[]},"body":{"tasks":[],"outputs":[],"always":[]},"parallel":false,"maxItems":10,"maxConcurrency":1}],
-             "always":[],"outputs":[],"groups":[],"choices":[],"closeScopes":[],"requirementIds":[],"complete":false}}
+             "always":[],"outputs":[],"groups":[],"choices":[],"closeScopes":[],"requirementIds":[],"complete":false,"completeBlock":false}}
             """)!;
         response["baseHash"] = state.Construction!.Compact!.CurrentStep.BaseHash;
         response = PlanningCorpus.Transport(response, schema, schema)!;

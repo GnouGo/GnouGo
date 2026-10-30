@@ -125,14 +125,15 @@ public sealed class BusinessProjectionBindingsTests
         Assert.Equal("Read the requested original document; the identity and contents are distinct text values.", action["meaning"]!.ToString());
         Assert.Equal("doc/7", action["arguments"]![0]!["value"]!["text"]!.ToString());
         Assert.Equal("content", Assert.Single(action["ports"]!.AsArray(), port => port!["direction"]!.ToString() == "output")!["name"]!.ToString());
-        Assert.DoesNotContain(projection["fragment"]!.AsArray(), item => item!.ToString() == "record");
+        Assert.Null(projection["fragment"]);
+        Assert.Null(projection["transitions"]);
         Assert.Equal("read", action["effect"]!.ToString());
     }
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task ContinuationReviewExposesExactBusinessNeedsAndDescendantDispositions(bool supersedeNavigation)
+    public async Task ContinuationMechanicsStayOutOfBusinessReviewWhileActualProducerRemainsVisible(bool supersedeNavigation)
     {
         var (state, _) = await BusinessReviewProtocolTests.Ready();
         var capability = Contract(state);
@@ -146,23 +147,17 @@ public sealed class BusinessProjectionBindingsTests
             DischargedContinuationIds = supersedeNavigation ? ["child"] : [] };
         candidate.Hash = PlanningConstruction.Hash(candidate.Plan);
         var (context, request) = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, global: false);
-        var continuation = context["continuation"]!;
-        Assert.Equal("Write the original document contents to the report.", continuation["consumer"]!["objective"]!.ToString());
-        Assert.Equal("Complete original document contents, not its identity.", continuation["consumer"]!["prerequisite"]!["need"]!.ToString());
-        Assert.Equal("string", continuation["consumer"]!["prerequisite"]!["expectedType"]!["kind"]!.ToString());
-        Assert.False(continuation["consumer"]!["prerequisite"]!["expectedType"]!["nullable"]!.GetValue<bool>());
-        var child = Assert.Single(continuation["descendants"]!.AsArray())!;
-        Assert.Equal("Normalize the document contents without losing facts.", child["consumer"]!["objective"]!.ToString());
-        Assert.Equal(supersedeNavigation ? "prerequisite_navigation_superseded" : "business_consumer_retained", child["disposition"]!.ToString());
-        Assert.Null(continuation["id"]);
-        Assert.Null(child["id"]);
-        Assert.Null(child["parentId"]);
-        Assert.Equal("content", continuation["binding"]!["port"]!.ToString());
+        Assert.Null(context["continuation"]);
+        Assert.Null(context["fragment"]);
+        Assert.Null(context["transitions"]);
+        Assert.Null(context["claims"]!["closedScopes"]);
+        Assert.DoesNotContain("prerequisite_navigation_superseded", request.Prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("business_consumer_retained", request.Prompt, StringComparison.Ordinal);
         Assert.DoesNotContain("DO_NOT_PRESENT_AUTHORITY", request.Prompt, StringComparison.Ordinal);
         foreach (var key in new[] { "dependencyHashes", "sourceVersions", "requestId", "claimsHash", "responseHash" })
             Assert.DoesNotContain('"' + key + '"', request.Prompt, StringComparison.Ordinal);
         var evidence = new JsonObject { ["decision"] = new JsonObject { ["verdict"] = "needs_context", ["reason"] = "Inspect the prerequisite original.",
-            ["contextRequests"] = new JsonArray("source:request:0:clause:0") } };
+            ["contextRequests"] = new JsonArray("requirement:work") } };
         Assert.Empty(PlanningModelCalls.ValidateResponseFindings(evidence, request.StructuredOutputSchema!));
         var producer = Assert.Single(context["actions"]!.AsArray(), action => action!["id"]!.ToString() == "record")!;
         Assert.Equal("Complete original document contents; never a document identity.",

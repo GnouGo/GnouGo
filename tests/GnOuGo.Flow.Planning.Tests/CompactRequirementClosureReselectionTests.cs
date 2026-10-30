@@ -103,7 +103,7 @@ public sealed class CompactRequirementClosureReselectionTests
         }
         if (variation == "no_claim") compact.CurrentStep!.CloseRequirementIds.Clear();
         if (variation == "root_bound") state.Plan!.Root.Outputs.Add(new("result", NumericArray()));
-        state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = Scope, RequirementIds = ["req_0"], CloseScopes = [Scope] });
+        state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = Scope, RequirementIds = ["req_0"], CloseScopes = [Scope], CompleteBlock = true });
         var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
         var findings = PlanningCompactConstruction.CandidateFindings(state).ToArray();
         Assert.Equal(missing, findings.Any(finding => finding.Code == "CONSTRUCTION_REQUIREMENT_OUTPUT_MISSING"));
@@ -121,7 +121,7 @@ public sealed class CompactRequirementClosureReselectionTests
             Assert.Equal(PlanningConstruction.DraftPurpose, purpose);
             var draft = Draft(request);
             draft["extension"] = JsonSerializer.SerializeToNode(new PlanningConstructionExtension
-                { Scope = "/root", RequirementIds = ["req_0"], Outputs = [new("result", NumericArray())] }, PlanningJsonContext.Default.PlanningConstructionExtension);
+                { Scope = "/root", RequirementIds = ["req_0"], CompleteBlock = true, Outputs = [new("result", NumericArray())] }, PlanningJsonContext.Default.PlanningConstructionExtension);
             return Wire(request, draft);
         };
         state = await Advance(state, runtime);
@@ -234,6 +234,13 @@ public sealed class CompactRequirementClosureReselectionTests
         state.Construction.Compact!.CurrentStep = new() { Id = "close", BaseHash = hash, Scope = Scope, Kind = "close",
             Objective = "Close the reusable worker body.", RequirementIds = ["req_0"], CloseRequirementIds = ["req_0"],
             Inputs = [new() { Kind = "output", Source = "calculate", Port = "result" }], InputTaskIds = ["calculate"], DiscoveryComplete = true };
+        state.Construction.Compact.Blocks = [new() { Id = "fixture_block", Objective = state.Request.Prompt,
+            RequirementIds = ["req_0"], ExpectedResults = ["The requested result preserves its original meaning."],
+            SuccessCriteria = ["The implementation fulfills the complete original requirement."] }];
+        state.Construction.Compact.CurrentBlockId = "fixture_block";
+        state.Construction.Compact.CurrentStep!.BlockId = "fixture_block";
+        state.Construction.Compact.CurrentStep.Objective = state.Construction.Compact.Blocks[0].Objective;
+        state.Construction.Compact.CurrentStep.ExpectedOutputs = state.Construction.Compact.Blocks[0].ExpectedResults.ToList();
         return (state, runtime);
     }
 
@@ -241,7 +248,7 @@ public sealed class CompactRequirementClosureReselectionTests
     {
         ["baseHash"] = Context(request)["baseHash"]!.DeepClone(), ["requirements"] = null, ["commitments"] = null,
         ["extension"] = JsonSerializer.SerializeToNode(new PlanningConstructionExtension
-            { Scope = Scope, RequirementIds = ["req_0"], CloseScopes = [Scope] }, PlanningJsonContext.Default.PlanningConstructionExtension),
+            { Scope = Scope, RequirementIds = ["req_0"], CloseScopes = [Scope], CompleteBlock = true }, PlanningJsonContext.Default.PlanningConstructionExtension),
         ["discoveryRequests"] = null, ["evidenceRequests"] = null, ["clarifications"] = null,
         ["rollbackTask"] = null, ["rollbackReason"] = null, ["reselectStep"] = null
     };

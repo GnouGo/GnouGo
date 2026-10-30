@@ -158,7 +158,7 @@ public sealed class ConstructionCorrectionAccountingTests
         var (state, runtime) = await Ready(draft: true);
         var candidate = PlanningConstruction.Apply(state, new()
         {
-            Scope = "/root", RequirementIds = ["req_0"],
+            CompleteBlock = false, Scope = "/root", RequirementIds = ["req_0"],
             Tasks = [new() { Id = "constant", Kind = "value", Objective = "Produce the constant.",
                 Outputs = [new("value", new() { Kind = "number", Number = 1 })] }]
         });
@@ -186,7 +186,7 @@ public sealed class ConstructionCorrectionAccountingTests
         var (state, runtime) = await Ready(draft: true);
         state.Construction!.Candidate = PlanningConstruction.Apply(state, new()
         {
-            Scope = "/root", RequirementIds = ["req_0"],
+            CompleteBlock = false, Scope = "/root", RequirementIds = ["req_0"],
             Tasks = [new() { Id = "constant", Kind = "value", Objective = "Produce the constant.",
                 Outputs = [new("value", new() { Kind = "number", Number = 1 })] }]
         });
@@ -375,10 +375,16 @@ public sealed class ConstructionCorrectionAccountingTests
         Assert.NotNull(state.Construction!.Limits.PhasePolicy);
         state.Catalog = await runtime.DiscoverAsync(state.Request, PlannerFixture.Ct);
         state.Plan = new();
+        PlanningCompactConstruction.SelectBlock(state, new JsonObject
+        {
+            ["objective"] = state.Request.Prompt, ["requirementIds"] = new JsonArray("req_0"),
+            ["informationNeeds"] = new JsonArray(), ["expectedResults"] = new JsonArray("The requested constant value."),
+            ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray("Preserve all original constraints and exact result meaning.")
+        });
         if (draft)
             state.Construction!.Compact!.CurrentStep = new()
             {
-                Id = "constant", BaseHash = PlanningConstruction.Hash(state.Plan), Scope = "/root", Kind = "value",
+                BlockId = state.Construction.Compact!.CurrentBlockId, Id = "constant", BaseHash = PlanningConstruction.Hash(state.Plan), Scope = "/root", Kind = "value",
                 Objective = state.Request.Prompt, RequirementIds = ["req_0"], DiscoveryComplete = true
             };
         return (state, runtime);

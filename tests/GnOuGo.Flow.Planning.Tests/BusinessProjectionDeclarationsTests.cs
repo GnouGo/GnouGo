@@ -89,7 +89,7 @@ public sealed class BusinessProjectionDeclarationsTests
         state.Construction!.OpenScopes.Add(scope);
         var step = state.Construction.Compact!.CurrentStep!;
         step.Scope = scope; step.BaseHash = PlanningConstruction.Hash(state.Plan);
-        state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = scope, RequirementIds = ["work"] });
+        state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = scope, RequirementIds = ["work"], CompleteBlock = true });
         var projection = PlanningBusinessProjection.Build(state, global: false);
         var root = Assert.Single(projection["inputs"]!.AsArray())!;
         Assert.Equal("string", root["type"]!["kind"]!.ToString());
@@ -139,7 +139,7 @@ public sealed class BusinessProjectionDeclarationsTests
         Assert.DoesNotContain("$defs", request.Prompt, StringComparison.Ordinal);
     }
 
-    internal static async Task<(PlanningSession State, TestRuntime Runtime)> Ready(bool numeric = false)
+    internal static async Task<(PlanningSession State, TestRuntime Runtime)> Ready(bool numeric = false, bool combined = false)
     {
         var (state, runtime) = await BusinessReviewProtocolTests.Ready();
         var declaration = numeric ? "Accept exactly one required number input named request, without a default. "
@@ -154,9 +154,19 @@ public sealed class BusinessProjectionDeclarationsTests
         state.Requirements!.Outcomes = [new("work", declaration), new("later", later)];
         state.Requirements.Inputs = [new() { Name = "request", Type = new() { Kind = numeric ? "number" : "string" }, Required = true }];
         state.Plan = new() { Inputs = state.Requirements.Inputs.ToList() };
-        compact.CurrentStep = new() { Id = "close-interface", Scope = "/root", Kind = "close", Objective = "Confirm the declared public input.",
+        state.Construction.Candidate = null;
+        compact.CurrentStep = null; compact.CurrentBlockId = null; compact.Blocks!.Clear();
+        PlanningCompactConstruction.SelectBlock(state, new JsonObject
+        {
+            ["objective"] = combined ? "Compute and return twice the required caller number plus one." : declaration,
+            ["requirementIds"] = combined ? new JsonArray("work", "later") : new JsonArray("work"),
+            ["informationNeeds"] = new JsonArray("The required caller input named request"),
+            ["expectedResults"] = new JsonArray(combined ? "The computed public result" : "The exact required public input declaration"),
+            ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray(combined ? declaration + later : declaration)
+        });
+        compact.CurrentStep = new() { BlockId = compact.CurrentBlockId, Id = "close-interface", Scope = "/root", Kind = "close", Objective = "Confirm the declared public input.",
             RequirementIds = ["work"], CloseRequirementIds = ["work"], CloseScopes = [], BaseHash = PlanningConstruction.Hash(state.Plan), DiscoveryComplete = true };
-        state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["work"] });
+        state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["work"], CompleteBlock = true });
         return (state, runtime);
     }
     private static string Hash(string text) => PlanningGraphCompiler.Fingerprint(text);

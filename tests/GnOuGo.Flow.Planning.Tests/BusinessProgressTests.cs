@@ -8,6 +8,61 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class BusinessProgressTests
 {
     [Fact]
+    public void RewordingBusinessCriteriaDoesNotReopenTheSameStrategy()
+    {
+        var state = PlannerFixture.Session();
+        var first = JsonNode.Parse("""{"block":{"objective":"Read the requested records","requirementIds":["records"],"informationNeeds":["Record identifiers"],"expectedResults":["Requested records"],"dependencies":[{"resultId":"result:block_1","reason":"Use the prior identifiers"}],"successCriteria":["All original records are present"]}}""")!;
+        var reworded = first.DeepClone();
+        reworded["block"]!["objective"] = "Produce the records";
+        reworded["block"]!["informationNeeds"] = new JsonArray("Known identifiers");
+        reworded["block"]!["expectedResults"] = new JsonArray("The records requested by the caller");
+        reworded["block"]!["successCriteria"] = new JsonArray("Every requested record is returned");
+        Assert.Equal(PlanningProgress.Strategy(state, PlanningCompactConstruction.SelectPurpose, first),
+            PlanningProgress.Strategy(state, PlanningCompactConstruction.SelectPurpose, reworded));
+        reworded["block"]!["dependencies"]![0]!["resultId"] = "result:block_2";
+        Assert.NotEqual(PlanningProgress.Strategy(state, PlanningCompactConstruction.SelectPurpose, first),
+            PlanningProgress.Strategy(state, PlanningCompactConstruction.SelectPurpose, reworded));
+    }
+
+    [Fact]
+    public async Task RepeatedBusinessAttemptRetainsBothExactRequestsAndCanonicalEvidenceAcrossRestart()
+    {
+        var (state, runtime) = await BusinessReviewProtocolTests.Ready();
+        state.Construction!.Candidate = null;
+        state.Construction.Compact!.CurrentStep = null;
+        state.Construction.Compact.CurrentBlockId = null;
+        state.Construction.Compact.Blocks!.Clear();
+        state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        var selections = 0;
+        runtime.Respond = (_, purpose) =>
+        {
+            Assert.Equal(PlanningCompactConstruction.SelectPurpose, purpose);
+            selections++;
+            return new() { Json = new JsonObject
+            {
+                ["block"] = new JsonObject { ["objective"] = "Reworded business intent " + selections,
+                    ["requirementIds"] = new JsonArray("work"), ["informationNeeds"] = new JsonArray(),
+                    ["expectedResults"] = new JsonArray("A result phrased differently " + selections),
+                    ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray(" ") },
+                ["evidenceRequests"] = null, ["clarifications"] = null
+            } };
+        };
+        state = await BusinessReviewProtocolTests.Advance(state, runtime);
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_BLOCK_INVALID");
+        state = await BusinessReviewProtocolTests.Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "REPLAN_NO_PROGRESS");
+        Assert.Equal(2, selections);
+        var attempts = PlannerFixture.Clone(state).StrategyAttempts!;
+        Assert.Equal(2, attempts.Count);
+        Assert.NotEqual(attempts[0]["requestId"]!.ToString(), attempts[1]["requestId"]!.ToString());
+        Assert.True(JsonNode.DeepEquals(attempts[0]["strategy"], attempts[1]["strategy"]));
+        Assert.Equal(attempts[0]["usefulState"]!.ToString(), attempts[1]["usefulState"]!.ToString());
+        Assert.True(attempts[1]["repeated"]!.GetValue<bool>());
+        Assert.Equal("work", attempts[1]["strategy"]!["action"]!["block"]!["requirementIds"]![0]!.ToString());
+    }
+
+    [Fact]
     public async Task RenamedEmptyCheckpointsCannotBuyASeventhNonproductiveCall()
     {
         var state = PlannerFixture.Session(); state.Plan = new();

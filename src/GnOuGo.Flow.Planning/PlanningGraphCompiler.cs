@@ -45,13 +45,13 @@ public sealed partial class PlanningGraphCompiler
     internal string Compile(PlanningGraph graph, PlanningCatalog catalog, string name, bool descriptions, bool fuseBindings, bool consumerBindings, bool directProjections, bool nativeMappings, bool readableMappings, bool leanMappings, bool compactProjections, bool inlineConsumers, bool directValues, bool checkedControls, bool readableBranches)
         => Compile(graph, catalog, name, descriptions, fuseBindings, consumerBindings, directProjections, nativeMappings, readableMappings, leanMappings, compactProjections, inlineConsumers, directValues, checkedControls, readableBranches, false);
 
-    internal string Compile(PlanningGraph graph, PlanningCatalog catalog, string name, bool descriptions, bool fuseBindings, bool consumerBindings, bool directProjections, bool nativeMappings, bool readableMappings, bool leanMappings, bool compactProjections, bool inlineConsumers, bool directValues, bool checkedControls, bool readableBranches, bool simplifiedLocals)
+    internal string Compile(PlanningGraph graph, PlanningCatalog catalog, string name, bool descriptions, bool fuseBindings, bool consumerBindings, bool directProjections, bool nativeMappings, bool readableMappings, bool leanMappings, bool compactProjections, bool inlineConsumers, bool directValues, bool checkedControls, bool readableBranches, bool simplifiedLocals, bool advisoryOptimization = false)
     {
         ArgumentNullException.ThrowIfNull(graph);
-        var diagnostics = PlanningExecutableValidation.Validate(graph, catalog);
+        var diagnostics = PlanningExecutableValidation.Validate(graph, catalog, advisoryOptimization);
         if (diagnostics.Count != 0) throw new InvalidOperationException(string.Join("; ", diagnostics.Select(d => d.Code + " at " + d.Location + ": " + d.Message)));
         var limits = PlanningGraphLimits.From(catalog.Policy);
-        if (graph.Workflows.Count == 0 || graph.Workflows.Count > limits.Workflows)
+        if (graph.Workflows.Count == 0 || !advisoryOptimization && graph.Workflows.Count > limits.Workflows)
             throw new InvalidOperationException("A planning graph must contain between 1 and " + limits.Workflows + " workflows.");
         EnsureUnique(graph.Workflows.Select(w => w.Key), "workflow");
         if (!graph.Workflows.Any(w => w.Key == graph.Entrypoint))
@@ -64,7 +64,7 @@ public sealed partial class PlanningGraphCompiler
         {
             var allNodes = Enumerate(workflow.Steps).Concat(Enumerate(workflow.Finally)).ToArray();
             EnsureUnique(allNodes.Select(n => n.Key), "node");
-            if (allNodes.Length > limits.StepsPerWorkflow) throw new InvalidOperationException("A workflow exceeds the " + limits.StepsPerWorkflow + "-node planning limit.");
+            if (!advisoryOptimization && allNodes.Length > limits.StepsPerWorkflow) throw new InvalidOperationException("A workflow exceeds the " + limits.StepsPerWorkflow + "-node planning limit.");
             var nodeIds = allNodes.ToDictionary(n => n.Key, n => "n_" + Fingerprint(n.Key)[..16], StringComparer.Ordinal);
             var scope = new LoweringScope(catalog, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes), allNodes.ToDictionary(n => n.Key, StringComparer.Ordinal), graph.Workflows.ToDictionary(w => w.Key, StringComparer.Ordinal), descriptions) { DirectProjections = directProjections, NativeMappings = nativeMappings, ReadableMappings = readableMappings, LeanMappings = leanMappings, CompactProjections = compactProjections, InlineConsumers = inlineConsumers, DirectValues = directValues, CheckedControls = checkedControls, ReadableBranches = readableBranches, SimplifiedLocals = simplifiedLocals };
             if (compactProjections) PrepareCopyProjections(workflow, scope);

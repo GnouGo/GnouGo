@@ -71,18 +71,25 @@ public static class CurrentPlanningFixture
                 "construction_intent" => Index(context),
                 "construction_select" => new JsonObject
                 {
+                    ["block"] = new JsonObject { ["objective"] = "Return the caller's required numeric result.",
+                        ["requirementIds"] = new JsonArray("req_0"), ["informationNeeds"] = new JsonArray(),
+                        ["expectedResults"] = new JsonArray("The public numeric result named result has value 42."),
+                        ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray("Return result = 42 without external effects.") }
+                },
+                "construction_implementation" => new JsonObject
+                {
                     ["baseHash"] = schema["properties"]!["baseHash"]!["enum"]![0]!.DeepClone(),
-                    ["step"] = new JsonObject { ["scope"] = "/root", ["kind"] = "value", ["objective"] = "Return numeric result 42.",
+                    ["step"] = new JsonObject { ["scope"] = "/root", ["kind"] = "value",
                         ["operationIds"] = new JsonArray(),
-                        ["requirementIds"] = new JsonArray("req_0"), ["inputs"] = new JsonArray(), ["dependencyTaskIds"] = new JsonArray(),
-                        ["expectedOutputs"] = new JsonArray("result = 42"), ["closeRequirementIds"] = new JsonArray("req_0"), ["outputNames"] = new JsonArray("result") }
+                        ["inputs"] = new JsonArray(), ["dependencyTaskIds"] = new JsonArray(),
+                        ["closeRequirementIds"] = new JsonArray("req_0"), ["outputNames"] = new JsonArray("result") }
                 },
                 "construction_draft" => new JsonObject
                 {
                     ["baseHash"] = context["baseHash"]!.DeepClone(),
                     ["extension"] = JsonSerializer.SerializeToNode(new PlanningConstructionExtension
                     {
-                        Scope = "/root", RequirementIds = ["req_0"], CloseScopes = ["/root"], Complete = true,
+                        Scope = "/root", RequirementIds = ["req_0"], CloseScopes = ["/root"], CompleteBlock = true, Complete = true,
                         Tasks = [new() { Id = "result", Kind = "value", Objective = "Return the original required number.",
                             Outputs = [new("value", new() { Kind = "number", Number = 42 })] }],
                         Outputs = [new("result", new() { Kind = "output", Source = "result", Port = "value" })]

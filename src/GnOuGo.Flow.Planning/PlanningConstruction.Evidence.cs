@@ -10,7 +10,7 @@ internal static partial class PlanningConstruction
     internal static GnOuGo.Flow.Core.Runtime.LLMRequest RepairRequest(PlanningSession state, PlanningSession authority, string? guidance = null)
     {
         var schema = PlanningSchemas.RepairSchema(authority);
-        schema["properties"]!["evidenceRequests"] = PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.String(), 1, 8));
+        schema["properties"]!["evidenceRequests"] = PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.String(), 1, PlanningOptimizationThresholds.Maximum(state, 8)));
         schema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("evidenceRequests"));
         schema["properties"]!["reselectStep"] = state.Construction!.Candidate?.AuthorizedPaths is null
             ? PlanningSchemas.Nullable(new JsonObject { ["type"] = "string", ["maxLength"] = 512 }) : PlanningSchemas.Type("null");
@@ -22,7 +22,7 @@ internal static partial class PlanningConstruction
         if (PriorRepairObservations(state) is { } history) context["priorRepairObservations"] = history;
         PlanningCompactConstruction.ConstrainDraftEvidence(state, context, projected);
         return PlanningCompactConstruction.Request(state, (guidance is null ? "" : guidance + "\n") + PlanningPrompt.RepairInstructions +
-            "\n" + PlanningCompactConstruction.RecursiveTaskBudgetSemantics +
+            "\n" + PlanningCompactConstruction.RecursiveTaskBudgetGuidance(state) +
             "\nRequest up to eight related exact evidence addresses as the only action. The complete follow-up must fit its captured phase ceiling; evidence grants no edit authority. If exact original evidence already supports the implementation, request those addresses for bounded reconsideration without editing the plan." +
             " If the diagnosed tentative task kind or operation cannot implement the original requirement, reselectStep may give a concrete reason as the only action. It preserves accepted work and the selected scope/requirements; explicit revision paths cannot be expanded.",
             context, projected, "replan");
@@ -60,6 +60,7 @@ internal static partial class PlanningConstruction
             target.Evidence = accepted.Evidence;
             target.EvidenceRequests = accepted.EvidenceRequests;
             target.TaskCursor = accepted.TaskCursor; target.ScopeCursor = accepted.ScopeCursor; target.RequirementCursor = accepted.RequirementCursor;
+            foreach (var warning in probe.ThresholdWarnings ?? []) PlanningOptimizationThresholds.Add(state, warning);
             ClearResolvedEvidenceDiagnostics(state);
             return;
         }
@@ -75,7 +76,7 @@ internal static partial class PlanningConstruction
             // Only host-issued next links from explicitly requested chains are
             // traversed. Exact retained originals also detect stale/cyclic pages.
             var next = PlanningCompactConstruction.OriginalDescriptionContinuation(probe, address);
-            if (next is null || supplied.Contains(next) || supplied.Count == 8) continue;
+            if (next is null || supplied.Contains(next) || supplied.Count == 8 && !PlanningTokenThresholds.OptimizationAdvisory(state.Request)) continue;
             var key = EvidenceBatchFingerprint(probe, [next]);
             var expanded = JsonSerializer.Deserialize(JsonSerializer.Serialize(probe, PlanningJsonContext.Default.PlanningSession),
                 PlanningJsonContext.Default.PlanningSession)!;
@@ -141,7 +142,7 @@ internal static partial class PlanningConstruction
         {
             var required = 1 + (request.RequiredReviewCalls ?? 0);
             var phase = PlanningConstructionPhasePolicies.Resolve(state.Request, purpose);
-            if (PlanningModelCalls.RemainingCalls(state) < required ||
+            if (!PlanningModelCalls.HasCallCapacity(state, required) ||
                 !PlanningTokenThresholds.Advisory(state.Request) && PlanningBudgetOptions.Parse(state.Request.Options)?.MaxTotalTokens is { } tokens &&
                 tokens - (state.Usage?.TotalTokens ?? 0) < (long)required * (phase.MaxInputTokens + phase.OutputTokens))
             {
@@ -167,8 +168,8 @@ internal static partial class PlanningConstruction
     private static void LoadEvidenceCore(PlanningSession state, List<string> requests, string? descriptionReadKey = null, JsonNode? issuedSchema = null)
     {
         var construction = state.Construction!;
-        if (requests.Count is < 1 or > 8 || requests.Distinct(StringComparer.Ordinal).Count() != requests.Count)
-            Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Request one to eight distinct original evidence identities.");
+        if (requests.Count < 1 || PlanningOptimizationThresholds.Exceeded(state, "evidence", "evidence_requests", requests.Count, 8) || requests.Distinct(StringComparer.Ordinal).Count() != requests.Count)
+            Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Request distinct original evidence identities; the captured ordinary limit is eight.");
         var key = EvidenceBatchFingerprint(state, requests);
         if (descriptionReadKey is not null && (requests.Count != 1 || !requests[0].StartsWith("description:", StringComparison.Ordinal) ||
             !descriptionReadKey.StartsWith("description-read:" + key + ":", StringComparison.Ordinal)))
@@ -192,7 +193,7 @@ internal static partial class PlanningConstruction
         foreach (var request in requests)
         {
             var split = request.IndexOf(':');
-            if (split <= 0 || request.Length > 2048) Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Use a declared evidence identity.");
+            if (split <= 0 || request.Length > 2048 && !PlanningTokenThresholds.OptimizationAdvisory(state.Request)) Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Use a declared evidence identity.");
             var kind = request[..split]; var id = request[(split + 1)..];
             JsonNode? value = null;
             if (PlanningCompactConstruction.LoadEvidence(state, request, out value, issuedSchema))
@@ -210,10 +211,12 @@ internal static partial class PlanningConstruction
                         ["sequence"] = invalidation.Sequence, ["beforeHash"] = invalidation.BeforeHash, ["afterHash"] = invalidation.AfterHash,
                         ["reason"] = invalidation.Reason, ["taskCount"] = invalidation.Tasks.Count,
                         ["tasks"] = new JsonArray(invalidation.Tasks.Take(8).Select(TaskNode).ToArray()),
-                        ["scopes"] = new JsonArray(invalidation.Scopes.Take(8).Select(s => (JsonNode)new JsonObject { ["path"] = s.Path,
-                            ["tasks"] = new JsonArray(s.Tasks.Take(8).Select(t => (JsonNode?)JsonValue.Create(t)).ToArray()), ["taskCount"] = s.Tasks.Count,
-                            ["always"] = new JsonArray(s.Always.Take(8).Select(t => (JsonNode?)JsonValue.Create(t)).ToArray()), ["alwaysCount"] = s.Always.Count }).ToArray()),
-                        ["originalEvidence"] = "original:" + sequence + ":<task-id>"
+                        ["scopes"] = new JsonArray(invalidation.Scopes.Select(s => (JsonNode)new JsonObject { ["path"] = s.Path,
+                            ["tasks"] = new JsonArray(s.Tasks.Select(t => (JsonNode?)JsonValue.Create(t)).ToArray()), ["taskCount"] = s.Tasks.Count,
+                            ["always"] = new JsonArray(s.Always.Select(t => (JsonNode?)JsonValue.Create(t)).ToArray()), ["alwaysCount"] = s.Always.Count }).ToArray()),
+                        ["originalEvidence"] = "original:" + sequence + ":<task-id>",
+                        ["taskDirectory"] = new JsonArray(invalidation.Tasks.Select(task => (JsonNode)new JsonObject
+                            { ["id"] = task.Id, ["evidence"] = "original:" + sequence + ":" + task.Id }).ToArray())
                     };
                     break;
                 case "original":
@@ -323,7 +326,7 @@ internal static partial class PlanningConstruction
         candidate.Extension.Groups = candidate.Plan.Groups.Where(g => state.Plan?.Groups.All(b => b.Id != g.Id) != false).ToList();
         candidate.Extension.Choices = candidate.Plan.Choices.Where(c => state.Plan?.Choices.All(b => b.Id != c.Id) != false).ToList();
         candidate.TaskIds = after.Tasks.Keys.Except(before.Tasks.Keys, StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
-        if (candidate.TaskIds.Count > state.Construction.Limits.MaxTasksPerDraft)
+        if (PlanningOptimizationThresholds.Exceeded(state, "structural_repair", "recursive_tasks", candidate.TaskIds.Count, state.Construction.Limits.MaxTasksPerDraft))
             Fail("CONSTRUCTION_DRAFT_LIMIT", candidate.Extension.Scope,
                 $"Structural repair leaves {candidate.TaskIds.Count} recursive tasks in the fragment; its captured maximum is {state.Construction.Limits.MaxTasksPerDraft}, shared across nested bodies and cleanup.");
         candidate.ImportedTaskIds = candidate.TaskIds.SelectMany(id => References(after.Tasks[id].Task))

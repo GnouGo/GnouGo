@@ -96,10 +96,16 @@ public sealed class CompactAcceptedExportNavigationTests
             }
         }] } };
         construction.OpenScopes = ["/root", Scope];
-        construction.Compact.CurrentStep = new() { Id = "selected", Scope = Scope, Kind = "transform", RequirementIds = ["req_0"],
+        PlanningCompactConstruction.SelectBlock(state, new JsonObject
+        {
+            ["objective"] = requirement, ["requirementIds"] = new JsonArray("req_0"),
+            ["informationNeeds"] = new JsonArray(), ["expectedResults"] = new JsonArray(requirement),
+            ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray("Preserve the exact original values and declared result.")
+        });
+        construction.Compact.CurrentStep = new() { BlockId = state.Construction!.Compact!.CurrentBlockId, Id = "selected", Scope = Scope, Kind = "transform", RequirementIds = ["req_0"],
             Objective = requirement, BaseHash = PlanningConstruction.Hash(state.Plan), DiscoveryComplete = true,
             Inputs = wholeObject ? [Record("first")] : [Field("content"), Field("format"), Field("error")] };
-        construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = Scope, RequirementIds = ["req_0"], Tasks =
+        construction.Candidate = PlanningConstruction.Apply(state, new() { CompleteBlock = false, Scope = Scope, RequirementIds = ["req_0"], Tasks =
         [new() { Id = "consumer", Kind = "transform", Mode = "extract", Objective = requirement,
             Inputs = wholeObject ? [new("record", Record("first"))] : [new("content", Field("content")), new("format", Field("format")), new("error", Field("error"))],
             ResultType = new() { Kind = "object", Fields = [new() { Name = "content", Type = new() { Kind = "string" } }] } }] });

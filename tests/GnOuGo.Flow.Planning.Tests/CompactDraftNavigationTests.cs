@@ -47,14 +47,13 @@ public sealed class CompactDraftNavigationTests
     public void SelectionKeepsReusableTargetsAndPrerequisiteAuthorityDistinct(string kind, string? group, string? prerequisite, bool valid)
     {
         var state = State();
-        var schema = PlanningCompactConstruction.SelectionSchema(state);
+        var schema = PlanningCompactConstruction.ImplementationSchema(state);
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
         var response = new JsonObject
         {
             ["baseHash"] = PlanningConstruction.Hash(state.Plan), ["evidenceRequests"] = null, ["clarifications"] = null,
-            ["step"] = new JsonObject { ["scope"] = "/root", ["kind"] = kind, ["objective"] = "Apply the reusable calculation.",
-                ["requirementIds"] = new JsonArray("req"), ["inputs"] = new JsonArray(), ["groupId"] = group,
-                ["dependencyTaskIds"] = new JsonArray(), ["expectedOutputs"] = new JsonArray(), ["closeRequirementIds"] = new JsonArray(),
+            ["step"] = new JsonObject { ["scope"] = "/root", ["kind"] = kind, ["inputs"] = new JsonArray(), ["groupId"] = group,
+                ["dependencyTaskIds"] = new JsonArray(), ["closeRequirementIds"] = new JsonArray(),
                 ["outputNames"] = new JsonArray(), ["operationIds"] = new JsonArray(), ["closeScopes"] = null,
                 ["prerequisites"] = prerequisite is null ? null : new JsonArray(new JsonObject
                     { ["need"] = "The required calculation must be available.", ["evidenceAddresses"] = new JsonArray(prerequisite) }) }
@@ -105,7 +104,7 @@ public sealed class CompactDraftNavigationTests
         AssertSelectionEvidence(request, state, "rejected:1", valid: false);
         var addresses = new List<string> { "page:requirements:1", "input:caller" };
         if (reselection) addresses.Add("rejected:0");
-        PlanningConstruction.LoadEvidence(state, addresses, followup: SelectionRequest, purpose: PlanningCompactConstruction.SelectPurpose);
+        PlanningConstruction.LoadEvidence(state, addresses, followup: SelectionRequest, purpose: PlanningCompactConstruction.ImplementationPurpose);
         request = SelectionRequest(state);
         Assert.NotNull(Context(request)["evidence"]!["page:requirements:1"]);
         AssertSelectionEvidence(request, state, "source:request:1:clause:0", valid: true);
@@ -116,8 +115,8 @@ public sealed class CompactDraftNavigationTests
         Assert.Null(state.Construction.Compact!.CurrentStep);
         Assert.Equal(0, state.ReplanAttempts);
         Assert.Equal(reselection ? new[] { "req" } : null, state.Construction.Compact.ReplacementRequirements?.ToArray());
-        var prepared = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.SelectPurpose, request.Prompt, request.StructuredOutputSchema!.AsObject());
-        var measured = PlanningRequestMeasurements.Measure(prepared, PlanningCompactConstruction.SelectPurpose, 6000);
+        var prepared = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.ImplementationPurpose, request.Prompt, request.StructuredOutputSchema!.AsObject());
+        var measured = PlanningRequestMeasurements.Measure(prepared, PlanningCompactConstruction.ImplementationPurpose, 6000);
         Assert.InRange(measured.EstimatedInputTokens, 1, 6000);
         Assert.Equal(measured.CompleteRequestBytes, measured.Components.Sum(component => component.SerializedBytes));
     }
@@ -221,7 +220,13 @@ public sealed class CompactDraftNavigationTests
         state.Plan = new() { Groups = [Group("worker")] };
         state.Catalog = new();
 
-        compact.CurrentStep = new() { Id = "next", Kind = "foreach", Scope = "/root", Objective = objective, RequirementIds = ["req"],
+        PlanningCompactConstruction.SelectBlock(state, new JsonObject
+        {
+            ["objective"] = objective, ["requirementIds"] = new JsonArray("req"),
+            ["informationNeeds"] = new JsonArray(), ["expectedResults"] = new JsonArray(objective),
+            ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray("Preserve the exact original values and declared result.")
+        });
+        compact.CurrentStep = new() { BlockId = state.Construction!.Compact!.CurrentBlockId, Id = "next", Kind = "foreach", Scope = "/root", Objective = objective, RequirementIds = ["req"],
             BaseHash = PlanningConstruction.Hash(state.Plan), DiscoveryComplete = true };
         return state;
     }
@@ -229,8 +234,8 @@ public sealed class CompactDraftNavigationTests
     private static TaskGroup Group(string id) => new() { Id = id, Inputs = [new() { Name = "value", Type = new() { Kind = "number" } }],
         Body = new() { Outputs = [new("result", new() { Kind = "input", Source = "value" })] } };
     private static LLMRequest SelectionRequest(PlanningSession state) => PlanningCompactConstruction.Request(
-        PlanningCompactConstruction.SelectGuidance(state), PlanningCompactConstruction.SelectionContext(state),
-        PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose);
+        PlanningCompactConstruction.ImplementationGuidance(state), PlanningCompactConstruction.ImplementationContext(state),
+        PlanningCompactConstruction.ImplementationSchema(state), PlanningCompactConstruction.ImplementationPurpose);
     private static JsonObject SelectionEvidence(PlanningSession state, string address) => new()
     {
         ["baseHash"] = PlanningConstruction.Hash(state.Plan), ["step"] = null,

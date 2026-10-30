@@ -26,6 +26,19 @@ public sealed class CompactSelectionActionTests
         state.Plan = new() { Root = new() { Tasks = [new() { Id = "accepted", Kind = "value",
             Objective = "Preserve this already accepted greeting.",
             Outputs = [new("message", new() { Kind = "string", Text = "Hello" })] }] } };
+        runtime.Respond = (request, purpose) =>
+        {
+            Assert.Equal(PlanningCompactConstruction.SelectPurpose, purpose);
+            return Wire(request, new() { ["block"] = new JsonObject
+            {
+                ["objective"] = objective, ["requirementIds"] = new JsonArray("req_0"),
+                ["informationNeeds"] = new JsonArray(), ["expectedResults"] = new JsonArray("The exact accepted greeting."),
+                ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray("The greeting is returned unchanged.")
+            }, ["evidenceRequests"] = null, ["clarifications"] = null });
+        };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        var block = JsonSerializer.Serialize(state.Construction!.Compact!.Blocks![0], PlanningJsonContext.Default.PlanningConstructionBlock);
         PlanningConstruction.LoadEvidence(state, ["source:" + state.Construction!.Compact!.Sources[0].Id]);
         var planHash = PlanningConstruction.Hash(state.Plan);
         var requirements = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
@@ -35,7 +48,7 @@ public sealed class CompactSelectionActionTests
         var calls = state.ModelCalls;
         runtime.Respond = (request, purpose) =>
         {
-            Assert.Equal(PlanningCompactConstruction.SelectPurpose, purpose);
+            Assert.Equal(PlanningCompactConstruction.ImplementationPurpose, purpose);
             var mixed = Selection(request);
             mixed["evidenceRequests"] = new JsonArray(runtime.EvidenceId(request, "task:accepted"));
             Assert.Empty(PlanningContractValidation.ValidateInstance(mixed, request.StructuredOutputSchema!));
@@ -58,7 +71,7 @@ public sealed class CompactSelectionActionTests
             runtime.Respond = (_, _) => throw new OperationCanceledException();
             _ = await Advance(PlannerFixture.Clone(state), runtime);
             var saved = PlannerFixture.Clone(runtime.Checkpoints.Last(checkpoint => checkpoint.Status == PlanningStatus.Generating &&
-                checkpoint.PendingCall?.Purpose == PlanningCompactConstruction.SelectPurpose));
+                checkpoint.PendingCall?.Purpose == PlanningCompactConstruction.ImplementationPurpose));
             Assert.Equal(0, saved.ReplanAttempts);
             Assert.Equal(1, saved.PendingCall!.CorrectionAccounting);
             Assert.Equal(calls + 2, saved.ModelCalls);
@@ -67,7 +80,7 @@ public sealed class CompactSelectionActionTests
             var receipt = Wire(issued, Selection(issued));
             var recovery = new TestRuntime { Respond = (request, purpose) =>
             {
-                Assert.Equal(PlanningCompactConstruction.SelectPurpose, purpose);
+                Assert.Equal(PlanningCompactConstruction.ImplementationPurpose, purpose);
                 Assert.Equal(exact, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
                 return receipt;
             } };
@@ -89,6 +102,7 @@ public sealed class CompactSelectionActionTests
         Assert.Equal("/root", state.Construction.Compact!.CurrentStep!.Scope);
         Assert.Equal("accepted", Assert.Single(state.Construction.Compact.CurrentStep.Inputs).Source);
         Assert.Equal(["req_0"], state.Construction.Compact.CurrentStep.RequirementIds);
+        Assert.Equal(block, JsonSerializer.Serialize(state.Construction.Compact.Blocks![0], PlanningJsonContext.Default.PlanningConstructionBlock));
         Assert.Null(state.Construction.Candidate);
     }
 
@@ -97,10 +111,9 @@ public sealed class CompactSelectionActionTests
         ["baseHash"] = request.StructuredOutputSchema!["properties"]!["baseHash"]!["enum"]![0]!.DeepClone(),
         ["step"] = new JsonObject
         {
-            ["scope"] = "/root", ["kind"] = "value", ["objective"] = "Expose the accepted greeting unchanged.",
-            ["requirementIds"] = new JsonArray("req_0"),
+            ["scope"] = "/root", ["kind"] = "value",
             ["inputs"] = new JsonArray(new JsonObject { ["kind"] = "output", ["source"] = "accepted", ["port"] = "message" }),
-            ["dependencyTaskIds"] = new JsonArray(), ["expectedOutputs"] = new JsonArray("The exact accepted greeting."),
+            ["dependencyTaskIds"] = new JsonArray(),
             ["closeRequirementIds"] = new JsonArray(), ["outputNames"] = new JsonArray(), ["groupId"] = null,
             ["operationIds"] = new JsonArray(), ["prerequisites"] = null, ["closeScopes"] = null
         },

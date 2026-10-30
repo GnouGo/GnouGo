@@ -12,16 +12,28 @@ public sealed partial class CompactReviewedTransitionTests
         var response = new JsonObject
         {
         ["baseHash"] = request.StructuredOutputSchema!["properties"]!["baseHash"]!["enum"]![0]!.DeepClone(),
-        ["step"] = new JsonObject { ["scope"] = scope, ["kind"] = kind, ["objective"] = "Preserve the exact local result and required boundary.",
-            ["requirementIds"] = new JsonArray("req_0"), ["inputs"] = new JsonArray(), ["operationIds"] = new JsonArray(),
+        ["step"] = new JsonObject { ["scope"] = scope, ["kind"] = kind,
+            ["inputs"] = new JsonArray(), ["operationIds"] = new JsonArray(),
             ["closeScopes"] = close ? export ? new JsonArray() : new JsonArray(scope) : null,
-            ["dependencyTaskIds"] = new JsonArray(), ["expectedOutputs"] = export ? new JsonArray("Export the reviewed inner number.") : new JsonArray(),
+            ["dependencyTaskIds"] = new JsonArray(),
             ["closeRequirementIds"] = new JsonArray(), ["outputNames"] = new JsonArray(), ["groupId"] = null, ["prerequisites"] = null },
         ["evidenceRequests"] = null, ["clarifications"] = null
         };
         if (request.StructuredOutputSchema["properties"]!["resumeStep"] is not null) response["resumeStep"] = null;
         return response;
     }
+
+    private static JsonObject BusinessSelection(LLMRequest request) => new()
+    {
+        ["block"] = new JsonObject
+        {
+            ["objective"] = string.Join(" ", Context(request)["requirements"]!.AsArray().Select(row => row!["original"]!.ToString())),
+            ["requirementIds"] = Context(request)["remainingObligations"]!.DeepClone(),
+            ["informationNeeds"] = new JsonArray("The exact original numeric prerequisites."),
+            ["expectedResults"] = new JsonArray("The requested numeric results with the original dependencies and boundaries."),
+            ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray("Every requested result uses its exact required predecessor.")
+        }, ["evidenceRequests"] = null, ["clarifications"] = null
+    };
 
     private static JsonObject CleanReview(JsonObject _) => new()
     {

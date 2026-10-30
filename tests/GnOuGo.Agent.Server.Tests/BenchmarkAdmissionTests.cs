@@ -10,11 +10,89 @@ using GnOuGo.Flow.Persistence;
 using GnOuGo.Flow.Planning;
 using GnOuGo.Flow.Integrations;
 using GnOuGo.KeyVault.Core.Services;
+using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class BenchmarkAdmissionTests
 {
+    [Fact]
+    public async Task FreshDiagnosticProfileSurvivesDispatchAndRestartBeyondSessionTargets()
+    {
+        using var fixture = new Fixture();
+        var profile = new PlanningConstructionPhasePolicy
+        {
+            Navigation = new() { TargetInputTokens = 3000, MaxInputTokens = 12000, Reasoning = "medium", OutputTokens = 32768 },
+            Draft = new() { TargetInputTokens = 8000, MaxInputTokens = 22000, Reasoning = "medium", OutputTokens = 32768 },
+            Review = new() { TargetInputTokens = 4000, MaxInputTokens = 20000, Reasoning = "medium", OutputTokens = 16384 }
+        };
+        var file = Path.Combine(fixture.Root, "fresh-phase-policy.json");
+        File.WriteAllText(file, System.Text.Json.JsonSerializer.Serialize(profile, PlanningJsonContext.Default.PlanningConstructionPhasePolicy));
+        var planning = LiveWorkflowEvaluation.FreshPlanningRequest(
+            ["--diagnostic-optimization-thresholds", "--max-model-calls", "1", "--max-elapsed-ms", "1",
+             "--max-input-tokens", "32000", "--max-output-tokens", "32768", "--phase-policy", file],
+            "diagnostic", "amazon", "Original", "fixture", "pinned");
+        var provider = new Provider(fixture.Campaign);
+        using var model = fixture.Model(new Rates(fixture.Time), provider);
+        await model.CapturePlanningPolicyAsync(planning, Ct, activeMilliseconds: 2);
+        var policy = (await fixture.Campaign.LoadAsync("planning-evaluation-session-policy", planning.SessionId, Ct))!;
+        Assert.Equal("diagnostic-v1", policy[PlanningTokenThresholds.OptimizationOptionName]!.ToString());
+        Assert.Null(policy[PlanningTokenThresholds.OptionName]);
+        var request = PlanningConstructionPhasePolicies.Apply(new LLMRequest
+        {
+            ClientRequestId = "diagnostic:1", Prompt = "Exact original", RequiredReviewCalls = 3,
+            StructuredOutputSchema = new JsonObject { ["title"] = "construction_draft" }
+        }, planning, "construction_draft");
+        await model.CallAsync(request, Ct);
+        Assert.Equal(32768, request.MaxTokens);
+        var journal = (await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, request.ClientRequestId!, Ct))!;
+        Assert.Equal("diagnostic-v1", journal["effective_transport_policy"]![PlanningTokenThresholds.OptimizationOptionName]!.ToString());
+        Assert.Null(journal["effective_transport_policy"]![PlanningTokenThresholds.OptionName]);
+        Assert.Equal(1, journal["session_attempt_limit"]!.GetValue<int>());
+        Assert.Equal(3, journal["construction_review_attempt_headroom"]!.GetValue<int>());
+        Assert.Equal(32768, journal["output_ceiling"]!.GetValue<int>());
+        Assert.Equal(2, journal["optimization_threshold_warnings"]!.AsArray().Count);
+
+        fixture.Time.Advance(TimeSpan.FromHours(6));
+        using var restarted = fixture.Model(new Rates(fixture.Time), provider);
+        await restarted.CapturePlanningPolicyAsync(planning, Ct, activeMilliseconds: TimeSpan.FromHours(6).TotalMilliseconds);
+        await restarted.CallAsync(request, Ct);
+        Assert.Equal(1, provider.Calls); // Saved exact response, not a replay of the provider request.
+        Assert.True(JsonNode.DeepEquals(journal, await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, request.ClientRequestId!, Ct)));
+        request.ClientRequestId = "diagnostic:2";
+        await restarted.CallAsync(request, Ct);
+        Assert.Equal(2, provider.Calls);
+        var accounting = await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct);
+        Assert.Equal(2L, accounting["calls"]!.GetValue<long>());
+        Assert.Equal(0L, accounting["unknown_attempts"]!.GetValue<long>());
+        Assert.Equal(.18m, accounting["known_cost_eur"]!.GetValue<decimal>());
+        var summary = (await LiveCampaignEvidence.AccountingAsync(fixture.Campaign, planning.SessionId))["planning"]!;
+        Assert.Equal(4, summary["warnings"]!.AsArray().Count);
+        planning.Options.Remove(PlanningTokenThresholds.OptimizationOptionName);
+        await Assert.ThrowsAsync<PlanningConflictException>(() => restarted.CapturePlanningPolicyAsync(planning, Ct));
+        Assert.Equal(2, provider.Calls);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DiagnosticRuntimeTargetIsCapturedWithoutChangingExplicitResourceLimits(bool diagnostics)
+    {
+        var request = LiveWorkflowEvaluation.FreshPlanningRequest(diagnostics ? ["--diagnostic-optimization-thresholds"] :
+            ["--advisory-token-thresholds"], "runtime-mode", "amazon", "Original", "fixture", "pinned");
+        var budget = LiveWorkflowEvaluation.ModelBudget("execute", request)!;
+        Assert.Equal(TimeSpan.FromMinutes(30), budget.Limits.MaxElapsed);
+        Assert.Equal(diagnostics, budget.AdvisoryOptimizationThresholds);
+        var restored = PlanningBenchmarkMeasurements.RestoreConfiguration(PlanningBenchmarkMeasurements.Configuration(request));
+        Assert.Equal(diagnostics, LiveWorkflowEvaluation.ModelBudget("execute", restored)!.AdvisoryOptimizationThresholds);
+        Assert.Equal(request.Options["construction_limits"]!.ToJsonString(), restored.Options["construction_limits"]!.ToJsonString());
+        var expired = budget.RestoreSnapshot(budget.Limits, budget.Snapshot with { StartedAtUtc = DateTimeOffset.UtcNow.AddMinutes(-31) });
+        Assert.Equal(diagnostics, expired.AdvisoryOptimizationThresholds);
+        await Assert.ThrowsAsync<WorkflowRuntimeException>(() => expired.EnsureAllowanceAsync(
+            new() { ClientRequestId = "resource-bound", Prompt = "Exact invocation" }, null, 100, [20], "execution", Ct));
+        Assert.Equal(0, expired.Snapshot.Calls);
+    }
+
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     private static LLMOptions Options() => new() { DefaultProvider = "fixture", DefaultModel = "pinned",
         Models = { ["fixture"] = new() { Type = "openai" } } };

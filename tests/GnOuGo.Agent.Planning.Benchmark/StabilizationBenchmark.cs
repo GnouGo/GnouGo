@@ -132,7 +132,7 @@ internal static class StabilizationBenchmark
             if (run["execution_started"]?.GetValue<bool>() == true) throw new InvalidOperationException("Interrupted execution is retained, never silently repeated.");
             local?.Prepare(name, "nominal");
             var initialFiles = local?.Snapshot();
-            for (var advance = 0; advance < Math.Max(40, state.Request.MaxModelCalls * 4) && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); advance++)
+            for (long advance = 0; PlanningBenchmarkMeasurements.CanAdvance(state, advance); advance++)
                 state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, deadline.Token);
             planningMs = clock.ElapsedMilliseconds;
             if (environment.Effects.Count > 0 || local is not null && (local.Calls.Count > 0 || !JsonNode.DeepEquals(initialFiles, local.Snapshot()))) throw new InvalidOperationException("Planning produced effects.");
@@ -188,6 +188,7 @@ internal static class StabilizationBenchmark
         row["estimated_cost_eur"] = usage["estimated_cost_eur"]?.DeepClone();
         if (variants.Count == expected) PlanningBenchmarkMeasurements.RecordBusinessOracle(run, state,
             variants.All(v => v!["correct"]!.GetValue<bool>()), "existing-stabilization-variants-v1");
+        row["accounting"] = await LiveCampaignEvidence.AccountingAsync(campaign, state.Request.SessionId);
         PlanningBenchmarkMeasurements.ProposalMetrics(run, row);
         run["result"] = row.DeepClone(); run["session"] = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession);
         await campaign.SaveAsync(Collection, key, run); if (local is null) Directory.Delete(localRoot, true); return row;

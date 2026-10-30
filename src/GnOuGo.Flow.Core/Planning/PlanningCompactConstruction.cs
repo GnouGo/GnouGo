@@ -5,6 +5,10 @@ namespace GnOuGo.Flow.Core.Planning;
 /// <summary>Source, immediate-step and continuation metadata; never an executable plan.</summary>
 public sealed class PlanningCompactConstructionState
 {
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<PlanningConstructionBlock>? Blocks { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? CurrentBlockId { get; set; }
     public List<PlanningConstructionSource> Sources { get; set; } = [];
     public Dictionary<string, List<string>> RequirementSources { get; set; } = new(StringComparer.Ordinal);
     public List<string> GlobalSourceIds { get; set; } = [];
@@ -92,6 +96,9 @@ public sealed class PlanningConstructionSource
 /// <summary>One immediate business step and its host-checked selection, not a future workflow outline.</summary>
 public sealed class PlanningConstructionStep
 {
+    /// <summary>Owning business responsibility, independent of this implementation cursor.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? BlockId { get; set; }
     public string Id { get; set; } = "";
     public string BaseHash { get; set; } = "";
     public string Scope { get; set; } = "/root";
@@ -119,6 +126,26 @@ public sealed class PlanningConstructionStep
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public PlanningConstructionDiscoveryContinuation? PendingDiscovery { get; set; }
     public bool DiscoveryComplete { get; set; }
+}
+
+/// <summary>Retained business selection and its reviewed completion, never executable work or scheduling authority.</summary>
+public sealed class PlanningConstructionBlock
+{
+    public string Id { get; set; } = "";
+    public string Objective { get; set; } = "";
+    public List<string> RequirementIds { get; set; } = [];
+    public List<string> InformationNeeds { get; set; } = [];
+    public List<string> ExpectedResults { get; set; } = [];
+    public List<PlanningConstructionBlockDependency> Dependencies { get; set; } = [];
+    public List<string> SuccessCriteria { get; set; } = [];
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public int? CompletionCheckpoint { get; set; }
+}
+
+public sealed class PlanningConstructionBlockDependency
+{
+    public string ResultId { get; set; } = "";
+    public string Reason { get; set; } = "";
 }
 
 /// <summary>A proposed semantic association reviewed with a producer fragment; not an executable reference or scheduling edge.</summary>

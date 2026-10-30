@@ -50,7 +50,7 @@ public sealed class TaskArtifactBindingTests
         var schema = compact ? PlanningCompactConstruction.DraftSchema(state) : PlanningSchemas.TaskPlanGrammar(state);
         var response = compact
             ? new JsonObject { ["extension"] = JsonSerializer.SerializeToNode(new PlanningConstructionExtension
-                { RequirementIds = ["req"], Tasks = [plan.Root.Tasks[1]] }, PlanningJsonContext.Default.PlanningConstructionExtension) }
+                { CompleteBlock = false, RequirementIds = ["req"], Tasks = [plan.Root.Tasks[1]] }, PlanningJsonContext.Default.PlanningConstructionExtension) }
             : JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.TaskPlan)!;
         var wire = PlanningCorpus.Transport(response, schema, schema)!;
         Assert.NotNull(wire);

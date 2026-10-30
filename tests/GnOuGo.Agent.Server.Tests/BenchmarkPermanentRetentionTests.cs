@@ -84,6 +84,7 @@ public sealed partial class BenchmarkPermanentRetentionTests
     [InlineData("budget_headroom")]
     [InlineData("budget_limit")]
     [InlineData("budget_mode")]
+    [InlineData("optimization_mode")]
     [InlineData("budget_exception")]
     [InlineData("attempt")]
     [InlineData("fingerprint")]
@@ -122,6 +123,7 @@ public sealed partial class BenchmarkPermanentRetentionTests
             case "budget_headroom": journal["construction_review_attempt_headroom"] = 0; break;
             case "budget_limit": journal["session_attempt_limit"] = 65; break;
             case "budget_mode": journal["effective_transport_policy"]!.AsObject().Remove(PlanningTokenThresholds.OptionName); break;
+            case "optimization_mode": journal["effective_transport_policy"]![PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1"; break;
             case "budget_exception": failure["exception_type"] = "LLMClientException"; break;
             case "attempt": journal["transport"]!["Attempts"]!.AsArray().Add(new JsonObject { ["Id"] = RequestId + ":reserved" }); break;
             case "fingerprint": journal["transport"]!["Fingerprint"] = new string('a', 64); break;
@@ -422,10 +424,16 @@ public sealed partial class BenchmarkPermanentRetentionTests
         Assert.Null(await campaign.LoadAsync("planning-evaluation-failures", InterruptedRequest, Ct));
     }
 
-    [Fact]
-    public async Task InterruptedLiveRetentionPreservesOriginalsAndReservationAcrossRestart()
+    [Theory]
+    [InlineData("construction_intent")]
+    [InlineData("construction_implementation")]
+    public async Task InterruptedLiveRetentionPreservesOriginalsAndReservationAcrossRestart(string purpose)
     {
         var records = new Records(); var campaign = await SeedAsync(records, retentionKind: Interrupted);
+        var run = (await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "run:" + LiveInterruptedSession, Ct))!;
+        run["session"]!["phase"] = purpose;
+        run["session"]!["pendingCall"]!["purpose"] = purpose;
+        await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "run:" + LiveInterruptedSession, run, Ct);
         var before = records.Snapshot();
         var accounting = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
         var originals = await campaign.InspectRetentionOriginalsAsync(SchemaPortabilityCampaign.Collection,
@@ -514,6 +522,7 @@ public sealed partial class BenchmarkPermanentRetentionTests
     [Theory]
     [InlineData("construction_intent")]
     [InlineData("construction_select")]
+    [InlineData("construction_implementation")]
     [InlineData("construction_discovery")]
     [InlineData("construction_draft")]
     [InlineData("construction_local_judge")]

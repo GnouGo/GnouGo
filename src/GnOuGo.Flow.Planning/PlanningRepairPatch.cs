@@ -77,7 +77,7 @@ internal static class PlanningRepairPatch
         var types = TaskPlanRevisions.ProducerConstraintSlots(plan); var slots = new List<Slot>();
         var explicitRevision = state.EditablePaths is not null;
         var exportRepair = TaskPlanRevisions.Exports(plan, explicitRevision ? [] : state.RevisionScope);
-        var sources = TaskPlanCompiler.RepairSources(plan, state.Catalog!);
+        var sources = TaskPlanCompiler.RepairSources(plan, state.Catalog!, request: state.Request);
         var structuralSlots = !explicitRevision ? PlanningStructuralRepair.Slots(state, definitions) : [];
         foreach (var path in state.RevisionScope.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
         {
@@ -149,7 +149,7 @@ internal static class PlanningRepairPatch
                 schema = leaf switch
                 {
                     "nullable" or "required" => PlanningSchemas.Type("boolean"),
-                    "enum" => PlanningSchemas.Array(PlanningSchemas.String(), 1, 256),
+                    "enum" => PlanningSchemas.Array(PlanningSchemas.String(), 1, PlanningOptimizationThresholds.Maximum(state, 256)),
                     "kind" => PlanningSchemas.Enum("string", "integer", "number", "boolean", "array", "object"),
                     "default" => PlanningSchemas.Nullable(PlanningSchemas.Ref("literal")),
                     "fields" => PlanningSchemas.Array(PlanningSchemas.Ref("resultField"), 1),
@@ -209,7 +209,7 @@ internal static class PlanningRepairPatch
             var outputs = state.Requirements?.Outputs?.Where(o => location == "/root/outputs/" + o.Name).ToArray() ?? [];
             if (outputs.Length == 1 && plan.Root.Outputs.Count(o => o.Name == outputs[0].Name) == 1)
             {
-                try { return PlanningBindingSchemas.For(TaskPlanCompiler.TypeSchema(outputs[0].Type), definitions, constrainResult: true); }
+                try { return PlanningBindingSchemas.For(TaskPlanCompiler.TypeSchema(outputs[0].Type, state.Request), definitions, constrainResult: true); }
                 catch (ArgumentException) { return null; } // Invalid accepted declarations remain semantic diagnostics.
             }
             if (!explicitRevision || TaskPlanRevisions.OwnedInput(symbols, location, state.Catalog) is not null) return null;
@@ -244,7 +244,7 @@ internal static class PlanningRepairPatch
                     : PlanningSchemas.Object(("slot", PlanningSchemas.Enum(slot.Id)), ("action", PlanningSchemas.Enum(action)), ("value", slot.ValueSchema.DeepClone().AsObject()))));
         var schema = PlanningSchemas.Object(("discoveryRequests", PlanningSchemas.Type("null")),
             ("patch", PlanningSchemas.Nullable(PlanningSchemas.Object(("edits", PlanningSchemas.Array(new JsonObject { ["anyOf"] = edits }, 0, slots.Count))))),
-            ("clarifications", PlanningSchemas.Nullable(PlanningSchemas.Clarifications())));
+            ("clarifications", PlanningSchemas.Nullable(PlanningSchemas.Clarifications(PlanningTokenThresholds.OptimizationAdvisory(state.Request)))));
         schema["$defs"] = definitions;
         // Unreachable task/plan definitions must not leak back into repair responses.
         var used = new HashSet<string>(StringComparer.Ordinal);
@@ -284,7 +284,7 @@ internal static class PlanningRepairPatch
         ["policy"] = JsonSerializer.SerializeToNode(state.Request.Policy, PlanningJsonContext.Default.PlanningPolicy),
         ["maxModelCalls"] = state.Request.MaxModelCalls, ["maxReplanAttempts"] = state.Request.MaxReplanAttempts,
         ["generation"] = JsonSerializer.SerializeToNode(state.Request.Generation, PlanningJsonContext.Default.PlanningGenerationOptions),
-        ["options"] = state.Request.Options.DeepClone(), ["clarifications"] = PlanningSchemas.Clarifications()
+        ["options"] = state.Request.Options.DeepClone(), ["clarifications"] = PlanningSchemas.Clarifications(PlanningTokenThresholds.OptimizationAdvisory(state.Request))
         };
         authority["editablePaths"] = state.EditablePaths is null ? null : new JsonArray(state.EditablePaths.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray());
         return PlanningGraphCompiler.Fingerprint(authority.ToJsonString());
@@ -408,7 +408,7 @@ internal static class PlanningRepairPatch
             if (construction.Diagnostics.Count > 0) throw new PlanningResponseException(construction.Diagnostics.ToList());
             return candidate;
         }
-        var complete = new TaskPlanCompiler().Compile(checkedPlan, state.Catalog!);
+        var complete = new TaskPlanCompiler().Compile(checkedPlan, state.Catalog!, false, false, advisoryOptimization: PlanningTokenThresholds.OptimizationAdvisory(state.Request));
         if (complete.Diagnostics.Count > 0) throw new PlanningResponseException(complete.Diagnostics.ToList());
         return candidate;
     }

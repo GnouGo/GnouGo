@@ -14,16 +14,18 @@ internal static partial class PlanningCompactConstruction
     {
         if (schema["properties"]?["reselectStep"] is not JsonObject previous ||
             previous["type"]?.ToString() == "null") return;
-        var alternatives = new JsonArray(PlanningSchemas.Object(("reason", Text(512)),
+        var diagnostic = PlanningTokenThresholds.OptimizationAdvisory(state.Request);
+        JsonObject NavigationText(int maximum) => diagnostic ? PlanningSchemas.String() : Text(maximum);
+        var alternatives = new JsonArray(PlanningSchemas.Object(("reason", NavigationText(512)),
             ("disposition", PlanningSchemas.Enum("abandon")), ("prerequisite", PlanningSchemas.Type("null"))));
         var addresses = StepOriginalEvidence(state).Concat(PrerequisiteAddresses(state, [])
             .Where(address => !IsOriginalAddress(address))).Distinct(StringComparer.Ordinal).ToArray();
         var active = State(state).SuspendedSteps?.Count(Active) ?? 0;
-        if (addresses.Length > 0 && (active < 4 || State(state).ResumingStepId is not null))
+        if (addresses.Length > 0 && (diagnostic || active < 4 || State(state).ResumingStepId is not null))
         {
             var definitions = schema["$defs"] as JsonObject ?? new JsonObject();
             if (schema["$defs"] is null) schema["$defs"] = definitions;
-            var originals = InterfaceTypeDefinitions();
+            var originals = InterfaceTypeDefinitions(diagnostic);
             var names = new Dictionary<string, string>(StringComparer.Ordinal)
                 { ["type"] = "continuationType", ["input"] = "continuationField", ["literal"] = "continuationLiteral" };
             foreach (var (oldName, name) in names)
@@ -34,9 +36,9 @@ internal static partial class PlanningCompactConstruction
                         names.TryGetValue(reference[8..], out var replacement)) node["$ref"] = "#/$defs/" + replacement;
                 definitions[name] = definition;
             }
-            alternatives.Add((JsonNode)PlanningSchemas.Object(("reason", Text(512)), ("disposition", PlanningSchemas.Enum("suspend")),
-                ("prerequisite", PlanningSchemas.Object(("need", Text(256)), ("expectedType", PlanningSchemas.Ref("continuationType")),
-                    ("evidenceAddresses", PlanningSchemas.Array(PlanningSchemas.Enum(addresses), 1, 4))))));
+            alternatives.Add((JsonNode)PlanningSchemas.Object(("reason", NavigationText(512)), ("disposition", PlanningSchemas.Enum("suspend")),
+                ("prerequisite", PlanningSchemas.Object(("need", NavigationText(256)), ("expectedType", PlanningSchemas.Ref("continuationType")),
+                    ("evidenceAddresses", PlanningSchemas.Array(PlanningSchemas.Enum(addresses), 1, PlanningOptimizationThresholds.Maximum(state, 4)))))));
         }
         alternatives.Add((JsonNode)PlanningSchemas.Type("null"));
         schema["properties"]!["reselectStep"] = new JsonObject { ["anyOf"] = alternatives };
@@ -61,12 +63,13 @@ internal static partial class PlanningCompactConstruction
         var resuming = compact.SuspendedSteps?.SingleOrDefault(item => item.Id == compact.ResumingStepId && Active(item));
         if (decision.Prerequisite is { } need)
         {
-            if ((compact.SuspendedSteps?.Count(Active) ?? 0) - (resuming is null ? 0 : 1) >= 4)
+            if (PlanningOptimizationThresholds.Exceeded(state, "reselection", "suspended_consumers",
+                    (compact.SuspendedSteps?.Count(Active) ?? 0) - (resuming is null ? 0 : 1) + 1, 4))
                 PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_LIMIT", "/reselectStep", "At most four consumers may be suspended in the current prerequisite chain.");
             var probe = CloneStep(step!);
             probe.Prerequisites = [new() { Need = need.Need, EvidenceAddresses = need.EvidenceAddresses.ToList() }];
             ValidatePrerequisites(state, probe);
-            try { _ = TaskPlanCompiler.TypeSchema(need.ExpectedType); }
+            try { _ = TaskPlanCompiler.TypeSchema(need.ExpectedType, state.Request); }
             catch (ArgumentException) { PlanningConstruction.Fail("CONSTRUCTION_RESELECTION_INVALID", "/reselectStep/prerequisite/expectedType", "The prerequisite needs a valid existing business type."); }
             var needHash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(need, PlanningJsonContext.Default.PlanningConstructionTypedPrerequisite));
             if ((compact.SuspendedSteps ?? []).Any(item => Active(item) && item.Consumer.Scope == step!.Scope &&
@@ -109,7 +112,7 @@ internal static partial class PlanningCompactConstruction
         var construction = state.Construction!; var compact = State(state);
         var item = compact.SuspendedSteps?.LastOrDefault(Active);
         if (state.PendingCall is not null || construction.Candidate is not null || compact.CurrentStep is not null ||
-            item is null || item.Id != continuationId || item.Status != "waiting" || !ContinuationCurrent(state, item) ||
+            item is null || item.Consumer.BlockId != compact.CurrentBlockId || item.Id != continuationId || item.Status != "waiting" || !ContinuationCurrent(state, item) ||
             compact.ReplacementScope is not null)
             PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_INVALID", "/resumeStep", "Resume only the current retained consumer after its prerequisite has been accepted.");
         var leaf = binding;
@@ -129,12 +132,12 @@ internal static partial class PlanningCompactConstruction
             PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_INVALID", "/resumeStep/producerCheckpoint", "The owning checkpoint must retain this producer's current accepted content and completed boundary.");
         var imported = CloneStep(item!.Consumer); imported.Inputs = [binding];
         var interfaces = ImportedInterfaces(state, imported);
-        if (!PlanningContractCompatibility.Fits(interfaces[0]!["schema"]!.AsObject(), TaskPlanCompiler.TypeSchema(item.Prerequisite.ExpectedType)))
+        if (!PlanningContractCompatibility.Fits(interfaces[0]!["schema"]!.AsObject(), TaskPlanCompiler.TypeSchema(item.Prerequisite.ExpectedType, state.Request)))
             PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_INVALID", "/resumeStep/binding", "The accepted binding does not satisfy the retained prerequisite type.");
         var resumed = CloneStep(item.Consumer);
         if (!resumed.Inputs.Any(value => JsonNode.DeepEquals(PlanningConstruction.Node(value, PlanningJsonContext.Default.TaskValue),
                 PlanningConstruction.Node(binding, PlanningJsonContext.Default.TaskValue)))) resumed.Inputs.Add(binding);
-        if (resumed.Inputs.Count > 8)
+        if (PlanningOptimizationThresholds.Exceeded(state, "/resumeStep/binding", "selected_inputs", resumed.Inputs.Count, 8))
             PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_LIMIT", "/resumeStep/binding", "The resumed consumer exceeds its existing eight selected-input bound.");
         // The exact need remains on the continuation for the consumer's review.
         // Duplicating it as a note can overflow the restored consumer's four slots.
@@ -209,7 +212,7 @@ internal static partial class PlanningCompactConstruction
         probe.Plan = candidate.Plan; probe.Construction!.OpenScopes = candidate.OpenScopes;
         var consumer = CloneStep(item!.Consumer); consumer.Inputs = [association.Binding];
         var interfaces = ImportedInterfaces(probe, consumer);
-        if (!PlanningContractCompatibility.Fits(interfaces[0]!["schema"]!.AsObject(), TaskPlanCompiler.TypeSchema(item.Prerequisite.ExpectedType)))
+        if (!PlanningContractCompatibility.Fits(interfaces[0]!["schema"]!.AsObject(), TaskPlanCompiler.TypeSchema(item.Prerequisite.ExpectedType, state.Request)))
             PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_INVALID", "/extension/continuationBinding/binding", "The proposed producer must provide the prerequisite's exact accessible typed interface.");
         compact.CurrentStep.ContinuationBinding = JsonSerializer.Deserialize(
             JsonSerializer.Serialize(association, PlanningJsonContext.Default.PlanningConstructionContinuationBinding),
@@ -313,7 +316,7 @@ internal static partial class PlanningCompactConstruction
         var compact = State(state);
         foreach (var item in compact.SuspendedSteps ?? [])
         {
-            if (Active(item) && (!ContinuationCurrent(state, item) || item.ParentId is { } parent &&
+            if ((Active(item) || item.Status == "implemented") && (!ContinuationCurrent(state, item, requireOpenScope: item.Status != "implemented") || item.ParentId is { } parent &&
                     compact.SuspendedSteps!.Any(ancestor => ancestor.Id == parent && ancestor.Status is "invalidated" or "abandoned")))
             {
                 item.Status = "invalidated";
@@ -329,6 +332,20 @@ internal static partial class PlanningCompactConstruction
         }
     }
 
+    private static void AcceptImplementedConsumer(PlanningSession state)
+    {
+        var compact = State(state);
+        if (compact.ResumingStepId is not { } id || compact.SuspendedSteps?.SingleOrDefault(item =>
+                item.Id == id && item.Status == "resuming" && item.Consumer.BlockId == compact.CurrentBlockId) is not { } consumer) return;
+        // These exact accepted tasks complete the implementation cursor only.
+        // Retain their hashes so later invalidation cannot leave a stale result.
+        var symbols = new TaskPlanSymbols(state.Plan!);
+        foreach (var task in state.Construction!.Candidate!.TaskIds.Where(symbols.Tasks.ContainsKey))
+            consumer.DependencyHashes[task] = TaskHash(symbols.Tasks[task].Task);
+        consumer.Status = "implemented";
+        compact.ResumingStepId = null;
+    }
+
     private static void AcceptContinuation(PlanningSession state)
     {
         var compact = State(state); var count = state.Construction!.Checkpoints.Count;
@@ -336,7 +353,8 @@ internal static partial class PlanningCompactConstruction
             resumed.Status = "completed";
         compact.ResumingStepId = null;
         foreach (var item in compact.SuspendedSteps ?? [])
-            if (Active(item))
+            if (item.Status == "implemented" && item.Consumer.BlockId == compact.CurrentBlockId) item.Status = "completed";
+            else if (Active(item))
             {
                 if (item.Consumer.RequirementIds.All(id => state.Construction.Requirements.Single(requirement => requirement.Id == id).Status == "closed"))
                     item.Status = "requirements_closed";
@@ -345,10 +363,10 @@ internal static partial class PlanningCompactConstruction
         ReconcileContinuations(state);
     }
 
-    private static bool ContinuationCurrent(PlanningSession state, PlanningConstructionSuspendedStep item)
+    private static bool ContinuationCurrent(PlanningSession state, PlanningConstructionSuspendedStep item, bool requireOpenScope = true)
     {
         var compact = State(state); var construction = state.Construction!;
-        if (!construction.OpenScopes.Contains(item.Consumer.Scope, StringComparer.Ordinal) ||
+        if (requireOpenScope && !construction.OpenScopes.Contains(item.Consumer.Scope, StringComparer.Ordinal) ||
             item.Consumer.RequirementIds.Any(id => construction.Requirements.All(requirement => requirement.Id != id)) ||
             item.Consumer.RequirementIds.All(id => construction.Requirements.Single(requirement => requirement.Id == id).Status == "closed") ||
             item.SourceVersions.Any(source => compact.Sources.SingleOrDefault(current => current.Id == source.Key) is not { } current ||

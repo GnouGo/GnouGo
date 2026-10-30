@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
@@ -120,82 +121,109 @@ public sealed class CompactAcceptedClosureTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task SelectedUnchangedClosureRetainsEvidenceNotesWithoutAnotherDraft(bool complete)
+    public async Task ExplicitUnchangedCompletionClaimRetainsEvidenceNotesWithoutAnotherDraft(bool complete)
     {
         var state = await State(2);
-        if (!complete)
-        {
-            foreach (var requirement in state.Construction!.Requirements) requirement.Status = "remaining";
-            state.Construction.Checkpoints[0].ClosedRequirementIds = [];
-        }
+        foreach (var requirement in state.Construction!.Requirements) requirement.Status = "in_progress";
+        var ids = complete ? new[] { "req_0", "req_1" } : ["req_0"];
+        SelectBlock(state, ids);
+        var accepted = state.Construction.Checkpoints[0];
+        accepted.Step!.BlockId = state.Construction.Compact!.CurrentBlockId;
+        accepted.Step.Id = "accepted_producer";
+        accepted.ClosedRequirementIds = [];
+        accepted.Fragment["completeBlock"] = false;
+        accepted.Fragment["businessReviewPending"] = true;
         var note = new PlanningConstructionPrerequisite
         {
             Need = "The retained original obligation and accepted numeric result remain subject to business review.",
             EvidenceAddresses = ["requirement:req_0"]
         };
-        var step = new PlanningConstructionStep { Id = "selected_close", Kind = "close", Scope = "/root",
-            Objective = "Record the selected completion claim without changing accepted behavior.",
-            DiscoveryComplete = true, RequirementIds = ["req_0"], CloseRequirementIds = ["req_0"],
-            CloseScopes = complete ? ["/root"] : [], Prerequisites = [note] };
-        state.Construction!.Compact!.CurrentStep = step;
+        var step = new PlanningConstructionStep { Id = "selected_close", BlockId = state.Construction.Compact.CurrentBlockId,
+            Kind = "close", Scope = "/root", Objective = PlanningCompactConstruction.CurrentBlock(state)!.Objective,
+            DiscoveryComplete = true, RequirementIds = ids.ToList(), CloseRequirementIds = ids.ToList(),
+            CloseScopes = [], Prerequisites = [note] };
+        state.Construction.Compact.CurrentStep = step;
         PlanningCompactConstruction.ValidateSelection(state, step);
+        Assert.Null(PlanningCompactConstruction.PrepareSelectedClosure(state));
         var original = PlanningConstruction.Hash(state.Plan);
-        var prepared = Assert.IsType<PlanningSession>(PlanningCompactConstruction.PrepareSelectedClosure(state));
-        Assert.Equal(original, prepared.Construction!.Candidate!.Hash);
-        Assert.Equal(note.Need, Assert.Single(prepared.Construction.Compact!.CurrentStep!.Prerequisites!).Need);
-        Assert.False(prepared.Construction.Candidate.BusinessReviewed);
+        state.Construction.Candidate = PlanningConstruction.Apply(state, new()
+        {
+            Scope = "/root", RequirementIds = ids.ToList(), CompleteBlock = true
+        });
+        PlanningCompactConstruction.ValidateExtension(state, state.Construction.Candidate);
+        Assert.Equal(original, state.Construction.Candidate.Hash);
+        Assert.False(state.Construction.Candidate.BusinessReviewed);
         var runtime = new TestRuntime { Respond = (_, purpose) =>
         {
-            Assert.True(complete, "A requirement-only technical closure must not dispatch a draft or Judge.");
-            Assert.Equal(PlanningConstruction.GlobalPurpose, purpose);
+            Assert.Equal(complete ? PlanningConstruction.GlobalPurpose : PlanningConstruction.LocalPurpose, purpose);
             return new() { Json = new JsonObject { ["decision"] = new JsonObject { ["verdict"] = "ok",
-                ["reason"] = "The complete numeric result fulfills both original obligations." } } };
+                ["reason"] = "The retained numeric behavior fulfills the claimed original obligations." } } };
         } };
-        for (var tick = 0; tick < (complete ? 12 : 2) && state.Status != PlanningStatus.FinalReview; tick++)
+        for (var tick = 0; tick < 12 && (complete ? state.Status != PlanningStatus.FinalReview : runtime.Calls.Count == 0); tick++)
             state = await new HybridWorkflowPlanner().AdvanceAsync(PlannerFixture.Clone(state), new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
         Assert.Equal(original, PlanningConstruction.Hash(state.Plan));
-        Assert.Equal(complete ? 1 : 0, runtime.Calls.Count);
+        Assert.Single(runtime.Calls);
         Assert.Null(state.ApprovedHash);
+        Assert.Contains(state.Construction!.Checkpoints, checkpoint => checkpoint.Step?.Prerequisites?.Any(item => item.Need == note.Need) == true);
         if (complete) Assert.Equal(PlanningStatus.FinalReview, state.Status);
         else
         {
-            Assert.Equal("in_progress", state.Construction!.Requirements[0].Status);
-            Assert.Equal("remaining", state.Construction.Requirements[1].Status);
+            Assert.Equal("closed", state.Construction.Requirements[0].Status);
+            Assert.Equal("in_progress", state.Construction.Requirements[1].Status);
             Assert.False(HybridWorkflowPlanner.ConstructionArtifactReviewValid(state));
-            Assert.Equal(note.Need, state.Construction.Checkpoints[^1].Step!.Prerequisites![0].Need);
+            Assert.Null(state.Construction.Compact!.CurrentBlockId);
         }
     }
 
     [Fact]
-    public async Task InitialRequirementClosureUsesDeclaredInputsWithoutGeneratingAnEmptyPlan()
+    public async Task InitialExplicitBusinessClaimUsesDeclaredInputsWithoutInventingExecutableTasks()
     {
         var state = await State(2, unstarted: true);
         Assert.Null(state.Plan);
         Assert.Empty(state.Construction!.Checkpoints);
-        var step = new PlanningConstructionStep { Id = "initial_claim", Kind = "close", Scope = "/root",
-            Objective = "Record the already declared caller interface; substantive behavior remains unfinished.",
+        SelectBlock(state, ["req_0"]);
+        var step = new PlanningConstructionStep { Id = "initial_claim", BlockId = state.Construction.Compact!.CurrentBlockId,
+            Kind = "close", Scope = "/root", Objective = PlanningCompactConstruction.CurrentBlock(state)!.Objective,
             RequirementIds = ["req_0"], CloseRequirementIds = ["req_0"], CloseScopes = [], DiscoveryComplete = true,
             Prerequisites = [new() { Need = "The original clause declares the required numeric caller input.", EvidenceAddresses = ["requirement:req_0"] }] };
-        state.Construction.Compact!.CurrentStep = step;
+        state.Construction.Compact.CurrentStep = step;
         PlanningCompactConstruction.ValidateSelection(state, step);
-        var prepared = Assert.IsType<PlanningSession>(PlanningCompactConstruction.PrepareSelectedClosure(state));
-        Assert.Null(state.Plan); // Preparation must not mutate the authoritative baseline.
-        Assert.Equal(PlanningConstruction.Hash(null), prepared.Construction!.Candidate!.BaseHash);
-        var input = Assert.Single(prepared.Construction.Candidate.Plan.Inputs);
-        Assert.Equal("term", input.Name); Assert.Equal("number", input.Type.Kind); Assert.True(input.Required); Assert.Null(input.Default);
-        Assert.Empty(prepared.Construction.Candidate.Plan.Root.Tasks);
-        Assert.False(prepared.Construction.Candidate.BusinessReviewed);
-        var runtime = new TestRuntime { Respond = (_, purpose) => throw new InvalidOperationException("Unexpected model dispatch: " + purpose) };
-        for (var tick = 0; tick < 2; tick++)
+        Assert.Null(PlanningCompactConstruction.PrepareSelectedClosure(state));
+        Assert.Null(state.Plan);
+        var runtime = new TestRuntime { Respond = (request, purpose) =>
+        {
+            var response = purpose switch
+            {
+                PlanningConstruction.DraftPurpose => new JsonObject
+                {
+                    ["extension"] = PlanningConstruction.Node(new PlanningConstructionExtension
+                    { Scope = "/root", RequirementIds = ["req_0"], CompleteBlock = true }, PlanningJsonContext.Default.PlanningConstructionExtension)
+                },
+                PlanningConstruction.LocalPurpose => new JsonObject { ["decision"] = new JsonObject
+                    { ["verdict"] = "ok", ["reason"] = "The declared required numeric caller interface matches the original clause; the public numeric behavior remains unfinished." } },
+                _ => throw new InvalidOperationException("Unexpected model dispatch: " + purpose)
+            };
+            return new() { Json = PlanningCorpus.Transport(response, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject())! };
+        } };
+        for (var tick = 0; tick < 8 && state.Construction!.Checkpoints.Count == 0; tick++)
             state = await new HybridWorkflowPlanner().AdvanceAsync(PlannerFixture.Clone(state), new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
-        Assert.Empty(runtime.Calls); Assert.Equal(0, state.ModelCalls); Assert.Null(state.PendingCall);
-        Assert.Equal("term", Assert.Single(state.Plan!.Inputs).Name);
+        Assert.Equal(2, runtime.Calls.Count); Assert.Equal(2, state.ModelCalls); Assert.Null(state.PendingCall);
+        var input = Assert.Single(state.Plan!.Inputs);
+        Assert.Equal("term", input.Name); Assert.Equal("number", input.Type.Kind); Assert.True(input.Required); Assert.Null(input.Default);
         Assert.Empty(state.Plan.Root.Tasks); Assert.Empty(state.Plan.Root.Outputs);
         Assert.Single(state.Construction!.Checkpoints);
-        Assert.Equal("in_progress", state.Construction.Requirements[0].Status);
+        Assert.Equal("closed", state.Construction.Requirements[0].Status);
         Assert.Equal("remaining", state.Construction.Requirements[1].Status);
         Assert.False(HybridWorkflowPlanner.ConstructionArtifactReviewValid(state)); Assert.Null(state.ApprovedHash);
     }
+
+    private static void SelectBlock(PlanningSession state, string[] ids) => PlanningCompactConstruction.SelectBlock(state, new JsonObject
+    {
+        ["objective"] = "Fulfill the original obligations associated with this responsibility.",
+        ["requirementIds"] = new JsonArray(ids.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+        ["informationNeeds"] = new JsonArray(), ["expectedResults"] = new JsonArray("The declared original outcome"),
+        ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray("The associated original obligations are satisfied")
+    });
 
     [Fact]
     public async Task AParentCannotCloseWhileItsChildRemainsOpen()

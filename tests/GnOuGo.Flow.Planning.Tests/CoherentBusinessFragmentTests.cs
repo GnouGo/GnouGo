@@ -32,7 +32,7 @@ public sealed class CoherentBusinessFragmentTests
             drafts++;
             return Draft(request, new()
             {
-                Scope = "/root", ContinueInScope = drafts == 1 ? "/root" : null,
+                CompleteBlock = drafts == 2, Scope = "/root", ContinueInScope = drafts == 1 ? "/root" : null,
                 RequirementIds = ["work"], Tasks = Enumerable.Range(drafts == 1 ? 0 : 8, drafts == 1 ? 8 : 2).Select(Value).ToList()
             });
         };
@@ -63,12 +63,12 @@ public sealed class CoherentBusinessFragmentTests
         var (state, runtime) = await BusinessReviewProtocolTests.Ready();
         state.Construction!.Candidate = null;
         state.Construction.Compact!.CurrentStep!.CloseRequirementIds.Clear();
-        var finish = new PlanningConstructionExtension { Scope = "/root", RequirementIds = ["work"] };
+        var finish = new PlanningConstructionExtension { CompleteBlock = true, Scope = "/root", RequirementIds = ["work"] };
         var empty = Assert.Throws<PlanningResponseException>(() => PlanningConstruction.Apply(state, finish));
         Assert.Contains(empty.Diagnostics, diagnostic => diagnostic.Code == "REPLAN_NO_PROGRESS");
         state.Construction.Candidate = PlanningConstruction.Apply(state, new()
         {
-            Scope = "/root", RequirementIds = ["work"], Tasks = [Value(0)], ContinueInScope = "/root"
+            CompleteBlock = false, Scope = "/root", RequirementIds = ["work"], Tasks = [Value(0)], ContinueInScope = "/root"
         });
         runtime.Respond = (_, _) => throw new InvalidOperationException("A partial block remains a technical checkpoint.");
         state = await Advance(state, runtime);
@@ -101,7 +101,7 @@ public sealed class CoherentBusinessFragmentTests
         state.Construction.Compact!.CurrentStep!.Kind = "group";
         var extension = new PlanningConstructionExtension
         {
-            Scope = "/root", RequirementIds = ["work"],
+            CompleteBlock = false, Scope = "/root", RequirementIds = ["work"],
             CloseScopes = explicitClosures ? ["/tasks/iterate/body", "/groups/worker/body"] : [],
             Groups = [new()
             {
@@ -161,7 +161,7 @@ public sealed class CoherentBusinessFragmentTests
         });
         var extension = new PlanningConstructionExtension
         {
-            Scope = "/root", RequirementIds = ["work"], CloseScopes = ["/tasks/choose/body", "/tasks/choose/otherwise", "/tasks/iterate/body"],
+            CompleteBlock = false, Scope = "/root", RequirementIds = ["work"], CloseScopes = ["/tasks/choose/body", "/tasks/choose/otherwise", "/tasks/iterate/body"],
             Tasks = [new()
             {
                 Id = "iterate", Kind = "foreach", Objective = "Read qualifying items and finalize every item.",
@@ -205,7 +205,7 @@ public sealed class CoherentBusinessFragmentTests
         var (state, _) = await BusinessReviewProtocolTests.Ready();
         state.Construction!.Candidate = null;
         state.Construction.Compact!.CurrentStep!.Kind = "foreach";
-        var extension = new PlanningConstructionExtension { Scope = "/root", RequirementIds = ["work"], Tasks =
+        var extension = new PlanningConstructionExtension { CompleteBlock = false, Scope = "/root", RequirementIds = ["work"], Tasks =
             [new() { Id = "unselected", Kind = "sequence", Objective = "Unselected top-level wrapper.", Body = new() { Tasks = [Value(0)] } }] };
         var candidate = PlanningConstruction.Apply(state, extension);
         var failure = Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ValidateExtension(state, candidate));
@@ -220,7 +220,7 @@ public sealed class CoherentBusinessFragmentTests
         state.Construction.Compact!.CurrentStep!.Kind = "sequence";
         var extension = new PlanningConstructionExtension
         {
-            Scope = "/root", RequirementIds = ["work"], Tasks = [new()
+            CompleteBlock = false, Scope = "/root", RequirementIds = ["work"], Tasks = [new()
             {
                 Id = "block", Kind = "sequence", Objective = "Perform the two calculations together.",
                 Body = new() { Tasks = [Value(0), Value(1)], Outputs = [new("result", new() { Kind = "output", Source = "value_1", Port = "result" })] }
@@ -263,7 +263,7 @@ public sealed class CoherentBusinessFragmentTests
         });
         var extension = new PlanningConstructionExtension
         {
-            Scope = "/root", RequirementIds = ["work"], Tasks = [new()
+            CompleteBlock = false, Scope = "/root", RequirementIds = ["work"], Tasks = [new()
             {
                 Id = "block", Kind = "sequence", Objective = "Acquire the related records with their shared input.",
                 Body = new() { Tasks = new[] { Value(0) }.Concat(operations).ToList() }
@@ -301,7 +301,7 @@ public sealed class CoherentBusinessFragmentTests
         PlanningCompactConstruction.ValidateSelection(state, step);
         var extension = new PlanningConstructionExtension
         {
-            Scope = "/root", RequirementIds = ["work"], CloseScopes = ["/tasks/iterate/body"],
+            CompleteBlock = false, Scope = "/root", RequirementIds = ["work"], CloseScopes = ["/tasks/iterate/body"],
             Tasks = [new()
             {
                 Id = "iterate", Kind = "foreach", Objective = "Apply the reusable doubling group to every item.",
@@ -338,7 +338,7 @@ public sealed class CoherentBusinessFragmentTests
         }
         var first = new PlanningConstructionExtension
         {
-            Scope = "/root", RequirementIds = ["work"], ContinueInScope = "/tasks/block/body",
+            CompleteBlock = false, Scope = "/root", RequirementIds = ["work"], ContinueInScope = "/tasks/block/body",
             Tasks = [new() { Id = "block", Kind = "sequence", Objective = "Compute this block's result.", Body = new() { Tasks = [Value(0)] } }]
         };
         state.Construction.Candidate = PlanningConstruction.Apply(state, first);
@@ -352,7 +352,7 @@ public sealed class CoherentBusinessFragmentTests
         Assert.True(step.DiscoveryComplete);
         Assert.Null(state.Construction.Compact.ReplacementScope);
         Assert.Contains("conditional", PlanningCompactConstruction.BusinessFragmentKinds(state));
-        var second = new PlanningConstructionExtension { Scope = step.Scope, RequirementIds = ["work"], Tasks = [Value(1)],
+        var second = new PlanningConstructionExtension { CompleteBlock = false, Scope = step.Scope, RequirementIds = ["work"], Tasks = [Value(1)],
             Outputs = [new("result", new() { Kind = "output", Source = "value_1", Port = "result" })], CloseScopes = [step.Scope] };
         AssertDraftAccepts(state, second);
         var candidate = PlanningConstruction.Apply(state, second);
@@ -368,7 +368,7 @@ public sealed class CoherentBusinessFragmentTests
         state.Construction!.Compact!.CurrentStep!.Kind = "sequence";
         state.Construction.Candidate = PlanningConstruction.Apply(state, new()
         {
-            Scope = "/root", RequirementIds = ["work"], ContinueInScope = "/root", Tasks = [new()
+            CompleteBlock = false, Scope = "/root", RequirementIds = ["work"], ContinueInScope = "/root", Tasks = [new()
                 { Id = "block", Kind = "sequence", Objective = "Own the calculation.", Body = new() { Tasks = [Value(0)] } }]
         });
         runtime.Respond = (_, _) => throw new InvalidOperationException("A partial block is accepted technically.");
@@ -377,7 +377,7 @@ public sealed class CoherentBusinessFragmentTests
         Assert.DoesNotContain("sequence", PlanningCompactConstruction.BusinessFragmentKinds(state));
         var repeated = PlanningConstruction.Apply(state, new()
         {
-            Scope = "/root", RequirementIds = ["work"], Tasks = [new()
+            CompleteBlock = false, Scope = "/root", RequirementIds = ["work"], Tasks = [new()
                 { Id = "another", Kind = "sequence", Objective = "Repeat the same wrapper.", Body = new() { Tasks = [Value(1)] } }]
         });
         Assert.Contains(Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ValidateExtension(state, repeated)).Diagnostics,
@@ -393,7 +393,7 @@ public sealed class CoherentBusinessFragmentTests
         state.Plan!.Root.Tasks.Add(new() { Id = "other", Kind = "sequence", Objective = "Independent work.", Body = new() });
         state.Construction.OpenScopes.Add("/tasks/other/body");
         state.Construction.Compact!.CurrentStep!.BaseHash = PlanningConstruction.Hash(state.Plan);
-        var candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["work"],
+        var candidate = PlanningConstruction.Apply(state, new() { CompleteBlock = false, Scope = "/root", RequirementIds = ["work"],
             Tasks = [Value(0)], ContinueInScope = "/tasks/other/body" });
         var failure = Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ValidateExtension(state, candidate));
         Assert.Contains(failure.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_BLOCK_CONTINUATION_INVALID");
@@ -408,7 +408,7 @@ public sealed class CoherentBusinessFragmentTests
         state.Construction.Compact!.CurrentStep!.Kind = "group";
         var candidate = PlanningConstruction.Apply(state, new()
         {
-            Scope = "/root", RequirementIds = ["work"], Groups = [new() { Id = "unfinished", Body = new()
+            CompleteBlock = false, Scope = "/root", RequirementIds = ["work"], Groups = [new() { Id = "unfinished", Body = new()
                 { Tasks = [new() { Id = "declared", Kind = "value", Objective = "Compute the isolated result.",
                     Outputs = [new("number", new() { Kind = "number", Number = 1 })] }] } }],
             CloseScopes = ["/root"], ContinueInScope = "/groups/unfinished/body"
@@ -434,7 +434,7 @@ public sealed class CoherentBusinessFragmentTests
             Need = "The exact numeric producer required by this original calculation is still unavailable.",
             EvidenceAddresses = ["requirement:work"]
         }];
-        var extension = new PlanningConstructionExtension { Scope = "/root", RequirementIds = ["work"] };
+        var extension = new PlanningConstructionExtension { CompleteBlock = false, Scope = "/root", RequirementIds = ["work"] };
         if (kind == "group") extension.Groups = [new() { Id = "deferred", Body = new() }];
         else extension.Tasks = [new() { Id = "deferred", Kind = "sequence", Objective = "Own the unresolved calculation.", Body = new() }];
         var candidate = PlanningConstruction.Apply(state, extension);
@@ -463,7 +463,7 @@ public sealed class CoherentBusinessFragmentTests
         var (state, _) = await BusinessReviewProtocolTests.Ready();
         state.Construction!.Candidate = null;
         state.Construction.Compact!.CurrentStep!.Kind = "group";
-        var extension = new PlanningConstructionExtension { Scope = "/root", RequirementIds = ["work"],
+        var extension = new PlanningConstructionExtension { CompleteBlock = false, Scope = "/root", RequirementIds = ["work"],
             Groups = [new() { Id = "isolated", Body = new() { Tasks = [Value(0)] } }], CloseScopes = ["/groups/isolated/body"] };
         AssertDraftAccepts(state, extension);
         var candidate = PlanningConstruction.Apply(state, extension);
@@ -480,7 +480,7 @@ public sealed class CoherentBusinessFragmentTests
         state.Construction.Compact!.CurrentStep!.Kind = "sequence";
         var failure = Assert.Throws<PlanningResponseException>(() => PlanningConstruction.Apply(state, new()
         {
-            Scope = "/root", RequirementIds = ["work"], Tasks = [new() { Id = "block", Kind = "sequence", Objective = "Bounded work.",
+            CompleteBlock = false, Scope = "/root", RequirementIds = ["work"], Tasks = [new() { Id = "block", Kind = "sequence", Objective = "Bounded work.",
                 Body = new() { Tasks = Enumerable.Range(0, 8).Select(Value).ToList() } }]
         }));
         Assert.Contains(failure.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_DRAFT_LIMIT");

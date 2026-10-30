@@ -16,7 +16,7 @@ internal static class PlanningSchemas
     // model response envelope and contains no discovery or requirement actions.
     internal static JsonObject TaskPlanGrammar(PlanningSession state)
     {
-        var definitions = SemanticDefinitions();
+        var definitions = SemanticDefinitions(PlanningTokenThresholds.OptimizationAdvisory(state.Request));
         definitions["value"]!["anyOf"]!.AsArray().Add((JsonNode)Described(Object(("kind", Enum("lookup")), ("port", Ref("goal")),
             ("items", Array(Ref("value"), 2, 2))), "items=[records,IDs]; port=key. Preserve order/repeats; reject missing/ambiguous IDs."));
         definitions["task"] = Tasks(state, definitions);
@@ -29,7 +29,7 @@ internal static class PlanningSchemas
     // operation catalog traversal or unrelated task alternatives.
     internal static JsonObject ConstructionDefinitions(PlanningSession state, string kind)
     {
-        var definitions = SemanticDefinitions();
+        var definitions = SemanticDefinitions(PlanningTokenThresholds.OptimizationAdvisory(state.Request));
         definitions.Remove("plan");
         definitions["value"]!["anyOf"]!.AsArray().Add((JsonNode)Described(Object(("kind", Enum("lookup")), ("port", Ref("goal")),
             ("items", Array(Ref("value"), 2, 2))), "items=[records,IDs]; port=key. Preserve order/repeats; reject missing/ambiguous IDs."));
@@ -37,7 +37,7 @@ internal static class PlanningSchemas
         return definitions;
     }
 
-    private static JsonObject SemanticDefinitions()
+    private static JsonObject SemanticDefinitions(bool diagnostic)
     {
         return new JsonObject
         {
@@ -65,9 +65,9 @@ internal static class PlanningSchemas
                 Object(("kind", Enum("number")), ("number", Type("number"))), Object(("kind", Enum("boolean")), ("boolean", Type("boolean"))),
                 Object(("kind", Enum("object")), ("members", Array(Object(("name", String()), ("value", Ref("literal")))))),
                 Object(("kind", Enum("array")), ("items", Array(Ref("literal"))))) },
-            ["businessType"] = BusinessTypes(transform: false),
+            ["businessType"] = BusinessTypes(transform: false, diagnostic),
             ["field"] = Input(objectField: true),
-            ["resultType"] = BusinessTypes(transform: true),
+            ["resultType"] = BusinessTypes(transform: true, diagnostic),
             ["resultField"] = Object(("name", Ref("goal")), ("type", Ref("resultType"))),
             ["input"] = Described(Input(objectField: false), "Omitted required=true/default=absent. Declare inputs once."),
             ["output"] = Object(("name", String()), ("value", Ref("value"))),
@@ -93,9 +93,9 @@ internal static class PlanningSchemas
         return root;
     }
 
-    internal static JsonObject Clarifications() => Array(Object(("id", Nonblank()), ("question", Nonblank()),
-        ("alternatives", Array(Object(("id", Nonblank()), ("description", Nonblank())), 0, 3)),
-        ("recommended", Nullable(Nonblank()))), 1, 3);
+    internal static JsonObject Clarifications(bool diagnostic = false) => Array(Object(("id", Nonblank()), ("question", Nonblank()),
+        ("alternatives", Array(Object(("id", Nonblank()), ("description", Nonblank())), 0, diagnostic ? null : 3)),
+        ("recommended", Nullable(Nonblank()))), 1, diagnostic ? null : 3);
 
     private static void CompactDefinitionNames(JsonObject root, JsonObject definitions)
     {
@@ -196,7 +196,7 @@ internal static class PlanningSchemas
         }
     }
     // Omitted flags use the existing DTO defaults. Every actual business value stays explicit.
-    private static JsonObject BusinessTypes(bool transform)
+    private static JsonObject BusinessTypes(bool transform, bool diagnostic)
     {
         var alternatives = new List<JsonNode?>();
         foreach (var nullable in new[] { false, true })
@@ -205,7 +205,7 @@ internal static class PlanningSchemas
             var nested = transform ? "resultType" : "businessType";
             alternatives.AddRange(ArrayTypeShapes(nested, nullable));
             alternatives.Add(Shape(("kind", Enum("object")), ("fields", Array(Ref(transform ? "resultField" : "field")))));
-            alternatives.Add(Shape(("kind", Enum("string")), ("enum", Array(String(), 1, 256))));
+            alternatives.Add(Shape(("kind", Enum("string")), ("enum", Array(String(), 1, diagnostic ? null : 256))));
             alternatives.Add(Shape(("kind", transform ? Enum("string", "number", "integer", "boolean") : Enum("string", "number", "integer", "boolean", "any"))));
         }
         return new() { ["anyOf"] = new JsonArray(alternatives.ToArray()) };

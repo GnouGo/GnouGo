@@ -54,8 +54,13 @@ public sealed class PlanningTransportPolicyTests
     public void IssuedRequestCapturesRemainingMandatoryReviews(string phase, bool association, bool complete, int expected)
     {
         var state = Fresh();
+        if (association)
+        {
+            state.Construction!.Requirements = [new() { Id = "current" }, new() { Id = "later" }];
+            state.Construction.Compact!.CurrentStep = new() { CloseRequirementIds = ["current"] };
+        }
         if (association || complete)
-            state.Construction!.Candidate = new() { Extension = new() { Complete = complete,
+            state.Construction!.Candidate = new() { Extension = new() { Complete = complete, CompleteBlock = true,
                 ContinuationBinding = association ? new() { ContinuationId = "consumer", Binding = new() } : null } };
         Assert.Equal(expected, Prepare(state, phase).RequiredReviewCalls);
     }

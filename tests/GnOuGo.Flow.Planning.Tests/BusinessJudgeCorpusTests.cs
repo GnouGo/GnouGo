@@ -35,7 +35,7 @@ public sealed class BusinessJudgeCorpusTests
         }
         if (id == "valid-open-fragment")
         {
-            Assert.Equal("current_fragment", context["review"]!.ToString());
+            Assert.Equal("current_block", context["review"]!.ToString());
             Assert.True(context["scopes"]![0]!["open"]!.GetValue<bool>());
             Assert.False(context["claims"]!["workflowComplete"]!.GetValue<bool>());
         }

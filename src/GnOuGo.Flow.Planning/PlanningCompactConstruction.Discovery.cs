@@ -301,7 +301,8 @@ internal static partial class PlanningCompactConstruction
             throw new WorkflowRuntimeException("CONSTRUCTION_DISCOVERY_STALE", "Retained discovery knowledge no longer matches the exact issued description-read request.");
         if (response["evidenceRequests"] is not JsonArray { Count: 1 } requests ||
             new[] { "operationIds", "binding", "discoveryRequests", "reselectStep", "clarifications" }.Any(name => response[name] is not null) ||
-            requests[0]?.ToString() is not { } address || !address.StartsWith("description:", StringComparison.Ordinal) || address.Length > 2048)
+            requests[0]?.ToString() is not { } address || !address.StartsWith("description:", StringComparison.Ordinal) ||
+            address.Length > 2048 && !PlanningTokenThresholds.OptimizationAdvisory(state.Request))
             return null;
         try { if (LoadContractEvidence(state, address) is null) return null; }
         catch (PlanningResponseException) { return null; }
@@ -383,31 +384,31 @@ internal static partial class PlanningCompactConstruction
             ("cursor", choice.Cursor is { } cursor ? PlanningSchemas.Enum(cursor) : PlanningSchemas.Type("null")),
             ("query", PlanningSchemas.Type("null")), ("operationIds", PlanningSchemas.Type("null")))).ToArray());
         var schema = PlanningSchemas.Object(
-            ("operationIds", PlanningSchemas.Nullable(Strings(1, state.Construction!.Limits.MaxTasksPerDraft))),
+            ("operationIds", PlanningSchemas.Nullable(Strings(state, 1, PlanningOptimizationThresholds.Maximum(state, state.Construction!.Limits.MaxTasksPerDraft)))),
             ("discoveryRequests", alternatives.Count == 0 ? PlanningSchemas.Type("null") : PlanningSchemas.Nullable(
-                PlanningSchemas.Array(alternatives.Count == 1 ? alternatives[0]!.DeepClone().AsObject() : new JsonObject { ["anyOf"] = alternatives }, 1, 2))),
-            ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(Text(2048), 1,
+                PlanningSchemas.Array(alternatives.Count == 1 ? alternatives[0]!.DeepClone().AsObject() : new JsonObject { ["anyOf"] = alternatives }, 1, PlanningOptimizationThresholds.Maximum(state, 2)))),
+            ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(Text(state, 2048), 1,
                 8))),
             ("reselectStep", CanReselectDiscovery(state) ? PlanningSchemas.Nullable(new JsonObject { ["type"] = "string", ["minLength"] = 1, ["maxLength"] = 512 }) : PlanningSchemas.Type("null")),
-            ("clarifications", PlanningSchemas.Nullable(PlanningSchemas.Clarifications())));
+            ("clarifications", PlanningSchemas.Nullable(PlanningSchemas.Clarifications(PlanningTokenThresholds.OptimizationAdvisory(state.Request)))));
         {
             schema["properties"]!.AsObject().Remove("operationIds");
             schema["required"]!.AsArray().RemoveAt(0);
             var binding = new JsonObject { ["anyOf"] = new JsonArray(
                     PlanningSchemas.Object(("kind", PlanningSchemas.Enum("operation")),
-                        ("operationIds", Strings(1, state.Construction!.Limits.MaxTasksPerDraft)), ("groupId", PlanningSchemas.Nullable(Text(96)))),
+                        ("operationIds", Strings(state, 1, PlanningOptimizationThresholds.Maximum(state, state.Construction!.Limits.MaxTasksPerDraft))), ("groupId", PlanningSchemas.Nullable(Text(state, 96)))),
                     PlanningSchemas.Object(("kind", PlanningSchemas.Enum("call")),
-                        ("operationIds", Strings(0, state.Construction.Limits.MaxTasksPerDraft)), ("groupId", Text(96))),
+                        ("operationIds", Strings(state, 0, PlanningOptimizationThresholds.Maximum(state, state.Construction.Limits.MaxTasksPerDraft))), ("groupId", Text(state, 96))),
                     PlanningSchemas.Object(("kind", PlanningSchemas.Enum(TaskKinds.Where(kind => kind is not ("operation" or "call") &&
                         (kind != "close" || DiscoveryCloseCanProgress(state))).ToArray())),
-                        ("operationIds", Strings(0, 0)), ("groupId", PlanningSchemas.Type("null")))) };
+                        ("operationIds", Strings(state, 0, 0)), ("groupId", PlanningSchemas.Type("null")))) };
             {
                 var branches = binding["anyOf"]!.AsArray();
                 branches[2]!["properties"]!["kind"] = PlanningSchemas.Enum(TaskKinds.Where(kind => kind is not ("operation" or "call" or "close")).ToArray());
                 branches.Add((JsonNode)PlanningSchemas.Object(("kind", PlanningSchemas.Enum(TaskKinds.Where(kind => SupportsBusinessFragment(kind) && kind is not ("operation" or "call")).ToArray())),
-                    ("operationIds", Strings(1, state.Construction.Limits.MaxTasksPerDraft)), ("groupId", PlanningSchemas.Nullable(Text(96)))));
+                    ("operationIds", Strings(state, 1, PlanningOptimizationThresholds.Maximum(state, state.Construction.Limits.MaxTasksPerDraft))), ("groupId", PlanningSchemas.Nullable(Text(state, 96)))));
                 branches.Add((JsonNode)PlanningSchemas.Object(("kind", PlanningSchemas.Enum(TaskKinds.Where(kind => SupportsBusinessFragment(kind) && kind is not ("operation" or "call")).ToArray())),
-                    ("operationIds", EmptyArray()), ("groupId", Text(96))));
+                    ("operationIds", EmptyArray()), ("groupId", Text(state, 96))));
                 foreach (var branch in branches.OfType<JsonObject>())
                 {
                     branch["properties"]!["closeScopes"] = PlanningSchemas.Type("null");
@@ -436,9 +437,9 @@ internal static partial class PlanningCompactConstruction
         if (step is null || step.DiscoveryComplete ||
             (step.Kind != "operation" && !(step.Kind is null)) || construction.Candidate is not null ||
             state.EditablePaths is not null || state.Request.Options["automatic_correction"]?.ToString() == "false" ||
-            construction.DraftCorrections >= construction.Limits.MaxCorrectionsPerDraft) return false;
+            !PlanningModelCalls.HasDraftRepairCapacity(state, construction.DraftCorrections)) return false;
         var diagnosed = state.Diagnostics.Any(d => d.Required);
-        if (!diagnosed && PlanningModelCalls.RemainingRepairs(state) == 0) return false;
+        if (!diagnosed && !PlanningModelCalls.HasRepairCapacity(state)) return false;
         return diagnosed || state.Discovery.Sources.Count == 0 || ContractDescriptors(state).Count > 0 ||
             state.Discovery.Pages.Any(p => p.Query == step.Objective) || (construction.Evidence?.Select(pair => pair.Key).Any(key =>
                 key.StartsWith("page:operations:", StringComparison.Ordinal) || key.StartsWith("page:sources:", StringComparison.Ordinal) ||

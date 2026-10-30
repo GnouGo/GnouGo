@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using GnOuGo.Flow.Core.Runtime;
 
@@ -30,6 +31,8 @@ public sealed class PlanningRequestMeasurement
     public string Phase { get; set; } = "";
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? StepId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? BlockId { get; set; }
     public string Admission { get; set; } = "prepared";
     public int InputLimit { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -69,6 +72,16 @@ public sealed record PlanningThresholdWarning(string Kind, long Current, long Th
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? RequestId { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SessionId { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? BlockId { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? StepId { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? Checkpoint { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public JsonObject? Details { get; init; }
 }
 
 public sealed record PlanningTransitionMeasurement(long Revision, string Kind, int NewEvidence, int ProductiveChanges,
@@ -171,7 +184,7 @@ public static class PlanningRequestMeasurements
         {
             Add("response_schema", Encoding.UTF8.GetByteCount(schema.GetRawText()));
             schemaHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(schema.GetRawText())));
-            if (baselineHash is null && phase == "construction_select" && schema.ValueKind == JsonValueKind.Object &&
+            if (baselineHash is null && phase == "construction_implementation" && schema.ValueKind == JsonValueKind.Object &&
                 schema.TryGetProperty("properties", out var properties) && properties.ValueKind == JsonValueKind.Object &&
                 properties.TryGetProperty("baseHash", out var baselineSchema) && baselineSchema.ValueKind == JsonValueKind.Object &&
                 baselineSchema.TryGetProperty("enum", out var values) && values.ValueKind == JsonValueKind.Array &&
@@ -209,7 +222,7 @@ public static class PlanningRequestMeasurements
         "request" or "continuation" or "originalContext" or "originalDirectory" => "intent",
         "objective" => "objective",
         "instructions" => "instructions",
-        "sources" => phase is "construction_intent" or "construction_select" ? "intent" : "mcp_descriptors",
+        "sources" => phase is "construction_intent" or "construction_select" or "construction_implementation" ? "intent" : "mcp_descriptors",
         "requirements" or "answers" or "globalConstraints" or "requirementsPage" => "requirements",
         "operations" or "contracts" => "mcp_contracts",
         "operationDirectory" or "optionalOperationContracts" or "capabilities" or "descriptors" or "describedOperations" or "providerRequests" => "mcp_descriptors",

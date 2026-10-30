@@ -65,7 +65,7 @@ public sealed class RecursiveTaskBudgetPresentationTests
                 Always = [Value("cleanup")]
             }
         };
-        var extension = new PlanningConstructionExtension { Scope = "/root", RequirementIds = ["work"] };
+        var extension = new PlanningConstructionExtension { Scope = "/root", RequirementIds = ["work"], CompleteBlock = false };
         if (inGroup) extension.Groups = [new() { Id = "worker", Body = new() { Tasks = [control] } }];
         else extension.Tasks = [control];
         var schema = PlanningCompactConstruction.DraftSchema(state);

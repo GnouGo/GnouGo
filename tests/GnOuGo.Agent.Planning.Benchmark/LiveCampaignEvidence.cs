@@ -61,8 +61,11 @@ internal static class LiveCampaignEvidence
     {
         long calls = 0, attempts = 0, input = 0, output = 0, unknown = 0, reservedInput = 0, reservedOutput = 0;
         decimal cost = 0, reservedCost = 0;
+        var warnings = new JsonArray();
         foreach (var row in records)
         {
+            foreach (var warning in row["optimization_threshold_warnings"] as JsonArray ?? [])
+                warnings.Add(warning?.DeepClone());
             calls++; var physical = row["transport"]!["Attempts"]!.AsArray(); attempts += physical.Count;
             var usage = row["usage"];
             var pending = physical.Count(a => PlanningBenchmarkMeasurements.RequiresHttpUsageReservation(a?["Status"]?.GetValue<int>(), usage is not null, PlanningBenchmarkMeasurements.RetainsAllHttpFailures(row)));
@@ -72,9 +75,11 @@ internal static class LiveCampaignEvidence
             if (usage is null) continue;
             input += usage["input_tokens"]!.GetValue<long>(); output += usage["output_tokens"]!.GetValue<long>(); cost += usage["benchmark_cost_eur"]!.GetValue<decimal>();
         }
-        return new() { ["logical_calls"] = calls, ["physical_attempts"] = attempts, ["known_input_tokens"] = input, ["known_output_tokens"] = output,
+        var result = new JsonObject { ["logical_calls"] = calls, ["physical_attempts"] = attempts, ["known_input_tokens"] = input, ["known_output_tokens"] = output,
             ["known_cost_eur"] = cost, ["unknown_attempts"] = unknown, ["reserved_input_tokens"] = reservedInput,
             ["reserved_output_tokens"] = reservedOutput, ["reserved_cost_eur"] = reservedCost };
+        if (warnings.Count > 0) result["warnings"] = warnings;
+        return result;
     }
 
     internal static async Task<JsonObject> ReportAsync(BenchmarkCampaign campaign, string cohort = "final",
@@ -156,6 +161,7 @@ internal static class LiveCampaignEvidence
                 result["qualifying_success"] = qualified;
                 result["profile_hash"] = PlanningGraphCompiler.Fingerprint(attempt.Profile.ToJsonString());
                 result["accounting"] = await AccountingAsync(campaign, attempt.Run["session"]!["request"]!["sessionId"]!.ToString());
+                result["request_metrics"] = PlanningBenchmarkMeasurements.RequestMetrics(attempt.Run, result["accounting"]!.AsObject());
                 if (scenario != "collections")
                 {
                     var execution = executionStore is not null && attempt.Run["execution_started"] is not null

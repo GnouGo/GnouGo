@@ -17,6 +17,25 @@ public sealed class LLMJournaledAttemptBudgetTests
         { ["input_tokens"] = input, ["output_tokens"] = output, ["total_tokens"] = input + output };
 
     [Fact]
+    public async Task DiagnosticCallWarningsAndUnknownReservationsSurviveIdempotentRecovery()
+    {
+        var sink = new Sink("usage", []); var limits = new LLMUsageBudgetLimits { MaxCalls = 1 };
+        var scope = new LLMUsageBudgetScope(false, limits, sink: sink, advisoryOptimization: true);
+        var request = Request(); request.ClientRequestId = "first";
+        await scope.ReserveJournaledAttemptAsync("first", request, null, 10, 20, [20], "planning", Ct);
+        Assert.Contains(sink.Last!.Warnings!, warning => warning.Kind == "calls" && warning.Current == 2 && warning.RequestId == "first");
+        var saved = JsonSerializer.Serialize(sink.Last, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
+        scope = new(false, limits, JsonSerializer.Deserialize(saved, PlanningJsonContext.Default.LLMUsageBudgetSnapshot), sink: sink, advisoryOptimization: true);
+        await scope.ReserveJournaledAttemptAsync("first", request, null, 10, 20, [20], "planning", Ct);
+        Assert.Equal(saved, JsonSerializer.Serialize(sink.Last, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
+        request.ClientRequestId = "second";
+        await scope.ReserveJournaledAttemptAsync("second", request, null, 10, 20, [], "planning", Ct);
+        Assert.Equal(2, scope.Snapshot.Calls); Assert.Equal(60, scope.Snapshot.TotalTokens);
+        Assert.All(scope.Snapshot.JournaledAttempts!.Values, entry => Assert.Null(entry.VerifiedUsage));
+        Assert.Contains(sink.Last!.Warnings!, warning => warning.Kind == "calls" && warning.RequestId == "second");
+    }
+
+    [Fact]
     public async Task AdvisoryTokenLimitsPropagateToChildrenAndRecoveryWithoutWaivingCallOrMoneyGuards()
     {
         var limits = new LLMUsageBudgetLimits { MaxCalls = 2, MaxTotalTokens = 1 };

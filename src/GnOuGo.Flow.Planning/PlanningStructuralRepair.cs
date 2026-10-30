@@ -188,7 +188,7 @@ internal static class PlanningStructuralRepair
         if (!added.SetEquals(reached)) Reject("/patch/edits");
         var validated = JsonSerializer.Deserialize(JsonSerializer.Serialize(candidate, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
         foreach (var choice in validated.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
-        var findings = new TaskPlanCompiler().Compile(validated, catalog).Diagnostics;
+        var findings = new TaskPlanCompiler().Compile(validated, catalog, false, false, advisoryOptimization: PlanningTokenThresholds.OptimizationAdvisory(state.Request)).Diagnostics;
         if (findings.Count > 0) throw new PlanningResponseException(findings.ToList());
     }
     private static void Reject(string path) => throw new PlanningResponseException([new("REVISION_SCOPE_CHANGED", path, "This structural edit has no complete diagnostic-derived dependency proof.")]);

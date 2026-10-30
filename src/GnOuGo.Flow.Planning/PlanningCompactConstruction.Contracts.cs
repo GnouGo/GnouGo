@@ -138,11 +138,11 @@ internal static partial class PlanningCompactConstruction
             if (Encoding.UTF8.GetByteCount(navigation.ToJsonString()) > ContractDescriptionPageSize) items.RemoveAt(items.Count - 1);
         }
         navigation["complete"] = items.Count == choices.Length;
-        if (cached.Length > 0 && items.Count != choices.Length)
+        if (items.Count != choices.Length)
         {
-            AddRemainingCacheLink();
+            AddRemainingChoiceLink();
             while (items.Count > 0 && Encoding.UTF8.GetByteCount(navigation.ToJsonString()) > ContractDescriptionPageSize)
-            { items.RemoveAt(items.Count - 1); AddRemainingCacheLink(); }
+            { items.RemoveAt(items.Count - 1); AddRemainingChoiceLink(); }
         }
         return navigation;
 
@@ -163,17 +163,26 @@ internal static partial class PlanningCompactConstruction
                 ["descriptionComplete"] = description.Length == operation.Description.Length,
                 ["descriptionEvidence"] = "description:" + identity + ":0" };
         }
-        void AddRemainingCacheLink()
+        void AddRemainingChoiceLink()
         {
             var visible = items.Select(item => item!["id"]!.ToString()).ToHashSet(StringComparer.Ordinal);
             foreach (var retained in (state.Construction.Evidence ?? []).Where(pair => pair.Key.StartsWith("page:operations:", StringComparison.Ordinal)))
                 foreach (var item in retained.Value?["items"] as JsonArray ?? [])
                     if (item?["id"] is { } id) visible.Add(id.ToString());
+            foreach (var retained in (state.Construction.Evidence ?? []).Where(pair => pair.Key.StartsWith("description:", StringComparison.Ordinal)))
+                if (retained.Value?["id"] is { } id) visible.Add(id.ToString());
+            var remaining = choices.Where(choice => !visible.Contains(choice["id"]!.ToString())).ToArray();
             var all = ContractDescriptors(state, count: int.MaxValue, concise: true, retained: true);
             var omitted = all.Select((item, index) => (item, index)).FirstOrDefault(pair =>
-                cached.Any(choice => choice["id"]!.ToString() == pair.item!["id"]!.ToString()) &&
-                !visible.Contains(pair.item!["id"]!.ToString()));
-            if (omitted.item is null) { navigation.Remove("next"); return; }
+                remaining.Any(choice => choice["id"]!.ToString() == pair.item!["id"]!.ToString()));
+            if (omitted.item is null)
+            {
+                // A resolved accepted producer need not occur in any discovery
+                // page. Its original description still has an exact address.
+                if (remaining.FirstOrDefault()?["descriptionEvidence"] is { } address) navigation["next"] = address.DeepClone();
+                else navigation.Remove("next");
+                return;
+            }
             var page = ContractDescriptorPage(state, omitted.index, retained: true);
             navigation["next"] = "page:operations:" + PlanningGraphCompiler.Fingerprint(page.ToJsonString()) + ":" +
                 omitted.index.ToString(CultureInfo.InvariantCulture);

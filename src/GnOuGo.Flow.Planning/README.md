@@ -10,15 +10,21 @@ Internal planning format **11** has one active protocol. Retired sessions and ap
 are rejected without migration; original encrypted records remain unchanged. TaskPlan
 and execution journal schema 9 are separate from this storage rupture.
 
-Each generation request addresses immediate work using original requirements, accepted
-producers and selected original contracts. A coherent block combines its selected
-anchor, related value/transform helpers, exact operations and calls to its selected
-closed group in one fragment of at
-most eight recursive tasks, including populated controls/groups and cleanup.
-Nested scopes may compose different typed control kinds while the top-level anchor,
-exact operation/group selection and recursive bound remain enforced.
-`continueInScope` retains the same selected block across bounded fragments; partial
-acceptance cannot close requirements or complete a suspended consumer.
+Business-only selection captures immutable objectives, original obligations, information
+needs, expected results, existing-result dependencies and success criteria. Its request
+and response contain no implementation kinds, scopes, MCP identifiers or typed bindings.
+`CurrentStep.BlockId` links the technical cursor to this preserved business block;
+`Step.Id` retains technical anchor ownership across related fragments. Discovery and
+prerequisite work reuse accepted producers and exact retained contracts before querying
+missing capabilities. Required `completeBlock` separates a contribution from requested
+business completion, while `continueInScope` controls technical continuation only.
+Null technical continuation does not complete a block. Successful local or mandatory
+global business review establishes completion across all relevant block contributions.
+
+Ordinary sessions retain the recursive eight-task allowance. Fresh trusted diagnostic
+sessions remove optimization-only task/operation/graph schema bounds and validate full
+10- and 25-task contributions, including populated bodies, exports and cleanup.
+Partial acceptance cannot close requirements or complete a suspended consumer.
 An empty-only opening requires a retained evidenced unresolved prerequisite for its
 current responsibility. A productive finished block receives local review before
 continuing, unless eligible finalization includes it in the global review.
@@ -82,7 +88,11 @@ navigation is fitted toward the captured target in selection, discovery and auth
 Necessary requests above target continue with measurement warnings. A trusted benchmark
 can capture advisory project token thresholds throughout admission and journals; production
 hosts reject that authority. Warnings never enter candidate diagnostics or artifact approval
-hashes. Financial, call, time, permission and physical API guards remain enforced.
+hashes. A separate fresh `optimization_threshold_policy: diagnostic-v1` makes planning
+call, correction, checkpoint, graph-size, elapsed and nonproductive-call targets advisory
+through all layers. Demonstrated repeated strategies remain blocking. Financial/review
+reservations, correctness, permission, actual provider limits and explicit execution
+resource budgets remain enforced; historical token-only authority is unchanged.
 
 A grounded business finding may authorize typed slots of an exact earlier checkpoint
 whose business review is still pending. Its retained task bytes and ownership must match.

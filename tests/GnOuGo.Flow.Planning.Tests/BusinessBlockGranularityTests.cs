@@ -25,6 +25,7 @@ public sealed class BusinessBlockGranularityTests
     public async Task InterfaceOnlyClosureIsTechnicalPendingAndHasNoBusinessAuthority()
     {
         var (state, runtime) = await BusinessProjectionDeclarationsTests.Ready();
+        state.Construction!.Candidate!.Extension.CompleteBlock = false;
         var baseline = PlanningConstruction.Hash(state.Plan);
         runtime.Respond = (_, _) => throw new InvalidOperationException("A declaration-only technical checkpoint does not require a Judge.");
         state = await BusinessReviewProtocolTests.Advance(state, runtime);
@@ -40,10 +41,11 @@ public sealed class BusinessBlockGranularityTests
     }
 
     [Fact]
-    public async Task SeveralTechnicalFragmentsReceiveOneLocalBlockReviewThenOneGlobalReview()
+    public async Task SeveralTechnicalFragmentsShareOneBusinessBlockAndOneGlobalReview()
     {
-        var (state, runtime) = await BusinessProjectionDeclarationsTests.Ready(numeric: true);
+        var (state, runtime) = await BusinessProjectionDeclarationsTests.Ready(numeric: true, combined: true);
         state.Requirements!.Outputs = [new() { Name = "result", Type = new() { Kind = "number" } }];
+        state.Construction!.Candidate!.Extension.CompleteBlock = false;
         var local = 0; var global = 0;
         runtime.Respond = (request, purpose) =>
         {
@@ -70,12 +72,12 @@ public sealed class BusinessBlockGranularityTests
         Assert.Empty(runtime.Calls);
         state = await Add(new() { Scope = "/tasks/block/body", RequirementIds = ["later"], CloseScopes = ["/tasks/block/body"],
             Outputs = [new("result", new() { Kind = "output", Source = "second", Port = "result" })] }, "close", "/tasks/block/body");
-        Assert.Equal(1, local); Assert.Equal(0, global);
+        Assert.Equal(0, local); Assert.Equal(0, global);
         Assert.True(state.Construction!.Checkpoints[0].Fragment["businessReviewPending"]!.GetValue<bool>());
         Assert.Null(HybridWorkflowPlanner.ReviewedCheckpoint(state, state.Construction.Checkpoints[0]));
         state = await Add(new() { Scope = "/root", RequirementIds = ["later"], CloseScopes = ["/root"], Complete = true,
             Outputs = [new("result", new() { Kind = "output", Source = "block", Port = "result" })] }, "close", "/root", complete: true);
-        Assert.Equal(1, local); Assert.Equal(1, global); Assert.Equal(2, runtime.Calls.Count);
+        Assert.Equal(0, local); Assert.Equal(1, global); Assert.Single(runtime.Calls);
         Assert.Equal(0, state.ReplanAttempts);
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
         Assert.All(state.Construction!.Checkpoints, checkpoint => Assert.False(checkpoint.Fragment["businessReviewPending"]!.GetValue<bool>()));
@@ -84,9 +86,11 @@ public sealed class BusinessBlockGranularityTests
 
         async Task<PlanningSession> Add(PlanningConstructionExtension extension, string kind, string scope, bool complete = false)
         {
-            state.Construction!.Compact!.CurrentStep ??= new() { Id = "step_" + state.Construction.Checkpoints.Count, Scope = scope, Kind = kind,
+            state.Construction!.Compact!.CurrentStep ??= new() { BlockId = state.Construction.Compact.CurrentBlockId, Id = "step_" + state.Construction.Checkpoints.Count, Scope = scope, Kind = kind,
                 Objective = "Build the next actual computation or close its existing boundary.", RequirementIds = ["later"],
-                CloseRequirementIds = complete ? ["later"] : [], BaseHash = PlanningConstruction.Hash(state.Plan), DiscoveryComplete = true };
+                CloseRequirementIds = complete ? ["work", "later"] : [], BaseHash = PlanningConstruction.Hash(state.Plan), DiscoveryComplete = true };
+            extension.CompleteBlock = complete;
+            if (complete) extension.RequirementIds = ["work", "later"];
             state.Construction.Candidate = PlanningConstruction.Apply(state, extension);
             var next = await BusinessReviewProtocolTests.Advance(state, runtime);
             Assert.Empty(next.Diagnostics);
@@ -104,6 +108,7 @@ public sealed class BusinessBlockGranularityTests
     {
         var (state, _) = await BusinessProjectionDeclarationsTests.Ready();
         var candidate = state.Construction!.Candidate!;
+        candidate.Extension.CompleteBlock = false;
         if (kind == "unused-group")
         {
             candidate.Plan.Groups.Add(new() { Id = "unused", Body = new() { Tasks = [new() { Id = "definition", Kind = "value",

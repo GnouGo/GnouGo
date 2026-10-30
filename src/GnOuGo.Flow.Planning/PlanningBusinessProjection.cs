@@ -14,20 +14,7 @@ internal static class PlanningBusinessProjection
         var candidate = construction.Candidate!;
         var plan = candidate.Plan;
         var symbols = new TaskPlanSymbols(plan);
-        var selected = global ? symbols.Tasks.Keys.ToHashSet(StringComparer.Ordinal)
-            : candidate.TaskIds.ToHashSet(StringComparer.Ordinal);
-        if (!global)
-        {
-            var closed = candidate.Extension.CloseScopes.ToHashSet(StringComparer.Ordinal);
-            foreach (var scope in symbols.Scopes.Where(scope => closed.Contains(scope.Path)))
-                selected.UnionWith(TaskPlanRevisions.Tasks(scope.Source).Select(task => task.Id));
-            var closingRequirements = PlanningCompactConstruction.CandidateCompletionClaims(state).ToHashSet(StringComparer.Ordinal);
-            foreach (var checkpoint in construction.Checkpoints.Where(checkpoint => checkpoint.Fragment["businessReviewPending"]?.GetValue<bool>() == true &&
-                (checkpoint.RequirementIds.Any(closingRequirements.Contains) || closed.Contains(checkpoint.Step?.Scope ?? "") ||
-                    candidate.Extension.ContinueInScope is null && checkpoint.Step?.Id == construction.Compact!.CurrentStep!.Id)))
-                selected.UnionWith(checkpoint.TaskIds);
-        }
-        var fragment = selected.ToArray();
+        var selected = ReviewedTaskIds(state, global);
         var groups = new HashSet<string>(StringComparer.Ordinal);
         var pending = new Queue<string>(selected);
         var openScopes = candidate.OpenScopes.ToHashSet(StringComparer.Ordinal);
@@ -121,7 +108,9 @@ internal static class PlanningBusinessProjection
             }).ToArray());
         var context = new JsonObject
         {
-            ["review"] = global ? "completed_workflow" : "current_fragment",
+            ["review"] = global ? "completed_workflow" : "current_block",
+            ["businessBlock"] = PlanningCompactConstruction.CurrentBlock(state) is { } businessBlock
+                ? PlanningCompactConstruction.BusinessBlockContext(businessBlock) : null,
             ["requirements"] = requirements, ["globalConstraints"] = globals,
             ["inputs"] = new JsonArray(plan.Inputs.Where(input => global || interfaceClaims.Count > 0 || applicableInputs.Contains(input.Name) || rootInputs.Contains(input.Name))
                 .Select(input =>
@@ -140,21 +129,15 @@ internal static class PlanningBusinessProjection
                 ["body"] = "/groups/" + group.Id + "/body"
             }).ToArray()),
             ["publicOutputs"] = Outputs(plan.Root.Outputs),
-            ["claims"] = new JsonObject { ["scope"] = candidate.Extension.Scope,
-                ["completedRequirements"] = Strings(PlanningCompactConstruction.CandidateCompletionClaims(state)),
-                ["closedScopes"] = Strings(candidate.Extension.CloseScopes), ["workflowComplete"] = candidate.Extension.Complete },
-            ["fragment"] = Strings(fragment)
+            ["claims"] = new JsonObject { ["completedRequirements"] = Strings(PlanningCompactConstruction.CandidateCompletionClaims(state)),
+                ["workflowComplete"] = candidate.Extension.Complete }
         };
         if (plan.Choices.Count > 0)
             context["choices"] = new JsonArray(plan.Choices.Where(choice => global || actions.ToJsonString().Contains('"' + choice.Id + '"', StringComparison.Ordinal))
                 .Select(choice => (JsonNode)new JsonObject { ["id"] = choice.Id, ["selected"] = choice.Selected,
                     ["value"] = Value(choice.Alternatives.SingleOrDefault(alternative => alternative.Id == choice.Selected)?.Value) }).ToArray());
-        if (candidate.Extension.ContinuationBinding is { } association)
-            context["continuation"] = Continuation(state, association);
         if (candidate.Extension.BoundaryTransitions is { Count: > 0 } transitions)
-            context["transitions"] = new JsonArray(transitions.Select(transition => (JsonNode)new JsonObject
-            { ["scope"] = transition.Scope, ["requirements"] = Strings(transition.RequirementIds),
-                ["outputs"] = Outputs(transition.Outputs), ["closesScope"] = transition.CloseScope }).ToArray());
+            context["claims"]!["results"] = Outputs(transitions.SelectMany(transition => transition.Outputs));
         if (construction.Evidence is { Count: > 0 } evidence)
             context["evidence"] = new JsonObject(evidence.Select(pair => new KeyValuePair<string, JsonNode?>(pair.Key, Evidence(pair.Value))));
         return context;
@@ -222,42 +205,25 @@ internal static class PlanningBusinessProjection
         return result;
     }
 
-    private static JsonObject Continuation(PlanningSession state, PlanningConstructionContinuationBinding association)
+    internal static HashSet<string> ReviewedTaskIds(PlanningSession state, bool global)
     {
-        var retained = state.Construction!.Compact!.SuspendedSteps ?? [];
-        var target = retained.SingleOrDefault(item => item.Id == association.ContinuationId)
-            ?? throw new PlanningConflictException("Business review requires the retained consumer for this exact association.");
-        var discharged = (association.DischargedContinuationIds ?? []).ToHashSet(StringComparer.Ordinal);
-        var descendants = retained.Where(item => item.Status is "waiting" or "resuming" && DescendsFrom(item, target.Id)).ToArray();
-        return new JsonObject
+        var construction = state.Construction!;
+        var candidate = construction.Candidate!;
+        var symbols = new TaskPlanSymbols(candidate.Plan);
+        var selected = global ? symbols.Tasks.Keys.ToHashSet(StringComparer.Ordinal)
+            : candidate.TaskIds.ToHashSet(StringComparer.Ordinal);
+        if (!global)
         {
-            ["binding"] = Value(association.Binding),
-            ["consumer"] = Consumer(target),
-            ["descendants"] = new JsonArray(descendants.Select(item => (JsonNode)new JsonObject
-            {
-                ["disposition"] = discharged.Contains(item.Id) ? "prerequisite_navigation_superseded" : "business_consumer_retained",
-                ["consumer"] = Consumer(item)
-            }).ToArray())
-        };
-
-        bool DescendsFrom(PlanningConstructionSuspendedStep item, string ancestor)
-        {
-            var visited = new HashSet<string>(StringComparer.Ordinal);
-            for (var parent = item.ParentId; parent is not null && visited.Add(parent); parent = retained.SingleOrDefault(candidate => candidate.Id == parent)?.ParentId)
-                if (parent == ancestor) return true;
-            return false;
+            var closed = candidate.Extension.CloseScopes.ToHashSet(StringComparer.Ordinal);
+            foreach (var scope in symbols.Scopes.Where(scope => closed.Contains(scope.Path)))
+                selected.UnionWith(TaskPlanRevisions.Tasks(scope.Source).Select(task => task.Id));
+            var closingRequirements = PlanningCompactConstruction.CandidateCompletionClaims(state).ToHashSet(StringComparer.Ordinal);
+            foreach (var checkpoint in construction.Checkpoints.Where(checkpoint => checkpoint.Fragment["businessReviewPending"]?.GetValue<bool>() == true &&
+                (checkpoint.RequirementIds.Any(closingRequirements.Contains) || closed.Contains(checkpoint.Step?.Scope ?? "") ||
+                    PlanningCompactConstruction.CandidateCompletesBlock(candidate) && checkpoint.Step?.BlockId is { } block && block == construction.Compact!.CurrentBlockId)))
+                selected.UnionWith(checkpoint.TaskIds);
         }
-        static JsonObject Consumer(PlanningConstructionSuspendedStep item) => new()
-        {
-            ["scope"] = item.Consumer.Scope, ["objective"] = item.Consumer.Objective,
-            ["requirements"] = Strings(item.Consumer.RequirementIds), ["expectedResults"] = Strings(item.Consumer.ExpectedOutputs),
-            ["inputs"] = new JsonArray(item.Consumer.Inputs.Select(value => Value(value)).ToArray()),
-            ["prerequisite"] = new JsonObject
-            {
-                ["need"] = item.Prerequisite.Need, ["expectedType"] = Type(item.Prerequisite.ExpectedType),
-                ["evidence"] = Strings(item.Prerequisite.EvidenceAddresses)
-            }
-        };
+        return selected;
     }
 
     private static JsonObject Port(OperationPort port, string direction)

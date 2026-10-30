@@ -757,7 +757,13 @@ public sealed class CompactContractEvidenceFlowTests
         for (var i = 0; i < 12; i++) capability.OutputSchema["properties"]!["result" + i] = new JsonObject { ["type"] = "string" };
         state.Catalog = new() { AllowedStepTypes = ["mcp.call"] };
         state.Discovery.Resolved = [capability];
-        state.Construction!.Compact!.CurrentStep = new() { Id = "s1", Scope = "/root", Kind = "operation",
+        PlanningCompactConstruction.SelectBlock(state, new JsonObject
+        {
+            ["objective"] = state.Request.Prompt, ["requirementIds"] = new JsonArray("req_0"),
+            ["informationNeeds"] = new JsonArray(), ["expectedResults"] = new JsonArray("The observed result0 is available for the required public result."),
+            ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray("Preserve all original constraints and exact result meaning.")
+        });
+        state.Construction!.Compact!.CurrentStep = new() { BlockId = state.Construction!.Compact!.CurrentBlockId, Id = "s1", Scope = "/root", Kind = "operation",
             Objective = state.Request.Prompt, OperationIds = ["read"], RequirementIds = ["req_0"],
             BaseHash = PlanningConstruction.Hash(state.Plan), DiscoveryComplete = true };
         return (state, runtime);
@@ -786,7 +792,7 @@ public sealed class CompactContractEvidenceFlowTests
     {
         ["baseHash"] = context["baseHash"]!.ToString(), ["requirements"] = null, ["commitments"] = null,
         ["extension"] = task is null ? null : JsonSerializer.SerializeToNode(new PlanningConstructionExtension
-            { Tasks = [task], RequirementIds = ["req_0"], ContinueInScope = "/root" }, PlanningJsonContext.Default.PlanningConstructionExtension),
+            { CompleteBlock = false, Tasks = [task], RequirementIds = ["req_0"], ContinueInScope = "/root" }, PlanningJsonContext.Default.PlanningConstructionExtension),
         ["evidenceRequests"] = evidence is null ? null : new JsonArray(evidence), ["discoveryRequests"] = null,
         ["clarifications"] = null, ["rollbackTask"] = null, ["rollbackReason"] = null, ["reselectStep"] = null
     };

@@ -10,6 +10,41 @@ public sealed partial class CompactDiscoveryProtocolTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public async Task AcceptedChoicesBeyondTheFirstWindowRemainExactlyRetrievable(bool withDiscoveryDirectory)
+    {
+        var (state, _) = await AcceptedDiscovery(true, 7);
+        if (withDiscoveryDirectory)
+            state.Discovery.Pages[0] = state.Discovery.Pages[0] with { Query = state.Construction!.Compact!.CurrentStep!.Objective };
+        else state.Discovery.Pages.Clear();
+        var expected = state.Plan!.Root.Tasks.Where(task => task.Kind == "operation").Select(task => task.Operation!).ToHashSet(StringComparer.Ordinal);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var traversed = new HashSet<string>(StringComparer.Ordinal);
+        var plan = PlanningConstruction.Hash(state.Plan);
+        while (seen.Count != expected.Count)
+        {
+            var choices = PlanningCompactConstruction.DescribedOperationChoices(state)!;
+            seen.UnionWith(choices["items"]!.AsArray().Select(item => item!["id"]!.ToString()));
+            if (seen.Count == expected.Count) break;
+            var next = Assert.IsAssignableFrom<JsonValue>(choices["next"]).ToString();
+            Assert.True(traversed.Add(next), "Every omitted choice must expose an unconsumed exact continuation.");
+            var request = PlanningCompactConstruction.Request(state, PlanningCompactConstruction.DiscoveryGuidance(state),
+                PlanningCompactConstruction.DiscoveryContext(state), PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose);
+            Assert.Contains(next, request.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
+            PlanningConstruction.LoadEvidence(state, [next], issuedDiscoverySchema: request.StructuredOutputSchema);
+            state = PlannerFixture.Clone(state);
+            var retrieved = state.Construction!.Evidence![next]!;
+            if (retrieved["items"] is JsonArray rows) seen.UnionWith(rows.Select(row => row!["id"]!.ToString()));
+            else seen.Add(retrieved["id"]!.ToString());
+        }
+        Assert.True(expected.SetEquals(seen));
+        Assert.NotEmpty(traversed);
+        Assert.Equal(plan, PlanningConstruction.Hash(state.Plan));
+        Assert.Empty(state.Construction!.Compact!.CurrentStep!.OperationIds);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task SelectedAcceptedOperationCanBindWithoutRepeatingProviderOrDescriptionReads(bool dependency)
     {
         var (state, runtime) = await AcceptedDiscovery(dependency);

@@ -25,6 +25,7 @@ public sealed class PopulatedScopeClosureTests
         else control.Branches = [new() { Tasks = [Value("calculate")] }, new()];
         var candidate = PlanningConstruction.Apply(state, new()
         {
+            CompleteBlock = false,
             Scope = "/root", RequirementIds = ["work"], Tasks = [control]
         });
         PlanningCompactConstruction.ValidateExtension(state, candidate);
@@ -47,6 +48,7 @@ public sealed class PopulatedScopeClosureTests
         if (prerequisite) step.Prerequisites = [new() { Need = "The required numeric result is unavailable.", EvidenceAddresses = ["requirement:work"] }];
         var extension = new PlanningConstructionExtension
         {
+            CompleteBlock = false,
             Scope = "/root", RequirementIds = ["work"], ContinueInScope = prerequisite ? null : "/tasks/unfinished/body",
             Groups = [new()
             {
@@ -81,6 +83,7 @@ public sealed class PopulatedScopeClosureTests
         step.Scope = "/tasks/outer/body"; step.Kind = "sequence"; step.Inputs.Clear();
         var candidate = PlanningConstruction.Apply(state, new()
         {
+            CompleteBlock = false,
             Scope = step.Scope, RequirementIds = ["work"], Tasks = [new()
             {
                 Id = "inner", Kind = "sequence", Objective = "Complete this newly supplied child.", Body = new() { Tasks = [Value("result")] }

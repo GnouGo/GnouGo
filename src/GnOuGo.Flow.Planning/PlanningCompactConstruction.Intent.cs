@@ -12,18 +12,19 @@ internal static partial class PlanningCompactConstruction
         Use originalContext and retrieved sources for linked naming/type constraints before clarification. A continuation's first clause keeps the preceding kind. Return exactly one action: clauses, evidenceRequests for missing displayed original addresses, or clarifications for genuinely missing business facts. Emit compact JSON, preserving original strings exactly. No tools, tasks or workflow outline.
         """;
 
-    internal static JsonObject IntentSchema(PlanningConstructionSource source, IEnumerable<string>? addresses = null)
+    internal static JsonObject IntentSchema(PlanningConstructionSource source, IEnumerable<string>? addresses = null, bool diagnostic = false)
     {
         var evidence = (addresses ?? []).ToArray();
+        var clarifications = PlanningSchemas.Clarifications(diagnostic);
         var schema = PlanningSchemas.Object(
             ("clauses", PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.Object(
                 ("text", Text(source.Text.Length)), ("kind", PlanningSchemas.Enum("requirement", "global")),
-                ("inputs", PlanningSchemas.Array(PlanningSchemas.Ref("input"), 0, 16)),
-                ("outputs", PlanningSchemas.Array(PlanningSchemas.Ref("output"), 0, 16))), 1, 128))),
+                ("inputs", PlanningSchemas.Array(PlanningSchemas.Ref("input"), 0, diagnostic ? null : 16)),
+                ("outputs", PlanningSchemas.Array(PlanningSchemas.Ref("output"), 0, diagnostic ? null : 16))), 1, diagnostic ? null : 128))),
             ("evidenceRequests", evidence.Length == 0 ? PlanningSchemas.Type("null") :
-                PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.Enum(evidence), 1, 8))),
-            ("clarifications", PlanningSchemas.Nullable(PlanningSchemas.Clarifications())));
-        schema["$defs"] = InterfaceTypeDefinitions();
+                PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.Enum(evidence), 1, diagnostic ? null : 8))),
+            ("clarifications", PlanningSchemas.Nullable(clarifications)));
+        schema["$defs"] = InterfaceTypeDefinitions(diagnostic);
         return PlanningSchemas.Compact(schema);
     }
 
@@ -49,7 +50,7 @@ internal static partial class PlanningCompactConstruction
             ["existingOutputs"] = System.Text.Json.JsonSerializer.SerializeToNode(state.Requirements?.Outputs ?? [], PlanningJsonContext.Default.ListTaskInput),
             ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics)
         };
-        return Request(IntentInstructions, context, IntentSchema(source, addresses), IntentPurpose);
+        return Request(IntentInstructions, context, IntentSchema(source, addresses, PlanningTokenThresholds.OptimizationAdvisory(state.Request)), IntentPurpose);
     }
 
     private static (int Count, bool Continues) CoherentSourceLength(string text, int maximum)

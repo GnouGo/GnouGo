@@ -14,6 +14,71 @@ public sealed class BenchmarkCampaignTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
+    public void OptimizationDiagnosticsAreFreshCapturedAuthoritySeparateFromTokenAdvisory()
+    {
+        var request = new PlanningRequest();
+        PlanningBenchmarkMeasurements.ConfigureRequest(request, ["--diagnostic-optimization-thresholds"], retained: false);
+        Assert.True(PlanningTokenThresholds.OptimizationAdvisory(request));
+        var frozen = PlanningBenchmarkMeasurements.Configuration(request);
+        var restored = PlanningBenchmarkMeasurements.RestoreConfiguration(frozen);
+        Assert.True(PlanningTokenThresholds.OptimizationAdvisory(restored));
+        Assert.True(JsonNode.DeepEquals(frozen, PlanningBenchmarkMeasurements.Configuration(restored)));
+        PlanningBenchmarkMeasurements.ConfigureRequest(restored, ["--diagnostic-optimization-thresholds"], retained: true);
+        Assert.Throws<PlanningConflictException>(() => PlanningTokenThresholds.RejectReserved(restored.Options));
+
+        var old = new PlanningRequest();
+        PlanningBenchmarkMeasurements.ConfigureRequest(old, ["--advisory-token-thresholds"], retained: false);
+        Assert.False(PlanningTokenThresholds.OptimizationAdvisory(old));
+        Assert.Throws<InvalidOperationException>(() => PlanningBenchmarkMeasurements.ConfigureRequest(old,
+            ["--diagnostic-optimization-thresholds"], retained: true));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DiagnosticJournalCrossesCallAndElapsedTargetsButRetainsReservationsAndMoney(bool diagnostics)
+    {
+        var campaign = new BenchmarkCampaign(new Records(), "optimization-journal");
+        var policy = StrictTransport();
+        policy["token_threshold_policy"] = "advisory";
+        if (diagnostics) policy[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        policy["deadline_utc"] = DateTimeOffset.UtcNow.AddMinutes(-1).ToString("O");
+        policy["max_elapsed_ms"] = 1L;
+        var journal = new BenchmarkHttpJournal(campaign, "session:1:hash", 100, 20, 1m, 1, 1m, 1, policy);
+        var attempts = new LLMHttpRetryState { Attempts = [new() { Id = "session:1:hash:1" }] };
+        if (!diagnostics)
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => journal.SaveAsync(attempts, Ct));
+            Assert.Null(await campaign.LoadAsync(BenchmarkHttpJournal.Collection, "session:1:hash", Ct));
+            return;
+        }
+        await journal.SaveAsync(attempts, Ct);
+        var recorded = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, "session:1:hash", Ct))!;
+        var warnings = recorded["optimization_threshold_warnings"]!.AsArray();
+        Assert.Contains(warnings, warning => warning?["kind"]?.ToString() == "physical_calls");
+        Assert.Contains(warnings, warning => warning?["kind"]?.ToString() == "elapsed_ms");
+        var restarted = new BenchmarkHttpJournal(campaign, "session:1:hash", 100, 20, 1m, 1, 1m, 1, policy);
+        Assert.Single((await restarted.LoadAsync(Ct))!.Attempts);
+        await restarted.SaveAsync(attempts, Ct);
+        Assert.True(JsonNode.DeepEquals(recorded, await campaign.LoadAsync(BenchmarkHttpJournal.Collection, "session:1:hash", Ct)));
+        var totals = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
+        Assert.Equal(1m, totals["reserved_cost_eur"]!.GetValue<decimal>());
+        Assert.Equal(1L, totals["unknown_attempts"]!.GetValue<long>());
+        var reported = (await LiveCampaignEvidence.AccountingAsync(campaign, "session"))["planning"]!;
+        Assert.Equal(2, reported["warnings"]!.AsArray().Count);
+
+        // An optimization warning cannot grant a larger retry policy or spend beyond money.
+        var retryOverflow = new LLMHttpRetryState { Attempts = Enumerable.Range(1, 4).Select(i =>
+            new LLMHttpAttempt { Id = "overflow:" + i }).ToList() };
+        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.SaveAsync(retryOverflow, Ct));
+        var denied = new BenchmarkHttpJournal(campaign, "session:2:hash", 100, 20, 50m, 1, 1m, 1, policy);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => denied.SaveAsync(new()
+            { Attempts = [new() { Id = "session:2:hash:1" }] }, Ct));
+        Assert.Null(await campaign.LoadAsync(BenchmarkHttpJournal.Collection, "session:2:hash", Ct));
+        Assert.True(JsonNode.DeepEquals(totals, await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct)));
+    }
+
+    [Fact]
     public async Task AdvisoryJournalRetainsTokenOverrunsAndReservationsAcrossRestart()
     {
         var campaign = new BenchmarkCampaign(new Records(), "advisory-journal");

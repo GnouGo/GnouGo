@@ -7,6 +7,46 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class BusinessReviewIdentityTests
 {
     [Fact]
+    public async Task ReviewAliasesBusinessResultDependenciesWithoutRewritingLiteralValues()
+    {
+        var (state, runtime) = await BusinessReviewProtocolTests.Ready();
+        runtime.Respond = (_, _) => new() { Json = BusinessReviewProtocolTests.Report("ok") };
+        state = await BusinessReviewProtocolTests.Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        var resultId = "result:" + state.Construction!.Compact!.Blocks![0].Id;
+        PlanningCompactConstruction.SelectBlock(state, new JsonObject
+        {
+            ["objective"] = "Produce the later result using the established contribution.", ["requirementIds"] = new JsonArray("later"),
+            ["informationNeeds"] = new JsonArray(), ["expectedResults"] = new JsonArray("The later result"),
+            ["dependencies"] = new JsonArray(new JsonObject { ["resultId"] = resultId, ["reason"] = "Preserve the preceding calculation." }),
+            ["successCriteria"] = new JsonArray("The later result retains the requested information.")
+        });
+        var block = PlanningCompactConstruction.CurrentBlock(state)!;
+        state.Construction.Compact.CurrentStep = new() { Id = "later_step", BlockId = block.Id, BaseHash = PlanningConstruction.Hash(state.Plan),
+            Scope = "/root", Kind = "value", Objective = block.Objective, RequirementIds = block.RequirementIds.ToList(),
+            ExpectedOutputs = block.ExpectedResults.ToList(), DiscoveryComplete = true };
+        state.Construction.Candidate = PlanningConstruction.Apply(state, new()
+        {
+            Scope = "/root", RequirementIds = ["later"], CompleteBlock = true,
+            Tasks = [new() { Id = "later_result", Kind = "value", Outputs = [new("label", new() { Kind = "string", Text = resultId })] }]
+        });
+        var (canonical, raw) = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, global: false);
+        var request = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.LocalPurpose, raw.Prompt,
+            raw.StructuredOutputSchema!.AsObject(), null, null, out var addresses);
+        var context = BusinessProjectionDeclarationsTests.Context(request);
+        var alias = addresses!.Addresses.Single(pair => pair.Value == resultId).Key;
+        Assert.Equal(alias, context["businessBlock"]!["dependencies"]![0]!["resultId"]!.ToString());
+        Assert.DoesNotContain(resultId, context["businessBlock"]!.ToJsonString(), StringComparison.Ordinal);
+        var actionId = addresses.Addresses.Single(pair => pair.Value == "task:later_result").Key;
+        var action = context["actions"]!.AsArray().Single(item => item!["id"]!.ToString() == actionId)!;
+        Assert.Equal(resultId, action["outputs"]![0]!["value"]!["text"]!.ToString());
+        var call = new PlanningModelCall { Id = request.ClientRequestId!, Purpose = PlanningConstruction.LocalPurpose, Request = request, EvidenceAddresses = addresses };
+        PlanningModelCalls.ValidateEvidenceAddresses(call);
+        Assert.True(JsonNode.DeepEquals(canonical, BusinessProjectionDeclarationsTests.Context(PlanningModelCalls.CanonicalEvidenceRequest(call))));
+        Assert.Equal(resultId, Assert.Single(block.Dependencies).ResultId);
+    }
+
+    [Fact]
     public async Task IssuedReviewAliasesImplementationReferencesButPreservesPublicNamesAndLiteralBytes()
     {
         var (state, _) = await BusinessReviewProtocolTests.Ready();
@@ -24,7 +64,8 @@ public sealed class BusinessReviewIdentityTests
         var root = map.Addresses.Single(pair => pair.Value == "scope:/root").Key;
         Assert.Equal(task, context["actions"]![0]!["id"]!.ToString());
         Assert.Equal(root, context["actions"]![0]!["scope"]!.ToString());
-        Assert.Equal(root, context["claims"]!["scope"]!.ToString());
+        Assert.False(context["claims"]!.AsObject().ContainsKey("scope"));
+        Assert.Equal(root, context["scopes"]![0]!["id"]!.ToString());
         var output = Assert.Single(context["publicOutputs"]!.AsArray(), item => item!["name"]!.ToString() == "compute")!;
         Assert.Equal("compute /root\n é", output["value"]!["text"]!.ToString());
         Assert.False(context.ContainsKey("technicalValidation"));
@@ -60,11 +101,18 @@ public sealed class BusinessReviewIdentityTests
         var scope = map.Addresses.Single(pair => pair.Value == "scope:/root").Key;
         var concerns = context["priorConcerns"]!.AsArray();
         Assert.Equal(2, concerns.Count);
+        Assert.Equal(task, concerns[0]!["targets"]![0]!.ToString());
+        Assert.Equal(scope, concerns[1]!["targets"]![0]!.ToString());
+        Assert.All(concerns, concern => Assert.Equal("work", Assert.Single(concern!["obligations"]!.AsArray())!["id"]!.ToString()));
+        var obligation = map.Addresses.Single(pair => pair.Value == "requirement:work").Key;
+        Assert.All(concerns, concern => Assert.Equal(obligation, concern!["obligations"]![0]!["evidence"]!.ToString()));
         foreach (var side in new[] { "before", "current" })
         {
             Assert.Equal(task, concerns[0]![side]!["id"]!.ToString());
+            Assert.Equal(task, concerns[0]![side]!["evidence"]!.ToString());
             Assert.Equal(scope, concerns[0]![side]!["scope"]!.ToString());
             Assert.Equal(scope, concerns[1]![side]!["id"]!.ToString());
+            Assert.Equal(scope, concerns[1]![side]!["evidence"]!.ToString());
             Assert.Equal(task, concerns[1]![side]!["tasks"]![0]!.ToString());
         }
         Assert.All(concerns, concern => Assert.Null(concern!["status"]));

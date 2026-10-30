@@ -13,16 +13,16 @@ public sealed partial class CompactReviewedTransitionTests
         Assert.Equal(PlanningStatus.FinalReview, run.State.Status);
         PlanningArtifactApproval.Verify(run.State);
         var transitions = run.State.Construction!.Checkpoints.Where(checkpoint => checkpoint.Reviews.Any(
-            review => review["transition"]?.ToString() == "reviewed_boundary")).ToArray();
+            review => review["transition"]?.ToString() == "accepted_block_boundary")).ToArray();
         Assert.Equal(["/tasks/outer/body", "/root"], transitions.Select(checkpoint => checkpoint.Step!.Scope));
         foreach (var transition in transitions)
         {
             var saved = run.Runtime.Checkpoints.First(state => state.Construction!.Checkpoints.Count == transition.Sequence && state.Construction.Candidate is null);
             var waiting = Assert.Single(saved.Construction!.Compact!.SuspendedSteps!);
             Assert.Equal("waiting", waiting.Status); Assert.Equal("/root", waiting.Consumer.Scope);
-            Assert.Equal(["req_1"], waiting.Consumer.RequirementIds);
+            Assert.Equal(["req_0", "req_1"], waiting.Consumer.RequirementIds);
             Assert.Equal("in_progress", saved.Construction.Requirements.Single(requirement => requirement.Id == "req_1").Status);
-            Assert.Single(transition.Reviews, review => review["transition"]?.ToString() == "reviewed_boundary");
+            Assert.Single(transition.Reviews, review => review["transition"]?.ToString() == "accepted_block_boundary");
             Assert.DoesNotContain(transition.Reviews, review => review["purpose"]?.ToString() == PlanningConstruction.LocalPurpose);
         }
         Assert.Equal("completed", Assert.Single(run.State.Construction.Compact!.SuspendedSteps!).Status);
@@ -78,6 +78,9 @@ public sealed partial class CompactReviewedTransitionTests
         var runtime = new TestRuntime(); var purposes = new List<string>();
         var responses = new Dictionary<string, LLMResponse>(StringComparer.Ordinal); Exception? modelFailure = null;
         var acceptedAfterScopeNavigation = false;
+        var requestedScopeNavigation = false;
+        var nextRole = "";
+        var roles = new Dictionary<string, string>(StringComparer.Ordinal);
         runtime.Respond = (request, purpose) =>
         {
             if (responses.TryGetValue(request.ClientRequestId!, out var retained)) return retained;
@@ -94,14 +97,16 @@ public sealed partial class CompactReviewedTransitionTests
                             ["outputs"] = new JsonArray(new JsonObject { ["name"] = "laterNumber", ["required"] = true, ["type"] = new JsonObject { ["kind"] = "number", ["nullable"] = false } }) }) };
                 }
                 else if (purpose == PlanningCompactConstruction.SelectPurpose)
+                    response = BusinessSelection(request);
+                else if (purpose == PlanningCompactConstruction.ImplementationPurpose)
                 {
                     var symbols = new TaskPlanSymbols(current!.Plan ?? new());
-                    string scope, kind, objective; string[] requirements = ["req_0"];
+                    string scope, kind, objective;
                     bool close = false; string[] publicOutputs = []; TaskValue[] imports = [];
                     if (current.Construction!.Compact!.SuspendedSteps is null && (!pendingInsideBoundary || symbols.Tasks.ContainsKey("outer")))
-                    { (scope, kind, objective) = (waitingScope, "value", consumerGoal); requirements = ["req_1"]; publicOutputs = ["laterNumber"]; }
+                    { (scope, kind, objective) = (waitingScope, "value", consumerGoal); publicOutputs = ["laterNumber"]; }
                     else if (current.Construction.Compact.SuspendedSteps is not null && !symbols.Tasks.ContainsKey("lateSeed"))
-                    { (scope, kind, objective) = (waitingScope, "value", seedGoal); requirements = ["req_1"]; }
+                    { (scope, kind, objective) = (waitingScope, "value", seedGoal); }
                     else if (!symbols.Tasks.ContainsKey("outer")) (scope, kind, objective) = ("/root", "sequence", "Produce seven inside the required nested local boundary.");
                     else if (current.Construction.OpenScopes.Contains("/tasks/inner/body"))
                     { (scope, kind, objective) = ("/tasks/inner/body", "close", "Export and close the exact inner seven."); close = true; imports = [Output("producer")]; }
@@ -110,16 +115,14 @@ public sealed partial class CompactReviewedTransitionTests
                     else if (!current.Plan!.Root.Outputs.Any(output => output.Name == "number"))
                     { (scope, kind, objective) = ("/root", "close", "Export the reviewed public result."); publicOutputs = ["number"]; imports = [Output("outer")]; }
                     else if (!symbols.Tasks.ContainsKey("lateInput"))
-                    { (scope, kind, objective) = ("/root", "value", lateGoal); requirements = ["req_1"]; imports = [Output("lateSeed")]; }
+                    { (scope, kind, objective) = ("/root", "value", lateGoal); imports = [Output("lateSeed")]; }
                     else
-                    { (scope, kind, objective) = ("/root", "close", "Close the two completed business results."); requirements = ["req_0", "req_1"]; close = true; }
+                    { (scope, kind, objective) = ("/root", "close", "Close the two completed business results."); close = true; }
                     response = Selection(request, scope, kind, kind == "close", !close);
-                    response["step"]!["objective"] = objective;
-                    response["step"]!["requirementIds"] = new JsonArray(requirements.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray());
+                    nextRole = objective;
                     response["step"]!["outputNames"] = new JsonArray(publicOutputs.Select(name => (JsonNode?)JsonValue.Create(name)).ToArray());
                     response["step"]!["inputs"] = new JsonArray(imports.Select(value => PlanningJsonTransport.TaskPlanPart(
                         PlanningConstruction.Node(value, PlanningJsonContext.Default.TaskValue))).ToArray());
-                    if (kind == "close" && scope != "/root") response["step"]!["expectedOutputs"] = new JsonArray("number");
                     if (symbols.Tasks.ContainsKey("lateConsumer")) response["step"]!["closeRequirementIds"] = new JsonArray("req_0", "req_1");
                     if (!(context["scopes"] as JsonArray ?? []).Any(row => row?["path"]?.ToString() == scope))
                     {
@@ -129,15 +132,22 @@ public sealed partial class CompactReviewedTransitionTests
                             "The desired existing scope is outside this page without an offered continuation: " + scope);
                         response["step"] = null;
                         response["evidenceRequests"] = new JsonArray(next);
+                        requestedScopeNavigation = true;
                     }
                 }
                 else if (purpose == PlanningConstruction.DraftPurpose)
                 {
                     var step = current!.Construction!.Compact!.CurrentStep!;
-                    if (step.Objective == consumerGoal && step.Inputs.Count == 0) response = Suspend(context, "The incremented late seed, not the initial seed.", "req_1");
+                    if (!roles.TryGetValue(step.Id, out var role))
+                    {
+                        var resumed = current.Construction.Compact.ResumingStepId;
+                        role = resumed is null ? nextRole : roles[current.Construction.Compact.SuspendedSteps!.Single(item => item.Id == resumed).Consumer.Id];
+                        roles.Add(step.Id, role);
+                    }
+                    if (role == consumerGoal && step.Inputs.Count == 0) response = Suspend(context, "The incremented late seed, not the initial seed.", "req_1");
                     else
                     {
-                        var extension = new PlanningConstructionExtension { Scope = step.Scope, RequirementIds = step.RequirementIds.ToList() };
+                        var extension = new PlanningConstructionExtension { Scope = step.Scope, RequirementIds = step.RequirementIds.ToList(), CompleteBlock = false };
                         if (step.Kind == "sequence")
                         {
                             if (!new TaskPlanSymbols(current.Plan ?? new()).Tasks.ContainsKey("outer"))
@@ -155,10 +165,10 @@ public sealed partial class CompactReviewedTransitionTests
                             }
                             else extension.Tasks = [Computed("producer", "add", Output("localSeed"), 4)];
                             // Finish the calculation across two productive fragments;
-                            // the independent consumer and reviewed boundary exports
+                            // the independent consumer and accepted boundary exports
                             // are selected separately below.
                         }
-                        else if (step.Objective == seedGoal) extension.Tasks = [new()
+                        else if (role == seedGoal) extension.Tasks = [new()
                         {
                             Id = "lateSeed", Kind = "value", Objective = "Produce exactly three for the independent later calculation.",
                             Outputs = [new("number", new() { Kind = "number", Number = 3 })]
@@ -173,17 +183,19 @@ public sealed partial class CompactReviewedTransitionTests
                         }
                         else if (step.Kind == "close")
                         {
-                            extension.Outputs = [new("number", Output(step.Scope == "/root" ? "outer" : "inner"))];
                             extension.CloseScopes = step.CloseScopes!.ToList();
+                            if (new TaskPlanSymbols(current.Plan!).Tasks.ContainsKey("lateConsumer"))
+                            { extension.CompleteBlock = true; extension.Complete = true; }
+                            else extension.Outputs = [new("number", Output(step.Scope == "/root" ? "outer" : "inner"))];
                         }
-                        else if (step.Objective == lateGoal)
+                        else if (role == lateGoal)
                         {
                             extension.Tasks = [Computed("lateInput", "add", Output("lateSeed"), 1)];
                             extension.ContinuationBinding = new() { ContinuationId = current.Construction.Compact.SuspendedSteps![0].Id, Binding = Output("lateInput") };
                         }
                         else
                         {
-                            Assert.Equal(consumerGoal, step.Objective);
+                            Assert.Equal(consumerGoal, role);
                             extension.Tasks = [Computed("lateConsumer", "multiply", Output("lateInput"), 2)];
                             extension.Outputs = [new("laterNumber", Output("lateConsumer"))];
                         }
@@ -215,7 +227,7 @@ public sealed partial class CompactReviewedTransitionTests
                 stopAfterOuter && state.Construction.Checkpoints.Any(
                     checkpoint => checkpoint.ClosedScopes.Contains("/tasks/outer/body", StringComparer.Ordinal)))) break;
         }
-        if (pendingInsideBoundary)
+        if (pendingInsideBoundary && requestedScopeNavigation)
             Assert.True(acceptedAfterScopeNavigation, "The nested-consumer trace must accept a checkpoint after inspecting a later scope page.");
         return new(state, runtime, purposes, responses);
     }

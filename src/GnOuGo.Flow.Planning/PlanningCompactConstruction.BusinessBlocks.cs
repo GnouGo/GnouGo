@@ -39,11 +39,12 @@ internal static partial class PlanningCompactConstruction
     }
 
     internal static bool CanFinishContinuedBlock(PlanningSession state, PlanningConstructionExtension extension) =>
-        extension.ContinueInScope is null && state.Construction?.Compact?.CurrentStep is { } step && SupportsBusinessFragment(step.Kind) &&
-        BlockCheckpoints(state).Any(checkpoint => checkpoint.Fragment["continueInScope"] is not null);
+        extension.CompleteBlock == true && extension.ContinueInScope is null &&
+        BusinessBlockCheckpoints(state).Any(checkpoint => checkpoint.TaskIds.Count > 0);
 
     internal static List<string> CandidateCompletionClaims(PlanningSession state) =>
-        state.Construction!.Candidate?.Extension.ContinueInScope is not null ? [] : State(state).CurrentStep!.CloseRequirementIds;
+        CandidateCompletesBlock(state) || state.Construction!.Candidate?.AuthorizedPaths is not null
+            ? State(state).CurrentStep!.CloseRequirementIds : [];
 
     private static void ValidateEmptyOpening(PlanningSession state, PlanningConstructionCandidate candidate)
     {
@@ -71,14 +72,14 @@ internal static partial class PlanningCompactConstruction
     {
         if (candidate.Extension.ContinueInScope is not { } path) return;
         var step = State(state).CurrentStep!;
-        if (!SupportsBusinessFragment(step.Kind) || candidate.AuthorizedPaths is not null || candidate.Extension.Complete ||
+        if (!SupportsBusinessFragment(step.Kind) || candidate.AuthorizedPaths is not null || CandidateCompletesBlock(candidate) ||
             candidate.Extension.CloseScopes.Contains("/root", StringComparer.Ordinal) ||
             candidate.Extension.ContinuationBinding is not null || candidate.Extension.BoundaryTransitions is { Count: > 0 } ||
             !candidate.OpenScopes.Contains(path, StringComparer.Ordinal))
             PlanningConstruction.Fail("CONSTRUCTION_BLOCK_CONTINUATION_INVALID", "/extension/continueInScope",
                 "Continue only an unfinished business block in an exact open scope, without completion or deferred consumer/boundary claims.");
-        var checkpoints = BlockCheckpoints(state).ToArray();
-        var origin = checkpoints.FirstOrDefault()?.Step?.Scope ?? step.Scope;
+        var checkpoints = BusinessBlockCheckpoints(state).ToArray();
+        var origin = BlockCheckpoints(state).FirstOrDefault()?.Step?.Scope ?? step.Scope;
         var ownedTasks = checkpoints.SelectMany(checkpoint => checkpoint.TaskIds).Concat(candidate.TaskIds).ToHashSet(StringComparer.Ordinal);
         var ownedGroups = checkpoints.SelectMany(checkpoint => (checkpoint.Fragment["groups"] as JsonArray ?? []).Select(group => group!.ToString()))
             .Concat(candidate.Extension.Groups.Select(group => group.Id)).ToHashSet(StringComparer.Ordinal);

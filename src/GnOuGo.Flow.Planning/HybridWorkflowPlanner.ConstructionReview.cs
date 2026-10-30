@@ -10,23 +10,28 @@ public sealed partial class HybridWorkflowPlanner
 {
     private const string BusinessReviewInstructions = """
         Check business behavior from actual actions, arguments, values, controls, effects and results. The host/compiler checked technical types, contracts, references, scopes and bindings. Labels and non-executable objectives prove no behavior; transform instructions are executable. group declares a reusable body; call invokes it; an inline loop body is not a reusable group. Root outputs return to the caller; nested exports and written files are different.
-        For current_fragment, assess the coherent behavior of fragment IDs, including pending accepted work, and interactions with supporting producers and ancestor controls. Legitimate future work in open scopes is not an omission; current arguments/effects must still respect originals. Finite iteration ceilings are not required business cardinalities. For completed_workflow, check every original obligation, composition, actual results and cleanup on success and failure.
+        For current_block, assess the coherent behavior against its preserved business criteria, including accepted contributions, and interactions with supporting producers and ancestor controls. Legitimate future work in open scopes is not an omission; current arguments/effects must still respect originals. Finite iteration ceilings are not required business cardinalities. For completed_workflow, check every original obligation, composition, actual results and cleanup on success and failure.
         Return ok for sound business behavior and completion claims; needs_change only for a demonstrated current violation, citing original obligation IDs and concrete action/scope/output IDs; needs_context with exact offered addresses for missing necessary evidence. Missing context is not a proved defect. Assess value meaning and provenance, not just types. Reassess retained prior concerns against actual changes or contrary evidence: changed wording alone is no repair. No verdict establishes runtime success or authorizes effects.
         """;
 
-    internal static JsonObject ConstructionReviewSchema(JsonObject context)
+    internal static JsonObject ConstructionReviewSchema(JsonObject context, bool advisoryOptimization = false)
     {
-        static JsonObject Reason() => new() { ["type"] = "string", ["minLength"] = 1, ["maxLength"] = 768 };
+        JsonObject Reason()
+        {
+            var reason = new JsonObject { ["type"] = "string", ["minLength"] = 1 };
+            if (!advisoryOptimization) reason["maxLength"] = 768;
+            return reason;
+        }
         var decisions = new JsonArray(PlanningSchemas.Object(("verdict", PlanningSchemas.Enum("ok")), ("reason", Reason())));
         var (obligations, targets) = BusinessFindingDomains(context);
         if (obligations.Length > 0 && targets.Length > 0)
             decisions.Add((JsonNode)PlanningSchemas.Object(("verdict", PlanningSchemas.Enum("needs_change")), ("reason", Reason()),
-                ("obligations", PlanningSchemas.Array(PlanningSchemas.Enum(obligations), 1, 3)),
-                ("targets", PlanningSchemas.Array(PlanningSchemas.Enum(targets), 1, 3))));
-        var addresses = BusinessEvidenceAddresses(context);
+                ("obligations", PlanningSchemas.Array(PlanningSchemas.Enum(obligations), 1, advisoryOptimization ? null : 3)),
+                ("targets", PlanningSchemas.Array(PlanningSchemas.Enum(targets), 1, advisoryOptimization ? null : 3))));
+        var addresses = BusinessEvidenceAddresses(context, advisoryOptimization);
         decisions.Add((JsonNode)PlanningSchemas.Object(("verdict", PlanningSchemas.Enum("needs_context")),
             ("reason", Reason()), ("contextRequests", addresses.Length == 0
-                ? PlanningSchemas.Array(PlanningSchemas.String(), 0, 0) : PlanningSchemas.Array(PlanningSchemas.Enum(addresses), 1, 8))));
+                ? PlanningSchemas.Array(PlanningSchemas.String(), 0, 0) : PlanningSchemas.Array(PlanningSchemas.Enum(addresses), 1, advisoryOptimization ? null : 8))));
         return PlanningSchemas.Object(("decision", new JsonObject { ["anyOf"] = decisions }));
     }
 
@@ -38,18 +43,16 @@ public sealed partial class HybridWorkflowPlanner
         var candidate = state.Construction!.Candidate!;
         var reconsideration = PendingBusinessReconsideration(state);
         var context = reconsideration?["context"]?.DeepClone().AsObject() ?? PlanningBusinessProjection.Build(state, global);
-        if (reconsideration is not null)
-            context["interpretationReconsideration"] = new JsonObject { ["priorReport"] = reconsideration["priorReport"]?.DeepClone(),
-                ["reason"] = reconsideration["reason"]?.DeepClone(),
-                ["instruction"] = "Reconsider this report against unchanged original facts; do not require an artificial plan edit." };
+        context.Remove("interpretationReconsideration");
         if (PlanningConstruction.DefectProgressContext(state, context) is { } concerns)
             context["priorConcerns"] = new JsonArray(concerns.OfType<JsonObject>().Select(concern => (JsonNode)new JsonObject
             {
-                ["reason"] = concern["explanation"]?.DeepClone(), ["before"] = concern["before"]?["value"]?.DeepClone(),
+                ["reason"] = concern["explanation"]?.DeepClone(), ["obligations"] = concern["obligations"]?.DeepClone(),
+                ["targets"] = concern["targets"]?.DeepClone(), ["before"] = concern["before"]?["value"]?.DeepClone(),
                 ["current"] = concern["current"]?["value"]?.DeepClone()
             }).ToArray());
         var purpose = global ? PlanningConstruction.GlobalPurpose : PlanningConstruction.LocalPurpose;
-        return (context, PlanningCompactConstruction.Request(BusinessReviewInstructions, context, ConstructionReviewSchema(context), purpose));
+        return (context, PlanningCompactConstruction.Request(BusinessReviewInstructions, context, ConstructionReviewSchema(context, PlanningTokenThresholds.OptimizationAdvisory(state.Request)), purpose));
     }
 
     private static async Task ReviewConstructionAsync(PlanningSession state, IPlanningRuntime runtime, bool global, CancellationToken ct)
@@ -137,7 +140,7 @@ public sealed partial class HybridWorkflowPlanner
         row["resolvedWitnesses"] = new JsonArray(candidate.Reviews.Where(review => review["defectWitness"] is JsonObject)
             .SelectMany(review => review["defectWitness"]!["findings"]!.AsArray()).Select(finding => finding!["id"]!.DeepClone()).ToArray());
         candidate.BusinessReviewed = true;
-        var covered = (context["fragment"] as JsonArray ?? []).Select(id => id!.ToString()).ToHashSet(StringComparer.Ordinal);
+        var covered = PlanningBusinessProjection.ReviewedTaskIds(state, global);
         var completedRequirements = PlanningCompactConstruction.CandidateCompletionClaims(state).ToHashSet(StringComparer.Ordinal);
         foreach (var checkpoint in construction.Checkpoints.Where(checkpoint => checkpoint.Fragment["businessReviewPending"]?.GetValue<bool>() == true))
         {
@@ -146,7 +149,7 @@ public sealed partial class HybridWorkflowPlanner
                 Within(candidate.Plan, scope, boundary));
             if (global || checkpoint.TaskIds.Count > 0 && checkpoint.TaskIds.All(covered.Contains) &&
                 (boundaryCovered || checkpoint.RequirementIds.Any(completedRequirements.Contains) ||
-                    candidate.Extension.ContinueInScope is null && checkpoint.Step?.Id == construction.Compact!.CurrentStep!.Id))
+                    PlanningCompactConstruction.CandidateCompletesBlock(candidate) && checkpoint.Step?.BlockId == construction.Compact!.CurrentBlockId))
                 checkpoint.Fragment["businessReviewPending"] = false;
         }
         construction.PendingReviewContext = null; construction.PendingReviewHash = null;
@@ -165,7 +168,7 @@ public sealed partial class HybridWorkflowPlanner
     internal static bool TryPrepareBusinessReviewReconsideration(PlanningSession state, IReadOnlyList<string> addresses)
     {
         var candidate = state.Construction?.Candidate;
-        if (candidate is null || state.PendingCall is not null || addresses.Count is < 1 or > 8) return false;
+        if (candidate is null || state.PendingCall is not null || addresses.Count < 1 || PlanningOptimizationThresholds.Exceeded(state, "business_review", "context_requests", addresses.Count, 8)) return false;
         var prior = ReconsiderationSource(state);
         if (prior?["context"] is not JsonObject context) return false;
         var supported = BusinessReviewReconsiderationEvidence(state).ToHashSet(StringComparer.Ordinal);
@@ -188,8 +191,9 @@ public sealed partial class HybridWorkflowPlanner
         var relevant = (decision?["obligations"] as JsonArray ?? []).SelectMany(item => new[] { "requirement:" + item, "source:" + item })
             .Concat((decision?["targets"] as JsonArray ?? []).SelectMany(item => new[] { "task:" + item, "scope:" + item, item!.ToString() }))
             .ToHashSet(StringComparer.Ordinal);
-        return BusinessEvidenceAddresses(context).Concat((context["evidence"] as JsonObject ?? []).Select(pair => pair.Key))
-            .Where(relevant.Contains).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).Take(8).ToArray();
+        var addresses = BusinessEvidenceAddresses(context, PlanningTokenThresholds.OptimizationAdvisory(state.Request)).Concat((context["evidence"] as JsonObject ?? []).Select(pair => pair.Key))
+            .Where(relevant.Contains).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal);
+        return (PlanningTokenThresholds.OptimizationAdvisory(state.Request) ? addresses : addresses.Take(8)).ToArray();
     }
 
     private static JsonObject? ReconsiderationSource(PlanningSession state)
@@ -216,7 +220,7 @@ public sealed partial class HybridWorkflowPlanner
         ["candidateHash"] = state.Construction!.Candidate!.Hash, ["baselineHash"] = state.Construction.Candidate.BaseHash,
         ["candidateIdentity"] = PlanningConstruction.FailureIdentity(state, state.Construction.Candidate),
         ["fingerprint"] = BusinessReviewFingerprint(state, context, global), ["claimsHash"] = ConstructionClaimsHash(state),
-        ["claims"] = BusinessClaims(state.Construction.Compact!.CurrentStep!, state.Construction.Candidate.Extension),
+        ["claims"] = BusinessClaims(state, state.Construction.Compact!.CurrentStep!, state.Construction.Candidate.Extension),
         ["sources"] = BusinessSources(state), ["contracts"] = BusinessContracts(state), ["consumers"] = BusinessConsumers(state),
         ["policyHash"] = BusinessPolicyHash(state), ["intentHash"] = BusinessIntentHash(state),
         ["reviewedTaskIds"] = new JsonArray((context["actions"] as JsonArray ?? []).Select(action => action!["id"]!.DeepClone()).ToArray()),
@@ -229,18 +233,21 @@ public sealed partial class HybridWorkflowPlanner
     };
 
     internal static string ConstructionClaimsHash(PlanningSession state) => PlanningGraphCompiler.Fingerprint(
-        BusinessClaims(state.Construction!.Compact!.CurrentStep!, state.Construction.Candidate!.Extension).ToJsonString());
-    private static JsonObject BusinessClaims(PlanningConstructionStep step, PlanningConstructionExtension extension)
+        BusinessClaims(state, state.Construction!.Compact!.CurrentStep!, state.Construction.Candidate!.Extension).ToJsonString());
+    private static JsonObject BusinessClaims(PlanningSession state, PlanningConstructionStep step, PlanningConstructionExtension extension)
     {
         var claims = new JsonObject
         {
             ["scope"] = extension.Scope, ["requirements"] = Strings(extension.RequirementIds),
-            ["closedRequirements"] = Strings(extension.ContinueInScope is null ? step.CloseRequirementIds : []),
+            ["closedRequirements"] = Strings(extension.CompleteBlock == true || extension.Complete ? step.CloseRequirementIds : []),
             ["closedScopes"] = Strings(extension.CloseScopes), ["complete"] = extension.Complete,
             ["step"] = BusinessStep(step),
             ["continuationBinding"] = PlanningConstruction.Node(extension.ContinuationBinding, PlanningJsonContext.Default.PlanningConstructionContinuationBinding),
             ["boundaryTransitions"] = PlanningConstruction.Node(extension.BoundaryTransitions, PlanningJsonContext.Default.ListPlanningConstructionBoundaryTransition)
         };
+        if (extension.CompleteBlock is { } completeBlock) claims["completeBlock"] = completeBlock;
+        if (state.Construction!.Compact!.Blocks?.SingleOrDefault(block => block.Id == step.BlockId) is { } block)
+            claims["businessBlock"] = PlanningCompactConstruction.BusinessBlockContext(block);
         if (extension.ContinueInScope is not null) claims["continueInScope"] = extension.ContinueInScope;
         return claims;
     }
@@ -259,12 +266,17 @@ public sealed partial class HybridWorkflowPlanner
             ReviewValid(state, row, candidate.Hash, candidate.BaseHash, ConstructionClaimsHash(state), global));
     internal static JsonObject? ReviewedCheckpoint(PlanningSession state, PlanningConstructionCheckpoint checkpoint)
     {
-        if (checkpoint.Step is not { } step || checkpoint.InvalidatedTaskIds.Count != 0) return null;
+        if (checkpoint.InvalidatedTaskIds.Count != 0 || CheckpointClaimsHash(state, checkpoint) is not { } claims) return null;
+        return checkpoint.Reviews.LastOrDefault(row => ReviewValid(state, row, checkpoint.PlanHash, checkpoint.BaseHash, claims, global: false));
+    }
+    internal static string? CheckpointClaimsHash(PlanningSession state, PlanningConstructionCheckpoint checkpoint)
+    {
+        if (checkpoint.Step is not { } step) return null;
         var extension = new PlanningConstructionExtension { Scope = step.Scope, RequirementIds = checkpoint.RequirementIds,
             CloseScopes = checkpoint.ClosedScopes, Complete = checkpoint.Fragment["complete"]?.GetValue<bool>() == true,
+            CompleteBlock = checkpoint.Fragment["completeBlock"]?.GetValue<bool>(), ContinueInScope = checkpoint.Fragment["continueInScope"]?.GetValue<string>(),
             ContinuationBinding = step.ContinuationBinding, BoundaryTransitions = step.BoundaryTransitions };
-        var claims = PlanningGraphCompiler.Fingerprint(BusinessClaims(step, extension).ToJsonString());
-        return checkpoint.Reviews.LastOrDefault(row => ReviewValid(state, row, checkpoint.PlanHash, checkpoint.BaseHash, claims, global: false));
+        return PlanningGraphCompiler.Fingerprint(BusinessClaims(state, step, extension).ToJsonString());
     }
     internal static bool ConstructionArtifactReviewValid(PlanningSession state) => state.Construction?.Checkpoints.LastOrDefault() is { } checkpoint &&
         checkpoint.PlanHash == PlanningConstruction.Hash(state.Plan) && ReviewedCheckpoint(state, checkpoint) is { } row &&
@@ -332,6 +344,9 @@ public sealed partial class HybridWorkflowPlanner
         var association = state.Construction.Candidate!.Extension.ContinuationBinding;
         var ids = (association?.DischargedContinuationIds ?? []).Append(association?.ContinuationId).Append(compact.ResumingStepId)
             .OfType<string>().ToHashSet(StringComparer.Ordinal);
+        if (PlanningCompactConstruction.CandidateCompletesBlock(state))
+            ids.UnionWith((compact.SuspendedSteps ?? []).Where(item => item.Consumer.BlockId == compact.CurrentBlockId &&
+                item.Status is "waiting" or "resuming" or "implemented").Select(item => item.Id));
         return new JsonArray((compact.SuspendedSteps ?? []).Where(item => ids.Contains(item.Id)).Select(item =>
         {
             var row = new JsonObject { ["id"] = item.Id, ["hash"] = PlanningCompactConstruction.ContinuationConsumerHash(item) };
@@ -364,14 +379,11 @@ public sealed partial class HybridWorkflowPlanner
         row["baselineHash"] + "\n" + row["candidateHash"] + "\n" + row["claimsHash"] + "\n" +
         (row["purpose"]?.ToString() == PlanningConstruction.GlobalPurpose ? "global" : "local") + "\n" +
         row["sources"]!.ToJsonString() + "\n" + row["contracts"]!.ToJsonString() + "\n" + row["consumers"]!.ToJsonString() + "\n" + row["policyHash"] + "\n" + row["intentHash"] + "\n" + context.ToJsonString());
-    private static string[] BusinessEvidenceAddresses(JsonObject context) => PlanningCompactConstruction.NavigationEvidence(
-        new[] { "requirements", "globalConstraints", "actions", "scopes", "groups", "inputs", "publicOutputs", "continuation" }
+    private static string[] BusinessEvidenceAddresses(JsonObject context, bool advisoryOptimization) => PlanningCompactConstruction.NavigationEvidence(
+        new[] { "requirements", "globalConstraints", "actions", "scopes", "groups", "inputs", "publicOutputs" }
             .SelectMany(key => context[key] is JsonArray array ? array.Cast<JsonNode?>() : context[key] is JsonObject value ? new JsonNode?[] { value } : [])
             .Concat((context["actions"] as JsonArray ?? []).Select(action => action?["contract"]))
-            .Concat((context["continuation"]?["consumer"]?["prerequisite"]?["evidence"] as JsonArray ?? []).Cast<JsonNode?>())
-            .Concat((context["continuation"]?["descendants"] as JsonArray ?? []).SelectMany(descendant =>
-                (descendant?["consumer"]?["prerequisite"]?["evidence"] as JsonArray ?? []).Cast<JsonNode?>()))
-            .Concat((context["evidence"] as JsonObject ?? []).Select(pair => pair.Value)))
+            .Concat((context["evidence"] as JsonObject ?? []).Select(pair => pair.Value)), advisoryOptimization)
         .Except((context["evidence"] as JsonObject ?? []).Select(pair => pair.Key), StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
 
     private static (string[] Obligations, string[] Targets) BusinessFindingDomains(JsonObject context)
@@ -394,8 +406,13 @@ public sealed partial class HybridWorkflowPlanner
         var originals = decision["obligations"]!.AsArray().Select(item => OriginalPointer(context, item!.ToString())).ToArray();
         var targets = decision["targets"]!.AsArray().Select(item => ImplementationPointer(context, item!.ToString())).ToArray();
         if (originals.Any(pointer => pointer is null) || targets.Any(pointer => pointer is null)) return null;
-        return new JsonArray(targets.Select(pointer => (JsonNode)new JsonObject { ["kind"] = "business_fulfillment", ["location"] = pointer,
-            ["evidence"] = new JsonArray(originals[0], pointer), ["explanation"] = decision["reason"]!.DeepClone(), ["uncertainty"] = "" }).ToArray());
+        return new JsonArray(targets.Select(pointer =>
+        {
+            var finding = new JsonObject { ["kind"] = "business_fulfillment", ["location"] = pointer,
+                ["evidence"] = new JsonArray(originals[0], pointer), ["explanation"] = decision["reason"]!.DeepClone(), ["uncertainty"] = "" };
+            if (originals.Length > 1) finding["obligationPointers"] = Strings(originals.OfType<string>());
+            return (JsonNode)finding;
+        }).ToArray());
     }
     private static string? OriginalPointer(JsonObject context, string id) => Find(context, "requirements", id) ?? Find(context, "globalConstraints", id);
     private static string? ImplementationPointer(JsonObject context, string id) => Find(context, "actions", id) ?? Find(context, "scopes", id) ??

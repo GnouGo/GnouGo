@@ -64,7 +64,7 @@ public sealed class CompactSuspendedConsumerTests
         Assert.True(producer.Fragment["businessReviewPending"]!.GetValue<bool>());
         Assert.Empty(producer.Reviews);
         Assert.Null(HybridWorkflowPlanner.ReviewedCheckpoint(state, producer));
-        Assert.False(PlanningCompactConstruction.TryResumeReviewedConsumer(PlannerFixture.Clone(state)));
+        Assert.False(PlanningCompactConstruction.TryResumeAcceptedBlockConsumer(PlannerFixture.Clone(state)));
         Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(state));
 
         var calls = state.ModelCalls;
@@ -78,14 +78,14 @@ public sealed class CompactSuspendedConsumerTests
 
         // Recover the exact issued semantic decision, without selecting another
         // producer or applying its transition twice.
-        var issued = PlannerFixture.Clone(run.Runtime.Checkpoints.Last(saved => saved.PendingCall?.Purpose == PlanningCompactConstruction.SelectPurpose));
+        var issued = PlannerFixture.Clone(run.Runtime.Checkpoints.Last(saved => saved.PendingCall?.Purpose == PlanningCompactConstruction.ImplementationPurpose));
         var exactRequest = JsonSerializer.Serialize(issued.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
         var recovered = await Advance(issued, run.Runtime);
         Assert.Equal(exactRequest, JsonSerializer.Serialize(run.Runtime.Calls[^1], PlanningJsonContext.Default.LLMRequest));
         Assert.Equal(state.ModelCalls, recovered.ModelCalls);
         Assert.Equal(state.ReplanAttempts, recovered.ReplanAttempts);
         Assert.Equal("resuming", Assert.Single(recovered.Construction!.Compact!.SuspendedSteps!).Status);
-        Assert.False(PlanningCompactConstruction.TryResumeReviewedConsumer(PlannerFixture.Clone(recovered)));
+        Assert.False(PlanningCompactConstruction.TryResumeAcceptedBlockConsumer(PlannerFixture.Clone(recovered)));
 
         for (var tick = 0; tick < 20 && !PlanningStatus.IsWaiting(recovered.Status) && !PlanningStatus.IsTerminal(recovered.Status); tick++)
         {
@@ -105,23 +105,23 @@ public sealed class CompactSuspendedConsumerTests
     }
 
     [Fact]
-    public async Task CompletedPrerequisiteReceivesLocalReviewBeforeFreshExplicitResume()
+    public async Task CompletedTechnicalPrerequisiteStaysPendingUntilBusinessCompositionReview()
     {
         var run = await PendingPrerequisite(retainedPending: false);
         var state = run.State;
         var producer = state.Construction!.Checkpoints.Single(checkpoint => checkpoint.TaskIds.Contains("seed"));
-        Assert.False(producer.Fragment["businessReviewPending"]!.GetValue<bool>());
-        Assert.NotNull(HybridWorkflowPlanner.ReviewedCheckpoint(state, producer));
-        Assert.Equal(1, run.LocalReviews());
-        // The review did not claim the unselected association with this consumer.
-        Assert.False(PlanningCompactConstruction.TryResumeReviewedConsumer(PlannerFixture.Clone(state)));
+        Assert.True(producer.Fragment["businessReviewPending"]!.GetValue<bool>());
+        Assert.Null(HybridWorkflowPlanner.ReviewedCheckpoint(state, producer));
+        Assert.Equal(0, run.LocalReviews());
+        // Technical acceptance did not claim the unselected association with this consumer.
+        Assert.False(PlanningCompactConstruction.TryResumeAcceptedBlockConsumer(PlannerFixture.Clone(state)));
         for (var tick = 0; tick < 20 && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); tick++)
         {
             state = await Advance(PlannerFixture.Clone(state), run.Runtime);
             Assert.Empty(state.Diagnostics);
         }
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
-        Assert.Equal(2, run.LocalReviews()); Assert.Equal(1, run.GlobalReviews());
+        Assert.Equal(1, run.LocalReviews()); Assert.Equal(1, run.GlobalReviews());
         Assert.Equal("completed", Assert.Single(state.Construction!.Compact!.SuspendedSteps!).Status);
         PlanningArtifactApproval.Verify(state);
     }
@@ -161,8 +161,8 @@ public sealed class CompactSuspendedConsumerTests
         var state = run.State;
         var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
         var checkpoint = state.Construction!.Checkpoints.Single(item => item.TaskIds.Contains("seed"));
-        var page = PlanningCompactConstruction.SelectionContext(state);
-        var schema = PlanningCompactConstruction.SelectionSchema(state, page);
+        var page = PlanningCompactConstruction.ImplementationContext(state);
+        var schema = PlanningCompactConstruction.ImplementationSchema(state, page);
         var resumeSchema = schema["properties"]!["resumeStep"]!.DeepClone().AsObject();
         resumeSchema["$defs"] = schema["$defs"]?.DeepClone();
         var response = new JsonObject { ["continuationId"] = state.Construction.Compact!.SuspendedSteps![0].Id,
@@ -194,19 +194,19 @@ public sealed class CompactSuspendedConsumerTests
     }
 
     [Fact]
-    public async Task ExactReviewedAssociationResumesOnceWithoutSemanticSelection()
+    public async Task ExactAcceptedAssociationResumesOnceWithoutSemanticSelection()
     {
         var state = await AssociatedProducer();
         var checkpoint = Assert.Single(state.Construction!.Checkpoints);
-        Assert.NotNull(HybridWorkflowPlanner.ReviewedCheckpoint(state, checkpoint));
+        Assert.Null(HybridWorkflowPlanner.ReviewedCheckpoint(state, checkpoint));
         var calls = state.ModelCalls;
-        Assert.True(PlanningCompactConstruction.TryResumeReviewedConsumer(state));
+        Assert.True(PlanningCompactConstruction.TryResumeAcceptedBlockConsumer(state));
         Assert.Equal(calls, state.ModelCalls);
         Assert.Equal("resuming", Assert.Single(state.Construction.Compact!.SuspendedSteps!).Status);
         var binding = Assert.Single(state.Construction.Compact.CurrentStep!.Inputs);
         Assert.Equal("number_source", binding.Source); Assert.Equal("number", binding.Port);
-        Assert.Single(state.Construction.Checkpoints[0].Reviews, row => row["transition"]?.ToString() == "resume_reviewed_consumer");
-        Assert.False(PlanningCompactConstruction.TryResumeReviewedConsumer(PlannerFixture.Clone(state)));
+        Assert.Single(state.Construction.Checkpoints[0].Reviews, row => row["transition"]?.ToString() == "resume_accepted_block_consumer");
+        Assert.False(PlanningCompactConstruction.TryResumeAcceptedBlockConsumer(PlannerFixture.Clone(state)));
     }
 
     [Theory]
@@ -215,7 +215,7 @@ public sealed class CompactSuspendedConsumerTests
     [InlineData("upstream")]
     [InlineData("invalidated")]
     [InlineData("binding")]
-    [InlineData("review")]
+    [InlineData("claim")]
     public async Task ChangedAuthorityCannotAutomaticallyResumeAConsumer(string change)
     {
         var state = await AssociatedProducer();
@@ -227,33 +227,43 @@ public sealed class CompactSuspendedConsumerTests
             case "upstream": state.Plan!.Root.Tasks[0].Outputs[0].Value.Number = 9; break;
             case "invalidated": checkpoint.InvalidatedTaskIds.Add("number_source"); break;
             case "binding": checkpoint.Step!.ContinuationBinding!.Binding = Output("seed"); break;
-            case "review": checkpoint.Reviews.Clear(); break;
+            case "claim": checkpoint.Fragment["acceptedClaimsHash"] = "changed"; break;
         }
         var calls = state.ModelCalls;
-        Assert.False(PlanningCompactConstruction.TryResumeReviewedConsumer(state));
+        Assert.False(PlanningCompactConstruction.TryResumeAcceptedBlockConsumer(state));
         Assert.Equal(calls, state.ModelCalls);
         Assert.Null(state.Construction.Compact!.CurrentStep);
         Assert.Equal("waiting", Assert.Single(state.Construction.Compact.SuspendedSteps!).Status);
     }
 
     [Fact]
-    public async Task ChangingTheAssociationInvalidatesReviewWithoutChangingExecutableBytes()
+    public async Task ChangingTheAssociationInvalidatesMechanicalAuthorityWithoutChangingExecutableBytes()
     {
         var (state, runtime) = await TentativeProducer();
         var candidate = state.Construction!.Candidate!;
         var original = PlanningConstruction.Hash(candidate.Plan);
         state = await Advance(state, runtime);
         var checkpoint = Assert.Single(state.Construction!.Checkpoints);
-        Assert.NotNull(HybridWorkflowPlanner.ReviewedCheckpoint(state, checkpoint));
+        Assert.Null(HybridWorkflowPlanner.ReviewedCheckpoint(state, checkpoint));
         checkpoint.Step!.ContinuationBinding!.Binding = Output("seed");
         Assert.Equal(original, PlanningConstruction.Hash(state.Plan));
         Assert.Null(HybridWorkflowPlanner.ReviewedCheckpoint(state, checkpoint));
+        Assert.False(PlanningCompactConstruction.TryResumeAcceptedBlockConsumer(state));
     }
 
     [Fact]
-    public async Task ReceivedReviewRecoveryPreservesExactRequestAndAccounting()
+    public async Task ReceivedWholeBlockReviewRecoveryPreservesExactRequestAndAccounting()
     {
         var (state, runtime) = await TentativeProducer();
+        state = await Advance(state, runtime);
+        state = await Advance(state, runtime);
+        Assert.Equal("resuming", state.Construction!.Compact!.SuspendedSteps![0].Status);
+        state.Construction.Candidate = PlanningConstruction.Apply(state, new()
+        {
+            Scope = "/root", RequirementIds = ["req"], CompleteBlock = true,
+            Tasks = [new() { Id = "consume", Kind = "value", Objective = "Consume the exact accepted prerequisite",
+                Outputs = [new("number", Output("number_source"))] }]
+        });
         var responses = new Dictionary<string, LLMResponse>(StringComparer.Ordinal);
         runtime.Respond = (request, purpose) =>
         {
@@ -272,9 +282,9 @@ public sealed class CompactSuspendedConsumerTests
         var recovered = await Advance(retained, runtime);
         Assert.Equal(calls, recovered.ModelCalls);
         Assert.Equal(state.ReplanAttempts, recovered.ReplanAttempts);
-        Assert.Single(recovered.Construction!.Checkpoints);
-        Assert.True(PlanningCompactConstruction.TryResumeReviewedConsumer(recovered));
-        Assert.False(PlanningCompactConstruction.TryResumeReviewedConsumer(PlannerFixture.Clone(recovered)));
+        Assert.Equal(2, recovered.Construction!.Checkpoints.Count);
+        Assert.Equal("completed", Assert.Single(recovered.Construction.Compact!.SuspendedSteps!).Status);
+        Assert.False(PlanningCompactConstruction.TryResumeAcceptedBlockConsumer(PlannerFixture.Clone(recovered)));
     }
 
     [Theory]
@@ -310,12 +320,76 @@ public sealed class CompactSuspendedConsumerTests
         Assert.Equal(4, state.Construction.Compact.SuspendedSteps.Count);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DiagnosticFifthConsumerKeepsExactPendingChildToParentAuthority(bool corruptParent)
+    {
+        var (state, runtime) = await TentativeProducer(diagnostic: true);
+        state.Construction!.Candidate = null;
+        for (var index = 1; index < 5; index++)
+        {
+            state.Construction.Compact!.CurrentStep = Consumer(state, "consumer_" + index);
+            state.Construction.Compact.ReplacementScope = null;
+            state.Diagnostics = [new("CONSTRUCTION_TENTATIVE_SELECTION", "/step", "This consumer needs its exact prerequisite.")];
+            if (index == 4)
+            {
+                var schema = PlanningCompactConstruction.DraftSchema(state);
+                var suspension = Assert.Single(schema["properties"]!["reselectStep"]!["anyOf"]!.AsArray(),
+                    alternative => alternative?["properties"]?["disposition"]?["enum"]?[0]?.ToString() == "suspend")!;
+                Assert.Null(suspension["properties"]!["prerequisite"]!["properties"]!["evidenceAddresses"]!["maxItems"]);
+            }
+            PlanningCompactConstruction.Reselect(state, Need("Need " + index));
+        }
+        var compact = state.Construction.Compact!;
+        Assert.Equal(5, compact.SuspendedSteps!.Count);
+        Assert.Contains(state.ThresholdWarnings!, warning => warning.Kind == "suspended_consumers" && warning.Current == 5 && warning.Threshold == 4);
+        compact.CurrentStep = Consumer(state, "seed_cursor"); compact.ReplacementScope = null; compact.ReplacementRequirements = null;
+        state.Diagnostics.Clear();
+        var offered = PlanningCompactConstruction.DraftSchema(state)["properties"]!["extension"]!["anyOf"]![0]!["properties"]!["continuationBinding"]!["anyOf"]![0]!;
+        Assert.Equal(5, offered["properties"]!["continuationId"]!["enum"]!.AsArray().Count);
+        Assert.Null(offered["properties"]!["dischargedContinuationIds"]!["anyOf"]![0]!["maxItems"]);
+        var child = compact.SuspendedSteps[^1].Id; var parent = compact.SuspendedSteps[^2].Id;
+        state.Construction.Candidate = PlanningConstruction.Apply(state, Prefix("chain_seed", new() { Kind = "number", Number = 7 }, child));
+        PlanningCompactConstruction.ValidateExtension(state, state.Construction.Candidate);
+        state = await Advance(state, runtime);
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Equal(child, state.Construction!.Compact!.ResumingStepId);
+        Assert.Empty(runtime.Calls);
+        Assert.All(state.Construction.Requirements, requirement => Assert.NotEqual("closed", requirement.Status));
+        if (corruptParent) state.Construction.Compact.SuspendedSteps![^1].ParentId = "unrelated";
+        var next = PlanningConstruction.Apply(state, Prefix("child_result", Output("chain_seed"), parent));
+        if (corruptParent)
+        {
+            var failure = Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ValidateExtension(state, next));
+            Assert.Contains(failure.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_CONTINUATION_INVALID");
+        }
+        else
+        {
+            PlanningCompactConstruction.ValidateExtension(state, next);
+            state.Construction.Candidate = next;
+            state = await Advance(state, runtime);
+            state = await Advance(PlannerFixture.Clone(state), runtime);
+            Assert.Equal(parent, state.Construction!.Compact!.ResumingStepId);
+            Assert.Equal("implemented", state.Construction.Compact.SuspendedSteps![^1].Status);
+            Assert.All(state.Construction.Checkpoints, checkpoint => Assert.True(checkpoint.Fragment["businessReviewPending"]!.GetValue<bool>()));
+            Assert.Empty(runtime.Calls);
+        }
+
+        static PlanningConstructionExtension Prefix(string id, TaskValue value, string consumer) => new()
+        {
+            CompleteBlock = false, Scope = "/root", RequirementIds = ["req"],
+            Tasks = [new() { Id = id, Kind = "value", Objective = "Produce the exact retained prerequisite", Outputs = [new("number", value)] }],
+            ContinuationBinding = new() { ContinuationId = consumer, Binding = Output(id) }
+        };
+    }
+
     private static async Task<PlanningSession> AssociatedProducer()
     {
         var (state, runtime) = await TentativeProducer();
         state = await Advance(state, runtime);
         Assert.Empty(state.Diagnostics); Assert.Null(state.Construction!.Candidate);
-        Assert.Single(runtime.Calls);
+        Assert.Empty(runtime.Calls);
         return state;
     }
 
@@ -344,6 +418,16 @@ public sealed class CompactSuspendedConsumerTests
                             ["type"] = new JsonObject { ["kind"] = "number", ["nullable"] = false } }) }) };
             }
             else if (purpose == PlanningCompactConstruction.SelectPurpose)
+            {
+                var final = current.Construction!.Requirements.Single(requirement => requirement.Id == "req_0").Status == "closed";
+                response = new() { ["block"] = new JsonObject
+                {
+                    ["objective"] = final ? finish : work, ["requirementIds"] = new JsonArray(final ? "req_1" : "req_0"),
+                    ["informationNeeds"] = new JsonArray(), ["expectedResults"] = new JsonArray(final ? "The required public number" : "The exact doubled numeric result"),
+                    ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray(final ? "Return the declared public result" : "Retain two and double the exact seven within the sequential scope")
+                } };
+            }
+            else if (purpose == PlanningCompactConstruction.ImplementationPurpose)
             {
                 var index = selections++;
                 response = new() { ["baseHash"] = request.StructuredOutputSchema!["properties"]!["baseHash"]!["enum"]![0]!.DeepClone() };
@@ -378,18 +462,18 @@ public sealed class CompactSuspendedConsumerTests
                 {
                     var extension = index switch
                     {
-                        0 => new PlanningConstructionExtension { RequirementIds = ["req_0"], ContinueInScope = "/tasks/work/body", Tasks = [new()
+                        0 => new PlanningConstructionExtension { CompleteBlock = false, RequirementIds = ["req_0"], ContinueInScope = "/tasks/work/body", Tasks = [new()
                         { Id = "work", Kind = "sequence", Objective = "Run the requested sequential computation.", Body = new()
                             { Tasks = [new() { Id = "factor", Kind = "value", Objective = "Retain the requested multiplier.",
                                 Outputs = [new("number", new() { Kind = "number", Number = 2 })] }] } }] },
-                        2 => new() { Scope = "/tasks/work/body", RequirementIds = ["req_0"], ContinueInScope = retainedPending ? "/tasks/work/body" : null, Tasks = [new() { Id = "seed", Kind = "value", Objective = "Produce the exact prerequisite of seven.",
+                        2 => new() { Scope = "/tasks/work/body", RequirementIds = ["req_0"], CompleteBlock = false, Tasks = [new() { Id = "seed", Kind = "value", Objective = "Produce the exact prerequisite of seven.",
                             Outputs = [new("number", nullable ? new() { Kind = "null" } : nested
                                 ? new() { Kind = "object", Members = [new("value", new() { Kind = "number", Number = 7 })] }
                                 : new() { Kind = "number", Number = 7 })] }] },
-                        3 => new() { Scope = "/tasks/work/body", RequirementIds = ["req_0"], Tasks = [new() { Id = "double", Kind = "value", Objective = consumer,
+                        3 => new() { CompleteBlock = true, Scope = "/tasks/work/body", RequirementIds = ["req_0"], Tasks = [new() { Id = "double", Kind = "value", Objective = consumer,
                             Outputs = [new("number", new() { Kind = "arithmetic", Text = "multiply", Items = [Output("seed"), Output("factor")] })] }],
                             Outputs = [new("number", Output("double"))], CloseScopes = ["/tasks/work/body"] },
-                        _ => new() { RequirementIds = ["req_1"], Outputs = [new("number", Output("work"))], CloseScopes = ["/root"], Complete = true }
+                        _ => new() { CompleteBlock = true, RequirementIds = ["req_1"], Outputs = [new("number", Output("work"))], CloseScopes = ["/root"], Complete = true }
                     };
                     response["extension"] = PlanningConstruction.Node(extension, PlanningJsonContext.Default.PlanningConstructionExtension);
                 }
@@ -408,7 +492,7 @@ public sealed class CompactSuspendedConsumerTests
                     else if (!composition)
                         Assert.Equal("seed", Assert.Single(current.Construction.Candidate.TaskIds));
                 }
-                else { Assert.Equal(PlanningConstruction.GlobalPurpose, purpose); globalReviews++; Assert.Equal(retainedPending ? 1 : 2, localReviews); }
+                else { Assert.Equal(PlanningConstruction.GlobalPurpose, purpose); globalReviews++; Assert.Equal(1, localReviews); }
                 response = new() { ["decision"] = new JsonObject { ["verdict"] = "ok", ["reason"] = "The exact seven is doubled, exported by the sequential scope and returned as the numeric result." } };
             }
             var wire = PlanningCorpus.Transport(response, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject())!;
@@ -424,16 +508,6 @@ public sealed class CompactSuspendedConsumerTests
             Assert.Empty(state.Diagnostics);
             if (state.Construction!.Candidate is null && state.Construction.Checkpoints.Any(checkpoint => checkpoint.TaskIds.Contains("seed")))
             {
-                if (retainedPending)
-                {
-                    // Restore the exact format-11 checkpoint shape retained before
-                    // completed-block review became mandatory. Its executable bytes,
-                    // source authority, pending review and accounting remain intact.
-                    var checkpoint = state.Construction.Checkpoints.Single(item => item.TaskIds.Contains("seed"));
-                    checkpoint.Fragment.Remove("continueInScope");
-                    state.Construction.Compact!.CurrentStep = null;
-                    state = PlannerFixture.Clone(state);
-                }
                 return new(state, runtime, () => localReviews, () => globalReviews);
             }
         }
@@ -441,11 +515,12 @@ public sealed class CompactSuspendedConsumerTests
         throw new InvalidOperationException();
     }
 
-    private static async Task<(PlanningSession, TestRuntime)> TentativeProducer()
+    private static async Task<(PlanningSession, TestRuntime)> TentativeProducer(bool diagnostic = false)
     {
         const string original = "Produce the authorized numeric prerequisite and consume it to return the requested result.";
         var state = new PlanningSession { Request = new() { TenantId = "continuations", Prompt = original,
             MaxModelCalls = 64, MaxReplanAttempts = 4, Options = new() { ["automatic_correction"] = true } } };
+        if (diagnostic) state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
         PlanningSessionCreation.Capture(state);
         state.Revision = 1; state.Status = PlanningStatus.Generating;
         state.Requirements = new() { Inputs = [], Outputs = [], Outcomes = [new("req", original)] };
@@ -455,13 +530,19 @@ public sealed class CompactSuspendedConsumerTests
         var compact = state.Construction.Compact!;
         foreach (var source in compact.Sources) { source.Indexed = true; source.Inputs = []; source.Outputs = []; }
         var originalSource = compact.Sources.First(); compact.RequirementSources["req"] = [originalSource.Id];
+        PlanningCompactConstruction.SelectBlock(state, new JsonObject
+        {
+            ["objective"] = original, ["requirementIds"] = new JsonArray("req"),
+            ["informationNeeds"] = new JsonArray(), ["expectedResults"] = new JsonArray("The requested consumer result"),
+            ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray("The exact accepted prerequisite is consumed")
+        });
         compact.CurrentStep = Consumer(state, "consumer");
         state.Diagnostics = [new("CONSTRUCTION_TENTATIVE_SELECTION", "/step", "This exact consumer needs its typed prerequisite.")];
         PlanningCompactConstruction.Reselect(state, Need("The exact numeric prerequisite."));
         compact.CurrentStep = Consumer(state, "producer"); compact.ReplacementScope = null; compact.ReplacementRequirements = null;
         state.Construction.Candidate = PlanningConstruction.Apply(state, new()
         {
-            RequirementIds = ["req"], Tasks =
+            CompleteBlock = false, RequirementIds = ["req"], Tasks =
             [new() { Id = "seed", Kind = "value", Objective = "Produce seven.", Outputs = [new("number", new() { Kind = "number", Number = 7 })] },
              new() { Id = "number_source", Kind = "value", Objective = "Use the exact accepted seed.", Outputs = [new("number", Output("seed"))] }],
             ContinuationBinding = new() { ContinuationId = compact.SuspendedSteps![0].Id, Binding = Output("number_source") }
@@ -481,7 +562,7 @@ public sealed class CompactSuspendedConsumerTests
     }
     private static PlanningConstructionStep Consumer(PlanningSession state, string id) => new()
     {
-        Id = id, BaseHash = PlanningConstruction.Hash(state.Plan), Kind = "value", Scope = "/root",
+        BlockId = state.Construction!.Compact!.CurrentBlockId, Id = id, BaseHash = PlanningConstruction.Hash(state.Plan), Kind = "value", Scope = "/root",
         Objective = "Produce the required " + id + ".", RequirementIds = ["req"], DiscoveryComplete = true
     };
     private static PlanningConstructionReselection Need(string text) => new()

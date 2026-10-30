@@ -111,7 +111,7 @@ internal sealed partial class BenchmarkCampaign
         if (state.SchemaVersion != 11 || state.Request.TenantId != "benchmark" ||
             state.Status != (interrupted ? PlanningStatus.Generating : PlanningStatus.Stopped) ||
             state.Construction is null || pending is null || pending.Id != requestId ||
-            pending.Purpose is not ("construction_intent" or "construction_select" or "construction_discovery" or
+            pending.Purpose is not ("construction_intent" or "construction_select" or "construction_implementation" or "construction_discovery" or
                 "construction_draft" or "construction_local_judge" or "construction_global_judge" or "replan") ||
             pending.Request.ClientRequestId != requestId || !requestId.StartsWith(state.Request.SessionId + ":", StringComparison.Ordinal) ||
             pending.Request.Tools is { Count: > 0 } || pending.Request.MaxTokens is not > 0 ||
@@ -152,6 +152,8 @@ internal sealed partial class BenchmarkCampaign
             !JsonNode.DeepEquals(policy["construction_limits"], state.Request.Options["construction_limits"]) ||
             !JsonNode.DeepEquals(policy[PlanningTokenThresholds.OptionName], state.Request.Options[PlanningTokenThresholds.OptionName]) ||
             !JsonNode.DeepEquals(journal?["effective_transport_policy"]?[PlanningTokenThresholds.OptionName], state.Request.Options[PlanningTokenThresholds.OptionName]) ||
+            !JsonNode.DeepEquals(policy[PlanningTokenThresholds.OptimizationOptionName], state.Request.Options[PlanningTokenThresholds.OptimizationOptionName]) ||
+            !JsonNode.DeepEquals(journal?["effective_transport_policy"]?[PlanningTokenThresholds.OptimizationOptionName], state.Request.Options[PlanningTokenThresholds.OptimizationOptionName]) ||
             journal?["transport"]?["Attempts"] is not JsonArray attempts ||
             (unstarted ? attempts.Count != 0 : attempts.Count is < 1 or > 3) ||
             !unstarted && attempts[0]?["Id"]?.ToString() is not { Length: > 0 } ||

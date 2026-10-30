@@ -56,10 +56,10 @@ internal static partial class PlanningConstruction
                 PlanningJsonContext.Default.PlanningConstructionExtension)!;
         var additions = TaskPlanRevisions.Tasks(new TaskScope { Tasks = extension.Tasks, Always = extension.Always })
             .Concat(extension.Groups.SelectMany(g => TaskPlanRevisions.Tasks(g.Body))).ToArray();
-        if (additions.Length > construction.Limits.MaxTasksPerDraft)
+        if (PlanningOptimizationThresholds.Exceeded(state, "fragment", "recursive_tasks", additions.Length, construction.Limits.MaxTasksPerDraft))
             Fail("CONSTRUCTION_DRAFT_LIMIT", extension.Scope,
                 $"The extension contains {additions.Length} recursive tasks; its captured maximum is {construction.Limits.MaxTasksPerDraft}, shared across nested bodies and cleanup.");
-        if (extension.Groups.Count > construction.Limits.MaxTasksPerDraft || extension.Choices.Count > construction.Limits.MaxTasksPerDraft)
+        if (PlanningOptimizationThresholds.Exceeded(state, "fragment", "groups", extension.Groups.Count, construction.Limits.MaxTasksPerDraft) | PlanningOptimizationThresholds.Exceeded(state, "fragment", "choices", extension.Choices.Count, construction.Limits.MaxTasksPerDraft))
             Fail("CONSTRUCTION_DRAFT_LIMIT", extension.Scope,
                 $"The extension contains {extension.Groups.Count} groups and {extension.Choices.Count} choices; the captured maximum is {construction.Limits.MaxTasksPerDraft} for each.");
         var closesRequirement = extension.ContinueInScope is null && construction.Compact?.CurrentStep is { } step &&
