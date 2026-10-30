@@ -1,0 +1,42 @@
+{
+  "offline_synthetic_witness": true,
+  "historical_response_replayed": false,
+  "provider_calls": 0,
+  "operational_writes": 0,
+  "original_state_snapshot_sha256": "59aa1d9872eccb24b5ec99c9f2c41f25d89ce8b6d79dd0544cbe972416dd8586",
+  "original_request_record_sha256": "3ec17f6a5e2f82210012eadea6c6a1ffbbbdaa68beef2b39e0a299cf012574ad",
+  "synthetic_extension_sha256": "c5a2f317a32b24b2a83f5f6dc5bc80af2f4ca289d980a98b73fdd10b36371e55",
+  "schema_diagnostics": [],
+  "construction_diagnostics": [],
+  "commitment_diagnostics": [],
+  "task_count": 2,
+  "open_scopes": [
+    "/tasks/offline_prefix/body",
+    "/root"
+  ],
+  "continue_in_scope": "/tasks/offline_prefix/body",
+  "required_local_review_for_partial": false,
+  "selected_block_operations": 3,
+  "pending_fragment_commitments": 0,
+  "new_productive_behavior_facts": 1,
+  "same_current_step_id": "step_1",
+  "original_extension_unchanged": true,
+  "historical_snapshot_unchanged": true,
+  "limitation": "Synthetic two-task typed URI preparation proves technical partial-fragment legality only; it is not a model response, a completed operation block, a business approval or a live execution.",
+  "source_commit": "3b8d087c8ecfdcb5ff6c91905ae3285ca72179fe",
+  "kind": "offline_synthetic_partial_prefix_witness",
+  "description": "A sequence containing one typed uri_component value over the existing caller input, continuing in its own body. All three selected operations remain deferred.",
+  "validation_sequence": [
+    "Project the synthetic typed extension through the existing test transport helper into the exact saved strict schema.",
+    "Validate the resulting object against that exact saved schema.",
+    "Apply, stage actual fragment commitments, validate continuation and compile against an in-memory copy of the captured pre-response state.",
+    "Check candidate commitment findings and semantic productive-behavior facts."
+  ],
+  "acceptance_transition_executed": false,
+  "live_run_modified": false,
+  "model_response_recreated": false,
+  "ten_operation_block_test_covered": false,
+  "helper_build_warnings": 0,
+  "helper_build_errors": 0,
+  "hash_basis": "SHA-256 of exact private input files. No raw prompt or response content included."
+}
