@@ -65,8 +65,15 @@ internal static partial class PlanningModelCalls
         PlanningCorrectionAttempt? correction = null, Action? issued = null, Action<PlanningModelCall, JsonNode>? received = null)
     {
         ct.ThrowIfCancellationRequested();
+        PlanningRequestMeasurement? activeMeasurement = state.PendingCall is { } pendingMeasurement
+            ? state.RequestMeasurements?.SingleOrDefault(measurement => measurement.RequestId == pendingMeasurement.Id) : null;
+        using var warnings = PlanningTokenThresholds.Observe((stage, kind, current, threshold) =>
+        {
+            if (activeMeasurement is not null) PlanningInputWarnings.Add(activeMeasurement, stage, kind, current, threshold);
+        });
         if (state.PendingCall is null)
         {
+            PlanningProgress.EnsureCallAvailable(state);
             EnsureCallAvailable(state);
             var request = PrepareRequest(state, purpose, prompt, schema, outputLimit, null, out var evidenceAddresses);
             schema = request.StructuredOutputSchema!.AsObject();
@@ -81,6 +88,8 @@ internal static partial class PlanningModelCalls
                 measurement = retainedMeasurements.SingleOrDefault(m => m.RequestHash == measured.RequestHash);
                 if (measurement is null) { measurement = measured; retainedMeasurements.Add(measurement); }
             }
+            activeMeasurement = measurement;
+            measurement.IssuedOutputTokens = request.MaxTokens;
             PlanningInputWarnings.Record(state, purpose, measurement);
             var violations = PlanningContractValidation.ValidateSchema(schema, strict: true);
             if (violations.Count != 0)
@@ -103,6 +112,7 @@ internal static partial class PlanningModelCalls
             catch { await RejectMeasurement(); throw; }
             correction?.Reserve();
             if (measurement is not null) measurement.Admission = "admitted";
+            PlanningProgress.Initialize(state);
             state.ModelCalls++;
             if (purpose == "replan" && correction?.Enabled != true) state.ReplanAttempts++;
             state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = purpose, Request = request,
@@ -120,11 +130,51 @@ internal static partial class PlanningModelCalls
         var call = state.PendingCall;
         if (call.Purpose != purpose) throw new PlanningConflictException("Complete the pending request before changing planning phases.");
         ValidateEvidenceAddresses(call);
-        var response = await runtime.CallAsync(call.Request, purpose, ct);
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
+        LLMResponse response;
+        try { response = await runtime.CallAsync(call.Request, purpose, ct); }
+        catch
+        {
+            if (activeMeasurement is not null) activeMeasurement.Result = "no_retained_completion";
+            throw;
+        }
+        finally
+        {
+            if (activeMeasurement is not null)
+            {
+                activeMeasurement.DurationMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+                activeMeasurement.DurationBasis = "host_invocation_including_receipt_recovery";
+            }
+        }
+        if (activeMeasurement is not null)
+        {
+            activeMeasurement.Result = response.CompletionStatus ?? "complete";
+            activeMeasurement.IssuedOutputTokens = call.Request.MaxTokens;
+            activeMeasurement.InputTokens = Tokens(response.Usage, "input_tokens", "prompt_tokens");
+            activeMeasurement.OutputTokens = Tokens(response.Usage, "output_tokens", "completion_tokens");
+            activeMeasurement.ReasoningTokens = Tokens(response.Usage, "reasoning_tokens") ??
+                Tokens((response.Usage as JsonObject)?["output_tokens_details"], "reasoning_tokens") ??
+                Tokens((response.Usage as JsonObject)?["completion_tokens_details"], "reasoning_tokens");
+            var admitted = state.RequestMeasurements!.Where(measurement => measurement.Admission == "admitted").ToArray();
+            activeMeasurement.CumulativeInputTokens = CumulativeTokens(admitted.Select(measurement => measurement.InputTokens));
+            activeMeasurement.CumulativeOutputTokens = CumulativeTokens(admitted.Select(measurement => measurement.OutputTokens));
+        }
         correction?.Received();
         state.PendingCall = null;
-        if (response.CompletionStatus == "output_limit") throw new WorkflowRuntimeException("MODEL_OUTPUT_LIMIT", "The model response was truncated; no output limit escalation is performed.", details: new JsonObject { ["location"] = "/phases/" + purpose });
-        var json = response.Json?.DeepClone() ?? JsonNode.Parse(response.Text) ?? throw new JsonException("The model returned an empty response.");
+        if (response.CompletionStatus == "output_limit") throw new WorkflowRuntimeException("MODEL_OUTPUT_LIMIT",
+            $"The provider returned incomplete output: allocation {call.Request.MaxTokens}, reported output {activeMeasurement?.OutputTokens?.ToString() ?? "unknown"}, " +
+            $"reasoning {activeMeasurement?.ReasoningTokens?.ToString() ?? "unknown"}. No fragment was accepted; this response cannot authorize replay or allocation escalation.",
+            details: new JsonObject { ["location"] = "/phases/" + purpose, ["limit_kind"] = "provider_output_allocation",
+                ["limit"] = call.Request.MaxTokens, ["output_tokens"] = activeMeasurement?.OutputTokens,
+                ["reasoning_tokens"] = activeMeasurement?.ReasoningTokens, ["completion_status"] = response.CompletionStatus,
+                ["request_id"] = call.Id, ["replay_allowed"] = false });
+        JsonNode json;
+        try { json = response.Json?.DeepClone() ?? JsonNode.Parse(response.Text) ?? throw new JsonException("The model returned an empty response."); }
+        catch (JsonException)
+        {
+            if (activeMeasurement is not null) activeMeasurement.Result = "invalid_json";
+            throw;
+        }
         if (state.Construction is { } construction)
         {
             if (call.Request.MaxTokens is { } maximum)
@@ -138,9 +188,12 @@ internal static partial class PlanningModelCalls
                 if (reported is null && measured > maximum && PlanningTokenThresholds.Advisory(state.Request))
                     PlanningTokenThresholds.Warn(purpose, "estimated_response_tokens", measured, maximum);
                 if (measured > maximum && (reported.HasValue || !PlanningTokenThresholds.Advisory(state.Request)))
+                {
+                    if (activeMeasurement is not null) activeMeasurement.Result = "output_allowance_exceeded";
                     throw new WorkflowRuntimeException("MODEL_OUTPUT_LIMIT", "The completed construction response exceeded its issued output allowance; no fragment was accepted.", details: new JsonObject
                     { ["location"] = "/phases/" + purpose, ["limit"] = maximum, ["current"] = measured,
                         ["measurement"] = reported.HasValue ? "reported_output_tokens" : "conservative_serialized_response_tokens", ["unit"] = "tokens", ["stage"] = purpose });
+                }
             }
         }
         received?.Invoke(call, json.DeepClone());
@@ -148,6 +201,7 @@ internal static partial class PlanningModelCalls
         var findings = ValidateResponseFindings(json, call.Request.StructuredOutputSchema!);
         if (findings.Count != 0)
         {
+            if (activeMeasurement is not null) activeMeasurement.Result = "invalid_response";
             var rejectedHash = PlanningGraphCompiler.Fingerprint(json.ToJsonString());
             if (state.RejectedProposalHash == rejectedHash) throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The model repeated an unchanged invalid proposal.");
             state.RejectedProposalHash = rejectedHash;
@@ -163,6 +217,26 @@ internal static partial class PlanningModelCalls
         if (purpose == "replan" && state.Construction?.LastProposalHash == "proposal:" + PlanningGraphCompiler.Fingerprint(normalized.ToJsonString()))
             throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The correction repeated the same rejected construction action.");
         return normalized;
+    }
+
+    private static long? Tokens(JsonNode? usage, params string[] names)
+    {
+        if (usage is not JsonObject fields) return null;
+        foreach (var name in names)
+            if (long.TryParse(fields[name]?.ToString(), System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture, out var count) && count >= 0) return count;
+        return null;
+    }
+
+    private static long? CumulativeTokens(IEnumerable<long?> values)
+    {
+        long total = 0;
+        foreach (var value in values)
+        {
+            if (value is null || value.Value < 0 || value.Value > long.MaxValue - total) return null;
+            total += value.Value;
+        }
+        return total;
     }
 
 }

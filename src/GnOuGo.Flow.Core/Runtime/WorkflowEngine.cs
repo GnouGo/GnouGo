@@ -99,6 +99,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
 
     private async Task<RunResult> ExecuteCoreAsync(CompiledWorkflow workflow, JsonNode? inputs, CancellationToken ct)
     {
+        using var warnings = LLMUsageBudget?.ObserveTokenWarnings();
         // Before any external work, including an earlier step or workflow, require the
         // explicitly configured cumulative budget disclosed by adaptive artifacts.
         if (LLMUsageBudget is null)

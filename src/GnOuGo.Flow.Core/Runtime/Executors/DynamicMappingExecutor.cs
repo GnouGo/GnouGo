@@ -204,6 +204,7 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
             // Completed receipts returned above require no metadata or new call.
             // Newly dispatched learning requests include every bound source, even
             // when the declared output or iteration is small.
+            using var warnings = ctx.LLMUsageBudget?.ObserveTokenWarnings(request.ClientRequestId);
             await ModelRequestAdmission.ValidateAsync(request, ctx.Engine.LLMCapabilities ?? inferenceClient as ILLMCapabilityResolver,
                 ctx.Limits.MaxMappingInputTokens ?? 12_000, "mapping.dynamic", ct,
                 ctx.LLMUsageBudget?.AdvisoryTokenThresholds == true);

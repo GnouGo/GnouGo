@@ -7,6 +7,18 @@ namespace GnOuGo.Flow.Core.Planning;
 internal static class PlanningTokenThresholds
 {
     internal const string OptionName = "token_threshold_policy";
+    private static readonly AsyncLocal<Action<string, string, long, long>?> Observer = new();
+
+    internal static IDisposable Observe(Action<string, string, long, long> observer)
+    {
+        var previous = Observer.Value;
+        Observer.Value = (stage, kind, current, threshold) =>
+        {
+            previous?.Invoke(stage, kind, current, threshold);
+            observer(stage, kind, current, threshold);
+        };
+        return new Observation(previous);
+    }
 
     internal static bool Advisory(PlanningRequest request) => Advisory(request.Options);
 
@@ -24,7 +36,15 @@ internal static class PlanningTokenThresholds
             throw new PlanningConflictException("Campaign token-threshold authority cannot be enabled by a production planning host.");
     }
 
-    internal static void Warn(string stage, string kind, long current, long threshold) =>
+    internal static void Warn(string stage, string kind, long current, long threshold)
+    {
         Trace.TraceWarning("Advisory token threshold: stage={0}, kind={1}, current={2}, threshold={3}. Accounting and non-token guards remain enforced.",
             stage, kind, current, threshold);
+        Observer.Value?.Invoke(stage, kind, current, threshold);
+    }
+
+    private sealed class Observation(Action<string, string, long, long>? previous) : IDisposable
+    {
+        public void Dispose() => Observer.Value = previous;
+    }
 }

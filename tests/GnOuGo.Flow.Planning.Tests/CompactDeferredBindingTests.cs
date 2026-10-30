@@ -10,6 +10,32 @@ public sealed class CompactDeferredBindingTests
 {
     private const string Objective = "Produce the requested exact record without external changes.";
 
+    [Fact]
+    public async Task KnownClosedGroupAndRelatedCachedOperationBindInOneSelection()
+    {
+        var (state, runtime) = ReadyKnown();
+        state.Catalog!.Capabilities.Add(Contract());
+        state.Plan!.Groups.Add(new() { Id = "worker", Body = new() });
+        var pages = new Pages(); runtime.Capabilities = pages;
+        runtime.Respond = (request, purpose) =>
+        {
+            Assert.Equal(PlanningCompactConstruction.SelectPurpose, purpose);
+            var response = SelectKnown(state, "call", "read");
+            response["step"]!["groupId"] = "worker";
+            return Wire(request, response);
+        };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        var step = state.Construction!.Compact!.CurrentStep!;
+        Assert.Equal("call", step.Kind);
+        Assert.Equal("worker", step.GroupId);
+        Assert.Equal(["read"], step.OperationIds);
+        Assert.True(step.DiscoveryComplete);
+        Assert.Single(runtime.Calls);
+        Assert.Empty(pages.Cursors);
+        Assert.Empty(pages.Resolutions);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -259,11 +285,15 @@ public sealed class CompactDeferredBindingTests
     [InlineData("operation", 1, null, true)]
     [InlineData("operation", 2, null, true)]
     [InlineData("operation", 0, null, false)]
-    [InlineData("operation", 3, null, false)]
-    [InlineData("operation", 1, "worker", false)]
+    [InlineData("operation", 3, null, true)]
+    [InlineData("operation", 8, null, true)]
+    [InlineData("operation", 9, null, false)]
+    [InlineData("operation", 1, "worker", true)]
     [InlineData("call", 0, "worker", true)]
     [InlineData("call", 0, null, false)]
-    [InlineData("call", 1, "worker", false)]
+    [InlineData("call", 1, "worker", true)]
+    [InlineData("sequence", 2, null, true)]
+    [InlineData("group", 2, null, true)]
     [InlineData("close", 0, null, true)]
     [InlineData("close", 1, null, false)]
     [InlineData("close", 0, "worker", false)]
@@ -454,7 +484,8 @@ public sealed class CompactDeferredBindingTests
         Assert.Equal(0, state.ReplanAttempts);
         Assert.Empty(pages.Cursors);
         Assert.Equal(original, PlanningConstruction.Hash(state.Plan));
-        Assert.Equal(new[] { kind }, TaskKinds(PlanningCompactConstruction.DraftSchema(state)));
+        Assert.Equal(new[] { kind, "value", "transform" }.Distinct().Order(StringComparer.Ordinal),
+            TaskKinds(PlanningCompactConstruction.DraftSchema(state)).Order(StringComparer.Ordinal));
         Assert.Equal(kind == "operation", state.Construction!.Compact!.PendingCommitments["req_0"].Count == 1);
     }
 
@@ -714,7 +745,7 @@ public sealed class CompactDeferredBindingTests
     }
 
     [Fact]
-    public async Task SelectedProviderPaginationUsesFourReadsAndKeepsRemainingCursorWithoutSelectingOperations()
+    public async Task SelectedProviderPaginationContinuesAcrossHostCheckpointsWithoutAnotherModelDecision()
     {
         var (state, runtime) = Ready();
         var catalog = new Pages(); runtime.Capabilities = catalog;
@@ -727,12 +758,34 @@ public sealed class CompactDeferredBindingTests
         Assert.All(state.Discovery.Pages, page => Assert.Equal(Objective, page.Query));
         Assert.Null(state.Construction!.Compact!.CurrentStep!.Kind);
         Assert.Empty(state.Construction!.Compact!.CurrentStep.OperationIds);
-        runtime.Respond = (request, _) => Wire(request, Discover("4"));
+        runtime.Respond = (_, _) => throw new InvalidOperationException("An exact retained provider cursor needs no model decision.");
         state = await Advance(PlannerFixture.Clone(state), runtime);
         Assert.Empty(state.Diagnostics);
         Assert.Equal(new string?[] { null, "1", "2", "3", "4", "5" }, catalog.Cursors);
-        Assert.Equal(2, state.ModelCalls);
+        Assert.Equal(1, state.ModelCalls);
         Assert.Equal(0, state.ReplanAttempts);
+    }
+
+    [Fact]
+    public async Task ProviderPaginationSafetyCeilingRetainsTheExactPendingCursorWithoutAnotherReadOrModelCall()
+    {
+        var (state, runtime) = Ready();
+        var catalog = new Pages(); runtime.Capabilities = catalog;
+        runtime.Respond = (request, _) => Wire(request, Discover(null));
+        state = await Advance(state, runtime);
+        var action = state.Construction!.Compact!.CurrentStep!.PendingDiscovery!;
+        var pending = JsonSerializer.Serialize(action.Pending, PlanningJsonContext.Default.ListPlanningDiscoveryRequest);
+        // Restore a received action at its documented lifetime bound. The final
+        // cursor is still pending and must survive the refusal unchanged.
+        action.Visited.AddRange(Enumerable.Range(action.Visited.Count, 1024 - action.Visited.Count).Select(index => "received-page-" + index));
+        runtime.Respond = (_, _) => throw new InvalidOperationException("A bounded provider action does not ask the model to bypass its ceiling.");
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_DISCOVERY_LIMIT");
+        Assert.Equal(4, catalog.Cursors.Count);
+        Assert.Equal(4, state.Discovery.Pages.Count);
+        Assert.Equal(1, state.ModelCalls);
+        Assert.Equal(pending, JsonSerializer.Serialize(state.Construction!.Compact!.CurrentStep!.PendingDiscovery!.Pending,
+            PlanningJsonContext.Default.ListPlanningDiscoveryRequest));
     }
 
     [Fact]
@@ -784,8 +837,10 @@ public sealed class CompactDeferredBindingTests
         runtime.Respond = (_, _) => throw new InvalidOperationException("A received metadata action must resume without asking the model again.");
         var resumed = await Advance(saved, runtime);
         Assert.DoesNotContain(resumed.Diagnostics, d => d.Code is "PLANNING_HOST_FAILURE" or "MODEL_DISPATCH_UNVERIFIABLE");
+        if (resumed.Construction!.Compact!.CurrentStep!.PendingDiscovery is not null)
+            resumed = await Advance(PlannerFixture.Clone(resumed), runtime);
         Assert.Null(resumed.Construction!.Compact!.CurrentStep!.PendingDiscovery);
-        Assert.Equal(new string?[] { null, "1", "2", "3" }, catalog.Cursors);
+        Assert.Equal(new string?[] { null, "1", "2", "3", "4", "5" }, catalog.Cursors);
         Assert.Equal(1, resumed.ModelCalls);
         Assert.Equal(0, resumed.ReplanAttempts);
         Assert.Single(runtime.Calls);

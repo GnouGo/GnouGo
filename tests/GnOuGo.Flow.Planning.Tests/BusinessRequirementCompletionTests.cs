@@ -249,11 +249,11 @@ public sealed class BusinessRequirementCompletionTests
         state.Construction!.Compact!.CurrentStep = new()
         {
             Id = "build-work", BaseHash = PlanningConstruction.Hash(state.Plan), Scope = "/root", Kind = "value",
-            Objective = "Implement the original multiplication.", RequirementIds = ["work"], DiscoveryComplete = true
+            Objective = "Implement the original multiplication.", RequirementIds = ["work"], CloseRequirementIds = ["work"], DiscoveryComplete = true
         };
         state.Construction.Candidate = PlanningConstruction.Apply(state, new()
         {
-            Scope = "/root", RequirementIds = ["work"], Tasks = [new()
+            Scope = "/root", RequirementIds = ["work"], ContinueInScope = "/root", Tasks = [new()
             {
                 Id = "implemented-work", Kind = "value", Objective = "Double the actual caller number.",
                 Outputs = [new("result", new() { Kind = "arithmetic", Text = "multiply",
@@ -262,7 +262,7 @@ public sealed class BusinessRequirementCompletionTests
         });
         state = await Advance(state, runtime);
         Assert.Empty(runtime.Calls);
-        SetCloseStep(state);
+        Assert.Equal("build-work", state.Construction!.Compact!.CurrentStep!.Id);
         state.Construction!.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["work"] });
         runtime.Respond = (_, purpose) =>
         {

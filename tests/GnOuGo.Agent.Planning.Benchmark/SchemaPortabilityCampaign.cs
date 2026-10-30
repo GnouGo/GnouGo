@@ -82,7 +82,7 @@ internal static class SchemaPortabilityCampaign
         {
             Console.WriteLine((await LiveCampaignEvidence.ReportAsync(campaign, Option(args, "--cohort") ?? "final",
                 Option(args, "--source"), Option(args, "--amazon-cohort"), Option(args, "--code-cohort"),
-                Option(args, "--collections-cohort"))).ToJsonString());
+                Option(args, "--collections-cohort"), LiveWorkflowEvaluation.ExecutionStore(root))).ToJsonString());
             return;
         }
         if (phase == "replay-compile")
@@ -167,6 +167,9 @@ internal static class SchemaPortabilityCampaign
                 ["responses"] = responses,
                 ["runtime_mapping_receipts"] = mappings,
                 ["mapping_telemetry"] = saved["mapping_telemetry"]?.DeepClone(),
+                ["execution_model_usage"] = executionRun?.ModelUsage is { } executionUsage
+                    ? JsonSerializer.SerializeToNode(executionUsage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot)
+                    : saved["execution_model_usage"]?.DeepClone(),
                 ["runtime_llm_inputs"] = new JsonArray((executionRun?.Invocations.Values.Where(i => i.StepType == "llm.call" && i.ResolvedInput is JsonObject input && input["prompt"] is JsonValue) ?? [])
                     .Select(i => (JsonNode)new JsonObject { ["invocation"] = i.Id, ["status"] = i.Status,
                         ["observed_completion"] = i.ExternalCompletionObserved,

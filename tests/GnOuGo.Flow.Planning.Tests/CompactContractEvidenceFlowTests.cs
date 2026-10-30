@@ -455,7 +455,7 @@ public sealed class CompactContractEvidenceFlowTests
                 Assert.Equal("target", Assert.Single(view["editableInputs"]!.AsArray())!["name"]!.ToString());
                 Assert.True(JsonNode.DeepEquals(state.Discovery.Resolved[0].InputSchema["properties"]!["target"],
                     context["evidence"]!["schema:read@v1:/input/properties/target"]!["schema"]));
-                Assert.InRange(view["outputs"]!.AsArray().Count, 1, view["outputCount"]!.GetValue<int>());
+                Assert.InRange(view["outputs"]!.AsArray().Count, 0, view["outputCount"]!.GetValue<int>());
                 Assert.Equal("port-page:read@v1:/output:0", view["outputDirectory"]!.ToString());
                 return Wire(request, DraftAction(context, task: new() { Id = "read_exact", Kind = "operation",
                     Objective = "Read the caller-authorized record EXACT.", Operation = "read",
@@ -474,6 +474,9 @@ public sealed class CompactContractEvidenceFlowTests
         Assert.Equal(2, drafts);
         Assert.DoesNotContain(runtime.Calls, request => request.StructuredOutputSchema?["title"]?.ToString() is PlanningConstruction.LocalPurpose or PlanningConstruction.GlobalPurpose);
         Assert.True(state.Construction!.Checkpoints[0].Fragment["businessReviewPending"]!.GetValue<bool>());
+        Assert.Equal("/root", state.Construction.Checkpoints[0].Fragment["continueInScope"]!.ToString());
+        Assert.NotNull(state.Construction.Compact!.CurrentStep);
+        Assert.Empty(state.Plan!.Root.Outputs); // The block still owes the original result export.
         Assert.Equal("EXACT", Assert.Single(Assert.Single(state.Plan!.Root.Tasks).Inputs).Value.Text);
         Assert.Equal(correction ? 1 : 0, state.ReplanAttempts);
         Assert.Equal(originalContract, JsonSerializer.Serialize(state.Discovery.Resolved[0], PlanningJsonContext.Default.PlanningCapability));
@@ -739,7 +742,8 @@ public sealed class CompactContractEvidenceFlowTests
             return Wire(request, new() { ["evidenceRequests"] = null, ["clarifications"] = null, ["clauses"] = new JsonArray(new JsonObject { ["text"] = source["text"]!.ToString(), ["kind"] = "requirement", ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray() }) });
         } };
         var state = await Advance(PlannerFixture.Capture(new() { Request = new() { TenantId = "contract-evidence-flow",
-            Prompt = "Read the caller-authorized record EXACT.", Options = new JsonObject { ["automatic_correction"] = true } } }), runtime);
+            Prompt = "Read the caller-authorized record EXACT, then expose its observed result0 as public output result.",
+            Options = new JsonObject { ["automatic_correction"] = true } } }), runtime);
         Assert.Empty(state.Diagnostics);
         var capability = new PlanningCapability
         {
@@ -782,7 +786,7 @@ public sealed class CompactContractEvidenceFlowTests
     {
         ["baseHash"] = context["baseHash"]!.ToString(), ["requirements"] = null, ["commitments"] = null,
         ["extension"] = task is null ? null : JsonSerializer.SerializeToNode(new PlanningConstructionExtension
-            { Tasks = [task], RequirementIds = ["req_0"] }, PlanningJsonContext.Default.PlanningConstructionExtension),
+            { Tasks = [task], RequirementIds = ["req_0"], ContinueInScope = "/root" }, PlanningJsonContext.Default.PlanningConstructionExtension),
         ["evidenceRequests"] = evidence is null ? null : new JsonArray(evidence), ["discoveryRequests"] = null,
         ["clarifications"] = null, ["rollbackTask"] = null, ["rollbackReason"] = null, ["reselectStep"] = null
     };

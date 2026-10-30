@@ -67,7 +67,7 @@ public sealed partial class HybridWorkflowPlanner
         var construction = state.Construction!;
         var limits = construction.Limits;
         if (limits.MaxTasksPerDraft is < 1 or > 32 || limits.MaxCheckpoints is < 1 or > 1024 ||
-            limits.MaxCorrectionsPerDraft is < 0 or > 64 ||
+            limits.MaxCorrectionsPerDraft is < 0 or > 64 || limits.MaxNonProductiveModelCalls is < 1 or > 64 ||
             limits.DraftOutputTokens is < 1 or > 65536 || limits.ReviewOutputTokens is < 1 or > 65536)
             throw new PlanningConflictException("The captured construction contract or limits are unsupported.");
         { await AdvanceCompactConstructionAsync(state, runtime, ct); return; }
@@ -119,8 +119,13 @@ public sealed partial class HybridWorkflowPlanner
             request.Prompt, request.StructuredOutputSchema!.AsObject(), ct, construction.Limits.DraftOutputTokens, correction,
             received: (call, _) => completedCall = call);
         request = PlanningModelCalls.CanonicalEvidenceRequest(completedCall!);
-        construction.LastProposalHash = "proposal:" + PlanningGraphCompiler.Fingerprint(response.ToJsonString());
-        if (construction.FailedCandidates.Contains(construction.LastProposalHash, StringComparer.Ordinal))
+        var previousAttempt = construction.LastProposalHash;
+        var legacyAttempt = "proposal:" + PlanningGraphCompiler.Fingerprint(response.ToJsonString());
+        construction.LastProposalHash = "strategy:" + CompactActionFingerprint(state,
+            PlanningProgress.Strategy(state, PlanningConstruction.DraftPurpose, response));
+        if (repair && previousAttempt == construction.LastProposalHash ||
+            construction.FailedCandidates.Contains(construction.LastProposalHash, StringComparer.Ordinal) ||
+            construction.FailedCandidates.Contains(legacyAttempt, StringComparer.Ordinal))
             throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The model repeated an invalid construction action. No budget was reset.");
         var reselection = response["reselectStep"] is { } selected
             ? PlanningCompactConstruction.ReadReselection(state, selected, request.StructuredOutputSchema!) : null;
@@ -223,7 +228,7 @@ public sealed partial class HybridWorkflowPlanner
         if (repair && previous is not null && proposal.Extension!.Scope != previous.Extension.Scope)
             PlanningConstruction.Fail("REVISION_SCOPE_CHANGED", "/extension/scope", "Correction cannot move the tentative extension to another scope.");
         var next = PlanningConstruction.Apply(state, proposal.Extension!);
-        PlanningCompactConstruction.StageCommitments(state, proposal.Commitments);
+        PlanningCompactConstruction.StageCommitments(state, proposal.Commitments, next);
         PlanningCompactConstruction.ValidateExtension(state, next);
         if (state.Request.Mode == PlanningMode.Auto)
         {
@@ -440,7 +445,7 @@ public sealed partial class HybridWorkflowPlanner
         {
             Sequence = construction.Checkpoints.Count + 1, BaseHash = draft.BaseHash, PlanHash = draft.Hash,
             TaskIds = draft.TaskIds, ImportedTaskIds = draft.ImportedTaskIds, RequirementIds = draft.Extension.RequirementIds,
-            ClosedRequirementIds = construction.Compact!.CurrentStep!.CloseRequirementIds.ToList(),
+            ClosedRequirementIds = PlanningCompactConstruction.CandidateCompletionClaims(state).ToList(),
             Step = PlanningConstruction.Node(construction.Compact!.CurrentStep,
                 PlanningJsonContext.Default.PlanningConstructionStep)!.Deserialize(PlanningJsonContext.Default.PlanningConstructionStep),
             ClosedScopes = draft.Extension.CloseScopes, Reviews = draft.Reviews,
@@ -455,6 +460,7 @@ public sealed partial class HybridWorkflowPlanner
         };
         {
             checkpoint.Fragment["complete"] = draft.Extension.Complete;
+            if (draft.Extension.ContinueInScope is { } continuation) checkpoint.Fragment["continueInScope"] = continuation;
             if (draft.Extension.Groups.Count > 0)
                 checkpoint.Fragment["groups"] = new JsonArray(draft.Extension.Groups.Select(g => (JsonNode?)JsonValue.Create(g.Id)).ToArray());
             if (draft.Extension.Choices.Count > 0)
@@ -524,8 +530,14 @@ public sealed partial class HybridWorkflowPlanner
             step.BaseHash != PlanningConstruction.Hash(state.Plan) || action.ActionHash != DiscoveryActionHash(step, action.Requests) ||
             action.Requests.Count is < 1 or > 4 || action.RemainingReads is < 0 or > 4)
             throw new PlanningConflictException("The retained discovery action no longer matches its exact business step.");
+        // Four reads bound one host transition, not one semantic decision.
+        // Resume the exact selected pagination action without another LLM call.
+        if (action.RemainingReads == 0 && action.Pending.Count > 0) action.RemainingReads = 4;
         while (action.RemainingReads > 0 && action.Pending.Count > 0)
         {
+            if (action.Visited.Count >= 1024)
+                throw new WorkflowRuntimeException("CONSTRUCTION_DISCOVERY_LIMIT",
+                    "This selected provider action reached its 1024-page safety allowance. Its received pages and exact remaining cursor are retained.");
             var request = action.Pending[0];
             var identity = JsonSerializer.Serialize(new List<PlanningDiscoveryRequest> { request }, PlanningJsonContext.Default.ListPlanningDiscoveryRequest);
             if (request.Query != step.Objective || request.OperationIds is not null || request.ProducedArtifactKind is not null ||
@@ -557,6 +569,7 @@ public sealed partial class HybridWorkflowPlanner
             }
             await runtime.CheckpointAsync(state, ct);
         }
+        if (action.Pending.Count > 0) return;
         PlanningCompactConstruction.RemoveStaleDiscoveryDirectories(state);
         var purpose = PlanningCompactConstruction.DiscoveryPurpose;
         var followup = PlanningCompactConstruction.Request(state, PlanningCompactConstruction.DiscoveryGuidance(state), PlanningCompactConstruction.DiscoveryContext(state),

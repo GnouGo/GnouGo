@@ -39,11 +39,36 @@ internal static class CompactConstructionSmoke
         var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject(), CancellationToken.None);
         if (!result.Success || result.Outputs?["result"]?.GetValue<double>() != 42)
             throw new InvalidOperationException("The current TaskPlan did not execute its independently checked numeric result.");
+        await StringMappingAsync(reviewed.Catalog!);
         var archive = JsonSerializer.SerializeToNode(reviewed, PlanningJsonContext.Default.PlanningSession)!;
         archive["schemaVersion"] = 10;
         try { PlanningSessionStorage.Read(archive.ToJsonString(), "smoke", "current-recovery"); }
         catch (PlanningConflictException) { Console.WriteLine("current construction: four calls, exact global receipt recovery, explicit approval, format-11 rejection and executed result passed"); return; }
         throw new InvalidOperationException("The obsolete planning format was accepted.");
+    }
+
+    private static async Task StringMappingAsync(PlanningCatalog catalog)
+    {
+        var plan = new TaskPlan
+        {
+            Inputs = [new() { Name = "query", Type = new() { Kind = "string" } }],
+            Root = new() { Outputs = [new("result", new() { Kind = "string_operation", Text = "concat", Items =
+            [new() { Kind = "string", Text = "https://example.test/?q=" }, new() { Kind = "string_operation", Text = "uri_component",
+                Items = [new() { Kind = "input", Source = "query" }] }] })] }
+        };
+        var compilation = new TaskPlanCompiler().Compile(plan, catalog);
+        if (compilation.Diagnostics.Count != 0) throw new InvalidOperationException("Native string mapping failed technical validation.");
+        var yaml = new PlanningGraphCompiler().Compile(compilation.Graph!, catalog, "native-strings", descriptions: true,
+            fuseBindings: true, consumerBindings: true, directProjections: true, nativeMappings: true, readableMappings: true,
+            leanMappings: true, compactProjections: true, inlineConsumers: true, directValues: true, checkedControls: true,
+            readableBranches: true, simplifiedLocals: true);
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
+        // No model client or MCP factory exists in this execution.
+        var result = await new WorkflowEngine().ExecuteAsync(document.Workflows[document.Entrypoint!],
+            new JsonObject { ["query"] = "tea & café" }, CancellationToken.None);
+        if (!result.Success || result.Outputs?["result"]?.GetValue<string>() != "https://example.test/?q=tea%20%26%20caf%C3%A9")
+            throw new InvalidOperationException("Native string mapping changed Unicode escaping or required runtime inference.");
+        Console.WriteLine("current string mappings: consumer-local concat and URI component executed without model or MCP calls");
     }
 
     private sealed class SavedReview(string exact) : IPlanningRuntime

@@ -19,6 +19,25 @@ public sealed class BenchmarkAdmissionTests
     private static LLMOptions Options() => new() { DefaultProvider = "fixture", DefaultModel = "pinned",
         Models = { ["fixture"] = new() { Type = "openai" } } };
 
+    [Fact]
+    public void TrustedExecutionOutputThresholdIsAnObservableWarningAndStrictRequestsStillRejectIt()
+    {
+        var request = new LLMRequest { ClientRequestId = "execution-warning", Model = "pinned", Prompt = "Exact approved request", MaxTokens = 32769 };
+        var budget = new LLMUsageBudgetScope(true, new() { MaxCalls = 1 });
+        using (budget.ObserveTokenWarnings(request.ClientRequestId))
+        {
+            var dispatched = KeyVaultBenchmarkModel.CreateDispatchRequest(request, "fixture", "pinned", execution: true, advisoryTokens: true);
+            Assert.Equal(32769, dispatched.MaxTokens);
+            Assert.Equal(request.Prompt, dispatched.Prompt);
+        }
+        var warning = Assert.Single(budget.Snapshot.Warnings!);
+        Assert.Equal(new PlanningThresholdWarning("declared_output_tokens", 32769, 32768, "host_budget_measurement", "execution")
+            { RequestId = request.ClientRequestId }, warning);
+        Assert.Equal(0, budget.Snapshot.Calls);
+        Assert.Equal(32769, request.MaxTokens);
+        Assert.Throws<WorkflowRuntimeException>(() => KeyVaultBenchmarkModel.CreateDispatchRequest(request, "fixture", "pinned", execution: true));
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

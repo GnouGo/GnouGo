@@ -3,6 +3,7 @@ using System.Text.Json;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
+using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using Xunit;
 
@@ -20,6 +21,26 @@ public sealed class AgentTaskTests
         Assert.Equal(success, result.Success);
         Assert.Equal(1, runner.Dispatches);
         if (!success) Assert.Equal("AGENT_BUDGET_EXCEEDED", result.Error!.Code);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AggregateAgentWarningsStayInTheExistingRunJournalWhenVerificationSucceedsOrFails(bool invalidEvidence)
+    {
+        var store = new InMemoryWorkflowRunStore();
+        var observed = Result() with { Usage = new(1, 1001, 1) };
+        if (invalidEvidence) observed = observed with { Evidence = [] };
+        var result = await Execute(new Runner { Result = observed }, store, advisoryTokens: true);
+        Assert.Equal(!invalidEvidence, result.Success);
+        if (invalidEvidence) Assert.Equal("AGENT_VERIFICATION_FAILED", result.Error!.Code);
+        var run = (await store.ReadAsync("tenant", "run", TestContext.Current.CancellationToken))!;
+        var saved = JsonSerializer.Serialize(run.ModelUsage!, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
+        var restored = JsonSerializer.Deserialize(saved, PlanningJsonContext.Default.LLMUsageBudgetSnapshot)!;
+        var warning = Assert.Single(restored.Warnings!);
+        Assert.Equal("agent.run", warning.Stage); Assert.Equal("total_tokens", warning.Kind);
+        Assert.Equal(1001, warning.Current); Assert.Equal(1000, warning.Threshold); Assert.Null(warning.RequestId);
+        Assert.Equal(0, restored.Calls);
     }
 
     [Theory]
@@ -167,6 +188,8 @@ public sealed class AgentTaskTests
         if (advisoryTokens) recovered.LLMUsageBudget = new LLMUsageBudgetScope(true, new() { MaxCalls = 8 });
         var invocation = Assert.Single(saved.Invocations.Values, i => i.StepType == "agent.run");
         var reconciled = await recovered.ReconcileAsync("tenant", "run", saved.Revision, invocation.Id, null, ct);
+        if (advisoryTokens)
+            Assert.Equal("agent.run", Assert.Single(reconciled.ModelUsage!.Warnings!).Stage);
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(saved.WorkflowYaml));
         var result = await recovered.ResumeAsync("tenant", "run", reconciled.Revision, document.Workflows["main"], ct);
         Assert.Equal(!fabricated, result.Success);

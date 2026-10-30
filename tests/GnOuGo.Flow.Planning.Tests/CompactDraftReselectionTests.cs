@@ -203,7 +203,13 @@ public sealed class CompactDraftReselectionTests
         var (state, runtime) = await Ready();
         runtime.Respond = (request, _) => new() { Json = Reselect(request) };
         state = await Advance(state, runtime);
-        runtime.Respond = (request, _) => Wire(request, Selection(request, "value"));
+        runtime.Respond = (request, _) =>
+        {
+            var repeated = Selection(request, "value");
+            repeated["step"]!["inputs"] = new JsonArray(new JsonObject
+                { ["kind"] = "output", ["source"] = "accepted", ["port"] = "retained" });
+            return Wire(request, repeated);
+        };
         state = await Advance(state, runtime);
         runtime.Respond = (request, _) => new() { Json = Reselect(request) };
         state = await Advance(state, runtime);

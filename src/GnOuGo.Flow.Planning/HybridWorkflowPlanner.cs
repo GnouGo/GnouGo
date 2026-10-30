@@ -137,6 +137,7 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
                     if (state.Construction is not null)
                     {
                         ReviseConstruction(state, command);
+                        PlanningProgress.RecordOriginal(state, command.Text!);
                         break;
                     }
                     PlanningClarifications.Revise(state, command.PreserveRequirements == true, command.EditablePaths); break;
@@ -184,6 +185,7 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
         { state.Diagnostics = [new("PLANNING_RESPONSE_INVALID", "/", "The response does not satisfy the issued planning contract.")]; Stop(state); }
         catch (Exception)
         { state.Diagnostics.Add(new(state.PendingCall is null ? "PLANNING_HOST_FAILURE" : "MODEL_DISPATCH_UNVERIFIABLE", "/", "Planning could not safely complete this operation.")); Stop(state); }
+        if (command.Kind == "advance") PlanningProgress.Record(state);
         state.ActiveMilliseconds += elapsed.Elapsed.TotalMilliseconds;
         state.Revision++; state.UpdatedAtUtc = _time.GetUtcNow();
         if (PlanningStatus.IsWaiting(state.Status)) state.WaitingSinceUtc = state.UpdatedAtUtc;

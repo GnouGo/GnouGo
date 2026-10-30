@@ -306,8 +306,10 @@ public sealed class CompactConstructionTests
             var task = Value("child_" + i);
             if (kind == "foreach") task.Outputs[0] = new("message", new() { Kind = "item" });
             var port = kind == "parallel" && i == 1 ? "other" : "message";
-            steps.Add(("value", scope, new() { Scope = scope, Tasks = [task], Outputs = [new(port, new() { Kind = "output", Source = task.Id, Port = "message" })],
-                CloseScopes = [scope], RequirementIds = ["req_0"] }));
+            var child = kind == "parallel" ? container.Branches[i] : i == 0 ? container.Body! : container.Otherwise!;
+            child.Tasks = [task];
+            child.Outputs = [new(port, new() { Kind = "output", Source = task.Id, Port = "message" })];
+            steps[0].Extension.CloseScopes.Add(scope);
         }
         steps.Add(("close", "/root", new() { Outputs = [new("message", new() { Kind = "output", Source = "scope_work", Port = "message" })],
             CloseScopes = ["/root"], Complete = true, RequirementIds = ["req_0"] }));
@@ -326,7 +328,6 @@ public sealed class CompactConstructionTests
                 var next = steps[index];
                 response = Select(request, next.Kind, next.Scope, close: index == steps.Count - 1,
                     inputs: index == steps.Count - 1 ? ["scope_work"] : []);
-                if (kind == "foreach" && index == 1) response["step"]!["inputs"] = new JsonArray(new JsonObject { ["kind"] = "item" });
             }
             else if (purpose == PlanningConstruction.DraftPurpose) response = Draft(request, steps[index++].Extension);
             else response = Reviewed();
@@ -1096,9 +1097,10 @@ public sealed class CompactConstructionTests
                 }
                 var extension = step++ switch
                 {
-                    0 => new PlanningConstructionExtension { Groups = [new() { Id = "reusable", Inputs = [new() { Name = "word", Type = new() { Kind = "string" } }] }], RequirementIds = ["req_0"] },
-                    1 => new() { Scope = "/groups/reusable/body", Tasks = [new() { Id = "assemble", Kind = "value", Objective = "Return the supplied word.",
-                        Outputs = [new("message", new() { Kind = "input", Source = "word" })] }],
+                    0 => new PlanningConstructionExtension { Groups = [new() { Id = "reusable", Inputs = [new() { Name = "word", Type = new() { Kind = "string" } }],
+                        Body = new() { Tasks = [new() { Id = "assemble", Kind = "value", Objective = "Return the supplied word.",
+                            Outputs = [new("message", new() { Kind = "input", Source = "word" })] }] } }], RequirementIds = ["req_0"] },
+                    1 => new() { Scope = "/groups/reusable/body",
                         Outputs = [new("message", new() { Kind = "output", Source = "assemble", Port = "message" })], CloseScopes = ["/groups/reusable/body"], RequirementIds = ["req_0"] },
                     _ => new() { Tasks = [new() { Id = "invoke", Kind = "call", Group = "reusable", Objective = "Return the greeting using the requested reusable group.",
                         Inputs = [new("word", new() { Kind = "string", Text = "Hello" })] }],

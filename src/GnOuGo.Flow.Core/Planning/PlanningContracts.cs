@@ -184,6 +184,9 @@ public sealed class PlanningModelCall
 /// <summary>Exact navigation authority captured with one issued model request.</summary>
 public sealed class PlanningEvidenceAddresses
 {
+    /// <summary>Fresh business reviews also use this exact map for implementation identities.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool ReviewImplementationIds { get; set; }
     public string RequestHash { get; set; } = "";
     public string RequestBasisHash { get; set; } = "";
     public string MapHash { get; set; } = "";

@@ -708,12 +708,13 @@ public sealed partial class TaskPlanCompiler
                 if (scope.Parent is null) Fail("TASK_PRESENCE_SCOPE", "Presence requires a preceding task in this scope or a lexical ancestor. A scope export exposes data, not the inner task's completion." + _symbols.ReferenceContext(_location, value.Source));
                 break;
             case "arithmetic": return Arithmetic(value, scope);
+            case "string_operation": return StringOperation(value, scope);
             case "predicate": return Predicate(value, scope);
             case "json": return EncodeJson(value, scope);
             case "flatten": return Flatten(value, scope);
             case "lookup": return Lookup(value, scope);
             case "field": return SelectField(value, scope, consume);
-            default: Fail("TASK_VALUE_INVALID", "Values allow literals, business references, declared fields, JSON encoding, typed arithmetic and predicates only."); break;
+            default: Fail("TASK_VALUE_INVALID", "Values allow literals, business references, declared fields, JSON encoding, typed string operations, arithmetic and predicates only."); break;
         }
         if (value.Kind == "output" && scope.FailurePath && value.Source is not null)
             return CaptureFailureOutput(value, scope, consume);
@@ -773,6 +774,17 @@ public sealed partial class TaskPlanCompiler
             scope.Target.Add(node); _sources[key] = _location;
         }
         return Output(key, "set", ["value"], value.Schema) with { TypeLocation = value.TypeLocation };
+    }
+
+    private Bound StringOperation(TaskValue value, Scope scope)
+    {
+        if (value.Source is not null || value.Port is not null || value.Predicate is not null || value.Number is not null ||
+            value.Boolean is not null || value.Members.Count != 0)
+            Fail("TASK_STRING_OPERATION_INVALID", "String operation contains unsupported fields.");
+        var operands = value.Items.Select(item => Value(item, scope)).ToArray();
+        var computation = new PlanningValue { Kind = "string_operation", Text = value.Text, Items = operands.Select(operand => operand.Value).ToList() };
+        try { return new(computation, PlanningValues.ComputationContract(computation, operand => operands.First(item => ReferenceEquals(item.Value, operand)).Schema)); }
+        catch (InvalidOperationException error) { Fail("TASK_STRING_OPERATION_INVALID", error.Message); throw; }
     }
 
     private Bound Arithmetic(TaskValue value, Scope scope)

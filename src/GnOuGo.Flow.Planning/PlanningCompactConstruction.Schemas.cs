@@ -5,7 +5,7 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningCompactConstruction
 {
-    internal const string ValueSemantics = "value only copies, projects or assembles typed values using declared arithmetic, predicates, lookup, flatten and JSON encoding. It cannot concatenate or format strings, URL-encode or interpolate literals; its objective adds no computation.";
+    internal const string ValueSemantics = "value copies, projects or assembles typed values using declared arithmetic, predicates, lookup, flatten, JSON encoding and string_operation concat or uri_component. It has no implicit formatting or interpolation; its objective adds no computation.";
     internal const string RollbackSemantics = "Rollback reconstructs every invalidated task in its original scope, phase and order; it cannot discard accepted work. Preserve original objectives, effects, literal arguments, assertions, decisions and iteration limits. Any reference repair must still pass validation. Explain the reconstruction defect in rollbackReason and retrieve exact originals as needed.";
 
     internal static (bool CloseScope, bool Complete) ClosurePresentation(PlanningSession state, PlanningConstructionStep? selected = null)
@@ -22,9 +22,7 @@ internal static partial class PlanningCompactConstruction
                 if (parent.Path == step.Scope) return true;
             return false;
         });
-        // Fresh container presentations leave their empty child bodies for later steps.
-        var opensContainer = step.Kind is "group" or "sequence" or "conditional" or "parallel" or "foreach";
-        var canClose = !hasOpenChild && !opensContainer;
+        var canClose = !hasOpenChild;
         var canComplete = canClose && open.All(path => path == step.Scope) &&
             !compact.Sources.Any(s => s.Kind is "page" or "answer_page" or "revision_page" && !s.Indexed) &&
             construction.Requirements.All(r => step.CloseRequirementIds.Contains(r.Id, StringComparer.Ordinal) ||
@@ -40,15 +38,33 @@ internal static partial class PlanningCompactConstruction
         var kind = step.Kind ?? throw new PlanningConflictException("Bind the immediate step implementation before issuing TaskPlan grammar.");
         var definitions = PlanningSchemas.ConstructionDefinitions(state, kind);
         var tasks = definitions["task"]!["anyOf"]!.AsArray();
-        if (step.Kind == "operation")
+        tasks.Clear();
+        var kinds = BusinessFragmentKinds(state);
+        foreach (var allowed in kinds.Where(allowed => allowed != "operation"))
+            foreach (var shape in PlanningSchemas.TaskShapes(state, allowed)) tasks.Add(shape);
+        if (step.OperationIds.Count > 0)
             foreach (var capability in SelectedContracts(state)) tasks.Add((JsonNode)OperationTask(capability));
-        if (step.Kind == "call" && step.GroupId is not null)
-            foreach (var task in tasks) task!["properties"]!["group"] = PlanningSchemas.Enum(step.GroupId);
+        if (step.GroupId is not null)
+            foreach (var task in tasks.Where(task => task?["properties"]?["kind"]?["enum"]?.AsArray().Any(value => value?.ToString() == "call") == true))
+                task!["properties"]!["group"] = PlanningSchemas.Enum(step.GroupId);
 
-        // Opening a container establishes its interface/control input, not a
-        // second recursive planning request. Child bodies are subsequent steps.
-        definitions["scope"] = PlanningSchemas.Object(("tasks", EmptyArray()), ("outputs", EmptyArray()), ("always", EmptyArray()));
         var maximum = state.Construction.Limits.MaxTasksPerDraft;
+        var nestedTask = "task";
+        if (SupportsBusinessFragment(kind) && NestedControlKinds.Except(kinds, StringComparer.Ordinal).ToArray() is { Length: > 0 } controls)
+        {
+            // Only descendants may compose different control kinds. Exact selected
+            // operations/calls stay shared with the top-level anchor grammar.
+            var nested = new JsonArray((JsonNode)PlanningSchemas.Ref("task"));
+            foreach (var control in controls)
+                foreach (var shape in PlanningSchemas.TaskShapes(state, control)) nested.Add(shape);
+            definitions["nestedTask"] = new JsonObject { ["anyOf"] = nested };
+            nestedTask = "nestedTask";
+        }
+        // Related technical work shares one bounded recursive TaskPlan fragment.
+        // Apply counts descendants, so nesting cannot evade the task allowance.
+        definitions["scope"] = PlanningSchemas.Object(("tasks", PlanningSchemas.Array(PlanningSchemas.Ref(nestedTask), 0, maximum)),
+            ("outputs", PlanningSchemas.Array(PlanningSchemas.Ref("output"), 0, maximum)),
+            ("always", PlanningSchemas.Array(PlanningSchemas.Ref(nestedTask), 0, maximum)));
         var taskArray = tasks.Count == 0 ? EmptyArray() : PlanningSchemas.Array(PlanningSchemas.Ref("task"), 0, maximum);
         var outputs = PlanningSchemas.Array(PlanningSchemas.Ref("output"), 0, maximum);
         if (step.Scope == "/root")
@@ -58,16 +74,32 @@ internal static partial class PlanningCompactConstruction
                 ("value", PlanningSchemas.Ref("value"))), 0, maximum);
         }
         var closure = ClosurePresentation(state);
+        var createsScopes = step.Kind == "group" && !BlockAnchorConstructed(state) || kinds.Any(NestedControlKinds.Contains);
+        var scopeChoices = new JsonArray();
+        if (closure.CloseScope) scopeChoices.Add((JsonNode)PlanningSchemas.Enum(step.Scope));
+        if (createsScopes)
+        {
+            var childScope = Text(192);
+            childScope["pattern"] = "^/(tasks|groups)/";
+            scopeChoices.Add((JsonNode)childScope);
+        }
+        var closeScopes = scopeChoices.Count == 0 ? EmptyArray() : PlanningSchemas.Array(scopeChoices.Count == 1
+            ? scopeChoices[0]!.DeepClone().AsObject() : new JsonObject { ["anyOf"] = scopeChoices }, 0, createsScopes ? null : 1);
         var completion = PlanningSchemas.Type("boolean");
         if (!closure.Complete) completion["enum"] = new JsonArray(false);
         var extension = PlanningSchemas.Object(("scope", PlanningSchemas.Enum(step.Scope)),
             ("tasks", taskArray), ("always", taskArray.DeepClone().AsObject()), ("outputs", outputs),
-            ("groups", step.Kind == "group" ? PlanningSchemas.Array(PlanningSchemas.Ref("group"), 0, 1) : EmptyArray()),
+            ("groups", step.Kind == "group" && !BlockAnchorConstructed(state) ? PlanningSchemas.Array(PlanningSchemas.Ref("group"), 0, 1) : EmptyArray()),
             ("choices", step.Kind == "choice" ? PlanningSchemas.Array(PlanningSchemas.Ref("choice"), 0, 1) : EmptyArray()),
-            ("closeScopes", closure.CloseScope ? PlanningSchemas.Array(PlanningSchemas.Enum(step.Scope), 0, 1) : EmptyArray()),
+            ("closeScopes", closeScopes),
             ("requirementIds", step.RequirementIds.Count == 0 ? EmptyArray() :
                 PlanningSchemas.Array(PlanningSchemas.Enum(step.RequirementIds.ToArray()), 0, step.RequirementIds.Count)),
             ("complete", completion));
+        if (SupportsBusinessFragment(step.Kind))
+        {
+            extension["properties"]!["continueInScope"] = PlanningSchemas.Nullable(Text(192));
+            extension["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("continueInScope"));
+        }
         if (step.Kind == "close" && step.CloseScopes is { } selectedClosure)
         {
             extension["properties"]!["closeScopes"] = selectedClosure.Count == 0 ? EmptyArray() :
@@ -222,8 +254,8 @@ internal static partial class PlanningCompactConstruction
     {
         var scope = new TaskPlanSymbols(state.Plan ?? new TaskPlan()).Scopes.SingleOrDefault(s => s.Path == step.Scope);
         var hints = new List<string> { ReusableGroupSemantics, SelectedExpectationsSemantics };
-        if (step.Kind is "group" or "sequence" or "conditional" or "parallel" or "foreach")
-            hints.Add("A necessary opening establishes a control, reuse, cleanup or export boundary with empty children; it does not perform their business action. Do not consume or export the new container's outputs until its children are complete and closed. If the selected outputNames or closeRequirementIds depend on those children, use reselectStep when offered to select only the opening, retaining its original requirements.");
+        if (SupportsBusinessFragment(step.Kind))
+            hints.Add("Build one coherent business block with its related value/transform helpers and selected operations. The recursive task allowance includes child bodies and cleanup. continueInScope names an exact original or block-owned open scope only when more work remains in this same block; null claims the block finished. A continuation does not close original requirements or discharge consumers. Close completed child bodies explicitly; unfinished containers expose no usable result.");
         if (step.Kind is not ("group" or "choice" or "close"))
         {
             hints.Add("dependsOn names preceding same-scope tasks only; data bindings already imply dependencies and ancestor values use captures. requires is a Boolean assertion: false fails.");
@@ -249,7 +281,7 @@ internal static partial class PlanningCompactConstruction
             hints.Add("Parallel sibling branches are independent and their exported names must be distinct; maxConcurrency limits simultaneous branches.");
         if (step.Kind == "group" || scope is { Parent: null } && step.Scope != "/root")
             hints.Add("A reusable group has isolated named inputs; its body cannot capture caller inputs or tasks. Close its body before selecting a call.");
-        if (step.Kind == "call")
+        if (step.GroupId is not null)
             hints.Add("Bind the selected closed group's declared input names; its explicit exports are the call's output ports.");
         if (step.Kind == "close")
             hints.Add("A close step may finish a scope while broader requirements remain open, or confirm satisfied closeRequirementIds with empty closeScopes. Withdraw premature selected closeRequirementIds via reselectStep, preserving scope and requirementIds; an unchanged draft preserves the claim. Add needed final exports without rewriting accepted work. Close children before their parent, and root only when all scopes and original requirements are complete, with complete:true.");

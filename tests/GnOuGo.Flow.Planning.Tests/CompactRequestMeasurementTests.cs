@@ -10,6 +10,73 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CompactRequestMeasurementTests
 {
     [Theory]
+    [InlineData("[]")]
+    [InlineData("42")]
+    [InlineData("{\"output_tokens_details\":42,\"completion_tokens_details\":[]}")]
+    public async Task MalformedOptionalUsageMetricsDoNotInvalidateACompletedResponse(string usage)
+    {
+        var state = PlannerFixture.Session();
+        var runtime = new TestRuntime { Respond = (_, _) => new() { Json = new JsonObject { ["value"] = "received" }, Usage = JsonNode.Parse(usage) } };
+        var response = await PlanningModelCalls.CallAsync(state, runtime, PlanningCompactConstruction.SelectPurpose, "Read the requested value.",
+            PlanningSchemas.Object(("value", PlanningSchemas.String())), PlannerFixture.Ct);
+        Assert.Equal("received", response["value"]!.ToString()); Assert.Null(state.PendingCall);
+        var measured = Assert.Single(state.RequestMeasurements!);
+        Assert.Equal("complete", measured.Result); Assert.Null(measured.InputTokens); Assert.Null(measured.OutputTokens); Assert.Null(measured.ReasoningTokens);
+    }
+
+    [Fact]
+    public async Task CumulativeMetricOverflowRemainsUnknownWithoutChangingResponseAcceptance()
+    {
+        var state = PlannerFixture.Session(); var calls = 0;
+        var runtime = new TestRuntime { Respond = (_, _) => new() { Json = new JsonObject { ["value"] = "received" },
+            Usage = new JsonObject { ["input_tokens"] = calls++ == 0 ? long.MaxValue : 1L, ["output_tokens"] = 0 } } };
+        for (var index = 0; index < 2; index++)
+            await PlanningModelCalls.CallAsync(state, runtime, PlanningCompactConstruction.SelectPurpose, "Read the requested value.",
+                PlanningSchemas.Object(("value", PlanningSchemas.String())), PlannerFixture.Ct);
+        var measured = state.RequestMeasurements![^1];
+        Assert.Null(measured.CumulativeInputTokens); Assert.Equal(0, measured.CumulativeOutputTokens);
+        Assert.Equal("complete", measured.Result); Assert.Null(state.PendingCall); Assert.Equal(2, state.ModelCalls);
+    }
+
+    [Fact]
+    public void ReceiptAggregationPreservesOriginalsAndJoinsUsageToExactRequestIdentity()
+    {
+        var request = new LLMRequest { ClientRequestId = "session:1:issued", Prompt = "one complete request" };
+        var measurement = PlanningRequestMeasurements.Measure(request, "construction_draft", 1000, "block");
+        measurement.Admission = "admitted";
+        measurement.Warnings = [new("input_target", 1100, 1000, "conservative_token_estimate", "construction_draft")];
+        measurement.Transitions = [new(3, "executable_behavior", 0, 2, 0, 0)];
+        var run = new JsonObject
+        {
+            ["session"] = new JsonObject { ["requestMeasurements"] = new JsonArray(
+                JsonSerializer.SerializeToNode(measurement, PlanningJsonContext.Default.PlanningRequestMeasurement)) },
+            ["usage_receipts"] = new JsonObject
+            {
+                [request.ClientRequestId] = new JsonObject { ["input_tokens"] = 100, ["output_tokens"] = 50,
+                    ["total_tokens"] = 150, ["benchmark_cost_eur"] = 0.01m, ["reserved_cost_eur"] = 0.02m, ["transport_attempts"] = 2 },
+                [measurement.RequestHash] = new JsonObject { ["input_tokens"] = 9999 }
+            },
+            ["response_measurements"] = new JsonObject { [request.ClientRequestId] = new JsonObject
+                { ["reasoning_tokens"] = 40, ["completion_status"] = "complete" } },
+            ["call_stages"] = new JsonObject { [request.ClientRequestId] = new JsonObject { ["elapsed_ms"] = 123.0 } }
+        };
+        var original = run.ToJsonString();
+        var metrics = PlanningBenchmarkMeasurements.RequestMetrics(run);
+        var actual = Assert.Single(metrics["requests"]!.AsArray())!;
+        Assert.Equal(100, actual["provider_input_tokens"]!.GetValue<int>());
+        Assert.Equal(50, actual["provider_output_tokens"]!.GetValue<int>());
+        Assert.Equal(40, actual["provider_reasoning_tokens"]!.GetValue<int>());
+        Assert.Equal(0.01m, actual["known_cost_eur"]!.GetValue<decimal>());
+        Assert.Equal(0.02m, actual["retained_reservation_eur"]!.GetValue<decimal>());
+        Assert.Equal(2, actual["physical_attempts"]!.GetValue<int>());
+        Assert.Equal(123, actual["elapsed_ms"]!.GetValue<double>());
+        Assert.Equal("complete", actual["completion_status"]!.GetValue<string>());
+        Assert.Equal(1, metrics["productive_business_blocks"]!.GetValue<int>());
+        Assert.Single(metrics["warnings"]!.AsArray());
+        Assert.Equal(original, run.ToJsonString());
+    }
+
+    [Theory]
     [InlineData("continuation", "intent")]
     [InlineData("originalContext", "intent")]
     [InlineData("originalDirectory", "intent")]
@@ -248,7 +315,12 @@ public sealed class CompactRequestMeasurementTests
         state.Request.Generation.MaxInputTokensPerRequest = 512;
         await PlanningModelCalls.CallAsync(state, runtime, phase, new string('x', 30000), new JsonObject(), PlannerFixture.Ct, 1);
         Assert.Equal(issued, JsonSerializer.Serialize(runtime.Calls.Last(), PlanningJsonContext.Default.LLMRequest));
-        Assert.Equal(measurement, JsonSerializer.Serialize(Assert.Single(state.RequestMeasurements!), PlanningJsonContext.Default.PlanningRequestMeasurement));
+        var completedMeasurement = Assert.Single(state.RequestMeasurements!);
+        Assert.Equal("complete", completedMeasurement.Result);
+        Assert.NotNull(completedMeasurement.DurationMilliseconds);
+        var immutableMeasurement = JsonSerializer.SerializeToNode(completedMeasurement, PlanningJsonContext.Default.PlanningRequestMeasurement)!.AsObject();
+        immutableMeasurement.Remove("result"); immutableMeasurement.Remove("durationMilliseconds"); immutableMeasurement.Remove("durationBasis");
+        Assert.Equal(measurement, immutableMeasurement.ToJsonString());
         Assert.Equal(1, state.ModelCalls);
         Assert.Equal(1, physicalCalls);
         Assert.Equal(PlanningStatus.Generating, state.Status);

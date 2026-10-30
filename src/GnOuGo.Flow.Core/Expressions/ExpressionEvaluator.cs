@@ -85,6 +85,7 @@ public sealed partial class ExpressionEvaluator
             CallExpression { Arguments.Count: 1, Callee: MemberExpression { Object: Identifier { Name: "m" }, Property: Identifier { Name: "scalar" }, Computed: false } } call when readable =>
                 Supported(call.Arguments[0], names),
             CallExpression { Arguments.Count: 1, Callee: Identifier { Name: "json" } } call when readable => Supported(call.Arguments[0], names),
+            CallExpression { Arguments.Count: 1, Callee: Identifier { Name: "encodeURIComponent" } } call when readable => Supported(call.Arguments[0], names),
             CallExpression { Arguments.Count: 1, Callee: MemberExpression { Object: Identifier { Name: "Number" }, Property: Identifier { Name: "isFinite" }, Computed: false } } call when readable => Supported(call.Arguments[0], names),
             CallExpression { Arguments.Count: 1, Callee: MemberExpression { Object: Identifier { Name: "JSON" }, Property: Identifier { Name: "stringify" }, Computed: false } } call when readable => Supported(call.Arguments[0], names),
             CallExpression { Arguments.Count: 1, Callee: MemberExpression { Object: Identifier { Name: "Array" }, Property: Identifier { Name: "isArray" }, Computed: false } } call when readable => Supported(call.Arguments[0], names),
@@ -243,6 +244,11 @@ public sealed partial class ExpressionEvaluator
                     return Call(calledArrow, call.Arguments.Select(a => EvaluateSelection(a, bindings)).ToArray(), bindings);
                 case CallExpression { Callee: Identifier { Name: "json" } } call:
                     return _functions["json"]([EvaluateSelection(call.Arguments[0], bindings)]);
+                case CallExpression { Callee: Identifier { Name: "encodeURIComponent" } } call:
+                    // Import only the selected operand into the bounded JavaScript evaluator.
+                    // ECMAScript supplies exact UTF-8 escaping and rejects malformed surrogate pairs.
+                    return EvaluateCore("encodeURIComponent(value)", null,
+                        new(StringComparer.Ordinal) { ["value"] = EvaluateSelection(call.Arguments[0], bindings) }, allowance);
                 case CallExpression { Callee: MemberExpression { Object: Identifier { Name: "Number" } } } call:
                     return JsonValue.Create(JsonSchemaInstanceValidator.TryReadNumber(EvaluateSelection(call.Arguments[0], bindings), out var finite) && double.IsFinite(finite));
                 case CallExpression { Callee: MemberExpression { Object: Identifier { Name: "JSON" } } } call:

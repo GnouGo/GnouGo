@@ -17,6 +17,30 @@ The planner constructs one authoritative semantic TaskPlan in bounded fragments.
 The compiler lowers it through PlanningGraph and JavaScript to YAML v15. Construction
 metadata is a non-executable journal, never another workflow or scheduler.
 
+```mermaid
+flowchart TD
+    O[Original obligations, inputs and permissions] --> S[Select one business responsibility]
+    S --> K[Reuse exact contracts; discover missing capabilities]
+    K --> D[Draft up to eight related tasks recursively]
+    D --> V[Deterministic types, bindings, scopes and provenance]
+    V --> P[One accepted TaskPlan and checkpoint journal]
+    P -->|continueInScope: same block and contracts| D
+    P -->|completed block; more work| L[Local business review]
+    L --> S
+    P -->|workflow complete| G[Global business review]
+    G --> C[Compiler-owned JS to YAML v15]
+    C --> A[Artifact-bound delegated or human approval]
+    A --> E[Existing runtime and invocation permissions]
+    E --> R[Independent runtime oracle]
+    V --> T[Shared transition assessment]
+    L --> T
+    G --> T
+    T -->|six nonproductive model calls| X[Stop with obligations, strategies and missing prerequisites]
+```
+
+The diagram shows authority boundaries, not a second scheduler. Technical compilation
+also runs before review; approval applies only to the final validated artifact.
+
 ## One active protocol
 
 Internal planning format **11** replaces format 10 and all presentation revisions.
@@ -47,8 +71,18 @@ Short originals accompany subsequent decisions and relevant reviews once, withou
 repeating their text in source metadata. Larger originals retain local projection,
 global constraints and exact retrieval. Capability filtering is independent.
 
-Select only the next business action, using accepted producers and exact available
-results. Reuse known authorized contracts and deterministic pagination/cache reads.
+Select the next coherent business block, identifying one responsibility, its inputs,
+expected result and original obligations. The selected kind anchors the block; related
+value/transform helpers, exact selected operations and calls to its selected closed
+group share its bounded fragment.
+Necessary controls and groups may contain their body, exports and cleanup immediately.
+Their nested scopes may combine sequence, conditional, foreach and parallel controls;
+the selected anchor still constrains the top-level fragment, and every descendant
+counts toward the same recursive task allowance.
+An empty-only opening requires a current evidence-linked unresolved prerequisite,
+or a still-current waiting prerequisite for the same original responsibility.
+Use accepted producers and exact available results. Reuse known authorized contracts
+and deterministic pagination/cache reads.
 Cached operation identities, original descriptions and exact links remain visible after
 accepting a checkpoint and selecting a different objective. Provider results remain
 bound to their own query; cached metadata does not establish query completeness,
@@ -66,7 +100,22 @@ Their continuation presents the exact bounded reason from its own rejected step
 through implementation discovery, retaining the evidence link. This model-authored
 explanation does not create an original obligation or authorize effects or repair.
 
-Drafts append at most eight tasks recursively. Open containers have no consumable
+Drafts append at most eight tasks recursively, including child bodies and cleanup.
+The selected contract allowance uses that same task bound. A nullable extension field,
+`continueInScope`, retains the current block across fragments: an exact original or
+block-owned open scope requests another fragment; `null` claims the block finished.
+Partial acceptance retains the step identity, objective and original requirements,
+refreshes its validated baseline and goes directly to drafting. It neither closes
+requirements nor discharges a suspended consumer. New prerequisites use the existing
+suspension flow. No future task queue or second plan is introduced. A completed
+continued block is reviewed with all of its accepted contributing checkpoints.
+A final fragment may only finish that retained block without adding another task;
+this permission requires its accepted continuation checkpoint and grants no progress
+credit or original requirement closure by itself.
+Finishing a productive block requires local review before another business block,
+including a single-fragment block that leaves its original obligation open; eligible
+finalization still combines that work into the mandatory global review.
+Open containers have no consumable
 completion or outputs. Concrete references resolve immediately; future obligations
 remain non-executable metadata. Apply candidates to clones, then run the compiler's
 semantic preflight against original contracts, permissions and provenance. Invalid
@@ -78,6 +127,19 @@ fulfillment. Host-prepared closure reissues the full claim set, including sets l
 than a model selection page; unchanged claim repetition is not progress. A successful
 completed-workflow global review closes every original obligation, including retained
 claims outside the final step. Local review closes only its explicit current claims.
+
+One selected discovery action follows exact provider cursors in host batches of four
+reads, retaining the action across checkpoints instead of requesting another model
+decision for pagination. Cycles, unavailable providers, cancellation and elapsed-time
+guards remain enforced. A 1,024-page safety ceiling stops an unbounded provider action
+with its received pages and exact remaining cursor retained; it does not fabricate
+query completeness or missing capabilities.
+
+Typed `string_operation` values provide deterministic mappings: `text: "concat"`
+accepts two through sixteen non-nullable string items; `text: "uri_component"`
+accepts exactly one. Nested values use the ordinary typed binding grammar. The compiler
+places their JavaScript expression at the consumer, without a runtime model/MCP call.
+Computed text carries no artifact provenance, even when it equals a producer path.
 
 An explicitly selected consumer binding may use an exact technically accepted
 prerequisite while business review is pending. Ownership, transitive content,
@@ -202,6 +264,43 @@ concrete implementation and a precise business violation. Grounding validates id
 not the truth of a natural-language conclusion. No keyword or confidence filter decides
 business meaning, and no verdict grants execution permissions.
 
+The issued response contract has exactly one required `decision` object. Every branch
+rejects additional properties; `reason` is a nonempty string of at most 768 Unicode
+code points. Its strict union is:
+
+```typescript
+type Decision =
+  | { verdict: "ok"; reason: string }
+  | { verdict: "needs_change"; reason: string;
+      obligations: OriginalObligationReference[]; targets: BehaviorReference[] }
+  | { verdict: "needs_context"; reason: string;
+      contextRequests: OfferedEvidenceReference[] };
+type ReviewResponse = { decision: Decision };
+```
+
+For `needs_change`, both arrays contain one through three members from the exact
+issued domains; that branch is absent if either domain is empty. For `needs_context`,
+one through eight offered references are required; when no evidence is offered the
+only legal array is empty, which records incomplete review and cannot approve work.
+`ConstructionReviewSchema` in `HybridWorkflowPlanner.ConstructionReview.cs` generates
+the exact per-request JSON Schema and validates the raw response before resolution.
+
+The request's business object contains `review`, `requirements`, `globalConstraints`,
+`inputs`, `actions`, `scopes`, `groups`, `publicOutputs`, `claims` and `fragment`.
+Optional `choices`, `continuation` and `transitions` describe actual selected values
+and proposed producer/boundary associations. `evidence` contains only requested facts.
+An outstanding finding may add `priorConcerns` with its reason and actual `before` /
+`current` behavior; the existing single interpretation reconsideration may retain its
+prior report, reason and instruction. These objects contain no repair-status labels,
+checkpoint sequence numbers, technical-validation badges, session identities or hashes.
+
+Internal action, scope, producer and dependency references use the existing issued
+request's short-ID map. Findings resolve through that same saved map, including after
+restart; canonical identities and hashes remain in encrypted host journals. Exact
+public names, literal arguments, original clauses and business constraints remain
+unchanged. Source and contract retrieval stays targeted rather than adding a full
+technical catalog to every review.
+
 Targeted context retrieval and the one supported interpretation reconsideration have
 separate bookkeeping. A context request cannot consume the chance to correct a later
 misinterpretation on the same evidence and unchanged plan. Reuse the ordinary evidence
@@ -214,6 +313,44 @@ A changed hash is novelty, not resolution; renaming or rewording cannot repair a
 binding. An explicit host repair remains pending until actual authorized change and
 renewed validation/review. Accepted defects require scoped revision, preserving unrelated
 work and invalidating affected artifact approval.
+
+## Productive transitions and measurements
+
+One transition assessment distinguishes `new_evidence`, `executable_behavior`,
+`business_completion` and `administrative` activity. Technically valid behavior never
+counts as business approval. Original-source coverage, deliberately retrieved facts
+and selected exact contracts can be useful evidence; additional unselected catalog
+rows cannot reset the guard. Accepted arguments, bindings, executable transform
+instructions and meaningful control behavior establish executable progress. Only reviewed closure establishes completion.
+
+Fresh sessions capture `MaxNonProductiveModelCalls = 6`. After six model calls without
+useful evidence, executable progress or reviewed completion, the next dispatch stops
+with the affected obligations, retained strategy identities and any established missing
+prerequisite. Exact repeated strategies stop earlier. Strategy identity includes actual
+arguments, producers, obligations, consumer prerequisites and available evidence; new
+step names, planning objectives, raw response hashes, checkpoint numbers and empty
+wrappers do not renew a failed strategy. Transform objectives remain executable
+interpreter input; their changed instructions still require applicable business review. Historical sessions retain their captured options.
+
+The same request measurement retains block identity, complete serialized request bytes,
+component estimates, issued output allocation, transition classification, actual input
+and output tokens, reasoning tokens, cumulative known context, duration and result.
+Receipt aggregation joins exact request identities to known/reserved cost and physical
+attempts. Reasoning is reported separately but remains included in provider output;
+it is never added a second time to totals. Host invocation duration is labelled to
+include receipt recovery; physical-stage measurements remain separately available.
+
+Structured advisory warnings retain stage, threshold, current value and measurement
+basis. Runtime warnings also retain the exact request where available in the existing
+budget snapshot/journal, surviving restart without duplicate replay warnings. Missing
+usage stays unknown. Warnings never create diagnostics, charge repairs or change
+approval. Provider output exhaustion retains its exact allocation, usage and finish
+status; incomplete responses cannot be accepted or replayed.
+
+The superseded single-kind fragment restriction, two-operation allowance, empty-body
+requirement, per-four-page semantic rediscovery and hash/checkpoint progress credit
+are removed. The eight-task recursive bound, scoped repair/dependency invalidation,
+strict review union, exact recovery and retired-format rejection remain active.
 
 ## Recovery, budgets and execution
 

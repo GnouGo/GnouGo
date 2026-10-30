@@ -37,10 +37,42 @@ public sealed class PlanningRequestMeasurement
     /// <summary>Content-free advisory for this exact request; never repair authority.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? TargetWarning { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<PlanningThresholdWarning>? Warnings { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<PlanningTransitionMeasurement>? Transitions { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Result { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? InputTokens { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? OutputTokens { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? ReasoningTokens { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? CumulativeInputTokens { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? CumulativeOutputTokens { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? DurationMilliseconds { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? DurationBasis { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? IssuedOutputTokens { get; set; }
     public long CompleteRequestBytes { get; set; }
     public long EstimatedInputTokens { get; set; }
     public List<PlanningRequestComponentMeasurement> Components { get; set; } = [];
 }
+
+/// <summary>Advisory measurement only; never a diagnostic or repair obligation.</summary>
+public sealed record PlanningThresholdWarning(string Kind, long Current, long Threshold, string Basis, string Stage)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RequestId { get; init; }
+}
+
+public sealed record PlanningTransitionMeasurement(long Revision, string Kind, int NewEvidence, int ProductiveChanges,
+    int CompletedRequirements, int NonProductiveModelCalls);
 
 public sealed class PlanningRequestComponentMeasurement
 {

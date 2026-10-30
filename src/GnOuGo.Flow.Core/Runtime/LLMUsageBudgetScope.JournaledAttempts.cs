@@ -33,6 +33,7 @@ public sealed partial class LLMUsageBudgetScope
         if (remainingReviewOutputs.Any(output => output < 0))
             throw new ArgumentException("Review output ceilings must be nonnegative.", nameof(remainingReviewOutputs));
         ct.ThrowIfCancellationRequested();
+        using var warnings = ObserveTokenWarnings(request.ClientRequestId);
         var safeStage = SanitizeStage(stage);
         var scopes = JournaledScopes();
         var gates = new List<SemaphoreSlim>();
@@ -99,6 +100,7 @@ public sealed partial class LLMUsageBudgetScope
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(usage);
+        using var warnings = ObserveTokenWarnings(request.ClientRequestId);
         var safeStage = SanitizeStage(stage);
         ParsedUsage? parsed;
         try { parsed = ParseUsage(usage); }
@@ -156,6 +158,7 @@ public sealed partial class LLMUsageBudgetScope
                 }
                 for (var index = 0; index < scopes.Count; index++) scopes[index]._snapshot = snapshots[index];
             });
+            foreach (var scope in scopes.Where(scope => scope._advisoryTokens)) scope.WarnJournaledSettlementThresholds(id, safeStage);
             await PersistJournaledScopesAsync(scopes, safeStage, ct).ConfigureAwait(false);
             foreach (var scope in scopes) scope.EnsureJournaledSettlementBounds(id, safeStage);
         }
@@ -201,6 +204,18 @@ public sealed partial class LLMUsageBudgetScope
             throw CreateExceeded(stage, "total_tokens", tokens, snapshot.TotalTokens, snapshot);
         if (_costLimit is { } cost && snapshot.EstimatedCost > cost.Amount)
             throw CreateExceeded(stage, ResolveEstimatedCostLimitKind(), cost.Amount, snapshot.EstimatedCost, snapshot);
+    }
+
+    private void WarnJournaledSettlementThresholds(string id, string stage)
+    {
+        var snapshot = Snapshot;
+        var entry = snapshot.JournaledAttempts![id];
+        var usage = entry.VerifiedUsage!;
+        var ceiling = (long)entry.InputTokenCeiling + entry.OutputTokenCeiling;
+        if (usage.InputTokens > entry.InputTokenCeiling) WarnTokenThreshold(stage, "reserved_input_tokens", entry.InputTokenCeiling, usage.InputTokens);
+        if (usage.OutputTokens > entry.OutputTokenCeiling) WarnTokenThreshold(stage, "reserved_output_tokens", entry.OutputTokenCeiling, usage.OutputTokens);
+        if (usage.TotalTokens > ceiling) WarnTokenThreshold(stage, "reserved_tokens", ceiling, usage.TotalTokens);
+        if (Limits.MaxTotalTokens is { } tokens && snapshot.TotalTokens > tokens) WarnTokenThreshold(stage, "total_tokens", tokens, snapshot.TotalTokens);
     }
 
     private List<LLMUsageBudgetScope> JournaledScopes()

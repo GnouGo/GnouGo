@@ -11,7 +11,20 @@ are rejected without migration; original encrypted records remain unchanged. Tas
 and execution journal schema 9 are separate from this storage rupture.
 
 Each generation request addresses immediate work using original requirements, accepted
-producers and selected original contracts. Discovery receives the owning control or
+producers and selected original contracts. A coherent block combines its selected
+anchor, related value/transform helpers, exact operations and calls to its selected
+closed group in one fragment of at
+most eight recursive tasks, including populated controls/groups and cleanup.
+Nested scopes may compose different typed control kinds while the top-level anchor,
+exact operation/group selection and recursive bound remain enforced.
+`continueInScope` retains the same selected block across bounded fragments; partial
+acceptance cannot close requirements or complete a suspended consumer.
+An empty-only opening requires a retained evidenced unresolved prerequisite for its
+current responsibility. A productive finished block receives local review before
+continuing, unless eligible finalization includes it in the global review.
+Exact provider pagination continues host-side across checkpoints, without another model choice,
+under cycle, time and a 1,024-page-per-action safety guard.
+Discovery receives the owning control or
 isolated group interface and opening intent before choosing an implementation; this
 context grants no completion authority. Compiler preflight validates exact technical
 bindings before acceptance. Business review is decoupled from fragment generation:
@@ -105,6 +118,13 @@ semantics. Full contract schemas remain host-validated and retrievable. The resp
 one strict `ok`, `needs_change` or `needs_context` decision. Program-owned receipts,
 hashes and authority do not enter the response contract. Context acquisition preserves
 the separate bounded chance to correct an interpretation on unchanged evidence.
+Fresh Judge requests replace internal task IDs and scope paths with handles from the
+existing request-bound evidence map, including producer references and verdict targets.
+Public interface names, literal values and original descriptions remain exact. The host
+resolves findings against the issued map before repair; raw receipts retain the aliases.
+Reconsideration projects the canonical finding into the new request's handles, while
+pending requests recover their original bytes. Repair-progress classifications stay in
+host journals; Judges receive the original concern and actual before/current values.
 
 Original requirements and permissions survive repairs. Typed patches edit only issued
 slots; cosmetic novelty does not resolve a defect. Preserve executable literals,
@@ -144,6 +164,8 @@ protocols remain owned by their frozen binaries, without a compatibility adapter
 ## Ordinary arithmetic and decimal boundaries
 
 TaskPlan `arithmetic` values describe closed formulas using `text` (`add`, `subtract`, `multiply`, `divide`, `remainder`, `negate`) and `items`. Operand contracts must be numeric and nonnullable. The compiler retains structured values through contract closure, then emits JavaScript into existing checked `set` steps. There is no numeric executor or runtime inference. Exact business arithmetic is an MCP responsibility; explicitly declared decimal fields are converted automatically at the MCP boundary. See [migration and validation](../../docs/numeric-compilation.md).
+
+TaskPlan `string_operation` values use `text: concat` with two to sixteen string operands, or `text: uri_component` with one operand. Both use the shared typed `items` grammar in drafting and scoped repair. Operands must have established nonnullable string contracts; no implicit conversion or interpolation is performed. URI components follow JavaScript `encodeURIComponent`, preserving empty strings and correctly escaping Unicode and reserved delimiters. Lowering runs through the existing bounded checked evaluator, with only selected operands entering JavaScript. Computed text grants neither artifact provenance nor URL/effect authority; declared artifact consumers still require their original producer reference.
 
 ### Required conditions and finalization
 

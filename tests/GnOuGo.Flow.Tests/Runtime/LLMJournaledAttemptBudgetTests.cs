@@ -43,6 +43,33 @@ public sealed class LLMJournaledAttemptBudgetTests
     }
 
     [Fact]
+    public async Task AdvisoryWarningsPersistWithExactRequestsAndSurviveIdempotentSettlementRecovery()
+    {
+        var sink = new Sink("usage", []);
+        var limits = new LLMUsageBudgetLimits { MaxCalls = 2, MaxTotalTokens = 1 };
+        var scope = new LLMUsageBudgetScope(true, limits, sink: sink);
+        var request = Request(); request.ClientRequestId = "first-request";
+        await scope.ReserveJournaledAttemptAsync("first-request", request, null, 10, 20, [], "runtime", Ct);
+        await scope.SettleJournaledAttemptAsync("first-request", request, null, Usage(11, 21), "runtime", Ct);
+        var saved = JsonSerializer.Serialize(sink.Last!, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
+        Assert.DoesNotContain("private original", saved, StringComparison.Ordinal);
+        var restored = JsonSerializer.Deserialize(saved, PlanningJsonContext.Default.LLMUsageBudgetSnapshot)!;
+        Assert.Contains(restored.Warnings!, warning => warning.Kind == "reserved_input_tokens" && warning.Current == 11 && warning.Threshold == 10 && warning.RequestId == "first-request");
+        Assert.Contains(restored.Warnings!, warning => warning.Kind == "total_tokens" && warning.Current == 32 && warning.RequestId == "first-request");
+        scope = new(true, limits, restored, sink: sink);
+        await scope.ReserveJournaledAttemptAsync("first-request", request, null, 10, 20, [], "runtime", Ct);
+        await scope.SettleJournaledAttemptAsync("first-request", request, null, Usage(11, 21), "runtime", Ct);
+        Assert.Equal(saved, JsonSerializer.Serialize(sink.Last!, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
+        request.ClientRequestId = "second-request";
+        await scope.ReserveJournaledAttemptAsync("second-request", request, null, 10, 20, [], "runtime", Ct);
+        await scope.SettleJournaledAttemptAsync("second-request", request, null, Usage(11, 21), "runtime", Ct);
+        Assert.Equal(2, scope.Snapshot.Calls);
+        Assert.Equal(64, scope.Snapshot.TotalTokens);
+        Assert.Equal(new[] { "first-request", "second-request" }, sink.Last!.Warnings!
+            .Where(warning => warning.Kind == "reserved_input_tokens").Select(warning => warning.RequestId));
+    }
+
+    [Fact]
     public async Task ReservationAndSettlementAccountEachPhysicalAttemptOnceInEveryCurrency()
     {
         var order = new List<string>();
@@ -221,6 +248,7 @@ public sealed class LLMJournaledAttemptBudgetTests
         var snapshot = new LLMUsageBudgetSnapshot { StartedAtUtc = DateTimeOffset.UtcNow };
         var serialized = JsonSerializer.Serialize(snapshot, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
         Assert.DoesNotContain("journaled", serialized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("warnings", serialized, StringComparison.OrdinalIgnoreCase);
         Assert.Null(JsonSerializer.Deserialize(serialized, PlanningJsonContext.Default.LLMUsageBudgetSnapshot)!.JournaledAttempts);
         var invalid = snapshot with { Calls = 1, JournaledAttempts = new Dictionary<string, LLMJournaledAttempt>
             { ["request:1"] = new(10, 20, 0, 0) } };

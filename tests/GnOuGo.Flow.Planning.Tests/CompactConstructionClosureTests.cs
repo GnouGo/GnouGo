@@ -70,7 +70,7 @@ public sealed class CompactConstructionClosureTests
     [InlineData("conditional")]
     [InlineData("parallel")]
     [InlineData("foreach")]
-    public void ANewContainerPresentationLeavesItsChildScopesForLaterDrafts(string kind)
+    public void AnUnfinishedContainerStillWithholdsItsResultWhenCoherentBodiesAreAllowed(string kind)
     {
         var state = State();
         var step = state.Construction!.Compact!.CurrentStep!;
@@ -81,18 +81,18 @@ public sealed class CompactConstructionClosureTests
             PlanningCompactConstruction.SelectionContext(state), PlanningCompactConstruction.SelectionSchema(state),
             PlanningCompactConstruction.SelectPurpose);
         var request = PlanningConstruction.DraftRequest(state, repair: false);
-        Assert.Contains("Do not consume or export the new container", request.StructuredOutputSchema!["description"]!.ToString(), StringComparison.Ordinal);
+        Assert.Contains("unfinished containers expose no usable result", request.StructuredOutputSchema!["description"]!.ToString(), StringComparison.Ordinal);
         var schema = request.StructuredOutputSchema!.AsObject();
         AssertCompletion(schema, allowed: false);
         AssertScopeClosure(schema, "/root", allowed: false);
         var extension = new PlanningConstructionExtension { RequirementIds = ["req"] };
-        if (kind == "group") extension.Groups.Add(new() { Id = "reusable", Body = new() });
+        if (kind == "group") extension.Groups.Add(new() { Id = "reusable", Body = Body("group_value") });
         else
         {
             var task = new PlanTask { Id = "container", Kind = kind, Objective = "Open the scope for the required work." };
-            if (kind == "parallel") task.Branches = [new(), new()];
-            else task.Body = new();
-            if (kind == "conditional") { task.Otherwise = new(); task.Condition = new() { Kind = "boolean", Boolean = true }; }
+            if (kind == "parallel") task.Branches = [Body("left_value"), Body("right_value")];
+            else task.Body = Body("body_value");
+            if (kind == "conditional") { task.Otherwise = Body("otherwise_value"); task.Condition = new() { Kind = "boolean", Boolean = true }; }
             if (kind == "foreach") task.Items = new() { Kind = "array", Items = [new() { Kind = "string", Text = "item" }] };
             extension.Tasks.Add(task);
         }
@@ -109,6 +109,9 @@ public sealed class CompactConstructionClosureTests
         else candidate.Plan.Root.Outputs.Add(new("message", new() { Kind = "output", Source = "container", Port = "message" }));
         Assert.Contains(TaskPlanCompiler.ValidateConstruction(candidate.Plan, state.Catalog!, state.Request, open).Diagnostics,
             diagnostic => diagnostic.Code == "TASK_SCOPE_OPEN");
+
+        static TaskScope Body(string id) => new() { Tasks = [new() { Id = id, Kind = "value", Objective = "Compute the enclosed greeting.",
+            Outputs = [new("message", new() { Kind = "string", Text = "Hello" })] }] };
     }
 
     [Fact]

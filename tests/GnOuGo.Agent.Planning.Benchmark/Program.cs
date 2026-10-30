@@ -374,12 +374,16 @@ foreach (var name in names)
                     if (localEvidence is not null)
                     {
                         localEvidence["elapsed_ms"] = runtimeClock.Elapsed.TotalMilliseconds;
+                        localEvidence["model_usage"] = JsonSerializer.SerializeToNode(runner.LLMUsageBudget?.Snapshot,
+                            PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
                         foreach (var violation in localEvidence["safety_violations"]!.AsArray()) safety.Add(violation!.DeepClone());
                         variants.Add((JsonNode)localEvidence);
                         if (!correct) { execution = false; break; }
                     }
                     else variants.Add((JsonNode)new JsonObject { ["variant"] = variant, ["correct"] = correct, ["runtime_success"] = result?.Success,
                         ["elapsed_ms"] = runtimeClock.Elapsed.TotalMilliseconds,
+                        ["model_usage"] = JsonSerializer.SerializeToNode(runner.LLMUsageBudget?.Snapshot,
+                            PlanningJsonContext.Default.LLMUsageBudgetSnapshot),
                         ["error"] = error ?? result?.Error?.Code, ["effects"] = new JsonArray(sample.Effects.Select(e => (JsonNode)JsonValue.Create(e)).ToArray()),
                         ["violations"] = new JsonArray(sample.Violations.Select(e => (JsonNode)JsonValue.Create(e)).ToArray()) });
                     execution &= correct;

@@ -97,6 +97,7 @@ public static class PlanningBenchmarkMeasurements
             Draft = new() { TargetInputTokens = 8_000, MaxInputTokens = 16_000, Reasoning = request.Generation.Reasoning },
             Review = new() { TargetInputTokens = 4_000, MaxInputTokens = 8_000, Reasoning = request.Generation.Reasoning, OutputTokens = 2_048 }
         };
+        request.Options["construction_limits"]!["maxNonProductiveModelCalls"] = 6;
         request.Options["construction_limits"]!["phasePolicy"] = JsonSerializer.SerializeToNode(
             PlanningConstructionPhasePolicies.Capture(request, phasePolicy), PlanningJsonContext.Default.PlanningConstructionPhasePolicy);
         request.Options["construction_limits"] = JsonSerializer.SerializeToNode(
@@ -286,9 +287,23 @@ public static class PlanningBenchmarkMeasurements
     {
         var records = new Dictionary<string, JsonObject>(StringComparer.Ordinal);
         foreach (var measurement in (run["request_measurements"] as JsonObject ?? []).Select(p => p.Value).OfType<JsonObject>())
-            records[measurement["requestHash"]!.ToString()] = measurement;
+            records[measurement["requestHash"]!.ToString()] = measurement.DeepClone().AsObject();
         foreach (var measurement in (run["session"]?["requestMeasurements"] as JsonArray ?? []).OfType<JsonObject>())
-            records[measurement["requestHash"]!.ToString()] = measurement;
+            records[measurement["requestHash"]!.ToString()] = measurement.DeepClone().AsObject();
+        foreach (var measurement in records.Values)
+        {
+            if (measurement["requestId"]?.ToString() is not { Length: > 0 } id) continue;
+            var usage = run["usage_receipts"]?[id];
+            var response = run["response_measurements"]?[id];
+            measurement["provider_input_tokens"] = (usage?["input_tokens"] ?? measurement["inputTokens"])?.DeepClone();
+            measurement["provider_output_tokens"] = (usage?["output_tokens"] ?? measurement["outputTokens"])?.DeepClone();
+            measurement["provider_reasoning_tokens"] = (response?["reasoning_tokens"] ?? measurement["reasoningTokens"])?.DeepClone();
+            measurement["known_cost_eur"] = usage?["benchmark_cost_eur"]?.DeepClone();
+            measurement["retained_reservation_eur"] = usage?["reserved_cost_eur"]?.DeepClone();
+            measurement["physical_attempts"] = usage?["transport_attempts"]?.DeepClone();
+            measurement["elapsed_ms"] = run["call_stages"]?[id]?["elapsed_ms"]?.DeepClone();
+            measurement["completion_status"] = (response?["completion_status"] ?? measurement["result"])?.DeepClone();
+        }
         return RequestMetricsForRecords(records.Values.ToArray());
     }
 
@@ -313,6 +328,8 @@ public static class PlanningBenchmarkMeasurements
                 ["prepared_requests"] = prepared.Length, ["requests"] = admitted.Length,
                 ["rejected_before_dispatch"] = prepared.Count(m => m["admission"]?.ToString() == "rejected_before_dispatch"),
                 ["above_target_warnings"] = prepared.Count(m => m["targetWarning"] is not null),
+                ["structured_warnings"] = prepared.Sum(m => (m["warnings"] as JsonArray)?.Count ?? 0),
+                ["productive_transitions"] = admitted.Sum(m => (m["transitions"] as JsonArray ?? []).Count(t => t?["kind"]?.ToString() == "executable_behavior")),
                 ["peak_complete_request_bytes"] = prepared.Max(m => m["completeRequestBytes"]!.GetValue<long>()),
                 ["p50_complete_request_bytes"] = (bytes[(bytes.Length - 1) / 2] + bytes[bytes.Length / 2]) / 2.0,
                 ["p95_complete_request_bytes"] = bytes[(int)Math.Ceiling(bytes.Length * .95) - 1],
@@ -329,6 +346,11 @@ public static class PlanningBenchmarkMeasurements
         return new()
         {
             ["estimator"] = "serialized_utf8_div3_plus256_v1", ["phases"] = phases,
+            ["productive_business_blocks"] = records.Where(m => (m["transitions"] as JsonArray ?? []).Any(t => t?["productiveChanges"]?.GetValue<int>() > 0))
+                .Select(m => m["stepId"]?.ToString()).OfType<string>().Distinct(StringComparer.Ordinal).Count(),
+            ["warnings"] = new JsonArray(records.SelectMany(m => (m["warnings"] as JsonArray ?? []).OfType<JsonObject>()
+                .Select(warning => (JsonNode)new JsonObject { ["request_id"] = m["requestId"]?.DeepClone(),
+                    ["phase"] = m["phase"]?.DeepClone(), ["block"] = m["stepId"]?.DeepClone(), ["warning"] = warning.DeepClone() })).ToArray()),
             ["requests"] = new JsonArray(records.Select(m => (JsonNode)m.DeepClone()).ToArray()),
             ["interpretation"] = "Peaks, percentiles and component sums include all prepared requests, including rejected requests. Requests counts admitted requests; admitted peaks and limits are explicit. Component estimates describe serialized request bytes, not billed usage. Judge is a phase; component token rounding is not additive. Provider input/output usage is measured for each whole call."
         };

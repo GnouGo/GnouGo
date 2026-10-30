@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Planning.Examples;
@@ -9,6 +10,44 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class PlanningInputBudgetTests
 {
     private static CancellationToken Ct => PlannerFixture.Ct;
+
+    [Fact]
+    public async Task AdvisoryRuntimeWarningsAndReportedUsageSurviveRestartWithoutChangingDecisions()
+    {
+        var state = PlannerFixture.Session(); state.Request.Options["token_threshold_policy"] = "advisory";
+        var runtime = new TestRuntime { Respond = (_, _) =>
+        {
+            PlanningTokenThresholds.Warn("workflow.plan", "total_tokens", 1500, 1000);
+            return new() { Json = new JsonObject { ["answer"] = "received" }, Usage = new JsonObject
+            { ["input_tokens"] = 900, ["output_tokens"] = 600, ["output_tokens_details"] = new JsonObject { ["reasoning_tokens"] = 500 } } };
+        } };
+        await PlanningModelCalls.CallAsync(state, runtime, PlanningCompactConstruction.SelectPurpose, "Read retained evidence",
+            PlanningSchemas.Object(("answer", PlanningSchemas.String())), Ct);
+        state = PlannerFixture.Clone(state);
+        var measurement = Assert.Single(state.RequestMeasurements!);
+        Assert.Equal(900, measurement.InputTokens); Assert.Equal(600, measurement.OutputTokens); Assert.Equal(500, measurement.ReasoningTokens);
+        Assert.Equal(1500, measurement.CumulativeInputTokens + measurement.CumulativeOutputTokens);
+        var warning = Assert.Single(measurement.Warnings!);
+        Assert.Equal("total_tokens", warning.Kind); Assert.Equal(1500, warning.Current); Assert.Equal(1000, warning.Threshold);
+        Assert.Equal("complete", measurement.Result); Assert.Empty(state.Diagnostics); Assert.Equal(0, state.ReplanAttempts);
+    }
+
+    [Fact]
+    public async Task PhysicalOutputExhaustionRetainsExactMetricsAndAcceptsNoFragment()
+    {
+        var state = PlannerFixture.Session(); state.Request.Options["token_threshold_policy"] = "advisory";
+        var runtime = new TestRuntime { Respond = (request, _) => new() { CompletionStatus = "output_limit", Text = "",
+            Usage = new JsonObject { ["input_tokens"] = 123, ["output_tokens"] = request.MaxTokens,
+                ["reasoning_tokens"] = request.MaxTokens } } };
+        var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => PlanningModelCalls.CallAsync(state, runtime,
+            PlanningConstruction.DraftPurpose, "Construct a bounded fragment", PlanningSchemas.Object(("answer", PlanningSchemas.String())), Ct));
+        Assert.Equal("MODEL_OUTPUT_LIMIT", error.Code); Assert.Equal("provider_output_allocation", error.Details!["limit_kind"]!.ToString());
+        Assert.False(error.Details["replay_allowed"]!.GetValue<bool>());
+        var measurement = Assert.Single(PlannerFixture.Clone(state).RequestMeasurements!);
+        Assert.Equal("output_limit", measurement.Result); Assert.Equal(measurement.IssuedOutputTokens, measurement.OutputTokens);
+        Assert.Equal(measurement.OutputTokens, measurement.ReasoningTokens); Assert.Single(runtime.Calls);
+        Assert.Null(state.Construction!.Candidate); Assert.Empty(state.Construction.Checkpoints);
+    }
 
     [Fact]
     public async Task AdvisoryOversizedRequestDispatchesOnceWithDurableWarningAndExactRecovery()

@@ -383,7 +383,7 @@ internal static partial class PlanningCompactConstruction
             ("cursor", choice.Cursor is { } cursor ? PlanningSchemas.Enum(cursor) : PlanningSchemas.Type("null")),
             ("query", PlanningSchemas.Type("null")), ("operationIds", PlanningSchemas.Type("null")))).ToArray());
         var schema = PlanningSchemas.Object(
-            ("operationIds", PlanningSchemas.Nullable(Strings(1, 2))),
+            ("operationIds", PlanningSchemas.Nullable(Strings(1, state.Construction!.Limits.MaxTasksPerDraft))),
             ("discoveryRequests", alternatives.Count == 0 ? PlanningSchemas.Type("null") : PlanningSchemas.Nullable(
                 PlanningSchemas.Array(alternatives.Count == 1 ? alternatives[0]!.DeepClone().AsObject() : new JsonObject { ["anyOf"] = alternatives }, 1, 2))),
             ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(Text(2048), 1,
@@ -395,15 +395,19 @@ internal static partial class PlanningCompactConstruction
             schema["required"]!.AsArray().RemoveAt(0);
             var binding = new JsonObject { ["anyOf"] = new JsonArray(
                     PlanningSchemas.Object(("kind", PlanningSchemas.Enum("operation")),
-                        ("operationIds", Strings(1, 2)), ("groupId", PlanningSchemas.Type("null"))),
+                        ("operationIds", Strings(1, state.Construction!.Limits.MaxTasksPerDraft)), ("groupId", PlanningSchemas.Nullable(Text(96)))),
                     PlanningSchemas.Object(("kind", PlanningSchemas.Enum("call")),
-                        ("operationIds", Strings(0, 0)), ("groupId", Text(96))),
+                        ("operationIds", Strings(0, state.Construction.Limits.MaxTasksPerDraft)), ("groupId", Text(96))),
                     PlanningSchemas.Object(("kind", PlanningSchemas.Enum(TaskKinds.Where(kind => kind is not ("operation" or "call") &&
                         (kind != "close" || DiscoveryCloseCanProgress(state))).ToArray())),
                         ("operationIds", Strings(0, 0)), ("groupId", PlanningSchemas.Type("null")))) };
             {
                 var branches = binding["anyOf"]!.AsArray();
                 branches[2]!["properties"]!["kind"] = PlanningSchemas.Enum(TaskKinds.Where(kind => kind is not ("operation" or "call" or "close")).ToArray());
+                branches.Add((JsonNode)PlanningSchemas.Object(("kind", PlanningSchemas.Enum(TaskKinds.Where(kind => SupportsBusinessFragment(kind) && kind is not ("operation" or "call")).ToArray())),
+                    ("operationIds", Strings(1, state.Construction.Limits.MaxTasksPerDraft)), ("groupId", PlanningSchemas.Nullable(Text(96)))));
+                branches.Add((JsonNode)PlanningSchemas.Object(("kind", PlanningSchemas.Enum(TaskKinds.Where(kind => SupportsBusinessFragment(kind) && kind is not ("operation" or "call")).ToArray())),
+                    ("operationIds", EmptyArray()), ("groupId", Text(96))));
                 foreach (var branch in branches.OfType<JsonObject>())
                 {
                     branch["properties"]!["closeScopes"] = PlanningSchemas.Type("null");

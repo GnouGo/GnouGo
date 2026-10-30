@@ -11,6 +11,8 @@ public sealed class PlanningConstructionOptions
     public int MaxTasksPerDraft { get; set; } = 8;
     public int MaxCheckpoints { get; set; } = 128;
     public int MaxCorrectionsPerDraft { get; set; } = 3;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MaxNonProductiveModelCalls { get; set; }
     public int DraftOutputTokens { get; set; } = 8192;
     public int ReviewOutputTokens { get; set; } = 2048;
 }
@@ -80,6 +82,9 @@ public sealed class PlanningConstructionCandidate
 public sealed class PlanningConstructionExtension
 {
     public string Scope { get; set; } = "/root";
+    /// <summary>Continue this business block in its current or owned open scope after accepting the bounded fragment.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ContinueInScope { get; set; }
     public List<PlanTask> Tasks { get; set; } = [];
     public List<PlanTask> Always { get; set; } = [];
     public List<TaskOutput> Outputs { get; set; } = [];

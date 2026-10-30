@@ -5,6 +5,23 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class BusinessBlockGranularityTests
 {
     [Fact]
+    public async Task CompletedProductiveFragmentIsReviewedWhileItsOriginalRequirementRemainsOpen()
+    {
+        var (state, runtime) = await BusinessReviewProtocolTests.Ready();
+        state.Construction!.Compact!.CurrentStep!.CloseRequirementIds.Clear();
+        runtime.Respond = (_, purpose) =>
+        {
+            Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
+            return new() { Json = BusinessReviewProtocolTests.Report("ok") };
+        };
+        state = await BusinessReviewProtocolTests.Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Single(runtime.Calls);
+        Assert.Equal("in_progress", state.Construction!.Requirements.Single(requirement => requirement.Id == "work").Status);
+        Assert.False(Assert.Single(state.Construction.Checkpoints).Fragment["businessReviewPending"]!.GetValue<bool>());
+    }
+
+    [Fact]
     public async Task InterfaceOnlyClosureIsTechnicalPendingAndHasNoBusinessAuthority()
     {
         var (state, runtime) = await BusinessProjectionDeclarationsTests.Ready();
@@ -35,7 +52,7 @@ public sealed class BusinessBlockGranularityTests
             if (purpose == PlanningConstruction.LocalPurpose)
             {
                 local++;
-                Assert.Equal(new[] { "first", "second" }, context["actions"]!.AsArray()
+                Assert.Equal(new[] { runtime.EvidenceId(request, "task:first"), runtime.EvidenceId(request, "task:second") }, context["actions"]!.AsArray()
                     .Where(action => action!["kind"]!.ToString() == "value").Select(action => action!["id"]!.ToString()));
             }
             else { Assert.Equal(PlanningConstruction.GlobalPurpose, purpose); global++; }
@@ -43,12 +60,11 @@ public sealed class BusinessBlockGranularityTests
         };
         state = await BusinessReviewProtocolTests.Advance(state, runtime);
         Assert.Empty(runtime.Calls);
-        state = await Add(new() { Scope = "/root", RequirementIds = ["later"], Tasks =
-            [new() { Id = "block", Kind = "sequence", Objective = "Compute the reusable local result.", Body = new() }] }, "sequence", "/root");
-        state = await Add(new() { Scope = "/tasks/block/body", RequirementIds = ["later"], Tasks =
-            [new() { Id = "first", Kind = "value", Objective = "Double the caller number.", Outputs = [new("result", new() { Kind = "arithmetic", Text = "multiply",
-                Items = [new() { Kind = "input", Source = "request" }, new() { Kind = "number", Number = 2 }] })] }] }, "value", "/tasks/block/body");
-        state = await Add(new() { Scope = "/tasks/block/body", RequirementIds = ["later"], Tasks =
+        state = await Add(new() { Scope = "/root", RequirementIds = ["later"], ContinueInScope = "/tasks/block/body", Tasks =
+            [new() { Id = "block", Kind = "sequence", Objective = "Compute the reusable local result.", Body = new() { Tasks =
+                [new() { Id = "first", Kind = "value", Objective = "Double the caller number.", Outputs = [new("result", new() { Kind = "arithmetic", Text = "multiply",
+                    Items = [new() { Kind = "input", Source = "request" }, new() { Kind = "number", Number = 2 }] })] }] } }] }, "sequence", "/root");
+        state = await Add(new() { Scope = "/tasks/block/body", RequirementIds = ["later"], ContinueInScope = "/tasks/block/body", Tasks =
             [new() { Id = "second", Kind = "value", Objective = "Add one to the doubled result.", Outputs = [new("result", new() { Kind = "arithmetic", Text = "add",
                 Items = [new() { Kind = "output", Source = "first", Port = "result" }, new() { Kind = "number", Number = 1 }] })] }] }, "value", "/tasks/block/body");
         Assert.Empty(runtime.Calls);
@@ -68,7 +84,7 @@ public sealed class BusinessBlockGranularityTests
 
         async Task<PlanningSession> Add(PlanningConstructionExtension extension, string kind, string scope, bool complete = false)
         {
-            state.Construction!.Compact!.CurrentStep = new() { Id = "step_" + state.Construction.Checkpoints.Count, Scope = scope, Kind = kind,
+            state.Construction!.Compact!.CurrentStep ??= new() { Id = "step_" + state.Construction.Checkpoints.Count, Scope = scope, Kind = kind,
                 Objective = "Build the next actual computation or close its existing boundary.", RequirementIds = ["later"],
                 CloseRequirementIds = complete ? ["later"] : [], BaseHash = PlanningConstruction.Hash(state.Plan), DiscoveryComplete = true };
             state.Construction.Candidate = PlanningConstruction.Apply(state, extension);

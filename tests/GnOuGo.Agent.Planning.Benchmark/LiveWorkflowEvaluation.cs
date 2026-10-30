@@ -144,7 +144,11 @@ internal static class LiveWorkflowEvaluation
             }
             catch (Exception ex) { run["execution"] = new JsonObject { ["success"] = false, ["exception"] = ex.ToString() }; }
             finally { proxy.ExecutionEnabled = false; run["execution_ms"] = timer.ElapsedMilliseconds;
-                run["mapping_telemetry"] = mappingTelemetry.Mappings; await Save(); }
+                run["mapping_telemetry"] = mappingTelemetry.Mappings;
+                var executed = await engine.RunStore!.ReadAsync("benchmark", label, CancellationToken.None);
+                run["execution_model_usage"] = JsonSerializer.SerializeToNode(executed?.ModelUsage,
+                    PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
+                await Save(); }
             var oracle = await LiveWorkflowOracles.VerifyAsync(scenario, root, run, observed,
                 delegated is null ? null : observed.ProbeBrowserClosureAsync);
             run["oracle"] = oracle;
@@ -154,6 +158,7 @@ internal static class LiveWorkflowEvaluation
             run["result"]!["execution_oracle"] = oracle["passed"]!.DeepClone();
             run["result"]!["execution_status"] = "completed";
             run["result"]!["execution_ms"] = timer.ElapsedMilliseconds;
+            run["result"]!["execution_model_usage"] = run["execution_model_usage"]?.DeepClone();
             run["result"]!["total_ms"] = run["result"]!["planning_ms"]!.GetValue<long>() + timer.ElapsedMilliseconds;
             run["result"]!["accounting"] = await LiveCampaignEvidence.AccountingAsync(campaign, label);
             var planningUsage = PlanningBenchmarkMeasurements.Usage(new JsonObject

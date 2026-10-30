@@ -103,6 +103,7 @@ internal static class PlanningBindingSchemas
                 }
                 if (workspace && kinds.Any(k => k is not ("output" or "field"))) continue;
                 if (kinds.Contains("arithmetic") && !types.Any(t => t is "number" or "integer")) continue;
+                if (kinds.Contains("string_operation") && !types.Contains("string")) continue;
                 if (kinds.Contains("lookup") && !types.Contains("array")) continue;
                 if (kinds.Contains("flatten"))
                 {

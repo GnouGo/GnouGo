@@ -36,7 +36,7 @@ public sealed class CompactDraftNavigationTests
 
     [Theory]
     [InlineData("foreach", null, null, true)]
-    [InlineData("foreach", "worker", null, false)]
+    [InlineData("foreach", "worker", null, true)]
     [InlineData("call", "worker", null, true)]
     [InlineData("call", null, null, false)]
     [InlineData("call", "worker", "requirement:req", true)]

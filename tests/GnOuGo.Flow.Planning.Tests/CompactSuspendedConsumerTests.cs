@@ -56,7 +56,7 @@ public sealed class CompactSuspendedConsumerTests
     }
 
     [Fact]
-    public async Task ExplicitResumeComposesPendingAcceptedWorkBeforeMandatoryBusinessReviews()
+    public async Task ExplicitResumeComposesRetainedPendingAcceptedWorkBeforeMandatoryBusinessReviews()
     {
         var run = await PendingPrerequisite();
         var state = run.State;
@@ -95,13 +95,35 @@ public sealed class CompactSuspendedConsumerTests
         Assert.Equal(PlanningStatus.FinalReview, recovered.Status);
         Assert.Equal(1, run.LocalReviews()); Assert.Equal(1, run.GlobalReviews());
         Assert.Equal("completed", Assert.Single(recovered.Construction!.Compact!.SuspendedSteps!).Status);
-        Assert.Equal(["seed", "double"], recovered.Plan!.Root.Tasks[0].Body!.Tasks.Select(task => task.Id));
-        Assert.Equal("seed", recovered.Plan.Root.Tasks[0].Body!.Tasks[1].Outputs[0].Value.Items[0].Source);
+        Assert.Equal(["factor", "seed", "double"], recovered.Plan!.Root.Tasks[0].Body!.Tasks.Select(task => task.Id));
+        Assert.Equal("seed", recovered.Plan.Root.Tasks[0].Body!.Tasks[2].Outputs[0].Value.Items[0].Source);
         PlanningArtifactApproval.Verify(recovered);
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(recovered.Yaml!));
         var result = await new WorkflowEngine().ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject(), PlannerFixture.Ct);
         Assert.True(result.Success, result.Error?.Message);
         Assert.Equal(14, result.Outputs!["number"]!.GetValue<double>());
+    }
+
+    [Fact]
+    public async Task CompletedPrerequisiteReceivesLocalReviewBeforeFreshExplicitResume()
+    {
+        var run = await PendingPrerequisite(retainedPending: false);
+        var state = run.State;
+        var producer = state.Construction!.Checkpoints.Single(checkpoint => checkpoint.TaskIds.Contains("seed"));
+        Assert.False(producer.Fragment["businessReviewPending"]!.GetValue<bool>());
+        Assert.NotNull(HybridWorkflowPlanner.ReviewedCheckpoint(state, producer));
+        Assert.Equal(1, run.LocalReviews());
+        // The review did not claim the unselected association with this consumer.
+        Assert.False(PlanningCompactConstruction.TryResumeReviewedConsumer(PlannerFixture.Clone(state)));
+        for (var tick = 0; tick < 20 && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); tick++)
+        {
+            state = await Advance(PlannerFixture.Clone(state), run.Runtime);
+            Assert.Empty(state.Diagnostics);
+        }
+        Assert.Equal(PlanningStatus.FinalReview, state.Status);
+        Assert.Equal(2, run.LocalReviews()); Assert.Equal(1, run.GlobalReviews());
+        Assert.Equal("completed", Assert.Single(state.Construction!.Compact!.SuspendedSteps!).Status);
+        PlanningArtifactApproval.Verify(state);
     }
 
     [Theory]
@@ -115,7 +137,7 @@ public sealed class CompactSuspendedConsumerTests
         var state = run.State;
         var checkpoint = state.Construction!.Checkpoints.Single(item => item.TaskIds.Contains("seed"));
         Assert.Empty(checkpoint.Reviews);
-        if (invalid == "producer") state.Plan!.Root.Tasks[0].Body!.Tasks[0].Objective += " Changed executable objective.";
+        if (invalid == "producer") state.Plan!.Root.Tasks[0].Body!.Tasks.Single(task => task.Id == "seed").Objective += " Changed executable objective.";
         if (invalid == "source")
         {
             var source = Assert.Single(state.Construction.Compact!.SuspendedSteps!).SourceVersions.Keys.First();
@@ -299,9 +321,9 @@ public sealed class CompactSuspendedConsumerTests
 
     private sealed record PendingRun(PlanningSession State, TestRuntime Runtime, Func<int> LocalReviews, Func<int> GlobalReviews);
 
-    private static async Task<PendingRun> PendingPrerequisite(bool nullable = false, bool nested = false)
+    private static async Task<PendingRun> PendingPrerequisite(bool nullable = false, bool nested = false, bool retainedPending = true)
     {
-        const string work = "Inside a sequential scope, produce seven and then double that exact prerequisite.";
+        const string work = "Inside a sequential scope, retain multiplier two, produce seven and double that exact prerequisite using the retained multiplier.";
         const string finish = "Return the required numeric public result named number from the closed scope.";
         const string consumer = "Double the exact prerequisite and complete this sequential body.";
         var selections = 0; var drafts = 0; var localReviews = 0; var globalReviews = 0;
@@ -325,7 +347,7 @@ public sealed class CompactSuspendedConsumerTests
             {
                 var index = selections++;
                 response = new() { ["baseHash"] = request.StructuredOutputSchema!["properties"]!["baseHash"]!["enum"]![0]!.DeepClone() };
-                if (index == 3)
+                if (index == 2)
                 {
                     var checkpoint = current.Construction!.Checkpoints.Single(item => item.TaskIds.Contains("seed"));
                     response["resumeStep"] = new JsonObject { ["continuationId"] = Assert.Single(current.Construction.Compact!.SuspendedSteps!).Id,
@@ -333,15 +355,15 @@ public sealed class CompactSuspendedConsumerTests
                 }
                 else
                 {
-                    Assert.InRange(index, 0, 4);
+                    Assert.InRange(index, 0, 3);
                     response["step"] = new JsonObject {
-                        ["scope"] = index is 1 or 2 ? "/tasks/work/body" : "/root", ["kind"] = index == 0 ? "sequence" : "value",
-                        ["objective"] = index switch { 0 => "Open the required sequential computation.", 1 => consumer, 2 => "Produce the exact prerequisite of seven.", _ => "Return the completed scope result." },
-                        ["requirementIds"] = new JsonArray(index == 4 ? "req_1" : "req_0"), ["operationIds"] = new JsonArray(), ["inputs"] = index == 4
+                        ["scope"] = index == 1 ? "/tasks/work/body" : "/root", ["kind"] = index == 0 ? "sequence" : "value",
+                        ["objective"] = index switch { 0 => "Build the required sequential computation.", 1 => "Produce the exact prerequisite of seven.", _ => "Return the completed scope result." },
+                        ["requirementIds"] = new JsonArray(index == 3 ? "req_1" : "req_0"), ["operationIds"] = new JsonArray(), ["inputs"] = index == 3
                             ? new JsonArray(PlanningConstruction.Node(Output("work"), PlanningJsonContext.Default.TaskValue)) : new JsonArray(),
                         ["dependencyTaskIds"] = new JsonArray(), ["expectedOutputs"] = new JsonArray(),
-                        ["closeRequirementIds"] = index is 1 or 4 ? new JsonArray(index == 1 ? "req_0" : "req_1") : new JsonArray(),
-                        ["outputNames"] = index == 4 ? new JsonArray("number") : new JsonArray() };
+                        ["closeRequirementIds"] = index is 0 or 3 ? new JsonArray(index == 0 ? "req_0" : "req_1") : new JsonArray(),
+                        ["outputNames"] = index == 3 ? new JsonArray("number") : new JsonArray() };
                 }
             }
             else if (purpose == PlanningConstruction.DraftPurpose)
@@ -356,13 +378,16 @@ public sealed class CompactSuspendedConsumerTests
                 {
                     var extension = index switch
                     {
-                        0 => new PlanningConstructionExtension { RequirementIds = ["req_0"], Tasks = [new() { Id = "work", Kind = "sequence", Objective = "Run the requested sequential computation.", Body = new() }] },
-                        2 => new() { Scope = "/tasks/work/body", RequirementIds = ["req_0"], Tasks = [new() { Id = "seed", Kind = "value", Objective = "Produce the exact prerequisite of seven.",
+                        0 => new PlanningConstructionExtension { RequirementIds = ["req_0"], ContinueInScope = "/tasks/work/body", Tasks = [new()
+                        { Id = "work", Kind = "sequence", Objective = "Run the requested sequential computation.", Body = new()
+                            { Tasks = [new() { Id = "factor", Kind = "value", Objective = "Retain the requested multiplier.",
+                                Outputs = [new("number", new() { Kind = "number", Number = 2 })] }] } }] },
+                        2 => new() { Scope = "/tasks/work/body", RequirementIds = ["req_0"], ContinueInScope = retainedPending ? "/tasks/work/body" : null, Tasks = [new() { Id = "seed", Kind = "value", Objective = "Produce the exact prerequisite of seven.",
                             Outputs = [new("number", nullable ? new() { Kind = "null" } : nested
                                 ? new() { Kind = "object", Members = [new("value", new() { Kind = "number", Number = 7 })] }
                                 : new() { Kind = "number", Number = 7 })] }] },
                         3 => new() { Scope = "/tasks/work/body", RequirementIds = ["req_0"], Tasks = [new() { Id = "double", Kind = "value", Objective = consumer,
-                            Outputs = [new("number", new() { Kind = "arithmetic", Text = "multiply", Items = [Output("seed"), new() { Kind = "number", Number = 2 }] })] }],
+                            Outputs = [new("number", new() { Kind = "arithmetic", Text = "multiply", Items = [Output("seed"), Output("factor")] })] }],
                             Outputs = [new("number", Output("double"))], CloseScopes = ["/tasks/work/body"] },
                         _ => new() { RequirementIds = ["req_1"], Outputs = [new("number", Output("work"))], CloseScopes = ["/root"], Complete = true }
                     };
@@ -372,14 +397,18 @@ public sealed class CompactSuspendedConsumerTests
             else
             {
                 Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(current));
-                Assert.Contains("seed", request.Prompt, StringComparison.Ordinal);
-                Assert.Contains("double", request.Prompt, StringComparison.Ordinal);
+                Assert.Contains(runtime.EvidenceId(request, "task:seed"), request.Prompt, StringComparison.Ordinal);
+                var composition = current.Construction!.Candidate!.Plan.Root.Tasks[0].Body!.Tasks.Any(task => task.Id == "double");
+                if (composition) Assert.Contains(runtime.EvidenceId(request, "task:double"), request.Prompt, StringComparison.Ordinal);
                 if (purpose == PlanningConstruction.LocalPurpose)
                 {
                     localReviews++;
-                    Assert.True(current.Construction!.Checkpoints.Single(item => item.TaskIds.Contains("seed")).Fragment["businessReviewPending"]!.GetValue<bool>());
+                    if (retainedPending)
+                        Assert.True(current.Construction.Checkpoints.Single(item => item.TaskIds.Contains("seed")).Fragment["businessReviewPending"]!.GetValue<bool>());
+                    else if (!composition)
+                        Assert.Equal("seed", Assert.Single(current.Construction.Candidate.TaskIds));
                 }
-                else { Assert.Equal(PlanningConstruction.GlobalPurpose, purpose); globalReviews++; Assert.Equal(1, localReviews); }
+                else { Assert.Equal(PlanningConstruction.GlobalPurpose, purpose); globalReviews++; Assert.Equal(retainedPending ? 1 : 2, localReviews); }
                 response = new() { ["decision"] = new JsonObject { ["verdict"] = "ok", ["reason"] = "The exact seven is doubled, exported by the sequential scope and returned as the numeric result." } };
             }
             var wire = PlanningCorpus.Transport(response, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject())!;
@@ -394,7 +423,19 @@ public sealed class CompactSuspendedConsumerTests
             state = await Advance(PlannerFixture.Clone(state), runtime);
             Assert.Empty(state.Diagnostics);
             if (state.Construction!.Candidate is null && state.Construction.Checkpoints.Any(checkpoint => checkpoint.TaskIds.Contains("seed")))
+            {
+                if (retainedPending)
+                {
+                    // Restore the exact format-11 checkpoint shape retained before
+                    // completed-block review became mandatory. Its executable bytes,
+                    // source authority, pending review and accounting remain intact.
+                    var checkpoint = state.Construction.Checkpoints.Single(item => item.TaskIds.Contains("seed"));
+                    checkpoint.Fragment.Remove("continueInScope");
+                    state.Construction.Compact!.CurrentStep = null;
+                    state = PlannerFixture.Clone(state);
+                }
                 return new(state, runtime, () => localReviews, () => globalReviews);
+            }
         }
         Assert.Fail("Ordinary planning did not accept the technical prerequisite checkpoint.");
         throw new InvalidOperationException();

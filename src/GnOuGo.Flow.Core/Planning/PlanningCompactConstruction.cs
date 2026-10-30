@@ -17,6 +17,8 @@ public sealed class PlanningCompactConstructionState
     public int InterfaceOffset { get; set; }
     public int OutputOffset { get; set; }
     public List<string> FailedActions { get; set; } = [];
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningConstructionProgress? Progress { get; set; }
     public List<JsonObject> RejectedSteps { get; set; } = [];
     public string? ReplacementScope { get; set; }
     public List<string>? ReplacementRequirements { get; set; }
@@ -24,6 +26,16 @@ public sealed class PlanningCompactConstructionState
     public List<PlanningConstructionSuspendedStep>? SuspendedSteps { get; set; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? ResumingStepId { get; set; }
+}
+
+/// <summary>Observed facts and call accounting for the existing construction loop; never planning authority.</summary>
+public sealed class PlanningConstructionProgress
+{
+    public List<string> Evidence { get; set; } = [];
+    public List<string> Behaviors { get; set; } = [];
+    public List<string> CompletedRequirements { get; set; } = [];
+    public int CountedModelCalls { get; set; }
+    public int NonProductiveModelCalls { get; set; }
 }
 
 /// <summary>An explicit replacement decision, not an interpretation of a diagnostic's prose.</summary>

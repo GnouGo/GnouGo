@@ -156,6 +156,8 @@ Every cache hit reruns sandbox and target validation. Incompatible or invalid en
 
 Durable runs record child inference intents and completion receipts through the existing journal and usage-budget path. A completed malformed response still has a receipt and may use the remaining repair. Unknown completion stops for reconciliation and is never redispatched automatically. Resume and outer retries cannot reset the historical two-attempt allowance or the adaptive shared runtime budget. A non-durable execution has only execution-local attempt accounting; restart recovery requires a durable run store.
 
+Trusted advisory token crossings are retained as content-free `warnings` in the existing usage snapshot. Each warning records its stage, kind, observed value and threshold, with the exact model request ID when available. Mapping admission and cumulative accounting use the same snapshot; aggregate `agent.run` warnings are retained by normal completion or reconciliation writes, including failed verification. Restored usage preserves these warnings without authorizing dispatch or changing calls, money, permissions or replay rules. Snapshots without warnings retain their historical serialized shape.
+
 ## Breaking .NET DSL/API migration
 
 `ValueProjectExecutor` and `value.project` are removed. Retired steps fail document validation before execution or cleanup, including nested bodies and finalizers. Saved YAML, journals and approvals are not rewritten. Regenerate/review/approve a new artifact. Custom executors unrelated to retired names remain supported. Python is unchanged.

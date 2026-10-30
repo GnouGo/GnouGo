@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
 using GnOuGo.KeyVault.Core.Services;
 
@@ -22,6 +23,39 @@ public sealed class BenchmarkQualificationTests
         Assert.Equal(6, report["passed"]!.GetValue<int>());
         Assert.Equal(3, report["qualification"]!.AsObject().Count);
         Assert.Equal(before, records.Snapshot());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ExecutionWarningsComeFromTheOwnedJournalEvenWhenTheReportWasInterrupted(bool interrupted)
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "qualification");
+        await SeedAsync(campaign);
+        const string id = "gateamazon-amazon-1";
+        var run = (await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "run:" + id, Ct))!;
+        run["execution_model_usage"] = new JsonObject { ["calls"] = 0 };
+        if (interrupted) run.Remove("execution_ms");
+        await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "run:" + id, run, Ct);
+        var store = new InMemoryWorkflowRunStore();
+        foreach (var tenant in new[] { "benchmark", "other" })
+            await store.CreateAsync(new WorkflowRun
+            {
+                TenantId = tenant, RunId = id, Limits = new() { TenantId = tenant, RunId = id },
+                ModelUsage = new() { StartedAtUtc = DateTimeOffset.UnixEpoch, Calls = 2, InputTokens = 100, OutputTokens = 2,
+                    TotalTokens = 102, Warnings = [new("request_input_tokens", 100, 80, "measured", "execution")
+                    { RequestId = tenant + ":runtime:1" }] }
+            }, Ct);
+        var before = records.Snapshot();
+        var report = await LiveCampaignEvidence.ReportAsync(campaign, source: Source, amazonCohort: "gateamazon",
+            codeCohort: "gatecode", collectionsCohort: "gatecollections", executionStore: store);
+        var row = report["runs"]!.AsArray().Single(value => value?["run"]?.ToString() == id)!;
+        Assert.Equal(2, row["execution_model_usage"]!["calls"]!.GetValue<int>());
+        Assert.Equal("benchmark:runtime:1", row["execution_model_usage"]!["warnings"]![0]!["requestId"]!.ToString());
+        Assert.Equal(interrupted ? "interrupted" : "completed", row["execution_status"]!.ToString());
+        Assert.Equal(!interrupted, row["qualifying_success"]!.GetValue<bool>());
+        Assert.Equal(before, records.Snapshot());
+        Assert.Single((await store.ReadAsync("benchmark", id, Ct))!.ModelUsage!.Warnings!);
     }
 
     [Theory]

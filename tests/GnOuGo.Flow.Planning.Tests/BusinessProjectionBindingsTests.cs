@@ -154,7 +154,9 @@ public sealed class BusinessProjectionBindingsTests
         var child = Assert.Single(continuation["descendants"]!.AsArray())!;
         Assert.Equal("Normalize the document contents without losing facts.", child["consumer"]!["objective"]!.ToString());
         Assert.Equal(supersedeNavigation ? "prerequisite_navigation_superseded" : "business_consumer_retained", child["disposition"]!.ToString());
-        Assert.Equal("parent", child["parentId"]!.ToString());
+        Assert.Null(continuation["id"]);
+        Assert.Null(child["id"]);
+        Assert.Null(child["parentId"]);
         Assert.Equal("content", continuation["binding"]!["port"]!.ToString());
         Assert.DoesNotContain("DO_NOT_PRESENT_AUTHORITY", request.Prompt, StringComparison.Ordinal);
         foreach (var key in new[] { "dependencyHashes", "sourceVersions", "requestId", "claimsHash", "responseHash" })

@@ -23,24 +23,24 @@ internal static partial class PlanningCompactConstruction
     private const string ContainerBoundaryGuidance = "Open a container only for needed control, reuse, cleanup or export ownership; append sequential work to an existing appropriate scope.";
 
     internal static string SelectGuidance(PlanningSession state) => $"""
-        Choose the next executable contribution inside an offered scope, using accepted results and inspected contracts. Original clauses state complete obligations; this substep may establish only one producer or prerequisite. Resume a retained consumer when its exact binding is ready, otherwise resolve the missing prerequisite. Keep closed requirements closed until explicit invalidation.
+        Choose the next coherent business block inside an offered scope, using accepted results and inspected contracts. Its objective, inputs and expected outputs describe one responsibility; related operations and their local mappings belong together. Original clauses are obligations, not a list of tasks or checkpoints. Resume a retained consumer when its exact binding is ready, otherwise resolve the missing prerequisite. Keep closed requirements closed until explicit invalidation.
         Keep original requirements attached without treating them as this substep's completion claim. Caller inputs bind at runtime; discovery needs their declared interfaces, not concrete values. Use kind:null when unknown capabilities determine implementation. An inspected offered operationIds contract can bind kind:operation directly. Local and structural kinds need no discovery when their semantics suffice.
-        {ContainerBoundaryGuidance} Open containers/groups empty; outputNames and closeRequirementIds remain empty when their children must establish the result. Groups isolate declared inputs; controls capture ancestors. call requires a closed groupId. {ReusableGroupSemantics}
+        {ContainerBoundaryGuidance} Populate necessary containers/groups with their related work within the bounded fragment. Groups isolate declared inputs; controls capture ancestors. call requires a closed groupId. {ReusableGroupSemantics}
         {ValueSemantics} {TransformSemantics} Input/dependency hints resolve now. Prerequisites cite original evidence, not future task IDs. expectedOutputs are internal; outputNames selects public root results. {SelectedExpectationsSemantics}
         closeScopes:[] closes requirements only; [scope] closes that offered scope; non-close actions use null. Close only satisfied obligations. Return one action with other fields null: step, offered resumeStep, exact evidenceRequests, or clarification of a missing business fact. Evidence grants no execution or edit authority.
         """;
 
     internal static string DiscoveryGuidance(PlanningSession state) => $"""
-        Resolve implementation of this immediate business action within its fixed scope and original requirements. Inspect relevant original descriptions/constraints; partial descriptions or uninspected alternatives do not establish missing behavior. Follow necessary exact continuations. Stop inspecting once suitable.
-        Return one action with others null: binding, discoveryRequests, evidenceRequests, reselectStep or clarifications. binding selects a TaskPlan kind plus exact inspected operationIds or closed groupId; local work has no operations. closeScopes:[] means requirement-only closure, [scope] the offered boundary, otherwise null.
+        Resolve this business block within its fixed scope and original requirements. Inspect necessary original descriptions/constraints and exact continuations; incomplete inspection proves no absence. Stop once suitable.
+        Return one action with others null: binding, discoveryRequests, evidenceRequests, reselectStep or clarifications. binding selects the anchor, inspected operationIds and optional closed groupId. Related value/transform helpers share the fragment. closeScopes:[] means requirement-only closure, [scope] the offered boundary, otherwise null.
         {ContainerBoundaryGuidance} {ValueSemantics} {TransformSemantics} {SelectedExpectationsSemantics}
         The host resolves contracts and admits required constraints before drafting. Never invent setup, handles, results or permissions. Unavailable required data needs a prerequisite reselection; only missing business facts need clarification. Caller inputs bind at runtime.
         discoveryRequests uses issued source/cursor with query:null; host follows bounded continuations for this objective. evidenceRequests copies up to eight exact addresses, or an offered earlier description, and uses supplied evidence. Metadata grants no execution authority.
         """;
 
     internal static string DraftGuidance(PlanningSession state) => """
-        Implement the selected contribution, scope and task kind using exact contracts; related selected operations and known dependencies can share this bounded fragment. Preserve accepted work, original constraints and complete observations. Input hints are not a whitelist: every actual binding resolves at its consumer and supplies the entity/value required by original contract meaning, not merely a compatible type. Never invent inputs, permissions or external results.
-        New containers open empty. scopeInterface contains existing exports; extension.outputs adds exports, [] preserves them. Close complete children/exports only. requirementIds associates work without proving completion. Add actual tasks, groups, choices or exports, close a scope, or close an offered still-open requirement.
+        Implement the selected business block using its anchor kind, related value/transform helpers and exact selected operations. Generate several connected operations together within the recursive task allowance. Preserve accepted work, original constraints and complete observations. Input hints are not a whitelist: every actual binding resolves at its consumer and supplies the entity/value required by original contract meaning, not merely a compatible type. Never invent inputs, permissions or external results.
+        Populate necessary containers with their related work and cleanup. scopeInterface contains existing exports; extension.outputs adds exports, [] preserves them. Close complete children/exports only. continueInScope names the exact original or block-owned open scope for another fragment of this same unfinished block; null finishes the block. requirementIds associates work without proving completion. Do not repeat accepted tasks or introduce wrappers merely to mark progress.
         Return one permitted action; other action fields null. Commitments accompany extension only. Evidence-only responses keep requirements, commitments and rollbackReason null. Reselect an unsuitable kind or premature claim, retrieve exact originals, or clarify missing business facts. No outline, JavaScript or YAML.
         """;
 
@@ -229,8 +229,8 @@ internal static partial class PlanningCompactConstruction
                 PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.Object(
                     ("need", Text(256)), ("evidenceAddresses", PlanningSchemas.Array(PlanningSchemas.Enum(prerequisites), 1, 4))), 0, 4));
             step["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("prerequisites"));
-            // Shared members are factored by Compact. A structural action cannot
-            // accidentally bind a reusable target merely because it uses one later.
+            // A block may invoke one explicitly selected closed reusable group.
+            // Its exact interface remains checked for each call in the fragment.
             var local = step.DeepClone().AsObject();
             local["properties"]!["kind"] = completionOnly ? PlanningSchemas.Enum("close") :
                 PlanningSchemas.Nullable(PlanningSchemas.Enum(kinds.Where(kind => kind != "call").ToArray()));
@@ -247,13 +247,20 @@ internal static partial class PlanningCompactConstruction
             var branches = step["anyOf"] is JsonArray alternatives ? alternatives.OfType<JsonObject>().ToArray() : [step];
             var template = branches[0];
             var choices = new JsonArray();
+            var known = page is null ? SelectionOperationIds(state) :
+                new[] { page["knownOperations"] }.Concat((page["evidence"] as JsonObject ?? [])
+                    .Where(item => item.Key.StartsWith("page:operations:", StringComparison.Ordinal)).Select(item => item.Value))
+                    .SelectMany(value => value?["items"] as JsonArray ?? []).Select(item => item!["id"]!.ToString())
+                    .Intersect(SelectionOperationIds(state), StringComparer.Ordinal).ToArray();
             foreach (var branch in branches)
             {
                 if (completionOnly) continue;
                 var local = branch.DeepClone().AsObject();
                 if (local["properties"]!["kind"]?["enum"] is not JsonArray callKinds || !callKinds.Any(kind => kind?.ToString() == "call"))
                     local["properties"]!["kind"] = PlanningSchemas.Nullable(PlanningSchemas.Enum(kinds.Where(kind => kind is not ("call" or "close")).ToArray()));
-                AddSelectionFields(local, EmptyArray(), PlanningSchemas.Type("null"));
+                AddSelectionFields(local, local["properties"]!["kind"]?["enum"] is JsonArray selectedKinds &&
+                    selectedKinds.Any(selected => selected?.ToString() == "call") && known.Length > 0
+                    ? PlanningSchemas.Array(PlanningSchemas.Enum(known), 0, state.Construction!.Limits.MaxTasksPerDraft) : EmptyArray(), PlanningSchemas.Type("null"));
                 choices.Add((JsonNode)local);
             }
             foreach (var scope in replacement is not null ? [replacement] : scopes ?? state.Construction!.OpenScopes.ToArray())
@@ -261,6 +268,7 @@ internal static partial class PlanningCompactConstruction
                 var close = template.DeepClone().AsObject();
                 close["properties"]!["scope"] = PlanningSchemas.Enum(scope);
                 close["properties"]!["kind"] = PlanningSchemas.Enum("close");
+                close["properties"]!["groupId"] = PlanningSchemas.Type("null");
                 var selected = new PlanningConstructionStep { Scope = scope, Kind = "close",
                     CloseRequirementIds = closingRequirements.ToList() };
                 var target = (scope != "/root" || selected.CloseRequirementIds.Count <= 4) && ClosurePresentation(state, selected).CloseScope
@@ -268,17 +276,22 @@ internal static partial class PlanningCompactConstruction
                 AddSelectionFields(close, EmptyArray(), target);
                 choices.Add((JsonNode)close);
             }
-            var known = page is null ? SelectionOperationIds(state) :
-                new[] { page["knownOperations"] }.Concat((page["evidence"] as JsonObject ?? [])
-                    .Where(item => item.Key.StartsWith("page:operations:", StringComparison.Ordinal)).Select(item => item.Value))
-                    .SelectMany(value => value?["items"] as JsonArray ?? []).Select(item => item!["id"]!.ToString())
-                    .Intersect(SelectionOperationIds(state), StringComparer.Ordinal).ToArray();
             if (!completionOnly && known.Length > 0)
             {
                 var operation = template.DeepClone().AsObject();
-                operation["properties"]!["kind"] = PlanningSchemas.Enum("operation");
-                AddSelectionFields(operation, PlanningSchemas.Array(PlanningSchemas.Enum(known), 1, 2), PlanningSchemas.Type("null"));
+                operation["properties"]!["kind"] = PlanningSchemas.Enum(new[] { "operation" }
+                    .Concat(kinds.Where(kind => SupportsBusinessFragment(kind) && kind != "call")).ToArray());
+                AddSelectionFields(operation, PlanningSchemas.Array(PlanningSchemas.Enum(known), 1, state.Construction!.Limits.MaxTasksPerDraft), PlanningSchemas.Type("null"));
                 choices.Add((JsonNode)operation);
+            }
+            if (!completionOnly && hasClosedGroup)
+            {
+                var composedCall = template.DeepClone().AsObject();
+                composedCall["properties"]!["kind"] = PlanningSchemas.Enum(kinds.Where(kind => SupportsBusinessFragment(kind) && kind != "call").ToArray());
+                composedCall["properties"]!["groupId"] = Text(96);
+                AddSelectionFields(composedCall, known.Length == 0 ? EmptyArray()
+                    : PlanningSchemas.Array(PlanningSchemas.Enum(known), 0, state.Construction!.Limits.MaxTasksPerDraft), PlanningSchemas.Type("null"));
+                choices.Add((JsonNode)composedCall);
             }
             step = new JsonObject { ["anyOf"] = choices };
 
@@ -927,8 +940,9 @@ internal static partial class PlanningCompactConstruction
             PlanningConstruction.Fail("CONSTRUCTION_STEP_OUTPUT_INVALID", "/step/outputNames", "outputNames selects distinct declared public results only. Current page: " +
                 new JsonArray(OutputPage(state).Select(o => (JsonNode?)JsonValue.Create(o.Name)).ToArray()).ToJsonString() +
                 ". For internal work use outputNames:[] and describe its result in expectedOutputs. Public output pages begin at page:outputs:0.");
-        if (step.Kind == "call" ? step.GroupId is null || GroupInterface(state, step.GroupId) is not { } group || group["open"]!.GetValue<bool>() : step.GroupId is not null)
-            PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/step/groupId", "A call requires one existing closed reusable group; other task kinds do not select a group.");
+        if (step.Kind == "call" && step.GroupId is null || step.GroupId is not null &&
+            (!SupportsBusinessFragment(step.Kind) || GroupInterface(state, step.GroupId) is not { } group || group["open"]!.GetValue<bool>()))
+            PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/step/groupId", "A call requires one existing closed reusable group; a business block may select that exact group for its related calls.");
         var symbols = new TaskPlanSymbols(state.Plan ?? new TaskPlan());
         step.InputTaskIds = step.Inputs.SelectMany(TaskPlanCompiler.Values).Where(v => v.Kind is "output" or "present" && v.Source is not null)
             .Select(v => v.Source!).Concat(step.DependencyTaskIds).Distinct(StringComparer.Ordinal).ToList();

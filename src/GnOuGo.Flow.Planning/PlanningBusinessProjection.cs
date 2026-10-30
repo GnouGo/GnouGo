@@ -21,9 +21,10 @@ internal static class PlanningBusinessProjection
             var closed = candidate.Extension.CloseScopes.ToHashSet(StringComparer.Ordinal);
             foreach (var scope in symbols.Scopes.Where(scope => closed.Contains(scope.Path)))
                 selected.UnionWith(TaskPlanRevisions.Tasks(scope.Source).Select(task => task.Id));
-            var closingRequirements = construction.Compact!.CurrentStep!.CloseRequirementIds.ToHashSet(StringComparer.Ordinal);
+            var closingRequirements = PlanningCompactConstruction.CandidateCompletionClaims(state).ToHashSet(StringComparer.Ordinal);
             foreach (var checkpoint in construction.Checkpoints.Where(checkpoint => checkpoint.Fragment["businessReviewPending"]?.GetValue<bool>() == true &&
-                (checkpoint.RequirementIds.Any(closingRequirements.Contains) || closed.Contains(checkpoint.Step?.Scope ?? ""))))
+                (checkpoint.RequirementIds.Any(closingRequirements.Contains) || closed.Contains(checkpoint.Step?.Scope ?? "") ||
+                    candidate.Extension.ContinueInScope is null && checkpoint.Step?.Id == construction.Compact!.CurrentStep!.Id)))
                 selected.UnionWith(checkpoint.TaskIds);
         }
         var fragment = selected.ToArray();
@@ -86,7 +87,7 @@ internal static class PlanningBusinessProjection
         // without an executable consumer. Other fragments retain consumed inputs
         // only; presenting a public declaration never grants isolated group access.
         var compact = construction.Compact!;
-        var claimedSources = compact.CurrentStep!.CloseRequirementIds
+        var claimedSources = PlanningCompactConstruction.CandidateCompletionClaims(state)
             .SelectMany(id => compact.RequirementSources.GetValueOrDefault(id) ?? []).ToHashSet(StringComparer.Ordinal);
         var interfaceClaims = compact.Sources.Where(source => source.Indexed && source.Version == PlanningGraphCompiler.Fingerprint(source.Text) && (global || claimedSources.Contains(source.Id) || source.ContinuationOf is { } previous && claimedSources.Contains(previous)))
             .SelectMany(source => source.Inputs ?? []).Select(input => input.Name).ToHashSet(StringComparer.Ordinal);
@@ -114,7 +115,6 @@ internal static class PlanningBusinessProjection
         var context = new JsonObject
         {
             ["review"] = global ? "completed_workflow" : "current_fragment",
-            ["technicalValidation"] = "Present types, contracts, references, scopes and bindings passed host/compiler checks; this does not establish business meaning, runtime success or execution authority.",
             ["requirements"] = requirements, ["globalConstraints"] = globals,
             ["inputs"] = new JsonArray(plan.Inputs.Where(input => global || interfaceClaims.Count > 0 || rootInputs.Contains(input.Name))
                 .Select(input =>
@@ -134,7 +134,7 @@ internal static class PlanningBusinessProjection
             }).ToArray()),
             ["publicOutputs"] = Outputs(plan.Root.Outputs),
             ["claims"] = new JsonObject { ["scope"] = candidate.Extension.Scope,
-                ["completedRequirements"] = Strings(construction.Compact!.CurrentStep!.CloseRequirementIds),
+                ["completedRequirements"] = Strings(PlanningCompactConstruction.CandidateCompletionClaims(state)),
                 ["closedScopes"] = Strings(candidate.Extension.CloseScopes), ["workflowComplete"] = candidate.Extension.Complete },
             ["fragment"] = Strings(fragment)
         };
@@ -145,7 +145,9 @@ internal static class PlanningBusinessProjection
         if (candidate.Extension.ContinuationBinding is { } association)
             context["continuation"] = Continuation(state, association);
         if (candidate.Extension.BoundaryTransitions is { Count: > 0 } transitions)
-            context["transitions"] = PlanningConstruction.Node(transitions, PlanningJsonContext.Default.ListPlanningConstructionBoundaryTransition);
+            context["transitions"] = new JsonArray(transitions.Select(transition => (JsonNode)new JsonObject
+            { ["scope"] = transition.Scope, ["requirements"] = Strings(transition.RequirementIds),
+                ["outputs"] = Outputs(transition.Outputs), ["closesScope"] = transition.CloseScope }).ToArray());
         if (construction.Evidence is { Count: > 0 } evidence)
             context["evidence"] = new JsonObject(evidence.Select(pair => new KeyValuePair<string, JsonNode?>(pair.Key, Evidence(pair.Value))));
         return context;
@@ -222,11 +224,10 @@ internal static class PlanningBusinessProjection
         var descendants = retained.Where(item => item.Status is "waiting" or "resuming" && DescendsFrom(item, target.Id)).ToArray();
         return new JsonObject
         {
-            ["id"] = target.Id, ["binding"] = Value(association.Binding),
+            ["binding"] = Value(association.Binding),
             ["consumer"] = Consumer(target),
             ["descendants"] = new JsonArray(descendants.Select(item => (JsonNode)new JsonObject
             {
-                ["id"] = item.Id, ["parentId"] = item.ParentId,
                 ["disposition"] = discharged.Contains(item.Id) ? "prerequisite_navigation_superseded" : "business_consumer_retained",
                 ["consumer"] = Consumer(item)
             }).ToArray())

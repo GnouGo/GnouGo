@@ -39,7 +39,7 @@ public sealed class CompactScopeInterfaceTests
                     step["inputs"] = stage switch { 1 => Values(new() { Kind = "input", Source = "number" }),
                         2 => Values(new() { Kind = "input", Source = "values" }), 3 => Values(new() { Kind = "item" }),
                         4 => Values(new() { Kind = "output", Source = "iterate", Port = "doubled" }), _ => new JsonArray() };
-                    step["groupId"] = stage == 3 ? "double" : null;
+                    step["groupId"] = stage is 2 or 3 ? "double" : null;
                     step["operationIds"] = new JsonArray(); step["closeScopes"] = null; step["prerequisites"] = null;
                     if (request.StructuredOutputSchema!["properties"]!["resumeStep"] is not null) selection["resumeStep"] = null;
                     return StrictWire(request, selection, exact: true);
@@ -49,14 +49,16 @@ public sealed class CompactScopeInterfaceTests
                     Assert.Contains(PlanningCompactConstruction.ReusableGroupSemantics, request.StructuredOutputSchema!["description"]!.ToString(), StringComparison.Ordinal);
                     var extension = stage++ switch
                     {
-                        0 => new PlanningConstructionExtension { Groups = [new() { Id = "double", Inputs = [new() { Name = "number", Type = new() { Kind = "number" } }] }], RequirementIds = ["req_0"] },
-                        1 => new() { Scope = "/groups/double/body", Tasks = [new() { Id = "multiply", Kind = "value", Objective = "Double the isolated numeric parameter.",
-                            Outputs = [new("doubled", new() { Kind = "arithmetic", Text = "multiply", Items = [new() { Kind = "input", Source = "number" }, new() { Kind = "number", Number = 2 }] })] }],
+                        0 => new PlanningConstructionExtension { Groups = [new() { Id = "double", Inputs = [new() { Name = "number", Type = new() { Kind = "number" } }],
+                            Body = new() { Tasks = [new() { Id = "multiply", Kind = "value", Objective = "Double the isolated numeric parameter.",
+                                Outputs = [new("doubled", new() { Kind = "arithmetic", Text = "multiply", Items = [new() { Kind = "input", Source = "number" }, new() { Kind = "number", Number = 2 }] })] }] } }], RequirementIds = ["req_0"] },
+                        1 => new() { Scope = "/groups/double/body",
                             Outputs = [new("doubled", new() { Kind = "output", Source = "multiply", Port = "doubled" })], CloseScopes = ["/groups/double/body"], RequirementIds = ["req_0"] },
                         2 => new() { Tasks = [new() { Id = "iterate", Kind = "foreach", Objective = "Open parallel ordered iteration over every input item.",
-                            Items = new() { Kind = "input", Source = "values" }, Body = new(), Parallel = true, MaxItems = 100, MaxConcurrency = 4 }], RequirementIds = ["req_0"] },
-                        3 => new() { Scope = "/tasks/iterate/body", Tasks = [new() { Id = "invoke", Kind = "call", Group = "double", Objective = "Invoke the reusable doubling group for this item.",
-                            Inputs = [new("number", new() { Kind = "item" })] }], Outputs = [new("doubled", new() { Kind = "output", Source = "invoke", Port = "doubled" })],
+                            Items = new() { Kind = "input", Source = "values" }, Body = new() { Tasks = [new() { Id = "invoke", Kind = "call", Group = "double",
+                                Objective = "Invoke the reusable doubling group for this item.", Inputs = [new("number", new() { Kind = "item" })] }] },
+                            Parallel = true, MaxItems = 100, MaxConcurrency = 4 }], RequirementIds = ["req_0"], ContinueInScope = "/tasks/iterate/body" },
+                        3 => new() { Scope = "/tasks/iterate/body", Outputs = [new("doubled", new() { Kind = "output", Source = "invoke", Port = "doubled" })],
                             CloseScopes = ["/tasks/iterate/body"], RequirementIds = ["req_0"] },
                         _ => new() { Outputs = [new("result", new() { Kind = "output", Source = "iterate", Port = "doubled" })], CloseScopes = ["/root"], RequirementIds = ["req_0"], Complete = true }
                     };
@@ -120,9 +122,11 @@ public sealed class CompactScopeInterfaceTests
             {
                 closureReviews++;
                 var context = Context(request);
-                Assert.Contains(context["scopes"]!.AsArray(), scope => scope!["id"]!.ToString() == "/groups/reusable/body" &&
-                    scope["outputs"]![0]!["value"]!["source"]!.ToString() == "assemble");
-                Assert.False(context["scopes"]!.AsArray().Single(scope => scope!["id"]!.ToString() == "/groups/reusable/body")!["open"]!.GetValue<bool>());
+                var groupScope = context["groups"]!.AsArray().Single(group => group!["id"]!.ToString() == "reusable")!["body"]!.ToString();
+                var scope = context["scopes"]!.AsArray().Single(scope => scope!["id"]!.ToString() == groupScope)!;
+                var producer = context["actions"]!.AsArray().Single(action => action!["scope"]!.ToString() == groupScope && action["kind"]!.ToString() == "value")!;
+                Assert.Equal(producer["id"]!.ToString(), scope["outputs"]![0]!["value"]!["source"]!.ToString());
+                Assert.False(scope["open"]!.GetValue<bool>());
             }
         });
         Assert.Equal(1, closureReviews);
@@ -219,7 +223,7 @@ public sealed class CompactScopeInterfaceTests
         var request = saved.PendingCall!.Request;
         if (kind == "foreach")
         {
-            var loop = Context(request)["actions"]!.AsArray().Single(action => action!["id"]!.ToString() == "iterate")!;
+            var loop = Context(request)["actions"]!.AsArray().Single(action => action!["id"]!.ToString() == runtime.EvidenceId(request, "task:iterate"))!;
             Assert.Equal(2, loop["maxItems"]!.GetValue<int>()); Assert.Equal(1, loop["maxConcurrency"]!.GetValue<int>());
         }
         var issued = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
@@ -342,8 +346,9 @@ public sealed class CompactScopeInterfaceTests
             {
                 var extension = stage++ switch
                 {
-                    0 => new PlanningConstructionExtension { Groups = [new() { Id = "reusable", Inputs = [new() { Name = "word", Type = new() { Kind = "string" } }] }], RequirementIds = ["req_0"] },
-                    1 => new() { Scope = "/groups/reusable/body", Tasks = [Greeting(input: true)], Outputs = [new("message", new() { Kind = "output", Source = "assemble", Port = "message" })], RequirementIds = ["req_0"] },
+                    0 => new PlanningConstructionExtension { Groups = [new() { Id = "reusable", Inputs = [new() { Name = "word", Type = new() { Kind = "string" } }],
+                        Body = new() { Tasks = [Greeting(input: true)] } }], RequirementIds = ["req_0"] },
+                    1 => new() { Scope = "/groups/reusable/body", Outputs = [new("message", new() { Kind = "output", Source = "assemble", Port = "message" })], RequirementIds = ["req_0"] },
                     2 => new() { Scope = "/groups/reusable/body", CloseScopes = ["/groups/reusable/body"], RequirementIds = ["req_0"] },
                     _ => new() { Tasks = [new() { Id = "invoke", Kind = "call", Group = "reusable", Objective = "Return the greeting from the reusable group.",
                         Inputs = [new("word", new() { Kind = "string", Text = "Hello" })] }],

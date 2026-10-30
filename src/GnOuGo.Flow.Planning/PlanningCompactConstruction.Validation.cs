@@ -33,13 +33,18 @@ internal static partial class PlanningCompactConstruction
         construction.PendingReviewContext = null; construction.PendingReviewHash = null; construction.Evidence = null; construction.EvidenceRequests.Clear();
     }
 
-    internal static void StageCommitments(PlanningSession state, List<PlanningConstructionCommitment>? proposed)
+    internal static void StageCommitments(PlanningSession state, List<PlanningConstructionCommitment>? proposed,
+        PlanningConstructionCandidate? candidate = null)
     {
         var compact = State(state); var step = compact.CurrentStep!;
-        var next = step.RequirementIds.ToDictionary(id => id, _ => step.OperationIds.Select(op => new PlanningCommitment(op)).ToList(), StringComparer.Ordinal);
+        var operations = candidate is null ? step.OperationIds : new TaskPlanSymbols(candidate.Plan).Tasks.Values
+            .Where(task => candidate.TaskIds.Contains(task.Task.Id, StringComparer.Ordinal)).Select(task => task.Task.Operation)
+            .OfType<string>().Distinct(StringComparer.Ordinal).ToList();
+        var next = step.RequirementIds.ToDictionary(id => id, _ => operations.Select(op => new PlanningCommitment(op)).ToList(), StringComparer.Ordinal);
         foreach (var item in proposed ?? [])
         {
-            if (!step.RequirementIds.Contains(item.RequirementId, StringComparer.Ordinal) || !step.OperationIds.Contains(item.Operation, StringComparer.Ordinal))
+            if (!step.RequirementIds.Contains(item.RequirementId, StringComparer.Ordinal) || !step.OperationIds.Contains(item.Operation, StringComparer.Ordinal) ||
+                !operations.Contains(item.Operation, StringComparer.Ordinal))
                 PlanningConstruction.Fail("CONSTRUCTION_COMMITMENT_INVALID", "/commitments", "Bind only this step's original requirements and selected exact operations.");
             if (item.Result is { } result && !step.OutputNames.Contains(result.Output, StringComparer.Ordinal))
                 PlanningConstruction.Fail("CONSTRUCTION_COMMITMENT_INVALID", "/commitments", "A result commitment must name one of this step's explicitly selected public outputs.");
@@ -57,20 +62,33 @@ internal static partial class PlanningCompactConstruction
     internal static void ValidateExtension(PlanningSession state, PlanningConstructionCandidate candidate)
     {
         var step = State(state).CurrentStep!;
-        if (candidate.AuthorizedPaths is not null) return; // The existing typed patch verifier owns this explicit revision boundary.
+        if (candidate.AuthorizedPaths is not null)
+        {
+            if (candidate.Extension.ContinueInScope is not null)
+                PlanningConstruction.Fail("CONSTRUCTION_BLOCK_CONTINUATION_INVALID", "/extension/continueInScope",
+                    "An explicit scoped revision cannot continue or expand the selected business block.");
+            return; // The existing typed patch verifier owns this explicit revision boundary.
+        }
         if (candidate.Extension.Scope != step.Scope ||
             candidate.Extension.RequirementIds.Any(id => !step.RequirementIds.Contains(id, StringComparer.Ordinal)) ||
-            step.CloseRequirementIds.Any(id => !candidate.Extension.RequirementIds.Contains(id, StringComparer.Ordinal)))
+            candidate.Extension.ContinueInScope is null && step.CloseRequirementIds.Any(id => !candidate.Extension.RequirementIds.Contains(id, StringComparer.Ordinal)))
             PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/extension", "Keep the selected scope and requirements; a closing requirement must be associated with this fragment.");
         if (step.Kind == "close" && step.CloseScopes is { } selectedClosure &&
             (!candidate.Extension.CloseScopes.SequenceEqual(selectedClosure) ||
              candidate.Extension.Complete != selectedClosure.Contains("/root", StringComparer.Ordinal)))
             PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/extension/closeScopes", "Preserve the explicitly selected requirement-only or scope closure and its completion claim.");
         var symbols = new TaskPlanSymbols(candidate.Plan);
-        if (candidate.TaskIds.Any(id => symbols.Tasks[id].Task.Kind != step.Kind ||
+        var kinds = BusinessFragmentKinds(state);
+        var topLevel = candidate.Extension.Tasks.Concat(candidate.Extension.Always).Select(task => task.Id).ToHashSet(StringComparer.Ordinal);
+        if (candidate.Extension.Groups.Count > 0 && (step.Kind != "group" || BlockAnchorConstructed(state)) ||
+            candidate.Extension.Choices.Count > 0 && step.Kind != "choice")
+            PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/extension", "Create only the selected control or declaration boundary once within this business block.");
+        if (candidate.TaskIds.Any(id => !kinds.Contains(symbols.Tasks[id].Task.Kind) &&
+                !(SupportsBusinessFragment(step.Kind) && !topLevel.Contains(id) && NestedControlKinds.Contains(symbols.Tasks[id].Task.Kind, StringComparer.Ordinal)) ||
             symbols.Tasks[id].Task.Operation is { } operation && !step.OperationIds.Contains(operation, StringComparer.Ordinal) ||
             symbols.Tasks[id].Task.Kind == "call" && symbols.Tasks[id].Task.Group != step.GroupId))
             PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/extension/tasks", "The extension exceeds the issued task-kind or operation selection.");
+        ValidateEmptyOpening(state, candidate);
         var added = candidate.TaskIds.ToHashSet(StringComparer.Ordinal);
         var derivedImports = UsesDerivedImports(state, candidate);
         foreach (var task in candidate.TaskIds.Select(id => symbols.Tasks[id].Task))
@@ -92,6 +110,7 @@ internal static partial class PlanningCompactConstruction
                 CheckImport(candidate.Extension.Choices[i].Alternatives[j].Value, "/extension/choices/" + i + "/alternatives/" + j + "/value", step.Scope);
         ValidateContinuationBinding(state, candidate);
         ValidateBoundaryTransition(state, candidate);
+        ValidateBlockContinuation(state, candidate);
 
         void CheckImport(TaskValue value, string location, string scope)
         {
@@ -160,7 +179,16 @@ internal static partial class PlanningCompactConstruction
         foreach (var binding in compact.PendingCommitments.Values.SelectMany(c => c).DistinctBy(c => c.Operation))
             if (!selectedOperations.Contains(binding.Operation))
                 yield return new(PlanningCommitments.MissingOperation, "/construction/candidate", "The selected business operation is absent from this draft: " + binding.Operation);
-        if (candidate.AuthorizedPaths is null && !candidate.Extension.Complete)
+        if (candidate.Extension.ContinueInScope is null && candidate.AuthorizedPaths is null)
+        {
+            var symbols = new TaskPlanSymbols(candidate.Plan);
+            selectedOperations.UnionWith(BlockCheckpoints(state).SelectMany(checkpoint => checkpoint.TaskIds)
+                .Where(symbols.Tasks.ContainsKey).Select(id => symbols.Tasks[id].Task.Operation).OfType<string>());
+            foreach (var operation in step.OperationIds.Where(operation => !selectedOperations.Contains(operation)))
+                yield return new(PlanningCommitments.MissingOperation, "/construction/candidate",
+                    "The selected business operation is absent from this completed block: " + operation);
+        }
+        if (candidate.AuthorizedPaths is null && !candidate.Extension.Complete && candidate.Extension.ContinueInScope is null)
         {
             foreach (var id in step.CloseRequirementIds)
             {
@@ -186,12 +214,17 @@ internal static partial class PlanningCompactConstruction
     {
         var compact = State(state); var step = compact.CurrentStep!;
         state.Requirements = CandidateRequirements(state);
-        var complete = reviewed && state.Construction!.Candidate!.Extension.Complete;
+        var continuation = state.Construction!.Candidate!.Extension.ContinueInScope;
+        var complete = reviewed && state.Construction.Candidate.Extension.Complete;
         foreach (var requirement in state.Construction!.Requirements.Where(r => complete || step.RequirementIds.Contains(r.Id, StringComparer.Ordinal)))
-            requirement.Status = requirement.Status == "closed" || complete || reviewed && step.CloseRequirementIds.Contains(requirement.Id, StringComparer.Ordinal)
+            requirement.Status = requirement.Status == "closed" || complete || continuation is null && reviewed && step.CloseRequirementIds.Contains(requirement.Id, StringComparer.Ordinal)
                 ? "closed" : "in_progress";
-        AcceptContinuation(state);
-        compact.CurrentStep = null;
+        if (continuation is null)
+        {
+            AcceptContinuation(state);
+            compact.CurrentStep = null;
+        }
+        else ContinueAcceptedBlock(state, continuation);
         compact.PendingCommitments.Clear();
         compact.ReplacementScope = null; compact.ReplacementRequirements = null;
         compact.RequirementPageRequested = false; compact.RequirementOffset = 0;

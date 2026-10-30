@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
+using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using Xunit;
 
@@ -8,6 +9,20 @@ namespace GnOuGo.Flow.Tests.Runtime;
 
 public sealed class LLMUsageBudgetTests
 {
+    [Fact]
+    public async Task AdvisoryCompletionWarningsAreIncludedInTheExistingDurableUsageWrite()
+    {
+        var sink = new CancellationCheckingSink();
+        var scope = new LLMUsageBudgetScope(true, new() { MaxCalls = 1, MaxTotalTokens = 1 }, sink: sink);
+        var request = Request(); request.ClientRequestId = "runtime-request";
+        await scope.CallAsync(new StubClient(Usage(2, 3)), null, request, "neutral.stage", TestContext.Current.CancellationToken);
+        var warning = Assert.Single(sink.Last!.Warnings!);
+        Assert.Equal(new PlanningThresholdWarning("total_tokens", 5, 1, "host_budget_measurement", "neutral.stage")
+            { RequestId = "runtime-request" }, warning);
+        Assert.Equal(5, sink.Last.TotalTokens);
+        Assert.Equal(1, sink.Last.Calls);
+    }
+
     [Fact]
     public async Task CompletedUsageIsDurableWhenCancellationArrivesWithTheResponse()
     {

@@ -53,7 +53,7 @@ public sealed partial class WorkflowEngine
         try
         {
             var result = await ExecuteCoreAsync(workflow, run.Inputs, linked.Token);
-            await Journal.FinishAsync(result, CancellationToken.None);
+            await Journal.FinishAsync(result, CancellationToken.None, LLMUsageBudget?.Snapshot);
             return result;
         }
         finally
@@ -109,14 +109,18 @@ public sealed partial class WorkflowEngine
                 return WorkflowRunStorage.Clone(lease.Run);
             }
             await journal.ObserveAsync(invocationId, JsonSerializer.SerializeToNode(observed, AgentTaskJsonContext.Default.AgentTaskResult), ct);
+            var usage = lease.Run.ModelBudget is { } limits
+                ? new LLMUsageBudgetScope(LLMUsageBudget?.AdvisoryTokenThresholds == true, limits, lease.Run.ModelUsage)
+                : LLMUsageBudget;
+            using var warnings = usage?.ObserveTokenWarnings();
             try
             {
                 var output = await AgentRunExecutor.ValidateResultAsync(context, observed, AgentTaskVerifier, ct,
                     verified => journal.ObserveAsync(invocationId, JsonSerializer.SerializeToNode(verified, AgentTaskJsonContext.Default.AgentTaskResult), ct),
                     advisoryTokenThresholds: LLMUsageBudget?.AdvisoryTokenThresholds == true);
-                await journal.ResolveOutputAsync(invocationId, output, ct);
+                await journal.ResolveOutputAsync(invocationId, output, ct, usage?.Snapshot);
             }
-            catch (WorkflowRuntimeException ex) { await journal.ResolveAsFailedAsync(invocationId, ex.ToWorkflowError(), ct); }
+            catch (WorkflowRuntimeException ex) { await journal.ResolveAsFailedAsync(invocationId, ex.ToWorkflowError(), ct, usage?.Snapshot); }
         }
         else throw new WorkflowRunConflictException("This adapter cannot reconcile the effect. Confirm that the external operation has stopped, with an audit reason; it will remain a failed invocation.");
         return WorkflowRunStorage.Clone(lease.Run);

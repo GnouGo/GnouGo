@@ -39,24 +39,99 @@ internal static partial class PlanningModelCalls
         VisitSchema(request.StructuredOutputSchema, value => { if (CanonicalAddress(value)) addresses.Add(value); return value; });
         var contextAddresses = new HashSet<string>(StringComparer.Ordinal);
         VisitContext(context, value => { if (CanonicalAddress(value)) contextAddresses.Add(value); return value; });
+        var businessReview = HybridWorkflowPlanner.ConstructionReviewIssued(request.StructuredOutputSchema);
+        if (businessReview)
+            VisitReviewIdentifiers(context, request.StructuredOutputSchema, (kind, value) =>
+            { contextAddresses.Add(kind + ":" + value); return value; });
         addresses.UnionWith(contextAddresses);
         if (addresses.Count == 0) return null;
-        var mapping = new PlanningEvidenceAddresses();
+        var mapping = new PlanningEvidenceAddresses { ReviewImplementationIds = businessReview };
         var scope = PlanningGraphCompiler.Fingerprint(state.Request.SessionId + "\n" +
             (state.ModelCalls + 1).ToString(CultureInfo.InvariantCulture) + "\n" + JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest))[..8];
         foreach (var address in addresses.Order(StringComparer.Ordinal))
             mapping.Addresses.Add("e" + scope + "_" + (mapping.Addresses.Count + 1).ToString(CultureInfo.InvariantCulture), address);
-        mapping.MapHash = EvidenceMapHash(mapping.Addresses);
+        mapping.MapHash = EvidenceMapHash(mapping.Addresses, mapping.ReviewImplementationIds);
         var reverse = mapping.Addresses.ToDictionary(pair => pair.Value, pair => pair.Key, StringComparer.Ordinal);
         string Replace(string value) => reverse.GetValueOrDefault(value, value);
         VisitSchema(request.StructuredOutputSchema, Replace);
         VisitContext(context, Replace);
+        if (businessReview) VisitReviewIdentifiers(context, request.StructuredOutputSchema, (kind, value) => Replace(kind + ":" + value));
         var navigation = new JsonArray(mapping.Addresses.Where(pair => !contextAddresses.Contains(pair.Value)).Select(pair => (JsonNode)new JsonObject
             { ["id"] = pair.Key, ["label"] = EvidenceLabel(pair.Value, context) }).ToArray());
         context ??= new JsonObject();
         if (navigation.Count > 0) context["evidenceNavigation"] = navigation;
         request.Prompt = prefix + "\n" + PlanningJsonTransport.Prompt(context);
         return mapping;
+    }
+
+    // Only the transient review view uses aliases for implementation identities.
+    // Canonical TaskPlan references, public names, literals, originals and receipts stay exact.
+    private static void VisitReviewIdentifiers(JsonObject? context, JsonNode? schema, Func<string, string, string> replace)
+    {
+        if (context is null) return;
+        foreach (var action in (context["actions"] as JsonArray ?? []).OfType<JsonObject>())
+            Action(action);
+        foreach (var scope in (context["scopes"] as JsonArray ?? []).OfType<JsonObject>())
+            Scope(scope);
+        foreach (var input in (context["inputs"] as JsonArray ?? []).OfType<JsonObject>()) Field(input, "scope", "scope");
+        foreach (var group in (context["groups"] as JsonArray ?? []).OfType<JsonObject>()) Field(group, "body", "scope");
+        Values(context["publicOutputs"]); List(context["fragment"], "task");
+        if (context["claims"] is JsonObject claims) { Field(claims, "scope", "scope"); List(claims["closedScopes"], "scope"); }
+        foreach (var transition in (context["transitions"] as JsonArray ?? []).OfType<JsonObject>())
+        { Field(transition, "scope", "scope"); Values(transition["outputs"]); }
+        if (context["continuation"] is JsonObject continuation)
+        {
+            Values(continuation["binding"]); Consumer(continuation["consumer"]);
+            foreach (var child in (continuation["descendants"] as JsonArray ?? []).OfType<JsonObject>()) Consumer(child["consumer"]);
+        }
+        foreach (var concern in (context["priorConcerns"] as JsonArray ?? []).OfType<JsonObject>())
+        { Snapshot(concern["before"]); Snapshot(concern["current"]); }
+        Targets(context["interpretationReconsideration"]?["priorReport"]?["decision"]?["targets"]);
+        if (schema?["properties"]?["decision"]?["anyOf"] is JsonArray decisions)
+            foreach (var decision in decisions) Targets(decision?["properties"]?["targets"]?["items"]?["enum"]);
+
+        void Action(JsonObject action)
+        {
+            Field(action, "id", "task"); Field(action, "scope", "scope"); List(action["after"], "task");
+            foreach (var name in new[] { "arguments", "outputs", "requires", "condition", "items" }) Values(action[name]);
+        }
+        void Scope(JsonObject scope)
+        { Field(scope, "id", "scope"); List(scope["tasks"], "task"); List(scope["cleanup"], "task"); Values(scope["outputs"]); }
+        void Snapshot(JsonNode? node)
+        {
+            if (node is JsonObject snapshot && snapshot["id"] is JsonValue)
+            {
+                if (snapshot["kind"] is JsonValue && snapshot["scope"] is JsonValue) { Action(snapshot); return; }
+                if (snapshot["open"] is JsonValue && snapshot["tasks"] is JsonArray) { Scope(snapshot); return; }
+                if (snapshot["body"] is JsonValue) Field(snapshot, "body", "scope");
+            }
+            Values(node);
+        }
+        void Field(JsonObject owner, string name, string kind)
+        { if (owner[name] is JsonValue value && value.TryGetValue<string>(out var text)) owner[name] = replace(kind, text); }
+        void List(JsonNode? node, string kind)
+        {
+            if (node is not JsonArray list) return;
+            for (var index = 0; index < list.Count; index++)
+                if (list[index] is JsonValue value && value.TryGetValue<string>(out var text)) list[index] = replace(kind, text);
+        }
+        void Targets(JsonNode? node)
+        {
+            if (node is not JsonArray targets) return;
+            for (var index = 0; index < targets.Count; index++)
+                if (targets[index] is JsonValue value && value.TryGetValue<string>(out var text) && !text.Contains(':', StringComparison.Ordinal))
+                    targets[index] = replace(text.StartsWith('/') ? "scope" : "task", text);
+        }
+        void Consumer(JsonNode? node)
+        { if (node is JsonObject consumer) { Field(consumer, "scope", "scope"); Values(consumer["inputs"]); } }
+        void Values(JsonNode? node)
+        {
+            if (node is JsonArray array) { foreach (var item in array) Values(item); return; }
+            if (node is not JsonObject value) return;
+            if (value["kind"]?.ToString() is "output" or "present") Field(value, "source", "task");
+            // Literal data is represented by text/number/boolean, not traversed as metadata.
+            foreach (var key in new[] { "value", "items", "members" }) Values(value[key]);
+        }
     }
 
     private static string EvidenceLabel(string address, JsonObject? context)
@@ -209,8 +284,9 @@ internal static partial class PlanningModelCalls
     }
 
     private static string RequestHash(LLMRequest request) => PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
-    private static string EvidenceMapHash(Dictionary<string, string> addresses) => PlanningGraphCompiler.Fingerprint(new JsonObject(
-        addresses.OrderBy(pair => pair.Key, StringComparer.Ordinal).Select(pair => new KeyValuePair<string, JsonNode?>(pair.Key, JsonValue.Create(pair.Value)))).ToJsonString());
+    private static string EvidenceMapHash(Dictionary<string, string> addresses, bool reviewImplementationIds = false) => PlanningGraphCompiler.Fingerprint(new JsonObject(
+        addresses.OrderBy(pair => pair.Key, StringComparer.Ordinal).Select(pair => new KeyValuePair<string, JsonNode?>(pair.Key, JsonValue.Create(pair.Value)))).ToJsonString() +
+        (reviewImplementationIds ? "\nreview-implementation-identities" : ""));
 
     private static string IssuedIdentityHash(LLMRequest request, PlanningEvidenceAddresses? mapping)
     {
@@ -244,7 +320,18 @@ internal static partial class PlanningModelCalls
             return value;
         }
         VisitSchema(call.Request.StructuredOutputSchema?.DeepClone(), Check);
-        VisitContext(PromptContext(call.Request.Prompt).Context, Check);
+        var context = PromptContext(call.Request.Prompt).Context;
+        VisitContext(context, Check);
+        if (mapping?.ReviewImplementationIds == true)
+        {
+            if (!HybridWorkflowPlanner.ConstructionReviewIssued(call.Request.StructuredOutputSchema))
+                throw new PlanningConflictException("Implementation aliases require an exact issued business review.");
+            VisitReviewIdentifiers(context, call.Request.StructuredOutputSchema?.DeepClone(), (_, value) =>
+            {
+                if (ShortAddress(value)) offered.Add(value);
+                return value;
+            });
+        }
         if (offered.Any(id => mapping?.Addresses.ContainsKey(id) != true) || mapping is not null &&
             !call.Id.EndsWith(":" + mapping.MapHash + ":" + IssuedIdentityHash(call.Request, mapping), StringComparison.Ordinal))
             throw new PlanningConflictException("The issued evidence map does not match the exact request.");
@@ -254,7 +341,7 @@ internal static partial class PlanningModelCalls
     {
         if (mapping is null) return;
         if (mapping.RequestHash != requestHash || mapping.Addresses is null || mapping.Addresses.Count == 0 ||
-            mapping.MapHash != EvidenceMapHash(mapping.Addresses) || mapping.RequestBasisHash is not { Length: 64 } ||
+            mapping.MapHash != EvidenceMapHash(mapping.Addresses, mapping.ReviewImplementationIds) || mapping.RequestBasisHash is not { Length: 64 } ||
             !mapping.RequestBasisHash.All(char.IsAsciiHexDigit) ||
             mapping.Addresses.Keys.Any(key => !ShortAddress(key)) || mapping.Addresses.Values.Any(value => !CanonicalAddress(value)) ||
             mapping.Addresses.Values.Distinct(StringComparer.Ordinal).Count() != mapping.Addresses.Count)
@@ -265,6 +352,16 @@ internal static partial class PlanningModelCalls
     {
         var normalized = response.DeepClone();
         VisitResponse(normalized);
+        if (mapping?.ReviewImplementationIds == true && normalized["decision"]?["targets"] is JsonArray targets)
+            for (var index = 0; index < targets.Count; index++)
+            {
+                var target = targets[index]!.GetValue<string>();
+                if (!ShortAddress(target)) continue;
+                if (mapping is null || !mapping.Addresses.TryGetValue(target, out var canonical) ||
+                    !(canonical.StartsWith("task:", StringComparison.Ordinal) || canonical.StartsWith("scope:", StringComparison.Ordinal)))
+                    throw new PlanningConflictException("The review used an unknown implementation ID.");
+                targets[index] = canonical[(canonical.IndexOf(':') + 1)..];
+            }
         return normalized;
         void VisitResponse(JsonNode? node)
         {
@@ -298,6 +395,14 @@ internal static partial class PlanningModelCalls
         context?.Remove("evidenceNavigation");
         if (context is not null) request.Prompt = prefix + "\n" + PlanningJsonTransport.Prompt(context);
         VisitSchema(request.StructuredOutputSchema, Resolve);
+        if (mapping.ReviewImplementationIds)
+        {
+            VisitReviewIdentifiers(context, request.StructuredOutputSchema, (kind, value) =>
+                mapping.Addresses.TryGetValue(value, out var canonical) &&
+                    (canonical.StartsWith("task:", StringComparison.Ordinal) || canonical.StartsWith("scope:", StringComparison.Ordinal))
+                    ? canonical[(canonical.IndexOf(':') + 1)..] : value);
+            if (context is not null) request.Prompt = prefix + "\n" + PlanningJsonTransport.Prompt(context);
+        }
         return request;
     }
 

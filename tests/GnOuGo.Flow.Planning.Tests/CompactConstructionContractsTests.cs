@@ -687,7 +687,7 @@ public sealed class CompactConstructionContractsTests
     [InlineData("group")]
     [InlineData("choice")]
     [InlineData("close")]
-    public void EachDraftSchemaContainsOnlyItsSelectedSemanticKind(string kind)
+    public void EachDraftSchemaContainsItsSelectedAnchorAndRelatedLocalHelpers(string kind)
     {
         var state = State();
         state.Construction!.Compact!.CurrentStep!.Kind = kind;
@@ -696,7 +696,11 @@ public sealed class CompactConstructionContractsTests
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
         var taskKinds = Walk(schema).Where(n => n["properties"]?["objective"] is not null)
             .SelectMany(n => n["properties"]!["kind"]?["enum"]?.AsArray() ?? []).Select(n => n!.ToString()).Distinct().ToArray();
-        Assert.Equal(kind is "group" or "choice" or "close" ? [] : new[] { kind }, taskKinds);
+        var expected = kind is "choice" or "close" ? [] :
+            (kind == "group" ? new[] { "value", "transform" } : new[] { kind, "value", "transform" }).Distinct().ToArray();
+        if (kind is "group" or "sequence" or "conditional" or "foreach" or "parallel")
+            expected = expected.Concat(["sequence", "conditional", "foreach", "parallel"]).Distinct().ToArray();
+        Assert.Equal(expected.Order(StringComparer.Ordinal), taskKinds.Order(StringComparer.Ordinal));
         if (kind != "operation") Assert.DoesNotContain("\"read\"", schema.ToJsonString(), StringComparison.Ordinal);
         Assert.Null(schema["properties"]!["discoveryRequests"]);
         Assert.Null(schema["properties"]!["requirements"]);
@@ -713,7 +717,7 @@ public sealed class CompactConstructionContractsTests
         state.Construction!.Requirements = [new() { Id = "result", Status = status }];
         state.Construction!.Compact!.CurrentStep!.Kind = kind;
         state.Construction!.Compact!.CurrentStep.CloseRequirementIds = ["result"];
-        if (kind == "close" && status == "remaining")
+        if (status == "remaining")
         {
             var closure = PlanningConstruction.Apply(state, new() { RequirementIds = ["result"] });
             Assert.Empty(closure.Plan.Root.Tasks);
@@ -789,7 +793,7 @@ public sealed class CompactConstructionContractsTests
     }, new("medium", 32000, 8192));
 
     [Fact]
-    public void AContainerOpeningCannotHideARecursiveGeneratedWorkflow()
+    public void AContainerFragmentIncludesRelatedChildTasksUnderTheRecursiveAllowance()
     {
         var state = State();
         state.Construction!.Compact!.CurrentStep!.Kind = "foreach";
@@ -806,7 +810,11 @@ public sealed class CompactConstructionContractsTests
         response["extension"]!["tasks"]![0]!["body"]!["tasks"]!.AsArray().Add((JsonNode)JsonNode.Parse("""
             {"id":"hidden","kind":"value","objective":"A hidden nested task","dependsOn":[],"requires":null,"outputs":[]}
             """)!);
-        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, schema));
+        Assert.Empty(PlanningContractValidation.ValidateInstance(response, schema));
+        var extension = response["extension"]!.Deserialize(PlanningJsonContext.Default.PlanningConstructionExtension)!;
+        var candidate = PlanningConstruction.Apply(state, extension);
+        PlanningCompactConstruction.ValidateExtension(state, candidate);
+        Assert.Equal(2, candidate.TaskIds.Count);
     }
 
     private static IEnumerable<JsonObject> Walk(JsonNode? node)

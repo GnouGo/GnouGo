@@ -9,6 +9,10 @@ internal static class PlanningInputWarnings
     {
         var phase = PlanningConstructionPhasePolicies.Resolve(state.Request, purpose);
         measurement.InputTarget = phase.TargetInputTokens;
+        if (measurement.EstimatedInputTokens > phase.TargetInputTokens)
+            Add(measurement, purpose, "input_target", measurement.EstimatedInputTokens, phase.TargetInputTokens, "conservative_request_estimate");
+        if (measurement.EstimatedInputTokens > phase.MaxInputTokens && PlanningTokenThresholds.Advisory(state.Request))
+            Add(measurement, purpose, "input_maximum", measurement.EstimatedInputTokens, phase.MaxInputTokens, "conservative_request_estimate");
         if (measurement.TargetWarning is not null || measurement.EstimatedInputTokens <= phase.TargetInputTokens ||
             measurement.EstimatedInputTokens > phase.MaxInputTokens && !PlanningTokenThresholds.Advisory(state.Request)) return;
         var components = string.Join(", ", measurement.Components.Where(component => component.SerializedBytes > 0)
@@ -21,5 +25,13 @@ internal static class PlanningInputWarnings
         // The measurement is the durable, exact-request journal. Neither candidate nor
         // session diagnostics are mutated: warnings grant no repair authority and must
         // not participate in artifact identity or approval hashes.
+    }
+
+    internal static void Add(PlanningRequestMeasurement measurement, string stage, string kind, long current, long threshold,
+        string basis = "host_budget_measurement")
+    {
+        var warning = new PlanningThresholdWarning(kind, current, threshold, basis, stage);
+        var warnings = measurement.Warnings ??= [];
+        if (!warnings.Contains(warning)) warnings.Add(warning);
     }
 }

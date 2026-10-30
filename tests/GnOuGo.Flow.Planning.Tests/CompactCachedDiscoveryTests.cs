@@ -22,6 +22,8 @@ public sealed partial class CompactDiscoveryProtocolTests
         var oldPages = JsonSerializer.Serialize(state.Discovery.Pages, PlanningJsonContext.Default.ListCapabilityPage);
         var step = state.Construction.Compact!.CurrentStep!;
         step.Kind = "sequence"; step.DiscoveryComplete = true;
+        step.Prerequisites = [new() { Need = "The original record still requires selecting and binding its exact provider operation.",
+            EvidenceAddresses = ["requirement:req_0"] }];
         runtime.Respond = (request, purpose) =>
         {
             Assert.Equal(PlanningConstruction.DraftPurpose, purpose);

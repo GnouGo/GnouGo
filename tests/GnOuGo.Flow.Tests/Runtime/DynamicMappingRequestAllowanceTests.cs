@@ -37,6 +37,14 @@ public sealed partial class DynamicMappingCollectionTests
         Assert.Equal(1, usage.Calls);
         Assert.True(usage.TotalTokens > 1);
         Assert.True(engine.LLMUsageBudget.AdvisoryTokenThresholds);
+        Assert.Contains(usage.Warnings!, warning => warning.Stage == "mapping.dynamic" && warning.Kind == "estimated_input_bound" &&
+            warning.Current > warning.Threshold && warning.RequestId == request.ClientRequestId);
+        Assert.Contains(usage.Warnings!, warning => warning.Kind == "total_tokens" && warning.Current > 1 && warning.RequestId == request.ClientRequestId);
+        var saved = JsonSerializer.Serialize(usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
+        Assert.DoesNotContain(new string('x', 30), saved, StringComparison.Ordinal);
+        var restored = new LLMUsageBudgetScope(true, engine.LLMUsageBudget.Limits,
+            JsonSerializer.Deserialize(saved, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
+        Assert.Equal(saved, JsonSerializer.Serialize(restored.Snapshot, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
     }
 
     [Theory]

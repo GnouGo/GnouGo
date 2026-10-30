@@ -365,13 +365,13 @@ public sealed partial class PlanningGraphCompiler
             case "workflow" when allowReferences:
                 if (value.Source is null || !scope.WorkflowIds.TryGetValue(value.Source, out var workflow)) throw new InvalidOperationException("Unknown workflow reference.");
                 return new JsonObject { ["kind"] = "local", ["name"] = workflow };
-            case "projection" when allowReferences && PlanningGraphValidation.Member(value, "value") is { Kind: "json" or "predicate" or "arithmetic" or "flatten" or "present" } computed &&
+            case "projection" when allowReferences && PlanningGraphValidation.Member(value, "value") is { Kind: "json" or "predicate" or "arithmetic" or "string_operation" or "flatten" or "present" } computed &&
                 PlanningGraphValidation.Member(value, "each")?.Boolean != true && PlanningGraphValidation.Member(value, "paths") is { Kind: "array", Items.Count: 1 } paths &&
                 paths.Items[0] is { Kind: "array", Items.Count: 0 }:
                 // Keep the envelope visible to final contract validation. The
                 // expression computes only its value; set checks the whole result.
                 return new JsonObject { ["value"] = LowerValue(computed, scope, allowReferences, depth + 1) };
-            case "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "present" or "expression" or "predicate" or "arithmetic" or "json" or "flatten" or "lookup" or "projection" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
+            case "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "present" or "expression" or "predicate" or "arithmetic" or "string_operation" or "json" or "flatten" or "lookup" or "projection" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
             case "template" when allowReferences:
                 var template = value.Text ?? "";
                 EnsureUnique(value.Members.Select(m => m.Name), "template binding");
@@ -450,6 +450,14 @@ public sealed partial class PlanningGraphCompiler
             var script = LookupExpression("source.records", "source.selected", value.Text!);
             GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(script, learned: false);
             expression = "checkedMapping(" + ProgramLiteral(script, scope) + ",({records:" + ExpressionBody(value.Items[0]) + ",selected:" + ExpressionBody(value.Items[1]) + "}))";
+        }
+        else if (value.Kind == "string_operation")
+        {
+            var names = Enumerable.Range(0, value.Items.Count).Select(index => "s" + index.ToString(CultureInfo.InvariantCulture)).ToArray();
+            expression = "((" + string.Join(',', names) + ")=>{if(" + string.Join("||", names.Select(name => "typeof " + name + "!=='string'")) +
+                ")throw new Error('String operands must be nonnullable strings.');return " +
+                (value.Text == "uri_component" ? "encodeURIComponent(s0)" : string.Join('+', names)) + ";})(" +
+                string.Join(',', value.Items.Select(ExpressionBody)) + ")";
         }
         else if (value.Kind == "arithmetic")
         {

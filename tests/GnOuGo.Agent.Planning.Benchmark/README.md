@@ -252,6 +252,13 @@ redundancy findings, resolved/persistent defects, latency, exact known costs and
 retained unknown reservations. Calls per satisfied business obligation is undefined
 when none succeeds. Interrupted runs never establish savings.
 
+Live Amazon/Review PR results and inspection reports include `execution_model_usage`,
+including the execution budget's retained advisory `warnings`. Qualification reports
+read the tenant-owned execution journal so an interrupted result capture does not
+hide those warnings. Corpus variants retain their available `model_usage`; a null
+snapshot means no runtime budget snapshot was configured, not a measured zero.
+Collections keeps its existing local execution without runtime inference.
+
 Preserve bulky historical evidence unchanged. Append concise source-bound results
 and list removed mechanisms and internal-format ruptures. Keep PR #120 Draft
 until live qualification passes; report efficiency separately.

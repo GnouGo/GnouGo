@@ -1,6 +1,8 @@
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
 using GnOuGo.Planning.Examples;
 
@@ -76,7 +78,8 @@ internal static class LiveCampaignEvidence
     }
 
     internal static async Task<JsonObject> ReportAsync(BenchmarkCampaign campaign, string cohort = "final",
-        string? source = null, string? amazonCohort = null, string? codeCohort = null, string? collectionsCohort = null)
+        string? source = null, string? amazonCohort = null, string? codeCohort = null, string? collectionsCohort = null,
+        IWorkflowRunStore? executionStore = null)
     {
         var cohorts = new Dictionary<string, string>(StringComparer.Ordinal)
         { ["amazon"] = amazonCohort ?? cohort, ["code"] = codeCohort ?? cohort, ["collections"] = collectionsCohort ?? cohort };
@@ -153,6 +156,14 @@ internal static class LiveCampaignEvidence
                 result["qualifying_success"] = qualified;
                 result["profile_hash"] = PlanningGraphCompiler.Fingerprint(attempt.Profile.ToJsonString());
                 result["accounting"] = await AccountingAsync(campaign, attempt.Run["session"]!["request"]!["sessionId"]!.ToString());
+                if (scenario != "collections")
+                {
+                    var execution = executionStore is not null && attempt.Run["execution_started"] is not null
+                        ? await executionStore.ReadAsync("benchmark", attempt.Id) : null;
+                    result["execution_model_usage"] = execution?.ModelUsage is { } usage
+                        ? JsonSerializer.SerializeToNode(usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot)
+                        : attempt.Run["execution_model_usage"]?.DeepClone() ?? result["execution_model_usage"]?.DeepClone();
+                }
                 rows.Add(result);
             }
             for (var missing = selected.Count; missing < 2; missing++)

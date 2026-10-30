@@ -46,7 +46,7 @@ public sealed partial class HybridWorkflowPlanner
             context["priorConcerns"] = new JsonArray(concerns.OfType<JsonObject>().Select(concern => (JsonNode)new JsonObject
             {
                 ["reason"] = concern["explanation"]?.DeepClone(), ["before"] = concern["before"]?["value"]?.DeepClone(),
-                ["current"] = concern["current"]?["value"]?.DeepClone(), ["status"] = concern["status"]?.DeepClone()
+                ["current"] = concern["current"]?["value"]?.DeepClone()
             }).ToArray());
         var purpose = global ? PlanningConstruction.GlobalPurpose : PlanningConstruction.LocalPurpose;
         return (context, PlanningCompactConstruction.Request(BusinessReviewInstructions, context, ConstructionReviewSchema(context), purpose));
@@ -138,14 +138,15 @@ public sealed partial class HybridWorkflowPlanner
             .SelectMany(review => review["defectWitness"]!["findings"]!.AsArray()).Select(finding => finding!["id"]!.DeepClone()).ToArray());
         candidate.BusinessReviewed = true;
         var covered = (context["fragment"] as JsonArray ?? []).Select(id => id!.ToString()).ToHashSet(StringComparer.Ordinal);
-        var completedRequirements = construction.Compact!.CurrentStep!.CloseRequirementIds.ToHashSet(StringComparer.Ordinal);
+        var completedRequirements = PlanningCompactConstruction.CandidateCompletionClaims(state).ToHashSet(StringComparer.Ordinal);
         foreach (var checkpoint in construction.Checkpoints.Where(checkpoint => checkpoint.Fragment["businessReviewPending"]?.GetValue<bool>() == true))
         {
             var scope = checkpoint.Step?.Scope;
             var boundaryCovered = scope is not null && candidate.Extension.CloseScopes.Any(boundary =>
                 Within(candidate.Plan, scope, boundary));
             if (global || checkpoint.TaskIds.Count > 0 && checkpoint.TaskIds.All(covered.Contains) &&
-                (boundaryCovered || checkpoint.RequirementIds.Any(completedRequirements.Contains)))
+                (boundaryCovered || checkpoint.RequirementIds.Any(completedRequirements.Contains) ||
+                    candidate.Extension.ContinueInScope is null && checkpoint.Step?.Id == construction.Compact!.CurrentStep!.Id))
                 checkpoint.Fragment["businessReviewPending"] = false;
         }
         construction.PendingReviewContext = null; construction.PendingReviewHash = null;
@@ -171,8 +172,8 @@ public sealed partial class HybridWorkflowPlanner
         if (addresses.Any(address => !supported.Contains(address)) || addresses.Distinct(StringComparer.Ordinal).Count() != addresses.Count) return false;
         var identity = PlanningConstruction.FailureIdentity(state, candidate);
         candidate.Reviews.Add(new JsonObject { ["outcome"] = "reconsideration_ready", ["candidateIdentity"] = identity,
-            ["context"] = context.DeepClone(), ["reason"] = "Reconsider the retained finding using its exact cited original evidence: " + string.Join(", ", addresses),
-            ["priorReport"] = prior["rawResponse"]?.DeepClone() });
+            ["context"] = context.DeepClone(), ["reason"] = "Reconsider the retained finding using the supplied exact original evidence.",
+            ["priorReport"] = prior["response"]?.DeepClone() });
         candidate.Diagnostics.Clear(); state.Diagnostics.Clear(); candidate.BusinessReviewed = false;
         state.Construction!.PendingReviewContext = null; state.Construction.PendingReviewHash = null;
         state.Status = PlanningStatus.Generating;
@@ -183,7 +184,7 @@ public sealed partial class HybridWorkflowPlanner
     {
         var prior = ReconsiderationSource(state);
         if (prior?["context"] is not JsonObject context) return [];
-        var decision = prior["rawResponse"]?["decision"];
+        var decision = prior["response"]?["decision"];
         var relevant = (decision?["obligations"] as JsonArray ?? []).SelectMany(item => new[] { "requirement:" + item, "source:" + item })
             .Concat((decision?["targets"] as JsonArray ?? []).SelectMany(item => new[] { "task:" + item, "scope:" + item, item!.ToString() }))
             .ToHashSet(StringComparer.Ordinal);
@@ -229,14 +230,20 @@ public sealed partial class HybridWorkflowPlanner
 
     internal static string ConstructionClaimsHash(PlanningSession state) => PlanningGraphCompiler.Fingerprint(
         BusinessClaims(state.Construction!.Compact!.CurrentStep!, state.Construction.Candidate!.Extension).ToJsonString());
-    private static JsonObject BusinessClaims(PlanningConstructionStep step, PlanningConstructionExtension extension) => new()
+    private static JsonObject BusinessClaims(PlanningConstructionStep step, PlanningConstructionExtension extension)
     {
-        ["scope"] = extension.Scope, ["requirements"] = Strings(extension.RequirementIds),
-        ["closedRequirements"] = Strings(step.CloseRequirementIds), ["closedScopes"] = Strings(extension.CloseScopes), ["complete"] = extension.Complete,
-        ["step"] = BusinessStep(step),
-        ["continuationBinding"] = PlanningConstruction.Node(extension.ContinuationBinding, PlanningJsonContext.Default.PlanningConstructionContinuationBinding),
-        ["boundaryTransitions"] = PlanningConstruction.Node(extension.BoundaryTransitions, PlanningJsonContext.Default.ListPlanningConstructionBoundaryTransition)
-    };
+        var claims = new JsonObject
+        {
+            ["scope"] = extension.Scope, ["requirements"] = Strings(extension.RequirementIds),
+            ["closedRequirements"] = Strings(extension.ContinueInScope is null ? step.CloseRequirementIds : []),
+            ["closedScopes"] = Strings(extension.CloseScopes), ["complete"] = extension.Complete,
+            ["step"] = BusinessStep(step),
+            ["continuationBinding"] = PlanningConstruction.Node(extension.ContinuationBinding, PlanningJsonContext.Default.PlanningConstructionContinuationBinding),
+            ["boundaryTransitions"] = PlanningConstruction.Node(extension.BoundaryTransitions, PlanningJsonContext.Default.ListPlanningConstructionBoundaryTransition)
+        };
+        if (extension.ContinueInScope is not null) claims["continueInScope"] = extension.ContinueInScope;
+        return claims;
+    }
     private static JsonObject BusinessStep(PlanningConstructionStep step)
     {
         var snapshot = PlanningConstruction.Node(step, PlanningJsonContext.Default.PlanningConstructionStep)!.AsObject();

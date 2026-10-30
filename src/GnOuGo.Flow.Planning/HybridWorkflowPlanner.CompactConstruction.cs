@@ -148,7 +148,7 @@ public sealed partial class HybridWorkflowPlanner
         if (purpose == PlanningCompactConstruction.DiscoveryPurpose)
             PlanningCompactConstruction.RecordPresentedOperations(state, request.Prompt);
         var compact = PlanningCompactConstruction.State(state);
-        var actionHash = purpose + ":" + compact.CurrentStep?.Id + ":" + PlanningConstruction.Hash(state.Plan) + ":" + PlanningGraphCompiler.Fingerprint(response.ToJsonString());
+        var actionHash = PlanningProgress.Strategy(state, purpose, response);
         var ordinaryHash = CompactActionFingerprint(state, actionHash);
         var hash = descriptionReadKey is null ? ordinaryHash : ordinaryHash + ":" + descriptionReadKey;
         if (compact.FailedActions.Contains(hash, StringComparer.Ordinal) || compact.FailedActions.Contains(ordinaryHash, StringComparer.Ordinal))
@@ -162,17 +162,7 @@ public sealed partial class HybridWorkflowPlanner
 
     internal static string CompactActionFingerprint(PlanningSession state, string action)
     {
-        // Reviewed requirement closure can advance without changing the TaskPlan.
-        // Only accepted progress changes this identity, never another attempt,
-        // a presentation cursor, diagnostics or the remaining allowance.
-        var progress = new JsonObject
-        {
-            ["checkpoint"] = state.Construction!.Checkpoints.LastOrDefault()?.Sequence ?? 0,
-            ["sources"] = new JsonArray(PlanningCompactConstruction.State(state).Sources
-                .Where(s => s.Indexed && s.Kind is "page" or "answer_page" or "revision_page")
-                .Select(s => (JsonNode?)JsonValue.Create(s.Id + "@" + s.Version)).ToArray())
-        };
-        return action + ":progress:" + PlanningGraphCompiler.Fingerprint(progress.ToJsonString());
+        return action + ":progress:" + PlanningProgress.Fingerprint(state);
     }
 
     private static PlanningRequirements ReadConstructionInterfaces(PlanningSession state, JsonNode response, string sourceKind)
@@ -250,7 +240,7 @@ public sealed partial class HybridWorkflowPlanner
         var compact = PlanningCompactConstruction.State(state);
         var step = response["step"]!.Deserialize(PlanningJsonContext.Default.PlanningConstructionStep)!;
         PlanningCompactConstruction.ValidateSelection(state, step);
-        var known = step.Kind == "operation";
+        var known = step.OperationIds.Count > 0;
         {
             PlanningCompactConstruction.ValidateSelectedCloseScopes(state, step);
             if (step.ContinuationBinding is not null || !known && step.OperationIds.Count != 0)
@@ -260,7 +250,7 @@ public sealed partial class HybridWorkflowPlanner
         if (known)
         {
             PlanningCompactConstruction.ValidateKnownSelection(state, step.OperationIds, exactRequest!);
-            await BindConstructionStepAsync(state, runtime, step, "operation", step.OperationIds.ToArray(), null, step.CloseScopes, knownOnly: true, admit: true, ct);
+            await BindConstructionStepAsync(state, runtime, step, step.Kind!, step.OperationIds.ToArray(), step.GroupId, step.CloseScopes, knownOnly: true, admit: true, ct);
         }
         else step.DiscoveryComplete = step.Kind is not null && step.Kind != "operation";
         compact.NextStep++;
@@ -326,8 +316,12 @@ public sealed partial class HybridWorkflowPlanner
     private static async Task BindConstructionStepAsync(PlanningSession state, IPlanningRuntime runtime, PlanningConstructionStep step,
         string kind, string[] operations, string? groupId, List<string>? closeScopes, bool knownOnly, bool admit, CancellationToken ct)
     {
-        if (kind == "operation" ? operations.Length is < 1 or > 2 || groupId is not null : operations.Length != 0)
-            PlanningConstruction.Fail("DISCOVERY_SELECTION_INVALID", "/binding", "Only an operation binding selects exact operations; local work must not bind operation identities.");
+        if (operations.Length > state.Construction!.Limits.MaxTasksPerDraft ||
+            kind == "operation" && operations.Length == 0 ||
+            !PlanningCompactConstruction.SupportsBusinessFragment(kind) && operations.Length != 0 ||
+            kind == "call" && groupId is null ||
+            !PlanningCompactConstruction.SupportsBusinessFragment(kind) && groupId is not null)
+            PlanningConstruction.Fail("DISCOVERY_SELECTION_INVALID", "/binding", "Bind only exact operations within this business fragment's captured allowance and selected group authority.");
         if (knownOnly && operations.Any(operation => !PlanningCompactConstruction.SelectionOperationIds(state).Contains(operation, StringComparer.Ordinal)))
             PlanningConstruction.Fail("DISCOVERY_SELECTION_INVALID", "/operationIds", "Select only an unambiguous, validated, policy-allowed cached contract from the current offered directory.");
         foreach (var operation in operations)

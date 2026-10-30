@@ -12,6 +12,7 @@ public sealed partial class HybridWorkflowPlanner
     internal static bool NeedsBusinessReview(PlanningSession state, PlanningConstructionCandidate candidate)
     {
         if (candidate.Extension.Complete || candidate.AuthorizedPaths is { Count: > 0 }) return true;
+        if (candidate.Extension.ContinueInScope is not null) return false;
         if (PlanningCompactConstruction.ReviewedBoundaryAuthority(state, candidate)) return false;
         if (candidate.Extension.ContinuationBinding is not null || candidate.Extension.BoundaryTransitions is { Count: > 0 }) return true;
         var construction = state.Construction!;
@@ -20,6 +21,10 @@ public sealed partial class HybridWorkflowPlanner
             step.CloseRequirementIds.Contains(requirement.Id, StringComparer.Ordinal))) return false;
         var symbols = new TaskPlanSymbols(candidate.Plan);
         var behavior = ExecutableBusinessTasks(candidate.Plan);
+        // An explicitly continued block completes only at its final fragment.
+        // Its earlier technical checkpoints participate in this one review.
+        if (candidate.TaskIds.Any(behavior.Contains) || construction.Checkpoints.Any(checkpoint => checkpoint.Step?.Id == step.Id &&
+            checkpoint.Fragment["continueInScope"] is not null && checkpoint.TaskIds.Any(behavior.Contains))) return true;
         if (step.CloseRequirementIds.Count > 0 && (candidate.TaskIds.Any(behavior.Contains) ||
             construction.Checkpoints.Any(checkpoint => checkpoint.Fragment["businessReviewPending"]?.GetValue<bool>() == true &&
                 checkpoint.RequirementIds.Any(id => step.CloseRequirementIds.Contains(id, StringComparer.Ordinal)) &&
@@ -91,7 +96,7 @@ public sealed partial class HybridWorkflowPlanner
         await ReserveConstructionReviewAsync(state, runtime, ct);
         var context = PlanningBusinessProjection.Build(state, state.Construction!.Candidate!.Extension.Complete);
         var prior = state.Construction.Candidate.Reviews.Last(review => review["outcome"]?.ToString() == "needs_change");
-        context["finding"] = prior["rawResponse"]!["decision"]!.DeepClone();
+        context["finding"] = prior["response"]!["decision"]!.DeepClone();
         var addresses = BusinessReviewReconsiderationEvidence(state);
         if (addresses.Length == 0) { Stop(state); return; }
         var schema = PlanningSchemas.Object(("patch", PlanningSchemas.Type("null")),

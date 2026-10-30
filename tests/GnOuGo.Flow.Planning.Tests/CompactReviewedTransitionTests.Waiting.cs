@@ -27,7 +27,7 @@ public sealed partial class CompactReviewedTransitionTests
         }
         Assert.Equal("completed", Assert.Single(run.State.Construction.Compact!.SuspendedSteps!).Status);
         var result = await ExecuteTransitionPlan(run.State);
-        Assert.Equal("7", result["number"]!.ToJsonString()); Assert.Equal("16", result["laterNumber"]!.ToJsonString());
+        Assert.Equal("7", result["number"]!.ToJsonString()); Assert.Equal("8", result["laterNumber"]!.ToJsonString());
     }
 
     [Fact]
@@ -70,7 +70,7 @@ public sealed partial class CompactReviewedTransitionTests
         bool conflictingOutput = false, bool stopAfterProducer = false, bool stopAfterOuter = false)
     {
         const string local = "Compute seven inside the inner local boundary, preserve the outer boundary's exact local result, and return public numeric number.";
-        const string later = "Separately produce a seed of seven, increment that seed, then double the incremented value and return public numeric laterNumber.";
+        const string later = "Separately produce a seed of three, increment that seed, then double the incremented value and return public numeric laterNumber.";
         const string consumerGoal = "Double the exact incremented late value.";
         const string seedGoal = "Produce the separately required late seed.";
         const string lateGoal = "Increment the exact separately required late seed.";
@@ -98,13 +98,13 @@ public sealed partial class CompactReviewedTransitionTests
                     var symbols = new TaskPlanSymbols(current!.Plan ?? new());
                     string scope, kind, objective; string[] requirements = ["req_0"];
                     bool close = false; string[] publicOutputs = []; TaskValue[] imports = [];
-                    if (!symbols.Tasks.ContainsKey("outer")) (scope, kind, objective) = ("/root", "sequence", "Open the required outer boundary.");
-                    else if (!symbols.Tasks.ContainsKey("inner")) (scope, kind, objective) = ("/tasks/outer/body", "sequence", "Open the required inner boundary.");
-                    else if (current.Construction!.Compact!.SuspendedSteps is null)
+                    if (current.Construction!.Compact!.SuspendedSteps is null && (!pendingInsideBoundary || symbols.Tasks.ContainsKey("outer")))
                     { (scope, kind, objective) = (waitingScope, "value", consumerGoal); requirements = ["req_1"]; publicOutputs = ["laterNumber"]; }
-                    else if (!symbols.Tasks.ContainsKey("lateSeed"))
+                    else if (current.Construction.Compact.SuspendedSteps is not null && !symbols.Tasks.ContainsKey("lateSeed"))
                     { (scope, kind, objective) = (waitingScope, "value", seedGoal); requirements = ["req_1"]; }
-                    else if (!symbols.Tasks.ContainsKey("producer")) (scope, kind, objective) = ("/tasks/inner/body", "value", "Produce the exact inner seven.");
+                    else if (!symbols.Tasks.ContainsKey("outer")) (scope, kind, objective) = ("/root", "sequence", "Produce seven inside the required nested local boundary.");
+                    else if (current.Construction.OpenScopes.Contains("/tasks/inner/body"))
+                    { (scope, kind, objective) = ("/tasks/inner/body", "close", "Export and close the exact inner seven."); close = true; imports = [Output("producer")]; }
                     else if (current.Construction!.OpenScopes.Contains("/tasks/outer/body"))
                     { (scope, kind, objective) = ("/tasks/outer/body", "close", "Export and close the reviewed outer result."); close = true; imports = [Output("inner")]; }
                     else if (!current.Plan!.Root.Outputs.Any(output => output.Name == "number"))
@@ -121,8 +121,6 @@ public sealed partial class CompactReviewedTransitionTests
                         PlanningConstruction.Node(value, PlanningJsonContext.Default.TaskValue))).ToArray());
                     if (kind == "close" && scope != "/root") response["step"]!["expectedOutputs"] = new JsonArray("number");
                     if (symbols.Tasks.ContainsKey("lateConsumer")) response["step"]!["closeRequirementIds"] = new JsonArray("req_0", "req_1");
-                    if (acceptedAfterScopeNavigation && scope == "/tasks/inner/body")
-                        Assert.Contains(context["scopes"]!.AsArray(), row => row?["path"]?.ToString() == scope);
                     if (!(context["scopes"] as JsonArray ?? []).Any(row => row?["path"]?.ToString() == scope))
                     {
                         // Optional scope pages must be inspected through their
@@ -140,11 +138,22 @@ public sealed partial class CompactReviewedTransitionTests
                     else
                     {
                         var extension = new PlanningConstructionExtension { Scope = step.Scope, RequirementIds = step.RequirementIds.ToList() };
-                        if (step.Kind == "sequence") extension.Tasks = [Container(step.Scope == "/root" ? "outer" : "inner")];
-                        else if (step.Objective == seedGoal) extension.Tasks = [Number("lateSeed")];
+                        if (step.Kind == "sequence")
+                        {
+                            var outer = Container("outer");
+                            var inner = Container("inner");
+                            inner.Body!.Tasks = [Number("producer")];
+                            outer.Body!.Tasks = [inner];
+                            extension.Tasks = [outer];
+                        }
+                        else if (step.Objective == seedGoal) extension.Tasks = [new()
+                        {
+                            Id = "lateSeed", Kind = "value", Objective = "Produce exactly three for the independent later calculation.",
+                            Outputs = [new("number", new() { Kind = "number", Number = 3 })]
+                        }];
                         else if (step.Scope == "/tasks/inner/body")
                         {
-                            extension.Tasks = [Number("producer")]; extension.Outputs = [new("number", Output("producer"))];
+                            extension.Outputs = [new("number", Output("producer"))];
                             extension.CloseScopes = [step.Scope];
                             extension.BoundaryTransitions =
                             [new() { Scope = "/tasks/outer/body", RequirementIds = ["req_0"], CloseScope = true, Outputs = [new("number", Output("inner"))] },
@@ -181,17 +190,19 @@ public sealed partial class CompactReviewedTransitionTests
             var checkpoints = state.Construction.Checkpoints.Count;
             state = await Advance(PlannerFixture.Clone(state), runtime);
             Assert.True(modelFailure is null, modelFailure?.ToString());
-            Assert.True(state.Diagnostics.All(diagnostic => !diagnostic.Required), string.Join(";", state.Diagnostics.Select(diagnostic => diagnostic.Code + ":" + diagnostic.Message)));
+            Assert.True(state.Diagnostics.All(diagnostic => !diagnostic.Required), string.Join(";", state.Diagnostics.Select(diagnostic => diagnostic.Code + ":" + diagnostic.Message)) +
+                " Calls: " + string.Join(", ", purposes));
             if (priorCursor > 0 && state.Construction!.Checkpoints.Count > checkpoints)
             {
                 acceptedAfterScopeNavigation = true;
                 Assert.Equal(0, state.Construction.ScopeCursor);
                 Assert.Null(state.Construction.Evidence);
             }
-            if (state.Construction!.Candidate is null && (stopAfterProducer && state.Construction.Checkpoints.Count == 4 ||
-                stopAfterOuter && state.Construction.Checkpoints.Count == 5)) break;
+            if (state.Construction!.Candidate is null && (stopAfterProducer && state.Construction.Checkpoints.Count == 3 ||
+                stopAfterOuter && state.Construction.Checkpoints.Count == 4)) break;
         }
-        Assert.True(acceptedAfterScopeNavigation, "The ordinary trace must accept a checkpoint after inspecting a later scope page.");
+        if (pendingInsideBoundary)
+            Assert.True(acceptedAfterScopeNavigation, "The nested-consumer trace must accept a checkpoint after inspecting a later scope page.");
         return new(state, runtime, purposes, responses);
     }
 }

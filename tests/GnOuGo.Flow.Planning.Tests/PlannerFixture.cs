@@ -44,6 +44,8 @@ internal sealed class TestRuntime : IPlanningRuntime, IPlanningConstructionAdmis
             throw new InvalidOperationException("The fixture must capture the exact issued evidence map before constructing its raw response.");
         return mapping.Addresses.Single(pair => pair.Value == canonical).Key;
     }
+    internal JsonNode WireResponse(LLMRequest request, JsonNode response) =>
+        WireEvidence(response, _evidenceAddresses.GetValueOrDefault(request.ClientRequestId!));
     internal void CaptureIssued(PlanningModelCall call)
     {
         PlanningModelCalls.ValidateEvidenceAddresses(call);
@@ -79,6 +81,14 @@ internal sealed class TestRuntime : IPlanningRuntime, IPlanningConstructionAdmis
     {
         var wire = response.DeepClone();
         if (addresses is not null) Evidence(wire);
+        if (addresses?.ReviewImplementationIds == true && wire["decision"]?["targets"] is JsonArray targets)
+            for (var index = 0; index < targets.Count; index++)
+            {
+                var target = targets[index]!.ToString();
+                var canonical = target.StartsWith('/') ? "scope:" + target : "task:" + target;
+                var alias = addresses.Addresses.SingleOrDefault(item => item.Value == canonical).Key;
+                if (alias is not null) targets[index] = alias;
+            }
         return wire;
         void Evidence(JsonNode? node)
         {

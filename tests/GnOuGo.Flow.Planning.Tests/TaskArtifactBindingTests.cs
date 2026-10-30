@@ -11,6 +11,20 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class TaskArtifactBindingTests
 {
     [Theory]
+    [InlineData("concat")]
+    [InlineData("uri_component")]
+    public async Task StringOperationsCannotManufactureArtifactProvenance(string operation)
+    {
+        var (plan, catalog) = await Fixture();
+        var actual = plan.Root.Tasks[1].Inputs[0].Value;
+        plan.Root.Tasks[1].Inputs[0] = new("location", new() { Kind = "string_operation", Text = operation,
+            Items = operation == "concat" ? [actual, new() { Kind = "string", Text = "" }] : [actual] });
+        var compilation = new TaskPlanCompiler().Compile(plan, catalog);
+        Assert.Null(compilation.Graph);
+        Assert.Contains(compilation.Diagnostics, diagnostic => diagnostic.Code == "TASK_ARTIFACT_BINDING");
+    }
+
+    [Theory]
     [InlineData(false, false)]
     [InlineData(false, true)]
     [InlineData(true, false)]

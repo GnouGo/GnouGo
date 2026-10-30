@@ -56,6 +56,8 @@ internal static class PlanningSchemas
                 Object(("kind", Enum("item", "index"))),
                 Object(("kind", Enum("arithmetic")), ("text", Enum("negate")), ("items", Array(Ref("value"), 1, 1))),
                 Object(("kind", Enum("arithmetic")), ("text", Enum("add", "subtract", "multiply", "divide", "remainder")), ("items", Array(Ref("value"), 2, 2))),
+                Described(Object(("kind", Enum("string_operation")), ("text", Enum("concat")), ("items", Array(Ref("value"), 2, 16))), "Concatenate established nonnullable strings in order, without coercion or interpolation."),
+                Described(Object(("kind", Enum("string_operation")), ("text", Enum("uri_component")), ("items", Array(Ref("value"), 1, 1))), "Encode one nonnullable string as a URI component using encodeURIComponent; this does not validate or authorize a URL."),
                 Object(("kind", Enum("predicate")), ("predicate", Enum("not")), ("items", Array(Ref("value"), 1, 1))),
                 Object(("kind", Enum("predicate")), ("predicate", Enum("and", "or", "equal", "not_equal", "less", "less_equal", "greater", "greater_equal")), ("items", Array(Ref("value"), 2, 2)))) },
             ["literal"] = new JsonObject { ["anyOf"] = new JsonArray(
@@ -246,7 +248,7 @@ internal static class PlanningSchemas
         return new() { ["anyOf"] = new JsonArray(operations.Concat(TaskShapes(state, null)).ToArray()) };
     }
 
-    private static IEnumerable<JsonNode?> TaskShapes(PlanningSession state, string? kind)
+    internal static IEnumerable<JsonNode?> TaskShapes(PlanningSession state, string? kind)
     {
         if (kind is null or "value")
             yield return Described(TaskShape("value", ("outputs", Array(Ref("output")))), "Copies/assembles values; objectives do not compute.");

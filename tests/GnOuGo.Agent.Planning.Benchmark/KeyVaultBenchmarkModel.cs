@@ -330,6 +330,8 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                         ["limit_kind"] = "output_tokens", ["limit"] = 32768, ["current"] = dispatched.MaxTokens,
                         ["measurement"] = "declared_output_tokens"
                     });
+            if (advisoryTokens && dispatched.MaxTokens is int outputAllowance && outputAllowance > 32768)
+                PlanningTokenThresholds.Warn("execution", "declared_output_tokens", outputAllowance, 32768);
             var estimate = ExecutionInputEstimate(JsonSerializer.Serialize(dispatched, PlanningJsonContext.Default.LLMRequest));
             if (estimate > 96000 && advisoryTokens) PlanningTokenThresholds.Warn("execution", "estimated_input_tokens", estimate, 96000);
             if (estimate > 96000 && !advisoryTokens)
@@ -508,7 +510,8 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             var input = ReadTokens("input_tokens", "prompt_tokens"); var output = ReadTokens("output_tokens", "completion_tokens");
             var measuredUsage = new JsonObject { ["input_tokens"] = input, ["output_tokens"] = output,
                 ["total_tokens"] = checked(input + output), ["benchmark_cost_eur"] = await CompletedCostAsync(request.ClientRequestId!, input, output) };
-            var reasoning = response.Usage?["output_tokens_details"]?["reasoning_tokens"] ?? response.Usage?["completion_tokens_details"]?["reasoning_tokens"];
+            var reasoning = response.Usage?["reasoning_tokens"] ?? response.Usage?["output_tokens_details"]?["reasoning_tokens"] ??
+                response.Usage?["completion_tokens_details"]?["reasoning_tokens"];
             if (reasoning is not null) measuredUsage["reasoning_tokens"] = reasoning.DeepClone();
             response.Usage = await journal!.CompleteAsync(measuredUsage, CancellationToken.None);
             return response;

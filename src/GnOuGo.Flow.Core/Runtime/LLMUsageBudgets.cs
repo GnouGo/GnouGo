@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
+using GnOuGo.Flow.Core.Planning;
 
 namespace GnOuGo.Flow.Core.Runtime;
 
@@ -86,6 +87,8 @@ public sealed record LLMUsageBudgetSnapshot
     public decimal EstimatedCostUsd { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyDictionary<string, LLMJournaledAttempt>? JournaledAttempts { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<PlanningThresholdWarning>? Warnings { get; init; }
 }
 
 /// <summary>
@@ -112,6 +115,7 @@ public interface ILLMUsageBudgetScopeFactory
 public sealed partial class LLMUsageBudgetScope
 {
     private readonly object _gate = new();
+    private readonly object _warningGate = new();
     private readonly SemaphoreSlim _persistenceGate = new(1, 1);
     private readonly SemaphoreSlim? _unaccountedCostGate;
     private readonly LLMUsageBudgetScope? _parent;
@@ -121,6 +125,8 @@ public sealed partial class LLMUsageBudgetScope
     private readonly MonetaryAmount? _costLimit;
     private readonly bool _advisoryTokens;
     private readonly HashSet<string> _tokenWarnings = new(StringComparer.Ordinal);
+    private static readonly AsyncLocal<string?> WarningRequestId = new();
+    private List<PlanningThresholdWarning>? _warnings;
     private LLMUsageBudgetSnapshot _snapshot;
 
     internal LLMUsageBudgetScope(bool advisoryTokens, LLMUsageBudgetLimits limits,
@@ -164,6 +170,7 @@ public sealed partial class LLMUsageBudgetScope
                 EstimatedCostCurrency = _costLimit?.Currency ?? "USD"
             }
             : ValidateInitialSnapshot(initialSnapshot, now, _costLimit?.Currency);
+        _warnings = _snapshot.Warnings?.ToList();
     }
 
     public LLMUsageBudgetLimits Limits { get; }
@@ -174,8 +181,35 @@ public sealed partial class LLMUsageBudgetScope
         get
         {
             lock (_gate)
-                return _snapshot with { };
+                lock (_warningGate)
+                    return _snapshot with { Warnings = _warnings?.ToArray() };
         }
+    }
+
+    // Retain existing advisory events in the ordinary usage snapshot. The same
+    // async request identity reaches parent budget checks and nested observers.
+    internal IDisposable? ObserveTokenWarnings(string? requestId = null)
+    {
+        if (!_advisoryTokens) return null;
+        var previous = WarningRequestId.Value;
+        if (requestId is not null) WarningRequestId.Value = requestId;
+        return new WarningObservation(PlanningTokenThresholds.Observe(RecordTokenWarning), previous);
+    }
+
+    private void RecordTokenWarning(string stage, string kind, long current, long threshold)
+    {
+        var warning = new PlanningThresholdWarning(kind, current, threshold, "host_budget_measurement", stage)
+            { RequestId = WarningRequestId.Value };
+        lock (_warningGate)
+        {
+            var warnings = _warnings ??= [];
+            if (!warnings.Contains(warning)) warnings.Add(warning);
+        }
+    }
+
+    private sealed class WarningObservation(IDisposable observation, string? previous) : IDisposable
+    {
+        public void Dispose() { observation.Dispose(); WarningRequestId.Value = previous; }
     }
 
     public LLMUsageBudgetScope CreateChild(
@@ -219,6 +253,7 @@ public sealed partial class LLMUsageBudgetScope
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(request);
         ct.ThrowIfCancellationRequested();
+        using var warnings = ObserveTokenWarnings(request.ClientRequestId);
 
         var safeStage = SanitizeStage(stage);
         var reservations = new List<LocalReservation>();
@@ -468,10 +503,11 @@ public sealed partial class LLMUsageBudgetScope
             throw CreateUnverifiable(stage, "usage", Snapshot);
         }
 
+        var tokenLimitExceeded = Limits.MaxTotalTokens is { } tokenLimit && snapshot.TotalTokens > tokenLimit &&
+            !WarnTokenThreshold(stage, "total_tokens", tokenLimit, snapshot.TotalTokens);
         await PersistAsync(snapshot, stage, ct).ConfigureAwait(false);
 
-        if (Limits.MaxTotalTokens is { } maxTokens && snapshot.TotalTokens > maxTokens &&
-            !WarnTokenThreshold(stage, "total_tokens", maxTokens, snapshot.TotalTokens))
+        if (tokenLimitExceeded && Limits.MaxTotalTokens is { } maxTokens)
             throw CreateExceeded(stage, "total_tokens", maxTokens, snapshot.TotalTokens, snapshot);
         if (_costLimit is { } maxCost && snapshot.EstimatedCost > maxCost.Amount)
         {
@@ -488,8 +524,11 @@ public sealed partial class LLMUsageBudgetScope
     {
         if (!_advisoryTokens) return false;
         lock (_gate)
-            if (_tokenWarnings.Add($"{stage}:{kind}:{_snapshot.Calls}:{threshold}"))
-                GnOuGo.Flow.Core.Planning.PlanningTokenThresholds.Warn(stage, kind, current, threshold);
+            if (_tokenWarnings.Add($"{stage}:{kind}:{WarningRequestId.Value ?? _snapshot.Calls.ToString(System.Globalization.CultureInfo.InvariantCulture)}:{current}:{threshold}"))
+            {
+                RecordTokenWarning(stage, kind, current, threshold);
+                PlanningTokenThresholds.Warn(stage, kind, current, threshold);
+            }
         return true;
     }
 

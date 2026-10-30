@@ -19,6 +19,7 @@ public sealed partial class LLMUsageBudgetScope
         if (outputTokenCeilings.Count == 0 || outputTokenCeilings.Any(v => v < 0))
             throw new ArgumentException("Supply one nonnegative output ceiling per planned call.", nameof(outputTokenCeilings));
         ct.ThrowIfCancellationRequested();
+        using var warnings = ObserveTokenWarnings(request.ClientRequestId);
         var safeStage = SanitizeStage(stage);
         var scopes = new List<LLMUsageBudgetScope>();
         for (var scope = this; scope is not null; scope = scope._parent) scopes.Add(scope);

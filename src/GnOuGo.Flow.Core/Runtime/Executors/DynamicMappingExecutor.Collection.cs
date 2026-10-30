@@ -14,6 +14,7 @@ public sealed partial class DynamicMappingExecutor
         JsonObject sources, JsonArray items, string input, JsonObject target, JsonObject itemTarget, JsonNode objective,
         string? previous, string? failure, int? failedIndex, CancellationToken ct, IReadOnlyList<int>? adaptiveIndices = null, JsonNode? failureDetails = null)
     {
+        using var warnings = ctx.LLMUsageBudget?.ObserveTokenWarnings(request.ClientRequestId);
         var allowance = (ctx.Engine.LLMCapabilities ?? client as ILLMCapabilityResolver) is { } resolver
             ? await resolver.InputTokenAllowanceAsync(request.Provider, request.Model, request.MaxTokens!.Value, ct) : null;
         if (allowance is null)
