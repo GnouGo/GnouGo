@@ -61,6 +61,9 @@ real model/runtime runs demonstrate convergence.
 Repair regressions also keep a cited consumer unchanged while correcting its actual
 upstream producer, then require renewed review and verify the executed result.
 Cosmetic, unrelated, stale-context and repeated ineffective changes remain non-progress.
+An empty-only result type can be technically valid while failing its business
+obligation. Preserve its received payload and Judge finding; do not silently remove
+bounds. Explicit diagnostic revisions remain interventions, not qualifying runs.
 
 ## Admission, retries and accounting
 

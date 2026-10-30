@@ -2498,3 +2498,43 @@ unchanged source and all ten publication/AOT/published-storage stages passing.
 It does not establish business success or replace the final `0881cf87` solution
 run, which started after this observer finished. Its ten publication stages had
 already passed while the existing solution run was active.
+
+
+### Empty-only type bounds and an explicit diagnostic revision
+
+The initial `0881cf87` Review PR diagnostic stopped after24 received logical/physical
+calls, two Judges, no corrections, no artifact and no runtime. Known cost was
+€1.7850040420371867421180274859 with no unknown usage. Review22 found the same
+PR-page clone URL mismatch and a summary transform whose ten arrays all had
+maxItems0. Same-evidence reconsideration23/24 upheld both findings. All zeros are
+present in the original provider content; the host did not insert them. The issued
+shared grammar permits a null maximum. Mixed scope/type findings correctly gained
+no automatic structural authority.
+
+The delegated operator froze revision28 with preserveRequirements:true and exactly
+`/tasks/cloneRepository/inputs` and
+`/tasks/interpretDeclaredToolchainsAndChecksInventory/resultType` editable. Patch25
+changed only the Git remote and those ten maxima from zero to unspecified, preserving
+branch, checkout directory, type fields/enums/nullability, other task-owned content
+and task identities. Review26 passed with one correction charge; closure review29
+also passed. Planning continued, without a duplicate clone or execution approval.
+This is one explicitly reported intervention and cannot qualify as intervention-free.
+[The source-bound snapshot and independent repair proof](compact-taskplan-0881cf87-code-zero-bounds-and-revision.json)
+retain the earlier failure. The continuing run's final outcome is not yet known.
+
+The subsequent source experiment adds only a description to the existing shared
+maxItems field: null leaves a type maximum unspecified; zero permits only an empty
+array. Both remain allowed; no default, validator, bounds, API output allowance,
+model setting or authority changes. The existing zero/null cardinality, schema and
+review regressions pass (216 focused cases, warnings as errors). No wording-only
+test or new recovery mechanism was added. This is a semantic-presentation hypothesis,
+not a deterministic compiler fix or a demonstrated live improvement. Existing
+instructions already permit coherent multi-operation fragments; they were not
+repeated or expanded.
+
+The shared-field presentation change also passes all 2,305 Planning tests with
+warnings as errors; focused cases are included in that total, not added again.
+The active source88 diagnostic is unchanged by this edit. It later stopped at
+request49 on received draft-output exhaustion (16,384 reasoning tokens, no text),
+not an uncertain dispatch. Its full result is retained under source88; no output
+allocation was escalated within the session and it has no runtime success.

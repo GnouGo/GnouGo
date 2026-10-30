@@ -213,7 +213,8 @@ internal static class PlanningSchemas
     {
         var fields = new List<(string, JsonObject)> { ("kind", Enum("array")), ("items", Ref(nested)) };
         fields.Add(("minItems", Nullable(Integer(0, int.MaxValue))));
-        fields.Add(("maxItems", Nullable(Integer(0, int.MaxValue))));
+        fields.Add(("maxItems", Described(Nullable(Integer(0, int.MaxValue)),
+            "Maximum array length: null leaves the upper bound unspecified; 0 permits only an empty array.")));
         if (nullable) fields.Add(("nullable", Boolean(true)));
         yield return Object(fields.ToArray());
     }

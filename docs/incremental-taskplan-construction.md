@@ -8,6 +8,11 @@ This establishes neither defect resolution nor wider edit authority. Cosmetic or
 unrelated changes, missing or mismatched review context, and repeated ineffective
 patches do not supply that progress.
 
+Array type bounds remain literal constraints: a null maximum is unspecified;
+zero permits no elements. The shared model grammar explains this distinction.
+Both values remain legal, with no automatic bound adjustment or change to the
+separate control/runtime capacities.
+
 The planner constructs one authoritative semantic TaskPlan in bounded fragments.
 The compiler lowers it through PlanningGraph and JavaScript to YAML v15. Construction
 metadata is a non-executable journal, never another workflow or scheduler.

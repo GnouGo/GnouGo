@@ -114,6 +114,11 @@ An unchanged consumer can require renewed review after an upstream binding repai
 Compare against the exact retained review and use the existing invalidation closure;
 this permits reassessment without declaring resolution or granting additional edits.
 
+The shared caller/result type grammar explains array maxima at their existing field:
+null leaves the type's upper bound unspecified; zero admits only an empty array.
+Both remain legal and compiler/runtime enforced. This differs from finite control
+capacity. The description changes presentation, not bounds, defaults or repair authority.
+
 See [incremental construction](../../docs/incremental-taskplan-construction.md),
 [package architecture](../../docs/workflow-planning-v9.md), and
 [benchmark operation](../../tests/GnOuGo.Agent.Planning.Benchmark/README.md).
