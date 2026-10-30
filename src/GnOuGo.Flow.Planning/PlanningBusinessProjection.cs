@@ -57,6 +57,7 @@ internal static class PlanningBusinessProjection
                 Include(dependency);
             for (var scope = entry.Scope; scope is not null; scope = scope.Parent)
             {
+                foreach (var cleanup in scope.Source.Always) Include(cleanup.Id);
                 if (scope.Owner is { } owner) Include(owner.Id);
                 if (plan.Groups.SingleOrDefault(group => ReferenceEquals(group.Body, scope.Source)) is { } owningGroup)
                     groups.Add(owningGroup.Id);
@@ -97,9 +98,12 @@ internal static class PlanningBusinessProjection
                 symbols.Scopes.SingleOrDefault(scope => scope.Path == transition.Scope) is { } scope && !InGroup(scope))
                 .SelectMany(transition => transition.Outputs).SelectMany(output => TaskPlanCompiler.Values(output.Value))).ToArray();
         var rootInputs = rootValues.Where(value => value.Kind == "input").Select(value => value.Source).ToHashSet(StringComparer.Ordinal);
-        var scopes = new JsonArray(symbols.Scopes.Where(scope => global || scope.Path == candidate.Extension.Scope ||
+        var visibleScopes = symbols.Scopes.Where(scope => global || scope.Path == candidate.Extension.Scope ||
                 scope.Owner is { } owner && selected.Contains(owner.Id) ||
-                scope.Path.StartsWith("/groups/", StringComparison.Ordinal) && groups.Any(group => scope.Path == "/groups/" + group + "/body"))
+                scope.Path.StartsWith("/groups/", StringComparison.Ordinal) && groups.Any(group => scope.Path == "/groups/" + group + "/body")).ToHashSet();
+        foreach (var scope in visibleScopes.ToArray())
+            for (var parent = scope.Parent; parent is not null; parent = parent.Parent) visibleScopes.Add(parent);
+        var scopes = new JsonArray(symbols.Scopes.Where(visibleScopes.Contains)
             .Select(scope => (JsonNode)new JsonObject
             {
                 ["id"] = scope.Path, ["open"] = openScopes.Contains(scope.Path), ["evidence"] = "scope:" + scope.Path,

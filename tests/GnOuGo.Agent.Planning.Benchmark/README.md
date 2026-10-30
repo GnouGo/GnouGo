@@ -244,5 +244,8 @@ frozen identities. A received reasoning-only exhaustion is not a transport incid
 Record provenance corrections separately from business repairs. A technically valid
 producer reference may still target the wrong directory, report or cleanup lifetime;
 artifact binding choices do not establish business acceptance.
+When assessing a local cleanup finding, retain the actual open ancestors and current
+completion claims. Report missing context separately from a confirmed defect; final
+cleanup obligations remain blocking until validated and reviewed.
 The six-run business qualification remains two consecutive intervention-free successes
 per scenario on the same production source/profile, including both Collections variants.

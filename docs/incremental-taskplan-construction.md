@@ -119,6 +119,9 @@ Several generated fragments may form one coherent business block. Empty openings
 unused group declarations and exact mechanical exports/closures do not independently
 trigger a Judge. Review completed business blocks when construction continues beyond
 them, including their actual consumers, ancestor controls and effects.
+The projection retains actual ancestor scope states, including an open root, and
+their existing finalization actions and dependencies. A child boundary's closure
+does not claim completion of its ancestors or outstanding global obligations.
 
 Contract-declared artifact arguments expose reference choices in both generation and
 repair. A matching literal or encoded string cannot manufacture producer provenance.

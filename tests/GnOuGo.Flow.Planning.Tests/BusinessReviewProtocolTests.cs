@@ -231,26 +231,49 @@ public sealed class BusinessReviewProtocolTests
         Assert.StartsWith("port-page:", operation["outputDirectory"]!.ToString(), StringComparison.Ordinal);
     }
 
-    [Fact]
-    public async Task ClosedBoundaryReviewIncludesPreviouslyAcceptedPendingBehavior()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ClosedBoundaryReviewIncludesPreviouslyAcceptedPendingBehavior(bool ancestorCleanup)
     {
         var (state, _) = await Ready();
         var candidate = state.Construction!.Candidate!;
         var computation = candidate.Plan.Root.Tasks.Single();
         state.Plan!.Root.Tasks = [new() { Id = "sequence", Kind = "sequence", Objective = "Compute the bounded result.", Body = new() { Tasks = [computation] } }];
+        if (ancestorCleanup)
+        {
+            state.Plan.Root.Tasks.Insert(0, new() { Id = "audit_source", Kind = "value", Objective = "Retain the caller value for finalization.",
+                Outputs = [new("value", new() { Kind = "input", Source = "x" })] });
+            state.Plan.Root.Always = [new() { Id = "audit_finalization", Kind = "value", Objective = "Record the supplied value even on failure.",
+                Outputs = [new("value", new() { Kind = "output", Source = "audit_source", Port = "value" })] }];
+        }
         state.Construction.OpenScopes.Add("/tasks/sequence/body");
         var scope = "/tasks/sequence/body";
         var step = state.Construction.Compact!.CurrentStep!;
         step.Scope = scope; step.Kind = "close"; step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        step.CloseRequirementIds = [];
         state.Construction.Checkpoints.Add(new() { Sequence = 1, TaskIds = ["compute"], RequirementIds = ["work"],
             Step = new() { Scope = scope }, Fragment = new JsonObject { ["businessReviewPending"] = true } });
         candidate = PlanningConstruction.Apply(state, new() { Scope = scope, CloseScopes = [scope], RequirementIds = ["work"] });
         state.Construction.Candidate = candidate;
+        Assert.Empty(TaskPlanCompiler.ValidateConstruction(candidate.Plan, state.Catalog!, state.Request,
+            candidate.OpenScopes.ToHashSet(StringComparer.Ordinal)).Diagnostics);
         var projection = PlanningBusinessProjection.Build(state, global: false);
         Assert.Contains(projection["actions"]!.AsArray(), action => action!["id"]!.ToString() == "compute");
         Assert.Contains(projection["actions"]!.AsArray(), action => action!["id"]!.ToString() == "sequence");
         Assert.Equal(new[] { "work", "later" }, projection["requirements"]!.AsArray().Select(original => original!["id"]!.ToString()));
         Assert.False(projection["scopes"]!.AsArray().Single(row => row!["id"]!.ToString() == scope)!["open"]!.GetValue<bool>());
+        var root = Assert.Single(projection["scopes"]!.AsArray(), row => row!["id"]!.ToString() == "/root")!;
+        Assert.True(root["open"]!.GetValue<bool>());
+        Assert.Empty(projection["claims"]!["completedRequirements"]!.AsArray());
+        Assert.False(projection["claims"]!["workflowComplete"]!.GetValue<bool>());
+        if (ancestorCleanup)
+        {
+            Assert.Equal("audit_finalization", Assert.Single(root["cleanup"]!.AsArray())!.ToString());
+            Assert.Contains(projection["actions"]!.AsArray(), action => action!["id"]!.ToString() == "audit_finalization");
+            Assert.Contains(projection["actions"]!.AsArray(), action => action!["id"]!.ToString() == "audit_source");
+        }
+        else Assert.Empty(root["cleanup"]!.AsArray());
     }
 
     [Fact]

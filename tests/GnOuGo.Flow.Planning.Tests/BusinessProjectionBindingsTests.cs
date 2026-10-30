@@ -225,6 +225,7 @@ public sealed class BusinessProjectionBindingsTests
             candidate.OpenScopes.ToHashSet(StringComparer.Ordinal)).Diagnostics);
         var projection = PlanningBusinessProjection.Build(state, global: false);
         Assert.Empty(projection["inputs"]!.AsArray());
+        Assert.DoesNotContain(projection["scopes"]!.AsArray(), scope => scope!["id"]!.ToString() == "/root");
         var group = Assert.Single(projection["groups"]!.AsArray())!;
         Assert.Equal("normalize", group["id"]!.ToString());
         var input = Assert.Single(group["inputs"]!.AsArray())!;

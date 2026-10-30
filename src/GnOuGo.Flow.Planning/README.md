@@ -181,6 +181,10 @@ arguments: offer existing-value references rather than literals or computed text
 Drafting and typed repair share this projection. Nested consumption, exact origins,
 scope visibility and business suitability still require compiler validation and review.
 
+Local business projections include enclosing scope states and their actual cleanup,
+not only owned child scopes. A closed child may have an open parent; omitted parent
+context cannot establish a global cleanup defect or establish cleanup satisfaction.
+
 
 
 ## Validation and publishing
