@@ -83,13 +83,20 @@ internal static class PlanningBusinessProjection
             globals.Add((JsonNode)new JsonObject { ["id"] = "catalog-policy:instructions", ["text"] = state.Catalog.Policy.Instructions });
         var actions = new JsonArray(symbols.Tasks.Where(pair => selected.Contains(pair.Key))
             .Select(pair => (JsonNode)Action(state, pair.Value.Task, pair.Value.Scope.Path)).ToArray());
-        // A public-interface completion claim needs the actual declarations even
-        // without an executable consumer. Other fragments retain consumed inputs
-        // only; presenting a public declaration never grants isolated group access.
+        // Applicable original interface obligations need their actual declarations,
+        // even when the candidate omits the required consumer. A complete interface
+        // claim also exposes unexpected declarations; neither grants group access.
         var compact = construction.Compact!;
         var claimedSources = PlanningCompactConstruction.CandidateCompletionClaims(state)
             .SelectMany(id => compact.RequirementSources.GetValueOrDefault(id) ?? []).ToHashSet(StringComparer.Ordinal);
-        var interfaceClaims = compact.Sources.Where(source => source.Indexed && source.Version == PlanningGraphCompiler.Fingerprint(source.Text) && (global || claimedSources.Contains(source.Id) || source.ContinuationOf is { } previous && claimedSources.Contains(previous)))
+        var applicableSources = PlanningCompactConstruction.LocalRequirementIds(state, selected,
+                exportScopes.Select(scope => scope.Path), includeCompleteOriginal: false)
+            .SelectMany(id => compact.RequirementSources.GetValueOrDefault(id) ?? [])
+            .Concat(compact.GlobalSourceIds).ToHashSet(StringComparer.Ordinal);
+        var currentSources = compact.Sources.Where(source => source.Indexed && source.Version == PlanningGraphCompiler.Fingerprint(source.Text)).ToArray();
+        var interfaceClaims = currentSources.Where(source => global || claimedSources.Contains(source.Id) || source.ContinuationOf is { } previous && claimedSources.Contains(previous))
+            .SelectMany(source => source.Inputs ?? []).Select(input => input.Name).ToHashSet(StringComparer.Ordinal);
+        var applicableInputs = currentSources.Where(source => global || applicableSources.Contains(source.Id) || source.ContinuationOf is { } previous && applicableSources.Contains(previous))
             .SelectMany(source => source.Inputs ?? []).Select(input => input.Name).ToHashSet(StringComparer.Ordinal);
         var isolated = !global && symbols.Scopes.SingleOrDefault(scope => scope.Path == candidate.Extension.Scope) is { } reviewedScope && InGroup(reviewedScope);
         var rootValues = symbols.Tasks.Where(pair => selected.Contains(pair.Key) && !InGroup(pair.Value.Scope))
@@ -116,10 +123,10 @@ internal static class PlanningBusinessProjection
         {
             ["review"] = global ? "completed_workflow" : "current_fragment",
             ["requirements"] = requirements, ["globalConstraints"] = globals,
-            ["inputs"] = new JsonArray(plan.Inputs.Where(input => global || interfaceClaims.Count > 0 || rootInputs.Contains(input.Name))
+            ["inputs"] = new JsonArray(plan.Inputs.Where(input => global || interfaceClaims.Count > 0 || applicableInputs.Contains(input.Name) || rootInputs.Contains(input.Name))
                 .Select(input =>
                 {
-                    var declaration = Declaration(input, rootValues, "input:" + input.Name, completeType: interfaceClaims.Contains(input.Name));
+                    var declaration = Declaration(input, rootValues, "input:" + input.Name, completeType: interfaceClaims.Contains(input.Name) || applicableInputs.Contains(input.Name));
                     declaration["scope"] = "/root";
                     if (isolated) declaration["availableInReviewedScope"] = false;
                     return (JsonNode)declaration;

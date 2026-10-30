@@ -89,7 +89,9 @@ internal static partial class PlanningConstruction
         if (state.Construction!.Candidate is not { } candidate) return null;
         if (currentContext["actions"] is not JsonArray) currentContext = PlanningBusinessProjection.Build(state, global: false);
         var active = ActiveDefects(candidate);
-        if (active.Count > 3) Fail("CONSTRUCTION_REVIEW_INCONCLUSIVE", "/defectProgress", "More unresolved prior findings exist than this bounded review can assess.");
+        // The verdict bounds new targets per response, not accumulated concerns
+        // across completed reviews. Present every unresolved concern; request
+        // admission bounds calls, and only business review can resolve findings.
         var result = new JsonArray();
         foreach (var (witness, entry) in active)
         {

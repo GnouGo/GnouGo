@@ -10,7 +10,7 @@ internal static partial class PlanningCompactConstruction
     // Applicability is a transient projection of existing authority, never a
     // fulfillment decision. Unknown global constraints remain global.
     internal static HashSet<string> LocalRequirementIds(PlanningSession state,
-        IEnumerable<string>? actualTaskIds = null, IEnumerable<string>? actualScopes = null)
+        IEnumerable<string>? actualTaskIds = null, IEnumerable<string>? actualScopes = null, bool includeCompleteOriginal = true)
     {
         var construction = state.Construction!;
         var compact = State(state);
@@ -19,7 +19,7 @@ internal static partial class PlanningCompactConstruction
         // A single complete source is cheaper and safer than deriving applicability
         // between small clauses. Its original restrictions accompany every decision.
         var originals = compact.Sources.Where(source => source.Kind is "page" or "answer_page" or "revision_page").ToArray();
-        if (originals.Length == 1 && originals[0].Indexed &&
+        if (includeCompleteOriginal && originals.Length == 1 && originals[0].Indexed &&
             state.Requirements!.Outcomes.All(requirement => compact.RequirementSources.ContainsKey(requirement.Id)) &&
             string.Concat(compact.Sources.Where(source => source.Kind is "requirement" or "global").Select(source => source.Text)) == originals[0].Text)
         {

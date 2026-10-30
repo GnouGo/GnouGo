@@ -89,8 +89,9 @@ public sealed class CompactSelectionScopeTests
         var error = Assert.Throws<PlanningResponseException>(() =>
             PlanningCompactConstruction.ValidateSelection(state, Step("/root", CallerReference("input"))));
         var diagnostic = Assert.Single(error.Diagnostics);
-        Assert.Equal("/step/inputs", diagnostic.Location);
-        Assert.DoesNotContain("missing-unrelated-producer", diagnostic.Message, StringComparison.Ordinal);
+        Assert.NotEqual("CONSTRUCTION_STEP_INPUT_INVALID", diagnostic.Code);
+        Assert.Equal("/tasks/unrelated/outputs/value", diagnostic.Location);
+        Assert.Contains("missing-unrelated-producer", diagnostic.Message, StringComparison.Ordinal);
     }
 
 

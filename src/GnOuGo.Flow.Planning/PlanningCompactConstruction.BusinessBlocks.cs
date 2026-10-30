@@ -92,6 +92,7 @@ internal static partial class PlanningCompactConstruction
         var probe = CloneTransitionState(state);
         probe.Plan = PlanningConstruction.Clone(candidate.Plan);
         probe.Construction!.OpenScopes = candidate.OpenScopes.ToList();
+        PlanningConstruction.AdmitResolvedOperations(probe, candidate.Plan);
         var continuation = CloneStep(step);
         continuation.Scope = path;
         // Selection inputs are presentation hints. The new scope supplies its own

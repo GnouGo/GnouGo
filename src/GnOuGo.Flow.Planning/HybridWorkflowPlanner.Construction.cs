@@ -255,12 +255,7 @@ public sealed partial class HybridWorkflowPlanner
             ? draft.Diagnostics.Where(d => d.Required && d.Code == "JUDGE_SCOPED_REVIEW" &&
                 authorized.Contains(d.Location, StringComparer.Ordinal)).ToArray() : [];
         PlanningCompactConstruction.ValidateExtension(state, draft);
-        foreach (var operation in TaskPlanRevisions.Tasks(draft.Plan).Select(t => t.Operation).OfType<string>().Distinct(StringComparer.Ordinal))
-        {
-            if (state.Catalog!.Capabilities.Any(c => TaskOperations.Describe(c).Id == operation)) continue;
-            var matches = state.Discovery.Resolved.Where(c => TaskOperations.Describe(c).Id == operation).DistinctBy(c => (c.Id, c.Version)).ToArray();
-            if (matches.Length == 1) state.Catalog.Capabilities.Add(matches[0]);
-        }
+        PlanningConstruction.AdmitResolvedOperations(state, draft.Plan);
         var candidate = PlanningConstruction.Clone(draft.Plan);
         foreach (var choice in candidate.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
         draft.Diagnostics = TaskPlanCompiler.ValidateConstruction(candidate, state.Catalog!, state.Request,

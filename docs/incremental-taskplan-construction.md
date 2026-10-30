@@ -121,6 +121,10 @@ refreshes its validated baseline and goes directly to drafting. It neither close
 requirements nor discharges a suspended consumer. New prerequisites use the existing
 suspension flow. No future task queue or second plan is introduced. A completed
 continued block is reviewed with all of its accepted contributing checkpoints.
+Continuation probes use a cloned session with the same exact resolved-contract
+admission as ordinary candidate validation. Missing or ambiguous contracts remain
+invalid. Compiler failures retain their original task diagnostics instead of being
+misreported as unavailable selected inputs when interface capture is suppressed.
 Selected operations and expected outputs describe the whole block. A useful partial
 prefix may contribute a subset, with the required cleanup; full selected-operation
 coverage is checked across accepted fragments when the block finishes. A fresh draft
@@ -313,6 +317,14 @@ An outstanding finding may add `priorConcerns` with its reason and actual `befor
 `current` behavior; the existing single interpretation reconsideration may retain its
 prior report, reason and instruction. These objects contain no repair-status labels,
 checkpoint sequence numbers, technical-validation badges, session identities or hashes.
+Every unresolved concern from the current repair chain remains available to review.
+The three-target response bound limits newly reported targets, not accumulated
+concerns; only a completed business review can resolve them.
+
+Applicable original public-input obligations expose the actual declarations even
+when a candidate omits their consumers or makes no completion claim. Declared types
+remain distinct from actual accessed fields. An isolated group still cannot capture
+root inputs; unrelated unconsumed declarations remain outside local review.
 
 Internal action, scope, producer and dependency references use the existing issued
 request's short-ID map. Findings resolve through that same saved map, including after

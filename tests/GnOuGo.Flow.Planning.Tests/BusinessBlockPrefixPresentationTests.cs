@@ -8,10 +8,12 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class BusinessBlockPrefixPresentationTests
 {
-    [Fact]
-    public async Task TenOperationCallsUseOneActualSelectionAndTwoDraftsAcrossRestart()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task TenOperationCallsUseOneActualSelectionAndTwoDraftsAcrossRestart(bool resolvedOnly)
     {
-        const string original = "Read records 0 through 7 using the first source, then records 8 and 9 using the second source.";
+        const string original = "Using the caller's string query, read records 0 through 7 using the first source, then records 8 and 9 using the second source.";
         const string later = " Produce a separate summary after reading the records.";
         var state = PlannerFixture.Capture(new() { Request = new() { TenantId = "block-prefix", Prompt = original + later,
             MaxModelCalls = 64, Generation = new("medium", 32_000, 8_192), Options = new() { ["automatic_correction"] = true } } });
@@ -22,7 +24,8 @@ public sealed class BusinessBlockPrefixPresentationTests
         {
             if (purpose == PlanningCompactConstruction.IntentPurpose)
             {
-                var indexed = CurrentPlanningFixture.Intent(Context(request));
+                var indexed = CurrentPlanningFixture.Intent(Context(request), new JsonArray(new JsonObject
+                { ["name"] = "query", ["type"] = new JsonObject { ["kind"] = "string", ["nullable"] = false }, ["required"] = true }));
                 indexed["clauses"]![0]!["text"] = original;
                 indexed["clauses"]!.AsArray().Add(new JsonObject { ["text"] = later, ["kind"] = "requirement",
                     ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray() });
@@ -38,7 +41,7 @@ public sealed class BusinessBlockPrefixPresentationTests
                     {
                         ["scope"] = "/root", ["kind"] = "operation", ["objective"] = original,
                         ["requirementIds"] = new JsonArray("req_0"), ["operationIds"] = new JsonArray("a_first", "a_second"),
-                        ["inputs"] = new JsonArray(), ["dependencyTaskIds"] = new JsonArray(),
+                        ["inputs"] = new JsonArray(new JsonObject { ["kind"] = "input", ["source"] = "query" }), ["dependencyTaskIds"] = new JsonArray(),
                         ["expectedOutputs"] = new JsonArray("The ten exact requested records have been read."),
                         ["closeRequirementIds"] = new JsonArray("req_0"), ["outputNames"] = new JsonArray(),
                         ["closeScopes"] = null, ["groupId"] = null, ["prerequisites"] = null
@@ -61,16 +64,17 @@ public sealed class BusinessBlockPrefixPresentationTests
             return Wire(request, new() { ["extension"] = JsonSerializer.SerializeToNode(new PlanningConstructionExtension
             {
                 Scope = "/root", RequirementIds = ["req_0"], ContinueInScope = drafts == 1 ? "/root" : null,
-                Tasks = Enumerable.Range(drafts == 1 ? 0 : 8, drafts == 1 ? 8 : 2).Select(index => Operation(index, index < 8 ? "a_first" : "a_second")).ToList()
+                Tasks = Enumerable.Range(drafts == 1 ? 0 : 8, drafts == 1 ? 8 : 2).Select(index => Operation(index, index < 8 ? "a_first" : "a_second", query: true)).ToList()
             }, PlanningJsonContext.Default.PlanningConstructionExtension) });
         };
         state = await Advance(state, runtime); // real original indexing
         Assert.Empty(state.Diagnostics);
         state.Catalog = await runtime.DiscoverAsync(state.Request, PlannerFixture.Ct);
-        AddOperations(state);
+        AddOperations(state, resolvedOnly, query: true);
         state = await Advance(state, runtime); // actual model selection of both exact contracts
         Assert.Empty(state.Diagnostics);
         Assert.Equal(1, selections);
+        if (resolvedOnly) Assert.Empty(state.Catalog!.Capabilities);
         var selected = JsonSerializer.Serialize(state.Construction!.Compact!.CurrentStep, PlanningJsonContext.Default.PlanningConstructionStep);
         var stepId = state.Construction.Compact.CurrentStep!.Id;
         var originalRequirements = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
@@ -99,7 +103,7 @@ public sealed class BusinessBlockPrefixPresentationTests
         var restored = PlannerFixture.Clone(state);
         Assert.Equal(PlanningConstruction.DraftRequest(state, false).Prompt, PlanningConstruction.DraftRequest(restored, false).Prompt);
         var unfinished = PlannerFixture.Clone(restored);
-        var premature = PlanningConstruction.Apply(unfinished, new() { Scope = "/root", RequirementIds = ["req_0"], Tasks = [Operation(8, "a_first")] });
+        var premature = PlanningConstruction.Apply(unfinished, new() { Scope = "/root", RequirementIds = ["req_0"], Tasks = [Operation(8, "a_first", query: true)] });
         unfinished.Construction!.Candidate = premature;
         PlanningCompactConstruction.StageCommitments(unfinished, null, premature);
         var missing = PlanningCompactConstruction.CandidateFindings(unfinished);
@@ -112,7 +116,8 @@ public sealed class BusinessBlockPrefixPresentationTests
         Assert.Equal(1, selections); Assert.Equal(2, drafts); Assert.Equal(1, reviews);
         Assert.Equal(10, state.Plan!.Root.Tasks.Count);
         Assert.All(state.Plan.Root.Tasks, task => Assert.Equal("operation", task.Kind));
-        Assert.Equal(Enumerable.Range(0, 10).Select(index => (double)index), state.Plan.Root.Tasks.Select(task => task.Inputs.Single().Value.Number!.Value));
+        Assert.Equal(Enumerable.Range(0, 10).Select(index => (double)index), state.Plan.Root.Tasks.Select(task => task.Inputs.Single(input => input.Name == "index").Value.Number!.Value));
+        Assert.All(state.Plan.Root.Tasks, task => Assert.Equal("query", task.Inputs.Single(input => input.Name == "query").Value.Source));
         Assert.Equal(2, state.Construction!.Checkpoints.Count);
         Assert.All(state.Construction.Checkpoints, checkpoint => Assert.Equal(stepId, checkpoint.Step!.Id));
         Assert.Null(state.Construction.Compact!.CurrentStep);
@@ -157,21 +162,35 @@ public sealed class BusinessBlockPrefixPresentationTests
         Assert.Equal(2, state.Construction.Compact.PendingCommitments["work"].Count);
     }
 
-    private static void AddOperations(PlanningSession state)
+    private static void AddOperations(PlanningSession state, bool resolvedOnly = false, bool query = false)
     {
         if (!state.Catalog!.AllowedStepTypes.Contains("mcp.call")) state.Catalog.AllowedStepTypes.Add("mcp.call");
-        foreach (var id in new[] { "a_first", "a_second" }) state.Catalog.Capabilities.Add(new()
+        foreach (var id in new[] { "a_first", "a_second" })
         {
-            Id = id, Version = "v1", Kind = "tool", StepType = "mcp.call", Server = "records", Method = id,
-            EffectKind = "read", Description = "Read the exact authorized record index from this source.",
-            InputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject { ["index"] = new JsonObject { ["type"] = "number" } },
-                ["required"] = new JsonArray("index"), ["additionalProperties"] = false },
-            OutputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false }
-        });
+            var capability = new PlanningCapability
+            {
+                Id = id, Version = "v1", Kind = "tool", StepType = "mcp.call", Server = "records", Method = id,
+                EffectKind = "read", Description = "Read the exact authorized record index from this source.",
+                InputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject { ["index"] = new JsonObject { ["type"] = "number" } },
+                    ["required"] = new JsonArray("index"), ["additionalProperties"] = false },
+                OutputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false }
+            };
+            if (query)
+            {
+                capability.InputSchema["properties"]!["query"] = new JsonObject { ["type"] = "string" };
+                capability.InputSchema["required"]!.AsArray().Add("query");
+            }
+            (resolvedOnly ? state.Discovery.Resolved : state.Catalog.Capabilities).Add(capability);
+        }
     }
 
-    private static PlanTask Operation(int index, string operation) => new() { Id = "read_" + index, Kind = "operation", Operation = operation,
-        Objective = "Read exact record " + index, Inputs = [new("index", new() { Kind = "number", Number = index })] };
+    private static PlanTask Operation(int index, string operation, bool query = false)
+    {
+        var task = new PlanTask { Id = "read_" + index, Kind = "operation", Operation = operation,
+            Objective = "Read exact record " + index, Inputs = [new("index", new() { Kind = "number", Number = index })] };
+        if (query) task.Inputs.Add(new("query", new() { Kind = "input", Source = "query" }));
+        return task;
+    }
     private static JsonObject Context(LLMRequest request) => BusinessProjectionDeclarationsTests.Context(request);
     private static LLMResponse Wire(LLMRequest request, JsonObject response) => new()
     { Json = PlanningCorpus.Transport(response, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };

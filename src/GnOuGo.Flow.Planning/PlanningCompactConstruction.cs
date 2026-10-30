@@ -893,6 +893,9 @@ internal static partial class PlanningCompactConstruction
             new Dictionary<string, IReadOnlyList<TaskValue>> { [step.Scope] = step.Inputs });
         if (!result.Interfaces.TryGetValue(step.Scope, out var interfaces) || interfaces.Count != step.Inputs.Count)
         {
+            // Compiler failures clear captured interfaces. Preserve their actual
+            // task locations instead of blaming an otherwise valid selected input.
+            if (result.Diagnostics.Count > 0) throw new PlanningResponseException(result.Diagnostics.ToList());
             // Successful probes preserve request order. Diagnose only a missing
             // selected binding; unrelated accepted-plan findings are not evidence
             // that a particular import is invalid.
