@@ -1,0 +1,139 @@
+{
+  "production_source": "68dba9af2728110720e03e223aa1ae3852aa668b",
+  "execution_and_harness_source": "3242bbde50eae0f3a9cc92e7bef8171e884789a3",
+  "run": "compactm68dba9afamz11b-amazon-1",
+  "status": "clarification",
+  "logical_requests": 32,
+  "physical_attempts": 33,
+  "received_completions": 32,
+  "judge_calls": 0,
+  "actual_reselection_charges": 3,
+  "operator_planning_interventions": 0,
+  "business_producer_constructed": false,
+  "artifact_created": false,
+  "runtime_started": false,
+  "business_oracle_passed": false,
+  "satisfied_business_obligations": 0,
+  "calls_per_satisfied_business_obligation": null,
+  "accepted_structural_openings": 2,
+  "outcome": "Operationless sequence binding repeats after suspended-consumer reselection, then clarification requests a new query-to-candidates web contract. The existing Browser operation description and catalog eligibility for local interpretation were visible; eligibility alone does not establish a complete authorized composition or runtime success.",
+  "source_experiment_trigger": {
+    "original_rejection_reason_visible_in_selection_request": 17,
+    "reason_omitted_from_continuation_in_discovery_request": 20,
+    "only_typed_prerequisite_and_retrieval_link_retained": true,
+    "new_context_fix_business_benefit_unproven": true
+  },
+  "bindings": [
+    {
+      "request": 5,
+      "kind": "group",
+      "selected_operations": 0
+    },
+    {
+      "request": 10,
+      "kind": "sequence",
+      "selected_operations": 0
+    },
+    {
+      "request": 15,
+      "kind": "sequence",
+      "selected_operations": 0
+    },
+    {
+      "request": 20,
+      "kind": "sequence",
+      "selected_operations": 0
+    },
+    {
+      "request": 27,
+      "kind": "sequence",
+      "selected_operations": 0
+    },
+    {
+      "request": 31,
+      "kind": "sequence",
+      "selected_operations": 0
+    }
+  ],
+  "suspension_requests": [
+    16,
+    21,
+    28
+  ],
+  "calls_by_phase": {
+    "construction_intent": 1,
+    "construction_select": 8,
+    "construction_discovery": 17,
+    "construction_draft": 6
+  },
+  "request_sizes_by_phase": {
+    "construction_intent": {
+      "logical_calls": 1,
+      "p50_bytes": 7295,
+      "p95_bytes": 7295,
+      "maximum_bytes": 7295
+    },
+    "construction_select": {
+      "logical_calls": 8,
+      "p50_bytes": 15888,
+      "p95_bytes": 16560,
+      "maximum_bytes": 16560
+    },
+    "construction_discovery": {
+      "logical_calls": 17,
+      "p50_bytes": 21119,
+      "p95_bytes": 26369,
+      "maximum_bytes": 26369
+    },
+    "construction_draft": {
+      "logical_calls": 6,
+      "p50_bytes": 21617,
+      "p95_bytes": 28764,
+      "maximum_bytes": 28764
+    }
+  },
+  "percentile_method": "nearest_rank",
+  "complete_request_components_reconcile": true,
+  "issued_request_component_bytes_sum": {
+    "construction_context": 55254,
+    "diagnostics": 182,
+    "envelope": 15872,
+    "instructions": 70092,
+    "intent": 52320,
+    "interfaces": 34100,
+    "response_schema": 206178,
+    "requirements": 71655,
+    "mcp_descriptors": 36797,
+    "objective": 12265,
+    "evidence": 44444,
+    "fragment": 132,
+    "mcp_contracts": 150
+  },
+  "known_cost_eur": "2.76504086948711039252672240",
+  "failed_attempt_unknown_reservation_eur": "0.97868499056857989760172460",
+  "provider_input_tokens": 109882,
+  "provider_output_tokens": 84297,
+  "provider_reasoning_tokens_included_in_output": 75397,
+  "received_output_exhaustion_count": 0,
+  "received_empty_model_response_count": 0,
+  "planning_ms": 2249184,
+  "provider_incident": {
+    "request": 10,
+    "recorded_statuses": [
+      500,
+      200
+    ],
+    "reported_error_code": "ESG120",
+    "reported_error": "Routing failed: Backend not available, no answer from backend.",
+    "captured_retry_recovered": true,
+    "failed_reservation_released": false,
+    "provider_termination_claimed": false
+  },
+  "receiptless_logical_requests": 0,
+  "new_permanent_abandonment_needed": false,
+  "phase_policy_sha256": "3e9495d2877fed6d3ddbd9a10b1817842a145bf3a66b7c563d79037d6e215e1c",
+  "model": "gpt-5.5-2026-04-24",
+  "settings_changed": false,
+  "historical_evidence_modified": false,
+  "whole_run_savings_claimed": false
+}

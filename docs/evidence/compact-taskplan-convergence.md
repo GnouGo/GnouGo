@@ -2198,3 +2198,36 @@ Amazon launch, exact inspection finds **€168.94299694955349917435584873 availa
 €116.14307098032425389166711158. These figures precede that new active run.
 No supplement is reapplied. Amazon uses the same `68dba9af` production source,
 captured profile, model, binaries, inputs, permissions and oracles with a fresh identity.
+
+### `68dba9af`: repeated operationless selections expose lost rejection context
+
+The [second Amazon diagnostic](compact-taskplan-68dba9af-amazon-reselection-stop.json)
+receives all **32 logical responses across 33 physical attempts**, then waits for
+clarification without an executable business producer, artifact or runtime. Three
+drafts suspend the consumer after discovery binds an operationless sequence; a group
+and an empty search boundary are the only accepted structural work. No new effect,
+contract, data or business fulfillment is inferred from those checkpoints.
+
+The HTTP 500 at request 10 reports `ESG120` / backend unavailable. The captured
+retry receives HTTP 200, preserving the failed-attempt reservation of
+€0.97868499056857989760172460. Known run cost is
+€2.76504086948711039252672240. This received-error recovery is separate from the
+subsequent semantic failure, and is not uncertain replay. Every logical request has
+a receipt, so this run needs no permanent-abandonment operation.
+
+Selection request 17 includes the original rejected step's explanation. Discovery
+request 20 keeps the typed prerequisite and retrieval link but omits that explanation,
+then repeats the strategy. `5e0bc6d8` adds the existing bounded reason to the shared
+continuation presentation using its exact rejection index. It is model-authored
+navigation, not a new obligation, permission or repair authority. No state or response
+protocol is added. A generic regression fails on the missing issued-request field,
+then verifies the correct indexed record, unchanged plan/correction count and exact
+pending-request recovery despite newer navigation. All 170 focused cases and 2,289
+Planning tests pass; those counts overlap. Live benefit remains unproven.
+
+The candidate uses unchanged settings, inputs, binaries, permissions and oracles.
+Before its launch, inspection finds €165.19927108949780888422740173 available,
+52 permanent closures and no unresolved identity. The earlier control remains in its
+original clarification state. All ten package/AOT/published-storage checks pass on
+`5e0bc6d8`; that source's full solution run and fresh Amazon diagnostic are active.
+The successful Collections result above belongs to `68dba9af`, not the new source.
