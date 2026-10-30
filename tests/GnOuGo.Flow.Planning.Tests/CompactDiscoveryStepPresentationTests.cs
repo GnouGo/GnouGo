@@ -217,16 +217,7 @@ public sealed class CompactDiscoveryStepPresentationTests
                     Sources = [new() { Id = "source_requirement", Version = new string('b', 64), Text = requirement },
                         new() { Id = "source_global", Version = new string('c', 64), Text = global }],
                     RequirementSources = new() { ["req_exact"] = ["source_requirement"] },
-                    GlobalSourceIds = ["source_global"],
-                    CurrentStep = new()
-                    {
-                        Id = "selected_step", BaseHash = new string('d', 64), Scope = "/root", Kind = "operation",
-                        Objective = string.Concat(Enumerable.Repeat("Read the complete authorized original records. ", 11)),
-                        RequirementIds = ["req_exact"], Inputs = [new() { Kind = "input", Source = "requestedSource" },
-                            new() { Kind = "input", Source = "workspaceRoot" }],
-                        ExpectedOutputs = ["Complete observed records with exact identities and source provenance."],
-                        CloseRequirementIds = ["req_exact"], OutputNames = ["result"]
-                    }
+                    GlobalSourceIds = ["source_global"]
                 }
             },
             Catalog = new() { AllowedStepTypes = ["mcp.call"] },
@@ -236,7 +227,17 @@ public sealed class CompactDiscoveryStepPresentationTests
                     new("provider_" + new string('f', 24), new string('Q', 192))]
             }
         };
-        return PlannerFixture.Capture(state);
+        PlanningSessionCreation.Capture(state);
+        state.Construction!.Compact!.CurrentStep = new()
+        {
+            Id = "selected_step", BaseHash = new string('d', 64), Scope = "/root", Kind = "operation",
+            Objective = string.Concat(Enumerable.Repeat("Read the complete authorized original records. ", 11)),
+            RequirementIds = ["req_exact"], Inputs = [new() { Kind = "input", Source = "requestedSource" },
+                new() { Kind = "input", Source = "workspaceRoot" }],
+            ExpectedOutputs = ["Complete observed records with exact identities and source provenance."],
+            CloseRequirementIds = ["req_exact"], OutputNames = ["result"]
+        };
+        return PlannerFixture.Clone(state);
     }
 
     private static JsonObject HostSchema(LLMRequest request, PlanningEvidenceAddresses? addresses)

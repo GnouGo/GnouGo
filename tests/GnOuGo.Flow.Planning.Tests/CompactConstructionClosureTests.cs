@@ -352,12 +352,13 @@ public sealed class CompactConstructionClosureTests
                 Outputs = [new() { Name = "message", Type = new() { Kind = "string" } }], Outcomes = [new("req", "Return the requested message.")] },
             Construction = new() { Requirements = [new() { Id = "req" }], Compact = new()
             {
-                Sources = [new() { Id = "request:0", Kind = "page", Text = "Return the requested message.", Indexed = true }],
-                CurrentStep = new() { Id = "selected", Scope = "/root", Kind = "value", RequirementIds = ["req"], CloseRequirementIds = ["req"], OutputNames = ["message"] }
+                Sources = [new() { Id = "request:0", Kind = "page", Text = "Return the requested message.", Indexed = true }]
             } }
         };
         PlanningSessionCreation.Capture(state);
-        state.Construction!.Compact!.Blocks = [new() { Id = "block_1", Objective = state.Request.Prompt,
+        state.Construction!.Compact!.CurrentStep = new() { Id = "selected", Scope = "/root", Kind = "value",
+            RequirementIds = ["req"], CloseRequirementIds = ["req"], OutputNames = ["message"] };
+        state.Construction.Compact.Blocks = [new() { Id = "block_1", Objective = state.Request.Prompt,
             RequirementIds = ["req"], ExpectedResults = ["The exact requested message."], SuccessCriteria = ["The message is returned unchanged."] }];
         state.Construction.Compact.CurrentBlockId = "block_1";
         state.Construction.Compact.CurrentStep!.BlockId = "block_1";

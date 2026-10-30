@@ -844,13 +844,14 @@ public sealed class CompactConstructionContractsTests
         {
             Request = new() { TenantId = "compact-contract-test", Prompt = "Read the exact requested value.", Generation = new("medium", 32000, 8192) },
             Requirements = new() { Summary = "Read the exact requested value", Inputs = [], Outputs = [], Outcomes = [new("result", "Read the exact requested value")] },
-            Construction = new() { Limits = new() { PhasePolicy = new() { Navigation = new() { TargetInputTokens = 3_000, MaxInputTokens = navigationCeiling } } }, Requirements = [new() { Id = "result" }], Compact = new() { CurrentStep = new() { Id = "s1", Scope = "/root", Kind = "operation",
-                Objective = "Read the exact requested value", OperationIds = ["read"], RequirementIds = ["result"] } } },
+            Construction = new() { Limits = new() { PhasePolicy = new() { Navigation = new() { TargetInputTokens = 3_000, MaxInputTokens = navigationCeiling } } }, Requirements = [new() { Id = "result" }], Compact = new() },
             Catalog = new() { AllowedStepTypes = ["mcp.call"] },
             Discovery = new() { Resolved = [contract], Sources = [new("source", "Available operations")] }
         };
         PlanningSessionCreation.Capture(state);
-        state.Construction!.Compact!.CurrentStep.BaseHash = PlanningConstruction.Hash(state.Plan);
+        state.Construction!.Compact!.CurrentStep = new() { Id = "s1", Scope = "/root", Kind = "operation",
+            Objective = "Read the exact requested value", OperationIds = ["read"], RequirementIds = ["result"],
+            BaseHash = PlanningConstruction.Hash(state.Plan) };
         return state;
     }
 
