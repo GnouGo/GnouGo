@@ -18,7 +18,8 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
         ct.ThrowIfCancellationRequested();
         if (session.SchemaVersion != 11) throw new PlanningConflictException("This planning format is no longer executable. Regenerate and approve the workflow.");
         if (session.Revision != command.ExpectedRevision) throw new PlanningConflictException("The session changed. Reload its revision.");
-        if (command.Kind != "cancel" && session.Request.Options.ContainsKey("construction_limits"))
+        if (command.Kind != "cancel" && session.Request.Options.ContainsKey("construction_limits") &&
+            !PlanningSessionCreation.CanCapture(session))
             PlanningCompactConstruction.ValidateBusinessContract(session);
         if (string.IsNullOrWhiteSpace(session.Request.TenantId) || string.IsNullOrWhiteSpace(session.Request.SessionId) || string.IsNullOrWhiteSpace(session.Request.Prompt))
             throw new ArgumentException("Tenant, session identity and request are required.");
@@ -38,6 +39,8 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
             throw new PlanningConflictException("The session model-call budget is exhausted. Token settings and revisions cannot extend it. Start a new planning session; retained requests and accounting remain unchanged.");
         var state = JsonSerializer.Deserialize(JsonSerializer.Serialize(session, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
         PlanningSessionCreation.Capture(state, session);
+        if (command.Kind != "cancel" && state.Request.Options.ContainsKey("construction_limits"))
+            PlanningCompactConstruction.ValidateBusinessContract(state);
         using var warnings = PlanningTokenThresholds.Observe((stage, kind, current, threshold) =>
             PlanningOptimizationThresholds.Record(state, stage, kind, current, threshold));
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);

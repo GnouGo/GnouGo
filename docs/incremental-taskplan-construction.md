@@ -55,6 +55,10 @@ Historical reports, encrypted records, financial reservations and permanent requ
 closures remain audit data, without an executable compatibility reader. Fresh sessions
 capture `business_selection_contract: "1"` within format 11. A retained session without
 this exact selection contract is rejected before cloning, checkpointing or recovery.
+Preconfigured limits do not make a newly constructed session historical: eligible
+fresh sessions capture their contract on a clone, then validate it before any
+checkpoint or model call. Deserialization removes creation authority, even at revision
+zero; explicit markers and existing block or implementation work are never backfilled.
 The host never infers business blocks from historical technical steps or rebuilds an
 old issued request with the new schema.
 

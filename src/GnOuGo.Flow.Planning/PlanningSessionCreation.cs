@@ -6,10 +6,23 @@ namespace GnOuGo.Flow.Planning;
 // Rehydrated sessions, including revision zero, retain their original options.
 internal static class PlanningSessionCreation
 {
-    internal static void Capture(PlanningSession state, PlanningSession? original = null)
+    internal static bool CanCapture(PlanningSession state, PlanningSession? original = null)
     {
         if (!(original ?? state).IsNewlyConstructed || state.Revision != 0 || state.PendingCall is not null ||
-            state.Plan is not null || state.ModelCalls != 0) return;
+            state.Plan is not null || state.ModelCalls != 0 ||
+            state.Request.Options.ContainsKey(PlanningCompactConstruction.BusinessSelectionContract)) return false;
+        var construction = state.Construction;
+        var compact = construction?.Compact;
+        // Host-supplied limits may precede initialization. Existing block or
+        // implementation work cannot acquire a new contract through that path.
+        return construction?.Candidate is null && construction?.Checkpoints.Count is null or 0 &&
+            compact?.Blocks is null && compact?.CurrentBlockId is null && compact?.CurrentStep is null &&
+            compact?.SuspendedSteps is null && compact?.ResumingStepId is null;
+    }
+
+    internal static void Capture(PlanningSession state, PlanningSession? original = null)
+    {
+        if (!CanCapture(state, original)) return;
         var options = state.Request.Options;
         PlanningTransportPolicies.Capture(state.Request);
         options.TryAdd("compilation_profile", TaskPlanCompiler.CompactProfile);

@@ -24,7 +24,7 @@ internal static partial class PlanningCompactConstruction
 
     internal static void ValidateBusinessContract(PlanningSession state)
     {
-        if (state.Request.Options[BusinessSelectionContract]?.ToString() != "1" || State(state).Blocks is null)
+        if (state.Request.Options[BusinessSelectionContract]?.ToString() != "1" || state.Construction?.Compact?.Blocks is null)
             throw new PlanningConflictException("This retained session has a different construction selection contract. Preserve its issued work and use its captured source; do not relabel technical steps as business blocks.");
         if (State(state).CurrentBlockId is not null && CurrentBlock(state) is null)
             throw new PlanningConflictException("The active business block is missing from its retained construction metadata.");
