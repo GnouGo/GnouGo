@@ -103,6 +103,7 @@ internal static partial class PlanningConstruction
             var snapshot = found ? DefectSnapshot(DefectProjection(current)) : null;
             var status = !sameBasis || !sameSource ? "basis_changed" : !sameClaims ? "claims_changed" : !found ? "unverified" :
                 entry["before"]?["hash"]?.ToString() == snapshot!["hash"]!.ToString() ? "unchanged" : "changed";
+            if (status == "unchanged" && DefectDependencyChanged(candidate, witness, selector, currentContext)) status = "dependency_changed";
             var progress = new JsonObject
             {
                 ["id"] = entry["id"]!.DeepClone(), ["kind"] = entry["kind"]!.DeepClone(), ["status"] = status,
@@ -121,6 +122,27 @@ internal static partial class PlanningConstruction
             result.Add((JsonNode)progress);
         }
         return result.Count == 0 ? null : result;
+    }
+
+    private static bool DefectDependencyChanged(PlanningConstructionCandidate candidate, JsonObject witness,
+        JsonArray? selector, JsonObject current)
+    {
+        if (selector?.FirstOrDefault()?.ToString() != "actions" || selector.ElementAtOrDefault(1) is not JsonObject subject ||
+            subject["key"]?.ToString() != "id" || subject["value"]?.ToString() is not { } consumer) return false;
+        // Use the exact retained review, not the accepted baseline: a second
+        // ineffective patch cannot reuse progress made before the latest finding.
+        var prior = candidate.Reviews.Select(review => review["context"]).OfType<JsonObject>()
+            .FirstOrDefault(context => DefectHash(context) == witness["contextHash"]?.ToString());
+        if (prior?["actions"] is not JsonArray originals || current["actions"] is not JsonArray actions) return false;
+        var symbols = new TaskPlanSymbols(candidate.Plan);
+        var changed = actions.OfType<JsonObject>().Where(action => action["id"]?.ToString() is { } id && id != consumer && symbols.Tasks.ContainsKey(id) &&
+            originals.OfType<JsonObject>().SingleOrDefault(before => before["id"]?.ToString() == id) is { } before &&
+            new[] { "arguments", "outputs", "instruction" }.Any(key => !JsonNode.DeepEquals(before[key], action[key])))
+            .Select(action => action["id"]!.ToString()).ToArray();
+        // The existing invalidation closure tracks transitive values, captures,
+        // exports, controls and called groups. This permits renewed review only;
+        // neither changed dependencies nor changed bytes resolve a finding.
+        return changed.Length > 0 && DependentTaskRegion(candidate.Plan, changed).Affected.Contains(consumer);
     }
 
     internal static JsonObject? PriorRepairObservations(PlanningSession state)

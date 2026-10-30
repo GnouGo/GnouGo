@@ -1,5 +1,13 @@
 # Incremental TaskPlan construction
 
+Repair progress compares a cited consumer with its exact retained review. A changed
+upstream argument, value or executable transform instruction can change the meaning
+of an otherwise unchanged consumer. The existing dependency-invalidation closure
+then requires renewed business review rather than rejecting that repair as unchanged.
+This establishes neither defect resolution nor wider edit authority. Cosmetic or
+unrelated changes, missing or mismatched review context, and repeated ineffective
+patches do not supply that progress.
+
 The planner constructs one authoritative semantic TaskPlan in bounded fragments.
 The compiler lowers it through PlanningGraph and JavaScript to YAML v15. Construction
 metadata is a non-executable journal, never another workflow or scheduler.

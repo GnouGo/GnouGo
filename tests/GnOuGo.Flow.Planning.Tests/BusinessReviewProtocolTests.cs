@@ -77,13 +77,21 @@ public sealed class BusinessReviewProtocolTests
         Assert.Equal(0, state.ReplanAttempts);
     }
 
-    [Fact]
-    public async Task MaintainedRealFindingRepairsEarlierPendingCheckpointAndPreservesIndependentWork()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task MaintainedRealFindingRepairsEarlierPendingCheckpointAndPreservesIndependentWork(bool downstream)
     {
         var (state, runtime) = await Ready();
         state.Requirements!.Outputs = [new() { Name = "result", Type = new() { Kind = "number" } }];
         var candidate = state.Construction!.Candidate!;
         candidate.Plan.Root.Tasks[0].Outputs[0].Value.Items[1].Number = 3;
+        if (downstream)
+        {
+            candidate.Plan.Root.Tasks.Add(new() { Id = "consumer", Kind = "value", Objective = "Use the computed result unchanged.",
+                Outputs = [new("result", new() { Kind = "output", Source = "compute", Port = "result" })] });
+            candidate.TaskIds.Add("consumer");
+        }
         candidate.Hash = PlanningConstruction.Hash(candidate.Plan);
         state.Construction.Compact!.CurrentStep!.CloseRequirementIds = [];
         state = await Advance(state, runtime); // Technical acceptance deliberately precedes business review.
@@ -98,7 +106,8 @@ public sealed class BusinessReviewProtocolTests
             CloseRequirementIds = ["work", "later"], CloseScopes = ["/root"], OutputNames = ["result"],
             Objective = "Return the doubled input.", BaseHash = PlanningConstruction.Hash(state.Plan), DiscoveryComplete = true };
         state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["work", "later"],
-            Outputs = [new("result", new() { Kind = "output", Source = "compute", Port = "result" })], CloseScopes = ["/root"], Complete = true });
+            Outputs = [new("result", new() { Kind = "output", Source = downstream ? "consumer" : "compute", Port = "result" })], CloseScopes = ["/root"], Complete = true });
+        var consumerBytes = downstream ? PlanningConstruction.TaskNode(state.Construction.Candidate.Plan.Root.Tasks[1]).ToJsonString() : null;
         var reviews = 0;
         runtime.Respond = (request, purpose) =>
         {
@@ -114,13 +123,20 @@ public sealed class BusinessReviewProtocolTests
             }
             Assert.Equal(PlanningConstruction.GlobalPurpose, purpose);
             reviews++;
-            return new() { Json = reviews == 1 ? Change() : Report("ok") };
+            var report = reviews == 1 ? Change() : Report("ok");
+            if (reviews == 1 && downstream) report["decision"]!["targets"]!.AsArray().Add((JsonNode?)JsonValue.Create("consumer"));
+            return new() { Json = report };
         };
         state = await Advance(state, runtime);
         Assert.Contains("/tasks/compute/outputs/result", state.Construction!.Candidate!.AuthorizedPaths!);
         state = await Advance(Clone(state), runtime);
         Assert.Equal(1, state.ReplanAttempts); Assert.Empty(state.Diagnostics);
         Assert.Equal(2, state.Construction!.Candidate!.Plan.Root.Tasks[0].Outputs[0].Value.Items[1].Number);
+        if (downstream)
+        {
+            Assert.Equal(consumerBytes, PlanningConstruction.TaskNode(state.Construction.Candidate.Plan.Root.Tasks[1]).ToJsonString());
+            Assert.False(state.Construction.Candidate.BusinessReviewed);
+        }
         state = await Advance(Clone(state), runtime);
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
         Assert.Equal(2, reviews); Assert.Equal(3, state.ModelCalls);

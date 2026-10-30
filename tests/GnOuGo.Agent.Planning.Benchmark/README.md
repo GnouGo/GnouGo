@@ -58,6 +58,9 @@ The frozen business-defect corpus covers wrong targets, semantic input/output
 mismatches, real omissions, forbidden duplicate effects and cleanup defects, plus
 correct fragments with legitimate future work. Mocked cases verify controls; only
 real model/runtime runs demonstrate convergence.
+Repair regressions also keep a cited consumer unchanged while correcting its actual
+upstream producer, then require renewed review and verify the executed result.
+Cosmetic, unrelated, stale-context and repeated ineffective changes remain non-progress.
 
 ## Admission, retries and accounting
 

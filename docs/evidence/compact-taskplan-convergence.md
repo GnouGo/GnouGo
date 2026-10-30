@@ -2408,3 +2408,40 @@ Separately, frozen `90e78f7b` completed the full solution: 7,159 passed, zero fa
 12 retained skips across 33 assemblies, plus all ten package/AOT/published-storage
 stages. These results belong to that source, not the later resumption correction.
 See [the validation result](compact-taskplan-90e78f7b-full-validation.json).
+
+
+### Exact consumer witnesses after an upstream repair
+
+Frozen production/harness `90e78f7b` Review PR stopped after 30 logical requests,
+31 physical attempts, one Judge and four charged corrections, without an artifact
+or execution. Its first clone at request 7 used the PR page input as a repository
+remote. Review 28 had the actual open root context and identified that genuine
+semantic mismatch, citing both the clone and its downstream consumer. Typed patch
+29 changed the clone inputs to the repository Git URL, preserving the exact pinned
+revision and checkout directory. Deterministic validation passed, but the unchanged
+consumer witness blocked renewed review before any business resolution could be
+established. Request 30 returned evidence requests; it did not complete an accepted
+evidence batch. This is a received planner stop, not transport uncertainty.
+
+Known cost is €1.9907482259947902631815323813. One received HTTP 500 at request 27
+preceded a successful retry; its full €0.5860235336387316985538489176 reservation
+remains unknown. All logical requests have receipts, so no permanent abandonment
+or replay is needed. See [the exact-source result](compact-taskplan-90e78f7b-code-consumer-repair-stop.json).
+
+The extended ordinary repair fixture reproduces the unchanged-consumer stop. The
+correction compares upstream values, arguments and executable instructions with
+the exact original review, then reuses the existing dependency-invalidation closure.
+Relevant dependency changes permit renewed review without marking the finding
+resolved, changing edit authority or requiring a cosmetic consumer rewrite. Missing
+or mismatched context, unrelated changes, cosmetic labels and repeated ineffective
+repairs remain non-progress. The fixture still requires a real renewed review,
+keeps independent checkpoint bytes/hashes and executes the corrected numeric result.
+Live benefit remains unverified.
+
+The repair comparison passes all 2,305 Planning tests with warnings as errors.
+The ordinary repair fixture checks both direct and downstream findings, renewed
+review, one actual correction charge, independent checkpoint preservation and
+actual compiled execution. The seven dependency-progress cases include an unchanged
+precise binding when a different consumer operand changes. The owning production
+change adds 22 lines to the existing witness implementation and adds no stored
+field, response action, format version, permission or review bypass.

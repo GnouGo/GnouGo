@@ -110,6 +110,9 @@ Original requirements and permissions survive repairs. Typed patches edit only i
 slots; cosmetic novelty does not resolve a defect. Preserve executable literals,
 transform objectives, dependencies and cleanup. Scoped revision of accepted work
 invalidates approval and retains independent checkpoints and cumulative accounting.
+An unchanged consumer can require renewed review after an upstream binding repair.
+Compare against the exact retained review and use the existing invalidation closure;
+this permits reassessment without declaring resolution or granting additional edits.
 
 See [incremental construction](../../docs/incremental-taskplan-construction.md),
 [package architecture](../../docs/workflow-planning-v9.md), and
