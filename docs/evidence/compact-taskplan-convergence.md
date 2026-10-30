@@ -2587,3 +2587,33 @@ storage stages passed. [The source-bound result](compact-taskplan-0881cf87-full-
 is technical evidence; the same source's retained Review PR output exhaustion and
 lack of runtime acceptance remain unchanged. Final `a3ccf16b` solution validation
 started after this observer completed; its ten publication stages already passed.
+
+
+### SourceA3 original-profile Amazon: repeated navigation, no business producer
+
+Prospective `compactma3ccf16bamz11q1` stopped for clarification after60 received
+logical calls and61 physical attempts: one intent,11 selections,29 discovery,
+16 drafting/evidence and3 replan calls, zero Judges. Four correction charges were
+consumed; seven empty sequence openings were accepted. The first exact operation
+binding occurred at54, but no executable business producer, artifact or runtime
+was constructed. Original navigation semantics were present in the requests that
+chose further containers. No additional retrieval subsystem or scenario rule was
+added for these received decisions. The terminal request to replace the public
+query input is retained, not applied.
+
+Known cost is €6.2972738704751639270636845414; the confirmed500 followed by200 at26
+retains another €0.9950507500224557621485673224 as unknown usage. All60 logical
+requests have receipts, so no permanent request abandonment is needed. Planning
+took4,424,723.0927ms. Actual provider tokens were290,993 input/185,193 output, of
+which174,349 were reasoning. There was no empty or whitespace-only received text.
+The calls-per-satisfied-business-obligation ratio is undefined.
+
+Intent preparation used one call and31,972.0182ms. The report separately measures
+record issuance-to-receipt time; neither is labelled provider-only latency. All
+request components reconcile. Two exact issued draft requests exceeded their
+captured22k project maximum with durable advisory warnings and received receipts:
+83,652/85,924 complete bytes, conservative estimates28,140/28,898. Provider input
+usage remains separate. This proves current-source advisory dispatch, not useful
+progress from larger context. Prospective preparations are counted separately from
+the60 dispatched requests. [The complete source-bound result](compact-taskplan-a3ccf16b-amazon-q1-semantic-stop.json)
+retains this failed qualification attempt.
