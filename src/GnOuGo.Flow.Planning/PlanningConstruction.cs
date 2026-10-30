@@ -56,8 +56,12 @@ internal static partial class PlanningConstruction
                 PlanningJsonContext.Default.PlanningConstructionExtension)!;
         var additions = TaskPlanRevisions.Tasks(new TaskScope { Tasks = extension.Tasks, Always = extension.Always })
             .Concat(extension.Groups.SelectMany(g => TaskPlanRevisions.Tasks(g.Body))).ToArray();
-        if (additions.Length > construction.Limits.MaxTasksPerDraft || extension.Groups.Count > construction.Limits.MaxTasksPerDraft || extension.Choices.Count > construction.Limits.MaxTasksPerDraft)
-            Fail("CONSTRUCTION_DRAFT_LIMIT", extension.Scope, "The extension exceeds its captured recursive task limit.");
+        if (additions.Length > construction.Limits.MaxTasksPerDraft)
+            Fail("CONSTRUCTION_DRAFT_LIMIT", extension.Scope,
+                $"The extension contains {additions.Length} recursive tasks; its captured maximum is {construction.Limits.MaxTasksPerDraft}, shared across nested bodies and cleanup.");
+        if (extension.Groups.Count > construction.Limits.MaxTasksPerDraft || extension.Choices.Count > construction.Limits.MaxTasksPerDraft)
+            Fail("CONSTRUCTION_DRAFT_LIMIT", extension.Scope,
+                $"The extension contains {extension.Groups.Count} groups and {extension.Choices.Count} choices; the captured maximum is {construction.Limits.MaxTasksPerDraft} for each.");
         var closesRequirement = extension.ContinueInScope is null && construction.Compact?.CurrentStep is { } step &&
             step.CloseRequirementIds.Any(id => PlanningCompactConstruction.CanClaimRequirementCompletion(state, id));
         if (additions.Length == 0 && extension.Outputs.Count == 0 && extension.CloseScopes.Count == 0 &&

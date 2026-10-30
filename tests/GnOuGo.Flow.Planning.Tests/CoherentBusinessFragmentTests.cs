@@ -22,10 +22,13 @@ public sealed class CoherentBusinessFragmentTests
             {
                 reviews++;
                 var context = BusinessProjectionDeclarationsTests.Context(request);
+                Assert.False(context.ContainsKey("maxTasksPerDraft"));
+                Assert.DoesNotContain("maxTasksPerDraft", request.Prompt, StringComparison.Ordinal);
                 Assert.Equal(10, context["actions"]!.AsArray().Count(action => action!["kind"]!.ToString() == "value"));
                 return new() { Json = BusinessReviewProtocolTests.Report("ok") };
             }
             Assert.Equal(PlanningConstruction.DraftPurpose, purpose);
+            Assert.Equal(8, BusinessProjectionDeclarationsTests.Context(request)["maxTasksPerDraft"]?.GetValue<int>());
             drafts++;
             return Draft(request, new()
             {

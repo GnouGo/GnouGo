@@ -38,9 +38,10 @@ internal static partial class PlanningCompactConstruction
         discoveryRequests uses issued source/cursor with query:null; host follows bounded continuations for this objective. evidenceRequests copies up to eight exact addresses, or an offered earlier description, and uses supplied evidence. Metadata grants no execution authority.
         """;
 
-    internal static string DraftGuidance(PlanningSession state) => """
-        Implement the selected business block using its anchor kind, related value/transform helpers and exact selected operations. Generate several connected operations together within the recursive task allowance. Preserve accepted work, original constraints and complete observations. Input hints are not a whitelist: every actual binding resolves at its consumer and supplies the entity/value required by original contract meaning, not merely a compatible type. Never invent inputs, permissions or external results.
-        Populate necessary containers with their related work and cleanup. scopeInterface contains existing exports; extension.outputs adds exports, [] preserves them. Close complete children/exports only. continueInScope names the exact original or block-owned open scope for another fragment of this same unfinished block; null finishes the block. requirementIds associates work without proving completion. Do not repeat accepted tasks or introduce wrappers merely to mark progress.
+    internal static string DraftGuidance(PlanningSession state) => $"""
+        Implement the selected business block using its anchor kind, related value/transform helpers and exact selected operations. Generate several connected operations together within maxTasksPerDraft. Preserve accepted work, original constraints and complete observations. Input hints are not a whitelist: every actual binding resolves at its consumer and supplies the entity/value required by original contract meaning, not merely a compatible type. Never invent inputs, permissions or external results.
+        {RecursiveTaskBudgetSemantics}
+        Populate necessary containers with their related work and cleanup. scopeInterface contains existing exports; extension.outputs adds exports, [] preserves them. Close complete children/exports only. For larger work, supply a bounded partial fragment and set continueInScope to the exact original or block-owned open scope for another fragment of this same unfinished block; null finishes the block. requirementIds associates work without proving completion. Do not repeat accepted tasks or introduce wrappers merely to mark progress.
         Return one permitted action; other action fields null. Commitments accompany extension only. Evidence-only responses keep requirements, commitments and rollbackReason null. Reselect an unsuitable kind or premature claim, retrieve exact originals, or clarify missing business facts. No outline, JavaScript or YAML.
         """;
 
@@ -541,6 +542,7 @@ internal static partial class PlanningCompactConstruction
         var context = new JsonObject
         {
             ["baseHash"] = PlanningConstruction.Hash(state.Plan), ["candidateHash"] = draft?.Hash,
+            ["maxTasksPerDraft"] = construction.Limits.MaxTasksPerDraft,
             ["step"] = JsonSerializer.SerializeToNode(step, PlanningJsonContext.Default.PlanningConstructionStep),
             ["requirements"] = RequirementNodes(state, step.RequirementIds.Concat(EvidenceRequirementIds(state))),
             ["commitments"] = new JsonObject(compact.PendingCommitments.Select(p => new KeyValuePair<string, JsonNode?>(p.Key,

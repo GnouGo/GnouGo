@@ -7,6 +7,7 @@ internal static partial class PlanningCompactConstruction
 {
     internal const string ValueSemantics = "value copies, projects or assembles typed values using declared arithmetic, predicates, lookup, flatten, JSON encoding and string_operation concat or uri_component. It has no implicit formatting or interpolation; its objective adds no computation.";
     internal const string RollbackSemantics = "Rollback reconstructs every invalidated task in its original scope, phase and order; it cannot discard accepted work. Preserve original objectives, effects, literal arguments, assertions, decisions and iteration limits. Any reference repair must still pass validation. Explain the reconstruction defect in rollbackReason and retrieve exact originals as needed.";
+    internal const string RecursiveTaskBudgetSemantics = "maxTasksPerDraft is one total for all new tasks in this fragment. Count control tasks and every task in tasks and always, including nested body, otherwise, branches and group bodies. Array maxItems do not grant separate allowances.";
 
     internal static (bool CloseScope, bool Complete) ClosurePresentation(PlanningSession state, PlanningConstructionStep? selected = null)
     {
@@ -255,7 +256,7 @@ internal static partial class PlanningCompactConstruction
         var scope = new TaskPlanSymbols(state.Plan ?? new TaskPlan()).Scopes.SingleOrDefault(s => s.Path == step.Scope);
         var hints = new List<string> { ReusableGroupSemantics, SelectedExpectationsSemantics };
         if (SupportsBusinessFragment(step.Kind))
-            hints.Add("Build one coherent business block with its related value/transform helpers and selected operations. The recursive task allowance includes child bodies and cleanup. Newly supplied complete control/group bodies close automatically, including empty optional branches; no closeScopes bookkeeping is needed for them. continueInScope retains its exact original or block-owned scope and ancestors only when more work remains in this same block; null claims the block finished. Evidenced empty prerequisite openings remain open. A continuation does not close original requirements or discharge consumers. Existing boundaries still close explicitly; unfinished containers expose no usable result.");
+            hints.Add("Build one coherent business block with its related value/transform helpers and selected operations. The captured maxTasksPerDraft is shared by this entire extension. Newly supplied complete control/group bodies close automatically, including empty optional branches; no closeScopes bookkeeping is needed for them. continueInScope retains its exact original or block-owned scope and ancestors only when more work remains in this same block; null claims the block finished. Evidenced empty prerequisite openings remain open. A continuation does not close original requirements or discharge consumers. Existing boundaries still close explicitly; unfinished containers expose no usable result.");
         if (step.Kind is not ("group" or "choice" or "close"))
         {
             hints.Add("dependsOn names preceding same-scope tasks only; data bindings already imply dependencies and ancestor values use captures. requires is a Boolean assertion: false fails.");

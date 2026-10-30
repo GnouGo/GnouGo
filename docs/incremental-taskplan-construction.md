@@ -106,7 +106,13 @@ Their continuation presents the exact bounded reason from its own rejected step
 through implementation discovery, retaining the evidence link. This model-authored
 explanation does not create an original obligation or authorize effects or repair.
 
-Drafts append at most eight tasks recursively, including child bodies and cleanup.
+Drafts present the captured `maxTasksPerDraft` (eight by default) as one total for
+all new tasks, counting controls themselves and every task in nested bodies,
+alternatives, branches, group bodies and `always` cleanup. Per-array schema maxima
+are not separate budgets. Draft and repair requests retain this numeric host fact
+through context compaction and restart; business Judge projections omit it.
+Oversized fragments keep the existing rejection code and report actual and maximum
+counts. Larger business work uses bounded partial fragments under the same limit.
 The selected contract allowance uses that same task bound. A nullable extension field,
 `continueInScope`, retains the current block across fragments: an exact original or
 block-owned open scope requests another fragment; `null` claims the block finished.

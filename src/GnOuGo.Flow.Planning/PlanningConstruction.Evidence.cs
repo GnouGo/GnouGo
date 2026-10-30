@@ -22,6 +22,7 @@ internal static partial class PlanningConstruction
         if (PriorRepairObservations(state) is { } history) context["priorRepairObservations"] = history;
         PlanningCompactConstruction.ConstrainDraftEvidence(state, context, projected);
         return PlanningCompactConstruction.Request(state, (guidance is null ? "" : guidance + "\n") + PlanningPrompt.RepairInstructions +
+            "\n" + PlanningCompactConstruction.RecursiveTaskBudgetSemantics +
             "\nRequest up to eight related exact evidence addresses as the only action. The complete follow-up must fit its captured phase ceiling; evidence grants no edit authority. If exact original evidence already supports the implementation, request those addresses for bounded reconsideration without editing the plan." +
             " If the diagnosed tentative task kind or operation cannot implement the original requirement, reselectStep may give a concrete reason as the only action. It preserves accepted work and the selected scope/requirements; explicit revision paths cannot be expanded.",
             context, projected, "replan");
@@ -323,7 +324,8 @@ internal static partial class PlanningConstruction
         candidate.Extension.Choices = candidate.Plan.Choices.Where(c => state.Plan?.Choices.All(b => b.Id != c.Id) != false).ToList();
         candidate.TaskIds = after.Tasks.Keys.Except(before.Tasks.Keys, StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
         if (candidate.TaskIds.Count > state.Construction.Limits.MaxTasksPerDraft)
-            Fail("CONSTRUCTION_DRAFT_LIMIT", candidate.Extension.Scope, "Structural repair exceeded the captured draft task ceiling.");
+            Fail("CONSTRUCTION_DRAFT_LIMIT", candidate.Extension.Scope,
+                $"Structural repair leaves {candidate.TaskIds.Count} recursive tasks in the fragment; its captured maximum is {state.Construction.Limits.MaxTasksPerDraft}, shared across nested bodies and cleanup.");
         candidate.ImportedTaskIds = candidate.TaskIds.SelectMany(id => References(after.Tasks[id].Task))
             .Concat(candidate.Extension.Outputs.SelectMany(o => TaskPlanCompiler.Values(o.Value)).Where(v => v.Kind is "output" or "present" && v.Source is not null).Select(v => v.Source!))
             .Where(id => !candidate.TaskIds.Contains(id, StringComparer.Ordinal)).Distinct(StringComparer.Ordinal).ToList();
