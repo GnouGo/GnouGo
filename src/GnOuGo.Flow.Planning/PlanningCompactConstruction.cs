@@ -39,9 +39,9 @@ internal static partial class PlanningCompactConstruction
         """;
 
     internal static string DraftGuidance(PlanningSession state) => $"""
-        Implement the selected business block using its anchor kind, related value/transform helpers and exact selected operations. Generate several connected operations together within maxTasksPerDraft. Preserve accepted work, original constraints and complete observations. Input hints are not a whitelist: every actual binding resolves at its consumer and supplies the entity/value required by original contract meaning, not merely a compatible type. Never invent inputs, permissions or external results.
+        Implement the selected business block using its anchor kind, related value/transform helpers and exact selected operations. Generate connected operations together when they fit within maxTasksPerDraft. Selected operationIds and expectedOutputs describe the whole block, not mandatory content for every fragment. A partial fragment may contribute only a subset; selected operation coverage is checked across the block when continueInScope is null. Operation presence alone does not establish required arguments, call multiplicity or business completion. Preserve accepted work, original constraints and complete observations. Input hints are not a whitelist: every actual binding resolves at its consumer and supplies the entity/value required by original contract meaning, not merely a compatible type. Never invent inputs, permissions or external results.
         {RecursiveTaskBudgetSemantics}
-        Populate necessary containers with their related work and cleanup. scopeInterface contains existing exports; extension.outputs adds exports, [] preserves them. Close complete children/exports only. For larger work, supply a bounded partial fragment and set continueInScope to the exact original or block-owned open scope for another fragment of this same unfinished block; null finishes the block. requirementIds associates work without proving completion. Do not repeat accepted tasks or introduce wrappers merely to mark progress.
+        Populate necessary containers with their related work and cleanup. scopeInterface contains existing exports; extension.outputs adds exports, [] preserves them. Close complete children/exports only. If the remaining block cannot fit, return a useful connected executable prefix with its required cleanup and set continueInScope to the exact original or block-owned open scope. Leave later operations and outputs for the next fragment of this same block; null finishes the block. requirementIds associates work without proving completion. Keep unfinished original obligations open. Reuse accepted producers without repeating their tasks or introducing wrappers merely to mark progress.
         Return one permitted action; other action fields null. Commitments accompany extension only. Evidence-only responses keep requirements, commitments and rollbackReason null. Reselect an unsuitable kind or premature claim, retrieve exact originals, or clarify missing business facts. No outline, JavaScript or YAML.
         """;
 
@@ -545,8 +545,6 @@ internal static partial class PlanningCompactConstruction
             ["maxTasksPerDraft"] = construction.Limits.MaxTasksPerDraft,
             ["step"] = JsonSerializer.SerializeToNode(step, PlanningJsonContext.Default.PlanningConstructionStep),
             ["requirements"] = RequirementNodes(state, step.RequirementIds.Concat(EvidenceRequirementIds(state))),
-            ["commitments"] = new JsonObject(compact.PendingCommitments.Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
-                JsonSerializer.SerializeToNode(p.Value, PlanningJsonContext.Default.ListPlanningCommitment)))),
             ["globalConstraints"] = Sources(state, compact.GlobalSourceIds), ["instructions"] = state.Request.Policy.Instructions,
             ["interfaces"] = actualImports ? ActualImportedInterfaces(state, verified) : ImportedInterfaces(state, step),
             ["operations"] = ContractViews(state, useCandidate),
@@ -555,6 +553,18 @@ internal static partial class PlanningCompactConstruction
             ["diagnostics"] = PlanningJsonTransport.Diagnostics(diagnostics),
             ["rebuild"] = RebuildDirectory(state)
         };
+        // Before a draft exists, binding synthesizes every selected operation for
+        // every requirement. Those are block goals, not per-fragment obligations.
+        // Keep explicitly authored result bindings and actual candidate commitments;
+        // original commitments remain in the unchanged requirement presentation.
+        var commitments = new JsonObject();
+        foreach (var (id, pending) in compact.PendingCommitments)
+        {
+            var visible = draft is null ? pending.Where(item => item.Result is not null).ToList() : pending;
+            if (visible.Count > 0)
+                commitments[id] = JsonSerializer.SerializeToNode(visible, PlanningJsonContext.Default.ListPlanningCommitment);
+        }
+        if (commitments.Count > 0) context["commitments"] = commitments;
         PlanningConstruction.AddAuthorizedRevisionDraft(state, context);
         AddRequirementNavigation(state, context);
         if (CompanionOperationNavigation(state) is { } companions) context["companionOperations"] = companions;

@@ -121,6 +121,14 @@ refreshes its validated baseline and goes directly to drafting. It neither close
 requirements nor discharges a suspended consumer. New prerequisites use the existing
 suspension flow. No future task queue or second plan is introduced. A completed
 continued block is reviewed with all of its accepted contributing checkpoints.
+Selected operations and expected outputs describe the whole block. A useful partial
+prefix may contribute a subset, with the required cleanup; full selected-operation
+coverage is checked across accepted fragments when the block finishes. A fresh draft
+does not present the synthesized all-operations-per-requirement list as fragment
+commitments. Explicit result bindings, actual candidate commitments and original
+requirement commitments remain visible. Remaining obligations and accepted producers
+come from the existing requirement and binding views; operation presence establishes
+neither the required number of calls nor business completion.
 A final fragment may only finish that retained block without adding another task;
 this permission requires its accepted continuation checkpoint and grants no progress
 credit or original requirement closure by itself.
