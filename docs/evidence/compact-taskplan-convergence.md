@@ -6,9 +6,62 @@ The active implementation replaces the former review protocol. Generation remain
 
 The current delivery gate is **two consecutive intervention-free executions per scenario on one final production source and stable identified profiles**, including both Collections runtime variants. Automatic local corrections are allowed; planning-operator interventions do not qualify. The earlier Collections indicators (fewer than 26 logical calls, at most four Judges and 13,197 complete Judge-request bytes) remain efficiency measurements, not delivery gates. The eighteen-comparison gate is retired. The dated sections below retain their actual historical sources, outcomes and gates; they are not current requirements.
 
-Last live production source is **`ebf01483e027612d2003bdd6a69066c722d0edee`**. Its [complete Planning suite](business-selection-ebf01483-planning-validation.json) passes **2,618 cases** with warnings as errors and no skips. The [fresh-initialization regression](business-selection-fresh-initialization-validation.json) reproduces the pre-dispatch failure, then passes ordinary, token-only and diagnostic creation while rejecting restored/malformed metadata unchanged. [Exact-source publication](business-selection-ebf01483-publication-validation.json) passes all eleven stages with zero warnings/errors, including five packages, native planning/string mappings and published encrypted-storage recovery. Its recovered full-solution result is **7,579 passes and thirteen skips**, not an active run. Earlier [owning suites](business-selection-1884a658-owning-validation.json) and [54 actual host/UI cases](business-selection-1884a658-host-ui-validation.json) retain their precise source boundaries; focused counts overlap and are not added. All earlier failed validation captures remain preserved. The subsequent export repair and its validation are recorded below. Final-source qualification is **0/6**; no current-source execution has yet qualified.
+Last live production source is **`7c92fb38835b5a8d9bd2c9a3a81b3f4a6964cb71`**. Its completed solution, publication and stopped Amazon diagnostic are recorded below; none establishes a successful business execution. The subsequent business-completion selection correction passes all **2,632 Planning tests** with warnings as errors and no skips. Broader validation and live benefit of that correction remain pending. Final-source qualification is **0/6**.
+
+The preceding `ebf01483` source retains its [2,618-case Planning result](business-selection-ebf01483-planning-validation.json), [fresh-initialization regression](business-selection-fresh-initialization-validation.json), [eleven-stage publication result](business-selection-ebf01483-publication-validation.json) and recovered **7,579-pass, thirteen-skip** solution result. Earlier [owning suites](business-selection-1884a658-owning-validation.json) and [54 actual host/UI cases](business-selection-1884a658-host-ui-validation.json) retain their precise source boundaries. Focused counts overlap and are not added; failed captures remain preserved.
 
 The prior `a23cbbb2` baseline remains source-specific evidence: [2,425 Planning cases](business-block-a23cbbb2-continuation-review-validation.json), [7,327 full-solution passes with thirteen declared skips](business-block-a23cbbb2-solution-validation.json), and [publication checks](business-block-a23cbbb2-publication-validation.json). Those technical results did not establish live business convergence.
+
+### 30 October 2026: reviewed contribution lacked a business completion action
+
+The frozen export-repair source `7c92fb38835b5a8d9bd2c9a3a81b3f4a6964cb71`
+completed its full solution across all **33 distinct assemblies**: **7,580 passed,
+one failed, thirteen skipped**, with no compiler warnings or errors. The sole failure
+was `BrowserLifecycleTests.ReloadDoesNotReusePreviousDocumentReadiness` at the
+fixture's `HttpListener.Start`, reporting an address already in use. A separate
+focused rerun passed both theory cases, warning-free. The original solution invocation
+remains failed; the rerun does not retroactively change it. All **eleven publication
+stages** passed on that exact source, including five independent packages, actual
+osx-arm64 Native AOT planning execution and the published encrypted-storage/receipt
+recovery smoke. Existing frontend/bundled-tool staging exclusions, narrow Jint smoke
+exceptions and Server partial-trim boundaries remain; this is not full Server AOT.
+
+Fresh Amazon `biz7c92fb38amz01-amazon-1` used the unchanged original scenario profile
+and provider/model. It stopped at revision fifteen with **fifteen logical calls,
+fifteen physical attempts and fifteen retained responses**, one automatic correction,
+95,193 input and 48,407 output tokens. Known cost is exactly
+**EUR 1.7319455672325518728105631907**, with no new unknown usage or reservation.
+The first local Judge identified an omitted no-product/search-error workbook path;
+an automatic repair added explicit initial rows, and the second local Judge returned
+`ok`. That verdict establishes neither global fulfillment nor executed behavior.
+
+The accepted contribution left its original obligations in progress because the
+implementation had claimed no requirement completion. Business selection then chose
+the same responsibility again, depending on the existing planned result. Its final
+draft supplied no tasks, outputs or scope closure, only `completeBlock:true` and
+the original requirement IDs. `REPLAN_NO_PROGRESS` correctly rejected that empty
+extension. No global Judge, final artifact, workflow approval, execution or oracle
+result exists. This trace does not prove that the earlier export repair caused the
+improvement or that a future business completion claim will be approved.
+
+The generic correction offers a business-only `completionRequirementIds` action
+when accepted contributions are associated with every unfinished original obligation
+and only root remains open. It preserves the immutable business blocks, selects the
+existing unchanged-plan closure and requires normal technical validation and mandatory
+global review. It does not weaken the no-progress guard or infer success from the
+local verdict. A domain-neutral strict-wire regression reaches final review without
+another block, implementation or draft. Ten invalid-claim cases preserve state
+unchanged, and a rejecting global verdict still blocks artifact approval. All
+**2,632 Planning tests** pass with warnings as errors and no skips; the **86-test**
+focused authority slice overlaps that total. The new correction has no live outcome yet.
+
+The retained post-run ledger has **6,842 physical calls**, known cost
+**EUR 395.68990853374564480256947657**, unchanged reservations of
+**EUR 125.68706630952572698966405760**, and available exposure
+**EUR 218.65312898943493275021141313** under the existing ceiling. Its 147 historical
+unknown attempts and fifty-seven permanent closures remain unchanged. This dated
+snapshot is not fresh admission for another dispatch. No supplement or uncertain
+request closure was applied. Qualification remains **0/6**.
 
 ### 30 October 2026: recovered terminal results and whole-container export repair
 

@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 
 namespace GnOuGo.Flow.Planning.Tests;
@@ -19,6 +20,49 @@ public sealed class BusinessBlockGranularityTests
         Assert.Single(runtime.Calls);
         Assert.Equal("in_progress", state.Construction!.Requirements.Single(requirement => requirement.Id == "work").Status);
         Assert.False(Assert.Single(state.Construction.Checkpoints).Fragment["businessReviewPending"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public async Task ReviewedContributionCanRequestFinalReviewWithoutAnotherBusinessBlock()
+    {
+        var (state, runtime) = await BusinessReviewProtocolTests.Ready();
+        state.Requirements!.Outcomes.RemoveAll(requirement => requirement.Id != "work");
+        state.Construction!.Requirements.RemoveAll(requirement => requirement.Id != "work");
+        state.Construction.Compact!.CurrentStep!.CloseRequirementIds.Clear();
+        runtime.Respond = (_, purpose) =>
+        {
+            Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
+            return new() { Json = BusinessReviewProtocolTests.Report("ok") };
+        };
+        state = await BusinessReviewProtocolTests.Advance(state, runtime);
+        var baseline = PlanningConstruction.Hash(state.Plan);
+        var blocks = state.Construction!.Compact!.Blocks!.Count;
+        Assert.Equal("in_progress", Assert.Single(state.Construction.Requirements).Status);
+        Assert.NotNull(PlanningCompactConstruction.SelectionSchema(state)["properties"]!["completionRequirementIds"]);
+        runtime.Calls.Clear();
+        var purposes = new List<string>();
+        runtime.Respond = (_, purpose) =>
+        {
+            purposes.Add(purpose);
+            return purpose switch
+            {
+                PlanningCompactConstruction.SelectPurpose => new() { Json = new JsonObject
+                    { ["block"] = null, ["completionRequirementIds"] = new JsonArray("work"), ["evidenceRequests"] = null, ["clarifications"] = null } },
+                PlanningConstruction.GlobalPurpose => new() { Json = BusinessReviewProtocolTests.Report("ok") },
+                _ => throw new InvalidOperationException("Finalizing accepted work needs no implementation or draft call.")
+            };
+        };
+        for (var transition = 0; transition < 6 && state.Status != PlanningStatus.FinalReview; transition++)
+        {
+            state = await BusinessReviewProtocolTests.Advance(state, runtime);
+            Assert.Empty(state.Diagnostics);
+            Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
+            Assert.Equal(blocks, state.Construction!.Compact!.Blocks!.Count);
+        }
+        Assert.Equal(new[] { PlanningCompactConstruction.SelectPurpose, PlanningConstruction.GlobalPurpose }, purposes);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status);
+        Assert.True(HybridWorkflowPlanner.ConstructionArtifactReviewValid(state));
+        PlanningArtifactApproval.Verify(state);
     }
 
     [Fact]

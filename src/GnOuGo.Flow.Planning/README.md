@@ -21,6 +21,13 @@ business completion, while `continueInScope` controls technical continuation onl
 Null technical continuation does not complete a block. Successful local or mandatory
 global business review establishes completion across all relevant block contributions.
 
+If accepted contributions already supply the requested behavior and only root remains
+open, business selection offers `completionRequirementIds` for the unfinished originals.
+This explicit claim reuses unchanged-plan closure and mandatory global review without
+another business block, implementation or draft. Uncovered obligations, invalidated work,
+unresolved sources, missing public bindings, pending repairs and other open boundaries
+remain ineligible. A rejecting global verdict still blocks artifact approval.
+
 Ordinary sessions retain the recursive eight-task allowance. Fresh trusted diagnostic
 sessions remove optimization-only task/operation/graph schema bounds and validate full
 10- and 25-task contributions, including populated bodies, exports and cleanup.

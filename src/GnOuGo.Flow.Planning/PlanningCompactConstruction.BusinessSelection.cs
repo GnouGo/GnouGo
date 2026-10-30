@@ -8,7 +8,7 @@ internal static partial class PlanningCompactConstruction
 {
     internal const string BusinessSelectionContract = "business_selection_contract";
     internal const string SelectGuidance = """
-        Select the next coherent business responsibility from the original request, available contributions and remaining obligations. Describe its objective, information needs, expected results, business dependencies and observable success criteria. Preserve user-required ordering, privacy, reuse and deliverable constraints. Choose neither technical tasks nor implementation structure. Do not turn a helper computation or a generation fragment into a business responsibility. Do not force a fixed number of blocks or collapse unrelated responsibilities into one block. Available contributions are planned behavior, not observed execution results; their review status remains explicit. Depend only on offered results. Missing implementation details belong to implementation; ask a clarification only for a missing business fact. Return exactly one action: block, original-evidence requests, or clarifications.
+        Select the next coherent business responsibility from the original request, available contributions and remaining obligations. Describe its objective, information needs, expected results, business dependencies and observable success criteria. Preserve user-required ordering, privacy, reuse and deliverable constraints. Choose neither technical tasks nor implementation structure. Do not turn a helper computation or a generation fragment into a business responsibility. Do not force a fixed number of blocks or collapse unrelated responsibilities into one block. Available contributions are planned behavior, not observed execution results; their review status remains explicit. Depend only on offered results. When the accepted contributions already provide all requested behavior, use the offered completionRequirementIds action to request final global business review instead of selecting the same responsibility again. This is a completion claim, not approval or observed execution success. Missing implementation details belong to implementation; ask a clarification only for a missing business fact. Return exactly one action: block, completionRequirementIds, original-evidence requests, or clarifications.
         """;
 
     internal static PlanningConstructionBlock? CurrentBlock(PlanningSession state) => State(state).Blocks?
@@ -101,6 +101,7 @@ internal static partial class PlanningCompactConstruction
     internal static JsonObject SelectionSchema(PlanningSession state)
     {
         var requirements = BusinessRequirementIds(state);
+        var completion = FinalReviewRequirementIds(state);
         var results = BusinessResults(state).Select(result => result!["id"]!.ToString()).ToArray();
         var dependency = PlanningSchemas.Object(("resultId", results.Length == 0 ? BusinessText(state, 256) : PlanningSchemas.Enum(results)), ("reason", BusinessText(state, 512)));
         var block = PlanningSchemas.Object(("objective", BusinessText(state, 1024)),
@@ -109,9 +110,51 @@ internal static partial class PlanningCompactConstruction
             ("dependencies", results.Length == 0 ? EmptyArray() : PlanningSchemas.Array(dependency)),
             ("successCriteria", PlanningSchemas.Array(BusinessText(state, 1024), 1)));
         var addresses = State(state).Sources.Where(source => source.Indexed).Select(source => "source:" + source.Id).ToArray();
-        return PlanningSchemas.Object(("block", requirements.Length == 0 ? PlanningSchemas.Type("null") : PlanningSchemas.Nullable(block)),
+        var schema = PlanningSchemas.Object(("block", requirements.Length == 0 ? PlanningSchemas.Type("null") : PlanningSchemas.Nullable(block)),
             ("evidenceRequests", addresses.Length == 0 ? PlanningSchemas.Type("null") : PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.Enum(addresses), 1))),
             ("clarifications", PlanningSchemas.Nullable(PlanningSchemas.Clarifications(PlanningTokenThresholds.OptimizationAdvisory(state.Request)))));
+        if (completion.Length > 0)
+        {
+            schema["properties"]!["completionRequirementIds"] = PlanningSchemas.Nullable(
+                PlanningSchemas.Array(PlanningSchemas.Enum(completion), completion.Length, completion.Length));
+            schema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("completionRequirementIds"));
+        }
+        return schema;
+    }
+
+    private static string[] FinalReviewRequirementIds(PlanningSession state)
+    {
+        var construction = state.Construction!;
+        var compact = State(state);
+        if (state.Plan is not { } plan || state.PendingCall is not null || !construction.OpenScopes.SequenceEqual(["/root"]) ||
+            compact.CurrentBlockId is not null || compact.CurrentStep is not null || construction.Candidate is not null ||
+            compact.ReplacementScope is not null || state.EditablePaths is not null || state.Diagnostics.Any(diagnostic => diagnostic.Required) ||
+            compact.SuspendedSteps?.Any(step => step.Status is "waiting" or "resuming") == true ||
+            compact.Sources.Any(source => source.Kind is "page" or "answer_page" or "revision_page" && !source.Indexed) ||
+            !IntentDeclarationsComplete(compact) || construction.RebuildTasks.Any(task => !new TaskPlanSymbols(plan).Tasks.ContainsKey(task.Id)) ||
+            plan.Choices.Any(choice => choice.Selected is null) ||
+            (state.Requirements?.Outputs ?? []).Any(output => output.Required && plan.Root.Outputs.All(binding => binding.Name != output.Name))) return [];
+        var requirements = construction.Requirements.Where(requirement => !RequirementCompletionClaimed(state, requirement.Id))
+            .Select(requirement => requirement.Id).ToArray();
+        return requirements.All(id => construction.Checkpoints.Any(checkpoint => checkpoint.InvalidatedTaskIds.Count == 0 &&
+            checkpoint.TaskIds.Count > 0 && checkpoint.RequirementIds.Contains(id, StringComparer.Ordinal))) ? requirements : [];
+    }
+
+    internal static void SelectCompletion(PlanningSession state, IReadOnlyList<string> requirements)
+    {
+        var offered = FinalReviewRequirementIds(state);
+        if (offered.Length == 0 || requirements.Count != offered.Length || requirements.Distinct(StringComparer.Ordinal).Count() != requirements.Count ||
+            requirements.Except(offered, StringComparer.Ordinal).Any())
+            PlanningConstruction.Fail("CONSTRUCTION_COMPLETION_INVALID", "/completionRequirementIds", "Claim only the offered original obligations for final review of accepted contributions.");
+        var compact = State(state);
+        compact.CurrentStep = new()
+        {
+            Id = "step_" + (++compact.NextStep), Scope = "/root", Kind = "close", BaseHash = PlanningConstruction.Hash(state.Plan),
+            Objective = "Request final business review of the accepted contributions against all original obligations.",
+            RequirementIds = state.Construction!.Requirements.Select(requirement => requirement.Id).ToList(),
+            CloseRequirementIds = requirements.ToList(), CloseScopes = ["/root"], DiscoveryComplete = true
+        };
+        state.Diagnostics.Clear();
     }
 
     internal static void SelectBlock(PlanningSession state, JsonNode proposed)

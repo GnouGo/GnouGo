@@ -90,8 +90,8 @@ Short originals accompany subsequent decisions and relevant reviews once, withou
 repeating their text in source metadata. Larger originals retain local projection,
 global constraints and exact retrieval. Capability filtering is independent.
 
-Business selection has one strict business object; evidence retrieval and clarification
-are separate, mutually exclusive actions:
+Business selection has one strict business object; completion claims, evidence retrieval
+and clarification are separate, mutually exclusive actions:
 
 ```typescript
 type BusinessBlock = {
@@ -104,6 +104,7 @@ type BusinessBlock = {
 };
 type SelectionResponse = {
   block: BusinessBlock | null;
+  completionRequirementIds?: OriginalObligationReference[] | null;
   evidenceRequests: OfferedEvidenceReference[] | null;
   clarifications: BusinessQuestion[] | null;
 }; // Exactly one non-null action.
@@ -118,6 +119,15 @@ never enter business selection. Recorded unavailable or unfinished discovery che
 appear only as plain feasibility observations: they do not establish that a capability
 exists or is absent. Raw provider errors and model-authored rejected strategies are not
 promoted into business facts. Original clarification answers retain their own authority.
+
+When accepted contributions cover the original obligations and only the root remains
+open, selection can offer `completionRequirementIds` instead of requiring a duplicate
+business block. The claim names exactly the offered unfinished originals, not technical
+closure choices. Missing required public bindings, unresolved sources, choices, repairs,
+rebuilds or suspended consumers prevent this offer. The host prepares the existing
+unchanged-plan root closure; technical validation and mandatory global business review
+still decide whether the workflow fulfills every original obligation. No local verdict,
+completion claim or prepared closure authorizes an artifact or execution on its own.
 
 The separate `construction_implementation` response uses `baseHash` and exactly one
 available action: `step`, `evidenceRequests`, `clarifications`, or the conditionally

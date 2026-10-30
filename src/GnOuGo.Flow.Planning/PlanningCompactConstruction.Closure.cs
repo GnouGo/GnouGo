@@ -79,7 +79,8 @@ internal static partial class PlanningCompactConstruction
         probe.Construction!.Candidate = PlanningConstruction.Apply(probe, new()
         {
             Scope = step.Scope, RequirementIds = step.RequirementIds.ToList(), CloseScopes = step.CloseScopes.ToList(),
-            Complete = step.CloseScopes.Contains("/root", StringComparer.Ordinal)
+            Complete = step.CloseScopes.Contains("/root", StringComparer.Ordinal),
+            CompleteBlock = step.CloseScopes.Contains("/root", StringComparer.Ordinal)
         });
         var plan = probe.Construction.Candidate.Plan;
         // Selection names desired public outputs, not their value expressions.
@@ -89,6 +90,14 @@ internal static partial class PlanningCompactConstruction
                 ((state.Requirements!.Outputs ?? []).Any(output => output.Required && plan.Root.Outputs.All(binding => binding.Name != output.Name)) ||
                  plan.Choices.Any(choice => choice.Selected is null) || compact.SuspendedSteps?.Any(Active) == true))
             return null;
+        probe.Construction.Candidate.Reviews.Add(new JsonObject
+        {
+            ["purpose"] = "construction_transition", ["outcome"] = "selected_closure",
+            ["reason"] = "An explicit completion claim selects this unchanged-plan closure; ordinary business review remains mandatory.",
+            ["baseline"] = step.BaseHash, ["scope"] = step.Scope,
+            ["requirements"] = new JsonArray(step.RequirementIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+            ["checkpoint"] = construction.Checkpoints.LastOrDefault()?.Sequence
+        });
         return probe;
     }
 

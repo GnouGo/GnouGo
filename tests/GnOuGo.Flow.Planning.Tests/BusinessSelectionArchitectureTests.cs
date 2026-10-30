@@ -124,6 +124,81 @@ public sealed class BusinessSelectionArchitectureTests
         Assert.Null(HybridWorkflowPlanner.ReviewedCheckpoint(state, checkpoint));
     }
 
+    [Theory]
+    [InlineData("active-block")]
+    [InlineData("missing-contribution")]
+    [InlineData("invalidated")]
+    [InlineData("open-child")]
+    [InlineData("source")]
+    [InlineData("missing-output")]
+    [InlineData("rebuild")]
+    [InlineData("pending")]
+    [InlineData("wrong-id")]
+    [InlineData("duplicate")]
+    public async Task CompletionSelectionCannotInventOrBypassAcceptedWork(string defect)
+    {
+        var (state, runtime) = await BusinessReviewProtocolTests.Ready();
+        state.Requirements!.Outcomes.RemoveAll(requirement => requirement.Id != "work");
+        state.Construction!.Requirements.RemoveAll(requirement => requirement.Id != "work");
+        state.Construction.Compact!.CurrentStep!.CloseRequirementIds.Clear();
+        runtime.Respond = (_, _) => new() { Json = BusinessReviewProtocolTests.Report("ok") };
+        state = await BusinessReviewProtocolTests.Advance(state, runtime);
+        var requirements = new[] { "work" };
+        switch (defect)
+        {
+            case "active-block": state.Construction!.Compact!.CurrentBlockId = "block_1"; break;
+            case "missing-contribution": state.Construction!.Checkpoints.Clear(); break;
+            case "invalidated": state.Construction!.Checkpoints[0].InvalidatedTaskIds.Add("compute"); break;
+            case "open-child": state.Construction!.OpenScopes.Add("/tasks/child/body"); break;
+            case "source": state.Construction!.Compact!.Sources[0].Indexed = false; break;
+            case "missing-output": state.Requirements!.Outputs = [new() { Name = "missing", Required = true, Type = new() { Kind = "number" } }]; break;
+            case "rebuild": state.Construction!.RebuildTasks.Add(new() { Id = "missing", Kind = "value" }); break;
+            case "pending": state.PendingCall = new() { Id = "retained", Purpose = PlanningCompactConstruction.SelectPurpose }; break;
+            case "wrong-id": requirements = ["invented"]; break;
+            case "duplicate": requirements = ["work", "work"]; break;
+        }
+        var original = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.SelectCompletion(state, requirements));
+        Assert.Equal(original, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        Assert.False(HybridWorkflowPlanner.ConstructionArtifactReviewValid(state));
+        Assert.Null(state.ApprovedHash);
+        if (defect is not ("wrong-id" or "duplicate"))
+            Assert.Null(PlanningCompactConstruction.SelectionSchema(state)["properties"]!["completionRequirementIds"]);
+    }
+
+    [Fact]
+    public async Task CompletionSelectionStillRequiresAnApprovingGlobalVerdict()
+    {
+        var (state, runtime) = await BusinessReviewProtocolTests.Ready();
+        state.Requirements!.Outcomes.RemoveAll(requirement => requirement.Id != "work");
+        state.Construction!.Requirements.RemoveAll(requirement => requirement.Id != "work");
+        state.Construction.Compact!.CurrentStep!.CloseRequirementIds.Clear();
+        runtime.Respond = (_, _) => new() { Json = BusinessReviewProtocolTests.Report("ok") };
+        state = await BusinessReviewProtocolTests.Advance(state, runtime);
+        PlanningCompactConstruction.SelectCompletion(state, ["work"]);
+        var baseline = PlanningConstruction.Hash(state.Plan);
+        runtime.Calls.Clear();
+        runtime.Respond = (_, purpose) =>
+        {
+            Assert.Equal(PlanningConstruction.GlobalPurpose, purpose);
+            return new() { Json = new JsonObject { ["decision"] = new JsonObject { ["verdict"] = "needs_change",
+                ["reason"] = "The complete behavior does not fulfill the original numeric obligation.",
+                ["obligations"] = new JsonArray("work"), ["targets"] = new JsonArray("compute") } } };
+        };
+        state = await BusinessReviewProtocolTests.Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.NotNull(state.Construction!.Candidate);
+        Assert.False(HybridWorkflowPlanner.ConstructionArtifactReviewValid(state));
+        state = await BusinessReviewProtocolTests.Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Single(runtime.Calls);
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "BUSINESS_REVIEW_REQUIRED" &&
+            diagnostic.ValidationStage == PlanningConstruction.GlobalPurpose);
+        Assert.False(HybridWorkflowPlanner.ConstructionArtifactReviewValid(state));
+        Assert.False(state.Construction!.Complete);
+        Assert.Null(state.ApprovedHash);
+        Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
+    }
+
     [Fact]
     public async Task NextBusinessSelectionUsesIssuedResultReferencesAndRetainsCanonicalDependency()
     {
