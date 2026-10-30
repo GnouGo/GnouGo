@@ -2473,3 +2473,17 @@ records production C#334 added/523 removed (net−189), tests1008 added/1877 rem
 (net−869, including fixtures/docs), and the exact retired symbols and exclusive
 files. These are interval counts. Later correctness fixes add code; preserved
 historical evidence makes the complete diff grow.
+
+
+### Advisory dispatch evidence, separated from target warnings
+
+Read-only inspection of retained `5e0bc6d8` evidence confirms six issued requests
+above their captured project phase maximum with durable request-bound advisory
+warnings and received provider receipts. For example, correction37 was99,747
+complete bytes,33,505 conservative input tokens against a20,000 project maximum.
+Reported provider input usage is retained separately. No request was replayed or
+new model call made to obtain this evidence. See
+[the matched measurements/receipts](compact-taskplan-5e0bc6d8-advisory-dispatch-proof.json).
+This establishes an actual historical advisory dispatch, not a deployment-capacity
+exceedance, current-source qualification or runtime success. The latest completed
+source72 output32 and source90 runs crossed targets but not their captured maxima.
