@@ -241,5 +241,8 @@ not just its typed prerequisite. This is model-authored navigation with its orig
 evidence link, not permission or a host-established business finding.
 Source comparisons retain identical profiles; output-allocation trials use separate
 frozen identities. A received reasoning-only exhaustion is not a transport incident.
+Record provenance corrections separately from business repairs. A technically valid
+producer reference may still target the wrong directory, report or cleanup lifetime;
+artifact binding choices do not establish business acceptance.
 The six-run business qualification remains two consecutive intervention-free successes
 per scenario on the same production source/profile, including both Collections variants.

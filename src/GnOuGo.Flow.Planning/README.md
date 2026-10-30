@@ -176,6 +176,11 @@ literal `${...}` in the caller's data without evaluating the data a second time.
 Do not escape or strip an invalid TaskPlan literal to bypass validation. Handwritten
 YAML expressions and existing artifact-producing operations keep their semantics.
 
+Operation binding schemas use original artifact-consumption metadata for whole
+arguments: offer existing-value references rather than literals or computed text.
+Drafting and typed repair share this projection. Nested consumption, exact origins,
+scope visibility and business suitability still require compiler validation and review.
+
 
 
 ## Validation and publishing

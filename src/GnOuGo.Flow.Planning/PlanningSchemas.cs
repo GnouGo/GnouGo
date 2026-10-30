@@ -284,13 +284,11 @@ internal static class PlanningSchemas
         var operations = resolved.Select(o => (o.Id, Inputs: Inputs(o))).ToArray();
         foreach (var group in operations.GroupBy(o => o.Inputs.ToJsonString(), StringComparer.Ordinal))
             yield return task(Enum(group.Select(o => o.Id).ToArray()), group.First().Inputs);
-        string StepType(string id) => state.Catalog!.Capabilities.Concat(state.Discovery.Resolved).First(c => TaskOperations.Describe(c).Id == id).StepType;
-
         JsonObject Inputs(PlanningOperation operation)
         {
+            var capability = state.Catalog!.Capabilities.Concat(state.Discovery.Resolved).First(c => TaskOperations.Describe(c).Id == operation.Id);
             var ports = operation.Inputs.OrderBy(p => p.Name, StringComparer.Ordinal)
-                .Select(p => (p.Name, Value: PlanningBindingSchemas.For(p.Schema, definitions,
-                    literalOnly: TaskPlanCompiler.LiteralScopeInput(StepType(operation.Id), p.Path[0]), workspace: TaskPlanCompiler.FixedWorkspaceInput(StepType(operation.Id), p.Path[0])))).ToArray();
+                .Select(p => (p.Name, Value: PlanningBindingSchemas.ForOperation(capability, p, definitions))).ToArray();
             if (ports.Length == 0) return Array(Ref("output"), 0, 0);
             var bindings = ports.GroupBy(p => p.Value.ToJsonString(), StringComparer.Ordinal)
                 .Select(g => (JsonNode?)Object(("name", Enum(g.Select(p => p.Name).ToArray())), ("value", g.First().Value))).ToArray();

@@ -120,6 +120,11 @@ unused group declarations and exact mechanical exports/closures do not independe
 trigger a Judge. Review completed business blocks when construction continues beyond
 them, including their actual consumers, ancestor controls and effects.
 
+Contract-declared artifact arguments expose reference choices in both generation and
+repair. A matching literal or encoded string cannot manufacture producer provenance.
+This projection does not select a producer or prove its business meaning; original
+contract checks and scoped business review remain required.
+
 Finalization takes precedence over a pending local review. A small workflow can be
 constructed through many calls and receive only one global business review. Every
 completed workflow must pass that global review before approval; it covers all original

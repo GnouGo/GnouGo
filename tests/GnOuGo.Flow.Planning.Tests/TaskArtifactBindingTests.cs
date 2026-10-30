@@ -1,13 +1,57 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class TaskArtifactBindingTests
 {
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task GenerationDoesNotOfferManufacturedValuesForDeclaredArtifactArguments(bool compact, bool json)
+    {
+        var (plan, catalog) = await Fixture();
+        catalog.Capabilities.Single(c => c.Id == "inspect").InputSchema!["properties"]!["label"] = new JsonObject { ["type"] = "string" };
+        catalog.Capabilities.Single(c => c.Id == "inspect").InputSchema!["required"]!.AsArray().Add("label");
+        plan.Root.Tasks[1].Inputs.Add(new("label", new() { Kind = "string", Text = "Ordinary text remains literal." }));
+        var state = PlannerFixture.Session();
+        state.Catalog = catalog;
+        state.Requirements = new() { Outcomes = [new("req", "Inspect the exact produced resource.")] };
+        state.Plan = new() { Root = new() { Tasks = [plan.Root.Tasks[0]] } };
+        PlanningCompactConstruction.InitializeSources(state);
+        foreach (var source in state.Construction!.Compact!.Sources) { source.Indexed = true; source.Inputs = []; source.Outputs = []; }
+        state.Construction.Requirements = [new() { Id = "req", Status = "in_progress" }];
+        state.Construction.Compact.CurrentStep = new()
+        {
+            Id = "consume", BaseHash = PlanningConstruction.Hash(state.Plan), Scope = "/root", Kind = "operation",
+            Objective = "Inspect the produced resource.", RequirementIds = ["req"], OperationIds = ["inspect"], DiscoveryComplete = true
+        };
+        var schema = compact ? PlanningCompactConstruction.DraftSchema(state) : PlanningSchemas.TaskPlanGrammar(state);
+        var response = compact
+            ? new JsonObject { ["extension"] = JsonSerializer.SerializeToNode(new PlanningConstructionExtension
+                { RequirementIds = ["req"], Tasks = [plan.Root.Tasks[1]] }, PlanningJsonContext.Default.PlanningConstructionExtension) }
+            : JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.TaskPlan)!;
+        var wire = PlanningCorpus.Transport(response, schema, schema)!;
+        Assert.NotNull(wire);
+        Assert.Empty(PlanningContractValidation.ValidateInstance(wire, schema));
+        Assert.Empty(new TaskPlanCompiler().Compile(plan, catalog).Diagnostics);
+        var input = (compact ? wire["extension"]!["tasks"]![0] : wire["root"]!["tasks"]![1])!["inputs"]![0]!;
+        var manufactured = json
+            ? new JsonObject { ["kind"] = "json", ["items"] = new JsonArray(new JsonObject { ["kind"] = "string", ["text"] = "same-looking-handle" }) }
+            : new JsonObject { ["kind"] = "string", ["text"] = "same-looking-handle" };
+        input["value"] = manufactured;
+        plan.Root.Tasks[1].Inputs[0] = new("location", manufactured.Deserialize(PlanningJsonContext.Default.TaskValue)!);
+        Assert.Contains(new TaskPlanCompiler().Compile(plan, catalog).Diagnostics, d => d.Code == "TASK_ARTIFACT_BINDING");
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(wire, schema));
+    }
+
     [Fact]
     public async Task WrongFieldIsRejectedAtTheConsumerBeforeLowering()
     {

@@ -176,9 +176,7 @@ internal static partial class PlanningCompactConstruction
             var operation = PlanningCapabilityArguments.Editable(capability);
             var ports = SelectedInputPorts(state, capability).Select(port =>
                 PlanningSchemas.Object(("name", PlanningSchemas.Enum(port.Name)),
-                    ("value", PlanningBindingSchemas.For(port.Schema, definitions,
-                        literalOnly: TaskPlanCompiler.LiteralScopeInput(capability.StepType, port.Path[0]),
-                        workspace: TaskPlanCompiler.FixedWorkspaceInput(capability.StepType, port.Path[0]))))).ToArray();
+                    ("value", PlanningBindingSchemas.ForOperation(capability, port, definitions)))).ToArray();
             var inputs = ports.Length switch
             {
                 0 => EmptyArray(),

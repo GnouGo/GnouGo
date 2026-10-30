@@ -138,9 +138,7 @@ internal static class PlanningRepairPatch
                     {
                         var contracts = state.Catalog!.Capabilities.Where(c => TaskOperations.Describe(c).Id == task.Task.Operation).ToArray();
                         if (contracts.Length == 1 && TaskOperations.Describe(contracts[0]).Inputs.SingleOrDefault(p => p.Name == name) is { } port)
-                            schema = PlanningBindingSchemas.For(port.Schema, definitions, constrainResult: true,
-                                literalOnly: TaskPlanCompiler.LiteralScopeInput(contracts[0].StepType, port.Path[0]),
-                                workspace: TaskPlanCompiler.FixedWorkspaceInput(contracts[0].StepType, port.Path[0]));
+                            schema = PlanningBindingSchemas.ForOperation(contracts[0], port, definitions, constrainResult: true);
                         if (TaskPlanRevisions.RemovableInput(task.Task, name, state.Catalog)) actions.Add("remove");
                     }
                 }
@@ -223,9 +221,7 @@ internal static class PlanningRepairPatch
             if (contracts.Length != 1) return null;
             var ports = TaskOperations.Describe(contracts[0]).Inputs.Where(p => location == "/tasks/" + consumer.Id + "/inputs/" + p.Name).ToArray();
             if (ports.Length != 1 || ports[0].Path.Count == 0) return null;
-            return PlanningBindingSchemas.For(ports[0].Schema, definitions,
-                literalOnly: TaskPlanCompiler.LiteralScopeInput(contracts[0].StepType, ports[0].Path[0]),
-                workspace: TaskPlanCompiler.FixedWorkspaceInput(contracts[0].StepType, ports[0].Path[0]), constrainResult: true);
+            return PlanningBindingSchemas.ForOperation(contracts[0], ports[0], definitions, constrainResult: true);
         }
     }
 
