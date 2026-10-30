@@ -2252,3 +2252,51 @@ Before fresh Review PR admission on the same production source, inspection finds
 unresolved identity. Its original Code profile, including the 8,192-token Judge
 allocation, remains unchanged. Both supplements remain applied once. Review PR and
 the source-bound full solution validation are active; business qualification is incomplete.
+
+### `5e0bc6d8`: effective clone repair, followed by genuine report/cleanup defects
+
+The [received Review PR trajectory](compact-taskplan-5e0bc6d8-code-repair-and-stop.json)
+contains **46 logical/physical calls, three local Judges and four corrections**, with
+all receipts present. Judge 22 identifies the PR-page URL used as a Git remote;
+typed repair 23 changes only the clone arguments, preserving the pin, directory and
+all other executable content. Renewed Judge 24 accepts that business block. The
+independent before/after check confirms an effective earlier-work repair without an
+operator planning intervention or duplicate clone. This is planning evidence, not
+runtime success.
+
+Three later corrections replace literal artifact arguments with the clone's actual
+producer reference. They establish provenance, but the report and cleanup instructions
+still assume a different directory basis. Judge 46 correctly blocks those defects;
+the exhausted correction allowance stops the run without an artifact or execution.
+Known cost is €5.0563998922123416868768526005, with no unknown usage in this run.
+The full trajectory remains retained; no output-allocation experiment or abandonment
+is needed for these received responses. The rejection-reason change remains unexercised.
+
+The [full solution validation](compact-taskplan-5e0bc6d8-full-validation.json) passes
+**7,154 tests, zero failures and 12 retained skips** across 33 assemblies. All ten
+independent package/AOT/published-storage stages pass, with no compiler diagnostics
+and unchanged source. Focused tests are included in that total.
+
+Post-run inspection finds **€158.36410985712558217085274976 available**, with
+€363.55678179342407828860199245 known spending and
+€118.10921218215664408299020509 unknown reservations. The ceiling remains
+€640.0301038327063045424449473, with 53 permanent closures and no unresolved
+identity. Neither supplement is reapplied. There is still no qualifying Amazon or
+Review PR execution; the earlier Collections success belongs to `68dba9af`.
+
+### `72c7724e`: remove avoidable manufactured-artifact choices
+
+The received corrections above reproduce a generation/compiler mismatch. Four generic
+cases fail before the change: both full and selected-kind grammars admit plain or
+JSON-encoded strings for an original contract's artifact-consuming argument, while
+the compiler rejects them. The schemas now use one shared operation-binding helper
+for drafting and typed/structural repair, offering reference roots for whole-argument
+artifact consumption. Ordinary arguments retain literal shapes. Exact origins,
+nested consumption and business meaning remain compiler/review responsibilities;
+the change neither chooses a producer nor repairs report/cleanup semantics by itself.
+
+All **280 focused tests and 2,293 Planning tests pass** with warnings as errors;
+the focused cases are included in the latter total. No model or allowance changes.
+This correction changes ten files, **87 added / 15 deleted lines**, including the
+skill, regression and maintained documentation. It consolidates five operation-binding
+call sites but is not a claim of net code deletion. Live benefit remains unproven.
