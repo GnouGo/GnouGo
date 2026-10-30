@@ -2557,3 +2557,22 @@ another discovery call. This demonstrates that existing path, not matched avoide
 calls or complete-run efficiency. There is no equivalent completed control trace.
 See [the cumulative source-bound failure](compact-taskplan-0881cf87-code-intervention-output-exhaustion.json).
 The six-run business gate remains unmet.
+
+
+### First prospective sourceA3 Collections attempt: no received intent
+
+The separately frozen `compactma3ccf16bcol11q1` attempt stopped on request1 transport
+uncertainty, before receiving any intent response: one logical/physical attempt,
+zero verified provider completions, no accepted producer, Judge, correction,
+artifact or runtime. Provider usage is unknown, not zero. The exact delegated
+closure binds evidence
+`f7a71691fae264e2b0f04c95f89569571c1845f6f37af06d1f79fbaf876dc32e`
+and retains all €0.9368903260576663971975208839. Repeated application is idempotent;
+all six originals/timestamps and aggregate accounting are unchanged, and fresh
+process guards reject request and run before preflight or dispatch.
+
+There are55 permanent closures, no unresolved identity and an idle allowance of
+€138.11811147394045686769996075 before the next launch; no supplement was reapplied.
+The qualification streak is zero. The earlier `col11a` freeze remains undispatched
+and unused. This incident establishes neither grammar benefit nor planner failure.
+See [the exact-source result and retention proof](compact-taskplan-a3ccf16b-collections-q1-retained-uncertainty.json).
