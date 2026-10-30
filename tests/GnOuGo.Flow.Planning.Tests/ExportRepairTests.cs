@@ -11,6 +11,63 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class ExportRepairTests
 {
     [Theory]
+    [InlineData("sequence")]
+    [InlineData("foreach")]
+    public async Task WholeContainerResultOffersOnlyItsDiagnosedExportBoundary(string kind)
+    {
+        var runtime = new WorkflowPlanningRuntime(new(), (_, _) => Task.CompletedTask);
+        var state = PlannerFixture.Session();
+        state.Catalog = await runtime.DiscoverAsync(state.Request, PlannerFixture.Ct);
+        state.Requirements = new() { Summary = "Return the collected values", Inputs = [], Outcomes = [new("data", "Return the supplied entries")] };
+        var container = new PlanTask { Id = "parcel", Kind = kind, Objective = "Collect the supplied entries", Body = new() { Tasks =
+            [new() { Id = "origin", Kind = "value", Objective = "Preserve the current value", Outputs =
+                [new("payload", kind == "foreach" ? new() { Kind = "item" } : PlanningCorpus.Business("input", "entries"))] }] } };
+        if (kind == "foreach") { container.Items = PlanningCorpus.Business("input", "entries"); container.MaxItems = 3; }
+        state.Plan = new() { Inputs = [new() { Name = "entries", Type = new() { Kind = "array", Items = new() { Kind = "string" } } }],
+            Root = new() { Tasks = [container, new() { Id = "unrelated", Kind = "value", Objective = "Keep unrelated work unchanged",
+                Outputs = [new("payload", PlanningCorpus.String("unrelated"))] }], Outputs = [new("report", new() { Kind = "output", Source = "parcel" })] } };
+        state.Requirements.Inputs = state.Plan.Inputs;
+        var original = JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan);
+        state.Diagnostics = new TaskPlanCompiler().Compile(state.Plan, state.Catalog).Diagnostics.ToList();
+        Assert.Contains(state.Diagnostics, finding => finding.Code == "TASK_EXPORT_REQUIRED");
+        state.RevisionScope = TaskPlanRevisions.Scope(state.Plan, state.Diagnostics).ToList();
+        Assert.Contains("/tasks/parcel/body/outputs", state.RevisionScope);
+        Assert.Equal(new[] { "/root/outputs/report", "/tasks/parcel/body/outputs" }, state.RevisionScope);
+        var exports = new JsonArray(new JsonObject { ["name"] = "payload", ["value"] =
+            JsonSerializer.SerializeToNode(PlanningCorpus.Business("output", "origin", "payload"), PlanningJsonContext.Default.TaskValue) });
+        var request = RepairPatchTests.Request(state);
+        var response = new JsonObject { ["discoveryRequests"] = null, ["clarifications"] = null, ["patch"] = new JsonObject { ["edits"] = new JsonArray(
+            RepairPatchTests.Edit(state, "/tasks/parcel/body/outputs", "add", exports),
+            RepairPatchTests.Edit(state, "/root/outputs/report", "replace",
+                JsonSerializer.SerializeToNode(PlanningCorpus.Business("output", "parcel", "payload"), PlanningJsonContext.Default.TaskValue))) } };
+        response = PlanningCorpus.Transport(response, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject())!.AsObject();
+        Assert.Empty(PlanningContractValidation.ValidateInstance(response, request.StructuredOutputSchema));
+        var repaired = PlanningRepairPatch.Apply(state, response.Deserialize(RepairJsonContext.Default.PlanningRepairResponse)!.Patch!, request);
+        foreach (var mutation in new[] { "export-only", "literal", "unrelated", "extra-export" })
+        {
+            var invalid = response.DeepClone().AsObject();
+            var edits = invalid["patch"]!["edits"]!.AsArray();
+            if (mutation == "export-only") edits.RemoveAt(1);
+            else if (mutation == "literal") edits[0]!["value"]![0]!["value"] = new JsonObject { ["kind"] = "string", ["text"] = "invented" };
+            else if (mutation == "unrelated") edits[0]!["value"]![0]!["value"]!["source"] = "unrelated";
+            else edits[0]!["value"]!.AsArray().Add(new JsonObject { ["name"] = "unused", ["value"] =
+                new JsonObject { ["kind"] = "output", ["source"] = "origin", ["port"] = "payload" } });
+            invalid = PlanningCorpus.Transport(invalid, request.StructuredOutputSchema.AsObject(), request.StructuredOutputSchema.AsObject())!.AsObject();
+            Assert.Throws<PlanningResponseException>(() => PlanningRepairPatch.Apply(state,
+                invalid.Deserialize(RepairJsonContext.Default.PlanningRepairResponse)!.Patch!, request));
+        }
+        Assert.Empty(new TaskPlanCompiler().Compile(repaired, state.Catalog).Diagnostics);
+        Assert.Equal(original, JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
+        var compiled = new TaskPlanCompiler().Compile(repaired, state.Catalog);
+        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, state.Catalog);
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
+        var result = await new WorkflowEngine().ExecuteAsync(document.Workflows[document.Entrypoint!],
+            new JsonObject { ["entries"] = new JsonArray("one", "two") }, PlannerFixture.Ct);
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.True(JsonNode.DeepEquals(new JsonArray("one", "two"), result.Outputs!["report"]));
+    }
+
+    [Theory]
     [InlineData("parcel", "payload", true, true)]
     [InlineData("parcel", "payload", true, false)]
     [InlineData("segment", "records", true, true)]

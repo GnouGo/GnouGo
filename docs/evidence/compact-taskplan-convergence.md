@@ -6,9 +6,51 @@ The active implementation replaces the former review protocol. Generation remain
 
 The current delivery gate is **two consecutive intervention-free executions per scenario on one final production source and stable identified profiles**, including both Collections runtime variants. Automatic local corrections are allowed; planning-operator interventions do not qualify. The earlier Collections indicators (fewer than 26 logical calls, at most four Judges and 13,197 complete Judge-request bytes) remain efficiency measurements, not delivery gates. The eighteen-comparison gate is retired. The dated sections below retain their actual historical sources, outcomes and gates; they are not current requirements.
 
-Current production candidate is **`ebf01483e027612d2003bdd6a69066c722d0edee`**. Its [complete Planning suite](business-selection-ebf01483-planning-validation.json) passes **2,618 cases** with warnings as errors and no skips. The [fresh-initialization regression](business-selection-fresh-initialization-validation.json) reproduces the pre-dispatch failure, then passes ordinary, token-only and diagnostic creation while rejecting restored/malformed metadata unchanged. [Exact-source publication](business-selection-ebf01483-publication-validation.json) passes all eleven stages with zero warnings/errors, including five packages, native planning/string mappings and published encrypted-storage recovery. The exact-source full solution is running. Earlier [owning suites](business-selection-1884a658-owning-validation.json) and [54 actual host/UI cases](business-selection-1884a658-host-ui-validation.json) retain their precise source boundaries; focused counts overlap and are not added. All earlier failed validation captures remain preserved. Final-source qualification is **0/6**; no current-source execution has yet qualified.
+Last live production source is **`ebf01483e027612d2003bdd6a69066c722d0edee`**. Its [complete Planning suite](business-selection-ebf01483-planning-validation.json) passes **2,618 cases** with warnings as errors and no skips. The [fresh-initialization regression](business-selection-fresh-initialization-validation.json) reproduces the pre-dispatch failure, then passes ordinary, token-only and diagnostic creation while rejecting restored/malformed metadata unchanged. [Exact-source publication](business-selection-ebf01483-publication-validation.json) passes all eleven stages with zero warnings/errors, including five packages, native planning/string mappings and published encrypted-storage recovery. Its recovered full-solution result is **7,579 passes and thirteen skips**, not an active run. Earlier [owning suites](business-selection-1884a658-owning-validation.json) and [54 actual host/UI cases](business-selection-1884a658-host-ui-validation.json) retain their precise source boundaries; focused counts overlap and are not added. All earlier failed validation captures remain preserved. The subsequent export repair and its validation are recorded below. Final-source qualification is **0/6**; no current-source execution has yet qualified.
 
 The prior `a23cbbb2` baseline remains source-specific evidence: [2,425 Planning cases](business-block-a23cbbb2-continuation-review-validation.json), [7,327 full-solution passes with thirteen declared skips](business-block-a23cbbb2-solution-validation.json), and [publication checks](business-block-a23cbbb2-publication-validation.json). Those technical results did not establish live business convergence.
+
+### 30 October 2026: recovered terminal results and whole-container export repair
+
+This terminal update supersedes the earlier running observations below. The frozen
+`ebf01483e027612d2003bdd6a69066c722d0edee` full solution completed at
+18:04:34 UTC: **7,579 passed, thirteen retained skips, zero failures or compiler
+diagnostics across all 33 assemblies**, with unchanged source. Its existing
+eleven-stage publication result remains attributed to that source, not a later fix.
+
+Amazon `bizebf01483amz01-amazon-1` stopped in `construction_implementation` at
+revision nine, with nine logical requests, nine physical attempts and nine receipts.
+It retained one correction, no accepted checkpoint or business block, no Judge,
+pending call, artifact, approval or execution. Known run cost is
+**EUR 1.4386912781819814964519895803**, with 42,695 input and 46,274 output tokens
+and no new uncertain usage. The rejected draft's ten recursive tasks crossed only
+an advisory target; `TASK_EXPORT_REQUIRED` was the actual technical rejection.
+Its product loop had no exports while a consumer referenced the whole loop.
+Browser URL values also appeared only as ordering dependencies, not actual operation
+arguments; those rejected-candidate defects are not accepted business behavior.
+
+The repair request offered only the consumer-value replacement, and the model
+suspended it. The next implementation response exhausted its exact 32,768-token
+allocation entirely on reasoning, with zero content bytes. This is a received
+output-limit outcome, not transport uncertainty; it must not be replayed. Legal
+implementation and partial-prerequisite routes were present. Neither the broad
+business block nor the missing export slot is proved to have caused that exhaustion.
+No live Judge measurement can be inferred because no Judge ran.
+
+The subsequent generic repair is based on `2424ac57` and reproduces the missing
+producer-boundary slot with domain-neutral sequence and foreach cases. Existing
+typed slots now permit an actual child result to be exported by the diagnosed
+container and consumed through its named port. Constants, unrelated producers,
+unused extra exports and export-only patches are rejected. Strict response-schema
+validation, repair application, compilation and real local runtime execution pass
+for both cases; the original plan remains unchanged. **57 focused export, patch,
+revision and typed-schema tests pass with warnings as errors**, with no skips.
+The first full Planning attempt was cancelled by terminal reuse and supplies no
+test result; its captured replacement passes **all 2,620 Planning tests**, with
+zero failures, skips or compiler diagnostics. The focused count overlaps that
+total. Broader solution/publication validation and live benefit on the repair
+source remain unverified. No new paid call, approval or business execution has
+occurred during this correction. Qualification remains **0/6**.
 
 ### 30 October 2026: separate business selection and diagnostic targets
 

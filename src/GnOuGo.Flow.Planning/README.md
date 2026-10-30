@@ -106,6 +106,12 @@ can assemble actual inputs and producer results; they do not echo an invalid exp
 inside a fixed JSON wrapper or embed unchanged multiline instructions in schema enums.
 The compiler still checks every reference, original contract and authorized edit.
 
+When a diagnosed consumer references a whole container without declared exports,
+existing typed repair slots expose only that producer's empty output boundary and
+the consumer binding. A new named export must forward an actual child result and
+be consumed through the same container. Fabricated values, unrelated producers and
+unused extra exports are rejected; technical repair does not establish business meaning.
+
 Issued calls store an encrypted request-bound short-ID map for evidence navigation.
 Validate the raw response under its issued schema before resolving canonical addresses;
 preserve raw receipts and use canonical identities for repeat/progress checks. Recovery

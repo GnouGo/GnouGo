@@ -8,6 +8,13 @@ This establishes neither defect resolution nor wider edit authority. Cosmetic or
 unrelated changes, missing or mismatched review context, and repeated ineffective
 patches do not supply that progress.
 
+A diagnosed whole-container reference with no declared exports also offers that
+producer's empty output boundary through the existing typed repair slots. The
+repair must expose an actual child result and retarget the diagnosed consumer to
+the same container's named export. Constants, unrelated producers and unused
+additional exports grant no repair authority. Full compilation and business review
+still establish technical validity and intended meaning separately.
+
 Array type bounds remain literal constraints: a null maximum is unspecified;
 zero permits no elements. The shared model grammar explains this distinction.
 Both values remain legal, with no automatic bound adjustment or change to the
