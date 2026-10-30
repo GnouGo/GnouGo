@@ -23,6 +23,7 @@ public sealed partial class BenchmarkPermanentRetentionTests
     private static string InterruptedSession => PlanningGraphCompiler.Fingerprint("retention:" + InterruptedKey);
     private static string InterruptedRequest => InterruptedSession + ":1:original";
     private static string InterruptedConfigurationKey => "corpus-settings:" + new string('a', 40) + ":fixture:control:cohort:diagnostic";
+    private const string LiveInterruptedSession = "diagnostic-code-1", LiveInterruptedRequest = LiveInterruptedSession + ":1:original";
     private const string ErrorBody = """{"errorCode":"upstream_failure","errorMessage":"Provider unavailable.","errorDetail":"No completion receipt."}""";
 
     [Theory]
@@ -421,6 +422,95 @@ public sealed partial class BenchmarkPermanentRetentionTests
         Assert.Null(await campaign.LoadAsync("planning-evaluation-failures", InterruptedRequest, Ct));
     }
 
+    [Fact]
+    public async Task InterruptedLiveRetentionPreservesOriginalsAndReservationAcrossRestart()
+    {
+        var records = new Records(); var campaign = await SeedAsync(records, retentionKind: Interrupted);
+        var before = records.Snapshot();
+        var accounting = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
+        var originals = await campaign.InspectRetentionOriginalsAsync(SchemaPortabilityCampaign.Collection,
+            "run:" + LiveInterruptedSession, LiveInterruptedRequest, Ct);
+        var proposal = await campaign.InspectPermanentRetentionAsync(SchemaPortabilityCampaign.Collection,
+            "run:" + LiveInterruptedSession, LiveInterruptedRequest, Ct, Interrupted);
+        Assert.Equal("live_manifest_and_frozen_configuration", proposal["evidence"]!["source_evidence"]!.ToString());
+        Assert.Equal(64, proposal["evidence"]!["manifest_hash"]!.ToString().Length);
+        Assert.False(proposal["evidence"]!.AsObject().ContainsKey("failure_hash"));
+        Assert.Equal(before, records.Snapshot());
+        var hash = proposal["evidence_hash"]!.ToString();
+        await campaign.ApplyPermanentRetentionAsync(SchemaPortabilityCampaign.Collection, "run:" + LiveInterruptedSession,
+            LiveInterruptedRequest, hash, Operator, Authorization, Ct, Interrupted);
+        var restarted = new BenchmarkCampaign(records, "retention");
+        await restarted.ApplyPermanentRetentionAsync(SchemaPortabilityCampaign.Collection, "run:" + LiveInterruptedSession,
+            LiveInterruptedRequest, hash, Operator, Authorization, Ct, Interrupted);
+        Assert.Equal(before, records.Snapshot(excludeClosures: true));
+        Assert.True(JsonNode.DeepEquals(accounting, await BenchmarkHttpJournal.AccountingAsync(restarted, ct: Ct)));
+        Assert.True(JsonNode.DeepEquals(originals, await restarted.InspectRetentionOriginalsAsync(SchemaPortabilityCampaign.Collection,
+            "run:" + LiveInterruptedSession, LiveInterruptedRequest, Ct)));
+        Assert.Null(await restarted.LoadAsync("planning-evaluation-receipts", LiveInterruptedRequest, Ct));
+        Assert.Null(await restarted.LoadAsync("planning-evaluation-failures", LiveInterruptedRequest, Ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.RequireRunNotRetainedAsync(LiveInterruptedSession, Ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.CallAsync(new() { ClientRequestId = LiveInterruptedRequest },
+            _ => throw new Exception("Must not admit"), _ => throw new Exception("Must not dispatch"), Ct));
+    }
+
+    [Fact]
+    public async Task AuthorizationInspectionIsReadOnlyCampaignScopedAndGrantsNoNewAuthority()
+    {
+        var records = new Records(); var campaign = await SeedAsync(records, retentionKind: Interrupted);
+        var proposal = await campaign.InspectPermanentRetentionAsync(SchemaPortabilityCampaign.Collection,
+            "run:" + LiveInterruptedSession, LiveInterruptedRequest, Ct, Interrupted);
+        await campaign.ApplyPermanentRetentionAsync(SchemaPortabilityCampaign.Collection, "run:" + LiveInterruptedSession,
+            LiveInterruptedRequest, proposal["evidence_hash"]!.ToString(), Operator, Authorization, Ct, Interrupted);
+        var before = records.Snapshot();
+        var inspected = await campaign.InspectRetentionAuthorizationsAsync(Ct);
+        var authorization = Assert.Single(inspected["prior_exact_authorizations"]!.AsArray());
+        Assert.Equal(Authorization, authorization!["authorization"]!.ToString());
+        Assert.Equal(LiveInterruptedRequest, authorization["request_id"]!.ToString());
+        Assert.False(inspected["grants_new_authority"]!.GetValue<bool>());
+        Assert.Empty((await new BenchmarkCampaign(records, "different").InspectRetentionAuthorizationsAsync(Ct))["prior_exact_authorizations"]!.AsArray());
+        Assert.Equal(before, records.Snapshot());
+    }
+
+    [Theory]
+    [InlineData("source")]
+    [InlineData("label")]
+    [InlineData("scenario")]
+    [InlineData("manifest")]
+    [InlineData("configuration")]
+    [InlineData("frozen_manifest")]
+    [InlineData("receipt")]
+    [InlineData("failure")]
+    [InlineData("result")]
+    [InlineData("execution")]
+    [InlineData("usage")]
+    [InlineData("response")]
+    public async Task InterruptedLiveRetentionRejectsConflictingIdentityOrOutcome(string defect)
+    {
+        var records = new Records(); var campaign = await SeedAsync(records, retentionKind: Interrupted);
+        var run = (await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "run:" + LiveInterruptedSession, Ct))!;
+        switch (defect)
+        {
+            case "source": run["source"] = new string('b', 40); break;
+            case "label": run["label"] = "diagnostic-code-2"; break;
+            case "scenario": run["scenario"] = "amazon"; break;
+            case "manifest": run["manifest"] = null; break;
+            case "configuration": run["session"]!["request"]!["maxModelCalls"] = 100; break;
+            case "frozen_manifest":
+                await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "diagnostic-manifest", new JsonObject(), Ct); break;
+            case "receipt": await campaign.SaveAsync("planning-evaluation-receipts", LiveInterruptedRequest, new JsonObject(), Ct); break;
+            case "failure": await campaign.SaveAsync("planning-evaluation-failures", LiveInterruptedRequest, new JsonObject(), Ct); break;
+            case "result": run["result"] = new JsonObject(); break;
+            case "execution": run["execution_started"] = "already-issued"; break;
+            case "usage": run["usage_receipts"] = new JsonObject { [LiveInterruptedRequest] = new JsonObject() }; break;
+            case "response": run["response_measurements"] = new JsonObject { [LiveInterruptedRequest] = new JsonObject() }; break;
+        }
+        await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "run:" + LiveInterruptedSession, run, Ct);
+        var before = records.Snapshot();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.InspectPermanentRetentionAsync(SchemaPortabilityCampaign.Collection,
+            "run:" + LiveInterruptedSession, LiveInterruptedRequest, Ct, Interrupted));
+        Assert.Equal(before, records.Snapshot());
+    }
+
     [Theory]
     [InlineData("construction_intent")]
     [InlineData("construction_select")]
@@ -594,8 +684,8 @@ public sealed partial class BenchmarkPermanentRetentionTests
     {
         var campaign = new BenchmarkCampaign(records, "retention");
         var interrupted = retentionKind == Interrupted;
-        var session = interrupted ? InterruptedSession : Session;
-        var requestId = interrupted ? InterruptedRequest : RequestId;
+        var session = interrupted ? corpus ? InterruptedSession : LiveInterruptedSession : Session;
+        var requestId = interrupted ? corpus ? InterruptedRequest : LiveInterruptedRequest : RequestId;
         var state = new PlanningSession
         {
             Request = new() { TenantId = "benchmark", SessionId = session, Name = interrupted ? "fixture" : "retention", Prompt = "Original exact intent.",
@@ -643,11 +733,24 @@ public sealed partial class BenchmarkPermanentRetentionTests
             ["result"] = new JsonObject { ["status"] = "stopped", ["execution_status"] = "not_started", ["execution_correct"] = false } };
         if (interrupted)
         {
-            run.Remove("source"); run.Remove("result"); run["final_review"] = false;
-            await campaign.SaveAsync("planning-evaluation-configuration", InterruptedConfigurationKey, PlanningBenchmarkMeasurements.Configuration(state.Request), Ct);
+            run.Remove("result"); run["final_review"] = false;
+            if (corpus)
+            {
+                run.Remove("source");
+                await campaign.SaveAsync("planning-evaluation-configuration", InterruptedConfigurationKey, PlanningBenchmarkMeasurements.Configuration(state.Request), Ct);
+            }
+            else
+            {
+                run["label"] = session; run["scenario"] = "code";
+                var manifest = new JsonObject { ["production_sha"] = new string('a', 40), ["harness_sha"] = new string('a', 40),
+                    ["cohort"] = "diagnostic", ["planning_format"] = 11,
+                    ["planning_configuration"] = LiveWorkflowEvaluation.FrozenPlanningConfiguration(state.Request) };
+                run["manifest"] = manifest;
+                await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "diagnostic-manifest", manifest, Ct);
+            }
         }
         await campaign.SaveAsync(corpus ? "planning-evaluation-runs" : SchemaPortabilityCampaign.Collection,
-            interrupted ? InterruptedKey : corpus ? "source:pilot:case:1" : "run:" + Session, run, Ct);
+            interrupted ? corpus ? InterruptedKey : "run:" + session : corpus ? "source:pilot:case:1" : "run:" + Session, run, Ct);
         return campaign;
     }
 

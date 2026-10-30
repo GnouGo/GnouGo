@@ -416,9 +416,11 @@ public sealed class BenchmarkCampaignTests
         var run = new JsonObject { ["phase"] = "final" };
         await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "run:final-amazon-1", run, Ct);
         await Assert.ThrowsAsync<InvalidOperationException>(() => LiveCampaignEvidence.ReportAsync(campaign));
-        var manifest = new JsonObject { ["production_sha"] = "frozen" };
+        var manifest = new JsonObject { ["production_sha"] = "frozen", ["harness_sha"] = "frozen" };
         await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "final-manifest", manifest, Ct);
         run["manifest"] = manifest.DeepClone();
+        run["source"] = "frozen"; run["label"] = "final-amazon-1"; run["scenario"] = "amazon";
+        run["session"] = new JsonObject { ["request"] = new JsonObject { ["sessionId"] = "final-amazon-1" } };
         await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "run:final-amazon-1", run, Ct);
         var report = await LiveCampaignEvidence.ReportAsync(campaign);
         Assert.Equal("interrupted", report["runs"]![0]!["status"]!.ToString());

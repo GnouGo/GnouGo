@@ -35,6 +35,18 @@ internal static class SchemaPortabilityCampaign
         var records = KeyVaultBenchmarkModel.WorkspaceRecords(root);
         var campaignId = Option(args, "--campaign") ?? throw new ArgumentException("Supply a new --campaign.");
         var campaign = new BenchmarkCampaign(records, campaignId);
+        if (phase == "inspect-retention-originals")
+        {
+            Console.WriteLine((await campaign.InspectRetentionOriginalsAsync(Option(args, "--run-collection") ?? Collection,
+                Option(args, "--run-key") ?? throw new ArgumentException("Supply the exact --run-key."),
+                Option(args, "--request-id") ?? throw new ArgumentException("Supply the exact --request-id."))).ToJsonString());
+            return;
+        }
+        if (phase == "inspect-retention-authorizations")
+        {
+            Console.WriteLine((await campaign.InspectRetentionAuthorizationsAsync()).ToJsonString());
+            return;
+        }
         if (phase == "retain-uncertain-request" && !args.Contains("--apply", StringComparer.Ordinal))
         {
             Console.WriteLine((await campaign.InspectPermanentRetentionAsync(
@@ -66,7 +78,13 @@ internal static class SchemaPortabilityCampaign
                         usage["mapping_response"] = receipt["json"]?.DeepClone() ?? receipt["text"]?.DeepClone();
             Console.WriteLine(saved.ToJsonString()); return;
         }
-        if (phase == "report") { Console.WriteLine((await LiveCampaignEvidence.ReportAsync(campaign, Option(args, "--cohort") ?? "final")).ToJsonString()); return; }
+        if (phase == "report")
+        {
+            Console.WriteLine((await LiveCampaignEvidence.ReportAsync(campaign, Option(args, "--cohort") ?? "final",
+                Option(args, "--source"), Option(args, "--amazon-cohort"), Option(args, "--code-cohort"),
+                Option(args, "--collections-cohort"))).ToJsonString());
+            return;
+        }
         if (phase == "replay-compile")
         {
             var label = Option(args, "--run") ?? throw new ArgumentException("Supply --run.");

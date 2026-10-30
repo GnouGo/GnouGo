@@ -45,6 +45,23 @@ reassessment and correction calls. Include instructions, response schema and env
 in bytes and reconciled component measurements. Do not lower output reservations
 or weaken checks to meet these thresholds.
 
+The read-only `--schema-portability report` aggregates the existing live and corpus
+records. Supply the final `--source` and exact `--amazon-cohort`, `--code-cohort`
+and `--collections-cohort`; omitted cohort options use `--cohort`. Each scenario's
+latest consecutive repetitions must preserve its frozen profile. Failures,
+interrupted attempts, missing repetitions, changed profiles and operator planning
+revisions break the streak. Collections requires both nominal and alternate
+oracles, artifact-bound delegated approval and no effects. Historical two-scenario,
+three-repetition manifests remain unchanged and cannot substitute for this gate.
+
+```sh
+dotnet run --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --schema-portability report --workspace <workspace> \
+  --campaign schema-portability-20261019-incremental --source <final-sha> \
+  --amazon-cohort <amazon-cohort> --code-cohort <review-pr-cohort> \
+  --collections-cohort <collections-cohort>
+```
+
 The unchanged independent oracles require:
 
 - Collections: contributive reusable group, parallel per-item calls, exact ordering
@@ -174,6 +191,16 @@ and actual delegated authorization. It permanently forbids request replay and ru
 continuation; it releases no reservations and invents no response or provider
 termination. Administrative retention delegation does not authorize active-effect
 cancellation or execution. The existing unstarted-request mode also permits a zero-attempt call-admission stop only when the captured physical-call limit, exact mandatory-review headroom and unchanged session accounting independently prove that another reservation cannot fit. No receipt is created and every earlier failed-attempt reservation remains intact. Advisory mode must match the session, policy and journal.
+
+The `interrupted-process` mode also inspects tool-free Amazon/Review PR planning
+that remains `generating` after its process disappeared without a durable outcome.
+Its exact live manifest, frozen configuration, source, run and pending request must
+match. As with interrupted corpus planning, any response, usage, failure record or
+execution evidence rejects this mode. Inspection creates no failure or terminal
+result; application retains the complete reservation and forbids continuation.
+`--schema-portability inspect-retention-authorizations` reads prior exact closure
+authorizations and configuration-record names through the public encrypted store.
+Historical authorizations are evidence to assess, never an automatic new grant.
 
 Captured-policy retention also admits a fully received terminal HTTP 400 request
 rejection when the retained error-only body and normalized `InvalidRequest`,

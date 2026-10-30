@@ -15,6 +15,56 @@ internal sealed partial class BenchmarkCampaign
     internal const string ExhaustedPlanningRetriesRetention = "exhausted-planning-retries";
     internal const string UnstartedPlanningRetention = "unstarted-planning-request";
 
+    internal async Task<JsonObject> InspectRetentionOriginalsAsync(string collection, string runKey, string requestId, CancellationToken ct = default)
+    {
+        if (collection is not ("planning-evaluation-runs" or SchemaPortabilityCampaign.Collection))
+            throw new ArgumentException("Choose an existing benchmark planning-run collection.");
+        var run = await LoadAsync(collection, runKey, ct) ?? throw new InvalidOperationException("No retained planning run.");
+        var session = run["session"]?["request"]?["sessionId"]?.ToString();
+        if (string.IsNullOrEmpty(session) || !requestId.StartsWith(session + ":", StringComparison.Ordinal))
+            throw new InvalidOperationException("The original request does not belong to this run.");
+        var identities = new List<(string Collection, string Key)>
+        {
+            (collection, runKey), ("planning-evaluation-requests", requestId), (BenchmarkHttpJournal.Collection, requestId),
+            ("planning-evaluation-receipts", requestId), ("planning-evaluation-failures", requestId),
+            ("planning-evaluation-session-policy", session), ("planning-evaluation-configuration", "http-retry-policy")
+        };
+        if (run["manifest"]?["cohort"]?.ToString() is { } cohort)
+            identities.Add((SchemaPortabilityCampaign.Collection, cohort + "-manifest"));
+        var originals = new JsonArray();
+        foreach (var (owner, key) in identities)
+        {
+            var record = await Records.GetAsync(owner, "benchmark", Id + ":" + key, Author, ct);
+            originals.Add(new JsonObject { ["collection"] = owner, ["key"] = key, ["exists"] = record is not null,
+                ["sha256"] = record is null ? null : PlanningGraphCompiler.Fingerprint(record.Value),
+                ["created_at"] = record?.CreatedAt, ["updated_at"] = record?.UpdatedAt });
+        }
+        return new() { ["campaign"] = Id, ["original_records"] = originals };
+    }
+
+    // Human-readable authorization evidence only. Prior closures never authorize a new one.
+    internal async Task<JsonObject> InspectRetentionAuthorizationsAsync(CancellationToken ct = default)
+    {
+        var prefix = Id + ":";
+        var retained = new JsonArray();
+        foreach (var row in (await Records.ListAsync("planning-evaluation-closures", "benchmark", Author, ct))
+            .Where(r => r.Key.StartsWith(prefix, StringComparison.Ordinal)).OrderBy(r => r.CreatedAt))
+        {
+            var closure = JsonNode.Parse(row.Value)!.AsObject();
+            if (closure["reason"]?.ToString() != PermanentRetentionReason) continue;
+            ValidatePermanentClosure(closure, row.Key[prefix.Length..]);
+            retained.Add(new JsonObject { ["request_id"] = row.Key[prefix.Length..],
+                ["operator"] = closure["operator"]?.DeepClone(), ["authorization"] = closure["authorization"]?.DeepClone(),
+                ["authorization_hash"] = closure["authorization_hash"]?.DeepClone(),
+                ["evidence_hash"] = closure["evidence_hash"]?.DeepClone(), ["retained_at"] = closure["retained_at"]?.DeepClone() });
+        }
+        var configurationKeys = new JsonArray((await Records.ListAsync("planning-evaluation-configuration", "benchmark", Author, ct))
+            .Where(r => r.Key.StartsWith(prefix, StringComparison.Ordinal))
+            .Select(r => r.Key[prefix.Length..]).Order(StringComparer.Ordinal).Select(k => (JsonNode)JsonValue.Create(k)).ToArray());
+        return new() { ["campaign"] = Id, ["prior_exact_authorizations"] = retained,
+            ["configuration_record_keys"] = configurationKeys, ["grants_new_authority"] = false };
+    }
+
     // Called before any continuation, approval, execution or new request in the abandoned session.
     internal async Task RequireRunNotRetainedAsync(string sessionId, CancellationToken ct = default)
     {
@@ -71,7 +121,7 @@ internal sealed partial class BenchmarkCampaign
             run["artifact_hash"] is not null || run["execution_id"] is not null || run["execution_run_id"] is not null ||
             run["execution_started"] is not null || run["execution"] is not null ||
             (interrupted
-                ? collection != "planning-evaluation-runs" || run["result"] is not null ||
+                ? run["result"] is not null ||
                   run["final_review"]?.GetValue<bool>() == true ||
                   state.Phase != (pending.Purpose == "replan" ? PlanningPhase.Replanning : pending.Purpose) ||
                   run["response_measurements"]?[requestId] is not null || run["usage_receipts"]?[requestId] is not null ||
@@ -116,7 +166,32 @@ internal sealed partial class BenchmarkCampaign
             throw new InvalidOperationException("Permanent retention requires matching unknown transport evidence and a complete unchanged reservation.");
         var source = (run["source"] ?? result?["source_commit"])?.ToString();
         string? configurationHash = null;
-        if (interrupted)
+        string? manifestHash = null;
+        if (interrupted && collection == SchemaPortabilityCampaign.Collection)
+        {
+            // Live workflow identity is already frozen in its exact manifest. Reading it
+            // does not resume planning or invent a terminal failure after an interruption.
+            var liveManifest = run["manifest"] as JsonObject;
+            var cohort = liveManifest?["cohort"]?.ToString();
+            var scenario = run["scenario"]?.ToString();
+            var label = run["label"]?.ToString();
+            var prefix = cohort + "-" + scenario + "-";
+            if (runKey != "run:" + state.Request.SessionId || label != state.Request.SessionId ||
+                scenario is not ("amazon" or "code") || string.IsNullOrEmpty(cohort) ||
+                cohort.Length > 30 || !cohort.All(char.IsAsciiLetterOrDigit) ||
+                label is null || !label.StartsWith(prefix, StringComparison.Ordinal) ||
+                !int.TryParse(label[prefix.Length..], out var repetition) || repetition is < 1 or > 20 ||
+                liveManifest?["planning_format"]?.GetValue<int>() != 11 ||
+                liveManifest["production_sha"]?.ToString() != source || liveManifest["harness_sha"]?.ToString() != source ||
+                await LoadAsync(SchemaPortabilityCampaign.Collection, cohort + "-manifest", ct) is not { } frozen ||
+                !JsonNode.DeepEquals(liveManifest, frozen) ||
+                liveManifest["planning_configuration"] is not JsonObject configuration ||
+                !JsonNode.DeepEquals(configuration, LiveWorkflowEvaluation.FrozenPlanningConfiguration(state.Request)))
+                throw new InvalidOperationException("The interrupted live workflow does not match its exact source, identity and frozen configuration.");
+            configurationHash = Hash(configuration);
+            manifestHash = Hash(liveManifest);
+        }
+        else if (interrupted)
         {
             // Corpus source/cohort identity exists in the durable key before a final result.
             // Reconstruct only that key, never a missing failure, response or workflow state.
@@ -179,8 +254,13 @@ internal sealed partial class BenchmarkCampaign
         {
             evidence.Remove("failure_hash");
             evidence["outcome_evidence"] = "reserved_attempt_without_persisted_outcome";
-            evidence["source_evidence"] = "corpus_key_and_frozen_configuration";
+            evidence["source_evidence"] = manifestHash is null ? "corpus_key_and_frozen_configuration" : "live_manifest_and_frozen_configuration";
             evidence["configuration_hash"] = configurationHash;
+            if (manifestHash is not null)
+            {
+                evidence["manifest_hash"] = manifestHash;
+                evidence["request_accounting"] = LiveCampaignEvidence.Summarize([journal]);
+            }
         }
         return new() { ["evidence"] = evidence, ["evidence_hash"] = Hash(evidence), ["outcome"] = "inconclusive",
             ["reservation_retained"] = true, ["request_replay_forbidden"] = true, ["run_continuation_forbidden"] = true };
@@ -230,7 +310,11 @@ internal sealed partial class BenchmarkCampaign
             evidence["retention_kind"]?.ToString() == UnstartedPlanningRetention && evidence["outcome_evidence"]?.ToString() != "no_reserved_physical_attempt" ||
             evidence["retention_kind"]?.ToString() == InterruptedProcessRetention &&
                 (evidence.ContainsKey("failure_hash") || evidence["outcome_evidence"]?.ToString() != "reserved_attempt_without_persisted_outcome" ||
-                 evidence["source_evidence"]?.ToString() != "corpus_key_and_frozen_configuration" ||
+                 !(evidence["run_collection"]?.ToString() == "planning-evaluation-runs" &&
+                     evidence["source_evidence"]?.ToString() == "corpus_key_and_frozen_configuration" ||
+                   evidence["run_collection"]?.ToString() == SchemaPortabilityCampaign.Collection &&
+                     evidence["source_evidence"]?.ToString() == "live_manifest_and_frozen_configuration" &&
+                     evidence["manifest_hash"]?.ToString() is { Length: 64 } manifestHash && manifestHash.All(Uri.IsHexDigit)) ||
                  evidence["configuration_hash"]?.ToString() is not { Length: 64 } configurationHash || !configurationHash.All(Uri.IsHexDigit)) ||
             evidence["campaign"]?.ToString() != Id || evidence["tenant"]?.ToString() != "benchmark" ||
             evidence["request_id"]?.ToString() != requestId ||
