@@ -2487,3 +2487,14 @@ new model call made to obtain this evidence. See
 This establishes an actual historical advisory dispatch, not a deployment-capacity
 exceedance, current-source qualification or runtime success. The latest completed
 source72 output32 and source90 runs crossed targets but not their captured maxima.
+
+
+### Source491 complete technical validation
+
+The frozen `491d580e` solution completed with warnings as errors: 7,162 passed,
+zero failed,12 retained skips across33 assemblies, zero compiler diagnostics,
+unchanged source and all ten publication/AOT/published-storage stages passing.
+[The result](compact-taskplan-491d580e-full-validation.json) belongs to that source.
+It does not establish business success or replace the final `0881cf87` solution
+run, which started after this observer finished. Its ten publication stages had
+already passed while the existing solution run was active.
