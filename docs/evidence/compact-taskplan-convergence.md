@@ -2300,3 +2300,45 @@ the focused cases are included in the latter total. No model or allowance change
 This correction changes ten files, **87 added / 15 deleted lines**, including the
 skill, regression and maintained documentation. It consolidates five operation-binding
 call sites but is not a claim of net code deletion. Live benefit remains unproven.
+
+### `72c7724e`: received exhaustion and an omitted open ancestor
+
+The [Amazon source diagnostic](compact-taskplan-72c7724e-amazon-output-exhaustion.json)
+receives seven completions, then stops on the first draft: **16,384 output tokens,
+all reasoning, no visible text**, with 3,142 provider input tokens. No candidate,
+business producer, Judge, artifact or runtime result is obtained. Known cost is
+€0.8683508488278092158447857720, with no unknown usage. This is received output
+exhaustion, not transport uncertainty or proof of a schema-size cause. Any larger
+draft-output trial remains a separately frozen parameter experiment.
+
+The [Review PR source diagnostic](compact-taskplan-72c7724e-code-parent-context.json)
+receives **33 logical/physical calls**, including two Judges and one same-evidence
+reconsideration. One selection correction removes a repeated requirement ID;
+the reconsideration consumes no correction. Both generated coding-task arguments use
+the clone's real artifact output and pass construction checks without provenance
+repairs. This is observed first-pass binding validity, not a matched claim of avoided
+calls. The clone at request 9 matches the frozen remote and singleton pin/directory
+constraints, with an additional runtime interpretation dependency still unexecuted.
+
+The local cleanup finding persists after reconsideration. Its projection omits the
+open root while showing the closed child body. No requirement or workflow completion
+is claimed. That is confirmed missing ancestor context; it does not prove cleanup
+satisfaction or conclusively adjudicate the finding. Unsupported structural edits
+receive no wider authority. The run stops with no artifact or execution. Known cost
+is €3.7522006646905595975927422979, with no unknown usage. Before the fresh
+Collections control launch, inspection finds €153.74355834360721335741522168
+available, 53 permanent closures and no unresolved identity; this precedes that active run.
+
+`90e78f7b` retains actual ancestor scope states and existing finalization dependencies
+in the same projection. Two generic cases fail before the fix on the missing root,
+then pass along with group-isolation and genuine-defect checks. All **73 focused
+tests and 2,294 Planning tests pass** with warnings as errors (overlapping totals).
+The seven-file correction adds 43 / removes five lines; production code adds six /
+removes two. No verdict, repair authority, response grammar, model setting, persisted
+state or execution permission changes. Its live benefit remains unproven. Full
+solution validation still running on `72c7724e` cannot be attributed to this source.
+
+The [updated deletion inventory](compact-taskplan-72c7724e-change-inventory.json)
+records production C# **251 added / 507 removed lines** and tests
+**863 added / 1,865 removed lines** from `2d09aaee` through `72c7724e`.
+Immutable evidence explains the growing overall diff. No whole-PR deletion claim.
