@@ -2342,3 +2342,35 @@ The [updated deletion inventory](compact-taskplan-72c7724e-change-inventory.json
 records production C# **251 added / 507 removed lines** and tests
 **863 added / 1,865 removed lines** from `2d09aaee` through `72c7724e`.
 Immutable evidence explains the growing overall diff. No whole-PR deletion claim.
+
+### `72c7724e`: Collections executes correctly in 15 calls
+
+The [fresh Collections control](compact-taskplan-72c7724e-collections-runtime.json)
+uses **15 logical/physical calls, two Judges and zero corrections**. Independent
+artifact review acknowledges all four indexed original clauses and verifies the
+actual isolated numeric group, parallel per-item calls, multiplication by two and
+ordered public binding. The extra pass-through alias remains, with no added effect.
+Artifact-bound `delegated_test` approval precedes both real runtime variants.
+
+Both variants pass the unchanged independent oracle, including duplicates and negative
+values, with no effects or runtime inference. Runtime is **319.9192 / 2.2549 ms**;
+planning is 817.393 seconds. Known cost is **€1.1262058744273780652115332794**,
+with no unknown usage. Complete Judge requests are **7,397 / 8,488 bytes**;
+all request component measurements reconcile. The frozen business-obligation set
+remains three; four model-indexed requirements do not inflate it.
+
+All retained Collections efficiency indicators pass. The differing generated
+trajectories do not establish an architecture-only savings claim. This is one
+success on `72c7724e`; it does not qualify the newer `90e78f7b` source.
+
+The [completed source72 validation](compact-taskplan-72c7724e-full-validation.json)
+has **7,158 passes, zero failures and 12 retained skips**, across 33 assemblies,
+with no compiler diagnostics. All ten package/AOT/published encrypted-storage stages
+pass. Focused tests are included, not added again. Source90's validation is separate.
+
+Before the separately frozen source72 Amazon draft-output experiment, inspection
+finds **€152.61735246917983529220368840 available**, 53 permanent closures and
+no unresolved identity. The only parameter change is draft output 16,384 → 32,768,
+supported by the received request7 exhaustion; source, reasoning, inputs, model,
+permissions and oracles remain fixed. No reservation or supplement changes. This
+active arm does not include source90's projection correction.
