@@ -113,7 +113,10 @@ exists or is absent. Raw provider errors and model-authored rejected strategies 
 promoted into business facts. Original clarification answers retain their own authority.
 
 The separate `construction_implementation` response uses `baseHash` and exactly one
-of `step`, `evidenceRequests`, or `clarifications`. Its state-dependent `step` grammar
+available action: `step`, `evidenceRequests`, `clarifications`, or the conditionally
+offered `resumeStep`. That resumption supplies `continuationId`, `producerCheckpoint`
+and an exact accepted `binding`; it preserves the active business block and the
+existing scope, provenance and association checks. Its state-dependent `step` grammar
 contains `scope`, `kind`, `operationIds`, `inputs`, `groupId`, `dependencyTaskIds`,
 `closeScopes`, `closeRequirementIds`, `outputNames`, and `prerequisites`. Exact offered
 scopes, retained contracts, accepted producers and closed groups constrain those fields.
