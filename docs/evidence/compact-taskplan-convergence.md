@@ -2231,3 +2231,24 @@ Before its launch, inspection finds €165.19927108949780888422740173 available,
 original clarification state. All ten package/AOT/published-storage checks pass on
 `5e0bc6d8`; that source's full solution run and fresh Amazon diagnostic are active.
 The successful Collections result above belongs to `68dba9af`, not the new source.
+
+### `5e0bc6d8`: Amazon transport stop leaves the fix unexercised
+
+The [candidate Amazon run](compact-taskplan-5e0bc6d8-amazon-retained-uncertainty.json)
+receives 13 completions and stops at request 14 without an HTTP outcome or receipt.
+There are two open control boundaries and no business producer, Judge, artifact or
+runtime result. No consumer has been suspended, so the reason-preservation change
+has not yet been exercised. Earlier termination is not an efficiency improvement.
+
+Known cost is €0.79130512889607473277643044. Exact delegated retention binds
+evidence `d9d108f8…6cd537` and preserves the full
+€0.98745621126381029372136891 unknown reservation. Both applications return the
+same closure; all six original records/timestamps remain unchanged. A fresh read-only
+process verifies run and exact-request rejection before preflight/dispatch with zero
+writes. No provider termination, response, usage or release is inferred.
+
+Before fresh Review PR admission on the same production source, inspection finds
+**€163.42050974933792385772960238 available**, 53 permanent closures and no
+unresolved identity. Its original Code profile, including the 8,192-token Judge
+allocation, remains unchanged. Both supplements remain applied once. Review PR and
+the source-bound full solution validation are active; business qualification is incomplete.
