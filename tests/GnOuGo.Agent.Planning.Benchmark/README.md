@@ -247,5 +247,8 @@ artifact binding choices do not establish business acceptance.
 When assessing a local cleanup finding, retain the actual open ancestors and current
 completion claims. Report missing context separately from a confirmed defect; final
 cleanup obligations remain blocking until validated and reviewed.
+Distinguish a rejected plain resumption binding from a still-unverified nested member
+or an incompatible proposed result interface. Report received type failures without
+silently widening navigation types or charging evidence retrieval as a repair.
 The six-run business qualification remains two consecutive intervention-free successes
 per scenario on the same production source/profile, including both Collections variants.

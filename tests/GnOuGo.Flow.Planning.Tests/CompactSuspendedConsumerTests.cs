@@ -129,6 +129,48 @@ public sealed class CompactSuspendedConsumerTests
         Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
     }
 
+    [Theory]
+    [InlineData("number")]
+    [InlineData("null")]
+    [InlineData("nested")]
+    public async Task ResumeChoicesExcludeIncompatibleRootsAndKeepExplicitNestedBindings(string shape)
+    {
+        var run = await PendingPrerequisite(nullable: shape == "null", nested: shape == "nested");
+        var state = run.State;
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var checkpoint = state.Construction!.Checkpoints.Single(item => item.TaskIds.Contains("seed"));
+        var page = PlanningCompactConstruction.SelectionContext(state);
+        var schema = PlanningCompactConstruction.SelectionSchema(state, page);
+        var resumeSchema = schema["properties"]!["resumeStep"]!.DeepClone().AsObject();
+        resumeSchema["$defs"] = schema["$defs"]?.DeepClone();
+        var response = new JsonObject { ["continuationId"] = state.Construction.Compact!.SuspendedSteps![0].Id,
+            ["producerCheckpoint"] = checkpoint.Sequence, ["binding"] = new JsonObject { ["kind"] = "output", ["source"] = "seed", ["port"] = "number" } };
+        Assert.Equal(shape == "number", PlanningContractValidation.ValidateInstance(response, resumeSchema).Count == 0);
+        // Field navigation is a proposed path, not a claim that every member fits.
+        // The displayed checkpoints must match the remaining response domains.
+        var offered = Nodes(resumeSchema).OfType<JsonObject>().Where(node => node["properties"]?["producerCheckpoint"] is not null)
+            .Select(node => node["properties"]!["producerCheckpoint"]!["enum"]![0]!.GetValue<int>()).Distinct().Order().ToArray();
+        Assert.Equal(offered, page["continuation"]!["acceptedCheckpoints"]!.AsArray().Select(row => row!["sequence"]!.GetValue<int>()).Order());
+        Assert.Equal(offered.Length > 0, page["continuation"]!["canAttemptResume"]!.GetValue<bool>());
+        if (shape == "nested")
+        {
+            response["binding"] = new JsonObject { ["kind"] = "field", ["port"] = "value", ["items"] = new JsonArray(response["binding"]!.DeepClone()) };
+            Assert.Empty(PlanningContractValidation.ValidateInstance(response, resumeSchema));
+            var clone = PlannerFixture.Clone(state);
+            PlanningCompactConstruction.ResumeStep(clone, response["continuationId"]!.ToString(), checkpoint.Sequence,
+                response["binding"]!.Deserialize(PlanningJsonContext.Default.TaskValue)!);
+            Assert.Equal("field", Assert.Single(clone.Construction!.Compact!.CurrentStep!.Inputs).Kind);
+        }
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+
+        static IEnumerable<JsonNode> Nodes(JsonNode node)
+        {
+            yield return node;
+            foreach (var child in node is JsonObject obj ? obj.Select(pair => pair.Value).OfType<JsonNode>() : node is JsonArray array ? array.OfType<JsonNode>() : [])
+                foreach (var descendant in Nodes(child)) yield return descendant;
+        }
+    }
+
     [Fact]
     public async Task ExactReviewedAssociationResumesOnceWithoutSemanticSelection()
     {
@@ -257,7 +299,7 @@ public sealed class CompactSuspendedConsumerTests
 
     private sealed record PendingRun(PlanningSession State, TestRuntime Runtime, Func<int> LocalReviews, Func<int> GlobalReviews);
 
-    private static async Task<PendingRun> PendingPrerequisite(bool nullable = false)
+    private static async Task<PendingRun> PendingPrerequisite(bool nullable = false, bool nested = false)
     {
         const string work = "Inside a sequential scope, produce seven and then double that exact prerequisite.";
         const string finish = "Return the required numeric public result named number from the closed scope.";
@@ -316,7 +358,9 @@ public sealed class CompactSuspendedConsumerTests
                     {
                         0 => new PlanningConstructionExtension { RequirementIds = ["req_0"], Tasks = [new() { Id = "work", Kind = "sequence", Objective = "Run the requested sequential computation.", Body = new() }] },
                         2 => new() { Scope = "/tasks/work/body", RequirementIds = ["req_0"], Tasks = [new() { Id = "seed", Kind = "value", Objective = "Produce the exact prerequisite of seven.",
-                            Outputs = [new("number", nullable ? new() { Kind = "null" } : new() { Kind = "number", Number = 7 })] }] },
+                            Outputs = [new("number", nullable ? new() { Kind = "null" } : nested
+                                ? new() { Kind = "object", Members = [new("value", new() { Kind = "number", Number = 7 })] }
+                                : new() { Kind = "number", Number = 7 })] }] },
                         3 => new() { Scope = "/tasks/work/body", RequirementIds = ["req_0"], Tasks = [new() { Id = "double", Kind = "value", Objective = consumer,
                             Outputs = [new("number", new() { Kind = "arithmetic", Text = "multiply", Items = [Output("seed"), new() { Kind = "number", Number = 2 }] })] }],
                             Outputs = [new("number", Output("double"))], CloseScopes = ["/tasks/work/body"] },

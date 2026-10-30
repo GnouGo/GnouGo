@@ -181,6 +181,11 @@ arguments: offer existing-value references rather than literals or computed text
 Drafting and typed repair share this projection. Nested consumption, exact origins,
 scope visibility and business suitability still require compiler validation and review.
 
+Selection also checks plain resumption bindings against the retained prerequisite
+type. Object-member navigation retains ordinary TaskValue syntax and final compiler
+checks. This filters technically incompatible root choices without selecting their
+business meaning or widening the retained interface.
+
 Local business projections include enclosing scope states and their actual cleanup,
 not only owned child scopes. A closed child may have an open parent; omitted parent
 context cannot establish a global cleanup defect or establish cleanup satisfaction.

@@ -43,6 +43,9 @@ internal static partial class PlanningCompactConstruction
         var definitions = new JsonObject(); schema["$defs"] = definitions;
         var serial = 0;
         var cached = new Dictionary<(string Scope, int Checkpoint), JsonObject>();
+        var resumeType = State(state).SuspendedSteps?.LastOrDefault(Active)?.Prerequisite.ExpectedType;
+        var resumeContract = resumeType is null ? null : TaskPlanCompiler.TypeSchema(resumeType);
+        var emptyObject = PlanningSchemas.Type("object"); emptyObject["maxProperties"] = 0;
         JsonObject Imports(string scope, PlanningConstructionCheckpoint? owner = null)
         {
             if (cached.TryGetValue((scope, owner?.Sequence ?? 0), out var prior)) return prior.DeepClone().AsObject();
@@ -70,25 +73,31 @@ internal static partial class PlanningCompactConstruction
             var verified = TaskPlanCompiler.ValidateConstruction(probe, state.Catalog ?? new(), state.Request,
                 state.Construction!.OpenScopes.ToHashSet(StringComparer.Ordinal), new Dictionary<string, IReadOnlyList<TaskValue>> { [scope] = values });
             var available = verified.Interfaces.GetValueOrDefault(scope) ?? [];
-            var branches = new JsonArray();
-            foreach (var group in available.Select(item => item.Value).Where(value => value.Kind == "output").GroupBy(value => value.Source))
+            var roots = owner is null ? available : available.Where(item => resumeContract is not null &&
+                PlanningContractCompatibility.Fits(item.Schema, resumeContract)).ToArray();
+            var branches = ReferenceBranches(roots);
+            if (owner is null)
             {
-                var names = group.Where(value => value.Port is not null).Select(value => value.Port!).Distinct().ToArray();
-                var port = names.Length == 0 ? PlanningSchemas.Type("null") : group.Any(value => value.Port is null)
-                    ? PlanningSchemas.Nullable(PlanningSchemas.Enum(names)) : PlanningSchemas.Enum(names);
-                branches.Add((JsonNode)PlanningSchemas.Object(("kind", PlanningSchemas.Enum("output")),
-                    ("source", PlanningSchemas.Enum(group.Key!)), ("port", port)));
+                if (branches.Count == 0) return PlanningSchemas.Array(PlanningSchemas.String(), 0, 0);
+                branches.Add((JsonNode)Field(name));
             }
-            foreach (var kind in new[] { "present", "input", "choice" })
+            else
             {
-                var sources = available.Select(item => item.Value).Where(value => value.Kind == kind).Select(value => value.Source!).Distinct().ToArray();
-                if (sources.Length > 0) branches.Add((JsonNode)PlanningSchemas.Object(("kind", PlanningSchemas.Enum(kind)), ("source", PlanningSchemas.Enum(sources))));
+                // A whole result may not fit while one declared member does.
+                // Preserve that existing field language without offering the
+                // incompatible root as a completed prerequisite binding.
+                var anchors = available.Where(item => !PlanningContractShapes.IsOpaque(item.Schema) &&
+                    PlanningContractCompatibility.Fits(item.Schema, PlanningSchemas.Type("object")) &&
+                    !PlanningContractCompatibility.Fits(item.Schema, emptyObject)).ToArray();
+                if (anchors.Length > 0)
+                {
+                    var fieldName = name + "_fields";
+                    var fields = ReferenceBranches(anchors); fields.Add((JsonNode)Field(fieldName));
+                    definitions[fieldName] = new JsonObject { ["anyOf"] = fields };
+                    branches.Add((JsonNode)Field(fieldName));
+                }
             }
-            foreach (var kind in new[] { "item", "index" })
-                if (available.Any(item => item.Value.Kind == kind)) branches.Add((JsonNode)PlanningSchemas.Object(("kind", PlanningSchemas.Enum(kind))));
             if (branches.Count == 0) return PlanningSchemas.Array(PlanningSchemas.String(), 0, 0);
-            branches.Add((JsonNode)PlanningSchemas.Object(("kind", PlanningSchemas.Enum("field")), ("port", Text(96)),
-                ("items", PlanningSchemas.Array(PlanningSchemas.Ref(name), 1, 1))));
             definitions[name] = new JsonObject { ["anyOf"] = branches };
             var result = PlanningSchemas.Array(PlanningSchemas.Ref(name), 0, 8);
             cached[(scope, owner?.Sequence ?? 0)] = result;
@@ -124,6 +133,38 @@ internal static partial class PlanningCompactConstruction
             schema["properties"]!["resumeStep"] = choices.Count == 0 ? PlanningSchemas.Type("null") :
                 PlanningSchemas.Nullable(new JsonObject { ["anyOf"] = choices });
             schema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("resumeStep"));
+            if (page["continuation"] is JsonObject displayed)
+            {
+                displayed["canAttemptResume"] = choices.Count > 0;
+                var eligible = choices.Select(choice => choice!["properties"]!["producerCheckpoint"]!["enum"]![0]!.GetValue<int>()).ToHashSet();
+                displayed["acceptedCheckpoints"] = new JsonArray(continuation["acceptedCheckpoints"]!.AsArray()
+                    .Where(entry => eligible.Contains(entry!["sequence"]!.GetValue<int>())).Select(entry => entry!.DeepClone()).ToArray());
+            }
         }
+    }
+
+    private static JsonObject Field(string reference) => PlanningSchemas.Object(("kind", PlanningSchemas.Enum("field")), ("port", Text(96)),
+        ("items", PlanningSchemas.Array(PlanningSchemas.Ref(reference), 1, 1)));
+
+    private static JsonArray ReferenceBranches(IEnumerable<TaskPlanCompiler.RepairSource> available)
+    {
+        var values = available.Select(item => item.Value).ToArray();
+        var branches = new JsonArray();
+        foreach (var group in values.Where(value => value.Kind == "output").GroupBy(value => value.Source))
+        {
+            var names = group.Where(value => value.Port is not null).Select(value => value.Port!).Distinct().ToArray();
+            var port = names.Length == 0 ? PlanningSchemas.Type("null") : group.Any(value => value.Port is null)
+                ? PlanningSchemas.Nullable(PlanningSchemas.Enum(names)) : PlanningSchemas.Enum(names);
+            branches.Add((JsonNode)PlanningSchemas.Object(("kind", PlanningSchemas.Enum("output")),
+                ("source", PlanningSchemas.Enum(group.Key!)), ("port", port)));
+        }
+        foreach (var kind in new[] { "present", "input", "choice" })
+        {
+            var sources = values.Where(value => value.Kind == kind).Select(value => value.Source!).Distinct().ToArray();
+            if (sources.Length > 0) branches.Add((JsonNode)PlanningSchemas.Object(("kind", PlanningSchemas.Enum(kind)), ("source", PlanningSchemas.Enum(sources))));
+        }
+        foreach (var kind in new[] { "item", "index" })
+            if (values.Any(value => value.Kind == kind)) branches.Add((JsonNode)PlanningSchemas.Object(("kind", PlanningSchemas.Enum(kind))));
+        return branches;
     }
 }

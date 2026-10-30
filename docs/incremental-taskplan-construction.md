@@ -128,6 +128,12 @@ repair. A matching literal or encoded string cannot manufacture producer provena
 This projection does not select a producer or prove its business meaning; original
 contract checks and scoped business review remain required.
 
+Resumption choices apply the existing contract-inclusion check to plain accepted
+bindings before display. Declared-field navigation remains available through the
+existing reference grammar and final exact validation; it is not proof that every
+member satisfies the prerequisite. Displayed checkpoints and response domains share
+that request-local eligibility. No producer is chosen from type similarity.
+
 Finalization takes precedence over a pending local review. A small workflow can be
 constructed through many calls and receive only one global business review. Every
 completed workflow must pass that global review before approval; it covers all original
