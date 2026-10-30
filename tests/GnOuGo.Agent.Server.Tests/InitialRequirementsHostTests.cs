@@ -19,7 +19,7 @@ public sealed class InitialRequirementsHostTests
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         using var client = new JournaledPlanningModel(new InitialClient(repeatInvalid));
-        var expectedCalls = repeatInvalid ? 2 : 5;
+        var expectedCalls = repeatInvalid ? 2 : 6;
         var agents = PlanningSessionLifecycleTests.AgentCatalog();
         PlanningSession initial;
         using (var creation = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), agents, client, settings: new() { BackgroundProcessingEnabled = false }))
@@ -40,6 +40,9 @@ public sealed class InitialRequirementsHostTests
                 }
                 Assert.Equal(repeatInvalid ? PlanningStatus.Stopped : PlanningStatus.FinalReview, result.Status);
                 Assert.Equal(expectedCalls, client.Requests.Count); Assert.Equal(expectedCalls, result.ModelCalls); Assert.Equal(1, result.ReplanAttempts);
+                Assert.Equal(repeatInvalid ? ["construction_intent", "construction_intent"] :
+                    new[] { "construction_intent", "construction_intent", "construction_select", "construction_implementation", "construction_draft", "construction_global_judge" },
+                    client.Requests.Select(request => request.StructuredOutputSchema!["title"]!.GetValue<string>()));
                 Assert.Null(result.ApprovedHash); Assert.Null(result.SavedAgentId); Assert.Null(result.PendingCall);
                 Assert.Equal(expectedCalls, result.Usage!.Calls); Assert.Equal(expectedCalls * 15, result.Usage.TotalTokens);
                 for (var i = 0; i < 3; i++)

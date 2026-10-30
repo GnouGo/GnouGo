@@ -190,10 +190,11 @@ public sealed partial class PlanningTraceUiTests
                     ["inputs"] = declaration["inputs"]!.DeepClone(), ["outputs"] = declaration["outputs"]!.DeepClone() },
                     new JsonObject { ["text"] = text[split..], ["kind"] = "requirement", ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray() });
             }
-            if (json["step"] is JsonObject step)
-            { step["requirementIds"] = new JsonArray("req_0", "req_1"); step["closeRequirementIds"] = new JsonArray("req_0", "req_1"); }
+            if (json["block"] is JsonObject block) block["requirementIds"] = new JsonArray("req_0", "req_1");
+            if (json["step"] is JsonObject step) step["closeRequirementIds"] = new JsonArray("req_0", "req_1");
             if (json["extension"] is JsonObject extension) extension["requirementIds"] = new JsonArray("req_0", "req_1");
             response.Json = PlanningCorpus.Transport(json, schema, schema);
+            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response.Json, schema));
             return response;
         }
     }
