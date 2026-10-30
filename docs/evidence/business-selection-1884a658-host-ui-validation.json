@@ -1,0 +1,68 @@
+{
+  "kind": "server_fixture_business_phase_validation",
+  "base_source_sha": "dd342eec89bf9935ad1d10ce61a698f0d5a8870d",
+  "fixture_commit": "1884a65866d1143cd982f24c05eb87b3a7d029c7",
+  "production_changed": false,
+  "affected_matrix": {
+    "passed": 54,
+    "failed": 0,
+    "skipped": 0,
+    "exit_code": 0,
+    "compiler_diagnostics": 0,
+    "log_sha256": "57a7613a834533cd5c8558deb5ac6f6f777984d09e2371245d71a4bb2f008fd8"
+  },
+  "actual_browser_interaction": {
+    "executed": true,
+    "module": "existing Microsoft.Playwright shipped playwright-core driver",
+    "installed_new_dependencies": false,
+    "cases": [
+      "recommended",
+      "custom",
+      "text",
+      "cancel",
+      "recovery"
+    ],
+    "retained_assertions": [
+      "explicit submission",
+      "unchanged original questions",
+      "keyboard interaction",
+      "mobile viewport without overflow",
+      "encrypted persisted answers",
+      "exact received-call recovery without redispatch",
+      "no implicit approval"
+    ],
+    "artifacts": {
+      "custom-outcomes.png": "b301c27c7bce3282a98803eef4f454ef258e5a9d8976e37cb30f6eb97b6d3955",
+      "custom.png": "40205eff2f67e7c0ba55f47993c03d28f10b034a66a174af720d229c3ae69214",
+      "recommended-outcomes.png": "fcdc163590a90f71af36891a88f3363d46e929fe43df736bd071e0d309aaac82",
+      "recommended.png": "bf6402dc41d8e2d8469ada1838502c2b5f40974a0cd0905396452ae36a25dc70",
+      "recovery-outcomes.png": "45ec2f88e4eed1e5aca9a9e092ed70cba4c419552ec04da770755b67b6051171",
+      "recovery.png": "0c9664e0a842c581584e134e48c3b345ccdaa9ecca3f51197e9f346f6816d458",
+      "results.json": "7c2a946db816ba7a707462bc005a66b6c3e511e19f9344fd185b760e6df8dd0e",
+      "text-outcomes.png": "c065b5513cb75b6b8546c3fb7386b82e38aae13f68129b33fac7c42f8d3f5f01",
+      "text.png": "56a384669c4ba457759a8e2755159eabe54209dccfa30a81d0d374479746f825"
+    }
+  },
+  "bounded_audit": {
+    "findings": [
+      "InitialRequirementsHost successful corrected path uses six calls including implementation",
+      "Browser answered paths use seven calls and 29 total across five cases",
+      "Approval fixture places original obligations on business block and technical closure IDs on step"
+    ],
+    "current_cases_unchanged": [
+      "ChatPlanningChoiceTests",
+      "CompactConstructionHostTests",
+      "AgentPlanningPolicyTests"
+    ],
+    "other_counts_preserved": "Transport, execution resources, manual retained-state and unknown-usage accounting assertions are unrelated to planning phase separation."
+  },
+  "changed_files_sha256": {
+    "tests/GnOuGo.Agent.Server.Tests/InitialRequirementsHostTests.cs": "00484bc3e3c9b4212e9ac8874aa198530891339b49f8fa22b36c3edecced70a3",
+    "tests/GnOuGo.Agent.Server.Tests/PlanningClarificationBrowserTests.cs": "231edf26c87064d8d76720764cd2131cfad1c8e9f5ee799ba052beee7f46ff6b",
+    "tests/GnOuGo.Agent.Server.Tests/PlanningTraceUiTests.Approval.cs": "ab7dc768ba92ef8e8d7850629557bfc268b0237d8fd7613a39c77c588abd8a5d"
+  },
+  "limitations": [
+    "Complete full-solution runs remain separate and source-bound.",
+    "No paid model requests or operational storage mutations."
+  ]
+}
