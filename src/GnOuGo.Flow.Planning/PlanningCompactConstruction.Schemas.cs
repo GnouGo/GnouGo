@@ -272,7 +272,11 @@ internal static partial class PlanningCompactConstruction
         if (step.Kind == "transform")
             hints.Add("transform resultType is an object of named output ports; output.port selects that field's type, not the whole result object. extract preserves observed facts; interpret uses its objective as the runtime LLM instruction, inputs as data and resultType as the output contract, without a separate expression. Neither executes external effects.");
         if (step.Kind == "operation")
-            hints.Add("editableInputs is only the inspected subset. Retrieve the exact schema branches needed for this business action together, up to eight addresses; the complete follow-up must fit its captured ceiling. Retrieval expands binding grammar. [] does not mean no arguments are needed.");
+            hints.Add("editableInputs is only the inspected subset. Retrieve the exact schema branches needed for this business action together. " +
+                EvidenceBatchGuidance(state) + (PlanningTokenThresholds.Advisory(state.Request)
+                    ? " Project input targets only produce host warnings; actual provider limits still apply."
+                    : " The complete follow-up must fit its captured input ceiling.") +
+                " Retrieval expands binding grammar. [] does not mean no arguments are needed.");
         if (step.Kind == "foreach")
         {
             hints.Add("foreach.maxItems is the TOTAL input-item ceiling; excess fails, it never samples or truncates. maxConcurrency limits simultaneous workers, not total items. Neither bound guarantees a nonempty collection.");
