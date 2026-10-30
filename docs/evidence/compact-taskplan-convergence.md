@@ -2538,3 +2538,22 @@ The active source88 diagnostic is unchanged by this edit. It later stopped at
 request49 on received draft-output exhaustion (16,384 reasoning tokens, no text),
 not an uncertain dispatch. Its full result is retained under source88; no output
 allocation was escalated within the session and it has no runtime success.
+
+
+### Source88 intervention completed without runtime acceptance
+
+The same frozen source88 Code diagnostic ultimately stopped after49 received
+logical/physical calls, four Judges, one correction charge and one explicit
+operator revision. Repair25 and reviews26/29 genuinely advanced the corrected
+work, but draft49 consumed16,384 output tokens entirely as reasoning and returned
+no text (provider input9,936). Its local-feedback transform produced no candidate.
+No output allocation changed within the session and the request was not retried.
+The cause remains unproven. Total planning was2,823,714ms, known cost
+€4.9313617174166891224288152338, no unknown reservation, artifact or execution.
+Every request has a receipt; no permanent uncertainty closure is needed.
+
+Selection46 used an exact cached operation and led directly to draft47 without
+another discovery call. This demonstrates that existing path, not matched avoided
+calls or complete-run efficiency. There is no equivalent completed control trace.
+See [the cumulative source-bound failure](compact-taskplan-0881cf87-code-intervention-output-exhaustion.json).
+The six-run business gate remains unmet.
