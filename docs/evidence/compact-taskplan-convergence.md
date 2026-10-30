@@ -2445,3 +2445,31 @@ actual compiled execution. The seven dependency-progress cases include an unchan
 precise binding when a different consumer operand changes. The owning production
 change adds 22 lines to the existing witness implementation and adds no stored
 field, response action, format version, permission or review bypass.
+
+
+### Source491 transport stop and delegated permanent retention
+
+Fresh Amazon `compactm491d580eamz11out32b-amazon-1` stopped at discovery request 10
+on transport uncertainty: ten logical/physical calls, nine verified receipts,
+no Judge, correction, executable business node, artifact or runtime. One empty
+reusable group was accepted. The changed resumption path was not exercised, so
+this shorter incomplete trajectory demonstrates no saving or correctness gain.
+One-pass intent took 56,164.0925ms; total planning was 830,742ms.
+
+Under the delegated administrative authority, the inspected exact request was
+permanently retained with evidence
+`c9dc8361d8bb664484a640cfc77dae43780225559db6f168015fd5f70a3a8c4d`.
+Known usage cost is €0.6028788287074463307284649241; the complete
+€0.9979834725590586544507320578 unknown reservation remains retained. A fresh
+process rejects request and run before preflight/dispatch; the six original records
+and timestamps are identical, repeated apply is idempotent, and all aggregate
+accounting is unchanged. There are 54 permanent closures and no unresolved identity.
+The idle post-operation allowance is €143.98636351741481238732629689, not an assumed
+future balance. Neither supplement was reapplied. See
+[the exact source/retention evidence](compact-taskplan-491d580e-amazon-retained-uncertainty.json).
+
+The [inventory through0881cf87](compact-taskplan-0881cf87-change-inventory.json)
+records production C#334 added/523 removed (net−189), tests1008 added/1877 removed
+(net−869, including fixtures/docs), and the exact retired symbols and exclusive
+files. These are interval counts. Later correctness fixes add code; preserved
+historical evidence makes the complete diff grow.
