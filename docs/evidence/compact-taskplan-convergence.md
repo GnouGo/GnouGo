@@ -2374,3 +2374,37 @@ no unresolved identity. The only parameter change is draft output 16,384 → 32,
 supported by the received request7 exhaustion; source, reasoning, inputs, model,
 permissions and oracles remain fixed. No reservation or supplement changes. This
 active arm does not include source90's projection correction.
+
+
+### Received Amazon output-only experiment and exact resumption choices
+
+The separately frozen `72c7724e` Amazon output-only experiment completed with
+31 logical requests, 33 physical attempts, no Judge, four charged reselections
+and no artifact or execution. It accepted URL-derivation and Browser-read planning
+nodes, but no observed product data. Two selections proposed plain results
+incompatible with the retained prerequisite; the last draft proposed a richer
+closed record than that exact prerequisite permits. Existing local-computation
+guidance was already visible before the earlier discovery reselections. No extra
+production guidance was added for that claim.
+
+The largest received output was 6,270 tokens: this trajectory did not use the
+increase from 16,384 to 32,768 draft-output tokens. Benefit is unproven. One HTTP 500
+at request 15 and one at request 27 each preceded a successful, journaled retry.
+Known cost was €2.4197431060810203898320308990; the full
+€2.0336117847839755681307823587 failed-attempt reservations remain unknown.
+Every logical request has a receipt; none requires uncertain replay or retention.
+See [the source-bound result](compact-taskplan-72c7724e-amazon-output32-stop.json).
+
+Correction `491d580e` filters plain resumption choices through the existing exact
+prerequisite compatibility check, retaining explicit field proposals and final
+scope, checkpoint, nullability, contract and provenance validation. Displayed
+checkpoint eligibility follows the emitted response domain. Three generic cases
+reproduced incompatible plain roots; 95 focused tests and all 2,297 Planning tests
+pass with warnings as errors. Its six-file diff adds 116 lines and removes 17
+(production 55 added/14 removed); this focused correction is not a deletion claim
+or demonstrated live call saving. No model setting or type rule changed.
+
+Separately, frozen `90e78f7b` completed the full solution: 7,159 passed, zero failed,
+12 retained skips across 33 assemblies, plus all ten package/AOT/published-storage
+stages. These results belong to that source, not the later resumption correction.
+See [the validation result](compact-taskplan-90e78f7b-full-validation.json).
