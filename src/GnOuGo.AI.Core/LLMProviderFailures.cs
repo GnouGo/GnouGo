@@ -17,6 +17,11 @@ public enum LLMProviderFailureKind
     Unknown
 }
 
+public enum LLMProviderFailureStage
+{
+    Authentication
+}
+
 /// <summary>
 /// Redacted, typed provider failure. Provider implementations and the routing client must not
 /// include response bodies, credentials, or prompts in this exception.
@@ -74,6 +79,8 @@ public sealed class LLMProviderException : Exception
     public bool RetryExhausted { get; }
 
     public int? RetryAfterMilliseconds { get; }
+
+    public LLMProviderFailureStage? Stage { get; internal set; }
 }
 
 internal sealed record LLMHttpFailureClassification(

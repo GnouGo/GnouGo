@@ -623,6 +623,41 @@ public sealed class BenchmarkCampaignTests
         await old.PrepareAsync(Ct);
         await Assert.ThrowsAsync<InvalidOperationException>(() => new BenchmarkHttpJournal(campaign, "planning:1:hash", 100, 20, .01m, sessionAttemptLimit: null).SaveAsync(new(), Ct));
     }
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task ProviderStageIsEvidenceOnlyAndCannotReleaseReservationsOrAuthorizeReplay(bool authentication, bool priorAttempt)
+    {
+        var campaign = new BenchmarkCampaign(new Records(), "provider-stage");
+        const string id = "one:1:hash";
+        var journal = new BenchmarkHttpJournal(campaign, id, 100, 20, 1m);
+        await journal.PrepareAsync(Ct);
+        JsonObject? accountingBeforeFailure = null;
+        var dispatches = 0;
+        var request = new LLMRequest { ClientRequestId = id };
+        await Assert.ThrowsAsync<LLMClientException>(() => campaign.CallAsync(request, _ => Task.CompletedTask, async ct =>
+        {
+            dispatches++;
+            if (priorAttempt) await journal.SaveAsync(new() { Attempts = [new() { Id = id + ":1" }] }, ct);
+            accountingBeforeFailure = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: ct);
+            throw new LLMClientException(LLMClientFailureKind.Transport, "redacted failure", retryable: true)
+            { Stage = authentication ? LLMClientFailureStage.Authentication : null };
+        }, Ct));
+
+        var failure = (await campaign.LoadAsync("planning-evaluation-failures", id, Ct))!;
+        Assert.Equal("dispatch", failure["stage"]!.ToString());
+        Assert.Equal(authentication ? "authentication" : null, failure["provider_stage"]?.ToString());
+        Assert.Equal("uncertain_dispatch", campaign.StopReason);
+        Assert.True(await campaign.HasUncertainRequestAsync(Ct));
+        Assert.Equal(priorAttempt ? 1 : 0, (await journal.LoadAsync(Ct))!.Attempts.Count);
+        Assert.True(JsonNode.DeepEquals(accountingBeforeFailure, await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct)));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.CallAsync(request, _ => Task.CompletedTask,
+            _ => { dispatches++; return Task.FromResult(new LLMResponse()); }, Ct));
+        Assert.Equal(1, dispatches);
+    }
+
     [Fact]
     public async Task FailedPreflightRetainsEvidenceWithoutInventingDispatch()
     {

@@ -207,6 +207,14 @@ schema, saved receipt and cumulative accounting; it never rebuilds a pending
 request from newer context. A successful saved HTTP response may be parsed without
 another dispatch. A reservation with no durable outcome stops.
 
+Failures inside OIDC authentication resolution retain `provider_stage: authentication`
+through the provider-neutral client adapter, runtime diagnostics and campaign failure
+record. This optional field supplements the existing `stage` and failure kind; it
+does not establish the number of physical generation attempts, erase prior attempts,
+authorize replay or permanent retention, or release reservations. Use the retained
+HTTP journal and existing exact recovery/authorization checks independently. Older
+failures without this field remain unattributed; do not infer their stage retroactively.
+
 `recover-receipt` validates exact run, revision, request identity, receipt and
 interrupted elapsed time. Its inspection mode does not mutate; `--apply` publishes
 only the validated active-format recovery. It cannot continue retired sessions.

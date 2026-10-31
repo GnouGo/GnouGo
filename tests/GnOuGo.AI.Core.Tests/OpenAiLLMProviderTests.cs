@@ -7,6 +7,83 @@ namespace GnOuGo.AI.Core.Tests;
 
 public sealed class OpenAiLlmProviderTests
 {
+    [Theory]
+    [InlineData("discovery")]
+    [InlineData("token")]
+    [InlineData("generation")]
+    public async Task JournaledOidcFailurePreservesAuthenticationStageWithoutGenerationRetry(string failingStage)
+    {
+        var authenticationCalls = 0;
+        var generationCalls = 0;
+        var journal = new RoutingJournal();
+        using var http = new HttpClient(new StubHttpMessageHandler(request =>
+        {
+            var stage = request.Method == HttpMethod.Get ? "discovery"
+                : request.RequestUri!.AbsolutePath == "/token" ? "token" : "generation";
+            if (stage == "generation") generationCalls++;
+            else authenticationCalls++;
+            if (stage == failingStage)
+                throw new HttpRequestException("private-token-and-prompt", null,
+                    stage == "token" ? HttpStatusCode.Unauthorized : null);
+            return Task.FromResult(JsonResponse(stage == "discovery"
+                ? "{\"token_endpoint\":\"https://issuer.example/token\"}"
+                : "{\"access_token\":\"valid-token\",\"expires_in\":3600}"));
+        }));
+        var provider = new ModelProviderOptions
+        {
+            Type = "openai", Url = "https://gateway.example/v1", Issuer = "https://issuer.example",
+            ClientId = "client", Scopes = "models.read", ClientSecret = "secret"
+        };
+        var client = new RoutingLLMClient(http, new()
+        {
+            DefaultProvider = "configured", DefaultModel = "model", Models = new() { ["configured"] = provider }
+        });
+        using var scope = new LLMHttpRetryContext("request", journal,
+            new() { MaxAttempts = 3, MaxUncertainRetries = 0 }).Activate();
+        var failure = await Assert.ThrowsAsync<LLMProviderException>(() => client.CallAsync(
+            new() { Prompt = "bounded", MaxOutputTokens = 8192 }, TestContext.Current.CancellationToken));
+        Assert.Equal<LLMProviderFailureStage?>(failingStage == "generation" ? null : LLMProviderFailureStage.Authentication, failure.Stage);
+        Assert.Equal(failingStage == "token" ? LLMProviderFailureKind.Authentication : LLMProviderFailureKind.Transport, failure.Kind);
+        Assert.Equal(failingStage != "token", failure.Retryable);
+        Assert.Equal(failingStage == "discovery" ? 1 : 2, authenticationCalls);
+        Assert.Equal(failingStage == "generation" ? 1 : 0, generationCalls);
+        Assert.Equal(generationCalls, journal.State?.Attempts.Count ?? 0);
+        Assert.DoesNotContain("private-token-and-prompt", failure.ToString());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task JournaledOidcCancellationRemainsCancellationWithoutGeneration(bool duringTokenRequest)
+    {
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var authenticationCalls = 0;
+        var journal = new RoutingJournal();
+        using var http = new HttpClient(new StubHttpMessageHandler(request =>
+        {
+            authenticationCalls++;
+            if (request.Method == HttpMethod.Get && duringTokenRequest)
+                return Task.FromResult(JsonResponse("{\"token_endpoint\":\"https://issuer.example/token\"}"));
+            cancellation.Cancel();
+            return Task.FromCanceled<HttpResponseMessage>(cancellation.Token);
+        }));
+        var client = new RoutingLLMClient(http, new()
+        {
+            DefaultProvider = "configured", DefaultModel = "model",
+            Models = { ["configured"] = new ModelProviderOptions
+            {
+                Type = "openai", Url = "https://gateway.example/v1", Issuer = "https://issuer.example",
+                ClientId = "client", Scopes = "models.read", ClientSecret = "secret"
+            } }
+        });
+        using var scope = new LLMHttpRetryContext("request", journal,
+            new() { MaxAttempts = 3, MaxUncertainRetries = 0 }).Activate();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => client.CallAsync(
+            new() { Prompt = "bounded", MaxOutputTokens = 8192 }, cancellation.Token));
+        Assert.Equal(duringTokenRequest ? 2 : 1, authenticationCalls);
+        Assert.Equal(0, journal.State?.Attempts.Count ?? 0);
+    }
+
     [Fact]
     public async Task JournaledCallsReuseValidOidcTokenAcrossCapturedPolicyCopies()
     {

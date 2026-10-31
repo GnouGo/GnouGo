@@ -55,6 +55,23 @@ public sealed class LlmFailureClassifierTests
     }
 
     [Theory]
+    [InlineData(null)]
+    [InlineData(LLMClientFailureStage.Authentication)]
+    public void Classify_ProviderStageDoesNotChangeDisposition(LLMClientFailureStage? stage)
+    {
+        var classified = LlmFailureClassifier.Classify(new LLMClientException(
+            LLMClientFailureKind.Transport, "redacted failure", retryable: true) { Stage = stage });
+
+        Assert.NotNull(classified);
+        Assert.Equal(ErrorCodes.LlmNetwork, classified.Code);
+        Assert.True(classified.Retryable);
+        Assert.Equal("llm_call", classified.Details!["stage"]!.ToString());
+        Assert.Equal(stage is null ? null : "authentication", classified.Details["provider_stage"]?.ToString());
+        Assert.Equal("transport", classified.Details["classification"]!.ToString());
+        Assert.Equal(1, classified.Details["attempt_count"]!.GetValue<int>());
+    }
+
+    [Theory]
     [InlineData(LLMClientFailureKind.Transport, true, "LLM_NETWORK")]
     [InlineData(LLMClientFailureKind.Timeout, true, "LLM_TIMEOUT")]
     [InlineData(LLMClientFailureKind.RateLimited, true, "LLM_NETWORK")]

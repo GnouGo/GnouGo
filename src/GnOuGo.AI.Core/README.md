@@ -35,6 +35,7 @@ stop capability proof, while the editor's suggestion-oriented resolution remains
 - GnOuGo does not run extra chat-completions probes during model listing.
 - OIDC client-credentials authentication is supported for both inference calls and model discovery.
 - Valid OIDC tokens are reused across calls and captured retry-policy copies for the same issuer, client, scopes and credentials within one `HttpClient` lifetime. The existing token provider owns expiry and serialized refresh; changed credentials or another HTTP client use a separate cache. Authentication requests never become journaled generation attempts, and caching does not retry an uncertain generation or suppress an initial authentication failure.
+- Failures inside OIDC resolution retain the optional typed `LLMProviderException.Stage = LLMProviderFailureStage.Authentication` marker through normalization. Failure kind, HTTP status and retry disposition remain separate; caller cancellation remains cancellation. An absent marker means the stage is unknown, not that generation occurred. The marker contains no issuer, credentials, response body or prompt.
 - The embedded metadata catalog adds pricing, token limits and request capabilities when known.
 - User metadata files and inline overrides can add new models or override builtin values without recompilation.
 - Unknown model ids use deterministic, provider-aware fuzzy matching to inherit the closest same-provider limits, pricing and capabilities. Cross-provider fallback is never used.
