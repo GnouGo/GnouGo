@@ -6,11 +6,80 @@ The active implementation replaces the former review protocol. Generation remain
 
 The current delivery gate is **two consecutive intervention-free executions per scenario on one final production source and stable identified profiles**, including both Collections runtime variants. Automatic local corrections are allowed; planning-operator interventions do not qualify. The earlier Collections indicators (fewer than 26 logical calls, at most four Judges and 13,197 complete Judge-request bytes) remain efficiency measurements, not delivery gates. The eighteen-comparison gate is retired. The dated sections below retain their actual historical sources, outcomes and gates; they are not current requirements.
 
-Latest validated and live production source is **`bd4169c8fdc81a61d5620015c5435ed1091915a3`**: **7,602 full-solution passes, zero failures and thirteen declared skips across 33 assemblies**, plus **eleven passing publication stages**. The generic authentication-cache correction also passes its **264 AI tests and 8 Auth tests**; these focused counts overlap the solution result. The authorized unstarted request from `bizbd4169c8amz01-amazon-1` was permanently closed at **10:26 UTC**, preserving all originals and reservations. Fresh source-matched run `bizbd4169c8amz02-amazon-1` stopped before its first physical generation attempt with a status-less `Transport` failure. It added no usage, cost or reservation; its distinct request remains unresolved and has no separate closure authorization. Normal execution permission worked; the exact pre-generation network operation remains unestablished. Live cache benefit remains unverified and final-source qualification is **0/6**.
+Latest technically validated production source is **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`**: [**7,614 full-solution passes, zero failures and thirteen declared skips across 33 assemblies**](business-selection-1d6632c5-solution-validation.json), plus [**eleven passing publication stages**](business-selection-1d6632c5-publication-validation.json), with zero compiler/publication diagnostics. It preserves redacted authentication-stage provenance without changing retry, accounting, retention or replay authority. These results establish technical validation, not live qualification.
+
+Last live production source remains **`bd4169c8fdc81a61d5620015c5435ed1091915a3`**. The authorized unstarted request from `bizbd4169c8amz01-amazon-1` was permanently closed at **10:26 UTC**, preserving all originals and reservations. Fresh source-matched run `bizbd4169c8amz02-amazon-1` stopped before its first physical generation attempt with a status-less `Transport` failure. It added no usage, cost or reservation; its distinct request remains unresolved and has no separate closure authorization. Normal execution permission worked; the exact pre-generation network operation remains unestablished. Live cache/provenance benefit remains unverified and final-source qualification is **0/6**.
 
 The preceding `ebf01483` source retains its [2,618-case Planning result](business-selection-ebf01483-planning-validation.json), [fresh-initialization regression](business-selection-fresh-initialization-validation.json), [eleven-stage publication result](business-selection-ebf01483-publication-validation.json) and recovered **7,579-pass, thirteen-skip** solution result. Earlier [owning suites](business-selection-1884a658-owning-validation.json) and [54 actual host/UI cases](business-selection-1884a658-host-ui-validation.json) retain their precise source boundaries. Focused counts overlap and are not added; failed captures remain preserved.
 
 The prior `a23cbbb2` baseline remains source-specific evidence: [2,425 Planning cases](business-block-a23cbbb2-continuation-review-validation.json), [7,327 full-solution passes with thirteen declared skips](business-block-a23cbbb2-solution-validation.json), and [publication checks](business-block-a23cbbb2-publication-validation.json). Those technical results did not establish live business convergence.
+
+### 31 October 2026: authentication-stage provenance
+
+Source **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`** adds optional typed
+authentication-stage evidence at the existing OIDC resolver boundary. The
+provider classifier preserves the marker, the independent Flow adapter maps it,
+and runtime/campaign failures retain `provider_stage: authentication`. Raw
+authentication exceptions, credentials, response bodies and prompts are not
+retained in this redacted contract. Caller cancellation remains cancellation.
+
+Failure kind, retry disposition, existing campaign `stage`, physical journal,
+accounting, retention and replay guards are unchanged. The marker is evidence,
+not recovery authority; it cannot erase a prior generation attempt or release
+its reservation. A missing marker remains unknown, including historical
+failures. This correction does not identify the precise cause of the earlier
+live transport failures or establish configured-provider health.
+
+Focused warnings-as-errors regressions pass for discovery/token failures versus
+unknown generation outcomes, cancellation, redacted adapter mapping, runtime
+classification, and campaign reservation preservation/replay rejection. The
+[exact-commit solution result](business-selection-1d6632c5-solution-validation.json)
+records **7,614 passed, zero failed and thirteen declared skips across 33 distinct
+assemblies**, with zero compiler diagnostics and unchanged source before/after.
+The run completed at **2026-10-31 11:58:16 UTC**; focused counts overlap this total.
+The separate [publication result](business-selection-1d6632c5-publication-validation.json)
+completed at **12:08:31 UTC**: all **eleven stages passed**, zero warnings/errors,
+five independently packed Flow components, actual osx-arm64 native Planning
+execution, and published encrypted-storage/exact-receipt-recovery smoke.
+Both captures retain the unchanged exact source. Existing frontend/bundled-tool
+staging exclusions, Jint smoke exceptions and Server partial-trim limitations
+remain; no full Server Native AOT, CI, deployment or live business pass is claimed.
+Earlier `bd4169c8` validation is not attributed to this new production source.
+
+The first publication capture failed at `server-trimmed-publish` with `MSB3923`:
+GitHub timed out downloading the pinned Copilot CLI **1.0.88 / darwin-arm64**
+archive. Its nine earlier stages passed; the storage smoke was not reached.
+That failed capture is preserved, not reclassified. Its manifest SHA-256 is
+`37474459ddad0dd20cd960bdf101f2f8ddeda0dc8cff1f733f4b0d2847366eb0`;
+the failed-stage log SHA-256 is
+`8e8f9c4c7dde4315d725e1e154478287d7da0b024e3d478f493ec8d1bf62aafd`.
+After the exact public archive URL answered HTTP 200, one unchanged canonical
+runner retry produced the successful separate capture. No dependency version,
+checksum enforcement, source, SDK target or download-skip setting changed.
+
+The latest exact-request question received no selected authorization option;
+the response stated that the user was unavailable and requested autonomous work.
+That response was not recorded as permanent-retention consent. The distinct
+`bizbd4169c8amz02-amazon-1` request remains unresolved. This offline correction
+issued no paid request and changed no campaign record, reservation or approval.
+
+Fresh public read-only inspection at **2026-10-31 12:00:56 UTC** reconfirmed the
+same exact request, `unstarted-planning-request` / `no_reserved_physical_attempt`,
+and inspection hash
+`cbae712512f43345bf142c35c176fad1dd304f1f8c099916c9fb6646b03e5047`.
+No matching permanent-retention authorization was present. Accounting snapshot
+`e66a2e9a8ff23229d44be9295725bbacbeb0f0c851af382be91e447a6c328e29`
+and all financial totals match the **10:34:15 UTC** snapshot below: **6,849
+physical calls, 148 historical unknown attempts, 60 closures and one unresolved
+request**. No campaign driver or lease holder was active.
+
+The next live action requires recovery of that distinct request through existing
+rules and its own authority, plus normally permitted configured diagnostics and
+fresh financial admission. The unavailable-user response is not a closure grant;
+neither an exception's retry flag nor this technical validation authorizes replay.
+Any subsequent live attempt must bind the final source, matching harness and
+original stable profile before artifact-bound approval, execution and independent
+oracles. Final-source qualification remains **0/6**; the PR remains Draft.
 
 ### 31 October 2026: authorized fresh-source closure and independent transport recheck
 
