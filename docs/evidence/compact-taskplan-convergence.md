@@ -6,11 +6,61 @@ The active implementation replaces the former review protocol. Generation remain
 
 The current delivery gate is **two consecutive intervention-free executions per scenario on one final production source and stable identified profiles**, including both Collections runtime variants. Automatic local corrections are allowed; planning-operator interventions do not qualify. The earlier Collections indicators (fewer than 26 logical calls, at most four Judges and 13,197 complete Judge-request bytes) remain efficiency measurements, not delivery gates. The eighteen-comparison gate is retired. The dated sections below retain their actual historical sources, outcomes and gates; they are not current requirements.
 
-Last live production source is **`7c92fb38835b5a8d9bd2c9a3a81b3f4a6964cb71`**. Its completed solution, publication and stopped Amazon diagnostic are recorded below; none establishes a successful business execution. The subsequent business-completion selection correction passes all **2,632 Planning tests** with warnings as errors and no skips. Broader validation and live benefit of that correction remain pending. Final-source qualification is **0/6**.
+Last live production source is **`b043e027cfab1f456f03f219ede28587522c399c`**. Its **2,632 Planning tests**, **7,593 full-solution passes with thirteen declared skips**, and **eleven publication stages** pass with warnings as errors. A fresh Amazon diagnostic stopped on its first unverifiable transport attempt, before any completion-route decision or business review. That uncertain request remains unresolved with its reservation retained; no replay or permanent closure is authorized by the general test permission. Live benefit remains unverified and final-source qualification is **0/6**.
 
 The preceding `ebf01483` source retains its [2,618-case Planning result](business-selection-ebf01483-planning-validation.json), [fresh-initialization regression](business-selection-fresh-initialization-validation.json), [eleven-stage publication result](business-selection-ebf01483-publication-validation.json) and recovered **7,579-pass, thirteen-skip** solution result. Earlier [owning suites](business-selection-1884a658-owning-validation.json) and [54 actual host/UI cases](business-selection-1884a658-host-ui-validation.json) retain their precise source boundaries. Focused counts overlap and are not added; failed captures remain preserved.
 
 The prior `a23cbbb2` baseline remains source-specific evidence: [2,425 Planning cases](business-block-a23cbbb2-continuation-review-validation.json), [7,327 full-solution passes with thirteen declared skips](business-block-a23cbbb2-solution-validation.json), and [publication checks](business-block-a23cbbb2-publication-validation.json). Those technical results did not establish live business convergence.
+
+### 31 October 2026: frozen completion source and transport blocker
+
+Source **`b043e027cfab1f456f03f219ede28587522c399c`** was committed and pushed
+after the generic completion-selection correction. Its warning-free benchmark build
+completed in 20.6 seconds. The first isolated publication capture passed package and
+native Planning stages but failed Server publication when GitHub timed out downloading
+the pinned Copilot CLI checksum file (`MSB3923`). That failed capture is preserved.
+An identical, unchanged-source retry passed **all eleven publication stages**, with
+zero warnings or errors, including the actual native executable and published
+encrypted-storage/receipt-recovery smoke. The documented frontend/bundled-tool and
+existing trimming limitations remain unchanged.
+
+The subsequent full solution completed in 4,326.4 seconds: **7,593 passed, zero failed,
+thirteen skipped, 7,606 total**. All **33 unique assemblies** were verified from their
+TRX results with no duplicate result set. The thirteen skips remain seven native
+Windows-shell cases, one missing Playwright module and five explicit live opt-ins.
+The dedicated **2,632-case Planning suite** also passes without skips. These technical
+results belong to `b043e027`, not this later evidence-only update.
+
+Fresh read-only admission at **2026-10-30 23:57:05 UTC** passed against an unchanged
+ledger, with zero unresolved identities and **EUR 218.65312898943493275021141313**
+available. Provider `OpenAi`, model `gpt-5.5-2026-04-24`, original phase allocations
+and captured profile `5452b870c2561bcde1b6aa483b7b44edb2ea230851221e8fa8eb096f897113a6`
+remained unchanged. The benchmark informational version contains the exact source;
+its DLL SHA-256 is `c607ee756ebe9f9069d6a47b467ced06fe74605b32eb9c11505c09bd9d3b4842`.
+
+Amazon **`bizb043e027amz01-amazon-1`** then stopped at revision one with
+`MODEL_DISPATCH_UNVERIFIABLE` during `construction_intent`, after **one logical request,
+one physical attempt, zero completion receipts and zero corrections**, in 335,695 ms.
+The retained failure is `Transport` / `LLMClientException`, with no HTTP status or
+provider error code. Its retryable classification does not establish a confirmed
+failure or authorize uncertain replay. No accepted contribution, completion-route
+decision, Judge, artifact, workflow approval, execution or oracle exists.
+
+Known cost for that attempt is unverified, not measured zero. Its conservative
+reservation is exactly **EUR 0.9368903260576663971975208839**, covering 12,000 input
+and 32,768 output tokens. The exact unresolved request identity is
+`bizb043e027amz01-amazon-1:1:74de85db8700d56388c88683c8a9932a6b85ce3ee13a2f76b1c211cdf91ad428`.
+It has not been replayed or permanently closed. Further paid work is blocked pending
+an exact retained receipt or separately explicit permanent no-replay closure authority;
+general live-test authorization does not supply that authority.
+
+Post-run accounting retains **6,843 physical calls**, unchanged known spending
+**EUR 395.68990853374564480256947657**, reservations
+**EUR 126.62395663558339338686157849**, and available exposure
+**EUR 217.71623866337726635301389224**. Historical unknown attempts now total 148;
+the prior fifty-seven permanent closures remain unchanged, with exactly one newly
+unresolved identity. No budget supplement, reservation release, execution approval
+or business success is claimed. PR #120 remains Draft; qualification remains **0/6**.
 
 ### 30 October 2026: reviewed contribution lacked a business completion action
 
