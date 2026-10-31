@@ -6,11 +6,45 @@ The active implementation replaces the former review protocol. Generation remain
 
 The current delivery gate is **two consecutive intervention-free executions per scenario on one final production source and stable identified profiles**, including both Collections runtime variants. Automatic local corrections are allowed; planning-operator interventions do not qualify. The earlier Collections indicators (fewer than 26 logical calls, at most four Judges and 13,197 complete Judge-request bytes) remain efficiency measurements, not delivery gates. The eighteen-comparison gate is retired. The dated sections below retain their actual historical sources, outcomes and gates; they are not current requirements.
 
-Last live production source is **`b043e027cfab1f456f03f219ede28587522c399c`**. Its **2,632 Planning tests**, **7,593 full-solution passes with thirteen declared skips**, and **eleven publication stages** pass with warnings as errors. The first Amazon request is permanently retained with its reservation unchanged and replay forbidden. The second run's unstarted HTTP 502 draft request now has separate exact user authorization, but the environment blocked closure before execution. A generic authentication-cache correction passes **264 AI tests and 8 Auth tests**; its broader validation and live benefit remain pending. No new paid dispatch, completion-route decision or business review occurred. Final-source qualification remains **0/6**.
+Latest validated production source is **`bd4169c8fdc81a61d5620015c5435ed1091915a3`**: **7,602 full-solution passes, zero failures and thirteen declared skips across 33 assemblies**, plus **eleven passing publication stages**. The generic authentication-cache correction also passes its **264 AI tests and 8 Auth tests**; these focused counts overlap the solution result. Last live production source remains **`b043e027cfab1f456f03f219ede28587522c399c`**. The second Amazon run's unstarted HTTP 502 draft request has exact user authorization, but the environment blocked closure before execution. That execution-permission blocker remains; no new paid dispatch, completion-route decision or business review occurred. Live benefit remains unverified and final-source qualification is **0/6**.
 
 The preceding `ebf01483` source retains its [2,618-case Planning result](business-selection-ebf01483-planning-validation.json), [fresh-initialization regression](business-selection-fresh-initialization-validation.json), [eleven-stage publication result](business-selection-ebf01483-publication-validation.json) and recovered **7,579-pass, thirteen-skip** solution result. Earlier [owning suites](business-selection-1884a658-owning-validation.json) and [54 actual host/UI cases](business-selection-1884a658-host-ui-validation.json) retain their precise source boundaries. Focused counts overlap and are not added; failed captures remain preserved.
 
 The prior `a23cbbb2` baseline remains source-specific evidence: [2,425 Planning cases](business-block-a23cbbb2-continuation-review-validation.json), [7,327 full-solution passes with thirteen declared skips](business-block-a23cbbb2-solution-validation.json), and [publication checks](business-block-a23cbbb2-publication-validation.json). Those technical results did not establish live business convergence.
+
+### 31 October 2026: authentication fix validation completed
+
+Source **`bd4169c8fdc81a61d5620015c5435ed1091915a3`** is committed and pushed.
+Its benchmark build passed with warnings as errors. All **eleven exact-source
+publication stages** passed with zero warnings or errors, including the five
+independent packages, actual osx-arm64 native Planning execution and published
+encrypted-storage/receipt-recovery smoke. Existing frontend/bundled-tool staging
+exclusions, narrow Jint smoke exceptions and Server partial-trim limitations remain;
+this does not establish full Server Native AOT support.
+
+The full-solution terminal handle subsequently expired, but its durable TRX results
+cover **33 distinct assemblies with no duplicates: 7,602 passed, zero failed,
+thirteen skipped, 7,615 total**. The first suite started at **07:57:00 UTC** and
+the last finished at **09:09:29 UTC**, about 72 minutes later. At the **09:39 UTC**
+status check, no test or planning process remained; the command was no longer
+running or waiting for input. These counts were recovered from structured TRX
+records, not inferred from expected test additions or a stale terminal handle.
+The thirteen skips remain seven native Windows-shell cases, one missing Playwright
+module and five explicit live opt-ins. The earlier owning-suite results overlap
+this total. This evidence-only update is not a new tested production source.
+
+Fresh public campaign inspection still shows exactly the authorized, unstarted
+second-run draft request unresolved. Known spending remains
+**EUR 396.03699826697119047758968677**, reservations
+**EUR 126.62395663558339338686157849**, and available exposure
+**EUR 217.36914893015172067799368204**. Physical calls remain **6,849**, historical
+unknown attempts **148**, and permanent closures **58**. No financial or operational
+record was changed by recovering the validation result. The denied retention write
+was not retried or bypassed. User authorization already exists; manual application
+of that exact existing operator, or permission from the environment, is required
+before fresh paid work resumes. No new permission question, request replay,
+artifact approval or execution is implied. PR #120 remains Draft; qualification
+remains **0/6** and the authentication fix's live effect remains unverified.
 
 ### 31 October 2026: reproduced authentication-cache lifetime defect
 
