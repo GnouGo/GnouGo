@@ -6,11 +6,51 @@ The active implementation replaces the former review protocol. Generation remain
 
 The current delivery gate is **two consecutive intervention-free executions per scenario on one final production source and stable identified profiles**, including both Collections runtime variants. Automatic local corrections are allowed; planning-operator interventions do not qualify. The earlier Collections indicators (fewer than 26 logical calls, at most four Judges and 13,197 complete Judge-request bytes) remain efficiency measurements, not delivery gates. The eighteen-comparison gate is retired. The dated sections below retain their actual historical sources, outcomes and gates; they are not current requirements.
 
-Last live production source is **`b043e027cfab1f456f03f219ede28587522c399c`**. Its **2,632 Planning tests**, **7,593 full-solution passes with thirteen declared skips**, and **eleven publication stages** pass with warnings as errors. The first Amazon request is now permanently retained under separate exact user authorization, with its reservation unchanged and replay forbidden. A second fresh run completed six physical calls before an unstarted draft request failed with HTTP 502; that new request remains unresolved and has no separate closure authorization. No completion-route decision or business review was reached. Live benefit remains unverified and final-source qualification is **0/6**.
+Last live production source is **`b043e027cfab1f456f03f219ede28587522c399c`**. Its **2,632 Planning tests**, **7,593 full-solution passes with thirteen declared skips**, and **eleven publication stages** pass with warnings as errors. The first Amazon request is permanently retained with its reservation unchanged and replay forbidden. The second run's unstarted HTTP 502 draft request now has separate exact user authorization, but the environment blocked closure before execution. A generic authentication-cache correction passes **264 AI tests and 8 Auth tests**; its broader validation and live benefit remain pending. No new paid dispatch, completion-route decision or business review occurred. Final-source qualification remains **0/6**.
 
 The preceding `ebf01483` source retains its [2,618-case Planning result](business-selection-ebf01483-planning-validation.json), [fresh-initialization regression](business-selection-fresh-initialization-validation.json), [eleven-stage publication result](business-selection-ebf01483-publication-validation.json) and recovered **7,579-pass, thirteen-skip** solution result. Earlier [owning suites](business-selection-1884a658-owning-validation.json) and [54 actual host/UI cases](business-selection-1884a658-host-ui-validation.json) retain their precise source boundaries. Focused counts overlap and are not added; failed captures remain preserved.
 
 The prior `a23cbbb2` baseline remains source-specific evidence: [2,425 Planning cases](business-block-a23cbbb2-continuation-review-validation.json), [7,327 full-solution passes with thirteen declared skips](business-block-a23cbbb2-solution-validation.json), and [publication checks](business-block-a23cbbb2-publication-validation.json). Those technical results did not establish live business convergence.
+
+### 31 October 2026: reproduced authentication-cache lifetime defect
+
+The user explicitly authorized retention of the exact unstarted second-run request
+and asked to find the problem, fix it and continue. Fresh read-only inspection still
+matches `unstarted-planning-request`, revision seven and evidence hash
+`a5d6914ed5a810025e78afefdcbacfc6e627a4352bae06ef1bc9b1cf5901d61d`.
+The environment refused the irreversible `--apply` command before executing it.
+That restriction was not bypassed: no closure or provider dispatch occurred, and
+the previously reported reservation and unresolved-request state remain retained.
+This is now an execution-permission blocker, not missing user authorization.
+
+The controlling code resolves an OIDC bearer token before entering the journaled
+generation send. `ProviderAuthenticationResolver` constructed a new
+`OidcJwtApiKeyProvider` on every call, discarding the token cache that already exists
+inside that provider. Captured routing policies also copy provider options, so an
+options-object-identity cache would not reliably fix this path. Redundant discovery
+can therefore fail with an HTTP status before any generation attempt is reserved.
+The retained 502 is consistent with that boundary; the original issued token's
+lifetime was not retained, so this does not prove that the stopped live request
+would have reused a still-valid token or that the remote outage has ended.
+
+A local deterministic regression makes only the first discovery request succeed,
+then performs two journaled model calls with captured policy copies. It failed on
+the second call before the correction, and passes after preserving the existing
+token provider for each exact immutable authentication configuration within its
+owning `HttpClient` lifetime. The client association is weak; issuer, client ID,
+scopes, client secret and private key distinguish cache entries. Existing token
+expiry checks and serialized refresh remain in the Auth component. Neither
+authentication traffic nor failed acquisitions are generation receipts or usage.
+
+The **264-case AI suite** and **8-case Auth suite** pass with warnings as errors,
+zero failures and no skips. The overlapping ten-case OIDC-focused AI slice covers
+the original regression, credential and HTTP-client isolation, concurrent token
+acquisition and unchanged rejection of unknown generation replay. The existing
+Auth tests retain expiry, refresh, private-key signing and secret-safe failure
+coverage. The original failing TRX capture is preserved. No model, profile,
+retry allocation, budget ceiling, planning format, approval or scenario-specific
+production behavior changed. Full-solution, publication and live results for this
+new correction are not yet established; earlier results remain source-bound.
 
 ### 31 October 2026: authorized closure and unstarted draft request
 

@@ -1,4 +1,5 @@
 ﻿using System.Net;
+using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 
@@ -6,6 +7,171 @@ namespace GnOuGo.AI.Core.Tests;
 
 public sealed class OpenAiLlmProviderTests
 {
+    [Fact]
+    public async Task JournaledCallsReuseValidOidcTokenAcrossCapturedPolicyCopies()
+    {
+        var discoveryCalls = 0;
+        var tokenCalls = 0;
+        var generationCalls = 0;
+        using var http = new HttpClient(new StubHttpMessageHandler(request =>
+        {
+            if (request.Method == HttpMethod.Get)
+            {
+                discoveryCalls++;
+                return Task.FromResult(discoveryCalls == 1
+                    ? JsonResponse("{\"token_endpoint\":\"https://issuer.example/token\"}")
+                    : new HttpResponseMessage(HttpStatusCode.BadGateway));
+            }
+            if (request.RequestUri!.AbsolutePath == "/token")
+            {
+                tokenCalls++;
+                return Task.FromResult(JsonResponse("{\"access_token\":\"valid-token\",\"expires_in\":3600}"));
+            }
+            generationCalls++;
+            Assert.Equal("valid-token", request.Headers.Authorization?.Parameter);
+            return Task.FromResult(JsonResponse("{\"choices\":[{\"message\":{\"content\":\"ok\"}}]}"));
+        }));
+        var provider = new ModelProviderOptions
+        {
+            Type = "openai", Url = "https://gateway.example/v1", Issuer = "https://issuer.example",
+            ClientId = "client", Scopes = "models.read", ClientSecret = "secret"
+        };
+        var client = new RoutingLLMClient(http, new()
+        {
+            DefaultProvider = "configured", DefaultModel = "model", Models = new() { ["configured"] = provider }
+        });
+        for (var callIndex = 0; callIndex < 2; callIndex++)
+        {
+            var journal = new RoutingJournal();
+            using var scope = new LLMHttpRetryContext("request-" + callIndex, journal,
+                new() { MaxAttempts = 3, MaxUncertainRetries = 0 }).Activate();
+            var response = await client.CallAsync(new() { Prompt = "bounded", MaxOutputTokens = 8192 },
+                TestContext.Current.CancellationToken);
+            Assert.Equal("ok", response.Text);
+            Assert.Single(journal.State!.Attempts);
+        }
+        Assert.Equal(1, discoveryCalls);
+        Assert.Equal(1, tokenCalls);
+        Assert.Equal(2, generationCalls);
+    }
+
+    [Theory]
+    [InlineData("issuer")]
+    [InlineData("client")]
+    [InlineData("scopes")]
+    [InlineData("secret")]
+    [InlineData("private-key")]
+    [InlineData("http-client")]
+    public async Task OidcTokenCacheSeparatesCredentialsAndHttpClients(string variation)
+    {
+        using var firstKey = variation == "private-key" ? RSA.Create(2048) : null;
+        using var secondKey = variation == "private-key" ? RSA.Create(2048) : null;
+        var discoveryCalls = 0;
+        var tokenCalls = 0;
+        var bearerTokens = new List<string?>();
+        Task<HttpResponseMessage> Send(HttpRequestMessage request)
+        {
+            if (request.Method == HttpMethod.Get)
+            {
+                discoveryCalls++;
+                return Task.FromResult(JsonResponse("{\"token_endpoint\":\"https://issuer.example/token\"}"));
+            }
+            if (request.RequestUri!.AbsolutePath == "/token")
+                return Task.FromResult(JsonResponse($"{{\"access_token\":\"token-{++tokenCalls}\",\"expires_in\":3600}}"));
+            bearerTokens.Add(request.Headers.Authorization?.Parameter);
+            return Task.FromResult(JsonResponse("{\"choices\":[{\"message\":{\"content\":\"ok\"}}]}"));
+        }
+        using var http = new HttpClient(new StubHttpMessageHandler(Send));
+        using var otherHttp = new HttpClient(new StubHttpMessageHandler(Send));
+        var first = new ModelProviderOptions
+        {
+            Type = "openai", Url = "https://gateway.example/v1", Issuer = "https://issuer.example",
+            ClientId = "client", Scopes = "models.read", ClientSecret = firstKey is null ? "secret" : null,
+            PrivateKeyPem = firstKey?.ExportRSAPrivateKeyPem()
+        };
+        var second = new ModelProviderOptions
+        {
+            Type = first.Type, Url = first.Url, Issuer = variation == "issuer" ? "https://other.example" : first.Issuer,
+            ClientId = variation == "client" ? "other-client" : first.ClientId,
+            Scopes = variation == "scopes" ? "other.read" : first.Scopes,
+            ClientSecret = variation == "secret" ? "other-secret" : first.ClientSecret,
+            PrivateKeyPem = secondKey?.ExportRSAPrivateKeyPem()
+        };
+        var request = new LLMClientRequest { Prompt = "bounded", MaxOutputTokens = 8192 };
+        await new OpenAiLLMProvider(http).CallAsync("model", first, request, TestContext.Current.CancellationToken);
+        await new OpenAiLLMProvider(variation == "http-client" ? otherHttp : http)
+            .CallAsync("model", second, request, TestContext.Current.CancellationToken);
+        Assert.Equal(2, discoveryCalls);
+        Assert.Equal(2, tokenCalls);
+        Assert.Equal(new[] { "token-1", "token-2" }, bearerTokens);
+    }
+
+    [Fact]
+    public async Task ConcurrentOidcCallsShareOneTokenAcquisition()
+    {
+        var discoveryCalls = 0;
+        var tokenCalls = 0;
+        using var http = new HttpClient(new StubHttpMessageHandler(async request =>
+        {
+            if (request.Method == HttpMethod.Get)
+            {
+                Interlocked.Increment(ref discoveryCalls);
+                return JsonResponse("{\"token_endpoint\":\"https://issuer.example/token\"}");
+            }
+            if (request.RequestUri!.AbsolutePath == "/token")
+            {
+                Interlocked.Increment(ref tokenCalls);
+                await Task.Yield();
+                return JsonResponse("{\"access_token\":\"shared-token\",\"expires_in\":3600}");
+            }
+            Assert.Equal("shared-token", request.Headers.Authorization?.Parameter);
+            return JsonResponse("{\"choices\":[{\"message\":{\"content\":\"ok\"}}]}");
+        }));
+        var provider = new OpenAiLLMProvider(http);
+        var options = new ModelProviderOptions
+        {
+            Type = "openai", Url = "https://gateway.example/v1", Issuer = "https://issuer.example",
+            ClientId = "client", Scopes = "models.read", ClientSecret = "secret"
+        };
+        var responses = await Task.WhenAll(Enumerable.Range(0, 12).Select(callIndex => provider.CallAsync("model", options,
+            new() { Prompt = "bounded-" + callIndex, MaxOutputTokens = 8192 }, TestContext.Current.CancellationToken)));
+        Assert.All(responses, response => Assert.Equal("ok", response.Text));
+        Assert.Equal(1, discoveryCalls);
+        Assert.Equal(1, tokenCalls);
+    }
+
+    [Fact]
+    public async Task JournaledOidcDoesNotRetryAnUnknownGenerationOutcome()
+    {
+        var tokenCalls = 0;
+        var generationCalls = 0;
+        var journal = new RoutingJournal();
+        using var http = new HttpClient(new StubHttpMessageHandler(request =>
+        {
+            if (request.Method == HttpMethod.Get)
+                return Task.FromResult(JsonResponse("{\"token_endpoint\":\"https://issuer.example/token\"}"));
+            if (request.RequestUri!.AbsolutePath == "/token")
+            {
+                tokenCalls++;
+                return Task.FromResult(JsonResponse("{\"access_token\":\"valid-token\",\"expires_in\":3600}"));
+            }
+            generationCalls++;
+            throw new HttpRequestException("Unconfirmed generation outcome.");
+        }));
+        var options = new ModelProviderOptions
+        {
+            Type = "openai", Url = "https://gateway.example/v1", Issuer = "https://issuer.example",
+            ClientId = "client", Scopes = "models.read", ClientSecret = "secret"
+        };
+        using var scope = new LLMHttpRetryContext("request", journal,
+            new() { MaxAttempts = 3, MaxUncertainRetries = 0 }).Activate();
+        await Assert.ThrowsAsync<HttpRequestException>(() => new OpenAiLLMProvider(http).CallAsync("model", options,
+            new() { Prompt = "bounded", MaxOutputTokens = 8192 }, TestContext.Current.CancellationToken));
+        Assert.Equal(1, tokenCalls);
+        Assert.Equal(1, generationCalls);
+        Assert.Single(journal.State!.Attempts);
+    }
+
     [Theory]
     [InlineData(false, 3)][InlineData(true, 1)]
     public async Task CapturedHttpPolicyKeepsExplicitDisableAndProviderConfigurationImmutable(bool disabled, int expected)

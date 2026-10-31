@@ -34,6 +34,7 @@ stop capability proof, while the editor's suggestion-oriented resolution remains
 - OpenAI-compatible providers and Copilot/GitHub Models return the advertised catalog directly.
 - GnOuGo does not run extra chat-completions probes during model listing.
 - OIDC client-credentials authentication is supported for both inference calls and model discovery.
+- Valid OIDC tokens are reused across calls and captured retry-policy copies for the same issuer, client, scopes and credentials within one `HttpClient` lifetime. The existing token provider owns expiry and serialized refresh; changed credentials or another HTTP client use a separate cache. Authentication requests never become journaled generation attempts, and caching does not retry an uncertain generation or suppress an initial authentication failure.
 - The embedded metadata catalog adds pricing, token limits and request capabilities when known.
 - User metadata files and inline overrides can add new models or override builtin values without recompilation.
 - Unknown model ids use deterministic, provider-aware fuzzy matching to inherit the closest same-provider limits, pricing and capabilities. Cross-provider fallback is never used.
