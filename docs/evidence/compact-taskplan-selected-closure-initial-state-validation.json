@@ -1,0 +1,42 @@
+{
+  "control_source": "8ef372a02382b8378911babda2dff4b3bff22152",
+  "retained_failure_source": "0801e3d3107a73874232c6d2cdc26f1b71b5e399",
+  "prior_evidence_interpretation_correction": "The claim that the evidence note alone blocked the retained Amazon initial closure was incomplete. Its accepted TaskPlan was also null. The note-only fix was tested on an existing-plan fixture; the additional initial-state fixture reproduced the remaining guard before any candidate paid dispatch.",
+  "initial_plan_hash": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+  "initial_taskplan_is_null": true,
+  "two_independent_guards": [
+    "nonempty prerequisite evidence notes",
+    "null initial accepted TaskPlan"
+  ],
+  "solution": "Use ordinary PlanningConstruction.Apply on a clone to initialize validated input declarations and the already selected requirement claim; preserve all notes, missing-output, new-generation, repair, stale-state and pending-request guards.",
+  "regression": {
+    "name": "InitialRequirementClosureUsesDeclaredInputsWithoutGeneratingAnEmptyPlan",
+    "red_failures": 1,
+    "focused_warning_as_error_passes": 56,
+    "initial_draft_calls": 0,
+    "initial_judge_calls": 0,
+    "checkpoints": 1,
+    "executable_tasks_created": 0,
+    "declared_input": {
+      "name": "term",
+      "type": "number",
+      "required": true,
+      "default": null
+    },
+    "requirement_status": "in_progress",
+    "independent_requirement_status": "remaining",
+    "approval": false,
+    "recovery": "Cloned persisted candidate before acceptance; no duplicate dispatch or checkpoint."
+  },
+  "unused_freeze": {
+    "source": "7c7a8d3ece40fcd31acbf139fcb45721a60f4799",
+    "cohort": "compactm8ef372a0amz11a",
+    "paid_dispatch_marker_exists": false,
+    "model_calls": 0,
+    "abandoned_or_refunded_reservations": false
+  },
+  "new_persisted_state": false,
+  "new_protocol": false,
+  "changed_model_settings": false,
+  "live_benefit": "Requires a fresh source-bound diagnostic."
+}

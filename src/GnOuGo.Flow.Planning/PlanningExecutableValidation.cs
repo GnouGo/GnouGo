@@ -11,8 +11,11 @@ namespace GnOuGo.Flow.Planning;
 public static class PlanningExecutableValidation
 {
     public static IReadOnlyList<PlanningDiagnostic> Validate(PlanningGraph graph, PlanningCatalog catalog)
+        => Validate(graph, catalog, advisoryOptimization: false);
+
+    internal static IReadOnlyList<PlanningDiagnostic> Validate(PlanningGraph graph, PlanningCatalog catalog, bool advisoryOptimization)
     {
-        var errors = PlanningStructureValidation.Validate(graph, catalog).ToList();
+        var errors = PlanningStructureValidation.Validate(graph, catalog, advisoryOptimization).ToList();
         // Only broken identities or cycles prevent safe traversal. Report independent
         // contract errors together so one scope error does not consume an entire replan.
         if (errors.Any(d => d.Code is "WORKFLOW_IDENTITIES_INVALID" or "NODE_IDENTITIES_INVALID" or "PORT_IDENTITIES_INVALID" or "ENTRYPOINT_INVALID" or "DEPENDENCY_CYCLE")) return errors;
@@ -121,7 +124,7 @@ public static class PlanningExecutableValidation
                 "boolean" => value.Boolean is null,
                 "object" or "projection" or "dynamic_mapping" => value.Members.Select(m => m.Name).Distinct(StringComparer.Ordinal).Count() != value.Members.Count,
                 "null" or "array" or "input" or "output" or "workflow" or "present" or "expression" or "template" or
-                    "predicate" or "arithmetic" or "json" or "flatten" or "lookup" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or PlanningValues.Omitted => false,
+                    "predicate" or "arithmetic" or "string_operation" or "json" or "flatten" or "lookup" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or PlanningValues.Omitted => false,
                 _ => true
             };
             if (value.Kind is "projection" or "dynamic_mapping" && !adaptation) malformed = true;
@@ -234,7 +237,7 @@ public static class PlanningExecutableValidation
         "object" => new JsonObject(value.Members.Where(m => m.Value.Kind != PlanningValues.Omitted).Select(m => new KeyValuePair<string, JsonNode?>(m.Name, Preview(m.Value)))),
         "array" => new JsonArray(value.Items.Select(Preview).ToArray()),
         "workflow" => new JsonObject { ["kind"] = "local", ["name"] = value.Source },
-        "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "present" or "expression" or "template" or "predicate" or "arithmetic" or "json" or "flatten" or "lookup" => JsonValue.Create("${data.value}"),
+        "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "present" or "expression" or "template" or "predicate" or "arithmetic" or "string_operation" or "json" or "flatten" or "lookup" => JsonValue.Create("${data.value}"),
         _ => PlanningGraphValidation.Literal(value)
     };
 }

@@ -1,0 +1,597 @@
+{
+  "version": 1,
+  "source": "686c2964d2437cbe1ab6b27e8b6ae673824fc873",
+  "source_tree": "a8c4deee8affb57c20f618cbd010f1234086bfd5",
+  "source_identity": "fcbbe89c6ffa7c408fd35a4baec765ca0c3d586cd6e46ff26e49b4e6091cb660",
+  "source_files_verified": 4600,
+  "source_unchanged": true,
+  "full_solution": {
+    "fresh_execution": true,
+    "all_stages_passed": true,
+    "project_count": 33,
+    "total": 8381,
+    "passed": 8368,
+    "failed": 0,
+    "skipped": 13,
+    "elapsed_seconds": 5186.166,
+    "compiler_diagnostics": [],
+    "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror --logger console;verbosity=normal --logger trx --results-directory <isolated-results>",
+    "explicit_environment": {
+      "SkipModelMetadataGeneration": "true"
+    },
+    "command_boundary": "Display replaces only the isolated absolute results directory with a placeholder; exact argv is retained in the pinned execution manifest.",
+    "projects": [
+      {
+        "assembly": "gnougo.docingestor.tests.dll",
+        "total": 89,
+        "passed": 89,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "7e1a8fcf03e35971e21f41f9dec44f3e1c19ac62dd09bde3ee4d1085a5f4b8c6"
+      },
+      {
+        "assembly": "gnougo.diff.tests.dll",
+        "total": 52,
+        "passed": 52,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "4d2d07b1416f6b19dbe6cffb235d32abfc4a86092f9f1866b03df307c1baa555"
+      },
+      {
+        "assembly": "gnougo.keyvault.core.tests.dll",
+        "total": 12,
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "77d89990e36ade070c4cd104805dc34b5d3acf5a834d41f111cb48aedaa176d3"
+      },
+      {
+        "assembly": "gnougo.flow.tests.dll",
+        "total": 1436,
+        "passed": 1436,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "8704667a3947c12be75d5026ed27cc0d209c95633fab2e71343de33ebaf767fd"
+      },
+      {
+        "assembly": "gnougo.flow.integrations.tests.dll",
+        "total": 109,
+        "passed": 109,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "372fa360ebd88d2a44ab47f4331dbc3f7ddf08e91922959e65d9843c4ae0fe2d"
+      },
+      {
+        "assembly": "gnougo.ai.core.tests.dll",
+        "total": 255,
+        "passed": 255,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "6fc9bc1a72167f9bbd0585449d8db166313c89724ec93efc97bf62d227416b35"
+      },
+      {
+        "assembly": "gnougo.ai.local.tests.dll",
+        "total": 14,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "a307da487b06a214b400ecf65d766c8c335374db3460a0226d7552abc7e29f4f"
+      },
+      {
+        "assembly": "gnougo.agent.mcp.tests.dll",
+        "total": 103,
+        "passed": 103,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "0a2d9bfce9397f2edc37ea814c56a5335d8368eee39db5b65c96f5432f8f26e2"
+      },
+      {
+        "assembly": "gnougo.cmd.mcp.tests.dll",
+        "total": 100,
+        "passed": 93,
+        "failed": 0,
+        "skipped": 7,
+        "sha256": "c13f01278008a29b32e24c3e29588876006edef708adc01069b7768180c0d440"
+      },
+      {
+        "assembly": "gnougo.browser.mcp.tests.dll",
+        "total": 142,
+        "passed": 142,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "ed3dbf889943a5a7f0e92b66caa009236d892c177f3517362b59e4421025356f"
+      },
+      {
+        "assembly": "gnougo.agent.server.tests.dll",
+        "total": 1758,
+        "passed": 1757,
+        "failed": 0,
+        "skipped": 1,
+        "sha256": "7409cc5396bd4e86f36226a53a0184d09720ab818579c3c73b252f92e82f1962"
+      },
+      {
+        "assembly": "gnougo.document.mcp.tests.dll",
+        "total": 73,
+        "passed": 73,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "e15e53ee0ed42c3871425a0915fa32643d3ae43cecf485050761f0958cc390bd"
+      },
+      {
+        "assembly": "gnougo.keyvault.mcp.tests.dll",
+        "total": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "e19c7e6eae12e44a0e297c661ada52d930a39de046a902910951c1605fa8e97b"
+      },
+      {
+        "assembly": "gnougo.files.server.tests.dll",
+        "total": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "748dcd5ddbe1b7685ac055ac676b9e69ec7ac2d0b8956a863740a2feecd2b8cd"
+      },
+      {
+        "assembly": "gnougo.docingestor.mcp.tests.dll",
+        "total": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "fff9cdfb5f3b867a45d45f8b60e0f742b252c253df06627084126ccf533c4d33"
+      },
+      {
+        "assembly": "gnougo.otlpcollector.server.tests.dll",
+        "total": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "c7969235d905abdc5490d30d87a162d11898873528b3d5002d894dbe3fb9bb9e"
+      },
+      {
+        "assembly": "gnougo.githubcopilot.mcp.tests.dll",
+        "total": 243,
+        "passed": 243,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "18f5e9f35a47935a8ad59ee5393821c7e13acdc2fa98ab33b291f32e8bb16c8f"
+      },
+      {
+        "assembly": "gnougo.githubcopilot.core.tests.dll",
+        "total": 173,
+        "passed": 173,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "9192ed226394d8d6497d64bd8ca599835c54f70d27d7fccb5937b3209eb5ec18"
+      },
+      {
+        "assembly": "gnougo.githubcopilot.e2e.tests.dll",
+        "total": 12,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 5,
+        "sha256": "7dbbcc767caa734ce825a36ed0887c6b6dbe7cf658f5994b4696b4e41440c96b"
+      },
+      {
+        "assembly": "gnougo.observability.core.tests.dll",
+        "total": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "aea86e25eaf5542b95f96cac72d5d3d3f4c1c661578d91de2bb2ad3d34f27e9e"
+      },
+      {
+        "assembly": "gnougo.git.mcp.tests.dll",
+        "total": 84,
+        "passed": 84,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "83c5a9150e71531cc93a1b42336e80839c70a94bc267c76afb586ab16d5b8a86"
+      },
+      {
+        "assembly": "gnougo.workspace.tests.dll",
+        "total": 30,
+        "passed": 30,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "40db47ad01b0cf18ef66a25a4a77ef768144c79214fdc3040796ada95e0af81c"
+      },
+      {
+        "assembly": "gnougo.mcp.core.tests.dll",
+        "total": 49,
+        "passed": 49,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "6ca009ca9b103e5102205b2a3571b9b7e3b8efbd8ae9d48d0f8fa1b8873df9b5"
+      },
+      {
+        "assembly": "gnougo.flow.mermaid.tests.dll",
+        "total": 12,
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "d3e9e26bc0d3834a99f553e0e2074260ac0fee9f17cada2162e5d1f18801cb0a"
+      },
+      {
+        "assembly": "gnougo.assets.bears.tests.dll",
+        "total": 91,
+        "passed": 91,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "93948f154f5610639e9d5f7bf7d340f5162c5494ee966c1ce64c2e426a4a8fcb"
+      },
+      {
+        "assembly": "gnougo.assets.animation.tests.dll",
+        "total": 42,
+        "passed": 42,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "94f09b9f279fcad6f8c699172295122d6bc961a5f5f566508386074715c7c197"
+      },
+      {
+        "assembly": "gnougo.assets.animation.server.tests.dll",
+        "total": 13,
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "dfb54b3c822bd0fc2e6cb529160ed0997eb80795b16b8caa37ad6ef80189b092"
+      },
+      {
+        "assembly": "gnougo.assets.bears.server.tests.dll",
+        "total": 28,
+        "passed": 28,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "95e2ac6be8d767cf2159965119c3e8669c884e071d819a8c600d85daed02370c"
+      },
+      {
+        "assembly": "gnougo.flow.planning.tests.dll",
+        "total": 3211,
+        "passed": 3211,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "728e5920bb3c209cc4a6e58b636abf410db1d26b90aeeeee680cb764fc8be164"
+      },
+      {
+        "assembly": "gnougo.proxycopilot.server.tests.dll",
+        "total": 177,
+        "passed": 177,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "859939bb77a4e7e9ba30a0774eff60b33617e12d4269f12c5c5a5f98e0cc7cf9"
+      },
+      {
+        "assembly": "gnougo.auth.core.tests.dll",
+        "total": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "4750dbcdca822a4571cc3f3b11c840134f9250afebe9a0d0c0e63614d2aa5331"
+      },
+      {
+        "assembly": "gnougo.flow.persistence.tests.dll",
+        "total": 24,
+        "passed": 24,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "485d15285d99dd353029a05824a79f51e7ffc03e5fcea5f6fc8afe3186f9d468"
+      },
+      {
+        "assembly": "gnougo.flow.copilot.tests.dll",
+        "total": 5,
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0,
+        "sha256": "ebc19105d7160b7e88834992a3cc4d41d58660f72e1a740206d64a5593fbb0f0"
+      }
+    ],
+    "logs": [
+      {
+        "stage": "frontend-restore",
+        "exit_code": 0,
+        "log": "frontend-restore.log",
+        "log_sha256": "5feb1abad899806a624145d4a8ddc547a92c5a33b4a536115c4c4fcd69c836b7"
+      },
+      {
+        "stage": "full-solution",
+        "exit_code": 0,
+        "log": "full-solution.log",
+        "log_sha256": "4cd2c62df64126c97ecec8006df393ade0957306b5a82fe492dfb2333b8704f4"
+      }
+    ]
+  },
+  "publication": {
+    "all_stages_passed": true,
+    "stage_count": 12,
+    "fresh_execution_stage_count": 6,
+    "reused_execution_stage_count": 6,
+    "fresh_execution_source": "686c2964d2437cbe1ab6b27e8b6ae673824fc873",
+    "reused_execution_source": "2b0d378c8c0efb9803214742817d7d223007e3a5",
+    "stages": [
+      {
+        "stage": "pack-core",
+        "execution_source": "2b0d378c8c0efb9803214742817d7d223007e3a5",
+        "execution_kind": "qualified_prior_execution",
+        "start_utc": "2026-10-25T14:21:17.577315+00:00",
+        "elapsed_seconds": 3.415,
+        "exit_code": 0,
+        "log": "pack-core.log",
+        "log_sha256": "9ad4f12128e37c5ff10cf5f3491097ced0c8e8ba2bc1ff48a23f049117590979"
+      },
+      {
+        "stage": "pack-planning",
+        "execution_source": "686c2964d2437cbe1ab6b27e8b6ae673824fc873",
+        "execution_kind": "fresh_execution",
+        "start_utc": "2026-10-25T15:59:20.337161+00:00",
+        "elapsed_seconds": 8.287,
+        "exit_code": 0,
+        "log": "pack-planning.log",
+        "log_sha256": "2c84bbb64f369b8052e1b332abd53d90fcb3224f999a5be21b280bc0abe832cd"
+      },
+      {
+        "stage": "pack-integrations",
+        "execution_source": "686c2964d2437cbe1ab6b27e8b6ae673824fc873",
+        "execution_kind": "fresh_execution",
+        "start_utc": "2026-10-25T15:59:28.626495+00:00",
+        "elapsed_seconds": 2.296,
+        "exit_code": 0,
+        "log": "pack-integrations.log",
+        "log_sha256": "979104cc581c0eb8a0024e4aea5655cd3d18e91dd590087c087c93d14b118eaa"
+      },
+      {
+        "stage": "pack-copilot",
+        "execution_source": "2b0d378c8c0efb9803214742817d7d223007e3a5",
+        "execution_kind": "qualified_prior_execution",
+        "start_utc": "2026-10-25T14:21:29.373636+00:00",
+        "elapsed_seconds": 1.028,
+        "exit_code": 0,
+        "log": "pack-copilot.log",
+        "log_sha256": "d80d834ff0efbd35c3e4227c5e936492d007381bdd244c52e15179e5a45a0656"
+      },
+      {
+        "stage": "pack-persistence",
+        "execution_source": "2b0d378c8c0efb9803214742817d7d223007e3a5",
+        "execution_kind": "qualified_prior_execution",
+        "start_utc": "2026-10-25T14:21:30.407875+00:00",
+        "elapsed_seconds": 1.466,
+        "exit_code": 0,
+        "log": "pack-persistence.log",
+        "log_sha256": "dba32870286f1adae37035df392848ace041c3a211409c3602230158182b07b9"
+      },
+      {
+        "stage": "pack-ai-core",
+        "execution_source": "2b0d378c8c0efb9803214742817d7d223007e3a5",
+        "execution_kind": "qualified_prior_execution",
+        "start_utc": "2026-10-25T14:21:31.879324+00:00",
+        "elapsed_seconds": 0.929,
+        "exit_code": 0,
+        "log": "pack-ai-core.log",
+        "log_sha256": "656123094ec8f0f092d385f00addb5eea5636af4c371765a6b9e3ed0696bf8f5"
+      },
+      {
+        "stage": "planning-aot-publish",
+        "execution_source": "686c2964d2437cbe1ab6b27e8b6ae673824fc873",
+        "execution_kind": "fresh_execution",
+        "start_utc": "2026-10-25T15:59:32.713568+00:00",
+        "elapsed_seconds": 35.329,
+        "exit_code": 0,
+        "log": "planning-aot-publish.log",
+        "log_sha256": "05f22fda44e7970876370583c8cdcf44ccb52d36e364bd74dfe840ec9ba81a16"
+      },
+      {
+        "stage": "planning-aot-smoke",
+        "execution_source": "686c2964d2437cbe1ab6b27e8b6ae673824fc873",
+        "execution_kind": "fresh_execution",
+        "start_utc": "2026-10-25T16:00:08.044294+00:00",
+        "elapsed_seconds": 6.534,
+        "exit_code": 0,
+        "log": "planning-aot-smoke.log",
+        "log_sha256": "bbcea56ee9aa1e04eff5c83ab038c58b465999bdc55d2a2340d36a8d090e0a16"
+      },
+      {
+        "stage": "server-publish",
+        "execution_source": "686c2964d2437cbe1ab6b27e8b6ae673824fc873",
+        "execution_kind": "fresh_execution",
+        "start_utc": "2026-10-25T16:00:14.580444+00:00",
+        "elapsed_seconds": 38.003,
+        "exit_code": 0,
+        "log": "server-publish.log",
+        "log_sha256": "c7760f811af070120688c2ec58d22fa45ddda3f3915604ca2fae4bfe8bd03850"
+      },
+      {
+        "stage": "server-storage-smoke",
+        "execution_source": "686c2964d2437cbe1ab6b27e8b6ae673824fc873",
+        "execution_kind": "fresh_execution",
+        "start_utc": "2026-10-25T16:00:52.586195+00:00",
+        "elapsed_seconds": 2.194,
+        "exit_code": 0,
+        "log": "server-storage-smoke.log",
+        "log_sha256": "7e3ebcc6e52949e24cd53cf518d48371066902ffe33e70d05446cfa36641fdf5"
+      },
+      {
+        "stage": "git-aot-publish",
+        "execution_source": "2b0d378c8c0efb9803214742817d7d223007e3a5",
+        "execution_kind": "qualified_prior_execution",
+        "start_utc": "2026-10-25T14:22:54.887721+00:00",
+        "elapsed_seconds": 16.501,
+        "exit_code": 0,
+        "log": "git-aot-publish.log",
+        "log_sha256": "c284c3b45d18e390f0933a77d45a7dde56b67421af184ba47a51a0b878644f28"
+      },
+      {
+        "stage": "git-published-contract",
+        "execution_source": "2b0d378c8c0efb9803214742817d7d223007e3a5",
+        "execution_kind": "qualified_prior_execution",
+        "start_utc": "2026-10-25T14:23:11.389659+00:00",
+        "elapsed_seconds": 8.154,
+        "exit_code": 0,
+        "log": "git-published-contract.log",
+        "log_sha256": "306f65145715281428d7591eac9cb9caeb413b957f3ece50ce4075390c1394ed"
+      }
+    ],
+    "artifact_hashes": [
+      {
+        "path": "packages/AI.Core/GnOuGo.AI.Core.1.0.0.nupkg",
+        "bytes": 125635,
+        "sha256": "3c7cdcb49c17d791dd3f3f95a1227b0b3e8c8509d28cfbbd8e2dfdaa6d1c7976",
+        "execution_source": "2b0d378c8c0efb9803214742817d7d223007e3a5"
+      },
+      {
+        "path": "packages/Copilot/GnOuGo.Flow.Copilot.1.0.0.nupkg",
+        "bytes": 11069,
+        "sha256": "7850930840a1bd95b87a5b9c0364dc3f5fc7a16f7b632e82ed5532ea4ae0cce7",
+        "execution_source": "2b0d378c8c0efb9803214742817d7d223007e3a5"
+      },
+      {
+        "path": "packages/Core/GnOuGo.Flow.Core.1.0.0.nupkg",
+        "bytes": 741465,
+        "sha256": "3798184836ad980b410141f868701762eb808ebefb1d24e58f1744379af37ad5",
+        "execution_source": "2b0d378c8c0efb9803214742817d7d223007e3a5"
+      },
+      {
+        "path": "packages/Integrations/GnOuGo.Flow.Integrations.1.0.0.nupkg",
+        "bytes": 60940,
+        "sha256": "1dc7e36571d6149a53a83386448983aafd6064217535caba894c97425f8c9151",
+        "execution_source": "686c2964d2437cbe1ab6b27e8b6ae673824fc873"
+      },
+      {
+        "path": "packages/Persistence/GnOuGo.Flow.Persistence.1.0.0.nupkg",
+        "bytes": 50271,
+        "sha256": "e21454fb569c9059052a3426f8e8a6302c2c9410fdf109654789612549a3edbe",
+        "execution_source": "2b0d378c8c0efb9803214742817d7d223007e3a5"
+      },
+      {
+        "path": "packages/Planning/GnOuGo.Flow.Planning.1.0.0.nupkg",
+        "bytes": 678118,
+        "sha256": "5037c63607f34654d19191452607918dc3ea59ea53f526b8cb28de96c66cefe3",
+        "execution_source": "686c2964d2437cbe1ab6b27e8b6ae673824fc873"
+      },
+      {
+        "path": "planning-aot/GnOuGo.Flow.Planning.Smoke",
+        "bytes": 34509464,
+        "sha256": "1138ed910c14a4cc66a029671660da3e4f5e18227b374f05a37b851a5775a70e",
+        "execution_source": "686c2964d2437cbe1ab6b27e8b6ae673824fc873"
+      },
+      {
+        "path": "server/GnOuGo.Agent.Server",
+        "bytes": 71483732,
+        "sha256": "ffb10aca9e92dd6477cdd97cff5948f10d99e3cd6159bf39c1ed8ac1ce4460b9",
+        "execution_source": "686c2964d2437cbe1ab6b27e8b6ae673824fc873"
+      },
+      {
+        "path": "git-aot/GnOuGo.Git.Mcp",
+        "bytes": 18195792,
+        "sha256": "c097fde0886d9bf0ea1896381c821a18ac06d3b561f1430e159670b5a7557a23",
+        "execution_source": "2b0d378c8c0efb9803214742817d7d223007e3a5"
+      }
+    ],
+    "compiler_diagnostics": [],
+    "planning_native_aot_smoke": {
+      "passed": true,
+      "executed_presentations": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "v6_specific_scenario_executed": false,
+      "log": {
+        "name": "planning-aot-smoke.log",
+        "sha256": "bbcea56ee9aa1e04eff5c83ab038c58b465999bdc55d2a2340d36a8d090e0a16",
+        "bytes": 4240
+      }
+    },
+    "published_encrypted_storage_smoke": {
+      "passed": true,
+      "format": 10,
+      "execution_journal_schema": 9,
+      "fresh_synthetic_directory": true,
+      "log": {
+        "name": "server-storage-smoke.log",
+        "sha256": "7e3ebcc6e52949e24cd53cf518d48371066902ffe33e70d05446cfa36641fdf5",
+        "bytes": 391
+      }
+    },
+    "reused_contract_test": {
+      "execution_source": "2b0d378c8c0efb9803214742817d7d223007e3a5",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    "reuse_qualification": {
+      "name": "publication-reuse-safe.json",
+      "sha256": "352193598782b68b078961c85a32d24bd57ec6a4c1b147831b002aaa6f5df9cc",
+      "bytes": 80268
+    },
+    "reuse_basis": "Six recursive project-reference closures, 241 distinct unchanged source/build inputs and 14 retained outputs; no shared build-input delta. Original arguments, timestamps, logs and result attribution remain retained."
+  },
+  "preservation": {
+    "full_copy": {
+      "name": "copy-safe.json",
+      "sha256": "1a185f119b1ecdce0e5854042dd1d3f3d8345e1f7e6635b5c7e4c5d9f6c6ae4c",
+      "bytes": 9437
+    },
+    "full_file_pairs_verified": 46,
+    "full_bytes": 15675737,
+    "publication_copy": {
+      "name": "copy-safe.json",
+      "sha256": "3e1963c1f525cce011b924bbcd54e5aa8ab6564591aa4e07f0ec7f5b9bf05602",
+      "bytes": 92915
+    },
+    "publication_file_pairs_verified": 484,
+    "publication_bytes": 479816101,
+    "publication_hardlink_pairs": 484,
+    "owner_terminal_verification": {
+      "name": "worktree-release-safe.json",
+      "sha256": "139326a4ab003d8f394cd148ea6b60398a6acf622aebe545c7d3193bdb513468",
+      "bytes": 4363
+    }
+  },
+  "evidence_provenance": {
+    "full_manifest": {
+      "name": "full-solution-safe.json",
+      "sha256": "1b0660f7491bdb8f70a463ea771777913424f6c22a562c5b686fba0d6fcae092",
+      "bytes": 21619
+    },
+    "full_terminal_verification": {
+      "name": "terminal-verification-safe.json",
+      "sha256": "e510b16492cdf30baf69b5db0b2e919e07bb3282704629026b3d0827a7f10d73",
+      "bytes": 787
+    },
+    "publication_manifest": {
+      "name": "publication-safe.json",
+      "sha256": "d6f5d35dcee0464551393db9425193fe50861f9a6984fb9d5f7aca81f0660f79",
+      "bytes": 16316
+    },
+    "publication_terminal_verification": {
+      "name": "publication-terminal-verification-safe.json",
+      "sha256": "aa05be6f131d97d933c1e1228d998cc5a2ae2b5277bd5e6383e8aa8a9df1f470",
+      "bytes": 1480
+    },
+    "source_inventory": {
+      "name": "frozen-source-safe.json",
+      "sha256": "a86c194da457d0f98b641f4b7988acb27dc1bb5af86c0336a9709bbf580bec4c",
+      "bytes": 918152
+    },
+    "orchestration_peer": {
+      "name": "orchestration-independent-review-safe.json",
+      "sha256": "36660f8e070d9b0a28a68b40b808bb881d91b918d26e852386365c0ea19e823f",
+      "bytes": 4911
+    },
+    "orchestration_terminal": {
+      "name": "orchestration-terminal-safe.json",
+      "sha256": "99f62136525524cf9a23b21e93be6202852159eaad5c9bd14d6b7ab53db79fd3",
+      "bytes": 732
+    }
+  },
+  "limitations": [
+    "The full suite is freshly executed on exact686. Six publication stages are fresh686; six reuse successful exact2b executions under the pinned unchanged-input proof.",
+    "The earlier exact2b full suite remains failed with its single stale expected-presentation fixture; its result is not relabeled.",
+    "Native AOT smoke covers presentations2-5; passing fresh686 compilation is not a v6-specific AOT scenario claim.",
+    "Skips remain reported. The publication contract-test count is separate and not added to full-solution totals.",
+    "Publication payload copies are immutable-name hard links sharing inodes, not physically independent storage.",
+    "No main build, campaign/provider call or live business runtime occurred in this validation. Technical validation does not establish paid-run convergence or business acceptance.",
+    "Concurrent validation/live activity makes elapsed duration unsuitable for a paired performance comparison."
+  ]
+}

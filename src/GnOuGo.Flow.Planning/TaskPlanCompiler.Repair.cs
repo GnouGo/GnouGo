@@ -10,9 +10,10 @@ public sealed partial class TaskPlanCompiler
     // Repair presentation reuses semantic binding and visibility, including captures,
     // groups, conditional exports and effective operation results. No second type system.
     internal static Dictionary<string, List<RepairSource>> RepairSources(TaskPlan plan, PlanningCatalog catalog,
-        IReadOnlyDictionary<string, List<TaskValue>>? references = null)
+        IReadOnlyDictionary<string, List<TaskValue>>? references = null, PlanningRequest? request = null)
     {
-        var compiler = new TaskPlanCompiler { _plan = plan, _symbols = new(plan), _catalog = catalog };
+        var compiler = new TaskPlanCompiler { _plan = plan, _symbols = new(plan), _catalog = catalog,
+            _advisoryOptimization = request is not null && PlanningTokenThresholds.OptimizationAdvisory(request) };
         var result = new Dictionary<string, List<RepairSource>>(StringComparer.Ordinal);
         compiler.Preflight((location, scope) =>
         {

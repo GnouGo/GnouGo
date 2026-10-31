@@ -1,0 +1,431 @@
+{
+  "kind": "independent_frozen_source_and_exported_witness_assessment",
+  "created_at_utc": "2026-10-25T01:36:08.412996+00:00",
+  "source": "ba86cf8746bb7964e901f71678cb79bd0002b2f5",
+  "source_tree": "38bba2e616eb8c466553ec21c15130b5dd73114a",
+  "benchmark_binary_sha256": "220e16a407427eee9b6cf135ab6f1e36ced6a0526d4543dbedb6a10d6dc8a51e",
+  "cohort": "compactrba86cf874amz20v5",
+  "freeze_sha256": "12403091a9667c7ae58f205b91a91791bf9fc2c68feb0e53d4de1f4c032775c7",
+  "run_hash": "023ee049272e25132ea39bd380c7db64d6ce81d64470dddf55dc9a60d2b49633",
+  "boundary": "Read-only inspection of committed source and root-exported bounded witnesses. No encrypted store, reader, model, MCP, runtime, approval or source mutation. Original payloads are referenced, not recopied.",
+  "outcome": {
+    "logical_calls": 35,
+    "physical_attempts": 35,
+    "receipts": 35,
+    "corrections": 4,
+    "checkpoints": 2,
+    "new_unknown_attempts": 0,
+    "artifact": false,
+    "runtime": false,
+    "status": "clarification",
+    "useful_business_acceptance": "not established"
+  },
+  "findings": [
+    {
+      "id": "selected_operation_gap_is_real",
+      "classification": "supported_contract_limitation",
+      "request_numbers": [
+        14,
+        16,
+        21,
+        23,
+        28,
+        29,
+        33,
+        35
+      ],
+      "assessment": "The four bindings select the same browser read/navigation operation. Its exact url input accepts an absolute HTTP(S) URL; it does not compose a query URL or fill/submit a search form. The model correctly declines to pretend that this operation alone performs those missing steps. No operation draft or browser effect was accepted."
+    },
+    {
+      "id": "interaction_visibility_matches_authority",
+      "classification": "intentional_permission_boundary",
+      "assessment": "The frozen delegated Amazon allowlist and ObservedMcp discovery permit browser_get_content and browser_close, plus document_write from its provider. Browser fill/click/press methods exist in public source but are deliberately excluded. Their absence is not a demonstrated discovery defect. Existing argument authority permits only selected Amazon search/product paths; it does not authorize homepage navigation or broaden browser interaction."
+    },
+    {
+      "id": "local_interpretation_is_available",
+      "classification": "existing_offered_semantics_not_selected",
+      "request_numbers": [
+        14,
+        17,
+        21,
+        24,
+        28,
+        30,
+        33
+      ],
+      "assessment": "Both actual selection and discovery-binding schemas offer transform. Interpret already lowers its executable objective, supplied inputs and declared named result fields into template.render plus strict llm.call. Value deliberately lacks string composition/URL encoding. Therefore an absent dedicated MCP URL-builder does not establish absence of local typed derivation. This does not prove that a particular derived URL is correct or that all necessary site facts were supplied."
+    },
+    {
+      "id": "site_pattern_remains_separate",
+      "classification": "unresolved_external_fact",
+      "assessment": "The original request supplies the site and query business meaning, not a search URL template. The retained accepted plan has no browser observation or URL producer. Existing interpretation must not invent external observations, endpoint guarantees or successful effects. If the site-specific construction rule is not authoritative supplied/observed data, retrieving permitted evidence or clarifying that fact remains necessary; the existing homepage/interaction restriction cannot be bypassed to obtain it."
+    },
+    {
+      "id": "repeat_strategy_with_retained_context",
+      "classification": "observed_nonprogress_without_exact_replay_equivalence",
+      "request_numbers": [
+        16,
+        17,
+        23,
+        24,
+        29,
+        30,
+        35
+      ],
+      "assessment": "There are four same-operation bindings and three explicit suspensions, not four suspensions. All remain on the same accepted base/checkpoint2 with no accepted missing producer. Selection17/24/30 includes the previous reason and full model-authored typed prerequisite, canAttemptResume=false and no accepted producer checkpoints. The later selections again ask for the consumer/search or a capability instead of a local producer. This is not lost continuation evidence. Existing replay checks compare exact consumer scope/objective/requirement set and serialized prerequisite; their free-prose identities differ. Ignoring executable objectives or adding semantic keyword cycle rules is not justified."
+    },
+    {
+      "id": "clarification_is_not_authorization",
+      "classification": "safe_pending_boundary_with_overbroad_capability_premise",
+      "request_numbers": [
+        35
+      ],
+      "assessment": "The final question offers redefining query as an absolute URL or providing another capability. No answer was given, and neither alternative authorizes changing the accepted article-query input or widening effects. Its MCP-contract limitation is supported; a general claim that no local derivation mechanism exists is unsupported by the offered transform. The question may still reflect an unresolved site-pattern fact; this assessment does not declare every clarification unnecessary."
+    },
+    {
+      "id": "no_adverse_business_judge_attribution",
+      "classification": "not_applicable_after_opening",
+      "assessment": "The repeated cycle consists of discovery, evidence reads, self-reselection and clarification after the two accepted opening checkpoints. It establishes no false-positive business Judge finding, no completed cleanup and no execution success."
+    }
+  ],
+  "existing_runtime_path": {
+    "status": "available_in_frozen_source_after_artifact_approval_not_invoked_in_this_run",
+    "chain": [
+      "interpret -> template.render + strict llm.call",
+      "LlmCallExecutor -> configured engine LLMClient with existing usage budget",
+      "execute branch -> ExecutionModel -> CallExecutionAsync",
+      "exact RuntimeJournal identity -> campaign preflight -> priced PrepareAdmissionAsync",
+      "single physical attempt reserved/journaled before dispatch -> verified usage/receipt or retained failure reservation"
+    ],
+    "limits": "ExecutionRequest retains the configured provider/model, medium reasoning and output cap32768; execute has the existing30-minute budget. Runtime effective policy uses MaxAttempts1/MaxUncertainRetries0. Campaign EUR admission and all-failure reservation checks remain in force. No runtime policy record, approval or inference was created by this assessment.",
+    "qualification": "The planning-specific ModelRequestAdmission branch is not invoked for execution; runtime uses its existing budget, campaign preflight and journal path. Compiler availability is not artifact approval or a correctness guarantee."
+  },
+  "metadata_qualification": {
+    "field": "benchmark_authority_visibility.current_host_sha256",
+    "frozen_descriptive_value": "bab116218d425d68dcc7822d8a682f1dd3b3e5d7d5e490d8586902f0b53e9867",
+    "exact_ba86_host_sha256": "01c400b742e57fcc2772344e5ec1903b7903a5ec5c1ff0fa432b72f5b71b58c8",
+    "assessment": "The freezer inherits this descriptive field from its control through the previous-items copy. It is not the current host identity. The exact source/tree/build and committed validation inventory independently bind current host bytes; the delegated guard hash is current and matches. This assessment uses those exact current sources. No production consumer of this descriptive field was found; no runtime authority or active freeze is modified.",
+    "freezer_line_anchors": [
+      373,
+      376,
+      385
+    ]
+  },
+  "guidance_assessment": {
+    "observed": "SelectGuidance summarizes transform as extracts/interprets supplied data. DiscoveryGuidance only says local work needs no operationIds; both schemas offer transform. Once a transform is selected, its existing draft schema already explains executable objective, runtime LLM, inputs and resultType.",
+    "proposed_experiment": "Replace those two existing fresh-v5 guidance slots with one shared clarification of existing interpretation semantics; leave draft/compiler/schema/runtime/permissions unchanged and preserve historical versions and exact pending requests.",
+    "proposed_shared_text": "transform extract preserves observed facts; interpret uses the configured runtime LLM to derive typed data from supplied inputs under its objective, without a separate expression. Neither supplies unobserved external facts or performs external actions.",
+    "limits": "No website-specific URL hint. No attribution of this run to prompt wording and no guarantee of later model choice, URL correctness, convergence or avoided corrections."
+  },
+  "inputs": [
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrba86cf874amz20v5/freeze.json",
+      "sha256": "12403091a9667c7ae58f205b91a91791bf9fc2c68feb0e53d4de1f4c032775c7",
+      "bytes": 16341
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrba86cf874amz20v5/amazon-terminal-state-witness.json",
+      "sha256": "c537639d233562af8efa07e3dc5d2d1c845072c738d93a9adb9ac4c14cefa266",
+      "bytes": 92624
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrba86cf874amz20v5/amazon-draft-corrections-witness.json",
+      "sha256": "08fceaa507a42f7d3d4602a347045550c9689cb8850033381bb2a9708c4c0469",
+      "bytes": 484605
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrba86cf874amz20v5/amazon-discovery-witness.json",
+      "sha256": "8137685911392471a521a63993525e7da4ba763c7680014649d02a8003c3d509",
+      "bytes": 589912
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrba86cf874amz20v5/amazon-clarification-witness.json",
+      "sha256": "1dfcf5974e83b9c9ce8ce50a3766501b8da7c398b6c1e9435b7746c0d5e177b5",
+      "bytes": 1469
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrba86cf874amz20v5/amazon-terminal-safe-metrics.json",
+      "sha256": "8a2f8bcf8633510edd50fd13cd338bc2c9d37bc6ca130d6c69e6804d89badc11",
+      "bytes": 153082
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v5-validation-20261024/candidate-ba86cf874/exact-source-build-safe.json",
+      "sha256": "52222a20a06197194ce1995943e578a301750a1c7d677186ae558098ebea17d8",
+      "bytes": 748
+    },
+    {
+      "path": "/private/tmp/gnougo-original-requirement-08c-validation-admitted-pmjby1rk/validation-ba86cf874-safe.json",
+      "sha256": "8236b04f17453f7985ca5d5f8dccdb1bf3cecea3ec1e99077621fc1f88822bbe",
+      "bytes": 1551644
+    },
+    {
+      "path": "/private/tmp/gnougo-ba86-amazon-terminal-safe/compact-taskplan-ba86cf874-amazon.json",
+      "sha256": "9651809549f66016018ea19da6c37bbe346753f970cf1c2f84e0af1e32ceced0",
+      "bytes": 11406
+    },
+    {
+      "path": "/private/tmp/gnougo-amazon20-freeze-preparation/freeze-v5-amazon20.py",
+      "sha256": "7d57a8d5dfdb2c33e819d7c248d98eea8e2d5502a86f116de4257816d9532105",
+      "bytes": 28975
+    }
+  ],
+  "committed_source_pins": [
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs",
+      "revision": "ba86cf8746bb7964e901f71678cb79bd0002b2f5",
+      "sha256": "2d5ada971a3ea538461150dbba37416c144011c7caf4c0678337629e8acc1c71",
+      "bytes": 78049,
+      "line_anchors": [
+        26,
+        38,
+        46
+      ]
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Schemas.cs",
+      "revision": "ba86cf8746bb7964e901f71678cb79bd0002b2f5",
+      "sha256": "c03c577b904de1de6966233e098257ff91461679a0b75c3e40566ca6c29c7b49",
+      "bytes": 21084,
+      "line_anchors": [
+        178
+      ]
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Continuations.cs",
+      "revision": "ba86cf8746bb7964e901f71678cb79bd0002b2f5",
+      "sha256": "c11d7e11980514e07049135451c8881b1556f1dd99cc916eea4e53aa8cb007c2",
+      "bytes": 25272,
+      "line_anchors": [
+        71,
+        83,
+        90,
+        118
+      ]
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Validation.cs",
+      "revision": "ba86cf8746bb7964e901f71678cb79bd0002b2f5",
+      "sha256": "1d0eec0ce75727547683aa6951b50d3e44f20a97290566197f4dfbc5a28702df",
+      "bytes": 23186,
+      "line_anchors": [
+        9
+      ]
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/TaskPlanCompiler.Transform.cs",
+      "revision": "ba86cf8746bb7964e901f71678cb79bd0002b2f5",
+      "sha256": "582143cde55e0400506e14360bb15ea09beb36b9c678d92971f4b668427149dc",
+      "bytes": 9467,
+      "line_anchors": [
+        41,
+        100,
+        111
+      ]
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/TaskPlanCompiler.Validation.cs",
+      "revision": "ba86cf8746bb7964e901f71678cb79bd0002b2f5",
+      "sha256": "3e9678a44c0c8fbfc7f7f61efaab0ca4be060ad85956b30c26d71226c92308d3",
+      "bytes": 44813,
+      "line_anchors": [
+        299
+      ]
+    },
+    {
+      "path": "src/GnOuGo.Flow.Core/Runtime/Executors/LlmCallExecutor.cs",
+      "revision": "ba86cf8746bb7964e901f71678cb79bd0002b2f5",
+      "sha256": "c44a9aa0a99e3e449159284b900a42a9aa274aa467482a23d14b5e52ddac3ac2",
+      "bytes": 17418,
+      "line_anchors": [
+        83,
+        171
+      ]
+    },
+    {
+      "path": "src/GnOuGo.Flow.Core/Runtime/StepExecutor.cs",
+      "revision": "ba86cf8746bb7964e901f71678cb79bd0002b2f5",
+      "sha256": "4e9aff55da1cdf0475bc1b233f8e4e55226f2586dbbf36f61918e5fcf869837e",
+      "bytes": 18541,
+      "line_anchors": [
+        106,
+        131
+      ]
+    },
+    {
+      "path": "src/GnOuGo.Browser.Mcp/BrowserTools.cs",
+      "revision": "ba86cf8746bb7964e901f71678cb79bd0002b2f5",
+      "sha256": "8cdf2ea36ab048a929d8cb83bf234d3b6d7b4562226842fe2ae3de035574994d",
+      "bytes": 28423,
+      "line_anchors": [
+        40,
+        67,
+        88,
+        129
+      ]
+    },
+    {
+      "path": "tests/GnOuGo.Agent.Planning.Benchmark/DelegatedTestReview.cs",
+      "revision": "ba86cf8746bb7964e901f71678cb79bd0002b2f5",
+      "sha256": "ca4ba29f9d18413fbf513eaf0fa63bff1a1c2aeda048f8b3bfaf38f03bc67659",
+      "bytes": 23529,
+      "line_anchors": [
+        64,
+        119,
+        130,
+        201
+      ]
+    },
+    {
+      "path": "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs",
+      "revision": "ba86cf8746bb7964e901f71678cb79bd0002b2f5",
+      "sha256": "01c400b742e57fcc2772344e5ec1903b7903a5ec5c1ff0fa432b72f5b71b58c8",
+      "bytes": 40628,
+      "line_anchors": [
+        87,
+        95,
+        119,
+        375,
+        393,
+        434,
+        479
+      ]
+    },
+    {
+      "path": "tests/GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs",
+      "revision": "ba86cf8746bb7964e901f71678cb79bd0002b2f5",
+      "sha256": "dbddf755327e4714ba5b2345a68af21405031581a9010f4a6ba3c26a92f0276e",
+      "bytes": 52602,
+      "line_anchors": [
+        214,
+        358,
+        370,
+        390,
+        429,
+        476
+      ]
+    },
+    {
+      "path": "tests/GnOuGo.Agent.Planning.Benchmark/BenchmarkHttpJournal.cs",
+      "revision": "ba86cf8746bb7964e901f71678cb79bd0002b2f5",
+      "sha256": "3f8e2e611befeb15d3795272d72d6c3d020ceee96c9cbccf7f68e45959063962",
+      "bytes": 13511,
+      "line_anchors": [
+        65,
+        78,
+        101,
+        107
+      ]
+    },
+    {
+      "path": "tests/GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.cs",
+      "revision": "ba86cf8746bb7964e901f71678cb79bd0002b2f5",
+      "sha256": "f1399e80e8c57b6e447d30457e2b3606007fb921291048ed11a62a4abc929893",
+      "bytes": 42512,
+      "line_anchors": [
+        417,
+        445
+      ]
+    }
+  ],
+  "selected_request_identity_joins": [
+    {
+      "number": 3,
+      "request_id": "compactrba86cf874amz20v5-amazon-1:3:c1106be8eca39c6e07e62aff49f576987116b4d8b700d6e668e2308bd476969b",
+      "request_record_sha256": "a61a3d2d013e996a43ab1d5c08968b8b9ecef685fcdbb96876768778363d9924",
+      "receipt_record_sha256": "91e7394ba3345bde56bdc23e9c32fbc62fab9730dbee7dd74ce18a11ad74b1f6",
+      "original_text_utf8_sha256": "c763934f6769622520e19c6268dc2d058b453ccb3e767ac24b6811be5f29ad54"
+    },
+    {
+      "number": 4,
+      "request_id": "compactrba86cf874amz20v5-amazon-1:4:d3943b8fdea8595f332ef487252f9d11c325a8152de11506d0099cdc51336e08",
+      "request_record_sha256": "69d2a917afd898582c0c095b8e027cd746f82a34fb4e4521f757e4d5d207dacc",
+      "receipt_record_sha256": "c2678c602b2ce16bbd76f5bf28eae354bb5fdc0265bf68f8da6af5d797efb410",
+      "original_text_utf8_sha256": "17c3ec16b90b0cb717aea2d2e3e53803c46ea093cb1c0195be25cc53164c27c8"
+    },
+    {
+      "number": 14,
+      "request_id": "compactrba86cf874amz20v5-amazon-1:14:65e8d5b86d1c69a4d268abca07f03251b3b235a13840b4be90d4782e760ec87e",
+      "request_record_sha256": "1d452d3137028b34b8fe966760b86952495ccd48ac7e9eb995aa795f99f6b297",
+      "receipt_record_sha256": "8fc06c0596cc36f7527cca0129cdd0662cfdd3cf6eab6e97609fb3e9965f9d64",
+      "original_text_utf8_sha256": "7a091385d5403d3565e132c552519548036fe30575449dd145ab819e45e4e827"
+    },
+    {
+      "number": 16,
+      "request_id": "compactrba86cf874amz20v5-amazon-1:16:4a1f711212e9915b14c6d7ea1b5c43f27283070cdc4b72228cbd046ab0dc2d5e",
+      "request_record_sha256": "1f842c07a2790c8b130268f8d57f912fd5d1c00f0593bac1992a23155763e7b2",
+      "receipt_record_sha256": "af6e9e5e1b92ba2999f375b98744b80e07a317e7d271c89dbd30d920fdd64a10",
+      "original_text_utf8_sha256": "5292ac33c191d3b85dc030e707bbf0ae52581a256ad8309fc407a7a275756bda"
+    },
+    {
+      "number": 17,
+      "request_id": "compactrba86cf874amz20v5-amazon-1:17:155dcd86701e915ab02865edbb15c39ffd6df7db0c88e3960b98f1dde2f2bc12",
+      "request_record_sha256": "da14157bcdffaa2ed9df38e1a3d12ff93622dff1fba6d7afb73e92fc098e32c9",
+      "receipt_record_sha256": "bcb50191b72d46021ec931b6a74ede6c0e68c1def446adbfdb748441d9727f1b",
+      "original_text_utf8_sha256": "04063976b4942886f133808a3a760628b58091252d5d7544403625c8073293a6"
+    },
+    {
+      "number": 21,
+      "request_id": "compactrba86cf874amz20v5-amazon-1:21:55210b1a9627c8f01859be4ec806dcd73e6e9e96b8de51848926789389979201",
+      "request_record_sha256": "ffbe167c0bbba9b0cb2bd8faf561a7abda0f6fc2fc6fe91882b6cd3a2658d1fa",
+      "receipt_record_sha256": "3ca841b57b85f3a5e8da67424dbcacbb0f06dd8b8daba8230158398b10365e5e",
+      "original_text_utf8_sha256": "7a091385d5403d3565e132c552519548036fe30575449dd145ab819e45e4e827"
+    },
+    {
+      "number": 23,
+      "request_id": "compactrba86cf874amz20v5-amazon-1:23:cb736fba4ba46d4950d0af56debf3c4c8febc000b426944cf426ff6e0cadb959",
+      "request_record_sha256": "ccb8396b56dd89c93bbf4b59c4489b51669d4d96d72953bb15f6c27088b3a23b",
+      "receipt_record_sha256": "956a80b1c3d543359aee84e34a1bdbcfe433361e9fcda0a1350a1e1f6a1a9dc1",
+      "original_text_utf8_sha256": "e3a1fe21491c61caef964a091aa6f9074766b361de7e24c241d80bb0cd78d466"
+    },
+    {
+      "number": 24,
+      "request_id": "compactrba86cf874amz20v5-amazon-1:24:200e032a2383d7aa0adb33962b5080f712144f04ce71e66b86ee8726a2693dcc",
+      "request_record_sha256": "6add0da205a249d7bef2ecd71071e180b715729be2b906b0f0533e3a616916ad",
+      "receipt_record_sha256": "e1c69e440804523f8aecb07615718e4cead646404c1c7be2a7942f6d9d625678",
+      "original_text_utf8_sha256": "fb200899879b86bf486d8adb52918a204582a8fc3955f481f84668e8e33bacb0"
+    },
+    {
+      "number": 28,
+      "request_id": "compactrba86cf874amz20v5-amazon-1:28:3415829057cdc43f2ae40bbd060fb8b6cd5fe92036951c325d537be3fc799f8b",
+      "request_record_sha256": "8e76b19627e4ca715453ce19c1603a6bc45d132c7d7cf53097f3bb97b523d26a",
+      "receipt_record_sha256": "a7ae78158349e94861a4cfa59d0892815cf8edd431e486a76ff1c0f0562d747d",
+      "original_text_utf8_sha256": "7a091385d5403d3565e132c552519548036fe30575449dd145ab819e45e4e827"
+    },
+    {
+      "number": 29,
+      "request_id": "compactrba86cf874amz20v5-amazon-1:29:8ee82768570242047fb00ee415603a3abadffda674cdee57071955bcdb7ab603",
+      "request_record_sha256": "73ba0a015b81323d211f50a5275dc8797dfb32fe99c310cf5f808a48825627ba",
+      "receipt_record_sha256": "e609ba613b321a02095ffc8d1b64787b8aaa7581c4a215f144f4256cca440da8",
+      "original_text_utf8_sha256": "61ba6167c8496a28f45ee016e6417fcb87a973fa5e57b1ce48e3e4671f0f2386"
+    },
+    {
+      "number": 30,
+      "request_id": "compactrba86cf874amz20v5-amazon-1:30:df7057eac0fcaa33257c76f5b9f4f08f942faed56ca536926c5b7c81dd0abde0",
+      "request_record_sha256": "c675f2e51ba1af83c475f668d543684a5253f12699daa5f246e9762c72c27289",
+      "receipt_record_sha256": "a5e321abbd7ccc104a78105bcbf1a045fc39caf9beaf365beee50455c1b6d5a6",
+      "original_text_utf8_sha256": "0ca67fcfd764ea7a29133465b83ac74c951b418cf724370a558ebd085f4d7e59"
+    },
+    {
+      "number": 33,
+      "request_id": "compactrba86cf874amz20v5-amazon-1:33:e000a5ee7bfbe28c97e6bdf225aa113ac88c481dd3eb4528e7ce8b415d69d404",
+      "request_record_sha256": "809df4b0c9eadd0973cb3d5086e85c7ba9e04b35978fd2d4ffe613c9cb4d4a1b",
+      "receipt_record_sha256": "e95c0148829324e3adbfd49b17515475ff81d71973176960b28e256677b99dc5",
+      "original_text_utf8_sha256": "7a091385d5403d3565e132c552519548036fe30575449dd145ab819e45e4e827"
+    },
+    {
+      "number": 35,
+      "request_id": "compactrba86cf874amz20v5-amazon-1:35:a7db1f05bc40e358dfc431668f3b519c7c11063a093f2119f69a95460f7ec11f",
+      "request_record_sha256": "1a0e22815d347a4362a7f6fb43e83300584249f6807bb2da09086fed2f48309d",
+      "receipt_record_sha256": "3443b5ad67f5a2c81dcb1f93a337719f633f240d84fd0946a34a67fef913fdb8",
+      "original_text_utf8_sha256": "c61d0d9da2b30e88a03a339636eebf8696ab76d4c89507a8560cdd59e357474b"
+    }
+  ],
+  "join_basis": "request/receipt record hashes match the safe metrics API-record hash domain; original text hash is UTF-8 receipt.text, distinct from normalized response_content_sha256.",
+  "limitations": [
+    "No runtime oracle was reached.",
+    "No independently established useful business obligation is counted as satisfied by input declaration or an empty cleanup container.",
+    "The clarification remains unanswered at this snapshot.",
+    "The frozen capability and permission boundaries are unchanged.",
+    "No semantic duplicate ban, permissive type change, automatic binding, new protocol or new runtime inference is proposed."
+  ]
+}

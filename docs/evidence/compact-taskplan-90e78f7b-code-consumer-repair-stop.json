@@ -1,0 +1,170 @@
+{
+  "production_and_harness_source": "90e78f7bbe744e08295ddd229c9130eeeca7891f",
+  "run": "compactm90e78f7bcode11a-code-1",
+  "status": "received_repair_rejected_before_renewed_review",
+  "logical_requests": 30,
+  "physical_attempts": 31,
+  "received_completions": 30,
+  "judge_calls": 1,
+  "correction_charges": 4,
+  "operator_planning_interventions": 0,
+  "planning_ms": 1691927,
+  "known_cost_eur": "1.9907482259947902631815323813",
+  "retained_unknown_reservation_eur": "0.5860235336387316985538489176",
+  "provider_tokens": {
+    "input_tokens": 204700,
+    "output_tokens": 39760,
+    "reasoning_tokens": 34293
+  },
+  "received_http_errors": [
+    {
+      "request": 27,
+      "statuses": [
+        500,
+        200
+      ],
+      "retained_unknown_reservation_eur": "0.5860235336387316985538489176"
+    }
+  ],
+  "trajectory": {
+    "first_clone_draft": 7,
+    "first_clone_remote": "public pullRequestUrl directly, which is a PR page URL",
+    "pinned_branch_and_directory_preserved": true,
+    "local_review": 28,
+    "actual_open_root_present": true,
+    "received_finding": "clone repository remote differs semantically from a PR page URL; downstream artifact provenance depends on that clone",
+    "typed_repair": 29,
+    "repair": "replace only clone inputs with the repository Git remote, preserving pinned revision and target directory",
+    "consumer_reference_unchanged": true,
+    "deterministic_contract_validation_passed_after_patch": true,
+    "repair_progress_check_rejected_unchanged_consumer": true,
+    "renewed_judge_dispatched": false,
+    "last_response": 30,
+    "last_response_kind": "evidence-only; not an accepted successful evidence batch"
+  },
+  "terminal_diagnostics": [
+    {
+      "code": "CONSTRUCTION_DEFECT_UNCHANGED",
+      "location": "/construction/candidate",
+      "message": "The prior finding's cited implementation is unchanged. Its truth remains advisory: make a targeted repair, retrieve evidence contesting it, suspend for an evidenced prerequisite, or withdraw a premature completion claim within existing authority. Prior witness: 66581f095aa9e75d3ab3355bfe4cd4e62f16e91e230992e6a21a62f7a33df1b6",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "artifact_created": false,
+  "runtime_started": false,
+  "business_oracle_passed": false,
+  "satisfied_business_obligations": 0,
+  "calls_per_satisfied_business_obligation": null,
+  "request_sizes_by_phase": {
+    "construction_intent": {
+      "logical_calls": 1,
+      "p50_bytes": 8488,
+      "p95_bytes": 8488,
+      "maximum_bytes": 8488,
+      "peak_components": {
+        "construction_context": 29,
+        "diagnostics": 26,
+        "envelope": 427,
+        "instructions": 1404,
+        "intent": 2387,
+        "interfaces": 59,
+        "response_schema": 4156
+      }
+    },
+    "construction_select": {
+      "logical_calls": 5,
+      "p50_bytes": 25417,
+      "p95_bytes": 32471,
+      "maximum_bytes": 32471,
+      "peak_components": {
+        "construction_context": 2398,
+        "envelope": 498,
+        "evidence": 1036,
+        "instructions": 2968,
+        "interfaces": 6220,
+        "requirements": 11806,
+        "response_schema": 7545
+      }
+    },
+    "construction_discovery": {
+      "logical_calls": 13,
+      "p50_bytes": 35423,
+      "p95_bytes": 40848,
+      "maximum_bytes": 40848,
+      "peak_components": {
+        "construction_context": 2243,
+        "envelope": 497,
+        "evidence": 1551,
+        "instructions": 2240,
+        "interfaces": 2179,
+        "mcp_contracts": 8847,
+        "mcp_descriptors": 4441,
+        "objective": 389,
+        "requirements": 10526,
+        "response_schema": 7935
+      }
+    },
+    "construction_draft": {
+      "logical_calls": 6,
+      "p50_bytes": "34578.5",
+      "p95_bytes": 40753,
+      "maximum_bytes": 40753,
+      "peak_components": {
+        "construction_context": 4477,
+        "diagnostics": 26,
+        "envelope": 505,
+        "evidence": 25,
+        "fragment": 22,
+        "instructions": 1144,
+        "interfaces": 2179,
+        "mcp_contracts": 8880,
+        "objective": 389,
+        "requirements": 8399,
+        "response_schema": 14707
+      }
+    },
+    "replan": {
+      "logical_calls": 4,
+      "p50_bytes": "47857.5",
+      "p95_bytes": 51874,
+      "maximum_bytes": 51874,
+      "peak_components": {
+        "construction_context": 22784,
+        "diagnostics": 1039,
+        "envelope": 505,
+        "evidence": 1036,
+        "fragment": 2999,
+        "instructions": 3560,
+        "interfaces": 1387,
+        "mcp_contracts": 3722,
+        "objective": 225,
+        "requirements": 8667,
+        "response_schema": 5950
+      }
+    },
+    "construction_local_judge": {
+      "logical_calls": 1,
+      "p50_bytes": 15871,
+      "p95_bytes": 15871,
+      "maximum_bytes": 15871,
+      "peak_components": {
+        "construction_context": 1375,
+        "envelope": 495,
+        "fragment": 6087,
+        "instructions": 1456,
+        "interfaces": 304,
+        "requirements": 4055,
+        "response_schema": 2099
+      }
+    }
+  },
+  "all_issued_components_reconcile": true,
+  "phase_policy_sha256": "00fcfe333c623720a4cd0495bb604d784c00e4229b6ba008cfebe357d1764c8e",
+  "settings_changed": false,
+  "effective_repair_business_resolution": "unverified: renewed business review was blocked",
+  "no_retention_needed": "All logical requests have receipts; the confirmed HTTP 500 attempt reservation remains retained.",
+  "qualifying_success": false,
+  "received_typed_patch_responses": 2
+}

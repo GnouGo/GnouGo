@@ -1,9 +1,14 @@
-﻿using GnOuGo.Auth.Core;
+﻿using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
+using GnOuGo.Auth.Core;
 
 namespace GnOuGo.AI.Core;
 
 internal static class ProviderAuthenticationResolver
 {
+    private static readonly ConditionalWeakTable<HttpClient,
+        ConcurrentDictionary<OidcClientCredentialsConfig, OidcJwtApiKeyProvider>> TokenProviders = new();
+
     public static async ValueTask<string?> ResolveBearerTokenAsync(
         HttpClient http,
         ModelProviderOptions provider,
@@ -15,17 +20,26 @@ internal static class ProviderAuthenticationResolver
 
         if (HasOidcConfiguration(provider))
         {
-            ValidateOidcConfiguration(provider);
-            var tokenProvider = new OidcJwtApiKeyProvider(
-                http,
-                new OidcClientCredentialsConfig(
-                    provider.Issuer!,
-                    provider.ClientId!,
-                    provider.Scopes!,
-                    provider.ClientSecret,
-                    provider.PrivateKeyPem));
+            try
+            {
+                ValidateOidcConfiguration(provider);
+                var credentials = new OidcClientCredentialsConfig(
+                    provider.Issuer!, provider.ClientId!, provider.Scopes!, provider.ClientSecret, provider.PrivateKeyPem);
+                var tokenProvider = TokenProviders.GetOrCreateValue(http).GetOrAdd(credentials,
+                    static (configuration, client) => new OidcJwtApiKeyProvider(client, configuration), http);
 
-            return await tokenProvider.GetApiKeyAsync(ct);
+                return await tokenProvider.GetApiKeyAsync(ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                var failure = LLMProviderFailureClassifier.Classify(exception);
+                failure.Stage = LLMProviderFailureStage.Authentication;
+                throw failure;
+            }
         }
 
         return fallbackResolver(provider);

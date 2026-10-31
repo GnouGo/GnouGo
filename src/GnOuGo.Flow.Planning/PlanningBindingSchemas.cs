@@ -7,6 +7,29 @@ namespace GnOuGo.Flow.Planning;
 // References, member completeness/uniqueness and cross-field constraints remain semantic checks.
 internal static class PlanningBindingSchemas
 {
+    internal static JsonObject ForOperation(PlanningCapability capability, OperationPort port, JsonObject definitions, bool constrainResult = false)
+    {
+        if (capability.ArtifactContract?.Consumes.Any(c => TaskArtifactBindings.Decode(c.Pointer).SequenceEqual(port.Path, StringComparer.Ordinal)) == true)
+        {
+            // A whole-argument artifact must retain an existing origin. The compiler
+            // still proves that origin through fields, groups and scope boundaries.
+            var references = new JsonArray();
+            foreach (var binding in definitions["value"]!["anyOf"]!.AsArray().OfType<JsonObject>())
+            {
+                var kinds = binding["properties"]?["kind"]?["enum"]?.AsArray()
+                    .Select(k => k!.ToString()).Where(k => k is "input" or "item" or "output" or "field").ToArray() ?? [];
+                if (kinds.Length == 0) continue;
+                var reference = binding.DeepClone();
+                reference["properties"]!["kind"] = PlanningSchemas.Enum(kinds);
+                references.Add(reference);
+            }
+            return new() { ["anyOf"] = references };
+        }
+        return For(port.Schema, definitions,
+            literalOnly: TaskPlanCompiler.LiteralScopeInput(capability.StepType, port.Path[0]),
+            workspace: TaskPlanCompiler.FixedWorkspaceInput(capability.StepType, port.Path[0]), constrainResult: constrainResult);
+    }
+
     internal static JsonObject For(JsonObject schema, JsonObject definitions, bool literalOnly = false, bool workspace = false, int depth = 0, bool constrainResult = false)
     {
         var fallback = PlanningSchemas.Ref(literalOnly ? "literal" : "value");
@@ -80,6 +103,7 @@ internal static class PlanningBindingSchemas
                 }
                 if (workspace && kinds.Any(k => k is not ("output" or "field"))) continue;
                 if (kinds.Contains("arithmetic") && !types.Any(t => t is "number" or "integer")) continue;
+                if (kinds.Contains("string_operation") && !types.Contains("string")) continue;
                 if (kinds.Contains("lookup") && !types.Contains("array")) continue;
                 if (kinds.Contains("flatten"))
                 {

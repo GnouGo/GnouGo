@@ -148,7 +148,7 @@ public sealed class LlmTraceCaptureTests : BunitContext
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var state = new PlanningSession { Request = new() { SessionId = "session", TenantId = "tenant" } };
-        if (workflow) await fixture.Records.UpsertAsync("flow-planning-sessions-v10", "tenant", "session", JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), "test", Ct);
+        if (workflow) await fixture.Records.UpsertAsync("flow-planning-sessions-v11", "tenant", "session", JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), "test", Ct);
         else Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         var prefix = workflow ? "flow" : "agent";
         var key = workflow ? "session:1:hash" : "session:session:1:hash";
@@ -218,7 +218,7 @@ public sealed class LlmTraceCaptureTests : BunitContext
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var state = new PlanningSession { Request = new() { SessionId = "session", TenantId = "tenant" } };
-        await fixture.Records.UpsertAsync("flow-planning-sessions-v10", "tenant", "session", JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), "test", Ct);
+        await fixture.Records.UpsertAsync("flow-planning-sessions-v11", "tenant", "session", JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), "test", Ct);
         var request = new LLMRequest { ClientRequestId = "session:1:hash", Prompt = "JOURNALED_PRIVATE_INPUT" };
         var reservation = await fixture.Records.UpsertAsync("flow-planning-model-requests-v10", "tenant", request.ClientRequestId, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), "test", Ct);
         using var harness = SmartFlowTestFactory.CreateTelemetryHarness(); using var telemetry = harness.Telemetry;

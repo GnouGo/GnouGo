@@ -91,6 +91,7 @@ public sealed record TaskOutput(string Name, TaskValue Value);
 /// a field value selects its literal Port from the single typed object in Items.
 /// Flatten concatenates one typed array-of-arrays operand in Items by one level.
 /// Lookup reconnects Items=[records, selected IDs] through the literal identity field Port.</summary>
+/// <remarks>string_operation uses Text=concat (2..16 strings) or uri_component (one string), without implicit coercion.</remarks>
 public sealed class TaskValue
 {
     public string Kind { get; set; } = "null";

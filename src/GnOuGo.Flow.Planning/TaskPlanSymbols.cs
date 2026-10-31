@@ -5,7 +5,11 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Transient source locations and ownership, referencing the original TaskPlan. Never serialized.</summary>
 internal sealed class TaskPlanSymbols
 {
-    internal sealed record Scope(TaskScope Source, string Path, Scope? Parent, PlanTask? Owner);
+    internal sealed record Scope(TaskScope Source, string Path, Scope? Parent, PlanTask? Owner)
+    {
+        // Isolated group bodies still own a construction boundary; their null parent preserves capture isolation.
+        internal int Depth => Parent is not null ? Parent.Depth + 1 : Path == "/root" ? 0 : 1;
+    }
     internal sealed record Site(TaskValue Value, Scope Scope, string Path);
     internal List<Scope> Scopes { get; } = [];
     internal Dictionary<string, (PlanTask Task, Scope Scope)> Tasks { get; } = new(StringComparer.Ordinal);

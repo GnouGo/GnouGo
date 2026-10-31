@@ -1,0 +1,33 @@
+{
+  "baseline": "9fe879cc2d97ed94171e85034ee6288e9fbf7f02",
+  "validated_production_source": "ed00493430cddc5a2359834b2cf7dc395495bc95",
+  "removed_commit": "be2bd5a0bf426ec6e29b084a53b8e8a55c8c651f",
+  "removed_symbols": [
+    "RetainInconclusiveAsync",
+    "RetainExhaustedRequestAsync",
+    "PlanningConfirmationGuards.Wrapper legacy parameter and alternate-expression acceptance",
+    "legacy failed-action bare hash fallback",
+    "artifact-only candidate relabeling fallback",
+    "unused arm=null runner plumbing"
+  ],
+  "removed_configuration_paths": [
+    "superseded retention-creation CLI routes; old corpus flag now rejects with exact-operator guidance"
+  ],
+  "retained": [
+    "historical financial and permanent-closure inspection",
+    "exact current-format requests and receipts",
+    "current exact authorized retention operator",
+    "captured secure retry transport policy"
+  ],
+  "removed_files": [],
+  "exclusive_tests_removed": "Five obsolete retention-creator cases, one retired API assertion, one relabeling arm; historical zero-dispatch closure inspection now uses immutable archived JSON.",
+  "removal_commit_lines_added": 30,
+  "removal_commit_lines_deleted": 332,
+  "complete_implementation_diff": {
+    "lines_added": 812,
+    "lines_deleted": 489,
+    "net": 323,
+    "includes_regressions_and_docs": true
+  },
+  "interpretation": "Concrete obsolete paths were removed. The complete change is a net addition because advisory accounting, bounded repair and their regressions were added; no net simplification claim is made."
+}

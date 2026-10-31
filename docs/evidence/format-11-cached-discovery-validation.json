@@ -1,0 +1,35 @@
+{
+  "parent_revision": "42d926e73fe457f11baace25a6f49b2caa89cd6e",
+  "overlay": {
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Contracts.cs": "5291b511ef7e2c15c86b2d15d4ae1161914006d469e7a618ca5f2314fc510b21",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactCachedDiscoveryTests.cs": "c187581055f2ca770bf47367ed2426d07a09a58487ba6f05902302b9ec05f99e",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactDiscoveryProtocolTests.cs": "274f5c47cb772c271b47ff612e7f8bf786117bca427e39cc8c5e4ff08ef9620b",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactDiscoveryAcceptedProducersTests.cs": "ab611d3eccbde4a4d89f7b517f1acdb1e197678a7ced569daa465c01dec792d1"
+  },
+  "validation": {
+    "warning_as_error": true,
+    "passed": 227,
+    "failed": 0,
+    "skipped": 0,
+    "new_generic_cases": 7,
+    "command_file": "command.json",
+    "log": "logs/focused-tests.log"
+  },
+  "effects": {
+    "paid_calls": 0,
+    "operational_database_access": false,
+    "main_build_outputs_used": false,
+    "frozen_live_runs_modified": false
+  },
+  "demonstrated": [
+    "Cached exact operation identities and original description links survive acceptance of a structural checkpoint and a changed immediate objective.",
+    "Provider results remain scoped to the exact current query.",
+    "An explicitly chosen cached operation resolves through the ordinary catalog without provider listing.",
+    "Cache pagination is bounded, exact and does not count as discovery or correction progress.",
+    "Policy, conflicting versions/descriptions, stale baselines and exact issued request recovery remain enforced."
+  ],
+  "limitations": [
+    "Live convergence and a reduction in actual LLM calls remain unverified for this correction.",
+    "No final-source full-solution or publication claim is made for these overlays."
+  ]
+}

@@ -16,40 +16,35 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
     public async Task<PlanningSession> AdvanceAsync(PlanningSession session, PlanningCommand command, IPlanningRuntime runtime, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        if (session.SchemaVersion != 10) throw new PlanningConflictException("This planning format is no longer executable. Regenerate and approve the workflow.");
+        if (session.SchemaVersion != 11) throw new PlanningConflictException("This planning format is no longer executable. Regenerate and approve the workflow.");
         if (session.Revision != command.ExpectedRevision) throw new PlanningConflictException("The session changed. Reload its revision.");
+        if (command.Kind != "cancel" && session.Request.Options.ContainsKey("construction_limits") &&
+            !PlanningSessionCreation.CanCapture(session))
+            PlanningCompactConstruction.ValidateBusinessContract(session);
         if (string.IsNullOrWhiteSpace(session.Request.TenantId) || string.IsNullOrWhiteSpace(session.Request.SessionId) || string.IsNullOrWhiteSpace(session.Request.Prompt))
             throw new ArgumentException("Tenant, session identity and request are required.");
-        if (session.Request.MaxModelCalls is < 1 or > 1000 || session.Request.MaxReplanAttempts is < 0 or > 10)
+        if (session.Request.MaxModelCalls < 1 || session.Request.MaxReplanAttempts < 0 ||
+            !PlanningTokenThresholds.OptimizationAdvisory(session.Request) &&
+            (session.Request.MaxModelCalls > 1000 ||
+             session.Request.MaxReplanAttempts > (session.Request.Options["construction_preset"]?.ToString() == PlanningConstructionPresets.Large ? 64 : 10)))
             throw new ArgumentException("Invalid planning limits.");
         PlanningMode.Validate(session.Request.Mode);
-        PlanningGenerationPolicy.Validate(session.Request.Generation);
+        PlanningGenerationPolicy.Validate(session.Request.Generation, PlanningTokenThresholds.OptimizationAdvisory(session.Request));
         if (command.EditablePaths is not null && (command.Kind != "revise" || command.PreserveRequirements != true))
             throw new ArgumentException("EditablePaths requires an explicit implementation revision with preserveRequirements: true.");
-        if (session.RequiresPlanningRevision && command.Kind is not ("revise" or "cancel") &&
-            !(command.Kind == "save" && session.Status == PlanningStatus.Approved))
-        {
-            const string message = "This session uses a retired planning contract. Explicitly revise it; saved artifacts, requests and usage are retained.";
-            if (command.Kind != "advance") throw new PlanningConflictException("PLANNING_REVISION_REQUIRED: " + message);
-            if (session.Status is PlanningStatus.Approved or PlanningStatus.Saved or PlanningStatus.Saving or PlanningStatus.Cancelled ||
-                session.Diagnostics.Any(d => d.Code == "PLANNING_REVISION_REQUIRED")) return session;
-            var retired = JsonSerializer.SerializeToNode(session, PlanningJsonContext.Default.PlanningSession)!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
-            retired.Status = PlanningStatus.Stopped;
-            retired.Diagnostics.Add(new("PLANNING_REVISION_REQUIRED", "/", message));
-            retired.Revision++; retired.UpdatedAtUtc = _time.GetUtcNow();
-            await runtime.CheckpointAsync(retired, ct);
-            return retired;
-        }
         if (command.Kind == "advance" && (PlanningStatus.IsWaiting(session.Status) || PlanningStatus.IsTerminal(session.Status))) return session;
         if (session.Status is PlanningStatus.Saved or PlanningStatus.Saving or PlanningStatus.Cancelled)
             throw new PlanningConflictException("This planning session is closed.");
-        if (command.Kind is "configure_generation" or "revise" && PlanningModelCalls.RemainingCalls(session) == 0)
+        if (command.Kind is "configure_generation" or "revise" && !PlanningModelCalls.HasCallCapacity(session))
             throw new PlanningConflictException("The session model-call budget is exhausted. Token settings and revisions cannot extend it. Start a new planning session; retained requests and accounting remain unchanged.");
         var state = JsonSerializer.Deserialize(JsonSerializer.Serialize(session, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
-        if (!state.RequiresPlanningRevision && state.IntentVersion is null) state.IntentVersion = 3;
         PlanningSessionCreation.Capture(state, session);
+        if (command.Kind != "cancel" && state.Request.Options.ContainsKey("construction_limits"))
+            PlanningCompactConstruction.ValidateBusinessContract(state);
+        using var warnings = PlanningTokenThresholds.Observe((stage, kind, current, threshold) =>
+            PlanningOptimizationThresholds.Record(state, stage, kind, current, threshold));
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        if (PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed is { } maximum)
+        if (!PlanningTokenThresholds.OptimizationAdvisory(state.Request) && PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed is { } maximum)
         {
             var remaining = maximum.TotalMilliseconds - state.ActiveMilliseconds;
             if (remaining <= 0) deadline.Cancel(); else deadline.CancelAfter(TimeSpan.FromMilliseconds(remaining));
@@ -69,7 +64,8 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
                 case "approve":
                     if (state.Status != PlanningStatus.FinalReview || command.ArtifactHash is null || command.ArtifactHash != state.ComputeArtifactHash())
                         throw new PlanningConflictException("Approval must identify the exact current artifact.");
-                    PlanningArtifactApproval.Verify(state);
+                    var approvalReview = await PlanningApprovalReviews.ResolveAsync(state, command, runtime, deadline.Token);
+                    PlanningArtifactApproval.Verify(state, approvalReview);
                     var requirements = state.Requirements?.Outcomes ?? [];
                     var reviewed = command.ReviewedRequirementIds ?? [];
                     if (reviewed.Count != requirements.Count || reviewed.Distinct(StringComparer.Ordinal).Count() != reviewed.Count ||
@@ -80,14 +76,18 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
                     else
                     {
                         state.ValidationResults.AddRange(requirements.Select(r => new PlanningValidationResult("requirement:" + r.Id,
-                            "human_reviewed", r.Description + " — explicitly reviewed against this artifact; unverified coverage remains unverified and execution has not been observed.", [])));
+                            approvalReview is null ? "human_reviewed" : "delegated_test_reviewed", r.Description +
+                            (approvalReview is null ? " — explicitly reviewed against this artifact" : " — reviewed by the explicitly delegated isolated-test reviewer") +
+                            "; unverified coverage remains unverified and execution has not been observed.", [])));
+                        state.ApprovalReview = approvalReview;
                         state.ApprovedHash = command.ArtifactHash; state.Status = PlanningStatus.Approved;
                     }
                     break;
                 case "choose":
-                    if (state.Status != PlanningStatus.Clarification || command.Selections is null || state.Plan is null || state.PendingQuestions is not null)
+                    var choicePlan = state.Construction?.Candidate?.Plan ?? state.Plan;
+                    if (state.Status != PlanningStatus.Clarification || command.Selections is null || choicePlan is null || state.PendingQuestions is not null)
                         throw new PlanningConflictException("No business choice is awaiting selection.");
-                    var pending = state.Plan.Choices.Where(c => c.Selected is null).ToArray();
+                    var pending = choicePlan.Choices.Where(c => c.Selected is null).ToArray();
                     if (!command.Selections.Select(p => p.Key).Order().SequenceEqual(pending.Select(c => c.Id).Order()))
                         throw new ArgumentException("Select exactly the pending choices.");
                     foreach (var choice in pending)
@@ -96,35 +96,59 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
                         if (!choice.Alternatives.Any(a => a.Id == selected)) throw new ArgumentException("Select a declared business alternative.");
                         choice.Selected = selected;
                     }
-                    Invalidate(state); await CompileAsync(state, runtime, deadline.Token); break;
+                    Invalidate(state);
+                    if (state.Construction is { Complete: false } constructionChoice)
+                    {
+                        if (constructionChoice.Candidate is { } candidateChoice)
+                        {
+                            candidateChoice.Hash = PlanningConstruction.Hash(candidateChoice.Plan);
+                            candidateChoice.BusinessReviewed = false;
+                            await ValidateConstructionCandidateAsync(state, runtime, deadline.Token);
+                        }
+                        state.Status = PlanningStatus.Generating;
+                    }
+                    else await CompileAsync(state, runtime, deadline.Token);
+                    break;
                 case "answer":
-                    if (!PlanningClarifications.PreservesIntent(state)) state.Request.Options.Remove(CorrectionProgressKey);
                     PlanningClarifications.Answer(state, command); break;
                 case "configure_mode":
                     PlanningMode.Validate(command.Mode ?? ""); state.Request.Mode = command.Mode!;
                     if (state.Status == PlanningStatus.Clarification && state.PendingQuestions is null && state.Request.Mode == PlanningMode.Auto)
-                        await CompileAsync(state, runtime, deadline.Token);
+                    {
+                        if (state.Construction is { Complete: false })
+                        {
+                            foreach (var choice in state.GetChoices().Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
+                            if (state.Construction.Candidate is { } automaticChoice)
+                            {
+                                automaticChoice.Hash = PlanningConstruction.Hash(automaticChoice.Plan);
+                                await ValidateConstructionCandidateAsync(state, runtime, deadline.Token);
+                            }
+                            state.Status = PlanningStatus.Generating;
+                        }
+                        else await CompileAsync(state, runtime, deadline.Token);
+                    }
                     break;
                 case "configure_generation":
                     if (state.PendingCall is not null || state.PendingQuestions is not null || command.Generation is null) throw new PlanningConflictException("Generation settings cannot replace a pending call or clarification.");
-                    PlanningGenerationPolicy.Validate(command.Generation); state.Request.Generation = command.Generation;
+                    if (state.Construction is not null && (command.Generation.MaxInputTokensPerRequest > state.Request.Generation.MaxInputTokensPerRequest ||
+                        command.Generation.MaxOutputTokens > state.Request.Generation.MaxOutputTokens))
+                        throw new PlanningConflictException("Construction request ceilings were captured at creation. A larger allowance requires an explicitly configured new session; existing accounting is retained.");
+                    PlanningGenerationPolicy.Validate(command.Generation, PlanningTokenThresholds.OptimizationAdvisory(state.Request)); state.Request.Generation = command.Generation;
                     state.Diagnostics.RemoveAll(d => d.Code is "MODEL_INPUT_LIMIT" or "MODEL_OUTPUT_LIMIT");
                     state.Status = PlanningStatus.Generating; break;
                 case "revise":
                     if (state.PendingCall is not null) throw new PlanningConflictException("Reconcile the pending model request before revising.");
                     ArgumentException.ThrowIfNullOrWhiteSpace(command.Text);
-                    if (command.PreserveRequirements == true && (state.IntentVersion is not (2 or 3) || state.Requirements is null ||
+                    if (command.PreserveRequirements == true && (state.Requirements is null ||
                         command.ArtifactHash != state.ComputeArtifactHash()))
                         throw new PlanningConflictException("A correction must retain current accepted requirements and identify the exact artifact, when present.");
                     if (command.EditablePaths is not null) TaskPlanRevisions.ValidateEditablePaths(state, command.EditablePaths);
-                    if (PlanningBusinessJudge.Enabled(state))
+                    if (state.Construction is not null)
                     {
-                        state.Request.Options.Remove(PlanningBusinessJudge.AuthorityKey);
-                        if (command.EditablePaths is not null) state.Request.Options[PlanningBusinessJudge.AuthorityKey] =
-                            new JsonArray(command.EditablePaths.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray());
+                        ReviseConstruction(state, command);
+                        PlanningProgress.RecordOriginal(state, command.Text!);
+                        break;
                     }
-                    state.Request.Options.Remove(CorrectionProgressKey);
-                    state.Request.Prompt += "\nRequested revision: " + command.Text;
                     PlanningClarifications.Revise(state, command.PreserveRequirements == true, command.EditablePaths); break;
                 case "cancel": state.Status = PlanningStatus.Cancelled; state.ApprovedHash = null; break;
                 default: throw new ArgumentException("Unsupported planning command.");
@@ -140,6 +164,10 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
             state.Diagnostics = state.Plan is not null && state.RevisionScope.Count > 0
                 ? state.Diagnostics.Concat(ex.Diagnostics).Distinct().ToList() : ex.Diagnostics;
             Invalidate(state); state.Status = state.EditablePaths is null ? PlanningStatus.Generating : PlanningStatus.Stopped;
+            if (ex.Diagnostics.Any(diagnostic => diagnostic.Code == "REPLAN_NO_PROGRESS"))
+                Stop(state);
+            if (state.Construction is { Candidate: null, LastProposalHash: { } proposalHash } construction &&
+                !construction.FailedCandidates.Contains(proposalHash, StringComparer.Ordinal)) construction.FailedCandidates.Add(proposalHash);
         }
         catch (WorkflowRuntimeException ex)
         {
@@ -163,226 +191,23 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
             Stop(state);
         }
         catch (JsonException)
-        { state.Diagnostics = [new("PLANNING_RESPONSE_INVALID", "/", "The response does not satisfy the semantic TaskPlan proposal contract.")]; Invalidate(state); state.Status = PlanningStatus.Generating; }
+        { state.Diagnostics = [new("PLANNING_RESPONSE_INVALID", "/", "The response does not satisfy the issued planning contract.")]; Stop(state); }
         catch (Exception)
         { state.Diagnostics.Add(new(state.PendingCall is null ? "PLANNING_HOST_FAILURE" : "MODEL_DISPATCH_UNVERIFIABLE", "/", "Planning could not safely complete this operation.")); Stop(state); }
-        RecordCorrectionOutcome(state);
-        ContinueAutomaticCorrection(state);
+        if (command.Kind == "advance") PlanningProgress.Record(state);
         state.ActiveMilliseconds += elapsed.Elapsed.TotalMilliseconds;
+        if (PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed is { } elapsedTarget)
+            _ = PlanningOptimizationThresholds.Exceeded(state, "checkpoint", "session_elapsed_ms", (long)state.ActiveMilliseconds, (long)elapsedTarget.TotalMilliseconds);
         state.Revision++; state.UpdatedAtUtc = _time.GetUtcNow();
         if (PlanningStatus.IsWaiting(state.Status)) state.WaitingSinceUtc = state.UpdatedAtUtc;
         await runtime.CheckpointAsync(state, ct);
         return state;
     }
 
-    private static async Task AdvancePlanAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
+    private static Task AdvancePlanAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
     {
-        state.Status = PlanningStatus.Generating;
-        if (state.PendingCall?.Purpose == "judge")
-        {
-            await CompileAsync(state, runtime, ct);
-            if (state.Status == PlanningStatus.Generating) await PlanningBusinessJudge.ReviewAsync(state, runtime, ct);
-            return;
-        }
-        if (PlanningBusinessJudge.Enabled(state) && state.Phase == PlanningPhase.Review && state.Graph is not null && !state.Diagnostics.Any(d => d.Required))
-        { await PlanningBusinessJudge.ReviewAsync(state, runtime, ct); return; }
-        if (state.PendingCall is null) PlanningModelCalls.EnsureCallAvailable(state);
-        if (state.Catalog is null)
-        {
-            state.Catalog = await runtime.DiscoverAsync(state.Request, ct);
-            state.Discovery.Sources = (await runtime.Capabilities.ListSourcesAsync(ct)).ToList();
-            if (state.Discovery.Sources.Count == 1)
-                await PlanningDiscoveryContext.DiscoverPageAsync(state, runtime, state.Discovery.Sources[0].Id, null, ct, state.PendingCall is null ? PlanningDiscoveryContext.Query(state) : null);
-        }
-        if (!PrepareAutomaticCorrection(state)) return;
-        if (state.PendingCall is null && state.Plan is { } retained && state.Diagnostics.Any(d => d.Code == "TASK_ARTIFACT_BINDING"))
-        {
-            // Reconcile pending receipts first. Fresh requests derive structural authority
-            // from the retained baseline and exact available producer contracts.
-            var probe = JsonSerializer.Deserialize(JsonSerializer.Serialize(retained, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
-            foreach (var choice in probe.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
-            var missing = new TaskPlanCompiler().Compile(probe, state.Catalog).Diagnostics.Where(d => d.Code == "TASK_ARTIFACT_PREREQUISITE_MISSING").ToArray();
-            if (missing.Length > 0)
-            {
-                SemanticFailure(state, state.Diagnostics.Where(d => !missing.Any(m => m.Location == d.Location && d.Code is "TASK_ARTIFACT_BINDING" or "TASK_ARTIFACT_PREREQUISITE_MISSING"))
-                    .Concat(missing).Distinct().ToArray());
-                if (state.Status == PlanningStatus.Stopped) return;
-            }
-        }
-        var repair = PlanningModelCalls.IsRepair(state);
-        if (repair && state.PendingCall is null && state.Plan is { } baseline && state.RevisionScope.Count > 0 &&
-            state.Diagnostics.Any(d => d.Code == "TASK_INPUT_TYPE"))
-        {
-            // Re-derive precise producer constraint locations from the immutable
-            // saved baseline. Pending requests always retain their issued scope.
-            var candidate = JsonSerializer.Deserialize(JsonSerializer.Serialize(baseline, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
-            foreach (var choice in candidate.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
-            var baselineFindings = new TaskPlanCompiler().Compile(candidate, state.Catalog!, state.Request).Diagnostics;
-            state.Diagnostics = state.Diagnostics.Concat(baselineFindings.Where(d => d.Code == "TASK_TRANSFORM_CONSTRAINT")).Distinct().ToList();
-            state.RevisionScope = TaskPlanRevisions.Scope(baseline, state.Diagnostics).ToList();
-        }
-        if (repair && state.PendingCall is null && state.Plan is not null)
-        {
-            // A saved producer/guard defect cannot be fixed by an unrelated value
-            // slot. Issued requests bypass this check until their receipt is applied.
-            var immutable = TaskPlanRevisions.UnrepairableRequirements(state).Where(d =>
-                !AutomaticCorrection(state) || state.EditablePaths?.Contains(d.Location, StringComparer.Ordinal) != true).ToArray();
-            if (immutable.Length > 0)
-            { state.Diagnostics = state.Diagnostics.Concat(immutable).Distinct().ToList(); Stop(state); return; }
-        }
-        if (repair && state.PendingCall is null && state.ReplanAttempts >= state.Request.MaxReplanAttempts) { Stop(state); return; }
-        state.Phase = repair ? PlanningPhase.Replanning : state.Requirements is null ? PlanningPhase.Requirements : PlanningPhase.Tasks;
-        var recovering = state.PendingCall is not null;
-        var legacyDiscovery = state.PendingCall is { } issued && !PlanningSchemas.HasQueryProperty(issued.Request.StructuredOutputSchema?["properties"]?["discoveryRequests"]);
-        if (state.PendingCall is null)
-        {
-            await PlanningDiscoveryContext.DiscoverPrerequisitesAsync(state, runtime, ct);
-            await PlanningDiscoveryContext.ResolveShortlistAsync(state, runtime, ct);
-        }
-        var issuedRequest = state.PendingCall?.Request ?? new PlanningPrompt(state).Request();
-        var patchRequest = PlanningRepairPatch.Issued(issuedRequest.StructuredOutputSchema?.AsObject());
-        if (patchRequest) PlanningRepairPatch.Verify(state, issuedRequest);
-        var response = await PlanningModelCalls.CallAsync(state, runtime, state.PendingCall?.Purpose ?? (repair ? "replan" : "tasks"), issuedRequest.Prompt, issuedRequest.StructuredOutputSchema!.AsObject(), ct);
-        PlanningProposal proposal;
-        if (patchRequest)
-        {
-            var change = response.Deserialize(RepairJsonContext.Default.PlanningRepairResponse)!;
-            if ((change.DiscoveryRequests is null ? 0 : 1) + (change.Patch is null ? 0 : 1) + (change.Clarifications is null ? 0 : 1) != 1)
-                Reject("PROPOSAL_ACTION_INVALID", "/", "Return one permitted discovery batch, clarification or semantic patch.");
-            var repaired = change.Patch is null ? null : PlanningRepairPatch.Apply(state, change.Patch, issuedRequest);
-            proposal = new() { DiscoveryRequests = change.DiscoveryRequests, Clarifications = change.Clarifications,
-                Plan = repaired };
-        }
-        else proposal = response.Deserialize(PlanningJsonContext.Default.PlanningProposal)!;
-        if ((proposal.DiscoveryRequests is null ? 0 : 1) + (proposal.Plan is null ? 0 : 1) + (proposal.Clarifications is null ? 0 : 1) != 1)
-            Reject("PROPOSAL_ACTION_INVALID", "/", "Return one discovery batch, clarification or complete TaskPlan.");
-        if (proposal.Clarifications is { } questions)
-        {
-            if (proposal.Requirements is not null) Reject("CLARIFICATION_INVALID", "/requirements", "Clarify intent before accepting new requirements.");
-            PlanningClarifications.Suspend(state, questions);
-            state.PendingQuestions = questions; state.Graph = null; Invalidate(state);
-            state.Status = PlanningStatus.Clarification; return;
-        }
-        ValidateRequirements(state, proposal);
-        if (proposal.Plan is not null && state.IntentVersion is 2 or 3 &&
-            (state.Requirements?.Inputs ?? proposal.Requirements?.Inputs) is null)
-            Reject("REQUIREMENTS_INPUTS_REQUIRED", "/requirements/inputs", "Declare the intended caller input interface before proposing a plan, or clarify it with the user.");
-        if (state.Requirements is null && proposal.Requirements is { Outputs: null } && PlanningSchemas.DeclaresOutputs(issuedRequest.StructuredOutputSchema))
-            Reject("REQUIREMENTS_OUTPUTS_REQUIRED", "/requirements/outputs", "Declare the intended business output names and types, or clarify them before accepting requirements. Empty means no public outputs.");
-        if (proposal.Plan is not null && (proposal.Requirements ?? state.Requirements) is { } obligations &&
-            PlanningCommitments.Validate(state, obligations, final: true) is { Count: > 0 } invalidCommitments)
-            throw new PlanningResponseException(invalidCommitments);
-        if (state.IntentVersion == 3 && state.Requirements is { } captured && proposal.Requirements is { } completed && PlanningCommitments.CanComplete(state))
-            captured.Outcomes = completed.Outcomes;
-        state.Requirements ??= proposal.Requirements;
-        if (state.IntentVersion is 2 or 3 && state.Requirements is { Inputs: null } && proposal.Requirements?.Inputs is { } acceptedInputs) state.Requirements.Inputs = acceptedInputs;
-        if (proposal.DiscoveryRequests is { } requests)
-        {
-            if (requests.Count is < 1 or > 4 || requests.Distinct().Count() != requests.Count)
-                Reject("DISCOVERY_BATCH_INVALID", "/discoveryRequests", "Request one to four distinct issued source pages.");
-            // Admit the complete batch before reading any source. Fetches are metadata
-            // reads; recovery can repeat them using the same recorded model response.
-            var effective = new List<PlanningDiscoveryRequest>();
-            var inspections = new List<PlanningDiscoveryRequest>();
-            for (var i = 0; i < requests.Count; i++)
-            {
-                var request = requests[i]; var path = "/discoveryRequests/" + i;
-                if (!state.Discovery.Sources.Any(s => s.Id == request.SourceId)) Reject("SOURCE_UNKNOWN", path + "/sourceId", "Choose an issued capability source.");
-                if (request.OperationIds is not null)
-                {
-                    if (inspections.Any(r => r.SourceId == request.SourceId))
-                        Reject("DISCOVERY_BATCH_INVALID", path, "Replace a source's inspection selection at most once per batch.");
-                    PlanningDiscoveryContext.Inspection(state, request, path);
-                    inspections.Add(request);
-                    continue;
-                }
-                var parent = request.Cursor is null ? null : state.Discovery.Pages.SingleOrDefault(p => p.SourceId == request.SourceId && p.NextCursor == request.Cursor);
-                if (request.Cursor is not null && (parent is null || request.Query is not null || request.ProducedArtifactKind is not null))
-                    Reject("CURSOR_UNKNOWN", path + "/cursor", "Use an issued continuation cursor with query null, or start a refined query without a cursor.");
-                if (request.Query is { } text && (text.Length > 512 || string.IsNullOrWhiteSpace(Capabilities.CapabilityRelevance.Query(text))))
-                    Reject("DISCOVERY_QUERY_INVALID", path + "/query", "Use nonblank query text of at most 512 characters.");
-                var query = legacyDiscovery ? null : parent is not null ? parent.Query : (request.Query is null ? PlanningDiscoveryContext.Query(state) : Capabilities.CapabilityRelevance.Query(request.Query));
-                var filter = parent?.ProducedArtifactKind ?? request.ProducedArtifactKind;
-                if (filter is not null && (!state.Discovery.Pages.Any(p => p.SourceId == request.SourceId) ||
-                    !PlanningDiscoveryContext.Prerequisites(state).Contains(filter, StringComparer.Ordinal)))
-                    Reject("DISCOVERY_FILTER_INVALID", path + "/producedArtifactKind", "Choose an issued exact artifact kind, not an inferred prerequisite.");
-                var next = request with { Query = query, ProducedArtifactKind = filter };
-                if (effective.Contains(next) || state.Discovery.Pages.Any(p => p.SourceId == next.SourceId && p.Cursor == next.Cursor && p.Query == next.Query && p.ProducedArtifactKind == next.ProducedArtifactKind))
-                    Reject("DISCOVERY_NO_PROGRESS", path, "This query page is cached. Use its operations, refine the query or request an issued continuation cursor.");
-                effective.Add(next);
-            }
-            foreach (var request in inspections)
-            {
-                state.Discovery.Inspections ??= [];
-                state.Discovery.Inspections.RemoveAll(r => r.SourceId == request.SourceId);
-                if (request.OperationIds!.Count > 0) state.Discovery.Inspections.Add(request);
-            }
-            foreach (var request in effective) await PlanningDiscoveryContext.DiscoverPageAsync(state, runtime, request.SourceId, request.Cursor, ct, request.Query, request.ProducedArtifactKind);
-            if (!legacyDiscovery && effective.Count > 0)
-                state.Discovery.PresentationQuery = Capabilities.CapabilityRelevance.Query(string.Join(' ', effective.Select(r => r.Query).OfType<string>()));
-            // Resolve while this adapter still owns the complete source listing.
-            // Designer recreates adapters between advances; durable receipts avoid rereading it.
-            // Historical pending responses retain their original discovery side effects.
-            // A recovered request retains its receipt effects. New presentation and
-            // optional contract selection apply before the next newly issued request.
-            if (!legacyDiscovery && !recovering) await PlanningDiscoveryContext.ResolveShortlistAsync(state, runtime, ct);
-            // A successful replacement batch resolves response errors, not semantic
-            // findings or source availability. Historical checkpoints keep the failure.
-            state.Diagnostics.RemoveAll(d => (d.Code is "DISCOVERY_BATCH_INVALID" or "SOURCE_UNKNOWN" or "CURSOR_UNKNOWN" or
-                "DISCOVERY_QUERY_INVALID" or "DISCOVERY_FILTER_INVALID" or "DISCOVERY_NO_PROGRESS" or "DISCOVERY_SELECTION_INVALID" or "PLANNING_RESPONSE_INVALID") &&
-                (d.Location == "/discoveryRequests" || d.Location.StartsWith("/discoveryRequests/", StringComparison.Ordinal)));
-            if (state.Requirements is null) state.Diagnostics.RemoveAll(d => d.Code == "REQUIREMENTS_INVALID");
-            state.Phase = PlanningPhase.Discovery; return;
-        }
-        var plan = proposal.Plan!;
-        var identities = TaskPlanCompiler.IdentityDiagnostics(plan, includeReferences: false);
-        if (identities.Count > 0)
-        {
-            if (state.Plan is not null) throw new PlanningResponseException(identities.ToList());
-            state.Diagnostics = identities.ToList(); Stop(state); return;
-        }
-        // Selections are host-owned. Model repairs cannot silently change a user's decision.
-        foreach (var choice in patchRequest ? [] : plan.Choices)
-        {
-            if (choice.Selected is not null) Reject("CHOICE_SELECTION_FORBIDDEN", "/choices/" + choice.Id, "Only the host selects alternatives.");
-            if ((state.Plan ?? (AutomaticCorrection(state) || PlanningClarifications.PreservesIntent(state) ? state.Request.Baseline : null))?.Choices.SingleOrDefault(c => c.Id == choice.Id) is { Selected: not null } previous)
-            {
-                var before = JsonSerializer.SerializeToNode(previous, PlanningJsonContext.Default.PlanningChoice)!.AsObject(); before["selected"] = null;
-                if (JsonNode.DeepEquals(before, JsonSerializer.SerializeToNode(choice, PlanningJsonContext.Default.PlanningChoice))) choice.Selected = previous.Selected;
-            }
-        }
-        var findings = patchRequest ? [] : TaskPlanRevisions.Validate(state.Plan, plan, state.RevisionScope, state.Catalog).ToList();
-        findings.AddRange(ValidateAutomaticCorrection(state, plan, patchRequest));
-        if (findings.Count > 0) throw new PlanningResponseException(findings);
-        state.Plan = plan; state.Graph = null; state.EditablePaths = null; Invalidate(state);
-        foreach (var operation in TaskPlanRevisions.Tasks(plan).Where(t => t.Kind == "operation").Select(t => t.Operation).Distinct(StringComparer.Ordinal))
-        {
-            if (state.Catalog.Capabilities.Any(c => TaskOperations.Describe(c).Id == operation)) continue;
-            if (state.Discovery.Pages.SelectMany(p => p.Capabilities).Where(c => c.Operation?.Id == operation)
-                .Select(c => (c.Id, c.Version)).Distinct().Skip(1).Any())
-            {
-                state.Diagnostics = [new("SELECTED_OPERATION_UNAVAILABLE", "/tasks/" + TaskPlanRevisions.Tasks(plan).First(t => t.Operation == operation).Id,
-                    "Discovery contains conflicting versions of the selected operation. Rediscover and review its exact contract.")];
-                Stop(state); return;
-            }
-            if (state.Discovery.Resolved.SingleOrDefault(c => TaskOperations.Describe(c).Id == operation) is { } cached)
-            { state.Catalog.Capabilities.Add(cached); continue; }
-            var summaries = state.Discovery.Pages.SelectMany(p => p.Capabilities).Where(c => c.Operation?.Id == operation).DistinctBy(c => (c.Id, c.Version)).ToArray();
-            if (summaries.Length != 1 || state.Catalog.Policy.DeniedCapabilityIds.Contains(summaries[0].Id) || !state.Catalog.AllowedStepTypes.Contains(summaries[0].StepType))
-                continue; // Compiler preflight reports every invalid selection and independent semantic error together.
-            try
-            {
-                await PlanningDiscoveryContext.ResolveAsync(state, runtime, summaries[0], ct);
-                state.Catalog.Capabilities.Add(state.Discovery.Resolved.Single(c => c.Id == summaries[0].Id && c.Version == summaries[0].Version));
-            }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-            catch
-            {
-                state.Diagnostics = [new("SELECTED_OPERATION_UNAVAILABLE", "/tasks/" + TaskPlanRevisions.Tasks(plan).First(t => t.Operation == operation).Id, "The selected operation could not be verified. Rediscover and review its exact contract.")];
-                Stop(state); return;
-            }
-        }
-        await CompileAsync(state, runtime, ct);
+        if (state.Construction is null) throw new PlanningConflictException("The active construction journal is missing. Start a new session.");
+        return AdvanceConstructionAsync(state, runtime, ct);
     }
 
     private static async Task CompileAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
@@ -402,23 +227,17 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
         if (compilation.Diagnostics.Count > 0) { SemanticFailure(state, compilation.Diagnostics); return; }
         if (plan.Choices.Any(c => c.Selected is null))
         {
-            if (state.Request.Mode == PlanningMode.Interactive || PlanningClarifications.PreservesIntent(state))
-            { state.Diagnostics.Clear(); state.Status = PlanningStatus.Clarification; return; }
-            foreach (var choice in plan.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
+            state.Diagnostics.Clear(); state.Status = PlanningStatus.Clarification; return;
         }
         var graph = compilation.Graph!;
         var outputFindings = PlanningClarifications.OutputFindings(state, graph);
-        var combined = state.Request.Options["planning_diagnostics_version"]?.ToString() == "1";
-        if (!combined && outputFindings.Count > 0)
-        { state.Diagnostics = outputFindings; state.Graph = null; Stop(state); return; }
         var coverage = PlanningCommitments.Assess(state);
         foreach (var result in coverage)
             Activity.Current?.AddEvent(new("planning.coverage.checked", tags: new ActivityTagsCollection
             { ["clause"] = result.Id, ["outcome"] = result.Outcome, ["diagnostics"] = string.Join(',', result.Diagnostics.Select(d => d.Code)) }));
         var violations = coverage.SelectMany(r => r.Diagnostics).Where(d => d.Required).ToList();
-        if (combined)
-            violations = outputFindings.Concat(violations).Distinct()
-                .OrderBy(d => d.Location, StringComparer.Ordinal).ThenBy(d => d.Code, StringComparer.Ordinal).ToList();
+        violations = outputFindings.Concat(violations).Distinct()
+            .OrderBy(d => d.Location, StringComparer.Ordinal).ThenBy(d => d.Code, StringComparer.Ordinal).ToList();
         if (violations.Count > 0)
         {
             SemanticFailure(state, violations);
@@ -433,10 +252,22 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
             Stop(state); return;
         }
         PlanningConfirmationGuards.Apply(graph, state.Catalog!);
-        findings = PlanningExecutableValidation.Validate(graph, state.Catalog!).Select(compilation.Locate).ToList();
+        findings = PlanningExecutableValidation.Validate(graph, state.Catalog!, PlanningTokenThresholds.OptimizationAdvisory(state.Request)).Select(compilation.Locate).ToList();
         if (findings.Count == 0)
         {
-            var yaml = new PlanningGraphCompiler().Compile(graph, state.Catalog!, state.Request.Name, TaskPlanCompiler.UsesNormalExports(state.Request), TaskPlanCompiler.UsesFusedBindings(state.Request), TaskPlanCompiler.UsesConsumerBindings(state.Request), TaskPlanCompiler.UsesDirectProjections(state.Request), TaskPlanCompiler.UsesNativeMappings(state.Request), TaskPlanCompiler.UsesReadableMappings(state.Request), TaskPlanCompiler.UsesLeanMappings(state.Request), TaskPlanCompiler.UsesCompactProjections(state.Request), TaskPlanCompiler.UsesInlineConsumers(state.Request), TaskPlanCompiler.UsesDirectValues(state.Request), TaskPlanCompiler.UsesCheckedControls(state.Request), TaskPlanCompiler.UsesReadableBranches(state.Request), TaskPlanCompiler.UsesSimplifiedLocals(state.Request));
+            string yaml;
+            try
+            {
+                yaml = new PlanningGraphCompiler().Compile(graph, state.Catalog!, state.Request.Name, TaskPlanCompiler.UsesNormalExports(state.Request), TaskPlanCompiler.UsesFusedBindings(state.Request), TaskPlanCompiler.UsesConsumerBindings(state.Request), TaskPlanCompiler.UsesDirectProjections(state.Request), TaskPlanCompiler.UsesNativeMappings(state.Request), TaskPlanCompiler.UsesReadableMappings(state.Request), TaskPlanCompiler.UsesLeanMappings(state.Request), TaskPlanCompiler.UsesCompactProjections(state.Request), TaskPlanCompiler.UsesInlineConsumers(state.Request), TaskPlanCompiler.UsesDirectValues(state.Request), TaskPlanCompiler.UsesCheckedControls(state.Request), TaskPlanCompiler.UsesReadableBranches(state.Request), TaskPlanCompiler.UsesSimplifiedLocals(state.Request), PlanningTokenThresholds.OptimizationAdvisory(state.Request));
+            }
+            catch (GnOuGo.Flow.Core.Compilation.WorkflowCompilationException ex)
+            {
+                state.Diagnostics = ex.Errors.Select(e => new PlanningDiagnostic(e.Code,
+                    "workflow:" + e.WorkflowName + "/step:" + e.StepId + "/field:" + e.Field, e.Message))
+                    .Select(d => compilation.Locate(PlanningExecutableValidation.MapRuntimeDiagnostic(d, graph)))
+                    .Select(d => d with { Code = "TASK_COMPILER_VALIDATION", Message = d.Code + ": " + d.Message }).ToList();
+                Stop(state); return;
+            }
             findings.AddRange((await runtime.ValidateAsync(new(yaml, state.Request, state.Catalog!, PlanningGraphCompiler.CapabilityBindings(graph)), ct))
                 .Select(d => compilation.Locate(PlanningExecutableValidation.MapRuntimeDiagnostic(d, graph))));
             if (findings.Count == 0)
@@ -449,12 +280,9 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
                 state.Discovery.Limitations = state.Discovery.Limitations.Distinct(StringComparer.Ordinal).ToList();
                 state.Diagnostics.Clear(); state.ValidationResults = [new("static", "passed", "Business bindings, contracts and control flow validated. External execution has not been observed.", [])];
                 state.ValidationResults.AddRange(PlanningReviewFormatter.Operations(state));
-                if (state.Request.Options["planning_input_review_version"]?.ToString() == "1")
-                    state.ValidationResults.AddRange(PlanningInputReadiness.Assess(graph));
-                else if (state.Request.Options["planning_input_review_version"]?.ToString() == "2")
-                    state.ValidationResults.AddRange(PlanningInputReadiness.Assess(compilation, 2, state.Plan));
+                state.ValidationResults.AddRange(PlanningInputReadiness.Assess(compilation, 2, state.Plan));
                 state.ValidationResults.AddRange(coverage);
-                state.Status = PlanningBusinessJudge.Enabled(state) ? PlanningStatus.Generating : PlanningStatus.FinalReview;
+                state.Status = PlanningStatus.FinalReview;
                 state.Phase = PlanningPhase.Review; return;
             }
         }
@@ -468,7 +296,7 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
         state.Diagnostics = findings.ToList(); state.Graph = null;
         state.RevisionScope = TaskPlanRevisions.Scope(state.Plan!, findings).ToList();
         Invalidate(state);
-        var structural = PlanningStructuralRepair.Slots(state, PlanningSchemas.FullProposal(state, compact: false, flatten: false, lookup: false)["$defs"]!.AsObject());
+        var structural = PlanningStructuralRepair.Slots(state, PlanningSchemas.TaskPlanGrammar(state)["$defs"]!.AsObject());
         state.RevisionScope.RemoveAll(p => findings.Any(d => d.Code == "TASK_KIND_INVALID" && d.Location == p) &&
             !structural.Any(s => s.Kind == "task" && p == s.Location + "/kind"));
         var unsupported = findings.Where(d => d.Code == "TASK_ARTIFACT_PREREQUISITE_MISSING").Any(d =>
@@ -480,10 +308,9 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
         else state.Status = PlanningStatus.Generating;
     }
 
-    private static void ValidateRequirements(PlanningSession state, PlanningProposal proposal)
+    private static void ValidateRequirements(PlanningSession state, PlanningRequirements? requirements)
     {
-        var requirements = proposal.Requirements;
-        if (requirements is null && (state.Requirements is not null || proposal.DiscoveryRequests is not null)) return;
+        if (requirements is null && state.Requirements is not null) return;
         if (requirements is null)
         {
             Reject("REQUIREMENTS_INVALID", "/requirements", "The first TaskPlan must include requirements. None are accepted; null is valid only during discovery or clarification.");
@@ -504,8 +331,7 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
             if (!outcomeIds.Add(outcome.Id))
                 Reject("REQUIREMENTS_INVALID", $"/requirements/outcomes/{i}/id", "This business outcome identifier is duplicated; use distinct identifiers.");
         }
-        if (state.Requirements is { } accepted && (accepted.Summary != requirements!.Summary || !(state.IntentVersion == 3 ? PlanningCommitments.SameOutcomes(state, requirements) : accepted.Outcomes.OrderBy(o => o.Id, StringComparer.Ordinal)
-                .SequenceEqual(requirements.Outcomes.OrderBy(o => o.Id, StringComparer.Ordinal))) ||
+        if (state.Requirements is { } accepted && (accepted.Summary != requirements!.Summary || !(PlanningCommitments.SameOutcomes(state, requirements)) ||
                 accepted.Inputs is not null && !PlanningClarifications.SameInputs(accepted.Inputs, requirements.Inputs) ||
                 accepted.Outputs is not null && !PlanningClarifications.SameInputs(accepted.Outputs, requirements.Outputs)))
             Reject("REQUIREMENTS_CHANGED", "/requirements", "Preserve accepted requirements. Only an explicit user revision may change their scope.");
@@ -515,17 +341,13 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
         {
             if (outputs.Any(o => string.IsNullOrWhiteSpace(o.Name) || o.Default is not null) || outputs.Select(o => o.Name).Distinct(StringComparer.Ordinal).Count() != outputs.Count)
                 Reject("REQUIREMENTS_INVALID", "/requirements/outputs", "Declare distinct business outputs without defaults; a default is not evidence of a produced result.");
-            try { foreach (var output in outputs) _ = TaskPlanCompiler.TypeSchema(output.Type); }
+            try { foreach (var output in outputs) _ = TaskPlanCompiler.TypeSchema(output.Type, state.Request); }
             catch (ArgumentException) { Reject("REQUIREMENTS_INVALID", "/requirements/outputs", "Declare valid business output types."); }
         }
     }
 
-    internal static string Prompt(PlanningSession state) => state.PendingCall?.Request.Prompt ?? new PlanningPrompt(state).Request().Prompt;
-    internal static List<CapabilitySummary> Shortlist(PlanningSession state, bool resolvedOnly = false) => new PlanningPrompt(state).Shortlist(resolvedOnly);
-    internal static string BuildPrompt(PlanningSession state, IReadOnlyList<CapabilitySummary> optional) => new PlanningPrompt(state).Build(optional);
-
     private static void Reject(string code, string location, string message) => throw new PlanningResponseException([new(code, location, message)]);
-    private static void Invalidate(PlanningSession state) { state.Yaml = null; state.ApprovedHash = null; state.ValidationResults.Clear(); }
+    private static void Invalidate(PlanningSession state) { state.Yaml = null; state.ApprovedHash = null; state.ApprovalReview = null; state.ValidationResults.Clear(); }
     private static void Stop(PlanningSession state)
     {
         state.Status = PlanningStatus.Stopped;

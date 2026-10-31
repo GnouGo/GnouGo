@@ -1,0 +1,216 @@
+{
+  "version": 1,
+  "kind": "offline_generic_benchmark_harness_qualification",
+  "status": "qualified privately; no live acquisition or business-success claim",
+  "cases": [
+    {
+      "id": "proof_task_consumers",
+      "purpose": "A shared nonliteral numeric intermediate feeds two distinct contributing value consumers.",
+      "business_unit_id": "shared_numeric_intermediate_two_consumers_v1"
+    },
+    {
+      "id": "proof_read_group_consumers",
+      "purpose": "One exactly authorized seed-file read precedes two deterministic calls to the same reusable group; the read result is not consumed.",
+      "business_unit_id": "isolated_seed_read_reusable_group_two_callers_v1"
+    }
+  ],
+  "scope": {
+    "changed_paths": [
+      {
+        "path": "tests/GnOuGo.Agent.Planning.Benchmark/DelegatedTestReview.cs",
+        "added": 29,
+        "removed": 0
+      },
+      {
+        "path": "tests/GnOuGo.Agent.Planning.Benchmark/LocalExecutionCases.cs",
+        "added": 41,
+        "removed": 5
+      },
+      {
+        "path": "tests/GnOuGo.Agent.Planning.Benchmark/Program.cs",
+        "added": 76,
+        "removed": 18
+      },
+      {
+        "path": "tests/GnOuGo.Agent.Planning.Benchmark/README.md",
+        "added": 43,
+        "removed": 0
+      },
+      {
+        "path": "tests/GnOuGo.Agent.Planning.Benchmark/SyntheticArtifactOracle.cs",
+        "added": 66,
+        "removed": 3
+      },
+      {
+        "path": "tests/Shared/PlanningBenchmarkCases.cs",
+        "added": 13,
+        "removed": 0
+      },
+      {
+        "path": "tests/Shared/PlanningBenchmarkMeasurements.cs",
+        "added": 2,
+        "removed": 1
+      },
+      {
+        "path": "tests/GnOuGo.Agent.Server.Tests/GenericProofBenchmarkTests.cs",
+        "added": 439,
+        "removed": 0
+      }
+    ],
+    "patch_sha256": "a29097b80e4f092f9f825e30853d0953ac23f0baa93f843bbdb7615b07264eac",
+    "files": 8,
+    "added": 709,
+    "removed": 27,
+    "production_src_changes": 0,
+    "shared_build_changes": 0,
+    "default_case_set_unchanged": true,
+    "existing_three_business_profiles_unchanged": true,
+    "opt_in_only": true,
+    "same_patch_on_both_anchors": true,
+    "capture_versions_preserved": [
+      9,
+      10
+    ]
+  },
+  "arms": [
+    {
+      "role": "control",
+      "production_anchor": "65db90d9bc745d00580bdcb40fa62fe29b893a62",
+      "actual_private_harness_commit": "fb361df21f9fe6a1e3ab80e9fcb1e2e3066f2bae",
+      "presentation_version": 9,
+      "source_file_count": 4691,
+      "production_source_and_nonoverlay_inputs_exact_anchor": true,
+      "benchmark_build": {
+        "warning_as_error": true,
+        "exit_code": 0,
+        "runtime_files": 435,
+        "retained_mcp_files": 568
+      },
+      "generic_tests": {
+        "passed": 29,
+        "failed": 0,
+        "skipped": 0,
+        "uses_exact_retained_cmd_files": 53,
+        "ordinary_artifact_approval_and_public_verify": true,
+        "host_confirmation_per_read_variant": 1,
+        "confirmation_provider": "test fixture verifies exact reviewed runtime request before confirming",
+        "variants": [
+          "nominal",
+          "alternate"
+        ],
+        "runtime_oracle_and_authority_negatives": true
+      },
+      "existing_retention_accounting_tests": {
+        "qualified_distinct_ids": 618,
+        "failed_current": 0,
+        "skipped": 0,
+        "new_case_live_uncertainty_test": false
+      },
+      "initial_attempt": {
+        "passed": 617,
+        "failed": 1,
+        "cause": "Test process current directory was outside its private Git checkout.",
+        "resolution": "Unchanged affected method passed with stage-only private GIT_DIR/GIT_WORK_TREE; original failure retained.",
+        "source_assertions_limits_confinement_unchanged": true
+      }
+    },
+    {
+      "role": "candidate",
+      "production_anchor": "46e356283e431c3c7911010ac7098302f8df9b71",
+      "actual_private_harness_commit": "44400217d2d2d7fd33b899e7d8a965b0c5bbadc1",
+      "presentation_version": 10,
+      "source_file_count": 4715,
+      "production_source_and_nonoverlay_inputs_exact_anchor": true,
+      "benchmark_build": {
+        "warning_as_error": true,
+        "exit_code": 0,
+        "runtime_files": 435,
+        "retained_mcp_files": 568
+      },
+      "generic_tests": {
+        "passed": 29,
+        "failed": 0,
+        "skipped": 0,
+        "uses_exact_retained_cmd_files": 53,
+        "ordinary_artifact_approval_and_public_verify": true,
+        "host_confirmation_per_read_variant": 1,
+        "confirmation_provider": "test fixture verifies exact reviewed runtime request before confirming",
+        "variants": [
+          "nominal",
+          "alternate"
+        ],
+        "runtime_oracle_and_authority_negatives": true
+      },
+      "existing_retention_accounting_tests": {
+        "qualified_distinct_ids": 618,
+        "failed_current": 0,
+        "skipped": 0,
+        "new_case_live_uncertainty_test": false
+      },
+      "initial_attempt": null
+    }
+  ],
+  "guard_validation": {
+    "offline_checks": 58,
+    "independent_final_checks": 24075,
+    "actual_harness_identity_separate_from_production_anchor": true,
+    "same_case_control_required_for_candidate": true,
+    "collections_profile_is_settings_origin_only": true,
+    "existing_accounting_retention_lease_authority_preserved": true,
+    "new_operator_or_replay_authority": false
+  },
+  "measurement_limits": [
+    "Counts are per arm and are not added across arms or earlier attempts.",
+    "Existing retention/campaign tests exercise established synthetic mechanisms; no new-case uncertain paid request was generated.",
+    "Authored runtime fixtures establish mechanism, numeric results and exact effects/permissions for their two variants; they do not establish real-model proof acquisition, reuse, convergence or savings.",
+    "One complete business unit requires both actual variants and all independent case oracles to pass during a future run.",
+    "Private build/test overlap on a shared host is not a performance comparison.",
+    "Four command templates are uninvoked; each candidate awaits the actual same-case control freeze and command digests."
+  ],
+  "evidence_index": [
+    {
+      "label": "approved-eight-file-patch",
+      "sha256": "a29097b80e4f092f9f825e30853d0953ac23f0baa93f843bbdb7615b07264eac"
+    },
+    {
+      "label": "matched-harness-qualification",
+      "sha256": "bbcc6374675082d07fd710e8f40629ce2aec16afec2dd531c9555d99ab23f562"
+    },
+    {
+      "label": "four-uninvoked-command-templates",
+      "sha256": "28a15c0f497733f390a8cf56a8a6ca047cda98ed343ff7f12c04c5488c21053f"
+    },
+    {
+      "label": "independent-final-source-result-command-review",
+      "sha256": "6263139a468c7edf0c3e4803675cb0c6f8132caaa65ee0a2c9c14fd46b158fdb"
+    },
+    {
+      "label": "generic-case-input-oracle-manifest",
+      "sha256": "a6d30863aae98f15e9b66c063581ef1bf3ca9762c3d560652fb738106606b539"
+    },
+    {
+      "label": "offline-58-guard-checks",
+      "sha256": "6d770a0c1fa76496c88dee49d9d41e3a215a69b0c977c0107ea2d791332d5c4e"
+    },
+    {
+      "label": "independent-helper-source-guard-review",
+      "sha256": "ec9f1c5aa54c49d58a89a00523703cbec46c6b4e36fd037d8c027439d11e385d"
+    },
+    {
+      "label": "control-current-source-tests",
+      "sha256": "0b6f157f4fe5743c0ccf678534b9c2e148b64544f6c4e6bccc566eb5fcd82675"
+    },
+    {
+      "label": "control-benchmark-build",
+      "sha256": "a96ca85987ce237012a3fe95978cfa1abe1b46eb33a442f6114b4ffe3cd2f444"
+    },
+    {
+      "label": "candidate-current-source-tests",
+      "sha256": "5f49d8fa9485f5242ab5c819d3e2baeb319f7c54076f71f3cdda1e0bc6381c4f"
+    },
+    {
+      "label": "candidate-benchmark-build",
+      "sha256": "a38394c7cc5c64914f88610fa9eafcb4b36ccf682f2127c3326a21458bc16ab7"
+    }
+  ]
+}

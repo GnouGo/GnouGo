@@ -36,12 +36,14 @@ public sealed class CommitmentCollectionTests
                 Outcomes = [new("records", "Return exact observed records") { Commitments = [new(operation) { Result = new("records", "records") }] }] },
             Plan = new() { Root = new() { Tasks = [new() { Id = "observe", Objective = "Observe", Operation = operation }], Outputs = [new("records", value)] } }
         };
-        var state = PlannerFixture.Session(); state.IntentVersion = 3; state.Catalog = catalog;
+        var state = PlannerFixture.Session(); state.Catalog = catalog;
         state.Request.Options["compilation_profile"] = TaskPlanCompiler.CompactProfile;
         Assert.Empty(new TaskPlanCompiler().Compile(runtime.Proposal.Plan, catalog, state.Request).Diagnostics);
-        state = await PlannerFixture.RunAsync(runtime, state);
+        state.Plan = runtime.Proposal.Plan;
+        state.Requirements = runtime.Proposal.Requirements;
+        state.ValidationResults = PlanningCommitments.Assess(state);
         Assert.Equal(expected, Assert.Single(state.ValidationResults, r => r.Id == "coverage:records:0:result").Outcome);
         Assert.Contains(state.ValidationResults, r => r.Outcome == "unverified" && r.Id.EndsWith(":limits", StringComparison.Ordinal));
-        Assert.Single(runtime.Calls); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Empty(runtime.Calls); Assert.Equal(0, state.ReplanAttempts);
     }
 }

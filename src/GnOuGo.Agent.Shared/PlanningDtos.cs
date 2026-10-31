@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 namespace GnOuGo.Agent.Shared;
-public sealed record PlanningStartDto(string Name, string Prompt, bool ReviseExisting = false, string Mode = "interactive", bool BusinessJudge = false);
+public sealed record PlanningStartDto(string Name, string Prompt, bool ReviseExisting = false, string Mode = "interactive",
+    string? ConstructionPreset = null);
 public sealed record PlanningGenerationDto(string Reasoning = "medium", int MaxInputTokensPerRequest = 32_000, int MaxOutputTokens = 32_768);
 public sealed record PlanningCommandDto(string Kind, long ExpectedRevision, string? ArtifactHash = null, string? Text = null, JsonObject? Selections = null, PlanningGenerationDto? Generation = null, string? Mode = null,
     IReadOnlyList<PlanningAnswerDto>? Answers = null, string? RequestId = null)
@@ -30,13 +31,12 @@ public sealed record PlanningSessionDto(string Id, string Name, long Revision, s
     IReadOnlyList<PlanningChoiceDto> Choices, int Calls, int ReplanAttempts, long InputTokens, long OutputTokens,
     decimal EstimatedCost, string Currency, double ActiveMilliseconds, double HumanWaitMilliseconds, string Phase, string Mode = "interactive", bool WorkflowSession = false)
 {
-    public int SchemaVersion { get; init; } = 10;
+    public int SchemaVersion { get; init; } = 11;
     public IReadOnlyList<string> RevisionScope { get; init; } = [];
     public IReadOnlyList<string> DiscoveryLimitations { get; init; } = [];
     public JsonObject? TaskPlan { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? RequestText { get; init; }
-    public bool BusinessJudge { get; init; }
     public IReadOnlyList<PlanningQuestionDto> Questions { get; init; } = [];
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public PlanningRequestInspectionDto? RequestInspection { get; init; }

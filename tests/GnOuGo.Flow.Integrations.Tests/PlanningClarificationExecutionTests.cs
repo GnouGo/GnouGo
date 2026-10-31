@@ -37,7 +37,7 @@ public sealed class PlanningClarificationExecutionTests
                       - id: plan
                         type: workflow.plan
                         input:
-                          raw_prompt: Return a value using the requested presentation
+                          raw_prompt: Return the required public numeric result named result with value 42 using the requested presentation.
                           generator: { model: deterministic }
                       - id: execute
                         type: workflow.execute
@@ -45,14 +45,20 @@ public sealed class PlanningClarificationExecutionTests
                     outputs:
                       result: { type: number, expr: '${data.steps.execute.outputs.result}' }
                 """));
+            var firstCalls = 0;
             for (var i = 0; i < 2; i++)
             {
                 var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject(), TestContext.Current.CancellationToken);
                 Assert.True(result.Success, result.Error?.Message); Assert.Equal(42, result.Outputs!["result"]!.GetValue<int>());
+                if (i == 0) firstCalls = model.Calls;
+                else Assert.Equal(firstCalls, model.Calls);
             }
-            Assert.Equal(2, model.Calls); Assert.Equal(1, human.Reviews);
+            Assert.Equal(7, model.Calls); Assert.Equal(1, human.Reviews);
+            Assert.Equal(["construction_intent", "construction_intent", "construction_intent", "construction_select",
+                "construction_implementation", "construction_draft", "construction_global_judge"],
+                model.Requests.Select(request => request.StructuredOutputSchema!["title"]!.GetValue<string>()));
             Assert.Equal(interaction ? 1 : 0, decisions.Questions); Assert.Equal(interaction ? 0 : 1, human.Questions);
-            Assert.Contains(custom ? "CUSTOM_INTENT" : "compact", model.Requests[1].Prompt);
+            Assert.Contains(model.Requests.Skip(2), request => request.Prompt.Contains(custom ? "CUSTOM_INTENT" : "compact", StringComparison.Ordinal));
             if (interaction) Assert.True(decisions.AnswerCheckpointed);
             foreach (var file in Directory.GetFiles(root, "*", SearchOption.AllDirectories))
                 Assert.DoesNotContain("CUSTOM_INTENT", System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, TestContext.Current.CancellationToken)));
@@ -77,7 +83,7 @@ public sealed class PlanningClarificationExecutionTests
                       - id: plan
                         type: workflow.plan
                         input:
-                          raw_prompt: Return a value
+                          raw_prompt: Return the required public numeric result named result with value 42 using the requested presentation.
                           generator: { model: deterministic }
                     outputs:
                       status: { type: string, expr: '${data.steps.plan.status}' }
@@ -98,14 +104,31 @@ public sealed class PlanningClarificationExecutionTests
 
         internal int Calls;
         internal readonly List<LLMRequest> Requests = [];
+        private readonly CurrentPlanningFixture.LiteralModel _literal = new();
+        private bool _asked;
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             Calls++; Requests.Add(request);
-            var proposal = Calls == 1 ? new PlanningProposal { Clarifications = [new("presentation", "Which presentation?",
-                [new("compact", "Compact numeric result"), new("detailed", "Detailed numeric result")], "compact")] }
-                : new PlanningProposal { Requirements = PlanningCorpus.Requirements("local"), Plan = PlanningCorpus.LiteralResult() };
-            return Task.FromResult(new LLMResponse { Json = PlanningCorpus.Transport(JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal),
-                request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()), Usage = new JsonObject { ["total_tokens"] = 15 } });
+            var schema = request.StructuredOutputSchema!.AsObject();
+            var context = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!.AsObject();
+            if (!_asked && schema["properties"]?["clauses"] is not null)
+            {
+                _asked = true;
+                var response = new JsonObject { ["sourceId"] = context["sources"]![0]!["id"]!.DeepClone(),
+                    ["clarifications"] = JsonSerializer.SerializeToNode(new List<PlanningQuestion> { new("presentation", "Which presentation?",
+                        [new("compact", "Compact numeric result"), new("detailed", "Detailed numeric result")], "compact") }, PlanningJsonContext.Default.ListPlanningQuestion) };
+                return Task.FromResult(new LLMResponse { Json = PlanningCorpus.Transport(response, schema, schema),
+                    Usage = new JsonObject { ["input_tokens"] = 10, ["output_tokens"] = 5 } });
+            }
+            if (schema["properties"]?["clauses"] is not null && context["sources"]![0]!["text"]!.ToString() is var text &&
+                !text.Contains("Return the required public", StringComparison.Ordinal))
+            {
+                var response = new JsonObject { ["sourceId"] = context["sources"]![0]!["id"]!.DeepClone(),
+                    ["clauses"] = new JsonArray(new JsonObject { ["text"] = text, ["kind"] = "global", ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray() }) };
+                return Task.FromResult(new LLMResponse { Json = PlanningCorpus.Transport(response, schema, schema),
+                    Usage = new JsonObject { ["input_tokens"] = 10, ["output_tokens"] = 5 } });
+            }
+            return _literal.CallAsync(request, ct);
         }
     }
     private sealed class Human(bool custom) : IHumanInputProvider
@@ -137,7 +160,7 @@ public sealed class PlanningClarificationExecutionTests
         }
         public Task CheckpointedAsync(PlanningSession state, CancellationToken ct)
         {
-            if (state.AnswerHistory is not null && state.ModelCalls == 1)
+            if (state.AnswerHistory is not null && state.ModelCalls == 2)
             { Assert.Equal(PlanningStatus.Generating, state.Status); Assert.Null(state.ApprovedHash); AnswerCheckpointed = true; }
             return Task.CompletedTask;
         }

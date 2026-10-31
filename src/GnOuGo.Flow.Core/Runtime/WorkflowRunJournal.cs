@@ -146,8 +146,9 @@ internal sealed class WorkflowRunJournal(IWorkflowRunLease lease) : ILLMUsageBud
 
     public Task StartFinalizationAsync(CancellationToken ct) => ChangeAsync(() => Run.FinalizationStarted = true, "finalization_started", null, ct);
 
-    public Task FinishAsync(RunResult result, CancellationToken ct) => ChangeAsync(() =>
+    public Task FinishAsync(RunResult result, CancellationToken ct, LLMUsageBudgetSnapshot? modelUsage = null) => ChangeAsync(() =>
     {
+        if (modelUsage is not null) Run.ModelUsage = modelUsage;
         Run.Result = result;
         Run.FinalizationCompleted = !HasUnresolvedWork && !HasPendingHumanInput;
         Run.Status = HasUnresolvedWork ? WorkflowRunStatus.NeedsReconciliation :
@@ -159,11 +160,12 @@ internal sealed class WorkflowRunJournal(IWorkflowRunLease lease) : ILLMUsageBud
     public Task ResolveAsFailedAsync(string id, string reason, CancellationToken ct) =>
         ResolveAsFailedAsync(id, new WorkflowError { Code = "RECONCILED_FAILURE", Message = reason }, ct);
 
-    public Task ResolveAsFailedAsync(string id, WorkflowError error, CancellationToken ct) => ChangeAsync(() =>
+    public Task ResolveAsFailedAsync(string id, WorkflowError error, CancellationToken ct, LLMUsageBudgetSnapshot? modelUsage = null) => ChangeAsync(() =>
     {
         var invocation = Run.Invocations[id];
         if (invocation.Recovery != StepRecovery.External || invocation.CompletedAt is not null)
             throw new WorkflowRunConflictException("Only an unresolved external invocation can be reconciled.");
+        if (modelUsage is not null) Run.ModelUsage = modelUsage;
         invocation.Error = new WorkflowError { Code = error.Code, Type = error.Type, Message = error.Message,
             Retryable = false, Details = error.Details?.DeepClone() };
         invocation.ExternalCompletionObserved = true;
@@ -172,8 +174,9 @@ internal sealed class WorkflowRunJournal(IWorkflowRunLease lease) : ILLMUsageBud
         Run.Status = HasUnresolvedWork ? WorkflowRunStatus.NeedsReconciliation : WorkflowRunStatus.Running;
     }, "reconciled_failure", id, ct);
 
-    public Task ResolveOutputAsync(string id, JsonNode? output, CancellationToken ct) => ChangeAsync(() =>
+    public Task ResolveOutputAsync(string id, JsonNode? output, CancellationToken ct, LLMUsageBudgetSnapshot? modelUsage = null) => ChangeAsync(() =>
     {
+        if (modelUsage is not null) Run.ModelUsage = modelUsage;
         var invocation = Run.Invocations[id];
         invocation.Output = output?.DeepClone();
         invocation.DataAfter = (JsonObject)invocation.DataBefore.DeepClone();

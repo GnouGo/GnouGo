@@ -1,0 +1,53 @@
+{
+  "record_version": 1,
+  "base_source": "9824b76288e5036fd47b01207e70dfa9792d717f",
+  "change": "Freshly issued v10 Judge evidence batches coalesce ordinal-identical addresses after raw schema validation; exact issued annotation preserves historical behavior.",
+  "source_attribution": "Private current working-tree overlay; not a committed successor execution.",
+  "source_file_sha256": {
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.ReviewEvidenceChoices.cs": "fca963c093c5587c2ddd69bd1928cf68cabab56e7d3bfc1c37e16d1c1821a3ee",
+    "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.ConstructionReview.cs": "4bef4d5ae82e0ad49664a206009d8ed01ee226cfa4bda51f67bdc92133843e3b",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactConvergentJudgeTests.EvidenceBatches.cs": "d8667f904a667f89c9d1d464e214a466e8fb5a6925c74970c2dfa3ec3800df93"
+  },
+  "owning_validation": {
+    "passed": 3643,
+    "failed": 0,
+    "skipped": 0,
+    "warnings_as_errors": true,
+    "elapsed_seconds": 294.47971862502163,
+    "qualification_sha256": "c555233e2085fd10cb224c3a71bddef12257365a170b4543bff90a34b8c03302",
+    "source_manifest_sha256": "c5c0801c62e4bfbf0c1633f7470c94003614325b2cc2045bb8df9ed8f310fb9e",
+    "log_sha256": "7b3d484fa25974d323723fe25670b2a80463b817c3eb22db8949b1c39a5def78",
+    "trx_sha256": "0f53243215f7525ee182722c647384c3ba570b346a9feea263d87591f9c3a7d0"
+  },
+  "focused_validation": {
+    "passed": 130,
+    "new_cases": 17,
+    "warnings_as_errors": true,
+    "qualification_sha256": "821035b0abd41a585574202812ced4c128d86148bafb03087efb521d3d6fcc5d",
+    "peer_sha256": "4e34537a908283f5ac2511cf1ee68a44b378e5ce21fc5f83042c862a7f7f15dd",
+    "overlap": "All130 focused cases occur in the full suite;17new cases are a subset, not added to full count."
+  },
+  "retained_initial_failure": {
+    "passed": 127,
+    "failed": 3,
+    "log_sha256": "84c4b67cdb59a5a57a23aee309e1a3e13f4fa68ec0db4b18862da1191a53f9c6",
+    "fixture_corrections": [
+      "Recovery now selects the existing Generating checkpoint with PendingCall, not the later Stopped cancellation checkpoint.",
+      "Oversized evidence fixture uses an unconsumed accepted sibling original, so initial bounded review admits while exact follow-up remains oversized. No ceiling was raised."
+    ],
+    "production_changed_after_attempt": false
+  },
+  "verified_behavior": [
+    "Marked fresh10 retrieves only first ordinal-identical occurrences and leaves raw response unchanged.",
+    "PendingCall recovery retains exact serialized issued request; unmarked10 and2\u20139 retain duplicate rejection.",
+    "Unknown/case-different addresses and raw arrays over8 fail original schema validation before normalization; only existing report follow-up applies.",
+    "Successful prior reads remain excluded from later offers and loader repeat guard; no new evidence progress.",
+    "Complete distinct prospective follow-up remains atomic under captured ceiling; oversized unique singleton stops and distinct multi-batch narrows without staged reads/corrections."
+  ],
+  "limitations": [
+    "Technical evidence only; no live business acceptance or avoided-correction claim.",
+    "Raw receipt, maximum eight entries, enum validation, cross-request repeats and complete follow-up admission remain enforced.",
+    "No new correction/reassessment allowance, clean window or execution authority.",
+    "Prior exact9824 publication and be798 full solution do not validate this changed source."
+  ]
+}

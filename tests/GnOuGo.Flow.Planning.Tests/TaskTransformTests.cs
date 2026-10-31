@@ -138,6 +138,7 @@ public sealed class TaskTransformTests
     public async Task ResponseSchemaAndPreflightRejectIncompleteTransformResults(string defect)
     {
         var (plan, catalog, _) = await Setup(new()); var task = plan.Root.Tasks[1];
+        var validType = JsonSerializer.SerializeToNode(task.ResultType, PlanningJsonContext.Default.TaskType)!;
         switch (defect)
         {
             case "opaque": task.ResultType!.Fields[0].Type.Items!.Kind = "any"; break;
@@ -149,10 +150,21 @@ public sealed class TaskTransformTests
         }
         var result = new TaskPlanCompiler().Compile(plan, catalog);
         Assert.Null(result.Graph); Assert.Contains(result.Diagnostics, d => d.Code == "TASK_TRANSFORM_TYPE");
-        var schema = PlanningSchemas.FullProposal(PlannerFixture.Session(), compact: false);
-        var contract = schema["$defs"]!["task"]!["anyOf"]!.AsArray().Single(n => n!["properties"]!["kind"]!["enum"]![0]!.ToString() == "transform" && n["properties"]!["mode"] is null)!["properties"]!["resultType"]!.DeepClone().AsObject();
+        var schema = PlanningSchemas.TaskPlanGrammar(PlannerFixture.Session());
+        var contract = schema["$defs"]!["task"]!["anyOf"]!.AsArray().Single(n => n!["properties"]!["kind"]!["enum"]![0]!.ToString() == "transform" && n["properties"]!["mode"]?["enum"] is JsonArray modes && modes.Any(mode => mode?.ToString() == "interpret"))!["properties"]!["resultType"]!.DeepClone().AsObject();
         contract["$defs"] = schema["$defs"]!.DeepClone();
-        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(JsonSerializer.SerializeToNode(task.ResultType, PlanningJsonContext.Default.TaskType), contract));
+        var wire = PlanningCorpus.Transport(validType, contract, contract)!;
+        Assert.Empty(PlanningContractValidation.ValidateInstance(wire, contract));
+        switch (defect)
+        {
+            case "opaque": wire["fields"]![0]!["type"]!["items"]!["kind"] = "any"; break;
+            case "missing_items": wire["fields"]![0]!["type"]!.AsObject().Remove("items"); break;
+            case "nullable_root": wire["nullable"] = true; break;
+            case "optional": wire["fields"]![0]!["required"] = false; break;
+            case "default": wire["fields"]![0]!["default"] = new JsonObject { ["kind"] = "string", ["text"] = "invented" }; break;
+            case "empty": wire["fields"]!.AsArray().Clear(); break;
+        }
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(wire, contract));
     }
 
     [Theory]

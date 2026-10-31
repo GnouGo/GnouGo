@@ -1,0 +1,58 @@
+{
+  "audited_at_utc": "2026-10-30T11:15:46.154189+00:00",
+  "source": "6f063c515eb3356020fc80bb5018abc56263677e",
+  "journal_sha256": "3ea7313f05c5ab5af1870d486ca9bdd03319606e2877b7e1825b8828257c85a8",
+  "failure_sha256": "4e192a8ac55e8ee2598de4e116387da8053cec3bb41914d9352a68413729b7b0",
+  "recorded_transport": {
+    "attempts": 1,
+    "failure": "transport",
+    "status": null,
+    "body_present": false,
+    "content_type": null,
+    "retry_after": null,
+    "backoff_ms": 0,
+    "attempt_timeout_ms": 600000,
+    "max_uncertain_retries": 0,
+    "typed_failure": {
+      "stage": "dispatch",
+      "exception_type": "LLMClientException",
+      "kind": "Transport",
+      "status_code": null,
+      "safe_provider_code": null,
+      "retryable": true,
+      "attempt_count": 1,
+      "retry_exhausted": false,
+      "retry_after_ms": null
+    }
+  },
+  "supported_conclusion": "A transient-category HttpRequestException occurred before a complete response was durably captured. The journal does not identify DNS, connection, protocol, response truncation, provider state, or exact send/body-read boundary. This is not recorded as a timeout. Status is assigned only after the entire body is read, so null status does not prove headers never arrived.",
+  "bounded_new_hypothesis": "A fresh independent session on the same frozen source and profile can test whether selection now yields a complete retained response and then exercise the previously untested populated-scope correction. This is a new diagnostic, never replay or continuation of the abandoned request/run.",
+  "interpretation_limit": "A successful new selection would establish present progress, not prove the historical cause or exclude old-payload-specific incompatibility; the new intent may produce a different selection payload. No evidence supports modifying timeout, schema, reasoning, or accounting settings.",
+  "reservation_explanation": {
+    "known_request_complete_bytes": 10566,
+    "known_request_estimated_tokens": 3778,
+    "project_phase_input_floor": 12000,
+    "physical_input_reservation": 12000,
+    "physical_output_reservation": 32768,
+    "formula": "max(project phase input threshold, UTF8 bytes of the complete dispatched LLMRequest); project input threshold is a reservation floor, not an advisory-mode rejection ceiling.",
+    "unknown_future_navigation_input_exposure": 1017232,
+    "unknown_future_review_input_exposure": 1033616,
+    "future_explanation": "Unknown future input is bounded conservatively by declared context allowance after output allocation; each actual dispatch instead prices its known complete serialized input.",
+    "retained_request_reservation_eur": "0.9368903260576663971975208839",
+    "mandatory_review_headroom_eur": "5.0836252582412647085242073116",
+    "mandatory_review_count": 1
+  },
+  "source_locations": [
+    "tests/GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs:77",
+    "tests/GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs:451",
+    "tests/GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs:490",
+    "src/GnOuGo.AI.Core/HttpRequestHelper.cs:253",
+    "src/GnOuGo.AI.Core/HttpRequestHelper.cs:269",
+    "src/GnOuGo.AI.Core/HttpRequestHelper.cs:300",
+    "src/GnOuGo.AI.Core/LLMHttpRetryContext.cs:22"
+  ],
+  "audit_provider_calls": 0,
+  "audit_store_writes": 0,
+  "audit_source_changes": 0,
+  "retention_guard_evidence_file": "business-block-6f063c51-amazon-request2-retention.json"
+}

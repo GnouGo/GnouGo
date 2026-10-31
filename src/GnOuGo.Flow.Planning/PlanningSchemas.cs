@@ -5,143 +5,41 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>The model sees business tasks and ports, never executor graph plumbing.</summary>
 internal static class PlanningSchemas
 {
-    internal static bool DeclaresOutputs(JsonNode? schema)
+    internal static JsonObject RepairSchema(PlanningSession state)
     {
-        var visited = new HashSet<string>(StringComparer.Ordinal);
-        return Visit(schema?["properties"]?["requirements"]);
-        bool Visit(JsonNode? node)
-        {
-            if (node is not JsonObject obj) return false;
-            if (obj["properties"] is JsonObject properties && properties.ContainsKey("outputs")) return true;
-            if (obj["$ref"]?.ToString() is { } reference && reference.StartsWith("#/$defs/", StringComparison.Ordinal) && visited.Add(reference))
-                return Visit(schema?["$defs"]?[reference[8..]]);
-            return obj["anyOf"] is JsonArray alternatives && alternatives.Any(Visit);
-        }
-    }
-    internal static bool HasQueryProperty(JsonNode? node) => node switch
-    {
-        JsonObject obj => obj["properties"] is JsonObject properties && properties.ContainsKey("query") || obj.Any(p => HasQueryProperty(p.Value)),
-        JsonArray array => array.Any(HasQueryProperty),
-        _ => false
-    };
-
-    internal static bool AllowsNoPlan(JsonNode? schema) =>
-        schema?["properties"]?["discoveryRequests"]?["type"]?.ToString() == "null" &&
-        schema["properties"]?["plan"]?["anyOf"] is JsonArray alternatives &&
-        alternatives.Any(a => a?["type"]?.ToString() == "null");
-
-    internal static JsonObject Proposal(PlanningSession state, IReadOnlySet<string>? admitted = null, bool commitmentDomains = false)
-    {
-        if (PlanningRepairPatch.Active(state)) return PlanningRepairPatch.Schema(state, PlanningRepairPatch.Template(state));
-        var narrowed = Compact(FreshProposal(state, admitted, commitmentDomains), compositionHints: true, interactionHints: PlanningClarifications.PreservesIntent(state));
-        // Extra model-facing domains must not make a previously supported schema
-        // unusable (for example, accepted names exceeding the enum ceiling).
-        // Semantic compilation/coverage enforce the same contracts in either case.
-        return PlanningContractValidation.ValidateSchema(narrowed, strict: true).Count == 0 ? narrowed :
-            Compact(FreshProposal(state, admitted, commitmentDomains: false, outputDomains: false), compositionHints: true, interactionHints: PlanningClarifications.PreservesIntent(state));
+        if (!PlanningRepairPatch.Active(state))
+            throw new PlanningConflictException("Typed repair requires an existing plan and exact edit authority.");
+        return PlanningRepairPatch.Schema(state, PlanningRepairPatch.Template(state));
     }
 
-    // Fresh model-facing constraints only. FullProposal also supplies historical
-    // repair templates, whose bytes and authority must not acquire these domains.
-    private static JsonObject FreshProposal(PlanningSession state, IReadOnlySet<string>? admitted, bool commitmentDomains, bool outputDomains = true)
+    // A shared semantic type grammar for compiler/repair tooling. This is not a
+    // model response envelope and contains no discovery or requirement actions.
+    internal static JsonObject TaskPlanGrammar(PlanningSession state)
     {
-        var root = FullProposal(state, compact: false, admitted: admitted);
-        var definitions = root["$defs"]!.AsObject();
-        // Fresh generation chooses semantics explicitly. FullProposal remains the
-        // historical repair template, including omitted-mode interpretation.
-        var tasks = definitions["task"]!["anyOf"]!.AsArray();
-        foreach (var task in tasks.Where(t => t!["properties"]!["kind"]!["enum"]![0]!.ToString() == "transform" &&
-            t["properties"]!["mode"] is null).ToArray()) tasks.Remove(task);
-        definitions["condition"] = PlanningBindingSchemas.For(Type("boolean"), definitions, constrainResult: true);
-        foreach (var task in tasks)
-        {
-            task!["properties"]!["requires"] = Nullable(Ref("condition"));
-            if (task["properties"]!["condition"] is not null) task["properties"]!["condition"] = Ref("condition");
-        }
-        var outputs = state.IntentVersion is 2 or 3 ? state.Requirements?.Outputs : null;
-        var names = outputDomains ? outputs?.Select(o => o.Name).ToArray() : null;
-        if (outputDomains && names is not null)
-        {
-            // Public names do not constrain reusable groups or nested exports.
-            var scope = definitions["scope"]!.DeepClone();
-            scope["properties"]!["outputs"] = names.Length == 0 ? Array(Ref("output"), 0, 0) :
-                Array(Object(("name", Enum(names)), ("value", Ref("value"))));
-            definitions["rootScope"] = scope;
-            definitions["plan"]!["properties"]!["root"] = Ref("rootScope");
-        }
-
-        if (definitions["requirements"]?["properties"]?["outcomes"]?["items"]?["properties"] is not JsonObject outcome ||
-            outcome["commitments"] is null) return root;
-
-        JsonObject Result(JsonObject port) => names is { Length: 0 } ? Type("null") :
-            Nullable(Object(("port", port), ("output", names is null ? Ref("goal") : Enum(names))));
-        var commitment = Object(("operation", Ref("goal")), ("result", Result(Ref("goal"))));
-        if (commitmentDomains && !PlanningDiscoveryContext.CanDiscover(state) && admitted is { Count: > 0 } && state.Catalog is { } catalog)
-        {
-            var contracts = admitted.Order(StringComparer.Ordinal).Select(id => PlanningCommitments.Contract(state, id)).ToArray();
-            // An incomplete/ambiguous inspection does not establish a closed domain.
-            // Keep semantic validation authoritative; never hide unavailable contracts.
-            if (contracts.All(c => c is not null && catalog.AllowedStepTypes.Contains(c.StepType) &&
-                !catalog.Policy.DeniedCapabilityIds.Contains(c.Id)))
-            {
-                var pairs = contracts.Select(c => TaskOperations.Describe(c!))
-                    .Select(o => (o.Id, Result: o.Outputs.Count == 0 ? Type("null") : Result(Enum(o.Outputs.Select(p => p.Name).ToArray()))))
-                    .GroupBy(o => o.Result.ToJsonString(), StringComparer.Ordinal)
-                    .Select(g => Object(("operation", Enum(g.Select(o => o.Id).ToArray())), ("result", g.First().Result))).ToArray();
-                // Factoring also keeps the operation/result union within the
-                // existing structured-output nesting ceiling.
-                definitions["commitment"] = pairs.Length == 1 ? pairs[0] : new() { ["anyOf"] = new JsonArray(pairs.Cast<JsonNode>().ToArray()) };
-                commitment = Ref("commitment");
-            }
-        }
-        outcome["commitments"] = Nullable(Array(commitment));
-        return root;
+        var definitions = SemanticDefinitions(PlanningTokenThresholds.OptimizationAdvisory(state.Request));
+        definitions["value"]!["anyOf"]!.AsArray().Add((JsonNode)Described(Object(("kind", Enum("lookup")), ("port", Ref("goal")),
+            ("items", Array(Ref("value"), 2, 2))), "items=[records,IDs]; port=key. Preserve order/repeats; reject missing/ambiguous IDs."));
+        definitions["task"] = Tasks(state, definitions);
+        var grammar = definitions["plan"]!.DeepClone().AsObject();
+        grammar["$defs"] = definitions;
+        return grammar;
     }
 
-    internal static JsonObject FullProposal(PlanningSession state, bool compact = true, bool clarifications = true, IReadOnlySet<string>? admitted = null, bool scopeGuidance = true, bool flatten = true, bool lookup = true, bool arrayBounds = true)
+    // Shared semantic grammar only: no discovery actions, requirement capture,
+    // operation catalog traversal or unrelated task alternatives.
+    internal static JsonObject ConstructionDefinitions(PlanningSession state, string kind)
     {
-        var actions = new List<JsonNode?>();
-        if (PlanningDiscoveryContext.CanDiscover(state))
-            foreach (var source in state.Discovery.Sources)
-            {
-                var receipts = state.Discovery.Pages.Where(p => p.SourceId == source.Id).ToArray();
-                // Even a small exhausted source may fall outside the global shortlist.
-                var canRefine = receipts.Any(p => p.UnavailableReason is null && (p.NextCursor is not null || p.Capabilities.Count > 0));
-                if (receipts.Length == 0 || canRefine)
-                    actions.Add(Object(("sourceId", Enum(source.Id)), ("cursor", Type("null")),
-                        ("query", Nullable(new JsonObject { ["type"] = "string", ["pattern"] = @"\S", ["maxLength"] = 512 })), ("operationIds", Type("null"))));
-                foreach (var cursor in receipts.Select(p => p.NextCursor).OfType<string>().Distinct(StringComparer.Ordinal)
-                    .Where(cursor => !receipts.Any(p => p.Cursor == cursor)))
-                    actions.Add(Object(("sourceId", Enum(source.Id)), ("cursor", Enum(cursor)), ("query", Type("null")), ("operationIds", Type("null"))));
-                if (receipts.Any(p => p.Capabilities.Count > 0) || state.Discovery.Inspections?.Any(i => i.SourceId == source.Id) == true)
-                    actions.Add(Described(Object(("sourceId", Enum(source.Id)), ("cursor", Type("null")), ("query", Type("null")),
-                        ("operationIds", Array(Ref("goal"), 0, receipts.SelectMany(p => p.Capabilities).Select(c => c.Operation?.Id).OfType<string>().Distinct(StringComparer.Ordinal).Count()))),
-                        "Replace this source's inspection selection with already-discovered operation IDs; empty clears it. Selected exact contracts remain visible across pages. This grants no permission."));
-            }
-        var inspectedSources = state.Discovery.Sources.Where(s => state.Discovery.Pages.Any(p => p.SourceId == s.Id)).Select(s => s.Id).ToArray();
-        var prerequisiteKinds = PlanningDiscoveryContext.Prerequisites(state).Where(kind =>
-            !PlanningDiscoveryContext.Candidates(state).Any(c => PlanningDiscoveryContext.Artifacts(state, c)?.Produces.Any(a => a.Kind == kind) == true) ||
-            state.Discovery.Pages.Any(p => p.ProducedArtifactKind == kind)).ToArray();
-        if (PlanningDiscoveryContext.CanDiscover(state) && inspectedSources.Length > 0 && prerequisiteKinds.Length > 0)
-            actions.Add(Object(("sourceId", Enum(inspectedSources)), ("cursor", Type("null")),
-                ("query", Nullable(new JsonObject { ["type"] = "string", ["pattern"] = @"\S", ["maxLength"] = 512 })),
-                ("operationIds", Type("null")), ("producedArtifactKind", Enum(prerequisiteKinds))));
-        var root = Object(
-            ("discoveryRequests", actions.Count == 0 ? Type("null") : Nullable(Array(new JsonObject { ["anyOf"] = new JsonArray(actions.ToArray()) }, 1, 4))),
-            ("plan", Nullable(Ref("plan"))));
-        if (clarifications)
-        {
-            root["properties"]!["clarifications"] = Nullable(Clarifications());
-            root["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("clarifications"));
-        }
-        var declareRequirements = state.Requirements is null || clarifications &&
-            (state.IntentVersion is 2 or 3 && state.Requirements.Inputs is null || PlanningCommitments.CanComplete(state));
-        if (declareRequirements)
-        {
-            root["properties"]!["requirements"] = clarifications ? Nullable(Ref("requirements")) : Ref("requirements");
-            root["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("requirements"));
-        }
-        root["$defs"] = new JsonObject
+        var definitions = SemanticDefinitions(PlanningTokenThresholds.OptimizationAdvisory(state.Request));
+        definitions.Remove("plan");
+        definitions["value"]!["anyOf"]!.AsArray().Add((JsonNode)Described(Object(("kind", Enum("lookup")), ("port", Ref("goal")),
+            ("items", Array(Ref("value"), 2, 2))), "items=[records,IDs]; port=key. Preserve order/repeats; reject missing/ambiguous IDs."));
+        definitions["task"] = new JsonObject { ["anyOf"] = new JsonArray(TaskShapes(state, kind).ToArray()) };
+        return definitions;
+    }
+
+    private static JsonObject SemanticDefinitions(bool diagnostic)
+    {
+        return new JsonObject
         {
             ["id"] = Identity(), ["goal"] = Nonblank(),
             ["identities"] = Array(Identity()),
@@ -150,7 +48,7 @@ internal static class PlanningSchemas
                 Object(("kind", Enum("number")), ("number", Type("number"))), Object(("kind", Enum("boolean")), ("boolean", Type("boolean"))),
                 Object(("kind", Enum("object")), ("members", Array(Ref("output")))),
                 Object(("kind", Enum("array")), ("items", Array(Ref("value")))),
-                Described(Object(("kind", Enum(flatten ? ["json", "flatten"] : ["json"])), ("items", Array(Ref("value"), 1, 1))), flatten ? "json encodes one value; flatten concatenates one typed array-of-arrays level in order." : "Serialize one business value as JSON text; no inference."),
+                Described(Object(("kind", Enum("json", "flatten")), ("items", Array(Ref("value"), 1, 1))), "json encodes one value; flatten concatenates one typed array-of-arrays level in order."),
                 Described(Object(("kind", Enum("field")), ("items", Array(Ref("value"), 1, 1)), ("port", Ref("goal"))), "Select one literal declared field from a typed object/item; nest for nested fields."),
                 Object(("kind", Enum("input")), ("source", String())),
                 Object(("kind", Enum("choice", "present")), ("source", Ref("id"))),
@@ -158,6 +56,8 @@ internal static class PlanningSchemas
                 Object(("kind", Enum("item", "index"))),
                 Object(("kind", Enum("arithmetic")), ("text", Enum("negate")), ("items", Array(Ref("value"), 1, 1))),
                 Object(("kind", Enum("arithmetic")), ("text", Enum("add", "subtract", "multiply", "divide", "remainder")), ("items", Array(Ref("value"), 2, 2))),
+                Described(Object(("kind", Enum("string_operation")), ("text", Enum("concat")), ("items", Array(Ref("value"), 2, 16))), "Concatenate established nonnullable strings in order, without coercion or interpolation."),
+                Described(Object(("kind", Enum("string_operation")), ("text", Enum("uri_component")), ("items", Array(Ref("value"), 1, 1))), "Encode one nonnullable string as a URI component using encodeURIComponent; this does not validate or authorize a URL."),
                 Object(("kind", Enum("predicate")), ("predicate", Enum("not")), ("items", Array(Ref("value"), 1, 1))),
                 Object(("kind", Enum("predicate")), ("predicate", Enum("and", "or", "equal", "not_equal", "less", "less_equal", "greater", "greater_equal")), ("items", Array(Ref("value"), 2, 2)))) },
             ["literal"] = new JsonObject { ["anyOf"] = new JsonArray(
@@ -165,13 +65,12 @@ internal static class PlanningSchemas
                 Object(("kind", Enum("number")), ("number", Type("number"))), Object(("kind", Enum("boolean")), ("boolean", Type("boolean"))),
                 Object(("kind", Enum("object")), ("members", Array(Object(("name", String()), ("value", Ref("literal")))))),
                 Object(("kind", Enum("array")), ("items", Array(Ref("literal"))))) },
-            ["businessType"] = BusinessTypes(transform: false, arrayBounds),
+            ["businessType"] = BusinessTypes(transform: false, diagnostic),
             ["field"] = Input(objectField: true),
-            ["resultType"] = BusinessTypes(transform: true, arrayBounds),
+            ["resultType"] = BusinessTypes(transform: true, diagnostic),
             ["resultField"] = Object(("name", Ref("goal")), ("type", Ref("resultType"))),
             ["input"] = Described(Input(objectField: false), "Omitted required=true/default=absent. Declare inputs once."),
             ["output"] = Object(("name", String()), ("value", Ref("value"))),
-            ["requirements"] = Object(("summary", String()), ("outcomes", NonEmptyArray(Object(("id", String()), ("description", String()))))),
             ["plan"] = Object(("inputs", Array(Ref("input"))), ("root", Ref("scope")), ("groups", Array(Ref("group"))), ("choices", Array(Ref("choice")))),
             ["scope"] = Object(("tasks", Array(Ref("task"))), ("outputs", Array(Ref("output"))), ("always", Array(Ref("task")))),
             ["group"] = Object(("id", Ref("id")), ("inputs", Array(Ref("input"))), ("body", Ref("scope"))),
@@ -179,77 +78,24 @@ internal static class PlanningSchemas
                 ("alternatives", Array(Object(("id", Ref("goal")), ("description", String()), ("value", Ref("literal"))), 2)),
                 ("recommended", String()))
         };
-        var definitions = root["$defs"]!.AsObject();
-        if (clarifications)
-        {
-            definitions["requirements"]!["properties"]!["inputs"] = Nullable(Array(Ref("input")));
-            definitions["requirements"]!["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("inputs"));
-            definitions["requirements"]!["properties"]!["outputs"] = Array(Object(("name", Ref("goal")), ("type", Ref("businessType")), ("required", Type("boolean"))));
-            definitions["requirements"]!["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("outputs"));
-            if (compact)
-            {
-                // Already explained in the prompt; omit duplicate annotations only.
-                definitions["input"]!.AsObject().Remove("description");
-                foreach (var value in definitions["value"]!["anyOf"]!.AsArray().OfType<JsonObject>()) value.Remove("description");
-            }
-        }
-        if (state.IntentVersion == 3 && declareRequirements)
-        {
-            var outcome = definitions["requirements"]!["properties"]!["outcomes"]!["items"]!;
-            outcome["properties"]!["commitments"] = Nullable(Array(Object(("operation", Ref("goal")),
-                ("result", Nullable(Object(("port", Ref("goal")), ("output", Ref("goal"))))))));
-            outcome["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("commitments"));
-        }
-        if (lookup)
-            definitions["value"]!["anyOf"]!.AsArray().Add((JsonNode)Described(Object(("kind", Enum("lookup")), ("port", Ref("goal")),
-                ("items", Array(Ref("value"), 2, 2))), "items=[records,IDs]; port=key. Preserve order/repeats; reject missing/ambiguous IDs."));
-        definitions["task"] = Tasks(state, definitions, admitted, arrayBounds);
-        if (scopeGuidance)
-        {
-            definitions["scope"]!["properties"]!["outputs"]!["description"] = "Explicit business exports via enclosingTask.export. Conditional alternatives project the same consumer-facing ports, types, nullability and requiredness from their own values. Prefer direct ports over differently shaped whole results. Nullable ports need explicit null guards on the consuming path; a separate boolean does not prove non-null.";
-            definitions["scope"]!["properties"]!["always"]!["description"] = "Failure-path work. Preserve available payloads here before nested cleanup; hidden descendants and absent results remain inaccessible.";
-            foreach (var task in definitions["task"]!["anyOf"]!.AsArray())
-                task!["properties"]!["dependsOn"]!["description"] = "Eligible same-scope tasks only. Business bindings already establish data dependencies; available ancestor values use captures without cross-scope dependsOn.";
-            foreach (var value in definitions["value"]!["anyOf"]!.AsArray().OfType<JsonObject>())
-                if (value["properties"]?["kind"]?["enum"] is JsonArray kinds && kinds.Any(k => k?.ToString() == "present"))
-                    value["description"] = "Choice selects a declared alternative. present tests preceding local or lexical-ancestor task completion, never a hidden descendant or the presence of a business field.";
-        }
-        if (!declareRequirements) root["$defs"]!.AsObject().Remove("requirements");
-        return compact ? Compact(root) : root;
     }
 
-    internal static JsonObject Compact(JsonObject root, bool compositionHints = false, bool interactionHints = false)
+    internal static JsonObject Compact(JsonObject root, bool preserveDescriptions = false)
     {
         // Contract descriptions already accompany the admitted operations in the
         // prompt. Remove only schema annotations, never properties named description.
-        foreach (var (_, schema) in PlanningSchemaReferences.Walk(root, "", 0)) schema.Remove("description");
+        if (!preserveDescriptions)
+            foreach (var (_, schema) in PlanningSchemaReferences.Walk(root, "", 0)) schema.Remove("description");
         var definitions = root["$defs"]!.AsObject();
-        if (compositionHints && definitions["requirements"]?["properties"]?["outcomes"]?["items"]?["properties"]?["commitments"] is JsonObject obligations)
-            obligations["description"] = "Non-executable obligations. operation: inspected ID; result.port: its exact output port; result.output: NAME in requirements.outputs, never a path/value/description. result:null: operation-only. Finalize before plan; absent unverified; no task IDs/proofs.";
-        // Presentation only, on fresh full proposals. Repair templates/authorities
-        // use the historical path, including its exact annotation-free bytes.
-        if (compositionHints)
-        {
-            definitions["task"]!["description"] = "operation: external work. requires: false fails; condition: route alternative paths. and/or: binary; nest. " +
-                "extract: observed facts; interpret: decisions/synthesis; neither calls tools. value: typed assembly. foreach: repeated work. " +
-                "field.port: exact property; lookup: identity reconnection, not merging; flatten: one collection level. " +
-                "each.input: bound input; resultType: complete assembled output. Literal strings exclude ${}.";
-            if (root["properties"]?["requirements"] is not null)
-                definitions["task"]!["description"] += " First plan needs requirements/interfaces; null for discovery/clarification only.";
-            foreach (var task in definitions["task"]!["anyOf"]!.AsArray().OfType<JsonObject>()
-                .Where(t => t["properties"]?["each"] is not null))
-                task["description"] = "each: one result per item for ALL items; bounded examples learn extraction only. " +
-                    "Keep order/repeats and nested arrays. No global comparisons/implicit flattening; shared context is read-only.";
-        }
         ShareRepeatedSchemas(root, definitions);
         for (var pass = 0; pass < 3; pass++) { ShareRepeatedSchemas(root, definitions, 30); CollapseAliases(root, definitions); PruneDefinitions(root, definitions); }
         CompactDefinitionNames(root, definitions);
         return root;
     }
 
-    internal static JsonObject Clarifications() => Array(Object(("id", Nonblank()), ("question", Nonblank()),
-        ("alternatives", Array(Object(("id", Nonblank()), ("description", Nonblank())), 0, 3)),
-        ("recommended", Nullable(Nonblank()))), 1, 3);
+    internal static JsonObject Clarifications(bool diagnostic = false) => Array(Object(("id", Nonblank()), ("question", Nonblank()),
+        ("alternatives", Array(Object(("id", Nonblank()), ("description", Nonblank())), 0, diagnostic ? null : 3)),
+        ("recommended", Nullable(Nonblank()))), 1, diagnostic ? null : 3);
 
     private static void CompactDefinitionNames(JsonObject root, JsonObject definitions)
     {
@@ -350,29 +196,27 @@ internal static class PlanningSchemas
         }
     }
     // Omitted flags use the existing DTO defaults. Every actual business value stays explicit.
-    private static JsonObject BusinessTypes(bool transform, bool arrayBounds)
+    private static JsonObject BusinessTypes(bool transform, bool diagnostic)
     {
         var alternatives = new List<JsonNode?>();
         foreach (var nullable in new[] { false, true })
         {
             JsonObject Shape(params (string Name, JsonObject Schema)[] fields) => Object(nullable ? [..fields, ("nullable", Boolean(true))] : fields);
             var nested = transform ? "resultType" : "businessType";
-            alternatives.AddRange(ArrayTypeShapes(nested, nullable, arrayBounds));
+            alternatives.AddRange(ArrayTypeShapes(nested, nullable));
             alternatives.Add(Shape(("kind", Enum("object")), ("fields", Array(Ref(transform ? "resultField" : "field")))));
-            alternatives.Add(Shape(("kind", Enum("string")), ("enum", Array(String(), 1, 256))));
+            alternatives.Add(Shape(("kind", Enum("string")), ("enum", Array(String(), 1, diagnostic ? null : 256))));
             alternatives.Add(Shape(("kind", transform ? Enum("string", "number", "integer", "boolean") : Enum("string", "number", "integer", "boolean", "any"))));
         }
         return new() { ["anyOf"] = new JsonArray(alternatives.ToArray()) };
     }
 
-    private static IEnumerable<JsonObject> ArrayTypeShapes(string nested, bool nullable, bool bounds)
+    private static IEnumerable<JsonObject> ArrayTypeShapes(string nested, bool nullable)
     {
         var fields = new List<(string, JsonObject)> { ("kind", Enum("array")), ("items", Ref(nested)) };
-        if (bounds)
-        {
-            fields.Add(("minItems", Nullable(Integer(0, int.MaxValue))));
-            fields.Add(("maxItems", Nullable(Integer(0, int.MaxValue))));
-        }
+        fields.Add(("minItems", Nullable(Integer(0, int.MaxValue))));
+        fields.Add(("maxItems", Described(Nullable(Integer(0, int.MaxValue)),
+            "Maximum array length: null leaves the upper bound unspecified; 0 permits only an empty array.")));
         if (nullable) fields.Add(("nullable", Boolean(true)));
         yield return Object(fields.ToArray());
     }
@@ -393,39 +237,45 @@ internal static class PlanningSchemas
     }
 
     private static JsonObject Boolean(bool value) => new() { ["type"] = "boolean", ["enum"] = new JsonArray(value) };
-    private static JsonObject Tasks(PlanningSession state, JsonObject definitions, IReadOnlySet<string>? admitted = null, bool arrayBounds = true)
-    {
-        JsonObject Task(string kind, params (string Name, JsonObject Schema)[] fields) => Object(new (string Name, JsonObject Schema)[]
+    private static JsonObject TaskShape(string kind, params (string Name, JsonObject Schema)[] fields) =>
+        Object(new (string Name, JsonObject Schema)[]
         { ("id", Ref("id")), ("kind", Enum(kind)), ("objective", Ref("goal")), ("dependsOn", Ref("identities")),
           ("requires", Nullable(Ref("value"))) }.Concat(fields).ToArray());
-        var operations = OperationTasks(state, definitions, (ids, inputs) => Task("operation", ("operation", ids), ("inputs", inputs)), admitted);
-        return new() { ["anyOf"] = new JsonArray(operations.Concat(new JsonNode?[] {
-            Described(Task("value", ("outputs", Array(Ref("output")))), "Copies/assembles values; objectives do not compute."),
-            Described(Task("transform", ("mode", Enum("extract")),
+
+    private static JsonObject Tasks(PlanningSession state, JsonObject definitions)
+    {
+        var operations = OperationTasks(state, definitions, (ids, inputs) => TaskShape("operation", ("operation", ids), ("inputs", inputs)));
+        return new() { ["anyOf"] = new JsonArray(operations.Concat(TaskShapes(state, null)).ToArray()) };
+    }
+
+    internal static IEnumerable<JsonNode?> TaskShapes(PlanningSession state, string? kind)
+    {
+        if (kind is null or "value")
+            yield return Described(TaskShape("value", ("outputs", Array(Ref("output")))), "Copies/assembles values; objectives do not compute.");
+        if (kind is null or "transform")
+        {
+            yield return Described(TaskShape("transform", ("mode", Enum("extract")),
                 ("each", Object(("input", Described(Ref("id"), "Exact named binding in this task's inputs.")),
                     ("output", Described(Ref("id"), "Exact name of the sole array result field.")))), ("inputs", NonEmptyArray(Ref("output"))),
                 ("resultType", Object(("kind", Enum("object")), ("fields", Array(Object(("name", Ref("goal")),
-                    ("type", arrayBounds ? new JsonObject { ["anyOf"] = new JsonArray(ArrayTypeShapes("resultType", false, true).Cast<JsonNode?>().ToArray()) }
-                        : Object(("kind", Enum("array")), ("items", Ref("resultType"))))), 1, 1))))),
+                    ("type", new JsonObject { ["anyOf"] = new JsonArray(ArrayTypeShapes("resultType", false).Cast<JsonNode?>().ToArray()) })), 1, 1))))),
                 "Independent extraction: each names one collection input and the sole array result field. Produce exactly one result per item in order; nested arrays stay nested. No global comparison, filtering or implicit flattening. Shared inputs are read-only. Mapping examples are bounded; " +
                 (state.Request.Options["mapping_profile"]?.ToString() == TaskPlanCompiler.AdaptiveMappingProfile
                     ? "all items are checked under the configured shared runtime budget; unresolved items may require specialization."
-                    : "all items are checked under one shared two-attempt allowance.")),
-            Described(Task("transform", ("mode", Enum("extract", "interpret")), ("inputs", NonEmptyArray(Ref("output"))),
+                    : "all items are checked under one shared two-attempt allowance."));
+            yield return Described(TaskShape("transform", ("mode", Enum("extract", "interpret")), ("inputs", NonEmptyArray(Ref("output"))),
                 ("resultType", Object(("kind", Enum("object")), ("fields", NonEmptyArray(Ref("resultField")))))),
-                "Extract observed data or interpret it explicitly. Copies use value/field/object bindings. Declare result fields; no invented defaults."),
-            Described(Task("transform", ("inputs", NonEmptyArray(Ref("output"))),
-                ("resultType", Object(("kind", Enum("object")), ("fields", NonEmptyArray(Ref("resultField")))))),
-                "Historical interpretation form; omission of mode retains interpret semantics."),
-            Task("sequence", ("body", Ref("scope"))),
-            Task("conditional", ("condition", Ref("value")), ("body", Ref("scope")), ("otherwise", Ref("scope"))),
-            Task("parallel", ("branches", Array(Ref("scope"), 2)), ("maxConcurrency", Integer(1, 100))),
-            Task("foreach", ("items", Ref("value")), ("body", Ref("scope")), ("parallel", Type("boolean")), ("maxItems", Described(Integer(1, 10000), arrayBounds
-                ? "TOTAL iteration ceiling, not a nonempty guarantee; declare array cardinality in its type."
-                : "TOTAL items limit: requested bound, else 100. Excess fails. 1 accepts only a singleton, regardless of workers.")), ("maxConcurrency", Integer(1, 100))),
-            Task("call", ("group", Ref("id")), ("inputs", Array(Ref("output")))) }).ToArray()) };
+                "Extract observed data or interpret it explicitly. Copies use value/field/object bindings. Declare result fields; no invented defaults.");
+        }
+        if (kind is null or "sequence") yield return TaskShape("sequence", ("body", Ref("scope")));
+        if (kind is null or "conditional") yield return TaskShape("conditional", ("condition", Ref("value")), ("body", Ref("scope")), ("otherwise", Ref("scope")));
+        if (kind is null or "parallel") yield return TaskShape("parallel", ("branches", Array(Ref("scope"), 2)), ("maxConcurrency", Integer(1, 100)));
+        if (kind is null or "foreach")
+            yield return TaskShape("foreach", ("items", Ref("value")), ("body", Ref("scope")), ("parallel", Type("boolean")), ("maxItems", Described(Integer(1, 10000),
+                "TOTAL iteration ceiling, not a nonempty guarantee; declare array cardinality in its type.")), ("maxConcurrency", Integer(1, 100)));
+        if (kind is null or "call") yield return TaskShape("call", ("group", Ref("id")), ("inputs", Array(Ref("output"))));
     }
-    private static IEnumerable<JsonNode?> OperationTasks(PlanningSession state, JsonObject definitions, Func<JsonObject, JsonObject, JsonObject> task, IReadOnlySet<string>? admitted)
+    private static IEnumerable<JsonNode?> OperationTasks(PlanningSession state, JsonObject definitions, Func<JsonObject, JsonObject, JsonObject> task)
     {
         var fixedOperations = TaskPlanRevisions.FixedOperations(state)
             ? TaskPlanRevisions.Tasks(state.Plan!).Where(t => t.Kind == "operation").Select(t => t.Operation).ToHashSet(StringComparer.Ordinal) : null;
@@ -433,17 +283,15 @@ internal static class PlanningSchemas
             .Where(c => state.Catalog!.AllowedStepTypes.Contains(c.StepType) && !state.Catalog.Policy.DeniedCapabilityIds.Contains(c.Id))
             .GroupBy(c => TaskOperations.Describe(c).Id, StringComparer.Ordinal).Where(g => g.Count() == 1 && TaskOperations.Validate(g.First()).Count == 0)
             .Select(g => PlanningCapabilityArguments.Editable(g.First()))
-            .Where(o => (fixedOperations is null || fixedOperations.Contains(o.Id)) && (admitted is null || admitted.Contains(o.Id))).OrderBy(o => o.Id, StringComparer.Ordinal).ToArray();
+            .Where(o => fixedOperations is null || fixedOperations.Contains(o.Id)).OrderBy(o => o.Id, StringComparer.Ordinal).ToArray();
         var operations = resolved.Select(o => (o.Id, Inputs: Inputs(o))).ToArray();
         foreach (var group in operations.GroupBy(o => o.Inputs.ToJsonString(), StringComparer.Ordinal))
             yield return task(Enum(group.Select(o => o.Id).ToArray()), group.First().Inputs);
-        string StepType(string id) => state.Catalog!.Capabilities.Concat(state.Discovery.Resolved).First(c => TaskOperations.Describe(c).Id == id).StepType;
-
         JsonObject Inputs(PlanningOperation operation)
         {
+            var capability = state.Catalog!.Capabilities.Concat(state.Discovery.Resolved).First(c => TaskOperations.Describe(c).Id == operation.Id);
             var ports = operation.Inputs.OrderBy(p => p.Name, StringComparer.Ordinal)
-                .Select(p => (p.Name, Value: PlanningBindingSchemas.For(p.Schema, definitions,
-                    literalOnly: TaskPlanCompiler.LiteralScopeInput(StepType(operation.Id), p.Path[0]), workspace: TaskPlanCompiler.FixedWorkspaceInput(StepType(operation.Id), p.Path[0])))).ToArray();
+                .Select(p => (p.Name, Value: PlanningBindingSchemas.ForOperation(capability, p, definitions))).ToArray();
             if (ports.Length == 0) return Array(Ref("output"), 0, 0);
             var bindings = ports.GroupBy(p => p.Value.ToJsonString(), StringComparer.Ordinal)
                 .Select(g => (JsonNode?)Object(("name", Enum(g.Select(p => p.Name).ToArray())), ("value", g.First().Value))).ToArray();

@@ -1,0 +1,19 @@
+{
+  "exit_code": 0,
+  "counts": {
+    "Passed": 300
+  },
+  "elapsed_seconds": 36.97536224999931,
+  "source_unchanged": true,
+  "log_sha256": "889dfc8d4204e910591783b2f4156dbcc19c70f03a04403eecefd966164d6264",
+  "base": "acc10c071085930956aa396214fd2cefcad538a6",
+  "source_manifest_sha256": "13de3295c2a20b269113285c5f46dbc6326bbac8d87c49da22fd89f80a0eabf2",
+  "postimages": {
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Closure.cs": "1eb6e47608a87cbb9a3d20e93a16297518d0be432849f2b35271888a2168dd40",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactSelectionPresentationTests.cs": "27384f47eee55f78daf82e1037dffd68f8075ae3ec81040994d79f4ddd6c67d5"
+  },
+  "reproduction": "The acc10c07 broader suite exposed a null-catalog exception in its ordinary admission fixture; its original full run remains retained.",
+  "correction": "Only present local eligibility facts when the captured catalog is available. Absence means unknown; prerequisite targeting is independent.",
+  "business_acceptance": false,
+  "overlap_note": "These 300 owning cases overlap the preceding 294-case suite and are not added to solution totals."
+}

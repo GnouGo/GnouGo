@@ -1,0 +1,237 @@
+{
+  "production_and_harness_source": "a3ccf16bd94478f895484a5961ea509662b613e0",
+  "run": "compactma3ccf16bamz11q1-amazon-1",
+  "status": "clarification",
+  "terminal_phase": "construction_draft",
+  "logical_requests": 60,
+  "physical_attempts": 61,
+  "received_completions": 60,
+  "calls_by_phase": {
+    "construction_intent": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "elapsed_ms": "31972.0182",
+      "input_tokens": 1206,
+      "output_tokens": 864,
+      "reasoning_tokens": 512
+    },
+    "construction_select": {
+      "logical_calls": 11,
+      "physical_attempts": 11,
+      "elapsed_ms": "969428.9282",
+      "input_tokens": 47094,
+      "output_tokens": 59943,
+      "reasoning_tokens": 56454
+    },
+    "construction_discovery": {
+      "logical_calls": 29,
+      "physical_attempts": 30,
+      "elapsed_ms": "2177773.6898",
+      "input_tokens": 116911,
+      "output_tokens": 94055,
+      "reasoning_tokens": 91272
+    },
+    "construction_draft": {
+      "logical_calls": 16,
+      "physical_attempts": 16,
+      "elapsed_ms": "663113.6593",
+      "input_tokens": 113805,
+      "output_tokens": 20519,
+      "reasoning_tokens": 17921
+    },
+    "replan": {
+      "logical_calls": 3,
+      "physical_attempts": 3,
+      "elapsed_ms": "193105.9588",
+      "input_tokens": 11977,
+      "output_tokens": 9812,
+      "reasoning_tokens": 8190
+    }
+  },
+  "judge_calls": 0,
+  "correction_charges": 4,
+  "planning_ms": "4424723.0927",
+  "known_cost_eur": "6.2972738704751639270636845414",
+  "retained_unknown_reservation_eur": "0.9950507500224557621485673224",
+  "unknown_physical_attempts": 1,
+  "received_http_errors": [
+    {
+      "request": 26,
+      "status": 500
+    }
+  ],
+  "failed_reservations_released": false,
+  "provider_tokens": {
+    "input_tokens": 290993,
+    "output_tokens": 185193,
+    "reasoning_tokens": 174349
+  },
+  "all_issued_components_reconcile": true,
+  "issuance_to_receipt_latency_by_phase": {
+    "construction_intent": {
+      "receipts": 1,
+      "total_seconds": 20.302,
+      "p50_seconds": 20.302,
+      "p95_seconds": 20.302,
+      "maximum_seconds": 20.302
+    },
+    "construction_select": {
+      "receipts": 11,
+      "total_seconds": 839.204,
+      "p50_seconds": 76.087,
+      "p95_seconds": 161.27,
+      "maximum_seconds": 161.27
+    },
+    "construction_discovery": {
+      "receipts": 29,
+      "total_seconds": 1832.835,
+      "p50_seconds": 19.614,
+      "p95_seconds": 163.939,
+      "maximum_seconds": 364.486
+    },
+    "construction_draft": {
+      "receipts": 16,
+      "total_seconds": 469.973,
+      "p50_seconds": 25.718,
+      "p95_seconds": 62.11,
+      "maximum_seconds": 62.11
+    },
+    "replan": {
+      "receipts": 3,
+      "total_seconds": 157.47,
+      "p50_seconds": 44.318,
+      "p95_seconds": 72.425,
+      "maximum_seconds": 72.425
+    }
+  },
+  "latency_is_not_provider_only": true,
+  "preparation_calls": 1,
+  "preparation_elapsed_ms": "31972.0182",
+  "first_independently_correct_business_producer": null,
+  "calls_until_first_correct_business_producer": null,
+  "accepted_task_kinds": {
+    "sequence": 7
+  },
+  "accepted_checkpoints": 7,
+  "satisfied_business_obligations": 0,
+  "calls_per_satisfied_business_obligation": null,
+  "empty_received_text_count": 0,
+  "whitespace_only_received_text_count": 0,
+  "artifact_created": false,
+  "runtime_started": false,
+  "business_oracle_passed": false,
+  "qualifying_success": false,
+  "phase_policy_sha256": "3e9495d2877fed6d3ddbd9a10b1817842a145bf3a66b7c563d79037d6e215e1c",
+  "raw_terminal_sha256": "306f9500fa06276c9e427c756dc76fb81412abd6a7072a1c8a246969afb6b14b",
+  "terminal_diagnostics": [],
+  "constructed_request_sizes_by_phase": {
+    "construction_intent": {
+      "count": 1,
+      "p50_bytes": 7297,
+      "p95_bytes": 7297,
+      "maximum_bytes": 7297,
+      "maximum_conservative_input_estimate": 2689
+    },
+    "construction_select": {
+      "count": 11,
+      "p50_bytes": 20355,
+      "p95_bytes": 32429,
+      "maximum_bytes": 32429,
+      "maximum_conservative_input_estimate": 11066
+    },
+    "construction_discovery": {
+      "count": 38,
+      "p50_bytes": 21799,
+      "p95_bytes": 24950,
+      "maximum_bytes": 24954,
+      "maximum_conservative_input_estimate": 8574
+    },
+    "construction_draft": {
+      "count": 25,
+      "p50_bytes": 23145,
+      "p95_bytes": 83652,
+      "maximum_bytes": 85924,
+      "maximum_conservative_input_estimate": 28898
+    },
+    "replan": {
+      "count": 3,
+      "p50_bytes": 21362,
+      "p95_bytes": 21362,
+      "maximum_bytes": 21362,
+      "maximum_conservative_input_estimate": 7377
+    }
+  },
+  "empty_leaf_scopes": 2,
+  "issued_request_sizes_by_phase": {
+    "construction_intent": {
+      "count": 1,
+      "p50_bytes": 7297,
+      "p95_bytes": 7297,
+      "maximum_bytes": 7297,
+      "maximum_conservative_input_estimate": 2689
+    },
+    "construction_select": {
+      "count": 11,
+      "p50_bytes": 20355,
+      "p95_bytes": 32429,
+      "maximum_bytes": 32429,
+      "maximum_conservative_input_estimate": 11066
+    },
+    "construction_discovery": {
+      "count": 29,
+      "p50_bytes": 20491,
+      "p95_bytes": 24950,
+      "maximum_bytes": 24954,
+      "maximum_conservative_input_estimate": 8574
+    },
+    "construction_draft": {
+      "count": 16,
+      "p50_bytes": 23539,
+      "p95_bytes": 85924,
+      "maximum_bytes": 85924,
+      "maximum_conservative_input_estimate": 28898
+    },
+    "replan": {
+      "count": 3,
+      "p50_bytes": 21362,
+      "p95_bytes": 21362,
+      "maximum_bytes": 21362,
+      "maximum_conservative_input_estimate": 7377
+    }
+  },
+  "constructed_but_not_dispatched_request_measurements": 18,
+  "above_phase_maximum_dispatched_with_warnings": [
+    {
+      "request": 59,
+      "complete_bytes": 83652,
+      "conservative_estimate": 28140,
+      "captured_project_maximum": 22000,
+      "provider_input_tokens": 15565,
+      "durable_warning": true
+    },
+    {
+      "request": 60,
+      "complete_bytes": 85924,
+      "conservative_estimate": 28898,
+      "captured_project_maximum": 22000,
+      "provider_input_tokens": 16219,
+      "durable_warning": true
+    }
+  ],
+  "independently_reviewed_trajectory": {
+    "accepted_empty_sequence_openings": 7,
+    "first_exact_operation_binding": 54,
+    "first_executable_operation_drafted": null,
+    "original_navigation_semantics_present_in_binding_requests": [
+      11,
+      19,
+      26,
+      32,
+      39
+    ],
+    "terminal_clarification": "Requests an additional query/search capability or changed caller input despite existing eligible interpret guidance; no change to the input was authorized or applied.",
+    "provider_failure": "Request26 confirmed HTTP500 then200; failed reservation retained. This is separate from semantic non-progress.",
+    "new_production_rule_added_for_this_trace": false
+  },
+  "phase_sizes_distinguish_prospective_preparations_from_issued_calls": true
+}

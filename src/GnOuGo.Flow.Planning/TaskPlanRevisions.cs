@@ -41,7 +41,7 @@ internal static class TaskPlanRevisions
         // As in complete patch validation, a local witness permits preflight of
         // finite choices. No selection is applied to the session or approved.
         foreach (var choice in sourcePlan.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
-        var sources = TaskPlanCompiler.RepairSources(sourcePlan, state.Catalog!).GetValueOrDefault(path) ?? [];
+        var sources = TaskPlanCompiler.RepairSources(sourcePlan, state.Catalog!, request: state.Request).GetValueOrDefault(path) ?? [];
         var broken = references.Where(v => !PlanningRepairContext.Ports(symbols.Tasks[v.Source!].Task, state).Contains(v.Port ?? "", StringComparer.Ordinal)).ToArray();
         if (broken.Length != 1) return [];
         var reference = broken[0]; var values = new List<TaskValue>();
@@ -50,7 +50,7 @@ internal static class TaskPlanRevisions
         foreach (var source in sources.Where(s => s.Value.Kind == "output" && s.Value.Source == reference.Source))
         {
             if (ReferenceEquals(site.Value, reference) && outputType is not null &&
-                !PlanningGraphValidation.TypesFit(source.Schema, TaskPlanCompiler.TypeSchema(outputType))) continue;
+                !PlanningGraphValidation.TypesFit(source.Schema, TaskPlanCompiler.TypeSchema(outputType, state.Request))) continue;
             var replacement = Rewrite(site.Value);
             var tree = JsonSerializer.SerializeToNode(state.Plan, PlanningJsonContext.Default.TaskPlan)!;
             var target = PlanningRepairPatch.Index(tree)[path];
@@ -59,7 +59,7 @@ internal static class TaskPlanRevisions
             else target.Set(JsonSerializer.SerializeToNode(replacement, PlanningJsonContext.Default.TaskValue));
             var probe = tree.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
             foreach (var choice in probe.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
-            if (!new TaskPlanCompiler().Compile(probe, state.Catalog!).Diagnostics.Any(d => d.Required &&
+            if (!new TaskPlanCompiler().Compile(probe, state.Catalog!, false, false, advisoryOptimization: PlanningTokenThresholds.OptimizationAdvisory(state.Request)).Diagnostics.Any(d => d.Required &&
                 (d.Location == path || d.Location.StartsWith(path + "/", StringComparison.Ordinal)))) values.Add(replacement);
 
             TaskValue Rewrite(TaskValue value)
@@ -207,11 +207,17 @@ internal static class TaskPlanRevisions
         var symbols = new TaskPlanSymbols(plan);
         var inputs = plan.Inputs.Select(i => "/inputs/" + i.Name).Concat(plan.Groups.SelectMany(g => g.Inputs.Select(i => "/groups/" + g.Id + "/inputs/" + i.Name))).ToHashSet(StringComparer.Ordinal);
         var scope = new HashSet<string>(StringComparer.Ordinal);
+        var missingExports = new HashSet<string>(StringComparer.Ordinal);
         var resultSlots = ProducerConstraintSlots(plan);
         foreach (var finding in findings.Where(d => d.Required && d.Code != "REVISION_SCOPE_CHANGED"))
         {
             var path = finding.Location;
             if (path.EndsWith("/requires", StringComparison.Ordinal)) continue;
+            if (finding.Code == "TASK_EXPORT_REQUIRED" && symbols.Values.TryGetValue(path, out var consumer))
+                foreach (var reference in TaskPlanCompiler.Values(consumer.Value).Where(value => value.Kind == "output" && string.IsNullOrEmpty(value.Port)))
+                    if (reference.Source is { } producerId && symbols.Tasks.TryGetValue(producerId, out var producer) && producer.Scope == consumer.Scope)
+                        foreach (var boundary in symbols.Scopes.Where(boundary => boundary.Owner == producer.Task && boundary.Source.Outputs.Count == 0))
+                            missingExports.Add(boundary.Path + "/outputs");
             if (finding.Code == "TASK_KIND_INVALID" && path.Split('/') is ["", "tasks", var invalidTask, "kind"] && symbols.Tasks.ContainsKey(invalidTask)) { scope.Add(path); continue; }
             if (finding.Code is "TASK_TRANSFORM_TYPE" or "TASK_TRANSFORM_CONSTRAINT" or "TASK_INPUT_CONSTRAINT" && resultSlots.Contains(path)) { scope.Add(path); continue; }
             if (symbols.Values.ContainsKey(path) || inputs.Contains(path) || plan.Choices.Any(c => path == "/choices/" + c.Id)) scope.Add(path);
@@ -225,6 +231,7 @@ internal static class TaskPlanRevisions
         var exports = Exports(plan, scope);
         scope.RemoveWhere(path => symbols.Scopes.Any(s => path == s.Path + "/outputs"));
         scope.UnionWith(exports.Additions.Keys);
+        scope.UnionWith(missingExports);
         return scope.Order(StringComparer.Ordinal).ToArray();
     }
 
@@ -286,6 +293,27 @@ internal static class TaskPlanRevisions
 
         bool Related(TaskValue original, TaskValue replacement, TaskPlanSymbols.Scope owner, HashSet<string> used, bool preserve = false)
         {
+            if (original.Kind == "output" && string.IsNullOrEmpty(original.Port) && original.Source is { } containerId &&
+                symbols.Tasks.TryGetValue(containerId, out var container) && container.Scope == owner)
+            {
+                var boundaries = symbols.Scopes.Where(boundary => boundary.Owner == container.Task && boundary.Source.Outputs.Count == 0 &&
+                    scope.Contains(boundary.Path + "/outputs")).ToArray();
+                if (boundaries.Length > 0)
+                {
+                    if (Same(original, replacement)) return true;
+                    if (replacement.Kind != "output" || replacement.Source != containerId || string.IsNullOrEmpty(replacement.Port)) return false;
+                    foreach (var boundary in boundaries)
+                    {
+                        var exports = revised.Scopes.SingleOrDefault(candidateScope => candidateScope.Path == boundary.Path)?.Source.Outputs;
+                        if (exports is not { Count: 1 } || exports[0].Name != replacement.Port) return false;
+                        var value = exports[0].Value;
+                        while (value.Kind == "field" && value.Items.Count == 1) value = value.Items[0];
+                        if (value.Kind != "output" || value.Source is null || !symbols.Tasks.TryGetValue(value.Source, out var childProducer) || childProducer.Scope != boundary) return false;
+                        used.Add(boundary.Path + "/outputs/" + replacement.Port);
+                    }
+                    return true;
+                }
+            }
             var routes = original.Kind == "output" && original.Source is { } producer ? symbols.ExportRoute(owner, producer) : [];
             if (routes.Count > 0)
             {

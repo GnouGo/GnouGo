@@ -7,10 +7,8 @@ namespace GnOuGo.Flow.Planning.Tests;
 internal static class PlannerFixture
 {
     internal static CancellationToken Ct => TestContext.Current.CancellationToken;
-    // Retained regression corpus uses its original allowances; fresh defaults have
-    // separate tests so changing defaults cannot weaken these budget regressions.
-    internal static PlanningSession Session() => new() { IntentVersion = 2, Request = new() { TenantId = "test", Prompt = "Return a greeting",
-        MaxModelCalls = 8, MaxReplanAttempts = 2, Generation = new("medium", 12_000, 8_192) } };
+    internal static PlanningSession Session() => Capture(new() { Request = new() { TenantId = "test", Prompt = "Return a greeting",
+        MaxModelCalls = 64, MaxReplanAttempts = 4, Generation = new("medium", 12_000, 8_192) } });
     internal static PlanningGraph Greeting(string message = "Hello") => new()
     {
         Summary = "Return a greeting", Workflows = [new()
@@ -21,6 +19,11 @@ internal static class PlannerFixture
     };
     internal static PlanningRequirements Requirements() => new() { Summary = "Return a greeting", Inputs = [], Outcomes = [new("message", "Return a greeting")] };
     internal static PlanningSession Clone(PlanningSession state) => JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
+    internal static PlanningSession Capture(PlanningSession state)
+    {
+        PlanningSessionCreation.Capture(state);
+        return Clone(state);
+    }
     internal static async Task<PlanningSession> RunAsync(TestRuntime runtime, PlanningSession? state = null)
     {
         state ??= Session(); var planner = new HybridWorkflowPlanner();
@@ -29,14 +32,31 @@ internal static class PlannerFixture
         return state;
     }
 }
-internal sealed class TestRuntime : IPlanningRuntime
+internal sealed class TestRuntime : IPlanningRuntime, IPlanningConstructionAdmission
 {
     internal readonly List<LLMRequest> Calls = [];
     internal readonly List<PlanningSession> Checkpoints = [];
+    private readonly Dictionary<string, PlanningEvidenceAddresses> _evidenceAddresses = new(StringComparer.Ordinal);
+    internal bool EncodeCanonicalEvidence = true;
+    internal string EvidenceId(LLMRequest request, string canonical)
+    {
+        if (request.ClientRequestId is not { } id || !_evidenceAddresses.TryGetValue(id, out var mapping))
+            throw new InvalidOperationException("The fixture must capture the exact issued evidence map before constructing its raw response.");
+        return mapping.Addresses.Single(pair => pair.Value == canonical).Key;
+    }
+    internal JsonNode WireResponse(LLMRequest request, JsonNode response) =>
+        WireEvidence(response, _evidenceAddresses.GetValueOrDefault(request.ClientRequestId!));
+    internal void CaptureIssued(PlanningModelCall call)
+    {
+        PlanningModelCalls.ValidateEvidenceAddresses(call);
+        if (call.EvidenceAddresses is { } mapping) _evidenceAddresses[call.Id] = mapping;
+    }
+    internal Action<PlanningSession>? Checkpointed;
     internal readonly WorkflowPlanningRuntime Actual;
-    internal PlanningProposal Proposal = new() { Requirements = PlannerFixture.Requirements(), Plan = PlanningCorpus.Greeting() };
+    internal TaskPlanFixture Proposal = new() { Requirements = PlannerFixture.Requirements(), Plan = PlanningCorpus.Greeting() };
     internal Func<LLMRequest, string, LLMResponse>? Respond;
-    internal IReadOnlyList<PlanningDiagnostic>? CatalogChanges;
+    internal Action<LLMRequest, int, IReadOnlyList<int>>? AdmitConstruction { get; set; }
+    internal IReadOnlyList<PlanningDiagnostic>? CatalogChanges { get; set; }
     internal IReadOnlyList<PlanningDiagnostic>? Validation { get; set; }
     internal int Discoveries;
     public ICapabilityCatalog Capabilities { get; set; }
@@ -46,58 +66,52 @@ internal sealed class TestRuntime : IPlanningRuntime
     public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
     {
         Calls.Add(request);
-        var response = Respond?.Invoke(request, purpose) ?? Response(request, Proposal);
-        if (PlanningRepairPatch.Issued(request.StructuredOutputSchema?.AsObject()) && response.Json?["plan"] is JsonObject plan)
-            response.Json = PatchResponse(request, Checkpoints[^1], plan.Deserialize(PlanningJsonContext.Default.TaskPlan)!);
+        LLMResponse response;
+        try { response = Respond?.Invoke(request, purpose) ?? throw new InvalidOperationException("Configure explicit responses for the current incremental planning protocol."); }
+        catch (Exception error)
+        {
+            TestContext.Current.TestOutputHelper?.WriteLine(error.ToString());
+            throw;
+        }
+        if (EncodeCanonicalEvidence && response.Json is not null && request.ClientRequestId is { } id && _evidenceAddresses.TryGetValue(id, out var addresses))
+            response.Json = WireEvidence(response.Json, addresses);
         return Task.FromResult(response);
     }
-    internal static LLMResponse Response(LLMRequest request, PlanningProposal proposal) => new()
-    { Json = PlanningRepairPatch.Issued(request.StructuredOutputSchema?.AsObject())
-        ? proposal.Plan is not null
-            ? new JsonObject { ["discoveryRequests"] = null, ["plan"] = JsonSerializer.SerializeToNode(proposal.Plan, PlanningJsonContext.Default.TaskPlan) }
-            : PlanningCorpus.Transport(new JsonObject { ["discoveryRequests"] = JsonSerializer.SerializeToNode(proposal.DiscoveryRequests, PlanningJsonContext.Default.ListPlanningDiscoveryRequest), ["clarifications"] = JsonSerializer.SerializeToNode(proposal.Clarifications, PlanningJsonContext.Default.ListPlanningQuestion), ["patch"] = null }, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject())
-        : PlanningCorpus.Transport(JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal), request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
-
-    // Existing scripted tests state the intended candidate. Convert only authorized
-    // differences into explicit edits; never discard an attempted unrelated change.
-    internal static JsonNode PatchResponse(LLMRequest request, PlanningSession state, TaskPlan candidate)
+    internal static JsonNode WireEvidence(JsonNode response, PlanningEvidenceAddresses? addresses)
     {
-        var violations = TaskPlanRevisions.Validate(state.Plan, candidate, state.RevisionScope, state.Catalog, state.EditablePaths).ToList();
-        if (violations.Count > 0) return new JsonObject { ["plan"] = JsonSerializer.SerializeToNode(candidate, PlanningJsonContext.Default.TaskPlan) };
-        var before = PlanningRepairPatch.Index(JsonSerializer.SerializeToNode(state.Plan, PlanningJsonContext.Default.TaskPlan)!);
-        var after = PlanningRepairPatch.Index(JsonSerializer.SerializeToNode(candidate, PlanningJsonContext.Default.TaskPlan)!);
-        var edits = new JsonArray();
-        foreach (var slot in RepairPatchTests.Slots(state))
+        var wire = response.DeepClone();
+        if (addresses is not null) Evidence(wire);
+        if (addresses?.ReviewImplementationIds == true && wire["decision"]?["targets"] is JsonArray targets)
+            for (var index = 0; index < targets.Count; index++)
+            {
+                var target = targets[index]!.ToString();
+                var canonical = target.StartsWith('/') ? "scope:" + target : "task:" + target;
+                var alias = addresses.Addresses.SingleOrDefault(item => item.Value == canonical).Key;
+                if (alias is not null) targets[index] = alias;
+            }
+        return wire;
+        void Evidence(JsonNode? node)
         {
-            var old = before.GetValueOrDefault(slot.Location)?.Node;
-            var value = after.GetValueOrDefault(slot.Location)?.Node;
-            var action = "replace";
-            if (slot.Kind == "exports")
-            {
-                var existing = old!.AsArray().Select(o => o!["name"]!.ToString()).ToHashSet(StringComparer.Ordinal);
-                value = new JsonArray(value!.AsArray().Where(o => !existing.Contains(o!["name"]!.ToString())).Select(o => o!.DeepClone()).ToArray());
-                if (value.AsArray().Count == 0) continue;
-                action = "add";
-            }
-            else
-            {
-                if (JsonNode.DeepEquals(old, value)) continue;
-                if (slot.Kind is "value" or "reference" or "binding")
-                {
-                    if (value is null && slot.Actions.Contains("remove")) action = "remove";
-                    else if (slot.Actions.Contains("remove_owned")) action = "remove_owned";
-                    else if (slot.Kind == "binding") action = "add";
-                    if (value is JsonObject binding && binding.ContainsKey("name")) value = binding["value"];
-                }
-            }
-            var edit = new JsonObject { ["slot"] = slot.Id, ["action"] = action };
-            if (action is not ("remove" or "remove_owned")) edit["value"] = value?.DeepClone();
-            edits.Add((JsonNode)edit);
+            if (node is JsonArray array) { foreach (var item in array) Evidence(item); return; }
+            if (node is not JsonObject obj) return;
+            foreach (var pair in obj)
+                if (pair.Key is "evidenceRequests" or "contextRequests" or "evidenceAddresses" && pair.Value is JsonArray values)
+                    for (var index = 0; index < values.Count; index++)
+                    {
+                        var canonical = values[index]?.ToString();
+                        var shortId = addresses!.Addresses.SingleOrDefault(item => item.Value == canonical).Key;
+                        if (shortId is not null) values[index] = shortId;
+                    }
+                else if (pair.Key is not ("extension" or "patch" or "interfaces")) Evidence(pair.Value);
         }
-        var result = new JsonObject { ["discoveryRequests"] = null, ["patch"] = new JsonObject { ["edits"] = edits } };
-        return PlanningCorpus.Transport(result, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject())!;
     }
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => Validation is null ? Actual.ValidateAsync(request, ct) : Task.FromResult(Validation);
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => CatalogChanges is null ? Actual.ValidateCatalogAsync(catalog, ct) : Task.FromResult(CatalogChanges);
-    public Task CheckpointAsync(PlanningSession state, CancellationToken ct) { Checkpoints.Add(PlannerFixture.Clone(state)); return Task.CompletedTask; }
+    public Task CheckpointAsync(PlanningSession state, CancellationToken ct)
+    {
+        if (state.PendingCall is { } call) CaptureIssued(call);
+        Checkpoints.Add(PlannerFixture.Clone(state)); Checkpointed?.Invoke(state); return Task.CompletedTask;
+    }
+    public Task AdmitConstructionAsync(LLMRequest request, int inputTokenCeiling, IReadOnlyList<int> outputTokenCeilings, CancellationToken ct)
+    { AdmitConstruction?.Invoke(request, inputTokenCeiling, outputTokenCeilings); return Task.CompletedTask; }
 }

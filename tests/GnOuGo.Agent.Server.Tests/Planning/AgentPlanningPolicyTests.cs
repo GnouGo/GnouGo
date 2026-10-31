@@ -1,3 +1,4 @@
+using System.Text.Json;
 using GnOuGo.Agent.Server.Planning;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
@@ -7,31 +8,21 @@ namespace GnOuGo.Agent.Server.Tests.Planning;
 public sealed class AgentPlanningPolicyTests
 {
     [Fact]
-    public async Task IssuedRequestKeepsBusinessIntentAndHostApprovalWithoutCompilerInstructions()
+    public async Task CurrentRequestsPreserveCapturedTransportAndSeparateArtifactApproval()
     {
-        var policy = AgentPlanningPolicy.Create();
-        var actual = new WorkflowPlanningRuntime(new WorkflowEngine(), (_, _) => Task.CompletedTask);
-        var proposal = new PlanningProposal
-        {
-            Plan = PlanningCorpus.Greeting("name: original\n"),
-            Requirements = new() { Summary = "Return the requested document", Outcomes = [new("document", "Return the requested document")] }
-        };
-        var runtime = new LocalProductOutcomeExecutionTests.ProposalRuntime(actual, proposal);
-        const string intent = "Return the explicitly requested YAML document, preserving its original content.";
-        var state = new PlanningSession { Request = new() { TenantId = "fixture", Prompt = intent, Policy = policy } };
-        for (var i = 0; i < 4 && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); i++)
-            state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
-        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics));
-        var request = Assert.Single(runtime.Requests);
-        Assert.Contains(intent, request.Prompt);
-        Assert.Contains("The host manages approval of the generated plan before execution", request.Prompt);
-        Assert.Contains("do not add that approval as a business task", request.Prompt);
-        Assert.Contains("No extra effects/artifacts", request.Prompt);
-        Assert.DoesNotContain("YAML", policy.Instructions, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("YAML", request.Prompt[..request.Prompt.IndexOf("{\"request\"", StringComparison.Ordinal)], StringComparison.OrdinalIgnoreCase);
+        var state = await CurrentPlanningFixture.LiteralAsync("fixture", "host-policy", AgentPlanningPolicy.Create(), TestContext.Current.CancellationToken);
+        Assert.Equal(11, state.SchemaVersion);
+        Assert.NotNull(PlanningTransportPolicies.Read(state.Request));
+        Assert.NotNull(PlanningConstructionPhasePolicies.Read(state.Request));
+        Assert.Equal(5, state.ModelCalls);
         Assert.Null(state.ApprovedHash);
         Assert.Single(state.Plan!.Root.Tasks);
-        Assert.Equal("name: original\n", state.Plan.Root.Tasks[0].Outputs[0].Value.Text);
+        Assert.Equal(42, state.Plan.Root.Tasks[0].Outputs[0].Value.Number);
+        Assert.DoesNotContain("YAML", state.Request.Policy.Instructions, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(state.Plan.Root.Tasks, task => task.Operation == "workflow.execute" || task.Operation == "workflow.plan");
+        PlanningArtifactApproval.Verify(state);
+        var exact = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        Assert.Equal(exact, JsonSerializer.Serialize(PlanningSessionStorage.Read(exact, "fixture", "host-policy"), PlanningJsonContext.Default.PlanningSession));
     }
 
     [Fact] public void HostPolicyOmitsRedundantConfirmationButAllowsExplicitOptIn()

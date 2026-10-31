@@ -3,6 +3,7 @@ using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
+using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Core.Scripting;
 using Xunit;
@@ -11,6 +12,51 @@ namespace GnOuGo.Flow.Tests.Runtime;
 
 public sealed class DynamicMappingTests
 {
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task DiagnosticMappingCanValidateAThirdDistinctCandidateAndRetainsItsWarning(bool diagnostic, bool durable)
+    {
+        var model = new Model("({name:'fabricated'})", "({name:source.observed.missing})", "({name:source.observed.title})");
+        var artifacts = new Store(); var journal = new InMemoryWorkflowRunStore();
+        var budget = new LLMUsageBudgetScope(true, new() { MaxCalls = 2 }, advisoryOptimization: diagnostic);
+        var engine = new WorkflowEngine { LLMClient = model, MappingArtifacts = artifacts, LLMUsageBudget = budget,
+            RunStore = durable ? journal : null, LlmDefaults = new() { Model = "test" },
+            Limits = new() { TenantId = "tenant", RunId = "diagnostic-mapping" } };
+        var result = await engine.ExecuteAsync(new WorkflowCompiler().Compile(Document()).Workflows["main"],
+            new JsonObject { ["observed"] = new JsonObject { ["title"] = "observed" } }, TestContext.Current.CancellationToken);
+        Assert.Equal(diagnostic, result.Success); Assert.Equal(diagnostic ? 3 : 2, model.Calls);
+        if (!diagnostic) { Assert.Empty(artifacts.Values); return; }
+        Assert.Equal("observed", result.StepResults.Single(step => step.StepId == "map").Output!["value"]!["name"]!.GetValue<string>());
+        Assert.Single(artifacts.Values);
+        var usage = durable ? (await journal.ReadAsync("tenant", "diagnostic-mapping", TestContext.Current.CancellationToken))!.ModelUsage! : budget.Snapshot;
+        Assert.Equal(3, usage.Calls);
+        Assert.Contains(usage.Warnings!, warning => warning.Kind == "mapping_model_attempts" && warning.Current == 3 && warning.Threshold == 2 && warning.RequestId == model.LastRequest!.ClientRequestId);
+        Assert.Contains(usage.Warnings!, warning => warning.Kind == "calls" && warning.Current == 3);
+        if (durable)
+        {
+            var retained = (await journal.ReadAsync("tenant", "diagnostic-mapping", TestContext.Current.CancellationToken))!;
+            Assert.Equal(3, retained.Invocations.Values.Count(invocation => invocation.Id.Contains("/mapping/", StringComparison.Ordinal)));
+        }
+    }
+
+    [Fact]
+    public async Task DiagnosticMappingStopsARepeatedCandidateWithoutPublishingPartialWork()
+    {
+        const string first = "({name:'fabricated'})";
+        var model = new Model(first, "({name:source.observed.missing})", first, "({name:source.observed.title})");
+        var artifacts = new Store();
+        var engine = new WorkflowEngine { LLMClient = model, MappingArtifacts = artifacts, LlmDefaults = new() { Model = "test" },
+            LLMUsageBudget = new LLMUsageBudgetScope(false, new() { MaxCalls = 2 }, advisoryOptimization: true), Limits = new() { TenantId = "tenant" } };
+        var result = await engine.ExecuteAsync(new WorkflowCompiler().Compile(Document()).Workflows["main"],
+            new JsonObject { ["observed"] = new JsonObject { ["title"] = "observed" } }, TestContext.Current.CancellationToken);
+        Assert.False(result.Success); Assert.Equal(3, model.Calls);
+        Assert.Equal("CONTRACT_UNSATISFIED", result.Error!.Code); Assert.Contains("identical mapping candidate", result.Error.Message);
+        Assert.Empty(artifacts.Values); Assert.DoesNotContain(result.StepResults, step => step.StepId == "consume");
+    }
+
     [Fact]
     public async Task WholeExtractionReservesOutputAndDisablesHiddenTransportRetries()
     {

@@ -1,6 +1,8 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
+using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using Xunit;
 
@@ -8,6 +10,89 @@ namespace GnOuGo.Flow.Tests.Runtime;
 
 public sealed class LLMUsageBudgetTests
 {
+    [Fact]
+    public async Task DiagnosticCallAndElapsedWarningsSurviveSerializationWithoutResettingUsage()
+    {
+        var clock = new MutableTimeProvider(); var sink = new CancellationCheckingSink();
+        var limits = new LLMUsageBudgetLimits { MaxCalls = 1, MaxTotalTokens = 1, MaxElapsed = TimeSpan.FromSeconds(1) };
+        var scope = new LLMUsageBudgetScope(false, limits, sink: sink, timeProvider: clock, advisoryOptimization: true);
+        var client = new StubClient(Usage(2, 3)); var request = Request(); request.ClientRequestId = "first";
+        await scope.CallAsync(client, null, request, "planning", TestContext.Current.CancellationToken);
+        clock.Advance(TimeSpan.FromSeconds(2)); request.ClientRequestId = "second";
+        await scope.CallAsync(client, null, request, "planning", TestContext.Current.CancellationToken);
+        Assert.Contains(sink.Last!.Warnings!, warning => warning.Kind == "calls" && warning.Current == 2 && warning.Threshold == 1 && warning.RequestId == "second");
+        Assert.Contains(sink.Last.Warnings!, warning => warning.Kind == "elapsed_ms" && warning.Current == 2000 && warning.RequestId == "second");
+        var saved = JsonSerializer.Serialize(sink.Last, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
+        var restored = JsonSerializer.Deserialize(saved, PlanningJsonContext.Default.LLMUsageBudgetSnapshot)!;
+        scope = new(false, limits, restored, sink: sink, timeProvider: clock, advisoryOptimization: true);
+        Assert.Equal(saved, JsonSerializer.Serialize(scope.Snapshot, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
+        request.ClientRequestId = "third";
+        await scope.CallAsync(client, null, request, "planning", TestContext.Current.CancellationToken);
+        Assert.Equal(3, scope.Snapshot.Calls); Assert.Equal(15, scope.Snapshot.TotalTokens);
+        Assert.Contains(sink.Last!.Warnings!, warning => warning.Kind == "calls" && warning.Current == 3 && warning.RequestId == "third");
+        Assert.Equal(2, sink.Last.Warnings!.Count(warning => warning.Kind == "elapsed_ms"));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task TokenOnlyAuthorityKeepsCallAndElapsedGuardsHard(bool elapsed)
+    {
+        var clock = new MutableTimeProvider();
+        var scope = new LLMUsageBudgetScope(true, new() { MaxCalls = elapsed ? 10 : 1, MaxElapsed = TimeSpan.FromSeconds(1) }, timeProvider: clock);
+        var client = new StubClient(Usage(1, 1));
+        await scope.CallAsync(client, null, Request(), "planning", TestContext.Current.CancellationToken);
+        if (elapsed) clock.Advance(TimeSpan.FromSeconds(2));
+        var failure = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => scope.CallAsync(client, null, Request(), "planning", TestContext.Current.CancellationToken));
+        Assert.Equal(elapsed ? "elapsed_ms" : "calls", failure.Details!["limit_kind"]!.ToString());
+        Assert.Equal(1, client.CallCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ExplicitChildExecutionBoundsRemainHardUnderDiagnosticSessionAuthority(bool elapsed)
+    {
+        var clock = new MutableTimeProvider();
+        var parent = new LLMUsageBudgetScope(false, new() { MaxCalls = 1, MaxElapsed = TimeSpan.FromSeconds(1) }, timeProvider: clock, advisoryOptimization: true);
+        var child = parent.CreateChild(new() { MaxCalls = elapsed ? 10 : 1, MaxElapsed = TimeSpan.FromSeconds(1) });
+        Assert.True(child.AdvisoryOptimizationThresholds);
+        var client = new StubClient(Usage(1, 1));
+        await child.CallAsync(client, null, Request(), "execution", TestContext.Current.CancellationToken);
+        child = child.RestoreSnapshot(child.Limits, child.Snapshot);
+        Assert.True(child.AdvisoryOptimizationThresholds);
+        if (elapsed) clock.Advance(TimeSpan.FromSeconds(2));
+        var failure = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => child.CallAsync(client, null, Request(), "execution", TestContext.Current.CancellationToken));
+        Assert.Equal(elapsed ? "elapsed_ms" : "calls", failure.Details!["limit_kind"]!.ToString());
+        Assert.Equal(1, client.CallCount); Assert.Equal(1, child.Snapshot.Calls); Assert.Equal(1, parent.Snapshot.Calls);
+    }
+
+    [Fact]
+    public async Task DiagnosticReviewCallHeadroomWarnsButFinancialHeadroomStillBlocks()
+    {
+        var scope = new LLMUsageBudgetScope(false, new() { MaxCalls = 1, MaxEstimatedCostUsd = 1 }, advisoryOptimization: true);
+        var request = Request(); request.ClientRequestId = "draft-and-review";
+        await scope.EnsureAllowanceAsync(request, new FixedCostEstimator(0.01m), 10, [10, 10], "planning", TestContext.Current.CancellationToken);
+        Assert.Contains(scope.Snapshot.Warnings!, warning => warning.Kind == "calls" && warning.Current == 2 && warning.RequestId == request.ClientRequestId);
+        var failure = await Assert.ThrowsAsync<WorkflowRuntimeException>(() =>
+            scope.EnsureAllowanceAsync(request, new FixedCostEstimator(1m), 10, [10, 10], "planning", TestContext.Current.CancellationToken));
+        Assert.Equal("estimated_cost_usd", failure.Details!["limit_kind"]!.ToString()); Assert.Equal(0, scope.Snapshot.Calls);
+    }
+
+    [Fact]
+    public async Task AdvisoryCompletionWarningsAreIncludedInTheExistingDurableUsageWrite()
+    {
+        var sink = new CancellationCheckingSink();
+        var scope = new LLMUsageBudgetScope(true, new() { MaxCalls = 1, MaxTotalTokens = 1 }, sink: sink);
+        var request = Request(); request.ClientRequestId = "runtime-request";
+        await scope.CallAsync(new StubClient(Usage(2, 3)), null, request, "neutral.stage", TestContext.Current.CancellationToken);
+        var warning = Assert.Single(sink.Last!.Warnings!);
+        Assert.Equal(new PlanningThresholdWarning("total_tokens", 5, 1, "host_budget_measurement", "neutral.stage")
+            { RequestId = "runtime-request" }, warning);
+        Assert.Equal(5, sink.Last.TotalTokens);
+        Assert.Equal(1, sink.Last.Calls);
+    }
+
     [Fact]
     public async Task CompletedUsageIsDurableWhenCancellationArrivesWithTheResponse()
     {

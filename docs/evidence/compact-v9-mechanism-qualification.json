@@ -1,0 +1,369 @@
+{
+  "kind": "v9_deterministic_mechanism_qualification",
+  "base_commit": "d5a4cac23ebe7fa8525ecb8f0299c65b6613d870",
+  "validation_only_snapshot_commit": "80a307dd02007babbe3f3af6cda6b336fa6b03ac",
+  "source_manifest_sha256": "9ac61ed67b58d139d82b14a1224076edfee4d8c3c5e90eee8c537fbd8fb279e7",
+  "qualification_sha256": "05f28116d485c2ede065dd55a0b9dd7e0944673480f33c05824dde2f9013656e",
+  "focused_validation": {
+    "passed": 97,
+    "failed": 0,
+    "skipped": 0,
+    "warnings_as_errors": true,
+    "log_sha256": "b69af55908f061bfe56bb1085fd14b6dc2c1403d1af933f97987331158172e07"
+  },
+  "A": {
+    "verdict": "realized_in_scripted_multiwindow_comparisons; live_efficacy_unverified",
+    "captured_test_limits": {
+      "navigation_input": 12000,
+      "draft_input": 18000,
+      "review_input": 10000,
+      "max_model_calls": 64
+    },
+    "comparisons": [
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.IncrementalReviewTests.NormalSessionsReuseExecutablePropositionsWithoutSkippingNewWork(group: False, prefix: \"scaled\", clauses: 3)",
+        "outcome": "Passed",
+        "class": "public_result_closed_sequence",
+        "clauses_per_behavior": 3,
+        "consumers": 2,
+        "work_fragments": 6,
+        "v8": {
+          "all_calls": 51,
+          "judge_calls": 21
+        },
+        "v9": {
+          "all_calls": 46,
+          "judge_calls": 16,
+          "accepted_checkpoints": 12,
+          "windows_per_checkpoint": [
+            1,
+            2,
+            2,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            3
+          ],
+          "reused_originals_per_checkpoint": [
+            0,
+            0,
+            0,
+            7,
+            7,
+            7,
+            9,
+            8,
+            8,
+            8,
+            8,
+            0
+          ]
+        },
+        "strict_savings_asserted": true,
+        "runtime_expectation": "each result = 2 * supplied caller input + 1; third caller, when present, is 11 -> 23",
+        "qualification": "scripted normal-session mechanism; not live efficacy",
+        "equal_plan_hash_approval_guard_and_two_actual_runtime_inputs_asserted": true
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.IncrementalReviewTests.NormalSessionsReuseExecutablePropositionsWithoutSkippingNewWork(group: True, prefix: \"mapped\", clauses: 2)",
+        "outcome": "Passed",
+        "class": "public_result_called_group",
+        "clauses_per_behavior": 2,
+        "consumers": 2,
+        "work_fragments": 6,
+        "v8": {
+          "all_calls": 34,
+          "judge_calls": 10
+        },
+        "v9": {
+          "all_calls": 35,
+          "judge_calls": 11,
+          "accepted_checkpoints": 10,
+          "windows_per_checkpoint": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            2
+          ],
+          "reused_originals_per_checkpoint": [
+            0,
+            0,
+            0,
+            0,
+            4,
+            4,
+            5,
+            4,
+            4,
+            0
+          ]
+        },
+        "strict_savings_asserted": false,
+        "runtime_expectation": "each result = 2 * supplied caller input + 1; third caller, when present, is 11 -> 23",
+        "qualification": "scripted normal-session mechanism; not live efficacy",
+        "equal_plan_hash_approval_guard_and_two_actual_runtime_inputs_asserted": true
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.IncrementalReviewTests.NormalSessionsReuseExecutablePropositionsWithoutSkippingNewWork(group: True, prefix: \"projected\", clauses: 3)",
+        "outcome": "Passed",
+        "class": "public_result_called_group",
+        "clauses_per_behavior": 3,
+        "consumers": 2,
+        "work_fragments": 6,
+        "v8": {
+          "all_calls": 51,
+          "judge_calls": 21
+        },
+        "v9": {
+          "all_calls": 47,
+          "judge_calls": 17,
+          "accepted_checkpoints": 12,
+          "windows_per_checkpoint": [
+            1,
+            2,
+            2,
+            2,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            3
+          ],
+          "reused_originals_per_checkpoint": [
+            0,
+            0,
+            0,
+            0,
+            7,
+            7,
+            9,
+            8,
+            8,
+            8,
+            8,
+            0
+          ]
+        },
+        "strict_savings_asserted": true,
+        "runtime_expectation": "each result = 2 * supplied caller input + 1; third caller, when present, is 11 -> 23",
+        "qualification": "scripted normal-session mechanism; not live efficacy",
+        "equal_plan_hash_approval_guard_and_two_actual_runtime_inputs_asserted": true
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.IncrementalReviewTests.NormalSessionsReuseExecutablePropositionsWithoutSkippingNewWork(group: False, prefix: \"shifted\", clauses: 2)",
+        "outcome": "Passed",
+        "class": "public_result_closed_sequence",
+        "clauses_per_behavior": 2,
+        "consumers": 2,
+        "work_fragments": 6,
+        "v8": {
+          "all_calls": 34,
+          "judge_calls": 10
+        },
+        "v9": {
+          "all_calls": 35,
+          "judge_calls": 11,
+          "accepted_checkpoints": 10,
+          "windows_per_checkpoint": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            2
+          ],
+          "reused_originals_per_checkpoint": [
+            0,
+            0,
+            0,
+            4,
+            4,
+            4,
+            5,
+            4,
+            4,
+            0
+          ]
+        },
+        "strict_savings_asserted": false,
+        "runtime_expectation": "each result = 2 * supplied caller input + 1; third caller, when present, is 11 -> 23",
+        "qualification": "scripted normal-session mechanism; not live efficacy",
+        "equal_plan_hash_approval_guard_and_two_actual_runtime_inputs_asserted": true
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.IncrementalReviewTests.WholeOriginalBoundaryBehaviorDoesNotAuthorizeNewCallers(group: False, prefix: \"scoped\", clauses: 3, consumers: 2)",
+        "outcome": "Passed",
+        "class": "scope_body",
+        "clauses_per_behavior": 3,
+        "consumers": 2,
+        "work_fragments": 6,
+        "v8": {
+          "all_calls": 57,
+          "judge_calls": 27
+        },
+        "v9": {
+          "all_calls": 59,
+          "judge_calls": 29,
+          "accepted_checkpoints": 14,
+          "windows_per_checkpoint": [
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            3
+          ],
+          "reused_originals_per_checkpoint": [
+            0,
+            0,
+            3,
+            4,
+            4,
+            7,
+            7,
+            7,
+            7,
+            7,
+            8,
+            7,
+            7,
+            0
+          ]
+        },
+        "strict_savings_asserted": false,
+        "runtime_expectation": "each result = 2 * supplied caller input + 1; third caller, when present, is 11 -> 23",
+        "qualification": "scripted normal-session mechanism; not live efficacy",
+        "equal_plan_hash_approval_guard_and_two_actual_runtime_inputs_asserted": true
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.IncrementalReviewTests.WholeOriginalBoundaryBehaviorDoesNotAuthorizeNewCallers(group: True, prefix: \"parameterized\", clauses: 2, consumers: 3)",
+        "outcome": "Passed",
+        "class": "parameterized_group_body",
+        "clauses_per_behavior": 2,
+        "consumers": 3,
+        "work_fragments": 8,
+        "v8": {
+          "all_calls": 39,
+          "judge_calls": 15
+        },
+        "v9": {
+          "all_calls": 36,
+          "judge_calls": 12,
+          "accepted_checkpoints": 11,
+          "windows_per_checkpoint": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            2
+          ],
+          "reused_originals_per_checkpoint": [
+            0,
+            0,
+            4,
+            4,
+            5,
+            5,
+            6,
+            6,
+            6,
+            5,
+            0
+          ]
+        },
+        "strict_savings_asserted": true,
+        "runtime_expectation": "each result = 2 * supplied caller input + 1; third caller, when present, is 11 -> 23",
+        "qualification": "scripted normal-session mechanism; not live efficacy",
+        "equal_plan_hash_approval_guard_and_two_actual_runtime_inputs_asserted": true
+      }
+    ],
+    "safety": [
+      "Whole-original applicability requires exact host proposition acknowledgment; broad/global/unknown remain fresh.",
+      "Exact admitted request measurement, raw response and original receipt join; forged or duplicated provenance rejects approval.",
+      "Stale genuine receipt/proof or added negative policy restores fresh whole-original coverage.",
+      "Received supported adverse witness remains unresolved and disables reuse.",
+      "Actual prepared v8/v9 request and cached genuine receipt recover without another physical send.",
+      "Supported inconclusive/report-repair followup retains original entry and applicability instructions.",
+      "Grounded v9 unchanged closure permits clean findings without inventing corrective locations; historical v8 and ungrounded/no-location adverse cases remain restricted.",
+      "New boundary/consumer claims keep their exact originals fresh, with retained consumer hash verified."
+    ],
+    "limitations": [
+      "These normal-session scripted fixtures prove mechanism and runtime semantics, not model or live convergence.",
+      "Single-window controls at the mandatory-review floor incurred one extra call; additional scope-body case incurred two extra calls.",
+      "Full owning/solution, final Native AOT/packages/storage and final commit source binding are separate pending qualifications.",
+      "Final23 A cases are included in97, not additive."
+    ]
+  },
+  "B": {
+    "verdict": "realized_in_scripted_transition_segments; whole_workflow_live_efficacy_unverified",
+    "traces": [
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.CompactReviewedTransitionTests.ReviewedExistingBoundaryAvoidsOnlyItsSemanticNavigation(export: False)",
+        "outcome": "Passed",
+        "trace": "boundary; export=False; simulated normal-session dispatches including initial proof: v8=12, v9=11; same plan=cd39035fe5662a3a4fa30f011cdd61076cf743bf89c6f6874bae0c458301c92d; no live/runtime acceptance\nv8 trace: construction_intent \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge \u2192 construction_select \u2192 construction_local_judge\nv9 trace: construction_intent \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge \u2192 construction_local_judge\nconstruction_draft: 3 \u2192 3\nconstruction_intent: 1 \u2192 1\nconstruction_local_judge: 4 \u2192 4\nconstruction_select: 4 \u2192 3"
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.CompactReviewedTransitionTests.ReviewedClaimSetChainsOuterClosureAndRootExportWithoutSelectionOrDraft(inference: True)",
+        "outcome": "Passed",
+        "trace": "chain; inference=True; simulated normal-session dispatches including initial proof: v8=17, v9=13; same plan=4a859fd179cd9c2737575db3ef2fde56ff0c945e33497f08ec400b63449c2f4b; no live/runtime acceptance\nv8 trace: construction_intent \u2192 construction_intent \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge\nv9 trace: construction_intent \u2192 construction_intent \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge \u2192 construction_local_judge \u2192 construction_local_judge\nconstruction_draft: 5 \u2192 3\nconstruction_intent: 2 \u2192 2\nconstruction_local_judge: 5 \u2192 5\nconstruction_select: 5 \u2192 3"
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.CompactReviewedTransitionTests.ReviewedExistingBoundaryAvoidsOnlyItsSemanticNavigation(export: True)",
+        "outcome": "Passed",
+        "trace": "boundary; export=True; simulated normal-session dispatches including initial proof: v8=13, v9=11; same plan=5e07cb0b9a00ff70c54dcb0fbd643f7d88bf4704b5082b935d00ea182202df84; no live/runtime acceptance\nv8 trace: construction_intent \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge\nv9 trace: construction_intent \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge \u2192 construction_local_judge\nconstruction_draft: 4 \u2192 3\nconstruction_intent: 1 \u2192 1\nconstruction_local_judge: 4 \u2192 4\nconstruction_select: 4 \u2192 3"
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.CompactReviewedTransitionTests.ReviewedAncestorAvoidsTheHistoricalAbandonAndSemanticSelectionSegment(inference: False)",
+        "outcome": "Passed",
+        "trace": "ancestor; inference=False; simulated normal-session dispatches including initial proof: v8=10, v9=8; same plan=a03d03e7619025232d1fa64444ef59842d7a4e6e182b7c8fef5bbb019cb54196; no live/runtime acceptance\nv8 trace: construction_intent \u2192 construction_select \u2192 construction_draft \u2192 construction_select \u2192 construction_draft \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge \u2192 construction_draft \u2192 construction_select\nv9 trace: construction_intent \u2192 construction_select \u2192 construction_draft \u2192 construction_select \u2192 construction_draft \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge\nconstruction_draft: 4 \u2192 3\nconstruction_intent: 1 \u2192 1\nconstruction_local_judge: 1 \u2192 1\nconstruction_select: 4 \u2192 3\nv8 explicitly abandons the resumed prerequisite-only route, then selects the original consumer with the exact accepted input; its original navigation record stays waiting. v9 restores that record and retains its descendant as prerequisite_discharged. Corrections: 3 \u2192 2. No runtime/business completion claimed."
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.CompactReviewedTransitionTests.ReviewedClaimSetChainsOuterClosureAndRootExportWithoutSelectionOrDraft(inference: False)",
+        "outcome": "Passed",
+        "trace": "chain; inference=False; simulated normal-session dispatches including initial proof: v8=17, v9=13; same plan=de68512f8ab14bb4559d001879abf6736586bb14d9282324a867b9fd62e7493f; no live/runtime acceptance\nv8 trace: construction_intent \u2192 construction_intent \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge\nv9 trace: construction_intent \u2192 construction_intent \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge \u2192 construction_local_judge \u2192 construction_local_judge\nconstruction_draft: 5 \u2192 3\nconstruction_intent: 2 \u2192 2\nconstruction_local_judge: 5 \u2192 5\nconstruction_select: 5 \u2192 3"
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.CompactReviewedTransitionTests.ReviewedAncestorAvoidsTheHistoricalAbandonAndSemanticSelectionSegment(inference: True)",
+        "outcome": "Passed",
+        "trace": "ancestor; inference=True; simulated normal-session dispatches including initial proof: v8=10, v9=8; same plan=0068b5d49b374e852ed26f227d9cf9ace6070275eb3b097d5737caffbc162111; no live/runtime acceptance\nv8 trace: construction_intent \u2192 construction_select \u2192 construction_draft \u2192 construction_select \u2192 construction_draft \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge \u2192 construction_draft \u2192 construction_select\nv9 trace: construction_intent \u2192 construction_select \u2192 construction_draft \u2192 construction_select \u2192 construction_draft \u2192 construction_select \u2192 construction_draft \u2192 construction_local_judge\nconstruction_draft: 4 \u2192 3\nconstruction_intent: 1 \u2192 1\nconstruction_local_judge: 1 \u2192 1\nconstruction_select: 4 \u2192 3\nv8 explicitly abandons the resumed prerequisite-only route, then selects the original consumer with the exact accepted input; its original navigation record stays waiting. v9 restores that record and retains its descendant as prerequisite_discharged. Corrections: 3 \u2192 2. No runtime/business completion claimed."
+      }
+    ],
+    "runtime_success_claimed": false,
+    "historical_consumer_note": "v8 legally abandons its deepest prerequisite route then semantically selects the original consumer; v9 resumes its reviewed ancestor and retains explicitly discharged descendant navigation."
+  },
+  "approval_scope": "A calls the actual artifact coverage verifier on FinalReview artifacts; this is technical approval eligibility, not a human or delegated execution receipt. Pure fixture workflows execute with independent arithmetic assertions and no effects or inference.",
+  "nonadditive": "Focused cases overlap later broad suites; earlier failures remain separate archives.",
+  "retained_iteration_index_sha256": "406798e0b9e3deab4a1d76e1d2062a3e70ac49502c9eed957e1c52a0e3187069"
+}

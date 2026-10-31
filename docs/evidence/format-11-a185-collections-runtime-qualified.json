@@ -1,0 +1,253 @@
+{
+  "schema": "pr120_frozen_runtime_qualification_v1",
+  "captured_date_utc": "2026-10-29",
+  "public_production_source": "a18517450bcdb48ece64fd4ed552c7d07e6a5c7a",
+  "private_execution_source": "513367fd2eb39afb2b9fa78de838239c73d9edf7",
+  "source_tree": "ae34cc2d649060b0da5b7ba1f15e70cc7e836775",
+  "public_source_map_sha256": "81589a1857ec7e3a41c17bef6a968283c5c66f4bb1f5b300018983b03b4facdd",
+  "cohort": "compactla1851745col11a",
+  "scenario": "Collections",
+  "model": "gpt-5.5-2026-04-24",
+  "phase_policy_sha256": "0f8566ddb5f847a98fb5d91f3f5f9422c5d7ab047e8425dc954f43b65af12074",
+  "mcp_manifest_sha256": "5b2c4135da538375b4eb952c21aec11208a85aefc51ca1885227b9b2c9578d11",
+  "mcp_files": 568,
+  "result": {
+    "generation": "complete_mandatory_reviews_passed",
+    "planning_process_exit_code": 1,
+    "planning_exit_interpretation": "The benchmark command had reached final_review and awaited separate artifact-bound delegated review; its business gate was not yet complete.",
+    "artifact_oracle_passed": true,
+    "artifact_hash": "05816a7e1a9dae03e4a2711b1ef752c3015c38fd2bbc900d9b9c1f043eed05be",
+    "benchmark_candidate_hash": "d3212bffa5867503cc72bbc665e4cfbe5ed73c273a03096e6b0fb05abefbf2a7",
+    "artifact_and_candidate_hashes_are_distinct": true,
+    "reviewed_revision": 26,
+    "approved_revision": 27,
+    "approved": true,
+    "review_pending": false,
+    "runtime_exit_code": 0,
+    "both_runtime_variants_passed": true,
+    "business_success_for_frozen_variants": true,
+    "qualifying_run_on_this_source": true,
+    "operator_planning_interventions": 0
+  },
+  "metrics": {
+    "logical_requests": 21,
+    "physical_attempts": 21,
+    "received_responses": 21,
+    "input_tokens": 56914,
+    "output_tokens": 34249,
+    "reasoning_tokens_included_in_output": 30712,
+    "provider_total_tokens": 91163,
+    "known_cost_eur": "1.1785143267762507859516752001",
+    "new_unknown_attempts": 0,
+    "new_unknown_reservation_eur": "0",
+    "planning_ms": 998378,
+    "planning_wall_seconds": "1010.7174171250081",
+    "execution_command_wall_seconds": "8.872129250084981",
+    "charged_navigation_corrections": 1,
+    "charged_draft_corrections": 0,
+    "executable_repair_patches": 0,
+    "context_reinterpretations": 1,
+    "local_judges": 1,
+    "global_judges": 2,
+    "maximum_complete_judge_bytes": 12679,
+    "maximum_complete_judge_estimated_input_tokens": 4483,
+    "prepared_requests": 21,
+    "all_request_components_reconcile": true,
+    "all_requests_within_captured_maximum": true,
+    "above_target_warnings": 11,
+    "phase_details": {
+      "construction_intent": {
+        "logical_requests": 2,
+        "physical_attempts": 2,
+        "input_tokens": 1997,
+        "output_tokens": 2572,
+        "reasoning_tokens_included_in_output": 2048,
+        "known_cost_eur": "0.0782762956974759723345010330",
+        "maximum_complete_request_bytes": 8669,
+        "component_totals_reconcile": true
+      },
+      "construction_select": {
+        "logical_requests": 8,
+        "physical_attempts": 8,
+        "input_tokens": 22595,
+        "output_tokens": 20083,
+        "reasoning_tokens_included_in_output": 18432,
+        "known_cost_eur": "0.6426524746249887721189257165",
+        "maximum_complete_request_bytes": 16058,
+        "component_totals_reconcile": true
+      },
+      "construction_draft": {
+        "logical_requests": 7,
+        "physical_attempts": 7,
+        "input_tokens": 26650,
+        "output_tokens": 4915,
+        "reasoning_tokens_included_in_output": 4093,
+        "known_cost_eur": "0.2521332974041138956256175335",
+        "maximum_complete_request_bytes": 23879,
+        "component_totals_reconcile": true
+      },
+      "construction_local_judge": {
+        "logical_requests": 1,
+        "physical_attempts": 1,
+        "input_tokens": 1215,
+        "output_tokens": 657,
+        "reasoning_tokens_included_in_output": 512,
+        "known_cost_eur": "0.0231608730800323362974939369",
+        "maximum_complete_request_bytes": 7471,
+        "component_totals_reconcile": true
+      },
+      "construction_global_judge": {
+        "logical_requests": 2,
+        "physical_attempts": 2,
+        "input_tokens": 3327,
+        "output_tokens": 5453,
+        "reasoning_tokens_included_in_output": 5115,
+        "known_cost_eur": "0.1618835893290218270008084075",
+        "maximum_complete_request_bytes": 12679,
+        "component_totals_reconcile": true
+      },
+      "replan": {
+        "logical_requests": 1,
+        "physical_attempts": 1,
+        "input_tokens": 1130,
+        "output_tokens": 569,
+        "reasoning_tokens_included_in_output": 512,
+        "known_cost_eur": "0.0204077966406179825743285727",
+        "maximum_complete_request_bytes": 7228,
+        "component_totals_reconcile": true
+      }
+    },
+    "retained_response_text": {
+      "scope": "Persisted LLMResponse.text, not hidden provider reasoning.",
+      "total_utf8_bytes": 11903,
+      "empty": 0,
+      "whitespace_only": 0,
+      "leading_or_trailing_whitespace": 0,
+      "provider_completion_status_unknown_count": 21
+    }
+  },
+  "correction_and_review_trace": [
+    {
+      "requests": [
+        16,
+        17
+      ],
+      "classification": "one_charged_navigation_correction",
+      "evidence": "Selection16 requested an export-evidence ID explicitly displayed and allowed by its issued schema. Its exact accepted group scope-export read failed CONSTRUCTION_EVIDENCE_UNKNOWN. Selection17 then chose root export/closure using the accepted foreach result. No executable patch or checkpoint resulted from the failed read; this was not a model-invented unsupported ID or an unchanged replay."
+    },
+    {
+      "requests": [
+        19,
+        20,
+        21
+      ],
+      "classification": "finite_capacity_reinterpretation_without_patch",
+      "evidence": "GlobalJudge19 rejected maxItems100 versus unrestricted array input. Replan20 returned patch:null plus targeted evidence. GlobalJudge21 accepted finite-control semantics. Candidate, claims, sources, contracts, policy/consumer basis and all common canonical business-context fields are identical; only reconsideration/prior-concern metadata was added."
+    }
+  ],
+  "runtime": {
+    "variants": [
+      {
+        "variant": "nominal",
+        "correct": true,
+        "runtime_success": true,
+        "elapsed_ms": "368.3406",
+        "error": null,
+        "effects": [],
+        "violations": [],
+        "expected_outputs": {
+          "result": [
+            2,
+            4,
+            8
+          ]
+        },
+        "expected_outputs_basis": "Independent pre-execution artifact review; reported runtime oracle confirms correctness without exporting observed raw output arrays."
+      },
+      {
+        "variant": "alternate",
+        "correct": true,
+        "runtime_success": true,
+        "elapsed_ms": "2.3214",
+        "error": null,
+        "effects": [],
+        "violations": [],
+        "expected_outputs": {
+          "result": [
+            6,
+            6,
+            -4
+          ]
+        },
+        "expected_outputs_basis": "Independent pre-execution artifact review; reported runtime oracle confirms correctness without exporting observed raw output arrays."
+      }
+    ],
+    "structure": {
+      "public_input": "required numeric array values, no default",
+      "declared_reusable_groups": 1,
+      "foreach_tasks": 1,
+      "group_call_tasks": 1,
+      "deterministic_value_tasks": 1,
+      "external_operations": 0,
+      "runtime_inference": false
+    },
+    "artifact_bound_review_origin": "delegated_test",
+    "generation_or_physical_attempts_added_by_execution": 0,
+    "planning_receipts_unchanged_by_execution": true,
+    "raw_runtime_output_arrays_exported": false
+  },
+  "independent_business_progress": {
+    "frozen_oracle_version": "synthetic-artifact-v1",
+    "unit": "distinct frozen business obligation covered by independently accepted planned artifact, with retained review uncertainty",
+    "obligation_ids": [
+      "cleanup",
+      "declared_effects",
+      "exact_outputs"
+    ],
+    "obligation_set_hash": "6ab079dce2f8e688b76d83445cbd16ff19772683c53d3b4b0a6af3012b77dd65",
+    "satisfied_obligations": 3,
+    "logical_calls_per_satisfied_obligation": 7,
+    "physical_attempts_per_satisfied_obligation": 7,
+    "checkpoints_do_not_increase_denominator": true
+  },
+  "captured_campaign_after_run": {
+    "available_eur": "126.53540690194728341939312535",
+    "permanent_retained_closures": 45,
+    "unresolved_requests": 0,
+    "historical_unknown_attempts_retained": 123,
+    "historical_unknown_reservation_eur_retained": "103.24950680175603328625976404",
+    "future_balance_assumed": false,
+    "supplement_reapplied": false
+  },
+  "identity_correction": {
+    "initial_review_file_used_benchmark_candidate_hash_as_artifact_hash": true,
+    "initial_files_preserved": true,
+    "corrected_before_delegated_metadata_and_runtime": true,
+    "authorization_and_approval_bound_actual_artifact_hash": true
+  },
+  "qualification": {
+    "successful_fresh_collections_runs_on_a185": 1,
+    "required_collections_runs_on_same_final_source": 2,
+    "other_scenarios_qualified_on_a185": 0,
+    "complete_six_run_gate": false,
+    "earlier_e880_success_is_separate_source": true
+  },
+  "evidence_sha256": {
+    "terminal-run-with-receipts-private.json": "dc749dfa287d3153d09524af332021ddfea37bffc192b288757b679b5de761f9",
+    "monitor-20261029T005132117627Z-run-raw-private.json": "b5523344eeb1d974c130a78e891d1a6ca2c09c86f3bc95777e488fc8f4fa9ab0",
+    "collections-execute.log": "45890dd8f6909e7b818d559a628fab464317f1eef88a1ba909b202616677a136",
+    "independent-artifact-review-safe.json": "a838ae32dcc525b7dda679881b013277fee0b67a5851b7c6a63fe80626192554",
+    "independent-artifact-review-initial-candidate-hash-mislabel-safe.json": "281a61be78f7005b9d2583f019b1df9697b5d6d4bbb1f08630b39595308341ee",
+    "artifact-review-metadata-safe.json": "e2369a11c7887345b3d9586787e8a1ac1f98a6090faa629ebb78e22f97b9ce21",
+    "collections-delegated-review.json": "35aa794131003750548bc0fb0b79d362b6c2a04f1c1e36e3f46fb26f1b589213",
+    "collections-delegated-authorization.json": "bfede265617cb7e5caaf799423deecda665edfdfabaa09e0f17a732fb0002e76",
+    "freeze.json": "f7309684f439ac9eedeccc42a3a74622c685cc89736252ce9d138a8d87fe892d"
+  },
+  "limitations": [
+    "One fresh successful Collections run is demonstrated on A185; runs from different commits cannot establish two-run reproducibility on one final source.",
+    "The inaccessible advertised export link remains a concrete failed navigation event. The successful automatic continuation does not establish that defect is corrected.",
+    "The finite-capacity reassessment is not counted as an executable repair. The original adverse report and unchanged-plan reassessment are retained.",
+    "The planning and execution benchmark candidate hash differs from the actual approval artifact identity; the initial metadata mislabel is preserved and disclosed.",
+    "No matched successful control supports a causal call, latency or cost reduction claim. Runtime success covers the frozen nominal and duplicate-preserving alternate variants."
+  ]
+}

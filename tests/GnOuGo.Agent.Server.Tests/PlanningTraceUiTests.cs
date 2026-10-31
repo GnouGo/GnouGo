@@ -19,21 +19,39 @@ public sealed partial class PlanningTraceUiTests : BunitContext
 {
     private static CancellationToken Ct => Xunit.TestContext.Current.CancellationToken;
 
-    [Theory]
-    [InlineData(PlanningStatus.FinalReview)]
-    [InlineData(PlanningStatus.Stopped)]
-    public async Task RetiredUnapprovedSessionOffersExplicitRevisionWithoutApprovalOrRetry(string status)
+    [Fact]
+    public async Task CapacitySelectionIsPersistedWithoutAnOptionalReviewToggle()
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(); Configure(fixture);
-        var state = Session("legacy-ui", "Retired", status); state.IntentVersion = 1;
-        if (status == PlanningStatus.Stopped) state.PendingCall = new() { Id = "original", Request = new() { Prompt = "Original" } };
+        var cut = Render<PlanningPage>();
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#plan-capacity")));
+        cut.Find("#plan-capacity").Change("large");
+        cut.Find("#plan-name").Change("large-ui");
+        cut.Find("#plan-prompt").Change("Build the requested workflow");
+        cut.Find("form").Submit();
+        cut.WaitForAssertion(() => Assert.Contains("/planning/", Services.GetRequiredService<NavigationManager>().Uri));
+        var saved = Assert.Single(await fixture.Store.ListAsync("planning-tests", Ct));
+        Assert.NotNull(saved.Construction);
+        Assert.Equal(384, saved.Request.MaxModelCalls);
+        Assert.Equal("large", saved.Request.Options["construction_preset"]!.ToString());
+        Assert.DoesNotContain("Include an independent business review", cut.Markup);
+        await DisposeComponentsAsync();
+    }
+
+    [Fact]
+    public async Task ConstructionUnknownCompletionOffersNoReplay()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(); Configure(fixture);
+        var state = Session("construction-unknown", "Recovery", PlanningStatus.Stopped);
+        state.Construction = new();
+        state.PendingCall = new() { Id = "unknown", Purpose = "construction_draft", Request = new() { Prompt = "Retained" } };
+        state.Diagnostics = [new("MODEL_DISPATCH_UNVERIFIABLE", "/", "Uncertain completion")];
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
-        Services.GetRequiredService<NavigationManager>().NavigateTo("/planning/legacy-ui");
-        var cut = Render<PlanningPage>(p => p.Add(c => c.SessionId, "legacy-ui"));
-        cut.WaitForAssertion(() => Assert.Contains("retired planning contract", cut.Markup));
-        Assert.Contains("Revise workflow", cut.Markup);
-        Assert.DoesNotContain("Approve this revision", cut.Markup); Assert.DoesNotContain("Retry with retained usage", cut.Markup);
-        Assert.Equal(state.Revision, (await fixture.Store.LoadAsync("planning-tests", "legacy-ui", Ct))!.Revision);
+        Services.GetRequiredService<NavigationManager>().NavigateTo("/planning/construction-unknown");
+        var cut = Render<PlanningPage>(p => p.Add(c => c.SessionId, state.Request.SessionId));
+        cut.WaitForAssertion(() => Assert.Contains("Reconcile its original receipt", cut.Markup));
+        Assert.DoesNotContain("Retry with retained usage", cut.Markup);
+        Assert.Equal(state.Revision, (await fixture.Store.LoadAsync("planning-tests", state.Request.SessionId, Ct))!.Revision);
         await DisposeComponentsAsync();
     }
 
@@ -48,7 +66,8 @@ public sealed partial class PlanningTraceUiTests : BunitContext
         var state = Session("receipt-ui", "Recovery", PlanningStatus.Stopped);
         var request = new LLMRequest { Prompt = "Private original request", StructuredOutputSchema = JsonNode.Parse("{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}") };
         request.ClientRequestId = state.Request.SessionId + ":1:" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
-        state.PendingCall = new() { Id = request.ClientRequestId, Request = request, Purpose = "tasks" };
+        state.PendingCall = new() { Id = request.ClientRequestId, Request = request, Purpose = "construction_draft" };
+        PlanningTransportPolicies.Capture(state.Request);
         state.Diagnostics = [new(kind == "provider_rejection" ? "MODEL_REQUEST_REJECTED" : "LLM_BUDGET_UNVERIFIABLE", "/", "Retained interruption")];
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         var key = state.Request.SessionId + ":" + request.ClientRequestId;
@@ -61,18 +80,23 @@ public sealed partial class PlanningTraceUiTests : BunitContext
             }
             await fixture.Records.UpsertAsync(PlanningModelJournal.RequestCollection, "planning-tests", key, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), EfPlanningSessionStore.Author, Ct);
             await fixture.Records.UpsertAsync(PlanningModelJournal.Collection, "planning-tests", key, JsonSerializer.Serialize(new LLMResponse { Json = new JsonObject() }, PlanningJsonContext.Default.LLMResponse), EfPlanningSessionStore.Author, Ct);
-            await fixture.Records.UpsertAsync(PlanningBudgetSink.Collection, "planning-tests", state.Request.SessionId, JsonSerializer.Serialize(new LLMUsageBudgetSnapshot { StartedAtUtc = DateTimeOffset.UtcNow, EstimatedCostCurrency = "EUR", Calls = 1, InputTokens = 10, OutputTokens = 5, TotalTokens = 15 }, PlanningJsonContext.Default.LLMUsageBudgetSnapshot), EfPlanningSessionStore.Author, Ct);
+            var budget = new LLMUsageBudgetScope(new() { MaxCalls = state.Request.MaxModelCalls, MaxEstimatedCost = new(5, "EUR") },
+                sink: new PlanningBudgetSink(fixture.Records, "planning-tests", state.Request.SessionId), exchangeRateProvider: new TestExchangeRateProvider());
+            await budget.ReserveJournaledAttemptAsync(request.ClientRequestId + ":1", request, new RecoveryEstimator(), 4096, 64, [], "planning", Ct);
+            await budget.SettleJournaledAttemptAsync(request.ClientRequestId + ":1", request, new RecoveryEstimator(),
+                new JsonObject { ["input_tokens"] = 10, ["output_tokens"] = 5 }, "planning", Ct);
         }
         await using var lease = kind == "active" ? await PlanningSessionLease.TryAcquireAsync(fixture, "planning-tests", state.Request.SessionId, Ct) : null;
         Services.GetRequiredService<NavigationManager>().NavigateTo("/planning/receipt-ui");
         var cut = Render<PlanningPage>(p => p.Add(c => c.SessionId, "receipt-ui"));
         cut.WaitForAssertion(() => Assert.Contains("Retained interruption", cut.Markup));
         Assert.Equal(kind == "receipt_available", cut.Markup.Contains("Resume from saved response", StringComparison.Ordinal));
-        Assert.Equal(kind == "completion_unknown", cut.Markup.Contains("Retry with retained usage", StringComparison.Ordinal));
+        Assert.DoesNotContain("Retry with retained usage", cut.Markup);
         Assert.Equal(state.Revision, (await fixture.Store.LoadAsync("planning-tests", state.Request.SessionId, Ct))!.Revision);
         if (kind == "receipt_available")
         {
             cut.FindAll("button").Single(b => b.TextContent == "Resume from saved response").Click();
+            Assert.Empty(cut.FindAll("[role=alert]"));
             cut.WaitForAssertion(() => Assert.DoesNotContain("Resume from saved response", cut.Markup));
             var resumed = (await fixture.Store.LoadAsync("planning-tests", state.Request.SessionId, Ct))!;
             Assert.Equal(PlanningStatus.Generating, resumed.Status); Assert.Equal(1, resumed.ModelCalls); Assert.Equal(15, resumed.Usage!.TotalTokens);
@@ -137,7 +161,7 @@ public sealed partial class PlanningTraceUiTests : BunitContext
         cut.WaitForAssertion(() => Assert.Contains(traceId, cut.Markup));
         // A second load must remain read-only, including the uncertain reservation.
         cut.Render(p => p.Add(c => c.SessionId, "legacy"));
-        cut.WaitForAssertion(() => Assert.Contains("incompatible with planning format 10", cut.Markup));
+        cut.WaitForAssertion(() => Assert.Contains("incompatible with planning format 11", cut.Markup));
         var after = await fixture.Records.GetAsync(legacy.Collection, legacy.TenantId, legacy.Key, "test", Ct);
         Assert.Equal(legacy, after);
         await DisposeComponentsAsync();
@@ -231,9 +255,9 @@ public sealed partial class PlanningTraceUiTests : BunitContext
     }
 
     [Theory]
-    [InlineData("MODEL_REQUEST_REJECTED", false)]
-    [InlineData("MODEL_DISPATCH_UNVERIFIABLE", true)]
-    public async Task OnlyUncertainDispatchOffersRetainedUsageRetry(string code, bool canRetry)
+    [InlineData("MODEL_REQUEST_REJECTED")]
+    [InlineData("MODEL_DISPATCH_UNVERIFIABLE")]
+    public async Task RejectedAndUncertainDispatchNeverOfferBlindReplay(string code)
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(); Configure(fixture);
         var state = Session("rejected", "rejected request", PlanningStatus.Stopped);
@@ -244,9 +268,9 @@ public sealed partial class PlanningTraceUiTests : BunitContext
         Services.GetRequiredService<NavigationManager>().NavigateTo("/planning/rejected");
         var cut = Render<PlanningPage>(p => p.Add(c => c.SessionId, "rejected"));
         cut.WaitForAssertion(() => Assert.Contains(code, cut.Markup));
-        Assert.Equal(canRetry, cut.Markup.Contains("Retry with retained usage", StringComparison.Ordinal));
-        Assert.Equal(canRetry, cut.Markup.Contains("The previous request has no confirmed result", StringComparison.Ordinal));
-        if (!canRetry) Assert.Contains("start a new planning session", cut.Markup);
+        Assert.DoesNotContain("Retry with retained usage", cut.Markup);
+        if (code == "MODEL_REQUEST_REJECTED") Assert.Contains("start a new planning session", cut.Markup);
+        else Assert.Contains("Reconcile its original receipt", cut.Markup);
         await DisposeComponentsAsync();
     }
 
@@ -331,13 +355,16 @@ public sealed partial class PlanningTraceUiTests : BunitContext
         return activity.TraceId.ToHexString();
     }
 
+    private sealed class RecoveryEstimator : IModelUsageCostEstimator
+    { public decimal? EstimateCost(string? model, long? inputTokens = null, long? outputTokens = null, string? providerType = null) => 0; }
+
     private static PlanningSession Session(string id, string name, string status) => new()
     {
         Request = new() { TenantId = "planning-tests", SessionId = id, Name = name, Prompt = "Return a value" },
-        IntentVersion = 2, Status = status, ModelCalls = 1, Revision = 3
+        Status = status, ModelCalls = 1, Revision = 3
     };
 
     private static Task StoreWorkflow(PlanningPersistenceTests.StoreFixture fixture, PlanningSession state)
-        => fixture.Records.UpsertAsync("flow-planning-sessions-v10", "planning-tests", state.Request.SessionId,
+        => fixture.Records.UpsertAsync("flow-planning-sessions-v11", "planning-tests", state.Request.SessionId,
             JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), "test", Ct);
 }

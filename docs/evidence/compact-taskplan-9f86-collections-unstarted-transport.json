@@ -1,0 +1,59 @@
+{
+  "production_source": "9f86a8a63a6af76b35722447347630d0a31fa0a6",
+  "harness_source": "9f86a8a63a6af76b35722447347630d0a31fa0a6",
+  "cohort": "compactr9f86a8a63colj12v11a",
+  "freeze_sha256": "fce29ebbbe5dbdb43d00c7b554f94b1e9af722942d8e3c16f8f5d7f2d5775af3",
+  "logical_requests_issued": 1,
+  "physical_generation_attempts": 0,
+  "completion_receipts": 0,
+  "provider_tokens": null,
+  "attempt_reservations_eur": "0",
+  "corrections": 0,
+  "artifact": false,
+  "runtime_started": false,
+  "business_success": false,
+  "complete_business_outcomes": 0,
+  "calls_per_complete_outcome": null,
+  "failure": {
+    "kind": "Transport",
+    "http_status": null,
+    "client_exception_default_attempt_count": 1,
+    "generation_fingerprint": "",
+    "journal_attempts": 0,
+    "backoff_ms": 0
+  },
+  "classification": "Client transport failure before the journaled generation boundary. The default exception count is not a physical generation attempt; the failure cause is unestablished. No hint experiment response was received.",
+  "retention": {
+    "operator_source": "c2c3bcf6fa14927128058cbc944b21d104657c8d",
+    "kind": "unstarted-planning-request",
+    "evidence_hash": "2827121278c5d31c0e4cfde65aa4b4d0bd393f91c94aa34347017a9687fe5b16",
+    "authorization_hash": "0e40667f86d314285318568c2284d14fe3e12a3c4bd58f995473e71d1009df1e",
+    "identical_closure_after_restart": true,
+    "actual_compiled_guards": {
+      "evidence_hash": "2827121278c5d31c0e4cfde65aa4b4d0bd393f91c94aa34347017a9687fe5b16",
+      "actual_compiled_continuation_rejected": true,
+      "actual_compiled_replay_rejected": true,
+      "preflight_or_dispatch_called": false,
+      "store_writes": 0,
+      "network_denied": true
+    },
+    "accounting_unchanged": true,
+    "initial_guard_rejection_retained": true,
+    "no_usage_receipt_or_attempt_created": true
+  },
+  "campaign_accounting_after_unchanged_closure": {
+    "calls": "5596",
+    "session_calls": "0",
+    "known_input_tokens": "19747035",
+    "known_output_tokens": "7465399",
+    "known_cost_eur": "287.82755539352825859556594809",
+    "reserved_input_tokens": "1796265",
+    "reserved_output_tokens": "3342336",
+    "reserved_cost_eur": "97.48064468662885791812054047",
+    "cost_upper_bound_eur": "385.30820008015711651368648856",
+    "unknown_attempts": "117"
+  },
+  "remaining_allowance_eur": "154.72190375254918802875845874",
+  "paid_diagnostics": "Paused after consecutive pre-generation provider/client failures; do not replay or continue these runs. No additional supplement or reservation release.",
+  "business_qualification": "Incomplete. The prior6469 Collections success remains attributed to that source; no two-run qualification on final source and no baseline comparisons."
+}

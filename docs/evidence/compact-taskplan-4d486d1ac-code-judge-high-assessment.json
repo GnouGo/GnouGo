@@ -1,0 +1,174 @@
+{
+  "version": 1,
+  "status": "source_bound_received_output_exhaustion",
+  "source": "4d486d1ac63aafb7893086437164cfd9f23dc26d",
+  "cohort": "compactr4d486d1accode20v6jh1",
+  "run_hash": "aacdd77ea916957f2a115247cfaba7dc6c9cec97c682753ceef88504dd1854cb",
+  "verdict": "received_output_exhaustion_before_first_operation_acceptance",
+  "findings": [
+    {
+      "calls": [
+        6,
+        7,
+        8
+      ],
+      "classification": "accepted_input_declaration_only",
+      "assessment": "q8 clean local review closes req_4 for the two named required string inputs. Accepted root/always tasks and groups are empty. This is one checkpoint and zero corrections, not fulfilled review business obligations."
+    },
+    {
+      "calls": [
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "classification": "unaccepted_single_clone",
+      "assessment": "Discovery retrieves clone description and binds the operation; q13 retrieves branch schema. q14 proposes one unconditional clone with exact authorized head and cohort directory. Root remains open, without completion or closure claims. Copilot, report and cleanup remain future work; no accepted complete-plan defect is demonstrated."
+    },
+    {
+      "call": 15,
+      "classification": "originals_available",
+      "assessment": "The exact one-clone, branch and directory restrictions are supplied with all11 requirements and5 globals in one source window. No missing-original/context defect relevant to these visible clone arguments is demonstrated.",
+      "source_coverage": {
+        "version": 1,
+        "windowCount": 1,
+        "windowIndex": 0
+      }
+    },
+    {
+      "call": 15,
+      "classification": "received_output_limit",
+      "assessment": "First clone/operation review, not first local Judge overall: received HTTP200/output_limit, zero text, null JSON. There is no advisory report to classify as false positive/negative.",
+      "actual_request_fields": {
+        "reasoning": "high",
+        "maxTokens": 4096
+      },
+      "usage": {
+        "input_tokens": 9702,
+        "output_tokens": 4096,
+        "reasoning_tokens": 4096
+      },
+      "admission": {
+        "estimated_input_tokens": 12835,
+        "input_limit": 16000,
+        "complete_request_bytes": 37737,
+        "status": "admitted"
+      },
+      "host_behavior": "PlanningModelCalls checks output_limit after receipt before JSON processing; ConstructionReview records inconclusive and acceptance requires clean complete coverage. Observed localReviewed=false, no artifact/runtime. No escalation or edit authority was created."
+    }
+  ],
+  "verified_originals": {
+    "requirements": 11,
+    "globals": 5,
+    "exact_text_and_versions_match": true,
+    "windows": 1
+  },
+  "experiment_assessment": {
+    "supported": "A separate fresh same-source run changing only review.outputTokens4096 to8192, preserving review high/input16000, navigation/draft policy, originals, instructions, schema, permissions and oracles, is an evidence-supported bounded capacity experiment. Ordinary fresh cohort identity paths necessarily change.",
+    "not_supported": "Do not replay or mutate the failed issued request. No guarantee of a report, caught duplication or business success; no cause for reasoning exhaustion established.",
+    "control_distinction": "Medium-Judge control q25 accepted a second duplicate clone despite visible evidence. This run stops before clone acceptance and supplies no report on its candidate; it neither reproduces nor disproves that false negative or establishes high-reasoning benefit."
+  },
+  "source_files": [
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningModelCalls.cs",
+      "commit": "4d486d1ac63aafb7893086437164cfd9f23dc26d",
+      "sha256": "50ce2f032b19d106aeedbcd9d16319d7a4037598202bcac42d0b88e346db1656",
+      "relevant_lines": [
+        18,
+        132
+      ]
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.ConstructionReview.cs",
+      "commit": "4d486d1ac63aafb7893086437164cfd9f23dc26d",
+      "sha256": "b300d294511d51efb7a76de7f5ef2aa2711f687542adec460cb657d2573aef32",
+      "relevant_lines": [
+        363,
+        367
+      ]
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.Construction.cs",
+      "commit": "4d486d1ac63aafb7893086437164cfd9f23dc26d",
+      "sha256": "c496731d77532948799299c9e70d717d6a5a00af33573f788387af88feb8c4eb",
+      "relevant_lines": [
+        460,
+        465
+      ]
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningConstructionReviewCoverage.cs",
+      "commit": "4d486d1ac63aafb7893086437164cfd9f23dc26d",
+      "sha256": "fc075b804c1a284e1b8ebf42ccf41773ca2467b5c037eb4c434c6f13f087a0b1",
+      "relevant_lines": [
+        83,
+        89
+      ]
+    },
+    {
+      "path": "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs",
+      "commit": "4d486d1ac63aafb7893086437164cfd9f23dc26d",
+      "sha256": "a9dfbcabaaaf7b9dc46b4b10d70aad50403b354730508691cb120c649e2fa17f",
+      "relevant_lines": [
+        19,
+        193
+      ]
+    }
+  ],
+  "private_evidence_references": [
+    {
+      "sha256": "f9a307416b8aa2461c32a24a2fb8faaffa4c877d699a8ba0498f5989496a5f99",
+      "bytes": 9618,
+      "file": "source-assessment-safe.json"
+    },
+    {
+      "sha256": "20471c2755ccf1617ac835ff380871fb932a497a1398d3e42ebbf6a625f1729a",
+      "bytes": 1532,
+      "file": "independent-review-safe.json"
+    },
+    {
+      "file": "code-state-witness-safe.json",
+      "sha256": "16f19dd0958fa92be0ac2e29f5b6919f5aec6c2f869b3e9e1b495686a439d9dc",
+      "bytes": 28636
+    },
+    {
+      "file": "code-received-decisions-safe.json",
+      "sha256": "7d9b11fad662a537c9b4406c7904c93c894457d3db4dbb0dd930928fdc4188a1",
+      "bytes": 29483
+    },
+    {
+      "file": "code-exhausted-review-witness-safe.json",
+      "sha256": "1d4a45c862626f392f00265d0ac51b268b2f63d4604b567e5af7125b3a6f8be5",
+      "bytes": 44821
+    },
+    {
+      "file": "code-terminal-exact-metrics.json",
+      "sha256": "e4e779d91764a76a3e9755c158080b6d9ac1f377dad19e9490e6a70a247b684e",
+      "bytes": 66962
+    },
+    {
+      "file": "freeze.json",
+      "sha256": "24b0e5ed4565e549d1ce5d22df45ff2d379753250f241182390e3514828fc5b2",
+      "bytes": 13761
+    },
+    {
+      "file": "code-terminal-numeric-safe.json",
+      "sha256": "80221cd8f543bbb7df7fb4ae88b5315a4fc0b6699b5a15a1b7e1554f444ab08d",
+      "bytes": 16962
+    },
+    {
+      "file": "code-independent-terminal-review-safe.json",
+      "sha256": "6d4e91f8944e4b9d22ced4a8d283167c194e3997d4a4a7005b3afd3dd3a27c94",
+      "bytes": 3569
+    }
+  ],
+  "limitations": [
+    "Parsed safe decisions only; no original raw-response formatting rescan. Separate numeric/format peer pinned.",
+    "q4 HTTP502/500 then200 retains both failed-attempt reservations; all15 logical calls have receipts. No receiptless uncertainty inferred.",
+    "Canonical accepted-task identity list is empty. Candidate/requirement identities remain bound by exact state witness.",
+    "No source edits, build, store, provider, reader or runtime invocation.",
+    "Public projection omits task/operation IDs, argument values, full per-request record joins and coverage source-ID/hash arrays; exact private originals remain immutable."
+  ]
+}

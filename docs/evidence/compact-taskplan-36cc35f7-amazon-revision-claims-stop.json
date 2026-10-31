@@ -1,0 +1,174 @@
+{
+  "production_source": "36cc35f76ff8a10d375671e86f5b3b8d62042bd9",
+  "execution_source": "c8dc154a3a12ba7af5fb2e04accc154697ae3147",
+  "run": "compactm36cc35f7amz11a-amazon-1",
+  "planning_format": 11,
+  "model": "gpt-5.5-2026-04-24",
+  "phase_policy_sha256": "3e9495d2877fed6d3ddbd9a10b1817842a145bf3a66b7c563d79037d6e215e1c",
+  "settings_changed": false,
+  "artifact_created": false,
+  "runtime_started": false,
+  "oracle_passed": false,
+  "independently_satisfied_business_obligations": 0,
+  "calls_per_success": null,
+  "initial_diagnostic": {
+    "status": "stopped",
+    "calls": 23,
+    "attempts": 23,
+    "correction_charges": 1,
+    "judges": 3,
+    "known_cost_eur": "1.6312898589778137069972154855",
+    "planning_ms": 1166659,
+    "diagnosis": "The array explicitly declares maxItems=0, which genuinely permits no product results. The business Judge correctly blocks this closed producer. TaskType bounds are nullable; this zero is neither an absent value nor a projection sentinel.",
+    "unsupported_structural_repair_authority_automatically_added": false
+  },
+  "operator_revision": {
+    "intervention": true,
+    "qualifying_intervention_free_run": false,
+    "expected_revision": 27,
+    "artifact_hash": null,
+    "accepted_plan_hash": "ce162593ef14cfd5e2cf067ede9928449115dc50453640bb59e7bbee1f72fc2c",
+    "editable_paths": [
+      "/tasks/deriveFirst3SearchResultProducts/resultType",
+      "/tasks/deriveFirst3SearchResultProducts/inputs"
+    ],
+    "current_limits_reset": false,
+    "candidate_main_array_max_items": 3,
+    "candidate_snapshot_pages_binding": true,
+    "independent_candidate_and_accepted_tasks_unchanged": [
+      "buildAmazonSearchUrl",
+      "observeAmazonFrSearchResultsPage"
+    ],
+    "accepted_plan_unchanged_until_review": true,
+    "renewed_clean_business_review_obtained": false,
+    "new_completed_workflow_claim_authorized": false,
+    "execution_authority_granted": false,
+    "extra_calls": 4,
+    "extra_known_cost_eur": "0.3131590766190604509117039432"
+  },
+  "demonstrated_host_defect": {
+    "phase": "post-revision business review",
+    "request_ordinal": 25,
+    "actual_requirement_status": "in_progress",
+    "emitted_completed_requirements": [
+      "req_0"
+    ],
+    "workflow_complete_claim": false,
+    "source": "PlanningCompactConstruction.RevisionStep copies all associated IDs into CloseRequirementIds.",
+    "effect": "Review adds a premature-completion finding that cannot be withdrawn through the authorized task input/result slots.",
+    "mixed_report_limitation": "The report also objects to genuinely zero-bounded marker arrays. No whole-report false-positive count or avoided-correction claim is inferred.",
+    "fix": "Retain only already-closed affected requirement claims; keep all affected original obligations and mandatory review.",
+    "runtime_benefit_verified": false
+  },
+  "terminal_cumulative": {
+    "status": "stopped",
+    "calls": 27,
+    "attempts": 27,
+    "correction_charges": 4,
+    "judges": 4,
+    "known_cost_eur": "1.9444489355968741579089194287",
+    "unknown_reservation_eur": "0",
+    "provider_input_tokens": 124161,
+    "provider_output_tokens": 51465,
+    "reasoning_tokens_included_in_output": 44332,
+    "planning_ms": 1342205,
+    "final_diagnostics": [
+      {
+        "code": "CONSTRUCTION_DEFECT_UNCHANGED",
+        "location": "/construction/candidate",
+        "message": "The prior finding's cited implementation is unchanged. Its truth remains advisory: make a targeted repair, retrieve evidence contesting it, suspend for an evidenced prerequisite, or withdraw a premature completion claim within existing authority. Prior witness: 1dcb2efe757f59c90822281ebbf08cd9f20d84408665ee522dfb94c968346141",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "REPLAN_NO_PROGRESS",
+        "location": "/",
+        "message": "The repair did not change an authorized semantic slot. The baseline and accounting are retained.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ],
+    "new_uncertain_request": false,
+    "retention_required": false
+  },
+  "phase_request_sizes": {
+    "construction_intent": {
+      "prepared_requests": 1,
+      "requests": 1,
+      "rejected_before_dispatch": 0,
+      "above_target_warnings": 0,
+      "peak_complete_request_bytes": 7295,
+      "p50_complete_request_bytes": 7295,
+      "p95_complete_request_bytes": 7295,
+      "peak_estimated_input_tokens": 2688
+    },
+    "construction_select": {
+      "prepared_requests": 5,
+      "requests": 5,
+      "rejected_before_dispatch": 0,
+      "above_target_warnings": 5,
+      "peak_complete_request_bytes": 22371,
+      "p50_complete_request_bytes": 14919,
+      "p95_complete_request_bytes": 22371,
+      "peak_estimated_input_tokens": 7713
+    },
+    "construction_discovery": {
+      "prepared_requests": 9,
+      "requests": 7,
+      "rejected_before_dispatch": 0,
+      "above_target_warnings": 9,
+      "peak_complete_request_bytes": 26651,
+      "p50_complete_request_bytes": 20213,
+      "p95_complete_request_bytes": 26651,
+      "peak_estimated_input_tokens": 9140
+    },
+    "construction_draft": {
+      "prepared_requests": 8,
+      "requests": 6,
+      "rejected_before_dispatch": 0,
+      "above_target_warnings": 8,
+      "peak_complete_request_bytes": 45381,
+      "p50_complete_request_bytes": 28840,
+      "p95_complete_request_bytes": 45381,
+      "peak_estimated_input_tokens": 15383
+    },
+    "construction_local_judge": {
+      "prepared_requests": 4,
+      "requests": 4,
+      "rejected_before_dispatch": 0,
+      "above_target_warnings": 3,
+      "peak_complete_request_bytes": 28156,
+      "p50_complete_request_bytes": 23630,
+      "p95_complete_request_bytes": 28156,
+      "peak_estimated_input_tokens": 9642
+    },
+    "replan": {
+      "prepared_requests": 4,
+      "requests": 4,
+      "rejected_before_dispatch": 0,
+      "above_target_warnings": 3,
+      "peak_complete_request_bytes": 49349,
+      "p50_complete_request_bytes": 44987,
+      "p95_complete_request_bytes": 49349,
+      "peak_estimated_input_tokens": 16706
+    }
+  },
+  "supplement_reapplied": false,
+  "old_reservations_released": false,
+  "campaign_after_revision": {
+    "ceiling_eur": "640.0301038327063045424449473",
+    "known_eur": "342.16151546808499628015862583",
+    "retained_unknown_eur": "112.70530038839036365543249377",
+    "available_eur": "185.16328797623094460685382770"
+  },
+  "evidence_sha256": {
+    "initial_freeze": "6604dfb4f033453d24879bfaa2898f7a172e9bb680bd15bc433c864d36f0464a",
+    "revision_freeze": "ace43716fbbd1fa85995ebd695615affd7615aa78669a0ed651752dc8b548fb4",
+    "initial_saved_state": "8e8616b37269b6ecd1afe4b86448e241b50768504feee29a1bd0ebab43158620",
+    "terminal_saved_state": "392d89b6227b3e85b174c56267b95cd81cc55829f42cb0481050e1693043fc78"
+  },
+  "comparison_limitation": "23/27 versus the earlier 49 calls is earlier failure, not efficiency savings or equivalent completed work.",
+  "qualification": "incomplete"
+}

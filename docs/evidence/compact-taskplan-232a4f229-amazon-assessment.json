@@ -1,0 +1,343 @@
+{
+  "version": 1,
+  "source": "232a4f229261be3f0c736ec089156d3b875ad956",
+  "reviewed_utc": "2026-10-25T05:38:41.722569+00:00",
+  "scope": "Independent offline semantic/source triage of supplied exact received contexts and original receipt texts; no artifact approval or execution.",
+  "safe_sources": [
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr232a4f229amz20v5/freeze.json",
+      "sha256": "6f8d76d4161f452f18f25db6c4f5d5a82298e021210784342599c9eb72f2674a"
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr232a4f229amz20v5/amazon-terminal-safe-metrics.json",
+      "sha256": "29dfadc1fb9e3ec452298e309f9ff323ab9c40654d6863b240c3b0a2b237cda1"
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr232a4f229amz20v5/amazon-terminal-state-witness.json",
+      "sha256": "448c9998cda1232ebe1fe89bbeba9881d50cb8721774c93efd10e7fe94c7656b"
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr232a4f229amz20v5/amazon-received-requests-witness.json",
+      "sha256": "96ef726c325c610deefd303298f4a1e35c7842658d4668a1b8bfd1f18a7565d4"
+    }
+  ],
+  "committed_sources": [
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Contracts.cs",
+      "commit": "232a4f229261be3f0c736ec089156d3b875ad956",
+      "sha256": "5580e4152aee26746867bb0355b6dced06a66738575369e42ebb0aea42f69219",
+      "bytes": 48966
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Navigation.cs",
+      "commit": "232a4f229261be3f0c736ec089156d3b875ad956",
+      "sha256": "b33bf23fd62b46b1b6edf6bdbfe5f077aba30a4462cf310377b15e340273b435",
+      "bytes": 21245
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs",
+      "commit": "232a4f229261be3f0c736ec089156d3b875ad956",
+      "sha256": "8055df1e6ddc9915190d95c1ea49cecf3473f0670ab3a41fde5da326466fe189",
+      "bytes": 79081
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Imports.cs",
+      "commit": "232a4f229261be3f0c736ec089156d3b875ad956",
+      "sha256": "3ea62aa6b0b6c2224b6142e230986ce9d0c1486707501b2b52911e1ed3f34388",
+      "bytes": 9914
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Continuations.cs",
+      "commit": "232a4f229261be3f0c736ec089156d3b875ad956",
+      "sha256": "c11d7e11980514e07049135451c8881b1556f1dd99cc916eea4e53aa8cb007c2",
+      "bytes": 25272
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.Construction.cs",
+      "commit": "232a4f229261be3f0c736ec089156d3b875ad956",
+      "sha256": "c13db244ed80a6e2a7e62da75bd02b25a439ff3641b9e57aa6373a243b7dff86",
+      "bytes": 48019
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningModelCalls.cs",
+      "commit": "232a4f229261be3f0c736ec089156d3b875ad956",
+      "sha256": "9c202200b9758d22817b86d77ea908ab01184ae55b448d72e4ca9a2c92053258",
+      "bytes": 16369
+    },
+    {
+      "path": "src/GnOuGo.Browser.Mcp/BrowserTools.cs",
+      "commit": "232a4f229261be3f0c736ec089156d3b875ad956",
+      "sha256": "8cdf2ea36ab048a929d8cb83bf234d3b6d7b4562226842fe2ae3de035574994d",
+      "bytes": 28423
+    },
+    {
+      "path": "src/GnOuGo.Browser.Mcp/PlaywrightBrowserHost.cs",
+      "commit": "232a4f229261be3f0c736ec089156d3b875ad956",
+      "sha256": "63a6573c25152a628aa432a1e78d2c906b04c94482d288424d4249695ccdc72b",
+      "bytes": 47900
+    },
+    {
+      "path": "src/GnOuGo.Browser.Mcp/PlaywrightBrowserHost.Observations.cs",
+      "commit": "232a4f229261be3f0c736ec089156d3b875ad956",
+      "sha256": "4bfc788c7fd25be82e2c28cbfeaa754d52a6263dddc1cc6cc4e639412b3d6c4f",
+      "bytes": 36945
+    }
+  ],
+  "record_text_joins_verified": 42,
+  "bounded_event_identities": [
+    {
+      "ordinal": 5,
+      "request_id": "compactr232a4f229amz20v5-amazon-1:5:0c585fe66af11dd3d0793ddb337ff589b5044c63c1427346092d062f40e5a60a",
+      "phase": "construction_local_judge",
+      "request_record_sha256": "c4f2b207cc839b539f3502ade5cbe3abc1bee21b323be4417c5d392b3282fc69",
+      "receipt_record_sha256": "4beec02ae6c4d404b828bac1243c2412c857875c754f64fab77a2b3d678ccf8e",
+      "original_text_sha256": "9751850e2929e95bd90f181c290584cfcd2d3d91cd6acaa4c5d0a915985392cf"
+    },
+    {
+      "ordinal": 8,
+      "request_id": "compactr232a4f229amz20v5-amazon-1:8:bc12a8832938a089c6a6c1da7950398801e8ec9f8928d4b4077787b9a38215da",
+      "phase": "construction_local_judge",
+      "request_record_sha256": "2b7b5daff313d504e9096c479d9eaf4bf05b6970a4f815a23ff87b039b0fb4e5",
+      "receipt_record_sha256": "b9e2c6aa1b90f78f0165ae4216330efbbcd87f78bce99d60c478a8c4ad2eb467",
+      "original_text_sha256": "0e9fe9d07fa697cfcfc6a8ce13089583c96be8297c6a07d5771fcd572bd47266"
+    },
+    {
+      "ordinal": 13,
+      "request_id": "compactr232a4f229amz20v5-amazon-1:13:b21be55ea2e5dbaa2fae3ccb28dd34918521a3891e32e78e229c82714e37e00f",
+      "phase": "construction_discovery",
+      "request_record_sha256": "6a1c662fbd97ed014831366d5f58374db918b5f7b7d22b1b511239ba3a9d6f1d",
+      "receipt_record_sha256": "eb035ed6737edee8466e0bf83b356cfca824d97b8ec4dad53c046b0858fcd330",
+      "original_text_sha256": "7a091385d5403d3565e132c552519548036fe30575449dd145ab819e45e4e827"
+    },
+    {
+      "ordinal": 15,
+      "request_id": "compactr232a4f229amz20v5-amazon-1:15:688366c1c7491e8d5534c3edfd5700a7dfd4341ed8b3fb1feb00c39953d6e9f6",
+      "phase": "construction_draft",
+      "request_record_sha256": "204e0844d6da653c6e4427f2a224f1c8360250d13fef7137474d80624cdc9bbb",
+      "receipt_record_sha256": "bcf53198b5efe18c5b1f8f874e5c0fe2639555353869494d1ca213f7017d4f32",
+      "original_text_sha256": "b5c9768365e62fe6465f90f1ad17d20e8764454370c08f788e6c9f5dc7ee6327"
+    },
+    {
+      "ordinal": 20,
+      "request_id": "compactr232a4f229amz20v5-amazon-1:20:7a0f5801765182b393be07c310c9ea4095ef26f498a20220ada93ccf166d2cb3",
+      "phase": "construction_discovery",
+      "request_record_sha256": "890ca443d8a0a3a76776b8dc94e62e69ed4575d77b440afef7b8f89641c3cd44",
+      "receipt_record_sha256": "2adf70e3df04ba1f4fd78312493414ded848b7afaca70697d5f098268a9b7079",
+      "original_text_sha256": "7a091385d5403d3565e132c552519548036fe30575449dd145ab819e45e4e827"
+    },
+    {
+      "ordinal": 22,
+      "request_id": "compactr232a4f229amz20v5-amazon-1:22:5634cde7faf85a4591b40ab6749217430c0062e8b4758cae58272f33721c4cca",
+      "phase": "construction_draft",
+      "request_record_sha256": "ef4791960b2a71d2510e2527cb7b85030ba78a41a746db5058dfe33a3ccc7645",
+      "receipt_record_sha256": "3cdbee71ae24587f76c6e88da8a3e9de3dc556c0d77a8ec3b5fdc9e171e2683e",
+      "original_text_sha256": "34e24c772dedf125406b56fa481df02aa795834a3efdbd4f71e4dd639bff0ade"
+    },
+    {
+      "ordinal": 27,
+      "request_id": "compactr232a4f229amz20v5-amazon-1:27:2a8a43c5def1901e5fa73437dd49b3e3858d3ee4753f66d67fd077d7739253ef",
+      "phase": "construction_discovery",
+      "request_record_sha256": "f5b60ea0a00f7b1f3781a99b5b087a340b41abedbf89f4e62327a64c4fc92880",
+      "receipt_record_sha256": "067fc2cb1fadd95267b3ca74d6f4c57788dcd5bc4a67d16f543876f910aad702",
+      "original_text_sha256": "7a091385d5403d3565e132c552519548036fe30575449dd145ab819e45e4e827"
+    },
+    {
+      "ordinal": 28,
+      "request_id": "compactr232a4f229amz20v5-amazon-1:28:4e3f47acafc31115fa691b52ecd511345c4c3bbbdec8a516b2e2e4d94f8d6c0c",
+      "phase": "construction_draft",
+      "request_record_sha256": "7bed2ee04ad8bee39b2adefa700652b78179c3acfb2b8d3ac94b041fbb666a35",
+      "receipt_record_sha256": "65349ca32e84f2af78b3fde3fb74976503e2294cb5c1fd3704243ba517c27121",
+      "original_text_sha256": "01c4d6e625a8f1b5c474d60b46664bb4146f0d83fa7619be1b6627bf242a5374"
+    },
+    {
+      "ordinal": 30,
+      "request_id": "compactr232a4f229amz20v5-amazon-1:30:c8ad3e4624e9d4b0938c5d711a45a6fb6e511a8f4b9c4610efa6b7e56d4b3eb3",
+      "phase": "construction_discovery",
+      "request_record_sha256": "d6a1041d22f034f5eb403d5d9e652476ebde13897bb91e8df7d525c0549cfee0",
+      "receipt_record_sha256": "e84774bcbd9095b21622ae21515f51321e6eb6dde4109666db69f16c01404280",
+      "original_text_sha256": "80768170a37e3131025e3cbad18c638b1b06b002c5dc605f016ddfb9ee925a5c"
+    },
+    {
+      "ordinal": 31,
+      "request_id": "compactr232a4f229amz20v5-amazon-1:31:6dc3df79c09f2b781decb2154ed86eb83e5d3502f470f76645d8a03b0a0bc682",
+      "phase": "construction_draft",
+      "request_record_sha256": "c2297474eeac3c6f573280e207771ec95d5fe800ba0604063b4975caa041c6b2",
+      "receipt_record_sha256": "9eb1fc432cf36bafdd41c2b926b77cf2b2fbb0d75eeec9f1155333cfb326c307",
+      "original_text_sha256": "4190653338db7d6a7d7b992f4fe461ee4e0513cf5545462f293a05e6e56b468b"
+    },
+    {
+      "ordinal": 32,
+      "request_id": "compactr232a4f229amz20v5-amazon-1:32:cecd2aa216e89c661b2b0c8fcb7eca39cc17be8825e464751e1aa458d96bafe5",
+      "phase": "construction_local_judge",
+      "request_record_sha256": "8cc2695328d59281c7f6988b8e8846f9a34fc9defc9928769a875b1c29beb642",
+      "receipt_record_sha256": "1c937a20f697635c06ffac860fa7aba1efc172cd1d0fbf01b492745446db0abe",
+      "original_text_sha256": "4b1d45b8a97ee11456bcff01000911cd015ef42e9c2114cb3a415630588c3e07"
+    },
+    {
+      "ordinal": 33,
+      "request_id": "compactr232a4f229amz20v5-amazon-1:33:0fcb37b6e4719bc9f8f9d74bda37a42c08aa2387c9d28039340e063d050ab655",
+      "phase": "construction_select",
+      "request_record_sha256": "4451ea994205a978c050a2f835f130fcfb41bdd2b8780d4dfb57a8dd11198374",
+      "receipt_record_sha256": "4239126fff2d71db987c80643f08a60675a4092cb13d67d509a8fb1b5a0cf81a",
+      "original_text_sha256": "b50e29dd1d326448151e74372d133dc545a984cdf550ea2db4b935a0e020cb2e"
+    },
+    {
+      "ordinal": 35,
+      "request_id": "compactr232a4f229amz20v5-amazon-1:35:2de63cf03b2667f49aaef5d080e3ee16f8e6596385a7615cefc928e4d6f3a0c7",
+      "phase": "construction_draft",
+      "request_record_sha256": "f13253c28a23e682c7083a25293eb87a09e1a48d9836c802a0073163d1a1298a",
+      "receipt_record_sha256": "6ab696b60dcafebcbcf297049a0eb735e6530082c4f30249fd1f9c4e107a1128",
+      "original_text_sha256": "d227589112ef6f56656b02581a867f80d47b6d952dd9b7cc685ba58882c3321b"
+    },
+    {
+      "ordinal": 36,
+      "request_id": "compactr232a4f229amz20v5-amazon-1:36:aee34916d67d881dd97174d666dd810bff2b92b7b9c9eef15c72a95959ce12b3",
+      "phase": "construction_local_judge",
+      "request_record_sha256": "48ed7fffbdc73ed8c086e9a9475767b7c39effa3ef66f1f73f7be5512344109f",
+      "receipt_record_sha256": "389691d0d4135dc0ac55d24bf3150850725a9968f9e8b389b71f14f94bd6f1bf",
+      "original_text_sha256": "8a7aed36831f0da486602cd6e34dc36d3699d367a9d683b9818533f3d2baeb02"
+    },
+    {
+      "ordinal": 37,
+      "request_id": "compactr232a4f229amz20v5-amazon-1:37:535aa6d4da938141548afc39ef5e11beac9959cf9db8d5a9ff8873a2571806e1",
+      "phase": "construction_select",
+      "request_record_sha256": "c1a95b7a7d97b2dc655c7441cab33476eba0d0f297d9dd9b2c90adfa4e7d1a13",
+      "receipt_record_sha256": "e6b04dea243b48eb7f8e5bc00c6295b5e359c43ccf5bdd8ff59d633505e96f22",
+      "original_text_sha256": "0f454518c29a0be329078c9e719f6b5aff8b3fe18dfc2ba38e3114e94e0b3ba5"
+    },
+    {
+      "ordinal": 38,
+      "request_id": "compactr232a4f229amz20v5-amazon-1:38:b927688e4c908bca371df995650453b28a1c088d329c052a0253c6cf9a3a18f0",
+      "phase": "construction_draft",
+      "request_record_sha256": "86db757db9a89854741d1a0d207db7ede3715477d0bb33ac6cb22001762e42b6",
+      "receipt_record_sha256": "f1ac7ba1a767a029e61e3d3825c00300ebb1c902022d7868af5def8abbac28ef",
+      "original_text_sha256": "cd0e9d5bce3af86b4380a757c25230a96dddc454b4696bc6696e841057e03263"
+    },
+    {
+      "ordinal": 39,
+      "request_id": "compactr232a4f229amz20v5-amazon-1:39:5f39de560c8b79cc608be201eff25770fb2bd36db6532153d8ecc9bece36535f",
+      "phase": "construction_local_judge",
+      "request_record_sha256": "cea4c69e8b4c1e32fd7bf8563aa85fa32800c96ab2792c80e141d5b724614890",
+      "receipt_record_sha256": "6d602deec3f84fba272ab8a3fe4ef9f71b34e62b2db695a286971fc3d4c82605",
+      "original_text_sha256": "3852de40ca2ea3bf0b61cff8f59f51bccb3f94dc818ef6dfddb933eaafc11496"
+    },
+    {
+      "ordinal": 40,
+      "request_id": "compactr232a4f229amz20v5-amazon-1:40:399eae3f1818dc421f8ae4180843f921590130c6dbb176f696d061ed9266f8d3",
+      "phase": "replan",
+      "request_record_sha256": "82c34029c1ac53b3500c0fcdc27b94cf234dbfa5195a4d822a52630f271b65ba",
+      "receipt_record_sha256": "cb30031eeaec100f9850d659a7b9774194898ac38a0434fb4ae7df544a8af8b7",
+      "original_text_sha256": "2c91c51d3bba9938d7373399d1f797384ecc4bcf5162055f1afe183d7e1fe144"
+    },
+    {
+      "ordinal": 41,
+      "request_id": "compactr232a4f229amz20v5-amazon-1:41:ceb8304c89af5b41737d0495d019aaf2e7cfc86982d23f753f92204791e4bd7e",
+      "phase": "construction_select",
+      "request_record_sha256": "e19a14c9bdbe1faee6aebfa2e2f99bf1061af6c03af6a4e106e13e72946984ad",
+      "receipt_record_sha256": "39a072cbfa150bb0b11c7af6f82a819bdfb1ea5d6c31c24173b91b7a32f4919f",
+      "original_text_sha256": "43df165e5c09ad89c390eeab69aba61dad675e68da80225d19aa115c72fd0cf4"
+    },
+    {
+      "ordinal": 42,
+      "request_id": "compactr232a4f229amz20v5-amazon-1:42:624b093b090e2a9c3e84c3ee145c29cc1bc6c729fbb608e0037b5b2b86bc8fe7",
+      "phase": "construction_draft",
+      "request_record_sha256": "b31875a5aeb23368247d62aa90eb7f75b464d685e48f8b0ad686db64c4e795c8",
+      "receipt_record_sha256": "fbc9c85f483ac3eb587162f2f8eb8eb0cfc0fea61c65808c5d41cea56bcfcd5d",
+      "original_text_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "outcome": {
+    "logical_calls": 42,
+    "attempts": 42,
+    "receipts": 42,
+    "corrections": 4,
+    "checkpoints": 4,
+    "artifact": null,
+    "runtime": false,
+    "termination": "MODEL_OUTPUT_LIMIT",
+    "accepted_structure": "One open root sequence containing one interpret URL transform and one browser_get_content operation; remaining product visits, extraction, workbook save and cleanup incomplete."
+  },
+  "correction_assessments": [
+    {
+      "request": 15,
+      "action": "abandon",
+      "finding": "Raw query is not an absolute URL and the bound navigation operation does not construct one. Reselection is legitimate; this does not establish a global capability gap because local interpret was already offered."
+    },
+    {
+      "request": 22,
+      "action": "suspend",
+      "finding": "Suspends a second navigation selection for a model-authored any/non-null prerequisite. The broad need text is not an original tool contract or permission."
+    },
+    {
+      "request": 28,
+      "action": "suspend",
+      "finding": "Suspends a third navigation selection for the same need/type under a differently worded consumer objective. Semantic repetition is observed; no claim that executable objectives may be ignored in progress identity."
+    },
+    {
+      "request": 40,
+      "action": "abandon",
+      "finding": "Supported Judge39 duplicate of accepted step7: same operation, same scope, same URL producer, waitUntil, format and dependency. No distinct business contribution is shown. The tentative duplicate is abandoned; accepted step7 remains."
+    }
+  ],
+  "judge_assessment": {
+    "empty_findings_requests": [
+      5,
+      8,
+      32,
+      36
+    ],
+    "adverse_request": 39,
+    "adverse_classification": "supported static unnecessary-operation finding with complete accepted-task evidence",
+    "limits": "Req2 is the sole closed interface requirement. Open preparatory steps and runtime URL/navigation correctness remain unverified. Empty local reports are neither business success nor false-positive findings; no unsupported adverse report identified."
+  },
+  "final_request_assessment": {
+    "request": 42,
+    "completion_status": "output_limit",
+    "input_tokens": 4596,
+    "output_tokens": 16384,
+    "reasoning_tokens": 16384,
+    "visible_tokens": 0,
+    "text_bytes": 0,
+    "schema_viability": "Transform extract/interpret remains available, selected source/ports have typed imports, supplied original requirements and no-claim context are present. Input hints explicitly are not a whitelist; exact output-directory evidence and schema retrieval remain available. No impossible schema or contradictory obligation was demonstrated.",
+    "selected_input_concern": "Request41 selected content/error_code/error_message from a producer fixed to observation_complete. Source initializes flat Content empty, retains it through the manifest, and returns complete observed records in observationSnapshot.pages. The selected content-only data path would not carry those observations. No consumer draft was received or accepted; this is a static selected-input mismatch, not a runtime failure or business-Judge miss."
+  },
+  "demonstrated_context_gap": {
+    "classification": "Producer-operation prose navigation missing from the final consumer phase",
+    "actual": "Request42 has operations=[] and the exact accepted producer task/version/hash/outputDirectory, but no descriptionEvidence and no description: address in its issued evidence enum. Output/port/schema/interface directories do not lead to operation prose. The original content field is genuinely a bare string, so no per-port normative constraint was shown to have been stripped.",
+    "normative_basis": {
+      "earlier_exact_description_requests": [
+        13,
+        20,
+        27
+      ],
+      "description_sha256": "54a822cee9c80af8c8b1450af1ab3260f1e40bf165f030fb86c936c9a61171fa",
+      "description_characters": 3473,
+      "bounded_quote": "returns observationSnapshot.pages with typed records from one complete generation",
+      "source_lines": [
+        "BrowserTools.cs:35",
+        "PlaywrightBrowserHost.Observations.cs:149",
+        "PlaywrightBrowserHost.Observations.cs:297",
+        "PlaywrightBrowserHost.Observations.cs:340",
+        "PlanningCompactConstruction.Contracts.cs:209",
+        "PlanningCompactConstruction.Contracts.cs:535",
+        "PlanningCompactConstruction.Contracts.cs:661",
+        "PlanningCompactConstruction.Navigation.cs:148",
+        "PlanningCompactConstruction.cs:580"
+      ]
+    },
+    "minimal_proposal": "Expose the existing exact descriptionEvidence address on the validated accepted-producer row beside outputDirectory. Reuse the existing bounded original-description loader and navigation walker; do not add a default port, browser rule, schema/type relaxation, automatic selection or execution authority.",
+    "focused_regressions": [
+      "Actual consumer draft/Judge context exposes the exact accepted operation producer description address.",
+      "First and continuation prose pages are reachable, original bytes/hash remain exact, and retrieval changes no selection/claim/accepted state.",
+      "Missing/stale/ambiguous producer identity and policy scope remain rejected by existing guards; schema and bare output type remain unchanged.",
+      "Historical presentations and pending issued v5 request bytes remain exact; added navigation remains subject to existing full-request admission."
+    ]
+  },
+  "limits": [
+    "No causal explanation for all-reasoning output exhaustion, repeated selections, or changed-source convergence is established.",
+    "Correcting the producer-prose link would restore access, not guarantee model choice or success.",
+    "Earlier current consumer hints do not lock the future draft to content; observed pages remain accessible through original output-directory retrieval.",
+    "No runtime, workbook, cleanup, independent business denominator or source efficacy claim. Exact monetary evidence remains in the separately reviewed numeric archive.",
+    "Read-only source/safe evidence only; no store, reader, provider, build, runtime, main edit or active-freeze change."
+  ]
+}

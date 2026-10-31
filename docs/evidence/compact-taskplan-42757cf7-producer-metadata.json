@@ -1,0 +1,170 @@
+{
+  "base_source": "42757cf7661f48a6b7e8acc3f07ab6c15e523b38",
+  "patch_sha256": "10870e52899872d900725475a0ac519cdd29f436f970f468b1c477c73ef05e0a",
+  "attribution": "Private overlay on exact427; offline reconstruction only, no dispatch or business acceptance.",
+  "production": "Freshv6 embedded accepted-producer schema views share only id/version/hash after complete exact-parent equality; identical view text is hoisted once. Every pointer/schema/ancestor/referenceClosure remains intact. Standalone ExactSchemaView and retrieved evidence are untouched; no new public API,TaskPlan reference,permission,storage or model setting.",
+  "passed": 150,
+  "failed": 0,
+  "skipped": 0,
+  "build_warning_count": 0,
+  "build_error_count": 0,
+  "scope": "Existing CompactAcceptedTaskNavigationTests fixture, including11 additional cases and strengthened existing complete-request/retrieval/recovery checks; no full/owning/AOT rerun.",
+  "initial_failure_retained": {
+    "stage": "compile",
+    "errors": 2,
+    "tests_executed": 0,
+    "cause": "Three new assertion lines were inserted into the wrong existing measurement method. Moved only those lines to the intended previous/measured comparison. Production unchanged."
+  },
+  "exact_retained_measurement": {
+    "original": {
+      "requestHash": "3615369acd6ba58aefe15edc6f67cef1855c50d3821a2b265e74243831098bdb",
+      "schemaHash": "098e0cd9b4d030724a634d93e6f968053fe80605a7de74cd0e5b563f3afdd3be",
+      "completeRequestBytes": 62208,
+      "estimatedInputTokens": 20992,
+      "limit": 20000,
+      "marginTokens": -992,
+      "components": [
+        {
+          "component": "construction_context",
+          "bytes": 9183,
+          "estimatedTokens": 3061
+        },
+        {
+          "component": "diagnostics",
+          "bytes": 26,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "envelope",
+          "bytes": 451,
+          "estimatedTokens": 407
+        },
+        {
+          "component": "evidence",
+          "bytes": 1253,
+          "estimatedTokens": 418
+        },
+        {
+          "component": "fragment",
+          "bytes": 3699,
+          "estimatedTokens": 1233
+        },
+        {
+          "component": "instructions",
+          "bytes": 5006,
+          "estimatedTokens": 1669
+        },
+        {
+          "component": "interfaces",
+          "bytes": 7612,
+          "estimatedTokens": 2538
+        },
+        {
+          "component": "mcp_contracts",
+          "bytes": 26540,
+          "estimatedTokens": 8847
+        },
+        {
+          "component": "objective",
+          "bytes": 490,
+          "estimatedTokens": 164
+        },
+        {
+          "component": "requirements",
+          "bytes": 730,
+          "estimatedTokens": 244
+        },
+        {
+          "component": "response_schema",
+          "bytes": 7218,
+          "estimatedTokens": 2406
+        }
+      ]
+    },
+    "candidate": {
+      "requestHash": "6c74ff401c006f4fbff622d8d1582706442227d532b355794493f8ebd6482c05",
+      "schemaHash": "098e0cd9b4d030724a634d93e6f968053fe80605a7de74cd0e5b563f3afdd3be",
+      "completeRequestBytes": 56735,
+      "estimatedInputTokens": 19168,
+      "limit": 20000,
+      "marginTokens": 832,
+      "components": [
+        {
+          "component": "construction_context",
+          "bytes": 9183,
+          "estimatedTokens": 3061
+        },
+        {
+          "component": "diagnostics",
+          "bytes": 26,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "envelope",
+          "bytes": 451,
+          "estimatedTokens": 407
+        },
+        {
+          "component": "evidence",
+          "bytes": 1253,
+          "estimatedTokens": 418
+        },
+        {
+          "component": "fragment",
+          "bytes": 3699,
+          "estimatedTokens": 1233
+        },
+        {
+          "component": "instructions",
+          "bytes": 5006,
+          "estimatedTokens": 1669
+        },
+        {
+          "component": "interfaces",
+          "bytes": 7612,
+          "estimatedTokens": 2538
+        },
+        {
+          "component": "mcp_contracts",
+          "bytes": 21067,
+          "estimatedTokens": 7023
+        },
+        {
+          "component": "objective",
+          "bytes": 490,
+          "estimatedTokens": 164
+        },
+        {
+          "component": "requirements",
+          "bytes": 730,
+          "estimatedTokens": 244
+        },
+        {
+          "component": "response_schema",
+          "bytes": 7218,
+          "estimatedTokens": 2406
+        }
+      ]
+    },
+    "complete_bytes_reduction": 5473,
+    "estimated_token_reduction": 1824,
+    "margin_under_same_20000": 832,
+    "navigation_address_count": 30,
+    "navigation_address_set_unchanged": true,
+    "schema_settings_claims_contract_identities_unchanged": true,
+    "metadata_inverse_restores_complete_context": true,
+    "normative_schemas_ancestors_references_unchanged": true,
+    "normal_builder_on_same_retained_clone_equals_fixed_window": true,
+    "retained_source_coverage_unchanged": true,
+    "source_windows": 4
+  },
+  "limitations": [
+    "Fit is established for the exact retained rejected Judge39 request, not every remaining window/future session or a model/business outcome.",
+    "freshWindowSelection in the probe means ordinary builder on the retained cloned session, not a newly started live session.",
+    "No instruction/schema/settings experiment combined with this metadata projection; no production/main changes."
+  ],
+  "evidence": {
+    "name": "qualification-safe.json",
+    "sha256": "611ddc312eb9ab83675fba26312f6537ec08564b8c4b61ed57ce5f60ffca976a"
+  }
+}

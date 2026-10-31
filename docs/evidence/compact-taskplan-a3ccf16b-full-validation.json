@@ -1,0 +1,65 @@
+{
+  "tested_source": "a3ccf16bd94478f895484a5961ea509662b613e0",
+  "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror",
+  "completed_test_assemblies": 33,
+  "counters": {
+    "total": 7182,
+    "executed": 7170,
+    "passed": 7170,
+    "failed": 0,
+    "error": 0,
+    "timeout": 0,
+    "aborted": 0,
+    "inconclusive": 0,
+    "notExecuted": 0
+  },
+  "retained_skips": 12,
+  "elapsed_seconds": 4311.505,
+  "source_unchanged": true,
+  "compiler_diagnostics": [],
+  "focused_tests_not_added_again": true,
+  "paid_calls": 0,
+  "technical_validation_only": true,
+  "publication_stages": [
+    {
+      "stage": "core-pack",
+      "exit_code": 0
+    },
+    {
+      "stage": "planning-pack",
+      "exit_code": 0
+    },
+    {
+      "stage": "integrations-pack",
+      "exit_code": 0
+    },
+    {
+      "stage": "copilot-pack",
+      "exit_code": 0
+    },
+    {
+      "stage": "persistence-pack",
+      "exit_code": 0
+    },
+    {
+      "stage": "native-publish",
+      "exit_code": 0
+    },
+    {
+      "stage": "native-run",
+      "exit_code": 0
+    },
+    {
+      "stage": "server-restore",
+      "exit_code": 0
+    },
+    {
+      "stage": "server-publish",
+      "exit_code": 0
+    },
+    {
+      "stage": "server-storage-run",
+      "exit_code": 0
+    }
+  ]
+}

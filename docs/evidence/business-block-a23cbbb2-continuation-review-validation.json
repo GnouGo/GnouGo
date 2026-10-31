@@ -1,0 +1,192 @@
+{
+  "version": 1,
+  "source": "a23cbbb26fac1fb16a993998fa5eba82e1158d2e",
+  "recorded_utc": "2026-10-30T12:59:51.047827+00:00",
+  "files_sha256": {
+    "docs/incremental-taskplan-construction.md": "b640ac959e2ead813cca7a1ab13eb160c538fe28ef359ce7dc4f491ce52325d8",
+    "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.Construction.cs": "46c14fbcc38590ae509a9f0bb4a61907e510dca6f1f83e889391265c6babc60b",
+    "src/GnOuGo.Flow.Planning/PlanningBusinessProjection.cs": "1b3a178b235a08f52c773c5826cd3e6599cfbe8caba47d177f6c70a964959d78",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.BusinessBlocks.cs": "ed765c47d075a3f7c9effc760328a102853b58ba161617b176d1870f911cf43c",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.RequirementContext.cs": "deaada9bf94deb9401845f8cb27ae8532ac5f6d16cf8537ccc3f8f5a4261ba95",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs": "4a1135fcf8c348bf5bd8385da66da1b3d44c231b06b245dee72a94f2487c1957",
+    "src/GnOuGo.Flow.Planning/PlanningConstruction.Catalog.cs": "3d5a1ce9bd3b37812eb628300647cc441b69460b3266bbc871259374d752b510",
+    "src/GnOuGo.Flow.Planning/PlanningConstruction.DefectProgress.cs": "886bb7e95d7e9f23dce7bbc21e10a222a64a8b7e97de480874285e7c144cd346",
+    "tests/GnOuGo.Flow.Planning.Tests/AccumulatedBusinessConcernTests.cs": "aa70833631ec47611578ee550349b3996ed5bcca71f6b536e4724cb35ff9c9a6",
+    "tests/GnOuGo.Flow.Planning.Tests/BusinessBlockPrefixPresentationTests.cs": "c0da4a62befbb0e7c9ea6bf5eacc8ecfecb415bddc2acdb51667e6a459394db7",
+    "tests/GnOuGo.Flow.Planning.Tests/BusinessProjectionApplicableInputsTests.cs": "921b800442df630d18e4aa06d36e03887e4a8375a7bda131e89c23462e1a5bf3",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactSelectionScopeTests.cs": "f41d80f1dcbe066c033eb0e1042eb14ac41cbf2a78e3b1043d770cfa25c22042",
+    "tests/GnOuGo.Flow.Planning.Tests/ContinuationValidationTests.cs": "5ce12aae09a3b1f369ecdff094797c5b23db8b6b729c9c0b78c5339887ad128c"
+  },
+  "checks": [
+    {
+      "phase": "accumulated concerns red",
+      "passed": 0,
+      "failed": 4,
+      "skipped": 0,
+      "warnings_as_errors": true,
+      "log_name": "pr120-accumulated-concerns-red.log",
+      "log_sha256": "836b66b526d2949128c7683e784ea60cfbfa823baee4a9c4c094ae037be7a45b",
+      "command": "dotnet test tests/GnOuGo.Flow.Planning.Tests/GnOuGo.Flow.Planning.Tests.csproj -m:1 -warnaserror -p:SkipClientBuild=true -p:SkipModelMetadataGeneration=true --filter FullyQualifiedName~AccumulatedBusinessConcernTests"
+    },
+    {
+      "phase": "accumulated concerns focused",
+      "passed": 37,
+      "failed": 0,
+      "skipped": 0,
+      "warnings_as_errors": true,
+      "log_name": "pr120-accumulated-concerns-green.log",
+      "log_sha256": "1d17d8a2e9cd4aa724cc0452dffdffb2ab47b5c268ce62845ddad3a0e3ba5e9a",
+      "command": "dotnet test tests/GnOuGo.Flow.Planning.Tests/GnOuGo.Flow.Planning.Tests.csproj -m:1 -warnaserror -p:SkipClientBuild=true -p:SkipModelMetadataGeneration=true --filter 'FullyQualifiedName~AccumulatedBusinessConcernTests|FullyQualifiedName~ConstructionDefectProgressTests|FullyQualifiedName~BusinessReviewProtocolTests'"
+    },
+    {
+      "phase": "continuation focused",
+      "passed": 94,
+      "failed": 0,
+      "skipped": 0,
+      "warnings_as_errors": true,
+      "log_name": "pr120-continuation-validation-focused.log",
+      "log_sha256": "37e9ed83279de6bcbd25f2570275d69059e9978816626787e9fd75502cb0b931"
+    },
+    {
+      "phase": "public inputs focused",
+      "passed": 69,
+      "failed": 0,
+      "skipped": 0,
+      "warnings_as_errors": true,
+      "log_name": "pr120-public-input-review-focused-final.log",
+      "log_sha256": "b8de44c8625298f83aad69e3105428a213e88e4ec26719f53ab0d40591fa5945"
+    },
+    {
+      "phase": "combined full Planning",
+      "passed": 2425,
+      "failed": 0,
+      "skipped": 0,
+      "warnings_as_errors": true,
+      "log_name": "pr120-combined-review-continuation-planning.log",
+      "log_sha256": "df0ecf173c8d30197a4165b02f67c4fa0851113c4c04791c9881b17a851d1a68",
+      "command": "dotnet test tests/GnOuGo.Flow.Planning.Tests/GnOuGo.Flow.Planning.Tests.csproj -m:1 -warnaserror -p:SkipClientBuild=true -p:SkipModelMetadataGeneration=true"
+    }
+  ],
+  "independent_reviews": "No blocking findings in three read-only reviews.",
+  "behavior_verified": [
+    "Exact retained resolved operations are admitted to a cloned continuation probe without mutating source state or admitting ambiguous versions.",
+    "Underlying compiler diagnostics retain their precise task locations; genuinely unavailable selection inputs remain rejected.",
+    "Ten actual operations with a selected query import and discovery-only contracts use one selection, two drafts (eight plus two), restart and one completed-block review.",
+    "Applicable original public-input declarations are visible without consumption/completion, with actual accessed fields separate and isolated group authority unchanged.",
+    "Four or eight accumulated concerns survive restart, reach one real review call, retain the strict new-target max3, resolve only on ok, and do not change repair counters."
+  ],
+  "limits": [
+    "Focused counts overlap full Planning and must not be summed.",
+    "Tests ran on the exact committed source files immediately before commit; hashes were verified against the commit.",
+    "Full solution, benchmark and publication are separate checks.",
+    "No synthetic response establishes live convergence or runtime acceptance."
+  ],
+  "component_regression_evidence": {
+    "continuation": {
+      "kind": "continuation-validation-regression",
+      "base_source": "9457c3f74f8194cd4ff0ae72d214cab5957efef7",
+      "candidate_commit": null,
+      "files_sha256": {
+        "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.Construction.cs": "46c14fbcc38590ae509a9f0bb4a61907e510dca6f1f83e889391265c6babc60b",
+        "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.BusinessBlocks.cs": "ed765c47d075a3f7c9effc760328a102853b58ba161617b176d1870f911cf43c",
+        "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs": "4a1135fcf8c348bf5bd8385da66da1b3d44c231b06b245dee72a94f2487c1957",
+        "src/GnOuGo.Flow.Planning/PlanningConstruction.Catalog.cs": "3d5a1ce9bd3b37812eb628300647cc441b69460b3266bbc871259374d752b510",
+        "tests/GnOuGo.Flow.Planning.Tests/BusinessBlockPrefixPresentationTests.cs": "c0da4a62befbb0e7c9ea6bf5eacc8ecfecb415bddc2acdb51667e6a459394db7",
+        "tests/GnOuGo.Flow.Planning.Tests/CompactSelectionScopeTests.cs": "f41d80f1dcbe066c033eb0e1042eb14ac41cbf2a78e3b1043d770cfa25c22042",
+        "tests/GnOuGo.Flow.Planning.Tests/ContinuationValidationTests.cs": "5ce12aae09a3b1f369ecdff094797c5b23db8b6b729c9c0b78c5339887ad128c"
+      },
+      "pre_fix_red": {
+        "passed": 2,
+        "expected_failures": 7,
+        "skipped": 0,
+        "exit_code": 1,
+        "surfaced_warnings": 0,
+        "log_sha256": "aff904d9aaedd231dc636c6e5cf764b11a8542e1d1e2816e34fe7ee6faa523ea"
+      },
+      "final_focused": {
+        "passed": 94,
+        "failed": 0,
+        "skipped": 0,
+        "exit_code": 0,
+        "surfaced_warnings": 0,
+        "log_sha256": "37e9ed83279de6bcbd25f2570275d69059e9978816626787e9fd75502cb0b931"
+      },
+      "command": "dotnet test tests/GnOuGo.Flow.Planning.Tests/GnOuGo.Flow.Planning.Tests.csproj -m:1 -warnaserror -p:SkipClientBuild=true -p:SkipModelMetadataGeneration=true",
+      "red_filter": "FullyQualifiedName~ContinuationValidationTests|FullyQualifiedName~TenOperationCallsUseOneActualSelectionAndTwoDraftsAcrossRestart|FullyQualifiedName~ImportDiagnosticsDoNotAttributeUnrelatedAcceptedPlanFailuresToASelectedBinding",
+      "focused_filter": "FullyQualifiedName~ContinuationValidationTests|FullyQualifiedName~BusinessBlockPrefixPresentationTests|FullyQualifiedName~CompactSelectionScopeTests|FullyQualifiedName~CoherentBusinessFragmentTests|FullyQualifiedName~CompactMissingImportTests|FullyQualifiedName~CompactReviewedTransitionTests|FullyQualifiedName~CompactScopeInterfaceTests|FullyQualifiedName~CommitmentCoverageTests",
+      "behavior": [
+        "Continuation probes share the existing used resolved-operation admission algorithm on their cloned state; ordinary candidate admission retains its existing lifecycle point.",
+        "Missing interfaces caused by compiler findings preserve original diagnostic records and locations. Truly absent selected bindings retain precise input diagnostics.",
+        "Actual selection of two operation contracts retained only in Discovery.Resolved can produce ten caller-input-dependent operation calls in fragments of eight and two across restart, with one business review and no partial closure.",
+        "Array-field errors 0,1,length remain TASK_FIELD_TYPE; ambiguous exact versions remain rejected; probe catalogs and original state remain unchanged."
+      ],
+      "limitations": [
+        "The final94 focused cases include all9 cases used for the red proof; counts overlap. Seven additional cases were added relative to the base (six new cases plus one resolved-only variant).",
+        "No complete Planning or full-solution run was performed for this isolated patch; root will validate the combined candidate.",
+        "No paid calls, operational storage writes, actual artifact approval or live convergence claim.",
+        "The exact received request7 was not rewritten or accepted; its four genuine array-field errors remain invalid."
+      ]
+    },
+    "public_inputs": {
+      "version": 1,
+      "kind": "public_input_business_review_projection_regression",
+      "recorded_at_utc": "2026-10-30T12:58:10.046629+00:00",
+      "parent_source": "9457c3f74f8194cd4ff0ae72d214cab5957efef7",
+      "production_commit": null,
+      "source_attribution": "Focused tests ran on the uncommitted isolated projection patch. All three changed files are byte-identical to the current combined main working tree; future commit attribution requires matching these hashes.",
+      "current_source_file_sha256": {
+        "src/GnOuGo.Flow.Planning/PlanningBusinessProjection.cs": "1b3a178b235a08f52c773c5826cd3e6599cfbe8caba47d177f6c70a964959d78",
+        "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.RequirementContext.cs": "deaada9bf94deb9401845f8cb27ae8532ac5f6d16cf8537ccc3f8f5a4261ba95",
+        "tests/GnOuGo.Flow.Planning.Tests/BusinessProjectionApplicableInputsTests.cs": "921b800442df630d18e4aa06d36e03887e4a8375a7bda131e89c23462e1a5bf3"
+      },
+      "matches_current_main_files": true,
+      "pre_fix": {
+        "command": "dotnet test tests/GnOuGo.Flow.Planning.Tests/GnOuGo.Flow.Planning.Tests.csproj -m:1 -warnaserror -p:SkipClientBuild=true -p:SkipModelMetadataGeneration=true --filter FullyQualifiedName~BusinessProjectionApplicableInputsTests",
+        "tests": 9,
+        "expected_failures": 5,
+        "passing_controls": 4,
+        "skipped": 0,
+        "warnings": 0,
+        "source_file_sha256": {
+          "src/GnOuGo.Flow.Planning/PlanningBusinessProjection.cs": "259b86b51769f9464517fbe1951abd24b9f075470b13389d747445010c4c9a77",
+          "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.RequirementContext.cs": "e9718940057ff7390eec80939c4c95d5ea3ebafd50a8e0e463262db3e1c3c001",
+          "tests/GnOuGo.Flow.Planning.Tests/BusinessProjectionApplicableInputsTests.cs": "9d07208db1325e8953c42f2ef1fdcef44b19d94ab31a966d4dd5194df1388130"
+        },
+        "source_hash_note": "Production files are exact parent blobs. The pre-fix test source is reconstructed by removing the sole later fixture-only Request.Prompt assignment; that assignment makes the captured original match its existing source pages.",
+        "log_file": "pr120-public-input-review-red.log",
+        "log_sha256": "e448cb2f832d7924dc2d7880acc7a15a5c5b64ff03c0935bc71e6f900afc81e9",
+        "failure_categories": {
+          "missing_applicable_unconsumed_declaration": 4,
+          "missing_complete_applicable_type_shape": 1
+        }
+      },
+      "focused_validation": {
+        "command": "dotnet test tests/GnOuGo.Flow.Planning.Tests/GnOuGo.Flow.Planning.Tests.csproj -m:1 -warnaserror -p:SkipClientBuild=true -p:SkipModelMetadataGeneration=true --filter 'FullyQualifiedName~BusinessProjectionApplicableInputsTests|FullyQualifiedName~BusinessProjectionDeclarationsTests|FullyQualifiedName~BusinessProjectionBindingsTests|FullyQualifiedName~BusinessReviewIdentityTests|FullyQualifiedName~BusinessRequirementCompletionTests|FullyQualifiedName~BusinessReviewProtocolTests'",
+        "passed": 69,
+        "failed": 0,
+        "skipped": 0,
+        "warnings": 0,
+        "new_regressions_included": 9,
+        "overlapping_counts_not_summed": true,
+        "log_file": "pr120-public-input-review-focused-final.log",
+        "log_sha256": "b8de44c8625298f83aad69e3105428a213e88e4ec26719f53ab0d40591fa5945"
+      },
+      "verified_behavior": [
+        "Applicable original requirement and global-source public input declarations remain visible without actual consumption or a completion claim.",
+        "Actual task arguments remain unchanged: an absent URL argument stays absent in the business projection.",
+        "Actual plan declarations remain authoritative; missing declarations are not synthesized.",
+        "Applicable complete input types and actual accessed-field evidence remain distinct.",
+        "Unrelated local input declarations and large schemas are omitted; global review retains all declarations.",
+        "Unindexed or stale source metadata grants no declaration visibility.",
+        "Isolated groups see public declarations as unavailable in the reviewed scope and cannot capture root inputs.",
+        "Existing public-interface completion review still sees wrong or extra actual declarations.",
+        "All existing LocalRequirementIds callers retain the complete-short-original presentation behavior; only interface applicability opts out of that shortcut."
+      ],
+      "limitations": [
+        "Deterministic local regression results only; no live convergence, business correctness or execution result is established.",
+        "No full combined Planning result is claimed here; the combined run is owned separately.",
+        "No paid calls, approvals, operational writes or commits were performed by this validation."
+      ]
+    }
+  }
+}

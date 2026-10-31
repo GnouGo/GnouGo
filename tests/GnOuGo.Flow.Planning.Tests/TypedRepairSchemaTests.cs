@@ -21,8 +21,8 @@ public sealed class TypedRepairSchemaTests
         return state;
     }
 
-    private static JsonObject Schema(PlanningSession state, int version = 11) =>
-        PlanningRepairPatch.Schema(state, PlanningRepairPatch.Template(state, version), version);
+    private static JsonObject Schema(PlanningSession state) =>
+        PlanningRepairPatch.Schema(state, PlanningRepairPatch.Template(state));
 
     private static JsonObject Response(string value) => new()
     {
@@ -99,23 +99,45 @@ public sealed class TypedRepairSchemaTests
     }
 
     [Fact]
+    public void OrdinaryStringRepairCanCorrectArrayAssemblyWithoutEchoingMultilineConstants()
+    {
+        const string instructions = "Preserve the observed report and caller request.\n\n--- OBSERVATION ---\n";
+        var state = RepairPatchTests.State();
+        state.Plan!.Root.Tasks[0] = new() { Id = "producer", Kind = "value", Objective = "Retain an observed report.",
+            Outputs = [new("text", new() { Kind = "string", Text = "observed report" })] };
+        state.Plan.Inputs = [new() { Name = "requestText", Type = new() { Kind = "string" } }];
+        state.Requirements!.Inputs = state.Plan.Inputs;
+        var parts = new List<TaskValue> { new() { Kind = "string", Text = instructions },
+            new() { Kind = "output", Source = "producer", Port = "text" }, new() { Kind = "input", Source = "requestText" } };
+        state.Plan.Root.Tasks[1].Inputs = [new("text", new() { Kind = "json", Items = [new() { Kind = "flatten", Items = parts }] })];
+        state.Diagnostics = new TaskPlanCompiler().Compile(state.Plan, state.Catalog!).Diagnostics.ToList();
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "TASK_FLATTEN_INVALID");
+        state.RevisionScope = TaskPlanRevisions.Scope(state.Plan, state.Diagnostics).ToList();
+        Assert.Equal(["/tasks/consumer/inputs/text"], state.RevisionScope);
+        var request = RepairPatchTests.Request(state);
+        Assert.DoesNotContain("\\n", request.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
+        var baseline = JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan);
+        var corrected = new JsonObject { ["kind"] = "json", ["items"] = new JsonArray(new JsonObject {
+            ["kind"] = "array", ["items"] = new JsonArray(new JsonObject { ["kind"] = "string", ["text"] = instructions },
+                JsonNode.Parse("""{"kind":"output","source":"producer","port":"text"}"""),
+                JsonNode.Parse("""{"kind":"input","source":"requestText"}""")) }) };
+        var edit = RepairPatchTests.Edit(state, "/tasks/consumer/inputs/text", "replace",
+            corrected);
+        var repaired = RepairPatchTests.Apply(state, edit);
+        Assert.Empty(new TaskPlanCompiler().Compile(repaired, state.Catalog!).Diagnostics);
+        Assert.Equal(baseline, JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
+        var value = repaired.Root.Tasks[1].Inputs.Single(input => input.Name == "text").Value;
+        Assert.Equal(instructions, value.Items[0].Items[0].Text);
+        Assert.Equal("producer", value.Items[0].Items[1].Source);
+        Assert.Equal("requestText", value.Items[0].Items[2].Source);
+        Assert.Equal(JsonSerializer.Serialize(state.Plan.Root.Tasks[2], PlanningJsonContext.Default.PlanTask),
+            JsonSerializer.Serialize(repaired.Root.Tasks[2], PlanningJsonContext.Default.PlanTask));
+    }
+
+    [Fact]
     public void MissingAcceptedOutputContractRetainsSemanticFallback()
     {
         Assert.Empty(PlanningContractValidation.ValidateInstance(Response(Arithmetic), Schema(Output(null))));
-    }
-
-    [Theory]
-    [InlineData(false, 10)]
-    [InlineData(true, 11)]
-    public void OnlyCapturedFreshPolicyChangesTheNewRequestEnvelope(bool fresh, int version)
-    {
-        var state = Output(new() { Kind = "string" });
-        state.EditablePaths = state.RevisionScope;
-        if (fresh) state.Request.Options["planning_diagnostics_version"] = 1;
-        var request = new PlanningPrompt(state).Request();
-        Assert.Equal(version, PlanningRepairPatch.RequestContext(request)["repair"]!["version"]!.GetValue<int>());
-        Assert.Equal(!fresh, PlanningContractValidation.ValidateInstance(Response(Arithmetic), request.StructuredOutputSchema!).Count == 0);
-        Assert.True(PlanningRepairPatch.Verify(state, request));
     }
 
     [Theory]
@@ -137,7 +159,7 @@ public sealed class TypedRepairSchemaTests
     }
 
     [Fact]
-    public void FreshOwnedBindingKeepsRemovalOnlyAndReferenceRepairKeepsExactChoices()
+    public void FreshOwnedBindingKeepsRemovalOnlyAndReferenceRepairsKeepExactChoices()
     {
         var state = RepairPatchTests.State(); state.Request.Options["planning_diagnostics_version"] = 1;
         state.Plan!.Root.Tasks[1].Inputs.Add(new("fixed", new() { Kind = "string", Text = "host" }));
@@ -145,7 +167,11 @@ public sealed class TypedRepairSchemaTests
         var slots = PlanningRepairPatch.Slots(state, PlanningRepairPatch.Template(state)["$defs"]!.AsObject());
         Assert.Equal(new[] { "remove" }, Assert.Single(slots).Actions);
         state.RevisionScope = ["/tasks/consumer/inputs/text"];
-        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Response("""{"kind":"field","port":"unrelated","items":[{"kind":"input","source":"record"}]}"""), Schema(state)));
+        // Composed repairs share the generation grammar; the compiler, rather than
+        // a second reference vocabulary, rejects inaccessible or undeclared values.
+        var invalid = JsonNode.Parse("""{"kind":"field","port":"unrelated","items":[{"kind":"input","source":"record"}]}""");
+        Assert.Throws<PlanningResponseException>(() => RepairPatchTests.Apply(state,
+            RepairPatchTests.Edit(state, "/tasks/consumer/inputs/text", "replace", invalid)));
 
         state = Output(new() { Kind = "string" }); state.Request.Options["planning_diagnostics_version"] = 1;
         state.Plan!.Root.Tasks = [new() { Id = "producer", Kind = "value", Objective = "Return supplied value", Outputs = [new("text", new() { Kind = "string", Text = "value" })] }];
@@ -158,27 +184,14 @@ public sealed class TypedRepairSchemaTests
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Response(Reference), schema));
     }
 
-    [Fact]
-    public void VersionTenSchemasAndAuthorityRemainHistorical()
-    {
-        var state = Output(new() { Kind = "string" });
-        var schema = Schema(state, 10);
-        Assert.Empty(PlanningContractValidation.ValidateInstance(Response(Arithmetic), schema));
-        // Collected before changing the production repair implementation.
-        Assert.Equal("93985cb523481b0d41747e80c396e6201a19b24b1114cf4611c6e9d7c4d0770e", PlanningGraphCompiler.Fingerprint(schema.ToJsonString()));
-        Assert.Equal("9715b0097d988d8d35e026dbe44b1ab8748005534cb65b1b375df60eeed658f9", PlanningRepairPatch.Authority(state, version: 10));
-    }
 
-    [Theory]
-    [InlineData(10)]
-    [InlineData(11)]
-    public void PendingRepairRetainsIssuedSchemaAndAuthorityAfterSerialization(int version)
+    [Fact]
+    public void PendingRepairRetainsIssuedSchemaAndAuthorityAfterSerialization()
     {
         var state = Output(new() { Kind = "string" });
-        if (version == 11) state.Request.Options["planning_diagnostics_version"] = 1;
-        var request = new LLMRequest { ClientRequestId = "pending-version-" + version,
-            Prompt = "Repair\n" + new JsonObject { ["repair"] = new JsonObject { ["version"] = version, ["authority"] = PlanningRepairPatch.Authority(state, version: version) } },
-            StructuredOutputSchema = Schema(state, version) };
+        var request = new LLMRequest { ClientRequestId = "pending-current-repair",
+            Prompt = "Repair\n" + new JsonObject { ["repair"] = new JsonObject { ["version"] = PlanningRepairPatch.CurrentVersion, ["authority"] = PlanningRepairPatch.Authority(state) } },
+            StructuredOutputSchema = Schema(state) };
         state.PendingCall = new() { Id = request.ClientRequestId, Request = request, Purpose = "replan" };
         var restored = PlannerFixture.Clone(state);
         Assert.Equal(request.Prompt, restored.PendingCall!.Request.Prompt);
@@ -188,5 +201,59 @@ public sealed class TypedRepairSchemaTests
         var repaired = PlanningRepairPatch.Apply(restored, patch, restored.PendingCall.Request);
         Assert.Equal("corrected", repaired.Root.Outputs[0].Value.Text);
         Assert.Equal("original", restored.Plan!.Root.Outputs[0].Value.Text);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    public void ReconstructedPatchUsesItsIssuedCharacterInterpretationWithoutChangingAuthority(bool unicode)
+    {
+        var state = Output(new() { Kind = "string" });
+        state.EditablePaths = state.RevisionScope;
+        var schema = Schema(state);
+        // A captured wire bound constrains the edit text; it adds no business
+        // contract or permission to the independently compiled output.
+        Assert.True(BoundText(schema) > 0);
+        if (unicode) schema["$comment"] = PlanningModelCalls.UnicodeStringLengths;
+        var request = new LLMRequest { ClientRequestId = "issued-unicode-repair",
+            Prompt = "Repair\n" + new JsonObject { ["repair"] = new JsonObject { ["version"] = PlanningRepairPatch.CurrentVersion,
+                ["authority"] = PlanningRepairPatch.Authority(state) } }, StructuredOutputSchema = schema };
+        state.PendingCall = new() { Id = request.ClientRequestId, Request = request, Purpose = "replan" };
+        var restored = PlannerFixture.Clone(state);
+        var issued = restored.PendingCall!.Request;
+        Assert.Equal(schema.ToJsonString(), issued.StructuredOutputSchema!.ToJsonString());
+        Assert.True(PlanningRepairPatch.Verify(restored, issued));
+        var before = JsonSerializer.Serialize(restored, PlanningJsonContext.Default.PlanningSession);
+        var text = new string('a', 255) + "🌍";
+        var response = Response(new JsonObject { ["kind"] = "string", ["text"] = text }.ToJsonString());
+        var patch = response["patch"]!.Deserialize(RepairJsonContext.Default.RepairPatch)!;
+        Assert.Equal(unicode, PlanningModelCalls.ValidateResponseFindings(response, issued.StructuredOutputSchema).Count == 0);
+        if (unicode)
+        {
+            var repaired = PlanningRepairPatch.Apply(restored, patch, issued);
+            Assert.Equal(text, repaired.Root.Outputs[0].Value.Text);
+            Assert.Empty(new TaskPlanCompiler().Compile(repaired, restored.Catalog!).Diagnostics);
+            var invalidReference = Response(Reference)["patch"]!.Deserialize(RepairJsonContext.Default.RepairPatch)!;
+            Assert.Throws<PlanningResponseException>(() => PlanningRepairPatch.Apply(restored, invalidReference, issued));
+        }
+        else Assert.Throws<PlanningResponseException>(() => PlanningRepairPatch.Apply(restored, patch, issued));
+        Assert.Equal(before, JsonSerializer.Serialize(restored, PlanningJsonContext.Default.PlanningSession));
+        patch.Edits[0].Slot = "not-authorized";
+        Assert.Throws<PlanningResponseException>(() => PlanningRepairPatch.Apply(restored, patch, issued));
+        restored.Plan!.Root.Outputs[0].Value.Text = "changed baseline";
+        Assert.Throws<PlanningConflictException>(() => PlanningRepairPatch.Verify(restored, issued));
+
+        static int BoundText(JsonNode? node)
+        {
+            var count = 0;
+            if (node is JsonObject obj)
+            {
+                if (obj["properties"] is JsonObject properties && properties["kind"]?["enum"] is JsonArray kinds &&
+                    kinds.Any(k => k?.ToString() == "string") && properties["text"] is JsonObject text)
+                { text["maxLength"] = 256; count++; }
+                foreach (var value in obj.Select(p => p.Value)) count += BoundText(value);
+            }
+            else if (node is JsonArray array) foreach (var value in array) count += BoundText(value);
+            return count;
+        }
     }
 }

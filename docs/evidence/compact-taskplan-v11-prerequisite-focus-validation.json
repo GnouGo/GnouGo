@@ -1,0 +1,30 @@
+{
+  "exit_code": 0,
+  "counts": {
+    "Passed": 294
+  },
+  "elapsed_seconds": 29.395360833965242,
+  "source_unchanged": true,
+  "log_sha256": "44e6c227c0ceb9f4e7491fde3eb423ad8e72498b607cc98638e8697c906b9ca4",
+  "base": "821f16a60d3aea819074d3a3e2cbc598f1baebc5",
+  "source_manifest_sha256": "a4766868a96e2e1b87da83cfd3dd733dae17dfee89b5fd6497e79fef10864585",
+  "postimages": {
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Closure.cs": "11e48b918ecc686c09661cc3aa52463e5bf4ce880810498991f46e886df566ca",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs": "338349ad0e74d46e83be5b50130343ed5ceb9b40417ca589f0ed6c7c60c4b26f",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactSuspendedConsumerTests.cs": "1b163294e897feb6c990f05df52ce5ed5766574f43c2580c246c7a37c05c0d54"
+  },
+  "reproduction": {
+    "passed": 2,
+    "failed": 2,
+    "log_sha256": "ca378bdc71844a934f2738eaeade0995ca249a7cdceb339b8c9dda683b16f9cd"
+  },
+  "correction": "Present the retained prerequisite as the immediate semantic target, once, with exact catalog eligibility for existing local primitives.",
+  "boundaries": [
+    "No automatic producer selection or executable binding",
+    "No added inference client, permission, phase or response grammar",
+    "Required diagnostics retain precedence",
+    "Historical versions 2-10 and issued requests unchanged"
+  ],
+  "business_acceptance": false,
+  "overlap_note": "Related focused counts overlap broader planning validation and are not added to solution totals."
+}

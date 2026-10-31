@@ -12,12 +12,79 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class PlanningPersistenceTests
 {
+    [Theory]
+    [InlineData(8)]
+    [InlineData(9)]
+    [InlineData(10)]
+    public void RetiredInternalFormatsAreRejectedWithoutUpgradingTheirPayload(int format)
+    {
+        var state = new PlanningSession { Request = new() { TenantId = "tenant", SessionId = "retired", Prompt = "original" } };
+        var json = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession)!;
+        json["schemaVersion"] = format;
+        var retained = json.ToJsonString();
+        var error = Assert.Throws<PlanningConflictException>(() => PlanningSessionStorage.Read(retained, "tenant", "retired"));
+        Assert.Contains("format 11", error.Message);
+        Assert.Equal(retained, json.ToJsonString());
+    }
+
+    [Fact]
+    public async Task RetiredCollectionIsNeverUsedAsAReaderOrFallback()
+    {
+        await using var fixture = await StoreFixture.CreateAsync();
+        var state = new PlanningSession { Request = new() { TenantId = "tenant", SessionId = "retired", Prompt = "original" } };
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        await using var db = fixture.CreateDbContext();
+        var key = (await db.Sessions.SingleAsync(Ct)).PayloadKey;
+        Assert.True(await fixture.Records.DeleteAsync(EfPlanningSessionStore.Collection, "tenant", key, "test", Ct));
+        var payload = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession)!;
+        payload["schemaVersion"] = 10;
+        var archive = await fixture.Records.UpsertAsync("agent-planning-sessions-v10", "tenant", key, payload.ToJsonString(), "test", Ct);
+        await Assert.ThrowsAsync<PlanningConflictException>(() => fixture.Store.LoadAsync("tenant", "retired", Ct));
+        Assert.Empty(await fixture.Store.ListAsync("tenant", Ct));
+        Assert.Equal(archive, await fixture.Records.GetAsync("agent-planning-sessions-v10", "tenant", key, "test", Ct));
+        Assert.Null(await fixture.Records.GetAsync(EfPlanningSessionStore.Collection, "tenant", key, "test", Ct));
+    }
+
+    [Fact]
+    public async Task ExplicitSuspendedConsumersRecoverExactlyInsideTheEncryptedTenantSnapshot()
+    {
+        await using var fixture = await StoreFixture.CreateAsync();
+        const string secret = "PRIVATE_TYPED_CONSUMER_AND_ORIGINAL_EVIDENCE";
+        var state = new PlanningSession
+        {
+            Request = new() { TenantId = "tenant", SessionId = "continuation", Prompt = secret },
+            ModelCalls = 7, ReplanAttempts = 2,
+            Construction = new() { Compact = new() { ResumingStepId = "continuation_0",
+                SuspendedSteps = [new()
+                {
+                    Id = "continuation_0", Status = "resuming", SuspendedAtCheckpoint = 1, LastPrerequisiteCheckpoint = 3,
+                    Consumer = new() { Id = "consumer", Scope = "/root", Objective = secret, RequirementIds = ["original"], ExpectedOutputs = [secret] },
+                    Prerequisite = new() { Need = secret, ExpectedType = new() { Kind = "number", Nullable = true }, EvidenceAddresses = ["source:original"] },
+                    SourceVersions = new() { ["original"] = "source-hash" }, EvidenceHashes = new() { ["source:original"] = "evidence-hash" },
+                    ContractHashes = new() { ["exact-operation@1"] = "contract-hash" }, DependencyHashes = new() { ["accepted"] = "task-hash" }
+                }] } },
+            PendingCall = new() { Id = "exact-issued", Request = new() { Prompt = secret, StructuredOutputSchema = new JsonObject { ["type"] = "object" } } }
+        };
+        var bytes = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        var restored = await fixture.Store.LoadAsync("tenant", "continuation", Ct);
+        Assert.Equal(bytes, JsonSerializer.Serialize(restored, PlanningJsonContext.Default.PlanningSession));
+        Assert.Equal("continuation_0", restored!.Construction!.Compact!.ResumingStepId);
+        Assert.Equal("number", Assert.Single(restored.Construction.Compact.SuspendedSteps!).Prerequisite.ExpectedType.Kind);
+        Assert.Null(await fixture.Store.LoadAsync("another", "continuation", Ct));
+        foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
+            Assert.DoesNotContain(secret, Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
+        state.Construction.Compact.SuspendedSteps = null; state.Construction.Compact.ResumingStepId = null;
+        var withoutContinuation = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        Assert.DoesNotContain("\"suspendedSteps\"", withoutContinuation); Assert.DoesNotContain("\"resumingStepId\"", withoutContinuation);
+    }
+
     [Fact]
     public async Task TargetedRevisionAuthorityAndBaselineRemainEncryptedAndTenantOwned()
     {
         await using var fixture = await StoreFixture.CreateAsync();
         var plan = new TaskPlan { Root = new() { Outputs = [new("private_edit_scope", new() { Kind = "string", Text = "PRIVATE_RETAINED_WORK" })] } };
-        var state = new PlanningSession { IntentVersion = 2, Request = new() { TenantId = "tenant", SessionId = "targeted", Prompt = "Correct selected output", Baseline = plan },
+        var state = new PlanningSession { Request = new() { TenantId = "tenant", SessionId = "targeted", Prompt = "Correct selected output", Baseline = plan },
             Plan = plan, ModelCalls = 3, ReplanAttempts = 1, EditablePaths = ["/root/outputs/private_edit_scope"], RevisionScope = ["/root/outputs/private_edit_scope"] };
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         var restored = await fixture.Store.LoadAsync("tenant", "targeted", Ct);

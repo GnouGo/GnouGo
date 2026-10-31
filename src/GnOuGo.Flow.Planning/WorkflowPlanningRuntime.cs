@@ -9,7 +9,7 @@ using GnOuGo.Flow.Planning.Capabilities;
 namespace GnOuGo.Flow.Planning;
 
 /// <summary>Provider-neutral catalog, model, runtime validation, and checkpoint effects.</summary>
-public sealed class WorkflowPlanningRuntime : IPlanningRuntime
+public sealed class WorkflowPlanningRuntime : IPlanningRuntime, IPlanningConstructionAdmission
 {
     private readonly WorkflowEngine _engine;
     public ICapabilityCatalog Capabilities { get; }
@@ -25,9 +25,16 @@ public sealed class WorkflowPlanningRuntime : IPlanningRuntime
     public WorkflowPlanningRuntime(StepExecutionContext context, ILLMClient model, Func<PlanningSession, CancellationToken, Task> checkpoint)
     { _context = context; _engine = context.Engine; Capabilities = new CapabilityDiscovery(context.Engine); _model = model; _checkpoint = checkpoint; }
     public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => CapabilityDiscovery.DiscoverAsync(_engine, request, ct);
-    internal Task AdmitAsync(LLMRequest request, int inputLimit, string purpose, CancellationToken ct) =>
+    internal Task AdmitAsync(LLMRequest request, int inputLimit, string purpose, CancellationToken ct, bool advisoryTokens = false) =>
         ModelRequestAdmission.ValidateAsync(request, _engine.LLMCapabilities ?? _model as ILLMCapabilityResolver ??
-            _engine.LLMClient as ILLMCapabilityResolver, inputLimit, purpose, ct);
+            _engine.LLMClient as ILLMCapabilityResolver, inputLimit, purpose, ct, advisoryTokens);
+    public Task AdmitConstructionAsync(LLMRequest request, int inputTokenCeiling, IReadOnlyList<int> outputTokenCeilings, CancellationToken ct)
+    {
+        if ((_model ?? _engine.LLMClient) is IPlanningConstructionAdmission journal)
+            return journal.AdmitConstructionAsync(request, inputTokenCeiling, outputTokenCeilings, ct);
+        return _context.LLMUsageBudget?.EnsureAllowanceAsync(request, _engine.ModelUsageCostEstimator,
+            inputTokenCeiling, outputTokenCeilings, "workflow.plan.construction", ct) ?? Task.CompletedTask;
+    }
     public async Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
     {
         var client = _model ?? _engine.LLMClient ?? throw new InvalidOperationException("No planning model configured.");

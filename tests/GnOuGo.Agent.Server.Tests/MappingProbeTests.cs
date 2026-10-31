@@ -13,11 +13,17 @@ public sealed class MappingProbeTests
     [InlineData("scalar")]
     [InlineData("extended")]
     [InlineData("each")]
-    public async Task CompiledFixturesAreReviewableWithoutPlanningInference(string variant)
+    public async Task CompiledFixturesRequireBusinessReviewWithoutPlanningInference(string variant)
     {
         var (runtime, catalog, producer) = await Catalog();
         var state = MappingLiveEvaluation.Prepare(catalog, producer, "fixture", variant);
-        PlanningArtifactApproval.Verify(state);
+        var artifactHash = state.ComputeArtifactHash();
+        Assert.NotNull(state.Graph);
+        Assert.Empty(PlanningExecutableValidation.Validate(state.Graph, catalog));
+        Assert.Null(state.Construction);
+        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(state));
+        Assert.Equal(artifactHash, state.ComputeArtifactHash());
+        Assert.Null(state.ApprovedHash);
         Assert.Equal(0, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
         Assert.Contains("mapping.dynamic", state.Yaml);
         var run = new JsonObject { ["session"] = System.Text.Json.JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession) };

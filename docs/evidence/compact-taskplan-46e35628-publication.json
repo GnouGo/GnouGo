@@ -1,0 +1,192 @@
+{
+  "source": "46e356283e431c3c7911010ac7098302f8df9b71",
+  "executed_source_kind": "exact clean committed checkout",
+  "recorded_utc": "2026-10-27T17:28:33.727200+00:00",
+  "source_files_verified": 4714,
+  "source_modes_verified": true,
+  "source_git_blobs_verified": true,
+  "source_unchanged": true,
+  "clean_git_after_execution": true,
+  "fresh_stage_count": 12,
+  "compiler_diagnostics": [],
+  "managed_native_coverage": {
+    "managed-smoke": {
+      "versions": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "fresh": 10,
+      "historical": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "recovery_and_exact_output_assertions_passed": true
+    },
+    "native-smoke": {
+      "versions": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "fresh": 10,
+      "historical": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "recovery_and_exact_output_assertions_passed": true
+    }
+  },
+  "complete_output_files_verified": 213,
+  "published_files_verified": 209,
+  "private_synthetic_storage_files_verified": 4,
+  "limits": [
+    "Technical local qualification only; no live provider convergence, artifact approval or business acceptance.",
+    "Existing published storage smoke covers encrypted format10/tenant isolation/recovery and retained compact metadata; no source-window-guidance-specific storage scenario is inferred.",
+    "Server publish skips ClientApp and bundled-server-tool staging; established persistence smoke shape, not full deployment packaging.",
+    "Prior source outcomes remain attributed separately; no stage totals are added across revisions."
+  ],
+  "boundary": "Both operational workspace roots denied; main writes denied; unchanged HOME; explicit private TMPDIR/CLI_HOME. Clean inherited environment excludes provider secrets/live flags. Restores/builds allow network; smoke executions deny network. Only explicit private synthetic encrypted storage was used.",
+  "stages": [
+    {
+      "name": "managed-publish",
+      "exit_code": 0,
+      "elapsed_seconds": 23.983,
+      "log_sha256": "2fbf494151e128790e4f614f250d88ce492fbca80214e12d661840d90eee6692"
+    },
+    {
+      "name": "managed-smoke",
+      "exit_code": 0,
+      "elapsed_seconds": 3.235,
+      "log_sha256": "6fe1b1a4e78ea1240adc0981a3b702e795e678671bdf590e672b6f17a54b87be"
+    },
+    {
+      "name": "native-publish",
+      "exit_code": 0,
+      "elapsed_seconds": 41.809,
+      "log_sha256": "9042085adb309b4ac5093942dbadf994f45766ca129e243386c0d372e2e5d5c4"
+    },
+    {
+      "name": "native-smoke",
+      "exit_code": 0,
+      "elapsed_seconds": 7.058,
+      "log_sha256": "45d2f901a4aaf3b3e339fcdac6a14d42b4d265b4f2da5a27f8510ff658d05ae7"
+    },
+    {
+      "name": "pack-planning",
+      "exit_code": 0,
+      "elapsed_seconds": 1.116,
+      "log_sha256": "21c789247b0367a45596c79a276e803d6d8848a63dc5510913a81f0ed6aa380d"
+    },
+    {
+      "name": "pack-integrations",
+      "exit_code": 0,
+      "elapsed_seconds": 1.807,
+      "log_sha256": "181461af94fe1aabc6727c436d489b1a3aebc48bd70fbd150d5fb86d0126b1c7"
+    },
+    {
+      "name": "pack-core",
+      "exit_code": 0,
+      "elapsed_seconds": 0.861,
+      "log_sha256": "cba92fb6efb85478897ea1b73e08f97f6334d378acf703198e894197ab585f6b"
+    },
+    {
+      "name": "pack-copilot",
+      "exit_code": 0,
+      "elapsed_seconds": 1.836,
+      "log_sha256": "d7cf719f415b3fba00b3bc139642e21f0c2d62a212c835d74fbfd0b822810286"
+    },
+    {
+      "name": "pack-persistence",
+      "exit_code": 0,
+      "elapsed_seconds": 2.321,
+      "log_sha256": "f674d4ee27634f547ad024e3c65bd7ee5cc7ad59c57ca62cf10adb3bc349045c"
+    },
+    {
+      "name": "pack-ai-core",
+      "exit_code": 0,
+      "elapsed_seconds": 0.881,
+      "log_sha256": "97f9cb28ea46aed189267d0553eacdcee32b1de825530fd15d69db62ae30bf1b"
+    },
+    {
+      "name": "server-publish",
+      "exit_code": 0,
+      "elapsed_seconds": 124.862,
+      "log_sha256": "a1e03855bcfce923dc06e375c8672163a3356dc2bdfa1efd2910fddc99d81ca5"
+    },
+    {
+      "name": "server-encrypted-storage-smoke",
+      "exit_code": 0,
+      "elapsed_seconds": 2.485,
+      "log_sha256": "7e3ebcc6e52949e24cd53cf518d48371066902ffe33e70d05446cfa36641fdf5"
+    }
+  ],
+  "independent_packages": [
+    {
+      "name": "GnOuGo.AI.Core.1.0.0.nupkg",
+      "sha256": "03067a0bf557ed7fbb9f2fa04f2fb82e400ee21d7c311d9c2170f18d9add5210",
+      "repository_commit": "46e356283e431c3c7911010ac7098302f8df9b71",
+      "zip_crc_valid": true
+    },
+    {
+      "name": "GnOuGo.Flow.Copilot.1.0.0.nupkg",
+      "sha256": "e7af7ca79f0efb55f169a319eebcf2902ed9908d569ed93b35fe1162c6806f42",
+      "repository_commit": "46e356283e431c3c7911010ac7098302f8df9b71",
+      "zip_crc_valid": true
+    },
+    {
+      "name": "GnOuGo.Flow.Core.1.0.0.nupkg",
+      "sha256": "8a6bf8d89129e8f3302b246879bfeeefa346728ee347ae7d0f10eaaba2e54d42",
+      "repository_commit": "46e356283e431c3c7911010ac7098302f8df9b71",
+      "zip_crc_valid": true
+    },
+    {
+      "name": "GnOuGo.Flow.Persistence.1.0.0.nupkg",
+      "sha256": "8cb40cb4a308fc33c4ac97e05160010c4c50d35c6e0e82b64b107c85ff86a620",
+      "repository_commit": "46e356283e431c3c7911010ac7098302f8df9b71",
+      "zip_crc_valid": true
+    },
+    {
+      "name": "GnOuGo.Flow.Integrations.1.0.0.nupkg",
+      "sha256": "d292ce7f324f953cc50d8807f20aa42a5c790ffebf7abc8ccb68cd140478183e",
+      "repository_commit": "46e356283e431c3c7911010ac7098302f8df9b71",
+      "zip_crc_valid": true
+    },
+    {
+      "name": "GnOuGo.Flow.Planning.1.0.0.nupkg",
+      "sha256": "90bcf6d38125d73a6a341408ed8f79abb4214fdad8a5fdf00ddb5b5a6d7c3986",
+      "repository_commit": "46e356283e431c3c7911010ac7098302f8df9b71",
+      "zip_crc_valid": true
+    }
+  ],
+  "evidence": {
+    "qualification_sha256": "baefd1b61683dabb53c2531e71047e9bbbb16d7a22b1c4ab142692c4a0094837",
+    "independent_peer_sha256": "a4a878f92dccc25611acd313dcd097b146a50d8d1a5ba7310ef9a76e7d33d4ce",
+    "source_manifest_sha256": "5d42522e9ef281a7ce49f9dfed8f6911dfec1a764672731cb07cdda9543a6d37",
+    "output_inventory_sha256": "fc420275b8f79b845d56d25cfd053e332549321b428e4ca5db72b6cd472c95af"
+  }
+}

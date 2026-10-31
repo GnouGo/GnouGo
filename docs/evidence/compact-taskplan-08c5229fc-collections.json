@@ -1,0 +1,270 @@
+{
+  "version": 1,
+  "source": "08c5229fc65f2dedb8e8caf8c7d2627591a0473b",
+  "case": "collections",
+  "cohort": "compactr08c5229fccolv5",
+  "prepared_utc": "2026-10-24T22:54:47.361588+00:00",
+  "status": "Terminal measured failure; no artifact or execution. Append-only evidence, not business acceptance.",
+  "safe_sources": [
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr08c5229fccolv5/freeze.json",
+      "sha256": "3c96f52fff42663ca57bab3ab9b520959775385fea22cc99608359a12f3a2857",
+      "bytes": 14235
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr08c5229fccolv5/collections-terminal-safe-metrics.json",
+      "sha256": "f6e4ca53722af209cf6d46d376edd00a431e3ceee48ddecb4932ab5006cc6aae",
+      "bytes": 114746
+    },
+    {
+      "path": "/private/tmp/gnougo-08c-collections-terminal-summary/summary-safe.json",
+      "sha256": "65310c7fb3b06ba86b6d682a0f5a7af46032c80af88e69499de238ee02661f03",
+      "bytes": 5200
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr08c5229fccolv5/collections-exit.json",
+      "sha256": "daa5f11070c70f96597092d488d9564dd19454e341831b8baf9e9ea7dda2789c",
+      "bytes": 67
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr08c5229fccolv5/collections-terminal-state-witness.json",
+      "sha256": "1a8b7652c9bf28650344866d26aa71e6e77c43e1c6ea0e7a50c16f255f25bfe0",
+      "bytes": 50310
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr08c5229fccolv5/collections-terminal-plan-witness.json",
+      "sha256": "c1e5c424bd0c0f866ce7f9af7d99d2c5462112080515af12d3f60a8836677ec5",
+      "bytes": 7796
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr08c5229fccolv5/collections-closure-requests-witness.json",
+      "sha256": "945dfd2229b48b53097a121d445ce5f6c284e36d8fecf4b017479fbd2217246e",
+      "bytes": 127998
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr08c5229fcamz20v5/freeze.json",
+      "sha256": "b26245f7b8df47b9be5eb8da2ef01fc40b254409c487e11eea747186bc51be2b",
+      "bytes": 15750
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr08c5229fcamz20v5/provider-readiness.jsonl",
+      "sha256": "eb4997279054b63b2c1b4a0a549ea63afeb44c382e9bf0c434a8bc8b1c26cc3e",
+      "bytes": 8323
+    }
+  ],
+  "outcome": {
+    "session_status": "stopped",
+    "phase": "replanning",
+    "diagnostics": [
+      "CONSTRUCTION_BUSINESS_REVIEW",
+      "REPLAN_NO_PROGRESS"
+    ],
+    "termination_reason": null,
+    "logical_requests": 25,
+    "physical_attempts": 26,
+    "receipts": 25,
+    "corrections": 2,
+    "checkpoints": 6,
+    "artifact_hash": null,
+    "construction_complete": false,
+    "execution_started": false,
+    "runtime_ms": null,
+    "planning_ms": 923630
+  },
+  "usage_and_cost": {
+    "tokens": {
+      "input": 56016,
+      "output": 24696,
+      "reasoning_within_output": 20178,
+      "visible_output_derived": 4518,
+      "empty_completed_responses": 0
+    },
+    "known_cost_eur": "0.9111646586345381526104417671",
+    "unknown_usage_reservation_eur": "0.9308701472556894243641231593",
+    "cost_upper_bound_eur": "1.8420348058902275769745649264",
+    "receiptless_requests": 0,
+    "unknown_attempts": 1,
+    "retained_failed_http_statuses": [
+      [
+        500,
+        200
+      ]
+    ],
+    "qualification": "Run-only values. Request2 confirmed500 then200 retains its failed-attempt reservation; all requests have receipts, no receiptless uncertainty. No postrun campaign balance is inferred.",
+    "exact_money_source": "Safe terminal metrics parsed with Decimal precision80; original metrics preserved unchanged.",
+    "planning_latency_from_completed_call_stages_ms": "872975.3486"
+  },
+  "requests": {
+    "constructed": 25,
+    "admission_counts": {
+      "admitted": 25
+    },
+    "prepared_only": 0,
+    "all_components_reconcile": true,
+    "all_within_input_limits": true,
+    "complete_request_bytes_total": 313049,
+    "component_estimate_minus_complete_estimate": 92,
+    "component_estimates_not_billing": true
+  },
+  "phase_statistics": {
+    "construction_intent": {
+      "calls": 2,
+      "physical_attempts": 3,
+      "request_bytes": {
+        "p50": "5367.0",
+        "p95": 8296,
+        "max": 8296
+      },
+      "estimated_input_tokens": {
+        "p50": "2045.5",
+        "p95": 3022,
+        "max": 3022
+      },
+      "logical_elapsed_ms": {
+        "p50": "172881.3402",
+        "p95": "327722.1416",
+        "max": "327722.1416"
+      },
+      "input_tokens": 1916,
+      "output_tokens": 1405,
+      "reasoning_tokens": 830,
+      "known_cost_eur": "0.0461668897813476126729138777"
+    },
+    "construction_select": {
+      "calls": 8,
+      "physical_attempts": 8,
+      "request_bytes": {
+        "p50": "10256.0",
+        "p95": 11971,
+        "max": 11971
+      },
+      "estimated_input_tokens": {
+        "p50": "3675.0",
+        "p95": 4247,
+        "max": 4247
+      },
+      "logical_elapsed_ms": {
+        "p50": "19448.77795",
+        "p95": "41849.3813",
+        "max": "41849.3813"
+      },
+      "input_tokens": 15699,
+      "output_tokens": 7976,
+      "reasoning_tokens": 6308,
+      "known_cost_eur": "0.2836010709504685408299866131"
+    },
+    "construction_draft": {
+      "calls": 7,
+      "physical_attempts": 7,
+      "request_bytes": {
+        "p50": 16728,
+        "p95": 17658,
+        "max": 17658
+      },
+      "estimated_input_tokens": {
+        "p50": 5832,
+        "p95": 6142,
+        "max": 6142
+      },
+      "logical_elapsed_ms": {
+        "p50": "17291.2202",
+        "p95": "18911.85",
+        "max": "18911.85"
+      },
+      "input_tokens": 20167,
+      "output_tokens": 3988,
+      "reasoning_tokens": 2691,
+      "known_cost_eur": "0.1967648371262829094154395360"
+    },
+    "construction_local_judge": {
+      "calls": 7,
+      "physical_attempts": 7,
+      "request_bytes": {
+        "p50": 12633,
+        "p95": 14313,
+        "max": 14313
+      },
+      "estimated_input_tokens": {
+        "p50": 4467,
+        "p95": 5027,
+        "max": 5027
+      },
+      "logical_elapsed_ms": {
+        "p50": "18847.6017",
+        "p95": "77718.213",
+        "max": "77718.213"
+      },
+      "input_tokens": 13892,
+      "output_tokens": 10180,
+      "reasoning_tokens": 9385,
+      "known_cost_eur": "0.3345470771976796073181615350"
+    },
+    "replan": {
+      "calls": 1,
+      "physical_attempts": 1,
+      "request_bytes": {
+        "p50": 23170,
+        "p95": 23170,
+        "max": 23170
+      },
+      "estimated_input_tokens": {
+        "p50": 7980,
+        "p95": 7980,
+        "max": 7980
+      },
+      "logical_elapsed_ms": {
+        "p50": "24045.7417",
+        "p95": "24045.7417",
+        "max": "24045.7417"
+      },
+      "input_tokens": 4342,
+      "output_tokens": 1147,
+      "reasoning_tokens": 964,
+      "known_cost_eur": "0.0500847835787594823739402053"
+    }
+  },
+  "bounded_witness_assessment": {
+    "request_numbers": [
+      22,
+      23,
+      24,
+      25
+    ],
+    "four_request_and_receipt_hash_joins_verified": true,
+    "repair25_repeats_draft23": {
+      "response_objects_equal": true,
+      "original_response_text_sha256": "dbcd25d9aa39ab8170ac1aea27360555ca4ab54c3d4ca7c6dc413abfa26ac682",
+      "normalized_response_hashes_equal": true,
+      "prior_advisory_witness_available": true
+    },
+    "judge24_narrow_completion_claim": "Supported by the issued context: the selected step explicitly closes req_1, whose original requires the public ordered result; the candidate only closes the foreach body and adds its nested export, while one root boundary remains open and the accepted root has no public binding. This does not establish that nested aggregation itself is invalid.",
+    "candidate_complete_flag": false,
+    "candidate_open_scope_count": 1,
+    "other_semantic_findings": "Unassessed. The two correction charges are not fully classified by this four-request witness. No false-positive total, avoided-correction, model-cause or future efficacy claim.",
+    "initial_projection_qualification": "The original state witness requested the wrong taskPlan key and therefore contains taskPlan:null. The separate same-run plan witness provides the accepted plan under plan. No absence-of-plan or business conclusion is drawn from that null; both original files remain unchanged."
+  },
+  "post_collections_pre_amazon_accounting": {
+    "captured_at": "2026-10-24T22:51:35.941909+00:00",
+    "timestamp_basis": "Next Amazon freeze capture; the readiness JSONL itself has no timestamp field.",
+    "readiness_sha256": "eb4997279054b63b2c1b4a0a549ea63afeb44c382e9bf0c434a8bc8b1c26cc3e",
+    "physical_attempts": 2975,
+    "readiness_session_calls": 0,
+    "known_cost_eur": "125.93099582190844601189794270",
+    "reserved_cost_eur": "31.666976681274105575416390522",
+    "recorded_upper_bound_eur": "157.59797250318255158731433322",
+    "ceiling_eur": "240.0301038327063045424449473",
+    "available_eur": "82.43213132952375295513061408",
+    "unknown_physical_attempts": 44,
+    "receiptless_identities": 28,
+    "closed_identities": 28,
+    "unresolved_identities": 0,
+    "recorded_upper_minus_decimal80_components_eur": "-2E-27",
+    "limitation": "Timestamped aggregate only; not a future balance. Historical lost-ledger exposure remains separately retained; no refund or reservation release inferred."
+  },
+  "limitations": [
+    "No artifact, public approval or runtime result; six checkpoints do not establish business success.",
+    "No original-response formatting count is inferred from normalized response bytes.",
+    "Same-source Amazon is a separate active diagnostic; Code has not yet run for this source.",
+    "No store, reader, readiness, lease, model, runtime, build or main/source action performed by this builder."
+  ]
+}

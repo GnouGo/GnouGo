@@ -1,0 +1,49 @@
+{
+  "base_commit": "cab26684bff2ae471ab7d0593d2d7c92c3bc7ed4",
+  "presentation_version": 11,
+  "postimages": {
+    "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.ConstructionReview.cs": "880c9e3beb8cfb91143839e2842347a315f2683f61791c4ccdc3a61de60ed6f0",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.ReviewEvidence.cs": "704e4e9e11656755dbb520af16df049741e94ec23d2559302732848541a53888",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.ReviewEvidenceChoices.cs": "9f237c58c2b189eba2f68a8fc4b0d292913d9c50ccdb1330a75c9f8099240fad",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactConvergentJudgeTests.EvidenceBatches.cs": "7dd918e0f0fd1a9baafdaf0ef0bff3e21c51c6918ce17d9c9339c33b1821cb74",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactIntentIndexingTests.cs": "ddf0699ada040a0be9b05584e5d3416907f6f9229deee3debd8fb460aad716aa"
+  },
+  "validation": {
+    "exit_code": 0,
+    "counts": {
+      "Passed": 324
+    },
+    "elapsed_seconds": 24.045953749970067,
+    "source_unchanged": true,
+    "log_sha256": "207c28300d4e8e5fea85e0d7d3b58cc7289c3727146ded49f40f9f24229afb06"
+  },
+  "source_manifest_sha256": "eb98550f098c704a4706196b193a31effe2352fe1c254ed2ae94e256b8c7e0f1",
+  "command_sha256": "4fafbb7cfe1534bb761120ac89480cbc81ca3d225fe2e2367b1b280926189e54",
+  "correction": "Prepare and admit the complete bounded evidence-selection control before allowing recovery. Compact optional navigation only when needed; preserve mandatory originals, interfaces, contracts and actual controls. Keep rejected raw reports and detailed diagnoses in existing candidate reviews.",
+  "coverage": [
+    "historicalv10 batch behavior",
+    "v11 rejected batch leaves evidence/cursors/plan unchanged",
+    "admitted control request hash matches subsequent construction",
+    "byte-exact pending request recovery without another logical charge",
+    "unsendable control terminates after one received request with no checkpoint",
+    "window coverage and correction-accounting regressions"
+  ],
+  "earlier_validation": {
+    "source": "cab26684bff2ae471ab7d0593d2d7c92c3bc7ed4",
+    "full_planning": {
+      "passed": 3650,
+      "failed": 2,
+      "explanation": "Stale fresh-version expectation and formerly unsupported version11 fixture, corrected here; this was not an all-pass suite.",
+      "log_sha256": "3c8c611a304b2db83e2ca7c865a1e6bdc86151d49c7d5214c54e214174d5f124"
+    }
+  },
+  "retained_failed_iterations": [
+    "tb8afq6n:inaccessible test-only estimator",
+    "wmp4zui3:checked integer conversion required",
+    "28s98x9w and eco70hvi:recovery fixture chose final stopped checkpoint instead of issued generating checkpoint"
+  ],
+  "business_acceptance": {
+    "new_live_runs": 0,
+    "qualifying_runs": 0
+  }
+}

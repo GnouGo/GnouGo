@@ -30,9 +30,9 @@ public sealed partial class LocalProductOutcomeExecutionTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task V10CorrectedCompositionReachesReviewWithoutPaidCallsOrAutomaticRepair(bool revision)
+    public async Task StaticCorrectedCompositionCompilesWithoutPlanningOrEffects(bool revision)
     {
-        var factory = new RealProductContracts.Factory(RealProductContracts.Capture(new DocumentPolicy(new(), AppContext.BaseDirectory)));
+        var factory = new RealProductContracts.Factory(CaptureIsolatedProductContracts());
         var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
         var catalog = await RetainedCatalog(runtime, TestContext.Current.CancellationToken); catalog.Policy.RequireExternalConfirmation = false;
         var corrected = V10Proposal(catalog, 4);
@@ -47,20 +47,12 @@ public sealed partial class LocalProductOutcomeExecutionTests
         Assert.Equal(original.Steps, compact.Steps); Assert.Equal(original.Sets, compact.Sets);
         Assert.True(RetainedTasks(corrected.Plan!.Root).Count() < RetainedTasks(before.Plan!.Root).Count());
         Assert.True(compact.Yaml.Length < original.Yaml.Length, changes);
-        var adapter = new ProposalRuntime(runtime, corrected);
-        var session = await V10PlanningSession(catalog, runtime, adapter, revision, TestContext.Current.CancellationToken);
+        var session = await V10PlanningSession(catalog, runtime, corrected, revision, TestContext.Current.CancellationToken);
         Assert.Equal(PlanningStatus.FinalReview, session.Status); Assert.Empty(session.Diagnostics);
-        Assert.Equal(revision ? 2 : 1, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts);
+        Assert.Equal(0, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts);
         Assert.Null(session.ApprovedHash); Assert.Equal(0, factory.InvocationAttempts);
-        Assert.InRange(adapter.InputEstimate, 1, session.Request.Generation.MaxInputTokensPerRequest);
-        var issued = Assert.Single(adapter.Requests);
-        Assert.Contains("missing/null", issued.Prompt);
-        Assert.Contains("order/repeats", issued.Prompt);
-        Assert.Contains("Bind typed copies/projections/assembly", issued.Prompt);
         Assert.Contains("expression_contracts:", session.Yaml!); Assert.DoesNotContain("checkedMapping(", session.Yaml!);
-        output.WriteLine($"GATE D: tasks={RetainedTasks(before.Plan!.Root).Count()}→{RetainedTasks(corrected.Plan!.Root).Count()}; " +
-            $"steps={original.Steps}→{compact.Steps}; sets={original.Sets}→{compact.Sets}; YAML={Encoding.UTF8.GetByteCount(original.Yaml)}→{Encoding.UTF8.GetByteCount(compact.Yaml)}; " +
-            $"maxLine={compact.Yaml.Split('\n').Max(l => l.Length)}; revision={revision}; planningCalls={session.ModelCalls}; repairs=0; estimate={adapter.InputEstimate}");
+        output.WriteLine($"Static compiler comparison: {changes}; no planning calls or approval claimed.");
         if (Environment.GetEnvironmentVariable("GNOU_GO_V10_EVIDENCE") is { Length: > 0 } folder)
         {
             Directory.CreateDirectory(folder);
@@ -123,7 +115,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
     [Fact]
     public async Task V10FieldReconnectionRemovesLearnedAssemblyWithoutChangingAcceptedOutputs()
     {
-        var factory = new RealProductContracts.Factory(RealProductContracts.Capture(new DocumentPolicy(new(), AppContext.BaseDirectory)));
+        var factory = new RealProductContracts.Factory(CaptureIsolatedProductContracts());
         var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
         var catalog = await RetainedCatalog(runtime, TestContext.Current.CancellationToken); catalog.Policy.RequireExternalConfirmation = false;
         var proposal = V10Proposal(catalog, 2);
@@ -138,7 +130,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
     [Fact]
     public async Task V10TypedOriginalsRetainProducerRecordsAndNarrowConsumerViews()
     {
-        var factory = new RealProductContracts.Factory(RealProductContracts.Capture(new DocumentPolicy(new(), AppContext.BaseDirectory)));
+        var factory = new RealProductContracts.Factory(CaptureIsolatedProductContracts());
         var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
         var catalog = await RetainedCatalog(runtime, TestContext.Current.CancellationToken);
         catalog.Policy.RequireExternalConfirmation = false;
@@ -172,11 +164,11 @@ public sealed partial class LocalProductOutcomeExecutionTests
             $"steps={baseline.Steps}→{result.Steps}; sets={baseline.Sets}→{result.Sets}; YAML={Encoding.UTF8.GetByteCount(baseline.Yaml)}→{Encoding.UTF8.GetByteCount(result.Yaml)}; paidCalls=0");
     }
 
-    private static PlanningProposal V10Proposal(PlanningCatalog catalog, int gate)
+    private static TaskPlanFixture V10Proposal(PlanningCatalog catalog, int gate)
     {
         var directory = Path.Combine(AppContext.BaseDirectory, "Fixtures", "V10Composition");
         var plan = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(directory, "retained.json")), PlanningJsonContext.Default.TaskPlan)!;
-        var proposal = new PlanningProposal { Plan = plan, Requirements = JsonSerializer.Deserialize(
+        var proposal = new TaskPlanFixture { Plan = plan, Requirements = JsonSerializer.Deserialize(
             File.ReadAllText(Path.Combine(directory, "requirements.json")), PlanningJsonContext.Default.PlanningRequirements)! };
         var methods = new Dictionary<string, string> { ["cap_490d9e16075cbdca5954ec27"] = "browser_get_content",
             ["cap_37c513d225bb1b870053c5d3"] = "document_write", ["cap_bdb7ba9ab04b18783883fa86"] = "browser_close" };
@@ -249,37 +241,12 @@ public sealed partial class LocalProductOutcomeExecutionTests
     }
 
     private static async Task<PlanningSession> V10PlanningSession(PlanningCatalog catalog, WorkflowPlanningRuntime runtime,
-        ProposalRuntime adapter, bool revision, CancellationToken ct, string profile = "compact-bindings-v10")
+        TaskPlanFixture fixture, bool revision, CancellationToken ct, string profile = "compact-bindings-v10")
     {
-        var planner = new HybridWorkflowPlanner();
-        // The comparison's historical session is already versioned. A brand
-        // new session deliberately selects the current compiler profile.
-        var session = new PlanningSession { Catalog = catalog, Revision = profile == TaskPlanCompiler.CompactProfile ? 0 : 1, Request = new()
-        {
-            TenantId = "local", Options = new() { ["compilation_profile"] = profile, ["mapping_profile"] = "adaptive-each-v1" },
-            Prompt = "Preserve the accepted observed-data task and its exact output contracts.",
-            Policy = new() { RequireExternalConfirmation = false }, Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 }
-        } };
-        if (!revision)
-        {
-            session = await planner.AdvanceAsync(session, new() { ExpectedRevision = session.Revision }, adapter, ct);
-            Assert.Equal(profile, session.Request.Options["compilation_profile"]?.ToString());
-            return session;
-        }
-        session = await planner.AdvanceAsync(session, new() { ExpectedRevision = session.Revision }, new ProposalRuntime(runtime, V10Proposal(catalog, 0)), ct);
-        Assert.True(session.Status == PlanningStatus.FinalReview, string.Join('\n', session.Diagnostics));
-        var saved = JsonSerializer.Serialize(session, PlanningJsonContext.Default.PlanningSession);
-        var copy = JsonSerializer.Deserialize(saved, PlanningJsonContext.Default.PlanningSession)!;
-        copy = await planner.AdvanceAsync(copy, new() { Kind = "revise", PreserveRequirements = true,
-            ExpectedRevision = copy.Revision, ArtifactHash = copy.ComputeArtifactHash(),
-            Text = "Revise only data adaptation: typed original-record projections, compact page extraction, strict offered/original lookup, guarded nullable facts, exact observed blocks and header-plus-rows assembly. Preserve all accepted requirements, public output contracts, operations, order, writing and cleanup." }, adapter, ct);
-        Assert.Null(copy.Yaml); Assert.Null(copy.ApprovedHash);
-        Assert.Equal(JsonSerializer.Serialize(session.Plan, PlanningJsonContext.Default.TaskPlan), JsonSerializer.Serialize(copy.Request.Baseline, PlanningJsonContext.Default.TaskPlan));
-        copy = await planner.AdvanceAsync(copy, new() { ExpectedRevision = copy.Revision }, adapter, ct);
-        Assert.Equal(saved, JsonSerializer.Serialize(session, PlanningJsonContext.Default.PlanningSession));
-        Assert.Equal(JsonSerializer.Serialize(session.Requirements, PlanningJsonContext.Default.PlanningRequirements),
-            JsonSerializer.Serialize(copy.Requirements, PlanningJsonContext.Default.PlanningRequirements));
-        return copy;
+        await Task.CompletedTask; ct.ThrowIfCancellationRequested();
+        return RecordedPlanCompilation.CompileStatic(fixture, catalog, new()
+        { TenantId = "local", Prompt = fixture.Requirements!.Summary, Policy = new() { RequireExternalConfirmation = false },
+            Options = new() { ["compilation_profile"] = profile, ["mapping_profile"] = "adaptive-each-v1" } });
     }
 
     // Existing nullable branches and bounded projections are deliberately explicit:

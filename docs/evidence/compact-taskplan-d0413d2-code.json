@@ -1,0 +1,734 @@
+{
+  "version": 1,
+  "captured_utc": "2026-10-23T19:12:00.602276+00:00",
+  "cohort": "compactad0413d2a4code",
+  "scenario": "code",
+  "run_key": "run:compactad0413d2a4code-code-1",
+  "run_hash": "96174836d12160a3fe329dfe8e94cd212466e4145bd947c5fe2ea610d6d177b4",
+  "source": "d0413d2a4935757e8371a6ab8667538e4ceb0b30",
+  "frozen_identity": {
+    "freeze_sha256": "877208b3ff31dc2ee293d91840d593fdb268bd4ab307cd8984a6654178eed573",
+    "benchmark_binary_sha256": "0c98f5c7f4a84602ceb4d01e44d7dfea890766b61d02a4a67a7c9e743eacf284",
+    "configuration_hash": "e4b187879e34ce4b48999e72941caa81a3fd02a5b0bbc1cf9a8f67ab15bbd078",
+    "metadata_hash": "f37630df13544d2e2d11910560424f2224aeb414d63b3cb924e458e7b742237f",
+    "mcp_manifest_sha256": "5b2c4135da538375b4eb952c21aec11208a85aefc51ca1885227b9b2c9578d11",
+    "verified_mcp_file_count": 568,
+    "oracle_version": "code-business-v2",
+    "oracle_and_input_file_hashes": {
+      "tests/Shared/PlanningBenchmarkCases.cs": "a25de6fc75d94a06c5dc8fce96d04eb09ba4132caec76f35e7f644912433f998",
+      "tests/Shared/PlanningCorpus.cs": "28cabb7aa715a0008dd896e8e26b29d34c1ff6ac8b05b0519b48d52d1cf7404d",
+      "tests/Shared/PlanningBenchmarkMeasurements.cs": "c0169a9f07542d647e22176d58f023bba5eee935b68f0dab8784058ccbeb0ab7",
+      "tests/GnOuGo.Agent.Planning.Benchmark/Program.cs": "2af0ea7cec05bca7d78b751a03094d96b94b49c05a24f79f13470a25f561ea1d",
+      "tests/GnOuGo.Agent.Planning.Benchmark/LocalExecutionCases.cs": "c82c840daa0d24a07fff5e3d321d9fa98217afe42e65e27ba06c10ea07c9fd20",
+      "tests/GnOuGo.Agent.Planning.Benchmark/SyntheticArtifactOracle.cs": "0d121463cd5e659af725d4029671af441fe2605dc4a393fcc1c16394c103140d",
+      "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs": "0d8051d1a9d21b0697e55e25c347b17997eda636180a6cdb5c0652a344a9858c",
+      "tests/GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs": "0de12b163f5e3f0fc216a8950606a7e28c15a05a51dc47ea86d942bcd57867e5",
+      "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs": "7d669040d0c3e85ca3df1f8a18fa8aecd689b11de628c260e65a90e66ad157ca",
+      "tests/GnOuGo.Agent.Planning.Benchmark/LiveCodeEvidence.cs": "378e3ef422bb04ca48926e76ee0c4f803dd5a6629d33bc0318e68c188d20d5c3"
+    },
+    "validation_files_at_freeze": {
+      "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/query-directory-exact-claims/source-validation/validation-safe.json": "ceb65251f25fc4b2863b20124e8c28adb0ec8ac993d56d19ea149477cfa332fb",
+      "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/query-directory-exact-claims/exact-source-build-safe.json": "74dcd28e837d78b8038ca8607375643aa720eefc70e3f5f78f0435b7b065e8de"
+    },
+    "freeze_unchanged_across_two_reads": true
+  },
+  "configuration": {
+    "model": "gpt-5.5-2026-04-24",
+    "profile": "medium-navigation-output32768",
+    "phase_policy": {
+      "version": 1,
+      "navigation": {
+        "targetInputTokens": 3000,
+        "maxInputTokens": 16000,
+        "reasoning": "medium",
+        "outputTokens": 32768
+      },
+      "draft": {
+        "targetInputTokens": 8000,
+        "maxInputTokens": 16000,
+        "reasoning": "medium",
+        "outputTokens": 16384
+      },
+      "review": {
+        "targetInputTokens": 4000,
+        "maxInputTokens": 8000,
+        "reasoning": "medium",
+        "outputTokens": 4096
+      }
+    },
+    "max_model_calls": 64,
+    "max_repairs": 4,
+    "max_total_tokens": 15000000,
+    "planner_max_elapsed_ms": 18000000,
+    "benchmark_host_llm_max_elapsed_ms": 1800000,
+    "effective_planning_elapsed_ceiling_ms": 1800000,
+    "host_limit_note": "The unchanged Code freeze explicitly records the independent thirty-minute host ceiling and five-hour planner ceiling. This run stopped at858,200ms with CONSTRUCTION_CONTRACT_LIMIT; the host elapsed ceiling was not the terminal reason.",
+    "construction_preset": "ordinary",
+    "construction_version": 2,
+    "presentation_version": 4,
+    "supported_reasoning_efforts": [
+      "medium",
+      "high",
+      "max"
+    ],
+    "low_profile_tested": false
+  },
+  "outcome": {
+    "status": "incomplete",
+    "session_status": "stopped",
+    "session_phase": "construction_discovery",
+    "diagnostic_codes": [
+      "CONSTRUCTION_CONTRACT_LIMIT"
+    ],
+    "planner_issued_calls": 42,
+    "dispatched_calls": 42,
+    "receipts": 42,
+    "corrections": 3,
+    "checkpoints": 2,
+    "judge_calls": 5,
+    "construction_complete": false,
+    "artifact_created": false,
+    "execution_started": false,
+    "business_oracle_passed": null,
+    "useful_obligations": [
+      "pinned_checkout",
+      "repository_checks",
+      "requested_review",
+      "local_report",
+      "cleanup",
+      "truthful_result"
+    ],
+    "obligation_authority_sha256": "2118919ab93d66e45627d03c30b1d770a287489d33c9865112b224cbb9610e50",
+    "independently_satisfied_obligations": 0,
+    "calls_per_satisfied_obligation": null,
+    "ratio_status": "undefined: accepted checkpoints are not an accepted artifact or independently verified business execution",
+    "runner_exit_code": 0,
+    "runner_exit_note": "Runner completion is not workflow or business success."
+  },
+  "failure_findings": [
+    {
+      "code": "CONSTRUCTION_CONTRACT_LIMIT",
+      "finding": "The retained safe metrics record a discovery-phase stop after42 fully receipted calls. Prospective draft43 was rejected before dispatch at47,632 serialized bytes and16,134 estimated input tokens against16,000. Its component bytes reconcile. No HTTP attempt, receipt or unknown reservation exists for that rejected envelope.",
+      "classification": "known input-admission rejection; no unknown transport or empty-response failure",
+      "limits": "The additional host-inspected witness identifies coupled original root alternatives and normative text. No discriminator was bound; business prose cannot authorize branch inference or removal of required alternatives. No lossless pruning or budget increase is claimed."
+    }
+  ],
+  "measurements": {
+    "scope": "45 constructed identities comprise42 admitted/dispatched/receipted calls, two prepared-only draft follow-ups and one rejected prospective draft. Rejected request sizes remain included in complete-request aggregates.",
+    "totals": {
+      "request_identities": 45,
+      "http_attempts": 42,
+      "receipts": 42,
+      "unknown_attempts": 0,
+      "empty_completed_responses": 0,
+      "known_input_tokens": 185326,
+      "known_output_tokens": 41495,
+      "known_reasoning_tokens": 30516,
+      "reasoning_measured_calls": 42,
+      "known_cost_eur": "1.9379562695225345827755466312",
+      "unknown_usage_reservation_eur": "0",
+      "cost_upper_bound_eur": "1.9379562695225345827755466312"
+    },
+    "phases": {
+      "construction_intent": {
+        "constructed_requests": 4,
+        "admitted_requests": 4,
+        "rejected_before_dispatch": 0,
+        "complete_request_bytes": {
+          "count": 4,
+          "p50": "6874.5",
+          "p95": 10661,
+          "maximum": 10661,
+          "total": 27433
+        },
+        "estimated_input_tokens": {
+          "count": 4,
+          "p50": 2548,
+          "p95": 3810,
+          "maximum": 3810,
+          "total": 10170
+        },
+        "component_sizes": {
+          "diagnostics": {
+            "serialized_bytes": 104,
+            "estimated_tokens": 36
+          },
+          "envelope": {
+            "serialized_bytes": 1592,
+            "estimated_tokens": 1556
+          },
+          "instructions": {
+            "serialized_bytes": 4710,
+            "estimated_tokens": 1570
+          },
+          "intent": {
+            "serialized_bytes": 8606,
+            "estimated_tokens": 2871
+          },
+          "response_schema": {
+            "serialized_bytes": 12188,
+            "estimated_tokens": 4063
+          },
+          "evidence": {
+            "serialized_bytes": 46,
+            "estimated_tokens": 16
+          },
+          "interfaces": {
+            "serialized_bytes": 187,
+            "estimated_tokens": 63
+          }
+        },
+        "components_reconcile": true,
+        "within_input_limits": true,
+        "prepared_only_requests": 0,
+        "provider_usage": {
+          "dispatched_calls": 4,
+          "receipts": 4,
+          "provider_input_tokens": 5526,
+          "provider_output_tokens": 5989,
+          "provider_reasoning_tokens": 3871,
+          "visible_output_tokens_derived": 2118,
+          "known_cost_eur": "0.1850066934404283801874163320",
+          "completed_call_latency_ms": "85355.1663"
+        }
+      },
+      "construction_select": {
+        "constructed_requests": 4,
+        "admitted_requests": 4,
+        "rejected_before_dispatch": 0,
+        "complete_request_bytes": {
+          "count": 4,
+          "p50": 13802,
+          "p95": 14518,
+          "maximum": 14518,
+          "total": 54377
+        },
+        "estimated_input_tokens": {
+          "count": 4,
+          "p50": 4857,
+          "p95": 5096,
+          "maximum": 5096,
+          "total": 19151
+        },
+        "component_sizes": {
+          "construction_context": {
+            "serialized_bytes": 2036,
+            "estimated_tokens": 680
+          },
+          "envelope": {
+            "serialized_bytes": 1610,
+            "estimated_tokens": 1562
+          },
+          "instructions": {
+            "serialized_bytes": 7808,
+            "estimated_tokens": 2604
+          },
+          "interfaces": {
+            "serialized_bytes": 4395,
+            "estimated_tokens": 1467
+          },
+          "requirements": {
+            "serialized_bytes": 17834,
+            "estimated_tokens": 5946
+          },
+          "response_schema": {
+            "serialized_bytes": 18787,
+            "estimated_tokens": 6263
+          },
+          "evidence": {
+            "serialized_bytes": 1907,
+            "estimated_tokens": 636
+          }
+        },
+        "components_reconcile": true,
+        "within_input_limits": true,
+        "prepared_only_requests": 0,
+        "provider_usage": {
+          "dispatched_calls": 4,
+          "receipts": 4,
+          "provider_input_tokens": 12144,
+          "provider_output_tokens": 4461,
+          "provider_reasoning_tokens": 3211,
+          "visible_output_tokens_derived": 1250,
+          "known_cost_eur": "0.1736278447121820615796519412",
+          "completed_call_latency_ms": "80450.1365"
+        }
+      },
+      "construction_discovery": {
+        "constructed_requests": 23,
+        "admitted_requests": 23,
+        "rejected_before_dispatch": 0,
+        "complete_request_bytes": {
+          "count": 23,
+          "p50": 19620,
+          "p95": 26184,
+          "maximum": 26912,
+          "total": 449626
+        },
+        "estimated_input_tokens": {
+          "count": 23,
+          "p50": 6796,
+          "p95": 8984,
+          "maximum": 9227,
+          "total": 155769
+        },
+        "component_sizes": {
+          "construction_context": {
+            "serialized_bytes": 42827,
+            "estimated_tokens": 14280
+          },
+          "envelope": {
+            "serialized_bytes": 9227,
+            "estimated_tokens": 8967
+          },
+          "instructions": {
+            "serialized_bytes": 32844,
+            "estimated_tokens": 10948
+          },
+          "mcp_descriptors": {
+            "serialized_bytes": 96948,
+            "estimated_tokens": 32322
+          },
+          "objective": {
+            "serialized_bytes": 8425,
+            "estimated_tokens": 2820
+          },
+          "requirements": {
+            "serialized_bytes": 62563,
+            "estimated_tokens": 20868
+          },
+          "response_schema": {
+            "serialized_bytes": 92920,
+            "estimated_tokens": 30982
+          },
+          "evidence": {
+            "serialized_bytes": 103614,
+            "estimated_tokens": 34542
+          },
+          "diagnostics": {
+            "serialized_bytes": 258,
+            "estimated_tokens": 86
+          }
+        },
+        "components_reconcile": true,
+        "within_input_limits": true,
+        "prepared_only_requests": 0,
+        "provider_usage": {
+          "dispatched_calls": 23,
+          "receipts": 23,
+          "provider_input_tokens": 111690,
+          "provider_output_tokens": 11756,
+          "provider_reasoning_tokens": 9142,
+          "visible_output_tokens_derived": 2614,
+          "known_cost_eur": "0.8131459170013386880856760376",
+          "completed_call_latency_ms": "320884.1240"
+        }
+      },
+      "construction_draft": {
+        "constructed_requests": 6,
+        "admitted_requests": 3,
+        "rejected_before_dispatch": 1,
+        "complete_request_bytes": {
+          "count": 6,
+          "p50": "23490.5",
+          "p95": 47632,
+          "maximum": 47632,
+          "total": 170884
+        },
+        "estimated_input_tokens": {
+          "count": 6,
+          "p50": "8086.5",
+          "p95": 16134,
+          "maximum": 16134,
+          "total": 58500
+        },
+        "component_sizes": {
+          "construction_context": {
+            "serialized_bytes": 20827,
+            "estimated_tokens": 6943
+          },
+          "diagnostics": {
+            "serialized_bytes": 156,
+            "estimated_tokens": 54
+          },
+          "envelope": {
+            "serialized_bytes": 2464,
+            "estimated_tokens": 2358
+          },
+          "evidence": {
+            "serialized_bytes": 7569,
+            "estimated_tokens": 2527
+          },
+          "fragment": {
+            "serialized_bytes": 132,
+            "estimated_tokens": 48
+          },
+          "instructions": {
+            "serialized_bytes": 6792,
+            "estimated_tokens": 2268
+          },
+          "interfaces": {
+            "serialized_bytes": 5004,
+            "estimated_tokens": 1669
+          },
+          "mcp_contracts": {
+            "serialized_bytes": 46398,
+            "estimated_tokens": 15470
+          },
+          "objective": {
+            "serialized_bytes": 2168,
+            "estimated_tokens": 725
+          },
+          "requirements": {
+            "serialized_bytes": 16483,
+            "estimated_tokens": 5498
+          },
+          "response_schema": {
+            "serialized_bytes": 62891,
+            "estimated_tokens": 20965
+          }
+        },
+        "components_reconcile": true,
+        "within_input_limits": false,
+        "prepared_only_requests": 2,
+        "provider_usage": {
+          "dispatched_calls": 3,
+          "receipts": 3,
+          "provider_input_tokens": 18361,
+          "provider_output_tokens": 4140,
+          "provider_reasoning_tokens": 2560,
+          "visible_output_tokens_derived": 1580,
+          "known_cost_eur": "0.1927755466309683177153056671",
+          "completed_call_latency_ms": "65402.8148"
+        }
+      },
+      "construction_local_judge": {
+        "constructed_requests": 5,
+        "admitted_requests": 5,
+        "rejected_before_dispatch": 0,
+        "complete_request_bytes": {
+          "count": 5,
+          "p50": 20791,
+          "p95": 21594,
+          "maximum": 21594,
+          "total": 96294
+        },
+        "estimated_input_tokens": {
+          "count": 5,
+          "p50": 7187,
+          "p95": 7454,
+          "maximum": 7454,
+          "total": 33379
+        },
+        "component_sizes": {
+          "construction_context": {
+            "serialized_bytes": 18872,
+            "estimated_tokens": 6294
+          },
+          "diagnostics": {
+            "serialized_bytes": 130,
+            "estimated_tokens": 45
+          },
+          "envelope": {
+            "serialized_bytes": 2062,
+            "estimated_tokens": 1970
+          },
+          "evidence": {
+            "serialized_bytes": 125,
+            "estimated_tokens": 45
+          },
+          "fragment": {
+            "serialized_bytes": 17757,
+            "estimated_tokens": 5921
+          },
+          "instructions": {
+            "serialized_bytes": 15480,
+            "estimated_tokens": 5160
+          },
+          "interfaces": {
+            "serialized_bytes": 6327,
+            "estimated_tokens": 2111
+          },
+          "mcp_contracts": {
+            "serialized_bytes": 11491,
+            "estimated_tokens": 3832
+          },
+          "objective": {
+            "serialized_bytes": 1872,
+            "estimated_tokens": 626
+          },
+          "requirements": {
+            "serialized_bytes": 14495,
+            "estimated_tokens": 4835
+          },
+          "response_schema": {
+            "serialized_bytes": 7683,
+            "estimated_tokens": 2562
+          }
+        },
+        "components_reconcile": true,
+        "within_input_limits": true,
+        "prepared_only_requests": 0,
+        "provider_usage": {
+          "dispatched_calls": 5,
+          "receipts": 5,
+          "provider_input_tokens": 18665,
+          "provider_output_tokens": 10070,
+          "provider_reasoning_tokens": 9172,
+          "visible_output_tokens_derived": 898,
+          "known_cost_eur": "0.3529004908522980812137438644",
+          "completed_call_latency_ms": "157334.2122"
+        }
+      },
+      "replan": {
+        "constructed_requests": 3,
+        "admitted_requests": 3,
+        "rejected_before_dispatch": 0,
+        "complete_request_bytes": {
+          "count": 3,
+          "p50": 31522,
+          "p95": 32174,
+          "maximum": 32174,
+          "total": 87834
+        },
+        "estimated_input_tokens": {
+          "count": 3,
+          "p50": 10764,
+          "p95": 10981,
+          "maximum": 10981,
+          "total": 30047
+        },
+        "component_sizes": {
+          "construction_context": {
+            "serialized_bytes": 11508,
+            "estimated_tokens": 3836
+          },
+          "diagnostics": {
+            "serialized_bytes": 2985,
+            "estimated_tokens": 996
+          },
+          "envelope": {
+            "serialized_bytes": 1232,
+            "estimated_tokens": 1179
+          },
+          "evidence": {
+            "serialized_bytes": 75,
+            "estimated_tokens": 27
+          },
+          "fragment": {
+            "serialized_bytes": 11067,
+            "estimated_tokens": 3690
+          },
+          "instructions": {
+            "serialized_bytes": 3807,
+            "estimated_tokens": 1269
+          },
+          "interfaces": {
+            "serialized_bytes": 2824,
+            "estimated_tokens": 942
+          },
+          "mcp_contracts": {
+            "serialized_bytes": 13738,
+            "estimated_tokens": 4580
+          },
+          "objective": {
+            "serialized_bytes": 1133,
+            "estimated_tokens": 379
+          },
+          "requirements": {
+            "serialized_bytes": 8718,
+            "estimated_tokens": 2908
+          },
+          "response_schema": {
+            "serialized_bytes": 30747,
+            "estimated_tokens": 10250
+          }
+        },
+        "components_reconcile": true,
+        "within_input_limits": true,
+        "prepared_only_requests": 0,
+        "provider_usage": {
+          "dispatched_calls": 3,
+          "receipts": 3,
+          "provider_input_tokens": 18940,
+          "provider_output_tokens": 5079,
+          "provider_reasoning_tokens": 2560,
+          "visible_output_tokens_derived": 2519,
+          "known_cost_eur": "0.2204997768853190539937527889",
+          "completed_call_latency_ms": "71031.6428"
+        }
+      }
+    },
+    "complete_request_bytes": {
+      "count": 45,
+      "p50": 20715,
+      "p95": 32174,
+      "maximum": 47632,
+      "total": 886448
+    },
+    "estimated_input_tokens": {
+      "count": 45,
+      "p50": 7161,
+      "p95": 10981,
+      "maximum": 16134,
+      "total": 307016
+    },
+    "components_reconcile_independently": true,
+    "all_dispatched_requests_within_input_limits": true,
+    "all_constructed_requests_within_input_limits": false,
+    "oversized_rejected_request_count": 1,
+    "provider_totals_reconcile_independently": true,
+    "token_note": "Component tokens are conservative estimates, not billed usage. Provider reasoning tokens are included in output usage; visible output is output minus reasoning.",
+    "planning_ms": 858200,
+    "completed_call_stage_latency_ms": "780458.0966",
+    "runtime_ms": null,
+    "response_format": {
+      "received_texts": 42,
+      "original_text_utf8_bytes": 37153,
+      "outside_string_whitespace_bytes": 17,
+      "maximum_whitespace_run": 6
+    }
+  },
+  "decisive_evidence": {
+    "rejected_prospective_request": {
+      "requestId": "compactad0413d2a4code-code-1:43:4ac390ee4cb0be901bc47939766c00a72b85feb794198a9bc87fe2a9b8c70b71",
+      "requestHash": "a8f987ade8ea85a42c1a657899132fdd3c4c1825568b3d72ff59787d2c48b968",
+      "schemaHash": "1a0ca441cd11a150b5f4f510f5a963af040287ed9cd8a4ebc75273811d680fa8",
+      "baselineHash": "cb389e8fb1f9da2908073d53aaa5f793f5989533316801ee1dc861d9195eb1a7",
+      "phase": "construction_draft",
+      "stepId": "step_3",
+      "admission": "rejected_before_dispatch",
+      "completeRequestBytes": 47632,
+      "estimatedInputTokens": 16134,
+      "inputLimit": 16000,
+      "contracts": [
+        {
+          "id": "cap_5c01f9aa688163d23a30ff8b",
+          "version": "65e20ca33dad1cc212bb3846896aa40e7faba20858b1ca5510e60954ef73176d",
+          "hash": "390f0ab7a31daf66a2bdf0a15107d748e39f48db0789f6f5adca24a5ea2a2c48"
+        }
+      ]
+    },
+    "rejected_http_attempts": 0,
+    "rejected_receipt_present": false,
+    "rejected_unknown_reservation_eur": "0",
+    "retained_call_records": "Complete safe request/call hashes remain in the hash-indexed metrics source; original payloads remain encrypted."
+  },
+  "campaign_snapshot": {
+    "campaign": "schema-portability-20261019-incremental",
+    "audit_evidence_hash": "f6d0d8078888d1cc9ade80803c9517ed1a3d4d23e43de5e5d2fa5a15b899abc2",
+    "reserved_requests": 1928,
+    "completed_receipts": 1907,
+    "retained_uncertain_identities": 21,
+    "permanently_closed_identities": 21,
+    "uncertain_and_closed_identity_sets_equal": true,
+    "new_uncertain_attempts": 0,
+    "transport_accounting": {
+      "calls": 1928,
+      "session_calls": 0,
+      "known_input_tokens": 4727682,
+      "known_output_tokens": 1968178,
+      "known_cost_eur": "73.625507200757174258216550546",
+      "reserved_input_tokens": 217657,
+      "reserved_output_tokens": 335872,
+      "reserved_cost_eur": "9.942081545174150198352579727",
+      "cost_upper_bound_eur": "83.56758874593132445656913027",
+      "unknown_attempts": 20
+    },
+    "cost_ceiling_eur": "240.0301038327063045424449473",
+    "available_allowance_eur": "156.46251508677498008587581703",
+    "available_before_dispatch_eur": "158.40047135629751466865136366",
+    "before_minus_run_known_cost_eur": "156.4625150867749800858758170288",
+    "cross_check_minus_audit_eur": "-1.2E-27",
+    "precision_note": "Original Decimal values are preserved. Before-minus-run cross-check differs from final cumulative audit by-1.2E-27; the audit is authoritative and no amount is adjusted.",
+    "financial_controls": "No campaign ceiling, historical unknown-usage reservation or permanent closure changed."
+  },
+  "comparison": {
+    "frozen_profile_change": {
+      "from_cohort": "compactaf3cb064f8code",
+      "source_unchanged": false,
+      "source_changed": "Current-query automatic operation directories with exact historical evidence recovery; exact requirement completion IDs for scoped Judges. No runtime, validation, correction authority or contract changes.",
+      "setting_change": null,
+      "evidence": "Review PR control call43 alleges completion of req9 although exact closeRequirementIds contains only req11. Retained older-query pages contain22 operation rows; automatic directories repeatedly supplied41 older-query descriptor rows across requests.",
+      "comparison_limit": "Fresh independent source diagnostic; configuration-level outcomes only. Source change prevents isolating output-budget causality. No retry or continuation of earlier runs."
+    },
+    "status": "independent diagnostic; no paired baseline comparison or complete business acceptance",
+    "causality": "The source changed from the earlier Code control. This diagnostic does not establish causal convergence, avoided corrections or business performance."
+  },
+  "source_evidence_index": {
+    "freeze.json": {
+      "private_relative_path": "compactad0413d2a4code/freeze.json",
+      "sha256": "877208b3ff31dc2ee293d91840d593fdb268bd4ab307cd8984a6654178eed573",
+      "bytes": 6255
+    },
+    "code-safe-metrics.json": {
+      "private_relative_path": "compactad0413d2a4code/code-safe-metrics.json",
+      "sha256": "dc4b523e79c8161456a7ec46d18862c0246a20844a40d219a0ec45be43eaec0d",
+      "bytes": 169546
+    },
+    "code-response-format-metrics.json": {
+      "private_relative_path": "compactad0413d2a4code/code-response-format-metrics.json",
+      "sha256": "0085a0cec20fe745095383df33725df5dc338cef78b8325ace36024346893715",
+      "bytes": 15158
+    },
+    "campaign-post-code-audit.json": {
+      "private_relative_path": "compactad0413d2a4code/campaign-post-code-audit.json",
+      "sha256": "f93d32f8d9f5b7bda0963332ce93dd199fd0d4b0b2812ebe68f27ec6d4f4d7f7",
+      "bytes": 5630
+    },
+    "code-exit.json": {
+      "private_relative_path": "compactad0413d2a4code/code-exit.json",
+      "sha256": "224bf4edc38f12a8630d86c29a396079d1bad424023b5f7d95361c0f1b8eea2b",
+      "bytes": 67
+    },
+    "code-failure-facts.json": {
+      "private_relative_path": "compactad0413d2a4code/code-failure-facts.json",
+      "sha256": "6e3edb5e8975e27e84af14528eeaf2b8f7eecafc00fcf8414f5cf2b36a0421f0",
+      "bytes": 8334
+    }
+  },
+  "scope": "Safe aggregate metadata only; no original prompts, provider bodies, contract bodies, credentials, decrypted session or execution authorization. Prior archives and frozen sources remain unchanged.",
+  "archive_revision": 2,
+  "supersedes_private_draft": {
+    "path": "/private/tmp/gnougo-d0413d2-code-closeout/compact-taskplan-d0413d2-code.json",
+    "sha256": "d4d7d8c953742baae35d6596eec9dc214f1c36010bc019173ab0d429bd961365",
+    "reason": "Adds the newly authorized host-inspected safe failure witness; earlier private draft and all original evidence remain unchanged."
+  },
+  "failure_facts": {
+    "basis": "Exact encrypted requests, receipts and stopped session inspected in memory; this file contains safe hashes and bounded assessments only.",
+    "independent_findings": [
+      {
+        "call": 11,
+        "classification": "grounded business binding defect",
+        "facts": "The tentative clone input bound the caller pull-request URL directly as the repository remote. The local correction replaced that with the exact repository remote. Later pinned checkout/provenance remained unfinished, not independently accepted."
+      },
+      {
+        "call": 32,
+        "classification": "unsupported business conclusion from incomplete presented contract evidence",
+        "facts": "The report alleges an unsupported required provider channel, explicitly noting that the operation description is incomplete and an exact contract could resolve it. The frozen review supplies an opaque operation identity and bounded generic description, but omits the original capability server and method. The exact selected original is the requested provider implementation. No requirement was closing.",
+        "limitation": "The missing presentation facts do not prove runtime success or every property of the original provider. No matched avoided correction or measured false-positive rate is claimed."
+      },
+      {
+        "call": 34,
+        "classification": "grounded narrowing in visible task instructions",
+        "facts": "The drafted instructions limited dependency installation to dependencies needed for analysis/tests, while the original requires all project dependencies. The local repair restored the broader original requirement."
+      },
+      {
+        "call": 43,
+        "classification": "known pre-dispatch prospective request rejection",
+        "facts": "The cleanup command original has a coupled root oneOf covering exact command names and parameter constraints. No branch was bound yet. Full coupled constraints and normative prose made the prospective draft47,632bytes/16,134estimated tokens against16,000. No exact issued request/receipt exists for43; the retained measurement and failed binding are the evidence. The host30minute ceiling was not reached.",
+        "limitation": "Do not infer a chosen schema branch from business prose or silently omit coupled alternatives. No claim of lossless automatic pruning."
+      }
+    ],
+    "review_counts": {
+      "reports": 5,
+      "reports_with_findings": 3,
+      "actual_corrections": 3,
+      "inconclusive": 0,
+      "reassessments": 0,
+      "matched_avoided_corrections": null
+    },
+    "verification": "This archive independently matched every witness request/receipt hash to safe metrics. Original encrypted payloads were not read again.",
+    "interpretation": "The provider-origin omission and challenged requirement are recorded with their limits; no runtime validity, avoided correction or false-positive rate is established."
+  }
+}

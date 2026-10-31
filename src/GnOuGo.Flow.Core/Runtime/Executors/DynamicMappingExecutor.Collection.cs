@@ -14,12 +14,14 @@ public sealed partial class DynamicMappingExecutor
         JsonObject sources, JsonArray items, string input, JsonObject target, JsonObject itemTarget, JsonNode objective,
         string? previous, string? failure, int? failedIndex, CancellationToken ct, IReadOnlyList<int>? adaptiveIndices = null, JsonNode? failureDetails = null)
     {
+        using var warnings = ctx.LLMUsageBudget?.ObserveTokenWarnings(request.ClientRequestId);
         var allowance = (ctx.Engine.LLMCapabilities ?? client as ILLMCapabilityResolver) is { } resolver
             ? await resolver.InputTokenAllowanceAsync(request.Provider, request.Model, request.MaxTokens!.Value, ct) : null;
         if (allowance is null)
             throw new WorkflowRuntimeException(ErrorCodes.LlmBudgetUnverifiable, "No verified input allowance for mapping generation.");
         var hostLimit = ctx.Limits.MaxMappingInputTokens ?? 12_000;
         var limit = Math.Min(allowance.Value, hostLimit);
+        var advisoryTokens = ctx.LLMUsageBudget?.AdvisoryTokenThresholds == true;
         const int framingAllowance = 4096;
         long requestBound = 0, emptyRequestBound = 0;
         long? smallestExampleRequestBound = null;
@@ -42,12 +44,17 @@ public sealed partial class DynamicMappingExecutor
             (adaptiveIndices is null
                 ? "The host applies this same expression to EVERY original item, preserving order and nesting, with no filtering or aggregation.\n"
                 : "The host validates this expression against EVERY assigned unresolved item. Previously validated results stay unchanged. The complete result retains every original item in order and nesting, with no filtering or aggregation.\n");
-        bool Fits()
+        bool Fits(bool mandatory = false)
         {
             request.Prompt = Instructions + collectionInstruction + payload.ToJsonString();
             // UTF-8 bytes are a conservative bound for the supported byte-level
             // tokenizers. Reserve framing in addition to the complete Flow request.
             requestBound = (long)Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)) + framingAllowance;
+            if (mandatory && advisoryTokens && requestBound > limit)
+            {
+                PlanningTokenThresholds.Warn("mapping.dynamic", "estimated_input_bound", requestBound, limit);
+                return true;
+            }
             return requestBound <= limit;
         }
         void ObserveAdmission(string outcome)
@@ -77,7 +84,7 @@ public sealed partial class DynamicMappingExecutor
                 ["source_items"] = items.Count, ["examined_items"] = examined.Count, ["source_index"] = sourceIndex
             });
         }
-        var contextFits = Fits();
+        var contextFits = Fits(mandatory: true);
         emptyRequestBound = requestBound;
         if (!contextFits) throw Rejected("context_too_large", "The approved mapping context and target exceed the safe request allowance.");
         var shapes = new HashSet<string>(StringComparer.Ordinal);
@@ -95,7 +102,7 @@ public sealed partial class DynamicMappingExecutor
             examples.Add((JsonNode)new JsonObject { ["index"] = index, ["item"] = items[index]?.DeepClone() });
             payload["omitted_count"] = items.Count - examples.Count;
             examined.Add(index);
-            var fits = Fits();
+            var fits = Fits(mandatory);
             if (examples.Count == 1)
                 smallestExampleRequestBound = Math.Min(smallestExampleRequestBound ?? long.MaxValue, requestBound);
             if (fits) return;
@@ -112,7 +119,7 @@ public sealed partial class DynamicMappingExecutor
         if (adaptiveIndices is not null && previous is not null)
         {
             payload["previous_script"] = previous;
-            if (!Fits()) payload["previous_script"] = null;
+            if (!Fits(mandatory: advisoryTokens)) payload["previous_script"] = null;
         }
         foreach (var index in required) Add(index, adaptiveIndices is null || index == failedIndex);
         Add(adaptiveIndices?[0] ?? 0, false); Add(adaptiveIndices?[^1] ?? items.Count - 1, false);
@@ -120,6 +127,7 @@ public sealed partial class DynamicMappingExecutor
         if (adaptiveIndices is not null && examples.Count == 0)
             foreach (var index in adaptiveIndices)
             { Add(index, false); if (examples.Count != 0) break; }
+        if (examples.Count == 0 && advisoryTokens) Add(adaptiveIndices?[0] ?? 0, true);
         if (examples.Count == 0) throw Rejected("no_initial_example_fits", "No complete initial mapping example fits the safe request allowance.");
         _ = Fits();
         ObserveAdmission("accepted");

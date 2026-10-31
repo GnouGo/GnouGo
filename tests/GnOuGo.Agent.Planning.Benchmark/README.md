@@ -1,718 +1,334 @@
-# Planning evaluation corpus
-
-## First-proposal measurements
-
-The first non-null submitted `plan` response and its diagnostics are captured separately
-from discovery, clarification, correction and physical transport attempts. Rows report
-`first_proposal_structurally_valid`, `first_proposal_business_correct`, FinalReview and
-execution-oracle success separately. The historical `first_pass_valid` column is now an
-alias for first-proposal structural validity; it is no longer a one-call metric.
-
-Business correctness is assigned from an independent execution oracle only when the
-executed request, requirements and plan match the unchanged first proposal. Observer
-metadata and later approval-hash changes do not create a different candidate. Original proposals that were changed
-before execution remain unknown unless independently assessed. Omitted requirements,
-extra operations and redundant tasks remain null when the oracle has not established
-those individual judgments. Unknown usage remains null; fixture tokens are estimates,
-never provider usage. Failures and prior results are retained.
-
-The retained live runtime campaign keeps its explicit 96,000-token input and
-32,768-token output ceilings; these are separate from fresh planning defaults. An oversized full serialized request returns
-`LLM_BUDGET_EXCEEDED`, `classification: request_input_allowance`,
-`measurement: conservative_token_estimate`, the applied `limit` and measured
-`current`, and `dispatch_status: not_started`. Output-limit refusals use
-`request_output_allowance` and `declared_output_tokens`. These single-request
-refusals are distinct from cumulative budget exhaustion. Neither the private
-payload nor generated code enters diagnostics; failed-step context is supplied by
-the existing engine. A local mapping attempt rejected before dispatch is not a
-physical provider attempt or billed usage. Existing encrypted receipts and limits
-remain unchanged during recovery.
-
-The [18 October Amazon retest](../../docs/evidence/bounded-observations-2026-10-18/README.md)
-preserves a structurally valid first proposal that failed before extraction dispatch.
-Its scalar extraction still bound the complete observation; zero extraction provider
-calls does not mean zero runtime cost, because an earlier transform completed.
-The subsequent generic prompt correction is separate from that frozen failed run.
-It explains full learning inputs, deterministic projection and shared `each` context;
-its presence alone is not live business-correctness evidence.
-
-Live corpus and stabilization runs stop at FinalReview. Inspect the retained request,
-requirements, tasks and uncertainty, then supply `--review-run <source:phase:case:repetition>`
-and `--review-command <file>` with the existing explicit `approve` command (reviewer-set
-`expectedRevision`, `artifactHash`, and `reviewedRequirementIds`). Stabilization uses
-`source:cohort:case:repetition`. No live acknowledgments are synthesized. Scripted corpus
-execution uses the independently authored fixture requirement IDs. An execution already
-started is never repeated after uncertain completion.
-
-Add `--first-proposal-gate` to the existing corpus or stabilization comparison command
-for the separately authorized live gate: at least 25% fewer business-incorrect first
-proposals, no safety regression and no higher median planning calls or total planning
-tokens. Three repetitions, identical model/settings and frozen fixture/contract/oracle
-material are required. Missing judgments, unknown totals and incomparable cohorts are
-inconclusive. A zero-failure baseline must remain zero but cannot establish a relative
-reduction. Descriptive Wilson intervals report sampling uncertainty. Historical gates
-remain available for their original recorded cohorts.
-
-The [implementation comparison](../../docs/evidence/first-attempt-taskplan-2026-10-17/README.md)
-is offline. No paid inference or externally effectful live execution was authorized.
-
-## Optional Judge and convergence measurements
-
-Fresh corpus and stabilization sessions default to twelve planning calls, four
-corrections, 32,000 input tokens and 32,768 output tokens. `--business-judge` explicitly
-enables the independent advisory review; omission keeps it disabled on creation. Both runners
-accept `--max-model-calls`, `--max-repairs`, `--max-input-tokens` and
-`--max-output-tokens` for controlled comparisons. Retained runs use their persisted
-settings; a new configuration requires a new frozen run identity, not mutation of old
-evidence. Historical campaigns below keep their original explicit limits.
-Omitted switches preserve retained values; explicit mismatches, including
-`--no-business-judge` against an enabled run, fail before continuing it. A cohort's
-settings are frozen before collection. The stabilization context manifest is version 2;
-version 1 records remain immutable and inspectable, and a changed harness requires a
-new campaign.
-
-Compare Judge enabled/disabled under identical budgets, model/settings, contracts,
-cases and independent oracle versions. Measure changes to creation defaults separately;
-a larger allowance and an extra observer are different interventions. Freeze the
-complete candidate and fixture/contract/oracle hashes before collecting each comparable
-cohort. Model evaluation still requires separate paid-call authorization and the existing
-cumulative financial ceiling. This implementation does not itself establish live benefit
-or authorize a new campaign.
-
-The corpus runner reserves separate identities with `--arm judge` or `--arm defaults`;
-the unqualified identity remains the control. Use `--business-judge --arm judge` for
-the observer arm, or numeric overrides with `--arm defaults` for the budget arm.
-`--compare-parent <same-commit> --candidate <same-commit> --judge-comparison`
-loads control and Judge arms; `--defaults-comparison` loads control and defaults arms.
-The existing parent/candidate phase switches still select the stored cohorts.
-Stabilization uses its `baseline` and `final` cohort identities with the same commit,
-then accepts the same comparison switches alongside `--compare` and `--candidate`.
-Both reports require three repetitions, a common source/context/model and independent
-outcomes. A Judge comparison rejects changed budgets; a defaults comparison requires
-the Judge disabled in both arms. Missing settings, labels or incompatible arms remain
-inconclusive. These descriptive reports do not declare the first-proposal gate passed
-or establish a live benefit. Unknown costs and tokens have null medians.
-
-`candidate_reviews` retains each compiled candidate separately from `first_proposal`.
-Independent execution labels apply only to the matching request, revision, answers,
-requirements, discovery, contracts and plan hash
-once all expected oracle variants have run. A changed or unexecuted first proposal stays
-unknown. `business_review` reports independently labelled candidate-level true/false
-positives and negatives, unknown or unjudged candidates, convergence and introduced
-regressions. These are artifact-level measurements, not per-finding precision. A
-syntactically valid Judge report is never an oracle label; a no-findings report can be a
-false negative, and a finding can be a false positive. Invalid, skipped and inconclusive
-reviews remain unjudged.
-
-`planning_stages` separates logical calls and elapsed time by the saved call purpose,
-including `judge`, and aggregates usage/cost from the corresponding receipts. Physical
-attempts require transport evidence; absent counts, usage and costs remain null.
-Correction counts and final stop outcomes remain separate from first-proposal validity.
-Judge calls use the same reservations, receipts and cumulative allowances as generation
-and correction; there is no parallel allocation. Completed reviews are reused for an
-unchanged context, including recovery.
-
-Offline adapters return explicitly scripted reports. Fixtures, negative variants and
-replay test accounting, scope protection and oracle classification; they cannot measure
-a real model's false-positive rate or prove business improvement. Preserve failures and
-inconclusive candidates. Keep live-model, real-execution and scripted results separately
-labelled, and never synthesize live requirement acknowledgments.
-
-The diagnostic follow-up captures fresh private review/correction profiles. Its
-offline regressions compare all independently available output/coverage findings
-before the first repair, convergence within the existing allowance, unrelated-edit
-rejection and inconclusive Judge recovery without another call. Typed response
-constraints and clearer input-readiness descriptions are mechanism changes, not
-independent business labels. Keep the original proposal, rejected candidates,
-per-purpose call counts and unknown usage in reports. An invalid Judge reference
-cannot be counted as a correct review or repaired through a hidden extra call.
-Retained live campaigns keep their original settings and failed records; new defaults
-must not be retroactively attributed to those campaigns.
-
-The [diagnostic follow-up evidence](../../docs/evidence/taskplan-diagnostics-2026-10-18/README.md)
-records the focused regressions, preserved failed attempts and final offline comparison.
-It does not dispatch a new live campaign.
-
-## Planner stabilization comparison
-
-The [completed campaign report](../../docs/evidence/planner-stabilization/results-7d5d42b2.md)
-records the frozen final production revision, passing comparison and retained failures.
-
-`--stabilization` is the execution-based eleven-case campaign. It uses the eight
-unchanged corpus requests and three real filesystem workflows through the shipped
-Cmd MCP stdio process. Real effects are confined to a disposable workspace per run;
-the oracle checks contents, unchanged inputs, permission denial, and creation/cleanup
-calls independently. No remote publication is part of this campaign.
-
-Build the benchmark and Cmd MCP in Release. Freeze the harness before collecting
-the baseline, and use that same harness against both production revisions:
-
-```sh
-# Baseline worktree: 22bba1a5 (production 7288b699).
-dotnet build tests/GnOuGo.Agent.Planning.Benchmark -c Release -m:1 -warnaserror -p:SkipClientBuild=true
-dotnet build src/GnOuGo.Cmd.Mcp -c Release -m:1 -warnaserror
-STABILIZATION_CMD_DIR="$(mktemp -d)"
-cp -R src/GnOuGo.Cmd.Mcp/bin/Release/net10.0/. "$STABILIZATION_CMD_DIR/"
-dotnet run --no-build -c Release --project tests/GnOuGo.Agent.Planning.Benchmark -- \
-  --stabilization --campaign planner-stabilization-20260930 --cohort baseline \
-  --source 7288b6997c704b8ca098761c030071d61da1ce1a \
-  --cmd-executable "$STABILIZATION_CMD_DIR/GnOuGo.Cmd.Mcp"
-# Switch to the frozen candidate worktree; keep STABILIZATION_CMD_DIR unchanged.
-dotnet build tests/GnOuGo.Agent.Planning.Benchmark -c Release -m:1 -warnaserror -p:SkipClientBuild=true
-dotnet run --no-build -c Release --project tests/GnOuGo.Agent.Planning.Benchmark -- \
-  --stabilization --campaign planner-stabilization-20260930 --cohort final --source <candidate-sha> \
-  --cmd-executable "$STABILIZATION_CMD_DIR/GnOuGo.Cmd.Mcp"
-dotnet run --no-build -c Release --project tests/GnOuGo.Agent.Planning.Benchmark -- \
-  --stabilization --campaign planner-stabilization-20260930 \
-  --compare 7288b6997c704b8ca098761c030071d61da1ce1a --candidate <candidate-sha>
-```
-
-Run collection in clean isolated worktrees at the recorded harness/production
-revisions: baseline harness `22bba1a5` over production `7288b699`, and the candidate
-revision linked in the evidence report. Build each runner in its own worktree and
-share only the frozen Cmd directory and encrypted campaign. The recorded Cmd binary
-was built at `456b05c7` (Cmd source identical to the production baseline); its exact
-assembly hash is retained in every manifest. Reuse that frozen binary for historical
-collection/replay. A separately authorized fresh campaign must freeze its own binary
-once and use that identical directory for both revisions. The manifest hashes
-must match before candidate dispatch. Existing retained identities are read-only
-replays; a new measurement campaign needs its own explicitly authorized allowance.
-
-`--source` permits a harness-only commit over that production tree, never changed
-production. `--cmd-executable` supplies an absolute path to a separately built server.
-Copy the complete Cmd Release directory outside subsequent build outputs before
-starting collection, and pass that frozen apphost with `--cmd-executable` to both
-cohorts. A rebuild can change assembly hashes through source-version metadata even
-when Cmd source is unchanged.
-The campaign pins harness/oracle/accounting/configuration hashes, the Cmd assembly,
-OS/runtime and limits. Each row records production and harness commits separately.
-Both cohorts require three repetitions of all eleven cases. `--cohort diagnostic
---cases <names>` records one separate diagnostic repetition per source revision.
-Reissuing a completed identity reads its result without another dispatch. Interrupted
-execution is failed evidence; it is never automatically repeated. Interrupted planning
-uses the existing encrypted request journal and original schemas.
-
-The fresh EUR 50 ceiling covers both revisions, diagnostics and execution inference.
-Logical planning calls, physical attempts, discovery reads, repairs, tokens and
-planning/execution/total latency are distinct. Unknown usage remains unknown. Final
-acceptance requires 33 correct executions, successful nominal variants, zero safety
-violations, and one planning call with zero repairs for each simple case. Incomplete
-or mismatched cohorts are inconclusive. Historical review-based gates do not apply.
-
-Read a sanitized result with `--stabilization --campaign <id> --inspect
-<source>:<cohort>:<case>:<repetition>`. `--private-evidence` additionally returns the
-encrypted session/diagnostic evidence for local inspection; never redirect that
-private output to plaintext files or commit it. All failure identities and budget
-reservations remain retained. Generic fixes and further diagnostic iterations are
-authorized for this campaign within its shared ceiling; failed final cohorts are
-not overwritten or pooled with a later revision.
-
-## Historical corpus campaigns
-
-Eight frozen requests cover arithmetic, read/transform, nullable values/defaults, routing, parallel collections/subflows, protected writes/cleanup, the original French PR review and an English review with 80 irrelevant tools. All external integrations are mocked. Expected results use independent alternate inputs and observations; review evaluation checks passing, failed and incomplete executions in one clone. All eight offline intent fixtures exercise construction and execution. They are not a live-model reliability score. Rejected confirmation and changed-head cases must prevent publication while preserving cleanup.
-
-```bash
-dotnet build tests/GnOuGo.Agent.Planning.Benchmark -m:1 -warnaserror
-dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark
-dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- --live-command /absolute/path/to/model-adapter --campaign <fresh-candidate-id> --phase pilot
-dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- --keyvault-provider openai --model <configured-model> --campaign <fresh-candidate-id> --phase pilot
-```
-
-A live adapter reads one source-generated `LLMRequest` JSON from stdin and returns one `LLMResponse` JSON on stdout. It must honor strict schemas, medium reasoning, durable request identities and token ceilings; enforce the aggregate evaluation budget; and return verified usage plus `usage.benchmark_cost_eur`. Configure credentials through the adapter's trusted configuration boundary. Each invocation is bounded to ten minutes. Missing usage is explicitly reported. It stops the campaign unless the HTTP journal provides a conservative bound admitted under the remaining budget. Never redispatch an uncertain request identity; command adapters must provide their own durable accounting and do not inherit the built-in HTTP recovery.
-
-The built-in KeyVault option uses the Agent host's configuration mapper without starting the host or connecting to MCP integrations. Keep the same campaign ID for both revisions: its encrypted request receipts and EUR 50 ledger survive process restart. An OS lease serializes campaign dispatch, and a conservative per-request cost bound prevents spending beyond the remaining allowance. The provider HTTP layer may recover one uncertain generation attempt; its full possible usage is reserved before the new identity is dispatched. Exhaustion stops the campaign. Existing planning sessions are never read or modified.
-
-JSONL output retains failures and reports first-pass validity, FinalReview, independent execution correctness, calls, repairs, verified input/output tokens, cost, initial request bytes (prompt plus response schema), estimated input tokens, static validation results and duration. The summary reports rates and cohort median/p75 calls. Nonzero exit means coverage or a cohort gate failed. `--case <name>` selects one frozen case. No generated YAML or model response is printed by the runner.
-
-Fixture rows leave token usage and cost unknown (`null`). Live rows report partial known cost separately when a missing receipt makes total usage unknown. Initial request measurements include the strict response schema. The historical [accepted reliability report](../../docs/planning-default-response-domains-2026-09-20.md) records the completed pilot and measured cohort. The [migration report](../../docs/planning-business-intent-validation-2026-09-19.md) retains earlier request-size comparisons and incomplete evaluation evidence.
-
-## Independent candidate campaign
-
-Schema-9 replaces the former planning architecture. Historical reliability reports describe their recorded revisions and do not establish a pass for this implementation. The replacement campaign compares against parent `46c2c77` in an isolated checkout, with the same model and limits. The runner defaults live evaluation to all eight frozen cases, including `nullable_defaults`. `--cases` accepts a comma-separated selection without changing the frozen requests. Live evaluation requires a clean committed source tree.
-
-```bash
-dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
-  --keyvault-provider openai --campaign <fresh-candidate-id> --phase pilot
-dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
-  --keyvault-provider openai --campaign <same-candidate-id> --phase measured
-```
-
-Pilot runs each case once. Measured evaluation requires the same revision's eight passing pilot results and runs three additional repetitions per case. Provider/model/request policy are resolved from KeyVault once at startup and pinned in the campaign's encrypted configuration. `--model` optionally asserts the expected configured model. One EUR 50 ceiling covers the entire new campaign, including failed runs and fixes; previous ledgers are untouched.
-
-The existing encrypted request/receipt journal now also stores session checkpoints, usage receipts keyed by request identity, intermediate diagnostics and final run results. Repeating a command reuses completed results or resumes the reserved session. An uncertain attempt is never resent under its original identity. The shared HTTP retry policy may admit one new attempt after conservative accounting; exhausted or unjournaled uncertainty stops the campaign. `--inspect-run <source-sha>:<phase>:<case>:<repetition>` reads encrypted evidence to stdout for local diagnosis; add `--include-receipts` to inspect the original reserved schemas and responses; do not redirect private evidence to plaintext files or commit it.
-
-Rows include source/session identity, phase, per-variant execution outcomes, confirmation/cancellation checks, safety violations and provisional diagnostic categories. Classification codes are an initial aid, not proof: inspect exact evidence and the independent oracle before confirming a cause or editing production code. Keep semantic misunderstanding, retrieval miss, invalid intent, builder defect, inference limitation, validator/oracle defect and provider/transport failure distinct. Safely rejected proposals are not executed safety violations.
-
-Cancellation variants interrupt the mocked work operation before it returns a response,
-then require a cancelled result, cleanup and no publication. Cancelling only after the last
-operation completed can race with successful completion and is not a reliable interruption test.
-
-Summary gates use all 24 measured runs on one revision: at least 22 reach FinalReview, at least 19 reach it within two calls, median calls at most two, zero safety violations and every approved artifact passing independent execution. Missing cases, mixed revisions or execution failures cannot pass. Pilot and measured statistics remain separate. Unknown usage is never zero; known partial tokens/cost are reported separately. Costs are metadata/FX estimates from provider usage, not invoices.
-
-The historical [independent candidate report](../../docs/planning-candidate-reliability-2026-09-19.md) records a failed initial pilot, targeted nested-input inference correction and subsequent provider stop. That campaign did not establish measured reliability. The later accepted cohort is documented separately; campaigns, revisions and costs must not be pooled into a success rate.
-
-## Offline replay of the first recorded action
-
-```bash
-dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
-  --campaign <existing-campaign-id> --replay-run <source-sha>:pilot:<case>:1
-```
-
-Replay reads the first planning-action reservation and receipt through encrypted KeyVault records, validates against the original response schema and rebuilds with the current planner. It uses an in-memory session limited to that one receipt, runs the existing independent execution variants when compilation succeeds, and reports `mode: replay` with `live_model_calls: 0`. It never initializes a provider, writes campaign records, retries a missing receipt or counts toward live cohort statistics. A first action that only selects capabilities cannot reconstruct a later graph. Diagnostics that need another model decision remain unresolved. Exit 1 means the recorded proposal did not pass construction or independent execution. Inspection and replay work without provider configuration and may inspect a dirty working tree; record the tested revision when publishing results.
-
-## Applying a committed pending response
-
-`--schema-portability recover-receipt --workspace <workspace> --campaign <id>
---run <label> --expected-revision <revision> --request-id <exact-pending-id>
---interrupted-ms <uncheckpointed-active-time>` validates and advances exactly one
-committed response in memory. Add `--apply` only when authorized to checkpoint
-that recovery. The command requires a clean committed build and holds the existing
-campaign lease; it creates no provider or MCP transport. A missing receipt, changed
-request/schema, wrong tenant/revision, prior execution or inconclusive closure
-rejects recovery. Additional inference and discovery are unavailable.
-
-Recovery retains the original source/manifest, request, receipt, requirements,
-financial records and allowances. The checkpoint records the validator build,
-hashes, previous session/result and interrupted active time. Interrupted time must
-come from retained execution evidence, not wall time spent waiting for an operator.
-The elapsed allowance is never reset. Repeating an applied recovery is rejected;
-a failed checkpoint leaves the committed response available without another charge.
-Review readiness or remaining diagnostics end the command—neither execution nor
-another paid repair follows. The original live harness's frozen-build checks and
-artifact approval requirements remain in force.
-
-## Inspecting an uncertain request
-
-`--campaign <id> --inspect-campaign` reports reservation/receipt counts, pending identities, the known budget snapshot and a hash of the campaign evidence. It is read-only and does not initialize model configuration. `--inspect-run <key> --include-receipts` now includes pending reservations even when no usage receipt exists, along with any retained safe failure metadata. Private request/receipt inspection still must not be redirected to plaintext files.
-
-New failed dispatches retain the existing provider-neutral failure kind, HTTP status, safe provider code, retry metadata and failure stage in encrypted records. Exception messages, raw bodies and credentials are excluded. This does not authorize retries, create a completion receipt or retroactively recover missing metadata. A reservation remains uncertain if completion or receipt persistence fails. Missing-receipt replay exits 2 with `REPLAY_UNAVAILABLE`; no request is sent.
-
-## Bounded HTTP recovery
-
-The built-in KeyVault model now uses AI.Core's single HTTP retry loop. Provider `RetryPolicy`
-configures total attempts, per-attempt timeout and the uncertain allowance (one by default).
-The policy is pinned separately in the campaign. Generation remains synchronous and without
-tools; workflow integrations remain mocked. No planner retry phase is introduced.
-The adapter selects synchronous generation on its dispatch copy even when the planner
-prefers background generation. The original reserved request and response schema stay intact.
-
-Before each HTTP send, an encrypted `planning-evaluation-http-attempts` record stores its fresh
-identity and a conservative token/cost allowance. Admission includes verified previous usage,
-legacy campaign accounting and every unresolved allowance, with EUR 50 and eight physical
-attempts per session. Uncertain original attempts and their allowances remain after recovery.
-Known HTTP rejections do not count as generated usage. Calls count every reserved physical
-attempt, including transient HTTP responses; repairs still count intent corrections only.
-
-A stored complete HTTP response can be parsed and receipted after restart without another
-send. Missing completion consumes the uncertain allowance and can only use a new identity.
-The original model request/schema and all previous evidence stay unchanged. If a process stops
-between original reservation and dispatch, the prepared journal permits safe restart. Old
-reservations without HTTP evidence remain stopped; no migration invents usage or authorizes a
-blind resend. Exhaustion and cancellation never replenish attempts. The OS campaign lease
-serializes admission and record replacement.
-
-Reports leave total usage/cost null after uncertainty, retain known partial usage, and add
-`reserved_input_tokens`, `reserved_output_tokens`, `reserved_cost_eur` and `usage_bounded`.
-A bounded unknown allows subsequent runs; it does not become verified usage. Replaying a
-receipt replaces its measurement entry rather than adding another charge. Failed-run reports
-are retained in `previous_results` if the same revision resumes its journaled pending request.
-No paid evaluation or previous campaign modification is required to test this behavior.
-
-Configure the built-in model through the provider secret's optional `retryPolicy` object,
-for example `{"maxAttempts":4,"maxUncertainRetries":1,"attemptTimeoutMilliseconds":600000}`.
-The object replaces the base retry policy; unspecified fields use the documented AI.Core
-defaults. Invalid fields, ambiguous names and invalid limits fail configuration validation.
-`Retry-After` is always honored; it cannot be disabled. Campaign summaries include
-`campaign_accounting` with cumulative verified usage and conservative unknown allowances.
-
-The [live HTTP recovery report](../../docs/planning-http-live-validation-2026-09-19.md)
-records a recovered HTTP 500, unchanged accounting after restart, and eight FinalReview
-results. One independently detected cleanup failure prevented the measured cohort.
-
-The subsequent [cleanup validation report](../../docs/planning-cleanup-validation-2026-09-19.md)
-records corrected cleanup ordering, a 21-run measured cohort and the cancellation-injection
-correction. Its final recorded pilot was blocked by a separate input-default hole defect;
-that historical revision did not establish a reliability pass.
-
-The [input-default validation report](../../docs/planning-input-default-validation-2026-09-19.md)
-records literal-only default resolution, exact declaration repairs and atomic choice application.
-That report's pilot reached 6/7 FinalReview with every reviewed artifact passing independent execution.
-One model proposal exhausted its repairs, so measured evaluation remained gated. A recovered
-uncertain transport attempt retains its conservative allowance; restart added no dispatch or charge.
-
-## Exhausted, inconclusive runs
-
-`--retain-inconclusive-run <commit:phase:case:repetition> --campaign <id>` closes an already failed evaluation only after its eight HTTP attempts are exhausted. It writes a separate encrypted audit record under the campaign lock. The original run, failure, request and HTTP evidence remain unchanged; no completion receipt is invented. Unknown attempts retain their full cost reservation in the same EUR 50 campaign ceiling. That request identity can never dispatch again, while different evaluation identities may use the remaining campaign allowance. `--inspect-campaign` reports both uncertainty and closures. This does not turn an inconclusive run into a successful measurement.
-
-An individual request can exhaust its pinned HTTP retry policy before the session exhausts eight attempts. To retain that request permanently without replay or reconciliation, use `--schema-portability retain-exhausted-request --request-id <exact-id> --campaign <id> --workspace <path>`. This explicit action requires a clean checkout and the campaign lease, a saved dispatch failure, exhausted transport attempts containing unknown completion, and no successful HTTP response, completion receipt or verified usage. When later HTTP failures follow the uncertain attempt, the adapter's recorded retry exhaustion, attempt count and terminal status must match the journal. It appends a closure with evidence hashes; original records and full unknown-usage reservations remain unchanged. New request identities may then use the remaining budget. Never use this to claim successful completion or free reserved cost. Campaign regressions cover mixed attempt orderings, rejection, restart, no redispatch, unchanged accounting and the shared spending ceiling.
-
-The captured `MaxUncertainRetries` can exhaust before `MaxAttempts`. Retention also
-recognizes that boundary when the last attempt is an unresolved transport/timeout,
-the unknown-attempt count exceeds the explicitly saved allowance, and the adapter's
-retryable exhaustion and attempt count match. Missing legacy limits, cancellations,
-successful responses and unresolved terminal HTTP responses grant no additional
-authority. The closure records `http_uncertainty_limit_exhausted`; all original
-attempts and their full reservations remain unchanged.
-
-For a stopped live planning run which exhausted all eight session attempts before
-execution, `--schema-portability retain-inconclusive --run <exact-run-id>` exposes
-the existing failed-session archival operation for the live journal layout. This is
-an explicit operator decision, not automatic readiness recovery. It requires a
-saved dispatch failure, matching reserved identity, missing completion receipt and
-verified cumulative exhaustion. Started executions are ineligible. It appends only
-an inconclusive closure; it changes no original request, run, receipt or reservation
-and permanently prohibits replay. Pricing readiness alone does not establish that
-an earlier uncertain campaign entry has been closed.
-
-## Parent comparison
-
-The read-only comparison loads all three repetitions for both revisions from the
-existing encrypted campaign. It reports incomplete cohorts, changed models/limits
-or unbounded usage as inconclusive. Passing requires no per-case correctness
-regression, improvement on the retained complex failure, lower median calls and
-no unsafe or incorrect approved execution. All failed runs remain in the cohort.
-This report supplements the existing pilot and measured gates.
-
-## Stabilization acceptance against two baselines
-
-The authorized schema-9 stabilization uses one candidate cohort of eight cases and
-three repetitions, after deterministic validation and CI. Collect it with the
-existing `--phase fixture --repetitions 3` mode and verify that every row records
-`mode: live`. Its relative acceptance uses the following read-only comparison;
-the historical absolute pilot/measured thresholds are not additional gates for
-this stabilization. The collection summary's exit code is not this comparison's
-acceptance result.
-
-```bash
-dotnet run --no-build -c Release --project tests/GnOuGo.Agent.Planning.Benchmark -- \
-  --campaign flow-v9-112 \
-  --compare-parent 46c2c77fea19c952d3258d744d886fe52ef52d33 --parent-phase fixture \
-  --compare-reference 87acc5f0e41702e193795b45b4ddfab1055d2143 --reference-phase fixture \
-  --candidate <frozen-candidate-commit> --candidate-phase fixture \
-  --retained-case review_french --audit-admission-denials
-```
-
-Both baseline cohorts must be complete, comparable and usage-bounded. Every case
-must retain at least as many correct repetitions as each baseline. Median calls
-must improve on the parent; the reference median is reported without an additional
-gate. The retained French case must improve on the parent, and no approved
-candidate execution may be incorrect or unsafe. All failed outcomes stay in the
-denominator. The existing admission audit is read-only and never changes outcomes.
-
-Use the same pinned model/limits and cumulative EUR 50 campaign, with no additional
-paid pilots. Never rerun failed repetitions under replacement identities. If the
-collection stops, retain its original evidence and continue only unattempted cohort
-identities when journal safety and existing budget admission permit. Incomplete
-coverage or unbounded usage is inconclusive. Stop implementation and paid evaluation
-after this cohort, including when it fails.
-
-```bash
-dotnet run --no-build -c Release --project tests/GnOuGo.Agent.Planning.Benchmark -- \
-  --campaign flow-v9-112 --compare-parent 46c2c77fea19c952d3258d744d886fe52ef52d33 \
-  --parent-phase fixture --candidate <tested-candidate-sha> --retained-case review_french
-```
-
-The parent campaign used the `fixture` phase label to collect its failed baseline;
-those receipts still must record live inference with the same model and limits.
-
-For an ungated three-repetition live comparison after a failed pilot, use the existing
-`--phase fixture --repetitions 3` collection mode with the same campaign and provider.
-Read those results with `--compare-parent <sha> --candidate <sha> --candidate-phase fixture`
-(and `--parent-phase fixture` when applicable). Comparison still requires 24 live results,
-identical model and limits, no per-case correctness regression, retained complex-case
-improvement and reduced median calls. This records the failed pilot and its unsuccessful
-repairs; it does not pass or change the stricter pilot/measured acceptance gates.
-
-A fixture cohort interrupted by a terminal per-session limit can continue at a
-missing ordinal with `--phase fixture --first-repetition 3 --repetitions 3`.
-Existing run keys, failures and reservations are retained. This does not reopen the
-failed session or authorize another attempt for it. When only this runner entry
-point or its README changed, `--evaluation-source <full-commit>` retains the frozen
-source identity and records `harness_commit` separately. The command rejects any
-other file difference, including production, frozen cases, oracles, measurements,
-model transport and spending-accounting changes. Read-only comparison still loads
-all three repetitions, including earlier failures and inconclusive runs.
-
-### Auditing an admission denial
-
-The original runner counted a logical reservation denied by the HTTP admission
-limit as an extra call with unknown usage. New measurements record zero usage and
-zero attempts when the durable journal proves no HTTP dispatch occurred. Actual
-timeouts and other uncertain dispatches keep their conservative reservation.
-
-For historical comparison, `--audit-admission-denials` is an explicit read-only
-option. It requires a permanently closed session at its eight-attempt ceiling,
-unchanged run/request hashes, an empty HTTP attempt journal, the recorded admission
-failure, no completion receipt, and agreement between receipt counts and the
-session ledger. It applies symmetrically to both cohorts. Ineligible evidence stays
-unchanged. The report includes the raw comparison, original and audited result,
-proof hashes and measurement commit. Only the detached usage and physical call
-count change; the failed outcome remains failed. No request, receipt, original run,
-closure or spending reservation is written, erased, refunded or redispatched.
-
-## TaskPlan candidate: one bounded complex cohort
-
-The format-10 replacement freezes production, operation metadata, harness and oracles
-before evaluating only `conditional,review_french,review_distractors`, three repetitions
-each, in the existing `flow-v9-112` campaign. It uses the pinned OpenAi provider,
-`gpt-5.5-2026-04-24`, medium reasoning, 96,000 input and 32,768 output tokens, eight
-physical attempts and two repairs. The cumulative EUR 50 ceiling includes all earlier
-uncertain reservations. No pilots, replacement repetitions or budget reset are allowed.
-A terminal journal or budget stop ends implementation and paid evaluation.
-
-```sh
-dotnet run --no-build -c Release --project tests/GnOuGo.Agent.Planning.Benchmark -- \
-  --keyvault-provider OpenAi --model gpt-5.5-2026-04-24 --campaign flow-v9-112 \
-  --phase fixture --cases conditional,review_french,review_distractors --repetitions 3
-```
-
-Compare using `--compare-parent`, `--compare-reference`, `--compare-stabilization`,
-`--candidate`, the three `--cases`, and fixture phases. `CompareBest` requires complete
-three-repetition evidence, matching model/limits, bounded usage, no unsafe or incorrect
-approval, and no per-case correctness regression against the maximum retained baseline.
-Calls, tokens and latency are separate metrics. Historical fixture/pilot gates are not
-additional readiness criteria for this cohort.
-
-`--audit-closed-http` optionally proves bounds for an exhausted, permanently closed
-session using every durable HTTP journal, the unchanged closure/request hashes and the
-campaign ledger. The report retains original results and proof hashes. Unknown usage
-remains unknown and fully reserved; no receipt, success or measured token count is
-invented. This read-only audit cannot dispatch, alter original encrypted evidence,
-replenish an allowance or raise the campaign ceiling.
-
-Execution journals and the real Copilot edit/test limitation remain unchanged. Mocked
-workflow outcomes do not establish real sandboxed Copilot command execution.
-
-## Authorized schema-portability live campaign
-
-The [4 October fresh-validation report](../../docs/fresh-live-validation-2026-10-04.md)
-records the explicit EUR 100 ceiling, frozen cohorts and failures before execution.
-Use fresh identities for subsequent evaluation; never replay their retained artifacts.
-
-Replay a retained proposal against its original discovered contracts without inference,
-execution, approval or mutation of the saved session:
+# Planning benchmark
+
+The benchmark uses the single active format-11 incremental planner, deterministic
+TaskPlan compiler and JavaScript → YAML v15 runtime. Previous planning protocols
+cannot be selected, continued, replayed or upgraded. Their encrypted records,
+financial evidence and committed reports remain unchanged historical data.
+
+## Responsibilities
+
+Compiler/host validation establishes technical facts: exact contracts and values,
+types, references, scopes, permissions, provenance and limits. A transient business
+projection describes actual actions, arguments, results, conditions, dependencies
+and effects; generator descriptions are not proof of behavior.
+
+Local Judges assess coherent business fragments. Mechanical exports and closures
+consume no Judge calls. Completed workflows receive global review; a complete small
+fragment can receive local and global review together. The short verdict is `ok`,
+`needs_change` or `needs_context`. Targeted context and supported reassessment use
+the existing request journal and count toward every allowance. Review grants no
+execution permission.
+
+Independent runtime oracles determine business acceptance. A generated artifact,
+accepted checkpoint, favorable Judge, successful build or simulated response is not
+an execution result.
+
+## Frozen comparison and acceptance
+
+The immutable Collections reference is
+[`6469a1a3`](../../docs/evidence/compact-taskplan-6469a1a3-collections-runtime.json):
+26 logical calls, including eight Judge calls; maximum complete Judge request
+26,394 bytes. Keep this evidence attributed to that production source.
+
+Freeze candidate source and harness, model, reasoning, phase limits, output
+reservations, MCP binaries/contracts, inputs, permissions and oracle versions before
+dispatch. Do not change settings in a session or combine source and parameter tuning.
+Compare under matching captured settings and disclose any incomparable evidence.
+
+Qualification requires two consecutive fresh, intervention-free executions each
+of Collections, Amazon and Review PR on one final production source. Both Collections
+runtime variants must pass in each qualifying run. Automatic local corrections are
+allowed; operator plan revisions are diagnostic interventions and cannot qualify.
+Four Judge calls, 26 total logical calls and 13,197 complete Judge-request bytes
+are retained efficiency indicators, not qualification or dispatch gates. Count context,
+reassessment and correction calls. Include instructions, response schema and envelope
+in bytes and reconciled component measurements. Do not lower output reservations
+or weaken checks to meet these thresholds.
+
+The read-only `--schema-portability report` aggregates the existing live and corpus
+records. Supply the final `--source` and exact `--amazon-cohort`, `--code-cohort`
+and `--collections-cohort`; omitted cohort options use `--cohort`. Each scenario's
+latest consecutive repetitions must preserve its frozen profile. Failures,
+interrupted attempts, missing repetitions, changed profiles and operator planning
+revisions break the streak. Collections requires both nominal and alternate
+oracles, artifact-bound delegated approval and no effects. Historical two-scenario,
+three-repetition manifests remain unchanged and cannot substitute for this gate.
 
 ```sh
 dotnet run --project tests/GnOuGo.Agent.Planning.Benchmark -- \
-  --schema-portability replay-compile --workspace "$GNOU_GO_WORKSPACE" \
-  --campaign schema-portability-20261002 --run recovery2-amazon-2
+  --schema-portability report --workspace <workspace> \
+  --campaign schema-portability-20261019-incremental --source <final-sha> \
+  --amazon-cohort <amazon-cohort> --code-cohort <review-pr-cohort> \
+  --collections-cohort <collections-cohort>
 ```
 
-The [schema-portability report](../../docs/planning-schema-portability-2026-10-02.md)
-retains the original provider rejection, diagnostic iterations and separate frozen
-cohorts. This campaign performs paid inference and real external execution only
-under the explicit authorization recorded for `schema-portability-20261002`.
-It shares one encrypted EUR 50 ledger across planning, Flow inference and intercepted
-Copilot SDK inference. Missing receipts retain conservative reservations.
+The unchanged independent oracles require:
 
-The original ceiling remains EUR 50 unless the user explicitly authorizes an extension.
-Record that authorization under the existing campaign lease before collecting a new
-cohort; keep the original configuration, cohorts and every usage reservation intact:
+- Collections: contributive reusable group, parallel per-item calls, exact ordering
+  and duplicate preservation in both runtime variants, no unrequested effects.
+- Amazon: complete observations and continuation handling, exact product identities,
+  workbook contents and browser closure even after failure.
+- Review PR: pinned checkout provenance, actual commands and results, local report
+  contents and cleanup inside the disposable checkout.
+
+The frozen business-defect corpus covers wrong targets, semantic input/output
+mismatches, real omissions, forbidden duplicate effects and cleanup defects, plus
+correct fragments with legitimate future work. Mocked cases verify controls; only
+real model/runtime runs demonstrate convergence.
+Repair regressions also keep a cited consumer unchanged while correcting its actual
+upstream producer, then require renewed review and verify the executed result.
+Cosmetic, unrelated, stale-context and repeated ineffective changes remain non-progress.
+An empty-only result type can be technically valid while failing its business
+obligation. Preserve its received payload and Judge finding; do not silently remove
+bounds. Explicit diagnostic revisions remain interventions, not qualifying runs.
+
+## Admission, retries and accounting
+
+Before every paid launch inspect the existing encrypted campaign, unresolved
+requests, financial authorization and conservative balance. The shared campaign is
+`schema-portability-20261019-incremental`. Never create a new ledger to bypass old
+spending, reservations or closures.
+
+Each physical attempt reserves calls, tokens, time, money and mandatory-review
+headroom before dispatch. There is one accounting owner. Confirmed, completely
+received, journaled HTTP 500/502/503/504 and recognized temporary 429 may retry within
+the captured policy: three attempts maximum, zero uncertain retries, existing
+backoff and `Retry-After`. Timeouts without a response, interrupted bodies,
+disconnects, invalid model output and output exhaustion do not retry automatically.
+All failed-attempt reservations remain unknown usage until independently verified;
+a later successful attempt does not release them.
+
+Ordinary sessions preserve physical-call, correction and time targets as guards.
+Captured API allocations and financial guards remain explicit.
+The trusted campaign builder may capture `--advisory-token-thresholds` before fresh
+session creation. This stores `token_threshold_policy: "advisory"` in the frozen
+configuration and HTTP policy. All project input and cumulative-token thresholds
+then warn throughout preparation, evidence admission and dispatch. Production hosts
+reject this reserved authority. Estimates are not physical model limits; unsupported
+API settings and incomplete responses still fail. Financial reservations cover full
+request exposure and declared deployment capacity for otherwise unknown future reviews.
+Without this captured mode, ceilings continue to govern admission.
+Execution receives the mode from its frozen run configuration and trusted budget scope,
+never inference input or headers. Mapping keeps complete required examples and original
+context when estimates cross thresholds; sampling still targets small requests. Completed
+agent usage may warn, while incomplete outcomes, call/time limits, evidence verification
+and exact receipt recovery remain enforced. Durable budget reconstruction retains the incoming trusted mode with the saved limits and usage; it never derives authority from archived data.
+For a **new authorized diagnostic session**, `--diagnostic-optimization-thresholds`
+captures the distinct `optimization_threshold_policy: "diagnostic-v1"`. It also makes
+planning task/operation/checkpoint/graph, call/correction/session-duration and six
+nonproductive-call targets advisory. Complete contributions—including nested bodies
+and cleanup above eight tasks—retain ordinary correctness checks. Warnings persist
+against their session, request, business block or checkpoint and never trigger repair,
+rejection or approval. Demonstrated repeated strategies on unchanged useful state still
+stop with exact attempt evidence. Production hosts reject this reserved policy; existing
+token-only captures retain their narrower meaning.
+
+The diagnostic policy applies through schemas, candidate repair, compilation, Core
+budgets, HTTP accounting, host advancement and reports. Exact contracts, semantic
+cardinalities, permissions, provenance, financial ceilings and mandatory review
+reservations remain blocking. Per-request timeouts, sandbox protections and explicit
+execution resource budgets—including the live execution time budget—remain enforced.
+Incomplete receipts retain their exact allocation, usage and finish reason and cannot
+approve a fragment or authorize replay. Reasoning usage already included in output
+is never counted twice.
+
+After received output exhaustion, the opt-in
+[`larger-draft-output-amazon.json`](Profiles/larger-draft-output-amazon.json),
+[`larger-draft-output-review-pr.json`](Profiles/larger-draft-output-review-pr.json) and
+[`larger-draft-output-collections.json`](Profiles/larger-draft-output-collections.json)
+profiles increase only draft allocation from 16,384 to 32,768. Use a fresh cohort and a
+recorded hypothesis; these files do not change existing or default profiles. An exhausted
+8,192-token review may instead be tested at 16,384 in its own fresh profile. A later
+65,536-token experiment requires a separate hypothesis and verified provider support.
+Admission prices actual phase allocations without silent clamping. Recheck usable
+funds and required review/execution exposure before every run.
+
+Optional navigation is compacted toward targets of 3k navigation, 8k drafting/correction
+and 4k review tokens. An irreducible request above target can proceed below its captured
+maximum; its exact measurement retains a nonblocking warning with bytes, estimate,
+target, maximum and component sizes. These warnings create no repair authority.
+Requests rejected before dispatch retain measurements without a paid attempt.
+An indivisible required contract/context that cannot fit stops explicitly, without
+truncation or silently escalating limits. `present(taskId)` means task completion;
+nullability checks compare the exact business value with null.
+
+The separately frozen diagnostic arm may capture maxima of 24k navigation, 32k draft
+and 24k review using the existing `--phase-policy` file. The explicit
+[`Profiles/compact-diagnostic-collections.json`](Profiles/compact-diagnostic-collections.json),
+[`compact-diagnostic-amazon.json`](Profiles/compact-diagnostic-amazon.json) and
+[`compact-diagnostic-review-pr.json`](Profiles/compact-diagnostic-review-pr.json)
+preserve the retained scenario reasoning/output settings and change only input maxima.
+They are never selected automatically. Fresh launches must also capture
+`--max-input-tokens 32000 --max-output-tokens 32768` to retain these phase
+reservations; explicit tighter general limits continue to clamp the profile. Preserve each scenario's
+reasoning/output reservations and all cumulative limits. Do not modify an existing
+session or qualification profile. Qualification uses stable identified profiles;
+different profiles are disclosed rather than presented as matched comparisons.
+Reports distinguish serialized bytes, conservative
+component estimates, actual whole-call provider usage and retained unknown reservations.
+
+Short evidence IDs are scoped to one issued request and its encrypted map. Reports
+expose safe measurement metadata, never reconstruct mappings from later context or
+replace raw receipts with resolved responses. Admission probes measure the final wire
+request, including the short-ID response grammar and envelope.
+Canonical-address archives are not upgraded to this navigation envelope; missing or
+conflicting required mappings stop rather than reconstructing authority from newer state.
+
+The single authorized 27 October EUR 100 supplement has reference
+`gnougo-pr120-2026-10-27-supplement-100-eur-once`. Its fixed ceilings were
+EUR 440.0301038327063045424449473 → EUR 540.0301038327063045424449473.
+Inspect the existing authorization entry under the campaign lease and recognize
+that exact entry on recovery. Never derive another increase from the current
+ceiling. See the immutable [authorization evidence](../../docs/evidence/compact-taskplan-v10-accounting-authorization.json).
+
+The separately authorized 29 October EUR 100 supplement uses
+`gnougo-pr120-2026-10-29-supplement-100-eur-once` and fixed ceilings
+EUR 540.0301038327063045424449473 → EUR 640.0301038327063045424449473.
+The leased operator recognizes an identical entry idempotently and rejects a
+conflicting authorization; it never derives another increase from the current ceiling.
+See the [recorded operation](../../docs/evidence/compact-taskplan-20261029-supplement.json).
+
+Read-only readiness and accounting:
 
 ```sh
-dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
-  --schema-portability extend-budget --workspace "$GNOU_GO_WORKSPACE" \
-  --campaign schema-portability-20261002 --from-eur 50 --to-eur 100 \
-  --authorization "User explicitly authorized an additional EUR 50 on 2026-10-04."
+dotnet run --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --schema-portability provider-readiness --workspace <workspace> \
+  --campaign schema-portability-20261019-incremental
 ```
 
-This operator command never dispatches inference. It checks the previous ceiling,
-stores authorization history and preserves all token, attempt and permission limits.
-Fresh cohort manifests pin the new ceiling; historical manifests remain unchanged.
+Configuration readiness is not a provider generation health check. Keep
+pre-generation failures, actual reserved attempts and completed receipts distinct.
+A default exception attempt count does not establish a generation dispatch.
 
-Build a clean committed checkout before collection. Keep the same source and
-configuration for every run within a cohort; a changed candidate requires a new
-cohort identity under the same campaign. Do not repeat the original diagnostic.
+## Exact recovery and permanent retention
 
-Fresh Amazon evaluations retain the business request, product bound, fixed output
-path, truthful observed data and cleanup. The harness does not inject page-specific
-interaction instructions or notice classifications. Review the actual operations
-against the request and discovered contracts before approval. Retained runs,
-prompts and approvals keep their original semantics; never replay an execution
-that has already started. Visit, observation, workbook and cleanup oracles remain
-unchanged.
+Only active format-11 sessions can resume. Recovery uses the exact issued request,
+schema, saved receipt and cumulative accounting; it never rebuilds a pending
+request from newer context. A successful saved HTTP response may be parsed without
+another dispatch. A reservation with no durable outcome stops.
 
-For a fresh session testing Agent.Server's automatic-correction policy, add
-`--automatic-correction` to `plan`. The option is captured in that new session;
-revisions and execution reuse the saved policy. Omitting it preserves the
-historical harness behavior. Both policies retain eight planning calls and two
-correction attempts within the existing cumulative allowance; artifact approval
-remains separate.
+Failures inside OIDC authentication resolution retain `provider_stage: authentication`
+through the provider-neutral client adapter, runtime diagnostics and campaign failure
+record. This optional field supplements the existing `stage` and failure kind; it
+does not establish the number of physical generation attempts, erase prior attempts,
+authorize replay or permanent retention, or release reservations. Use the retained
+HTTP journal and existing exact recovery/authorization checks independently. Older
+failures without this field remain unattributed; do not infer their stage retroactively.
 
-For an explicitly authorized fresh live evaluation, add `--business-judge` to
-`plan` to enable the independent advisory review. It uses the generator's model
-and the same eight-call, two-correction allowance, 96,000 input-token limit and
-32,768 output-token reservation retained by this live campaign. It does not use
-the newer creation defaults of other hosts or receive a separate budget. The
-Judge setting is captured in the request and an enabled cohort manifest.
-`--no-business-judge` explicitly selects the disabled setting; supplying both
-switches is rejected. On `revise` or `execute`, omission reuses the persisted
-setting and an explicit mismatch stops before readiness or transport. Start a
-new frozen cohort to change the setting. Historical disabled manifests remain
-unchanged, and artifact approval remains an explicit revision/hash-bound action.
+`recover-receipt` validates exact run, revision, request identity, receipt and
+interrupted elapsed time. Its inspection mode does not mutate; `--apply` publishes
+only the validated active-format recovery. It cannot continue retired sessions.
+`--replay-run` and the historical frozen-baseline execution adapter are removed.
+Read-only archive inspection/reporting remains available without an old planner.
 
-Live planning measurements separate generation, corrections and Judge calls by
-their recorded purpose, preserving unknown usage when receipts are incomplete.
-Only the independent execution oracle labels the executed candidate's business
-outcome; unexecuted candidates remain unknown. These measurements do not turn
-advisory Judge findings into proof of business correctness.
+The `retain-uncertain-request` operator has separate inspection and explicit apply
+modes under the campaign lease. It binds campaign, stopped/unexecuted tool-free
+run, exact request, captured transport policy, failure, journal, accounting and
+source hashes. It validates every attempt, rejects conflicting/stale evidence and
+preserves originals. Apply requires the inspected evidence hash, operator identity
+and actual delegated authorization. It permanently forbids request replay and run
+continuation; it releases no reservations and invents no response or provider
+termination. Administrative retention delegation does not authorize active-effect
+cancellation or execution. The existing unstarted-request mode also permits a zero-attempt call-admission stop only when the captured physical-call limit, exact mandatory-review headroom and unchanged session accounting independently prove that another reservation cannot fit. No receipt is created and every earlier failed-attempt reservation remains intact. Advisory mode must match the session, policy and journal.
+
+The `interrupted-process` mode also inspects tool-free Amazon/Review PR planning
+that remains `generating` after its process disappeared without a durable outcome.
+Its exact live manifest, frozen configuration, source, run and pending request must
+match. As with interrupted corpus planning, any response, usage, failure record or
+execution evidence rejects this mode. Inspection creates no failure or terminal
+result; application retains the complete reservation and forbids continuation.
+`--schema-portability inspect-retention-authorizations` reads prior exact closure
+authorizations and configuration-record names through the public encrypted store.
+Historical authorizations are evidence to assess, never an automatic new grant.
+
+Captured-policy retention also admits a fully received terminal HTTP 400 request
+rejection when the retained error-only body and normalized `InvalidRequest`,
+nonretryable, non-exhausted failure agree. Every earlier attempt must be an eligible
+recorded transient error. Success, usage, conflicting status or uncertain prior
+attempts reject inspection. This administrative closure never retries the request
+or releases its conservative reservation.
 
 ```sh
-dotnet build tests/GnOuGo.Agent.Planning.Benchmark -m:1 -warnaserror -p:SkipClientBuild=true
-dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
-  --schema-portability plan --workspace "$GNOU_GO_WORKSPACE" \
-  --campaign schema-portability-20261002 --cohort final4 --case amazon --run final4-amazon-1
-# Inspect accepted requirements, the actual TaskPlan, revision and artifact hash:
-dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
-  --schema-portability inspect-run --workspace "$GNOU_GO_WORKSPACE" \
-  --campaign schema-portability-20261002 --run final4-amazon-1
-# Review explicitly, then supply the approval command written by the reviewer:
-dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
-  --schema-portability execute --workspace "$GNOU_GO_WORKSPACE" \
-  --campaign schema-portability-20261002 --cohort final4 --case amazon --run final4-amazon-1 \
-  --review-command /private/path/review-command.json
-dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
-  --schema-portability report --workspace "$GNOU_GO_WORKSPACE" \
-  --campaign schema-portability-20261002 --cohort final4
+dotnet run --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --schema-portability retain-uncertain-request --workspace <workspace> \
+  --campaign <campaign> --run-collection <collection> --run-key <exact-key> \
+  --request-id <exact-request> --retention-kind <inspected-kind>
 ```
 
-The review file uses the existing planning command contract:
+Use the same arguments with `--apply --expected-evidence-hash <hash>` and the exact
+`--operator` / `--authorization` only after inspecting the concrete operation.
+Existing permanent closures and raw historical financial records remain enforceable
+without parsing their obsolete planning-session formats.
 
-```json
-{"kind":"approve","expectedRevision":7,"artifactHash":"<exact reviewed hash>","reviewedRequirementIds":["<explicitly reviewed requirement ID>"]}
-```
+## Live commands and execution authority
 
-Keep the execution terminal attached. Artifact approval does not remove the generated
-workflow's runtime confirmation: submit its explicit response (for a confirm form,
-`{"response":true}`) only within the reviewer's authorization. The existing execution
-deadline includes this wait. Console reads stop waiting at cancellation even when
-the underlying terminal read blocks synchronously; a late answer is never accepted.
-A timed-out execution remains a failed attempt and cannot be reset or replayed.
+Collections uses the corpus runner with `--keyvault-provider`, `--model`,
+`--campaign`, `--cohort`, `--case collections`, and `--phase fixture` for a fresh
+live diagnostic. Amazon and Review PR use `--schema-portability` diagnostics with
+`--case amazon` or `--case code`, exact `--run` and `--cohort` identities.
+`--phase-policy <file>` supplies the full Core phase policy before creation.
+Unknown/changed captured settings conflict; there is no review-disable switch.
 
-For a targeted implementation correction before execution, the existing `--revision-command` file may include `editablePaths`:
+Planning and execution are separate. Review the concrete artifact using the frozen
+benchmark-only authorization manifest and artifact-bound receipt. Record
+`delegated_test_reviewed`, never `human_reviewed`. Runtime confirmations bind the
+approved artifact and exact invocation and permit individual Allow once only.
+Compilation and Judges cannot grant effect permission. Missing details, ambiguous
+correlation, duplicate execution or broader grants stop execution.
 
-```json
-{"kind":"revise","expectedRevision":7,"artifactHash":"<exact reviewed hash>","preserveRequirements":true,"editablePaths":["/tasks/compose/inputs","/tasks/publish/requires"],"text":"Use only the compact export and strengthen the publication guard; preserve other work."}
-```
+Authorized effects remain Amazon search/product reads and isolated XLSX output;
+pinned disposable cloning, local commands/reports/cleanup; and local synthetic
+scenarios. Purchases, account changes, cookie-consent actions, remote publication,
+permission expansion and uncertain replay remain excluded. Do not enable extra
+runtime inference to make an otherwise invalid artifact execute.
 
-These host-selected paths authorize typed replacements only. Task insertion/removal/movement requires a separate explicit global revision. An exhausted or already-started run remains ineligible; neither form resets accounting. Review the new artifact and submit its own requirement acknowledgments before execution.
+## Evidence and validation
 
+Record generation/artifact/runtime outcomes separately, per-phase logical requests,
+physical attempts, provider input/output/reasoning tokens, complete-request bytes,
+reconciled components, empty/whitespace-heavy responses, corrections, supported
+redundancy findings, resolved/persistent defects, latency, exact known costs and
+retained unknown reservations. Calls per satisfied business obligation is undefined
+when none succeeds. Interrupted runs never establish savings.
 
-Before execution, concrete review feedback can use the same planning loop without
-discarding accepted intent, discovery or cumulative allowances:
+Live Amazon/Review PR results and inspection reports include `execution_model_usage`,
+including the execution budget's retained advisory `warnings`. Qualification reports
+read the tenant-owned execution journal so an interrupted result capture does not
+hide those warnings. Corpus variants retain their available `model_usage`; a null
+snapshot means no runtime budget snapshot was configured, not a measured zero.
+Collections keeps its existing local execution without runtime inference.
 
-```sh
-dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
-  --schema-portability revise --workspace "$GNOU_GO_WORKSPACE" \
-  --campaign schema-portability-20261002 --cohort <frozen-cohort> --case <case> --run <retained-unexecuted-run-id> \
-  --revision-command /private/path/revision.json
-```
+Preserve bulky historical evidence unchanged. Append concise source-bound results
+and list removed mechanisms and internal-format ruptures. Keep PR #120 Draft
+until live qualification passes; report efficiency separately.
 
-```json
-{"kind":"revise","preserveRequirements":true,"expectedRevision":7,"artifactHash":"<exact reviewed hash>","text":"Concrete missing binding or failure-path work; retain accepted intent."}
-```
+Run affected warning-as-error suites, then final-source solution tests, independent
+package builds, Native AOT and published encrypted-storage checks. Reuse applicable
+validation observers and attribute each result to its actual source. Financial or
+provider stops leave precise incomplete criteria and a rechecked remaining balance.
 
-Use null for the hash of a stopped session with no artifact. This command requires the
-original frozen candidate, rejects started executions and archives the prior session,
-result and feedback before further dispatch. Revisions retain the original 30-minute
-planning allowance, model/repair budgets and aggregate calls, discovery reads and latency.
-They require fresh review and approval; the command never creates acknowledgments.
+### Preparation simplification diagnostics
 
-Supply every accepted requirement ID exactly once only after comparing it with actual
-operations, loop bodies, conditions and data dependencies. Never generate this list
-automatically from the requirements. Missing visits, extraction or observation completeness
-require revision; they cannot be acknowledged as covered. The planner rejects missing,
-duplicate, unknown or stale submissions before execution. The old `--artifact-hash`
-argument alone no longer approves a live run. Inspection includes private retained
-content; keep command files and raw inspection output outside the repository.
-
-Use repetitions 1–3 for `amazon` and `code`, preserving every failed slot. Execution
-requires a terminal with explicit human answers. Recommendations never approve a
-call, and a started execution cannot be replayed. Browser debug `KeepBrowserOpen`
-is disabled only in the spawned disposable process so cleanup can be checked.
-Code feedback remains local; GitHub publication is excluded and untested.
-
-`inspect-run --run <identity>` returns private retained requests, responses,
-execution events and oracles; redirect only to an access-restricted local file.
-Its `runtime_llm_inputs` entries report estimated prompt tokens and durable completion
-status for ordinary `llm.call` invocations. Inspection performs no dispatch or mutation;
-estimated input size is not billed usage.
-`report` returns sanitized counters and rejects mismatched or missing manifests.
-`discovery_reads` counts actual MCP `tools/list` calls. Planning/execution latency
-includes human waiting; provider attempts, verified tokens, unknown reservations
-and costs are separate. Costs are provider-usage/FX estimates, not invoices.
-Absent and interrupted runs stay in the six-run denominator. Compilation or
-FinalReview alone never passes the execution gate.
-
-### Recovery and MCP Tasks follow-up
-
-The recovery follow-up continues `schema-portability-20261002`; do not create a new
-budget or overwrite final4. Use a new cohort (for example `recovery1`) and its six
-`recovery1-{amazon,code}-{1,2,3}` identities after freezing the tested candidate.
-The manifest also pins the execution PATH hash. Keep the disposable toolchain PATH
-identical for planning and execution: Node 24.20.0, pnpm 10.34.5 and Python 3.11.13.
-The repository manifests and recorded command results must independently confirm
-those versions. Installing a toolchain does not grant a workflow new permissions.
-
-Run the existing `--schema-portability readiness --case amazon` and `--case code`
-commands first, using the same `--workspace` and campaign. Verify Browser closure,
-a writable disposable workbook destination, exact SmartGuide head/base availability,
-dependency installation and command permissions. Record missing services/toolchains
-as explicit blockers. The [recovery report](../../docs/planning-recovery-and-live-blockers.md)
-separates deterministic adapter execution from live-provider results.
-
-### Bounded mapping cohort
-
-First inspect exact deployment metadata and accounting readiness without inference. The harness loads host metadata and persisted Agent user overrides with Server precedence; it keeps the campaign provider/model pinned. Output contains allowances, pricing readiness, the validated exchange quote and fingerprints, never credentials. Missing limits, pricing or a fresh quote stop before MCP execution; campaign ceilings are not deployment metadata.
-
-Validated quotes (currency pair, rate, authority and timestamp) are cached in encrypted campaign records under the existing seven-day freshness policy. Each newly admitted request stores its quote atomically with its HTTP journal before any attempt. Settlement and receipt recovery reuse that admitted quote without fetching another rate. A stale quote cannot admit a new request; a completed request keeps the conversion used for its reservation. No fallback rate or freshness extension is permitted.
-
-A verified pricing/quote refusal before dispatch returns `LLM_BUDGET_UNVERIFIABLE` with `dispatch_status: not_started` and a precise reason. The campaign durably binds that refusal to the original request hash, and Flow records it through the existing completion path so failure cleanup can run. Reusing the same identity replays the refusal, not inference. Changed identities or historical unknown dispatches cannot acquire a new zero-dispatch classification. Failed receipt writes and unverified post-dispatch errors continue to block cleanup and replay. Inspection of retained runs does not depend on exchange-rate availability.
-
-```bash
-dotnet run --project tests/GnOuGo.Agent.Planning.Benchmark -- --schema-portability provider-readiness --campaign schema-portability-20261002 --workspace /path/to/GnOuGo
-```
-
-After deterministic tests and a clean frozen commit, prepare the real-provider/stdio matrix within the existing campaign:
-
-```bash
-dotnet build tests/GnOuGo.Agent.Planning.Benchmark -m:1 -warnaserror -p:SkipClientBuild=true
-dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll --schema-portability mapping --campaign schema-portability-20261002 --workspace /path/to/GnOuGo --run mapping-cohort-1
-dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll --schema-portability mapping --campaign schema-portability-20261002 --workspace /path/to/GnOuGo --run mapping-cohort-1 --variant scalar --review-command /private/path/scalar-review.json
-dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll --schema-portability mapping-report --campaign schema-portability-20261002 --workspace /path/to/GnOuGo --run mapping-cohort-1
-```
-
-Preparation starts a disposable MCP process with no structured output metadata and deterministically compiles three fixtures with zero planning inference. Each `--variant scalar|extended|each` displays its persisted requirements, plan, revision and artifact hash. Submit a separate existing approval command for each variant with explicitly reviewed requirement IDs. No acknowledgment or runtime permission is auto-accepted. An already-started variant cannot be replayed, including after interruption.
-
-The scalar fixture executes cold/warm JSON, changed data/shape, text, HTML and missing-data cases. A separately labelled fault-injection case substitutes one invalid script before real-provider repair. The extended fixture tests a changed target; the each fixture reads 80 complete HTML observations through real MCP, checks every extracted row and repeats for a warm-cache run. The full collection exceeds the campaign input allowance; bounded examples must suffice without truncating execution. All eleven cases and exact expectations are frozen before dispatch. A failed case stops that variant and remains in the denominator. Fixes require new identities; artifacts never change at runtime.
-
-Mapping scripts/attempt receipts persist through the existing encrypted run store under a cohort-specific tenant; measurements and manifests use `planning-mapping-evaluation`. All paid calls use the existing campaign gate. Printed rows contain only public fixture observations. The existing Amazon/code commands and their independent execution oracles are unchanged. Do not pool this matrix with historical 33/33 or prior live cohorts.
-
-The independent Copilot producer probe uses the actual task-enabled MCP, an inference-policy proxy and one disposable Python command. It checks the observed report, command exit, durable receipt and encrypted receipt reload before cleanup. Permission requests remain interactive. Unknown completion retains the directory and blocks replay; the probe is not full code-review acceptance.
-
-```bash
-dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll --schema-portability copilot-probe --campaign schema-portability-20261002 --workspace /path/to/GnOuGo --run completion-probe-1
-```
-
-Only after focused probes pass, freeze a fresh Amazon/code cohort and attempt repetition one of each with unchanged execution oracles. Preserve all failures and the campaign's unknown reservations.
-
-### Compare compiled glue without inference
-
-`--schema-portability replay-compile --compare-bindings --campaign schema-portability-20261002 --run <retained-run> --workspace <workspace>` loads the saved TaskPlan and its contracts read-only, recompiles under v3/v4/v5 and reports steps, sets, workflows, YAML bytes/lines and remaining adjacent set pairs. It neither executes the workflow nor changes saved artifacts, approvals or campaign accounting. Compare the identical plan separately from any changed extraction composition.
-
-## Observed-product oracle v2
-
-Fresh product runs freeze `observed-products-v2`. Navigation arguments must match
-previous complete observations, and redirects require the same call's producer
-final-navigation evidence. Visits are occurrences, not deduplicated URLs. No
-product-path or hostname heuristic participates in this version. Each workbook
-row is checked against its own visit: names are exact observed values, descriptions
-one complete observed block, and prices exact displayed segments (no punctuation
-or whitespace rewriting). UI labels cannot establish producer errors. Missing
-facts without independent absence evidence remain incomplete. A complete snapshot
-proves capture coverage, not semantic relevance of the selected fact.
-
-Historical `real-workflows-v1` manifests and verdicts remain frozen. Offline v2
-replay is separate evidence and performs no Browser/LLM calls. Unknown oracle
-versions fail closed. Workbook existence still requires a successful writer receipt
-for the expected output path, and live cleanup is independently probed.
+The combined intent experiment retains the full short original, extracts exact
+acceptance clauses and typed public interfaces in one call, and measures complete
+requests before paging genuinely large sources. It does not change MCP eligibility,
+output allocations, business oracles or historical token-only captures. Fresh comprehensive diagnostic
+policy is separately captured as described above.
+Report initial preparation calls/time and the first independently correct constructed
+business producer separately from final artifact and actual runtime acceptance.
+Retain a suspended consumer's exact rejection explanation in subsequent discovery,
+not just its typed prerequisite. This is model-authored navigation with its original
+evidence link, not permission or a host-established business finding.
+Source comparisons retain identical profiles; output-allocation trials use separate
+frozen identities. A received reasoning-only exhaustion is not a transport incident.
+Record provenance corrections separately from business repairs. A technically valid
+producer reference may still target the wrong directory, report or cleanup lifetime;
+artifact binding choices do not establish business acceptance.
+When assessing a local cleanup finding, retain the actual open ancestors and current
+completion claims. Report missing context separately from a confirmed defect; final
+cleanup obligations remain blocking until validated and reviewed.
+Distinguish a rejected plain resumption binding from a still-unverified nested member
+or an incompatible proposed result interface. Report received type failures without
+silently widening navigation types or charging evidence retrieval as a repair.
+The six-run business qualification remains two consecutive intervention-free successes
+per scenario on the same production source/profile, including both Collections variants.

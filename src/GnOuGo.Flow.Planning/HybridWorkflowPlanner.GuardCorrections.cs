@@ -5,9 +5,12 @@ namespace GnOuGo.Flow.Planning;
 
 public sealed partial class HybridWorkflowPlanner
 {
-    private static bool DirectGuardCorrections(JsonNode progress) => progress["version"]?.ToString() is "2" or "3" or "4" or "5" or "6" or "7" or "8";
 
-    private static Dictionary<string, List<TaskPlanCompiler.RepairSource>> GuardSources(TaskPlan baseline, PlanningCatalog catalog, TaskPlan? candidate = null)
+    private static bool SameValue(TaskValue? left, TaskValue? right) => JsonNode.DeepEquals(
+        System.Text.Json.JsonSerializer.SerializeToNode(left, PlanningJsonContext.Default.TaskValue),
+        System.Text.Json.JsonSerializer.SerializeToNode(right, PlanningJsonContext.Default.TaskValue));
+
+    private static Dictionary<string, List<TaskPlanCompiler.RepairSource>> GuardSources(TaskPlan baseline, PlanningCatalog catalog, TaskPlan? candidate = null, PlanningRequest? request = null)
     {
         var references = new Dictionary<string, List<TaskValue>>(StringComparer.Ordinal);
         foreach (var plan in candidate is null ? new[] { baseline } : new[] { baseline, candidate })
@@ -19,7 +22,7 @@ public sealed partial class HybridWorkflowPlanner
             }
         // The compiler resolves visibility, fields, references and nullability. This
         // optional inspection does not change repair presentation or old requests.
-        return TaskPlanCompiler.RepairSources(baseline, catalog, references);
+        return TaskPlanCompiler.RepairSources(baseline, catalog, references, request);
     }
 
     private static string? GuardProducer(TaskValue value) => value.Kind switch
@@ -70,6 +73,18 @@ public sealed partial class HybridWorkflowPlanner
         // cannot be guessed into a business condition.
         if (value.Kind == "predicate") return true;
         return sources.Any(s => SameValue(s.Value, value) && s.Schema["type"]?.ToString() == "boolean") || value.Kind == "boolean";
+    }
+
+    private static bool PreservesNullableGuard(TaskValue original, TaskValue replacement, List<TaskPlanCompiler.RepairSource> sources)
+    {
+        if (SameValue(original, replacement)) return true;
+        if (NullableGuardReference(original, sources)) return NullableGuardReplacement(original, replacement, sources);
+        if (original.Kind != "predicate" || original.Predicate is not ("and" or "or" or "not") ||
+            original.Kind != replacement.Kind || original.Predicate != replacement.Predicate || original.Items.Count != replacement.Items.Count) return false;
+        var old = System.Text.Json.JsonSerializer.SerializeToNode(original, PlanningJsonContext.Default.TaskValue)!.AsObject();
+        var next = System.Text.Json.JsonSerializer.SerializeToNode(replacement, PlanningJsonContext.Default.TaskValue)!.AsObject();
+        old.Remove("items"); next.Remove("items");
+        return JsonNode.DeepEquals(old, next) && original.Items.Select((value, index) => PreservesNullableGuard(value, replacement.Items[index], sources)).All(valid => valid);
     }
 
     private static PlanningDiagnostic UnsafeGuard(string path) => new("AUTOMATIC_GUARD_CORRECTION_UNSAFE", path,

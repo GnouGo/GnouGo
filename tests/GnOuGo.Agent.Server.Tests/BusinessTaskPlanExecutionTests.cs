@@ -22,7 +22,7 @@ public sealed class BusinessTaskPlanExecutionTests
     [InlineData("omega", "label", true, "empty")]
     [InlineData("alpha", "title", false, "missing")]
     [InlineData("omega", "label", true, "denied")]
-    public async Task FourBusinessTasksGenerateOnceAndWriteAnIndependentlyVerifiedWorkbook(string operation, string field, bool parallel, string variant)
+    public async Task StaticBusinessTasksWriteAnIndependentlyVerifiedWorkbookWithoutPlanningInference(string operation, string field, bool parallel, string variant)
     {
         var ct = TestContext.Current.CancellationToken;
         var root = Directory.CreateTempSubdirectory("gnougo-business-plan-").FullName;
@@ -53,9 +53,17 @@ public sealed class BusinessTaskPlanExecutionTests
             var engine = new WorkflowEngine { McpClientFactory = factory, HumanInputProvider = new PlanningCorpus.Human(variant != "denied") };
             var actual = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
             var catalog = await actual.DiscoverAsync(new(), ct);
+            var discovery = new CapabilityDiscoveryState();
             foreach (var source in await actual.Capabilities.ListSourcesAsync(ct))
-                foreach (var entry in (await actual.Capabilities.ListAsync(source.Id, null, ct)).Capabilities)
-                    catalog.Capabilities.Add(await actual.Capabilities.ResolveAsync(entry, ct));
+            {
+                discovery.Sources.Add(source);
+                var page = await actual.Capabilities.ListAsync(source.Id, null, ct); discovery.Pages.Add(page);
+                foreach (var entry in page.Capabilities)
+                {
+                    var capability = await actual.Capabilities.ResolveAsync(entry, ct);
+                    catalog.Capabilities.Add(capability); discovery.Resolved.Add(capability);
+                }
+            }
             string Id(string method) => catalog.Capabilities.Single(c => c.Method == method).Id;
             TaskValue Field(string name) => new() { Kind = "field", Items = [new() { Kind = "item" }], Port = name };
             var plan = new TaskPlan { Inputs = [new() { Name = "query" }], Root = new() { Tasks = [
@@ -64,14 +72,13 @@ public sealed class BusinessTaskPlanExecutionTests
                     Body = new() { Tasks = [new() { Id = "extract", Kind = "value", Objective = "Select name and price", Outputs = [new("row", new() { Kind = "object", Members = [new(field, Field(field)), new("cost", Field("cost"))] })] }], Outputs = [new("rows", ProductTransformationPlan.Ref("extract", "row"))] } },
                 new() { Id = "write", Objective = "Write selected rows to Excel", Operation = Id(operation + "_store"), Inputs = [new("rows", ProductTransformationPlan.Ref("products", "rows"))] }
             ], Outputs = [new("workbook", ProductTransformationPlan.Ref("write", "path"))] } };
-            var proposal = new PlanningProposal { Plan = plan, Requirements = new() { Summary = "Search products, extract names and prices, write Excel", Inputs = plan.Inputs, Outcomes = [new("report", "An Excel workbook containing the selected products")] } };
-            var runtime = new LocalProductOutcomeExecutionTests.ProposalRuntime(actual, proposal);
-            var session = await new HybridWorkflowPlanner().AdvanceAsync(new() { Catalog = catalog, Request = new() { TenantId = "local", Prompt = proposal.Requirements.Summary } }, new(), runtime, ct);
-            Assert.True(session.Status == PlanningStatus.FinalReview, string.Join(';', session.Diagnostics.Select(d => d.Message)));
-            Assert.Equal(1, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts); Assert.Null(session.OutcomeBindings); Assert.Null(session.OutcomeVersion);
-            Assert.All(session.Requirements!.Outcomes, o => Assert.Null(o.Execution));
-            PlanningArtifactApproval.Verify(session);
-            var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(session.Yaml!));
+            var compilation = new TaskPlanCompiler().Compile(plan, catalog);
+            Assert.Empty(compilation.Diagnostics);
+            Assert.NotNull(compilation.Graph);
+            PlanningConfirmationGuards.Apply(compilation.Graph, catalog);
+            var yaml = new PlanningGraphCompiler().Compile(compilation.Graph, catalog);
+            Assert.Empty(calls);
+            var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
             var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject { ["query"] = "requested products" }, ct);
             Assert.Equal(variant is "multiple" or "empty", result.Success);
             if (!result.Success)

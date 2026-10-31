@@ -4,10 +4,14 @@ using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Integrations;
+using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Planning.Examples;
 
 // Real shipped commands, with an independent filesystem oracle. No planner-specific metadata.
-internal sealed class LocalExecutionCases(string root, string executable) : IAsyncDisposable
+internal sealed class LocalExecutionCases(string root, string executable, bool preserveWorkspace = false) : IAsyncDisposable
 {
+    private string? _activeCase;
+    private DelegatedTestReviewAuthority? _proofAuthority;
     internal static readonly string[] Names = ["files_read", "files_copy", "files_loop_cleanup"];
     internal static string Prompt(string name) => name switch
     {
@@ -23,11 +27,12 @@ internal sealed class LocalExecutionCases(string root, string executable) : IAsy
     });
     internal List<JsonObject> Calls { get; } = [];
     internal IMcpClientFactory Factory => new ObservedFactory(this);
-    internal static string[] Variants(string name) => name == "files_read" ? ["nominal", "alternate", "missing"]
+    internal static string[] Variants(string name) => name == PlanningBenchmarkCases.ReadGroupProofCase ? ["nominal", "alternate"] : name == "files_read" ? ["nominal", "alternate", "missing"]
         : name == "files_copy" ? ["nominal", "failure", "denied", "permission_unavailable"]
         : ["nominal", "alternate", "disabled", "missing", "denied", "permission_unavailable"];
     internal JsonObject Prepare(string name, string variant)
     {
+        _activeCase = name;
         Calls.Clear();
         // Reset only this disposable run directory, after the previous execution and oracle completed.
         foreach (var path in Directory.EnumerateFileSystemEntries(root))
@@ -37,6 +42,7 @@ internal sealed class LocalExecutionCases(string root, string executable) : IAsy
         File.WriteAllText(Path.Combine(root, "beta.txt"), "beta", new UTF8Encoding(false));
         if (variant == "missing") File.Delete(Path.Combine(root, name == "files_read" ? "seed.txt" : "beta.txt"));
         if (variant == "failure") File.WriteAllText(Path.Combine(root, "workflows"), "blocking file", new UTF8Encoding(false));
+        if (name == PlanningBenchmarkCases.ReadGroupProofCase) return PlanningBenchmarkCases.Inputs(name, variant);
         return name == "files_loop_cleanup" ? new() { ["enabled"] = variant != "disabled", ["files"] = variant == "alternate"
             ? new JsonArray("beta.txt", "alpha.txt", "beta.txt") : new JsonArray("alpha.txt", "beta.txt") } : new();
     }
@@ -45,6 +51,10 @@ internal sealed class LocalExecutionCases(string root, string executable) : IAsy
         var snapshot = Snapshot(); var denied = variant is "denied" or "permission_unavailable";
         var correct = false;
         if (denied) correct = result?.Success != true && !File.Exists(Path.Combine(root, "workflows")) && !Directory.Exists(Path.Combine(root, "workflows"));
+        else if (name == PlanningBenchmarkCases.ReadGroupProofCase) correct = result?.Success == true &&
+            PlanningBenchmarkCases.ProofOutputsCorrect(name, result.Outputs, variant) && Calls.Count == 1 &&
+            Calls[0]["command"]?.ToString() == "cat_file" && Calls[0]["path"]?.ToString() == "seed.txt" &&
+            Calls[0]["succeeded"]?.GetValue<bool>() == true && Calls[0]["stdout"]?.ToString() == Read("seed.txt");
         else if (variant is "missing" or "failure") correct = result?.Success == false &&
             (name != "files_loop_cleanup" || !Directory.Exists(Path.Combine(root, "workflows/batch")));
         else if (name == "files_read") correct = result?.Success == true && result.Outputs?["result"]?.ToString() == File.ReadAllText(Path.Combine(root, "seed.txt"));
@@ -71,7 +81,12 @@ internal sealed class LocalExecutionCases(string root, string executable) : IAsy
     private string? Read(string relative) => File.Exists(Path.Combine(root, relative)) ? File.ReadAllText(Path.Combine(root, relative)) : null;
     internal JsonObject Snapshot() => new(Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal)
         .Select(p => new KeyValuePair<string, JsonNode?>(Path.GetRelativePath(root, p).Replace('\\', '/'), JsonValue.Create(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(p)))))));
-    public async ValueTask DisposeAsync() { await Transport.DisposeAsync(); if (Directory.Exists(root)) Directory.Delete(root, true); }
+    internal void BindProofAuthority(DelegatedTestReviewAuthority authority)
+    {
+        if (_activeCase != PlanningBenchmarkCases.ReadGroupProofCase) throw new PlanningConflictException("The local proof case is not prepared.");
+        authority.RequireProofWorkspace(root); _proofAuthority = authority;
+    }
+    public async ValueTask DisposeAsync() { await Transport.DisposeAsync(); if (!preserveWorkspace && Directory.Exists(root)) Directory.Delete(root, true); }
     private sealed class ObservedFactory(LocalExecutionCases owner) : IMcpClientFactory, IMcpExecutionHooks
     {
         public IReadOnlyList<McpServerMetadata> ServerMetadata => owner.Transport.ServerMetadata;
@@ -89,8 +104,29 @@ internal sealed class LocalExecutionCases(string root, string executable) : IAsy
         public Task<McpGetPromptResult> GetPromptAsync(string name, JsonNode? args, CancellationToken ct) => inner.GetPromptAsync(name, args, ct);
         public async Task<McpCallResult> CallToolAsync(string name, JsonNode? args, CancellationToken ct)
         {
-            lock (owner.Calls) owner.Calls.Add(new() { ["tool"] = name, ["command"] = args?["commandName"]?.DeepClone(), ["path"] = args?["parameters"]?["path"]?.DeepClone() });
-            return await inner.CallToolAsync(name, args, ct);
+            var proof = owner._activeCase == PlanningBenchmarkCases.ReadGroupProofCase;
+            JsonObject call;
+            lock (owner.Calls)
+            {
+                if (proof && (name != "cmd_run" || args is not JsonObject arguments || arguments.Count != 2 ||
+                    arguments["commandName"]?.ToString() != "cat_file" || arguments["parameters"] is not JsonObject parameters ||
+                    parameters.Count != 1 || parameters["path"]?.ToString() != "seed.txt" || owner.Calls.Count != 0))
+                    throw new PlanningConflictException("The proof case permits exactly one literal seed read per variant.");
+                if (proof)
+                {
+                    if (owner._proofAuthority is null) throw new PlanningConflictException("A concrete delegated review must precede the seed read.");
+                    owner._proofAuthority.RequireTool("filesystem", name, args);
+                }
+                call = new() { ["tool"] = name, ["command"] = args?["commandName"]?.DeepClone(), ["path"] = args?["parameters"]?["path"]?.DeepClone() };
+                owner.Calls.Add(call);
+            }
+            var response = await inner.CallToolAsync(name, args, ct);
+            if (proof)
+            {
+                call["succeeded"] = !response.IsError && response.Content?["exitCode"]?.GetValue<int>() == 0;
+                call["stdout"] = response.Content?["stdout"]?.DeepClone();
+            }
+            return response;
         }
         public ValueTask DisposeAsync() => ValueTask.CompletedTask; // The factory owns the transport lifetime.
     }

@@ -1,0 +1,112 @@
+{
+  "version": 1,
+  "source": "7bc4b9f17e6e44abdc04b7c89439b227de1592b4",
+  "cohort": "compactr7bc4b9f17colhighv5",
+  "case": "collections",
+  "original_pending_snapshot": {
+    "relative_evidence": "compact-taskplan-7bc4b9f17-collections-high-pending.json",
+    "sha256": "fd5bb405a76bcdeded0c7d55a64bde0a76cff02f8d04f1483238ac003a4ddc05",
+    "unchanged": true
+  },
+  "safe_sources": [
+    {
+      "path": "/private/tmp/gnougo-7bc-collections-pending-safe/compact-taskplan-7bc4b9f17-collections-high-pending.json",
+      "sha256": "fd5bb405a76bcdeded0c7d55a64bde0a76cff02f8d04f1483238ac003a4ddc05",
+      "bytes": 9598
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr7bc4b9f17colhighv5/collections-retention-inspection.json",
+      "sha256": "cc33e8dd9243d84cae2b20e2373a132fabf28616356b26bf3b8a806e3064aeea",
+      "bytes": 1941
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr7bc4b9f17colhighv5/collections-retention-authorized-reinspection.jsonl",
+      "sha256": "cc33e8dd9243d84cae2b20e2373a132fabf28616356b26bf3b8a806e3064aeea",
+      "bytes": 1941
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr7bc4b9f17colhighv5/collections-retention-authorization-safe.json",
+      "sha256": "d3d1c189811ea4809e4fbb3a97b109908fa364fdc2b3633abda267dd64046361",
+      "bytes": 1174
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr7bc4b9f17colhighv5/collections-retention-application.jsonl",
+      "sha256": "d9f3de0d80977ee5524a428057e191ebd0c3522efc15b46a06dc3b2600c93e5a",
+      "bytes": 2943
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr7bc4b9f17colhighv5/collections-retention-idempotence.jsonl",
+      "sha256": "d9f3de0d80977ee5524a428057e191ebd0c3522efc15b46a06dc3b2600c93e5a",
+      "bytes": 2943
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr7bc4b9f17colhighv5/collections-retention-post-inspection.jsonl",
+      "sha256": "0497c45a8785b878bcd7724aa035362632dcb39cb52fc6605d20b36e319360e7",
+      "bytes": 3058
+    },
+    {
+      "path": "/private/tmp/gnougo-7bc-terminal-audit-8w6x_bqs/audit-safe.json",
+      "sha256": "9dbb4ec2a009bca870e9d52ee73407f38d428cfe3ed3924cf1f6a847ab7e9ba3",
+      "bytes": 7881
+    },
+    {
+      "path": "/private/tmp/gnougo-7bc-post-closure-audit-a6h22lkl/audit-safe.json",
+      "sha256": "92de8fa08fb097039e41cab6b75b99f086f50f96b4b0082abb725cdd2d64c429",
+      "bytes": 7879
+    },
+    {
+      "path": "/private/tmp/gnougo-7bc-post-closure-audit-a6h22lkl/provider-readiness.jsonl",
+      "sha256": "4a1aba4cce644c02192b44ecbdb639c89c59f0bb905d3030e4a0b13d50560c81",
+      "bytes": 8799
+    },
+    {
+      "path": "/private/tmp/gnougo-7bc4-authorized-retention-peer-ec3epww3/independent-review-safe.json",
+      "sha256": "336db02ba5a50dcc89b257913d7e2da24810070b20961e1413ec8b4799ece79f",
+      "bytes": 5436
+    }
+  ],
+  "closure": {
+    "campaign": "schema-portability-20261019-incremental",
+    "run_key": "7bc4b9f17e6e44abdc04b7c89439b227de1592b4:fixture:cohort:compactr7bc4b9f17colhighv5:collections:1",
+    "request_id": "60a9b1b9369170e414fc7ecc8483e42b44c933a37e0b67377d8b723fbe574a5e:2:0068a04d7ec101cd98707dfe5cb44492a394954d0fb7d7ca3d5fd0f6a454be82",
+    "evidence_hash": "d0c7b3b1ea1a225aab15b569603845bc07774e99a7f173836516a83797a554d4",
+    "authorization_hash": "dc69b9ef96c3935b7be52d6ae6bc3fbe4f75ffa052ad8ab8c92a861566698f22",
+    "existing_closure_hash": "2e8415bc6701da5cb281161eb861f28efd2031e3eded611c0e8a6d5d5f3dc738",
+    "retained_at": "2026-10-25T06:51:18.7357540+00:00",
+    "outcome": "inconclusive",
+    "reservation_retained": true,
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "authorization_source": "Exact recorded user response; independently checked in the pinned operator peer.",
+    "reinspection_byte_identical": true,
+    "repeat_application_byte_identical": true,
+    "post_readback_equals_application_except_retained_marker_and_closure_hash": true,
+    "original_evidence_and_accounting_unchanged": true
+  },
+  "retained_request_reservation_eur": "0.9308701472556894243641231593",
+  "post_closure_audit": {
+    "read_at_utc": "2026-10-25T06:52:47.579499+00:00",
+    "known_cost_eur": "142.91724303297493418681985253",
+    "retained_reservations_eur": "44.153607649591820881083503417",
+    "recorded_upper_bound_eur": "187.07085068256675506790335595",
+    "ceiling_eur": "240.0301038327063045424449473",
+    "available_eur": "52.95925315013954947454159135",
+    "physical_attempts": 3327,
+    "unknown_usage_attempt_reservations": 58,
+    "receiptless_identities": 30,
+    "closed_identities": 30,
+    "unresolved_identities": 0,
+    "newly_closed_request_id": "60a9b1b9369170e414fc7ecc8483e42b44c933a37e0b67377d8b723fbe574a5e:2:0068a04d7ec101cd98707dfe5cb44492a394954d0fb7d7ca3d5fd0f6a454be82",
+    "all_monetary_strings_equal_preclosure_audit": true,
+    "recorded_upper_minus_decimal80_components_eur": "3E-27",
+    "model_calls": 0,
+    "store_writes": 0
+  },
+  "limitations": [
+    "The original terminal snapshot remains pending at its own timestamp; this separate later supplement records authorized permanent closure.",
+    "The missing provider response and usage remain unknown. No receipt, artifact, runtime or fulfilled business obligation was created by closure.",
+    "All financial reservations remain retained. No funds were released; the available amount is a timestamped recorded audit, not future admission.",
+    "The +3E-27 CLR aggregate rounding and separate lost-ledger exposure remain unchanged.",
+    "This offline preparation read safe files only; it did not invoke an operator, reader, provider, build, store or runtime."
+  ]
+}

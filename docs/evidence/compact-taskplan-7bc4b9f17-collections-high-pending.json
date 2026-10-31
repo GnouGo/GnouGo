@@ -1,0 +1,250 @@
+{
+  "version": 1,
+  "source": "7bc4b9f17e6e44abdc04b7c89439b227de1592b4",
+  "cohort": "compactr7bc4b9f17colhighv5",
+  "case": "collections",
+  "captured_terminal_utc": "2026-10-25T06:03:12.645523+00:00",
+  "safe_sources": [
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr7bc4b9f17colhighv5/freeze.json",
+      "sha256": "6fb529acf309b0080d0a8257450228d8464d40028d0db12962aa41847bca6da2",
+      "bytes": 17659
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr7bc4b9f17colhighv5/collections-terminal-exact-metrics.json",
+      "sha256": "a81f27d11236d75c058953f61d6d2c8d53209249d4f83ca3fb80adaba06f0087",
+      "bytes": 10698
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr7bc4b9f17colhighv5/collections-planning.jsonl",
+      "sha256": "77cf410ba54d0b4abe1da4120174b220c73731c5cfb0bdab41e22c835c020ac9",
+      "bytes": 9265
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr7bc4b9f17colhighv5/collections-exit.json",
+      "sha256": "997e711b478d70da3d120b7732737db845e98b8abfffffeaf4e4d36c7dbfe652",
+      "bytes": 67
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr7bc4b9f17colhighv5/collections-retention-inspection.json",
+      "sha256": "cc33e8dd9243d84cae2b20e2373a132fabf28616356b26bf3b8a806e3064aeea",
+      "bytes": 1941
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr7bc4b9f17colhighv5/collections-projection-precision-note.json",
+      "sha256": "3007e493831e1adcaa80dd962268b7a747824391cefc343d05148e44103ad0f8",
+      "bytes": 931
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr7bc4b9f17colhighv5/phase-policy.json",
+      "sha256": "d17e80cbdfa498120730b61bd28cf14c1f98660e9f4b34ca6f504b89e63f68be",
+      "bytes": 412
+    },
+    {
+      "path": "/private/tmp/gnougo-7bc-terminal-audit-8w6x_bqs/audit-safe.json",
+      "sha256": "9dbb4ec2a009bca870e9d52ee73407f38d428cfe3ed3924cf1f6a847ab7e9ba3",
+      "bytes": 7881
+    },
+    {
+      "path": "/private/tmp/gnougo-7bc-terminal-audit-8w6x_bqs/provider-readiness.jsonl",
+      "sha256": "51c8b779c1c68bdfb023f3d1ad0f564812b020e10b3cc195e8101665ab7e5ee2",
+      "bytes": 8665
+    },
+    {
+      "path": "/private/tmp/gnougo-7bc4-colhigh-retention-peer-dtc68lbt/independent-review-safe.json",
+      "sha256": "8da05d51f62fbec32a395a0801e1ecb6526f12b2da32741647eabbd8b8950f53",
+      "bytes": 4552
+    }
+  ],
+  "frozen_configuration": {
+    "benchmark_binary_sha256": "3f928fec09e5d752cf30f2d7457d889ed882ccf3ccb4406b4ebed4f88dfb36ce",
+    "model": "gpt-5.5-2026-04-24",
+    "phase_policy": {
+      "version": 1,
+      "navigation": {
+        "targetInputTokens": 3000,
+        "maxInputTokens": 12000,
+        "reasoning": "medium",
+        "outputTokens": 32768
+      },
+      "draft": {
+        "targetInputTokens": 8000,
+        "maxInputTokens": 18000,
+        "reasoning": "high",
+        "outputTokens": 16384
+      },
+      "review": {
+        "targetInputTokens": 4000,
+        "maxInputTokens": 8000,
+        "reasoning": "high",
+        "outputTokens": 8192
+      }
+    },
+    "max_model_calls": 64,
+    "max_repairs": 4,
+    "transport_policy": {
+      "version": 1,
+      "maxAttempts": 3,
+      "maxUncertainRetries": 0,
+      "attemptTimeoutMilliseconds": 600000,
+      "baseDelayMilliseconds": 1000,
+      "maxDelayMilliseconds": 30000,
+      "maxTotalDelayMilliseconds": 60000
+    }
+  },
+  "outcome": {
+    "status": "stopped",
+    "phase": "construction_intent",
+    "diagnostics": [
+      "MODEL_DISPATCH_UNVERIFIABLE"
+    ],
+    "termination_reason": "uncertain_dispatch",
+    "exit_code": 1,
+    "constructed_requests": 2,
+    "logical_calls": 2,
+    "physical_attempts": 2,
+    "receipts": 1,
+    "prepared_only_requests": 0,
+    "admission_rejections": 0,
+    "corrections": 0,
+    "checkpoints": 0,
+    "artifact_present": false,
+    "execution_started": false,
+    "runtime_result": null
+  },
+  "usage_and_cost": {
+    "known_input_tokens": 377,
+    "known_output_tokens": 352,
+    "known_reasoning_tokens": 229,
+    "known_visible_output_tokens_derived": 123,
+    "known_cost_eur": "0.0111066488174921909861668898",
+    "retained_unknown_reservation_eur": "0.9308701472556894243641231593",
+    "selected_run_upper_bound_eur": "0.9419767960731816153502900491",
+    "reserved_input_tokens": 12000,
+    "reserved_output_tokens": 32768,
+    "complete_usage_known": false,
+    "precision": "Decimal80 parsed directly from the authoritative exact metrics and public terminal. Earlier float-round-tripped projection is retained but excluded, as specified by the pinned precision note. Reasoning is included in output tokens."
+  },
+  "phase_measurements": {
+    "construction_intent": {
+      "constructed": 2,
+      "admitted": 2,
+      "receipts": 1,
+      "complete_request_bytes": {
+        "count": 2,
+        "p50": "5456.5",
+        "p95": 8475,
+        "maximum": 8475,
+        "total": 10913
+      },
+      "estimated_input_tokens": {
+        "count": 2,
+        "p50": 2075,
+        "p95": 3081,
+        "maximum": 3081,
+        "total": 4150
+      },
+      "components": {
+        "diagnostics": {
+          "serialized_bytes": 52,
+          "estimated_tokens": 18
+        },
+        "envelope": {
+          "serialized_bytes": 876,
+          "estimated_tokens": 805
+        },
+        "instructions": {
+          "serialized_bytes": 2367,
+          "estimated_tokens": 789
+        },
+        "intent": {
+          "serialized_bytes": 1720,
+          "estimated_tokens": 574
+        },
+        "response_schema": {
+          "serialized_bytes": 5816,
+          "estimated_tokens": 1939
+        },
+        "evidence": {
+          "serialized_bytes": 23,
+          "estimated_tokens": 8
+        },
+        "interfaces": {
+          "serialized_bytes": 59,
+          "estimated_tokens": 20
+        }
+      },
+      "component_bytes_reconcile": true,
+      "component_token_rounding_difference": 3,
+      "input_limit": 12000,
+      "all_requests_within_limit": true,
+      "logical_call_intervals_ms": {
+        "count": 2,
+        "p50": "164403.62535",
+        "p95": "311485.8187",
+        "maximum": "311485.8187",
+        "total": "328807.2507"
+      },
+      "received_call_intervals_ms": {
+        "count": 1,
+        "p50": "17321.432",
+        "p95": "17321.432",
+        "maximum": "17321.432",
+        "total": "17321.432"
+      }
+    }
+  },
+  "timing": {
+    "planning_ms": 334543,
+    "all_logical_call_intervals_ms": "328807.2507",
+    "received_logical_call_interval_ms": "17321.432",
+    "qualification": "Logical intervals include host/transport work; physical-attempt/provider-only timing is not inferred."
+  },
+  "pending_request": {
+    "request_id": "60a9b1b9369170e414fc7ecc8483e42b44c933a37e0b67377d8b723fbe574a5e:2:0068a04d7ec101cd98707dfe5cb44492a394954d0fb7d7ca3d5fd0f6a454be82",
+    "request_hash": "ccb3a1ca7e09d27556bba22c6212e8c28263249f215be5bdc1caa57c5850a21b",
+    "http_journal_hash": "03048fc37039b3e6507211e9401ea5083c435f0c50dadd5d26fdd13e788d2110",
+    "failure_hash": "4e192a8ac55e8ee2598de4e116387da8053cec3bb41914d9352a68413729b7b0",
+    "inspection_evidence_hash": "d0c7b3b1ea1a225aab15b569603845bc07774e99a7f173836516a83797a554d4",
+    "retention_kind": "exhausted-planning-retries",
+    "http_statuses": [
+      null
+    ],
+    "failure_kind": "Transport",
+    "physical_attempts": 1,
+    "receipt_present": false,
+    "response_content": null,
+    "provider_usage": null,
+    "retained_reservation_eur": "0.9308701472556894243641231593",
+    "authorization_status": "Pending at the pinned audit and parent confirmation; inspection is not authorization or application.",
+    "applied": false
+  },
+  "responses_and_formatting": {
+    "received_nonempty_normalized_responses": 1,
+    "normalized_response_bytes": 533,
+    "original_text_measured": false,
+    "outside_string_whitespace_bytes": null,
+    "qualification": "The missing receipt is an unknown response, not empty text or output exhaustion. Parsed presentation bytes are not original-text formatting."
+  },
+  "campaign_audit_snapshot": {
+    "read_at_utc": "2026-10-25T06:06:34.909851+00:00",
+    "known_cost_eur": "142.91724303297493418681985253",
+    "retained_reservations_eur": "44.153607649591820881083503417",
+    "recorded_upper_bound_eur": "187.07085068256675506790335595",
+    "ceiling_eur": "240.0301038327063045424449473",
+    "available_eur": "52.95925315013954947454159135",
+    "physical_attempts": 3327,
+    "unknown_usage_attempt_reservations": 58,
+    "receiptless_identities": 30,
+    "closed_identities": 29,
+    "unresolved_identities": 1,
+    "recorded_upper_minus_decimal80_components_eur": "3E-27",
+    "qualification": "Timestamped recorded aggregate and unchanged reservations retained. The +3E-27 CLR aggregate rounding is not a ledger mutation; availability uses the recorded upper. Lost-ledger exposure remains separate. This inspection does not release funds or close a request."
+  },
+  "limitations": [
+    "No artifact, runtime, verified business fulfillment or calls-per-fulfilled-obligation ratio is established.",
+    "No transport cause, model behavior, instruction benefit or reasoning-profile efficacy is inferred.",
+    "Any later authorization/application must be a separate immutable supplement; this snapshot remains pending.",
+    "No store, reader, lease, provider, model, runtime, main/source edit or retention action occurred in this offline preparation."
+  ]
+}

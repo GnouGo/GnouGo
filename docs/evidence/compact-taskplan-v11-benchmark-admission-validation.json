@@ -1,0 +1,14 @@
+{
+  "base": "621d6b3f881022acf040771dbce97b802bdcb362",
+  "exit_code": 0,
+  "counts": {
+    "Passed": 688
+  },
+  "elapsed_seconds": 88.09006329200929,
+  "source_unchanged": true,
+  "log_sha256": "75f76e8d72e4891bb3b93b51755249b04917cd259410b423aa164bc86fd2ff94",
+  "source_manifest_sha256": "4846d3e23813824d1fd5c37670dcd81bf837051982d95c50f1b692696164e3e9",
+  "coverage": "Production benchmark capture and journal admit captured v10/v11 source-window headroom. Original policies and reservations remain unchanged on recovery.",
+  "classification": "Focused deterministic host tests, not model/runtime acceptance",
+  "overlap_note": "The earlier 682-test run is superseded here, not added to this total."
+}

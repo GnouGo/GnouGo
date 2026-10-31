@@ -1,0 +1,15 @@
+{
+  "exit_code": 0,
+  "counts": {
+    "Passed": 9037,
+    "NotExecuted": 13
+  },
+  "elapsed_seconds": 5773.0718083340325,
+  "source_unchanged": true,
+  "log_sha256": "263478777b5b766f2318d0454b1dd0b408c2c661a45d65dd2570469896150346",
+  "production_source": "b2ee37324194c67516959898b4eaeaa2fdc5a15e",
+  "source_manifest_sha256": "a6111176645064d2fddcb683e84ca19c854ac833506b5cd51755b06739eba1f6",
+  "command_sha256": "05b9110c4adb040b1279c990f1bb3688f64858f590421444ce233b13eea674e6",
+  "overlapping_targeted_counts_summed": false,
+  "does_not_qualify_later_source_6469": true
+}

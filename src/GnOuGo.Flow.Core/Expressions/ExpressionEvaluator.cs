@@ -19,6 +19,7 @@ public sealed partial class ExpressionEvaluator
     private const int DefaultMaxStatements = 100_000;
     private const int DefaultTimeoutSeconds = 15;
     private const int DefaultMemoryLimitBytes = 50_000_000;
+    internal const int MaxCheckedProgramLength = 65_536;
 
     private readonly Dictionary<string, Func<JsonNode?[], JsonNode?>> _functions;
     private readonly int _maxStatements;
@@ -35,7 +36,7 @@ public sealed partial class ExpressionEvaluator
         Action<string, string, string?>? observeCheck = null)
     {
         result = null;
-        if (script.Length > 65536) return false;
+        if (script.Length > MaxCheckedProgramLength) return false;
         var syntax = new Acornima.Parser().ParseExpression(script);
         var lexicalChecks = lexicalContracts is null ? null : LexicalValueChecks(syntax, lexicalContracts);
         static string? Key(Property property) => property.Key is Identifier id ? id.Name : (property.Key as StringLiteral)?.Value;
@@ -84,6 +85,7 @@ public sealed partial class ExpressionEvaluator
             CallExpression { Arguments.Count: 1, Callee: MemberExpression { Object: Identifier { Name: "m" }, Property: Identifier { Name: "scalar" }, Computed: false } } call when readable =>
                 Supported(call.Arguments[0], names),
             CallExpression { Arguments.Count: 1, Callee: Identifier { Name: "json" } } call when readable => Supported(call.Arguments[0], names),
+            CallExpression { Arguments.Count: 1, Callee: Identifier { Name: "encodeURIComponent" } } call when readable => Supported(call.Arguments[0], names),
             CallExpression { Arguments.Count: 1, Callee: MemberExpression { Object: Identifier { Name: "Number" }, Property: Identifier { Name: "isFinite" }, Computed: false } } call when readable => Supported(call.Arguments[0], names),
             CallExpression { Arguments.Count: 1, Callee: MemberExpression { Object: Identifier { Name: "JSON" }, Property: Identifier { Name: "stringify" }, Computed: false } } call when readable => Supported(call.Arguments[0], names),
             CallExpression { Arguments.Count: 1, Callee: MemberExpression { Object: Identifier { Name: "Array" }, Property: Identifier { Name: "isArray" }, Computed: false } } call when readable => Supported(call.Arguments[0], names),
@@ -242,6 +244,11 @@ public sealed partial class ExpressionEvaluator
                     return Call(calledArrow, call.Arguments.Select(a => EvaluateSelection(a, bindings)).ToArray(), bindings);
                 case CallExpression { Callee: Identifier { Name: "json" } } call:
                     return _functions["json"]([EvaluateSelection(call.Arguments[0], bindings)]);
+                case CallExpression { Callee: Identifier { Name: "encodeURIComponent" } } call:
+                    // Import only the selected operand into the bounded JavaScript evaluator.
+                    // ECMAScript supplies exact UTF-8 escaping and rejects malformed surrogate pairs.
+                    return EvaluateCore("encodeURIComponent(value)", null,
+                        new(StringComparer.Ordinal) { ["value"] = EvaluateSelection(call.Arguments[0], bindings) }, allowance);
                 case CallExpression { Callee: MemberExpression { Object: Identifier { Name: "Number" } } } call:
                     return JsonValue.Create(JsonSchemaInstanceValidator.TryReadNumber(EvaluateSelection(call.Arguments[0], bindings), out var finite) && double.IsFinite(finite));
                 case CallExpression { Callee: MemberExpression { Object: Identifier { Name: "JSON" } } } call:

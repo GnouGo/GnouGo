@@ -1,0 +1,90 @@
+{
+  "production_source": "057732030f891b3516516c671e3201c9c9378d96",
+  "harness_source": "057732030f891b3516516c671e3201c9c9378d96",
+  "cohort": "compactr057732030colhighv11a",
+  "freeze_sha256": "a1ab5e3ab9192de87cfe1a75b7c1ece6eefd6b55eb2b4dd52c4fc6d60141e62d",
+  "terminal_sha256": "7f40bdb4069f64e3c38a148921633a0bba47ef6dc912d721418a0eadea4a790d",
+  "classification": "Local mandatory-review admission stop; not provider uncertainty or runtime failure",
+  "logical_calls": 23,
+  "physical_attempts": 23,
+  "corrections": 0,
+  "provider_input_tokens": 79299,
+  "provider_output_tokens": 27192,
+  "reasoning_included_in_output": true,
+  "empty_received_responses": 0,
+  "known_cost_eur": "1.0818875502008032128514056228",
+  "new_unknown_reservation_eur": "0",
+  "planning_ms": 835867,
+  "phases": {
+    "construction_intent": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "provider_input_tokens": 1997,
+      "provider_output_tokens": 2058,
+      "provider_reasoning_tokens": 1537,
+      "known_cost_eur": "0.0640116019634091923248549755",
+      "elapsed_ms_reported": "57904.0579",
+      "rejected_before_dispatch": 0,
+      "peak_complete_bytes": 8608,
+      "peak_estimated_input_tokens": 3126,
+      "p50_estimated_input_tokens": "2111.5",
+      "p95_estimated_input_tokens": "3126"
+    },
+    "construction_select": {
+      "logical_calls": 7,
+      "physical_attempts": 7,
+      "provider_input_tokens": 22608,
+      "provider_output_tokens": 7624,
+      "provider_reasoning_tokens": 6142,
+      "known_cost_eur": "0.3050066934404283801874163321",
+      "elapsed_ms_reported": "220716.82369999998",
+      "rejected_before_dispatch": 0,
+      "peak_complete_bytes": 20508,
+      "peak_estimated_input_tokens": 7092,
+      "p50_estimated_input_tokens": "5614",
+      "p95_estimated_input_tokens": "7092"
+    },
+    "construction_draft": {
+      "logical_calls": 7,
+      "physical_attempts": 7,
+      "provider_input_tokens": 28680,
+      "provider_output_tokens": 6004,
+      "provider_reasoning_tokens": 4608,
+      "known_cost_eur": "0.2887282463186077643908969210",
+      "elapsed_ms_reported": "210259.4078",
+      "rejected_before_dispatch": 0,
+      "peak_complete_bytes": 27090,
+      "peak_estimated_input_tokens": 9286,
+      "p50_estimated_input_tokens": "7518",
+      "p95_estimated_input_tokens": "9286"
+    },
+    "construction_local_judge": {
+      "logical_calls": 7,
+      "physical_attempts": 7,
+      "provider_input_tokens": 26014,
+      "provider_output_tokens": 11506,
+      "provider_reasoning_tokens": 9215,
+      "known_cost_eur": "0.4241410084783578759482373942",
+      "elapsed_ms_reported": "272940.70790000004",
+      "rejected_before_dispatch": 1,
+      "peak_complete_bytes": 24084,
+      "peak_estimated_input_tokens": 8284,
+      "p50_estimated_input_tokens": "7049",
+      "p95_estimated_input_tokens": "8284"
+    }
+  },
+  "component_reconciliation": {
+    "requests": 24,
+    "all_reconcile": true
+  },
+  "artifact": null,
+  "runtime": "not_started",
+  "independent_runtime_oracle": "not_run",
+  "complete_business_units": 0,
+  "calls_per_complete_business_unit": null,
+  "limitations": [
+    "No live savings established versus an incomplete prior run.",
+    "This frozen harness predates the later v11 capture/journal correction.",
+    "No independently assessed false-positive or redundant-operation count is inferred from missing artifact acceptance."
+  ]
+}

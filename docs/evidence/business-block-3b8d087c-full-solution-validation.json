@@ -1,0 +1,599 @@
+{
+  "schema": "gnougo.full-solution-validation.v1",
+  "source": {
+    "commit": "3b8d087c8ecfdcb5ff6c91905ae3285ca72179fe",
+    "tree": "1279b0c1d5ff74eb52cd3ad0e61f82aa39286e57"
+  },
+  "validation": {
+    "command_arguments": [
+      "dotnet",
+      "test",
+      "GnOuGo.Agent.sln",
+      "-m:1",
+      "-warnaserror",
+      "-p:SkipModelMetadataGeneration=true",
+      "--logger",
+      "trx;LogFilePrefix=full-solution",
+      "--results-directory",
+      "<private_capture>/trx"
+    ],
+    "results_directory_redacted": true,
+    "warnings_as_errors": true,
+    "msbuild_max_cpu_count": 1,
+    "sdk_version": "10.0.300",
+    "started_utc": "2026-10-30T11:42:37.547729+00:00",
+    "ended_utc": "2026-10-30T12:56:34.748928+00:00",
+    "elapsed_seconds": 4437.015576375001,
+    "dotnet_exit_code": 0,
+    "scope": "Full-solution technical validation; no live business-success claim."
+  },
+  "summary": {
+    "passed": true,
+    "expected_assemblies": 33,
+    "completed_assemblies": 33,
+    "total_tests": 7317,
+    "passed_tests": 7304,
+    "skipped_tests": 13,
+    "failed_tests": 0,
+    "compiler_warning_or_error_diagnostics": 0
+  },
+  "source_integrity": {
+    "unchanged": true,
+    "head_before": "3b8d087c8ecfdcb5ff6c91905ae3285ca72179fe",
+    "head_after": "3b8d087c8ecfdcb5ff6c91905ae3285ca72179fe",
+    "clean_before": true,
+    "clean_after": true,
+    "tracked_files": 4854,
+    "index_sha256_before": "0e88aae15e363799a23bb568cda18240c094155612daf73cbd192db1d8320eca",
+    "index_sha256_after": "0e88aae15e363799a23bb568cda18240c094155612daf73cbd192db1d8320eca",
+    "source_manifest_sha256_before": "11825f508a3cba9ce91efe325527e2b874f68681042004274f27e451c22f4987",
+    "source_manifest_sha256_after": "11825f508a3cba9ce91efe325527e2b874f68681042004274f27e451c22f4987",
+    "changed_tracked_paths": []
+  },
+  "evidence_hashes": {
+    "verification_report_sha256": "e922bbaa8dbaf52c2d8eefe39f22e5760710e318200aba39a52cf8d03727fa3c",
+    "full_solution_log_sha256": "6ad328874f74324842b71a62437a5805a8975ca65fe71e9faf195be696c07795",
+    "trx_file_count": 33,
+    "trx_aggregate_sha256": "4775144bb0418e27b29fcb4fd31fcc5de07312b2635e4a9872f771bdf54ff989",
+    "trx_aggregate_definition": "SHA-256 of UTF-8 canonical JSON of the trx_files array below, sorted object keys, compact separators, entries ordered by relative path."
+  },
+  "assemblies": [
+    {
+      "assembly": "GnOuGo.AI.Core.Tests",
+      "total": 255,
+      "passed": 255,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030124313.trx",
+      "trx_sha256": "ad290d116b13e88303fc051cee32dade5e6803cf4d073d4dd47e84aeed9b1093"
+    },
+    {
+      "assembly": "GnOuGo.AI.Local.Tests",
+      "total": 14,
+      "passed": 14,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030124315.trx",
+      "trx_sha256": "e8ef3456f174e6b6ee15313658428974e917e61150eb8fcce93707f44d9499c1"
+    },
+    {
+      "assembly": "GnOuGo.Agent.Mcp.Tests",
+      "total": 103,
+      "passed": 103,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030124318.trx",
+      "trx_sha256": "135b05918592b4ff89ff5f604724045e49299f5c5af5ede87bcc82f4c07781f1"
+    },
+    {
+      "assembly": "GnOuGo.Agent.Server.Tests",
+      "total": 1472,
+      "passed": 1471,
+      "skipped": 1,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030135124.trx",
+      "trx_sha256": "10f9fe4270500826458d75ed28372d82d7059eff0f075193718c3a3118986fc5"
+    },
+    {
+      "assembly": "GnOuGo.Assets.Animation.Server.Tests",
+      "total": 13,
+      "passed": 13,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030135305.trx",
+      "trx_sha256": "8e03a7b9245a760c6ef4ae06bbd09088296c256ee31e5dad0269346eebb70f3c"
+    },
+    {
+      "assembly": "GnOuGo.Assets.Animation.Tests",
+      "total": 42,
+      "passed": 42,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030135258.trx",
+      "trx_sha256": "9f5e4b58cb121435ffe639a91de4319919af0aef2131c798210e9f35d904cb3f"
+    },
+    {
+      "assembly": "GnOuGo.Assets.Bears.Server.Tests",
+      "total": 28,
+      "passed": 28,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030135306.trx",
+      "trx_sha256": "960cb25758b8055c77a3a58d644012ec4a6c3a564b2b03836f63e3b32e022ff2"
+    },
+    {
+      "assembly": "GnOuGo.Assets.Bears.Tests",
+      "total": 91,
+      "passed": 91,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030135256.trx",
+      "trx_sha256": "c675279a8d9e3e04d77c0e914104e1c6016a1d06b229b98c6210680674ac65b4"
+    },
+    {
+      "assembly": "GnOuGo.Auth.Core.Tests",
+      "total": 8,
+      "passed": 8,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030135625.trx",
+      "trx_sha256": "1155211b3547622fbd8c835e9e2473d99572f87b74656054a45d260f7d788fe3"
+    },
+    {
+      "assembly": "GnOuGo.Browser.Mcp.Tests",
+      "total": 142,
+      "passed": 142,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030124407.trx",
+      "trx_sha256": "dcc5a8d4916447177c9cd143262fc756fceccdeefdb8949516e601c7bba6cbe2"
+    },
+    {
+      "assembly": "GnOuGo.Cmd.Mcp.Tests",
+      "total": 100,
+      "passed": 93,
+      "skipped": 7,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030124339.trx",
+      "trx_sha256": "7827f585409f22e47658738e63a1dccf997ed23e7784c41d3b6b4d878ff99b0e"
+    },
+    {
+      "assembly": "GnOuGo.Diff.Tests",
+      "total": 52,
+      "passed": 52,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030124252.trx",
+      "trx_sha256": "3bc9cda1b7eec9e4b2842963a0f22ecf0411058b748d94f0ed5f28a87e8310c1"
+    },
+    {
+      "assembly": "GnOuGo.DocIngestor.Mcp.Tests",
+      "total": 7,
+      "passed": 7,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030135142.trx",
+      "trx_sha256": "592509289b9f2c5c6d5a89009caa7e618086489d5860333f999691d667b669c8"
+    },
+    {
+      "assembly": "GnOuGo.DocIngestor.Tests",
+      "total": 89,
+      "passed": 89,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030124249.trx",
+      "trx_sha256": "c44dd2ad812efe1c8d5bc7d57d28b08362a05e0047604ad9c4c6354cc02b3ae1"
+    },
+    {
+      "assembly": "GnOuGo.Document.Mcp.Tests",
+      "total": 73,
+      "passed": 73,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030135132.trx",
+      "trx_sha256": "33d44b898fe2b49acc56cf115d9074ff662174dfd08f3f22168a9b819beff042"
+    },
+    {
+      "assembly": "GnOuGo.Files.Server.Tests",
+      "total": 10,
+      "passed": 10,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030135140.trx",
+      "trx_sha256": "aeba3e34379f43c74963826b628bb775a0b5e2d3348f0688496512cf7bcfb61f"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Copilot.Tests",
+      "total": 5,
+      "passed": 5,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030135634.trx",
+      "trx_sha256": "121b57b9ab326a80b8df22c01f65bd94aa944dc9170bc8ea4fee0227dac35fd6"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Integrations.Tests",
+      "total": 103,
+      "passed": 103,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030124310.trx",
+      "trx_sha256": "674d47c0a8c44413e4560f9a111fd29fc584c9bd5fa17047e986d72a93c245fa"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Mermaid.Tests",
+      "total": 12,
+      "passed": 12,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030135245.trx",
+      "trx_sha256": "2f36f41e879f37a2f54d101e7e0507968d4b2641ace3b317373f01cc9c96eb43"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Persistence.Tests",
+      "total": 24,
+      "passed": 24,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030135633.trx",
+      "trx_sha256": "fbc83e75abee23312494f693d548d14fa3679b15ad8b45c771434d481e957087"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Planning.Tests",
+      "total": 2402,
+      "passed": 2402,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030135611.trx",
+      "trx_sha256": "dfbc706192a29a4e82c9a5fbbf1b891e833b539e2b4b212789bc41e42e3c5012"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Tests",
+      "total": 1473,
+      "passed": 1473,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030124301.trx",
+      "trx_sha256": "1b1f829f2cb5f9ed2880ddbf0c317ba237af4595a5dcf65933ba06fb17d51d66"
+    },
+    {
+      "assembly": "GnOuGo.Git.Mcp.Tests",
+      "total": 84,
+      "passed": 84,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030135241.trx",
+      "trx_sha256": "ce49c5378341cc76cfa193a48d913c4780a379fedd616350f645c72978a3dfaa"
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.Core.Tests",
+      "total": 173,
+      "passed": 173,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030135231.trx",
+      "trx_sha256": "1f2f2b850e0a25b72e1854ffc5a1ddfe5a4e3a85431e097fbb72f7160f9e9243"
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.E2E.Tests",
+      "total": 12,
+      "passed": 7,
+      "skipped": 5,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030135233.trx",
+      "trx_sha256": "3fff77336540c5b65af60f5d56a947ecec4d60cc9d4948d5c1f58f0f1eb64e37"
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.Mcp.Tests",
+      "total": 243,
+      "passed": 243,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030135229.trx",
+      "trx_sha256": "fcc6e5e8a345c1524e9efbcb3263193278452176dfd0e7b0796b8698cb0b2a70"
+    },
+    {
+      "assembly": "GnOuGo.KeyVault.Core.Tests",
+      "total": 12,
+      "passed": 12,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030124255.trx",
+      "trx_sha256": "5c16399afbb42045bbc62a150d26a26a2c14d2222fed02c99afe0a123ee5169d"
+    },
+    {
+      "assembly": "GnOuGo.KeyVault.Mcp.Tests",
+      "total": 9,
+      "passed": 9,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030135138.trx",
+      "trx_sha256": "aedbe1d5f0aeeb34cdae3b77d75e4d1eaeea30427c7b5f9b712c5a8f05c16d28"
+    },
+    {
+      "assembly": "GnOuGo.Mcp.Core.Tests",
+      "total": 49,
+      "passed": 49,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030135244.trx",
+      "trx_sha256": "15dc81f4c8d814eb3ad0dd3984a394802ba5e13b10d8fc8c8c4c737398b0346d"
+    },
+    {
+      "assembly": "GnOuGo.Observability.Core.Tests",
+      "total": 3,
+      "passed": 3,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030135234.trx",
+      "trx_sha256": "e151caa804af6b9c4ce683b764519d930dfd2c7e0c416475206bdc99793bced7"
+    },
+    {
+      "assembly": "GnOuGo.OtlpCollector.Server.Tests",
+      "total": 7,
+      "passed": 7,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030135144.trx",
+      "trx_sha256": "80e72a8b24746c1a9b7cfa77e1a8dee1fea607c02ffe7d527d690a92f750c881"
+    },
+    {
+      "assembly": "GnOuGo.ProxyCopilot.Server.Tests",
+      "total": 177,
+      "passed": 177,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030135623.trx",
+      "trx_sha256": "1f88ec02abcc1a099a72398825da2e21f51020a1ab5042290500c3b9daf06eba"
+    },
+    {
+      "assembly": "GnOuGo.Workspace.Tests",
+      "total": 30,
+      "passed": 30,
+      "skipped": 0,
+      "failed": 0,
+      "trx": "trx/full-solution_net10.0_20261030135243.trx",
+      "trx_sha256": "e469e654187bc096f5bdac61a66612f9a2c578f579164de3b65ae95e36f776bf"
+    }
+  ],
+  "skips": [
+    {
+      "assembly": "GnOuGo.Agent.Server.Tests",
+      "test": "GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission",
+      "reason": "Set PLAYWRIGHT_MODULE_PATH to run the isolated deterministic browser smoke."
+    },
+    {
+      "assembly": "GnOuGo.Cmd.Mcp.Tests",
+      "test": "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.DefaultLaunchUsesOnlyTheSelectedShellsBuiltInModulePath",
+      "reason": "Requires native Windows PowerShell."
+    },
+    {
+      "assembly": "GnOuGo.Cmd.Mcp.Tests",
+      "test": "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: \"param([string]$text = 'parameter default'); [Conso\"···, expected: \"parameter default\", exitCode: 3)",
+      "reason": "Requires native Windows PowerShell."
+    },
+    {
+      "assembly": "GnOuGo.Cmd.Mcp.Tests",
+      "test": "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: \"using namespace System\\n[Console]::WriteLine('names\"···, expected: \"namespace declaration\", exitCode: 0)",
+      "reason": "Requires native Windows PowerShell."
+    },
+    {
+      "assembly": "GnOuGo.Cmd.Mcp.Tests",
+      "test": "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 0)",
+      "reason": "Requires native Windows PowerShell."
+    },
+    {
+      "assembly": "GnOuGo.Cmd.Mcp.Tests",
+      "test": "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 3)",
+      "reason": "Requires native Windows PowerShell."
+    },
+    {
+      "assembly": "GnOuGo.Cmd.Mcp.Tests",
+      "test": "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: False)",
+      "reason": "Requires native Windows PowerShell."
+    },
+    {
+      "assembly": "GnOuGo.Cmd.Mcp.Tests",
+      "test": "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: True)",
+      "reason": "Requires native Windows PowerShell."
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.E2E.Tests",
+      "test": "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: False, bounded: False, executeTests: True)",
+      "reason": "Set GNOU_GO_LIVE_COPILOT_EDIT=1 to run the local real-model fixture."
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.E2E.Tests",
+      "test": "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: False, executeTests: True)",
+      "reason": "Set GNOU_GO_LIVE_COPILOT_EDIT=1 to run the local real-model fixture."
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.E2E.Tests",
+      "test": "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: True, executeTests: False)",
+      "reason": "Set GNOU_GO_LIVE_COPILOT_EDIT=1 to run the local real-model fixture."
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.E2E.Tests",
+      "test": "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: True, executeTests: True)",
+      "reason": "Set GNOU_GO_LIVE_COPILOT_EDIT=1 to run the local real-model fixture."
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.E2E.Tests",
+      "test": "GnOuGo.GithubCopilot.E2E.Tests.LivePullRequestReviewTests.ConfiguredOpenAiProvider_CanReviewExactDiffWithoutPublishing",
+      "reason": "Set GNOU_GO_LIVE_PR_REVIEW_E2E=1 to create the disposable live GitHub fixture."
+    }
+  ],
+  "trx_files": [
+    {
+      "path": "trx/full-solution_net10.0_20261030124249.trx",
+      "bytes": 123829,
+      "sha256": "c44dd2ad812efe1c8d5bc7d57d28b08362a05e0047604ad9c4c6354cc02b3ae1"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030124252.trx",
+      "bytes": 71837,
+      "sha256": "3bc9cda1b7eec9e4b2842963a0f22ecf0411058b748d94f0ed5f28a87e8310c1"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030124255.trx",
+      "bytes": 19679,
+      "sha256": "5c16399afbb42045bbc62a150d26a26a2c14d2222fed02c99afe0a123ee5169d"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030124301.trx",
+      "bytes": 2213771,
+      "sha256": "1b1f829f2cb5f9ed2880ddbf0c317ba237af4595a5dcf65933ba06fb17d51d66"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030124310.trx",
+      "bytes": 167261,
+      "sha256": "674d47c0a8c44413e4560f9a111fd29fc584c9bd5fa17047e986d72a93c245fa"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030124313.trx",
+      "bytes": 382611,
+      "sha256": "ad290d116b13e88303fc051cee32dade5e6803cf4d073d4dd47e84aeed9b1093"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030124315.trx",
+      "bytes": 22110,
+      "sha256": "e8ef3456f174e6b6ee15313658428974e917e61150eb8fcce93707f44d9499c1"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030124318.trx",
+      "bytes": 148518,
+      "sha256": "135b05918592b4ff89ff5f604724045e49299f5c5af5ede87bcc82f4c07781f1"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030124339.trx",
+      "bytes": 156947,
+      "sha256": "7827f585409f22e47658738e63a1dccf997ed23e7784c41d3b6b4d878ff99b0e"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030124407.trx",
+      "bytes": 222901,
+      "sha256": "dcc5a8d4916447177c9cd143262fc756fceccdeefdb8949516e601c7bba6cbe2"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030135124.trx",
+      "bytes": 2572136,
+      "sha256": "10f9fe4270500826458d75ed28372d82d7059eff0f075193718c3a3118986fc5"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030135132.trx",
+      "bytes": 110608,
+      "sha256": "33d44b898fe2b49acc56cf115d9074ff662174dfd08f3f22168a9b819beff042"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030135138.trx",
+      "bytes": 14887,
+      "sha256": "aedbe1d5f0aeeb34cdae3b77d75e4d1eaeea30427c7b5f9b712c5a8f05c16d28"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030135140.trx",
+      "bytes": 16568,
+      "sha256": "aeba3e34379f43c74963826b628bb775a0b5e2d3348f0688496512cf7bcfb61f"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030135142.trx",
+      "bytes": 12387,
+      "sha256": "592509289b9f2c5c6d5a89009caa7e618086489d5860333f999691d667b669c8"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030135144.trx",
+      "bytes": 12616,
+      "sha256": "80e72a8b24746c1a9b7cfa77e1a8dee1fea607c02ffe7d527d690a92f750c881"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030135229.trx",
+      "bytes": 426010,
+      "sha256": "fcc6e5e8a345c1524e9efbcb3263193278452176dfd0e7b0796b8698cb0b2a70"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030135231.trx",
+      "bytes": 276269,
+      "sha256": "1f2f2b850e0a25b72e1854ffc5a1ddfe5a4e3a85431e097fbb72f7160f9e9243"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030135233.trx",
+      "bytes": 25701,
+      "sha256": "3fff77336540c5b65af60f5d56a947ecec4d60cc9d4948d5c1f58f0f1eb64e37"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030135234.trx",
+      "bytes": 6370,
+      "sha256": "e151caa804af6b9c4ce683b764519d930dfd2c7e0c416475206bdc99793bced7"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030135241.trx",
+      "bytes": 124591,
+      "sha256": "ce49c5378341cc76cfa193a48d913c4780a379fedd616350f645c72978a3dfaa"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030135243.trx",
+      "bytes": 46246,
+      "sha256": "e469e654187bc096f5bdac61a66612f9a2c578f579164de3b65ae95e36f776bf"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030135244.trx",
+      "bytes": 77682,
+      "sha256": "15dc81f4c8d814eb3ad0dd3984a394802ba5e13b10d8fc8c8c4c737398b0346d"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030135245.trx",
+      "bytes": 19627,
+      "sha256": "2f36f41e879f37a2f54d101e7e0507968d4b2641ace3b317373f01cc9c96eb43"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030135256.trx",
+      "bytes": 139070,
+      "sha256": "c675279a8d9e3e04d77c0e914104e1c6016a1d06b229b98c6210680674ac65b4"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030135258.trx",
+      "bytes": 66930,
+      "sha256": "9f5e4b58cb121435ffe639a91de4319919af0aef2131c798210e9f35d904cb3f"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030135305.trx",
+      "bytes": 22025,
+      "sha256": "8e03a7b9245a760c6ef4ae06bbd09088296c256ee31e5dad0269346eebb70f3c"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030135306.trx",
+      "bytes": 45224,
+      "sha256": "960cb25758b8055c77a3a58d644012ec4a6c3a564b2b03836f63e3b32e022ff2"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030135611.trx",
+      "bytes": 3847832,
+      "sha256": "dfbc706192a29a4e82c9a5fbbf1b891e833b539e2b4b212789bc41e42e3c5012"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030135623.trx",
+      "bytes": 289559,
+      "sha256": "1f88ec02abcc1a099a72398825da2e21f51020a1ab5042290500c3b9daf06eba"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030135625.trx",
+      "bytes": 13256,
+      "sha256": "1155211b3547622fbd8c835e9e2473d99572f87b74656054a45d260f7d788fe3"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030135633.trx",
+      "bytes": 40807,
+      "sha256": "fbc83e75abee23312494f693d548d14fa3679b15ad8b45c771434d481e957087"
+    },
+    {
+      "path": "trx/full-solution_net10.0_20261030135634.trx",
+      "bytes": 9155,
+      "sha256": "121b57b9ab326a80b8df22c01f65bd94aa944dc9170bc8ea4fee0227dac35fd6"
+    }
+  ],
+  "capture_notes": {
+    "assembly_names": "VSTest lowercase storage filenames are matched case-insensitively to the expected solution assemblies.",
+    "skips": "Skipped counts use explicit UnitTestResult outcome=NotExecuted records because the adapter reports Counters.notExecuted=0 for these cases.",
+    "raw_trx_or_log_edited": false,
+    "tests_rerun_for_aggregation": false
+  }
+}

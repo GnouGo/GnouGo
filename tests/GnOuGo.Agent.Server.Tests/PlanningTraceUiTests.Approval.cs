@@ -1,4 +1,6 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
+using GnOuGo.Planning.Examples;
 using Bunit;
 using GnOuGo.Agent.Server.Components.Pages;
 using GnOuGo.Flow.Core.Planning;
@@ -130,7 +132,7 @@ public sealed partial class PlanningTraceUiTests
         var approval = planner.Commands[0];
         Assert.Equal("approve", approval.Kind); Assert.Equal(state.Revision, approval.ExpectedRevision);
         Assert.Equal(state.ComputeArtifactHash(), approval.ArtifactHash);
-        Assert.Equal(new[] { "retained", "result" }, approval.ReviewedRequirementIds);
+        Assert.Equal(new[] { "req_1", "req_0" }, approval.ReviewedRequirementIds);
         var saved = (await fixture.Store.LoadAsync("planning-tests", state.Request.SessionId, Ct))!;
         Assert.Equal(stale ? PlanningStatus.FinalReview : PlanningStatus.Saved, saved.Status);
         Assert.Equal(stale ? 0 : 1, writes);
@@ -152,15 +154,48 @@ public sealed partial class PlanningTraceUiTests
 
     private static async Task<PlanningSession> ApprovalSession()
     {
-        var state = Session("approval-ui", "Reviewed result", PlanningStatus.FinalReview);
-        state.Request.Policy = GnOuGo.Agent.Server.Planning.AgentPlanningPolicy.Create();
-        state.Requirements = GnOuGo.Planning.Examples.PlanningCorpus.Requirements("local");
-        state.Requirements.Outcomes = [new("result", "Return the exact requested value"), new("retained", "Preserve the requested output contract")];
-        state.Plan = GnOuGo.Planning.Examples.PlanningCorpus.LiteralResult();
-        var runtime = new WorkflowPlanningRuntime(new WorkflowEngine(), (_, _) => Task.CompletedTask);
-        state.Catalog = await runtime.DiscoverAsync(state.Request, Ct);
-        state.Graph = new TaskPlanCompiler().Compile(state.Plan, state.Catalog).Graph!;
-        state.Yaml = new PlanningGraphCompiler().Compile(state.Graph, state.Catalog, state.Request.Name);
+        var state = new PlanningSession { Request = new()
+        {
+            TenantId = "planning-tests", SessionId = "approval-ui", Name = "Reviewed result",
+            Prompt = "Return the required public numeric result named result with value 42. Preserve the requested output contract.",
+            Policy = GnOuGo.Agent.Server.Planning.AgentPlanningPolicy.Create()
+        } };
+        var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { LLMClient = new ApprovalModel() }, (_, _) => Task.CompletedTask);
+        var planner = new HybridWorkflowPlanner();
+        for (var advance = 0; advance < 40 && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); advance++)
+            state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status);
+        Assert.Equal(2, state.Requirements!.Outcomes.Count);
+        PlanningArtifactApproval.Verify(state);
         return state;
+    }
+
+    private sealed class ApprovalModel : ILLMClient, ILLMCapabilityResolver
+    {
+        private readonly CurrentPlanningFixture.LiteralModel _inner = new();
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => _inner.InputTokenAllowanceAsync(provider, model, outputTokens, ct);
+        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => _inner.SupportsStructuredOutputAsync(provider, model, ct);
+        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => _inner.SupportedReasoningLevelsAsync(provider, model, ct);
+        public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+        {
+            var response = await _inner.CallAsync(request, ct);
+            var json = response.Json!.AsObject(); var schema = request.StructuredOutputSchema!.AsObject();
+            if (json["clauses"] is JsonArray)
+            {
+                var context = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
+                var text = context["sources"]![0]!["text"]!.ToString();
+                var split = text.IndexOf("Preserve", StringComparison.Ordinal);
+                var declaration = json["clauses"]![0]!;
+                json["clauses"] = new JsonArray(new JsonObject { ["text"] = text[..split], ["kind"] = "requirement",
+                    ["inputs"] = declaration["inputs"]!.DeepClone(), ["outputs"] = declaration["outputs"]!.DeepClone() },
+                    new JsonObject { ["text"] = text[split..], ["kind"] = "requirement", ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray() });
+            }
+            if (json["block"] is JsonObject block) block["requirementIds"] = new JsonArray("req_0", "req_1");
+            if (json["step"] is JsonObject step) step["closeRequirementIds"] = new JsonArray("req_0", "req_1");
+            if (json["extension"] is JsonObject extension) extension["requirementIds"] = new JsonArray("req_0", "req_1");
+            response.Json = PlanningCorpus.Transport(json, schema, schema);
+            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response.Json, schema));
+            return response;
+        }
     }
 }

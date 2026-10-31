@@ -1,0 +1,178 @@
+{
+  "production_source": "b2ee37324194c67516959898b4eaeaa2fdc5a15e",
+  "harness_source": "b2ee37324194c67516959898b4eaeaa2fdc5a15e",
+  "cohort": "compactrb2ee37324colj12v11a",
+  "freeze_sha256": "215ea97b0e47e021d55c56d3bbe1817f30efd4e10151b61522de4ded7bc6bb05",
+  "captured_profile": {
+    "version": 1,
+    "navigation": {
+      "targetInputTokens": 3000,
+      "maxInputTokens": 12000,
+      "reasoning": "high",
+      "outputTokens": 32768
+    },
+    "draft": {
+      "targetInputTokens": 8000,
+      "maxInputTokens": 18000,
+      "reasoning": "high",
+      "outputTokens": 16384
+    },
+    "review": {
+      "targetInputTokens": 4000,
+      "maxInputTokens": 12000,
+      "reasoning": "high",
+      "outputTokens": 8192
+    }
+  },
+  "artifact_oracle": {
+    "version": "synthetic-artifact-v1",
+    "artifact_hash": "4c28143c0582d482f6765949640c13eb3732680f83e8cbf68f7b4ccc1e9ad45b",
+    "passed": true,
+    "findings": []
+  },
+  "business_success": true,
+  "runtime_variants": [
+    {
+      "variant": "nominal",
+      "correct": true,
+      "runtime_success": true,
+      "elapsed_ms": "426.7693",
+      "error": null,
+      "effects": [],
+      "violations": []
+    },
+    {
+      "variant": "alternate",
+      "correct": true,
+      "runtime_success": true,
+      "elapsed_ms": "3.9365",
+      "error": null,
+      "effects": [],
+      "violations": []
+    }
+  ],
+  "planning_interventions": 0,
+  "logical_requests": 29,
+  "physical_attempts": 30,
+  "legacy_calls_alias": 30,
+  "legacy_calls_alias_is_not_logical_requests": true,
+  "corrections": 0,
+  "provider_input_tokens": 100609,
+  "provider_output_tokens": 40784,
+  "provider_reasoning_tokens": 33776,
+  "known_cost_eur": "1.5408879964301651048639000446",
+  "unknown_reservations_eur": "0.9308701472556894243641231593",
+  "planning_ms": 1510095,
+  "complete_business_outcomes": 1,
+  "calls_per_complete_outcome": {
+    "logical": 29,
+    "physical": 30
+  },
+  "review_obligation_categories_not_business_output_denominator": [
+    "exact_outputs",
+    "declared_effects",
+    "cleanup"
+  ],
+  "native_contributive_tasks": 3,
+  "removable_aliases": 0,
+  "unwanted_effects": 0,
+  "phase_measurements": {
+    "construction_draft": {
+      "constructed": 9,
+      "complete_bytes": {
+        "p50": 21976.0,
+        "p95": 26164,
+        "maximum": 26164
+      },
+      "estimated_input_tokens": {
+        "p50": 7582.0,
+        "p95": 8978,
+        "maximum": 8978
+      },
+      "component_bytes_reconcile": true,
+      "elapsed_ms": "277723.0578",
+      "provider_input_tokens": 36170,
+      "provider_output_tokens": 7334
+    },
+    "construction_intent": {
+      "constructed": 2,
+      "complete_bytes": {
+        "p50": 5587.0,
+        "p95": 8651,
+        "maximum": 8651
+      },
+      "estimated_input_tokens": {
+        "p50": 2118.5,
+        "p95": 3140,
+        "maximum": 3140
+      },
+      "component_bytes_reconcile": true,
+      "elapsed_ms": "375249.0346",
+      "provider_input_tokens": 2018,
+      "provider_output_tokens": 1932
+    },
+    "construction_local_judge": {
+      "constructed": 9,
+      "complete_bytes": {
+        "p50": 22112.0,
+        "p95": 26819,
+        "maximum": 26819
+      },
+      "estimated_input_tokens": {
+        "p50": 7627.0,
+        "p95": 9196,
+        "maximum": 9196
+      },
+      "component_bytes_reconcile": true,
+      "elapsed_ms": "402964.28560000006",
+      "provider_input_tokens": 34195,
+      "provider_output_tokens": 17863
+    },
+    "construction_select": {
+      "constructed": 9,
+      "complete_bytes": {
+        "p50": 15864.0,
+        "p95": 19789,
+        "maximum": 19789
+      },
+      "estimated_input_tokens": {
+        "p50": 5544.0,
+        "p95": 6853,
+        "maximum": 6853
+      },
+      "component_bytes_reconcile": true,
+      "elapsed_ms": "352121.6548",
+      "provider_input_tokens": 28226,
+      "provider_output_tokens": 13655
+    }
+  },
+  "original_response_audit": {
+    "responses": 29,
+    "all_match_receipts": true,
+    "empty_responses": 0,
+    "output_limit_responses": 0,
+    "outside_string_whitespace_bytes": 12,
+    "longest_whitespace_run": 2,
+    "audit_sha256": "86c88f24455489f9814c96b8031009813284bf151428b8c65392676fadd3e671"
+  },
+  "operator_metadata_rejection": {
+    "reason": "Initial private review used prose obligation labels instead of the required fixed scenario IDs. Trusted-host validation rejected it before receipt creation or approval; execution preparation stopped before dispatch.",
+    "resolution": "Correct only metadata to declared_effects / exact_outputs / cleanup; preserve rejected spec and error. No TaskPlan, model call, authority or validator change.",
+    "planning_intervention": false
+  },
+  "comparison_limitation": "e44 control:27logical/27physical, one automatic closure repair, EUR1.562918 known, zero new unknown reserve. This candidate:29/30, no repair, higher financial upper bound and planning latency; no efficiency claim. The pure Collections case does not exercise MCP metadata admission.",
+  "review_receipt_preparation": {
+    "source": "b2ee37324194c67516959898b4eaeaa2fdc5a15e",
+    "artifact_hash": "4c28143c0582d482f6765949640c13eb3732680f83e8cbf68f7b4ccc1e9ad45b",
+    "revision": 29,
+    "origin": "delegated_test",
+    "authorization_hash": "d11c9239f5789a733ea04fa96e7660b6b328abda1ae666355ab6ce096bb80385",
+    "evidence_hash": "fe97d6e654ebc76384e858f10ed23e1f53f509a9f3989015f6d642a935e450fc",
+    "requirements": 2,
+    "tasks": 3,
+    "receipt_metadata_written": true,
+    "approval_dispatched": false,
+    "execution_started": false,
+    "application_store_writes": 0
+  }
+}

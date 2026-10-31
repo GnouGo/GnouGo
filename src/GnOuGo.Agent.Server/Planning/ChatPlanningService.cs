@@ -22,14 +22,14 @@ public sealed class ChatPlanningService(IKeyVaultRecordStore records, SecureWork
 {
     private readonly IKeyVaultRecordStore _records = records;
     private const string Origins = "agent-chat-planning-origins-v2";
-    private const string Sessions = "flow-planning-sessions-v10";
+    private const string Sessions = "flow-planning-sessions-v11";
     private const string Author = "GnOuGo.Agent.Server.Planning";
     private string Tenant => WorkflowExecutionTenant.Resolve(telemetry);
     private readonly ConcurrentDictionary<string, Waiter> _waiting = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, byte> _owners = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _gates = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, Task<PlanningSession>> _recoveries = new(StringComparer.Ordinal);
-    private WorkflowPlanningRuntimeFactory Factory() => new(_records, GnOuGoWorkspace.ResolveDatabasePath(null, AppContext.BaseDirectory, ".GnOuGo/data/flow-planning-v10/leases"));
+    private WorkflowPlanningRuntimeFactory Factory() => new(_records, GnOuGoWorkspace.ResolveDatabasePath(null, AppContext.BaseDirectory, ".GnOuGo/data/flow-planning-v11/leases"));
 
     public Bridge Attach(string conversationId, Action<PlanningSessionDto> changed) => new(this, conversationId, changed);
 

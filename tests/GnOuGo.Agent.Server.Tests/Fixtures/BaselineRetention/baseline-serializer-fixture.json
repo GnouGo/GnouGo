@@ -1,0 +1,275 @@
+{
+  "kind": "actual_baseline_serializer_fixture",
+  "original_user_request": "Return the supplied values in their original order.",
+  "original_request": {
+    "clientRequestId": "baseline-retention-session:1:original",
+    "provider": null,
+    "model": "",
+    "prompt": "Return the supplied values in their original order.",
+    "temperature": null,
+    "structuredOutputSchema": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string",
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "structuredOutputStrict": true,
+    "reasoning": "medium",
+    "useBackgroundMode": true,
+    "tools": null,
+    "maxTokens": 8192,
+    "requireOutputTokenLimit": true,
+    "disableTransportRetries": true
+  },
+  "original_request_text": "{\u0022clientRequestId\u0022:\u0022baseline-retention-session:1:original\u0022,\u0022provider\u0022:null,\u0022model\u0022:\u0022\u0022,\u0022prompt\u0022:\u0022Return the supplied values in their original order.\u0022,\u0022temperature\u0022:null,\u0022structuredOutputSchema\u0022:{\u0022type\u0022:\u0022object\u0022,\u0022properties\u0022:{\u0022value\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022maxLength\u0022:256}},\u0022required\u0022:[\u0022value\u0022],\u0022additionalProperties\u0022:false},\u0022structuredOutputStrict\u0022:true,\u0022reasoning\u0022:\u0022medium\u0022,\u0022useBackgroundMode\u0022:true,\u0022tools\u0022:null,\u0022maxTokens\u0022:8192,\u0022requireOutputTokenLimit\u0022:true,\u0022disableTransportRetries\u0022:true}",
+  "original_request_sha256": "35560627d7bf1f181b4cc35dfe4e87c91ced8a30bc5491da3e4e7a3bca34a2aa",
+  "factory_request": {
+    "clientRequestId": "baseline-retention-session:1:original",
+    "provider": "fixture",
+    "model": "pinned",
+    "prompt": "Return the supplied values in their original order.",
+    "temperature": null,
+    "structuredOutputSchema": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string",
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "structuredOutputStrict": true,
+    "reasoning": "medium",
+    "useBackgroundMode": false,
+    "tools": null,
+    "maxTokens": 8192,
+    "requireOutputTokenLimit": true,
+    "disableTransportRetries": false
+  },
+  "factory_request_text": "{\u0022clientRequestId\u0022:\u0022baseline-retention-session:1:original\u0022,\u0022provider\u0022:\u0022fixture\u0022,\u0022model\u0022:\u0022pinned\u0022,\u0022prompt\u0022:\u0022Return the supplied values in their original order.\u0022,\u0022temperature\u0022:null,\u0022structuredOutputSchema\u0022:{\u0022type\u0022:\u0022object\u0022,\u0022properties\u0022:{\u0022value\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022maxLength\u0022:256}},\u0022required\u0022:[\u0022value\u0022],\u0022additionalProperties\u0022:false},\u0022structuredOutputStrict\u0022:true,\u0022reasoning\u0022:\u0022medium\u0022,\u0022useBackgroundMode\u0022:false,\u0022tools\u0022:null,\u0022maxTokens\u0022:8192,\u0022requireOutputTokenLimit\u0022:true,\u0022disableTransportRetries\u0022:false}",
+  "factory_request_sha256": "b6de11d427298ea4061930c89dc5968e58bf750ac2cc6e7c722ec09f35402866",
+  "dispatch_request": {
+    "clientRequestId": "baseline-retention-session:1:original",
+    "provider": "fixture",
+    "model": "pinned",
+    "prompt": "Return the supplied values in their original order.",
+    "temperature": null,
+    "structuredOutputSchema": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string",
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "structuredOutputStrict": true,
+    "reasoning": "medium",
+    "useBackgroundMode": false,
+    "tools": null,
+    "maxTokens": 8192,
+    "requireOutputTokenLimit": true,
+    "disableTransportRetries": true
+  },
+  "dispatch_request_text": "{\u0022clientRequestId\u0022:\u0022baseline-retention-session:1:original\u0022,\u0022provider\u0022:\u0022fixture\u0022,\u0022model\u0022:\u0022pinned\u0022,\u0022prompt\u0022:\u0022Return the supplied values in their original order.\u0022,\u0022temperature\u0022:null,\u0022structuredOutputSchema\u0022:{\u0022type\u0022:\u0022object\u0022,\u0022properties\u0022:{\u0022value\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022maxLength\u0022:256}},\u0022required\u0022:[\u0022value\u0022],\u0022additionalProperties\u0022:false},\u0022structuredOutputStrict\u0022:true,\u0022reasoning\u0022:\u0022medium\u0022,\u0022useBackgroundMode\u0022:false,\u0022tools\u0022:null,\u0022maxTokens\u0022:8192,\u0022requireOutputTokenLimit\u0022:true,\u0022disableTransportRetries\u0022:true}",
+  "dispatch_request_sha256": "6129760fdfe0fc8c020991a79a27106bd8f0acf826e266d29d09eaed2bf92266",
+  "session": {
+    "schemaVersion": 10,
+    "request": {
+      "mode": "interactive",
+      "tenantId": "benchmark",
+      "sessionId": "baseline-retention-session",
+      "name": "collections",
+      "prompt": "Return the supplied values in their original order.",
+      "baseline": null,
+      "revisionContext": null,
+      "failureEvidence": null,
+      "options": {
+        "construction_version": 1
+      },
+      "policy": {
+        "allowedStepTypes": [],
+        "deniedCapabilityIds": [],
+        "requireExternalConfirmation": true,
+        "maxStepsTotal": 300,
+        "instructions": ""
+      },
+      "maxReplanAttempts": 4,
+      "maxModelCalls": 12,
+      "generation": {
+        "reasoning": "medium",
+        "maxInputTokensPerRequest": 12000,
+        "maxOutputTokens": 8192
+      }
+    },
+    "revision": 1,
+    "status": "stopped",
+    "updatedAtUtc": "2026-10-25T12:42:36.463992\u002B00:00",
+    "waitingSinceUtc": null,
+    "activeMilliseconds": 0,
+    "humanWaitMilliseconds": 0,
+    "catalog": null,
+    "requirements": null,
+    "intentVersion": 3,
+    "discovery": {
+      "sources": [],
+      "pages": [],
+      "resolved": [],
+      "limitations": []
+    },
+    "revisionScope": [],
+    "phase": "requirements",
+    "plan": null,
+    "construction": {
+      "version": 1,
+      "limits": {
+        "maxTasksPerDraft": 8,
+        "maxCheckpoints": 128,
+        "maxCorrectionsPerDraft": 3,
+        "intermediateReviewInterval": 4,
+        "draftOutputTokens": 8192,
+        "reviewOutputTokens": 2048
+      },
+      "openScopes": [
+        "/root"
+      ],
+      "checkpoints": [],
+      "candidate": null,
+      "requirements": [],
+      "failedCandidates": [],
+      "evidenceRequests": [],
+      "evidence": null,
+      "pendingReviewContext": null,
+      "pendingReviewHash": null,
+      "requirementCursor": 0,
+      "taskCursor": 0,
+      "scopeCursor": 0,
+      "complete": false,
+      "issuedBaseHash": null,
+      "rebuildTasks": [],
+      "rebuildScopes": [],
+      "invalidations": [],
+      "draftCorrections": 0,
+      "lastProposalHash": null
+    },
+    "graph": null,
+    "diagnostics": [
+      {
+        "code": "MODEL_DISPATCH_UNVERIFIABLE",
+        "location": "/",
+        "message": "The retained fixture has no verified response.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ],
+    "validationResults": [],
+    "replanAttempts": 0,
+    "modelCalls": 1,
+    "pendingCall": {
+      "id": "baseline-retention-session:1:original",
+      "purpose": "construction_draft",
+      "request": {
+        "clientRequestId": "baseline-retention-session:1:original",
+        "provider": null,
+        "model": "",
+        "prompt": "Return the supplied values in their original order.",
+        "temperature": null,
+        "structuredOutputSchema": {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "string",
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        "structuredOutputStrict": true,
+        "reasoning": "medium",
+        "useBackgroundMode": true,
+        "tools": null,
+        "maxTokens": 8192,
+        "requireOutputTokenLimit": true,
+        "disableTransportRetries": true
+      }
+    },
+    "rejectedProposalHash": null,
+    "usage": null,
+    "yaml": null,
+    "approvedHash": null,
+    "savedAgentId": null
+  },
+  "session_text": "{\u0022schemaVersion\u0022:10,\u0022request\u0022:{\u0022mode\u0022:\u0022interactive\u0022,\u0022tenantId\u0022:\u0022benchmark\u0022,\u0022sessionId\u0022:\u0022baseline-retention-session\u0022,\u0022name\u0022:\u0022collections\u0022,\u0022prompt\u0022:\u0022Return the supplied values in their original order.\u0022,\u0022baseline\u0022:null,\u0022revisionContext\u0022:null,\u0022failureEvidence\u0022:null,\u0022options\u0022:{\u0022construction_version\u0022:1},\u0022policy\u0022:{\u0022allowedStepTypes\u0022:[],\u0022deniedCapabilityIds\u0022:[],\u0022requireExternalConfirmation\u0022:true,\u0022maxStepsTotal\u0022:300,\u0022instructions\u0022:\u0022\u0022},\u0022maxReplanAttempts\u0022:4,\u0022maxModelCalls\u0022:12,\u0022generation\u0022:{\u0022reasoning\u0022:\u0022medium\u0022,\u0022maxInputTokensPerRequest\u0022:12000,\u0022maxOutputTokens\u0022:8192}},\u0022revision\u0022:1,\u0022status\u0022:\u0022stopped\u0022,\u0022updatedAtUtc\u0022:\u00222026-10-25T12:42:36.463992\u002B00:00\u0022,\u0022waitingSinceUtc\u0022:null,\u0022activeMilliseconds\u0022:0,\u0022humanWaitMilliseconds\u0022:0,\u0022catalog\u0022:null,\u0022requirements\u0022:null,\u0022intentVersion\u0022:3,\u0022discovery\u0022:{\u0022sources\u0022:[],\u0022pages\u0022:[],\u0022resolved\u0022:[],\u0022limitations\u0022:[]},\u0022revisionScope\u0022:[],\u0022phase\u0022:\u0022requirements\u0022,\u0022plan\u0022:null,\u0022construction\u0022:{\u0022version\u0022:1,\u0022limits\u0022:{\u0022maxTasksPerDraft\u0022:8,\u0022maxCheckpoints\u0022:128,\u0022maxCorrectionsPerDraft\u0022:3,\u0022intermediateReviewInterval\u0022:4,\u0022draftOutputTokens\u0022:8192,\u0022reviewOutputTokens\u0022:2048},\u0022openScopes\u0022:[\u0022/root\u0022],\u0022checkpoints\u0022:[],\u0022candidate\u0022:null,\u0022requirements\u0022:[],\u0022failedCandidates\u0022:[],\u0022evidenceRequests\u0022:[],\u0022evidence\u0022:null,\u0022pendingReviewContext\u0022:null,\u0022pendingReviewHash\u0022:null,\u0022requirementCursor\u0022:0,\u0022taskCursor\u0022:0,\u0022scopeCursor\u0022:0,\u0022complete\u0022:false,\u0022issuedBaseHash\u0022:null,\u0022rebuildTasks\u0022:[],\u0022rebuildScopes\u0022:[],\u0022invalidations\u0022:[],\u0022draftCorrections\u0022:0,\u0022lastProposalHash\u0022:null},\u0022graph\u0022:null,\u0022diagnostics\u0022:[{\u0022code\u0022:\u0022MODEL_DISPATCH_UNVERIFIABLE\u0022,\u0022location\u0022:\u0022/\u0022,\u0022message\u0022:\u0022The retained fixture has no verified response.\u0022,\u0022required\u0022:true,\u0022validationStage\u0022:null,\u0022rule\u0022:null}],\u0022validationResults\u0022:[],\u0022replanAttempts\u0022:0,\u0022modelCalls\u0022:1,\u0022pendingCall\u0022:{\u0022id\u0022:\u0022baseline-retention-session:1:original\u0022,\u0022purpose\u0022:\u0022construction_draft\u0022,\u0022request\u0022:{\u0022clientRequestId\u0022:\u0022baseline-retention-session:1:original\u0022,\u0022provider\u0022:null,\u0022model\u0022:\u0022\u0022,\u0022prompt\u0022:\u0022Return the supplied values in their original order.\u0022,\u0022temperature\u0022:null,\u0022structuredOutputSchema\u0022:{\u0022type\u0022:\u0022object\u0022,\u0022properties\u0022:{\u0022value\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022maxLength\u0022:256}},\u0022required\u0022:[\u0022value\u0022],\u0022additionalProperties\u0022:false},\u0022structuredOutputStrict\u0022:true,\u0022reasoning\u0022:\u0022medium\u0022,\u0022useBackgroundMode\u0022:true,\u0022tools\u0022:null,\u0022maxTokens\u0022:8192,\u0022requireOutputTokenLimit\u0022:true,\u0022disableTransportRetries\u0022:true}},\u0022rejectedProposalHash\u0022:null,\u0022usage\u0022:null,\u0022yaml\u0022:null,\u0022approvedHash\u0022:null,\u0022savedAgentId\u0022:null}",
+  "session_sha256": "ae44e3e2be0a2e3c6a3c7ac09434ba04fb95a24934b0f7317aac4c8a40e83bff",
+  "full_retry_policy": {
+    "MaxAttempts": 4,
+    "MaxUncertainRetries": 1,
+    "AttemptTimeoutMilliseconds": 600000,
+    "BaseDelayMilliseconds": 1000,
+    "MaxDelayMilliseconds": 30000,
+    "MaxTotalDelayMilliseconds": 60000
+  },
+  "full_retry_policy_text": "{\u0022MaxAttempts\u0022:4,\u0022MaxUncertainRetries\u0022:1,\u0022AttemptTimeoutMilliseconds\u0022:600000,\u0022BaseDelayMilliseconds\u0022:1000,\u0022MaxDelayMilliseconds\u0022:30000,\u0022MaxTotalDelayMilliseconds\u0022:60000}",
+  "effective_retry_policy": {
+    "MaxAttempts": 1,
+    "MaxUncertainRetries": 1,
+    "AttemptTimeoutMilliseconds": 600000,
+    "BaseDelayMilliseconds": 1000,
+    "MaxDelayMilliseconds": 30000,
+    "MaxTotalDelayMilliseconds": 60000
+  },
+  "effective_retry_policy_text": "{\u0022MaxAttempts\u0022:1,\u0022MaxUncertainRetries\u0022:1,\u0022AttemptTimeoutMilliseconds\u0022:600000,\u0022BaseDelayMilliseconds\u0022:1000,\u0022MaxDelayMilliseconds\u0022:30000,\u0022MaxTotalDelayMilliseconds\u0022:60000}",
+  "serializer_assembly": {
+    "name": "GnOuGo.Flow.Core, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+    "mvid": "6d9644cb-f1a9-4ae7-80cf-04176b29f9c0",
+    "sha256": "8cf2e0e1b08c332ab4e09d0ce2acf87b399410ad54bbf54ff92de16377dfc1cc"
+  },
+  "retry_serializer_assembly": {
+    "name": "GnOuGo.AI.Core, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+    "mvid": "a534cae3-444f-4979-9b9a-2bf9835c00f2",
+    "sha256": "100986ad15cfc29673cfa983719ecc18d0396e3acbf1b9c8d4d7db76b531bce6"
+  },
+  "checks": [
+    "Original background preference remains true",
+    "Baseline generation policy disables original transport retries",
+    "Exact factory-stage planning clone",
+    "Exact incremental final dispatch clone",
+    "Original bytes unchanged by dispatch construction",
+    "Baseline session round-trip retains exact original request",
+    "Baseline session exact source-generated round-trip",
+    "Baseline original omits unavailable RequiredReviewCalls",
+    "Baseline dispatch omits unavailable RequiredReviewCalls",
+    "Baseline pending session omits unavailable RequiredReviewCalls",
+    "Dispatch provider and model are pinned",
+    "No tool dispatch supplied",
+    "Exact output allowance preserved",
+    "Exact logical request identity preserved",
+    "Original and dispatch identities remain distinct",
+    "Actual baseline retry defaults retained",
+    "Effective retry changes only MaxAttempts",
+    "Single attempt retains historical uncertainty setting bytes",
+    "Retained baseline construction and stopped status",
+    "Exact original user request preserved"
+  ],
+  "check_count": 20,
+  "limitations": "Synthetic DTO fixture serialized by actual baseline assemblies. No source changes, model/store calls, or modern serialization of legacy requests. Factory clone and final incremental dispatch are separately identified."
+}

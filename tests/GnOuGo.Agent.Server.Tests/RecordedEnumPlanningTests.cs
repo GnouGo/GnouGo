@@ -23,34 +23,20 @@ public sealed class RecordedEnumPlanningTests
     }
 
     [Fact]
-    public async Task NewIssuedSchemaRejectsInventedLiteralsAndSyntheticRegenerationReachesReview()
+    public async Task StaticEnumsPreserveObservedBusinessContractsWithoutPlanningApproval()
     {
-        var runtime = new Replay(); var retained = runtime.State(runtime.Recording["finalSession"]!);
-        var state = new PlanningSession { IntentVersion = 2, Request = retained.Request, Requirements = retained.Requirements, Catalog = retained.Catalog, Discovery = retained.Discovery };
-        state.Requirements!.Inputs = retained.Plan!.Inputs;
-        state.Request.SessionId = "synthetic-enum-regeneration";
-        RecordedPlanCompilation.InspectSelected(state, retained.Plan);
-        // This fresh fixture explicitly budgets the full typed contracts; the historical limit remains in the recording.
-        state.Request.Generation.MaxInputTokensPerRequest = 96000;
-        runtime.NextProposal = runtime.Recording["responses"]!.AsArray()[6]!["response"]!["json"]!.DeepClone().AsObject();
-        var planner = new HybridWorkflowPlanner();
-        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
-        Assert.Null(state.Plan); Assert.Null(state.Graph);
-        Assert.Contains(state.Diagnostics, d => d.Code == "PLANNING_RESPONSE_INVALID");
-        runtime.NextProposal = null;
-        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
-        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join("; ", state.Diagnostics.Select(d => d.Code + ": " + d.Message)));
-        Assert.Equal(2, state.ModelCalls); Assert.Equal(1, state.ReplanAttempts); Assert.Null(state.ApprovedHash);
-        Assert.NotNull(state.Yaml); Assert.Equal(0, runtime.MetadataReads);
+        var runtime = new Replay();
+        var retained = runtime.State(runtime.Recording["finalSession"]!);
+        var proposal = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "EnumPlanning", "synthetic-corrected.json")))!["proposal"]!.Deserialize(GnOuGo.Planning.Examples.PlanningFixtureJsonContext.Default.TaskPlanFixture)!;
+        var catalog = runtime.Recording["catalog"]!.Deserialize(PlanningJsonContext.Default.PlanningCatalog)!;
+        foreach (var contract in runtime.Recording["discovery"]!.Deserialize(PlanningJsonContext.Default.CapabilityDiscoveryState)!.Resolved)
+            if (catalog.Capabilities.All(c => c.Id != contract.Id)) catalog.Capabilities.Add(contract);
+        await Task.CompletedTask;
+        var state = RecordedPlanCompilation.CompileStatic(proposal, catalog, retained.Request);
+        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics));
         VerifyBusinessIntent(state);
-        PlanningArtifactApproval.Verify(state);
-        var recovered = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
-        PlanningArtifactApproval.Verify(recovered);
-        recovered.Plan!.Root.Tasks.Single(t => t.Id == "run_project_checks").Objective += " Changed";
-        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(recovered));
-        // A schema-valid filesystem substitution is not an equivalent check operation.
-        state.Plan!.Root.Tasks.Single(t => t.Id == "run_project_checks").Operation = "cap_5c01f9aa688163d23a30ff8b";
-        Assert.ThrowsAny<Exception>(() => VerifyBusinessIntent(state));
+        Assert.Equal(0, state.ModelCalls);
+        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(state));
     }
 
     private static void VerifyBusinessIntent(PlanningSession state)
@@ -84,7 +70,6 @@ public sealed class RecordedEnumPlanningTests
         private static JsonObject FileData(string name) => JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "EnumPlanning", name + ".json")))!.AsObject();
         internal readonly JsonObject Recording = FileData("retained-enums");
         internal JsonObject? Expected;
-        internal JsonObject? NextProposal;
         internal List<LLMRequest> Requests = [];
         internal int MetadataReads;
         internal readonly List<string> Identities = [];
@@ -115,22 +100,8 @@ public sealed class RecordedEnumPlanningTests
             MetadataReads++; return Task.FromResult(Discovery.Pages.Single(p => p.SourceId == sourceId && p.Cursor == cursor && p.Query == query));
         }
         public Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct) => Task.FromResult(Discovery.Resolved.Single(c => c.Id == summary.Id && c.Version == summary.Version));
-        public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
-        {
-            if (Expected is null)
-            {
-                Identities.Add(request.ClientRequestId!); Requests.Add(request);
-                var proposal = (NextProposal ?? FileData("synthetic-corrected")["proposal"]!).DeepClone().AsObject();
-                proposal["clarifications"] = null; // New synthetic response; retained issued responses remain unchanged.
-                return Task.FromResult(new LLMResponse { Json = NextProposal is not null ? proposal : GnOuGo.Planning.Examples.PlanningCorpus.Transport(proposal, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) });
-            }
-            var issued = Expected["pendingSession"]!["pendingCall"]!;
-            Assert.Equal(issued["id"]!.ToString(), request.ClientRequestId);
-            Assert.Equal(issued["request"]!["prompt"]!.ToString(), request.Prompt);
-            Assert.True(JsonNode.DeepEquals(issued["request"]!["structuredOutputSchema"], request.StructuredOutputSchema));
-            Assert.DoesNotContain(request.ClientRequestId!, Identities); Identities.Add(request.ClientRequestId!);
-            return Task.FromResult(Expected["response"]!.Deserialize(PlanningJsonContext.Default.LLMResponse)!);
-        }
+        public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct) =>
+            throw new InvalidOperationException("Retired planning recordings are read-only fixtures and cannot dispatch.");
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => actual.ValidateAsync(request, ct);
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => throw new InvalidOperationException("No external approval or execution");
         public Task CheckpointAsync(PlanningSession session, CancellationToken ct) => Task.CompletedTask;

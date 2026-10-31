@@ -1,0 +1,150 @@
+{
+  "version": 1,
+  "source": "4d486d1ac63aafb7893086437164cfd9f23dc26d",
+  "cohort": "compactr4d486d1accode20v6nv18",
+  "terminal": {
+    "logical": 35,
+    "physical": 35,
+    "receipts": 35,
+    "corrections": 3,
+    "checkpoints": 4,
+    "artifact": null,
+    "runtime": "not_started"
+  },
+  "host_failure": {
+    "classification": "Reproduced obsolete benchmark admission-count guard, separately from received business finding.",
+    "remaining_reviews": 5,
+    "remaining_calls": 29,
+    "remaining_repairs": 1,
+    "input_ceiling": 20000,
+    "draft_plus_review_output_ceilings": [
+      16384,
+      8192,
+      8192,
+      8192,
+      8192,
+      8192
+    ],
+    "observed_exception": "System.ArgumentException from exact old KeyVaultBenchmarkModel.AdmitConstructionAsync before dispatch gate, pricing or accounting.",
+    "trace": [
+      "CorrectConstructionAsync:356-362",
+      "ReserveConstructionReviewAsync:122-146",
+      "RequiredReviewCalls:17-20 -> RemainingCalls:91-96",
+      "KeyVaultBenchmarkModel.AdmitConstructionAsync:61-65 rejects Count >4",
+      "HybridWorkflowPlanner.cs:210-211 generic catch with no PendingCall => PLANNING_HOST_FAILURE"
+    ],
+    "proof_boundary": "Root supplied exact canonical terminal state through stdin only. The copied4d correction method computed and passed six ceilings. The uninitialized old benchmark guard object has no campaign/client/pricing/store; wrapper allows only >4 positive ceilings. Both original and probe clone were unchanged; other runtime calls zero. No actual CLI, financial path, replay or new-source runtime was tested.",
+    "existing_fix": "The separately reviewed/integrated17-file patch removes the arbitrary Count >4 check while preserving positive ceilings and financial admission. No additional mechanism is proposed. This does not establish a successful repair or business completion.",
+    "integrated_fix_source": "66360362da0845513137178ff51752f61b4249ef",
+    "qualification_sha256": "b8e9824755c97d61ed37273fd32cd1f5b89a357d4f5e2ddde4f7ff5fd7a8be03"
+  },
+  "business_assessment": {
+    "accepted_plan": "One exact git_clone step_4 with the original required remote, explicit head branch and cohort directory. The open sequence and separate group remain unfinished; no accepted second clone.",
+    "q30_q31": "A selected operation draft exported existing clone outputs instead of its committed operation; technical rejection is recorded in q31. q31 abandoned that selected operation and expressly recognized the original single-clone obligation. No second clone was accepted.",
+    "q32_q33": "q32 emitted a contaminated nonexistent output-port spelling. q33 received the exact unavailable-port diagnostic and returned the existing success port. This is a received binding error, not a missing-original or loader defect.",
+    "q34_q35": "The tentative value task copies eight existing same-scope step_4 ports one-for-one, with no operation, group export or completion claim. q35 cites exact req_1 and the task; issued guidance already permits direct same-scope producer bindings. The bounded redundancy finding is supported as unnecessary work. It does not prove an additional clone, wrong directory, omitted future work or whole-plan fulfillment.",
+    "review_coverage": "q35 is adverse local window0/5 over req_0..req_3. No current candidate acceptance; earlier partial clean reviews do not approve the whole workflow."
+  },
+  "limits": [
+    "No provider/store/effect access or session persistence by this assessment/probe; root owns canonical read and actual-state invocation.",
+    "No artifact/runtime or verified fulfilled-obligation ratio.",
+    "No setting benefit, avoided correction or causality of model choices. Host exception reproduction is distinct from business redundancy.",
+    "Original response formatting is retained through root scanner counters and prior peers; no raw-text rescan here."
+  ],
+  "state": "public-safe source-bound terminal assessment",
+  "source_blobs": [
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.Construction.cs",
+      "sha256": "c496731d77532948799299c9e70d717d6a5a00af33573f788387af88feb8c4eb",
+      "domain": "committed4d Git blob; current main may differ"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.cs",
+      "sha256": "5a4efc926fc805487220dbb98fbf0271efaa49d2f73e6e543ca2b99a393fa4d8",
+      "domain": "committed4d Git blob; current main may differ"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs",
+      "sha256": "d60fe4ae28d7a2b442b00e56e7200aa74650dfd1e998935b5a11b84e429080a9",
+      "domain": "committed4d Git blob; current main may differ"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningConstructionReviewCoverage.cs",
+      "sha256": "fc075b804c1a284e1b8ebf42ccf41773ca2467b5c037eb4c434c6f13f087a0b1",
+      "domain": "committed4d Git blob; current main may differ"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.ConstructionReview.cs",
+      "sha256": "b300d294511d51efb7a76de7f5ef2aa2711f687542adec460cb657d2573aef32",
+      "domain": "committed4d Git blob; current main may differ"
+    },
+    {
+      "path": "tests/GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs",
+      "sha256": "7be8e50abadad17e22dca01d5e8a98129dc7de710541b007e2bc9c18ca797196",
+      "domain": "committed4d Git blob; current main may differ"
+    },
+    {
+      "path": "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs",
+      "sha256": "a9dfbcabaaaf7b9dc46b4b10d70aad50403b354730508691cb120c649e2fa17f",
+      "domain": "committed4d Git blob; current main may differ"
+    }
+  ],
+  "evidence": [
+    {
+      "role": "state",
+      "name": "code-state-witness-safe.json",
+      "sha256": "897542bccc4a543112f5319253159e526c6f523e30892fa24b5bc1df89c483e4"
+    },
+    {
+      "role": "decisions",
+      "name": "code-received-decisions-safe.json",
+      "sha256": "bdf332c5217d2e8203a799f58534b76bd270efb991fc59f22491802212851567"
+    },
+    {
+      "role": "issued_contexts",
+      "name": "code-correction-review-witness-safe.json",
+      "sha256": "856b5d6defa7a3f53c0d7fa9fe0184eb73a17b2dcc895e661ebca54cdf33b960"
+    },
+    {
+      "role": "metrics",
+      "name": "code-terminal-exact-metrics.json",
+      "sha256": "68c57b2f013c252bf4b1a763473c785ab63322ff60d69f67be34a8a98bd638d7"
+    },
+    {
+      "role": "actual_state_probe",
+      "name": "actual-state-probe-safe.json",
+      "sha256": "b546a2642a13dbef72d7554452a53867f2f354bcf0dd82bac9ce7f0b9d679fb0"
+    },
+    {
+      "role": "probe_preparation",
+      "name": "preparation-safe.json",
+      "sha256": "7df4b9f7e5b293a7502a40815fddca19f71e55f60b7c0b4876eb0a4d4d633c25"
+    },
+    {
+      "role": "probe_peer",
+      "name": "independent-source-review-safe.json",
+      "sha256": "56fa4988d7afe390e59e44394a5c28798770e335b12ae5ba79056781c15ccdd8"
+    },
+    {
+      "role": "reader_preparation",
+      "name": "preparation-safe.json",
+      "sha256": "8015a8839be8363345506fddddeb0cabc7ce60a0daf6e8a4cbde27edda85b91c"
+    },
+    {
+      "role": "reader_peer",
+      "name": "independent-review-safe.json",
+      "sha256": "c4bcc72807b189505eff0b5a3b696f1325c6acdefdef9afe7088910da1dba3ee"
+    }
+  ],
+  "provenance": [
+    {
+      "name": "source-assessment-safe.json",
+      "sha256": "2727b92c36bb131942964e5a7fbd865084ad41e9b928028898dfb344a28fa1a8"
+    },
+    {
+      "name": "independent-review-safe.json",
+      "sha256": "2534db5eaffd5e79864e05fcf42b2dced80d758bb92abe1775bece7e7e7e0bec"
+    }
+  ],
+  "projection": "Raw request/context/task bodies and private absolute paths omitted. Exact hashes, bounded conclusions and source attribution retained."
+}

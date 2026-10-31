@@ -8,10 +8,16 @@ namespace GnOuGo.Planning.Examples;
 public static class PlanningBenchmarkCases
 {
     public static readonly string[] Names = ["local", "read_transform", "nullable_defaults", "conditional", "collections", "protected_cleanup", "review_french", "review_distractors"];
+    public const string TaskProofCase = "proof_task_consumers";
+    public const string ReadGroupProofCase = "proof_read_group_consumers";
+    // Opt-in diagnostics do not extend the historical eight-case corpus or its gates.
+    public static readonly string[] ProofCases = [TaskProofCase, ReadGroupProofCase];
     public const string FrenchPrompt = "A partir d\u2019une url d\u2019un pullrequest github [https://github.com/AxaFrance/SmartGuide/pull/510](https://github.com/AxaFrance/SmartGuide/pull/510)\nEt d\u2019un texte qui explique ce qu\u2019il faut reviewer.\nJ\u2019aimerais que le workflow r\u00e9alise une review automatique de la pullrequest dont le retour seront pouss\u00e9 sur GitHub afin de pouvoir valider automatiquement ou non et expliquer en commentaire pourquoi.\nPour travailler; un unique clone du projet et travailler uniquement avec ce r\u00e9pertoire pour \u00eatre simple et propre. Installe toutes les d\u00e9pendances, joue les linter, tests unitaires, tests d\u2019int\u00e9grations si pr\u00e9sent. Le feedback de la review doit valider aussi toutes les v\u00e9rifications demand\u00e9es par l\u2019utilisateur.";
     public static string Prompt(string name) => name switch
     {
         "local" => "Return a numeric output named result equal to 6 times 7. No inputs or external calls.",
+        TaskProofCase => "Accept required numeric inputs left and right. Compute one shared intermediate numeric base equal to left plus right. Two separate consumers must use that intermediate: one multiplies it by two, and the other adds one. Return the first consumer's value as numeric output doubled and the second consumer's value as numeric output shifted. Keep the shared intermediate and its two consumers distinct. Public outputs may bind directly to the consumer results; no additional copy task is needed. Use only deterministic computation; no external calls or runtime inference.",
+        ReadGroupProofCase => "First read the complete UTF-8 file seed.txt exactly once in the configured workspace, as an audit observation. Keep this read in the sequential root prefix. Do not use its result in any subsequent computation, condition or input. Accept required numeric inputs left and right. Define a reusable isolated subworkflow with required numeric parameter operand and numeric result equal to operand multiplied by two. Call that subworkflow separately with left and right, add one to each returned value, and return numeric outputs leftResult and rightResult respectively. No other external calls, file changes or runtime inference are permitted.",
         "read_transform" => "Read the number with the available read tool, double its value, and return a numeric output named result. No inputs.",
         "nullable_defaults" => "Accept an optional numeric input named increment with default 2. Read the optional number, treat an explicit null value as zero, add increment, and return result. Do not replace explicit null with an input default.",
         "conditional" => "Accept a required boolean input named enabled. When enabled, read the number and return its value as result. Otherwise return result equal to zero without reading anything.",
@@ -24,12 +30,18 @@ public static class PlanningBenchmarkCases
 
     public static JsonObject Inputs(string name, string variant) => name switch
     {
+        TaskProofCase or ReadGroupProofCase => variant == "alternate" ? new() { ["left"] = -2, ["right"] = 0 } : new() { ["left"] = 3, ["right"] = 7 },
         "nullable_defaults" => variant == "alternate" ? new() { ["increment"] = 5 } : new(),
         "conditional" => new() { ["enabled"] = variant != "alternate" },
         "collections" => new() { ["values"] = variant == "alternate" ? new JsonArray(3, 3, -2) : new JsonArray(1, 2, 4) },
         "review_french" or "review_distractors" => new() { ["pr_url"] = "https://github.com/AxaFrance/SmartGuide/pull/510", ["review_text"] = "Verify changed behavior and report every dependency, lint, unit and integration check with evidence." },
         _ => new()
     };
+
+    public static bool ProofOutputsCorrect(string name, JsonNode? outputs, string variant) => JsonNode.DeepEquals(outputs,
+        name == TaskProofCase
+            ? variant == "alternate" ? new JsonObject { ["doubled"] = -4, ["shifted"] = -1 } : new JsonObject { ["doubled"] = 20, ["shifted"] = 11 }
+            : variant == "alternate" ? new JsonObject { ["leftResult"] = -3, ["rightResult"] = 1 } : new JsonObject { ["leftResult"] = 7, ["rightResult"] = 15 });
 
     public sealed class Environment(string name, string variant = "nominal")
     {
@@ -92,6 +104,7 @@ public static class PlanningBenchmarkCases
         private string Event() => _checks.Values.Any(c => c["status"]?.ToString() == "failed") ? "REQUEST_CHANGES" : !_evaluated || _checks.Values.Any(c => c["status"]?.ToString() == "incomplete") ? "COMMENT" : "APPROVE";
         public bool Verify(RunResult result)
         {
+            if (name == TaskProofCase) return result.Success && Effects.Count == 0 && Violations.Count == 0 && ProofOutputsCorrect(name, result.Outputs, variant);
             if (name == "protected_cleanup") return (variant == "failure" ? !result.Success : result.Success && result.Outputs?["result"]?.ToString() == "42") && Effects.SequenceEqual(new[] { "write", "cleanup" });
             if (name.StartsWith("review_", StringComparison.Ordinal) && variant is "rejected" or "head_changed")
                 return !result.Success && Violations.Count == 0 && Effects.Count(e => e == "clone_repository") == 1 && _checks.Count == 4 && Effects.Last() == "remove_workspace"

@@ -1,0 +1,404 @@
+{
+  "baseline": "9fe879cc2d97ed94171e85034ee6288e9fbf7f02",
+  "through_implementation": "8d9a936e5a50bcd588bd38edd442ab470838fbfe",
+  "preserves_original_inventory": "compact-taskplan-20261029-removal-inventory.json",
+  "totals": {
+    "added": 2946,
+    "removed": 558
+  },
+  "production_csharp": {
+    "added": 412,
+    "removed": 148
+  },
+  "latest_simplification": {
+    "commit": "159bbd80",
+    "removed_symbol": "PlanningRepairPatch.Slots.RepairValue",
+    "replacement": "Existing PlanningBindingSchemas.For, followed by existing semantic validation and scoped edit enforcement.",
+    "no_new_protocol_or_execution_engine": true
+  },
+  "removed_obsolete_routes_commit": "be2bd5a0bf426ec6e29b084a53b8e8a55c8c651f",
+  "net_code_reduction_claimed": false,
+  "interpretation": "Regressions, security/admission corrections and evidence add code; report removals without claiming the complete change is smaller.",
+  "files": [
+    {
+      "path": ".agents/skills/gnougo-planning/SKILL.md",
+      "added": 6,
+      "removed": 6
+    },
+    {
+      "path": "docs/evidence/compact-taskplan-0801e3d3-amazon-output-limit.json",
+      "added": 140,
+      "removed": 0
+    },
+    {
+      "path": "docs/evidence/compact-taskplan-0801e3d3-collections-reference-comparison.json",
+      "added": 64,
+      "removed": 0
+    },
+    {
+      "path": "docs/evidence/compact-taskplan-0801e3d3-collections-success.json",
+      "added": 474,
+      "removed": 0
+    },
+    {
+      "path": "docs/evidence/compact-taskplan-20261029-removal-inventory.json",
+      "added": 33,
+      "removed": 0
+    },
+    {
+      "path": "docs/evidence/compact-taskplan-20261029-supplement.json",
+      "added": 17,
+      "removed": 0
+    },
+    {
+      "path": "docs/evidence/compact-taskplan-2af2bacf-amazon-outcome.json",
+      "added": 206,
+      "removed": 0
+    },
+    {
+      "path": "docs/evidence/compact-taskplan-5fab9b6e-collections-review-projection.json",
+      "added": 370,
+      "removed": 0
+    },
+    {
+      "path": "docs/evidence/compact-taskplan-8a5997d3-solution-validation.json",
+      "added": 26,
+      "removed": 0
+    },
+    {
+      "path": "docs/evidence/compact-taskplan-actual-scope-frontier-validation.json",
+      "added": 50,
+      "removed": 0
+    },
+    {
+      "path": "docs/evidence/compact-taskplan-contribution-selection-experiment.json",
+      "added": 44,
+      "removed": 0
+    },
+    {
+      "path": "docs/evidence/compact-taskplan-convergence.md",
+      "added": 64,
+      "removed": 0
+    },
+    {
+      "path": "docs/evidence/compact-taskplan-ed004934-review-pr-headroom-stop.json",
+      "added": 143,
+      "removed": 0
+    },
+    {
+      "path": "docs/evidence/compact-taskplan-selected-closure-initial-state-validation.json",
+      "added": 42,
+      "removed": 0
+    },
+    {
+      "path": "docs/incremental-taskplan-construction.md",
+      "added": 27,
+      "removed": 4
+    },
+    {
+      "path": "docs/runtime-mappings.md",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/Planning/PlanningSessionService.cs",
+      "added": 1,
+      "removed": 0
+    },
+    {
+      "path": "src/GnOuGo.Flow.Core/Planning/PlanningTokenThresholds.cs",
+      "added": 30,
+      "removed": 0
+    },
+    {
+      "path": "src/GnOuGo.Flow.Core/Properties/AssemblyInfo.cs",
+      "added": 1,
+      "removed": 0
+    },
+    {
+      "path": "src/GnOuGo.Flow.Core/Runtime/Executors/AgentRunExecutor.cs",
+      "added": 8,
+      "removed": 3
+    },
+    {
+      "path": "src/GnOuGo.Flow.Core/Runtime/Executors/DynamicMappingExecutor.Collection.cs",
+      "added": 11,
+      "removed": 4
+    },
+    {
+      "path": "src/GnOuGo.Flow.Core/Runtime/Executors/DynamicMappingExecutor.cs",
+      "added": 2,
+      "removed": 1
+    },
+    {
+      "path": "src/GnOuGo.Flow.Core/Runtime/Executors/WorkflowPlanExecutor.cs",
+      "added": 1,
+      "removed": 0
+    },
+    {
+      "path": "src/GnOuGo.Flow.Core/Runtime/LLMUsageBudgetScope.Admission.cs",
+      "added": 2,
+      "removed": 1
+    },
+    {
+      "path": "src/GnOuGo.Flow.Core/Runtime/LLMUsageBudgetScope.JournaledAttempts.cs",
+      "added": 4,
+      "removed": 4
+    },
+    {
+      "path": "src/GnOuGo.Flow.Core/Runtime/LLMUsageBudgets.cs",
+      "added": 23,
+      "removed": 2
+    },
+    {
+      "path": "src/GnOuGo.Flow.Core/Runtime/ModelRequestAdmission.cs",
+      "added": 5,
+      "removed": 2
+    },
+    {
+      "path": "src/GnOuGo.Flow.Core/Runtime/WorkflowEngine.Runs.cs",
+      "added": 5,
+      "removed": 2
+    },
+    {
+      "path": "src/GnOuGo.Flow.Integrations/Planning/WorkflowPlanningRuntimeFactory.cs",
+      "added": 3,
+      "removed": 0
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.BusinessBlocks.cs",
+      "added": 33,
+      "removed": 1
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.CompactConstruction.cs",
+      "added": 4,
+      "removed": 5
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.Construction.cs",
+      "added": 2,
+      "removed": 1
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.ConstructionReview.cs",
+      "added": 1,
+      "removed": 0
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningBusinessProjection.cs",
+      "added": 12,
+      "removed": 1
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Closure.cs",
+      "added": 17,
+      "removed": 11
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.DecisionContext.cs",
+      "added": 4,
+      "removed": 1
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.ReviewedTransitions.cs",
+      "added": 2,
+      "removed": 7
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.SelectionBindings.cs",
+      "added": 129,
+      "removed": 0
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs",
+      "added": 4,
+      "removed": 40
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningConfirmationGuards.cs",
+      "added": 4,
+      "removed": 6
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningConstruction.Evidence.cs",
+      "added": 24,
+      "removed": 3
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningConstruction.Rollback.cs",
+      "added": 55,
+      "removed": 27
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningConstruction.cs",
+      "added": 7,
+      "removed": 1
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningInputWarnings.cs",
+      "added": 4,
+      "removed": 3
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningModelCalls.cs",
+      "added": 5,
+      "removed": 3
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningRepairPatch.cs",
+      "added": 2,
+      "removed": 16
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/README.md",
+      "added": 24,
+      "removed": 2
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/TaskPlanSymbols.cs",
+      "added": 5,
+      "removed": 1
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/WorkflowPlanningRuntime.cs",
+      "added": 2,
+      "removed": 2
+    },
+    {
+      "path": "tests/GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.Retention.cs",
+      "added": 32,
+      "removed": 10
+    },
+    {
+      "path": "tests/GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.cs",
+      "added": 10,
+      "removed": 88
+    },
+    {
+      "path": "tests/GnOuGo.Agent.Planning.Benchmark/BenchmarkHttpJournal.cs",
+      "added": 8,
+      "removed": 3
+    },
+    {
+      "path": "tests/GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs",
+      "added": 30,
+      "removed": 11
+    },
+    {
+      "path": "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs",
+      "added": 3,
+      "removed": 5
+    },
+    {
+      "path": "tests/GnOuGo.Agent.Planning.Benchmark/Program.cs",
+      "added": 9,
+      "removed": 10
+    },
+    {
+      "path": "tests/GnOuGo.Agent.Planning.Benchmark/README.md",
+      "added": 35,
+      "removed": 9
+    },
+    {
+      "path": "tests/GnOuGo.Agent.Planning.Benchmark/SchemaPortabilityCampaign.cs",
+      "added": 0,
+      "removed": 12
+    },
+    {
+      "path": "tests/GnOuGo.Agent.Server.Tests/BenchmarkCampaignTests.cs",
+      "added": 48,
+      "removed": 201
+    },
+    {
+      "path": "tests/GnOuGo.Agent.Server.Tests/BenchmarkPermanentRetentionTests.cs",
+      "added": 132,
+      "removed": 6
+    },
+    {
+      "path": "tests/GnOuGo.Agent.Server.Tests/LiveWorkflowJudgeMeasurementTests.cs",
+      "added": 5,
+      "removed": 8
+    },
+    {
+      "path": "tests/GnOuGo.Flow.Planning.Tests/BusinessProjectionBindingsTests.cs",
+      "added": 41,
+      "removed": 0
+    },
+    {
+      "path": "tests/GnOuGo.Flow.Planning.Tests/BusinessReviewProtocolTests.cs",
+      "added": 86,
+      "removed": 2
+    },
+    {
+      "path": "tests/GnOuGo.Flow.Planning.Tests/CompactAcceptedClosureTests.cs",
+      "added": 91,
+      "removed": 3
+    },
+    {
+      "path": "tests/GnOuGo.Flow.Planning.Tests/CompactAcceptedTaskNavigationTests.cs",
+      "added": 4,
+      "removed": 1
+    },
+    {
+      "path": "tests/GnOuGo.Flow.Planning.Tests/CompactSelectionObjectiveNavigationTests.cs",
+      "added": 22,
+      "removed": 13
+    },
+    {
+      "path": "tests/GnOuGo.Flow.Planning.Tests/CompactSelectionPresentationTests.cs",
+      "added": 63,
+      "removed": 0
+    },
+    {
+      "path": "tests/GnOuGo.Flow.Planning.Tests/CompactSelectionScopeTests.cs",
+      "added": 3,
+      "removed": 2
+    },
+    {
+      "path": "tests/GnOuGo.Flow.Planning.Tests/LiteralCorrectionTests.cs",
+      "added": 3,
+      "removed": 1
+    },
+    {
+      "path": "tests/GnOuGo.Flow.Planning.Tests/PlanningInputBudgetTests.cs",
+      "added": 17,
+      "removed": 0
+    },
+    {
+      "path": "tests/GnOuGo.Flow.Planning.Tests/TypedRepairSchemaTests.cs",
+      "added": 42,
+      "removed": 2
+    },
+    {
+      "path": "tests/GnOuGo.Flow.Tests/Runtime/AgentTaskTests.cs",
+      "added": 21,
+      "removed": 5
+    },
+    {
+      "path": "tests/GnOuGo.Flow.Tests/Runtime/DynamicMappingAdaptiveTests.cs",
+      "added": 6,
+      "removed": 2
+    },
+    {
+      "path": "tests/GnOuGo.Flow.Tests/Runtime/DynamicMappingRequestAllowanceTests.cs",
+      "added": 31,
+      "removed": 0
+    },
+    {
+      "path": "tests/GnOuGo.Flow.Tests/Runtime/LLMJournaledAttemptBudgetTests.cs",
+      "added": 26,
+      "removed": 0
+    },
+    {
+      "path": "tests/GnOuGo.Flow.Tests/Runtime/ModelRequestAdmissionTests.cs",
+      "added": 28,
+      "removed": 0
+    },
+    {
+      "path": "tests/Shared/PlanningBenchmarkMeasurements.cs",
+      "added": 7,
+      "removed": 3
+    }
+  ]
+}

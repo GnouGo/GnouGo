@@ -4,7 +4,9 @@ using GnOuGo.AI.Core;
 using System.Text.Json;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Planning;
 using GnOuGo.KeyVault.Core.Services;
+using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Agent.Server.Tests;
 public sealed class BenchmarkCampaignTests
@@ -12,34 +14,419 @@ public sealed class BenchmarkCampaignTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
-    public async Task LiveCohortJudgeSettingIsFrozenWithoutMigratingDisabledManifests()
+    public void OptimizationDiagnosticsAreFreshCapturedAuthoritySeparateFromTokenAdvisory()
     {
-        var records = new Records();
-        var historical = new BenchmarkCampaign(records, "judge-control");
-        var original = await LiveCampaignEvidence.PinAsync(historical, "frozen", "provider", "model", "configuration", "cohort");
-        Assert.False(original.ContainsKey("business_judge"));
-        var serialized = original.ToJsonString(); var writes = records.Writes;
-        var continued = await LiveCampaignEvidence.PinAsync(historical, "frozen", "provider", "model", "configuration", "cohort", businessJudge: false);
-        Assert.Equal(serialized, continued.ToJsonString());
-        Assert.Equal(writes, records.Writes);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => LiveCampaignEvidence.PinAsync(historical,
-            "frozen", "provider", "model", "configuration", "cohort", businessJudge: true));
-        Assert.Equal(serialized, (await historical.LoadAsync(SchemaPortabilityCampaign.Collection, "cohort-manifest", Ct))!.ToJsonString());
+        var request = new PlanningRequest();
+        PlanningBenchmarkMeasurements.ConfigureRequest(request, ["--diagnostic-optimization-thresholds"], retained: false);
+        Assert.True(PlanningTokenThresholds.OptimizationAdvisory(request));
+        var frozen = PlanningBenchmarkMeasurements.Configuration(request);
+        var restored = PlanningBenchmarkMeasurements.RestoreConfiguration(frozen);
+        Assert.True(PlanningTokenThresholds.OptimizationAdvisory(restored));
+        Assert.True(JsonNode.DeepEquals(frozen, PlanningBenchmarkMeasurements.Configuration(restored)));
+        PlanningBenchmarkMeasurements.ConfigureRequest(restored, ["--diagnostic-optimization-thresholds"], retained: true);
+        Assert.Throws<PlanningConflictException>(() => PlanningTokenThresholds.RejectReserved(restored.Options));
 
-        var enabled = new BenchmarkCampaign(records, "judge-enabled");
-        var manifest = await LiveCampaignEvidence.PinAsync(enabled, "frozen", "provider", "model", "configuration", "cohort", businessJudge: true);
-        Assert.True(manifest["business_judge"]!.GetValue<bool>());
-        Assert.Equal(8, manifest["planning_attempts"]!.GetValue<int>());
-        Assert.Equal(2, manifest["repairs"]!.GetValue<int>());
-        Assert.Equal(96000, manifest["max_input_tokens"]!.GetValue<int>());
-        Assert.Equal(32768, manifest["max_output_tokens"]!.GetValue<int>());
-        Assert.True(JsonNode.DeepEquals(manifest, await LiveCampaignEvidence.PinAsync(enabled,
-            "frozen", "provider", "model", "configuration", "cohort", businessJudge: true)));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => LiveCampaignEvidence.PinAsync(enabled,
-            "frozen", "provider", "model", "configuration", "cohort"));
-        manifest.Remove("business_judge");
-        Assert.True(JsonNode.DeepEquals(original, manifest));
+        var old = new PlanningRequest();
+        PlanningBenchmarkMeasurements.ConfigureRequest(old, ["--advisory-token-thresholds"], retained: false);
+        Assert.False(PlanningTokenThresholds.OptimizationAdvisory(old));
+        Assert.Throws<InvalidOperationException>(() => PlanningBenchmarkMeasurements.ConfigureRequest(old,
+            ["--diagnostic-optimization-thresholds"], retained: true));
     }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DiagnosticJournalCrossesCallAndElapsedTargetsButRetainsReservationsAndMoney(bool diagnostics)
+    {
+        var campaign = new BenchmarkCampaign(new Records(), "optimization-journal");
+        var policy = StrictTransport();
+        policy["token_threshold_policy"] = "advisory";
+        if (diagnostics) policy[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        policy["deadline_utc"] = DateTimeOffset.UtcNow.AddMinutes(-1).ToString("O");
+        policy["max_elapsed_ms"] = 1L;
+        var journal = new BenchmarkHttpJournal(campaign, "session:1:hash", 100, 20, 1m, 1, 1m, 1, policy);
+        var attempts = new LLMHttpRetryState { Attempts = [new() { Id = "session:1:hash:1" }] };
+        if (!diagnostics)
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => journal.SaveAsync(attempts, Ct));
+            Assert.Null(await campaign.LoadAsync(BenchmarkHttpJournal.Collection, "session:1:hash", Ct));
+            return;
+        }
+        await journal.SaveAsync(attempts, Ct);
+        var recorded = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, "session:1:hash", Ct))!;
+        var warnings = recorded["optimization_threshold_warnings"]!.AsArray();
+        Assert.Contains(warnings, warning => warning?["kind"]?.ToString() == "physical_calls");
+        Assert.Contains(warnings, warning => warning?["kind"]?.ToString() == "elapsed_ms");
+        var restarted = new BenchmarkHttpJournal(campaign, "session:1:hash", 100, 20, 1m, 1, 1m, 1, policy);
+        Assert.Single((await restarted.LoadAsync(Ct))!.Attempts);
+        await restarted.SaveAsync(attempts, Ct);
+        Assert.True(JsonNode.DeepEquals(recorded, await campaign.LoadAsync(BenchmarkHttpJournal.Collection, "session:1:hash", Ct)));
+        var totals = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
+        Assert.Equal(1m, totals["reserved_cost_eur"]!.GetValue<decimal>());
+        Assert.Equal(1L, totals["unknown_attempts"]!.GetValue<long>());
+        var reported = (await LiveCampaignEvidence.AccountingAsync(campaign, "session"))["planning"]!;
+        Assert.Equal(2, reported["warnings"]!.AsArray().Count);
+
+        // An optimization warning cannot grant a larger retry policy or spend beyond money.
+        var retryOverflow = new LLMHttpRetryState { Attempts = Enumerable.Range(1, 4).Select(i =>
+            new LLMHttpAttempt { Id = "overflow:" + i }).ToList() };
+        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.SaveAsync(retryOverflow, Ct));
+        var denied = new BenchmarkHttpJournal(campaign, "session:2:hash", 100, 20, 50m, 1, 1m, 1, policy);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => denied.SaveAsync(new()
+            { Attempts = [new() { Id = "session:2:hash:1" }] }, Ct));
+        Assert.Null(await campaign.LoadAsync(BenchmarkHttpJournal.Collection, "session:2:hash", Ct));
+        Assert.True(JsonNode.DeepEquals(totals, await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct)));
+    }
+
+    [Fact]
+    public async Task AdvisoryJournalRetainsTokenOverrunsAndReservationsAcrossRestart()
+    {
+        var campaign = new BenchmarkCampaign(new Records(), "advisory-journal");
+        var policy = StrictTransport(); policy["token_threshold_policy"] = "advisory";
+        policy["max_total_tokens"] = 1L;
+        var journal = new BenchmarkHttpJournal(campaign, "session:1:hash", 100, 20, .1m, 64, .1m, 1, policy);
+        var state = new LLMHttpRetryState { Attempts = [new() { Id = "session:1:hash:1" }] };
+        await journal.SaveAsync(state, Ct);
+        state.Attempts[0].Status = 500; state.Attempts[0].Body = "received failure";
+        await journal.SaveAsync(state, Ct);
+        var restarted = new BenchmarkHttpJournal(campaign, "session:1:hash", 100, 20, .1m, 64, .1m, 1, policy);
+        state = (await restarted.LoadAsync(Ct))!;
+        state.Attempts.Add(new() { Id = "session:1:hash:2" });
+        await restarted.SaveAsync(state, Ct);
+        var row = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, "session:1:hash", Ct))!;
+        Assert.NotNull(row["token_threshold_warning"]);
+        var totals = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
+        Assert.Equal(2L, totals["calls"]!.GetValue<long>());
+        Assert.Equal(.2m, totals["reserved_cost_eur"]!.GetValue<decimal>());
+        Assert.Equal(240L, totals["reserved_input_tokens"]!.GetValue<long>() + totals["reserved_output_tokens"]!.GetValue<long>());
+    }
+
+    [Fact]
+    public void AdvisoryModeIsCapturedOnceAndCannotBecomeProductionAuthority()
+    {
+        var request = new PlanningRequest();
+        PlanningBenchmarkMeasurements.ConfigureRequest(request, ["--advisory-token-thresholds"], retained: false);
+        var saved = PlanningBenchmarkMeasurements.Configuration(request);
+        var restored = PlanningBenchmarkMeasurements.RestoreConfiguration(saved);
+        Assert.Equal("advisory", restored.Options["token_threshold_policy"]!.ToString());
+        Assert.Throws<PlanningConflictException>(() => PlanningTokenThresholds.RejectReserved(restored.Options));
+        var strict = new PlanningRequest(); PlanningBenchmarkMeasurements.ConfigureRequest(strict, [], retained: false);
+        Assert.Throws<InvalidOperationException>(() => PlanningBenchmarkMeasurements.ConfigureRequest(strict,
+            ["--advisory-token-thresholds"], retained: true));
+    }
+
+    [Fact]
+    public async Task CapturedRetriesReserveEveryFailedPhysicalAttemptIncludingRateLimits()
+    {
+        var campaign = new BenchmarkCampaign(new Records(), "confirmed-retries");
+        const string id = "session:1:hash";
+        var policy = StrictTransport();
+        var journal = new BenchmarkHttpJournal(campaign, id, 100, 20, 1m, 64, .2m, 1, policy);
+        var identities = new List<string>();
+        using var http = new HttpClient(new Handler(message =>
+        {
+            identities.Add(message.Headers.GetValues("X-Client-Request-Id").Single());
+            return identities.Count < 3
+                ? new(identities.Count == 1 ? HttpStatusCode.TooManyRequests : HttpStatusCode.ServiceUnavailable)
+                    { Content = new StringContent("{\"error\":{\"message\":\"temporarily unavailable\",\"code\":\"rate_limit_exceeded\"}}") }
+                : new(HttpStatusCode.OK) { Content = new StringContent("{\"choices\":[{\"message\":{\"content\":\"{}\"}}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":2}}") };
+        }));
+        using (new LLMHttpRetryContext(id, journal, new() { MaxAttempts = 3, MaxUncertainRetries = 0,
+            BaseDelayMilliseconds = 1, MaxDelayMilliseconds = 1 }).Activate())
+            await new OpenAiLLMProvider(http).CallAsync("test", new() { Url = "https://provider.example/v1" },
+                new() { Prompt = "fixed", MaxOutputTokens = 20 }, Ct);
+        var usage = await journal.CompleteAsync(new() { ["input_tokens"] = 10L, ["output_tokens"] = 2L, ["benchmark_cost_eur"] = .1m }, Ct);
+        Assert.Equal(3, identities.Distinct().Count());
+        Assert.Equal(2, usage["uncertain_attempts"]!.GetValue<int>());
+        Assert.Equal(2m, usage["reserved_cost_eur"]!.GetValue<decimal>());
+        var record = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!;
+        var accounting = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
+        var reported = (await LiveCampaignEvidence.AccountingAsync(campaign, "session"))["planning"]!;
+        var closed = PlanningBenchmarkMeasurements.ClosedHttpUsage([record], 3)!;
+        foreach (var result in new JsonNode[] { accounting, reported, closed })
+            Assert.Equal(2m, result["reserved_cost_eur"]!.GetValue<decimal>());
+        Assert.Equal(.1m, accounting["known_cost_eur"]!.GetValue<decimal>());
+        Assert.Equal(200L, accounting["reserved_input_tokens"]!.GetValue<long>());
+        Assert.Equal(40L, accounting["reserved_output_tokens"]!.GetValue<long>());
+    }
+
+    [Theory]
+    [InlineData(null, 0)]
+    [InlineData(503, 2)]
+    [InlineData(200, 1)]
+    public async Task CapturedRetryRecoveryUsesOnlyExactCompleteOutcomes(int? interruptedStatus, int expectedSends)
+    {
+        var campaign = new BenchmarkCampaign(new Records(), "strict-recovery");
+        const string id = "session:1:hash";
+        var request = new LLMRequest { ClientRequestId = id, Prompt = "same exact prompt" };
+        var journal = new BenchmarkHttpJournal(campaign, id, 100, 20, 1m, 64, effectiveTransportPolicy: StrictTransport());
+        var sends = 0;
+        using var http = new HttpClient(new Handler(_ =>
+        {
+            sends++;
+            return sends == 1 && interruptedStatus == 503
+                ? new(HttpStatusCode.ServiceUnavailable) { Content = new StringContent("{\"error\":{\"message\":\"unavailable\"}}") }
+                : new(HttpStatusCode.OK) { Content = new StringContent("{\"choices\":[{\"message\":{\"content\":\"{}\"}}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":2}}") };
+        }));
+        async Task<LLMResponse> Dispatch(ILLMHttpRetryJournal active, CancellationToken ct)
+        {
+            using var retry = new LLMHttpRetryContext(id, active, new() { MaxAttempts = 3, MaxUncertainRetries = 0,
+                BaseDelayMilliseconds = 1, MaxDelayMilliseconds = 1 }).Activate();
+            var response = await new OpenAiLLMProvider(http).CallAsync("test", new() { Url = "https://provider.example/v1" },
+                new() { Prompt = "fixed", MaxOutputTokens = 20 }, ct);
+            return new() { Text = response.Text, Json = response.Json, Usage = await journal.CompleteAsync(new()
+                { ["input_tokens"] = 10L, ["output_tokens"] = 2L, ["benchmark_cost_eur"] = .1m }, ct) };
+        }
+        await Assert.ThrowsAsync<IOException>(() => campaign.CallAsync(request, _ => Task.CompletedTask,
+            ct => Dispatch(new InterruptingJournal(journal, interruptedStatus), ct), Ct, allowHttpRecovery: true));
+        var before = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!.ToJsonString();
+        if (interruptedStatus is null)
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.CallAsync(request, _ => Task.CompletedTask,
+                ct => Dispatch(journal, ct), Ct, allowHttpRecovery: true));
+            Assert.Equal(before, (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!.ToJsonString());
+        }
+        else
+        {
+            var response = await campaign.CallAsync(request, _ => Task.CompletedTask, ct => Dispatch(journal, ct), Ct, allowHttpRecovery: true);
+            Assert.Equal("{}", response.Text);
+            Assert.Equal(interruptedStatus == 503 ? 1 : 0, response.Usage!["uncertain_attempts"]!.GetValue<int>());
+            await campaign.CallAsync(request, _ => throw new InvalidOperationException(), _ => throw new InvalidOperationException(), Ct, allowHttpRecovery: true);
+        }
+        Assert.Equal(expectedSends, sends);
+    }
+
+    private sealed class InterruptingJournal(ILLMHttpRetryJournal inner, int? status) : ILLMHttpRetryJournal
+    {
+        private bool _failed;
+        public Task<LLMHttpRetryState?> LoadAsync(CancellationToken ct) => inner.LoadAsync(ct);
+        public async Task SaveAsync(LLMHttpRetryState state, CancellationToken ct)
+        {
+            await inner.SaveAsync(state, ct);
+            if (!_failed && state.Attempts.Count > 0 && state.Attempts[^1].Status == status)
+            { _failed = true; throw new IOException("Interrupted after durable attempt evidence."); }
+        }
+    }
+
+    [Theory]
+    [InlineData("calls")]
+    [InlineData("tokens")]
+    [InlineData("time")]
+    [InlineData("money")]
+    public async Task EveryRetryKeepsRequiredReviewHeadroomAndPriorReservations(string limit)
+    {
+        var campaign = new BenchmarkCampaign(new Records(), "strict-" + limit);
+        var clock = new BenchmarkClock();
+        var policy = StrictTransport(clock.GetUtcNow().AddSeconds(1));
+        policy["max_total_tokens"] = limit == "tokens" ? 350L : 15_000_000L;
+        policy["review_token_headroom"] = 120L;
+        var journal = new BenchmarkHttpJournal(campaign, "session:1:hash", 100, 20, limit == "money" ? 24m : .1m,
+            limit == "calls" ? 2 : 64, limit == "money" ? 3m : .1m, 1, policy, clock);
+        var state = new LLMHttpRetryState { Attempts = [new() { Id = "session:1:hash:1" }] };
+        await journal.SaveAsync(state, Ct);
+        state.Attempts[0].Status = 429;
+        await journal.SaveAsync(state, Ct);
+        var before = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, "session:1:hash", Ct))!.ToJsonString();
+        if (limit == "time") clock.Advance();
+        state.Attempts.Add(new() { Id = "session:1:hash:2" });
+        await Assert.ThrowsAsync<InvalidOperationException>(() => journal.SaveAsync(state, Ct));
+        Assert.Equal(before, (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, "session:1:hash", Ct))!.ToJsonString());
+        Assert.Single((await journal.LoadAsync(Ct))!.Attempts);
+    }
+
+    private static JsonObject StrictTransport(DateTimeOffset? deadline = null) => new()
+    {
+        ["version"] = 2, ["allow_http_recovery"] = true, ["disable_transport_retries"] = false,
+        ["effective_retry_policy"] = new JsonObject { ["MaxAttempts"] = 3 },
+        ["max_total_tokens"] = 15_000_000L, ["review_token_headroom"] = 120L,
+        ["deadline_utc"] = (deadline ?? DateTimeOffset.UtcNow.AddHours(5)).ToString("O", System.Globalization.CultureInfo.InvariantCulture)
+    };
+
+    private sealed class BenchmarkClock : TimeProvider
+    {
+        private DateTimeOffset _now = DateTimeOffset.UtcNow;
+        public override DateTimeOffset GetUtcNow() => _now;
+        internal void Advance() => _now = _now.AddSeconds(2);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" \t\n")]
+    [InlineData("No structured completion.")]
+    [InlineData("{\"partial\":")]
+    public void ReceiptInspectionRetainsEmptyAndNonJsonTextWithoutChangingEvidence(string text)
+    {
+        var receipt = new JsonObject { ["json"] = null, ["text"] = text, ["completionStatus"] = "output_limit",
+            ["usage"] = new JsonObject { ["output_tokens"] = 16384, ["reasoning_tokens"] = 16384 } };
+        var original = receipt.ToJsonString();
+        var response = Assert.IsAssignableFrom<JsonValue>(SchemaPortabilityCampaign.InspectResponse(receipt));
+        Assert.Equal(text, response.GetValue<string>());
+        Assert.Null(response.Parent);
+        Assert.Equal(original, receipt.ToJsonString());
+    }
+
+    [Theory]
+    [InlineData("{\"answer\":42}")]
+    [InlineData("[1,2]")]
+    [InlineData("null")]
+    [InlineData(null)]
+    public void ReceiptInspectionPreservesExistingJsonAndAbsentResponsePresentation(string? text)
+    {
+        var receipt = new JsonObject { ["json"] = null, ["text"] = text };
+        var original = receipt.ToJsonString();
+        Assert.True(JsonNode.DeepEquals(text is null ? null : JsonNode.Parse(text), SchemaPortabilityCampaign.InspectResponse(receipt)));
+        Assert.Equal(original, receipt.ToJsonString());
+    }
+
+    [Fact]
+    public void ReceiptInspectionPrefersStructuredResponseAndReturnsAnIndependentProjection()
+    {
+        var receipt = new JsonObject { ["json"] = new JsonObject { ["answer"] = 42 }, ["text"] = "not JSON" };
+        var original = receipt.ToJsonString();
+        var response = Assert.IsType<JsonObject>(SchemaPortabilityCampaign.InspectResponse(receipt));
+        Assert.Equal(42, response["answer"]!.GetValue<int>());
+        response["answer"] = 0;
+        Assert.Equal(original, receipt.ToJsonString());
+    }
+
+    [Fact]
+    public async Task CompactTransportFreezesPhaseCeilingsAndCannotFallBackToGeneralAllowance()
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "compact-policy");
+        using var model = new KeyVaultBenchmarkModel(campaign, new LLMOptions());
+        var request = LiveWorkflowEvaluation.FreshPlanningRequest([], "compact", "amazon", "Requested work", "provider", "model");
+        Assert.Equal(64, request.MaxModelCalls);
+        await model.CapturePlanningPolicyAsync(request, Ct);
+        var captured = (await campaign.LoadAsync("planning-evaluation-session-policy", "compact", Ct))!;
+        Assert.Equal(11, captured["planning_format"]!.GetValue<int>());
+        foreach (var (phase, limit) in new[] { ("construction_select", 6000), ("construction_draft", 16000), ("construction_local_judge", 8000) })
+            Assert.Equal(limit, KeyVaultBenchmarkModel.PlanningInputLimit(captured, new() { StructuredOutputSchema = new JsonObject { ["title"] = phase } }));
+        Assert.Throws<PlanningConflictException>(() => KeyVaultBenchmarkModel.PlanningInputLimit(captured, new()));
+        request.Options["construction_limits"]!["phasePolicy"]!["draft"]!["maxInputTokens"] = 7000;
+        await Assert.ThrowsAsync<PlanningConflictException>(() => model.CapturePlanningPolicyAsync(request, Ct));
+        Assert.Equal(16000, (await campaign.LoadAsync("planning-evaluation-session-policy", "compact", Ct))!["construction_limits"]!["phasePolicy"]!["draft"]!["maxInputTokens"]!.GetValue<int>());
+        Assert.Throws<PlanningConflictException>(() => KeyVaultBenchmarkModel.PlanningInputLimit(new JsonObject { ["max_input_tokens"] = 32000 }, new()));
+    }
+
+    [Fact]
+    public async Task DraftHeadroomPreservesMandatoryReviewsWithoutInventingChargesOrResettingUnknowns()
+    {
+        var campaign = new BenchmarkCampaign(new Records(), "review-headroom");
+        await new BenchmarkHttpJournal(campaign, "old:1:unknown", 100, 20, 45m)
+            .SaveAsync(new() { Attempts = [new() { Id = "old" }] }, Ct);
+        var before = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
+        var draft = new BenchmarkHttpJournal(campaign, "fresh:1:draft", 100, 20, 3m,
+            reviewCostHeadroom: 3m, reviewAttemptHeadroom: 2);
+        await draft.PrepareAsync(Ct);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => draft.SaveAsync(new() { Attempts = [new() { Id = "draft" }] }, Ct));
+        Assert.True(JsonNode.DeepEquals(before, await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct)));
+        Assert.Empty((await draft.LoadAsync(Ct))!.Attempts);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => new BenchmarkHttpJournal(campaign, "fresh:1:draft", 100, 20, 3m)
+            .SaveAsync(new(), Ct));
+        var allowed = new BenchmarkHttpJournal(campaign, "fresh:2:smaller", 100, 20, 1m,
+            reviewCostHeadroom: 3m, reviewAttemptHeadroom: 2);
+        await allowed.SaveAsync(new() { Attempts = [new() { Id = "allowed" }] }, Ct);
+        var after = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
+        Assert.Equal(46m, after["cost_upper_bound_eur"]!.GetValue<decimal>());
+        Assert.Equal(2L, after["unknown_attempts"]!.GetValue<long>());
+        var exhausted = new BenchmarkHttpJournal(campaign, "bounded:1:draft", 100, 20, .1m,
+            sessionAttemptLimit: 2, reviewCostHeadroom: .1m, reviewAttemptHeadroom: 2);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => exhausted.SaveAsync(new() { Attempts = [new() { Id = "no-review-room" }] }, Ct));
+    }
+
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("retired")]
+    [InlineData("limit")]
+    [InlineData("transport")]
+    [InlineData("unbounded")]
+    [InlineData("excess")]
+    [InlineData("runtime")]
+    public async Task MandatoryReviewHeadroomRequiresExactCapturedSessionPolicy(string defect)
+    {
+        var campaign = new BenchmarkCampaign(new Records(), "window-headroom-" + defect);
+        using var model = new KeyVaultBenchmarkModel(campaign, new LLMOptions());
+        var request = LiveWorkflowEvaluation.FreshPlanningRequest([], "window", "amazon", "Requested work", "provider", "model");
+        request.Options["llm_budget"]!["max_calls"] = 5;
+        await model.CapturePlanningPolicyAsync(request, Ct);
+        var captured = (await campaign.LoadAsync("planning-evaluation-session-policy", "window", Ct))!;
+        var policy = StrictTransport();
+        policy["planning_transport_policy"] = captured[PlanningTransportPolicies.OptionName]!.DeepClone();
+        if (defect == "retired") captured["planning_format"] = 10;
+        if (defect == "limit") captured["max_physical_attempts"] = 4;
+        if (defect == "transport") policy["planning_transport_policy"] = new JsonObject();
+        if (defect == "runtime") policy["mode"] = "runtime_single_attempt";
+        await campaign.SaveAsync("planning-evaluation-session-policy", "window", captured, Ct);
+        var id = defect == "missing" ? "absent:1:hash" : "window:1:hash";
+        var journal = new BenchmarkHttpJournal(campaign, id, 100, 20, .1m,
+            sessionAttemptLimit: defect == "unbounded" ? null : 5,
+            reviewAttemptHeadroom: defect == "excess" ? 6 : 3, effectiveTransportPolicy: policy);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => journal.PrepareAsync(Ct));
+        Assert.Null(await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct));
+        Assert.Equal(0L, (await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct))["calls"]!.GetValue<long>());
+    }
+
+    [Fact]
+    public async Task MandatoryReviewHeadroomResumesExactlyAndPreservesRequiredCalls()
+    {
+        var campaign = new BenchmarkCampaign(new Records(), "window-headroom-recovery");
+        using var model = new KeyVaultBenchmarkModel(campaign, new LLMOptions());
+        var request = LiveWorkflowEvaluation.FreshPlanningRequest([], "window", "amazon", "Requested work", "provider", "model");
+        request.Options["llm_budget"]!["max_calls"] = 5;
+        await model.CapturePlanningPolicyAsync(request, Ct);
+        var captured = (await campaign.LoadAsync("planning-evaluation-session-policy", "window", Ct))!;
+        Assert.Equal(11, captured["planning_format"]!.GetValue<int>());
+        var policy = StrictTransport();
+        policy["planning_transport_policy"] = captured[PlanningTransportPolicies.OptionName]!.DeepClone();
+        const string id = "window:1:hash";
+        BenchmarkHttpJournal Journal(int reviews = 4, int limit = 5) => new(campaign, id, 100, 20, .1m,
+            limit, .4m, reviews, policy);
+        await Journal().PrepareAsync(Ct);
+        var empty = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!.ToJsonString();
+        await Journal().SaveAsync(new(), Ct);
+        Assert.Equal(empty, (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!.ToJsonString());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Journal(3).SaveAsync(new(), Ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Journal(limit: 6).SaveAsync(new(), Ct));
+        var state = new LLMHttpRetryState { Attempts = [new() { Id = "first", Status = null }] };
+        await Journal().SaveAsync(state, Ct);
+        state.Attempts[0].Status = 500;
+        await Journal().SaveAsync(state, Ct);
+        var before = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!.ToJsonString();
+        state.Attempts.Add(new() { Id = "no-room-for-four-reviews" });
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Journal().SaveAsync(state, Ct));
+        Assert.Equal(before, (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!.ToJsonString());
+        Assert.Single((await Journal().LoadAsync(Ct))!.Attempts);
+        captured["planning_format"] = 10;
+        await campaign.SaveAsync("planning-evaluation-session-policy", "window", captured, Ct);
+        state.Attempts.RemoveAt(1);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Journal().SaveAsync(state, Ct));
+        Assert.Equal(before, (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!.ToJsonString());
+    }
+
+    [Fact]
+    public async Task LargeSessionTransportPolicyIsCapturedOnceAndCannotAcquireMissingIssuedAuthority()
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "capacity");
+        using var model = new KeyVaultBenchmarkModel(campaign, new LLMOptions());
+        var request = LiveWorkflowEvaluation.FreshPlanningRequest(["--construction-preset", "large"], "new-large", "amazon", "Requested work", "provider", "model");
+        Assert.Equal(384, request.MaxModelCalls); Assert.Equal(64, request.MaxReplanAttempts);
+        Assert.Equal(32_000, request.Generation.MaxInputTokensPerRequest);
+        await model.CapturePlanningPolicyAsync(request, Ct);
+        var captured = (await campaign.LoadAsync("planning-evaluation-session-policy", "new-large", Ct))!;
+        Assert.Equal(384, captured["max_physical_attempts"]!.GetValue<int>());
+        var writes = records.Writes;
+        await model.CapturePlanningPolicyAsync(request, Ct); Assert.Equal(writes, records.Writes);
+        request.MaxModelCalls++;
+        await Assert.ThrowsAsync<PlanningConflictException>(() => model.CapturePlanningPolicyAsync(request, Ct));
+        Assert.True(JsonNode.DeepEquals(captured, await campaign.LoadAsync("planning-evaluation-session-policy", "new-large", Ct)));
+        request.SessionId = "historical";
+        await campaign.SaveAsync("planning-evaluation-requests", "historical:1:issued", new JsonObject(), Ct);
+        writes = records.Writes;
+        await Assert.ThrowsAsync<PlanningConflictException>(() => model.CapturePlanningPolicyAsync(request, Ct));
+        Assert.Null(await campaign.LoadAsync("planning-evaluation-session-policy", "historical", Ct));
+        Assert.Equal(writes, records.Writes);
+    }
+
 
     [Fact]
     public async Task ExplicitBudgetExtensionPreservesReservationsConfigurationAndIsolationAcrossRestart()
@@ -54,6 +441,9 @@ public sealed class BenchmarkCampaignTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => request.SaveAsync(attempt, Ct));
         var before = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
         var authorization = await campaign.ExtendBudgetAsync(50m, 100m, "Explicit test operator authorization", Ct);
+        Assert.True(JsonNode.DeepEquals(authorization,
+            await campaign.ExtendBudgetAsync(50m, 100m, "Explicit test operator authorization", Ct)));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.ExtendBudgetAsync(100m, 150m, "Explicit test operator authorization", Ct));
         var restarted = new BenchmarkCampaign(records, "extension");
         Assert.Equal(100m, await restarted.CostCeilingAsync(Ct));
         Assert.Equal(50m, await new BenchmarkCampaign(records, "other").CostCeilingAsync(Ct));
@@ -91,9 +481,11 @@ public sealed class BenchmarkCampaignTests
         var run = new JsonObject { ["phase"] = "final" };
         await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "run:final-amazon-1", run, Ct);
         await Assert.ThrowsAsync<InvalidOperationException>(() => LiveCampaignEvidence.ReportAsync(campaign));
-        var manifest = new JsonObject { ["production_sha"] = "frozen" };
+        var manifest = new JsonObject { ["production_sha"] = "frozen", ["harness_sha"] = "frozen" };
         await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "final-manifest", manifest, Ct);
         run["manifest"] = manifest.DeepClone();
+        run["source"] = "frozen"; run["label"] = "final-amazon-1"; run["scenario"] = "amazon";
+        run["session"] = new JsonObject { ["request"] = new JsonObject { ["sessionId"] = "final-amazon-1" } };
         await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "run:final-amazon-1", run, Ct);
         var report = await LiveCampaignEvidence.ReportAsync(campaign);
         Assert.Equal("interrupted", report["runs"]![0]!["status"]!.ToString());
@@ -231,6 +623,41 @@ public sealed class BenchmarkCampaignTests
         await old.PrepareAsync(Ct);
         await Assert.ThrowsAsync<InvalidOperationException>(() => new BenchmarkHttpJournal(campaign, "planning:1:hash", 100, 20, .01m, sessionAttemptLimit: null).SaveAsync(new(), Ct));
     }
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task ProviderStageIsEvidenceOnlyAndCannotReleaseReservationsOrAuthorizeReplay(bool authentication, bool priorAttempt)
+    {
+        var campaign = new BenchmarkCampaign(new Records(), "provider-stage");
+        const string id = "one:1:hash";
+        var journal = new BenchmarkHttpJournal(campaign, id, 100, 20, 1m);
+        await journal.PrepareAsync(Ct);
+        JsonObject? accountingBeforeFailure = null;
+        var dispatches = 0;
+        var request = new LLMRequest { ClientRequestId = id };
+        await Assert.ThrowsAsync<LLMClientException>(() => campaign.CallAsync(request, _ => Task.CompletedTask, async ct =>
+        {
+            dispatches++;
+            if (priorAttempt) await journal.SaveAsync(new() { Attempts = [new() { Id = id + ":1" }] }, ct);
+            accountingBeforeFailure = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: ct);
+            throw new LLMClientException(LLMClientFailureKind.Transport, "redacted failure", retryable: true)
+            { Stage = authentication ? LLMClientFailureStage.Authentication : null };
+        }, Ct));
+
+        var failure = (await campaign.LoadAsync("planning-evaluation-failures", id, Ct))!;
+        Assert.Equal("dispatch", failure["stage"]!.ToString());
+        Assert.Equal(authentication ? "authentication" : null, failure["provider_stage"]?.ToString());
+        Assert.Equal("uncertain_dispatch", campaign.StopReason);
+        Assert.True(await campaign.HasUncertainRequestAsync(Ct));
+        Assert.Equal(priorAttempt ? 1 : 0, (await journal.LoadAsync(Ct))!.Attempts.Count);
+        Assert.True(JsonNode.DeepEquals(accountingBeforeFailure, await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct)));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.CallAsync(request, _ => Task.CompletedTask,
+            _ => { dispatches++; return Task.FromResult(new LLMResponse()); }, Ct));
+        Assert.Equal(1, dispatches);
+    }
+
     [Fact]
     public async Task FailedPreflightRetainsEvidenceWithoutInventingDispatch()
     {
@@ -302,6 +729,103 @@ public sealed class BenchmarkCampaignTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.CallAsync(new() { ClientRequestId = id }, _ => Task.CompletedTask, _ => Task.FromResult(new LLMResponse()), Ct));
         await campaign.CallAsync(new() { ClientRequestId = "next:1:hash" }, _ => Task.CompletedTask, _ => Task.FromResult(new LLMResponse()), Ct);
         Assert.Equal(1, (await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct))["calls"]!.GetValue<long>());
+    }
+    [Theory]
+    [InlineData("exact", true)]
+    [InlineData("other_schema_constraint", true)]
+    [InlineData("ordinary400", false)]
+    [InlineData("malformed_body", false)]
+    [InlineData("nonobject_body", false)]
+    [InlineData("missing_body", false)]
+    [InlineData("wrong_param", false)]
+    [InlineData("wrong_type", false)]
+    [InlineData("wrong_format_name", false)]
+    [InlineData("non_null_code", false)]
+    [InlineData("missing_code", false)]
+    [InlineData("empty_schema_detail", false)]
+    [InlineData("success", false)]
+    [InlineData("unknown", false)]
+    [InlineData("usage", false)]
+    [InlineData("receipt", false)]
+    [InlineData("retryable", false)]
+    [InlineData("wrong_count", false)]
+    [InlineData("wrong_stage", false)]
+    [InlineData("wrong_failure_kind", false)]
+    [InlineData("wrong_request", false)]
+    [InlineData("unstructured", false)]
+    public async Task CodeLessSchemaRejectionRequiresTheExactOriginalTransportEnvelope(string evidence, bool canClose)
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "code-less-schema");
+        const string id = "session:2:hash";
+        var request = new JsonObject { ["clientRequestId"] = evidence == "wrong_request" ? "other:2:hash" : id,
+            ["structuredOutputStrict"] = true, ["structuredOutputSchema"] = new JsonObject { ["type"] = "object" } };
+        if (evidence == "unstructured") request.Remove("structuredOutputSchema");
+        var failure = new JsonObject { ["stage"] = evidence == "wrong_stage" ? "preflight" : "dispatch",
+            ["kind"] = evidence == "wrong_failure_kind" ? "Transport" : "InvalidRequest", ["status_code"] = 400,
+            ["safe_provider_code"] = null, ["attempt_count"] = evidence == "wrong_count" ? 2 : 1,
+            ["retryable"] = evidence == "retryable" };
+        var error = new JsonObject
+        {
+            ["type"] = evidence == "wrong_type" ? "server_error" : "invalid_request_error",
+            ["param"] = evidence == "wrong_param" ? "messages" : "response_format",
+            ["code"] = evidence == "non_null_code" ? "another_error" : null,
+            ["message"] = evidence switch
+            {
+                "ordinary400" => "Invalid value for response_format.",
+                "wrong_format_name" => "Invalid schema for response_format 'unrelated': invalid schema.",
+                "empty_schema_detail" => "Invalid schema for response_format 'output': ",
+                "other_schema_constraint" => "Invalid schema for response_format 'output': required must list every declared property.",
+                _ => "Invalid schema for response_format 'output': context=('anyof', '2', 'properties', 'minItems'), $ref cannot have keywords {'description'}."
+            }
+        };
+        if (evidence == "missing_code") error.Remove("code");
+        var body = evidence switch { "malformed_body" => "{", "nonobject_body" => "[]", "missing_body" => null,
+            _ => new JsonObject { ["error"] = error }.ToJsonString() };
+        await campaign.SaveAsync("planning-evaluation-requests", id, request, Ct);
+        await campaign.SaveAsync("planning-evaluation-failures", id, failure, Ct);
+        var journal = new BenchmarkHttpJournal(campaign, id, 3000, 8192, 1m);
+        var transport = new LLMHttpRetryState { Attempts = [new() { Id = "one" }] };
+        await journal.SaveAsync(transport, Ct);
+        transport.Attempts[0].Status = evidence switch { "success" => 200, "unknown" => null, _ => 400 };
+        transport.Attempts[0].Body = body;
+        await journal.SaveAsync(transport, Ct);
+        if (evidence == "usage")
+        {
+            var row = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!;
+            row["usage"] = new JsonObject(); await campaign.SaveAsync(BenchmarkHttpJournal.Collection, id, row, Ct);
+        }
+        if (evidence == "receipt") await campaign.SaveAsync("planning-evaluation-receipts", id, new(), Ct);
+        var collections = new[] { "planning-evaluation-requests", "planning-evaluation-failures", BenchmarkHttpJournal.Collection,
+            "planning-evaluation-receipts" };
+        var originals = new Dictionary<string, string?>();
+        foreach (var collection in collections) originals[collection] = (await campaign.LoadAsync(collection, id, Ct))?.ToJsonString();
+        var writes = records.Writes;
+        if (!canClose)
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.RetainSchemaRejectionAsync(id, Ct));
+            Assert.Null(await campaign.LoadAsync("planning-evaluation-closures", id, Ct));
+            Assert.Equal(writes, records.Writes);
+        }
+        else
+        {
+            var before = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
+            await campaign.RetainSchemaRejectionAsync(id, Ct);
+            var closure = (await campaign.LoadAsync("planning-evaluation-closures", id, Ct))!;
+            Assert.Equal("provider_schema_rejected", closure["reason"]!.ToString());
+            Assert.Equal("retained_response_format_schema_error", closure["verification"]!.ToString());
+            Assert.Equal(writes + 1, records.Writes);
+            await campaign.RetainSchemaRejectionAsync(id, Ct);
+            Assert.Equal(writes + 1, records.Writes);
+            Assert.Null(await campaign.LoadAsync("planning-evaluation-receipts", id, Ct));
+            Assert.Null((await campaign.LoadAsync("planning-evaluation-failures", id, Ct))!["safe_provider_code"]);
+            Assert.True(JsonNode.DeepEquals(before, await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct)));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.CallAsync(new() { ClientRequestId = id },
+                _ => Task.CompletedTask, _ => throw new Exception("A rejected request must never dispatch again."), Ct));
+            await campaign.CallAsync(new() { ClientRequestId = "fresh:1:hash" }, _ => Task.CompletedTask,
+                _ => Task.FromResult(new LLMResponse()), Ct);
+        }
+        foreach (var collection in collections)
+            Assert.Equal(originals[collection], (await campaign.LoadAsync(collection, id, Ct))?.ToJsonString());
     }
     [Fact]
     public void LiveAdapterUsesSynchronousRecoveryWithoutChangingReservedRequest()
@@ -425,13 +949,16 @@ public sealed class BenchmarkCampaignTests
         await campaign.CallAsync(new() { ClientRequestId = "next:1:hash" }, _ => Task.CompletedTask, _ => Task.FromResult(new LLMResponse()), Ct);
         Assert.Null(campaign.StopReason);
     }
-    [Fact]
-    public async Task ConservativeAdmissionRejectsCostAndCallExhaustionWithoutChangingLedger()
+    [Theory]
+    [InlineData(null)]
+    [InlineData(502)]
+    public async Task ConservativeAdmissionRejectsCostAndCallExhaustionWithoutChangingLedger(int? status)
     {
         var records = new Records(); var campaign = new BenchmarkCampaign(records, "limits");
         var journal = new BenchmarkHttpJournal(campaign, "session:1:hash", 100, 20, 26m);
         var state = new LLMHttpRetryState { Fingerprint = "fixed", Attempts = [new() { Id = "first", Failure = "timeout" }] };
         await journal.SaveAsync(state, Ct);
+        if (status is not null) { state.Attempts[0].Status = status; await journal.SaveAsync(state, Ct); }
         state.Attempts.Add(new() { Id = "second" });
         await Assert.ThrowsAsync<InvalidOperationException>(() => journal.SaveAsync(state, Ct));
         Assert.Single((await journal.LoadAsync(Ct))!.Attempts);
@@ -442,6 +969,103 @@ public sealed class BenchmarkCampaignTests
         state.Attempts.Add(new() { Id = "ninth" });
         await Assert.ThrowsAsync<InvalidOperationException>(() => limited.SaveAsync(state, Ct));
         Assert.Equal(8, (await limited.LoadAsync(Ct))!.Attempts.Count);
+    }
+
+    [Theory]
+    [InlineData(null, true)]
+    [InlineData(200, true)]
+    [InlineData(400, false)]
+    [InlineData(429, false)]
+    [InlineData(500, true)]
+    [InlineData(502, true)]
+    [InlineData(503, true)]
+    [InlineData(599, true)]
+    public async Task UnsettledHttpAttemptsUseTheSameConservativeReservationInEveryReport(int? status, bool reserved)
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "http-reserves");
+        const string id = "run:1:hash";
+        var journal = new BenchmarkHttpJournal(campaign, id, 100, 20, 3m);
+        var transport = new LLMHttpRetryState { Fingerprint = "fixed", Attempts = [new() { Id = "attempt" }] };
+        await journal.SaveAsync(transport, Ct);
+        if (status is not null) { transport.Attempts[0].Status = status; await journal.SaveAsync(transport, Ct); }
+        var original = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!;
+        var hash = PlanningGraphCompiler.Fingerprint(original.ToJsonString());
+        var writes = records.Writes;
+        var restarted = new BenchmarkCampaign(records, campaign.Id);
+        using var model = new KeyVaultBenchmarkModel(restarted, new LLMOptions());
+        var campaignUsage = await BenchmarkHttpJournal.AccountingAsync(restarted, ct: Ct);
+        var liveUsage = (await LiveCampaignEvidence.AccountingAsync(restarted, "run"))["planning"]!;
+        var partialUsage = (await model.PartialUsageAsync(id, Ct))!;
+        var closedUsage = PlanningBenchmarkMeasurements.ClosedHttpUsage([original], 1)!;
+        foreach (var usage in new JsonNode[] { campaignUsage, liveUsage, partialUsage, closedUsage })
+        {
+            Assert.Equal(reserved ? 3m : 0m, usage["reserved_cost_eur"]!.GetValue<decimal>());
+            Assert.Equal(reserved ? 100L : 0L, usage["reserved_input_tokens"]!.GetValue<long>());
+            Assert.Equal(reserved ? 20L : 0L, usage["reserved_output_tokens"]!.GetValue<long>());
+        }
+        Assert.Equal(reserved ? 1L : 0L, campaignUsage["unknown_attempts"]!.GetValue<long>());
+        Assert.Equal(reserved ? 1 : 0, partialUsage["uncertain_attempts"]!.GetValue<int>());
+        Assert.Equal(!reserved, closedUsage["usage_complete"]!.GetValue<bool>());
+        Assert.Equal(0L, closedUsage["known_input_tokens"]!.GetValue<long>());
+        Assert.Equal(0m, campaignUsage["known_cost_eur"]!.GetValue<decimal>());
+        if (status is >= 500 and < 600)
+            await Assert.ThrowsAsync<InvalidOperationException>(() => journal.CompleteAsync(new() { ["input_tokens"] = 0L, ["output_tokens"] = 0L, ["benchmark_cost_eur"] = 0m }, Ct));
+        Assert.Equal(writes, records.Writes);
+        Assert.Equal(hash, PlanningGraphCompiler.Fingerprint((await restarted.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!.ToJsonString()));
+        Assert.Null(await restarted.LoadAsync("planning-evaluation-receipts", id, Ct));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LaterVerifiedUsageKeepsEarlierServerFailureAndTimeoutReservedWithoutRewritingHistoricalUsage(bool historicalUsage)
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "later-receipt");
+        const string id = "run:1:hash";
+        var journal = new BenchmarkHttpJournal(campaign, id, 100, 20, 3m);
+        var transport = new LLMHttpRetryState { Fingerprint = "fixed" };
+        foreach (var status in new int?[] { null, 502, 200 })
+        {
+            transport.Attempts.Add(new() { Id = "attempt-" + transport.Attempts.Count });
+            await journal.SaveAsync(transport, Ct);
+            if (status is not null) { transport.Attempts[^1].Status = status; await journal.SaveAsync(transport, Ct); }
+        }
+        var known = new JsonObject { ["input_tokens"] = 10L, ["output_tokens"] = 2L, ["benchmark_cost_eur"] = .1m };
+        if (historicalUsage)
+        {
+            var old = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!;
+            old["usage"] = known.DeepClone();
+            old["usage"]!["transport_attempts"] = 3; old["usage"]!["uncertain_attempts"] = 1;
+            old["usage"]!["reserved_input_tokens"] = 100L; old["usage"]!["reserved_output_tokens"] = 20L;
+            old["usage"]!["reserved_cost_eur"] = 3m; old["usage"]!["benchmark_usage_bounded"] = true;
+            await campaign.SaveAsync(BenchmarkHttpJournal.Collection, id, old, Ct);
+        }
+        else await journal.CompleteAsync(known, Ct);
+        var original = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!;
+        var hash = PlanningGraphCompiler.Fingerprint(original.ToJsonString());
+        var writes = records.Writes;
+        var restarted = new BenchmarkCampaign(records, campaign.Id);
+        using var model = new KeyVaultBenchmarkModel(restarted, new LLMOptions());
+        var completed = await new BenchmarkHttpJournal(restarted, id, 100, 20, 3m).CompleteAsync(known, Ct);
+        var partial = (await model.PartialUsageAsync(id, Ct))!;
+        var accounting = await BenchmarkHttpJournal.AccountingAsync(restarted, ct: Ct);
+        var live = (await LiveCampaignEvidence.AccountingAsync(restarted, "run"))["planning"]!;
+        var closed = PlanningBenchmarkMeasurements.ClosedHttpUsage([original], 3)!;
+        foreach (var usage in new JsonNode[] { completed, partial, accounting, live, closed })
+        {
+            Assert.Equal(6m, usage["reserved_cost_eur"]!.GetValue<decimal>());
+            Assert.Equal(200L, usage["reserved_input_tokens"]!.GetValue<long>());
+            Assert.Equal(40L, usage["reserved_output_tokens"]!.GetValue<long>());
+        }
+        Assert.Equal(2, completed["uncertain_attempts"]!.GetValue<int>());
+        Assert.Equal(10L, partial["input_tokens"]!.GetValue<long>());
+        Assert.Equal(.1m, accounting["known_cost_eur"]!.GetValue<decimal>());
+        Assert.Equal(6.1m, accounting["cost_upper_bound_eur"]!.GetValue<decimal>());
+        Assert.Equal(10L, closed["known_input_tokens"]!.GetValue<long>());
+        Assert.False(closed["usage_complete"]!.GetValue<bool>());
+        Assert.Null(closed["input_tokens"]);
+        Assert.Equal(writes, records.Writes);
+        Assert.Equal(hash, PlanningGraphCompiler.Fingerprint((await restarted.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!.ToJsonString()));
     }
     [Fact]
     public async Task HttpExhaustionAndCancellationCannotDispatchOnRestart()
@@ -500,105 +1124,69 @@ public sealed class BenchmarkCampaignTests
     private sealed class Handler(Func<HttpRequestMessage, HttpResponseMessage> action) : HttpMessageHandler
     { protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) => Task.FromResult(action(request)); }
 
-    [Fact]
-    public async Task OfflineReplayKeepsOriginalSchemaAndNeverWritesCampaignRecords()
-    {
-        var records = new Records(); var campaign = new BenchmarkCampaign(records, "recorded");
-        var request = new LLMRequest { ClientRequestId = "session:1:hash", Prompt = "original prompt", StructuredOutputSchema = new JsonObject { ["type"] = "string" } };
-        var state = new PlanningSession { Request = new() { TenantId = "benchmark", SessionId = "session", Name = "local", Prompt = "original prompt",
-            MaxModelCalls = 8, MaxReplanAttempts = 2, Generation = new("medium", 12000, 8192) }, ModelCalls = 3, ReplanAttempts = 2 };
-        await campaign.SaveAsync("planning-evaluation-runs", "source:pilot:local:1", new() { ["session"] = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession) }, Ct);
-        await campaign.SaveAsync("planning-evaluation-requests", request.ClientRequestId, JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!.AsObject(), Ct);
-        await campaign.SaveAsync("planning-evaluation-receipts", request.ClientRequestId, JsonSerializer.SerializeToNode(new LLMResponse { Text = "\"recorded\"" }, PlanningJsonContext.Default.LLMResponse)!.AsObject(), Ct);
-        var before = records.Writes;
-        var snapshot = await campaign.InspectAsync(Ct);
-        var replay = await campaign.ReadReplayAsync("source:pilot:local:1", Ct);
-        Assert.False(replay.Client is ILLMCapabilityResolver);
-        var reserved = replay.State.PendingCall!.Request;
-        Assert.Equal("string", reserved.StructuredOutputSchema!["type"]!.ToString());
-        reserved.StructuredOutputSchema["type"] = "object";
-        await Assert.ThrowsAsync<InvalidOperationException>(() => replay.Client.CallAsync(reserved, Ct));
-        reserved.StructuredOutputSchema["type"] = "string";
-        Assert.Equal("\"recorded\"", (await replay.Client.CallAsync(reserved, Ct)).Text);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => replay.Client.CallAsync(reserved, Ct));
-        Assert.Equal(before, records.Writes);
-        Assert.True(JsonNode.DeepEquals(snapshot, await campaign.InspectAsync(Ct)));
-        var unchanged = (await campaign.LoadAsync("planning-evaluation-runs", "source:pilot:local:1", Ct))!["session"]!;
-        Assert.Equal(3, unchanged["modelCalls"]!.GetValue<int>()); Assert.Equal(2, unchanged["replanAttempts"]!.GetValue<int>());
-        Assert.Equal(8, unchanged["request"]!["maxModelCalls"]!.GetValue<int>());
-    }
 
-    private static async Task<(Records Records, BenchmarkCampaign Campaign)> PendingRecoveryAsync(bool receipt = true, string tenant = "benchmark")
+    private static async Task<(Records Records, BenchmarkCampaign Campaign, string RequestId)> PendingRecoveryAsync(bool receipt = true, string tenant = "benchmark", bool valid = false)
     {
         var records = new Records(); var campaign = new BenchmarkCampaign(records, "recovery");
-        var request = new LLMRequest { ClientRequestId = "pending:4:hash", Prompt = "unchanged",
-            StructuredOutputSchema = JsonNode.Parse("""{"type":"object","properties":{"plan":{"type":["object","null"]}}}""") };
-        var session = new PlanningSession { IntentVersion = 2, Revision = 5, Status = PlanningStatus.Generating,
-            Request = new() { TenantId = tenant, SessionId = "pending", Name = "retained", Prompt = "original" },
-            ModelCalls = 4, ActiveMilliseconds = 1000, Catalog = new(),
-            PendingCall = new() { Id = request.ClientRequestId, Purpose = "tasks", Request = request } };
+        var state = await CurrentPlanningFixture.PendingLiteralReviewAsync(tenant, "pending", Ct);
+        state.Revision = 5;
+        var request = state.PendingCall!.Request; var requestId = state.PendingCall.Id;
         await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "run:pending", new()
         {
             ["source"] = "original-build", ["manifest"] = new JsonObject { ["frozen"] = true },
-            ["session"] = JsonSerializer.SerializeToNode(session, PlanningJsonContext.Default.PlanningSession),
-            ["result"] = new JsonObject { ["status"] = "generating", ["planning_ms"] = 1500L, ["calls"] = 4,
+            ["session"] = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession),
+            ["result"] = new JsonObject { ["status"] = "generating", ["planning_ms"] = 1500L, ["calls"] = state.ModelCalls,
                 ["execution_status"] = "not_started", ["accounting"] = new JsonObject { ["retained"] = 42 } }
         }, Ct);
-        await campaign.SaveAsync("planning-evaluation-requests", request.ClientRequestId,
+        await campaign.SaveAsync("planning-evaluation-requests", requestId,
             JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!.AsObject(), Ct);
-        if (receipt) await campaign.SaveAsync("planning-evaluation-receipts", request.ClientRequestId,
-            JsonSerializer.SerializeToNode(new LLMResponse { Json = JsonNode.Parse("""{"plan":null,"discoveryRequests":null,"clarifications":null}""") },
-                PlanningJsonContext.Default.LLMResponse)!.AsObject(), Ct);
-        return (records, campaign);
+        if (receipt) await campaign.SaveAsync("planning-evaluation-receipts", requestId,
+            JsonSerializer.SerializeToNode(new LLMResponse { Json = valid
+                ? JsonNode.Parse("""{"decision":{"verdict":"ok","reason":"The original numeric public result is present without additional effects."}}""")
+                : new JsonObject { ["malformed"] = true } }, PlanningJsonContext.Default.LLMResponse)!.AsObject(), Ct);
+        return (records, campaign, requestId);
     }
 
     [Fact]
-    public async Task ValidPendingReceiptReachesReviewWithoutApprovingOrExecuting()
+    public async Task ValidPendingReviewReceiptRestoresReviewWithoutApprovingOrExecuting()
     {
-        var (_, campaign) = await PendingRecoveryAsync();
+        var (_, campaign, requestId) = await PendingRecoveryAsync(valid: true);
         var run = (await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "run:pending", Ct))!;
-        var state = run["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
-        state.Requirements = new() { Summary = "Return a greeting", Inputs = [],
-            Outcomes = [new("greeting", "Return a greeting")], Outputs = [new() { Name = "message", Type = new() { Kind = "string" } }] };
-        var runtime = new GnOuGo.Flow.Planning.WorkflowPlanningRuntime(new WorkflowEngine(), (_, _) => Task.CompletedTask);
-        state.Catalog = await runtime.DiscoverAsync(state.Request, Ct);
-        run["session"] = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession);
-        await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "run:pending", run, Ct);
-        await campaign.SaveAsync("planning-evaluation-receipts", "pending:4:hash",
-            JsonSerializer.SerializeToNode(new LLMResponse { Json = JsonSerializer.SerializeToNode(new PlanningProposal
-                { Plan = GnOuGo.Planning.Examples.PlanningCorpus.Greeting() }, PlanningJsonContext.Default.PlanningProposal) },
-                PlanningJsonContext.Default.LLMResponse)!.AsObject(), Ct);
-        var result = await campaign.RecoverPendingReceiptAsync("pending", 5, "pending:4:hash", 600, "validator-build", true, Ct);
+        var calls = run["session"]!["modelCalls"]!.GetValue<int>();
+        var result = await campaign.RecoverPendingReceiptAsync("pending", 5, requestId, 600, "validator-build", true, Ct);
         Assert.Equal(PlanningStatus.FinalReview, result["status"]!.ToString());
         Assert.Empty(result["diagnostics"]!.AsArray());
         var saved = (await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "run:pending", Ct))!;
-        Assert.NotNull(saved["artifact_hash"]); Assert.Null(saved["session"]!["approvedHash"]);
-        Assert.Null(saved["execution_started"]); Assert.Equal(4, saved["result"]!["calls"]!.GetValue<int>());
+        Assert.True(saved["session"]!["construction"]!["complete"]!.GetValue<bool>());
+        Assert.NotNull(saved["artifact_hash"]);
+        Assert.Null(saved["session"]!["approvedHash"]); Assert.Null(saved["session"]!["pendingCall"]);
+        Assert.Null(saved["execution_started"]); Assert.Equal(calls, saved["result"]!["calls"]!.GetValue<int>());
     }
 
     [Fact]
     public async Task PendingReceiptRecoveryCommitsOnceWithoutChangingFrozenEvidenceOrAccounting()
     {
-        var (records, campaign) = await PendingRecoveryAsync();
+        var (records, campaign, requestId) = await PendingRecoveryAsync();
         var original = (await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "run:pending", Ct))!;
         var before = await campaign.InspectAsync(Ct); var writes = records.Writes;
-        var dry = await campaign.RecoverPendingReceiptAsync("pending", 5, "pending:4:hash", 600, "validator-build", false, Ct);
+        var dry = await campaign.RecoverPendingReceiptAsync("pending", 5, requestId, 600, "validator-build", false, Ct);
         Assert.False(dry["applied"]!.GetValue<bool>()); Assert.Equal(writes, records.Writes);
-        var applied = await campaign.RecoverPendingReceiptAsync("pending", 5, "pending:4:hash", 600, "validator-build", true, Ct);
+        var applied = await campaign.RecoverPendingReceiptAsync("pending", 5, requestId, 600, "validator-build", true, Ct);
         Assert.Equal(6L, applied["revision"]!.GetValue<long>()); Assert.Equal(0, applied["new_model_calls"]!.GetValue<int>());
-        Assert.NotEmpty(applied["diagnostics"]!.AsArray()); // Stop here; do not ask for another proposal.
+        Assert.NotEmpty(applied["diagnostics"]!.AsArray());
         Assert.Equal(writes + 1, records.Writes);
         var restarted = new BenchmarkCampaign(records, "recovery");
         var recovered = (await restarted.LoadAsync(SchemaPortabilityCampaign.Collection, "run:pending", Ct))!;
-        Assert.Null(recovered["session"]!["pendingCall"]); Assert.Equal(4, recovered["session"]!["modelCalls"]!.GetValue<int>());
-        Assert.True(recovered["session"]!["activeMilliseconds"]!.GetValue<double>() >= 1600);
+        Assert.Null(recovered["session"]!["pendingCall"]);
+        Assert.Equal(original["session"]!["modelCalls"]!.GetValue<int>(), recovered["session"]!["modelCalls"]!.GetValue<int>());
+        Assert.True(recovered["session"]!["activeMilliseconds"]!.GetValue<double>() >= original["session"]!["activeMilliseconds"]!.GetValue<double>() + 600);
         Assert.True(recovered["result"]!["planning_ms"]!.GetValue<long>() >= 2100);
         foreach (var key in new[] { "source", "manifest" }) Assert.True(JsonNode.DeepEquals(original[key], recovered[key]));
         Assert.True(JsonNode.DeepEquals(await LiveCampaignEvidence.AccountingAsync(restarted, "pending"), recovered["result"]!["accounting"]));
         Assert.True(JsonNode.DeepEquals(original["result"], recovered["receipt_recoveries"]![0]!["result_before"]));
         Assert.True(JsonNode.DeepEquals(original["session"], Assert.Single(recovered["receipt_recoveries"]!.AsArray())!["session_before"]));
         Assert.True(JsonNode.DeepEquals(before, await restarted.InspectAsync(Ct)));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.RecoverPendingReceiptAsync("pending", 5, "pending:4:hash", 600, "validator-build", true, Ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.RecoverPendingReceiptAsync("pending", 5, requestId, 600, "validator-build", true, Ct));
         Assert.Equal(writes + 1, records.Writes);
     }
 
@@ -613,12 +1201,12 @@ public sealed class BenchmarkCampaignTests
     [InlineData("elapsed")]
     public async Task PendingReceiptRecoveryRejectsChangedOrUncertainAuthorityWithoutWrites(string failure)
     {
-        var (records, campaign) = await PendingRecoveryAsync(receipt: failure != "receipt", tenant: failure == "tenant" ? "other" : "benchmark");
+        var (records, campaign, requestId) = await PendingRecoveryAsync(receipt: failure != "receipt", tenant: failure == "tenant" ? "other" : "benchmark");
         if (failure == "schema")
         {
-            var request = (await campaign.LoadAsync("planning-evaluation-requests", "pending:4:hash", Ct))!;
+            var request = (await campaign.LoadAsync("planning-evaluation-requests", requestId, Ct))!;
             request["structuredOutputSchema"]!["type"] = "string";
-            await campaign.SaveAsync("planning-evaluation-requests", "pending:4:hash", request, Ct);
+            await campaign.SaveAsync("planning-evaluation-requests", requestId, request, Ct);
         }
         if (failure == "executed")
         {
@@ -626,38 +1214,27 @@ public sealed class BenchmarkCampaignTests
             run["execution_started"] = "retained";
             await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "run:pending", run, Ct);
         }
-        if (failure == "closed") await campaign.SaveAsync("planning-evaluation-closures", "pending:4:hash", new(), Ct);
+        if (failure == "closed") await campaign.SaveAsync("planning-evaluation-closures", requestId, new(), Ct);
         var writes = records.Writes;
         await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.RecoverPendingReceiptAsync("pending", failure == "stale" ? 4 : 5,
-            failure == "identity" ? "pending:3:hash" : "pending:4:hash", failure == "elapsed" ? 1_800_000 : 600, "validator-build", true, Ct));
+            failure == "identity" ? "pending:3:hash" : requestId, failure == "elapsed" ? 18_000_001 : 600, "validator-build", true, Ct));
         Assert.Equal(writes, records.Writes);
     }
 
     [Fact]
     public async Task InterruptedRecoveryPublicationLeavesOriginalReceiptAvailableWithoutDuplicateCharging()
     {
-        var (records, campaign) = await PendingRecoveryAsync();
+        var (records, campaign, requestId) = await PendingRecoveryAsync();
         var original = await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "run:pending", Ct);
         var before = await campaign.InspectAsync(Ct);
         records.FailCollection = SchemaPortabilityCampaign.Collection;
-        await Assert.ThrowsAsync<IOException>(() => campaign.RecoverPendingReceiptAsync("pending", 5, "pending:4:hash", 600, "validator-build", true, Ct));
+        await Assert.ThrowsAsync<IOException>(() => campaign.RecoverPendingReceiptAsync("pending", 5, requestId, 600, "validator-build", true, Ct));
         Assert.True(JsonNode.DeepEquals(original, await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "run:pending", Ct)));
         records.FailCollection = null;
-        await new BenchmarkCampaign(records, "recovery").RecoverPendingReceiptAsync("pending", 5, "pending:4:hash", 600, "validator-build", true, Ct);
+        await new BenchmarkCampaign(records, "recovery").RecoverPendingReceiptAsync("pending", 5, requestId, 600, "validator-build", true, Ct);
         Assert.True(JsonNode.DeepEquals(before, await campaign.InspectAsync(Ct)));
     }
-    [Fact]
-    public async Task OfflineReplayWithoutReceiptFailsWithoutReservingOrWriting()
-    {
-        var records = new Records(); var campaign = new BenchmarkCampaign(records, "recorded");
-        var state = new PlanningSession { Request = new() { SessionId = "session", Name = "local" } };
-        await campaign.SaveAsync("planning-evaluation-runs", "source:pilot:local:1", new() { ["session"] = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession) }, Ct);
-        await campaign.SaveAsync("planning-evaluation-requests", "session:1:hash", JsonSerializer.SerializeToNode(new LLMRequest { ClientRequestId = "session:1:hash" }, PlanningJsonContext.Default.LLMRequest)!.AsObject(), Ct);
-        var before = records.Writes;
-        Assert.Contains("No completion receipt", (await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.ReadReplayAsync("source:pilot:local:1", Ct))).Message);
-        Assert.Equal(before, records.Writes); Assert.True(await campaign.HasUncertainRequestAsync(Ct));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => new BenchmarkCampaign(records, "different").ReadReplayAsync("source:pilot:local:1", Ct));
-    }
+
     [Fact]
     public async Task UncertainFailureRetainsSafeMetadataWithoutInventingAReceipt()
     {
@@ -719,206 +1296,6 @@ public sealed class BenchmarkCampaignTests
         Assert.False(await campaign.HasUncertainRequestAsync(Ct));
     }
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task ExhaustedRunClosureRetainsUncertaintyAndCostWithoutAllowingRedispatch(bool liveWorkflow)
-    {
-        var records = new Records(); var campaign = new BenchmarkCampaign(records, "retained");
-        var request = new LLMRequest { ClientRequestId = "session:1:hash" };
-        var journal = new BenchmarkHttpJournal(campaign, request.ClientRequestId, 100, 20, 1m);
-        var state = new LLMHttpRetryState { Fingerprint = "fixed" };
-        for (var i = 0; i < 8; i++) { state.Attempts.Add(new() { Id = i.ToString() }); await journal.SaveAsync(state, Ct); }
-        await Assert.ThrowsAsync<IOException>(() => campaign.CallAsync(request, _ => Task.CompletedTask, _ => throw new IOException(), Ct));
-        var run = new JsonObject { ["session"] = new JsonObject { ["pendingCall"] = new JsonObject { ["id"] = request.ClientRequestId } },
-            ["result"] = new JsonObject { ["execution_correct"] = false, ["termination_reason"] = "session_http_budget" } };
-        var collection = liveWorkflow ? SchemaPortabilityCampaign.Collection : "planning-evaluation-runs";
-        if (liveWorkflow) run["result"] = new JsonObject { ["status"] = "stopped", ["execution_status"] = "not_started", ["execution_oracle"] = false };
-        await campaign.SaveAsync(collection, "source:pilot:case:1", run, Ct);
-        var before = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
-        await campaign.RetainInconclusiveAsync("source:pilot:case:1", Ct, liveWorkflow);
-        var writes = records.Writes;
-        await campaign.RetainInconclusiveAsync("source:pilot:case:1", Ct, liveWorkflow);
-        Assert.Equal(writes, records.Writes);
-        Assert.True(JsonNode.DeepEquals(before, await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct)));
-        Assert.True(JsonNode.DeepEquals(run, await campaign.LoadAsync(collection, "source:pilot:case:1", Ct)));
-        Assert.True(await campaign.HasUncertainRequestAsync(Ct));
-        Assert.Null(await campaign.LoadAsync("planning-evaluation-receipts", request.ClientRequestId, Ct));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.CallAsync(request, _ => Task.CompletedTask, _ => throw new Exception("Must not dispatch"), Ct, allowHttpRecovery: true));
-        await campaign.CallAsync(new() { ClientRequestId = "different-session:1:hash" }, _ => Task.CompletedTask, _ => Task.FromResult(new LLMResponse()), Ct);
-        Assert.Equal(8m, (await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct))["reserved_cost_eur"]!.GetValue<decimal>());
-        Assert.Single((await campaign.InspectAsync(Ct))["retained_inconclusive_requests"]!.AsArray());
-    }
-    [Fact]
-    public async Task InconclusiveClosureRequiresSavedFailedRunAndExhaustedAllowance()
-    {
-        var campaign = new BenchmarkCampaign(new Records(), "retained");
-        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.RetainInconclusiveAsync("missing", Ct));
-        await campaign.SaveAsync("planning-evaluation-runs", "run", new() { ["session"] = new JsonObject { ["pendingCall"] = new JsonObject { ["id"] = "session:1:hash" } } }, Ct);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.RetainInconclusiveAsync("run", Ct));
-        Assert.Null(await campaign.LoadAsync("planning-evaluation-closures", "session:1:hash", Ct));
-    }
-    [Theory]
-    [InlineData("remaining_attempts")][InlineData("execution_started")][InlineData("completed")]
-    [InlineData("running")][InlineData("receipt")][InlineData("wrong_identity")]
-    public async Task LivePlanningClosureCannotArchiveActiveOrExecutedWork(string defect)
-    {
-        var records = new Records(); var campaign = new BenchmarkCampaign(records, "retained-live");
-        const string id = "session:1:hash";
-        var journal = new BenchmarkHttpJournal(campaign, id, 100, 20, 1m);
-        var state = new LLMHttpRetryState { Fingerprint = "fixed" };
-        for (var i = 0; i < (defect == "remaining_attempts" ? 7 : 8); i++)
-        { state.Attempts.Add(new() { Id = i.ToString() }); await journal.SaveAsync(state, Ct); }
-        await Assert.ThrowsAsync<IOException>(() => campaign.CallAsync(new() { ClientRequestId = id }, _ => Task.CompletedTask, _ => throw new IOException(), Ct));
-        var run = new JsonObject { ["session"] = new JsonObject { ["pendingCall"] = new JsonObject { ["id"] = id } },
-            ["result"] = new JsonObject { ["status"] = "stopped", ["execution_status"] = "not_started", ["execution_oracle"] = false } };
-        if (defect == "execution_started") run["execution_started"] = "retained";
-        if (defect == "completed") run["result"]!["execution_oracle"] = true;
-        if (defect == "running") run["result"]!["status"] = "generating";
-        if (defect == "receipt") await campaign.SaveAsync("planning-evaluation-receipts", id, new(), Ct);
-        if (defect == "wrong_identity") await campaign.SaveAsync("planning-evaluation-requests", id, new() { ["clientRequestId"] = "different" }, Ct);
-        await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "run:session", run, Ct);
-        var writes = records.Writes;
-        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.RetainInconclusiveAsync("run:session", Ct, liveWorkflow: true));
-        Assert.Equal(writes, records.Writes);
-    }
-    [Theory]
-    [InlineData(null)]
-    [InlineData("remaining_allowance")]
-    [InlineData("missing_limit")]
-    [InlineData("invalid_limit")]
-    [InlineData("wrong_count")]
-    [InlineData("missing_exhaustion")]
-    [InlineData("not_retryable")]
-    [InlineData("cancelled")]
-    [InlineData("permanent")]
-    [InlineData("terminal_response")]
-    [InlineData("wrong_kind")]
-    public async Task ExhaustedUncertaintyAllowanceRetainsTheOriginalRequestAndFullReservations(string? defect)
-    {
-        var records = new Records(); var campaign = new BenchmarkCampaign(records, "uncertainty-limit");
-        const string id = "old-session:1:hash";
-        var request = new LLMRequest { ClientRequestId = id };
-        var journal = new BenchmarkHttpJournal(campaign, id, 100, 20, 1m);
-        var state = new LLMHttpRetryState { Fingerprint = "fixed" };
-        for (var i = 0; i < 2; i++)
-        {
-            state.Attempts.Add(new() { Id = "attempt-" + i }); await journal.SaveAsync(state, Ct);
-            state.Attempts[^1].Failure = i == 0 ? "timeout" : defect is "cancelled" or "permanent" ? defect : "transport";
-            if (defect == "terminal_response" && i == 1) state.Attempts[^1].Status = 503;
-            await journal.SaveAsync(state, Ct);
-        }
-        await Assert.ThrowsAsync<LLMClientException>(() => campaign.CallAsync(request, _ => Task.CompletedTask,
-            _ => throw new LLMClientException(defect == "wrong_kind" ? LLMClientFailureKind.Unknown : LLMClientFailureKind.Transport,
-                "Retained uncertainty.", retryable: defect != "not_retryable", statusCode: null, safeProviderCode: null,
-                attemptCount: defect == "wrong_count" ? 1 : 2, retryExhausted: defect != "missing_exhaustion", retryAfterMilliseconds: null), Ct));
-        var policy = new JsonObject { ["MaxAttempts"] = 4, ["MaxUncertainRetries"] = defect == "remaining_allowance" ? 2 : defect == "invalid_limit" ? -1 : 1 };
-        if (defect == "missing_limit") policy.Remove("MaxUncertainRetries");
-        await campaign.SaveAsync("planning-evaluation-configuration", "http-retry-policy", policy, Ct);
-        var before = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
-        var original = await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct);
-        var originalRequest = await campaign.LoadAsync("planning-evaluation-requests", id, Ct);
-        var originalFailure = await campaign.LoadAsync("planning-evaluation-failures", id, Ct);
-        if (defect is not null)
-        {
-            var writes = records.Writes;
-            await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.RetainExhaustedRequestAsync(id, Ct));
-            Assert.Equal(writes, records.Writes); return;
-        }
-        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.CallAsync(new() { ClientRequestId = "fresh:1" },
-            _ => Task.CompletedTask, _ => throw new Exception("Must not dispatch"), Ct));
-        await campaign.RetainExhaustedRequestAsync(id, Ct);
-        Assert.True(JsonNode.DeepEquals(before, await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct)));
-        Assert.True(JsonNode.DeepEquals(original, await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct)));
-        Assert.True(JsonNode.DeepEquals(originalRequest, await campaign.LoadAsync("planning-evaluation-requests", id, Ct)));
-        Assert.True(JsonNode.DeepEquals(originalFailure, await campaign.LoadAsync("planning-evaluation-failures", id, Ct)));
-        Assert.True(JsonNode.DeepEquals(policy, await campaign.LoadAsync("planning-evaluation-configuration", "http-retry-policy", Ct)));
-        Assert.Null(await campaign.LoadAsync("planning-evaluation-receipts", id, Ct));
-        var reopened = new BenchmarkCampaign(records, "uncertainty-limit");
-        await Assert.ThrowsAsync<InvalidOperationException>(() => reopened.CallAsync(request, _ => Task.CompletedTask,
-            _ => throw new Exception("Must not replay"), Ct, allowHttpRecovery: true));
-        await reopened.CallAsync(new() { ClientRequestId = "fresh:1" }, _ => Task.CompletedTask, _ => Task.FromResult(new LLMResponse()), Ct);
-        Assert.Equal(2m, (await BenchmarkHttpJournal.AccountingAsync(reopened, ct: Ct))["reserved_cost_eur"]!.GetValue<decimal>());
-        var denied = new BenchmarkHttpJournal(reopened, "over-budget:1", 100, 20, 49m);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => denied.SaveAsync(new() { Attempts = [new() { Id = "new" }] }, Ct));
-    }
-    [Theory]
-    [InlineData(null, 3)]
-    [InlineData(null, 0)]
-    [InlineData(null, 1)]
-    [InlineData(null, 2)]
-    [InlineData("remaining_attempts", 0)]
-    [InlineData("missing_policy", 0)]
-    [InlineData("receipt", 0)]
-    [InlineData("verified_usage", 0)]
-    [InlineData("completed_http", 0)]
-    [InlineData("earlier_success", 3)]
-    [InlineData("earlier_success", 2)]
-    [InlineData("no_uncertainty", -1)]
-    [InlineData("missing_exhaustion", 0)]
-    [InlineData("wrong_attempt_count", 0)]
-    [InlineData("wrong_terminal_status", 0)]
-    [InlineData("not_retryable", 0)]
-    [InlineData("wrong_identity", 0)]
-    [InlineData("missing_failure", 0)]
-    public async Task ExplicitTransportExhaustionRetainsAllEvidenceAndReservations(string? defect, int unknownIndex)
-    {
-        var records = new Records(); var campaign = new BenchmarkCampaign(records, "transport-exhaustion");
-        const string id = "old-session:1:hash";
-        var request = new LLMRequest { ClientRequestId = id };
-        var journal = new BenchmarkHttpJournal(campaign, id, 100, 20, 1m);
-        var state = new LLMHttpRetryState { Fingerprint = "fixed" };
-        for (var i = 0; i < 4; i++)
-        {
-            state.Attempts.Add(new() { Id = "attempt-" + i }); await journal.SaveAsync(state, Ct);
-            if (i != unknownIndex) { state.Attempts[^1].Status = 500; await journal.SaveAsync(state, Ct); }
-        }
-        if (unknownIndex == 3)
-            await Assert.ThrowsAsync<IOException>(() => campaign.CallAsync(request, _ => Task.CompletedTask, _ => throw new IOException(), Ct));
-        else
-            await Assert.ThrowsAsync<LLMClientException>(() => campaign.CallAsync(request, _ => Task.CompletedTask,
-                _ => throw new LLMClientException(LLMClientFailureKind.ServiceUnavailable, "Retained HTTP failure.",
-                    retryable: defect != "not_retryable", statusCode: defect == "wrong_terminal_status" ? 503 : 500,
-                    safeProviderCode: null, attemptCount: defect == "wrong_attempt_count" ? 3 : 4,
-                    retryExhausted: defect != "missing_exhaustion", retryAfterMilliseconds: null), Ct));
-        if (defect != "missing_policy") await campaign.SaveAsync("planning-evaluation-configuration", "http-retry-policy", new() { ["MaxAttempts"] = defect == "remaining_attempts" ? 5 : 4 }, Ct);
-        if (defect == "receipt") await campaign.SaveAsync("planning-evaluation-receipts", id, new(), Ct);
-        if (defect is "verified_usage" or "completed_http" or "earlier_success")
-        {
-            var row = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!;
-            if (defect == "verified_usage") row["usage"] = new JsonObject { ["input_tokens"] = 10, ["output_tokens"] = 2, ["benchmark_cost_eur"] = .01m };
-            else row["transport"]!["Attempts"]![defect == "earlier_success" ? 1 : 3]!["Status"] = 200;
-            await campaign.SaveAsync(BenchmarkHttpJournal.Collection, id, row, Ct);
-        }
-        if (defect == "wrong_identity") await campaign.SaveAsync("planning-evaluation-requests", id, new() { ["clientRequestId"] = "other" }, Ct);
-        if (defect == "missing_failure") await campaign.SaveAsync("planning-evaluation-failures", id, new(), Ct);
-        if (defect is not null)
-        {
-            var writes = records.Writes;
-            await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.RetainExhaustedRequestAsync(id, Ct));
-            Assert.Equal(writes, records.Writes); return;
-        }
-        var before = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
-        var original = await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct);
-        var originalRequest = await campaign.LoadAsync("planning-evaluation-requests", id, Ct);
-        var originalFailure = await campaign.LoadAsync("planning-evaluation-failures", id, Ct);
-        var originalPolicy = await campaign.LoadAsync("planning-evaluation-configuration", "http-retry-policy", Ct);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.CallAsync(new() { ClientRequestId = "fresh:1" }, _ => Task.CompletedTask, _ => throw new Exception("Must not dispatch"), Ct));
-        await campaign.RetainExhaustedRequestAsync(id, Ct);
-        var savedWrites = records.Writes; await campaign.RetainExhaustedRequestAsync(id, Ct); Assert.Equal(savedWrites, records.Writes);
-        Assert.True(JsonNode.DeepEquals(before, await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct)));
-        Assert.True(JsonNode.DeepEquals(original, await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct)));
-        Assert.True(JsonNode.DeepEquals(originalRequest, await campaign.LoadAsync("planning-evaluation-requests", id, Ct)));
-        Assert.True(JsonNode.DeepEquals(originalFailure, await campaign.LoadAsync("planning-evaluation-failures", id, Ct)));
-        Assert.True(JsonNode.DeepEquals(originalPolicy, await campaign.LoadAsync("planning-evaluation-configuration", "http-retry-policy", Ct)));
-        Assert.Null(await campaign.LoadAsync("planning-evaluation-receipts", id, Ct));
-        var reopened = new BenchmarkCampaign(records, "transport-exhaustion");
-        await Assert.ThrowsAsync<InvalidOperationException>(() => reopened.CallAsync(request, _ => Task.CompletedTask, _ => throw new Exception("Must not replay"), Ct, allowHttpRecovery: true));
-        await reopened.CallAsync(new() { ClientRequestId = "fresh:1" }, _ => Task.CompletedTask, _ => Task.FromResult(new LLMResponse()), Ct);
-        Assert.Equal(1m, (await BenchmarkHttpJournal.AccountingAsync(reopened, ct: Ct))["reserved_cost_eur"]!.GetValue<decimal>());
-        var denied = new BenchmarkHttpJournal(reopened, "over-budget:1", 100, 20, 50m);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => denied.SaveAsync(new() { Attempts = [new() { Id = "new" }] }, Ct));
-    }
-    [Theory]
     [InlineData(null)]
     [InlineData("missing_closure")]
     [InlineData("changed_run")]
@@ -949,7 +1326,14 @@ public sealed class BenchmarkCampaignTests
         if (defect == "wrapped")
             await campaign.SaveAsync("planning-evaluation-failures", id, new()
             { ["stage"] = "dispatch", ["exception_type"] = "LLMClientException", ["kind"] = "Unknown", ["retryable"] = false }, Ct);
-        if (defect != "missing_closure") await campaign.RetainInconclusiveAsync(key, Ct);
+        // Immutable historical data fixture: obsolete closure creators are removed.
+        if (defect != "missing_closure") await campaign.SaveAsync("planning-evaluation-closures", id, new JsonObject
+        {
+            ["run_key"] = key, ["request_id"] = id, ["reason"] = "session_http_attempts_exhausted", ["outcome"] = "inconclusive",
+            ["run_hash"] = PlanningGraphCompiler.Fingerprint(run.ToJsonString()),
+            ["request_hash"] = PlanningGraphCompiler.Fingerprint((await campaign.LoadAsync("planning-evaluation-requests", id, Ct))!.ToJsonString()),
+            ["accounting_at_closure"] = await BenchmarkHttpJournal.AccountingAsync(campaign, id, ct: Ct)
+        }, Ct);
         switch (defect)
         {
             case "changed_run": run["result"]!["calls"] = 10; break;

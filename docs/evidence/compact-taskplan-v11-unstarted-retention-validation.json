@@ -1,0 +1,27 @@
+{
+  "exit_code": 0,
+  "counts": {
+    "Passed": 478
+  },
+  "elapsed_seconds": 66.00465725001413,
+  "source_unchanged": true,
+  "log_sha256": "2a7b3209cbf91b592f15d4ee77b2991aaef2a4eac636a031be695fb4e757c96d",
+  "base": "7ab02766708b8ce29d84e2bd3466d84b5d91ffa7",
+  "source_manifest_sha256": "72d86ba875e709c6365c50b4553024e20259827f3c1ce5106f88cd0b8520e305",
+  "postimages": {
+    "tests/GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.Retention.cs": "aba35f82b4a55f34e67c75ee665b6ef06a1600bfca91c7a87c2b2ef4c62643d2",
+    "tests/GnOuGo.Agent.Planning.Benchmark/README.md": "b0fc8fbb9281b75c8b9bc1fb4d54af6b92caa03a2e2e97f22a82080d1bce6f6a",
+    "tests/GnOuGo.Agent.Server.Tests/BenchmarkPermanentRetentionTests.cs": "90c1a70a4b66d71d057326122dc9f51db080dcf1db59a496e0e3e552928b86dc"
+  },
+  "classification": "Benchmark-only exact administrative retention tests; no provider or runtime business acceptance",
+  "assertions": [
+    "read-only inspection",
+    "stale evidence rejects",
+    "zero attempts stay zero",
+    "no manufactured receipt or usage",
+    "interruption before and after publication",
+    "idempotence after restart",
+    "permanent request and run rejection",
+    "unchanged original records and campaign accounting"
+  ]
+}

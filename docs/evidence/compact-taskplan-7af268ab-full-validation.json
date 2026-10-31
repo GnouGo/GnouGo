@@ -1,0 +1,79 @@
+{
+  "tested_source": "7af268ab3dfbd29256d069bfbbe064b7ce650330",
+  "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror",
+  "completed_test_assemblies": 33,
+  "counters": {
+    "total": 7162,
+    "executed": 7150,
+    "passed": 7150,
+    "failed": 0,
+    "error": 0,
+    "timeout": 0,
+    "aborted": 0,
+    "inconclusive": 0,
+    "notExecuted": 0
+  },
+  "retained_skips": 12,
+  "skip_categories": {
+    "native_windows_only": 7,
+    "separately_gated_live_effect_fixtures": 5
+  },
+  "elapsed_seconds": 4343.233,
+  "source_unchanged": true,
+  "compiler_diagnostics": [],
+  "targeted_tests_not_added_again": true,
+  "technical_validation_only": true,
+  "paid_calls": 0,
+  "publication_stages": [
+    {
+      "stage": "core-pack",
+      "exit_code": 0,
+      "elapsed_seconds": 9.332
+    },
+    {
+      "stage": "planning-pack",
+      "exit_code": 0,
+      "elapsed_seconds": 10.642
+    },
+    {
+      "stage": "integrations-pack",
+      "exit_code": 0,
+      "elapsed_seconds": 6.921
+    },
+    {
+      "stage": "copilot-pack",
+      "exit_code": 0,
+      "elapsed_seconds": 1.698
+    },
+    {
+      "stage": "persistence-pack",
+      "exit_code": 0,
+      "elapsed_seconds": 2.245
+    },
+    {
+      "stage": "native-publish",
+      "exit_code": 0,
+      "elapsed_seconds": 34.864
+    },
+    {
+      "stage": "native-run",
+      "exit_code": 0,
+      "elapsed_seconds": 6.155
+    },
+    {
+      "stage": "server-restore",
+      "exit_code": 0,
+      "elapsed_seconds": 1.65
+    },
+    {
+      "stage": "server-publish",
+      "exit_code": 0,
+      "elapsed_seconds": 72.422
+    },
+    {
+      "stage": "server-storage-run",
+      "exit_code": 0,
+      "elapsed_seconds": 2.172
+    }
+  ]
+}

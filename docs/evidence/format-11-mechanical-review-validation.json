@@ -1,0 +1,31 @@
+{
+  "change": "Defer mechanical-only requirement review until a real business block or global review.",
+  "tested_base_commit": "68bcf83c5e3fdb90232a0dd172a974e94c0f2441",
+  "production_overlay_sha256": "b7f5ce658724b911561e419b9caea519b0a06105c55ae23bb1b07e125b208501",
+  "controlled_lifecycle": {
+    "declaration_opening_and_two_computation_fragments_judge_calls": 0,
+    "completed_boundary_local_calls": 1,
+    "global_calls": 1,
+    "corrections": 0,
+    "unreviewed_checkpoint_grants_semantic_authority": false,
+    "exact_global_review_required_for_artifact": true
+  },
+  "private_full_planning_suite": {
+    "passed": 2238,
+    "failed": 0,
+    "skipped": 0,
+    "warnings_as_errors": true,
+    "note": "Before fixture-only split; production unchanged."
+  },
+  "post_split_focused_suite": {
+    "passed": 44,
+    "failed": 0,
+    "skipped": 0,
+    "warnings_as_errors": true,
+    "overlaps_full_suite": true
+  },
+  "controlled_responses": true,
+  "live_business_acceptance_claimed": false,
+  "instructions_schemas_settings_changed": false,
+  "paid_calls": 0
+}

@@ -1,0 +1,22 @@
+{
+  "production_source": "09ac9ff58fed9a772d4c6bd063f2bb7f8876a753",
+  "cohort": "compactr09ac9ff5colhighv11a",
+  "observer_sha256": "f9a3f18e4396ff66949dca230d03fd7d7cb6ddd8c01e01b7cd418660e37a6562",
+  "checkpoint_count": 8,
+  "request_receipt_response_provenance_rows_verified": 12,
+  "propositions_issued_in_accepted_reviews": 43,
+  "offered_subjects": 8,
+  "subject_acknowledgments": 0,
+  "broad_acknowledgments": 43,
+  "reused_propositions": 0,
+  "eligibility_reasons": {
+    "no_unique_structural_subject": 3,
+    "conservation_not_proven": 5,
+    "global": 8,
+    "offered": 8
+  },
+  "applied_transitions": [],
+  "A": "No live saved-review-call claim; original broad acknowledgments are not subject evidence.",
+  "B": "No matched completed control trace, so no eliminated-call claim.",
+  "business_success_separate": true
+}

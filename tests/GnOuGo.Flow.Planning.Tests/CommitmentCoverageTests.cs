@@ -62,60 +62,31 @@ public sealed class CommitmentCoverageTests
         }
         if (variant == "repeated") plan.Root.Tasks.Add(new() { Id = "again", Objective = "Repeat same operation", Operation = original.Operation });
         Assert.Empty(new TaskPlanCompiler().Compile(plan, state.Catalog!, state.Request).Diagnostics);
-        state = await PlannerFixture.RunAsync(runtime, state);
-        Assert.Equal(expected == "violation" ? PlanningStatus.Stopped : PlanningStatus.FinalReview, state.Status);
-        Assert.True(state.ValidationResults.Count > 0, string.Join(";", state.Diagnostics));
+        state.Plan = plan;
+        state.Requirements = runtime.Proposal.Requirements;
+        state.ValidationResults = PlanningCommitments.Assess(state);
+        Assert.NotEmpty(state.ValidationResults);
         Assert.Equal(expected, Assert.Single(state.ValidationResults, r => r.Id == "coverage:deliver:0:result").Outcome);
         Assert.Contains(state.ValidationResults, r => r.Outcome == "unverified" && r.Id.EndsWith(":limits", StringComparison.Ordinal));
-        Assert.Single(runtime.Calls); Assert.Equal(0, state.ReplanAttempts); Assert.Null(state.ApprovedHash);
-        if (variant is "simulated" or "uncalled") Assert.Contains(state.Diagnostics, d => d.Code == PlanningCommitments.MissingOperation);
+        Assert.Empty(runtime.Calls); Assert.Equal(0, state.ReplanAttempts); Assert.Null(state.ApprovedHash);
+        if (variant is "simulated" or "uncalled") Assert.Contains(state.ValidationResults.SelectMany(result => result.Diagnostics), d => d.Code == PlanningCommitments.MissingOperation);
     }
 
-    [Fact]
-    public async Task MissingCommitmentsStayUnverifiedAfterExplicitHumanAcknowledgmentAndRestart()
-    {
-        var runtime = new TestRuntime(); var state = PlannerFixture.Session(); state.IntentVersion = null;
-        state = await PlannerFixture.RunAsync(runtime, state);
-        Assert.Equal(3, state.IntentVersion); Assert.Equal(PlanningStatus.FinalReview, state.Status);
-        var coverage = Assert.Single(state.ValidationResults, r => r.Id.StartsWith("coverage:", StringComparison.Ordinal));
-        Assert.Equal("unverified", coverage.Outcome);
-        var hash = state.ComputeArtifactHash();
-        state = await new HybridWorkflowPlanner().AdvanceAsync(PlannerFixture.Clone(state), new() { Kind = "approve", ExpectedRevision = state.Revision,
-            ArtifactHash = hash, ReviewedRequirementIds = ["message"] }, runtime, PlannerFixture.Ct);
-        Assert.Equal(PlanningStatus.Approved, state.Status); Assert.Equal(hash, state.ApprovedHash);
-        Assert.Contains(state.ValidationResults, r => r.Id == coverage.Id && r.Outcome == "unverified");
-        Assert.Contains(state.ValidationResults, r => r.Id == "requirement:message" && r.Outcome == "human_reviewed");
-        PlanningArtifactApproval.Verify(PlannerFixture.Clone(state)); Assert.Single(runtime.Calls);
-    }
 
     [Fact]
-    public async Task ApprovalRecomputesCoverageAndCannotTrustCachedSuccess()
+    public async Task CoverageRecomputesLineageAndCannotTrustCachedSuccess()
     {
-        var (runtime, state) = await Fixture(); state = await PlannerFixture.RunAsync(runtime, state);
-        state.Plan!.Root.Outputs[0] = state.Plan!.Root.Outputs[0] with { Value = Text("forged") };
-        // Recompile a consistent executable artifact: rejection must be coverage, not stale YAML.
-        var changed = PlannerFixture.Clone(state); changed.IntentVersion = 2; changed.Status = PlanningStatus.Generating;
-        runtime.Proposal = new() { Plan = changed.Plan };
-        changed = await PlannerFixture.RunAsync(runtime, changed); changed.IntentVersion = 3;
-        changed.ValidationResults = state.ValidationResults;
-        var error = Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(changed));
-        Assert.Contains("violated business commitment", error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task OmissionKeepsHistoricalHashesAndV15YamlIdentical()
-    {
-        var (runtime, state) = await Fixture(); state.IntentVersion = 2;
-        runtime.Proposal.Requirements!.Outcomes = [new("deliver", "Deliver the producer result")];
-        var legacy = await PlannerFixture.RunAsync(runtime, state);
-        var oldHash = legacy.ComputeArtifactHash();
-        var serialized = JsonSerializer.Serialize(legacy.Requirements, PlanningJsonContext.Default.PlanningRequirements);
-        Assert.DoesNotContain("commitments", serialized);
-        Assert.Equal(oldHash, PlannerFixture.Clone(legacy).ComputeArtifactHash());
-        var (_, fresh) = await Fixture(); var upgraded = await PlannerFixture.RunAsync(runtime, fresh);
-        Assert.Equal(legacy.Yaml, upgraded.Yaml); Assert.NotEqual(oldHash, upgraded.ComputeArtifactHash());
-        Assert.DoesNotContain(legacy.ValidationResults, r => r.Id.StartsWith("coverage:", StringComparison.Ordinal));
-        Assert.Null(upgraded.OutcomeBindings);
+        var (runtime, state) = await Fixture(); state.Plan = runtime.Proposal.Plan; state.Requirements = runtime.Proposal.Requirements;
+        state.ValidationResults = PlanningCommitments.Assess(state);
+        Assert.Equal("verified", Assert.Single(state.ValidationResults, row => row.Id == "coverage:deliver:0:result").Outcome);
+        state.Graph = new TaskPlanCompiler().Compile(state.Plan!, state.Catalog!).Graph!;
+        PlanningConfirmationGuards.Apply(state.Graph, state.Catalog!);
+        state.Yaml = new PlanningGraphCompiler().Compile(state.Graph, state.Catalog!);
+        var hash = state.ComputeArtifactHash(); state.Plan!.Root.Outputs[0] = state.Plan.Root.Outputs[0] with { Value = Text("forged") };
+        Assert.NotEqual(hash, state.ComputeArtifactHash());
+        Assert.Equal("verified", Assert.Single(state.ValidationResults, row => row.Id == "coverage:deliver:0:result").Outcome);
+        Assert.Equal("violation", Assert.Single(PlanningCommitments.Assess(state), row => row.Id == "coverage:deliver:0:result").Outcome);
+        Assert.Empty(runtime.Calls);
     }
 
     [Theory]
@@ -125,77 +96,44 @@ public sealed class CommitmentCoverageTests
     [InlineData("duplicate")]
     public async Task InvalidObligationsNeverBecomeEvidence(string variant)
     {
-        var (runtime, state) = await Fixture(); var outcome = runtime.Proposal.Requirements!.Outcomes[0];
-        var original = outcome.Commitments![0];
-        var invalid = outcome with { Commitments = variant switch
+        var (runtime, state) = await Fixture(); var requirements = runtime.Proposal.Requirements!;
+        var outcome = requirements.Outcomes[0]; var original = outcome.Commitments![0];
+        requirements.Outcomes[0] = outcome with { Commitments = variant switch
         {
             "operation" => [new("uninspected")], "port" => [original with { Result = new("made_up", "filePath") }],
             "output" => [original with { Result = new("location", "undeclared") }], _ => [original, original]
         } };
-        // Mutate an already transported valid response, so invalid alternative
-        // values test host admission rather than the scripted schema encoder.
-        runtime.Respond = (request, _) =>
-        {
-            var response = TestRuntime.Response(request, runtime.Proposal);
-            response.Json!["requirements"]!["outcomes"]![0]!["commitments"] =
-                JsonSerializer.SerializeToNode(invalid, PlanningJsonContext.Default.PlanningRequirement)!["commitments"]!.DeepClone();
-            return response;
-        };
-        state.Request.MaxModelCalls = 1;
-        state = await PlannerFixture.RunAsync(runtime, state);
-        Assert.NotEqual(PlanningStatus.FinalReview, state.Status); Assert.Null(state.Yaml); Assert.Single(runtime.Calls);
-        Assert.Null(state.Requirements); Assert.Null(state.Plan);
-        Assert.Contains(state.Diagnostics, d => d.Code == (variant is "operation" or "port" ? "PLANNING_RESPONSE_INVALID" : "REQUIREMENTS_COMMITMENT_INVALID"));
+        Assert.Contains(PlanningCommitments.Validate(state, requirements, true), diagnostic => diagnostic.Code == "REQUIREMENTS_COMMITMENT_INVALID");
+        Assert.Empty(runtime.Calls); Assert.Null(state.Plan); Assert.Null(state.Requirements);
     }
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task DiscoveryMayCompleteButNeverReplaceCapturedCommitments(bool acceptedPlan)
+    public async Task CommitmentCompletionNeverReplacesAnAcceptedPlan(bool acceptedPlan)
     {
         var (runtime, state) = await Fixture();
-        state.Requirements = JsonSerializer.SerializeToNode(runtime.Proposal.Requirements, PlanningJsonContext.Default.PlanningRequirements)!
-            .Deserialize(PlanningJsonContext.Default.PlanningRequirements)!;
+        state.Requirements = JsonSerializer.SerializeToNode(runtime.Proposal.Requirements, PlanningJsonContext.Default.PlanningRequirements)!.Deserialize(PlanningJsonContext.Default.PlanningRequirements)!;
         state.Requirements.Outcomes[0] = state.Requirements.Outcomes[0] with { Commitments = null };
-        if (acceptedPlan)
-        {
-            state.Request.Baseline = runtime.Proposal.Plan;
-            Assert.False(PlanningCommitments.SameOutcomes(state, runtime.Proposal.Requirements!));
-            runtime.Respond = (request, _) =>
-            {
-                var response = TestRuntime.Response(request, runtime.Proposal);
-                // The issued schema already prohibits replacing accepted requirements.
-                response.Json!["requirements"] = JsonSerializer.SerializeToNode(runtime.Proposal.Requirements, PlanningJsonContext.Default.PlanningRequirements);
-                return response;
-            };
-        }
-        state.Request.MaxModelCalls = 1;
-        state = await PlannerFixture.RunAsync(runtime, state);
-        Assert.Equal(acceptedPlan ? PlanningStatus.Stopped : PlanningStatus.FinalReview, state.Status);
-        Assert.Single(runtime.Calls); Assert.Null(state.ApprovedHash);
-        if (acceptedPlan)
-        {
-            Assert.Null(state.Requirements!.Outcomes[0].Commitments);
-            Assert.Contains(state.Diagnostics, d => d.Code is "REQUIREMENTS_CHANGED" or "PLANNING_RESPONSE_INVALID");
-        }
-        else Assert.Single(state.Requirements!.Outcomes[0].Commitments!);
+        if (acceptedPlan) state.Request.Baseline = runtime.Proposal.Plan;
+        Assert.Equal(!acceptedPlan, PlanningCommitments.SameOutcomes(state, runtime.Proposal.Requirements!));
+        Assert.Null(state.Requirements.Outcomes[0].Commitments); Assert.Empty(runtime.Calls);
     }
 
     [Fact]
-    public async Task FreshSchemaDeclaresOnlyNonExecutableObligationsAndKeepsRequestsAdmitted()
+    public async Task CommitmentIdentityIsSeparateFromExecutableTaskPlanIdentity()
     {
-        var (runtime, state) = await Fixture(); state = await PlannerFixture.RunAsync(runtime, state);
-        var request = Assert.Single(runtime.Calls); var schema = request.StructuredOutputSchema!;
-        Assert.Contains("commitments", schema.ToJsonString(), StringComparison.Ordinal);
-        Assert.Contains("Non-executable obligations", schema.ToJsonString(), StringComparison.Ordinal); Assert.Null(schema["properties"]!["outcomeBindings"]);
-        Assert.True(PlanningJsonTransport.EstimateInputTokens(request.Prompt, schema.AsObject()) <= state.Request.Generation.MaxInputTokensPerRequest);
+        var (runtime, state) = await Fixture(); state.Plan = runtime.Proposal.Plan; state.Requirements = runtime.Proposal.Requirements;
         Assert.Empty(PlanningCommitments.Validate(state, state.Requirements!, true));
-        var clone = PlannerFixture.Clone(state);
+        state.Graph = new TaskPlanCompiler().Compile(state.Plan!, state.Catalog!).Graph!;
+        PlanningConfirmationGuards.Apply(state.Graph, state.Catalog!);
+        state.Yaml = new PlanningGraphCompiler().Compile(state.Graph, state.Catalog!);
+        var clone = PlannerFixture.Clone(state); var planHash = PlanningConstruction.Hash(state.Plan);
         Assert.True(PlanningCommitments.SameOutcomes(clone, runtime.Proposal.Requirements!));
         clone.Requirements!.Outcomes[0].Commitments!.Clear();
         Assert.NotEqual(state.ComputeArtifactHash(), clone.ComputeArtifactHash());
+        Assert.Equal(planHash, PlanningConstruction.Hash(clone.Plan)); Assert.Empty(runtime.Calls);
     }
-
     internal static async Task<(TestRuntime Runtime, PlanningSession State)> Fixture(string port = "location", string output = "filePath")
     {
         var factory = new InMemoryMcpClientFactory();
@@ -213,7 +151,7 @@ public sealed class CommitmentCoverageTests
             Plan = new() { Root = new() { Tasks = [new() { Id = "perform", Objective = "Perform requested work", Operation = operation }],
                 Outputs = [new(output, Output("perform", port))] } }
         };
-        var state = PlannerFixture.Session(); state.IntentVersion = 3; state.Catalog = catalog;
+        var state = PlannerFixture.Session(); state.Catalog = catalog;
         state.Request.Options["compilation_profile"] = TaskPlanCompiler.CompactProfile;
         return (runtime, state);
     }

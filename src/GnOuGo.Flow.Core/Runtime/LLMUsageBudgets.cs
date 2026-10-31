@@ -1,6 +1,8 @@
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
+using GnOuGo.Flow.Core.Planning;
 
 namespace GnOuGo.Flow.Core.Runtime;
 
@@ -83,6 +85,10 @@ public sealed record LLMUsageBudgetSnapshot
     public string EstimatedCostCurrency { get; init; } = "USD";
     public IReadOnlyList<CurrencyExchangeQuote> ExchangeRates { get; init; } = Array.Empty<CurrencyExchangeQuote>();
     public decimal EstimatedCostUsd { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<string, LLMJournaledAttempt>? JournaledAttempts { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<PlanningThresholdWarning>? Warnings { get; init; }
 }
 
 /// <summary>
@@ -106,9 +112,10 @@ public interface ILLMUsageBudgetScopeFactory
 /// Thread-safe, provider-neutral LLM usage budget. Child scopes enforce their own limits
 /// while atomically contributing the same call to their parent scope.
 /// </summary>
-public sealed class LLMUsageBudgetScope
+public sealed partial class LLMUsageBudgetScope
 {
     private readonly object _gate = new();
+    private readonly object _warningGate = new();
     private readonly SemaphoreSlim _persistenceGate = new(1, 1);
     private readonly SemaphoreSlim? _unaccountedCostGate;
     private readonly LLMUsageBudgetScope? _parent;
@@ -116,7 +123,37 @@ public sealed class LLMUsageBudgetScope
     private readonly IExchangeRateProvider? _exchangeRateProvider;
     private readonly TimeProvider _timeProvider;
     private readonly MonetaryAmount? _costLimit;
+    private readonly bool _advisoryTokens;
+    private readonly bool _advisoryOptimization;
+    private readonly bool _advisoryOptimizationLimits;
+    private readonly HashSet<string> _thresholdWarnings = new(StringComparer.Ordinal);
+    private static readonly AsyncLocal<string?> WarningRequestId = new();
+    private List<PlanningThresholdWarning>? _warnings;
     private LLMUsageBudgetSnapshot _snapshot;
+
+    internal LLMUsageBudgetScope(bool advisoryTokens, LLMUsageBudgetLimits limits,
+        LLMUsageBudgetSnapshot? initialSnapshot = null, LLMUsageBudgetScope? parent = null,
+        ILLMUsageBudgetSink? sink = null, TimeProvider? timeProvider = null, IExchangeRateProvider? exchangeRateProvider = null,
+        bool advisoryOptimization = false)
+        : this(limits, initialSnapshot, parent, sink, timeProvider, exchangeRateProvider)
+    {
+        _advisoryTokens = advisoryTokens || advisoryOptimization;
+        _advisoryOptimization = advisoryOptimization || _advisoryOptimization;
+        _advisoryOptimizationLimits = advisoryOptimization;
+    }
+
+    private LLMUsageBudgetScope(LLMUsageBudgetScope authority, LLMUsageBudgetLimits limits,
+        LLMUsageBudgetSnapshot? snapshot, ILLMUsageBudgetSink? sink, IExchangeRateProvider? exchangeRateProvider)
+        : this(authority._advisoryTokens, limits, snapshot, sink: sink, timeProvider: authority._timeProvider,
+            exchangeRateProvider: exchangeRateProvider ?? authority._exchangeRateProvider,
+            advisoryOptimization: authority._advisoryOptimizationLimits)
+        => _advisoryOptimization = authority._advisoryOptimization;
+
+    // Restore accounting under the same trusted host authority. No policy is
+    // inferred from warning records, and explicit execution bounds stay explicit.
+    internal LLMUsageBudgetScope RestoreSnapshot(LLMUsageBudgetLimits limits, LLMUsageBudgetSnapshot? snapshot,
+        ILLMUsageBudgetSink? sink = null, IExchangeRateProvider? exchangeRateProvider = null)
+        => new(this, limits, snapshot, sink, exchangeRateProvider);
 
     public LLMUsageBudgetScope(
         LLMUsageBudgetLimits limits,
@@ -131,6 +168,8 @@ public sealed class LLMUsageBudgetScope
 
         Limits = limits;
         _parent = parent;
+        _advisoryTokens = parent?._advisoryTokens ?? false;
+        _advisoryOptimization = parent?._advisoryOptimization ?? false;
         _sink = sink;
         _exchangeRateProvider = exchangeRateProvider ?? parent?._exchangeRateProvider;
         _timeProvider = timeProvider ?? TimeProvider.System;
@@ -152,17 +191,49 @@ public sealed class LLMUsageBudgetScope
                 EstimatedCostCurrency = _costLimit?.Currency ?? "USD"
             }
             : ValidateInitialSnapshot(initialSnapshot, now, _costLimit?.Currency);
+        _warnings = _snapshot.Warnings?.ToList();
     }
 
     public LLMUsageBudgetLimits Limits { get; }
+    internal bool AdvisoryTokenThresholds => _advisoryTokens;
+    // Authority propagates to runtime optimization choices. Publicly created
+    // child scopes still enforce their own explicit execution call/time limits.
+    internal bool AdvisoryOptimizationThresholds => _advisoryOptimization;
 
     public LLMUsageBudgetSnapshot Snapshot
     {
         get
         {
             lock (_gate)
-                return _snapshot with { };
+                lock (_warningGate)
+                    return _snapshot with { Warnings = _warnings?.ToArray() };
         }
+    }
+
+    // Retain existing advisory events in the ordinary usage snapshot. The same
+    // async request identity reaches parent budget checks and nested observers.
+    internal IDisposable? ObserveTokenWarnings(string? requestId = null)
+    {
+        if (!_advisoryTokens) return null;
+        var previous = WarningRequestId.Value;
+        if (requestId is not null) WarningRequestId.Value = requestId;
+        return new WarningObservation(PlanningTokenThresholds.Observe(RecordTokenWarning), previous);
+    }
+
+    private void RecordTokenWarning(string stage, string kind, long current, long threshold)
+    {
+        var warning = new PlanningThresholdWarning(kind, current, threshold, "host_budget_measurement", stage)
+            { RequestId = WarningRequestId.Value };
+        lock (_warningGate)
+        {
+            var warnings = _warnings ??= [];
+            if (!warnings.Contains(warning)) warnings.Add(warning);
+        }
+    }
+
+    private sealed class WarningObservation(IDisposable observation, string? previous) : IDisposable
+    {
+        public void Dispose() { observation.Dispose(); WarningRequestId.Value = previous; }
     }
 
     public LLMUsageBudgetScope CreateChild(
@@ -206,6 +277,7 @@ public sealed class LLMUsageBudgetScope
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(request);
         ct.ThrowIfCancellationRequested();
+        using var warnings = ObserveTokenWarnings(request.ClientRequestId);
 
         var safeStage = SanitizeStage(stage);
         var reservations = new List<LocalReservation>();
@@ -364,14 +436,17 @@ public sealed class LLMUsageBudgetScope
         if (Limits.MaxElapsed is { } maxElapsed)
         {
             var elapsed = _timeProvider.GetUtcNow() - snapshot.StartedAtUtc;
-            if (elapsed >= maxElapsed)
+            if (elapsed >= maxElapsed && !WarnOptimizationThreshold(stage, "elapsed_ms",
+                (long)Math.Ceiling(maxElapsed.TotalMilliseconds), (long)Math.Ceiling(elapsed.TotalMilliseconds)))
                 throw CreateExceeded(stage, "elapsed_ms", maxElapsed.TotalMilliseconds, elapsed.TotalMilliseconds, snapshot);
         }
 
-        if (Limits.MaxCalls is { } maxCalls && snapshot.Calls >= maxCalls)
+        if (Limits.MaxCalls is { } maxCalls && snapshot.Calls >= maxCalls &&
+            !WarnOptimizationThreshold(stage, "calls", maxCalls, checked(snapshot.Calls + 1)))
             throw CreateExceeded(stage, "calls", maxCalls, snapshot.Calls, snapshot);
 
-        if (Limits.MaxTotalTokens is { } maxTokens && snapshot.TotalTokens >= maxTokens)
+        if (Limits.MaxTotalTokens is { } maxTokens && snapshot.TotalTokens >= maxTokens &&
+            !WarnTokenThreshold(stage, "total_tokens", maxTokens, snapshot.TotalTokens))
             throw CreateExceeded(stage, "total_tokens", maxTokens, snapshot.TotalTokens, snapshot);
 
         if (_costLimit is { } maxCost)
@@ -454,9 +529,11 @@ public sealed class LLMUsageBudgetScope
             throw CreateUnverifiable(stage, "usage", Snapshot);
         }
 
+        var tokenLimitExceeded = Limits.MaxTotalTokens is { } tokenLimit && snapshot.TotalTokens > tokenLimit &&
+            !WarnTokenThreshold(stage, "total_tokens", tokenLimit, snapshot.TotalTokens);
         await PersistAsync(snapshot, stage, ct).ConfigureAwait(false);
 
-        if (Limits.MaxTotalTokens is { } maxTokens && snapshot.TotalTokens > maxTokens)
+        if (tokenLimitExceeded && Limits.MaxTotalTokens is { } maxTokens)
             throw CreateExceeded(stage, "total_tokens", maxTokens, snapshot.TotalTokens, snapshot);
         if (_costLimit is { } maxCost && snapshot.EstimatedCost > maxCost.Amount)
         {
@@ -467,6 +544,23 @@ public sealed class LLMUsageBudgetScope
                 snapshot.EstimatedCost,
                 snapshot);
         }
+    }
+
+    private bool WarnTokenThreshold(string stage, string kind, long threshold, long current)
+        => _advisoryTokens && WarnThreshold(stage, kind, threshold, current);
+
+    private bool WarnOptimizationThreshold(string stage, string kind, long threshold, long current)
+        => _advisoryOptimizationLimits && WarnThreshold(stage, kind, threshold, current);
+
+    private bool WarnThreshold(string stage, string kind, long threshold, long current)
+    {
+        lock (_gate)
+            if (_thresholdWarnings.Add($"{stage}:{kind}:{WarningRequestId.Value ?? _snapshot.Calls.ToString(System.Globalization.CultureInfo.InvariantCulture)}:{current}:{threshold}"))
+            {
+                RecordTokenWarning(stage, kind, current, threshold);
+                PlanningTokenThresholds.Warn(stage, kind, current, threshold);
+            }
+        return true;
     }
 
     private decimal ResolveLegacyUsdIncrement(
@@ -491,7 +585,8 @@ public sealed class LLMUsageBudgetScope
     private async ValueTask<MonetaryAmount> ConvertToBudgetCurrencyAsync(
         ModelUsageCostEstimate estimate,
         string stage,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool pinQuote = true)
     {
         if (_costLimit is null)
             throw new InvalidOperationException("A cost estimate was requested without a monetary budget.");
@@ -551,7 +646,7 @@ public sealed class LLMUsageBudgetScope
                 {
                     quote = existing;
                 }
-                else
+                else if (pinQuote)
                 {
                     quote = validatedQuote;
                     _snapshot = _snapshot with
@@ -800,7 +895,11 @@ public sealed class LLMUsageBudgetScope
             EstimatedCost = normalizedEstimatedCost,
             EstimatedCostCurrency = snapshotCurrency,
             EstimatedCostUsd = normalizedLegacyUsd,
-            ExchangeRates = snapshot.ExchangeRates.ToArray()
+            ExchangeRates = snapshot.ExchangeRates.ToArray(),
+            JournaledAttempts = ValidateJournaledAttempts(snapshot with
+            {
+                EstimatedCost = normalizedEstimatedCost, EstimatedCostUsd = normalizedLegacyUsd
+            })
         };
     }
 

@@ -86,7 +86,7 @@ public sealed class StructuredOutputProjectionTests
         var authority = state.Catalog!.Capabilities.Single(c => c.Id == "external").InputSchema;
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(new JsonObject { ["value"] = path }, authority));
         state.Plan!.Root.Tasks[0].Inputs = [new("value", PlanningCorpus.String(path))];
-        var request = new PlanningPrompt(state).Request();
+        var request = RepairPatchTests.Request(state);
         Assert.DoesNotContain(WorkspacePattern, request.StructuredOutputSchema!.ToJsonString());
         Assert.Contains("pattern", request.Prompt);
         Assert.NotEmpty(new TaskPlanCompiler().Compile(state.Plan, state.Catalog).Diagnostics);
@@ -97,13 +97,13 @@ public sealed class StructuredOutputProjectionTests
     {
         var state = await State();
         var catalog = JsonSerializer.Serialize(state.Catalog, PlanningJsonContext.Default.PlanningCatalog);
-        Assert.Contains(PlanningContractValidation.ValidateSchema(PlanningSchemas.Proposal(state), true), e => e.Contains("pattern"));
-        var request = new PlanningPrompt(state).Request();
+        Assert.Contains(PlanningContractValidation.ValidateSchema(PlanningSchemas.TaskPlanGrammar(state), true), e => e.Contains("pattern"));
+        var request = RepairPatchTests.Request(state);
         Assert.Empty(PlanningContractValidation.ValidateSchema(request.StructuredOutputSchema!, true));
         state.Diagnostics = [new("TASK_INPUT_TYPE", "/tasks/perform/inputs/value", "Invalid value")];
         state.RevisionScope = ["/tasks/perform/inputs/value"];
         var authority = PlanningRepairPatch.Authority(state);
-        var repair = new PlanningPrompt(state).Request();
+        var repair = RepairPatchTests.Request(state);
         Assert.Empty(PlanningContractValidation.ValidateSchema(repair.StructuredOutputSchema!, true));
         Assert.Equal(authority, PlanningRepairPatch.Authority(state));
         PlanningRepairPatch.Verify(state, repair);
@@ -122,7 +122,7 @@ public sealed class StructuredOutputProjectionTests
         Assert.Equal("MODEL_SCHEMA_INVALID", error.Code);
         Assert.Contains("$.properties.value.pattern", error.Message);
         Assert.Equal(0, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
-        Assert.Null(state.PendingCall); Assert.Empty(runtime.Calls); Assert.Empty(runtime.Checkpoints);
+        Assert.Null(state.PendingCall); Assert.Empty(runtime.Calls); Assert.All(runtime.Checkpoints, checkpoint => Assert.Equal(0, checkpoint.ModelCalls));
     }
 
     [Fact]
@@ -149,6 +149,7 @@ public sealed class StructuredOutputProjectionTests
         var state = await ComposedOutcomeTests.State();
         state.Catalog!.Capabilities.Single(c => c.Id == "external").InputSchema = Schema(WorkspacePattern);
         state.Plan!.Root.Tasks[0].Inputs = [new("value", PlanningCorpus.String("workflows/valid"))];
+        state.EditablePaths = state.RevisionScope = ["/tasks/perform/inputs/value"];
         return state;
     }
 }

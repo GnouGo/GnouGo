@@ -13,7 +13,7 @@ public sealed class TypedBindingSchemaTests
     public async Task StructuredListsRejectProseAndEncodedJsonBeforeSemanticCompilation(string text)
     {
         var state = await ComposedOutcomeTests.State();
-        var definitions = PlanningSchemas.FullProposal(state, compact: false)["$defs"]!.DeepClone().AsObject();
+        var definitions = PlanningSchemas.TaskPlanGrammar(state)["$defs"]!.DeepClone().AsObject();
         var contract = JsonNode.Parse("""{"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"properties":{"category":{"type":"string","enum":["observed"]},"limit":{"type":"integer","minimum":1}},"required":["category","limit"]}}""")!.AsObject();
         var binding = PlanningBindingSchemas.For(contract, definitions, literalOnly: true);
         var schema = definitions[binding["$ref"]!.ToString()[8..]]!.DeepClone().AsObject(); schema["$defs"] = definitions;
@@ -26,8 +26,8 @@ public sealed class TypedBindingSchemaTests
     [Fact]
     public void RetainedAgentRepairPinsScopeTypesAndExposesFixedCreationArgumentsReadOnly()
     {
-        var state = ComposedOutcomeTests.Recorded("copilot"); state.IntentVersion = 2; state.OutcomeVersion = null;
-        var request = new PlanningPrompt(state).Request(); var context = PlanningRepairPatch.RequestContext(request);
+        var state = ComposedOutcomeTests.Recorded("copilot");
+        var request = RepairPatchTests.Request(state); var context = PlanningRepairPatch.RequestContext(request);
         var source = context["repair"]!["tasks"]!.AsArray().Single(t => t!["id"]!.ToString() == "clone_repository_once")!;
         Assert.Null(source["inputs"]); Assert.Contains(source["fixedInputs"]!.AsArray(), i => i!["name"]!.ToString() == "targetDirectory");
         var slots = context["repair"]!["slots"]!.AsArray();
@@ -40,22 +40,5 @@ public sealed class TypedBindingSchemaTests
         state.Catalog!.Capabilities.Single(c => c.StepType == "agent.run").InputSchema["properties"]!["verification"]!["minItems"] = 2;
         Assert.NotEqual(hash, PlanningRepairPatch.Authority(state));
         Assert.Throws<PlanningConflictException>(() => PlanningRepairPatch.Verify(state, request));
-    }
-
-    [Fact]
-    public async Task NewRequestsSelectOnlyDetailedPolicyAllowedContracts()
-    {
-        var state = await ComposedOutcomeTests.State(); state.Plan = null; state.Requirements = null;
-        var indexed = new PlanningOperation { Id = "index_only", Description = "Inspection is required", Version = "1" };
-        state.Discovery.Sources = [new("directory", "Other operations")];
-        state.Discovery.Pages = [new("directory", null, [new("index_only", "directory", "opaque", "", "mcp.call", "read", "1", Operation: indexed)], null)];
-        var request = new PlanningPrompt(state).Request();
-        Assert.DoesNotContain("index_only", request.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
-        Assert.Contains("index_only", request.Prompt, StringComparison.Ordinal);
-        Assert.Contains("external", request.StructuredOutputSchema.ToJsonString(), StringComparison.Ordinal);
-        state.Catalog!.Policy.DeniedCapabilityIds.Add("external");
-        Assert.DoesNotContain("\"external\"", new PlanningPrompt(state).Request().StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
-        state.Catalog.Policy.DeniedCapabilityIds.Clear();
-
     }
 }

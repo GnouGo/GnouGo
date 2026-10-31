@@ -60,16 +60,9 @@ public sealed class SharedWorkspaceExecutionTests
         catalog.Capabilities = catalog.Capabilities.Select(c => current.Replace(c) ?? c).ToList();
         var compilation = new TaskPlanCompiler().Compile(plan, catalog);
         Assert.Empty(compilation.Diagnostics); Assert.Empty(PlanningGraphValidation.Validate(compilation.Graph!, catalog));
-        var generation = replay.State(replay.Recording["responses"]![4]!["pendingSession"]!);
-        generation.IntentVersion = 2; generation.Requirements!.Inputs = plan.Inputs; generation.PendingCall = null; generation.ModelCalls--; generation.Plan = null; generation.Graph = null; generation.Yaml = null;
-        // This is a new scripted proposal from retained contracts, not an issued-request replay.
-        generation.Request.Generation.MaxInputTokensPerRequest = 32000;
-        generation.Catalog = catalog; replay.Proposal = plan;
-        var used = plan.Root.Tasks.Concat(plan.Root.Always).Select(t => t.Operation).ToHashSet();
-        generation.Catalog.Capabilities.RemoveAll(c => c.Kind != "registered" && !used.Contains(c.Id));
-        var reviewed = await new HybridWorkflowPlanner().AdvanceAsync(generation, new() { ExpectedRevision = generation.Revision }, replay, TestContext.Current.CancellationToken);
-        Assert.True(reviewed.Status == PlanningStatus.FinalReview, string.Join("; ", reviewed.Diagnostics.Select(d => d.Code + " " + d.Message)));
-        PlanningArtifactApproval.Verify(reviewed);
+        var reviewed = RecordedPlanCompilation.CompileStatic(new() { Plan = plan, Requirements = saved.Requirements }, catalog, saved.Request);
+        Assert.True(reviewed.Status == PlanningStatus.FinalReview, string.Join("; ", reviewed.Diagnostics));
+        Assert.Null(reviewed.ApprovedHash); Assert.Equal(0, reviewed.ModelCalls);
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(reviewed.Yaml!));
         var target = Path.GetFullPath(Path.Combine(current.Root, RecordedWorkspaceContractTests.Location));
         var unrelated = Path.Combine(current.Root, "unrelated"); Directory.CreateDirectory(unrelated); File.WriteAllText(Path.Combine(unrelated, "keep"), "untouched");

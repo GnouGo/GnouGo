@@ -1,0 +1,218 @@
+{
+  "source": "65db90d9bc745d00580bdcb40fa62fe29b893a62",
+  "cohort": "compactr65db90d9bcolhighv9a",
+  "measurement_scope": "28 admitted logical requests, including retries only in physical-attempt/provider accounting. No prepared-only or rejected request identities.",
+  "estimator": "serialized_utf8_div3_plus256_v1",
+  "quantiles": "p50 median; p95 nearest rank; maximum. UTF-8 components reconcile; independently rounded estimated tokens need not add. Estimates differ from provider usage.",
+  "phases": [
+    {
+      "phase": "construction_draft",
+      "constructed": 8,
+      "admitted_logical": 8,
+      "prepared_only": 0,
+      "rejected_before_dispatch": 0,
+      "physical_attempts": 8,
+      "receipts": 8,
+      "unknown_attempts": 0,
+      "known_provider_input_tokens": 31289,
+      "known_provider_output_tokens": 9848,
+      "known_provider_reasoning_tokens": 8192,
+      "known_cost_eur": "0.4032887103971441320838911202",
+      "reserved_unknown_cost_eur": 0,
+      "completed_call_stage_ms": "261239.2655",
+      "complete_request_bytes": {
+        "total": 169521,
+        "count": 8,
+        "p50": "21169",
+        "p95": "25326",
+        "max": "25326"
+      },
+      "estimated_input_tokens": {
+        "total": 58558,
+        "count": 8,
+        "p50": "7312.5",
+        "p95": "8698",
+        "max": "8698"
+      },
+      "component_utf8_bytes": {
+        "construction_context": 16222,
+        "diagnostics": 208,
+        "envelope": 3598,
+        "evidence": 200,
+        "fragment": 176,
+        "instructions": 10184,
+        "interfaces": 9276,
+        "mcp_contracts": 200,
+        "objective": 1094,
+        "requirements": 23215,
+        "response_schema": 105148
+      }
+    },
+    {
+      "phase": "construction_intent",
+      "constructed": 2,
+      "admitted_logical": 2,
+      "prepared_only": 0,
+      "rejected_before_dispatch": 0,
+      "physical_attempts": 4,
+      "receipts": 2,
+      "unknown_attempts": 2,
+      "known_provider_input_tokens": 1982,
+      "known_provider_output_tokens": 2231,
+      "known_provider_reasoning_tokens": 1673,
+      "known_cost_eur": "0.0685765283355644801427933958",
+      "reserved_unknown_cost_eur": "1.8617402945113788487282463186",
+      "completed_call_stage_ms": "676087.2632",
+      "complete_request_bytes": {
+        "total": 11000,
+        "count": 2,
+        "p50": "5500",
+        "p95": "8564",
+        "max": "8564"
+      },
+      "estimated_input_tokens": {
+        "total": 4179,
+        "count": 2,
+        "p50": "2089.5",
+        "p95": "3111",
+        "max": "3111"
+      },
+      "component_utf8_bytes": {
+        "diagnostics": 52,
+        "envelope": 872,
+        "evidence": 23,
+        "instructions": 2367,
+        "intent": 1811,
+        "interfaces": 59,
+        "response_schema": 5816
+      }
+    },
+    {
+      "phase": "construction_local_judge",
+      "constructed": 9,
+      "admitted_logical": 9,
+      "prepared_only": 0,
+      "rejected_before_dispatch": 0,
+      "physical_attempts": 9,
+      "receipts": 9,
+      "unknown_attempts": 0,
+      "known_provider_input_tokens": 30711,
+      "known_provider_output_tokens": 18743,
+      "known_provider_reasoning_tokens": 15942,
+      "known_cost_eur": "0.6388621151271753681392235609",
+      "reserved_unknown_cost_eur": 0,
+      "completed_call_stage_ms": "392466.2668",
+      "complete_request_bytes": {
+        "total": 166226,
+        "count": 9,
+        "p50": "18197",
+        "p95": "23063",
+        "max": "23063"
+      },
+      "estimated_input_tokens": {
+        "total": 57715,
+        "count": 9,
+        "p50": "6322",
+        "p95": "7944",
+        "max": "7944"
+      },
+      "component_utf8_bytes": {
+        "construction_context": 37923,
+        "diagnostics": 234,
+        "envelope": 4099,
+        "evidence": 225,
+        "fragment": 5053,
+        "instructions": 47976,
+        "interfaces": 15802,
+        "mcp_contracts": 225,
+        "objective": 1275,
+        "requirements": 23274,
+        "response_schema": 30140
+      }
+    },
+    {
+      "phase": "construction_select",
+      "constructed": 8,
+      "admitted_logical": 8,
+      "prepared_only": 0,
+      "rejected_before_dispatch": 0,
+      "physical_attempts": 8,
+      "receipts": 8,
+      "unknown_attempts": 0,
+      "known_provider_input_tokens": 23914,
+      "known_provider_output_tokens": 11485,
+      "known_provider_reasoning_tokens": 9729,
+      "known_cost_eur": "0.4142079428826416778224007140",
+      "reserved_unknown_cost_eur": 0,
+      "completed_call_stage_ms": "286758.0825",
+      "complete_request_bytes": {
+        "total": 120560,
+        "count": 8,
+        "p50": "15013.5",
+        "p95": "18834",
+        "max": "18834"
+      },
+      "estimated_input_tokens": {
+        "total": 42237,
+        "count": 8,
+        "p50": "5261",
+        "p95": "6534",
+        "max": "6534"
+      },
+      "component_utf8_bytes": {
+        "construction_context": 13002,
+        "envelope": 3533,
+        "instructions": 26920,
+        "interfaces": 6101,
+        "requirements": 23215,
+        "response_schema": 47789
+      }
+    },
+    {
+      "phase": "replan",
+      "constructed": 1,
+      "admitted_logical": 1,
+      "prepared_only": 0,
+      "rejected_before_dispatch": 0,
+      "physical_attempts": 1,
+      "receipts": 1,
+      "unknown_attempts": 0,
+      "known_provider_input_tokens": 4350,
+      "known_provider_output_tokens": 685,
+      "known_provider_reasoning_tokens": 512,
+      "known_cost_eur": "0.0377510040160642570281124498",
+      "reserved_unknown_cost_eur": 0,
+      "completed_call_stage_ms": "26755.4537",
+      "complete_request_bytes": {
+        "total": 22959,
+        "count": 1,
+        "p50": "22959",
+        "p95": "22959",
+        "max": "22959"
+      },
+      "estimated_input_tokens": {
+        "total": 7909,
+        "count": 1,
+        "p50": "7909",
+        "p95": "7909",
+        "max": "7909"
+      },
+      "component_utf8_bytes": {
+        "construction_context": 2578,
+        "diagnostics": 252,
+        "envelope": 451,
+        "evidence": 25,
+        "fragment": 22,
+        "instructions": 1392,
+        "interfaces": 1168,
+        "mcp_contracts": 25,
+        "objective": 100,
+        "requirements": 4334,
+        "response_schema": 12612
+      }
+    }
+  ],
+  "planning_wall_ms": 1730687,
+  "completed_call_stage_ms_sum": "1643306.3317",
+  "timing_limit": "Completed call-stage sum and planning wall time are separately measured; neither is runtime execution latency."
+}

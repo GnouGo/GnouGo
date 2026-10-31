@@ -1,0 +1,62 @@
+{
+  "production_source": "6469a1a38b5ad645fa2777f8b699c01bd3f54e64",
+  "harness_source": "6469a1a38b5ad645fa2777f8b699c01bd3f54e64",
+  "cohort": "compactr6469a1a38code20nhv11a",
+  "freeze_sha256": "605527bad75c4c4b474f44a78bbbfbb10d79b2553f8172fe3e8bd5ff8dd56d71",
+  "status": "stopped",
+  "artifact": false,
+  "runtime_started": false,
+  "business_success": false,
+  "complete_business_outcomes": 0,
+  "calls_per_complete_outcome": null,
+  "logical_requests_issued": 8,
+  "physical_generation_attempts": 7,
+  "completion_receipts": 7,
+  "corrections": 0,
+  "provider_input_tokens": 12526,
+  "provider_output_tokens": 12636,
+  "provider_reasoning_tokens": 10239,
+  "known_cost_eur": "0.3942079428826416778224007140",
+  "request8_reserved_cost_eur": "0",
+  "planning_ms": 359468,
+  "classification": "HTTP502 client failure before generation journal attempt1; not a received model output, generation retry exhaustion or reasoning exhaustion. The client exception default attempt_count1 is not physical generation usage. Cause of pre-generation failure is unestablished.",
+  "stopped_request": "compactr6469a1a38code20nhv11a-code-1:8:fdb99c3a7cb63c11f3624bbdb990e5c6054a0a989c107cdee3d4ce790fb927df",
+  "captured_generation_journal": {
+    "fingerprint": "",
+    "attempts": 0,
+    "delay_ms": 0
+  },
+  "retention": {
+    "operator_source": "9f86a8a63a6af76b35722447347630d0a31fa0a6",
+    "kind": "unstarted-planning-request",
+    "evidence_hash": "181a07dd1d22ec74555084f50adff28860f4bb0727b2f0f1a5471a3f9db5d90e",
+    "authorization_hash": "ee0f5c88fb533c177f6890d2e3b2c0a11b80866da489abc2bbd7b763d6651056",
+    "identical_closure_after_process_restart": true,
+    "actual_compiled_guards": {
+      "evidence_hash": "181a07dd1d22ec74555084f50adff28860f4bb0727b2f0f1a5471a3f9db5d90e",
+      "actual_compiled_continuation_rejected": true,
+      "actual_compiled_replay_rejected": true,
+      "preflight_or_dispatch_called": false,
+      "store_writes": 0,
+      "network_denied": true
+    },
+    "accounting_unchanged": true,
+    "prior_unknown_reservations_eur": "97.48064468662885791812054047",
+    "no_receipt_or_generation_attempt_created": true,
+    "inspection_before_fix_rejected": true
+  },
+  "campaign_capture": {
+    "calls": "5596",
+    "session_calls": "0",
+    "known_input_tokens": "19747035",
+    "known_output_tokens": "7465399",
+    "known_cost_eur": "287.82755539352825859556594809",
+    "reserved_input_tokens": "1796265",
+    "reserved_output_tokens": "3342336",
+    "reserved_cost_eur": "97.48064468662885791812054047",
+    "cost_upper_bound_eur": "385.30820008015711651368648856",
+    "unknown_attempts": "117"
+  },
+  "available_eur_after_unchanged_closure": "154.72190375254918802875845874",
+  "technical_scope": "The existing benchmark-only unstarted operator now accepts matching pre-generation HTTP500/502/503 ServiceUnavailable or HTTP504 Timeout failures. Empty fingerprint/attempts/backoff, exact captured policy, no provider code/retry-after/usage/receipt, exact evidence hash and administrative authorization remain required. No retry or financial release authority is introduced."
+}

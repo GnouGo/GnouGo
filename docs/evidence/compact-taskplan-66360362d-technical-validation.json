@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "source": "66360362da0845513137178ff51752f61b4249ef",
+  "kind": "source_qualified_technical_validation",
+  "full_solution": {
+    "passed": 8471,
+    "failed": 0,
+    "skipped": 13,
+    "projects": 33,
+    "warnings_as_errors": true,
+    "compiler_diagnostics": 0,
+    "source_unchanged": true,
+    "original_execution": {
+      "parent": "4d486d1ac63aafb7893086437164cfd9f23dc26d",
+      "patch_sha256": "bbc73991a865e43f6329f9c95b38c7a0100aaa0f026698e0018a9b56b0847e99",
+      "status": "isolated_overlay"
+    },
+    "committed_source_equivalence": {
+      "files": 4617,
+      "all_bytes_equal": true,
+      "binding_sha256": "d766b4833d070d15fbb272de0f054c516060e446eda61ea54c9285cc6ec35e02"
+    },
+    "manifest_sha256": "dbb02814dc27e21aa005477a0e38012cde45d7c2ec219a360c5f8cdc15130d6f",
+    "qualified_manifest_sha256": "cbc750b11f3a28e82aaf57d5a7e436a90f92e5476923ce3eb25b93619135846c"
+  },
+  "publication": {
+    "successful_stage_results": 12,
+    "failed_stage_results": 0,
+    "fresh_execution_stage_count": 6,
+    "qualified_reuse_stage_count": 6,
+    "fresh_source": "66360362da0845513137178ff51752f61b4249ef",
+    "reused_source": "2b0d378c8c0efb9803214742817d7d223007e3a5",
+    "fresh_stages": [
+      "pack-planning",
+      "pack-integrations",
+      "planning-aot-publish",
+      "planning-aot-smoke",
+      "server-publish",
+      "server-storage-smoke"
+    ],
+    "qualified_reused_stages": [
+      "pack-core",
+      "pack-copilot",
+      "pack-persistence",
+      "pack-ai-core",
+      "git-aot-publish",
+      "git-published-contract"
+    ],
+    "unchanged_recursive_project_inputs": 241,
+    "unchanged_shared_build_inputs": 5,
+    "warnings_as_errors": true,
+    "compiler_diagnostics": 0,
+    "source_unchanged": true,
+    "fresh_native_aot_presentations": [
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "fresh_published_encrypted_storage_passed": true,
+    "package_integrity_checks": 6,
+    "manifest_sha256": "9b17019f94a85743876dabf96600e0df723ac0bcc2542a75930789305cc5bc23",
+    "reuse_proof_sha256": "0cd02ea3b40d7eed442fd1898bf29128bf7dc148e96541cd9984b0b1c38f5b69"
+  },
+  "preservation": {
+    "full_files_verified": 50,
+    "full_copy_method": "ordinary copies",
+    "publication_files_verified": 488,
+    "publication_copy_method": "immutable hardlinks; shared inode, not physically independent storage",
+    "release_sha256": "3795db2ce7fcab57f88418f1b736033211c17b55068f57626d7c1e1a55bbc3b8"
+  },
+  "remote_ci": {
+    "source": "66360362da0845513137178ff51752f61b4249ef",
+    "workflow_count": 3,
+    "job_count": 8,
+    "attempts": 2,
+    "status": "failed_before_compilation",
+    "failure": "setup-dotnet@v6.0.0 runtime10.0.14 and SDK10.0.403 downloads returned HTTP409 in both attempts",
+    "further_rerun": false,
+    "workflow_run_ids": [
+      40227227050,
+      40227227091,
+      40227227121
+    ],
+    "assessment_sha256": "221ba8d4177e08322c5a3e7ea51406fbc69b0549e518813402f5d3c39830d247"
+  },
+  "boundaries": [
+    "Full-suite equivalence preserves the original4d+overlay execution and Git/assembly attribution; no clean663 full rerun is claimed.",
+    "Six publication stages execute freshly on663; the other six retain exact original2b commands, times, logs, outputs and qualification.",
+    "13 skipped full-suite tests remain skipped. Focused/owning results are not added to the full-suite total.",
+    "Technical and synthetic smoke passes do not establish paid benchmark convergence or business acceptance.",
+    "Remote CI remains infrastructure-failed; local technical passes do not imply remote CI success."
+  ]
+}

@@ -11,7 +11,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
     [Fact]
     public async Task V13ChecksReplaceTechnicalInvocationsOnTheSameBusinessPlan()
     {
-        var factory = new RealProductContracts.Factory(RealProductContracts.Capture(new DocumentPolicy(new(), AppContext.BaseDirectory)));
+        var factory = new RealProductContracts.Factory(CaptureIsolatedProductContracts());
         var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
         var catalog = await RetainedCatalog(runtime, TestContext.Current.CancellationToken); catalog.Policy.RequireExternalConfirmation = false;
         var proposal = V10Proposal(catalog, 4);

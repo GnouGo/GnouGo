@@ -108,9 +108,10 @@ public sealed class TaskFieldScopeTests
         var graph = new TaskPlanCompiler().Compile(plan, catalog).Graph!;
         var session = PlannerFixture.Session(); session.Requirements = PlannerFixture.Requirements(); session.Requirements.Inputs = plan.Inputs; session.Plan = plan; session.Catalog = catalog; session.Graph = graph;
         session.Yaml = new PlanningGraphCompiler().Compile(graph, catalog, session.Request.Name);
-        PlanningArtifactApproval.Verify(session); var hash = PlanningArtifactApproval.Hash(session);
+        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(session));
+        var hash = session.ComputeArtifactHash();
         plan.Root.Outputs[0].Value.Port = "other";
-        Assert.NotEqual(hash, PlanningArtifactApproval.Hash(session)); Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(session));
+        Assert.NotEqual(hash, session.ComputeArtifactHash()); Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(session));
         plan.Root.Outputs[0] = new("result", Field(Input("record"), "number")); plan.Inputs[0].Type.Fields[0].Type = new() { Kind = "any" };
         result = new TaskPlanCompiler().Compile(plan, catalog);
         Assert.Null(result.Graph); Assert.Contains(result.Diagnostics, d => d.Code == "TASK_OUTPUT_CONTRACT");
@@ -120,17 +121,17 @@ public sealed class TaskFieldScopeTests
     public void StrictSchemaAndCompactTransportPreserveExplicitFieldSelections()
     {
         var state = PlannerFixture.Session(); state.Requirements = PlannerFixture.Requirements();
-        var schema = PlanningSchemas.Proposal(state);
+        var schema = PlanningSchemas.TaskPlanGrammar(state);
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
         var plan = new TaskPlan { Inputs = [new() { Name = "record", Type = Record() }], Root = new() { Outputs = [new("result", Field(Input("record"), "number"))] } };
-        var wire = TestRuntime.Response(new() { StructuredOutputSchema = schema }, new() { Plan = plan }).Json!;
+        var wire = PlanningCorpus.Transport(JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.TaskPlan), schema, schema)!;
         Assert.Empty(PlanningContractValidation.ValidateInstance(wire, schema));
-        var restored = wire.Deserialize(PlanningJsonContext.Default.PlanningProposal)!.Plan!;
+        var restored = wire.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
         Assert.Equal("field", restored.Root.Outputs[0].Value.Kind); Assert.Equal("number", restored.Root.Outputs[0].Value.Port);
         var compact = PlanningJsonTransport.TaskPlanPrompt(plan)!;
         Assert.Equal(3, compact["root"]!["outputs"]![0]!["value"]!.AsObject().Count);
         Assert.Equal(JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan), JsonSerializer.Serialize(compact.Deserialize(PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan));
-        var field = wire["plan"]!["root"]!["outputs"]![0]!["value"]!;
+        var field = wire["root"]!["outputs"]![0]!["value"]!;
         field["items"]!.AsArray().Add(new JsonObject { ["kind"] = "item" });
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(wire, schema));
     }

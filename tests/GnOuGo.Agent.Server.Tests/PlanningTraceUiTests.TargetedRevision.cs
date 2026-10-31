@@ -49,7 +49,6 @@ public sealed partial class PlanningTraceUiTests
 
     [Theory]
     [InlineData("pending")]
-    [InlineData("retired")]
     [InlineData("exhausted")]
     [InlineData("requirements")]
     [InlineData("saved")]
@@ -60,7 +59,6 @@ public sealed partial class PlanningTraceUiTests
         var planner = new RecordingRevisionPlanner(); Configure(fixture, planner);
         var state = RevisionSession();
         if (boundary == "pending") state.PendingCall = new() { Id = "uncertain", Request = new() { Prompt = "Retained request" } };
-        if (boundary == "retired") state.IntentVersion = 1;
         if (boundary == "exhausted") state.ModelCalls = state.Request.MaxModelCalls;
         if (boundary == "requirements") state.Requirements = null;
         if (boundary == "saved") state.Status = PlanningStatus.Saved;

@@ -33,7 +33,7 @@ public sealed class InputConstraintRepairTests
         var slots = RepairPatchTests.Slots(state);
         var slot = Assert.Single(slots, s => s.Location == location);
         Assert.DoesNotContain(slots, s => s.Location.EndsWith("/required", StringComparison.Ordinal) || s.Location.EndsWith("/default", StringComparison.Ordinal));
-        var request = new PlanningPrompt(state).Request();
+        var request = RepairPatchTests.Request(state);
         var repaired = PlanningRepairPatch.Apply(state, new() { Edits = [new() { Slot = slot.Id, Action = "replace", Value = JsonValue.Create(false) }] }, request);
         Assert.Empty(new TaskPlanCompiler().Compile(repaired, state.Catalog).Diagnostics);
         Assert.True((nested ? input.Type.Fields[0].Type : input.Type).Nullable); Assert.True(input.Required); Assert.Null(input.Default);

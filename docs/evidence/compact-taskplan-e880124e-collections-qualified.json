@@ -1,0 +1,354 @@
+{
+  "schema": "compact_local_decisions_collections_qualifying_run_v1",
+  "production_revision": "e880124edb8a6e217eec392aceb5298d0fa6b2ac",
+  "private_execution_revision": "b4819deb3e778e71eae633bf5b4b51b404393f9e",
+  "complete_source_tree": "e304772db384cfd74fa84d0a22351b4b64bab96c",
+  "cohort": "compactle880124ecol11a",
+  "planning_format": 11,
+  "model": "gpt-5.5-2026-04-24",
+  "phase_policy_sha256": "0f8566ddb5f847a98fb5d91f3f5f9422c5d7ab047e8425dc954f43b65af12074",
+  "mcp_manifest_sha256": "5b2c4135da538375b4eb952c21aec11208a85aefc51ca1885227b9b2c9578d11",
+  "artifact_hash": "078b0554d62296c45b65757ee051814749dddc9125383540ddd20b32b8befe4f",
+  "reviewed_revision": 25,
+  "approved_revision": 26,
+  "approval_origin": "delegated_test",
+  "runtime": {
+    "runner_status": "approved",
+    "status_source": "Exact source-generated current session in approved raw run and artifact-bound receipt; fresh read confirms revision26, delegated_test, same artifact, no pending call and all20 original receipts.",
+    "exit_code": 0,
+    "execution_command_elapsed_seconds": "9.17579350003507",
+    "variants": [
+      {
+        "variant": "nominal",
+        "correct": true,
+        "runtime_success": true,
+        "elapsed_ms": "383.801",
+        "error": null,
+        "effects": [],
+        "violations": [],
+        "independent_expected_result": [
+          2,
+          4,
+          8
+        ],
+        "exact_ordered_duplicate_preserving_oracle_passed": true,
+        "actual_output_payload_logged": false
+      },
+      {
+        "variant": "alternate",
+        "correct": true,
+        "runtime_success": true,
+        "elapsed_ms": "2.3602",
+        "error": null,
+        "effects": [],
+        "violations": [],
+        "independent_expected_result": [
+          6,
+          6,
+          -4
+        ],
+        "exact_ordered_duplicate_preserving_oracle_passed": true,
+        "actual_output_payload_logged": false
+      }
+    ],
+    "sum_runtime_variant_ms": "386.1612",
+    "runtime_success": true,
+    "independent_runtime_oracles_passed": true,
+    "effects": [],
+    "violations": [],
+    "planning_interventions": 0,
+    "source_or_model_or_profile_changed": false
+  },
+  "planning": {
+    "logical_requests": 20,
+    "physical_attempts": 22,
+    "receipts": 20,
+    "judges": 3,
+    "judge_peak_complete_bytes": 11248,
+    "charged_corrections": 0,
+    "actual_patches": 0,
+    "context_reinterpretation_cycles": 1,
+    "planning_ms": 1450831
+  },
+  "received_provider_usage": {
+    "input_tokens": 51920,
+    "output_tokens": 25355,
+    "reasoning_tokens": 20489,
+    "total_tokens": 77275
+  },
+  "accounting": {
+    "known_cost_eur": "0.9105310129406514948683623385",
+    "retained_unknown_usage_reservations_eur": "1.8617402945113788487282463186",
+    "known_plus_reservation_eur": "2.7722713074520303435966086571",
+    "usage_complete": false,
+    "unknown_usage_failed_attempts": 2,
+    "transport_missing_outcome_attempts": 0,
+    "prior_reservations_released": false,
+    "planning_accounting_unchanged_by_execution": true,
+    "billed_total_cost_eur": null,
+    "cost_reduction_claimed": false
+  },
+  "request_measurements": {
+    "estimator": "serialized_utf8_div3_plus256_v1",
+    "bytes_reconcile_for_all_requests": true,
+    "actual_provider_usage_is_not_component_estimation": true,
+    "phases": {
+      "construction_intent": {
+        "logical_requests": 2,
+        "p50_complete_bytes": 5617,
+        "p95_complete_bytes": 8711,
+        "max_complete_bytes": 8711,
+        "peak_conservative_input_estimate": 3160,
+        "above_target_warnings": 1,
+        "rejected_before_dispatch": 0,
+        "component_bytes_all_phase_requests": {
+          "diagnostics": 52,
+          "envelope": 937,
+          "instructions": 2367,
+          "intent": 1806,
+          "response_schema": 5990,
+          "evidence": 23,
+          "interfaces": 59
+        },
+        "provider_receipts": {
+          "known_input_tokens": 2021,
+          "known_output_tokens": 3581,
+          "reasoning_tokens": 1536,
+          "known_cost_eur": "0.1048951360999553770638107988",
+          "reserved_cost_eur": "1.8617402945113788487282463186",
+          "usage_complete": false,
+          "physical_attempts": 4,
+          "elapsed_ms": "712108.9684"
+        }
+      },
+      "construction_select": {
+        "logical_requests": 7,
+        "p50_complete_bytes": 13881,
+        "p95_complete_bytes": 15561,
+        "max_complete_bytes": 15561,
+        "peak_conservative_input_estimate": 5443,
+        "above_target_warnings": 7,
+        "rejected_before_dispatch": 0,
+        "component_bytes_all_phase_requests": {
+          "construction_context": 7735,
+          "envelope": 3549,
+          "instructions": 20454,
+          "interfaces": 7080,
+          "requirements": 18365,
+          "response_schema": 37937
+        },
+        "provider_receipts": {
+          "known_input_tokens": 18626,
+          "known_output_tokens": 11383,
+          "reasoning_tokens": 9939,
+          "known_cost_eur": "0.3878804105310129406514948685",
+          "reserved_cost_eur": 0,
+          "usage_complete": true,
+          "physical_attempts": 7,
+          "elapsed_ms": "283616.473"
+        }
+      },
+      "construction_draft": {
+        "logical_requests": 7,
+        "p50_complete_bytes": 20093,
+        "p95_complete_bytes": 23697,
+        "max_complete_bytes": 23697,
+        "peak_conservative_input_estimate": 8155,
+        "above_target_warnings": 1,
+        "rejected_before_dispatch": 0,
+        "component_bytes_all_phase_requests": {
+          "construction_context": 13217,
+          "diagnostics": 182,
+          "envelope": 3603,
+          "evidence": 175,
+          "fragment": 154,
+          "instructions": 7490,
+          "interfaces": 9519,
+          "mcp_contracts": 175,
+          "objective": 1805,
+          "requirements": 18643,
+          "response_schema": 88188
+        },
+        "provider_receipts": {
+          "known_input_tokens": 25942,
+          "known_output_tokens": 5429,
+          "reasoning_tokens": 4549,
+          "known_cost_eur": "0.2611155734047300312360553324",
+          "reserved_cost_eur": 0,
+          "usage_complete": true,
+          "physical_attempts": 7,
+          "elapsed_ms": "218364.8431"
+        }
+      },
+      "construction_local_judge": {
+        "logical_requests": 1,
+        "p50_complete_bytes": 7358,
+        "p95_complete_bytes": 7358,
+        "max_complete_bytes": 7358,
+        "peak_conservative_input_estimate": 2709,
+        "above_target_warnings": 0,
+        "rejected_before_dispatch": 0,
+        "component_bytes_all_phase_requests": {
+          "construction_context": 1316,
+          "envelope": 507,
+          "fragment": 1273,
+          "instructions": 1456,
+          "interfaces": 691,
+          "requirements": 642,
+          "response_schema": 1473
+        },
+        "provider_receipts": {
+          "known_input_tokens": 1176,
+          "known_output_tokens": 659,
+          "reasoning_tokens": 512,
+          "known_cost_eur": "0.0228915662650602409638554217",
+          "reserved_cost_eur": 0,
+          "usage_complete": true,
+          "physical_attempts": 1,
+          "elapsed_ms": "30734.4526"
+        }
+      },
+      "construction_global_judge": {
+        "logical_requests": 2,
+        "p50_complete_bytes": 9625,
+        "p95_complete_bytes": 11248,
+        "max_complete_bytes": 11248,
+        "peak_conservative_input_estimate": 4006,
+        "above_target_warnings": 1,
+        "rejected_before_dispatch": 0,
+        "component_bytes_all_phase_requests": {
+          "construction_context": 6606,
+          "envelope": 1016,
+          "fragment": 2674,
+          "instructions": 2912,
+          "interfaces": 1732,
+          "requirements": 1284,
+          "response_schema": 3026
+        },
+        "provider_receipts": {
+          "known_input_tokens": 3079,
+          "known_output_tokens": 3744,
+          "reasoning_tokens": 3441,
+          "known_cost_eur": "0.1139803659080767514502454262",
+          "reserved_cost_eur": 0,
+          "usage_complete": true,
+          "physical_attempts": 2,
+          "elapsed_ms": "87414.7629"
+        }
+      },
+      "replan": {
+        "logical_requests": 1,
+        "p50_complete_bytes": 7093,
+        "p95_complete_bytes": 7093,
+        "max_complete_bytes": 7093,
+        "peak_conservative_input_estimate": 2621,
+        "above_target_warnings": 0,
+        "rejected_before_dispatch": 0,
+        "component_bytes_all_phase_requests": {
+          "construction_context": 2359,
+          "envelope": 509,
+          "fragment": 1337,
+          "instructions": 357,
+          "interfaces": 866,
+          "requirements": 642,
+          "response_schema": 1023
+        },
+        "provider_receipts": {
+          "known_input_tokens": 1076,
+          "known_output_tokens": 559,
+          "reasoning_tokens": 512,
+          "known_cost_eur": "0.0197679607318161535029004909",
+          "reserved_cost_eur": 0,
+          "usage_complete": true,
+          "physical_attempts": 1,
+          "elapsed_ms": "28021.1955"
+        }
+      }
+    }
+  },
+  "business_obligations": {
+    "unit": "distinct frozen business obligation covered by independently accepted planned artifact, with retained review uncertainty",
+    "obligation_ids": [
+      "cleanup",
+      "declared_effects",
+      "exact_outputs"
+    ],
+    "obligation_set_hash": "6ab079dce2f8e688b76d83445cbd16ff19772683c53d3b4b0a6af3012b77dd65",
+    "accepted_artifact_hash": "078b0554d62296c45b65757ee051814749dddc9125383540ddd20b32b8befe4f",
+    "accepted_obligation_ids": [
+      "cleanup",
+      "declared_effects",
+      "exact_outputs"
+    ],
+    "accepted_obligations": 3,
+    "runtime_accepted": true,
+    "per_accepted_obligation": {
+      "logical_calls": "6.6666666666666666666666666667",
+      "physical_attempts": "7.3333333333333333333333333333",
+      "provider_input_tokens": null,
+      "provider_output_tokens": null,
+      "provider_total_tokens": null,
+      "cost_eur": null,
+      "planning_ms": "483610.33333333333333333333333"
+    },
+    "interpretation": "Artifact review establishes planned obligation coverage with its retained uncertainty; it does not prove execution. Runtime acceptance is reported independently. Zero/unknown coverage or unknown usage yields null ratios. Reasoning is already included in provider output tokens. No planner state, accounting or authority is changed."
+  },
+  "qualification": {
+    "this_run_qualifies": true,
+    "collections_successes_on_e880": 1,
+    "collections_required": 2,
+    "amazon_successes_on_e880": 0,
+    "review_pr_successes_on_e880": 0,
+    "qualified_runs_on_final_source": 1,
+    "required_fresh_intervention_free_runs": 6,
+    "complete": false,
+    "independent_efficiency_thresholds_met": true
+  },
+  "historical_reference_comparison": {
+    "source": "6469a1a38b5ad645fa2777f8b699c01bd3f54e64",
+    "logical_requests_reference": 26,
+    "logical_requests_current": 20,
+    "judge_requests_reference": 8,
+    "judge_requests_current": 3,
+    "complete_judge_max_bytes_reference": 26394,
+    "complete_judge_max_bytes_current": 11248,
+    "matched_causal_comparison": false,
+    "interpretation": "Descriptive historical comparison only. Runtime success is verified for this fresh run; no architecture-only causality or measured cost reduction is claimed. Unknown failed-attempt usage remains reserved."
+  },
+  "safe_evidence_sha256": {
+    "freeze.json": "38de5bd2f918d649bb369b7a25099d044ccec97b77e817cfc6e02fc74e76301e",
+    "executed-run-with-receipts-private.json": "cfff53a7356bb3d9050348e4f437ce5f1a82c51d38bd0b4736d84695e3b64963",
+    "runtime-qualification-safe.json": "4a0aa94b39f8b302a452c4caa123e80e1973a3e0f5608b6e714c87ec815e5034",
+    "runtime-qualified-authority-safe.json": "a0d50c82106093a9a71755c6778a745333e1cc05d167b0a2a35c0e273b6e4b60",
+    "planning-terminal-reduction-safe.json": "4fc40f2b01fe34a6b43da7509032e27c4d86b86b68c2e9ecf027f5562320ef23",
+    "independent-artifact-review-safe.json": "6db56f0c29eca245c7967ca4694964ac79e5532032ece19c10f5ffd678558dc4",
+    "independent-artifact-review-raw-binding-safe.json": "3976b9efccb6c225512b152917b946ea1d1fd7edd61bb23dd05367eaf6ff6c1d",
+    "collections-execute.log": "bbddb34e64dfb8f8970c7a649a894f1ffd5d08ac775c75823d7d01714e0714db"
+  },
+  "limitations": [
+    "One qualifying execution on this production source; two consecutive fresh successes per scenario remain required.",
+    "Both existing runtime oracles compare exact arrays, order and duplicates; retained variant logs record their booleans rather than actual output payloads.",
+    "Two fully received HTTP500 failures followed by success retain unknown usage; known-plus-reservation is an upper bound, not a billed total or cost saving.",
+    "One adverse global review, targeted evidence and unchanged-plan reinterpretation are retained. No executable patch or operator planning revision occurred.",
+    "This historical reference comparison is descriptive, not a matched causal source experiment."
+  ],
+  "received_response_formatting": {
+    "responses": 20,
+    "empty": 0,
+    "whitespace_only": 0,
+    "output_exhaustions": 0,
+    "finish_reasons": {
+      "stop": 20
+    },
+    "largest_whitespace_fraction": {
+      "ordinal": 2,
+      "phase": "construction_intent",
+      "response_chars": 8875,
+      "whitespace_chars": 7598,
+      "fraction": "0.8561126760563380281690140845",
+      "reasoning_tokens": 512,
+      "parsed_successfully": true,
+      "classification": "Received formatting overhead, not empty output or output exhaustion."
+    }
+  }
+}

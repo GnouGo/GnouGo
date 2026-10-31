@@ -2,6 +2,8 @@
 
 Fresh sessions and explicit revisions select `compact-bindings-v15`. Omitted/v1–v14 profiles, approvals and public compiler overloads retain their exact lowering. This is a compatibility version for local compiler changes; executors, expression metadata and allowances are unchanged.
 
+Typed `string_operation` bindings compose caller data at their consumer: `concat` accepts two to sixteen nonnullable strings and `uri_component` accepts one. Final lowering emits checked string concatenation or `encodeURIComponent` through the existing bounded expression evaluator. The encoder receives only its selected operand; complete context import and model-authored JavaScript remain unavailable. These operations do not establish artifact provenance or authorize their resulting URL/path.
+
 Inside a pure checked lexical region, repeated physical reads can share an already evaluated local when reference identity is unobservable. Each removed declaration retains its original ordered alias check, schema, origin and instance path. A later, stricter check still runs later. Assertions remain computed at their original position; the compiler does not replace a predicate with a success constant or hoist later flattening over it.
 
 An identity `map` can reuse a source already validated as an array when result identity is unobserved. Immediate parameter forwarding and singleton construction simplify only with single evaluation and schema-proven unwrapping. Coupled `results/count` contracts, unknown calls, identity comparisons and joint capture contracts retain their containers. Nullable branches keep their selected checks and offered-before-original strict lookups. Functional capture/result names replace technical prefixes without changing physical addresses or diagnostic origins.
@@ -33,6 +35,12 @@ Final lowering replaces eligible pure predicate and nullable-result switches wit
 A terminal pure sequence may move to a sole checked output when no finalizer, handler, later work, shared output or identity observer distinguishes the move. An empty finalizer alone does not prove safety. The checked output commits through its existing parent call or terminal workflow result; no per-check journal or hidden checkpoint is added. Uncommitted pure calculations may be recomputed. Committed inputs, decisions, results and failures retain their outcomes. Uncertain external completion still prevents replay and unsafe cleanup.
 
 The comparison and every removed/retained materialization are documented in [v13 evidence](evidence/compact-bindings-v13-2026-10-12/README.md). Capture loops remain where native projections would otherwise lose iteration/cancellation constraints. There is no artificial set-count target.
+
+## Checked program admission
+
+Compiler-generated checked expressions retain the runtime's 65,536-character program limit. Expression-contract validation uses the same runtime constant and rejects oversized input, output and control programs before execution, reporting the exact size and contract location. The final planning compiler reports generated-code admission failures as `TASK_COMPILER_VALIDATION`; they do not authorize model repair of JavaScript. Historical emitted bytes, compiler profiles and runtime ceilings are unchanged. Previously oversized stored programs now fail at admission rather than later during evaluation; valid stored artifacts retain their behavior.
+
+Large construction capacity concerns semantic drafts and generated graph nodes, not the size of a single fused program. The retained 500-pure-task regression, including earlier data and control dependencies, lowers through unchanged v15 to 98,268 characters and is rejected. The separate 500-operation DAG exercises real operation boundaries and checks every received producer value and final result. It does not establish that every 500-task composition fits expression, execution or inference limits. No automatic task splitting, synthetic barriers or runtime allowance increase occurs.
 
 ## v12: direct values, ordered aliases and checked outputs
 

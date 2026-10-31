@@ -1,0 +1,211 @@
+{
+  "record_version": 1,
+  "captured_utc": "2026-10-27T12:42:06.742967+00:00",
+  "status": "scripted_mechanisms_verified_live_convergence_unverified",
+  "source": {
+    "base_commit": "2753b7e3e6738f73d52669a617eeda1b4d753992",
+    "execution": "isolated working-tree snapshots over this base; owning file hashes below identify the tested implementation",
+    "owning_files_sha256": {
+      "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Closure.cs": "546110e19e5e7e75a9c4e596a04841a172721e82493676cbab409abc891f5add",
+      "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.ReviewedTransitions.cs": "d712126e996df0df8ba58b9d0e7a06697b7168ecd07094636e6d67d71950c9a9",
+      "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.ContinuationProof.cs": "7b0b7bf1813d8e2d8855428a276eeb9effa50da7f27d1776f76f56b3d90b16fa",
+      "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Schemas.cs": "20928663f8a8c425b474072dc1b4ba821309ea635eb0e548277f351858264e5a",
+      "tests/GnOuGo.Flow.Planning.Tests/CompactReviewedTransitionTests.cs": "d6834dfbe90ef2cd51f8770bee9bf38bacfd46b8a55dcf574adde928e8b73fb2",
+      "tests/GnOuGo.Flow.Planning.Tests/CompactReviewedTransitionTests.Business.cs": "760ca0cf95d2cb0cec5c87366a58b48edc80703a8ab6de99e44e039d5e6cfe94",
+      "tests/GnOuGo.Flow.Planning.Tests/CompactReviewedTransitionTests.Waiting.cs": "75ae6ced0bad5dbe3cd001fec723b84c5321b82110bbc1a27e6ea8db3d04a800"
+    }
+  },
+  "settings": {
+    "control_presentation": 9,
+    "candidate_presentation": 10,
+    "fresh_candidate_created_normally": true,
+    "same_originals_per_pair": true,
+    "model": "deterministic scripted test runtime; no provider invocation",
+    "initial_input_ceilings": {
+      "navigation": 12000,
+      "draft": 18000,
+      "review": 12000
+    },
+    "max_model_calls": 64,
+    "max_repairs": 4,
+    "automatic_correction": true,
+    "no_mid_session_setting_change": true
+  },
+  "comparisons": [
+    {
+      "test": "GnOuGo.Flow.Planning.Tests.CompactReviewedTransitionTests.ResumedBusinessChildEstablishesParentBindingWithoutDiscardingEitherConsumer",
+      "scenario": "two_preserved_business_consumers",
+      "arms": {
+        "v9": {
+          "logical_calls": 16,
+          "recorded_model_responses": 16,
+          "phase_calls": {
+            "construction_draft": 5,
+            "construction_intent": 2,
+            "construction_local_judge": 4,
+            "construction_select": 5
+          }
+        },
+        "v10": {
+          "logical_calls": 15,
+          "recorded_model_responses": 15,
+          "phase_calls": {
+            "construction_draft": 5,
+            "construction_intent": 2,
+            "construction_local_judge": 4,
+            "construction_select": 4
+          }
+        }
+      },
+      "calls_saved": 1,
+      "removed_dispatches": {
+        "construction_select": 1
+      },
+      "equal_complete_taskplan_hash_asserted": true,
+      "artifact_verification_passed_both": true,
+      "runtime_results_verified_both": {
+        "number": 16
+      },
+      "judge_call_count_equal": true,
+      "initial_authority_calls_included": true,
+      "consumer_outcome": "Both business consumers complete through ordinary acceptance; ParentId is preserved and neither is discharged."
+    },
+    {
+      "test": "GnOuGo.Flow.Planning.Tests.CompactReviewedTransitionTests.IndependentClosureAndExportAdvanceWhileBusinessConsumerWaits",
+      "scenario": "independent_closure_and_export_with_waiting_consumer",
+      "arms": {
+        "v9": {
+          "logical_calls": 29,
+          "recorded_model_responses": 29,
+          "phase_calls": {
+            "construction_draft": 9,
+            "construction_intent": 2,
+            "construction_local_judge": 9,
+            "construction_select": 9
+          }
+        },
+        "v10": {
+          "logical_calls": 25,
+          "recorded_model_responses": 25,
+          "phase_calls": {
+            "construction_draft": 7,
+            "construction_intent": 2,
+            "construction_local_judge": 9,
+            "construction_select": 7
+          }
+        }
+      },
+      "calls_saved": 4,
+      "removed_dispatches": {
+        "construction_select": 2,
+        "construction_draft": 2
+      },
+      "equal_complete_taskplan_hash_asserted": true,
+      "artifact_verification_passed_both": true,
+      "runtime_results_verified_both": {
+        "number": 7,
+        "laterNumber": 16
+      },
+      "judge_call_count_equal": true,
+      "initial_authority_calls_included": true,
+      "consumer_outcome": "Waiting consumer retains its exact claim and dependency hash; only its existing checkpoint cursor advances, and it later completes."
+    }
+  ],
+  "validation": {
+    "focused_class": {
+      "passed": 26,
+      "failed": 0,
+      "compiler_warnings": 0,
+      "result_sha256": "1c6e16ce631324992837b9cf6ba268288d60b29a7007ad6e2ea8cc0e89d0c5bc",
+      "trx_sha256": "cf1558e7102555fe1770641880affa70f30d5e30fd1eb3e06c89665d8448dd3b",
+      "source_manifest_sha256": "70a6e778a77aa4338e7a33ff1fba6d66eb53652819bb268eac113e40db874845"
+    },
+    "final_strengthened_comparisons": {
+      "passed": 2,
+      "failed": 0,
+      "compiler_warnings": 0,
+      "result_sha256": "d1a08ceed25d7e72a3fc43c67c48ac12c2791e95f3d4458dd04bdcd6eb7d4ef4",
+      "trx_sha256": "ca3313baf3e14cd299a531f14bb7cdc46736958374c4196e93168d45532b24f4",
+      "source_manifest_sha256": "4b9d80ec459ce328e9c98c7b179431e034fe3c2fe9de226fc7b81d9acd03c1c0",
+      "nonadditive": true,
+      "change": "Exact recorded-response counts and retained consumer/dependency hash equality, with its legitimate checkpoint cursor checked separately."
+    },
+    "distinct_cases": 26,
+    "historical_cases_retained": 15,
+    "full_solution_and_publication": "reported separately"
+  },
+  "safety_coverage": [
+    "Pending issued review and existing candidate take precedence.",
+    "Each reviewed boundary applies once through existing identity journals.",
+    "Waiting consumer exact identity, objective, scope, output ownership, dependencies and retained source/contracts remain checked.",
+    "Immediate ParentId business handoff discharges no consumer; both complete by ordinary acceptance.",
+    "Child dependency hashes remain in prospective handoff authority.",
+    "Stale parent/objective/status/dependency/binding negatives and root export/consumer-scope conflicts reject.",
+    "Historical class15 regressions retained; no public API/store/version changes by this lane."
+  ],
+  "failed_attempts_retained": [
+    {
+      "classification": "Original15 pass/7 new fixture setup failures plus one nullable warning.",
+      "result_sha256": "adbfd392b11333c79c0614280a7b559fde29cc9178091d2df2b85c6f54c65ee2",
+      "log_sha256": "fa4e02bc94c0b08de73b23be9544fae2be8dc33af435815ca71ceecdff11b613",
+      "source_manifest_sha256": "2bf86f32962e36172c52ee1f147f915c807b24a144b121463b9c375f9aab480c",
+      "test_counts": {
+        "Passed": 15,
+        "Failed": 7
+      },
+      "exit_code": 1
+    },
+    {
+      "classification": "Original15 pass/11 failures: new resumed-child schema exception and initial fixture ceiling.",
+      "result_sha256": "cc1f6f9fbac0ced4966dc732cb00ad89029f32dd5157692756e881a8ab59ae76",
+      "log_sha256": "201478a6b99231934ebfc03c7dc21dbf0d12d21969b29073a694fb63c779922d",
+      "source_manifest_sha256": "bf5dc75ca053a3cd399bdd56cb546766e65a36961fb6e3cb9197d4a1a1cb3f60",
+      "test_counts": {
+        "Failed": 11,
+        "Passed": 15
+      },
+      "exit_code": 1
+    },
+    {
+      "classification": "Diagnostic-only private exception-message overlay:19 pass/7 schema failures; not normal production qualification.",
+      "result_sha256": "9b6eb5358180fe0ec0ea373f38471ba319c91447d3544cc76eaec5d43554040c",
+      "log_sha256": "29759fa40ad8188642b9abdfcb999bd97f72730deb4cd46fbce0710501e2f2d4",
+      "source_manifest_sha256": "11c874270873870e8a580235f7cc2c555dc04eb0f59755ec469797329ad130d3",
+      "test_counts": {
+        "Passed": 19,
+        "Failed": 7
+      },
+      "exit_code": 1
+    },
+    {
+      "classification": "Normal25 pass/1 test numeric storage assertion failure after artifact execution.",
+      "result_sha256": "33874267d254c7c73991ae2f5f9ded8d512489defbdbc1d42080d46a42e30277",
+      "log_sha256": "4f15c416858b95049d75a4778ceb175baf6ec13f3b2edc60079ee76cae2495ff",
+      "source_manifest_sha256": "c9629e17fc0758486e99f3fbbf318af31a99ef142eb511b9b76b27f25d6582de",
+      "test_counts": {
+        "Passed": 25,
+        "Failed": 1
+      },
+      "exit_code": 1
+    },
+    {
+      "classification": "Final two-case extra assertions:1 pass/1 cursor bookkeeping fixture assertion; superseded assertion correction only.",
+      "result_sha256": "a692cfa4940f820b30e736b000e50e708e8296bd2baceb3dd68161008b9495c3",
+      "log_sha256": "744bf165194754141e0ff90f50b630acf25f611e5725898d0361cc58598773d6",
+      "source_manifest_sha256": "42a0a4dde82da5224a9d828a3d7052a3d2612e272a01f3eaf6dc98fa732267ed",
+      "test_counts": {
+        "Passed": 1,
+        "Failed": 1
+      },
+      "exit_code": 1
+    }
+  ],
+  "private_evidence_sha256": "e2f257724df60e481cb91d0e83d4bc6bfee936b71f926355f55951facd3da962",
+  "limitations": [
+    "Scripted tests establish coordinator, schema, review-authority and recovery behavior; they do not establish live-model convergence or lower provider cost.",
+    "Runtime checks execute synthetic pure workflows through the existing compiler/runtime; no external artifact execution approval is claimed.",
+    "The final two comparisons overlap the 26-case class and are not two additional distinct tests.",
+    "The prior live Collections trace authored no boundary or continuation association; these tests do not establish a repair of that trace.",
+    "Two fresh successful executions of each real scenario on one final source and the subsequent 18 comparisons remain separate gates."
+  ]
+}

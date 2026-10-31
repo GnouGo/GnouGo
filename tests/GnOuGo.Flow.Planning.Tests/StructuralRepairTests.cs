@@ -25,7 +25,7 @@ public sealed class StructuralRepairTests
     }
     private static TaskPlan Apply(PlanningSession state, string kind, string action, JsonNode? value, LLMRequest? request = null)
     {
-        request ??= new PlanningPrompt(state).Request();
+        request ??= RepairPatchTests.Request(state);
         Assert.Empty(PlanningContractValidation.ValidateSchema(request.StructuredOutputSchema!, strict: true));
         var slot = Assert.Single(RepairPatchTests.Slots(state), s => s.Kind == kind);
         return PlanningRepairPatch.Apply(state, new() { Edits = [new() { Slot = slot.Id, Action = action, Value = value }] }, request);
@@ -100,27 +100,27 @@ public sealed class StructuralRepairTests
         var state = await MissingProducer(); var v1 = RepairPatchTests.Request(state);
         v1.Prompt = v1.Prompt.Replace("\"version\":" + PlanningRepairPatch.Version(state), "\"version\":1", StringComparison.Ordinal);
         Assert.Throws<PlanningConflictException>(() => Apply(state, "prerequisites", "insert_prerequisites", Prerequisite(), v1));
-        var v2 = new PlanningPrompt(state).Request(); var recovered = PlannerFixture.Clone(state);
+        var v2 = RepairPatchTests.Request(state); var recovered = PlannerFixture.Clone(state);
         Assert.Empty(new TaskPlanCompiler().Compile(Apply(recovered, "prerequisites", "insert_prerequisites", Prerequisite(), v2), state.Catalog!).Diagnostics);
         recovered.Catalog!.Capabilities.Single(c => c.Id == "allocate").Version = "changed";
         Assert.Throws<PlanningConflictException>(() => PlanningRepairPatch.Verify(recovered, v2));
     }
     [Fact]
-    public async Task IssuedStructuralAuthorityAndSchemaRemainUsableWithoutClarificationPermission()
+    public async Task IssuedStructuralAuthorityAndSchemaRemainUsableAfterRestart()
     {
         var state = await MissingProducer();
         var request = new LLMRequest
         {
-            StructuredOutputSchema = PlanningRepairPatch.Schema(state, PlanningSchemas.FullProposal(state, compact: false, clarifications: false)),
+            StructuredOutputSchema = PlanningRepairPatch.Schema(state, PlanningRepairPatch.Template(state)),
             Prompt = "Repair\n" + new JsonObject { ["repair"] = new JsonObject { ["version"] = PlanningRepairPatch.Version(state), ["authority"] = PlanningRepairPatch.Authority(state) } }.ToJsonString()
         };
         var schema = request.StructuredOutputSchema.ToJsonString();
-        Assert.Null(request.StructuredOutputSchema["properties"]!["clarifications"]);
+        Assert.NotNull(request.StructuredOutputSchema["properties"]!["clarifications"]);
         var restored = PlannerFixture.Clone(state);
         var repaired = Apply(restored, "prerequisites", "insert_prerequisites", Prerequisite(), request);
         Assert.Empty(new TaskPlanCompiler().Compile(repaired, state.Catalog!).Diagnostics);
         Assert.Equal(schema, request.StructuredOutputSchema.ToJsonString());
-        Assert.True(PlanningSchemas.Proposal(state)["properties"]!.AsObject().ContainsKey("clarifications"));
+        Assert.True(PlanningSchemas.RepairSchema(state)["properties"]!.AsObject().ContainsKey("clarifications"));
     }
     [Fact]
     public async Task InvalidOperationReplacementPreservesIdentityObjectiveAndDependencies()

@@ -1,0 +1,325 @@
+{
+  "archive_version": 1,
+  "source": "9d23d5b031d5dec9c412d50f1850afd7965efe9e",
+  "cohort": "compacta9d23d5b0",
+  "campaign": "schema-portability-20261019-incremental",
+  "snapshot_at": "2026-10-23T09:54:07.1931690+00:00",
+  "status": "incomplete_pending_exact_uncertainty_authorization",
+  "run": {
+    "run_key": "9d23d5b031d5dec9c412d50f1850afd7965efe9e:fixture:cohort:compacta9d23d5b0:collections:1",
+    "run_hash": "ffacbeaf574663a4547048b27fbdf2af031d6d4a26b8d2c4cbacebb8074619bc",
+    "session_status": "stopped",
+    "session_phase": "construction_intent",
+    "diagnostic_codes": [
+      "MODEL_DISPATCH_UNVERIFIABLE"
+    ],
+    "termination_reason": "uncertain_dispatch",
+    "calls": 2,
+    "corrections": 0,
+    "checkpoints": 0,
+    "planning_ms": 322128,
+    "planning_latency_from_completed_call_stages_ms": "13147.4173",
+    "artifact_hash": null,
+    "construction_complete": false,
+    "execution_started": false,
+    "runtime_ms": null,
+    "scenario": "collections",
+    "receipts": 1,
+    "judge_reviews": 0,
+    "business_acceptance": "not_executed",
+    "useful_obligations_satisfied": 0,
+    "calls_per_useful_obligation": null
+  },
+  "other_scenarios": {
+    "review_pr": "prepared_but_not_dispatched_campaign_blocked",
+    "amazon": "not_repeated_unchanged_failed_extraction"
+  },
+  "frozen_configuration": {
+    "model": "gpt-5.5-2026-04-24",
+    "profile": "lossless-discovery-medium",
+    "phase_policy": {
+      "version": 1,
+      "navigation": {
+        "targetInputTokens": 3000,
+        "maxInputTokens": 12000,
+        "reasoning": "medium",
+        "outputTokens": 16384
+      },
+      "draft": {
+        "targetInputTokens": 8000,
+        "maxInputTokens": 16000,
+        "reasoning": "medium",
+        "outputTokens": 16384
+      },
+      "review": {
+        "targetInputTokens": 4000,
+        "maxInputTokens": 8000,
+        "reasoning": "medium",
+        "outputTokens": 4096
+      }
+    },
+    "max_model_calls": 64,
+    "max_repairs": 4,
+    "construction_preset": "ordinary",
+    "construction_version": 2,
+    "presentation_version": 4,
+    "max_total_tokens": 15000000,
+    "max_elapsed_ms": 18000000,
+    "benchmark_binary_sha256": "f592b332ac141720bb9c0784adae65af50a4b7e6edf7397f9316a2675e14f6b6",
+    "configuration_hash": "e4b187879e34ce4b48999e72941caa81a3fd02a5b0bbc1cf9a8f67ab15bbd078",
+    "metadata_hash": "f37630df13544d2e2d11910560424f2224aeb414d63b3cb924e458e7b742237f",
+    "mcp_manifest_sha256": "5b2c4135da538375b4eb952c21aec11208a85aefc51ca1885227b9b2c9578d11",
+    "mcp_files_verified": 568,
+    "supported_reasoning_efforts": [
+      "medium",
+      "high",
+      "max"
+    ],
+    "low_profile_tested": false
+  },
+  "profile_change": {
+    "from_cohort": "compactaae1d50aa",
+    "settings_unchanged": true,
+    "source_change": "Verified duplicate version metadata factored into exact retrieval addresses in v4 discovery presentation only. Original contracts, schema choices, accounting and permissions unchanged.",
+    "comparison_limit": "Fresh independent diagnostics after measured discovery admission failure. Amazon extraction unchanged and not retried."
+  },
+  "measurement_conventions": [
+    "Requests include complete serialized envelopes and Structured Output schemas. Component estimates are not billed usage.",
+    "Reasoning tokens are included in output tokens. Only request1 has measured provider usage; request2 usage, content and empty-response classification are unknown.",
+    "No raw request/receipt text is copied. Exact originals remain in encrypted storage. Financial values retain exact decimal strings."
+  ],
+  "phase_aggregates": {
+    "construction_intent": {
+      "constructed_requests": 2,
+      "admitted_requests": 2,
+      "rejected_before_dispatch": 0,
+      "complete_request_bytes": {
+        "count": 2,
+        "p50": 5470,
+        "p95": 8528,
+        "maximum": 8528,
+        "total": 10940
+      },
+      "estimated_input_tokens": {
+        "count": 2,
+        "p50": "2079.5",
+        "p95": 3099,
+        "maximum": 3099,
+        "total": 4159
+      },
+      "component_sizes": {
+        "diagnostics": {
+          "serialized_bytes": 52,
+          "estimated_tokens": 18
+        },
+        "envelope": {
+          "serialized_bytes": 824,
+          "estimated_tokens": 787
+        },
+        "instructions": {
+          "serialized_bytes": 2355,
+          "estimated_tokens": 785
+        },
+        "intent": {
+          "serialized_bytes": 1811,
+          "estimated_tokens": 604
+        },
+        "response_schema": {
+          "serialized_bytes": 5816,
+          "estimated_tokens": 1939
+        },
+        "evidence": {
+          "serialized_bytes": 23,
+          "estimated_tokens": 8
+        },
+        "interfaces": {
+          "serialized_bytes": 59,
+          "estimated_tokens": 20
+        }
+      },
+      "components_reconcile": true,
+      "within_input_limits": true
+    }
+  },
+  "known_provider_usage": {
+    "request_identities": 2,
+    "http_attempts": 2,
+    "receipts": 1,
+    "unknown_attempts": 1,
+    "empty_completed_responses": 0,
+    "known_input_tokens": 377,
+    "known_output_tokens": 430,
+    "known_reasoning_tokens": 327,
+    "reasoning_measured_calls": 1,
+    "known_cost_eur": "0.0131950022311468094600624721",
+    "unknown_usage_reservation_eur": "0.4922088353413654618473895582",
+    "cost_upper_bound_eur": "0.5054038375725122713074520303"
+  },
+  "request_evidence": [
+    {
+      "requestId": "385144571beea463827722c8dbe065e6b7f1f171e28b31d3267d1abd735674a9:1:0352f4e6116f8588f8c7f3efcb055e6c1cabec405817ea5460a750a363c8414e",
+      "requestHash": "b779f9443ab4cda931888dde9f7ad8728b74d67783e2babc25c02c4d9f09cc8a",
+      "schemaHash": "6acb3cdcddc4e731db76d485e30647a99fdbb7594bb79743140cad56d1dfc568",
+      "completeRequestBytes": 2412,
+      "estimatedInputTokens": 1060,
+      "inputLimit": 12000,
+      "admission": "admitted",
+      "components_reconcile": true,
+      "within_input_limit": true,
+      "stored_request_matches_measurement": true
+    },
+    {
+      "requestId": "385144571beea463827722c8dbe065e6b7f1f171e28b31d3267d1abd735674a9:2:9bcce1ab0066dc1fa15ede82692b1e880045369286f9076bf452e4840bc367ed",
+      "requestHash": "bff7d934b94c1810359d547cafe255eec4d481498c6bf7049ae46d2da53f1c3d",
+      "schemaHash": "93dc77bb8732de636b993623faa476d9c37cba83c46ae4fb0d3b1fe5b38478fb",
+      "completeRequestBytes": 8528,
+      "estimatedInputTokens": 3099,
+      "inputLimit": 12000,
+      "admission": "admitted",
+      "components_reconcile": true,
+      "within_input_limit": true,
+      "stored_request_matches_measurement": true
+    }
+  ],
+  "uncertain_call": {
+    "request_id": "385144571beea463827722c8dbe065e6b7f1f171e28b31d3267d1abd735674a9:2:9bcce1ab0066dc1fa15ede82692b1e880045369286f9076bf452e4840bc367ed",
+    "http_status": 500,
+    "attempt_count": 1,
+    "receipt_present": false,
+    "failure": {
+      "stage": "dispatch",
+      "exception_type": "LLMClientException",
+      "kind": "ServiceUnavailable",
+      "safe_provider_code": null,
+      "reason": null,
+      "dispatch_status": null,
+      "status_code": 500,
+      "attempt_count": 1,
+      "retry_after_ms": null
+    },
+    "elapsed_ms": "305942.3516",
+    "record_hashes": {
+      "requests": "bff7d934b94c1810359d547cafe255eec4d481498c6bf7049ae46d2da53f1c3d",
+      "http-attempts": "19d9c7fa1bacbdef542167e2a2187bdda918d711ebb7cee222a172b662599ce2",
+      "receipts": null,
+      "failures": "1baaa57ea5534d0dfdfc1721efddcfde2aa3b4db0297dc609ab36410ff48ce8a",
+      "closures": null
+    },
+    "known_usage": null,
+    "response_content_bytes": null,
+    "empty_response": null,
+    "formatting_whitespace": null,
+    "reservation_eur": "0.4922088353413654618473895582",
+    "permanent_closure_applied": false,
+    "interpretation": "HTTP500 does not establish provider termination or zero usage. No replay or continuation has been attempted."
+  },
+  "retention_inspection": {
+    "applied": false,
+    "authorization_status": "pending_at_snapshot",
+    "evidence_hash": "807b51ed55345d4289744c44d63782e54a78599c8014898a31332ef7e39601fe",
+    "request_id": "385144571beea463827722c8dbe065e6b7f1f171e28b31d3267d1abd735674a9:2:9bcce1ab0066dc1fa15ede82692b1e880045369286f9076bf452e4840bc367ed",
+    "request_hash": "bff7d934b94c1810359d547cafe255eec4d481498c6bf7049ae46d2da53f1c3d",
+    "run_hash": "ffacbeaf574663a4547048b27fbdf2af031d6d4a26b8d2c4cbacebb8074619bc",
+    "http_journal_hash": "19d9c7fa1bacbdef542167e2a2187bdda918d711ebb7cee222a172b662599ce2",
+    "failure_hash": "1baaa57ea5534d0dfdfc1721efddcfde2aa3b4db0297dc609ab36410ff48ce8a",
+    "kind": "single-http-500",
+    "transport_policy_evidence": "captured_effective_request_policy",
+    "proposed_outcome": "inconclusive",
+    "proposed_guards": {
+      "reservation_retained": true,
+      "request_replay_forbidden": true,
+      "run_continuation_forbidden": true
+    },
+    "interpretation": "Read-only inspection only; proposed terminal guards are not evidence of an applied closure."
+  },
+  "campaign_snapshot": {
+    "reserved_requests": 1487,
+    "completed_receipts": 1470,
+    "receiptless_identities": 17,
+    "permanently_closed_identities": 16,
+    "pending_uncertain_identities": 1,
+    "unknown_transport_attempts": 16,
+    "campaign_ceiling_eur": "240.0301038327063045424449473",
+    "known_cost_eur": "49.109416169967348287667688432",
+    "unknown_usage_reservation_eur": "7.0402163064414415861258952092",
+    "cost_upper_bound_eur": "56.149632476408789873793583641",
+    "available_allowance_eur": "183.880471356297514668651363659",
+    "prior_lost_historical_exposure_eur": "159.96989616729369545755505266",
+    "original_authorized_ceiling_eur": "400",
+    "cumulative_upper_bound_including_lost_history_eur": "216.119528643702485331348636301",
+    "evidence_hash": "a496ed19bde9817314e75d97e6887621a25f4efb441daf4bd0a33147fa4d6894",
+    "interpretation": "All historical reservations and identities remain. Unknown transport attempts and receiptless identities are distinct counts. Fresh paid dispatch remains blocked by this unresolved identity."
+  },
+  "validation": {
+    "focused_discovery": {
+      "source": "9d23d5b031d5dec9c412d50f1850afd7965efe9e",
+      "base_revision": "ae1d50aa485f649c72a044d231abab69405752da",
+      "passed": 147,
+      "failed": 0,
+      "warnings_as_errors": true,
+      "source_and_test_hashes_match_commit": true,
+      "manifest_sha256": "0df4fdda262ab2dad185527aab92eec647d44df3af557db97a253ba660cce44e"
+    },
+    "publication": {
+      "source": "9d23d5b031d5dec9c412d50f1850afd7965efe9e",
+      "all_stages_passed": true,
+      "stages": 11,
+      "warnings_as_errors": true,
+      "source_unchanged": true,
+      "compiler_diagnostics": 0,
+      "contract_test_totals": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      "elapsed_stage_seconds": "155.498",
+      "checks": "Five Release packages; Planning Native AOT recovery for presentation2/3/4; trimmed Server published format10 encrypted-storage checks; Git Native AOT and published contract smoke.",
+      "manifest_sha256": "7389f2d89ad4f9622095b0d1dfc15c8bef7623fc3c562f7af1029187628d655d",
+      "durable_evidence": "verified-review-v4-validation-20261023/publication-9d23d5b/publish/publication-safe.json"
+    },
+    "prior_full_solution": {
+      "source": "9246376d49836bf71b2618f5eee8f088da33f772",
+      "passed": 7609,
+      "failed": 0,
+      "skipped": 13,
+      "projects": 33,
+      "warnings_as_errors": true,
+      "manifest_sha256": "2aba17db5cb470e56e08049350917e05acbb86856a18caac9c9ebbbe256936b9",
+      "attribution": "Earlier source only; excludes later singleton, extraction guidance and metadata factoring."
+    },
+    "ae1d50aa_full_solution": "pending_at_snapshot",
+    "current_9d23d5b_ci": "pending_at_snapshot",
+    "paired_baseline_runs": "not_started",
+    "business_acceptance": "incomplete"
+  },
+  "comparison_limits": [
+    "The transport stop occurred in intent extraction, before discovery, Judges or execution. It does not measure the metadata factoring change.",
+    "No matched reliability, avoided-correction or architecture-only causal result. The prior ae1d50aa 35-call outcomes remain in their unchanged archive.",
+    "Calls per useful independently accepted business obligation and runtime latency are undefined."
+  ],
+  "safe_evidence_index": {
+    "freeze.json": "d9cafb758dcf0f2ef4c899cc40cacdb6094750f6fddcc6b8a570b4e4ef7816b5",
+    "collections-safe-metrics.json": "4403dd7820f8326c42255546319349debdbbf675d8acc4929d1634aea1303333",
+    "collections-retention-inspection.json": "6c45bb8099634431e62738382879f5746d4266bef38f4f0fa2a0cf7bbef0318e",
+    "after-collections-campaign-audit.json": "370ed77b344d6f0ff93a34d17cf54845f585a8bbe3dede0d62ed033a0140de2f",
+    "collections-response-format-metrics.json": "f9212ec03f0ac1f1fd4eeca43795d223129877603e51b5720ddb61f6f6607e29"
+  },
+  "prior_archive": {
+    "path": "compact-taskplan-ae1d50aa.json",
+    "sha256": "5dee6018bdffa797389fd4fe5228b75d4c3417a857974f5b60004b25f8dc8aa3",
+    "unchanged": true
+  },
+  "completed_response_format": {
+    "request_id": "385144571beea463827722c8dbe065e6b7f1f171e28b31d3267d1abd735674a9:1:0352f4e6116f8588f8c7f3efcb055e6c1cabec405817ea5460a750a363c8414e",
+    "content_bytes": 427,
+    "content_sha256": "99afff0ff8fe650d26a8456004dd75964ba117e56dfc755a0951c09c1db86b88",
+    "whitespace_characters_all": 35,
+    "maximum_whitespace_run_all": 1,
+    "formatting_whitespace_outside_strings": 0,
+    "maximum_formatting_whitespace_run": 0,
+    "empty": false,
+    "unreceipted_request_content_unavailable": true,
+    "measurement": "Original retained receipt.text, scanned without modification; formatting whitespace excludes JSON string contents."
+  }
+}
