@@ -10,9 +10,46 @@ Latest technically validated production source is **`1d6632c5ad4bf6e3aa9a6cd150f
 
 Latest live production source now matches **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`**. The user's direct approval enabled exact permanent closure of the old `bizbd4169c8amz02-amazon-1` request at **12:58 UTC**, preserving originals and reservations. Fresh run `biz1d6632c5amz01-amazon-1` stopped before physical generation with **`provider_stage: authentication`**, `Transport`, and no HTTP status. It added no generation usage, cost or reservation. This establishes the failing authentication boundary, not the exact discovery/token operation or underlying network cause. The distinct new request remains unresolved and is not covered by the old approval. Token-cache effectiveness and workflow success remain unproved; final-source qualification is **0/6**.
 
+After the user reported rebooting and restored authentication, public read-only
+reconciliation at **21:56-21:58 UTC** confirmed that the same request remains
+stopped without a committed receipt or its own closure authorization. No new
+paid attempt tested post-reboot authentication. The current gate is exact-request
+recovery authority, not a demonstrated new authentication or financial failure.
+
 The preceding `ebf01483` source retains its [2,618-case Planning result](business-selection-ebf01483-planning-validation.json), [fresh-initialization regression](business-selection-fresh-initialization-validation.json), [eleven-stage publication result](business-selection-ebf01483-publication-validation.json) and recovered **7,579-pass, thirteen-skip** solution result. Earlier [owning suites](business-selection-1884a658-owning-validation.json) and [54 actual host/UI cases](business-selection-1884a658-host-ui-validation.json) retain their precise source boundaries. Focused counts overlap and are not added; failed captures remain preserved.
 
 The prior `a23cbbb2` baseline remains source-specific evidence: [2,425 Planning cases](business-block-a23cbbb2-continuation-review-validation.json), [7,327 full-solution passes with thirteen declared skips](business-block-a23cbbb2-solution-validation.json), and [publication checks](business-block-a23cbbb2-publication-validation.json). Those technical results did not establish live business convergence.
+
+### 31 October 2026, 21:56-21:58 UTC: post-reboot recovery gate
+
+The user reported that authentication works after reboot and requested continued
+live testing. The clean frozen `1d6632c5` source and benchmark hash still match
+the validated live harness. Public request inspection returned the same evidence
+hash `47694dc51fd18f0b740972eee348e798e6bed75735ea084bb9f9f6f8dca6ffca`,
+`unstarted-planning-request` and `no_reserved_physical_attempt`. No campaign
+driver or lease holder was active; no matching exact closure grant was present.
+
+The exact new-request confirmation question returned no selected option and an
+unavailable-user response, not authorization. The subsequent autonomy hook was
+not treated as irreversible-retention consent. No closure or replay occurred.
+The existing receipt-only recovery alternative was checked independently:
+public run inspection confirms **stopped, revision one, zero responses**, and
+the public original-record inspector confirms that the completion receipt does
+not exist. `RecoverPendingReceiptAsync` requires both a generating session and
+a committed receipt; this run is ineligible. No recovery executor or guard change
+was introduced to bypass those requirements.
+
+The **21:58:34 UTC** campaign hash remains
+`c4115a9b30063f69a3dd46e467fa95232465efef1cf582ce0f8e9623a36de860`,
+with unchanged finances, **6,849 historical physical calls, 148 historical
+unknown attempts, 61 closures and one unresolved request**. No new paid call,
+artifact, approval, execution or oracle was created. User-reported restored
+authentication is fresh availability information, not independently tested
+provider health; the earlier authentication-stage failure is historical, not a
+post-reboot finding. The [sanitized proof](business-selection-20261031-authentication-live-proof.json)
+records this distinction. Qualification remains **0/6**, and the PR remains Draft.
+The remaining prerequisite is the distinct request's legitimate recovery
+authority, then fresh admission and actual live testing on the frozen profile.
 
 ### 31 October 2026, 12:58-13:06 UTC: approved recovery and authentication-stage live stop
 
