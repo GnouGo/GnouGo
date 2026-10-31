@@ -6,11 +6,63 @@ The active implementation replaces the former review protocol. Generation remain
 
 The current delivery gate is **two consecutive intervention-free executions per scenario on one final production source and stable identified profiles**, including both Collections runtime variants. Automatic local corrections are allowed; planning-operator interventions do not qualify. The earlier Collections indicators (fewer than 26 logical calls, at most four Judges and 13,197 complete Judge-request bytes) remain efficiency measurements, not delivery gates. The eighteen-comparison gate is retired. The dated sections below retain their actual historical sources, outcomes and gates; they are not current requirements.
 
-Last live production source is **`b043e027cfab1f456f03f219ede28587522c399c`**. Its **2,632 Planning tests**, **7,593 full-solution passes with thirteen declared skips**, and **eleven publication stages** pass with warnings as errors. A fresh Amazon diagnostic stopped on its first unverifiable transport attempt, before any completion-route decision or business review. That uncertain request remains unresolved with its reservation retained; no replay or permanent closure is authorized by the general test permission. Live benefit remains unverified and final-source qualification is **0/6**.
+Last live production source is **`b043e027cfab1f456f03f219ede28587522c399c`**. Its **2,632 Planning tests**, **7,593 full-solution passes with thirteen declared skips**, and **eleven publication stages** pass with warnings as errors. The first Amazon request is now permanently retained under separate exact user authorization, with its reservation unchanged and replay forbidden. A second fresh run completed six physical calls before an unstarted draft request failed with HTTP 502; that new request remains unresolved and has no separate closure authorization. No completion-route decision or business review was reached. Live benefit remains unverified and final-source qualification is **0/6**.
 
 The preceding `ebf01483` source retains its [2,618-case Planning result](business-selection-ebf01483-planning-validation.json), [fresh-initialization regression](business-selection-fresh-initialization-validation.json), [eleven-stage publication result](business-selection-ebf01483-publication-validation.json) and recovered **7,579-pass, thirteen-skip** solution result. Earlier [owning suites](business-selection-1884a658-owning-validation.json) and [54 actual host/UI cases](business-selection-1884a658-host-ui-validation.json) retain their precise source boundaries. Focused counts overlap and are not added; failed captures remain preserved.
 
 The prior `a23cbbb2` baseline remains source-specific evidence: [2,425 Planning cases](business-block-a23cbbb2-continuation-review-validation.json), [7,327 full-solution passes with thirteen declared skips](business-block-a23cbbb2-solution-validation.json), and [publication checks](business-block-a23cbbb2-publication-validation.json). Those technical results did not establish live business convergence.
+
+### 31 October 2026: authorized closure and unstarted draft request
+
+The user explicitly answered **yes** to the exact first-run permanent-closure
+request. At **07:00:03 UTC**, operator **GitHub Copilot** applied the existing
+evidence-bound retention operator only to
+`bizb043e027amz01-amazon-1:1:74de85db8700d56388c88683c8a9932a6b85ce3ee13a2f76b1c211cdf91ad428`.
+Inspection bound evidence hash
+`0a3f6a4b396748f7e55e662f68c8fd3af2071b6668e8957851fd1de33f4b7b6d`.
+Before/after public-record inspection verified every original hash and timestamp
+unchanged. All financial totals were exactly unchanged, including the full
+**EUR 0.9368903260576663971975208839** reservation. Replay and continuation of
+that run are permanently forbidden; no receipt or observed usage was fabricated.
+Permanent closures increased from 57 to 58 and unresolved identities fell to zero.
+That exact authorization grants no other closure, budget increase or execution.
+
+Fresh **`bizb043e027amz01-amazon-2`** used an existing clean detached worktree
+at the same tested `b043e027` source, the unchanged benchmark binary and original
+provider, model, profile and phase policy. The first local launch aborted before
+session creation because the detached worktree lacked a built Browser MCP. Its
+log is preserved; public campaign inspection was exactly equal before and after,
+proving no new request or financial exposure. Building Browser and Document MCPs
+from that frozen source passed with warnings as errors, without source changes.
+Readiness and exact financial admission were refreshed at **07:05:37 UTC** before
+the actual planning launch; it did not replay the permanently retained run.
+
+The fresh run stopped at revision seven in **328,634 ms**: **seven logical calls,
+six physical generation attempts, six retained responses and zero corrections**.
+Known usage is **14,493 input / 10,465 output tokens**, costing exactly
+**EUR 0.3470897332255456750202101858**. The next `construction_draft` request
+failed with `ServiceUnavailable`, HTTP **502**, no provider code and no completion.
+Its normalized failure reports one attempt and `retry_exhausted:false`; that
+default count is not evidence of a physical generation attempt. The existing
+read-only `unstarted-planning-request` inspection independently confirms
+**`no_reserved_physical_attempt`**, not uncertain newly dispatched generation.
+Its exact request identity is
+`bizb043e027amz01-amazon-2:7:4fe1600d931eb82ebeaade9453fb2fd3a810dc0e8bab2696da1d69a83c184137:e0cdbcaa6e76f42240c83ae2b9d6f1dafaaa32aea1f1e9670f7bc7becf245242`,
+with inspection evidence hash
+`a5d6914ed5a810025e78afefdcbacfc6e627a4352bae06ef1bc9b1cf5901d61d`.
+Only inspection was performed: no closure, replay, continuation or new grant was
+inferred from the first request's authorization. There is no accepted contribution,
+completion-route decision, Judge, artifact, approval, execution or oracle result.
+
+Post-run accounting is **6,849 physical calls**, unchanged **148 historical unknown
+attempts** and **58 permanent closures**, with one new unresolved unstarted request.
+Known spending is **EUR 396.03699826697119047758968677**, reservations remain
+**EUR 126.62395663558339338686157849**, and available exposure is
+**EUR 217.36914893015172067799368204**. This request added no reserved generation
+exposure, but it still requires separate exact permanent-retention authority before
+fresh paid work can resume. The existing ceiling is unchanged. PR #120 remains
+Draft and qualification remains **0/6**; the later evidence-only commits are not
+newly tested production sources.
 
 ### 31 October 2026: frozen completion source and transport blocker
 
