@@ -8,13 +8,67 @@ The current delivery gate is **two consecutive intervention-free executions per 
 
 Latest technically validated production source is **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`**: [**7,614 full-solution passes, zero failures and thirteen declared skips across 33 assemblies**](business-selection-1d6632c5-solution-validation.json), plus [**eleven passing publication stages**](business-selection-1d6632c5-publication-validation.json), with zero compiler/publication diagnostics. It preserves redacted authentication-stage provenance without changing retry, accounting, retention or replay authority. These results establish technical validation, not live qualification.
 
-Last live production source remains **`bd4169c8fdc81a61d5620015c5435ed1091915a3`**. The authorized unstarted request from `bizbd4169c8amz01-amazon-1` was permanently closed at **10:26 UTC**, preserving all originals and reservations. Fresh source-matched run `bizbd4169c8amz02-amazon-1` stopped before its first physical generation attempt with a status-less `Transport` failure. It added no usage, cost or reservation; its distinct request remains unresolved and has no separate closure authorization. Normal execution permission worked; the exact pre-generation network operation remains unestablished. Live cache/provenance benefit remains unverified and final-source qualification is **0/6**.
+Latest live production source now matches **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`**. The user's direct approval enabled exact permanent closure of the old `bizbd4169c8amz02-amazon-1` request at **12:58 UTC**, preserving originals and reservations. Fresh run `biz1d6632c5amz01-amazon-1` stopped before physical generation with **`provider_stage: authentication`**, `Transport`, and no HTTP status. It added no generation usage, cost or reservation. This establishes the failing authentication boundary, not the exact discovery/token operation or underlying network cause. The distinct new request remains unresolved and is not covered by the old approval. Token-cache effectiveness and workflow success remain unproved; final-source qualification is **0/6**.
 
 The preceding `ebf01483` source retains its [2,618-case Planning result](business-selection-ebf01483-planning-validation.json), [fresh-initialization regression](business-selection-fresh-initialization-validation.json), [eleven-stage publication result](business-selection-ebf01483-publication-validation.json) and recovered **7,579-pass, thirteen-skip** solution result. Earlier [owning suites](business-selection-1884a658-owning-validation.json) and [54 actual host/UI cases](business-selection-1884a658-host-ui-validation.json) retain their precise source boundaries. Focused counts overlap and are not added; failed captures remain preserved.
 
 The prior `a23cbbb2` baseline remains source-specific evidence: [2,425 Planning cases](business-block-a23cbbb2-continuation-review-validation.json), [7,327 full-solution passes with thirteen declared skips](business-block-a23cbbb2-solution-validation.json), and [publication checks](business-block-a23cbbb2-publication-validation.json). Those technical results did not establish live business convergence.
 
-### 31 October 2026: authentication-stage provenance
+### 31 October 2026, 12:58-13:06 UTC: approved recovery and authentication-stage live stop
+
+The user directly answered **Yes I approve** after the exact permanent-closure
+question for `bizbd4169c8amz02-amazon-1`. Fresh inspection still matched
+`unstarted-planning-request` / `no_reserved_physical_attempt`, with no active
+driver or lease holder. The unchanged guarded operator succeeded at
+**2026-10-31 12:58:24.810783 UTC**. Original-record fingerprints and timestamps
+were byte-identical before/after, all financial totals were unchanged, and
+read-only reinspection confirmed `already_retained:true`, permanent no-replay
+and no-continuation. There were **61 closures and zero unresolved requests**
+immediately afterward. That exact approval covers no subsequent request.
+
+The already validated clean `1d6632c5` worktree supplied both MCP binaries.
+Its missing standalone benchmark built with warnings as errors in **10.41 s**,
+with zero warnings/errors and unchanged source. Fresh read-only readiness and
+exact construction admission passed at **13:01:58 UTC**, with no ledger writes,
+the original provider/model/phase policy and captured profile
+`5452b870c2561bcde1b6aa483b7b44edb2ea230851221e8fa8eb096f897113a6`.
+`diagnostic-v1` remained captured; **EUR 217.36914893015172067799368204** was
+available and the conservative construction/local/global-review sequence required
+**EUR 20.702416240007185843887541544**. The new cohort had zero prior attempts.
+Configuration readiness was not presented as configured-authentication health.
+
+One fresh Amazon run, **`biz1d6632c5amz01-amazon-1`**, started at **13:03:21 UTC**
+and ended at **13:03:57 UTC**, stopping at revision one in `construction_intent`
+after **23,627 ms**. There was **one logical request, zero physical generation
+attempts, zero retained responses and zero corrections**. The persisted failure
+retains campaign `stage: dispatch` and typed **`provider_stage: authentication`**,
+kind `Transport`, no HTTP status or provider code. No selection, contribution,
+Judge, artifact, approval, execution or oracle was reached. No generation cost,
+unknown attempt or reservation was added. The reported failing boundary is now
+authentication; the specific discovery/token operation and underlying transport
+cause remain unknown. No historical failure is retroactively reclassified.
+
+Independent read-only inspection confirms the distinct new request
+`biz1d6632c5amz01-amazon-1:1:0dbd5f7248c379ec62dbe658741d2d7687df5931817446d13ba6ae6ce25cbd03`
+is `unstarted-planning-request` / `no_reserved_physical_attempt`, evidence hash
+`47694dc51fd18f0b740972eee348e798e6bed75735ea084bb9f9f6f8dca6ffca`.
+It has not been closed or replayed and has no separate closure grant. Further
+paid launches are stopped, not retried on unchanged evidence. The next live
+step needs configured authentication transport recovery and this distinct
+request's legitimate recovery authority, followed by fresh admission.
+
+At the **13:06:06 UTC** final inspection, campaign hash
+`c4115a9b30063f69a3dd46e467fa95232465efef1cf582ce0f8e9623a36de860`
+retains **6,849 historical physical calls, 148 historical unknown attempts,
+61 closures and one unresolved request**. Financial totals match those below;
+no driver or lease holder remains. The [sanitized live proof](business-selection-20261031-authentication-live-proof.json)
+binds approval, originals, artifacts, admission, live stage and accounting.
+The existing solution/publication evidence is reused for the unchanged source,
+not rerun or treated as business qualification. The read-only qualification
+report remains **0/6**, with one Amazon attempt and no Review PR or Collections
+attempts on this source/cohort set. The PR remains Draft.
+
+### 31 October 2026, before 12:58 UTC: authentication-stage provenance
 
 Source **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`** adds optional typed
 authentication-stage evidence at the existing OIDC resolver boundary. The
