@@ -6,11 +6,142 @@ The active implementation replaces the former review protocol. Generation remain
 
 The current delivery gate is **two consecutive intervention-free executions per scenario on one final production source and stable identified profiles**, including both Collections runtime variants. Automatic local corrections are allowed; planning-operator interventions do not qualify. The earlier Collections indicators (fewer than 26 logical calls, at most four Judges and 13,197 complete Judge-request bytes) remain efficiency measurements, not delivery gates. The eighteen-comparison gate is retired. The dated sections below retain their actual historical sources, outcomes and gates; they are not current requirements.
 
-Latest validated production source is **`bd4169c8fdc81a61d5620015c5435ed1091915a3`**: **7,602 full-solution passes, zero failures and thirteen declared skips across 33 assemblies**, plus **eleven passing publication stages**. The generic authentication-cache correction also passes its **264 AI tests and 8 Auth tests**; these focused counts overlap the solution result. Last live production source remains **`b043e027cfab1f456f03f219ede28587522c399c`**. The second Amazon run's unstarted HTTP 502 draft request has exact user authorization, but the environment blocked closure before execution. That execution-permission blocker remains; no new paid dispatch, completion-route decision or business review occurred. Live benefit remains unverified and final-source qualification is **0/6**.
+Latest validated and live production source is **`bd4169c8fdc81a61d5620015c5435ed1091915a3`**: **7,602 full-solution passes, zero failures and thirteen declared skips across 33 assemblies**, plus **eleven passing publication stages**. The generic authentication-cache correction also passes its **264 AI tests and 8 Auth tests**; these focused counts overlap the solution result. The authorized unstarted request from `bizbd4169c8amz01-amazon-1` was permanently closed at **10:26 UTC**, preserving all originals and reservations. Fresh source-matched run `bizbd4169c8amz02-amazon-1` stopped before its first physical generation attempt with a status-less `Transport` failure. It added no usage, cost or reservation; its distinct request remains unresolved and has no separate closure authorization. Normal execution permission worked; the exact pre-generation network operation remains unestablished. Live cache benefit remains unverified and final-source qualification is **0/6**.
 
 The preceding `ebf01483` source retains its [2,618-case Planning result](business-selection-ebf01483-planning-validation.json), [fresh-initialization regression](business-selection-fresh-initialization-validation.json), [eleven-stage publication result](business-selection-ebf01483-publication-validation.json) and recovered **7,579-pass, thirteen-skip** solution result. Earlier [owning suites](business-selection-1884a658-owning-validation.json) and [54 actual host/UI cases](business-selection-1884a658-host-ui-validation.json) retain their precise source boundaries. Focused counts overlap and are not added; failed captures remain preserved.
 
 The prior `a23cbbb2` baseline remains source-specific evidence: [2,425 Planning cases](business-block-a23cbbb2-continuation-review-validation.json), [7,327 full-solution passes with thirteen declared skips](business-block-a23cbbb2-solution-validation.json), and [publication checks](business-block-a23cbbb2-publication-validation.json). Those technical results did not establish live business convergence.
+
+### 31 October 2026: authorized fresh-source closure and independent transport recheck
+
+The saved handoff was reconciled against actual Git, processes and the public
+campaign operators. Branch HEAD remained `64d19fc8`; its existing uncommitted
+evidence update was preserved. No test/planning driver or campaign lease holder
+was active. The detached `bd4169c8` source was clean. The previous revision-seven
+closure had already succeeded; it was not applied again or treated as a current
+execution-permission denial.
+
+The user separately authorized permanent no-replay closure of the exact request
+from `bizbd4169c8amz01-amazon-1` in the session's **Distinct New Request** question.
+Fresh public inspection matched revision one, `unstarted-planning-request`,
+`no_reserved_physical_attempt` and evidence hash
+`76b79698637655541a8e4687c54e75ff67e1fe1f91a5dcab29d0c671ee8f4a68`.
+The normal guarded operator succeeded at **2026-10-31 10:26:32.671932 UTC**.
+Before/after original-record fingerprints and timestamps were byte-identical;
+financial totals were unchanged. Read-only reinspection returned
+`already_retained:true`, with replay and continuation permanently forbidden.
+Permanent closures became **60**, with zero unresolved identities immediately
+afterward. No reservation was released and no broader closure grant was inferred.
+
+The absent benchmark was built in that same detached source with warnings as
+errors: **zero warnings and errors**, in 64.74 seconds. Browser and Document MCP
+binaries were present there. Benchmark informational version contains the exact
+`bd4169c8` SHA; its local DLL SHA-256 is
+`eeddf8766374813c5ca9197455fd524570fa17d98016565e635f80459423f979`.
+The existing full-solution and publication evidence was reused, not rerun or
+reattributed to this evidence-only update.
+
+At **10:30:24 UTC**, configuration readiness and exact read-only admission passed
+without changing the ledger. Provider `OpenAi`, model `gpt-5.5-2026-04-24`, original
+phase policy and captured profile
+`5452b870c2561bcde1b6aa483b7b44edb2ea230851221e8fa8eb096f897113a6`
+remained unchanged; `optimization_threshold_policy` was exactly `diagnostic-v1`.
+The fresh hypothesis tested whether the prior pre-generation transport failure
+had cleared. Configuration readiness was not presented as authentication health.
+The earlier authentication-only command could not be reconstructed from accessible
+logs; no alternative diagnostic executor or credential export was introduced.
+
+Fresh Amazon **`bizbd4169c8amz02-amazon-1`** stopped at revision one during
+`construction_intent`, in **23,452 ms**. There was **one logical request, zero
+physical generation attempts, zero retained responses and zero corrections**.
+The normalized failure is `LLMClientException` / `Transport`, with no HTTP status
+or provider error code. Its default `attempt_count:1` is not a physical attempt,
+and `retryable:true` does not authorize replay. No business selection,
+contribution, completion-route decision, Judge, artifact, approval, execution or
+oracle result exists. No generation usage or reservation was added.
+
+Existing read-only inspection independently classifies the exact new request
+`bizbd4169c8amz02-amazon-1:1:6356bb20532590269079461c5ea3d56efd914b934ba6b725e772a2bd896fa1ac`
+as `unstarted-planning-request` / `no_reserved_physical_attempt`, with evidence hash
+`cbae712512f43345bf142c35c176fad1dd304f1f8c099916c9fb6646b03e5047`.
+It was not applied, replayed or covered by the preceding request's authorization.
+Further launches are stopped. The precise failing authentication or other
+pre-generation network operation remains unverified; this is not evidence of a
+planner defect, a dispatched uncertain generation, exhausted money or another
+refusal of the closure command.
+
+Public accounting at **10:34:15 UTC** has snapshot hash
+`e66a2e9a8ff23229d44be9295725bbacbeb0f0c851af382be91e447a6c328e29`:
+**6,849 physical calls**, **148 historical unknown attempts**, **60 permanent
+closures** and this one unresolved request. Known spending remains
+**EUR 396.03699826697119047758968677**, reservations
+**EUR 126.62395663558339338686157849**, available exposure
+**EUR 217.36914893015172067799368204** and the ceiling
+**EUR 740.0301038327063045424449473**. No driver or lease holder remained.
+The [structured resume proof](business-selection-20261031-resume-proof.json)
+records the source, binaries, authorization scope, operator invariants and run.
+No production code, provider/model, generation profile, budget or oracle changed.
+Qualification remains **0/6**; the PR remains Draft.
+
+### 31 October 2026: guarded closure succeeded; fresh source stopped before generation
+
+After the renewed autonomous instruction, the same existing operator for the exact
+authorized second-run draft request was submitted once through normal guarded
+execution. It succeeded at **2026-10-31 09:44:03.581782 UTC**, with operator
+**GitHub Copilot** and inspected evidence hash
+`a5d6914ed5a810025e78afefdcbacfc6e627a4352bae06ef1bc9b1cf5901d61d`.
+No alternate executor or restriction bypass was used. The earlier denial remains
+historical evidence, not the current blocker. Before/after public inspection
+verified unchanged raw original-record hashes, timestamps and financial totals.
+An initial comparison used different serialization representations; the corrected
+comparison of matching raw snapshots passed. Permanent closures became **59** and
+unresolved requests became zero. Replay and continuation of that stopped run are
+permanently forbidden; no reservation was released.
+
+Fresh read-only admission at **09:47:47 UTC** verified the original provider
+`OpenAi`, model `gpt-5.5-2026-04-24`, configuration, phase policy and captured profile
+`5452b870c2561bcde1b6aa483b7b44edb2ea230851221e8fa8eb096f897113a6`.
+The clean detached `bd4169c8` publication worktree supplied the working directory;
+its Browser and Document MCP builds passed with warnings as errors. The benchmark
+informational version contains `bd4169c8fdc81a61d5620015c5435ed1091915a3`, and its
+DLL SHA-256 is
+`3b4133430cb2ad4bf809dc633594670dca38ae7a425d7b3cfeb7e3cd963e624e`.
+Exact construction admission passed without changing the ledger. This was a fresh
+session, not a continuation or replay of either permanently retained run.
+
+Amazon **`bizbd4169c8amz01-amazon-1`** stopped at revision one during
+`construction_intent` in **24,767 ms**, with `MODEL_DISPATCH_UNVERIFIABLE` and
+`LLMClientException` / `Transport`, no HTTP status or provider error code.
+There was **one logical request, zero physical generation attempts and zero
+receipts**. Known input/output tokens, known cost, unknown attempts and reserved
+generation exposure for this run are all zero. The normalized `attempt_count:1`
+is not a physical-attempt count; `retryable:true` does not authorize replay.
+No contribution, completion-route decision, Judge, artifact, approval, execution
+or oracle result exists.
+
+Read-only inspection using the existing `unstarted-planning-request` operator
+confirms the exact request
+`bizbd4169c8amz01-amazon-1:1:d0e0d9e44f8279deb7c8389f2ef6ae19fdec3b3a992f6af0855803c9bad52c40`,
+with evidence hash
+`76b79698637655541a8e4687c54e75ff67e1fe1f91a5dcab29d0c671ee8f4a68`.
+No apply occurred. Earlier exact authorizations do not cover this new identity.
+The current campaign snapshot has evidence hash
+`360c1212ee1c1365cdc9ce2f8643744f217d94e59e60725cfe6f4484c587920a`,
+**59 permanent closures** and this one unresolved request. Physical calls remain
+**6,849**, historical unknown attempts **148**, known spending
+**EUR 396.03699826697119047758968677**, reservations
+**EUR 126.62395663558339338686157849**, and available exposure
+**EUR 217.36914893015172067799368204**. The ceiling remains unchanged.
+
+Token acquisition precedes the journaled generation send, and cache reuse cannot
+prevent a cold acquisition failure. The retained failure does not identify the
+exact failing discovery, token or other pre-generation network operation. An
+authentication-only diagnostic was blocked before execution and was not retried
+through another interpreter. A separate built-in, credential-free HTTPS check of
+a public OIDC discovery endpoint returned HTTP 200; it does not establish health
+of the configured issuer. No new retry, model/profile change, credential export
+or speculative production correction was introduced. PR #120 remains Draft and
+qualification remains **0/6**.
 
 ### 31 October 2026: authentication fix validation completed
 
