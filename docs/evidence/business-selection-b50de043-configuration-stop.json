@@ -1,0 +1,97 @@
+{
+  "kind": "source_bound_pre_generation_configuration_conflict_and_user_stop",
+  "version": 1,
+  "recorded_at_utc": "2026-11-04T17:21:12.775501+00:00",
+  "source": "b50de0435688d831e085566b297e98b703258600",
+  "harness_source": "b50de0435688d831e085566b297e98b703258600",
+  "campaign": "schema-portability-20261019-incremental",
+  "proposed_cohort": "bizb50de043amz32a",
+  "proposed_run": "bizb50de043amz32a-amazon-1",
+  "run_record_exists": false,
+  "cohort_manifest_exists": false,
+  "provider_readiness_exit_code": -6,
+  "first_failure": "The configured provider/model does not match the evaluation pin.",
+  "model_selection_inspection": {
+    "observed_at_utc": "2026-11-04T17:14:40.175156+00:00",
+    "found": true,
+    "key": "LLM--Models--OpenAi",
+    "provider": "OpenAi",
+    "model": "gpt-6.1-sol-2026-09-29",
+    "expected_provider": "OpenAi",
+    "expected_model": "gpt-5.5-2026-04-24",
+    "provider_matches": true,
+    "model_matches": false,
+    "credential_values_printed": false,
+    "provider_requests": 0,
+    "financial_record_writes": 0
+  },
+  "expected_original_configuration_hash": "e4b187879e34ce4b48999e72941caa81a3fd02a5b0bbc1cf9a8f67ab15bbd078",
+  "captured_profile_hash": "96a35087433a0d9751186a58cd9a2cbffcdf2cd552037b6fe727b80b5b2576ae",
+  "user_decision": "Keep current setting; stop live attempts",
+  "decision_effect": "Keep the saved model unchanged and stop all live attempts. No model restoration, campaign migration or provider/model pin bypass is authorized. Offline technical checks already running continue.",
+  "configuration_fields_written": 0,
+  "credentials_printed": false,
+  "provider_requests": 0,
+  "financial_records_written": 0,
+  "accounting_unchanged_since_previous_terminal_run": true,
+  "campaign_after": {
+    "ceiling_eur": "740.0301038327063045424449473",
+    "calls": 7010,
+    "session_calls": 0,
+    "known_input_tokens": 26885761,
+    "known_output_tokens": 10791930,
+    "known_cost_eur": "409.34032146224804887279498235",
+    "reserved_input_tokens": 3023187,
+    "reserved_output_tokens": 4554752,
+    "reserved_cost_eur": "135.58746410494559036333532391",
+    "cost_upper_bound_eur": "544.92778556719363923613030626",
+    "unknown_attempts": 157,
+    "available_eur": "195.10231826551266530631464104",
+    "permanent_closures": 63,
+    "unresolved_requests": [],
+    "evidence_hash": "e9826da89a49fe38b4b889633586a677492cec66f15a7d7ede43436306358348"
+  },
+  "technical_validation": {
+    "owning_passes": 2678,
+    "owning_failures": 0,
+    "owning_compiler_diagnostics": 0,
+    "publication_stages_passed": 11,
+    "publication_diagnostics": 0,
+    "matching_frozen_builds": [
+      "benchmark",
+      "browser",
+      "document"
+    ],
+    "review_helper_negative_typed_checks": 14,
+    "review_helper_cli_checks": 10,
+    "full_solution": "active_in_independent_exact_source_checkout"
+  },
+  "qualification": {
+    "passed": 0,
+    "required": 6
+  },
+  "restart": {
+    "requires": "A new user instruction to resume live work and resolve the saved-model conflict while preserving campaign pins. Do not infer resumption from offline checks completing.",
+    "source": "b50de0435688d831e085566b297e98b703258600",
+    "frozen_checkout": "pr120-business-selection-b50de043",
+    "configuration": "Repeat readiness and require the original fingerprint, then financial/exact phase admission with the unchanged profile and policies.",
+    "identity": "Retain this failed pre-generation capture. Verify a fresh unused identity before dispatch; do not overwrite the inspection folder or continue/replay any old run.",
+    "artifact_execution": "Inspect the newly generated exact artifact, record its exact delegated review, and launch the physical execute-reviewed-run.py file with tty=true and the original PATH. Submit only the displayed artifact-bound one-execution confirmation.",
+    "request_recovery": "No unresolved request now; future uncertainty retains its own recovery requirements and inherits no earlier closure authorization."
+  },
+  "captures_sha256": {
+    "provider-readiness.private.jsonl": "f8703c4ae2659f55a16ea734a45d00f3eb9a0c5cf09c16fcfd817e25a42184de",
+    "model-pin-inspection.sanitized.json": "9f6cd0b053143f66fb65ab45384694e6b02874ef85289da3a3697c401a30398d",
+    "campaign-after-block.private.json": "bf5456ffd09b0af89b85d29b60b933425842f88bb3e30e097e349f91badb653f",
+    "unused-run-after-block.private.json": "38e0b9de817f645c4bec37c0d4a3e58baecccb040f5718dc069a72c7385a0bed",
+    "unused-cohort-after-block.private.json": "38e0b9de817f645c4bec37c0d4a3e58baecccb040f5718dc069a72c7385a0bed",
+    "build.json": "15a4780a891fbc53706abd58133c302e5283ac2731f8f7a08e874b4e5b5eb357",
+    "validation.json": "ab2439356694c6b40a5be166d9ac42f07cce3ad0c348331b8dd01a4c3cbd8a47"
+  },
+  "limitations": [
+    "Fresh source has not launched any paid generation and has no live business success.",
+    "Technical validation does not establish actual execution or 6/6 qualification.",
+    "No budget supplement, reservation release or uncertain-work replay occurred.",
+    "The saved model choice is preserved; no attempt is made to bypass its conflict with the campaign pin."
+  ]
+}

@@ -18,9 +18,27 @@ closure, mandatory global review, artifact approval and execution remain separat
 [**All 2,678 owning Planning cases pass with warnings as errors**](business-selection-b50de043-owning-validation.json),
 including six focused cases. One pre-fix reproduction fails while five preservation
 cases pass; the correction restores the ordinary final global review path without
-approval or execution. Exact-source matching builds, full-solution and all eleven
-publication stages have started in independent frozen checkouts. No new paid run
-has launched. Qualification remains **0/6**, and live benefit remains unproven.
+approval or execution. Matching frozen benchmark/Browser/Document builds pass. [All eleven exact-source
+publication stages pass](business-selection-b50de043-publication-validation.json),
+including Native AOT execution and published encrypted-storage/exact-receipt recovery,
+with zero warnings/errors and unchanged source. The matching artifact-review helper
+passes fourteen typed rejection checks and ten CLI checks; this approves no real
+artifact. Exact-source full-solution testing remains active in its independent
+checkout.
+
+Fresh admission stops before any paid request because saved `LLM--Models--OpenAi`
+now selects `gpt-6.1-sol-2026-09-29`, while the unchanged campaign is pinned to
+`gpt-5.5-2026-04-24`. Read-only public KeyVault inspection confirms that exact
+conflict. The user explicitly chooses **"Keep current setting; stop live attempts"**.
+The saved model, credentials, configuration, campaign pins, ceiling and reservations
+remain untouched. Proposed b50 run and cohort records are both absent. Fresh
+campaign inspection matches the previous terminal accounting hash exactly: **EUR
+195.10231826551266530631464104 available**, 63 permanent closures, zero unresolved
+requests, no active campaign lease holder. [Configuration conflict, user stop and
+precise restart](business-selection-b50de043-configuration-stop.json).
+Do not resume paid work without a new user instruction resolving that conflict.
+Offline checks already running continue. Qualification remains **0/6**, and the
+correction's live benefit remains unproven.
 
 Previous correction **`c89f2e5c5c162cf16aaa0b3613093b15e1097699`** extends the existing
 nullable-assertion correction to compiler-typed
