@@ -20,13 +20,16 @@ remains active. Fresh Amazon `bizf5789246amz01-amazon-1` launched after
 **11:09:34 UTC** [exact admission](business-selection-f5789246-live-admission.json)
 on the unchanged profile, with zero unresolved requests and
 **EUR 214.01795919940657352708572962** available before dispatch.
-At **11:17 UTC**, the run has six received completions and is awaiting its first
-draft, with six physical attempts for those completed calls, zero corrections and
-zero accepted checkpoints. Completed-call usage is **15,923 input / 10,598 output
-tokens**, including **9,006 reasoning tokens** already in output, at
-**EUR 0.3556266213435906610609177923** known cost. These partial totals exclude the
-pending attempt. [Source/binary-bound live progress](business-selection-f5789246-live-progress.json).
-No completed live result on this source is claimed yet.
+Fresh Amazon `bizf5789246amz01-amazon-1` has now stopped after **12 logical
+calls / 12 received receipts**, one automatic correction, two accepted checkpoints
+and favorable final global business review. Its accepted replacement supplies actual
+browser URL arguments and conditional product availability. Final executable
+contract validation then reports four `TASK_COMPILER_VALIDATION` errors because
+inferred array unions attempt to reparent producer-field schema nodes. No artifact,
+approval, execution or oracle occurred. Qualification remains **0/6**.
+[Source-bound terminal outcome](business-selection-f5789246-amazon-outcome.json).
+The earlier [draft progress](business-selection-f5789246-live-progress.json) remains
+a dated partial observation and is superseded by that terminal evidence.
 
 Correction **`cd8641651acb36b39584287e5990c304561e7339`** has
 [**2,645 owning Planning passes on verified matching source postimages**](business-selection-cd864165-owning-validation.json)
@@ -48,6 +51,38 @@ remains **0/6**. [Source-bound terminal evidence](business-selection-cd864165-am
 The preceding `ebf01483` source retains its [2,618-case Planning result](business-selection-ebf01483-planning-validation.json), [fresh-initialization regression](business-selection-fresh-initialization-validation.json), [eleven-stage publication result](business-selection-ebf01483-publication-validation.json) and recovered **7,579-pass, thirteen-skip** solution result. Earlier [owning suites](business-selection-1884a658-owning-validation.json) and [54 actual host/UI cases](business-selection-1884a658-host-ui-validation.json) retain their precise source boundaries. Focused counts overlap and are not added; failed captures remain preserved.
 
 The prior `a23cbbb2` baseline remains source-specific evidence: [2,425 Planning cases](business-block-a23cbbb2-continuation-review-validation.json), [7,327 full-solution passes with thirteen declared skips](business-block-a23cbbb2-solution-validation.json), and [publication checks](business-block-a23cbbb2-publication-validation.json). Those technical results did not establish live business convergence.
+
+### 4 November 2026, 11:22 UTC: favorable review followed by compiler ownership stop
+
+The fresh frozen `f5789246` run completes **12 logical calls / 12 physical attempts**,
+with all twelve receipts, no unknown attempt, one automatic correction and two
+accepted checkpoints. The initial fifteen-task candidate always fetched three
+products despite possibly observing fewer. Its automatic replacement contributes
+23 tasks with conditional availability/error paths and actual `url`, `waitUntil`
+and `format` browser arguments. The new optional-input correction is exercised:
+request nine offers the original optional arguments and all four accepted browser
+reads bind their URLs. Renewed local review and final global review return `ok`.
+
+Final executable validation then stops at four workbook consumers with
+`CONTRACT_UNSATISFIED: The node already has a parent.` Array element inference
+inserts projected producer-field schema nodes directly into its transient `anyOf`.
+Those nodes still belong to the producer schema tree. The generic regression
+reproduces the same failure; copying inferred element contracts fixes it without
+changing authoritative schemas or binding values. Both focused cases pass, including
+actual v15 execution with ordered duplicate values and incompatible-type rejection.
+Full owning validation is running. This stopped plan is preserved unchanged.
+
+Complete Judge requests measure **69,665, 180,443 and 104,188 bytes**. Known usage
+is **122,248 input / 31,169 output tokens**, including **19,830 reasoning tokens**
+already in output, at **EUR 1.3832274800966097146435280436** known cost and zero
+new retained reservation. Planning took **746,465 ms**. The ledger has **6,886
+physical calls, 150 historical unknown attempts, 62 closures and zero unresolved
+requests**. Known spending is **EUR 399.39138148550594313882951145**, preserved
+reservations **EUR 128.00399062789039759117323427**, available exposure
+**EUR 212.63473171930996381244220158** under the unchanged ceiling. No artifact,
+approval, execution or oracle occurred; favorable review does not establish
+compiler or runtime correctness.
+[Source-bound outcome](business-selection-f5789246-amazon-outcome.json).
 
 ### 4 November 2026, 10:41 UTC: optional-input repair grammar stop
 
