@@ -18,14 +18,36 @@ cases with actual simulated v15 execution. [Owning validation](business-selectio
 Matching frozen benchmark/Browser/Document builds pass with zero warnings/errors.
 [All eleven exact-source publication stages pass](business-selection-c89f2e5c-publication-validation.json),
 including Native AOT execution and published encrypted-storage/exact-receipt recovery,
-with zero diagnostics and unchanged source. Exact-source full-solution testing remains
-active. Fresh `bizc89f2e5camz32a-amazon-1` launches after
+with zero diagnostics and unchanged source. The first exact-source full-solution run
+[stopped at a dependency download SSL EOF](business-selection-c89f2e5c-solution-download-failure.json)
+after 6,150 passes and twelve skips across 31 assemblies. A fresh identical-source run
+started at 15:55:31 UTC; full validation remains outstanding. Fresh `bizc89f2e5camz32a-amazon-1` launches after
 [15:28:18 UTC configuration/financial/exact phase admission](business-selection-c89f2e5c-amazon32a-live-admission.json)
 and unused-identity verification, retaining profile
 `96a35087433a0d9751186a58cd9a2cbffcdf2cd552037b6fe727b80b5b2576ae`,
 EUR 201.71542319439718091593983108 available, EUR 20.983630020574291081492083370
 phase headroom and zero unresolved requests. The established Amazon 32K profile is
-unchanged; qualification remains **0/6** and live benefit remains unproven.
+unchanged; qualification remains **0/6**. The run subsequently reached favorable
+global review, deterministic compilation and its first complete artifact, hash
+`6e676f8426f19c2ac88624542bc3d7a24af4322356a1caaae09b68b033ae6b71`.
+Exact delegated review covers both requirements and all eight tasks, with runtime
+uncertainties retained. Approval succeeds at revision 14. Execution then fails at
+the ordinary invocation-confirmation gate because the operator launcher has no
+interactive stdin. No planned external task or execution-model call runs; the
+independent oracle reports `workflow_execution_failed` and `workbook_missing`.
+Its browser-closure probe and cleanup run successfully. The earlier manifest
+mismatch was a changed shell PATH order; the exact original PATH was restored
+without altering the manifest. The failed execution remains preserved and will
+never be replayed. [Artifact, review, failure and exact accounting](business-selection-c89f2e5c-amazon32a-invocation-stop.json).
+Known planning cost is EUR 1.1598622417031934877896055103, with
+EUR 1.1279228911351641470614545129 retained reservation; available campaign
+exposure is EUR 199.42763806155882328108877107. No unresolved request or new closure
+is required. A fresh same-source/profile generation will use an interactive
+terminal for its later exact invocation confirmations; no production repair is
+justified by this operator-launch error. Fresh `bizc89f2e5camz32b-amazon-1` launches
+after [16:02:30 UTC exact admission](business-selection-c89f2e5c-amazon32b-live-admission.json)
+and unused-identity verification, with the same source, binaries, provider/model,
+profile, EUR 20.983630020574291081492083370 headroom and zero unresolved requests.
 
 Previous correction **`1bb59305de63d69cff1a22b14d37fc0d4dffffc4`** projects existing
 deterministic contractual coverage gaps into
@@ -38,7 +60,8 @@ Matching frozen benchmark/Browser/Document builds pass with zero warnings/errors
 [All eleven exact-source publication stages pass](business-selection-1bb59305-publication-validation.json),
 including Native AOT execution and published encrypted-storage/exact-receipt recovery,
 with zero warnings/errors and unchanged source. Exact-source full-solution testing
-remains running. Fresh `biz1bb59305amz32a-amazon-1` launches after
+now passes [**7,648 cases, zero failures, thirteen declared skips and all 33 assemblies**](business-selection-1bb59305-solution-validation.json),
+with zero compiler diagnostics and unchanged source. Fresh `biz1bb59305amz32a-amazon-1` launches after
 [14:48:34 UTC configuration/financial/exact phase admission](business-selection-1bb59305-amazon32a-live-admission.json)
 and unused-identity verification, retaining profile
 `96a35087433a0d9751186a58cd9a2cbffcdf2cd552037b6fe727b80b5b2576ae`,
