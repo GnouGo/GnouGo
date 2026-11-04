@@ -26,7 +26,6 @@ internal static class SchemaPortabilityCampaign
         }
         return PlanningGraphCompiler.Fingerprint(material.ToJsonString());
     }
-    internal const string Model = "gpt-5.5-2026-04-24";
     internal const string Collection = "planning-schema-portability";
     public static async Task RunAsync(string[] args)
     {
@@ -35,6 +34,55 @@ internal static class SchemaPortabilityCampaign
         var records = KeyVaultBenchmarkModel.WorkspaceRecords(root);
         var campaignId = Option(args, "--campaign") ?? throw new ArgumentException("Supply a new --campaign.");
         var campaign = new BenchmarkCampaign(records, campaignId);
+        if (phase == "inspect-configuration")
+        {
+            var original = await campaign.LoadAsync("planning-evaluation-configuration", "configuration")
+                ?? throw new PlanningConflictException("No existing campaign configuration.");
+            Console.WriteLine(new JsonObject { ["configuration_hash"] = PlanningGraphCompiler.Fingerprint(original.ToJsonString()),
+                ["provider"] = original["provider"]?.DeepClone(), ["model"] = original["model"]?.DeepClone() }.ToJsonString());
+            return;
+        }
+        if (phase is "register-configuration" or "inspect-deployment")
+        {
+            var apply = args.Contains("--apply", StringComparer.Ordinal);
+            var registrationLease = Path.Combine(root, ".GnOuGo", "data", "planning-evaluation", campaignId + ".lock");
+            await using var registration = apply ? new FileStream(registrationLease, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None) : null;
+            if (apply && Git("status", "--porcelain").Length != 0)
+                throw new PlanningConflictException("Commit the registration harness before applying the authorized model amendment.");
+            using var proposed = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", RequiredOption(args, "--model"), campaign, root,
+                CancellationToken.None, pinConfiguration: false);
+            var readiness = await proposed.ReadinessAsync(CancellationToken.None);
+            if (phase == "inspect-deployment")
+            {
+                var original = await campaign.LoadAsync("planning-evaluation-configuration", "configuration");
+                var current = proposed.CampaignConfiguration();
+                string? Origin(JsonNode? endpoint) => Uri.TryCreate(endpoint?.ToString(), UriKind.Absolute, out var uri)
+                    ? uri.Scheme + "://" + uri.IdnHost + (uri.IsDefaultPort ? "" : ":" + uri.Port) : null;
+                var oldEndpoint = original?["endpoint"]?.ToString(); var newEndpoint = current["endpoint"]?.ToString();
+                Console.WriteLine(new JsonObject { ["readiness"] = readiness,
+                    ["previous_endpoint_origin"] = Origin(original?["endpoint"]), ["configured_endpoint_origin"] = Origin(current["endpoint"]),
+                    ["endpoint_matches"] = oldEndpoint == newEndpoint,
+                    ["endpoint_differs_only_by_trailing_slash"] = oldEndpoint?.TrimEnd('/') == newEndpoint?.TrimEnd('/') }.ToJsonString());
+                return;
+            }
+            KeyVaultBenchmarkModel.RequireReady(readiness);
+            if (readiness["structured_output_supported"]?.GetValue<bool>() != true || readiness["medium_reasoning_supported"]?.GetValue<bool>() != true)
+                throw BenchmarkCampaign.AdmissionFailure("required_structured_output_or_reasoning_unavailable");
+            var amendment = await campaign.RegisterConfigurationAsync(proposed.CampaignConfiguration(), proposed.ConfigurationFingerprint,
+                readiness["declared_metadata_hash"]!.ToString(), RequiredOption(args, "--expected-configuration"),
+                RequiredOption(args, "--authorization"), apply, CancellationToken.None,
+                apply ? RequiredOption(args, "--expected-amendment") : null);
+            // Full deployment configuration stays encrypted in the campaign.
+            // The exact hash identifies the preview without logging URL secrets.
+            amendment.Remove("material");
+            amendment["provider"] = proposed.Provider; amendment["model"] = proposed.Model;
+            amendment["endpoint_hash"] = PlanningGraphCompiler.Fingerprint(proposed.CampaignConfiguration()["endpoint"]!.ToString());
+            amendment["host_configuration_hash"] = proposed.ConfigurationFingerprint;
+            amendment["authorization"] = RequiredOption(args, "--authorization");
+            amendment["readiness"] = readiness;
+            Console.WriteLine(amendment.ToJsonString());
+            return;
+        }
         if (phase == "inspect-retention-originals")
         {
             Console.WriteLine((await campaign.InspectRetentionOriginalsAsync(Option(args, "--run-collection") ?? Collection,
@@ -58,7 +106,8 @@ internal static class SchemaPortabilityCampaign
         }
         if (phase == "provider-readiness")
         {
-            using var configured = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", Model, campaign, root, CancellationToken.None, pinConfiguration: false);
+            using var configured = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", RequiredOption(args, "--model"), campaign, root, CancellationToken.None,
+                pinConfiguration: false, campaignConfiguration: RequiredOption(args, "--campaign-configuration"));
             var readiness = await configured.ReadinessAsync(CancellationToken.None);
             Console.WriteLine(readiness.ToJsonString());
             Console.WriteLine((await campaign.InspectAsync()).ToJsonString());
@@ -238,7 +287,8 @@ internal static class SchemaPortabilityCampaign
         }
         if (phase is "plan" or "revise" or "execute")
             await campaign.RequireRunNotRetainedAsync(Option(args, "--run") ?? "diagnostic-" + (Option(args, "--case") ?? "amazon") + "-1");
-        using var model = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", Model, campaign, root, CancellationToken.None);
+        using var model = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", RequiredOption(args, "--model"), campaign, root, CancellationToken.None,
+            campaignConfiguration: RequiredOption(args, "--campaign-configuration"));
         if (phase == "copilot-probe") { await LiveExecutionReadiness.CopilotAsync(args, campaign, model, root); return; }
         if (phase == "mapping") { await MappingLiveEvaluation.RunAsync(args, campaign, model, root); return; }
         if (phase is "readiness" or "plan" or "revise" or "execute")
@@ -257,6 +307,8 @@ internal static class SchemaPortabilityCampaign
         }
         return text?.DeepClone();
     }
+
+    internal static string RequiredOption(string[] args, string name) => Option(args, name) ?? throw new ArgumentException("Supply " + name + ".");
 
     internal static string? Option(string[] args, string name)
     { var index = Array.IndexOf(args, name); return index < 0 ? null : args.ElementAtOrDefault(index + 1) ?? throw new ArgumentException("Missing " + name); }

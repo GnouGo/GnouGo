@@ -1,4 +1,8 @@
 using System.Diagnostics;
+using System.Reflection;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.AI.Core;
@@ -41,6 +45,7 @@ internal static class LiveWorkflowEvaluation
         var readiness = await model.ReadinessAsync(CancellationToken.None);
         Console.WriteLine(readiness.ToJsonString());
         KeyVaultBenchmarkModel.RequireReady(readiness);
+        if (phase is "readiness" or "plan" or "execute") await RequireConsolePreflightAsync();
         var productLimit = int.Parse(SchemaPortabilityCampaign.Option(args, "--max-products") ?? "3", System.Globalization.CultureInfo.InvariantCulture);
         if (productLimit is < 1 or > 10) throw new ArgumentException("--max-products must be between 1 and 10.");
         if (phase is "execute" or "revise" && (retained?["max_products"]?.GetValue<int>() ?? 3) != productLimit)
@@ -57,10 +62,12 @@ internal static class LiveWorkflowEvaluation
                 preset != frozenSettings.Options["construction_preset"]?.ToString())
                 throw new PlanningConflictException("The captured construction preset cannot change during continuation.");
         }
+        var runtimeBuilds = CaptureMcpBuilds(Configuration(model.McpServers, scenario, "preflight-only"), sourceRevision);
         var manifest = label.StartsWith(cohort + "-", StringComparison.Ordinal)
             ? await LiveCampaignEvidence.PinAsync(campaign, sourceRevision, model.Provider, model.Model, model.ConfigurationFingerprint, cohort, productLimit,
                 !continuing || frozenSettings.Options.ContainsKey("construction_preset") || retained?["manifest"]?["planning_configuration"] is not null || args.Any(a => a.StartsWith("--max-", StringComparison.Ordinal))
-                    ? FrozenPlanningConfiguration(frozenSettings, retained?["session"]?["construction"]?["limits"] as JsonObject) : null) : null;
+                    ? FrozenPlanningConfiguration(frozenSettings, retained?["session"]?["construction"]?["limits"] as JsonObject) : null,
+                runtimeBuilds) : null;
         model.CaptureTokenPolicy(frozenSettings);
         await using var proxy = await CampaignInferenceProxy.StartAsync(model, label);
         var configurations = Configuration(model.McpServers, scenario, proxy.Endpoint);
@@ -85,6 +92,12 @@ internal static class LiveWorkflowEvaluation
         await using var transport = new ConfiguredMcpClientFactory(configurations, human, model.Provider, model.Model);
         var run = continuing ? retained!.DeepClone().AsObject() : new JsonObject { ["scenario"] = scenario, ["label"] = label, ["source"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD"),
             ["phase"] = manifest is not null ? "final" : "diagnostic", ["events"] = new JsonArray(), ["manifest"] = manifest, ["provider_readiness"] = readiness };
+        if (campaign.ConfigurationId is { } configurationId)
+        {
+            if (continuing && run["campaign_configuration"]?.ToString() != configurationId)
+                throw new PlanningConflictException("The retained run belongs to another campaign configuration.");
+            run["campaign_configuration"] = configurationId;
+        }
         var observed = new ObservedMcp(transport, async e =>
         {
             run["events"]!.AsArray().Add(e);
@@ -359,6 +372,69 @@ internal static class LiveWorkflowEvaluation
             if (PlanningContractValidation.ValidateInstance(answer, schema).Count == 0) return answer;
             await output.WriteLineAsync("Response rejected; no approval submitted. Correct it using the displayed schema.");
         }
+    }
+
+    internal static void RequireBuildSource(string? informationalVersion, string source)
+    {
+        if (source.Length != 40 || informationalVersion?.EndsWith("+" + source, StringComparison.Ordinal) != true)
+            throw new PlanningConflictException("The benchmark binary does not match the current source; rebuild the frozen harness before admission.");
+    }
+
+    internal static async Task RequireConsolePreflightAsync()
+    {
+        var source = SchemaPortabilityCampaign.Git("rev-parse", "HEAD");
+        foreach (var assembly in new[] { typeof(LiveWorkflowEvaluation).Assembly, typeof(HybridWorkflowPlanner).Assembly, typeof(WorkflowEngine).Assembly }.Distinct())
+            RequireBuildSource(assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion, source);
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await RequireInteractionAsync(Console.In, Console.Out, Guid.NewGuid().ToString("N"), deadline.Token);
+    }
+
+    internal static JsonObject CaptureMcpBuilds(IReadOnlyDictionary<string, McpServerOptions> configurations, string source)
+    {
+        var builds = new JsonObject();
+        foreach (var (name, configuration) in configurations)
+        {
+            if (configuration.Type != "stdio" || configuration.Command != "dotnet" || configuration.Args is not { Count: 1 })
+                throw new PlanningConflictException("The benchmark requires an exact managed MCP binary before admission.");
+            var path = configuration.Args[0];
+            using var stream = File.OpenRead(path);
+            using var image = new PEReader(stream);
+            var metadata = image.GetMetadataReader();
+            string? version = null;
+            foreach (var handle in metadata.GetAssemblyDefinition().GetCustomAttributes())
+            {
+                var attribute = metadata.GetCustomAttribute(handle);
+                if (attribute.Constructor.Kind != HandleKind.MemberReference) continue;
+                var constructor = metadata.GetMemberReference((MemberReferenceHandle)attribute.Constructor);
+                if (constructor.Parent.Kind != HandleKind.TypeReference) continue;
+                var type = metadata.GetTypeReference((TypeReferenceHandle)constructor.Parent);
+                if (metadata.GetString(type.Name) != nameof(AssemblyInformationalVersionAttribute)) continue;
+                var value = metadata.GetBlobReader(attribute.Value);
+                if (value.ReadUInt16() == 1) version = value.ReadSerializedString();
+            }
+            RequireBuildSource(version, source);
+            using var bytes = File.OpenRead(path);
+            builds[name] = new JsonObject { ["path"] = Path.GetFullPath(path), ["source"] = source,
+                ["informational_version"] = version, ["sha256"] = Convert.ToHexStringLower(SHA256.HashData(bytes)) };
+        }
+        return builds;
+    }
+
+    // A fresh non-authorizing challenge proves the actual channel can answer.
+    // It creates no session, reservation, artifact approval or invocation grant.
+    internal static async Task RequireInteractionAsync(TextReader input, TextWriter output, string challenge, CancellationToken ct)
+    {
+        var expected = new JsonObject { ["interaction_preflight"] = challenge };
+        await output.WriteLineAsync("Interaction preflight only; echo this JSON. This grants no execution permission:");
+        await output.WriteLineAsync(expected.ToJsonString());
+        var line = await Task.Run(() => input.ReadLineAsync(ct).AsTask(), ct).WaitAsync(ct);
+        ct.ThrowIfCancellationRequested();
+        if (line is null) throw new InvalidOperationException("No interaction provider is attached; no generation or execution was admitted.");
+        JsonNode? response;
+        try { response = JsonNode.Parse(line); }
+        catch (JsonException) { throw new PlanningConflictException("The interaction preflight did not receive its exact non-authorizing challenge."); }
+        if (!JsonNode.DeepEquals(response, expected))
+            throw new PlanningConflictException("The interaction preflight did not receive its exact non-authorizing challenge.");
     }
 
     internal static LLMRequest ExecutionRequest(LLMRequest request, string run, int call)

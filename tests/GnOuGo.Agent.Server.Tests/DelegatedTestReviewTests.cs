@@ -11,6 +11,48 @@ public sealed class DelegatedTestReviewTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("{\"response\":true}")]
+    [InlineData("{\"interaction_preflight\":\"stale\"}")]
+    [InlineData("invalid-json")]
+    public async Task InteractionPreflightRejectsUnavailableOrNonmatchingChannels(string response)
+    {
+        using var input = new StringReader(response); using var output = new StringWriter();
+        if (response.Length == 0)
+            await Assert.ThrowsAsync<InvalidOperationException>(() => LiveWorkflowEvaluation.RequireInteractionAsync(input, output, "fresh-challenge", Ct));
+        else await Assert.ThrowsAsync<PlanningConflictException>(() => LiveWorkflowEvaluation.RequireInteractionAsync(input, output, "fresh-challenge", Ct));
+        Assert.Contains("grants no execution permission", output.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task InteractionPreflightAcceptsOnlyItsFreshChallengeAndChecksTheBuild()
+    {
+        using var input = new StringReader("{\"interaction_preflight\":\"fresh-challenge\"}");
+        using var output = new StringWriter();
+        await LiveWorkflowEvaluation.RequireInteractionAsync(input, output, "fresh-challenge", Ct);
+        var source = new string('a', 40);
+        LiveWorkflowEvaluation.RequireBuildSource("1.0.0+" + source, source);
+        Assert.Throws<PlanningConflictException>(() => LiveWorkflowEvaluation.RequireBuildSource("1.0.0+" + new string('b', 40), source));
+        Assert.Throws<PlanningConflictException>(() => LiveWorkflowEvaluation.RequireBuildSource(null, source));
+    }
+
+    [Fact]
+    public void McpBuildPreflightReadsMetadataWithoutStartingTheServer()
+    {
+        var assembly = typeof(WorkflowEngine).Assembly;
+        var version = System.Reflection.CustomAttributeExtensions.GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>(assembly)!.InformationalVersion;
+        var source = version[(version.LastIndexOf('+') + 1)..];
+        var servers = new Dictionary<string, GnOuGo.AI.Core.McpServerOptions>
+            { ["test-server"] = new() { Type = "stdio", Command = "dotnet", Args = [assembly.Location] } };
+        var builds = LiveWorkflowEvaluation.CaptureMcpBuilds(servers, source);
+        Assert.Equal(source, builds["test-server"]!["source"]!.ToString());
+        Assert.Equal(64, builds["test-server"]!["sha256"]!.ToString().Length);
+        Assert.Throws<PlanningConflictException>(() => LiveWorkflowEvaluation.CaptureMcpBuilds(servers, new string('a', 40)));
+        servers["test-server"].Args = ["run", "--project", "mutable.csproj"];
+        Assert.Throws<PlanningConflictException>(() => LiveWorkflowEvaluation.CaptureMcpBuilds(servers, source));
+    }
+
     [Fact]
     public async Task VisibleMethodsStillRequireConcreteAuthorityAndCanonicalAliasesRemainDenied()
     {

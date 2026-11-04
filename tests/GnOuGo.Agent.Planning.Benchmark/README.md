@@ -332,3 +332,37 @@ or an incompatible proposed result interface. Report received type failures with
 silently widening navigation types or charging evidence retrieval as a repair.
 The six-run business qualification remains two consecutive intervention-free successes
 per scenario on the same production source/profile, including both Collections variants.
+
+## Explicit model configuration amendments
+
+New live launches identify both `--model <exact-snapshot>` and
+`--campaign-configuration <registered-id>`. The existing campaign remains the
+financial owner. Original configuration, spending, reservations, retry policy,
+closures and historical cohorts remain unchanged. A new immutable amendment may
+capture the saved model and its exact deployment URL; provider, request policy
+and other campaign settings cannot change through that operation.
+
+Use `--schema-portability inspect-configuration` to obtain the previous pin hash
+and `inspect-deployment --model <exact-snapshot>` for redacted readiness. Then
+preview `register-configuration --model <exact-snapshot>
+--expected-configuration <previous-pin-hash> --authorization <explicit-reference>`.
+Apply the exact preview with `--apply --expected-amendment <preview-id>`.
+Registration runs under the campaign lease, is idempotent, checks model limits,
+structured-output/reasoning capabilities and pricing, and creates no inference
+request or financial allocation. A changed preview or reused conflicting
+authorization is rejected before writing. No saved deployment setting is changed.
+
+The selected amendment binds fresh cohort manifests, corpus runs and physical
+session policies. A different amendment cannot continue a retained run. Model
+changes start new profiles and all qualification streaks; old-model results are
+not comparable measurements of code improvements alone.
+
+Before generation and execution, the live launcher verifies benchmark, Planning
+and Core source stamps and exchanges a fresh `interaction_preflight` JSON challenge
+through its actual input channel. Missing input, EOF or a stale answer fails before
+generation. This challenge grants no artifact approval or invocation permission.
+Amazon/Review PR also inspect the exact managed MCP binary metadata without
+starting the servers and freeze binary SHA256/source evidence in their manifests.
+Run the actual command or physical launcher with `tty=true`; do not launch it from
+a script whose source consumes stdin. Execution repeats preflight and retains
+exact artifact-bound delegated review and each individual invocation confirmation.

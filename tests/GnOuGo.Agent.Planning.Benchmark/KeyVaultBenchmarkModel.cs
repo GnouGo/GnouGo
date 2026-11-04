@@ -103,6 +103,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             ["max_corrections"] = request.MaxReplanAttempts, ["construction_preset"] = request.Options["construction_preset"]?.DeepClone(),
             ["llm_budget"] = request.Options["llm_budget"]?.DeepClone() };
         value["planning_format"] = 11;
+        if (_campaign.ConfigurationId is { } configurationId) value["campaign_configuration"] = configurationId;
         value["construction_review_headroom"] = 2;
         value["construction_review_output_tokens"] = PlanningConstructionPhasePolicies.Resolve(request, "construction_local_judge").OutputTokens;
         value["construction_limits"] = request.Options["construction_limits"]?.DeepClone();
@@ -144,8 +145,11 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         }
         catch (WorkflowRuntimeException ex) when (ex.Code == ErrorCodes.LlmBudgetUnverifiable)
         { accounting = new() { ["ready"] = false, ["error"] = ex.Code, ["details"] = ex.Details?.DeepClone() }; }
+        var structured = await SupportsStructuredOutputAsync(Provider, Model, ct);
+        var supportedReasoning = await SupportedReasoningLevelsAsync(Provider, Model, ct);
         var limitsReady = planning is > 0 && mapping is > 0;
         return new JsonObject { ["provider"] = Provider, ["model"] = Model, ["configuration_hash"] = ConfigurationFingerprint,
+            ["structured_output_supported"] = structured, ["medium_reasoning_supported"] = supportedReasoning?.Contains("medium", StringComparer.OrdinalIgnoreCase),
             ["metadata_sources"] = MetadataSources.DeepClone(), ["declared_metadata_hash"] = metadata is null ? null : PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(metadata)),
             ["supports_reasoning_effort"] = metadata?.Capabilities.SupportsReasoningEffort,
             ["supported_reasoning_efforts"] = metadata?.Capabilities.SupportedReasoningEfforts is { } efforts
@@ -261,7 +265,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         foreach (var item in overrides ?? new Dictionary<string, LLMModelMetadata>()) runtime.UpsertModelOverride(item.Key, item.Value);
         options.ModelOverrides = runtime.Current.ModelOverrides;
     }
-    internal static async Task<KeyVaultBenchmarkModel> CreateAsync(string providerName, string? expectedModel, BenchmarkCampaign campaign, string root, CancellationToken ct, bool pinConfiguration = true)
+    internal static async Task<KeyVaultBenchmarkModel> CreateAsync(string providerName, string? expectedModel, BenchmarkCampaign campaign, string root, CancellationToken ct, bool pinConfiguration = true, string? campaignConfiguration = null)
     {
         var services = new ServiceCollection(); services.AddLogging();
         var vault = WorkspaceDatabasePath(root, null, KeyVaultDatabasePathResolver.DefaultRelativePath);
@@ -292,18 +296,31 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             ["persisted_user_config_available"] = File.Exists(database), ["persisted_override_count"] = userOverrides?.Count ?? 0,
             ["persisted_overrides_hash"] = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(userOverrides)) };
         var settings = options.ResolveProvider(options.DefaultProvider) ?? throw new InvalidOperationException("No configured provider.");
-        if (!pinConfiguration) return new(campaign, options) { MetadataSources = sources };
-        // Preserve the initial configuration; explicit later budget authorizations have their own durable history.
-        await campaign.PinAsync(new() { ["provider"] = options.DefaultProvider, ["model"] = options.DefaultModel, ["endpoint"] = settings.Url,
-            ["request_policy"] = JsonSerializer.SerializeToNode(settings.RequestPolicy), ["reasoning"] = "medium", ["max_input_tokens"] = 96_000,
-            ["max_output_tokens"] = 32_768, ["max_calls"] = 8, ["max_repairs"] = 2, ["cost_ceiling_eur"] = 50 }, ct);
-        var retryConfiguration = JsonSerializer.SerializeToNode(settings.RetryPolicy)!.AsObject();
-        var pinnedRetry = await campaign.LoadAsync("planning-evaluation-configuration", "http-retry-policy", ct);
-        if (pinnedRetry is not null && !JsonNode.DeepEquals(pinnedRetry, retryConfiguration))
-            throw new InvalidOperationException("The campaign HTTP retry policy changed.");
-        if (pinnedRetry is null) await campaign.SaveAsync("planning-evaluation-configuration", "http-retry-policy", retryConfiguration, ct);
-        return new(campaign, options) { MetadataSources = sources };
+        var result = new KeyVaultBenchmarkModel(campaign, options) { MetadataSources = sources };
+        if (!pinConfiguration && campaignConfiguration is null) return result;
+        try
+        {
+            // Preserve the initial configuration; amendments never rewrite the initial pin.
+            if (campaignConfiguration is null) await campaign.PinAsync(result.CampaignConfiguration(), ct);
+            else await campaign.SelectConfigurationAsync(campaignConfiguration, result.CampaignConfiguration(), result.ConfigurationFingerprint, ct);
+            var retryConfiguration = JsonSerializer.SerializeToNode(settings.RetryPolicy)!.AsObject();
+            var pinnedRetry = await campaign.LoadAsync("planning-evaluation-configuration", "http-retry-policy", ct);
+            if (pinnedRetry is not null && !JsonNode.DeepEquals(pinnedRetry, retryConfiguration))
+                throw new InvalidOperationException("The campaign HTTP retry policy changed.");
+            if (pinnedRetry is null)
+            {
+                if (!pinConfiguration) throw new PlanningConflictException("The original campaign retry policy is missing.");
+                await campaign.SaveAsync("planning-evaluation-configuration", "http-retry-policy", retryConfiguration, ct);
+            }
+            return result;
+        }
+        catch { result.Dispose(); throw; }
     }
+    internal JsonObject CampaignConfiguration() => new() { ["provider"] = Provider, ["model"] = Model,
+        ["endpoint"] = _options.ResolveProvider(Provider)!.Url, ["request_policy"] = JsonSerializer.SerializeToNode(_options.ResolveProvider(Provider)!.RequestPolicy),
+        ["reasoning"] = "medium", ["max_input_tokens"] = 96_000, ["max_output_tokens"] = 32_768,
+        ["max_calls"] = 8, ["max_repairs"] = 2, ["cost_ceiling_eur"] = 50 };
+
     internal static string WorkspaceDatabasePath(string root, string? configuredPath, string defaultPath)
         => Path.GetFullPath(Path.Combine(Path.GetFullPath(root), string.IsNullOrWhiteSpace(configuredPath) ? defaultPath : configuredPath));
     internal static IKeyVaultRecordStore WorkspaceRecords(string root)

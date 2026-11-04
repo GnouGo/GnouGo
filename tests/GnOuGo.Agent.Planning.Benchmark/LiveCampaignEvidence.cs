@@ -8,7 +8,7 @@ using GnOuGo.Planning.Examples;
 
 internal static class LiveCampaignEvidence
 {
-    internal static async Task<JsonObject> PinAsync(BenchmarkCampaign campaign, string source, string provider, string model, string configurationFingerprint, string cohort, int productLimit = 3, JsonObject? planningConfiguration = null)
+    internal static async Task<JsonObject> PinAsync(BenchmarkCampaign campaign, string source, string provider, string model, string configurationFingerprint, string cohort, int productLimit = 3, JsonObject? planningConfiguration = null, JsonObject? runtimeBuilds = null)
     {
         var manifest = new JsonObject
         {
@@ -26,6 +26,8 @@ internal static class LiveCampaignEvidence
             ["harness_tree"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD:tests/GnOuGo.Agent.Planning.Benchmark"),
             ["scenario_count"] = 3, ["repetitions"] = 2, ["oracle_version"] = "real-workflows-v1"
         };
+        if (campaign.ConfigurationId is { } configurationId) manifest["campaign_configuration"] = configurationId;
+        if (runtimeBuilds is not null) manifest["runtime_builds"] = runtimeBuilds.DeepClone();
         if (productLimit != 3) manifest["max_products"] = productLimit;
         manifest["planning_format"] = 11;
         if (planningConfiguration is not null)
@@ -126,6 +128,7 @@ internal static class LiveCampaignEvidence
                         throw new InvalidOperationException("Collections qualification requires exact source, identity and frozen configuration.");
                     var profile = new JsonObject { ["configuration"] = configuration.DeepClone(),
                         ["provider"] = result?["provider"]?.DeepClone(), ["model"] = result?["model"]?.DeepClone(),
+                        ["campaign_configuration"] = result?["campaign_configuration"]?.DeepClone(),
                         ["manifest"] = result?["manifest"]?.DeepClone(), ["oracle_version"] = run["artifact_oracle_version"]?.DeepClone() };
                     selected.Add((repetition, key, run, profile));
                 }

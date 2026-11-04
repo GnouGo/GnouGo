@@ -68,7 +68,9 @@ internal static class StabilizationBenchmark
         var creation = settings is null ? new PlanningRequest() : PlanningBenchmarkMeasurements.RestoreConfiguration(settings);
         PlanningBenchmarkMeasurements.ConfigureRequest(creation, args, settings is not null);
         if (settings is null) await campaign.SaveAsync("planning-evaluation-configuration", settingsKey, PlanningBenchmarkMeasurements.Configuration(creation));
-        using var model = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", Option("--model"), campaign, root, CancellationToken.None);
+        await LiveWorkflowEvaluation.RequireConsolePreflightAsync();
+        using var model = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", SchemaPortabilityCampaign.RequiredOption(args, "--model"), campaign, root, CancellationToken.None,
+            campaignConfiguration: SchemaPortabilityCampaign.RequiredOption(args, "--campaign-configuration"));
         var manifestHash = PlanningGraphCompiler.Fingerprint(manifest.ToJsonString());
         Console.WriteLine(new JsonObject { ["manifest"] = manifest, ["source"] = source, ["harness_commit"] = Git("rev-parse", "HEAD"), ["provider"] = model.Provider, ["model"] = model.Model }.ToJsonString());
         foreach (var name in selected) for (var i = 1; i <= repetitions; i++)

@@ -162,7 +162,9 @@ if (inspectKey is { } inspect)
     }
     Console.WriteLine(evidence?.ToJsonString() ?? "null"); return;
 }
-using var configured = !live || providerName is null ? null : await KeyVaultBenchmarkModel.CreateAsync(providerName, Option("--model"), campaign!, workspace, CancellationToken.None);
+if (live) await LiveWorkflowEvaluation.RequireConsolePreflightAsync();
+using var configured = !live || providerName is null ? null : await KeyVaultBenchmarkModel.CreateAsync(providerName, SchemaPortabilityCampaign.RequiredOption(args, "--model"), campaign!, workspace, CancellationToken.None,
+    campaignConfiguration: SchemaPortabilityCampaign.RequiredOption(args, "--campaign-configuration"));
 ILLMClient? model = (ILLMClient?)configured ?? (!live || command is null ? null : new CommandModel(command));
 string RunKey(string runPhase, string name, int repetition)
     => PlanningBenchmarkMeasurements.CorpusRunKey(source, runPhase, null, cohort, name, repetition);
@@ -229,6 +231,12 @@ foreach (var name in names)
     run ??= new JsonObject { ["artifact_oracle_version"] = SyntheticArtifactOracle.VersionFor(name),
         ["diagnostic_history"] = new JsonArray(), ["usage_receipts"] = new JsonObject(), ["usage_complete"] = true,
         ["first_pass_valid"] = false, ["final_review"] = false, ["elapsed_ms"] = 0L };
+    if (campaign?.ConfigurationId is { } configurationId)
+    {
+        if (!freshRun && run["campaign_configuration"]?.ToString() != configurationId)
+            throw new PlanningConflictException("The retained corpus run belongs to another campaign configuration.");
+        run["campaign_configuration"] = configurationId;
+    }
     var state = (run["session"] is { } saved ? BenchmarkCampaign.ReadCurrentSession(saved) : new PlanningSession
     { Request = new() { TenantId = "benchmark", SessionId = PlanningGraphCompiler.Fingerprint(campaignId + ":" + key), Name = name, Prompt = PlanningBenchmarkCases.Prompt(name),
         MaxModelCalls = creation.MaxModelCalls, MaxReplanAttempts = creation.MaxReplanAttempts,
@@ -399,6 +407,7 @@ foreach (var name in names)
     run["elapsed_ms"] = run["elapsed_ms"]!.GetValue<long>() + clock.ElapsedMilliseconds;
     await Checkpoint(state, CancellationToken.None);
     var rowResult = new JsonObject { ["campaign"] = campaignId, ["source_commit"] = source, ["harness_commit"] = harnessSource, ["phase"] = phase,
+        ["campaign_configuration"] = campaign?.ConfigurationId,
         ["manifest"] = SchemaPortabilityCampaign.MeasurementManifest(state.Request),
         ["comparison_manifest"] = SchemaPortabilityCampaign.MeasurementManifest(state.Request, comparison: true),
         ["configuration"] = PlanningBenchmarkMeasurements.Configuration(state.Request),

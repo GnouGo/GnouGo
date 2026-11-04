@@ -13,6 +13,7 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
 {
     internal const string Author = "GnOuGo.Planning.Benchmark";
     internal string Id { get; } = ValidateId(id);
+    internal string? ConfigurationId { get; private set; }
     internal IKeyVaultRecordStore Records => records;
     internal string? StopReason { get; private set; }
     private static string ValidateId(string value) => value.Length is >= 1 and <= 80 && value.All(c => char.IsAsciiLetterOrDigit(c) || c == '-')
@@ -29,6 +30,61 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
         var saved = await LoadAsync("planning-evaluation-configuration", "configuration", ct);
         if (saved is not null && !JsonNode.DeepEquals(saved, configuration)) throw new InvalidOperationException("The campaign configuration changed; no model request was dispatched.");
         if (saved is null) await SaveAsync("planning-evaluation-configuration", "configuration", configuration, ct);
+    }
+
+    // The caller holds the campaign lease. An explicit amendment adds authority
+    // for fresh runs only; the original pin and financial records are immutable.
+    internal async Task<JsonObject> RegisterConfigurationAsync(JsonObject configuration, string hostHash, string metadataHash,
+        string expectedPreviousHash, string authorization, bool apply, CancellationToken ct, string? expectedIdentity = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(authorization);
+        var original = await LoadAsync("planning-evaluation-configuration", "configuration", ct)
+            ?? throw new PlanningConflictException("The existing campaign configuration is missing.");
+        if (PlanningGraphCompiler.Fingerprint(original.ToJsonString()) != expectedPreviousHash ||
+            hostHash.Length != 64 || metadataHash.Length != 64 || !hostHash.All(char.IsAsciiHexDigit) || !metadataHash.All(char.IsAsciiHexDigit))
+            throw new PlanningConflictException("The amendment must identify the exact previous configuration and inspected host/model metadata.");
+        var unchanged = configuration.DeepClone();
+        unchanged["model"] = original["model"]?.DeepClone();
+        if (original.ContainsKey("endpoint") || unchanged.AsObject().ContainsKey("endpoint"))
+            unchanged["endpoint"] = original["endpoint"]?.DeepClone();
+        if (string.IsNullOrWhiteSpace(configuration["model"]?.ToString()) || !JsonNode.DeepEquals(unchanged, original))
+            throw new PlanningConflictException("A model amendment cannot change other campaign settings. Conflicting fields: " +
+                string.Join(", ", original.Select(pair => pair.Key).Union(unchanged.AsObject().Select(pair => pair.Key), StringComparer.Ordinal)
+                    .Where(key => !JsonNode.DeepEquals(original[key], unchanged[key])).Order(StringComparer.Ordinal)) + ".");
+        var material = new JsonObject { ["previous_configuration_hash"] = expectedPreviousHash,
+            ["configuration"] = configuration.DeepClone(), ["host_configuration_hash"] = hostHash,
+            ["declared_metadata_hash"] = metadataHash, ["authorization"] = authorization };
+        var identity = PlanningGraphCompiler.Fingerprint(material.ToJsonString());
+        if (expectedIdentity is not null && expectedIdentity != identity)
+            throw new PlanningConflictException("The proposed amendment changed after its concrete preview; no configuration was written.");
+        var authorizationKey = "configuration-authorization:" + PlanningGraphCompiler.Fingerprint(authorization);
+        var priorAuthorization = await LoadAsync("planning-evaluation-configuration", authorizationKey, ct);
+        if (priorAuthorization is not null && priorAuthorization["configuration_id"]?.ToString() != identity)
+            throw new PlanningConflictException("This authorization already identifies a different immutable configuration amendment.");
+        var saved = await LoadAsync("planning-evaluation-configuration", "configuration:" + identity, ct);
+        if (saved is not null && !JsonNode.DeepEquals(saved, material))
+            throw new PlanningConflictException("The registered configuration amendment conflicts with its exact identity.");
+        if (apply)
+        {
+            // Write the authorization first: interrupted registration cannot later
+            // reuse it for a different model. Repeating the exact operation is safe.
+            if (priorAuthorization is null) await SaveAsync("planning-evaluation-configuration", authorizationKey,
+                new() { ["configuration_id"] = identity }, ct);
+            if (saved is null) await SaveAsync("planning-evaluation-configuration", "configuration:" + identity, material, ct);
+        }
+        return new() { ["configuration_id"] = identity, ["material"] = material,
+            ["applied"] = apply, ["ceiling_eur"] = await CostCeilingAsync(ct) };
+    }
+
+    internal async Task SelectConfigurationAsync(string identity, JsonObject configuration, string hostHash, CancellationToken ct)
+    {
+        var saved = await LoadAsync("planning-evaluation-configuration", "configuration:" + identity, ct);
+        if (saved is null || identity != PlanningGraphCompiler.Fingerprint(saved.ToJsonString()) ||
+            !JsonNode.DeepEquals(saved["configuration"], configuration) || saved["host_configuration_hash"]?.ToString() != hostHash ||
+            (await LoadAsync("planning-evaluation-configuration", "configuration-authorization:" +
+                PlanningGraphCompiler.Fingerprint(saved["authorization"]!.ToString()), ct))?["configuration_id"]?.ToString() != identity)
+            throw new PlanningConflictException("The selected campaign configuration is missing, changed or does not match this deployment.");
+        ConfigurationId = identity;
     }
     internal async Task<decimal> CostCeilingAsync(CancellationToken ct = default)
         => (await LoadAsync("planning-evaluation-configuration", "spending-authorization", ct))?["ceiling_eur"]?.GetValue<decimal>() ?? 50m;

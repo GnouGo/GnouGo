@@ -14,6 +14,62 @@ public sealed class BenchmarkCampaignTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
+    public async Task ModelAmendmentPreservesOriginalFinancialStateAndRegistersExactlyOnce()
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "model-amendment");
+        var original = new JsonObject { ["provider"] = "deployment", ["model"] = "previous-snapshot", ["endpoint"] = "old-route", ["max_calls"] = 8 };
+        await campaign.PinAsync(original, Ct);
+        var next = original.DeepClone().AsObject(); next["model"] = "new-snapshot";
+        next["endpoint"] = "new-deployment-route";
+        var previous = PlanningGraphCompiler.Fingerprint(original.ToJsonString());
+        var host = new string('a', 64); var metadata = new string('b', 64);
+        var journal = new BenchmarkHttpJournal(campaign, "unknown:1:hash", 100, 20, .1m, 64, .1m, 1, StrictTransport());
+        await journal.SaveAsync(new() { Attempts = [new() { Id = "unknown:1:hash:1" }] }, Ct);
+        var accounting = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
+        var writes = records.Writes;
+        var preview = await campaign.RegisterConfigurationAsync(next, host, metadata, previous, "exact-model-authorization", false, Ct);
+        Assert.Equal(writes, records.Writes);
+        Assert.False(preview["applied"]!.GetValue<bool>());
+        await Assert.ThrowsAsync<PlanningConflictException>(() => campaign.RegisterConfigurationAsync(next, host, metadata, previous,
+            "exact-model-authorization", true, Ct, new string('c', 64)));
+        Assert.Equal(writes, records.Writes);
+        var applied = await campaign.RegisterConfigurationAsync(next, host, metadata, previous, "exact-model-authorization", true, Ct);
+        var id = applied["configuration_id"]!.ToString(); writes = records.Writes;
+        await campaign.RegisterConfigurationAsync(next, host, metadata, previous, "exact-model-authorization", true, Ct);
+        Assert.Equal(writes, records.Writes);
+        Assert.Equal(preview["configuration_id"]!.ToString(), id);
+        Assert.True(JsonNode.DeepEquals(original, await campaign.LoadAsync("planning-evaluation-configuration", "configuration", Ct)));
+        Assert.True(JsonNode.DeepEquals(accounting, await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct)));
+        Assert.Equal(50m, await campaign.CostCeilingAsync(Ct));
+        await campaign.SelectConfigurationAsync(id, next, host, Ct);
+        Assert.Equal(id, campaign.ConfigurationId);
+        await Assert.ThrowsAsync<PlanningConflictException>(() => campaign.SelectConfigurationAsync(id, original, host, Ct));
+        await Assert.ThrowsAsync<PlanningConflictException>(() => campaign.SelectConfigurationAsync(id, next, new string('c', 64), Ct));
+        next["model"] = "conflicting-snapshot";
+        await Assert.ThrowsAsync<PlanningConflictException>(() => campaign.RegisterConfigurationAsync(next, host, metadata, previous,
+            "exact-model-authorization", true, Ct));
+        Assert.Equal(writes, records.Writes);
+    }
+
+    [Theory]
+    [InlineData("previous-pin")]
+    [InlineData("provider")]
+    [InlineData("metadata")]
+    public async Task ModelAmendmentRejectsChangedAuthorityBeforeWriting(string defect)
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "model-conflict");
+        var original = new JsonObject { ["provider"] = "deployment", ["model"] = "previous", ["endpoint"] = "original" };
+        await campaign.PinAsync(original, Ct);
+        var next = original.DeepClone().AsObject(); next["model"] = "new";
+        if (defect == "provider") next["provider"] = "changed";
+        var previous = defect == "previous-pin" ? new string('c', 64) : PlanningGraphCompiler.Fingerprint(original.ToJsonString());
+        var writes = records.Writes;
+        await Assert.ThrowsAsync<PlanningConflictException>(() => campaign.RegisterConfigurationAsync(next, new string('a', 64),
+            defect == "metadata" ? "unknown" : new string('b', 64), previous, "authorization", true, Ct));
+        Assert.Equal(writes, records.Writes);
+    }
+
+    [Fact]
     public void OptimizationDiagnosticsAreFreshCapturedAuthoritySeparateFromTokenAdvisory()
     {
         var request = new PlanningRequest();
