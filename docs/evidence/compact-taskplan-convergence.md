@@ -15,8 +15,16 @@ The original nullable assertion, valid operands/order, independent work, failure
 cleanup remain preserved; assertion removal and other producers remain rejected.
 **All 2,672 owning Planning cases pass with warnings as errors**, including six new
 cases with actual simulated v15 execution. [Owning validation](business-selection-c89f2e5c-owning-validation.json).
-Matching frozen benchmark/MCP builds, eleven publication stages and an isolated
-exact-source full-solution run are in progress. The established Amazon 32K profile is
+Matching frozen benchmark/Browser/Document builds pass with zero warnings/errors.
+[All eleven exact-source publication stages pass](business-selection-c89f2e5c-publication-validation.json),
+including Native AOT execution and published encrypted-storage/exact-receipt recovery,
+with zero diagnostics and unchanged source. Exact-source full-solution testing remains
+active. Fresh `bizc89f2e5camz32a-amazon-1` launches after
+[15:28:18 UTC configuration/financial/exact phase admission](business-selection-c89f2e5c-amazon32a-live-admission.json)
+and unused-identity verification, retaining profile
+`96a35087433a0d9751186a58cd9a2cbffcdf2cd552037b6fe727b80b5b2576ae`,
+EUR 201.71542319439718091593983108 available, EUR 20.983630020574291081492083370
+phase headroom and zero unresolved requests. The established Amazon 32K profile is
 unchanged; qualification remains **0/6** and live benefit remains unproven.
 
 Previous correction **`1bb59305de63d69cff1a22b14d37fc0d4dffffc4`** projects existing
