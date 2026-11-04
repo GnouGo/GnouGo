@@ -8,21 +8,55 @@ The current delivery gate is **two consecutive intervention-free executions per 
 
 Latest technically validated production source is **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`**: [**7,614 full-solution passes, zero failures and thirteen declared skips across 33 assemblies**](business-selection-1d6632c5-solution-validation.json), plus [**eleven passing publication stages**](business-selection-1d6632c5-publication-validation.json), with zero compiler/publication diagnostics. It preserves redacted authentication-stage provenance without changing retry, accounting, retention or replay authority. These results establish technical validation, not live qualification.
 
-Current correction **`cd8641651acb36b39584287e5990c304561e7339`** has
+Correction **`cd8641651acb36b39584287e5990c304561e7339`** has
 [**2,645 owning Planning passes on verified matching source postimages**](business-selection-cd864165-owning-validation.json)
 and [**eleven exact-source publication stages passed**](business-selection-cd864165-publication-validation.json),
 including actual Native AOT and published encrypted-storage/exact-receipt smoke,
 with zero warnings/errors and unchanged source. Its exact-source full solution
-is still running separately. Fresh Amazon `bizcd864165amz01-amazon-1` launched
-after **10:23:12 UTC** admission on the unchanged profile, with zero unresolved
-requests and **EUR 215.79874012793327537877192699** available before dispatch.
-The new source has no completed live result or runtime qualification yet.
+is still running separately.
 
-Latest completed live diagnostic remains attributed to **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`**. After the exact authorized preceding closure, Amazon **`biz1d6632c5amz02-amazon-1`** received all twelve logical completions across thirteen physical attempts and stopped at local business review, before an accepted checkpoint or artifact. A nine-task group passed deterministic repair; the Judge maintained its finding that exported file-write success does not establish successful search/extraction. The mixed task/group-scope target was routed to evidence-only reconsideration, with no editable patch, despite the group being newly supplied by the candidate. Its stopped records remain unchanged and have no pending request or execution; the corrected source's independent diagnostic is described above. Final-source qualification remains **0/6**.
+Latest completed live diagnostic is **`bizcd864165amz01-amazon-1`** on that source.
+It stopped after eleven received completions and two automatic corrections: browser
+reads still had empty arguments, and the exact repeated plan correctly triggered
+`REPLAN_NO_PROGRESS`. The retained schemas for both repair calls forced empty input
+lists despite the original operation supporting optional URL arguments. No checkpoint,
+artifact, approval or execution occurred; the preceding scope-export fix was not
+exercised. Available exposure afterward is **EUR 214.01795919940657352708572962**,
+with zero unresolved requests and unchanged ceiling. Final-source qualification
+remains **0/6**. [Source-bound terminal evidence](business-selection-cd864165-amazon-outcome.json).
 
 The preceding `ebf01483` source retains its [2,618-case Planning result](business-selection-ebf01483-planning-validation.json), [fresh-initialization regression](business-selection-fresh-initialization-validation.json), [eleven-stage publication result](business-selection-ebf01483-publication-validation.json) and recovered **7,579-pass, thirteen-skip** solution result. Earlier [owning suites](business-selection-1884a658-owning-validation.json) and [54 actual host/UI cases](business-selection-1884a658-host-ui-validation.json) retain their precise source boundaries. Focused counts overlap and are not added; failed captures remain preserved.
 
 The prior `a23cbbb2` baseline remains source-specific evidence: [2,425 Planning cases](business-block-a23cbbb2-continuation-review-validation.json), [7,327 full-solution passes with thirteen declared skips](business-block-a23cbbb2-solution-validation.json), and [publication checks](business-block-a23cbbb2-publication-validation.json). Those technical results did not establish live business convergence.
+
+### 4 November 2026, 10:41 UTC: optional-input repair grammar stop
+
+Amazon `bizcd864165amz01-amazon-1` completed **11 logical calls / 12 physical
+attempts**, with eleven retained receipts, two local Judges and two automatic
+corrections. The original nine-task group and ten-task replacements received no
+accepted checkpoint. The Judge found that search and product-page reads omit the
+URL arguments; a dependency on an URL-producing helper does not pass its output.
+Both repair requests' exact response schemas impose `minItems:0,maxItems:0` on
+those operation inputs. Both raw responses retain empty arrays, so this is a host
+representation defect rather than a received argument being lost in normalization.
+The second canonical repeat correctly stopped. No stopped plan is edited or replayed.
+
+The complete Judge requests measure **37,369 and 73,321 bytes**. Known usage is
+**93,245 input / 25,143 output tokens**, including **18,260 reasoning tokens**
+already in output. Known cost is **EUR 1.0917926469272743536988997226**, plus
+**EUR 0.6889882815994274979872976116** retained for request seven's confirmed
+HTTP **500 then 200** sequence. Planning took **1,065,072 ms**. No global review,
+artifact, approval, execution or oracle occurred. The ledger has **6,874 physical
+calls, 150 historical unknown attempts, 62 closures and zero unresolved requests**.
+Known spending is **EUR 398.00815400540933342418598341**, reservations
+**EUR 128.00399062789039759117323427**, available exposure
+**EUR 214.01795919940657352708572962** under the unchanged ceiling.
+
+The generic correction exposes the cited operation's original editable optional
+inputs during business repair and reads bound inputs from the current candidate,
+including group bodies. Its six focused regressions pass; full owning validation
+is running. These tests establish repair representation, not live convergence.
+[Exact schema/response/accounting evidence](business-selection-cd864165-amazon-outcome.json).
 
 ### 4 November 2026: bounded tentative-scope export repair
 
