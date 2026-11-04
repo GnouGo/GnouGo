@@ -48,6 +48,24 @@ justified by this operator-launch error. Fresh `bizc89f2e5camz32b-amazon-1` laun
 after [16:02:30 UTC exact admission](business-selection-c89f2e5c-amazon32b-live-admission.json)
 and unused-identity verification, with the same source, binaries, provider/model,
 profile, EUR 20.983630020574291081492083370 headroom and zero unresolved requests.
+That run subsequently stops after fourteen logical receipts / fifteen physical
+attempts, one accepted reusable group and no root invocation. URL repair passes
+renewed local review. Selection receives both current contractual reachability
+gaps but claims completion; deterministic validation rejects it. After abandonment,
+two all-null selections repeat despite those findings and the required action
+diagnostic, so the unchanged repeat guard stops. No new omitted host context or
+generic defect is demonstrated. No artifact, global review or execution occurs.
+[Exact generation outcome](business-selection-c89f2e5c-amazon32b-repeat-stop.json).
+Known cost is EUR 1.0083817872797209052688075856, with
+EUR 1.1322211289024062975221397263 retained reservation. All fourteen requests
+have receipts; no new closure is required. Fresh normal generation
+`bizc89f2e5camz32c-amazon-1` launches after
+[16:24:51 UTC admission](business-selection-c89f2e5c-amazon32c-live-admission.json)
+and unused-identity verification, preserving source, binaries and profile.
+Available exposure is EUR 197.28703514537669607829782376, with unchanged phase
+headroom, 63 permanent closures and zero unresolved requests. Qualification
+remains **0/6**; source-specific full-solution retry remains active.
+
 
 Previous correction **`1bb59305de63d69cff1a22b14d37fc0d4dffffc4`** projects existing
 deterministic contractual coverage gaps into
