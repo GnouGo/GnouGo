@@ -349,6 +349,12 @@ internal static partial class PlanningCompactConstruction
     private static void AcceptContinuation(PlanningSession state)
     {
         var compact = State(state); var count = state.Construction!.Checkpoints.Count;
+        // A reviewed replacement can finish the responsibility without using an
+        // earlier, entirely unimplemented navigation strategy. Abandon that
+        // strategy; never claim its typed prerequisite was supplied or resume it.
+        if (compact.ResumingStepId is null && state.Construction.Candidate is { AuthorizedPaths: null } candidate &&
+            candidate.Extension.ContinuationBinding is null && candidate.Extension.BoundaryTransitions is not { Count: > 0 })
+            AbandonUnimplementedBlockNavigation(state);
         if (compact.ResumingStepId is { } id && compact.SuspendedSteps?.SingleOrDefault(item => item.Id == id && item.Status == "resuming") is { } resumed)
             resumed.Status = "completed";
         compact.ResumingStepId = null;
@@ -361,6 +367,24 @@ internal static partial class PlanningCompactConstruction
                 else item.LastPrerequisiteCheckpoint = count;
             }
         ReconcileContinuations(state);
+    }
+
+    private static void AbandonUnimplementedBlockNavigation(PlanningSession state)
+    {
+        var compact = State(state);
+        if (compact.CurrentBlockId is not { } block) return;
+        var consumers = (compact.SuspendedSteps ?? []).Where(item => item.Consumer.BlockId == block).ToArray();
+        var waiting = consumers.Where(Active).ToArray();
+        if (waiting.Length == 0 || waiting.Any(item => item.Status != "waiting" || !ContinuationCurrent(state, item))) return;
+        var ids = consumers.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
+        // Do not retire a parent around retained work, an explicit association,
+        // a resumed consumer, or a chain crossing another responsibility.
+        if (consumers.Any(item => item.ParentId is { } parent && !ids.Contains(parent)) ||
+            (compact.SuspendedSteps ?? []).Any(item => item.ParentId is { } parent && ids.Contains(parent) && !ids.Contains(item.Id))) return;
+        var steps = consumers.Select(item => item.Consumer.Id).ToHashSet(StringComparer.Ordinal);
+        if (state.Construction!.Checkpoints.Any(checkpoint => checkpoint.Step is { } step && steps.Contains(step.Id) ||
+            (checkpoint.Fragment["acceptedConsumers"] as JsonArray ?? []).Any(item => item?["id"]?.ToString() is { } id && ids.Contains(id)))) return;
+        foreach (var item in waiting) item.Status = "abandoned";
     }
 
     private static bool ContinuationCurrent(PlanningSession state, PlanningConstructionSuspendedStep item, bool requireOpenScope = true)

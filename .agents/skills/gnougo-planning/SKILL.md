@@ -61,6 +61,14 @@ Context retrieval does not consume the separate single opportunity to correct a 
 
 Retain exact defects, affected values, permitted edits and failed attempts through repair. A grounded defect in an earlier technically accepted checkpoint awaiting business review permits bounded typed repair through existing revision authority; a null-patch reconsideration must not be its only route. Establish exact ownership and edit paths, invalidate affected dependencies and approval, preserve independent checkpoints, and require renewed review. A partial repair contributes to its requirement without claiming that requirement complete; retain only established completion claims. Reuse the shared typed binding grammar for diagnosed values. Do not offer a fixed wrapper around an invalid expression as a repair, or force unchanged multiline instructions into response-schema constants. A changed hash proves novelty, not resolution. Cosmetic edits do not repair an unchanged binding. A consumer can remain unchanged while a corrected upstream argument changes its result's meaning: check the retained implementation and dependency evidence before declaring non-progress, then require renewed business review. Technical revalidation cannot discharge an unchanged explicit repair obligation.
 
+A successfully reviewed replacement may abandon earlier unimplemented navigation
+cursors in that same business block. Retain their identities, typed needs and exact
+source/contract evidence as abandoned history; do not mark prerequisites fulfilled or
+resume those cursors. Preserve chains containing accepted consumer fragments,
+explicit associations, resumption, or links to another responsibility. Partial block
+acceptance grants no retirement authority. Original requirement closure, mandatory
+global review and artifact/execution approval remain separate.
+
 Carry a suspended consumer's exact bounded rejection reason through implementation discovery as well as selection. Its typed prerequisite alone need not explain why the preceding strategy failed. Keep that model-authored explanation beside its existing evidence link; it creates no original obligation, permission or repair authority.
 
 Automatic assertion correction may preserve an exact compiler-resolved nullable output or loop-item reference as `reference != null`, optionally combined with declared nonnullable Boolean fields from the same origin. Resolve item types in the assertion's lexical scope and distinguish item origins from output producers. Preserve valid operands/order, unrelated tasks, assertion failure and cleanup. Unknown or nonnullable values gain no inferred condition; replacing the original assertion with a literal or another producer remains forbidden.

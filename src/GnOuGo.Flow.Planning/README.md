@@ -28,6 +28,13 @@ another business block, implementation or draft. Uncovered obligations, invalida
 unresolved sources, missing public bindings, pending repairs and other open boundaries
 remain ineligible. A rejecting global verdict still blocks artifact approval.
 
+Successful block review may abandon an earlier entirely unimplemented navigation
+chain belonging to that block. The exact cursor/prerequisite/evidence records remain
+as abandoned history, with no invented binding or prerequisite fulfillment. Accepted
+consumer fragments, explicit associations, resumption and cross-block chains retain
+their existing recovery requirements. Partial acceptance cannot retire a strategy;
+original closure, global review and artifact approval remain mandatory.
+
 Ordinary sessions retain the recursive eight-task allowance. Fresh trusted diagnostic
 sessions remove optimization-only task/operation/graph schema bounds and validate full
 10- and 25-task contributions, including populated bodies, exports and cleanup.

@@ -139,6 +139,16 @@ unchanged-plan root closure; technical validation and mandatory global business 
 still decide whether the workflow fulfills every original obligation. No local verdict,
 completion claim or prepared closure authorizes an artifact or execution on its own.
 
+A reviewed replacement can also finish its business block after abandoning an earlier
+implementation strategy that never contributed accepted work. The host records that
+same-block navigation chain as `abandoned`, preserving the exact cursor identities,
+typed prerequisites and source/contract snapshots. This does not fulfill a prerequisite,
+resume a consumer, close an original obligation or approve execution. Chains owning
+accepted consumer fragments or associations, active resumption, and relationships
+crossing another block remain retained. Partial contributions cannot retire them.
+This prevents empty superseded cursors from outliving their completed responsibility
+and suppressing the ordinary final-review action.
+
 The separate `construction_implementation` response uses `baseHash` and exactly one
 available action: `step`, `evidenceRequests`, `clarifications`, or the conditionally
 offered `resumeStep`. That resumption supplies `continuationId`, `producerCheckpoint`
