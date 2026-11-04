@@ -20,8 +20,16 @@ is still running. Fresh `bizb613426eamz01-amazon-1` launched after **11:34:35 UT
 [configuration/financial/exact phase admission](business-selection-b613426e-live-admission.json)
 on the unchanged original profile. Available exposure was
 **EUR 212.63473171930996381244220158**, required phase headroom
-**EUR 20.617228732444762501118167993**, with zero unresolved requests. No completed
-live result on this source is claimed yet.
+**EUR 20.617228732444762501118167993**, with zero unresolved requests.
+The run subsequently stopped after **14 received calls / 14 physical attempts**,
+one accepted reusable group and no root invocation. Automatic URL repair and local
+review succeeded. Premature finalization detected missing reachable operations;
+repair suspended completion, then business selection returned all-null actions twice
+and the exact repeat guard correctly stopped it. Both requests offered legal actions,
+but omitted the retained unmet need; the retry also omitted its action diagnostic.
+These context omissions are demonstrated, while their causal effect on model behavior
+remains unproven. No global review, artifact or execution occurred. Qualification
+remains **0/6**. [Terminal evidence](business-selection-b613426e-amazon-outcome.json).
 
 Previous correction **`f5789246ff4325e128bae14e985e08572c5bd9f1`** exposes
 original editable optional inputs for diagnosed operations and preserves current
@@ -67,6 +75,41 @@ remains **0/6**. [Source-bound terminal evidence](business-selection-cd864165-am
 The preceding `ebf01483` source retains its [2,618-case Planning result](business-selection-ebf01483-planning-validation.json), [fresh-initialization regression](business-selection-fresh-initialization-validation.json), [eleven-stage publication result](business-selection-ebf01483-publication-validation.json) and recovered **7,579-pass, thirteen-skip** solution result. Earlier [owning suites](business-selection-1884a658-owning-validation.json) and [54 actual host/UI cases](business-selection-1884a658-host-ui-validation.json) retain their precise source boundaries. Focused counts overlap and are not added; failed captures remain preserved.
 
 The prior `a23cbbb2` baseline remains source-specific evidence: [2,425 Planning cases](business-block-a23cbbb2-continuation-review-validation.json), [7,327 full-solution passes with thirteen declared skips](business-block-a23cbbb2-solution-validation.json), and [publication checks](business-block-a23cbbb2-publication-validation.json). Those technical results did not establish live business convergence.
+
+### 4 November 2026, 11:48 UTC: reachable-use prerequisite and invalid selection repeat
+
+Amazon `bizb613426eamz01-amazon-1` receives **14 logical completions / 14 physical
+attempts**, all usage receipts, no unknown attempt, one accepted reusable group and
+no root task. Automatic repair adds the missing browser URL arguments; renewed local
+review accepts the group. Finalization correctly detects six operation commitments
+without a reachable invocation. The model suspends completion with an evidenced
+unmet need, preserving the accepted group. Business requests thirteen and fourteen
+then return `block:null,evidenceRequests:null,clarifications:null`. Their schemas
+offer legal blocks, an accepted-result dependency, evidence and clarification actions.
+The exact repeated response on unchanged useful state correctly stops.
+
+The selection request omits the retained unmet need, and its retry omits the
+`PROPOSAL_ACTION_INVALID` diagnostic. Generic regressions reproduce those context
+omissions. The bounded correction carries only model-authored unmet needs tied to
+remaining originals and required business-action findings; technical cursors,
+bindings, types and full rejection witnesses stay in implementation context. All
+three focused cases pass, preserve accepted work and retain the repeat stop. Owning
+validation is running. These are simulated regressions; future live behavior is
+unproven. No stopped plan is edited or replayed.
+
+The captured correction-attempt counter is **three**: one accepted candidate
+replacement, one suspended reselection and one invalid-selection retry. Complete
+local Judge requests measure **37,869 and 75,818 bytes**. Known usage is **76,177
+input / 22,976 output tokens**, including **17,356 reasoning tokens** already in
+output, at **EUR 0.9572994006619554521871365955** known cost and zero new reservation.
+Planning took **736,659 ms**. The ledger has **6,900 physical calls, 150
+historical unknown attempts, 62 closures and zero unresolved requests**. Known
+spending is **EUR 400.34868088616789859101664805**, preserved reservations
+**EUR 128.00399062789039759117323427**, available exposure
+**EUR 211.67743231864800836025506498** under the unchanged ceiling. No global review, artifact,
+approval, execution or oracle occurred. Final executable array validation was not
+reached, so the preceding array correction gains no live qualification here.
+[Source-bound outcome and exact captures](business-selection-b613426e-amazon-outcome.json).
 
 ### 4 November 2026, 11:22 UTC: favorable review followed by compiler ownership stop
 
