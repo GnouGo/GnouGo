@@ -661,3 +661,11 @@ exactly its nonnullable payload. Unavailable branches are absent. Empty, mixed a
 all-null responses fail the response schema; invalid-response evidence and repeat
 guards remain effective. Contract-1 continuations are rejected unchanged. Internal
 planning format 11 and JavaScript → YAML v15 remain the sole active protocol.
+
+A local review of a reusable definition does not establish its invocation. Existing
+contractual coverage violations keep the affected original obligation selectable
+even when its retained local status is closed. This is a derived remaining need,
+not a rewrite of accepted checkpoints or review history. An explicitly associated
+prepared contribution carries a business-facing request to complete its use; its
+caller arguments remain an implementation decision. Restoring reachability removes
+that finding, including for a legitimate conditional invocation.

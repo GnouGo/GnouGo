@@ -42,8 +42,14 @@ internal static partial class PlanningCompactConstruction
         ["successCriteria"] = List(block.SuccessCriteria)
     };
 
-    private static string[] BusinessRequirementIds(PlanningSession state) => state.Construction!.Requirements
-        .Where(requirement => requirement.Status != "closed").Select(requirement => requirement.Id).ToArray();
+    private static string[] BusinessRequirementIds(PlanningSession state)
+    {
+        var coverage = PlanningCommitments.Assess(state);
+        return state.Construction!.Requirements.Where(requirement => requirement.Status != "closed" ||
+            coverage.Any(result => result.Id.StartsWith("coverage:" + Uri.EscapeDataString(requirement.Id) + ":", StringComparison.Ordinal) &&
+                result.Diagnostics.Any(diagnostic => diagnostic.Required)))
+            .Select(requirement => requirement.Id).ToArray();
+    }
 
     internal static JsonObject SelectionContext(PlanningSession state)
     {
@@ -55,7 +61,7 @@ internal static partial class PlanningCompactConstruction
                 { ["id"] = row["id"]!.DeepClone(), ["original"] = row["original"]!.DeepClone() }).ToArray()),
             ["globalConstraints"] = new JsonArray(OriginalGlobalRows(state).OfType<JsonObject>().Select(row => (JsonNode)new JsonObject
                 { ["id"] = row["id"]!.DeepClone(), ["text"] = row["text"]!.DeepClone() }).ToArray()),
-            ["remainingObligations"] = List(state.Construction!.Requirements.Where(requirement => requirement.Status != "closed").Select(requirement => requirement.Id)),
+            ["remainingObligations"] = List(ids),
             ["availableResults"] = BusinessResults(state),
             ["evidence"] = new JsonObject((state.Construction.Evidence ?? []).Where(pair => pair.Key.StartsWith("source:", StringComparison.Ordinal) && pair.Value?["text"] is not null)
                 .Select(pair => new KeyValuePair<string, JsonNode?>(pair.Key, new JsonObject { ["text"] = pair.Value!["text"]!.DeepClone() })))
@@ -92,13 +98,26 @@ internal static partial class PlanningCompactConstruction
         foreach (var requirement in state.Requirements!.Outcomes.Where(requirement => pending.Contains(requirement.Id)))
         {
             var prefix = "coverage:" + Uri.EscapeDataString(requirement.Id) + ":";
-            foreach (var code in coverage.Where(result => result.Id.StartsWith(prefix, StringComparison.Ordinal))
+            foreach (var diagnostics in coverage.Where(result => result.Id.StartsWith(prefix, StringComparison.Ordinal))
                 .SelectMany(result => result.Diagnostics).Where(diagnostic => diagnostic.Required &&
                     diagnostic.Code is PlanningCommitments.MissingOperation or PlanningCommitments.DisconnectedResult)
-                .Select(diagnostic => diagnostic.Code).Distinct(StringComparer.Ordinal))
-                findings.Add((JsonNode)new JsonObject { ["requirementId"] = requirement.Id, ["finding"] = code == PlanningCommitments.MissingOperation
+                .GroupBy(diagnostic => diagnostic.Code, StringComparer.Ordinal))
+            {
+                var finding = new JsonObject { ["requirementId"] = requirement.Id, ["finding"] = diagnostics.Key == PlanningCommitments.MissingOperation
                     ? "Declared required behavior has no reachable invocation in the current workflow."
-                    : "A declared public result is disconnected from its required producer." });
+                    : "A declared public result is disconnected from its required producer." };
+                if (diagnostics.Key == PlanningCommitments.MissingOperation && state.Plan is { } plan)
+                {
+                    var operations = diagnostics.Select(diagnostic => diagnostic.Rule).OfType<string>().ToHashSet(StringComparer.Ordinal);
+                    var prepared = plan.Groups.SelectMany(group => TaskPlanRevisions.Tasks(group.Body))
+                        .Where(task => task.Kind == "operation" && task.Operation is { } operation && operations.Contains(operation))
+                        .Select(task => task.Id).ToHashSet(StringComparer.Ordinal);
+                    if (state.Construction!.Checkpoints.Any(checkpoint => checkpoint.InvalidatedTaskIds.Count == 0 &&
+                        checkpoint.RequirementIds.Contains(requirement.Id, StringComparer.Ordinal) && checkpoint.TaskIds.Any(prepared.Contains)))
+                        finding["nextNeed"] = "The required capability is prepared, but the main workflow does not yet use it to produce the requested result. Reuse the accepted contribution and complete its use.";
+                }
+                findings.Add((JsonNode)finding);
+            }
         }
         return findings;
     }

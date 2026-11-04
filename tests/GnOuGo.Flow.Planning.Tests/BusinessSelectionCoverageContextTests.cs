@@ -8,6 +8,46 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class BusinessSelectionCoverageContextTests
 {
     [Fact]
+    public async Task LocallyReviewedUnconnectedContributionKeepsItsOriginalNeedAvailable()
+    {
+        var (state, runtime) = await PreparedGroup();
+        state.Construction!.Requirements.Single(requirement => requirement.Id == "later").Status = "closed";
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var context = PlanningCompactConstruction.SelectionContext(state);
+        Assert.Contains(context["remainingObligations"]!.AsArray(), id => id!.ToString() == "later");
+        var finding = Assert.Single(context["currentPlanFindings"]!.AsArray())!;
+        Assert.Contains("main workflow", finding["nextNeed"]!.ToString(), StringComparison.Ordinal);
+        var prepared = context["availableResults"]![1]!;
+        Assert.Equal("business_completion_reviewed", prepared["reviewStatus"]!.ToString());
+        Assert.Equal("not_reachable", prepared["connectionStatus"]!.ToString());
+        Assert.False(prepared["executionObserved"]!.GetValue<bool>());
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        Assert.False(CompletionEligibilityTests.OffersCompletion(state));
+        var independent = JsonSerializer.Serialize(state.Construction.Checkpoints[0], PlanningJsonContext.Default.PlanningConstructionCheckpoint);
+        runtime.Respond = (request, purpose) =>
+        {
+            Assert.Equal(PlanningCompactConstruction.SelectPurpose, purpose);
+            return new() { Json = new JsonObject { ["action"] = new JsonObject { ["kind"] = "block", ["block"] = new JsonObject
+            {
+                ["objective"] = "Use the prepared contribution to supply the original result", ["requirementIds"] = new JsonArray("later"),
+                ["informationNeeds"] = new JsonArray(), ["expectedResults"] = new JsonArray("The requested result"),
+                ["dependencies"] = new JsonArray(new JsonObject { ["resultId"] = runtime.EvidenceId(request, "result:block_2"), ["reason"] = "Use the prepared contribution" }),
+                ["successCriteria"] = new JsonArray("The main workflow supplies the original result")
+            } } } };
+        };
+        var selected = await BusinessReviewProtocolTests.Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(selected.Diagnostics);
+        Assert.Equal("later", Assert.Single(PlanningCompactConstruction.CurrentBlock(selected)!.RequirementIds));
+        Assert.Equal(independent, JsonSerializer.Serialize(selected.Construction!.Checkpoints[0], PlanningJsonContext.Default.PlanningConstructionCheckpoint));
+        AddCall(state, conditional: true);
+        var connected = PlanningCompactConstruction.SelectionContext(state);
+        Assert.Null(connected["currentPlanFindings"]);
+        Assert.DoesNotContain(connected["remainingObligations"]!.AsArray(), id => id!.ToString() == "later");
+        Assert.Equal("structurally_reachable", connected["availableResults"]![1]!["connectionStatus"]!.ToString());
+        Assert.False(connected["availableResults"]![1]!["executionObserved"]!.GetValue<bool>());
+    }
+
+    [Fact]
     public async Task AbandonedCompletionRetainsCurrentCoverageGapWithoutTechnicalDetailsOrNewAuthority()
     {
         var (state, runtime) = await PreparedGroup();
@@ -31,7 +71,7 @@ public sealed class BusinessSelectionCoverageContextTests
         var finding = Assert.Single(context["currentPlanFindings"]!.AsArray())!;
         Assert.Equal("later", finding["requirementId"]!.ToString());
         Assert.Equal("Declared required behavior has no reachable invocation in the current workflow.", finding["finding"]!.ToString());
-        foreach (var value in new[] { "remote_calculation", "prepared", "technical/private", "/root", "completion", "operationIds" })
+        foreach (var value in new[] { "remote_calculation", "technical/private", "/root", "completion", "operationIds" })
             Assert.DoesNotContain(value, finding.ToJsonString(), StringComparison.Ordinal);
         Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
         Assert.Null(context["unresolvedNeeds"]);
@@ -55,7 +95,7 @@ public sealed class BusinessSelectionCoverageContextTests
         Assert.Equal(accepted, JsonSerializer.Serialize(next.Construction!.Checkpoints, PlanningJsonContext.Default.ListPlanningConstructionCheckpoint));
         Assert.Null(next.ApprovedHash);
         state.Construction!.Requirements.Single(requirement => requirement.Id == "later").Status = "closed";
-        Assert.Null(PlanningCompactConstruction.SelectionContext(state)["currentPlanFindings"]);
+        Assert.NotNull(PlanningCompactConstruction.SelectionContext(state)["currentPlanFindings"]);
     }
 
     [Theory]
