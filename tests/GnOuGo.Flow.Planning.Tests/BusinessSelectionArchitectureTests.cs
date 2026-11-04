@@ -15,7 +15,7 @@ public sealed class BusinessSelectionArchitectureTests
         state.Construction.Compact.CurrentBlockId = null;
         state.Construction.Compact.Blocks!.Clear();
         var context = PlanningCompactConstruction.SelectionContext(state);
-        Assert.Equal(new[] { "availableResults", "evidence", "globalConstraints", "remainingObligations", "requirements" },
+        Assert.Equal(new[] { "availableResults", "evidence", "globalConstraints", "overallProgress", "remainingObligations", "requirements" },
             context.Select(pair => pair.Key).Order(StringComparer.Ordinal));
         var block = PlanningCompactConstruction.SelectionSchema(state)["properties"]!["action"]!["anyOf"]![0]!["properties"]!["block"]!["properties"]!.AsObject();
         Assert.Equal(new[] { "dependencies", "expectedResults", "informationNeeds", "objective", "requirementIds", "successCriteria" },
@@ -213,6 +213,7 @@ public sealed class BusinessSelectionArchitectureTests
             Assert.Equal(PlanningCompactConstruction.SelectPurpose, purpose);
             var context = BusinessProjectionDeclarationsTests.Context(request);
             issued = context["availableResults"]![0]!["id"]!.ToString();
+            Assert.Equal(issued, context["overallProgress"]!["acceptedResults"]![0]!.ToString());
             Assert.NotEqual(canonical, issued);
             Assert.DoesNotContain(canonical, request.Prompt, StringComparison.Ordinal);
             Assert.DoesNotContain(canonical, request.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);

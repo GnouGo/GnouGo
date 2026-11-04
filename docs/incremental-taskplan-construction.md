@@ -356,6 +356,50 @@ If mandatory context exceeds an ordinary profile's enforced input limit, constru
 stops before dispatch. A captured advisory token or diagnostic policy retains that
 context and warns; actual provider capabilities and financial admission still apply.
 
+## Overall progress during selection
+
+Business and implementation selections include the same `overallProgress` facts,
+derived from original obligations, accepted TaskPlan declarations and existing review
+records. The view indexes expected results and global constraints by their existing
+evidence, and accepted contributions by the existing `availableResults` entries.
+Original text, contribution objectives, expected results and success criteria retain
+one presentation; technical scopes, operation identities and schemas stay in
+implementation context and targeted evidence.
+Large indexes use the existing requirement/output pages and retain exact totals
+and directory links. Missing required bindings show a bounded list with exact
+declaration-page links. Complete small arrays carry their own count. Empty metadata
+and duplicate current-block descriptions are omitted; its original objective and
+criteria remain complete in `block`, and execution remains explicitly unobserved in
+`overallProgress`. No hidden requirement or output becomes an implementation choice
+merely by appearing in the progress index.
+
+`declaredResults` distinguishes a root declaration from required producer lineage:
+`established`, `disconnected`, `unverified`, or `not_required` when no producer-lineage
+commitment exists. None proves business content or execution. Missing required public
+bindings remain explicit; optional outputs, local exports, files and effects gain no
+invented public-export requirement. A missing boundary can leave lineage unverified
+while the shared completion assessment reports a technical obstacle.
+
+`completionAvailable` reflects the ordinary action eligibility checks, including
+retained-cursor and boundary preconditions. `technicalValidation:not_assessed` does
+not mean failure: unfinished construction may not yet qualify for final assessment.
+An assessment that ran reports its existing passed/blocked result. Mandatory global
+review, a current recorded global review and observed execution remain separate.
+Planning selection always reports execution as unobserved.
+
+Coverage, contribution reachability and eligible final assessment share request-local
+results. No new persisted status, scheduler, executable plan or inference call is
+introduced. Both stages retain the original request-bound evidence mapping; pending
+work recovers its exact issued request instead of rebuilding the projection. Ordinary
+input admission remains enforced and captured diagnostic targets remain advisory.
+
+Technical fragmentation does not define business boundaries. Paired generic tests
+vary coarse/fine capabilities, MCP server grouping and fragment sizes while retaining
+the model-chosen responsibility and its criteria across cursor changes and restarts.
+Their independent runtime oracle checks results, ordering, cleanup and public output
+shape. They compare obligations and behavior rather than identical wording or a fixed
+number of blocks, and do not establish live convergence.
+
 ## Generation and judgment have different boundaries
 
 An explicit repair retains only established requirement-completion claims. Editing

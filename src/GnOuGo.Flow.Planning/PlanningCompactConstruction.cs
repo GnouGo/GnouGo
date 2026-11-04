@@ -23,11 +23,11 @@ internal static partial class PlanningCompactConstruction
     private const string ContainerBoundaryGuidance = "Open a container only for needed control, reuse, cleanup or export ownership; append sequential work to an existing appropriate scope.";
 
     internal static string ImplementationGuidance(PlanningSession state) => $"""
-        Implement the retained business block using accepted results and inspected contracts. Select an implementation cursor, never a new business responsibility. Its objective and success criteria remain fixed through every technical helper, scope change and fragment. Original clauses are obligations, not a list of tasks or checkpoints. Resume a retained consumer when its exact binding is ready, otherwise implement its missing prerequisite within this same block. Keep closed requirements closed until explicit invalidation.
-        Keep original requirements attached without treating them as this substep's completion claim. Caller inputs bind at runtime; discovery needs their declared interfaces, not concrete values. Use kind:null when unknown capabilities determine implementation. An inspected offered operationIds contract can bind kind:operation directly. Local and structural kinds need no discovery when their semantics suffice.
-        {ContainerBoundaryGuidance} Populate necessary containers/groups with their related work in the fragment. Groups isolate declared inputs; controls capture ancestors. call requires a closed groupId. {ReusableGroupSemantics}
-        {ValueSemantics} {TransformSemantics} Input/dependency hints resolve now. Prerequisites cite original evidence, not future task IDs. expectedOutputs are internal; outputNames selects public root results. {SelectedExpectationsSemantics}
-        closeScopes:[] closes requirements only; [scope] closes that offered scope; non-close actions use null. Close only satisfied obligations. Return one action with other fields null: step, offered resumeStep, exact evidenceRequests, or clarification of a missing business fact. Evidence grants no execution or edit authority.
+        Use overallProgress, accepted work and exact contracts for the retained block's fixed goal/criteria; helpers and cursors add no responsibility. Clauses are obligations, not steps. Resume ready exact consumers or build their prerequisites here. Closed requirements need explicit invalidation; origins are not completion claims.
+        Bind caller inputs at runtime; discover interfaces, not sample values. Unknown capabilities need kind:null; offered inspected operationIds bind operation. Local/structural kinds need no discovery. Containers need control/reuse/cleanup/exports; controls capture ancestors. {ReusableGroupSemantics}
+        {ValueSemantics} transform extract preserves observations; interpret derives typed data from supplied inputs with the configured runtime LLM. Neither invents facts/effects; contracts are not observations. Obtain external facts through authorized operations.
+        Resolve input/dependency hints; prerequisites cite original evidence, never future tasks. expectedOutputs are provisional setup/shape assumptions, not obligations: inspect exact contracts and reselect unsupported mechanisms. outputNames names public root results. Preserve original results/cleanup and concrete objectives/literals.
+        Close only fulfilled obligations: closeScopes:[] closes requirements, [scope] that offered boundary, otherwise null. Return one step, offered resumeStep, evidenceRequests or missing-business-fact clarifications; others null. Evidence grants no edit/execution authority.
         """;
 
     internal static string DiscoveryGuidance(PlanningSession state) => $"""
@@ -204,13 +204,14 @@ internal static partial class PlanningCompactConstruction
 
     internal static JsonObject ImplementationSchema(PlanningSession state, JsonObject? page = null)
     {
+        var displayed = page ?? ImplementationContext(state);
         var compact = State(state);
         var replacement = compact.ReplacementScope;
         var outputs = OutputPage(state).Select(o => o.Name).ToArray();
         var requirements = CurrentBlock(state)?.RequirementIds.ToArray() ?? SelectionRequirementIds(state);
         var closingRequirements = requirements.Where(id => CanClaimRequirementCompletion(state, id)).ToArray();
         var scopes = replacement is null
-            ? (page?["scopes"] as JsonArray ?? ScopeDirectory(state)).Select(scope => scope!["path"]!.ToString()).ToArray() : null;
+            ? (displayed["scopes"] as JsonArray ?? ScopeDirectory(state)).Select(scope => scope!["path"]!.ToString()).ToArray() : null;
         var hasClosedGroup = state.Plan?.Groups.Any(group =>
             !state.Construction!.OpenScopes.Contains("/groups/" + group.Id + "/body", StringComparer.Ordinal)) == true;
         var completionOnly = CompletionOnly(state);
@@ -230,7 +231,7 @@ internal static partial class PlanningCompactConstruction
                 PlanningSchemas.Array(PlanningSchemas.Enum(closingRequirements), 0, PlanningOptimizationThresholds.Maximum(state, 4))), ("outputNames", outputs.Length == 0
                 ? PlanningSchemas.Array(Text(state, 256), 0, 0) : PlanningSchemas.Array(PlanningSchemas.Enum(outputs), 0, PlanningOptimizationThresholds.Maximum(state, 8))));
         {
-            var prerequisiteRequirements = requirements.Concat((page?["requirements"] as JsonArray ?? []).Select(row => row!["id"]!.ToString()))
+            var prerequisiteRequirements = requirements.Concat((displayed["requirements"] as JsonArray ?? []).Select(row => row!["id"]!.ToString()))
                 .Concat(EvidenceRequirementIds(state)).Distinct(StringComparer.Ordinal);
             var prerequisites = PrerequisiteAddresses(state, prerequisiteRequirements).ToArray();
             step["properties"]!["prerequisites"] = prerequisites.Length == 0 ? PlanningSchemas.Type("null") :
@@ -326,8 +327,8 @@ internal static partial class PlanningCompactConstruction
             ("step", requirements is { Length: 0 } || scopes is { Length: 0 } ? PlanningSchemas.Type("null") : PlanningSchemas.Nullable(step)),
             ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(Text(state, 2048), 1, PlanningOptimizationThresholds.Maximum(state, 4)))),
             ("clarifications", PlanningSchemas.Nullable(PlanningSchemas.Clarifications(PlanningTokenThresholds.OptimizationAdvisory(state.Request)))));
-        ConstrainSelectionBindings(state, page ?? ImplementationContext(state), schema);
-        ConstrainSelectionEvidence(state, page ?? ImplementationContext(state), schema);
+        ConstrainSelectionBindings(state, displayed, schema);
+        ConstrainSelectionEvidence(state, displayed, schema);
         return PlanningSchemas.Compact(schema);
     }
 
@@ -428,6 +429,15 @@ internal static partial class PlanningCompactConstruction
     internal static JsonObject ImplementationContext(PlanningSession state)
     {
         var compact = State(state);
+        var progress = new SelectionFacts(state);
+        if (CurrentBlock(state) is { } activeBlock)
+            foreach (var result in progress.Results.OfType<JsonObject>().Where(result => result["id"]?.ToString() == "result:" + activeBlock.Id))
+            {
+                // The current responsibility is already complete in /block.
+                // Keep its accepted facts without repeating its intent text.
+                foreach (var field in new[] { "objective", "plannedResults", "successCriteria", "availability", "requirementIds", "executionObserved" }) result.Remove(field);
+                result["responsibilityAt"] = "/block";
+            }
         var scopeOffset = ScopeOffset(state);
         var outcomes = state.Requirements!.Outcomes;
         var remaining = state.Construction!.Requirements.Where(r => r.Status != "closed").Select(r => r.Id).ToHashSet(StringComparer.Ordinal);
@@ -444,6 +454,8 @@ internal static partial class PlanningCompactConstruction
         var context = new JsonObject
         {
             ["block"] = CurrentBlock(state) is { } block ? BusinessBlockContext(block) : null,
+            ["overallProgress"] = OverallProgress(state, progress),
+            ["availableResults"] = progress.Results,
             ["baseHash"] = PlanningConstruction.Hash(state.Plan),
             ["requirements"] = RequirementNodes(state, selected.Select(r => r.Id).Where(id => !suppliedRequirements.Contains(id))),
             ["requirementCount"] = remaining.Count, ["requirementPage"] = selected.Length == 0 ? 0 : outcomes.FindIndex(r => r.Id == selected[0].Id),
@@ -465,6 +477,7 @@ internal static partial class PlanningCompactConstruction
                 ["reason"] = compact.RejectedSteps.Last()["reason"]?.DeepClone(), ["evidence"] = "rejected:" + (compact.RejectedSteps.Count - 1) },
             ["budget"] = new JsonObject { ["remainingCalls"] = PlanningModelCalls.RemainingCalls(state) }
         };
+        if (progress.Findings.Count > 0) context["currentPlanFindings"] = progress.Findings;
         {
             // The anchor and issued continuation already identify the displayed
             // page. These storage counters add no requirement text or authority.

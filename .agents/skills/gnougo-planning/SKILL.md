@@ -19,6 +19,23 @@ Present only transitions compatible with the selected action. A boundary that th
 
 ## Context and contracts
 
+Business and implementation selection share `overallProgress`, a transient index of
+original expected results, global constraints, accepted contributions, contractual
+result connections and missing public bindings. Reuse existing coverage, reachability
+and completion assessment once per prepared request. Keep original text and result
+descriptions in their existing presentation and link them with request-bound evidence;
+do not create a second plan, persistent status cache or a model call to summarize it.
+An accepted declaration, structurally reachable contribution, current business review
+and observed execution remain different facts. Missing public bindings concern only
+required public outputs; files and effects retain their original obligations. A
+missing or ambiguous boundary can leave lineage unverified while final validation
+establishes a technical obstacle. This view grants no repair or invocation authority.
+
+Compare functional decomposition across equivalent capability packaging and technical
+fragment sizes by original obligations, preserved criteria and observable outcomes,
+not identical labels or a universal block count. A cursor or helper does not replace
+the active responsibility; preserve its objective and criteria until reviewed completion.
+
 Understand short requests in one pass: retain the complete original and extract exact acceptance clauses and typed caller/public interfaces together. Measure the complete request before deciding whether source pagination is necessary; crossing a target alone must not cause another call. Paginate genuinely large sources at natural boundaries, retaining exact continuations. Validate coverage and declarations atomically. Additional intent calls resolve concrete missing evidence or business facts. A clause is an acceptance criterion, not a required task, container or closure call. Do not invent missing types or defaults. An array type's null maximum is unspecified; zero permits no elements. Keep these type constraints distinct from finite control/runtime capacities.
 
 Implementation decisions include the actual owning control or reusable group, its isolated interface and open intent; a scope path or label does not supply that context. Generation addresses the immediate business action with exact consumed bindings, original producer arguments and necessary schema closures. Reflect contract-declared artifact consumption in binding choices: matching literals or computed text do not establish producer provenance. References still require compiler checks and business-meaning review. Preserve nullable values, required siblings, alternatives, references and normative constraints. Page optional navigation and retrieve exact originals rather than silently truncating mandatory evidence. Keep cached operation identities, original descriptions and exact retrieval links visible across accepted steps. Cached metadata does not make a new provider query complete or grant contract or execution authority. Task completion (`present`) differs from input or field nullability.

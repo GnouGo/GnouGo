@@ -13,8 +13,7 @@ public sealed partial class HybridWorkflowPlanner
         else if (construction.IssuedBaseHash != PlanningConstruction.Hash(state.Plan))
             throw new PlanningConflictException("The issued business selection no longer matches its retained accepted work.");
         var response = await CompactCallAsync(state, runtime, PlanningCompactConstruction.SelectPurpose, () =>
-            PlanningCompactConstruction.Request(PlanningCompactConstruction.SelectGuidance, PlanningCompactConstruction.SelectionContext(state),
-                PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose), ct);
+            PlanningCompactConstruction.SelectionRequest(state), ct);
         if (construction.IssuedBaseHash != PlanningConstruction.Hash(state.Plan))
             throw new PlanningConflictException("The completed business selection no longer matches its accepted baseline.");
         var action = response["action"] as JsonObject;
@@ -29,8 +28,7 @@ public sealed partial class HybridWorkflowPlanner
         {
             PlanningConstruction.LoadEvidence(state, evidence.Select(value => value!.ToString()).ToList(), followup: next =>
             {
-                var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.SelectGuidance, PlanningCompactConstruction.SelectionContext(next),
-                    PlanningCompactConstruction.SelectionSchema(next), PlanningCompactConstruction.SelectPurpose);
+                var request = PlanningCompactConstruction.SelectionRequest(next);
                 return PlanningModelCalls.PrepareRequest(next, PlanningCompactConstruction.SelectPurpose, request.Prompt,
                     request.StructuredOutputSchema!.AsObject(), next.Construction!.Limits.DraftOutputTokens);
             }, purpose: PlanningCompactConstruction.SelectPurpose);

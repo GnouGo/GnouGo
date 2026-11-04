@@ -220,8 +220,7 @@ public sealed partial class HybridWorkflowPlanner
         using var correction = new PlanningCorrectionAttempt(state, state.Diagnostics.Any(d => d.Required));
         var exactRequest = state.PendingCall?.Request;
         var response = await CompactCallAsync(state, runtime, PlanningCompactConstruction.ImplementationPurpose, () =>
-            exactRequest = PlanningCompactConstruction.Request(state, PlanningCompactConstruction.ImplementationGuidance(state), PlanningCompactConstruction.ImplementationContext(state),
-                PlanningCompactConstruction.ImplementationSchema(state), PlanningCompactConstruction.ImplementationPurpose), ct, correction, request => exactRequest = request);
+            exactRequest = PlanningCompactConstruction.ImplementationRequest(state), ct, correction, request => exactRequest = request);
         if (response["baseHash"]!.ToString() != PlanningConstruction.Hash(state.Plan))
             throw new PlanningConflictException("The step selection identifies a stale accepted checkpoint.");
         if (response["resumeStep"] is { } resume)
@@ -388,8 +387,7 @@ public sealed partial class HybridWorkflowPlanner
                 followup: next =>
                 {
                     var request = primary == "step"
-                        ? PlanningCompactConstruction.Request(next, PlanningCompactConstruction.ImplementationGuidance(next), PlanningCompactConstruction.ImplementationContext(next),
-                            PlanningCompactConstruction.ImplementationSchema(next), purpose)
+                        ? PlanningCompactConstruction.ImplementationRequest(next)
                         : PlanningCompactConstruction.Request(next, PlanningCompactConstruction.DiscoveryGuidance(next), PlanningCompactConstruction.DiscoveryContext(next),
                             PlanningCompactConstruction.DiscoverySchema(next), purpose);
                     return PlanningModelCalls.PrepareRequest(next, purpose, request.Prompt, request.StructuredOutputSchema!.AsObject(), next.Construction!.Limits.DraftOutputTokens);

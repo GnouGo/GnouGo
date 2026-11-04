@@ -9,7 +9,7 @@ namespace GnOuGo.Flow.Planning;
 internal static class PlanningCompletionValidation
 {
     internal sealed record Assessment(TaskCompilation Compilation,
-        List<PlanningValidationResult> Coverage, List<PlanningDiagnostic> Diagnostics);
+        List<PlanningValidationResult> Coverage, List<PlanningDiagnostic> Diagnostics, IReadOnlySet<string> ReachableTaskIds);
 
     internal static Assessment Assess(PlanningSession state, TaskPlan plan, PlanningRequirements? requirements = null, bool publishWarnings = false)
     {
@@ -24,7 +24,8 @@ internal static class PlanningCompletionValidation
                 PlanningJsonContext.Default.PlanningRequirements)!;
         var compilation = new TaskPlanCompiler().Compile(probe.Plan, probe.Catalog!, probe.Request);
         var diagnostics = compilation.Diagnostics.ToList();
-        var coverage = PlanningCommitments.Assess(probe);
+        var bindings = new CommitmentBindings(probe.Plan);
+        var coverage = PlanningCommitments.Assess(probe, bindings);
         diagnostics.AddRange(PlanningClarifications.InputFindings(probe));
         diagnostics.AddRange(coverage.SelectMany(result => result.Diagnostics).Where(diagnostic => diagnostic.Required));
         if (compilation.Graph is { } graph && compilation.Diagnostics.Count == 0)
@@ -40,7 +41,7 @@ internal static class PlanningCompletionValidation
             }
         }
         return new(compilation, coverage, diagnostics.Distinct().OrderBy(diagnostic => diagnostic.Location, StringComparer.Ordinal)
-            .ThenBy(diagnostic => diagnostic.Code, StringComparer.Ordinal).ToList());
+            .ThenBy(diagnostic => diagnostic.Code, StringComparer.Ordinal).ToList(), bindings.ReachableTaskIds);
     }
 
     private static PlanningDiagnostic CompilerFinding(PlanningDiagnostic diagnostic) => diagnostic with

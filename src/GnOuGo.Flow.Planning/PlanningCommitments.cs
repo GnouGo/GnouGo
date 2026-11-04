@@ -81,11 +81,11 @@ internal static class PlanningCommitments
             (sample.Length > 8 ? " (first 8 shown)." : ".");
     }
 
-    internal static List<PlanningValidationResult> Assess(PlanningSession state)
+    internal static List<PlanningValidationResult> Assess(PlanningSession state, CommitmentBindings? bindings = null)
     {
         if (state.Requirements is null || state.Plan is null) return [];
         var results = new List<PlanningValidationResult>();
-        var bindings = new CommitmentBindings(state.Plan);
+        bindings ??= new CommitmentBindings(state.Plan);
         for (var i = 0; i < state.Requirements.Outcomes.Count; i++)
         {
             var requirement = state.Requirements.Outcomes[i];
