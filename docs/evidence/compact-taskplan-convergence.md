@@ -8,7 +8,7 @@ The current delivery gate is **two consecutive intervention-free executions per 
 
 Latest technically validated production source is **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`**: [**7,614 full-solution passes, zero failures and thirteen declared skips across 33 assemblies**](business-selection-1d6632c5-solution-validation.json), plus [**eleven passing publication stages**](business-selection-1d6632c5-publication-validation.json), with zero compiler/publication diagnostics. It preserves redacted authentication-stage provenance without changing retry, accounting, retention or replay authority. These results establish technical validation, not live qualification.
 
-Latest live production source remains **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`**. Its previous Amazon run stopped before physical generation with `provider_stage: authentication`, `Transport` and no HTTP status. The user's new attachment and explicit implementation instruction authorize permanent closure of that exact request. The existing operator completed it on **4 November 2026 at 09:37:49 UTC**, preserving original records, timestamps and all accounting. Reinspection confirms permanent replay/continuation prohibition and zero unresolved requests. Fresh admission is being rechecked before the next independent run; no new provider health or workflow success is inferred. Final-source qualification remains **0/6**.
+Latest live production source remains **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`**. The authorized preceding request was permanently closed on **4 November 2026 at 09:37:49 UTC**, preserving originals, timestamps and all accounting. Fresh Amazon **`biz1d6632c5amz02-amazon-1`** passed exact admission on the unchanged original profile and reached draft request seven after six received completions. The earlier first-request authentication stop did not recur. At the retained in-progress observation there is one business block, no accepted checkpoint, artifact or execution; no final outcome is inferred. Final-source qualification remains **0/6**.
 
 The preceding `ebf01483` source retains its [2,618-case Planning result](business-selection-ebf01483-planning-validation.json), [fresh-initialization regression](business-selection-fresh-initialization-validation.json), [eleven-stage publication result](business-selection-ebf01483-publication-validation.json) and recovered **7,579-pass, thirteen-skip** solution result. Earlier [owning suites](business-selection-1884a658-owning-validation.json) and [54 actual host/UI cases](business-selection-1884a658-host-ui-validation.json) retain their precise source boundaries. Focused counts overlap and are not added; failed captures remain preserved.
 
@@ -36,6 +36,35 @@ reservation released. The clean frozen source and benchmark/Browser/Document
 binary hashes still match the existing solution/publication evidence. This
 administrative recovery issued no provider request and supplies no runtime
 qualification. [Exact recovery proof](business-selection-20261104-recovery-proof.json).
+
+### 4 November 2026, 09:40-09:49 UTC: fresh Amazon reaches drafting
+
+Fresh read-only admission passes with the unchanged provider/model, original
+phase-policy hash and captured profile `5452b870c2561bcde1b6aa483b7b44edb2ea230851221e8fa8eb096f897113a6`.
+`diagnostic-v1` is captured and the ledger remains unchanged during admission.
+Available exposure before launch is **EUR 217.36914893015172067799368204**;
+the current construction/local/global-review sequence requires
+**EUR 20.617228732444762501118167993**. The new identity is independently
+confirmed absent before launch.
+
+At **09:49:42 UTC**, fresh `biz1d6632c5amz02-amazon-1` is generating draft seven:
+one intent, one business selection, one implementation decision and three
+discovery completions have received usage receipts, with six physical attempts
+for those completed calls. One immutable business block is retained across
+discovery and drafting. There are no corrections or accepted checkpoints yet.
+The prerequisite target crossing (five versus four) remains a warning and did
+not block the following calls. Completed-call usage is **14,944 input / 12,110
+output tokens**, including **10,532 reasoning tokens** already counted in output,
+and **EUR 0.3918239556310940155648984703** known cost. These partial totals exclude
+the pending physical attempt and do not establish its outcome or final cost.
+
+The earlier authentication stop did not recur on the first request. Source,
+harness, provider/model, phase allocations, budget ceiling, permissions and
+oracles remain unchanged. No artifact, approval, execution or oracle result
+exists at this observation; qualification remains **0/6**. The existing artifact
+review helper rebuilt against the frozen binaries with zero warnings/errors;
+that build grants no review or execution authority.
+[Source-bound in-progress proof](business-selection-20261104-live-progress.json).
 
 ### 31 October 2026, 21:56-21:58 UTC: post-reboot recovery gate
 
