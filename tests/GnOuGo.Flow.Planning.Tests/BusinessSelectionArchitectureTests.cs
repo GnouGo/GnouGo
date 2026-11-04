@@ -191,8 +191,9 @@ public sealed class BusinessSelectionArchitectureTests
         Assert.False(HybridWorkflowPlanner.ConstructionArtifactReviewValid(state));
         state = await BusinessReviewProtocolTests.Advance(PlannerFixture.Clone(state), runtime);
         Assert.Single(runtime.Calls);
-        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "BUSINESS_REVIEW_REQUIRED" &&
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_BUSINESS_REVIEW" &&
             diagnostic.ValidationStage == PlanningConstruction.GlobalPurpose);
+        Assert.Equal(new[] { "/tasks/compute/outputs/result" }, state.Construction!.Candidate!.AuthorizedPaths);
         Assert.False(HybridWorkflowPlanner.ConstructionArtifactReviewValid(state));
         Assert.False(state.Construction!.Complete);
         Assert.Null(state.ApprovedHash);

@@ -34,9 +34,11 @@ hash is `96a35087433a0d9751186a58cd9a2cbffcdf2cd552037b6fe727b80b5b2576ae`.
 [Fresh 12:31:18 UTC admission](business-selection-a84fc50d-output32-live-admission.json)
 passes with **EUR 210.05713086055694475885959133** available,
 **EUR 20.983630020574291081492083370** required headroom and zero unresolved
-requests. Its run `biza84fc50damz32a-amazon-1` is active. Amazon qualification
-restarts on this separate profile; no complete generation or execution result
-is claimed yet.
+requests. Its run `biza84fc50damz32a-amazon-1` subsequently stopped after twelve
+received calls. Local review passed, but the completed-workflow global finding
+remained upheld because the issued repair schema allowed only `patch:null`. No
+artifact or execution occurred. [Terminal outcome](business-selection-a84fc50d-amazon-output32-outcome.json).
+Amazon qualification remains **0/6** on the separate profile.
 
 Previous correction **`b613426e2586fec447089532251ab8773df16b08`** copies projected
 producer-field schemas into temporary inferred array unions. It has [**2,653 owning
@@ -45,8 +47,9 @@ including two focused cases that cover v15 execution, ordered duplicate values,
 immutable originals and incompatible-type rejection. Matching benchmark/Browser/Document binaries are built. [**All eleven exact-source
 publication stages pass**](business-selection-b613426e-publication-validation.json),
 with zero warnings/errors, actual Native AOT execution, published encrypted-storage
-and exact-receipt recovery, and unchanged source. Exact-source solution testing
-is still running. Fresh `bizb613426eamz01-amazon-1` launched after **11:34:35 UTC**
+and exact-receipt recovery, and unchanged source. Its exact-source solution now
+passes [**7,635 cases, zero failures, thirteen declared skips and all 33 assemblies**](business-selection-b613426e-solution-validation.json),
+with zero compiler diagnostics and unchanged source. Fresh `bizb613426eamz01-amazon-1` launched after **11:34:35 UTC**
 [configuration/financial/exact phase admission](business-selection-b613426e-live-admission.json)
 on the unchanged original profile. Available exposure was
 **EUR 212.63473171930996381244220158**, required phase headroom
@@ -107,6 +110,42 @@ remains **0/6**. [Source-bound terminal evidence](business-selection-cd864165-am
 The preceding `ebf01483` source retains its [2,618-case Planning result](business-selection-ebf01483-planning-validation.json), [fresh-initialization regression](business-selection-fresh-initialization-validation.json), [eleven-stage publication result](business-selection-ebf01483-publication-validation.json) and recovered **7,579-pass, thirteen-skip** solution result. Earlier [owning suites](business-selection-1884a658-owning-validation.json) and [54 actual host/UI cases](business-selection-1884a658-host-ui-validation.json) retain their precise source boundaries. Focused counts overlap and are not added; failed captures remain preserved.
 
 The prior `a23cbbb2` baseline remains source-specific evidence: [2,425 Planning cases](business-block-a23cbbb2-continuation-review-validation.json), [7,327 full-solution passes with thirteen declared skips](business-block-a23cbbb2-solution-validation.json), and [publication checks](business-block-a23cbbb2-publication-validation.json). Those technical results did not establish live business convergence.
+
+### 4 November 2026, 12:43 UTC: global finding cannot repair reviewed behavior
+
+Fresh-profile `biza84fc50damz32a-amazon-1` stops after **12 logical / 12 physical
+calls**, all receipts, one accepted checkpoint, one favorable local Judge and two
+global Judges returning `needs_change`. The first draft completes with **6,089 output
+tokens, including 3,035 reasoning tokens**, below the former allocation. No causal
+benefit from the larger allocation is established.
+
+Global review identifies an executable row-transform instruction that does not
+explicitly request the required product fields, and its workbook-writing consumer.
+Both tasks were already locally reviewed, so host repair offers **`patch:null`**.
+Evidence reconsideration preserves the finding; no correction or favorable global
+review follows. Read-only inspection also finds four browser reads with empty
+actual arguments despite URL-helper dependencies. No manual binding is applied,
+no artifact approved and no execution or independent oracle occurs.
+
+Generic regressions reproduce two host defects: a current concrete global finding
+cannot repair cited locally reviewed behavior, and an explicit transform instruction
+path is unsupported or incorrectly typed as a value binding. Bounded repair now
+allows cited task bindings and transform instruction text under exact current global
+provenance, preserves caller restrictions and independent work, invalidates affected
+reviews, and requires renewed global review. Six new cases plus the updated existing
+global-review case pass, including actual simulated execution through an unchanged
+consumer. **All 2,662 owning Planning cases pass with warnings as errors**; focused
+cases overlap that total. Live correction benefit remains unproven.
+
+Planning takes **627,234 ms**, with **71,066 input / 20,968 output tokens**, including
+**15,838 reasoning tokens already in output**, at **EUR 0.8805528222560157438053493156**
+known cost and no new reservation. The ledger retains **6,921 physical calls,
+151 historical unknown attempts, 62 permanent closures and zero unresolved requests**.
+Known spending is **EUR 402.16492563077832886206056969**, reservations
+**EUR 128.68860016362704666533013560**, and available exposure
+**EUR 209.17657803830092901505424201** under the unchanged ceiling. No supplement,
+release or replay occurs. Qualification remains **0/6**.
+[Source-bound terminal evidence](business-selection-a84fc50d-amazon-output32-outcome.json).
 
 ### 4 November 2026, 12:26-12:32 UTC: received reasoning exhaustion and separate output profile
 

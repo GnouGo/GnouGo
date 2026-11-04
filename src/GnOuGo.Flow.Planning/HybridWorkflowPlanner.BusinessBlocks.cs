@@ -23,12 +23,15 @@ public sealed partial class HybridWorkflowPlanner
         return true;
     }
 
-    // Newly contributed scope exports and exact accepted tasks still awaiting
-    // business review retain bounded typed repair, never structural authority.
+    // New scope exports, pending accepted tasks and concrete current global
+    // findings retain bounded functional repair, never structural authority.
     private static void AuthorizeBusinessRepair(PlanningSession state, JsonObject review, string[] targets)
     {
         var construction = state.Construction!; var candidate = construction.Candidate!;
-        if (candidate.BaseHash != PlanningConstruction.Hash(state.Plan)) return;
+        if (candidate.BaseHash != PlanningConstruction.Hash(state.Plan) || state.EditablePaths is not null) return;
+        var global = candidate.Extension.Complete && review["purpose"]?.ToString() == PlanningConstruction.GlobalPurpose &&
+            review["candidateHash"]?.ToString() == candidate.Hash && review["claimsHash"]?.ToString() == ConstructionClaimsHash(state) &&
+            BusinessSourcesAndContractsValid(state, review);
         var accepted = new TaskPlanSymbols(state.Plan ?? new()); var current = new TaskPlanSymbols(candidate.Plan);
         var paths = new List<string>(); var tasks = new List<string>();
         var tentativeScope = false;
@@ -48,12 +51,11 @@ public sealed partial class HybridWorkflowPlanner
                 !JsonNode.DeepEquals(PlanningConstruction.TaskNode(task.Task), PlanningConstruction.TaskNode(next.Task))) return;
             var owners = construction.Checkpoints.Where(checkpoint => checkpoint.TaskIds.Contains(target, StringComparer.Ordinal) &&
                 !checkpoint.InvalidatedTaskIds.Contains(target, StringComparer.Ordinal)).ToArray();
-            if (owners.Length == 0 || owners[^1].Fragment["businessReviewPending"]?.GetValue<bool>() != true ||
+            if (owners.Length == 0 || owners[^1].Fragment["businessReviewPending"]?.GetValue<bool>() != true &&
+                    (!global || ReviewedCheckpoint(state, owners[^1]) is null) ||
                 owners[^1].Fragment["tasks"] is not JsonArray original || !original.Any(node => node?["id"]?.ToString() == target &&
                     JsonNode.DeepEquals(node, PlanningConstruction.Node(task.Task, PlanningJsonContext.Default.PlanTask)))) return;
-            var offered = task.Task.Kind is "operation" or "transform" or "call"
-                ? new[] { "/tasks/" + target + "/inputs" }
-                : accepted.Values.Keys.Where(path => path.StartsWith("/tasks/" + target + "/outputs/", StringComparison.Ordinal)).ToArray();
+            var offered = TaskRepairPaths(accepted, task.Task).ToArray();
             if (offered.Length == 0) return;
             paths.AddRange(offered); tasks.Add(target);
         }
@@ -62,9 +64,7 @@ public sealed partial class HybridWorkflowPlanner
             foreach (var target in targets.Where(target => candidate.TaskIds.Contains(target, StringComparer.Ordinal)))
             {
                 if (!current.Tasks.TryGetValue(target, out var task)) return;
-                paths.AddRange(task.Task.Kind is "operation" or "transform" or "call"
-                    ? ["/tasks/" + target + "/inputs"]
-                    : current.Values.Keys.Where(path => path.StartsWith("/tasks/" + target + "/outputs/", StringComparison.Ordinal)));
+                paths.AddRange(TaskRepairPaths(current, task.Task));
             }
         var authorized = (candidate.AuthorizedPaths ?? []).Concat(paths).Distinct(StringComparer.Ordinal).ToList();
         try { TaskPlanRevisions.ValidateEditablePaths(new() { Plan = candidate.Plan, Catalog = state.Catalog }, authorized); }
@@ -72,9 +72,16 @@ public sealed partial class HybridWorkflowPlanner
         candidate.AuthorizedPaths = authorized;
         candidate.TaskIds = candidate.TaskIds.Concat(tasks).Distinct(StringComparer.Ordinal).ToList();
         review["pendingRepairPaths"] = new JsonArray(paths.Select(path => (JsonNode?)JsonValue.Create(path)).ToArray());
+
+        static IEnumerable<string> TaskRepairPaths(TaskPlanSymbols symbols, PlanTask task) => task.Kind switch
+        {
+            "transform" => ["/tasks/" + task.Id + "/inputs", "/tasks/" + task.Id + "/objective"],
+            "operation" or "call" => ["/tasks/" + task.Id + "/inputs"],
+            _ => symbols.Values.Keys.Where(path => path.StartsWith("/tasks/" + task.Id + "/outputs/", StringComparison.Ordinal))
+        };
     }
 
-    // Unsupported or already reviewed targets retain evidence-only authority.
+    // Unsupported targets retain evidence-only authority.
     private static async Task RetrieveBusinessFindingEvidenceAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
     {
         await ReserveConstructionReviewAsync(state, runtime, ct);

@@ -67,6 +67,8 @@ When suspension returns to business selection, retain the unmet need against its
 
 A business finding that cites a newly contributed group/control scope may repair its existing export bindings through the shared typed slots. Establish new ownership against the accepted baseline; accepted scopes, absent exports, interfaces and structural changes gain no authority. A changed export to or from an unchanged producer cited by the same retained finding permits renewed review of that composition. Require the exact prior context and binding relationship; unrelated exports, stale context and repeated unchanged bindings remain non-progress. This never resolves a finding mechanically.
 
+A current global finding may also repair concrete accepted tasks with a still-valid local review. Match the candidate, claims, originals, contracts and original task snapshot; retain explicit caller edit limits. Offer only existing functional bindings and, for transforms, their executable instruction as a typed string. Other task objectives remain labels. Preserve unrelated accepted work, invalidate affected consumers/reviews and require renewed global review before approval. Local review never makes a demonstrated global defect uncorrectable.
+
 ## Recovery, accounting and execution
 
 Maintain one active internal planning format. Reject retired sessions without upgrading or changing their records. Preserve archives and financial journals as historical data, without old planning readers or execution paths. Current issued requests and receipts recover exactly; never rebuild a pending request from newer context.

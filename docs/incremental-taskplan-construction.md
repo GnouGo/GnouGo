@@ -475,6 +475,13 @@ only actual repairs consume corrections. Repeated evidence or strategies without
 relevant progress stop. An unfinished review never silently accepts business completion.
 
 Carry exact defects, affected values and authorized edits into local correction.
+A current global finding can reopen concrete accepted task behavior whose local
+review is still valid. The candidate, completion claims, original sources,
+contracts and accepted task snapshot must match; caller-specified edit limits
+remain binding. Repair exposes existing functional bindings and the executable
+instruction of a cited transform as text. Non-executable task labels, interfaces,
+scopes and unrelated structure gain no authority. Affected consumers and reviews
+are invalidated; approval still requires renewed favorable global review.
 A changed hash is novelty, not resolution; renaming or rewording cannot repair a missing
 binding. An explicit host repair remains pending until actual authorized change and
 renewed validation/review. Accepted defects require scoped revision, preserving unrelated

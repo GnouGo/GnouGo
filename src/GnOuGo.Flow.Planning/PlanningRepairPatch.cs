@@ -92,6 +92,7 @@ internal static class PlanningRepairPatch
                 if (path.Split('/') is ["", "tasks", _, var field])
                     schema = field switch
                     {
+                        "objective" => PlanningSchemas.Ref("goal"),
                         "mode" => PlanningSchemas.Nullable(PlanningSchemas.Enum("extract", "interpret")),
                         "each" => PlanningSchemas.Nullable(PlanningSchemas.Object(("input", PlanningSchemas.Ref("id")), ("output", PlanningSchemas.Ref("id")))),
                         "resultType" => PlanningSchemas.Object(("kind", PlanningSchemas.Enum("object")), ("fields", PlanningSchemas.NonEmptyArray(PlanningSchemas.Ref("resultField")))),
