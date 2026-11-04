@@ -280,10 +280,10 @@ public sealed class CompactSelectionSchemaTests
         state.Construction!.Requirements.Clear();
         state.Construction.Compact!.CurrentBlockId = null;
         var schema = PlanningCompactConstruction.SelectionSchema(state);
-        Assert.Equal("null", schema["properties"]!["block"]!["type"]!.ToString());
+        Assert.DoesNotContain("\"block\"", schema.ToJsonString(), StringComparison.Ordinal);
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(new JsonObject
-            { ["block"] = new JsonObject { ["objective"] = "Invented obligation" }, ["evidenceRequests"] = null, ["clarifications"] = null }, schema));
+            { ["action"] = new JsonObject { ["kind"] = "block", ["block"] = new JsonObject { ["objective"] = "Invented obligation" } } }, schema));
     }
 
     [Fact]

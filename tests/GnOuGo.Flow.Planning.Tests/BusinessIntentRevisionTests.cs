@@ -67,9 +67,9 @@ public sealed class BusinessIntentRevisionTests
             var response = model.CallAsync(request, PlannerFixture.Ct).GetAwaiter().GetResult();
             if (purpose == PlanningCompactConstruction.SelectPurpose)
             {
-                response.Json!["block"]!["objective"] = "Return the revised public numeric result.";
-                response.Json["block"]!["expectedResults"] = new JsonArray("The public numeric result named result has value 43.");
-                response.Json["block"]!["successCriteria"] = new JsonArray("Return result = 43 without external effects.");
+                response.Json!["action"]!["block"]!["objective"] = "Return the revised public numeric result.";
+                response.Json["action"]!["block"]!["expectedResults"] = new JsonArray("The public numeric result named result has value 43.");
+                response.Json["action"]!["block"]!["successCriteria"] = new JsonArray("Return result = 43 without external effects.");
             }
             if (purpose == PlanningConstruction.DraftPurpose)
             {

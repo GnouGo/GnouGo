@@ -389,17 +389,14 @@ public sealed class CompactScopeInterfaceTests
         ["clarifications"] = null, ["evidenceRequests"] = null
     };
     private static JsonObject Block(LLMRequest request) => new()
-    {
-        ["block"] = new JsonObject
+    { ["action"] = new JsonObject { ["kind"] = "block", ["block"] = new JsonObject
         {
             ["objective"] = string.Join(" ", Context(request)["requirements"]!.AsArray().Select(row => row!["original"]!.ToString())),
             ["requirementIds"] = Context(request)["remainingObligations"]!.DeepClone(),
             ["informationNeeds"] = new JsonArray("The declared caller inputs."),
             ["expectedResults"] = new JsonArray("The exact requested public result."), ["dependencies"] = new JsonArray(),
             ["successCriteria"] = new JsonArray("Preserve the exact requested values, reuse and ordering requirements.")
-        },
-        ["clarifications"] = null, ["evidenceRequests"] = null
-    };
+        } } };
     private static PlanTask Greeting(bool input = false) => new() { Id = "assemble", Kind = "value", Objective = "Return the exact supplied greeting.",
         Outputs = [new("message", input ? new() { Kind = "input", Source = "word" } : new() { Kind = "string", Text = "Hello" })] };
     private static JsonObject Draft(LLMRequest request, PlanningConstructionExtension extension) => new()

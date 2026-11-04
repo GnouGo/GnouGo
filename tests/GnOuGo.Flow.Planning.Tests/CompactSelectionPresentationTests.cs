@@ -14,13 +14,10 @@ public sealed class CompactSelectionPresentationTests(ITestOutputHelper output)
         var context = PlanningCompactConstruction.SelectionContext(state);
         var schema = PlanningCompactConstruction.SelectionSchema(state);
         var response = new JsonObject
-        {
-            ["block"] = new JsonObject { ["objective"] = "Preserve the original supplied values and ordering.",
+        { ["action"] = new JsonObject { ["kind"] = "block", ["block"] = new JsonObject { ["objective"] = "Preserve the original supplied values and ordering.",
                 ["requirementIds"] = new JsonArray("req_0"), ["informationNeeds"] = new JsonArray("The supplied values"),
                 ["expectedResults"] = new JsonArray("The exact original values in their original order"),
-                ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray("No value or ordering changes") },
-            ["evidenceRequests"] = null, ["clarifications"] = null
-        };
+                ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray("No value or ordering changes") } } };
         Assert.Empty(PlanningContractValidation.ValidateInstance(response, schema));
         Assert.Equal(state.Request.Prompt, context["requirements"]![0]!["original"]!.ToString());
         foreach (var field in new[] { "baseHash", "step", "scopes", "interfaces", "operations" })
@@ -30,12 +27,12 @@ public sealed class CompactSelectionPresentationTests(ITestOutputHelper output)
         }
         foreach (var field in new[] { "kind", "scope", "operationIds", "inputs", "outputNames", "completeBlock" })
         {
-            var forged = response.DeepClone(); forged["block"]![field] = "unselected";
+            var forged = response.DeepClone(); forged["action"]!["block"]![field] = "unselected";
             Assert.NotEmpty(PlanningContractValidation.ValidateInstance(forged, schema));
         }
-        var unknown = response.DeepClone(); unknown["block"]!["requirementIds"] = new JsonArray("unknown");
+        var unknown = response.DeepClone(); unknown["action"]!["block"]!["requirementIds"] = new JsonArray("unknown");
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(unknown, schema));
-        var oversized = response.DeepClone(); oversized["block"]!["objective"] = new string('x', 1025);
+        var oversized = response.DeepClone(); oversized["action"]!["block"]!["objective"] = new string('x', 1025);
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(oversized, schema));
         Assert.Null(state.Construction!.Compact!.CurrentBlockId);
         Assert.Null(state.Construction.Compact.CurrentStep);

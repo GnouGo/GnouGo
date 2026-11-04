@@ -31,14 +31,14 @@ public sealed class FreshBenchmarkConstructionTests
         Assert.Empty(advanced.Diagnostics);
         Assert.Equal(1, advanced.ModelCalls);
         Assert.Equal("construction_intent", Assert.Single(issued).StructuredOutputSchema!["title"]!.ToString());
-        Assert.Equal(1, advanced.Request.Options["business_selection_contract"]!.GetValue<int>());
+        Assert.Equal(2, advanced.Request.Options["business_selection_contract"]!.GetValue<int>());
         Assert.Empty(advanced.Construction!.Compact!.Blocks!);
         Assert.Null(advanced.Construction.Compact.CurrentBlockId);
         Assert.Equal(frozen, LiveWorkflowEvaluation.FrozenPlanningConfiguration(advanced.Request).ToJsonString());
         Assert.NotEmpty(checkpoints);
         Assert.All(checkpoints, checkpoint =>
         {
-            Assert.Equal(1, checkpoint.Request.Options["business_selection_contract"]!.GetValue<int>());
+            Assert.Equal(2, checkpoint.Request.Options["business_selection_contract"]!.GetValue<int>());
             Assert.NotNull(checkpoint.Construction!.Compact!.Blocks);
         });
 

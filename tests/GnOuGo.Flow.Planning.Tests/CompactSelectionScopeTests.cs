@@ -224,12 +224,12 @@ public sealed class CompactSelectionScopeTests
         runtime.Respond = (request, purpose) =>
         {
             Assert.Equal(PlanningCompactConstruction.SelectPurpose, purpose);
-            return Wire(request, new() { ["block"] = new JsonObject
+            return Wire(request, new() { ["action"] = new JsonObject { ["kind"] = "block", ["block"] = new JsonObject
             {
                 ["objective"] = objective, ["requirementIds"] = new JsonArray("req_0"),
                 ["informationNeeds"] = new JsonArray(), ["expectedResults"] = new JsonArray("The supplied value is preserved."),
                 ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray("Each declared boundary retains its ownership and exact value.")
-            }, ["evidenceRequests"] = null, ["clarifications"] = null });
+            } } });
         };
         state = await Advance(state, runtime);
         Assert.Empty(state.Diagnostics);

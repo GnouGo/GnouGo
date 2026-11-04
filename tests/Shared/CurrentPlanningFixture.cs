@@ -70,12 +70,10 @@ public static class CurrentPlanningFixture
             {
                 "construction_intent" => Index(context),
                 "construction_select" => new JsonObject
-                {
-                    ["block"] = new JsonObject { ["objective"] = "Return the caller's required numeric result.",
+                { ["action"] = new JsonObject { ["kind"] = "block", ["block"] = new JsonObject { ["objective"] = "Return the caller's required numeric result.",
                         ["requirementIds"] = new JsonArray("req_0"), ["informationNeeds"] = new JsonArray(),
                         ["expectedResults"] = new JsonArray("The public numeric result named result has value 42."),
-                        ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray("Return result = 42 without external effects.") }
-                },
+                        ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray("Return result = 42 without external effects.") } } },
                 "construction_implementation" => new JsonObject
                 {
                     ["baseHash"] = schema["properties"]!["baseHash"]!["enum"]![0]!.DeepClone(),

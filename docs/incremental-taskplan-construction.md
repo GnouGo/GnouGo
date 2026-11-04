@@ -654,3 +654,10 @@ cannot establish reachable behavior; optional unused groups and legitimate
 conditional or potentially empty behavior are not rejected for uncertainty alone.
 Derived contribution connection status describes structural reachability, separately
 from accepted construction, business review and independently observed execution.
+
+Business selection contract 2 uses one required `action` object. Its nested `anyOf`
+branches pair one `kind` (`block`, `completion`, `evidence`, `clarification`) with
+exactly its nonnullable payload. Unavailable branches are absent. Empty, mixed and
+all-null responses fail the response schema; invalid-response evidence and repeat
+guards remain effective. Contract-1 continuations are rejected unchanged. Internal
+planning format 11 and JavaScript → YAML v15 remain the sole active protocol.

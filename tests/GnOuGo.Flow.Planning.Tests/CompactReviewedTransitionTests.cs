@@ -24,16 +24,14 @@ public sealed partial class CompactReviewedTransitionTests
     }
 
     private static JsonObject BusinessSelection(LLMRequest request) => new()
-    {
-        ["block"] = new JsonObject
+    { ["action"] = new JsonObject { ["kind"] = "block", ["block"] = new JsonObject
         {
             ["objective"] = string.Join(" ", Context(request)["requirements"]!.AsArray().Select(row => row!["original"]!.ToString())),
             ["requirementIds"] = Context(request)["remainingObligations"]!.DeepClone(),
             ["informationNeeds"] = new JsonArray("The exact original numeric prerequisites."),
             ["expectedResults"] = new JsonArray("The requested numeric results with the original dependencies and boundaries."),
             ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray("Every requested result uses its exact required predecessor.")
-        }, ["evidenceRequests"] = null, ["clarifications"] = null
-    };
+        } } };
 
     private static JsonObject CleanReview(JsonObject _) => new()
     {

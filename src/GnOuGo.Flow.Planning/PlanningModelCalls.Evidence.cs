@@ -364,7 +364,7 @@ internal static partial class PlanningModelCalls
         var projected = response.DeepClone();
         if (mapping is null) return projected;
         Visit(projected);
-        if (projected is JsonObject root && root["block"] is JsonObject block && block["dependencies"] is JsonArray dependencies)
+        if (projected is JsonObject root && root["action"]?["block"] is JsonObject block && block["dependencies"] is JsonArray dependencies)
             foreach (var dependency in dependencies.OfType<JsonObject>())
                 if (Resolve(dependency["resultId"]) is { } canonical && CanonicalBusinessResult(canonical)) dependency["resultId"] = canonical;
         if (mapping.ReviewImplementationIds && projected is JsonObject review && review["decision"] is JsonObject decision && decision["targets"] is JsonArray targets)
@@ -393,7 +393,7 @@ internal static partial class PlanningModelCalls
     {
         var normalized = response.DeepClone();
         VisitResponse(normalized);
-        foreach (var dependency in (normalized["block"]?["dependencies"] as JsonArray ?? []).OfType<JsonObject>())
+        foreach (var dependency in (normalized["action"]?["block"]?["dependencies"] as JsonArray ?? []).OfType<JsonObject>())
         {
             var id = dependency["resultId"]?.GetValue<string>();
             if (id is null || mapping is null || !mapping.Addresses.TryGetValue(id, out var canonical) || !CanonicalBusinessResult(canonical))

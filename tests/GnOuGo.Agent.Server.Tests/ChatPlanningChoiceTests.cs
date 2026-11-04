@@ -266,9 +266,9 @@ public sealed class ChatPlanningChoiceTests
                 }
                 if (purpose == "construction_select")
                 {
-                    json["block"]!["objective"] = "Return the required numeric result and the caller's chosen presentation.";
-                    json["block"]!["expectedResults"]!.AsArray().Add("The public string presentation reflects the caller's selection.");
-                    json["block"]!["successCriteria"]!.AsArray().Add("Honor the caller's explicit presentation decision.");
+                    json["action"]!["block"]!["objective"] = "Return the required numeric result and the caller's chosen presentation.";
+                    json["action"]!["block"]!["expectedResults"]!.AsArray().Add("The public string presentation reflects the caller's selection.");
+                    json["action"]!["block"]!["successCriteria"]!.AsArray().Add("Honor the caller's explicit presentation decision.");
                 }
                 if (purpose == "construction_implementation")
                 {

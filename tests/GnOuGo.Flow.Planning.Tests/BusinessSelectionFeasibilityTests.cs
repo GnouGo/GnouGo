@@ -46,15 +46,12 @@ public sealed class BusinessSelectionFeasibilityTests
                 Assert.DoesNotContain(excluded, request.Prompt, StringComparison.Ordinal);
             Assert.DoesNotContain("operationIds", request.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
             return new() { Json = new JsonObject
-            {
-                ["block"] = new JsonObject
+            { ["action"] = new JsonObject { ["kind"] = "block", ["block"] = new JsonObject
                 {
                     ["objective"] = "Produce the later independent result", ["requirementIds"] = new JsonArray("later"),
                     ["informationNeeds"] = new JsonArray(), ["expectedResults"] = new JsonArray("The later result"),
                     ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray("The later result is present")
-                },
-                ["evidenceRequests"] = null, ["clarifications"] = null
-            } };
+                } } } };
         };
         state = await BusinessReviewProtocolTests.Advance(restored, runtime);
         Assert.Empty(state.Diagnostics);

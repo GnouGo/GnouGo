@@ -46,7 +46,7 @@ public sealed class BusinessBlockNavigationRetirementTests
         PrepareReplacement(state, "later", "later_value");
         state = await BusinessReviewProtocolTests.Advance(state, runtime);
         Assert.Empty(state.Diagnostics);
-        Assert.NotNull(PlanningCompactConstruction.SelectionSchema(state)["properties"]!["completionRequirementIds"]);
+        Assert.True(CompletionEligibilityTests.OffersCompletion(state));
         PlanningCompactConstruction.SelectCompletion(state, ["work", "later"]);
         state = await PlannerFixture.RunAsync(runtime, state);
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics.Select(item => item.Code + ":" + item.Message)));
@@ -85,7 +85,7 @@ public sealed class BusinessBlockNavigationRetirementTests
         Assert.Equal(acceptedHash, state.Construction.Checkpoints[0].PlanHash);
         Assert.Contains(state.Plan!.Root.Tasks, task => task.Id == "accepted_partial");
         Assert.NotNull(PlanningCompactConstruction.SelectionContext(state)["unresolvedNeeds"]);
-        Assert.Null(PlanningCompactConstruction.SelectionSchema(state)["properties"]!["completionRequirementIds"]);
+        Assert.False(CompletionEligibilityTests.OffersCompletion(state));
     }
 
     [Theory]

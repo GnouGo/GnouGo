@@ -94,11 +94,9 @@ public sealed class CompactConstructionTests
 
     private static JsonObject SelectBlock(string requirement = "req_0", string objective = "Produce the exact requested greeting.",
         string expected = "The exact greeting.") => new()
-    {
-        ["block"] = new JsonObject { ["objective"] = objective, ["requirementIds"] = new JsonArray(requirement),
+    { ["action"] = new JsonObject { ["kind"] = "block", ["block"] = new JsonObject { ["objective"] = objective, ["requirementIds"] = new JsonArray(requirement),
             ["informationNeeds"] = new JsonArray(), ["expectedResults"] = new JsonArray(expected),
-            ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray(expected + " Preserve the original constraints.") }
-    };
+            ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray(expected + " Preserve the original constraints.") } } };
 
     private static JsonObject Implement(LLMRequest request, string kind = "value", string scope = "/root", bool close = true,
         string[]? inputs = null) => new()
@@ -911,7 +909,7 @@ public sealed class CompactConstructionTests
         var state = await PlannerFixture.RunAsync(new TestRuntime { Respond = Simple }, Fresh());
         state.Construction!.OpenScopes = ["/root"];
         state.Construction.Requirements[0].Status = "in_progress";
-        PlanningCompactConstruction.SelectBlock(state, SelectBlock()["block"]!);
+        PlanningCompactConstruction.SelectBlock(state, SelectBlock()["action"]!["block"]!);
         state.Construction.Compact!.CurrentStep = new() { Id = "next", BaseHash = PlanningConstruction.Hash(state.Plan),
             BlockId = state.Construction.Compact.CurrentBlockId, Kind = "value", Scope = "/root", RequirementIds = ["req_0"] };
         var task = Value("consumer");

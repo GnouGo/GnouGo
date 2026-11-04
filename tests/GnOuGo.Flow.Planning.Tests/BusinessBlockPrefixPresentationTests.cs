@@ -37,13 +37,13 @@ public sealed class BusinessBlockPrefixPresentationTests
             if (purpose == PlanningCompactConstruction.SelectPurpose)
             {
                 selections++;
-                return Wire(request, new() { ["block"] = new JsonObject
+                return Wire(request, new() { ["action"] = new JsonObject { ["kind"] = "block", ["block"] = new JsonObject
                 {
                     ["objective"] = original, ["requirementIds"] = new JsonArray("req_0"),
                     ["informationNeeds"] = new JsonArray("The caller query"),
                     ["expectedResults"] = new JsonArray("The ten exact requested records have been read."),
                     ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray("Read exact indices zero through nine from their requested sources")
-                } });
+                } } });
             }
             if (purpose == PlanningCompactConstruction.ImplementationPurpose)
             {

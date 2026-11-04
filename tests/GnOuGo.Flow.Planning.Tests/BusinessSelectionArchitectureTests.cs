@@ -17,7 +17,7 @@ public sealed class BusinessSelectionArchitectureTests
         var context = PlanningCompactConstruction.SelectionContext(state);
         Assert.Equal(new[] { "availableResults", "evidence", "globalConstraints", "remainingObligations", "requirements" },
             context.Select(pair => pair.Key).Order(StringComparer.Ordinal));
-        var block = PlanningCompactConstruction.SelectionSchema(state)["properties"]!["block"]!["anyOf"]![0]!["properties"]!.AsObject();
+        var block = PlanningCompactConstruction.SelectionSchema(state)["properties"]!["action"]!["anyOf"]![0]!["properties"]!["block"]!["properties"]!.AsObject();
         Assert.Equal(new[] { "dependencies", "expectedResults", "informationNeeds", "objective", "requirementIds", "successCriteria" },
             block.Select(pair => pair.Key).Order(StringComparer.Ordinal));
         foreach (var key in new[] { "scope", "kind", "operationIds", "inputs", "outputNames", "closeScopes", "maxTasksPerDraft", "baseHash", "step" })
@@ -33,7 +33,7 @@ public sealed class BusinessSelectionArchitectureTests
         var (state, _) = await BusinessReviewProtocolTests.Ready();
         foreach (var requirement in state.Construction!.Requirements) requirement.Status = "closed";
         var schema = PlanningCompactConstruction.SelectionSchema(state);
-        Assert.Equal("null", schema["properties"]!["block"]!["type"]!.ToString());
+        Assert.DoesNotContain("\"block\"", schema.ToJsonString(), StringComparison.Ordinal);
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
         Assert.DoesNotContain("\"enum\":[]", schema.ToJsonString(), StringComparison.Ordinal);
     }
@@ -163,7 +163,7 @@ public sealed class BusinessSelectionArchitectureTests
         Assert.False(HybridWorkflowPlanner.ConstructionArtifactReviewValid(state));
         Assert.Null(state.ApprovedHash);
         if (defect is not ("wrong-id" or "duplicate"))
-            Assert.Null(PlanningCompactConstruction.SelectionSchema(state)["properties"]!["completionRequirementIds"]);
+            Assert.False(CompletionEligibilityTests.OffersCompletion(state));
     }
 
     [Fact]
@@ -216,13 +216,13 @@ public sealed class BusinessSelectionArchitectureTests
             Assert.NotEqual(canonical, issued);
             Assert.DoesNotContain(canonical, request.Prompt, StringComparison.Ordinal);
             Assert.DoesNotContain(canonical, request.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
-            return new() { Json = new JsonObject { ["block"] = new JsonObject
+            return new() { Json = new JsonObject { ["action"] = new JsonObject { ["kind"] = "block", ["block"] = new JsonObject
             {
                 ["objective"] = "Produce the later independent result", ["requirementIds"] = new JsonArray("later"),
                 ["informationNeeds"] = new JsonArray(), ["expectedResults"] = new JsonArray("The later result"),
                 ["dependencies"] = new JsonArray(new JsonObject { ["resultId"] = issued, ["reason"] = "Preserve the earlier result" }),
                 ["successCriteria"] = new JsonArray("The later result is present")
-            }, ["evidenceRequests"] = null, ["clarifications"] = null } };
+            } } } };
         };
         state = await BusinessReviewProtocolTests.Advance(state, runtime);
         Assert.Empty(state.Diagnostics);
@@ -231,7 +231,7 @@ public sealed class BusinessSelectionArchitectureTests
         PlanningModelCalls.ValidateEvidenceAddresses(saved);
         Assert.Equal(canonical, saved.EvidenceAddresses!.Addresses[issued!]);
         Assert.Throws<PlanningConflictException>(() => PlanningModelCalls.NormalizeEvidenceResponse(new JsonObject
-            { ["block"] = new JsonObject { ["dependencies"] = new JsonArray(new JsonObject { ["resultId"] = canonical }) } }, saved.EvidenceAddresses));
+            { ["action"] = new JsonObject { ["kind"] = "block", ["block"] = new JsonObject { ["dependencies"] = new JsonArray(new JsonObject { ["resultId"] = canonical }) } } }, saved.EvidenceAddresses));
     }
 
     [Fact]

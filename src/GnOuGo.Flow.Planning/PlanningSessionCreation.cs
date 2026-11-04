@@ -31,7 +31,7 @@ internal static class PlanningSessionCreation
         state.Construction ??= new();
         state.Construction.Compact ??= new();
         state.Construction.Compact.Blocks ??= [];
-        options.TryAdd("business_selection_contract", 1);
+        options.TryAdd("business_selection_contract", 2);
         state.Construction.Limits.MaxNonProductiveModelCalls ??= 6;
         var policy = state.Construction.Limits.PhasePolicy ?? PlanningConstructionPhasePolicies.Read(state.Request) ??
             new PlanningConstructionPhasePolicy

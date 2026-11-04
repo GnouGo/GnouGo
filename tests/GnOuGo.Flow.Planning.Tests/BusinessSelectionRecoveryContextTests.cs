@@ -51,7 +51,7 @@ public sealed class BusinessSelectionRecoveryContextTests
         retained.Construction!.Requirements.Single(requirement => requirement.Id == "later").Status = "closed";
         Assert.Null(PlanningCompactConstruction.SelectionContext(retained)["unresolvedNeeds"]);
         retained.Diagnostics = [new("TASK_INPUT_TYPE", "/tasks/private", "Technical details stay with implementation."),
-            new("PROPOSAL_ACTION_INVALID", "/", "An optional historical note.", Required: false)];
+            new("PLANNING_RESPONSE_INVALID", "/", "An optional historical note.", Required: false)];
         Assert.Null(PlanningCompactConstruction.SelectionContext(retained)["actionFindings"]);
     }
 
@@ -75,13 +75,13 @@ public sealed class BusinessSelectionRecoveryContextTests
             {
                 Assert.NotNull(Context(request)["actionFindings"]);
                 var finding = Assert.Single(Context(request)["actionFindings"]!.AsArray())!;
-                Assert.Equal("PROPOSAL_ACTION_INVALID", finding["code"]!.ToString());
-                Assert.Equal("Return exactly one business-selection action.", finding["message"]!.ToString());
+                Assert.Equal("PLANNING_RESPONSE_INVALID", finding["code"]!.ToString());
+                Assert.Contains("action", finding["message"]!.ToString(), StringComparison.Ordinal);
             }
-            return new() { Json = calls == 1 || repeat ? new() { ["block"] = null, ["evidenceRequests"] = null, ["clarifications"] = null } : Block("work") };
+            return new() { Json = calls == 1 || repeat ? new() { ["action"] = null } : Block("work") };
         };
         state = await BusinessReviewProtocolTests.Advance(state, runtime);
-        Assert.Contains(state.Diagnostics, finding => finding.Code == "PROPOSAL_ACTION_INVALID");
+        Assert.Contains(state.Diagnostics, finding => finding.Code == "PLANNING_RESPONSE_INVALID");
         state = await BusinessReviewProtocolTests.Advance(PlannerFixture.Clone(state), runtime);
         Assert.Equal(2, calls);
         Assert.Equal(2, state.ModelCalls);
@@ -103,11 +103,8 @@ public sealed class BusinessSelectionRecoveryContextTests
     private static JsonObject Context(LLMRequest request) => JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!.AsObject();
 
     private static JsonObject Block(string requirement, string? dependency = null) => new()
-    {
-        ["block"] = new JsonObject { ["objective"] = "Deliver the remaining original result", ["requirementIds"] = new JsonArray(requirement),
+    { ["action"] = new JsonObject { ["kind"] = "block", ["block"] = new JsonObject { ["objective"] = "Deliver the remaining original result", ["requirementIds"] = new JsonArray(requirement),
             ["informationNeeds"] = new JsonArray(), ["expectedResults"] = new JsonArray("The requested result"),
             ["dependencies"] = dependency is null ? new JsonArray() : new JsonArray(new JsonObject { ["resultId"] = dependency, ["reason"] = "Reuse the accepted contribution" }),
-            ["successCriteria"] = new JsonArray("The requested result is available") },
-        ["evidenceRequests"] = null, ["clarifications"] = null
-    };
+            ["successCriteria"] = new JsonArray("The requested result is available") } } };
 }

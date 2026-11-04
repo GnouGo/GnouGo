@@ -40,13 +40,13 @@ public sealed class BusinessSelectionCoverageContextTests
             Assert.Equal(PlanningCompactConstruction.SelectPurpose, purpose);
             var issued = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
             Assert.Equal("later", issued["currentPlanFindings"]![0]!["requirementId"]!.ToString());
-            return new() { Json = new JsonObject { ["block"] = new JsonObject
+            return new() { Json = new JsonObject { ["action"] = new JsonObject { ["kind"] = "block", ["block"] = new JsonObject
             {
                 ["objective"] = "Deliver the remaining original result", ["requirementIds"] = new JsonArray("later"),
                 ["informationNeeds"] = new JsonArray(), ["expectedResults"] = new JsonArray("The requested result"),
                 ["dependencies"] = new JsonArray(new JsonObject { ["resultId"] = runtime.EvidenceId(request, "result:block_2"), ["reason"] = "Reuse the accepted contribution" }),
                 ["successCriteria"] = new JsonArray("The remaining original result is supplied")
-            }, ["evidenceRequests"] = null, ["clarifications"] = null } };
+            } } } };
         };
         var next = await BusinessReviewProtocolTests.Advance(PlannerFixture.Clone(state), runtime);
         Assert.Empty(next.Diagnostics);

@@ -17,9 +17,15 @@ public sealed partial class HybridWorkflowPlanner
                 PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose), ct);
         if (construction.IssuedBaseHash != PlanningConstruction.Hash(state.Plan))
             throw new PlanningConflictException("The completed business selection no longer matches its accepted baseline.");
-        if (new[] { "block", "completionRequirementIds", "evidenceRequests", "clarifications" }.Count(name => response[name] is not null) != 1)
-            PlanningConstruction.Fail("PROPOSAL_ACTION_INVALID", "/", "Return exactly one business-selection action.");
-        if (response["evidenceRequests"] is JsonArray evidence)
+        var action = response["action"] as JsonObject;
+        var payload = action?["kind"]?.ToString() switch
+        {
+            "block" => "block", "completion" => "completionRequirementIds",
+            "evidence" => "evidenceRequests", "clarification" => "clarifications", _ => null
+        };
+        if (response.AsObject().Count != 1 || action is null || action.Count != 2 || payload is null || action[payload] is null)
+            PlanningConstruction.Fail("PROPOSAL_ACTION_INVALID", "/action", "Return exactly one offered business-selection action and its required payload.");
+        if (action!["evidenceRequests"] is JsonArray evidence)
         {
             PlanningConstruction.LoadEvidence(state, evidence.Select(value => value!.ToString()).ToList(), followup: next =>
             {
@@ -30,17 +36,17 @@ public sealed partial class HybridWorkflowPlanner
             }, purpose: PlanningCompactConstruction.SelectPurpose);
             return;
         }
-        if (response["clarifications"] is JsonArray questions)
+        if (action!["clarifications"] is JsonArray questions)
         {
             var parsed = questions.Deserialize(PlanningJsonContext.Default.ListPlanningQuestion)!;
             PlanningClarifications.Suspend(state, parsed); state.PendingQuestions = parsed; state.Status = PlanningStatus.Clarification;
             return;
         }
-        if (response["completionRequirementIds"] is JsonArray requirements)
+        if (action!["completionRequirementIds"] is JsonArray requirements)
         {
             PlanningCompactConstruction.SelectCompletion(state, requirements.Select(value => value!.ToString()).ToArray());
             return;
         }
-        PlanningCompactConstruction.SelectBlock(state, response["block"]!);
+        PlanningCompactConstruction.SelectBlock(state, action!["block"]!);
     }
 }

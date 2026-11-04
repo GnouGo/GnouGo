@@ -211,6 +211,8 @@ public sealed class DiagnosticClarificationTargetsTests
             if (purpose == phase)
             {
                 var response = new JsonObject { ["clarifications"] = JsonSerializer.SerializeToNode(questions, PlanningJsonContext.Default.ListPlanningQuestion) };
+                if (purpose == PlanningCompactConstruction.SelectPurpose) response = new JsonObject
+                    { ["action"] = new JsonObject { ["kind"] = "clarification", ["clarifications"] = response["clarifications"]!.DeepClone() } };
                 if (schema["properties"]?["baseHash"]?["enum"]?[0] is { } baseline) response["baseHash"] = baseline.DeepClone();
                 var wire = PlanningCorpus.Transport(response, schema, schema)!;
                 Assert.Empty(PlanningModelCalls.ValidateResponseFindings(wire, schema));

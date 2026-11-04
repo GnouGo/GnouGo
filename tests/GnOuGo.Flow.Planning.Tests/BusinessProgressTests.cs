@@ -12,14 +12,16 @@ public sealed class BusinessProgressTests
     {
         var state = PlannerFixture.Session();
         var first = JsonNode.Parse("""{"block":{"objective":"Read the requested records","requirementIds":["records"],"informationNeeds":["Record identifiers"],"expectedResults":["Requested records"],"dependencies":[{"resultId":"result:block_1","reason":"Use the prior identifiers"}],"successCriteria":["All original records are present"]}}""")!;
+        first = new JsonObject { ["action"] = first };
+        first["action"]!["kind"] = "block";
         var reworded = first.DeepClone();
-        reworded["block"]!["objective"] = "Produce the records";
-        reworded["block"]!["informationNeeds"] = new JsonArray("Known identifiers");
-        reworded["block"]!["expectedResults"] = new JsonArray("The records requested by the caller");
-        reworded["block"]!["successCriteria"] = new JsonArray("Every requested record is returned");
+        reworded["action"]!["block"]!["objective"] = "Produce the records";
+        reworded["action"]!["block"]!["informationNeeds"] = new JsonArray("Known identifiers");
+        reworded["action"]!["block"]!["expectedResults"] = new JsonArray("The records requested by the caller");
+        reworded["action"]!["block"]!["successCriteria"] = new JsonArray("Every requested record is returned");
         Assert.Equal(PlanningProgress.Strategy(state, PlanningCompactConstruction.SelectPurpose, first),
             PlanningProgress.Strategy(state, PlanningCompactConstruction.SelectPurpose, reworded));
-        reworded["block"]!["dependencies"]![0]!["resultId"] = "result:block_2";
+        reworded["action"]!["block"]!["dependencies"]![0]!["resultId"] = "result:block_2";
         Assert.NotEqual(PlanningProgress.Strategy(state, PlanningCompactConstruction.SelectPurpose, first),
             PlanningProgress.Strategy(state, PlanningCompactConstruction.SelectPurpose, reworded));
     }
@@ -39,13 +41,10 @@ public sealed class BusinessProgressTests
             Assert.Equal(PlanningCompactConstruction.SelectPurpose, purpose);
             selections++;
             return new() { Json = new JsonObject
-            {
-                ["block"] = new JsonObject { ["objective"] = "Reworded business intent " + selections,
+            { ["action"] = new JsonObject { ["kind"] = "block", ["block"] = new JsonObject { ["objective"] = "Reworded business intent " + selections,
                     ["requirementIds"] = new JsonArray("work"), ["informationNeeds"] = new JsonArray(),
                     ["expectedResults"] = new JsonArray("A result phrased differently " + selections),
-                    ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray(" ") },
-                ["evidenceRequests"] = null, ["clarifications"] = null
-            } };
+                    ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray(" ") } } } };
         };
         state = await BusinessReviewProtocolTests.Advance(state, runtime);
         Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_BLOCK_INVALID");

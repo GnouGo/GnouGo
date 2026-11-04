@@ -38,7 +38,7 @@ public sealed class BusinessBlockGranularityTests
         var baseline = PlanningConstruction.Hash(state.Plan);
         var blocks = state.Construction!.Compact!.Blocks!.Count;
         Assert.Equal("in_progress", Assert.Single(state.Construction.Requirements).Status);
-        Assert.NotNull(PlanningCompactConstruction.SelectionSchema(state)["properties"]!["completionRequirementIds"]);
+        Assert.True(CompletionEligibilityTests.OffersCompletion(state));
         runtime.Calls.Clear();
         var purposes = new List<string>();
         runtime.Respond = (_, purpose) =>
@@ -47,7 +47,7 @@ public sealed class BusinessBlockGranularityTests
             return purpose switch
             {
                 PlanningCompactConstruction.SelectPurpose => new() { Json = new JsonObject
-                    { ["block"] = null, ["completionRequirementIds"] = new JsonArray("work"), ["evidenceRequests"] = null, ["clarifications"] = null } },
+                    { ["action"] = new JsonObject { ["kind"] = "completion", ["completionRequirementIds"] = new JsonArray("work") } } },
                 PlanningConstruction.GlobalPurpose => new() { Json = BusinessReviewProtocolTests.Report("ok") },
                 _ => throw new InvalidOperationException("Finalizing accepted work needs no implementation or draft call.")
             };

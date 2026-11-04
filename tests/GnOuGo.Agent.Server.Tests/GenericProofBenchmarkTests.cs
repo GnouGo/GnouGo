@@ -464,14 +464,14 @@ public sealed class GenericProofBenchmarkTests
                         JsonSerializer.SerializeToNode(new List<TaskInput> { new() { Name = "leftResult", Type = new() { Kind = "number" } },
                             new() { Name = "rightResult", Type = new() { Kind = "number" } } }, PlanningJsonContext.Default.ListTaskInput)!.AsArray());
                 else if (purpose == "construction_select")
-                    response = new() { ["block"] = new JsonObject
+                    response = new() { ["action"] = new JsonObject { ["kind"] = "block", ["block"] = new JsonObject
                     {
                         ["objective"] = "Read the exact seed and return the numeric results from the reusable computations.",
                         ["requirementIds"] = new JsonArray("req_0"), ["informationNeeds"] = new JsonArray(),
                         ["expectedResults"] = new JsonArray("The public leftResult and rightResult contain the required numeric results."),
                         ["dependencies"] = new JsonArray(),
                         ["successCriteria"] = new JsonArray("Use only the exact seed read, preserve ordering, and leave the workspace unchanged.")
-                    } };
+                    } } };
                 else if (purpose == "construction_implementation")
                     response = new() { ["baseHash"] = schema["properties"]!["baseHash"]!["enum"]![0]!.DeepClone(), ["step"] = new JsonObject
                     {

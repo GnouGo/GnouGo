@@ -114,12 +114,12 @@ public sealed class DiagnosticEnumTargetTests
             "construction_intent" => CurrentPlanningFixture.Intent(context,
                 JsonSerializer.SerializeToNode(new List<TaskInput> { new() { Name = "choice", Type = DomainType() } }, PlanningJsonContext.Default.ListTaskInput)!.AsArray(),
                 JsonSerializer.SerializeToNode(new List<TaskInput> { new() { Name = "result", Type = DomainType() } }, PlanningJsonContext.Default.ListTaskInput)!.AsArray()),
-            "construction_select" => new JsonObject { ["block"] = new JsonObject
+            "construction_select" => new JsonObject { ["action"] = new JsonObject { ["kind"] = "block", ["block"] = new JsonObject
             {
                 ["objective"] = "Return the caller's exact allowed choice.", ["requirementIds"] = Strings(["req_0"]),
                 ["informationNeeds"] = new JsonArray(), ["expectedResults"] = Strings(["The public result equals the caller's choice."]),
                 ["dependencies"] = new JsonArray(), ["successCriteria"] = Strings(["Preserve the exact allowed domain and selected value."])
-            } },
+            } } },
             "construction_implementation" => new JsonObject { ["baseHash"] = schema["properties"]!["baseHash"]!["enum"]![0]!.DeepClone(), ["step"] = new JsonObject
             {
                 ["scope"] = "/root", ["kind"] = "value", ["closeRequirementIds"] = Strings(["req_0"]),

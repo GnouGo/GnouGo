@@ -46,8 +46,10 @@ bindings or fragment budgets. Preserve objectives, original obligations, informa
 expected results, existing-result dependencies and success criteria. Link the technical
 CurrentStep through BlockId; Step.Id owns technical anchors while BlockId owns business
 contributions and review. Required completeBlock requests business review; null technical
-continueInScope alone never completes the block. Preserve the fresh selection-contract
-marker and reject incompatible old continuations unchanged without inventing blocks.
+continueInScope alone never completes the block. Use selection-contract marker 2 with one required discriminated `action` object;
+offer only available nonnullable action branches. Preserve raw invalid-response
+evidence, canonical evidence IDs and repeat guards. Reject incompatible old
+continuations unchanged without inventing blocks.
 
 Use the existing multi-task fragment for a coherent business block: its selected anchor, related value/transform helpers, exact selected operations, available dependencies, legal exports and cleanup. Populate necessary control/group bodies; the recursive task bound is a warning target under the fresh diagnostic policy, with complete contributions validated intact. Close newly supplied complete bodies mechanically, including empty optional branches; retain explicit continuation boundaries, evidenced empty prerequisite openings and their ancestors. Existing boundaries and root keep explicit closure authority. An empty-only opening requires a current evidence-linked unresolved prerequisite for the same responsibility. A partial fragment may retain the same step through an exact original or block-owned open scope, without closing requirements or discharging consumers. Reuse accepted results and exact contracts before asking another semantic question. Preserve genuine control boundaries and anchor-specific authority; do not add scenario rules or widen repair authority to avoid a planning call.
 

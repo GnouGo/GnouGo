@@ -166,7 +166,8 @@ internal static class PlanningProgress
 
     private static JsonObject StrategyEvidence(PlanningSession state, JsonNode response)
     {
-        var projected = response.DeepClone();
+        var projected = response is JsonObject { Count: 1 } root && root["action"] is JsonObject action
+            ? action.DeepClone() : response.DeepClone();
         var behavior = new Behavior(state.Plan ?? new(), state.Construction?.OpenScopes ?? []);
         var declarations = new List<(JsonObject Task, string Id, string Path)>();
         if (projected is JsonObject proposal && proposal["extension"] is JsonObject extension)

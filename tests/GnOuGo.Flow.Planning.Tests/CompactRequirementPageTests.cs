@@ -441,15 +441,13 @@ public sealed class CompactRequirementPageTests
     };
 
     private static JsonObject BusinessSelection(PlanningSession state, params string[] ids) => new()
-    {
-        ["block"] = new JsonObject
+    { ["action"] = new JsonObject { ["kind"] = "block", ["block"] = new JsonObject
         {
             ["objective"] = "Preserve the original values and every applicable constraint.",
             ["requirementIds"] = new JsonArray(ids.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
             ["informationNeeds"] = new JsonArray(), ["expectedResults"] = new JsonArray("The complete requested result."),
             ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray("Each selected original obligation is satisfied without changing its meaning.")
-        }, ["evidenceRequests"] = null, ["clarifications"] = null
-    };
+        } } };
 
     private static JsonObject Selection(PlanningSession state) => new()
     {

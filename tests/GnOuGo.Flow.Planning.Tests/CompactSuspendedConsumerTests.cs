@@ -420,12 +420,12 @@ public sealed class CompactSuspendedConsumerTests
             else if (purpose == PlanningCompactConstruction.SelectPurpose)
             {
                 var final = current.Construction!.Requirements.Single(requirement => requirement.Id == "req_0").Status == "closed";
-                response = new() { ["block"] = new JsonObject
+                response = new() { ["action"] = new JsonObject { ["kind"] = "block", ["block"] = new JsonObject
                 {
                     ["objective"] = final ? finish : work, ["requirementIds"] = new JsonArray(final ? "req_1" : "req_0"),
                     ["informationNeeds"] = new JsonArray(), ["expectedResults"] = new JsonArray(final ? "The required public number" : "The exact doubled numeric result"),
                     ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray(final ? "Return the declared public result" : "Retain two and double the exact seven within the sequential scope")
-                } };
+                } } };
             }
             else if (purpose == PlanningCompactConstruction.ImplementationPurpose)
             {
