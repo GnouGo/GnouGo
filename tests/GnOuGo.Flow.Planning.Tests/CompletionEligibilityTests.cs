@@ -52,6 +52,24 @@ public sealed class CompletionEligibilityTests
         Assert.Null(state.ApprovedHash);
     }
 
+    [Fact]
+    public async Task LegitimatelyEmptyIterationRemainsUnverifiedRatherThanTechnicallyForbidden()
+    {
+        var (state, _) = await BusinessSelectionCoverageContextTests.PreparedGroup();
+        var values = new TaskInput { Name = "values", Required = true,
+            Type = new() { Kind = "array", Items = new() { Kind = "number" }, MaxItems = 0 } };
+        state.Plan!.Inputs.Add(values);
+        state.Requirements!.Inputs = state.Plan.Inputs;
+        state.Plan.Root.Tasks.Add(new() { Id = "each", Kind = "foreach", Objective = "Use each supplied value, including an empty collection",
+            Items = new() { Kind = "input", Source = "values" }, Body = new() { Tasks = [new() { Id = "invoke", Kind = "call", Group = "prepared",
+                Objective = "Use the prepared contribution for this value", Inputs = [new("x", new() { Kind = "item" })] }] } });
+        var assessment = PlanningCompletionValidation.Assess(state, state.Plan);
+        Assert.Empty(assessment.Diagnostics);
+        Assert.Contains(assessment.Coverage, result => result.Outcome == "unverified");
+        Assert.True(OffersCompletion(state));
+        Assert.Null(state.ApprovedHash);
+    }
+
     internal static bool OffersCompletion(PlanningSession state) =>
         PlanningCompactConstruction.SelectionSchema(state).ToJsonString().Contains("\"completionRequirementIds\"", StringComparison.Ordinal);
 }
