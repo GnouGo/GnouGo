@@ -3992,3 +3992,71 @@ encrypted-storage stages passed. Focused tests are included in the solution coun
 not added again. [The exact-source result](compact-taskplan-a3ccf16b-full-validation.json)
 establishes technical validation only. Amazon's semantic stop and the unfinished
 six-run runtime gate remain unchanged.
+
+## 4 November 2026 — GPT-6.1 restart, frozen source `1f801c40`
+
+The current implementation removes completion actions when shared deterministic
+compiler, interface, coverage or executable-graph checks establish an obstacle.
+Eligibility evaluates cloned state and isolates ambient warning observers; normal
+final validation still records advisory warnings. Business selection contract 2
+requires one discriminated action with a nonnullable payload. Canonical evidence
+resolution, invalid-response receipts and repetition guards remain effective.
+A proved coverage gap keeps its original obligation selectable after a local
+contribution review without rewriting accepted checkpoints. Derived structural
+connection, business review and execution observation remain separate facts.
+
+The authorized GPT-6.1 switch registers immutable configuration
+`9bcafa16e4cfa77599bd5757901d11c41a9578f9efc36600b90589a81c50d9dd`
+for `OpenAi / gpt-6.1-sol-2026-09-29` on the existing campaign. The saved
+configuration is unchanged. The original GPT-5.5 pin and historical manifests,
+financial ceiling, uncertain reservations and closures remain intact. New runs
+must select the exact amendment; a different deployment cannot continue them.
+No supplement or reservation release occurs.
+
+[Source-bound technical evidence](sequential-gpt61-1f801c40-validation.json)
+records **2,689 owning Planning passes**, zero failures/skips/compiler diagnostics,
+and **all eleven publication stages passing**, including Native AOT execution and
+published encrypted-storage/exact-receipt recovery. Matching frozen benchmark/MCP
+builds and the source-bound review helper pass; its fourteen typed rejection and
+ten CLI checks are synthetic and approve no real artifact. The exact-source full
+solution remains running in its separate checkout; its final result is not yet
+claimed. The incomplete historical b50 full-solution capture remains separate.
+
+The real CLI rejects an EOF interaction channel before generation, execution or
+run/cohort creation, with unchanged financial evidence. Interactive Amazon readiness
+independently checks a disposable loopback page, temporary XLSX and browser cleanup;
+Review PR readiness inspects the actual confined tool contracts. These checks use
+no generation calls and establish no business qualification.
+
+The three established phase policies pass read-only financial admission on the new
+model. Conservative navigation/draft/two-review headroom is EUR 125.90178012344575
+for Amazon and EUR 121.5049646658914 for Review PR and Collections. This is a
+look-ahead check, not allocated spending. The inspected campaign retains EUR
+409.34032146224804887279498235 known spending, EUR
+135.58746410494559036333532391 reserved, and EUR
+195.10231826551266530631464104 available under the unchanged EUR
+740.0301038327063045424449473 ceiling. All 157 historical unknown physical attempts
+remain reserved; 63 permanent closures and zero unresolved requests are preserved.
+
+**Live qualification remains 0/6; no paid generation has started on this source.**
+Each qualifying success still requires generation, deterministic validation,
+favorable global review, exact delegated artifact approval, real permission-gated
+execution and a favorable independent oracle. Both Collections variants must pass
+per generation. Model changes restart every streak; comparisons against GPT-5.5
+cannot attribute differences solely to these code changes.
+
+```mermaid
+flowchart LR
+    R[Original request and contracts] --> S[Available business actions]
+    T[Authoritative TaskPlan] --> P[Pure technical eligibility]
+    P --> S
+    S --> B[Business responsibility]
+    B --> I[Sequential implementation or scoped repair]
+    I --> V[Deterministic validation]
+    V --> L[Coherent local business review]
+    L --> T
+    T --> G[Mandatory global business review]
+    G --> A[Exact artifact approval]
+    A --> E[Permission-gated execution]
+    E --> O[Independent business oracle]
+```
