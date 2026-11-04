@@ -8,6 +8,16 @@ The current delivery gate is **two consecutive intervention-free executions per 
 
 Latest technically validated production source is **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`**: [**7,614 full-solution passes, zero failures and thirteen declared skips across 33 assemblies**](business-selection-1d6632c5-solution-validation.json), plus [**eleven passing publication stages**](business-selection-1d6632c5-publication-validation.json), with zero compiler/publication diagnostics. It preserves redacted authentication-stage provenance without changing retry, accounting, retention or replay authority. These results establish technical validation, not live qualification.
 
+Current correction **`cd8641651acb36b39584287e5990c304561e7339`** has
+[**2,645 owning Planning passes on verified matching source postimages**](business-selection-cd864165-owning-validation.json)
+and [**eleven exact-source publication stages passed**](business-selection-cd864165-publication-validation.json),
+including actual Native AOT and published encrypted-storage/exact-receipt smoke,
+with zero warnings/errors and unchanged source. Its exact-source full solution
+is still running separately. Fresh Amazon `bizcd864165amz01-amazon-1` launched
+after **10:23:12 UTC** admission on the unchanged profile, with zero unresolved
+requests and **EUR 215.79874012793327537877192699** available before dispatch.
+The new source has no completed live result or runtime qualification yet.
+
 Latest live production source remains **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`**. After the exact authorized preceding closure, fresh Amazon **`biz1d6632c5amz02-amazon-1`** received all twelve logical completions across thirteen physical attempts and stopped at local business review, before an accepted checkpoint or artifact. A nine-task group passed deterministic repair; the Judge maintained its finding that exported file-write success does not establish successful search/extraction. The mixed task/group-scope target was routed to evidence-only reconsideration, with no editable patch, despite the group being newly supplied by the candidate. This is the next bounded repair-admission reproduction. There is no pending request or execution; final-source qualification remains **0/6**.
 
 The preceding `ebf01483` source retains its [2,618-case Planning result](business-selection-ebf01483-planning-validation.json), [fresh-initialization regression](business-selection-fresh-initialization-validation.json), [eleven-stage publication result](business-selection-ebf01483-publication-validation.json) and recovered **7,579-pass, thirteen-skip** solution result. Earlier [owning suites](business-selection-1884a658-owning-validation.json) and [54 actual host/UI cases](business-selection-1884a658-host-ui-validation.json) retain their precise source boundaries. Focused counts overlap and are not added; failed captures remain preserved.

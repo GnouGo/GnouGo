@@ -1,0 +1,39 @@
+{
+  "kind": "source_postimage_owning_validation",
+  "version": 1,
+  "source_postimages_match_commit": "cd8641651acb36b39584287e5990c304561e7339",
+  "observed_at_utc": "2026-11-04T10:20:55.554541+00:00",
+  "command": "dotnet test tests/GnOuGo.Flow.Planning.Tests -warnaserror",
+  "trx_sha256": "7d6d15c938846b606b6121339010f3b0001860b30cded7ccb700109ea12a7140",
+  "counts": {
+    "total": "2645",
+    "executed": "2645",
+    "passed": "2645",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "focused_repair_progress_passed": 29,
+  "focused_cases_overlap_owning_total": true,
+  "initial_generic_reproduction_failed": 4,
+  "postimages": {
+    ".agents/skills/gnougo-planning/SKILL.md": "7180214c7bbc7e4c4058f669e97d0c977f80f01f875da09ed68b4bf388fd289a",
+    "docs/incremental-taskplan-construction.md": "6f2d266ea7d6c8ba07d2a6fc4d32f060c9a49bf2e8346963ea6d8f622a55a60e",
+    "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.BusinessBlocks.cs": "c6c22e5516941e7c540eb365b7423bd85f4f9632ca7bf006157fce67b194d3e0",
+    "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.ConstructionReview.cs": "2d674f81f27b1b19627575b7ad8d853cdcb72ea4c3973d568e817324b022ac6a",
+    "src/GnOuGo.Flow.Planning/PlanningConstruction.DefectProgress.cs": "bdae7d4e8e6606b19b240095c8835f0f6c241b638d8c521284ac522ac2fc79a7",
+    "tests/GnOuGo.Flow.Planning.Tests/ConstructionDefectProgressTests.cs": "fc6f8173daeaafe5a2b1aa0b44a859e78d2f708a2f6fade8b701b6ef00f7ed62",
+    "tests/GnOuGo.Flow.Planning.Tests/TentativeScopeBusinessRepairTests.cs": "3d9a599750bed3d43c9d1a2c4a0fa56e6a7fc0c2127b4ddf17411d681d077c59"
+  },
+  "limit": "The owning suite ran before the commit was created. Matching committed source postimages are verified; exact-commit solution/publication validation remains separate and in progress."
+}
