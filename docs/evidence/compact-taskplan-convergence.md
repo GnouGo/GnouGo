@@ -8,7 +8,21 @@ The current delivery gate is **two consecutive intervention-free executions per 
 
 Previous fully validated source **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`** retains: [**7,614 full-solution passes, zero failures and thirteen declared skips across 33 assemblies**](business-selection-1d6632c5-solution-validation.json), plus [**eleven passing publication stages**](business-selection-1d6632c5-publication-validation.json), with zero compiler/publication diagnostics. It preserves redacted authentication-stage provenance without changing retry, accounting, retention or replay authority. These results establish technical validation, not live qualification.
 
-Current correction **`c89f2e5c5c162cf16aaa0b3613093b15e1097699`** extends the existing
+Current correction **`b50de0435688d831e085566b297e98b703258600`** abandons only
+superseded entirely unimplemented navigation chains in a successfully reviewed
+business block. Exact cursor identities, typed needs and source/contract evidence
+remain as abandoned history; no prerequisite is fulfilled or consumer resumed.
+Accepted consumer fragments/associations, resumption, partial block acceptance and
+cross-block relationships retain their existing recovery requirements. Original
+closure, mandatory global review, artifact approval and execution remain separate.
+[**All 2,678 owning Planning cases pass with warnings as errors**](business-selection-b50de043-owning-validation.json),
+including six focused cases. One pre-fix reproduction fails while five preservation
+cases pass; the correction restores the ordinary final global review path without
+approval or execution. Exact-source matching builds, full-solution and all eleven
+publication stages have started in independent frozen checkouts. No new paid run
+has launched. Qualification remains **0/6**, and live benefit remains unproven.
+
+Previous correction **`c89f2e5c5c162cf16aaa0b3613093b15e1097699`** extends the existing
 nullable-assertion correction to compiler-typed
 loop-item references, preserving distinct item/output origins and exact lexical typing.
 The original nullable assertion, valid operands/order, independent work, failure and
