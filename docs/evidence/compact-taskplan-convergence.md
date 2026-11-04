@@ -54,7 +54,7 @@ and [eleven passing publication stages](business-selection-cd864165-publication-
 remain source-specific evidence. The later corrections' exact-source solution
 runs are still separate and active.
 
-Latest completed live diagnostic is **`bizcd864165amz01-amazon-1`** on that source.
+The preceding live diagnostic **`bizcd864165amz01-amazon-1`** used that source.
 It stopped after eleven received completions and two automatic corrections: browser
 reads still had empty arguments, and the exact repeated plan correctly triggered
 `REPLAN_NO_PROGRESS`. The retained schemas for both repair calls forced empty input
