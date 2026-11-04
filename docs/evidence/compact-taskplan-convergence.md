@@ -8,13 +8,15 @@ The current delivery gate is **two consecutive intervention-free executions per 
 
 Previous fully validated source **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`** retains: [**7,614 full-solution passes, zero failures and thirteen declared skips across 33 assemblies**](business-selection-1d6632c5-solution-validation.json), plus [**eleven passing publication stages**](business-selection-1d6632c5-publication-validation.json), with zero compiler/publication diagnostics. It preserves redacted authentication-stage provenance without changing retry, accounting, retention or replay authority. These results establish technical validation, not live qualification.
 
-Current correction projects existing deterministic contractual coverage gaps into
+Current correction **`1bb59305de63d69cff1a22b14d37fc0d4dffffc4`** projects existing
+deterministic contractual coverage gaps into
 business selection as remaining original requirement IDs and present coverage facts.
 Four new cases cover abandoned completion, exact accepted-work preservation,
 connected/conditional calls and restored public-result lineage. **All 2,666 owning
 Planning cases pass with warnings as errors**, with zero failures/skips; focused
-cases overlap that total. Source-specific freezing, full-solution testing and
-publication checks follow this commit. The established Amazon 32K profile is retained;
+cases overlap that total. [Exact owning evidence](business-selection-1bb59305-owning-validation.json).
+Matching frozen benchmark/MCP builds, exact-source full-solution testing and
+eleven-stage publication checks are running. The established Amazon 32K profile is retained;
 qualification remains **0/6** and future live benefit is unproven.
 
 Previous correction **`65b1a0d457b43f403bcc0d058f7bc1506af3e2f5`** permits only
