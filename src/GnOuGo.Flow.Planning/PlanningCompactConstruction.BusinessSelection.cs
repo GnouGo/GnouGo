@@ -8,7 +8,7 @@ internal static partial class PlanningCompactConstruction
 {
     internal const string BusinessSelectionContract = "business_selection_contract";
     internal const string SelectGuidance = """
-        Select the next coherent business responsibility from the original request, available contributions and remaining obligations. Describe its objective, information needs, expected results, business dependencies and observable success criteria. Preserve user-required ordering, privacy, reuse and deliverable constraints. Choose neither technical tasks nor implementation structure. Do not turn a helper computation or a generation fragment into a business responsibility. Do not force a fixed number of blocks or collapse unrelated responsibilities into one block. Available contributions are planned behavior, not observed execution results; their review status remains explicit. Depend only on offered results. Retained unresolved needs and action findings explain why an earlier completion or selection did not advance; they add no original obligations or authority. When the accepted contributions already provide all requested behavior, use the offered completionRequirementIds action to request final global business review instead of selecting the same responsibility again. This is a completion claim, not approval or observed execution success. Missing implementation details belong to implementation; ask a clarification only for a missing business fact. Return exactly one action: block, completionRequirementIds, original-evidence requests, or clarifications.
+        Select the next coherent business responsibility from the original request, available contributions and remaining obligations. Describe its objective, information needs, expected results, business dependencies and observable success criteria. Preserve user-required ordering, privacy, reuse and deliverable constraints. Choose neither technical tasks nor implementation structure. Do not turn a helper computation or a generation fragment into a business responsibility. Do not force a fixed number of blocks or collapse unrelated responsibilities into one block. Available contributions are planned behavior, not observed execution results; their review status remains explicit. Depend only on offered results. Retained unresolved needs, current-plan findings and action findings explain why an earlier completion or selection did not advance; they add no original obligations or authority. When the accepted contributions already provide all requested behavior, use the offered completionRequirementIds action to request final global business review instead of selecting the same responsibility again. This is a completion claim, not approval or observed execution success. Missing implementation details belong to implementation; ask a clarification only for a missing business fact. Return exactly one action: block, completionRequirementIds, original-evidence requests, or clarifications.
         """;
 
     internal static PlanningConstructionBlock? CurrentBlock(PlanningSession state) => State(state).Blocks?
@@ -62,6 +62,8 @@ internal static partial class PlanningCompactConstruction
         };
         var feasibility = BusinessFeasibilityObservations(state);
         if (feasibility.Count > 0) context["feasibilityObservations"] = feasibility;
+        var coverage = BusinessCoverageFindings(state, ids);
+        if (coverage.Count > 0) context["currentPlanFindings"] = coverage;
         // Business reselection can follow a suspended finalization cursor. Keep
         // its unmet need without importing technical cursors, bindings or types.
         var needs = new JsonArray((State(state).SuspendedSteps ?? []).Where(Active)
@@ -78,6 +80,26 @@ internal static partial class PlanningCompactConstruction
         if (findings.Count > 0) context["actionFindings"] = findings;
         if (!string.IsNullOrWhiteSpace(state.Request.Policy.Instructions)) context["instructions"] = state.Request.Policy.Instructions;
         return context;
+    }
+
+    private static JsonArray BusinessCoverageFindings(PlanningSession state, IReadOnlyCollection<string> pending)
+    {
+        // Recompute existing contractual gaps even after a close is abandoned.
+        // Technical identities and rejection witnesses stay in implementation.
+        var coverage = PlanningCommitments.Assess(state);
+        var findings = new JsonArray();
+        foreach (var requirement in state.Requirements!.Outcomes.Where(requirement => pending.Contains(requirement.Id)))
+        {
+            var prefix = "coverage:" + Uri.EscapeDataString(requirement.Id) + ":";
+            foreach (var code in coverage.Where(result => result.Id.StartsWith(prefix, StringComparison.Ordinal))
+                .SelectMany(result => result.Diagnostics).Where(diagnostic => diagnostic.Required &&
+                    diagnostic.Code is PlanningCommitments.MissingOperation or PlanningCommitments.DisconnectedResult)
+                .Select(diagnostic => diagnostic.Code).Distinct(StringComparer.Ordinal))
+                findings.Add((JsonNode)new JsonObject { ["requirementId"] = requirement.Id, ["finding"] = code == PlanningCommitments.MissingOperation
+                    ? "Declared required behavior has no reachable invocation in the current workflow."
+                    : "A declared public result is disconnected from its required producer." });
+        }
+        return findings;
     }
 
     private static JsonArray BusinessFeasibilityObservations(PlanningSession state)

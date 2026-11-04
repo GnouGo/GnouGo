@@ -8,7 +8,16 @@ The current delivery gate is **two consecutive intervention-free executions per 
 
 Previous fully validated source **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`** retains: [**7,614 full-solution passes, zero failures and thirteen declared skips across 33 assemblies**](business-selection-1d6632c5-solution-validation.json), plus [**eleven passing publication stages**](business-selection-1d6632c5-publication-validation.json), with zero compiler/publication diagnostics. It preserves redacted authentication-stage provenance without changing retry, accounting, retention or replay authority. These results establish technical validation, not live qualification.
 
-Current correction **`65b1a0d457b43f403bcc0d058f7bc1506af3e2f5`** permits only
+Current correction projects existing deterministic contractual coverage gaps into
+business selection as remaining original requirement IDs and present coverage facts.
+Four new cases cover abandoned completion, exact accepted-work preservation,
+connected/conditional calls and restored public-result lineage. **All 2,666 owning
+Planning cases pass with warnings as errors**, with zero failures/skips; focused
+cases overlap that total. Source-specific freezing, full-solution testing and
+publication checks follow this commit. The established Amazon 32K profile is retained;
+qualification remains **0/6** and future live benefit is unproven.
+
+Previous correction **`65b1a0d457b43f403bcc0d058f7bc1506af3e2f5`** permits only
 current hash-bound global findings to repair cited accepted functional bindings and
 transform instruction text after local review. It preserves caller restrictions,
 independent work and interfaces, invalidates affected reviews, and requires renewed
@@ -41,7 +50,10 @@ Fresh same-source, same-profile `biz65b1a0d4amz32b-amazon-1` launches after
 and unused-identity verification, with unchanged EUR 20.983630020574291081492083370
 phase headroom. No old request is replayed. Exact current-source solution validation now passes **7,644 tests, thirteen declared
 skips and all 33 assemblies**, with zero compiler diagnostics and unchanged source.
-Qualification remains **0/6**.
+Qualification remains **0/6**. The fresh run subsequently stopped after sixteen
+received logical calls and seventeen physical attempts. One reusable group is accepted,
+root remains empty, and repeated all-null business selections trigger the unchanged
+repeat guard. There is no unresolved request. [Terminal outcome](business-selection-65b1a0d4-amazon32b-outcome.json).
 
 Previous correction **`a84fc50d1d7ba3313139c71c676bdf169b5b5f0b`** retains
 model-authored unmet needs and required business-action diagnostics in business
@@ -145,6 +157,54 @@ remains **0/6**. [Source-bound terminal evidence](business-selection-cd864165-am
 The preceding `ebf01483` source retains its [2,618-case Planning result](business-selection-ebf01483-planning-validation.json), [fresh-initialization regression](business-selection-fresh-initialization-validation.json), [eleven-stage publication result](business-selection-ebf01483-publication-validation.json) and recovered **7,579-pass, thirteen-skip** solution result. Earlier [owning suites](business-selection-1884a658-owning-validation.json) and [54 actual host/UI cases](business-selection-1884a658-host-ui-validation.json) retain their precise source boundaries. Focused counts overlap and are not added; failed captures remain preserved.
 
 The prior `a23cbbb2` baseline remains source-specific evidence: [2,425 Planning cases](business-block-a23cbbb2-continuation-review-validation.json), [7,327 full-solution passes with thirteen declared skips](business-block-a23cbbb2-solution-validation.json), and [publication checks](business-block-a23cbbb2-publication-validation.json). Those technical results did not establish live business convergence.
+
+### 4 November 2026, 14:28 UTC: received coordination stop after abandoned completion
+
+Same-source `biz65b1a0d4amz32b-amazon-1` stops after **16 received logical calls /
+17 physical attempts**, all sixteen completion receipts, three candidate-replacement
+attempts, one abandoned completion reselection and one invalid-selection retry (five
+correction charges total). The existing diagnostic policy records its threshold warning;
+semantic exact-repeat protection remains enforced. There are **two local Judges,
+one accepted ten-task reusable group, zero root tasks and zero global Judges**.
+
+The first technically valid draft has empty browser arguments and loses failed-search
+information before workbook construction. Local Judge eight specifically flags the
+lost search-error path. Replacements nine and ten provide only the initial three tasks
+inside a reusable group while claiming writer/cleanup commitments; deterministic
+validation rejects both. Replacement eleven supplies the full group and the row
+builder's search-extraction binding; renewed local Judge twelve approves it. Request
+nine receives HTTP **500 then 200**, retaining the failed attempt's unknown usage.
+
+Finalization then identifies **six missing reachable-operation commitments**, since
+no root call invokes the accepted group. Response fourteen explicitly **abandons**
+the premature close with no suspended prerequisite. Business selections fifteen and
+sixteen return all-null actions despite two remaining original responsibilities and
+legal block, dependency, evidence and clarification actions. The retry correctly
+includes `PROPOSAL_ACTION_INVALID`. Exact unchanged repetition stops generation.
+No manual revision, artifact, approval, execution or independent oracle occurs.
+
+The selector omits the current deterministic coverage gap while showing the accepted
+contribution as `business_completion_reviewed`. The technical rejection remains in
+implementation history; no suspended need exists to project. Generic regressions
+reproduce this omission after abandoned completion and for disconnected public
+results. The prospective correction reuses the existing contractual coverage
+assessment to project only remaining original requirement IDs and present coverage
+facts. It adds no operation identities, technical cursors, original obligations,
+response grammar, edit authority or repeat exception. Restored reachability/lineage
+removes the finding; conditional/unverified behavior creates no proved gap. Future
+live benefit remains unproven.
+
+Planning takes **1,284,452 ms**, at **100,199 known input / 32,293 known output tokens**,
+including **23,304 reasoning tokens already in output**, known cost
+**EUR 1.3147732355309061633419804992** and retained reservation
+**EUR 1.2637355756328830843545934341**. Judge requests are **39,536 / 52,731 bytes**.
+Campaign totals: **6,947 physical calls, 154 historical unknown attempts,
+63 permanent closures, zero unresolved requests**, known spending
+**EUR 404.02653221455147493952724827**, reservations
+**EUR 132.19321596110445967186023669**, and available exposure
+**EUR 203.81035565705036993105746234**. No supplement, release or new closure is needed.
+The previous global reviewed-instruction repair fix was not exercised by this run.
+Qualification remains **0/6**. [Source-bound terminal outcome](business-selection-65b1a0d4-amazon32b-outcome.json).
 
 ### 4 November 2026, 14:23 UTC: current frozen source complete technical validation
 

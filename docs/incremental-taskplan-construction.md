@@ -287,6 +287,16 @@ Rejected business actions carry their required action diagnostics into the next
 selection request. Completed or unrelated needs are omitted; these context fields
 do not reset the existing repeat guard or correction accounting.
 
+Selection projects existing deterministic coverage failures for remaining original
+obligations as `currentPlanFindings`: unreachable declared behavior or a disconnected
+public result. These facts remain visible after a premature completion is abandoned
+without suspending a prerequisite. The existing contractual assessment supplies the
+finding; operation identities, scopes and technical witnesses stay in implementation.
+Recompute from the current plan: restored reachability or producer lineage removes
+the finding. Conditional/unverified behavior is not a proved gap. Local review of a
+reusable contribution does not establish its invocation or runtime success. The
+projection changes no response grammar, edit authority, completion claim or repeat guard.
+
 Local requests derive their originals before packing: selected obligations, consumed
 producers and their accepted requirement associations, ancestor controls/groups,
 completion claims, explicit evidence and retained repair witnesses. Linked interface
