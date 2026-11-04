@@ -13,9 +13,14 @@ current hash-bound global findings to repair cited accepted functional bindings 
 transform instruction text after local review. It preserves caller restrictions,
 independent work and interfaces, invalidates affected reviews, and requires renewed
 global review. [**2,662 owning Planning cases pass with warnings as errors**](business-selection-65b1a0d4-owning-validation.json).
-Exact-source solution, publication and matching frozen benchmark/MCP builds are
-running. The established Amazon 32K draft profile is retained unchanged for the next
-fresh source-specific attempt. Qualification remains **0/6**.
+Matching frozen benchmark/Browser/Document builds pass. [All eleven exact-source
+publication stages pass](business-selection-65b1a0d4-publication-validation.json),
+including Native AOT and published encrypted-storage recovery, with zero diagnostics.
+Exact-source full-solution validation is running. Fresh `biz65b1a0d4amz32a-amazon-1`
+launches after [13:09:47 UTC configuration/financial/exact phase admission](business-selection-65b1a0d4-output32-live-admission.json)
+and unused-identity verification. The established Amazon 32K profile is unchanged,
+with EUR 209.17657803830092901505424201 available, EUR 20.983630020574291081492083370
+required phase headroom and zero unresolved requests. Qualification remains **0/6**.
 
 Previous correction **`a84fc50d1d7ba3313139c71c676bdf169b5b5f0b`** retains
 model-authored unmet needs and required business-action diagnostics in business
