@@ -19,7 +19,12 @@ Matching frozen benchmark/Browser/Document builds pass with zero warnings/errors
 [All eleven exact-source publication stages pass](business-selection-1bb59305-publication-validation.json),
 including Native AOT execution and published encrypted-storage/exact-receipt recovery,
 with zero warnings/errors and unchanged source. Exact-source full-solution testing
-remains running; fresh same-profile admission is in progress. The established Amazon 32K profile is retained;
+remains running. Fresh `biz1bb59305amz32a-amazon-1` launches after
+[14:48:34 UTC configuration/financial/exact phase admission](business-selection-1bb59305-amazon32a-live-admission.json)
+and unused-identity verification, retaining profile
+`96a35087433a0d9751186a58cd9a2cbffcdf2cd552037b6fe727b80b5b2576ae`,
+EUR 203.81035565705036993105746234 available, EUR 20.983630020574291081492083370
+phase headroom, and zero unresolved requests. The established Amazon 32K profile is retained;
 qualification remains **0/6** and future live benefit is unproven.
 
 Previous correction **`65b1a0d457b43f403bcc0d058f7bc1506af3e2f5`** permits only
