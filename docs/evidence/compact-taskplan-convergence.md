@@ -4119,3 +4119,35 @@ the versioned GitHub Copilot CLI dependency. Its 32 completed assemblies contain
 acquisition failure, not a full-solution pass. A complete rerun includes the
 corrected approval fixture. The earlier incomplete `b50de043` capture remains
 separate.
+
+## GPT-6.1 provider stop on the corrected source
+
+[Provider-stop evidence](sequential-gpt61-5656ccdd-provider-stop.json) retains fresh
+Amazon run `g615656ccddamz32a-amazon-1` on production/live-harness source `5656ccdd`
+with the unchanged established profile. Its known physical receipt confirms exact
+model `gpt-6.1-sol-2026-09-29`. After eight successful navigation responses, the first
+draft request received two confirmed HTTP 500 responses (`ESG120`, routing failed,
+backend unavailable/no answer), followed by a transport failure without HTTP status.
+The unchanged captured three-attempt retry policy exhausted; the planner stopped
+with `MODEL_DISPATCH_UNVERIFIABLE`. No manual retry, fallback or parameter change
+occurred.
+
+This run used nine logical calls and eleven physical attempts, zero planner
+corrections and two transport retries, taking 1,352.327 seconds of planning. Known
+usage is 27,315 input and 4,211 output tokens, including 2,538 reasoning tokens
+within output. Known cost is EUR 1.4110653904642633509258430987. The three unknown
+attempts retain EUR 21.986841399051793541461669202, with 229,479 input and 98,304
+output tokens reserved. No candidate, Judge request, artifact approval, execution or
+oracle was reached. The largest complete host request was 76,493 serialized bytes.
+The provider incident establishes no planner/model quality result.
+
+Paid work stops at the provider and unresolved-request replay barrier. Qualification
+remains **0/6**; Review PR and Collections have no new qualifying attempt. The final
+snapshot has EUR 413.98214989055111712576930921 known spending, EUR
+157.57430550399738390479699311 reserved and EUR 168.47364843815780351187864498
+available under the unchanged EUR 740.0301038327063045424449473 ceiling. All 157
+historical unknown attempts remain reserved alongside these three new unknowns.
+There are 63 unchanged permanent closures and one new unresolved request. It is
+retained without replay, continuation, reservation release or administrative closure.
+Offline full-solution verification continues on test source `de37711f`, whose
+production/live-harness tree matches `5656ccdd` exactly.
