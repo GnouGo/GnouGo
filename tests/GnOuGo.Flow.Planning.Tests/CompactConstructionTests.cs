@@ -772,8 +772,15 @@ public sealed class CompactConstructionTests
         Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.ImplementationPurpose, 3000).EstimatedInputTokens, 1, 12000);
         Assert.True(PlanningCompactConstruction.LoadEvidence(state, context["publicOutputs"]!["next"]!.ToString(), out var page));
         Assert.Equal("result_8", page!["items"]![0]!["name"]!.ToString());
-        Assert.Contains("result_8\"", PlanningCompactConstruction.ImplementationSchema(state).ToJsonString(), StringComparison.Ordinal);
-        Assert.DoesNotContain("result_0\"", PlanningCompactConstruction.ImplementationSchema(state).ToJsonString(), StringComparison.Ordinal);
+        var pagedSchema = PlanningCompactConstruction.ImplementationSchema(state);
+        var pagedResponse = Implement(request); pagedResponse["step"]!["groupId"] = null;
+        pagedResponse["step"]!["outputNames"] = new JsonArray("result_8");
+        Assert.Empty(PlanningContractValidation.ValidateInstance(pagedResponse, pagedSchema));
+        pagedResponse["step"]!["outputNames"] = new JsonArray("result_0");
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(pagedResponse, pagedSchema));
+        // A progress link can retrieve an original off-page declaration without
+        // offering that declaration as a public binding on the current page.
+        Assert.Contains("\"output:result_0\"", pagedSchema.ToJsonString(), StringComparison.Ordinal);
         Assert.True(PlanningCompactConstruction.LoadEvidence(state, "output:result_8", out var exact));
         Assert.True(JsonNode.DeepEquals(JsonSerializer.SerializeToNode(state.Requirements.Outputs[8], PlanningJsonContext.Default.TaskInput), exact));
         state.Requirements.Outputs.Clear(); state.Construction!.Compact!.OutputOffset = 0;

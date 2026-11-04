@@ -393,6 +393,12 @@ introduced. Both stages retain the original request-bound evidence mapping; pend
 work recovers its exact issued request instead of rebuilding the projection. Ordinary
 input admission remains enforced and captured diagnostic targets remain advisory.
 
+Every original declaration or page link in the progress index is also an offered
+evidence choice at that stage, with the same issued evidence ID. Business selection
+presents retrieved original clauses and public declarations, retaining existing page
+continuations without exposing implementation scopes or changing block ownership.
+The ordinary evidence loader admits reads atomically and preserves accepted work.
+
 Technical fragmentation does not define business boundaries. Paired generic tests
 vary coarse/fine capabilities, MCP server grouping and fragment sizes while retaining
 the model-chosen responsibility and its criteria across cursor changes and restarts.

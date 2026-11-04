@@ -120,6 +120,69 @@ public sealed class OverallProgressTests
     }
 
     [Fact]
+    public async Task BothSelectionsOfferTheirProgressOutputAndPageLinksThroughExistingEvidence()
+    {
+        var (state, _) = await BusinessSelectionCoverageContextTests.PreparedGroup();
+        state.Requirements!.Outputs = Enumerable.Range(0, 10).Select(index => new TaskInput
+            { Name = "deliverable_" + index, Required = index >= 8, Type = new() { Kind = "number" } }).ToList();
+        foreach (var (purpose, request) in new[] { (PlanningCompactConstruction.SelectPurpose, PlanningCompactConstruction.SelectionRequest(state)),
+                     (PlanningCompactConstruction.ImplementationPurpose, PlanningCompactConstruction.ImplementationRequest(state)) })
+        {
+            var context = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
+            var progress = context["overallProgress"]!;
+            Assert.Equal(10, progress["declaredResultCount"]!.GetValue<int>());
+            Assert.Equal("page:outputs:8", progress["nextDeclaredResults"]!.ToString());
+            foreach (var link in new[] { "page:outputs:8", "output:deliverable_8", "output:deliverable_9" })
+                Assert.Contains('"' + link + '"', request.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
+            var issued = PlanningModelCalls.PrepareRequest(state, purpose, request.Prompt,
+                request.StructuredOutputSchema!.AsObject(), state.Construction!.Limits.DraftOutputTokens);
+            var issuedProgress = JsonNode.Parse(issued.Prompt[(issued.Prompt.LastIndexOf('\n') + 1)..])!["overallProgress"]!;
+            foreach (var link in new[] { issuedProgress["nextDeclaredResults"],
+                         issuedProgress["missingDeliverableBindings"]![0]!["evidence"], issuedProgress["missingDeliverableBindings"]![0]!["directory"] })
+                Assert.Contains(link!.ToJsonString(), issued.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
+        }
+    }
+
+    [Theory]
+    [InlineData("page:outputs:8")]
+    [InlineData("output:deliverable_8")]
+    [InlineData("requirement")]
+    public async Task BusinessProgressEvidenceUsesExistingCursorsAndPreservesAcceptedWork(string requested)
+    {
+        var (state, runtime) = await BusinessSelectionCoverageContextTests.PreparedGroup();
+        state.Requirements!.Outputs = Enumerable.Range(0, 18).Select(index => new TaskInput
+            { Name = "deliverable_" + index, Required = index >= 8,
+                Type = new() { Kind = "string", Enum = ["original_" + index] } }).ToList();
+        var requirement = state.Requirements.Outcomes[0];
+        var address = requested == "requirement" ? "requirement:" + requirement.Id : requested;
+        var planHash = PlanningConstruction.Hash(state.Plan);
+        var blocks = state.Construction!.Compact!.Blocks!.Select(block =>
+            JsonSerializer.Serialize(block, PlanningJsonContext.Default.PlanningConstructionBlock)).ToArray();
+        var calls = runtime.Calls.Count;
+        PlanningConstruction.LoadEvidence(state, [address], followup: PlanningCompactConstruction.SelectionRequest,
+            purpose: PlanningCompactConstruction.SelectPurpose);
+        var request = PlanningCompactConstruction.SelectionRequest(state);
+        var context = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
+        if (requested.StartsWith("page:", StringComparison.Ordinal))
+        {
+            Assert.Equal(18, context["overallProgress"]!["declaredResultCount"]!.GetValue<int>());
+            Assert.Equal("deliverable_8", context["overallProgress"]!["declaredResults"]![0]!["name"]!.ToString());
+            Assert.Equal("page:outputs:16", context["overallProgress"]!["nextDeclaredResults"]!.ToString());
+            Assert.Contains("page:outputs:16", request.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
+        }
+        else if (requested.StartsWith("output:", StringComparison.Ordinal))
+            Assert.Equal("original_8", Assert.Single(context["evidence"]![address]!["type"]!["enum"]!.AsArray())!.ToString());
+        else
+            Assert.Contains(context["requirements"]!.AsArray(), row => row!["id"]!.ToString() == requirement.Id);
+        Assert.DoesNotContain("scope:/root", context.ToJsonString(), StringComparison.Ordinal);
+        Assert.Equal(planHash, PlanningConstruction.Hash(state.Plan));
+        Assert.Equal(blocks, Assert.IsType<List<PlanningConstructionBlock>>(state.Construction.Compact.Blocks).Select(block =>
+            JsonSerializer.Serialize(block, PlanningJsonContext.Default.PlanningConstructionBlock)).ToArray());
+        Assert.Equal(calls, runtime.Calls.Count);
+        Assert.Empty(state.Diagnostics);
+    }
+
+    [Fact]
     public async Task IssuedSelectionRecoversItsExactProgressAndEvidenceWithoutAnotherLogicalCall()
     {
         var (state, runtime) = await BusinessReviewProtocolTests.Ready();

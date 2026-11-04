@@ -30,6 +30,9 @@ and observed execution remain different facts. Missing public bindings concern o
 required public outputs; files and effects retain their original obligations. A
 missing or ambiguous boundary can leave lineage unverified while final validation
 establishes a technical obstacle. This view grants no repair or invocation authority.
+Offer the progress index's original/page links through the existing evidence schema
+at both stages. Present requested original declarations and page continuations without
+turning implementation scopes into business context or duplicating original clauses.
 
 Compare functional decomposition across equivalent capability packaging and technical
 fragment sizes by original obligations, preserved criteria and observable outcomes,

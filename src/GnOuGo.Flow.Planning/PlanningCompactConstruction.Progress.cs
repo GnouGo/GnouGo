@@ -33,13 +33,23 @@ internal static partial class PlanningCompactConstruction
     internal static LLMRequest SelectionRequest(PlanningSession state)
     {
         var facts = new SelectionFacts(state);
-        return Request(SelectGuidance, SelectionContext(state, facts), SelectionSchema(state, facts), SelectPurpose);
+        var context = SelectionContext(state, facts);
+        return Request(SelectGuidance, context, SelectionSchema(state, facts, context), SelectPurpose);
     }
 
     internal static LLMRequest ImplementationRequest(PlanningSession state)
     {
         var context = ImplementationContext(state);
         return Request(state, ImplementationGuidance(state), context, ImplementationSchema(state, context), ImplementationPurpose);
+    }
+
+    private static HashSet<string> ProgressEvidence(PlanningSession state, JsonObject context)
+    {
+        var progress = context["overallProgress"];
+        return NavigationEvidence(state, new[] { progress?["requirementsDirectory"], progress?["nextDeclaredResults"],
+            progress?["expectedResults"], progress?["declaredResults"], progress?["missingDeliverableBindings"] }
+            .Concat((context["evidence"] as JsonObject ?? []).Where(pair => pair.Key.StartsWith("page:requirements:", StringComparison.Ordinal) ||
+                pair.Key.StartsWith("page:outputs:", StringComparison.Ordinal)).Select(pair => pair.Value?["next"])));
     }
 
     private static JsonObject OverallProgress(PlanningSession state, SelectionFacts facts)

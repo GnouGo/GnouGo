@@ -57,7 +57,7 @@ internal static partial class PlanningCompactConstruction
     private static JsonObject SelectionContext(PlanningSession state, SelectionFacts facts)
     {
         var ids = facts.RequirementIds;
-        var originals = OriginalRequirementRows(state, ids).OfType<JsonObject>();
+        var originals = OriginalRequirementRows(state, ids.Concat(EvidenceRequirementIds(state)).Distinct(StringComparer.Ordinal)).OfType<JsonObject>();
         var context = new JsonObject
         {
             ["requirements"] = new JsonArray(originals.Select(row => (JsonNode)new JsonObject
@@ -67,8 +67,7 @@ internal static partial class PlanningCompactConstruction
             ["remainingObligations"] = List(ids),
             ["availableResults"] = facts.Results,
             ["overallProgress"] = OverallProgress(state, facts),
-            ["evidence"] = new JsonObject((state.Construction!.Evidence ?? []).Where(pair => pair.Key.StartsWith("source:", StringComparison.Ordinal) && pair.Value?["text"] is not null)
-                .Select(pair => new KeyValuePair<string, JsonNode?>(pair.Key, new JsonObject { ["text"] = pair.Value!["text"]!.DeepClone() })))
+            ["evidence"] = BusinessSelectionEvidence(state)
         };
         var feasibility = BusinessFeasibilityObservations(state);
         if (feasibility.Count > 0) context["feasibilityObservations"] = feasibility;
@@ -91,6 +90,24 @@ internal static partial class PlanningCompactConstruction
         if (findings.Count > 0) context["actionFindings"] = findings;
         if (!string.IsNullOrWhiteSpace(state.Request.Policy.Instructions)) context["instructions"] = state.Request.Policy.Instructions;
         return context;
+    }
+
+    private static JsonObject BusinessSelectionEvidence(PlanningSession state)
+    {
+        var evidence = new JsonObject();
+        foreach (var (address, value) in state.Construction!.Evidence ?? [])
+        {
+            if (address.StartsWith("source:", StringComparison.Ordinal) && value?["text"] is { } text)
+                evidence[address] = new JsonObject { ["text"] = text.DeepClone() };
+            else if (address.StartsWith("output:", StringComparison.Ordinal))
+                evidence[address] = value?.DeepClone();
+            else if (address.StartsWith("page:requirements:", StringComparison.Ordinal) || address.StartsWith("page:outputs:", StringComparison.Ordinal))
+                // Original rows and overallProgress present these requested
+                // pages. Keep their navigation without implementation details.
+                evidence[address] = new JsonObject { ["offset"] = value?["offset"]?.DeepClone(),
+                    ["total"] = value?["total"]?.DeepClone(), ["next"] = value?["next"]?.DeepClone() };
+        }
+        return evidence;
     }
 
     private static JsonArray BusinessCoverageFindings(PlanningSession state, IReadOnlyCollection<string> pending,
@@ -177,9 +194,13 @@ internal static partial class PlanningCompactConstruction
         HybridWorkflowPlanner.ReviewedCheckpoint(state, completion) is not null && state.Construction.Checkpoints
             .Where(checkpoint => checkpoint.Step?.BlockId == block.Id).All(checkpoint => checkpoint.InvalidatedTaskIds.Count == 0);
 
-    internal static JsonObject SelectionSchema(PlanningSession state) => SelectionSchema(state, new SelectionFacts(state));
+    internal static JsonObject SelectionSchema(PlanningSession state)
+    {
+        var facts = new SelectionFacts(state);
+        return SelectionSchema(state, facts, SelectionContext(state, facts));
+    }
 
-    private static JsonObject SelectionSchema(PlanningSession state, SelectionFacts facts)
+    private static JsonObject SelectionSchema(PlanningSession state, SelectionFacts facts, JsonObject context)
     {
         var requirements = facts.RequirementIds;
         var completion = facts.CompletionIds;
@@ -190,7 +211,9 @@ internal static partial class PlanningCompactConstruction
             ("informationNeeds", PlanningSchemas.Array(BusinessText(state, 1024))), ("expectedResults", PlanningSchemas.Array(BusinessText(state, 1024), 1)),
             ("dependencies", results.Length == 0 ? EmptyArray() : PlanningSchemas.Array(dependency)),
             ("successCriteria", PlanningSchemas.Array(BusinessText(state, 1024), 1)));
-        var addresses = State(state).Sources.Where(source => source.Indexed).Select(source => "source:" + source.Id).ToArray();
+        var addresses = State(state).Sources.Where(source => source.Indexed).Select(source => "source:" + source.Id)
+            .Concat(ProgressEvidence(state, context).Where(address => state.Construction!.Evidence?.ContainsKey(address) != true)
+                .Order(StringComparer.Ordinal)).Distinct(StringComparer.Ordinal).ToArray();
         var actions = new JsonArray();
         if (requirements.Length > 0)
             actions.Add((JsonNode)PlanningSchemas.Object(("kind", PlanningSchemas.Enum("block")), ("block", block)));

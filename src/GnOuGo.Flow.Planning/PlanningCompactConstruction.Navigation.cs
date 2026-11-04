@@ -25,6 +25,7 @@ internal static partial class PlanningCompactConstruction
         var requirements = (context["requirements"] as JsonArray ?? []).Select(item => item!["id"]!.ToString())
             .Concat(EvidenceRequirementIds(state));
         var addresses = PrerequisiteAddresses(state, requirements).Where(IsOriginalAddress).ToHashSet(StringComparer.Ordinal);
+        addresses.UnionWith(ProgressEvidence(state, context));
         addresses.UnionWith(NavigationEvidence(state, new[] { "nextRequirements", "requirementsDirectory", "nextScopes", "scopes", "interfaces",
             "nextInterfaces", "publicOutputs", "rebuild", "reselection" }.Select(name => context[name])
             .Concat((state.Construction!.Evidence ?? []).Select(item => item.Value).Where(value => value is JsonObject or JsonArray))));

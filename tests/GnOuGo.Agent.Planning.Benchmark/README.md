@@ -290,6 +290,8 @@ required result connections and missing public bindings. It reuses the ordinary
 coverage, reachability and completion checks without another model call. Keep
 accepted construction, structural connection, reviewed business fulfillment and
 observed execution distinct. The view adds no effect or repair authority.
+Progress declaration/page links remain offered evidence choices at both stages.
+Reading an off-page declaration does not make it a binding choice on the current page.
 
 Assess functional decomposition through each block's original obligations, objective,
 expected results and preserved success criteria. Count technical fragments and
