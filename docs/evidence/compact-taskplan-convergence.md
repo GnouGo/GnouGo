@@ -15,8 +15,11 @@ Four new cases cover abandoned completion, exact accepted-work preservation,
 connected/conditional calls and restored public-result lineage. **All 2,666 owning
 Planning cases pass with warnings as errors**, with zero failures/skips; focused
 cases overlap that total. [Exact owning evidence](business-selection-1bb59305-owning-validation.json).
-Matching frozen benchmark/MCP builds, exact-source full-solution testing and
-eleven-stage publication checks are running. The established Amazon 32K profile is retained;
+Matching frozen benchmark/Browser/Document builds pass with zero warnings/errors.
+[All eleven exact-source publication stages pass](business-selection-1bb59305-publication-validation.json),
+including Native AOT execution and published encrypted-storage/exact-receipt recovery,
+with zero warnings/errors and unchanged source. Exact-source full-solution testing
+remains running; fresh same-profile admission is in progress. The established Amazon 32K profile is retained;
 qualification remains **0/6** and future live benefit is unproven.
 
 Previous correction **`65b1a0d457b43f403bcc0d058f7bc1506af3e2f5`** permits only
