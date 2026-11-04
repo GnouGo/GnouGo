@@ -13,7 +13,11 @@ public sealed class BusinessSelectionCoverageContextTests
         var (state, runtime) = await PreparedGroup();
         var accepted = JsonSerializer.Serialize(state.Construction!.Checkpoints, PlanningJsonContext.Default.ListPlanningConstructionCheckpoint);
         var plan = PlanningConstruction.Hash(state.Plan);
-        PlanningCompactConstruction.SelectCompletion(state, ["later"]);
+        Assert.False(CompletionEligibilityTests.OffersCompletion(state));
+        // An explicitly malformed closure still reaches ordinary final validation.
+        state.Construction.Compact!.CurrentStep = new() { Id = "invalid-close", Kind = "close", Scope = "/root",
+            RequirementIds = ["later"], CloseRequirementIds = ["later"], CloseScopes = ["/root"],
+            BaseHash = PlanningConstruction.Hash(state.Plan), DiscoveryComplete = true };
         state = await BusinessReviewProtocolTests.Advance(state, runtime);
         Assert.Contains(state.Diagnostics, finding => finding.Code == PlanningCommitments.MissingOperation);
         PlanningCompactConstruction.Reselect(state, new PlanningConstructionReselection
@@ -89,15 +93,15 @@ public sealed class BusinessSelectionCoverageContextTests
         Assert.Null(PlanningCompactConstruction.SelectionContext(state)["currentPlanFindings"]);
     }
 
-    private static void AddCall(PlanningSession state, bool conditional)
+    internal static void AddCall(PlanningSession state, bool conditional)
     {
         PlanTask call = new() { Id = "invoke", Kind = "call", Group = "prepared", Objective = "Use the prepared contribution",
             Inputs = [new("x", new() { Kind = "input", Source = "x" })] };
-        state.Plan!.Root.Tasks.Add(conditional ? new() { Id = "guard", Kind = "conditional", Condition = new() { Kind = "boolean", Boolean = true },
+        state.Plan!.Root.Tasks.Add(conditional ? new() { Id = "guard", Kind = "conditional", Objective = "Conditionally use the prepared contribution", Condition = new() { Kind = "boolean", Boolean = true },
             Body = new() { Tasks = [call] }, Otherwise = new() } : call);
     }
 
-    private static async Task<(PlanningSession State, TestRuntime Runtime)> PreparedGroup()
+    internal static async Task<(PlanningSession State, TestRuntime Runtime)> PreparedGroup()
     {
         var (state, runtime) = await BusinessReviewProtocolTests.Ready();
         runtime.Respond = (_, _) => new() { Json = BusinessReviewProtocolTests.Report("ok") };

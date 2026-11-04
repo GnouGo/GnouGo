@@ -291,15 +291,8 @@ public sealed partial class HybridWorkflowPlanner
         {
             if (draft.Diagnostics.Count == 0)
             {
-                var compilation = new TaskPlanCompiler().Compile(candidate, state.Catalog!, state.Request);
-                draft.Diagnostics.AddRange(compilation.Diagnostics);
-                if (compilation.Graph is { } graph)
-                {
-                    var review = new PlanningSession { Plan = candidate, Catalog = state.Catalog, Requirements = PlanningCompactConstruction.CandidateRequirements(state),
-                        Request = state.Request, Discovery = state.Discovery };
-                    draft.Diagnostics.AddRange(PlanningClarifications.OutputFindings(review, graph));
-                    draft.Diagnostics.AddRange(PlanningCommitments.Assess(review).SelectMany(r => r.Diagnostics).Where(d => d.Required));
-                }
+                draft.Diagnostics.AddRange(PlanningCompletionValidation.Assess(state, candidate,
+                    PlanningCompactConstruction.CandidateRequirements(state)).Diagnostics);
             }
             var covered = state.Construction.Requirements.Where(r => r.Status != "remaining").Select(r => r.Id)
                 .Concat(draft.Extension.RequirementIds).ToHashSet(StringComparer.Ordinal);

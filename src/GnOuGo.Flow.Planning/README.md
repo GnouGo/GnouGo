@@ -265,3 +265,8 @@ dotnet pack src/GnOuGo.Flow.Planning -c Release -warnaserror
 Preserve original-contract, permission, provenance, rollback, tenant-isolation and v15
 regressions. Validate Native AOT consumers and published encrypted-storage recovery.
 Source-bound technical passes do not establish independent runtime business success.
+
+Completion action availability and final validation share a side-effect-free technical
+assessment over cloned TaskPlan state. Required compiler, interface, coverage and
+executable graph findings hide impossible completion; uncertainty alone does not.
+Contribution connection status is structural evidence, never business or runtime proof.

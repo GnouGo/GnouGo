@@ -124,10 +124,23 @@ internal static partial class PlanningCompactConstruction
         {
             ["id"] = "result:" + block.Id, ["objective"] = block.Objective, ["plannedResults"] = List(block.ExpectedResults),
             ["availability"] = "Accepted planned contribution only; planned results are not all established by a partial contribution.",
+            ["technicalStatus"] = "accepted_contribution",
+            ["connectionStatus"] = BusinessConnectionStatus(state, block),
             ["reviewStatus"] = BusinessBlockReviewCurrent(state, block)
                 ? "business_completion_reviewed" : "accepted_contribution_pending_business_completion",
             ["executionObserved"] = false
         }).ToArray());
+
+    private static string BusinessConnectionStatus(PlanningSession state, PlanningConstructionBlock block)
+    {
+        if (state.Plan is null) return "undetermined";
+        var tasks = state.Construction!.Checkpoints.Where(checkpoint => checkpoint.Step?.BlockId == block.Id &&
+            checkpoint.InvalidatedTaskIds.Count == 0).SelectMany(checkpoint => checkpoint.TaskIds).Distinct(StringComparer.Ordinal).ToArray();
+        var reached = new CommitmentBindings(state.Plan).ReachableTaskIds;
+        var connected = tasks.Count(reached.Contains);
+        return tasks.Length == 0 ? "undetermined" : connected == 0 ? "not_reachable" :
+            connected == tasks.Length ? "structurally_reachable" : "partially_reachable";
+    }
 
     private static bool BusinessBlockReviewCurrent(PlanningSession state, PlanningConstructionBlock block) =>
         block.CompletionCheckpoint is { } sequence && state.Construction!.Checkpoints.SingleOrDefault(checkpoint => checkpoint.Sequence == sequence) is { } completion &&
@@ -172,7 +185,8 @@ internal static partial class PlanningCompactConstruction
             (state.Requirements?.Outputs ?? []).Any(output => output.Required && plan.Root.Outputs.All(binding => binding.Name != output.Name))) return [];
         var requirements = construction.Requirements.Where(requirement => !RequirementCompletionClaimed(state, requirement.Id))
             .Select(requirement => requirement.Id).ToArray();
-        return requirements.All(id => construction.Checkpoints.Any(checkpoint => checkpoint.InvalidatedTaskIds.Count == 0 &&
+        return !PlanningCompletionValidation.Assess(state, plan).Diagnostics.Any(diagnostic => diagnostic.Required) &&
+            requirements.All(id => construction.Checkpoints.Any(checkpoint => checkpoint.InvalidatedTaskIds.Count == 0 &&
             checkpoint.TaskIds.Count > 0 && checkpoint.RequirementIds.Contains(id, StringComparer.Ordinal))) ? requirements : [];
     }
 

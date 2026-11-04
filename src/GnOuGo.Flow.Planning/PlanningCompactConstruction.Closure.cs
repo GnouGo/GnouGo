@@ -126,7 +126,8 @@ internal static partial class PlanningCompactConstruction
         // A path's textual depth is not its scope depth: task IDs are global.
         var boundary = construction.OpenScopes.FirstOrDefault(path => OpenDescendants(state, symbols, path) == 0 &&
             (path != "/root" || construction.OpenScopes.Count == 1));
-        if (boundary is null) return null;
+        if (boundary is null || boundary == "/root" &&
+            PlanningCompletionValidation.Assess(state, state.Plan!).Diagnostics.Any(diagnostic => diagnostic.Required)) return null;
         var requirements = ClosureRequirements(state, symbols, boundary);
         // Mechanical closure must not substitute an unrelated first obligation
         // or silently omit a wider original set to fit the existing step bound.

@@ -223,21 +223,19 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
         // Validate the recommendation by compiling it before either automatic selection or a human pause.
         var candidate = JsonSerializer.Deserialize(JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
         foreach (var choice in candidate.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
-        var compilation = new TaskPlanCompiler().Compile(candidate, state.Catalog!, state.Request);
+        var assessment = PlanningCompletionValidation.Assess(state, candidate);
+        var compilation = assessment.Compilation;
         if (compilation.Diagnostics.Count > 0) { SemanticFailure(state, compilation.Diagnostics); return; }
         if (plan.Choices.Any(c => c.Selected is null))
         {
             state.Diagnostics.Clear(); state.Status = PlanningStatus.Clarification; return;
         }
         var graph = compilation.Graph!;
-        var outputFindings = PlanningClarifications.OutputFindings(state, graph);
-        var coverage = PlanningCommitments.Assess(state);
+        var coverage = assessment.Coverage;
         foreach (var result in coverage)
             Activity.Current?.AddEvent(new("planning.coverage.checked", tags: new ActivityTagsCollection
             { ["clause"] = result.Id, ["outcome"] = result.Outcome, ["diagnostics"] = string.Join(',', result.Diagnostics.Select(d => d.Code)) }));
-        var violations = coverage.SelectMany(r => r.Diagnostics).Where(d => d.Required).ToList();
-        violations = outputFindings.Concat(violations).Distinct()
-            .OrderBy(d => d.Location, StringComparer.Ordinal).ThenBy(d => d.Code, StringComparer.Ordinal).ToList();
+        var violations = assessment.Diagnostics;
         if (violations.Count > 0)
         {
             SemanticFailure(state, violations);
@@ -245,14 +243,7 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
             state.ValidationResults = coverage;
             return;
         }
-        var findings = PlanningGeneratedGraph.Validate(graph, state.Catalog!, TaskPlanCompiler.UsesCompactBindings(state.Request)).Select(compilation.Locate).ToList();
-        if (findings.Count > 0)
-        {
-            state.Diagnostics = findings.Select(d => d with { Code = "TASK_COMPILER_VALIDATION", Message = d.Code + ": " + d.Message }).ToList();
-            Stop(state); return;
-        }
-        PlanningConfirmationGuards.Apply(graph, state.Catalog!);
-        findings = PlanningExecutableValidation.Validate(graph, state.Catalog!, PlanningTokenThresholds.OptimizationAdvisory(state.Request)).Select(compilation.Locate).ToList();
+        var findings = new List<PlanningDiagnostic>();
         if (findings.Count == 0)
         {
             string yaml;

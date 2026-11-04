@@ -642,3 +642,15 @@ are efficiency measurements, not qualification or dispatch gates. Stable identif
 profiles qualify; changed profiles are disclosed rather than compared as equivalent. The frozen
 successful reference is source `6469a1a3`, 26 logical calls, eight Judges and 26,394 peak
 Judge bytes. The older 18-run comparison gate is superseded.
+
+### Technical completion availability
+
+Business selection offers final completion only when a pure assessment of the current
+TaskPlan finds no required technical obstacle. The same compiler, caller/public
+interface, contractual coverage and generated/executable graph checks serve final
+candidate validation and compilation. Availability runs on a clone and grants no
+review, artifact approval or execution authority. An unused required contribution
+cannot establish reachable behavior; optional unused groups and legitimate
+conditional or potentially empty behavior are not rejected for uncertainty alone.
+Derived contribution connection status describes structural reachability, separately
+from accepted construction, business review and independently observed execution.
