@@ -279,6 +279,14 @@ Open-frontier pages order actual owning boundaries before their parents, includi
 
 Implementation selection requests the next executable contribution inside an offered scope. Attaching an original clause does not require completing that whole clause in one substep; a producer or prerequisite may contribute while its obligation remains open. Business selection retains its separate, implementation-free context.
 
+After a suspended completion returns to business selection, retain its unresolved
+need against the remaining original obligations. This is a model-authored note,
+not another original requirement or execution authority. Technical cursors,
+bindings, types and full rejection witnesses stay in implementation context.
+Rejected business actions carry their required action diagnostics into the next
+selection request. Completed or unrelated needs are omitted; these context fields
+do not reset the existing repeat guard or correction accounting.
+
 Local requests derive their originals before packing: selected obligations, consumed
 producers and their accepted requirement associations, ancestor controls/groups,
 completion claims, explicit evidence and retained repair witnesses. Linked interface

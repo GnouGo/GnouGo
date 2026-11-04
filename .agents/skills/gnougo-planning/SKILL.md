@@ -63,6 +63,8 @@ Retain exact defects, affected values, permitted edits and failed attempts throu
 
 Carry a suspended consumer's exact bounded rejection reason through implementation discovery as well as selection. Its typed prerequisite alone need not explain why the preceding strategy failed. Keep that model-authored explanation beside its existing evidence link; it creates no original obligation, permission or repair authority.
 
+When suspension returns to business selection, retain the unmet need against its remaining original obligations as a model-authored note. Keep technical cursors, bindings, types and rejection details in implementation context. A rejected business action must carry its required action diagnostic into the next selection request. Completed or unrelated needs create no new responsibility; context presentation never resets repeat guards or correction accounting.
+
 A business finding that cites a newly contributed group/control scope may repair its existing export bindings through the shared typed slots. Establish new ownership against the accepted baseline; accepted scopes, absent exports, interfaces and structural changes gain no authority. A changed export to or from an unchanged producer cited by the same retained finding permits renewed review of that composition. Require the exact prior context and binding relationship; unrelated exports, stale context and repeated unchanged bindings remain non-progress. This never resolves a finding mechanically.
 
 ## Recovery, accounting and execution

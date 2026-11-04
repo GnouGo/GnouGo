@@ -8,7 +8,7 @@ internal static partial class PlanningCompactConstruction
 {
     internal const string BusinessSelectionContract = "business_selection_contract";
     internal const string SelectGuidance = """
-        Select the next coherent business responsibility from the original request, available contributions and remaining obligations. Describe its objective, information needs, expected results, business dependencies and observable success criteria. Preserve user-required ordering, privacy, reuse and deliverable constraints. Choose neither technical tasks nor implementation structure. Do not turn a helper computation or a generation fragment into a business responsibility. Do not force a fixed number of blocks or collapse unrelated responsibilities into one block. Available contributions are planned behavior, not observed execution results; their review status remains explicit. Depend only on offered results. When the accepted contributions already provide all requested behavior, use the offered completionRequirementIds action to request final global business review instead of selecting the same responsibility again. This is a completion claim, not approval or observed execution success. Missing implementation details belong to implementation; ask a clarification only for a missing business fact. Return exactly one action: block, completionRequirementIds, original-evidence requests, or clarifications.
+        Select the next coherent business responsibility from the original request, available contributions and remaining obligations. Describe its objective, information needs, expected results, business dependencies and observable success criteria. Preserve user-required ordering, privacy, reuse and deliverable constraints. Choose neither technical tasks nor implementation structure. Do not turn a helper computation or a generation fragment into a business responsibility. Do not force a fixed number of blocks or collapse unrelated responsibilities into one block. Available contributions are planned behavior, not observed execution results; their review status remains explicit. Depend only on offered results. Retained unresolved needs and action findings explain why an earlier completion or selection did not advance; they add no original obligations or authority. When the accepted contributions already provide all requested behavior, use the offered completionRequirementIds action to request final global business review instead of selecting the same responsibility again. This is a completion claim, not approval or observed execution success. Missing implementation details belong to implementation; ask a clarification only for a missing business fact. Return exactly one action: block, completionRequirementIds, original-evidence requests, or clarifications.
         """;
 
     internal static PlanningConstructionBlock? CurrentBlock(PlanningSession state) => State(state).Blocks?
@@ -62,6 +62,20 @@ internal static partial class PlanningCompactConstruction
         };
         var feasibility = BusinessFeasibilityObservations(state);
         if (feasibility.Count > 0) context["feasibilityObservations"] = feasibility;
+        // Business reselection can follow a suspended finalization cursor. Keep
+        // its unmet need without importing technical cursors, bindings or types.
+        var needs = new JsonArray((State(state).SuspendedSteps ?? []).Where(Active)
+            .Select(item => (Item: item, Requirements: item.Consumer.RequirementIds.Intersect(ids, StringComparer.Ordinal).ToArray()))
+            .Where(item => item.Requirements.Length > 0)
+            .Select(item => (JsonNode)new JsonObject { ["requirementIds"] = List(item.Requirements),
+                ["need"] = item.Item.Prerequisite.Need, ["basis"] = "model_authored_prerequisite" }).ToArray());
+        if (needs.Count > 0) context["unresolvedNeeds"] = needs;
+        // A retry must see the rejected business action, while implementation
+        // diagnostics and their technical identities remain in their own context.
+        var findings = new JsonArray(state.Diagnostics.Where(diagnostic => diagnostic.Required &&
+                diagnostic.Code is "PROPOSAL_ACTION_INVALID" or "CONSTRUCTION_BLOCK_INVALID" or "CONSTRUCTION_COMPLETION_INVALID")
+            .Select(diagnostic => (JsonNode)new JsonObject { ["code"] = diagnostic.Code, ["message"] = diagnostic.Message }).ToArray());
+        if (findings.Count > 0) context["actionFindings"] = findings;
         if (!string.IsNullOrWhiteSpace(state.Request.Policy.Instructions)) context["instructions"] = state.Request.Policy.Instructions;
         return context;
     }

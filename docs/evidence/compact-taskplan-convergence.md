@@ -93,8 +93,8 @@ The selection request omits the retained unmet need, and its retry omits the
 omissions. The bounded correction carries only model-authored unmet needs tied to
 remaining originals and required business-action findings; technical cursors,
 bindings, types and full rejection witnesses stay in implementation context. All
-three focused cases pass, preserve accepted work and retain the repeat stop. Owning
-validation is running. These are simulated regressions; future live behavior is
+three focused cases pass, preserve accepted work and retain the repeat stop. The owning Planning suite passes **2,656 cases, zero failures/skips**, with
+warnings as errors; the three focused cases overlap that total. These are simulated regressions; future live behavior is
 unproven. No stopped plan is edited or replayed.
 
 The captured correction-attempt counter is **three**: one accepted candidate
