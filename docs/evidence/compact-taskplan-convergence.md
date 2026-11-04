@@ -4151,3 +4151,64 @@ There are 63 unchanged permanent closures and one new unresolved request. It is
 retained without replay, continuation, reservation release or administrative closure.
 Offline full-solution verification continues on test source `de37711f`, whose
 production/live-harness tree matches `5656ccdd` exactly.
+
+## Overall progress, functional responsibilities and final offline validation
+
+The [source-bound report](overall-progress-ed9a3a3e.md) and
+[validation manifest](overall-progress-ed9a3a3e-validation.json) describe frozen
+production/harness source `ed9a3a3e570a9a9deec60693b9dc3912209e3aa6`.
+Business and implementation selection share a deterministic `overallProgress`
+index of original results/constraints, accepted contributions, coverage, structural
+connections, remaining obligations, deliverable bindings and existing review status.
+Request-local facts reuse the existing completion/coverage/reachability mechanisms.
+No new persisted plan, scheduler, registry or summarization call is introduced.
+Construction, review and observed execution remain different facts.
+
+Six paired generic fixtures vary capability granularity, MCP grouping and fragment
+size while retaining the chosen responsibility and criteria across cursor changes
+and serialized restarts. Their 18 local fixture executions check independent
+numeric outcomes, operation order, cleanup and final-only public results. These
+scripted fixtures establish engine invariants; autonomous live decomposition quality
+remains unqualified. Existing exact-consumer recovery, scoped repair and selective
+review invalidation continue to pass without a block lifecycle rewrite.
+
+A regression demonstrated that a new progress page link was visible but absent
+from business-selection evidence choices. Commit `ed9a3a3e` connects those links to
+the existing loader and issued IDs, presents requested original declarations in
+business context, and retains page continuations. Actual response validation proves
+that retrieving an off-page declaration does not offer it as a current public
+binding. The failed regression and intermediate diagnostic failures are retained.
+
+Completed full-solution captures are attributed separately:
+
+| Source | Passed | Skipped | Assemblies | Exit / compiler diagnostics |
+| --- | ---: | ---: | ---: | --- |
+| `de37711ffd5b9175982286a83cf1e8931ec79e85` | 7,683 | 13 | 33/33 | 0 / 0 |
+| `31c73c3cee09419605fc395f7ce3161ee888bc87` | 7,695 | 13 | 33/33 | 0 / 0 |
+| `ed9a3a3e570a9a9deec60693b9dc3912209e3aa6` | 7,699 | 13 | 33/33 | 0 / 0 |
+
+All three sources remained unchanged during their capture. The final source also
+passes 2,707 owning Planning tests, 542 affected Agent.Server tests, all 11
+publication/Native AOT/published encrypted-storage and exact-receipt stages, matching
+benchmark/MCP builds and 24 synthetic review-helper checks. No warning suppression
+was added. Existing platform/opt-in skips and trimming boundaries remain documented.
+The earlier failed `1f801c40`/`5656ccdd` and incomplete historical `b50de043` captures
+remain separate and are not reported as passes.
+
+No fresh paid dispatch occurs for the new source; qualification stays **0/6**.
+The provider/replay barrier retains the unresolved request and every uncertain
+reservation. Strict read-only checks on the retained and final binaries also reject
+the current effective host fingerprint against the existing immutable GPT-6.1
+amendment. No configuration, profile, retry policy, closure or ceiling is changed
+to clear a barrier. Existing profiles and both required Collections variants remain.
+
+The final read-only ledger snapshot is unchanged: EUR
+413.98214989055111712576930921 known, EUR 157.57430550399738390479699311 reserved,
+EUR 168.47364843815780351187864498 available, under the unchanged EUR
+740.0301038327063045424449473 ceiling. It retains 7,035 physical attempts, 160
+unknown attempts, 63 permanent closures and one unresolved request. The evidence
+fingerprint remains `79ca579fe0431c32f7c489b6bd76c6e637d4f32b68a19a76bfd19bfae872f501`.
+PR #120 remains Draft; the unrelated solution edit is preserved. No merge, release,
+reservation release, administrative closure, uncertain replay or manual live-plan
+edit occurs. Historical GPT-5.5 comparisons cannot isolate code improvements from
+the model switch.
