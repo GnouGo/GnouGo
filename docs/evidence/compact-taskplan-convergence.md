@@ -26,15 +26,17 @@ verified completions, then confirmed HTTP 500 `ESG120 / Routing failed` followed
 transport uncertainty on the captured retry. There are no accepted checkpoints,
 Judges, artifact or execution. The global-repair correction was not exercised.
 
-**Live recovery is blocked on one new unresolved request.** Its exact existing-operator
-[retention proposal](business-selection-65b1a0d4-amazon-retention-required.json) is
-read-only and unapplied. The original section 13 authorization does not cover it.
-Expected evidence hash: `6d1cf165ced0d655dc77d76ef320784519cc4e4b6d08e7d984785d0389116173`.
-Preserve EUR 2.2408802218445299221755076482 in request reservations, all originals and
-timestamps, accounting and permanent replay/continuation prohibition if newly
-authorized. No new paid request or closure follows the stop. Qualification is **0/6**.
-Available exposure is EUR 206.38886446821415917875403628, with 62 permanent closures
-and one unresolved identity. Exact current-source solution validation remains active.
+The user subsequently authorized only that exact retention proposal. The existing
+operator applies it at **14:02:49 UTC** after matching evidence hash
+`6d1cf165ced0d655dc77d76ef320784519cc4e4b6d08e7d984785d0389116173`.
+[Closure verification](business-selection-65b1a0d4-amazon-authorized-retention.json)
+confirms all eight originals/timestamps and aggregate accounting unchanged, all
+reservations preserved, permanent replay/continuation rejection in fresh processes,
+**63 permanent closures and zero unresolved requests**. Available exposure remains
+**EUR 206.38886446821415917875403628** with unchanged ceiling and no supplement.
+Fresh same-source, same-profile cohort `biz65b1a0d4amz32b` is being admitted; no old
+request is replayed. Exact current-source solution validation remains active and
+qualification remains **0/6**.
 
 Previous correction **`a84fc50d1d7ba3313139c71c676bdf169b5b5f0b`** retains
 model-authored unmet needs and required business-action diagnostics in business
@@ -138,6 +140,33 @@ remains **0/6**. [Source-bound terminal evidence](business-selection-cd864165-am
 The preceding `ebf01483` source retains its [2,618-case Planning result](business-selection-ebf01483-planning-validation.json), [fresh-initialization regression](business-selection-fresh-initialization-validation.json), [eleven-stage publication result](business-selection-ebf01483-publication-validation.json) and recovered **7,579-pass, thirteen-skip** solution result. Earlier [owning suites](business-selection-1884a658-owning-validation.json) and [54 actual host/UI cases](business-selection-1884a658-host-ui-validation.json) retain their precise source boundaries. Focused counts overlap and are not added; failed captures remain preserved.
 
 The prior `a23cbbb2` baseline remains source-specific evidence: [2,425 Planning cases](business-block-a23cbbb2-continuation-review-validation.json), [7,327 full-solution passes with thirteen declared skips](business-block-a23cbbb2-solution-validation.json), and [publication checks](business-block-a23cbbb2-publication-validation.json). Those technical results did not establish live business convergence.
+
+### 4 November 2026, 14:02 UTC: exact new authorization applied; fresh admission resumes
+
+The user answers **"Authorize this exact closure and resume"** to the proposal for
+only request eight of `biz65b1a0d4amz32a-amazon-1`, evidence hash
+`6d1cf165ced0d655dc77d76ef320784519cc4e4b6d08e7d984785d0389116173`.
+Fresh read-only inspection matches the exact hash and original records. The existing
+operator applies `exhausted-planning-retries` with operator **Codex** at
+**14:02:49 UTC**, retaining the explicit user answer and complete identity.
+
+All **eight original records and timestamps** are identical before and after closure.
+Aggregate financial accounting and ceiling are identical; all
+**EUR 2.2408802218445299221755076482** of request reservations remain retained.
+Fresh-process read-only probes reject the old session and its execution/Copilot
+identities before preflight or dispatch. Replay and continuation are permanently
+forbidden. There are now **63 permanent closures, zero unresolved requests**, and
+available exposure **EUR 206.38886446821415917875403628**. This operator action makes
+zero model calls, releases no reservation and adds no budget.
+
+Fresh independent cohort `biz65b1a0d4amz32b` retains frozen production/harness
+`65b1a0d457b43f403bcc0d058f7bc1506af3e2f5`, matching benchmark/Browser/Document
+binaries and established 32K profile
+`96a35087433a0d9751186a58cd9a2cbffcdf2cd552037b6fe727b80b5b2576ae`.
+Configuration, financial and exact phase admission are repeated before unused-identity
+verification and dispatch. This authorization covers no other future uncertain
+request. Qualification remains **0/6**.
+[Source-bound authorized retention proof](business-selection-65b1a0d4-amazon-authorized-retention.json).
 
 ### 4 November 2026, 13:29 UTC: external uncertainty; exact new closure authority required
 
