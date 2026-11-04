@@ -8,7 +8,16 @@ The current delivery gate is **two consecutive intervention-free executions per 
 
 Previous fully validated source **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`** retains: [**7,614 full-solution passes, zero failures and thirteen declared skips across 33 assemblies**](business-selection-1d6632c5-solution-validation.json), plus [**eleven passing publication stages**](business-selection-1d6632c5-publication-validation.json), with zero compiler/publication diagnostics. It preserves redacted authentication-stage provenance without changing retry, accounting, retention or replay authority. These results establish technical validation, not live qualification.
 
-Current correction **`a84fc50d1d7ba3313139c71c676bdf169b5b5f0b`** retains
+Current correction **`65b1a0d457b43f403bcc0d058f7bc1506af3e2f5`** permits only
+current hash-bound global findings to repair cited accepted functional bindings and
+transform instruction text after local review. It preserves caller restrictions,
+independent work and interfaces, invalidates affected reviews, and requires renewed
+global review. [**2,662 owning Planning cases pass with warnings as errors**](business-selection-65b1a0d4-owning-validation.json).
+Exact-source solution, publication and matching frozen benchmark/MCP builds are
+running. The established Amazon 32K draft profile is retained unchanged for the next
+fresh source-specific attempt. Qualification remains **0/6**.
+
+Previous correction **`a84fc50d1d7ba3313139c71c676bdf169b5b5f0b`** retains
 model-authored unmet needs and required business-action diagnostics in business
 selection, while implementation retains technical cursors, bindings and rejection
 witnesses. [**All 2,656 owning Planning cases pass, zero failures/skips**](business-selection-a84fc50d-owning-validation.json),
