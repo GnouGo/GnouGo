@@ -25,9 +25,12 @@ public sealed partial class HybridWorkflowPlanner
         return TaskPlanCompiler.RepairSources(baseline, catalog, references, request);
     }
 
-    private static string? GuardProducer(TaskValue value) => value.Kind switch
+    private static (string Kind, string? Source)? GuardProducer(TaskValue value) => value.Kind switch
     {
-        "output" when value.Source is not null => value.Source,
+        "output" when value.Source is not null => ("output", value.Source),
+        // The compiler resolves this item in the guard's exact lexical scope.
+        // Its origin cannot alias an output producer with the same source text.
+        "item" => ("item", value.Source),
         "field" when value.Items.Count == 1 => GuardProducer(value.Items[0]),
         _ => null
     };

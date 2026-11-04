@@ -297,6 +297,14 @@ the finding. Conditional/unverified behavior is not a proved gap. Local review o
 reusable contribution does not establish its invocation or runtime success. The
 projection changes no response grammar, edit authority, completion claim or repeat guard.
 
+Scoped automatic assertion correction also recognizes compiler-typed loop-item
+references. A known nullable reference may become the exact `reference != null`
+check, with declared nonnullable Boolean fields from that same item when needed.
+The compiler resolves the item in its lexical scope; item and output origins remain
+distinct. Unrelated fields/tasks, operand order, required-condition failure and cleanup
+are preserved. Nonnullable or unknown values gain no guessed condition, and dropping
+the original assertion or substituting another producer remains forbidden.
+
 Local requests derive their originals before packing: selected obligations, consumed
 producers and their accepted requirement associations, ancestor controls/groups,
 completion claims, explicit evidence and retained repair witnesses. Linked interface

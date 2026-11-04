@@ -8,7 +8,16 @@ The current delivery gate is **two consecutive intervention-free executions per 
 
 Previous fully validated source **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`** retains: [**7,614 full-solution passes, zero failures and thirteen declared skips across 33 assemblies**](business-selection-1d6632c5-solution-validation.json), plus [**eleven passing publication stages**](business-selection-1d6632c5-publication-validation.json), with zero compiler/publication diagnostics. It preserves redacted authentication-stage provenance without changing retry, accounting, retention or replay authority. These results establish technical validation, not live qualification.
 
-Current correction **`1bb59305de63d69cff1a22b14d37fc0d4dffffc4`** projects existing
+Current correction extends the existing nullable-assertion correction to compiler-typed
+loop-item references, preserving distinct item/output origins and exact lexical typing.
+The original nullable assertion, valid operands/order, independent work, failure and
+cleanup remain preserved; assertion removal and other producers remain rejected.
+**All 2,672 owning Planning cases pass with warnings as errors**, including six new
+cases with actual simulated v15 execution. Source-specific frozen builds, publication
+and full-solution checks follow this commit. The established Amazon 32K profile is
+unchanged; qualification remains **0/6** and live benefit remains unproven.
+
+Previous correction **`1bb59305de63d69cff1a22b14d37fc0d4dffffc4`** projects existing
 deterministic contractual coverage gaps into
 business selection as remaining original requirement IDs and present coverage facts.
 Four new cases cover abandoned completion, exact accepted-work preservation,
@@ -25,7 +34,10 @@ and unused-identity verification, retaining profile
 `96a35087433a0d9751186a58cd9a2cbffcdf2cd552037b6fe727b80b5b2576ae`,
 EUR 203.81035565705036993105746234 available, EUR 20.983630020574291081492083370
 phase headroom, and zero unresolved requests. The established Amazon 32K profile is retained;
-qualification remains **0/6** and future live benefit is unproven.
+qualification remains **0/6** and future live benefit is unproven. The run subsequently stopped before any
+business review, checkpoint or artifact: automatic nullable-assertion correction
+excluded a compiler-typed loop-item field. All nine logical requests have receipts;
+no unresolved request or new closure is needed. [Terminal outcome](business-selection-1bb59305-amazon32a-guard-stop.json).
 
 Previous correction **`65b1a0d457b43f403bcc0d058f7bc1506af3e2f5`** permits only
 current hash-bound global findings to repair cited accepted functional bindings and
@@ -167,6 +179,47 @@ remains **0/6**. [Source-bound terminal evidence](business-selection-cd864165-am
 The preceding `ebf01483` source retains its [2,618-case Planning result](business-selection-ebf01483-planning-validation.json), [fresh-initialization regression](business-selection-fresh-initialization-validation.json), [eleven-stage publication result](business-selection-ebf01483-publication-validation.json) and recovered **7,579-pass, thirteen-skip** solution result. Earlier [owning suites](business-selection-1884a658-owning-validation.json) and [54 actual host/UI cases](business-selection-1884a658-host-ui-validation.json) retain their precise source boundaries. Focused counts overlap and are not added; failed captures remain preserved.
 
 The prior `a23cbbb2` baseline remains source-specific evidence: [2,425 Planning cases](business-block-a23cbbb2-continuation-review-validation.json), [7,327 full-solution passes with thirteen declared skips](business-block-a23cbbb2-solution-validation.json), and [publication checks](business-block-a23cbbb2-publication-validation.json). Those technical results did not establish live business convergence.
+
+### 4 November 2026, 15:07 UTC: nullable loop-item assertion correction is unsupported
+
+Frozen `1bb59305` Amazon `biz1bb59305amz32a-amazon-1` stops after **nine received
+logical calls / ten physical attempts**, all nine completion receipts, one correction
+and no checkpoint, business Judge, artifact, approval, execution or independent oracle.
+Draft eight receives confirmed HTTP **500 `ESG120 / Routing failed` then 200**;
+its failed attempt's unknown reservation remains retained. The received draft uses
+**6,012 output tokens, including 3,586 reasoning tokens**, below the original 16,384
+allocation; larger-allocation benefit remains unproven.
+
+Draft eight supplies a full reusable group but claims workflow completion with no
+root closure. Deterministic validation rejects that premature finalization. Correction
+nine closes root and introduces `requires: item.url` on `read_product_page`. The
+producer declares this loop-item field as **nullable string**. Compiler validation
+correctly requires a Boolean assertion. Automatic guard correction then stops before
+another dispatch with `AUTOMATIC_GUARD_CORRECTION_UNSAFE`, because its origin
+recognition accepts output references but omits typed loop-item references.
+
+Generic tests reproduce the same pre-dispatch stop. The narrow correction extends
+origin recognition to compiler-resolved items in the exact lexical assertion scope,
+using distinct item/output origin identities. Existing presence-check preservation
+rules remain: retain the exact known nullable reference compared with null, allow
+only declared nonnullable Boolean fields from that same origin, preserve operands
+and order, and reject assertion removal, other producers, nonnullable and unknown
+values. Six focused cases pass, including v15 runtime success, null/false assertion
+failure and cleanup. All **2,672 owning Planning cases pass with warnings as errors**, zero failures/skips;
+focused cases overlap that total.
+Future live benefit is unproven; no manual revision of this stopped run occurs.
+
+Planning takes **1,088,220 ms**, with **42,064 known input / 28,793 known output
+tokens**, including **22,528 reasoning tokens already in output**, known cost
+**EUR 0.9608283388496287682261382950**, retained reservation
+**EUR 1.1341041238035602468914929779**. Campaign totals: **6,957 physical calls,
+155 historical unknown attempts, 63 permanent closures, zero unresolved requests**,
+known spending **EUR 404.98736055340110370775338655**, reservations
+**EUR 133.32732008490801991875172967**, available exposure
+**EUR 201.71542319439718091593983108**. No supplement, release or new closure.
+The source's coverage projection and previous global-review repair correction were
+not exercised. Qualification remains **0/6**.
+[Source-bound terminal outcome](business-selection-1bb59305-amazon32a-guard-stop.json).
 
 ### 4 November 2026, 14:28 UTC: received coordination stop after abandoned completion
 
