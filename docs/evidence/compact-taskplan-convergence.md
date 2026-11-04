@@ -31,7 +31,8 @@ Matching frozen benchmark/Browser/Document builds pass. [**All eleven exact-sour
 publication stages pass**](business-selection-a84fc50d-publication-validation.json),
 including actual Native AOT and published encrypted-storage/exact-receipt recovery,
 with zero warnings/errors and unchanged source. Exact-source solution validation
-remains active. Fresh Amazon `biza84fc50damz01-amazon-1` launched after
+now passes [**7,638 tests, zero failures, thirteen declared skips and all 33 assemblies**](business-selection-a84fc50d-solution-validation.json),
+with zero compiler diagnostics and unchanged source. Fresh Amazon `biza84fc50damz01-amazon-1` launched after
 **12:07:44 UTC** [exact admission](business-selection-a84fc50d-live-admission.json)
 on the unchanged profile, with **EUR 211.67743231864800836025506498** available,
 **EUR 20.617228732444762501118167993** phase headroom and zero unresolved requests.
@@ -108,8 +109,7 @@ Correction **`cd8641651acb36b39584287e5990c304561e7339`** has now also passed
 33 assemblies**](business-selection-cd864165-solution-validation.json), with zero
 compiler diagnostics and unchanged source. Its [2,645 owning Planning passes](business-selection-cd864165-owning-validation.json)
 and [eleven passing publication stages](business-selection-cd864165-publication-validation.json)
-remain source-specific evidence. The later corrections' exact-source solution
-runs are still separate and active.
+remain source-specific evidence. Later source results remain separately bound to their exact commits.
 
 The preceding live diagnostic **`bizcd864165amz01-amazon-1`** used that source.
 It stopped after eleven received completions and two automatic corrections: browser
