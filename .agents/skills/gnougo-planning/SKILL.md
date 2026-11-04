@@ -33,6 +33,8 @@ per-request timeouts/retries remain hard. Warnings never enter candidate diagnos
 
 Use request-bound short evidence IDs only for navigation. Keep original field paths visible beside optional-schema retrieval IDs, including after other branches have been inspected; a short ID alone does not describe the available input. Persist the exact canonical mapping with the issued request before dispatch, bind it to that request, and preserve raw receipts. Resolve IDs before canonical repeat/progress checks; never rebuild a map from newer context or change TaskPlan reference semantics. Keep host-fixed values and unavailable actions out of the response grammar rather than asking the model to echo them.
 
+For an operation task cited by a retained business defect, expose its original editable input schemas during correction, including absent optional arguments. Do not require another discovery call to make the diagnosed repair representable. Distinguish offered inputs from actual bindings; unrelated operations keep ordinary compaction. Derive bound arguments from the current candidate across root, control and reusable-group bodies, including repaired values. Schema visibility grants no additional edit, contract or execution authority.
+
 ## Validation and business review
 
 Code establishes technical facts: original contracts, types, concrete references, scopes, dependencies, permissions and provenance. Business Judges assess actual behavior and original obligations. Independent runtime oracles establish execution success. None grants another's authority.

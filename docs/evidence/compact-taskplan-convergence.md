@@ -54,8 +54,10 @@ Known spending is **EUR 398.00815400540933342418598341**, reservations
 
 The generic correction exposes the cited operation's original editable optional
 inputs during business repair and reads bound inputs from the current candidate,
-including group bodies. Its six focused regressions pass; full owning validation
-is running. These tests establish repair representation, not live convergence.
+including group bodies. Four of six focused regressions reproduced the old defect; all six now pass.
+The owning Planning suite passes **2,651 cases, zero failures/skips**, with warnings
+as errors. Focused counts overlap that total. These tests establish repair
+representation, not live convergence.
 [Exact schema/response/accounting evidence](business-selection-cd864165-amazon-outcome.json).
 
 ### 4 November 2026: bounded tentative-scope export repair

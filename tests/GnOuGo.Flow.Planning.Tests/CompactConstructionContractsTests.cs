@@ -9,6 +9,89 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class CompactConstructionContractsTests
 {
+    [Theory]
+    [InlineData("root")]
+    [InlineData("group")]
+    [InlineData("sequence")]
+    public void BusinessRepairOffersOriginalOptionalInputsWithoutClaimingTheyWereBound(string location)
+    {
+        var (state, contract) = OptionalCandidate(location, bound: false);
+        var original = JsonSerializer.Serialize(contract, PlanningJsonContext.Default.PlanningCapability);
+        Assert.Equal(0, OperationInputs(state, "read")["maxItems"]!.GetValue<int>());
+        state.Construction!.Candidate!.Diagnostics = [new("CONSTRUCTION_BUSINESS_REVIEW", "/tasks/observe", "Pass the intended value to the observation.")];
+        var schema = OperationInputs(state, "read");
+        var input = new JsonArray(new JsonObject { ["name"] = "value", ["value"] = new JsonObject { ["kind"] = "string", ["text"] = "A" } });
+        Assert.Empty(PlanningContractValidation.ValidateInstance(input, schema));
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(input, OperationInputs(state, "other")));
+        var view = PlanningCompactConstruction.ContractViews(state, useCandidate: true).Single(node => node!["id"]!.ToString() == "read")!;
+        Assert.Empty(view["boundInputs"]!.AsArray());
+        var selected = view["selectedInputs"]!.AsArray();
+        Assert.Contains(selected, port => port!["pointer"]!.ToString() == "/input/properties/value" &&
+            JsonNode.DeepEquals(port["schema"], contract.InputSchema["properties"]!["value"]));
+        Assert.Equal(original, JsonSerializer.Serialize(contract, PlanningJsonContext.Default.PlanningCapability));
+        state.Construction.Candidate.Diagnostics.Clear();
+        Assert.Equal(0, OperationInputs(state, "read")["maxItems"]!.GetValue<int>());
+    }
+
+    [Theory]
+    [InlineData("root")]
+    [InlineData("group")]
+    [InlineData("sequence")]
+    public void BoundOperationInputsRemainAvailableInsideEveryContributedBody(string location)
+    {
+        var (state, contract) = OptionalCandidate(location, bound: true);
+        var inputs = new JsonArray(new JsonObject { ["name"] = "value", ["value"] = new JsonObject { ["kind"] = "string", ["text"] = "A" } });
+        Assert.Empty(PlanningContractValidation.ValidateInstance(inputs, OperationInputs(state, "read")));
+        var view = PlanningCompactConstruction.ContractViews(state, useCandidate: true).Single(node => node!["id"]!.ToString() == "read")!;
+        Assert.Equal("value", Assert.Single(view["boundInputs"]!.AsArray())!["name"]!.ToString());
+        Assert.True(JsonNode.DeepEquals(contract.InputSchema["properties"]!["value"], Assert.Single(view["selectedInputs"]!.AsArray())!["schema"]));
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(inputs, OperationInputs(state, "other")));
+    }
+
+    private static (PlanningSession State, PlanningCapability Contract) OptionalCandidate(string location, bool bound)
+    {
+        var state = State();
+        var contract = state.Discovery.Resolved.Single();
+        contract.InputSchema.Remove("required");
+        var other = Capability("other", "An unrelated optional observation.");
+        other.InputSchema.Remove("required");
+        state.Discovery.Resolved.Add(other);
+        var step = state.Construction!.Compact!.CurrentStep!;
+        step.Kind = location == "root" ? "operation" : location;
+        step.OperationIds.Add("other");
+        var observation = new PlanTask { Id = "observe", Kind = "operation", Operation = "read", Objective = "Observe the intended value.",
+            Inputs = bound ? [new("value", new() { Kind = "string", Text = "A" })] : [] };
+        var body = new TaskScope { Tasks = [observation] };
+        state.Plan = new();
+        step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        var extension = new PlanningConstructionExtension { Scope = "/root", RequirementIds = ["result"] };
+        if (location == "group") extension.Groups = [new() { Id = "observe_group", Body = body }];
+        else extension.Tasks = location == "root" ? [observation] : [new() { Id = "observe_sequence", Kind = "sequence", Objective = "Keep the observation together.", Body = body }];
+        state.Construction.Candidate = PlanningConstruction.Apply(state, extension);
+        return (state, contract);
+    }
+
+    private static JsonObject OperationInputs(PlanningSession state, string operation)
+    {
+        var schema = PlanningCompactConstruction.DraftSchema(state);
+        var inputs = Walk(schema).Where(node => Resolve(node["properties"]?["kind"])?["enum"]?.AsArray()
+                .Any(kind => kind!.ToString() == "operation") == true &&
+                Resolve(node["properties"]?["operation"])?["enum"]?.AsArray().Any(id => id!.ToString() == operation) == true)
+            .Select(node => Resolve(node["properties"]!["inputs"])!)
+            .DistinctBy(node => node.ToJsonString()).Single().DeepClone().AsObject();
+        inputs["$defs"] = schema["$defs"]!.DeepClone();
+        return inputs;
+
+        JsonNode? Resolve(JsonNode? node)
+        {
+            while (node is JsonObject value && value["$ref"]?.ToString() is { } reference)
+            {
+                Assert.True(PlanningConstruction.TryPointer(schema, reference[1..], out node));
+            }
+            return node;
+        }
+    }
+
     [Fact]
     public void UnusedOptionalInputAndOutputTreesStayOutOfTheSelectedRequest()
     {

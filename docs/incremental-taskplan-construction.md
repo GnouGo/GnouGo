@@ -305,6 +305,13 @@ retrieved evidence, producer arguments and mandatory constraints remain unchange
 Omitted optional inputs retain bounded original-pointer/retrieval-ID rows; inspecting
 another branch does not erase them or authorize the omitted input. Larger directories
 remain reachable through their existing exact continuation links.
+When a retained business finding cites an operation task, correction exposes that
+operation's original editable input schemas, including optional arguments not yet
+bound. A diagnosed missing argument must be representable without another discovery
+call. The view distinguishes offered inputs from actual bound inputs; unrelated
+operations retain ordinary compaction. Bound-input discovery reads the current
+candidate across root, control and reusable-group bodies, preserving repaired
+arguments. Original contracts, owned inputs and typed edit authority remain enforced.
 If mandatory context exceeds an ordinary profile's enforced input limit, construction
 stops before dispatch. A captured advisory token or diagnostic policy retains that
 context and warns; actual provider capabilities and financial admission still apply.

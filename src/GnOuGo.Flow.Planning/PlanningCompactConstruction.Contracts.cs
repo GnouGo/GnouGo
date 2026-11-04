@@ -418,6 +418,7 @@ internal static partial class PlanningCompactConstruction
         var operationDescription = operation.Description;
         var bindings = BoundInputNames(state, operation.Id);
         var boundPorts = operation.Inputs.Where(p => bindings.Contains(p.Name)).ToArray();
+        var repairInputs = RepairingOperationInputs(state, operation.Id);
         // These explicitly incomplete descriptions are navigation aids. Keep their
         // aggregate size bounded even when the fragment binds many exact ports.
         var portDescriptionLimit = Math.Min(192, 768 / Math.Max(1, boundPorts.Length));
@@ -443,10 +444,11 @@ internal static partial class PlanningCompactConstruction
             if (capability.Method is { } method) view["method"] = method;
         }
         {
-            // Bound arguments need the same original schema closure used by
+            // Bound arguments and operations cited by a retained business defect
+            // need the same original schema closure used by
             // explicit contract reads: required siblings, coupling and references
             // remain normative. The whole view is subject to request admission.
-            view["selectedInputs"] = new JsonArray(boundPorts.Select(port =>
+            view["selectedInputs"] = new JsonArray(operation.Inputs.Where(port => repairInputs || bindings.Contains(port.Name)).Select(port =>
                 (JsonNode)ExactSchemaView(capability, PortPointer("/input", port.Path))).ToArray());
             foreach (var input in view["boundInputs"]!.AsArray().OfType<JsonObject>())
             {
@@ -482,21 +484,26 @@ internal static partial class PlanningCompactConstruction
         // including mappings whose ancestors are optional in the wire schema.
         // This does not ask to repeat every unused descendant of an object port.
         var bound = BoundInputNames(state, operation.Id);
-        var mandatory = operation.Inputs.Where(p => p.Required || bound.Contains(p.Name)).Select(p => PortPointer("/input", p.Path)).ToHashSet(StringComparer.Ordinal);
+        // A finding may diagnose an absent optional argument. Do not require a
+        // separate discovery call before that original argument is representable.
+        var repairInputs = RepairingOperationInputs(state, operation.Id);
+        var mandatory = operation.Inputs.Where(p => p.Required || bound.Contains(p.Name) || repairInputs).Select(p => PortPointer("/input", p.Path)).ToHashSet(StringComparer.Ordinal);
         return ProjectInputSchema(capability.InputSchema, selected, omitted, mandatory);
     }
 
     private static HashSet<string> BoundInputNames(PlanningSession state, string operation)
     {
         if (state.Construction!.Candidate is not { } candidate) return [];
-        IEnumerable<PlanTask> tasks = TaskPlanRevisions.Tasks(new TaskScope { Tasks = candidate.Extension.Tasks, Always = candidate.Extension.Always });
-        if (candidate.AuthorizedPaths is not null)
-        {
-            var symbols = new TaskPlanSymbols(candidate.Plan);
-            tasks = PlanningConstruction.AuthorizedRevisionTasks(state).Select(item => symbols.Tasks[item.Id].Task);
-        }
+        // Read the current candidate, including reusable groups and repaired
+        // bindings, rather than the extension envelope from before its edits.
+        var tasks = TaskPlanRevisions.Tasks(candidate.Plan).Where(task => candidate.TaskIds.Contains(task.Id, StringComparer.Ordinal));
         return tasks.Where(task => task.Operation == operation).SelectMany(task => task.Inputs).Select(input => input.Name).ToHashSet(StringComparer.Ordinal);
     }
+
+    private static bool RepairingOperationInputs(PlanningSession state, string operation) =>
+        state.Construction?.Candidate is { } candidate && TaskPlanRevisions.Tasks(candidate.Plan).Any(task => task.Operation == operation &&
+            candidate.Diagnostics.Any(diagnostic => diagnostic.Required && diagnostic.Code == "CONSTRUCTION_BUSINESS_REVIEW" &&
+                diagnostic.Location == "/tasks/" + task.Id));
 
     // Object properties are the only independently removable branches. Any
     // coupling/conditional keyword keeps its whole containing subtree. A $ref
