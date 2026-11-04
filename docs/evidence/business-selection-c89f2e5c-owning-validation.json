@@ -1,0 +1,40 @@
+{
+  "kind": "source_postimage_owning_validation",
+  "version": 1,
+  "source_postimages_match_commit": "c89f2e5c5c162cf16aaa0b3613093b15e1097699",
+  "observed_at_utc": "2026-11-04T15:24:37.080039+00:00",
+  "command": "dotnet test tests/GnOuGo.Flow.Planning.Tests -m:1 -warnaserror",
+  "trx_sha256": "7f73b1840bb886873f19f2ba141cb03481db284246b13b41b34a4502c11a31fc",
+  "counts": {
+    "total": "2672",
+    "executed": "2672",
+    "passed": "2672",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "new_regression_cases": 6,
+  "focused_cases_passed": 6,
+  "focused_cases_overlap_owning_total": true,
+  "focused_green_trx_sha256": "98c1b23ffc8fe9ed1a8f8d4da34516102629b8b3675cf7948b1967defd406a4c",
+  "initial_generic_reproduction_failed": 5,
+  "initial_nonnullable_control_passed": 1,
+  "initial_red_trx_sha256": "4b97612515e84c245170864f3e4e79ea06241cbd57d3088123591f42eab584f6",
+  "postimages": {
+    ".agents/skills/gnougo-planning/SKILL.md": "0ddb5cb7696a3ad21cdb2c7afaff2bf9d8cf82b4338e735d485496bbdc82c9c1",
+    "docs/incremental-taskplan-construction.md": "f670d9b8c21668cfa3863675b0dde658e34d864079bc7eb9d19a92fccfe997e7",
+    "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.GuardCorrections.cs": "e64aa89af4bbbd77626ac9ff7b779aba382bf64f1b15bb6195025847abe3735e",
+    "tests/GnOuGo.Flow.Planning.Tests/LoopItemGuardCorrectionTests.cs": "9f913ba10e0af74b793d5c796aabd56d2ee534959484e92a1b53c977f37f7ad2"
+  },
+  "limit": "Owning tests ran before commit creation on matching committed postimages. Exact-source solution/publication validation remains separate. Runtime guard tests use simulation and do not establish live scenario success."
+}

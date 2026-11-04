@@ -8,13 +8,15 @@ The current delivery gate is **two consecutive intervention-free executions per 
 
 Previous fully validated source **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`** retains: [**7,614 full-solution passes, zero failures and thirteen declared skips across 33 assemblies**](business-selection-1d6632c5-solution-validation.json), plus [**eleven passing publication stages**](business-selection-1d6632c5-publication-validation.json), with zero compiler/publication diagnostics. It preserves redacted authentication-stage provenance without changing retry, accounting, retention or replay authority. These results establish technical validation, not live qualification.
 
-Current correction extends the existing nullable-assertion correction to compiler-typed
+Current correction **`c89f2e5c5c162cf16aaa0b3613093b15e1097699`** extends the existing
+nullable-assertion correction to compiler-typed
 loop-item references, preserving distinct item/output origins and exact lexical typing.
 The original nullable assertion, valid operands/order, independent work, failure and
 cleanup remain preserved; assertion removal and other producers remain rejected.
 **All 2,672 owning Planning cases pass with warnings as errors**, including six new
-cases with actual simulated v15 execution. Source-specific frozen builds, publication
-and full-solution checks follow this commit. The established Amazon 32K profile is
+cases with actual simulated v15 execution. [Owning validation](business-selection-c89f2e5c-owning-validation.json).
+Matching frozen benchmark/MCP builds, eleven publication stages and an isolated
+exact-source full-solution run are in progress. The established Amazon 32K profile is
 unchanged; qualification remains **0/6** and live benefit remains unproven.
 
 Previous correction **`1bb59305de63d69cff1a22b14d37fc0d4dffffc4`** projects existing
