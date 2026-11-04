@@ -20,6 +20,12 @@ remains active. Fresh Amazon `bizf5789246amz01-amazon-1` launched after
 **11:09:34 UTC** [exact admission](business-selection-f5789246-live-admission.json)
 on the unchanged profile, with zero unresolved requests and
 **EUR 214.01795919940657352708572962** available before dispatch.
+At **11:17 UTC**, the run has six received completions and is awaiting its first
+draft, with six physical attempts for those completed calls, zero corrections and
+zero accepted checkpoints. Completed-call usage is **15,923 input / 10,598 output
+tokens**, including **9,006 reasoning tokens** already in output, at
+**EUR 0.3556266213435906610609177923** known cost. These partial totals exclude the
+pending attempt. [Source/binary-bound live progress](business-selection-f5789246-live-progress.json).
 No completed live result on this source is claimed yet.
 
 Correction **`cd8641651acb36b39584287e5990c304561e7339`** has
