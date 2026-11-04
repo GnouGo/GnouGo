@@ -6,7 +6,7 @@ The active implementation replaces the former review protocol. Generation remain
 
 The current delivery gate is **two consecutive intervention-free executions per scenario on one final production source and stable identified profiles**, including both Collections runtime variants. Automatic local corrections are allowed; planning-operator interventions do not qualify. The earlier Collections indicators (fewer than 26 logical calls, at most four Judges and 13,197 complete Judge-request bytes) remain efficiency measurements, not delivery gates. The eighteen-comparison gate is retired. The dated sections below retain their actual historical sources, outcomes and gates; they are not current requirements.
 
-Latest technically validated production source is **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`**: [**7,614 full-solution passes, zero failures and thirteen declared skips across 33 assemblies**](business-selection-1d6632c5-solution-validation.json), plus [**eleven passing publication stages**](business-selection-1d6632c5-publication-validation.json), with zero compiler/publication diagnostics. It preserves redacted authentication-stage provenance without changing retry, accounting, retention or replay authority. These results establish technical validation, not live qualification.
+Previous fully validated source **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`** retains: [**7,614 full-solution passes, zero failures and thirteen declared skips across 33 assemblies**](business-selection-1d6632c5-solution-validation.json), plus [**eleven passing publication stages**](business-selection-1d6632c5-publication-validation.json), with zero compiler/publication diagnostics. It preserves redacted authentication-stage provenance without changing retry, accounting, retention or replay authority. These results establish technical validation, not live qualification.
 
 Current correction **`b613426e2586fec447089532251ab8773df16b08`** copies projected
 producer-field schemas into temporary inferred array unions. It has [**2,653 owning
@@ -46,12 +46,13 @@ approval, execution or oracle occurred. Qualification remains **0/6**.
 The earlier [draft progress](business-selection-f5789246-live-progress.json) remains
 a dated partial observation and is superseded by that terminal evidence.
 
-Correction **`cd8641651acb36b39584287e5990c304561e7339`** has
-[**2,645 owning Planning passes on verified matching source postimages**](business-selection-cd864165-owning-validation.json)
-and [**eleven exact-source publication stages passed**](business-selection-cd864165-publication-validation.json),
-including actual Native AOT and published encrypted-storage/exact-receipt smoke,
-with zero warnings/errors and unchanged source. Its exact-source full solution
-is still running separately.
+Correction **`cd8641651acb36b39584287e5990c304561e7339`** has now also passed
+[**7,627 full-solution cases, zero failures and thirteen declared skips across all
+33 assemblies**](business-selection-cd864165-solution-validation.json), with zero
+compiler diagnostics and unchanged source. Its [2,645 owning Planning passes](business-selection-cd864165-owning-validation.json)
+and [eleven passing publication stages](business-selection-cd864165-publication-validation.json)
+remain source-specific evidence. The later corrections' exact-source solution
+runs are still separate and active.
 
 Latest completed live diagnostic is **`bizcd864165amz01-amazon-1`** on that source.
 It stopped after eleven received completions and two automatic corrections: browser
