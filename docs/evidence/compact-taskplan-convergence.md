@@ -8,11 +8,44 @@ The current delivery gate is **two consecutive intervention-free executions per 
 
 Latest technically validated production source is **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`**: [**7,614 full-solution passes, zero failures and thirteen declared skips across 33 assemblies**](business-selection-1d6632c5-solution-validation.json), plus [**eleven passing publication stages**](business-selection-1d6632c5-publication-validation.json), with zero compiler/publication diagnostics. It preserves redacted authentication-stage provenance without changing retry, accounting, retention or replay authority. These results establish technical validation, not live qualification.
 
-Latest live production source remains **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`**. The authorized preceding request was permanently closed on **4 November 2026 at 09:37:49 UTC**, preserving originals, timestamps and all accounting. Fresh Amazon **`biz1d6632c5amz02-amazon-1`** passed exact admission on the unchanged original profile and reached draft request seven after six received completions. The earlier first-request authentication stop did not recur. At the retained in-progress observation there is one business block, no accepted checkpoint, artifact or execution; no final outcome is inferred. Final-source qualification remains **0/6**.
+Latest live production source remains **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`**. After the exact authorized preceding closure, fresh Amazon **`biz1d6632c5amz02-amazon-1`** received all twelve logical completions across thirteen physical attempts and stopped at local business review, before an accepted checkpoint or artifact. A nine-task group passed deterministic repair; the Judge maintained its finding that exported file-write success does not establish successful search/extraction. The mixed task/group-scope target was routed to evidence-only reconsideration, with no editable patch, despite the group being newly supplied by the candidate. This is the next bounded repair-admission reproduction. There is no pending request or execution; final-source qualification remains **0/6**.
 
 The preceding `ebf01483` source retains its [2,618-case Planning result](business-selection-ebf01483-planning-validation.json), [fresh-initialization regression](business-selection-fresh-initialization-validation.json), [eleven-stage publication result](business-selection-ebf01483-publication-validation.json) and recovered **7,579-pass, thirteen-skip** solution result. Earlier [owning suites](business-selection-1884a658-owning-validation.json) and [54 actual host/UI cases](business-selection-1884a658-host-ui-validation.json) retain their precise source boundaries. Focused counts overlap and are not added; failed captures remain preserved.
 
 The prior `a23cbbb2` baseline remains source-specific evidence: [2,425 Planning cases](business-block-a23cbbb2-continuation-review-validation.json), [7,327 full-solution passes with thirteen declared skips](business-block-a23cbbb2-solution-validation.json), and [publication checks](business-block-a23cbbb2-publication-validation.json). Those technical results did not establish live business convergence.
+
+### 4 November 2026, 09:56 UTC: received Amazon business-repair admission stop
+
+The fresh run stopped at revision twelve after **12 logical calls / 13 physical
+attempts**, all twelve usage receipts retained, **one actual correction**, two
+local Judge calls and no operator plan revision. One business block supplied a
+nine-task group. Deterministic array/object binding errors were repaired normally;
+the candidate still had zero accepted checkpoints when local review stopped it.
+The Judge and unchanged-evidence reconsideration both found that the group's
+exported `success` depends only on writing the workbook, even if search or product
+extraction fails. The report cites both the file-writing task and the new group
+body scope. Repair admission recognizes the tentative task but does not recognize
+that nested scope as owned; it offers `patch:null` evidence retrieval and stops
+after the maintained verdict. No repair authority or edit is inferred for this
+already stopped live run.
+
+The complete Judge requests measure **40,915 and 54,159 bytes**. Nine versus eight
+recursive tasks and input estimates above the captured project ceilings remain
+durable nonblocking warnings. Request seven's recorded HTTP **500 then 200** uses
+the existing retry owner; its failed-attempt reservation remains preserved.
+Known usage is **77,754 input / 19,809 output tokens**, including **15,622 reasoning
+tokens** already counted in output, at **EUR 0.8793630915108685928973969048** known
+cost plus **EUR 0.6910457107075767063243581716** retained reservation. Planning took
+**951,762 ms**. No global review, artifact, approval, execution or oracle occurred.
+
+The post-run ledger has **6,862 physical calls, 149 historical unknown attempts,
+62 closures and zero unresolved requests**. Known spending is
+**EUR 396.91636135848205907048708365**, preserved reservations
+**EUR 127.31500234629097009318593666**, and available exposure
+**EUR 215.7987401279332753787719270** under the unchanged ceiling. No supplement
+was applied. The original source/profile/oracle remain unchanged; the next useful
+step is a generic regression and bounded ownership correction before a fresh run.
+[Source-bound terminal outcome](business-selection-20261104-amazon-outcome.json).
 
 ### 4 November 2026, 09:37-09:38 UTC: authorized exact-request closure
 
