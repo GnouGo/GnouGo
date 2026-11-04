@@ -18,7 +18,7 @@ after **10:23:12 UTC** admission on the unchanged profile, with zero unresolved
 requests and **EUR 215.79874012793327537877192699** available before dispatch.
 The new source has no completed live result or runtime qualification yet.
 
-Latest live production source remains **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`**. After the exact authorized preceding closure, fresh Amazon **`biz1d6632c5amz02-amazon-1`** received all twelve logical completions across thirteen physical attempts and stopped at local business review, before an accepted checkpoint or artifact. A nine-task group passed deterministic repair; the Judge maintained its finding that exported file-write success does not establish successful search/extraction. The mixed task/group-scope target was routed to evidence-only reconsideration, with no editable patch, despite the group being newly supplied by the candidate. This is the next bounded repair-admission reproduction. There is no pending request or execution; final-source qualification remains **0/6**.
+Latest completed live diagnostic remains attributed to **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`**. After the exact authorized preceding closure, Amazon **`biz1d6632c5amz02-amazon-1`** received all twelve logical completions across thirteen physical attempts and stopped at local business review, before an accepted checkpoint or artifact. A nine-task group passed deterministic repair; the Judge maintained its finding that exported file-write success does not establish successful search/extraction. The mixed task/group-scope target was routed to evidence-only reconsideration, with no editable patch, despite the group being newly supplied by the candidate. Its stopped records remain unchanged and have no pending request or execution; the corrected source's independent diagnostic is described above. Final-source qualification remains **0/6**.
 
 The preceding `ebf01483` source retains its [2,618-case Planning result](business-selection-ebf01483-planning-validation.json), [fresh-initialization regression](business-selection-fresh-initialization-validation.json), [eleven-stage publication result](business-selection-ebf01483-publication-validation.json) and recovered **7,579-pass, thirteen-skip** solution result. Earlier [owning suites](business-selection-1884a658-owning-validation.json) and [54 actual host/UI cases](business-selection-1884a658-host-ui-validation.json) retain their precise source boundaries. Focused counts overlap and are not added; failed captures remain preserved.
 
@@ -76,7 +76,7 @@ The post-run ledger has **6,862 physical calls, 149 historical unknown attempts,
 62 closures and zero unresolved requests**. Known spending is
 **EUR 396.91636135848205907048708365**, preserved reservations
 **EUR 127.31500234629097009318593666**, and available exposure
-**EUR 215.7987401279332753787719270** under the unchanged ceiling. No supplement
+**EUR 215.79874012793327537877192699** under the unchanged ceiling. No supplement
 was applied. The original source/profile/oracle remain unchanged; the next useful
 step is a generic regression and bounded ownership correction before a fresh run.
 [Source-bound terminal outcome](business-selection-20261104-amazon-outcome.json).

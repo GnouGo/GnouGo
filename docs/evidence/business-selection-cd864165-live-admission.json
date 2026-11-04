@@ -1,0 +1,48 @@
+{
+  "kind": "fresh_corrected_source_read_only_admission_and_launch_identity",
+  "version": 1,
+  "source": "cd8641651acb36b39584287e5990c304561e7339",
+  "harness_source": "cd8641651acb36b39584287e5990c304561e7339",
+  "campaign": "schema-portability-20261019-incremental",
+  "run": "bizcd864165amz01-amazon-1",
+  "cohort": "bizcd864165amz01",
+  "admission": {
+    "observed_at_utc": "2026-11-04T10:23:12.649971+00:00",
+    "source": "cd8641651acb36b39584287e5990c304561e7339",
+    "run": "bizcd864165amz01-amazon-1",
+    "cohort": "bizcd864165amz01",
+    "known_cost_eur": "396.91636135848205907048708365",
+    "reserved_cost_eur": "127.31500234629097009318593666",
+    "available_eur": "215.79874012793327537877192699",
+    "unresolved_requests": 0,
+    "retained_closures": 62,
+    "evidence_hash": "bcabe57e687d69be977a90773313f01d33b5c08f66b3eff5a54d4fb9b035b198",
+    "profile_sha256": "3e9495d2877fed6d3ddbd9a10b1817842a145bf3a66b7c563d79037d6e215e1c",
+    "captured_profile_hash": "5452b870c2561bcde1b6aa483b7b44edb2ea230851221e8fa8eb096f897113a6",
+    "four_phase_headroom_eur": "20.617228732444762501118167993",
+    "provider_requests": 0,
+    "financial_records_written": 0,
+    "ready_for_fresh_dispatch_recheck": true
+  },
+  "launch_started_at_utc": "2026-11-04T10:23:13.118876+00:00",
+  "provider": "OpenAi",
+  "model": "gpt-5.5-2026-04-24",
+  "optimization_threshold_policy": "diagnostic-v1",
+  "binary_hashes": {
+    "benchmark": "037efd1a23a8cc235b1f65d854c65cfe1030288075b98778faea82e3f33de624",
+    "browser_mcp": "1731e1d13b5398ac291001f531e5f2115877b5577b7bb108ec93dee1b0e09020",
+    "document_mcp": "e27a97ed77d43fdc5e06674f9f05f121b263a839708e1ed232349918953a6f3e"
+  },
+  "hypothesis": "The generic owned-scope export repair and exact same-finding composition progress correction permit normal scoped repair of a business finding without forcing evidence-only reconsideration or replacing accepted work. Follow accepted contributions through finalization, global review, artifact approval, real execution and the unchanged independent oracle.",
+  "preflight_provider_requests": 0,
+  "preflight_financial_records_written": 0,
+  "execution_approval_granted": false,
+  "runtime_success_claimed": false,
+  "captures": {
+    "construction-admission.private.json": "deb084c951df72cde16d46869c2383dd5ca5549277bd6ca7df520a6c9d589f60",
+    "campaign-before.private.json": "1ce6d9f575466c665c699bb541d2baf167dfee61e9dd6926aa27c7e226baff7a",
+    "preflight.sanitized.json": "9170e1b475bc75eecd1d85636111c4e9f576c4e58f94894f5088305795b9119d",
+    "launch-hypothesis.json": "29ee7d740eb0f8d191390cdb23942c988f0c1940222e7cef758cbf93859cf7bf",
+    "planning-launch.private.json": "0974c4b080df2b4de064101bf98179599eff4efd4f0ffca260991692d49d5f90"
+  }
+}
