@@ -500,7 +500,9 @@ public static class PlanningGraphValidation
                     "null" => new JsonObject { ["type"] = "null" },
                     "object" => ObjectSchema(value.Members.Where(m => m.Value.Kind != PlanningValues.Omitted).Select(m => (m.Name, ValueSchema(m.Value, visiting) ?? new JsonObject())), closed: true),
                     "array" when value.Items.Count == 0 => new JsonObject { ["type"] = "array", ["maxItems"] = 0, ["const"] = new JsonArray() },
-                    "array" => new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["anyOf"] = new JsonArray(value.Items.Select(v => (JsonNode?)(ValueSchema(v, visiting) ?? new JsonObject())).ToArray()) } },
+                    // A projected field can still belong to its producer's schema.
+                    // The inferred union owns copies, including repeated references.
+                    "array" => new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["anyOf"] = new JsonArray(value.Items.Select(v => (ValueSchema(v, visiting) ?? new JsonObject()).DeepClone()).ToArray()) } },
                     _ => null
                 };
                 if (inferred is not null && IsLiteral(value)) inferred["const"] = Literal(value);

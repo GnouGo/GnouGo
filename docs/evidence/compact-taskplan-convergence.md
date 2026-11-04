@@ -70,7 +70,9 @@ Those nodes still belong to the producer schema tree. The generic regression
 reproduces the same failure; copying inferred element contracts fixes it without
 changing authoritative schemas or binding values. Both focused cases pass, including
 actual v15 execution with ordered duplicate values and incompatible-type rejection.
-Full owning validation is running. This stopped plan is preserved unchanged.
+The full owning Planning suite passes **2,653 cases, zero failures/skips**, with
+warnings as errors; the two focused cases overlap that total. This stopped plan is
+preserved unchanged.
 
 Complete Judge requests measure **69,665, 180,443 and 104,188 bytes**. Known usage
 is **122,248 input / 31,169 output tokens**, including **19,830 reasoning tokens**

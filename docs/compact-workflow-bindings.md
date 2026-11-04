@@ -225,6 +225,12 @@ The historical profiles below remain documented for stored artifacts.
 
 # Compact workflow bindings
 
+Static contract inference for constructed arrays copies projected producer schemas
+into its temporary element union. Producer fields remain owned by their original
+contract trees, including when a field appears repeatedly or inside nested arrays.
+This bookkeeping preserves the original contracts and runtime value order and
+duplicates; incompatible element types still fail before consumer execution.
+
 The previous v3 release selected `options.compilation_profile = compact-bindings-v3` for fresh sessions and explicit revisions. The option participates in the existing artifact fingerprint. Historical requests, graphs, YAML and approvals retain their previous compilation profile; the compiler API defaults to historical lowering unless explicitly opted in.
 
 The TaskPlan still describes business operations and data dependencies. Typed field selections and object/array assembly fuse into checked `set` expressions at final lowering. Copy-only foreach bodies compile to structural collection projections: no per-item workflow invocation, inference or journal entry. These optimizations exclude per-item business conditions, inference, effects, explicit cleanup and prior-iteration state. A loop's entry requirement still executes before its bounds check and projection; a failed entry requirement publishes nothing. Each resulting value still receives complete output-schema validation. Missing paths fail; explicit nulls, duplicates, order and nested arrays survive unchanged.
