@@ -284,6 +284,22 @@ runtime inference to make an otherwise invalid artifact execute.
 
 ## Evidence and validation
 
+Business and implementation selection include a deterministic `overallProgress`
+index of original results/constraints, accepted contributions, remaining obligations,
+required result connections and missing public bindings. It reuses the ordinary
+coverage, reachability and completion checks without another model call. Keep
+accepted construction, structural connection, reviewed business fulfillment and
+observed execution distinct. The view adds no effect or repair authority.
+
+Assess functional decomposition through each block's original obligations, objective,
+expected results and preserved success criteria. Count technical fragments and
+implementation cursors separately from business selections. Generic paired fixtures
+vary capability granularity, server packaging and fragment size, execute the compiled
+workflow and compare independent observable outcomes. They deliberately allow different
+wording; their chosen single-outcome fixture imposes no universal block count. These
+synthetic checks are technical evidence, not paid qualification. Keep ordinary limits
+strict and capture advisory diagnostic policy before a fresh diagnostic session.
+
 Record generation/artifact/runtime outcomes separately, per-phase logical requests,
 physical attempts, provider input/output/reasoning tokens, complete-request bytes,
 reconciled components, empty/whitespace-heavy responses, corrections, supported
