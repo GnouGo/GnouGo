@@ -235,7 +235,7 @@
     "REPLAN_NO_PROGRESS"
   ],
   "received_trace": {
-    "draft7": "Technically valid coherent root contribution, but browser operations have empty actual arguments and search errors do not reach the workbook.",
+    "draft7": "Technically valid reusable-group contribution under selected technical kind group; the host wraps the initial task fragment in that group. Root is empty from the first candidate. Browser operations have empty actual arguments and search errors do not reach the workbook.",
     "local_review8": "Needs change: the product-list extraction cannot retain a failed search without a product URL, and the row builder receives no search error evidence.",
     "repairs9_10": "Model replacements declare a reusable group containing only the initial three tasks while retaining writer/cleanup commitments. Deterministic commitment validation rejects both. Request nine receives confirmed HTTP 500 then 200; failed-attempt reservation retained.",
     "repair11_and_review12": "Full reusable group accepted after renewed favorable local review; row builder now receives search extraction. Root remains empty, browser operation arguments remain empty.",
@@ -304,7 +304,8 @@
     "receipt7.private.json": "c0eb55886ce02fd5a45c80c8baaf2757d8196fda0c4b5e0ed04e70642633fea4",
     "receipt8.private.json": "b71b7840a8080421d22e48a4239681801efb4ace26503f116ae67193a05aa6b5",
     "receipt9.private.json": "b51e32721aa775514385395ee24ef4e73eaa26b6f8e156992c52cbfa0165bf43",
-    "journal9.private.json": "2ddb6e2d1a7843ef3d1033e832524a675d29a4a1cffb0768239f7a9978a014a8"
+    "journal9.private.json": "2ddb6e2d1a7843ef3d1033e832524a675d29a4a1cffb0768239f7a9978a014a8",
+    "snapshot-20261104T141447017260Z.private.json": "1bf87759735cbee863e20cb0b412808c8ced1c78b77d258f178b3cc12d6fe73d"
   },
   "limitations": [
     "No completed generation, global review, artifact, approval, execution or independent oracle success.",
@@ -312,5 +313,9 @@
     "No unknown request closure is needed because every logical request has a persisted completion; the HTTP 500 usage reservation remains retained.",
     "The new context projection is a prospective source change, never a manual revision or continuation of this stopped run.",
     "All reasoning tokens are already counted in output."
-  ]
+  ],
+  "evidence_description_correction": {
+    "observed_at_utc": "2026-11-04T14:54:59.694158+00:00",
+    "detail": "Initial contribution is a group body, not a root contribution. Selected technical kind group and empty root are verified against the original revision-seven snapshot; raw records, accounting and outcomes are unchanged."
+  }
 }

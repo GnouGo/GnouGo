@@ -177,8 +177,9 @@ correction charges total). The existing diagnostic policy records its threshold 
 semantic exact-repeat protection remains enforced. There are **two local Judges,
 one accepted ten-task reusable group, zero root tasks and zero global Judges**.
 
-The first technically valid draft has empty browser arguments and loses failed-search
-information before workbook construction. Local Judge eight specifically flags the
+The first technically valid draft is already a reusable-group body under selected
+technical kind `group`, with an empty root. It has empty browser arguments and loses
+failed-search information before workbook construction. Local Judge eight specifically flags the
 lost search-error path. Replacements nine and ten provide only the initial three tasks
 inside a reusable group while claiming writer/cleanup commitments; deterministic
 validation rejects both. Replacement eleven supplies the full group and the row
