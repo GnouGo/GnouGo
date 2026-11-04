@@ -8,6 +8,20 @@ The current delivery gate is **two consecutive intervention-free executions per 
 
 Latest technically validated production source is **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`**: [**7,614 full-solution passes, zero failures and thirteen declared skips across 33 assemblies**](business-selection-1d6632c5-solution-validation.json), plus [**eleven passing publication stages**](business-selection-1d6632c5-publication-validation.json), with zero compiler/publication diagnostics. It preserves redacted authentication-stage provenance without changing retry, accounting, retention or replay authority. These results establish technical validation, not live qualification.
 
+Current correction **`f5789246ff4325e128bae14e985e08572c5bd9f1`** exposes
+original editable optional inputs for diagnosed operations and preserves current
+candidate bindings inside reusable-group bodies. It has [**2,651 owning Planning
+passes, zero failures/skips**](business-selection-f5789246-owning-validation.json),
+with six focused cases overlapping that total. The source is committed and frozen; matching benchmark/MCP builds pass.
+[**All eleven exact-source publication stages pass**](business-selection-f5789246-publication-validation.json),
+including actual Native AOT and published encrypted-storage/exact-receipt recovery,
+with zero warnings/errors and unchanged source. Exact-source full-solution testing
+remains active. Fresh Amazon `bizf5789246amz01-amazon-1` launched after
+**11:09:34 UTC** [exact admission](business-selection-f5789246-live-admission.json)
+on the unchanged profile, with zero unresolved requests and
+**EUR 214.01795919940657352708572962** available before dispatch.
+No completed live result on this source is claimed yet.
+
 Correction **`cd8641651acb36b39584287e5990c304561e7339`** has
 [**2,645 owning Planning passes on verified matching source postimages**](business-selection-cd864165-owning-validation.json)
 and [**eleven exact-source publication stages passed**](business-selection-cd864165-publication-validation.json),
