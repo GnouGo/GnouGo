@@ -65,6 +65,24 @@ and unused-identity verification, preserving source, binaries and profile.
 Available exposure is EUR 197.28703514537669607829782376, with unchanged phase
 headroom, 63 permanent closures and zero unresolved requests. Qualification
 remains **0/6**; source-specific full-solution retry remains active.
+Run c subsequently stops after **25 verified calls / 25 physical attempts**, with
+no unknown usage or transport retries. The model alternates incomplete contract
+selections, then selects all three contracts. URL repair passes local review; a
+second business block adds a real root call to the accepted group, also reviewed.
+The root call removes the contractual reachability gaps. However, two earlier
+unimplemented contract-selection cursors remain `waiting` under completed block_1.
+They own no accepted checkpoint, cannot resume under a completed block, and suppress
+`completionRequirementIds`. Two empty selections then trigger the repeat stop.
+[Exact coordinator dead end](business-selection-c89f2e5c-amazon32c-navigation-stop.json).
+Known cost is EUR 2.1847168798640307719831827535, with zero new reservation.
+Available exposure is EUR 195.10231826551266530631464104; all historical
+reservations and the ceiling are unchanged. No unresolved request or new closure
+is needed. A focused regression reproduces the obsolete empty-chain dead end;
+five preservation cases pass before correction. The prospective correction abandons
+only superseded unimplemented same-block navigation after successful block review,
+retaining typed history, partial consumers, associations and cross-block chains.
+It does not fulfill prerequisites, close originals, approve artifacts or replay work.
+
 
 
 Previous correction **`1bb59305de63d69cff1a22b14d37fc0d4dffffc4`** projects existing
