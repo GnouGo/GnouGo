@@ -8,7 +8,22 @@ The current delivery gate is **two consecutive intervention-free executions per 
 
 Latest technically validated production source is **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`**: [**7,614 full-solution passes, zero failures and thirteen declared skips across 33 assemblies**](business-selection-1d6632c5-solution-validation.json), plus [**eleven passing publication stages**](business-selection-1d6632c5-publication-validation.json), with zero compiler/publication diagnostics. It preserves redacted authentication-stage provenance without changing retry, accounting, retention or replay authority. These results establish technical validation, not live qualification.
 
-Current correction **`f5789246ff4325e128bae14e985e08572c5bd9f1`** exposes
+Current correction **`b613426e2586fec447089532251ab8773df16b08`** copies projected
+producer-field schemas into temporary inferred array unions. It has [**2,653 owning
+Planning passes, zero failures/skips**](business-selection-b613426e-owning-validation.json),
+including two focused cases that cover v15 execution, ordered duplicate values,
+immutable originals and incompatible-type rejection. Matching benchmark/Browser/Document binaries are built. [**All eleven exact-source
+publication stages pass**](business-selection-b613426e-publication-validation.json),
+with zero warnings/errors, actual Native AOT execution, published encrypted-storage
+and exact-receipt recovery, and unchanged source. Exact-source solution testing
+is still running. Fresh `bizb613426eamz01-amazon-1` launched after **11:34:35 UTC**
+[configuration/financial/exact phase admission](business-selection-b613426e-live-admission.json)
+on the unchanged original profile. Available exposure was
+**EUR 212.63473171930996381244220158**, required phase headroom
+**EUR 20.617228732444762501118167993**, with zero unresolved requests. No completed
+live result on this source is claimed yet.
+
+Previous correction **`f5789246ff4325e128bae14e985e08572c5bd9f1`** exposes
 original editable optional inputs for diagnosed operations and preserves current
 candidate bindings inside reusable-group bodies. It has [**2,651 owning Planning
 passes, zero failures/skips**](business-selection-f5789246-owning-validation.json),
