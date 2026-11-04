@@ -104,7 +104,7 @@ internal static partial class PlanningCompactConstruction
             var path = "/groups/" + id + "/body";
             if (groupPlan?.Groups.SingleOrDefault(g => g.Id == id) is { } group &&
                 !groupScopes.Any(s => s == path || s.StartsWith(path + "/", StringComparison.Ordinal)))
-                (candidateGroup ? candidateInterfaces : acceptedInterfaces)[path] = group.Body.Outputs.Select(o => o.Value).ToArray();
+                (candidateGroup ? candidateInterfaces : acceptedInterfaces)[path + "/always"] = group.Body.Outputs.Select(o => o.Value).ToArray();
         }
         var bindings = ImportRequests(imports);
         if (state.Plan is not null && PlanningConstruction.Hash(state.Plan) == PlanningConstruction.Hash(candidate.Plan) &&

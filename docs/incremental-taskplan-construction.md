@@ -204,6 +204,10 @@ interpretation can derive typed data from supplied inputs without another utilit
 missing external facts require authorized observation, preserving original permissions.
 A group declares reusable inputs/body/exports; a call invokes it. An inline loop body
 is not a reusable declaration. Preserve consumers waiting for exact prerequisites.
+Closed group export interfaces resolve at the compiler's existing post-cleanup
+frontier, matching executable export semantics. This includes valid cleanup results
+in both accepted and tentative closed interfaces. Ordinary body bindings still use
+the pre-cleanup frontier; open groups expose no consumable exports.
 Their continuation presents the exact bounded reason from its own rejected step
 through implementation discovery, retaining the evidence link. This model-authored
 explanation does not create an original obligation or authorize effects or repair.

@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "recorded_at_utc": "2026-11-04T19:19:41.909132+00:00",
+  "source": "1f801c40c485b2ad2699559452082d089d9d8270",
+  "run": "g611f801c40amz32a-amazon-1",
+  "campaign_configuration": "9bcafa16e4cfa77599bd5757901d11c41a9578f9efc36600b90589a81c50d9dd",
+  "model": "gpt-6.1-sol-2026-09-29",
+  "phase_policy_sha256": "1ae308efc238e137e12e98db45e533b7d270abaa680650f9946aa31c32d20e4c",
+  "generation": "stopped",
+  "artifact_produced": false,
+  "global_review": "not_started",
+  "approval": "not_requested",
+  "execution": "not_started",
+  "oracle": "not_started",
+  "qualification_success": false,
+  "calls": 14,
+  "physical_attempts": 14,
+  "corrections": 3,
+  "repeated_strategy_stop": true,
+  "review_revisions": 0,
+  "discovery_reads": 1,
+  "planning_duration_ms": 738337,
+  "launcher_duration_seconds": "760.08",
+  "input_tokens": 61355,
+  "output_tokens": 9839,
+  "reasoning_tokens_included_in_output": 5619,
+  "known_cost_eur": "3.2307630378388049020484837641",
+  "unknown_attempts": 0,
+  "complete_judge_requests": [
+    {
+      "phase": "construction_local_judge",
+      "bytes": 21485,
+      "estimated_input_tokens": 7418
+    }
+  ],
+  "maximum_complete_request_bytes": 62829,
+  "failure_attribution": {
+    "component": "construction closed-group interface presentation",
+    "diagnostic": "CONSTRUCTION_GROUP_INTERFACE_INVALID",
+    "cause": "Closed-group output resolution used the pre-cleanup body frontier, suppressing a legal cleanup-produced export. Three attempted caller selections were rejected before the canonical repeat guard stopped the run.",
+    "accepted_contribution_preserved": true,
+    "model_call_selection_was_permitted_by_compiler_contract": true,
+    "manual_plan_changes": 0,
+    "replay_or_continuation": false
+  },
+  "private_evidence_sha256": {
+    "terminal_record": "095d4167d83fa619318c753125bacec0e2faef98e4ef75acbb0ed6168ee0cb33",
+    "launcher_log": "9857b4b78091a6546751c8617901132f2fa8532436ae4526a71a6b1dc4314ddb"
+  },
+  "campaign_after": {
+    "known_cost_eur": "412.57108450008685377484346612",
+    "reserved_cost_eur": "135.58746410494559036333532391",
+    "available_eur": "191.87155522767386040426615727",
+    "ceiling_eur": "740.0301038327063045424449473",
+    "physical_attempts": 7024,
+    "historical_unknown_attempts": 157,
+    "unresolved_requests": 0,
+    "historical_permanent_closures": 63,
+    "reservation_released": false
+  },
+  "limits": [
+    "No execution or business oracle result exists for this attempt.",
+    "The failure remains counted; a generic correction requires a fresh source/cohort and resets every qualification streak.",
+    "Historical GPT-5.5 comparisons cannot isolate code effects from the model switch."
+  ]
+}

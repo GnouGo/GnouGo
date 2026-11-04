@@ -11,6 +11,68 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CompactScopeInterfaceTests
 {
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ClosedGroupExportsIncludeCleanupResultsWithoutExposingThemToBodyTasks(bool closingGroup)
+    {
+        var state = await ReusableGroup();
+        const string path = "/groups/reusable/body";
+        var group = state.Plan!.Groups[0];
+        group.Body.Always.Add(new() { Id = "release", Kind = "value", Objective = "Acknowledge resource release.",
+            Outputs = [new("acknowledged", new() { Kind = "boolean", Boolean = true })] });
+        var acknowledgement = new TaskValue { Kind = "output", Source = "release", Port = "acknowledged" };
+        group.Body.Outputs.Add(new("released", acknowledgement));
+        state.Plan.Root.Outputs.Add(new("released", new() { Kind = "output", Source = "invoke", Port = "released" }));
+        var construction = state.Construction!;
+        construction.OpenScopes = ["/root"];
+        var original = PlanningConstruction.Hash(state.Plan);
+
+        var interfaceView = PlanningCompactConstruction.GroupInterface(state, group.Id)!;
+        Assert.Equal(new[] { "string", "boolean" }, interfaceView["outputs"]!.AsArray().Select(port => port!["schema"]!["type"]!.ToString()));
+        Assert.Equal(original, PlanningConstruction.Hash(state.Plan));
+        var bodyFrontier = TaskPlanCompiler.ValidateConstruction(state.Plan, state.Catalog!, state.Request,
+            construction.OpenScopes.ToHashSet(StringComparer.Ordinal),
+            new Dictionary<string, IReadOnlyList<TaskValue>> { [path] = [acknowledgement] });
+        Assert.Empty(bodyFrontier.Diagnostics);
+        Assert.Empty(bodyFrontier.Interfaces[path]);
+        var premature = PlanningConstruction.Clone(state.Plan);
+        premature.Groups[0].Body.Tasks.Add(new() { Id = "premature", Kind = "value", Objective = "Attempt to read future cleanup.",
+            Outputs = [new("released", acknowledgement)] });
+        Assert.Contains(TaskPlanCompiler.ValidateConstruction(premature, state.Catalog!, state.Request,
+            construction.OpenScopes.ToHashSet(StringComparer.Ordinal)).Diagnostics,
+            diagnostic => diagnostic.Location.StartsWith("/tasks/premature", StringComparison.Ordinal));
+
+        var compilation = new TaskPlanCompiler().Compile(state.Plan, state.Catalog!);
+        Assert.Empty(compilation.Diagnostics);
+        var yaml = new PlanningGraphCompiler().Compile(compilation.Graph!, state.Catalog!);
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
+        var result = await new WorkflowEngine().ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject(), PlannerFixture.Ct);
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal("Hello", result.Outputs!["message"]!.GetValue<string>());
+        Assert.True(result.Outputs["released"]!.GetValue<bool>());
+
+        construction.Compact!.CurrentStep = new()
+        {
+            Id = "inspect-cleanup-exports", Scope = closingGroup ? path : "/root", Kind = closingGroup ? "close" : "call",
+            GroupId = closingGroup ? null : group.Id, RequirementIds = ["req_0"],
+            CloseScopes = closingGroup ? [path] : [], Objective = "Use the exact reusable resource result.",
+            BaseHash = original, DiscoveryComplete = true
+        };
+        if (closingGroup) construction.OpenScopes.Add(path);
+        construction.Candidate = PlanningConstruction.Apply(state, closingGroup
+            ? new() { Scope = path, CloseScopes = [path], RequirementIds = ["req_0"] }
+            : new() { Tasks = [new() { Id = "invoke_again", Kind = "call", Group = group.Id,
+                Objective = "Use the resource helper again.", Inputs = [new("word", new() { Kind = "string", Text = "Again" })] }], RequirementIds = ["req_0"] });
+        Assert.Empty(construction.Candidate.Diagnostics);
+        var candidateContext = PlanningCompactConstruction.Context(state, useCandidate: true);
+        var actual = candidateContext[closingGroup ? "scopeGroup" : "group"]!;
+        Assert.Equal(new[] { "message", "released" }, actual["outputs"]!.AsArray().Select(port => port!["name"]!.ToString()));
+        Assert.Equal(original, PlanningConstruction.Hash(state.Plan));
+        construction.OpenScopes.Add(path);
+        Assert.Null(PlanningCompactConstruction.GroupInterface(state, group.Id)!["outputs"]);
+    }
+
     [Fact]
     public async Task FreshReusableItemCallsAreConstructedAndExecuteBothIndependentVariants()
     {

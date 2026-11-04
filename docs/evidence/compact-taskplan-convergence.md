@@ -4038,7 +4038,8 @@ look-ahead check, not allocated spending. The inspected campaign retains EUR
 740.0301038327063045424449473 ceiling. All 157 historical unknown physical attempts
 remain reserved; 63 permanent closures and zero unresolved requests are preserved.
 
-**Live qualification remains 0/6; no paid generation has started on this source.**
+At the 18:51 UTC evidence capture, live qualification was **0/6** and no paid
+generation had started on this source. The subsequent attempt is recorded below.
 Each qualifying success still requires generation, deterministic validation,
 favorable global review, exact delegated artifact approval, real permission-gated
 execution and a favorable independent oracle. Both Collections variants must pass
@@ -4060,3 +4061,36 @@ flowchart LR
     A --> E[Permission-gated execution]
     E --> O[Independent business oracle]
 ```
+
+## GPT-6.1 first attempt — cleanup export visibility
+
+[Retained attempt evidence](sequential-gpt61-1f801c40-amazon-failure.json)
+records Amazon run `g611f801c40amz32a-amazon-1` on frozen source `1f801c40`.
+It stopped after 14 physical calls, three corrections and a canonical repeated
+strategy. Generation took 738.337 seconds and consumed 61,355 input and 9,839
+output tokens, including 5,619 reasoning tokens within output. Known cost was
+EUR 3.2307630378388049020484837641; there was no new uncertain usage. The one
+local Judge request was 21,485 complete serialized bytes. No global review,
+artifact approval, execution or oracle occurred, and qualification remains 0/6.
+
+The accepted reusable group returned both ordinary results and its cleanup
+acknowledgement. The compiler supports that export, but construction queried the
+ordinary pre-cleanup frontier when displaying the closed group's interface. The
+model's three attempts to select a caller were consequently rejected with
+`CONSTRUCTION_GROUP_INTERFACE_INVALID`. This is a construction defect, not evidence
+of an invalid caller choice. The failed run and accepted contribution remain
+unchanged; they will not be replayed or continued.
+
+A generic regression reproduces this on an unrelated resource helper. Closed-group
+interfaces now use the compiler's existing post-cleanup frontier, including in
+batched candidate validation. The same regression executes the result, verifies
+accepted and tentative interfaces, rejects premature body references and preserves
+open-group isolation. Both new cases fail before the correction; the initial 46
+focused interface/cleanup/discovery cases pass after it. Broad validation remains
+attributed to its exact source; the correction starts fresh qualification streaks.
+
+After this attempt the campaign has EUR 412.57108450008685377484346612 known
+spending, EUR 135.58746410494559036333532391 reserved and EUR
+191.87155522767386040426615727 available under the unchanged ceiling. All 157
+historical unknown attempts and 63 permanent closures remain; no unresolved
+request or reservation release was introduced.

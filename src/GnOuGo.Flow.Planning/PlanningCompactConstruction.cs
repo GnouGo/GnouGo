@@ -878,6 +878,9 @@ internal static partial class PlanningCompactConstruction
                 ["expectedOutputs"] = new JsonArray(opening.ExpectedOutputs.Select(value => (JsonNode?)JsonValue.Create(value)).ToArray()),
                 ["requirementIds"] = new JsonArray(opening.RequirementIds.Select(value => (JsonNode?)JsonValue.Create(value)).ToArray()) };
         if (open) return result;
+        // Closed exports may depend on cleanup. Keep this distinct from the
+        // pre-cleanup body frontier used to bind newly inserted ordinary tasks.
+        var exportFrontier = path + "/always";
         var requested = group.Body.Outputs.Select(o => o.Value).ToArray();
         var validation = verified;
         if (validation is null)
@@ -885,9 +888,9 @@ internal static partial class PlanningCompactConstruction
             var probe = PlanningConstruction.Clone(plan!);
             foreach (var choice in probe.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
             validation = TaskPlanCompiler.ValidateConstruction(probe, state.Catalog!, state.Request,
-                openScopes.ToHashSet(StringComparer.Ordinal), new Dictionary<string, IReadOnlyList<TaskValue>> { [path] = requested });
+                openScopes.ToHashSet(StringComparer.Ordinal), new Dictionary<string, IReadOnlyList<TaskValue>> { [exportFrontier] = requested });
         }
-        if (!validation.Interfaces.TryGetValue(path, out var ports) || ports.Count != requested.Length)
+        if (!validation.Interfaces.TryGetValue(exportFrontier, out var ports) || ports.Count != requested.Length)
             PlanningConstruction.Fail("CONSTRUCTION_GROUP_INTERFACE_INVALID", "/step/groupId", "The closed group's exact output interfaces must validate before selecting a call.");
         result["outputs"] = new JsonArray(group.Body.Outputs.Zip(ports!).Select(pair => (JsonNode)new JsonObject
             { ["name"] = pair.First.Name, ["schema"] = pair.Second.Schema.DeepClone() }).ToArray());
