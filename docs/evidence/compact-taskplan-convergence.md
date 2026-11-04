@@ -53,7 +53,10 @@ including Native AOT execution and published encrypted-storage/exact-receipt rec
 with zero diagnostics and unchanged source. The first exact-source full-solution run
 [stopped at a dependency download SSL EOF](business-selection-c89f2e5c-solution-download-failure.json)
 after 6,150 passes and twelve skips across 31 assemblies. A fresh identical-source run
-started at 15:55:31 UTC; full validation remains outstanding. Fresh `bizc89f2e5camz32a-amazon-1` launches after
+started at 15:55:31 UTC and now passes [**7,654 tests, zero failures, thirteen
+declared skips and all 33 assemblies**](business-selection-c89f2e5c-solution-validation.json),
+with zero compiler diagnostics and unchanged source. This is the preceding c89
+source result; the current b50 full-solution result remains separate and active. Fresh `bizc89f2e5camz32a-amazon-1` launches after
 [15:28:18 UTC configuration/financial/exact phase admission](business-selection-c89f2e5c-amazon32a-live-admission.json)
 and unused-identity verification, retaining profile
 `96a35087433a0d9751186a58cd9a2cbffcdf2cd552037b6fe727b80b5b2576ae`,

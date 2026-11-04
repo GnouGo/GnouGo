@@ -64,7 +64,8 @@
     ],
     "review_helper_negative_typed_checks": 14,
     "review_helper_cli_checks": 10,
-    "full_solution": "active_in_independent_exact_source_checkout"
+    "full_solution": "active_in_independent_exact_source_checkout",
+    "full_solution_capture": "b50de0435688-20261104T170747Z"
   },
   "qualification": {
     "passed": 0,
@@ -77,7 +78,8 @@
     "configuration": "Repeat readiness and require the original fingerprint, then financial/exact phase admission with the unchanged profile and policies.",
     "identity": "Retain this failed pre-generation capture. Verify a fresh unused identity before dispatch; do not overwrite the inspection folder or continue/replay any old run.",
     "artifact_execution": "Inspect the newly generated exact artifact, record its exact delegated review, and launch the physical execute-reviewed-run.py file with tty=true and the original PATH. Submit only the displayed artifact-bound one-execution confirmation.",
-    "request_recovery": "No unresolved request now; future uncertainty retains its own recovery requirements and inherits no earlier closure authorization."
+    "request_recovery": "No unresolved request now; future uncertainty retains its own recovery requirements and inherits no earlier closure authorization.",
+    "offline_validation": "Inspect the final-source verification-report.json and launcher.json in the preserved b50de0435688-20261104T170747Z capture. It was still running when live work was stopped; record its actual outcome without relabeling preceding-source results."
   },
   "captures_sha256": {
     "provider-readiness.private.jsonl": "f8703c4ae2659f55a16ea734a45d00f3eb9a0c5cf09c16fcfd817e25a42184de",
