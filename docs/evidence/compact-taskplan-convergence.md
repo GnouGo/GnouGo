@@ -20,7 +20,21 @@ Exact-source full-solution validation is running. Fresh `biz65b1a0d4amz32a-amazo
 launches after [13:09:47 UTC configuration/financial/exact phase admission](business-selection-65b1a0d4-output32-live-admission.json)
 and unused-identity verification. The established Amazon 32K profile is unchanged,
 with EUR 209.17657803830092901505424201 available, EUR 20.983630020574291081492083370
-required phase headroom and zero unresolved requests. Qualification remains **0/6**.
+required phase headroom and zero unresolved requests before dispatch. The run subsequently
+stopped at correction request eight with `MODEL_DISPATCH_UNVERIFIABLE`: seven
+verified completions, then confirmed HTTP 500 `ESG120 / Routing failed` followed by
+transport uncertainty on the captured retry. There are no accepted checkpoints,
+Judges, artifact or execution. The global-repair correction was not exercised.
+
+**Live recovery is blocked on one new unresolved request.** Its exact existing-operator
+[retention proposal](business-selection-65b1a0d4-amazon-retention-required.json) is
+read-only and unapplied. The original section 13 authorization does not cover it.
+Expected evidence hash: `6d1cf165ced0d655dc77d76ef320784519cc4e4b6d08e7d984785d0389116173`.
+Preserve EUR 2.2408802218445299221755076482 in request reservations, all originals and
+timestamps, accounting and permanent replay/continuation prohibition if newly
+authorized. No new paid request or closure follows the stop. Qualification is **0/6**.
+Available exposure is EUR 206.38886446821415917875403628, with 62 permanent closures
+and one unresolved identity. Exact current-source solution validation remains active.
 
 Previous correction **`a84fc50d1d7ba3313139c71c676bdf169b5b5f0b`** retains
 model-authored unmet needs and required business-action diagnostics in business
@@ -124,6 +138,45 @@ remains **0/6**. [Source-bound terminal evidence](business-selection-cd864165-am
 The preceding `ebf01483` source retains its [2,618-case Planning result](business-selection-ebf01483-planning-validation.json), [fresh-initialization regression](business-selection-fresh-initialization-validation.json), [eleven-stage publication result](business-selection-ebf01483-publication-validation.json) and recovered **7,579-pass, thirteen-skip** solution result. Earlier [owning suites](business-selection-1884a658-owning-validation.json) and [54 actual host/UI cases](business-selection-1884a658-host-ui-validation.json) retain their precise source boundaries. Focused counts overlap and are not added; failed captures remain preserved.
 
 The prior `a23cbbb2` baseline remains source-specific evidence: [2,425 Planning cases](business-block-a23cbbb2-continuation-review-validation.json), [7,327 full-solution passes with thirteen declared skips](business-block-a23cbbb2-solution-validation.json), and [publication checks](business-block-a23cbbb2-publication-validation.json). Those technical results did not establish live business convergence.
+
+### 4 November 2026, 13:29 UTC: external uncertainty; exact new closure authority required
+
+Fresh `biz65b1a0d4amz32a-amazon-1` receives seven verified provider completions.
+Draft seven claims a workbook-writing commitment without contributing the writer;
+deterministic validation rejects it and issues ordinary correction request eight.
+That request receives confirmed HTTP 500 `ESG120 / Routing failed`, followed by a
+captured retry with terminal `transport` failure and no persisted completion receipt.
+The planner preserves its pending identity and stops with `MODEL_DISPATCH_UNVERIFIABLE`.
+The eighth accounting entry records unknown usage; it is not a verified completion.
+There are nine physical attempts, two unknown, zero correction applications, zero
+accepted checkpoints, no business review, artifact, approval, execution or oracle.
+The source's global reviewed-instruction repair fix remains unexercised.
+
+Planning takes **1,121,238 ms**, with **24,779 known input / 16,247 known output
+tokens**, including **11,989 known reasoning tokens already in output**. Known cost
+is **EUR 0.5468333482422399141246980946**; reservations for both request-eight attempts
+are **EUR 2.2408802218445299221755076482**, fully retained. Campaign totals are
+**6,930 physical calls, 153 historical unknown attempts, 62 permanent closures and
+one unresolved request**, known spending **EUR 402.71175897902056877618526777**,
+reservations **EUR 130.92948038547157658750564325**, and available exposure
+**EUR 206.38886446821415917875403628**, with unchanged ceiling and no supplement.
+
+Read-only existing-operator inspection accepts `exhausted-planning-retries` for:
+
+- Collection: `planning-schema-portability`
+- Run key: `run:biz65b1a0d4amz32a-amazon-1`
+- Request: `biz65b1a0d4amz32a-amazon-1:8:3b072e2f319bc23afcab595d3ec644bcfa7cff2d4d81d5b96dacc40e0f85a6fe:d0f116cad358a60cba8f6a9d8c798cba1d7af0ea5938975be42fa3cf8cb227da`
+- Expected evidence hash: `6d1cf165ced0d655dc77d76ef320784519cc4e4b6d08e7d984785d0389116173`
+
+The proposal is **not applied**. The user explicitly restricts section 13 closure
+authority to the original `biz1d6632c5amz01` identity and requires separate recovery
+requirements for future unresolved requests. Exact new authorization is therefore
+required. If authorized, reinspect the same hash, apply only the existing operator
+with reviewer Codex, verify unchanged originals/timestamps/accounting and zero
+unresolved requests, then repeat readiness/admission and verify proposed fresh cohort
+`biz65b1a0d4amz32b` unused. Retain source `65b1a0d4`, the established 32K profile,
+all financial/provider/permission/oracle limits and qualification **0/6**. Never replay
+or continue this uncertain run. [Source-bound evidence and exact proposal](business-selection-65b1a0d4-amazon-retention-required.json).
 
 ### 4 November 2026, 12:43 UTC: global finding cannot repair reviewed behavior
 
