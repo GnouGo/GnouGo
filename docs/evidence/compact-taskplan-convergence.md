@@ -8,7 +8,22 @@ The current delivery gate is **two consecutive intervention-free executions per 
 
 Previous fully validated source **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`** retains: [**7,614 full-solution passes, zero failures and thirteen declared skips across 33 assemblies**](business-selection-1d6632c5-solution-validation.json), plus [**eleven passing publication stages**](business-selection-1d6632c5-publication-validation.json), with zero compiler/publication diagnostics. It preserves redacted authentication-stage provenance without changing retry, accounting, retention or replay authority. These results establish technical validation, not live qualification.
 
-Current correction **`b613426e2586fec447089532251ab8773df16b08`** copies projected
+Current correction **`a84fc50d1d7ba3313139c71c676bdf169b5b5f0b`** retains
+model-authored unmet needs and required business-action diagnostics in business
+selection, while implementation retains technical cursors, bindings and rejection
+witnesses. [**All 2,656 owning Planning cases pass, zero failures/skips**](business-selection-a84fc50d-owning-validation.json),
+including three recovery cases that preserve accepted work and the repeat stop.
+Matching frozen benchmark/Browser/Document builds pass. [**All eleven exact-source
+publication stages pass**](business-selection-a84fc50d-publication-validation.json),
+including actual Native AOT and published encrypted-storage/exact-receipt recovery,
+with zero warnings/errors and unchanged source. Exact-source solution validation
+remains active. Fresh Amazon `biza84fc50damz01-amazon-1` launched after
+**12:07:44 UTC** [exact admission](business-selection-a84fc50d-live-admission.json)
+on the unchanged profile, with **EUR 211.67743231864800836025506498** available,
+**EUR 20.617228732444762501118167993** phase headroom and zero unresolved requests.
+No completed live result on this source is claimed yet.
+
+Previous correction **`b613426e2586fec447089532251ab8773df16b08`** copies projected
 producer-field schemas into temporary inferred array unions. It has [**2,653 owning
 Planning passes, zero failures/skips**](business-selection-b613426e-owning-validation.json),
 including two focused cases that cover v15 execution, ordered duplicate values,
