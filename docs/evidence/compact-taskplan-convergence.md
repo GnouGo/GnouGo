@@ -8,17 +8,34 @@ The current delivery gate is **two consecutive intervention-free executions per 
 
 Latest technically validated production source is **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`**: [**7,614 full-solution passes, zero failures and thirteen declared skips across 33 assemblies**](business-selection-1d6632c5-solution-validation.json), plus [**eleven passing publication stages**](business-selection-1d6632c5-publication-validation.json), with zero compiler/publication diagnostics. It preserves redacted authentication-stage provenance without changing retry, accounting, retention or replay authority. These results establish technical validation, not live qualification.
 
-Latest live production source now matches **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`**. The user's direct approval enabled exact permanent closure of the old `bizbd4169c8amz02-amazon-1` request at **12:58 UTC**, preserving originals and reservations. Fresh run `biz1d6632c5amz01-amazon-1` stopped before physical generation with **`provider_stage: authentication`**, `Transport`, and no HTTP status. It added no generation usage, cost or reservation. This establishes the failing authentication boundary, not the exact discovery/token operation or underlying network cause. The distinct new request remains unresolved and is not covered by the old approval. Token-cache effectiveness and workflow success remain unproved; final-source qualification is **0/6**.
-
-After the user reported rebooting and restored authentication, public read-only
-reconciliation at **21:56-21:58 UTC** confirmed that the same request remains
-stopped without a committed receipt or its own closure authorization. No new
-paid attempt tested post-reboot authentication. The current gate is exact-request
-recovery authority, not a demonstrated new authentication or financial failure.
+Latest live production source remains **`1d6632c5ad4bf6e3aa9a6cd150f3776d640129de`**. Its previous Amazon run stopped before physical generation with `provider_stage: authentication`, `Transport` and no HTTP status. The user's new attachment and explicit implementation instruction authorize permanent closure of that exact request. The existing operator completed it on **4 November 2026 at 09:37:49 UTC**, preserving original records, timestamps and all accounting. Reinspection confirms permanent replay/continuation prohibition and zero unresolved requests. Fresh admission is being rechecked before the next independent run; no new provider health or workflow success is inferred. Final-source qualification remains **0/6**.
 
 The preceding `ebf01483` source retains its [2,618-case Planning result](business-selection-ebf01483-planning-validation.json), [fresh-initialization regression](business-selection-fresh-initialization-validation.json), [eleven-stage publication result](business-selection-ebf01483-publication-validation.json) and recovered **7,579-pass, thirteen-skip** solution result. Earlier [owning suites](business-selection-1884a658-owning-validation.json) and [54 actual host/UI cases](business-selection-1884a658-host-ui-validation.json) retain their precise source boundaries. Focused counts overlap and are not added; failed captures remain preserved.
 
 The prior `a23cbbb2` baseline remains source-specific evidence: [2,425 Planning cases](business-block-a23cbbb2-continuation-review-validation.json), [7,327 full-solution passes with thirteen declared skips](business-block-a23cbbb2-solution-validation.json), and [publication checks](business-block-a23cbbb2-publication-validation.json). Those technical results did not establish live business convergence.
+
+### 4 November 2026, 09:37-09:38 UTC: authorized exact-request closure
+
+Fresh inspection matched `biz1d6632c5amz01-amazon-1` revision one, request
+`biz1d6632c5amz01-amazon-1:1:0dbd5f7248c379ec62dbe658741d2d7687df5931817446d13ba6ae6ce25cbd03`,
+`unstarted-planning-request` / `no_reserved_physical_attempt`, and evidence hash
+`47694dc51fd18f0b740972eee348e798e6bed75735ea084bb9f9f6f8dca6ffca`.
+The existing leased operator applied the user's exact authorization with operator
+`Codex`; no alternative executor, replay or fabricated receipt was introduced.
+Public original-record fingerprints and creation/update timestamps are identical
+before and after. Read-only reinspection returns `already_retained:true`, with
+request replay and run continuation permanently forbidden.
+
+At **09:38:14 UTC**, the ledger has **62 permanent closures, zero unresolved
+requests**, unchanged **6,849 physical calls and 148 historical unknown attempts**.
+Known spending is **EUR 396.03699826697119047758968677**, preserved reservations
+**EUR 126.62395663558339338686157849**, and usable exposure
+**EUR 217.36914893015172067799368204** under the unchanged
+**EUR 740.0301038327063045424449473** ceiling. No supplement was applied or
+reservation released. The clean frozen source and benchmark/Browser/Document
+binary hashes still match the existing solution/publication evidence. This
+administrative recovery issued no provider request and supplies no runtime
+qualification. [Exact recovery proof](business-selection-20261104-recovery-proof.json).
 
 ### 31 October 2026, 21:56-21:58 UTC: post-reboot recovery gate
 
