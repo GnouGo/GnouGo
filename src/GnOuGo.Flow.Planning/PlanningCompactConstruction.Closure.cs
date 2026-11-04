@@ -127,7 +127,7 @@ internal static partial class PlanningCompactConstruction
         var boundary = construction.OpenScopes.FirstOrDefault(path => OpenDescendants(state, symbols, path) == 0 &&
             (path != "/root" || construction.OpenScopes.Count == 1));
         if (boundary is null || boundary == "/root" &&
-            PlanningCompletionValidation.Assess(state, state.Plan!).Diagnostics.Any(diagnostic => diagnostic.Required)) return null;
+            PlanningCompletionValidation.Assess(state, state.Plan!, publishWarnings: false).Diagnostics.Any(diagnostic => diagnostic.Required)) return null;
         var requirements = ClosureRequirements(state, symbols, boundary);
         // Mechanical closure must not substitute an unrelated first obligation
         // or silently omit a wider original set to fit the existing step bound.

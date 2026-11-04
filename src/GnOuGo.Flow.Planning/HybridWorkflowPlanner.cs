@@ -223,7 +223,7 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
         // Validate the recommendation by compiling it before either automatic selection or a human pause.
         var candidate = JsonSerializer.Deserialize(JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
         foreach (var choice in candidate.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
-        var assessment = PlanningCompletionValidation.Assess(state, candidate);
+        var assessment = PlanningCompletionValidation.Assess(state, candidate, publishWarnings: true);
         var compilation = assessment.Compilation;
         if (compilation.Diagnostics.Count > 0) { SemanticFailure(state, compilation.Diagnostics); return; }
         if (plan.Choices.Any(c => c.Selected is null))

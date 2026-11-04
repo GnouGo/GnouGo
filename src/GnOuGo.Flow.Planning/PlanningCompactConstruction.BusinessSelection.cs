@@ -63,7 +63,7 @@ internal static partial class PlanningCompactConstruction
                 { ["id"] = row["id"]!.DeepClone(), ["text"] = row["text"]!.DeepClone() }).ToArray()),
             ["remainingObligations"] = List(ids),
             ["availableResults"] = BusinessResults(state),
-            ["evidence"] = new JsonObject((state.Construction.Evidence ?? []).Where(pair => pair.Key.StartsWith("source:", StringComparison.Ordinal) && pair.Value?["text"] is not null)
+            ["evidence"] = new JsonObject((state.Construction!.Evidence ?? []).Where(pair => pair.Key.StartsWith("source:", StringComparison.Ordinal) && pair.Value?["text"] is not null)
                 .Select(pair => new KeyValuePair<string, JsonNode?>(pair.Key, new JsonObject { ["text"] = pair.Value!["text"]!.DeepClone() })))
         };
         var feasibility = BusinessFeasibilityObservations(state);
@@ -207,7 +207,7 @@ internal static partial class PlanningCompactConstruction
             (state.Requirements?.Outputs ?? []).Any(output => output.Required && plan.Root.Outputs.All(binding => binding.Name != output.Name))) return [];
         var requirements = construction.Requirements.Where(requirement => !RequirementCompletionClaimed(state, requirement.Id))
             .Select(requirement => requirement.Id).ToArray();
-        return !PlanningCompletionValidation.Assess(state, plan).Diagnostics.Any(diagnostic => diagnostic.Required) &&
+        return !PlanningCompletionValidation.Assess(state, plan, publishWarnings: false).Diagnostics.Any(diagnostic => diagnostic.Required) &&
             requirements.All(id => construction.Checkpoints.Any(checkpoint => checkpoint.InvalidatedTaskIds.Count == 0 &&
             checkpoint.TaskIds.Count > 0 && checkpoint.RequirementIds.Contains(id, StringComparer.Ordinal))) ? requirements : [];
     }

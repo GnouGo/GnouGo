@@ -292,7 +292,7 @@ public sealed partial class HybridWorkflowPlanner
             if (draft.Diagnostics.Count == 0)
             {
                 draft.Diagnostics.AddRange(PlanningCompletionValidation.Assess(state, candidate,
-                    PlanningCompactConstruction.CandidateRequirements(state)).Diagnostics);
+                    PlanningCompactConstruction.CandidateRequirements(state), publishWarnings: true).Diagnostics);
             }
             var covered = state.Construction.Requirements.Where(r => r.Status != "remaining").Select(r => r.Id)
                 .Concat(draft.Extension.RequirementIds).ToHashSet(StringComparer.Ordinal);

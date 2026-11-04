@@ -4,14 +4,18 @@ using GnOuGo.Flow.Core.Planning;
 namespace GnOuGo.Flow.Planning;
 
 // A transient assessment of the existing TaskPlan. No transitions, discovery,
-// review, admission or journal writes belong to this technical boundary.
+// review, admission or accepted-plan mutation belongs to this boundary.
+// Normal validation explicitly opts into host observation of advisory warnings.
 internal static class PlanningCompletionValidation
 {
     internal sealed record Assessment(TaskCompilation Compilation,
         List<PlanningValidationResult> Coverage, List<PlanningDiagnostic> Diagnostics);
 
-    internal static Assessment Assess(PlanningSession state, TaskPlan plan, PlanningRequirements? requirements = null)
+    internal static Assessment Assess(PlanningSession state, TaskPlan plan, PlanningRequirements? requirements = null, bool publishWarnings = false)
     {
+        // Eligibility probes must not write through an ambient host observer.
+        // Ordinary candidate/final validation retains its journaled warnings.
+        using var warnings = publishWarnings ? null : PlanningTokenThresholds.Observe((_, _, _, _) => { }, includePrevious: false);
         var probe = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession),
             PlanningJsonContext.Default.PlanningSession)!;
         probe.Plan = PlanningConstruction.Clone(plan);

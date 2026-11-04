@@ -669,3 +669,7 @@ not a rewrite of accepted checkpoints or review history. An explicitly associate
 prepared contribution carries a business-facing request to complete its use; its
 caller arguments remain an implementation decision. Restoring reachability removes
 that finding, including for a legitimate conditional invocation.
+
+Eligibility probes also isolate ambient threshold observers: advisory diagnostics
+cannot mutate the caller's warning journal during action presentation. Ordinary
+candidate and final validation explicitly publish those same advisory warnings.

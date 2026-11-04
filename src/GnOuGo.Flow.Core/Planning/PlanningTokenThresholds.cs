@@ -10,12 +10,12 @@ internal static class PlanningTokenThresholds
     internal const string OptimizationOptionName = "optimization_threshold_policy";
     private static readonly AsyncLocal<Action<string, string, long, long>?> Observer = new();
 
-    internal static IDisposable Observe(Action<string, string, long, long> observer)
+    internal static IDisposable Observe(Action<string, string, long, long> observer, bool includePrevious = true)
     {
         var previous = Observer.Value;
         Observer.Value = (stage, kind, current, threshold) =>
         {
-            previous?.Invoke(stage, kind, current, threshold);
+            if (includePrevious) previous?.Invoke(stage, kind, current, threshold);
             observer(stage, kind, current, threshold);
         };
         return new Observation(previous);

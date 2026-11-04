@@ -72,4 +72,23 @@ public sealed class CompletionEligibilityTests
 
     internal static bool OffersCompletion(PlanningSession state) =>
         PlanningCompactConstruction.SelectionSchema(state).ToJsonString().Contains("\"completionRequirementIds\"", StringComparison.Ordinal);
+
+    [Fact]
+    public async Task AvailabilityCannotPublishAdvisoryWarningsIntoItsCallersJournal()
+    {
+        var (state, _) = await BusinessSelectionCoverageContextTests.PreparedGroup();
+        BusinessSelectionCoverageContextTests.AddCall(state, conditional: false);
+        state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        state.Plan!.Inputs.Add(new() { Name = "choice", Type = new() { Kind = "string",
+            Enum = Enumerable.Range(0, 257).Select(index => "value_" + index).ToList() } });
+        state.Requirements!.Inputs = state.Plan.Inputs;
+        var observed = 0;
+        using var observation = PlanningTokenThresholds.Observe((_, _, _, _) => observed++);
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        Assert.True(OffersCompletion(state));
+        Assert.Equal(0, observed);
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        Assert.Empty(PlanningCompletionValidation.Assess(state, state.Plan, publishWarnings: true).Diagnostics);
+        Assert.True(observed > 0); // Ordinary final validation still records advisory warnings.
+    }
 }
