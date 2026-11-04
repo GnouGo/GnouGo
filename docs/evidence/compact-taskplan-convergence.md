@@ -4094,3 +4094,28 @@ spending, EUR 135.58746410494559036333532391 reserved and EUR
 191.87155522767386040426615727 available under the unchanged ceiling. All 157
 historical unknown attempts and 63 permanent closures remain; no unresolved
 request or reservation release was introduced.
+
+## Cleanup correction validation and approval fixture follow-up
+
+[Correction evidence](sequential-gpt61-5656ccdd-validation.json) binds the
+2,691 passing Planning tests and all eleven successful publication stages to
+production/live-harness source `5656ccdd`. Matching benchmark/MCP builds and the
+review-helper checks pass. A fresh Amazon generation is running on this source
+and the unchanged established profile; no outcome is claimed yet.
+
+The prior `1f801c40` Agent.Server project completed with 1,500 passes and seven
+failures in its approval UI fixture. That fixture still intercepted the retired
+top-level `block` response, so its second obligation was never selected under
+contract 2. Moving the interception to `action.block` preserves the two-obligation
+approval assertions. All 36 approval interaction tests and 542 affected host tests
+then pass, as does the frontend production build. The frontend package offers no
+separate lint, type-check or package-test scripts. This follow-up changes only the
+UI test fixture and evidence, leaving production, live harness, oracles and profiles
+unchanged.
+
+The `5656ccdd` full-solution capture exited 1 after an unexpected EOF downloading
+the versioned GitHub Copilot CLI dependency. Its 32 completed assemblies contain
+6,176 passes and 12 skips, but Agent.Server never ran. This is a retained dependency
+acquisition failure, not a full-solution pass. A complete rerun includes the
+corrected approval fixture. The earlier incomplete `b50de043` capture remains
+separate.

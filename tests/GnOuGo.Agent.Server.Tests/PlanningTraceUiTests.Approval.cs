@@ -164,7 +164,8 @@ public sealed partial class PlanningTraceUiTests
         var planner = new HybridWorkflowPlanner();
         for (var advance = 0; advance < 40 && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); advance++)
             state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
-        Assert.Equal(PlanningStatus.FinalReview, state.Status);
+        Assert.True(state.Status == PlanningStatus.FinalReview,
+            state.Status + ": " + string.Join("; ", state.Diagnostics.Select(diagnostic => diagnostic.Code + ": " + diagnostic.Message)));
         Assert.Equal(2, state.Requirements!.Outcomes.Count);
         PlanningArtifactApproval.Verify(state);
         return state;
@@ -190,7 +191,7 @@ public sealed partial class PlanningTraceUiTests
                     ["inputs"] = declaration["inputs"]!.DeepClone(), ["outputs"] = declaration["outputs"]!.DeepClone() },
                     new JsonObject { ["text"] = text[split..], ["kind"] = "requirement", ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray() });
             }
-            if (json["block"] is JsonObject block) block["requirementIds"] = new JsonArray("req_0", "req_1");
+            if (json["action"]?["block"] is JsonObject block) block["requirementIds"] = new JsonArray("req_0", "req_1");
             if (json["step"] is JsonObject step) step["closeRequirementIds"] = new JsonArray("req_0", "req_1");
             if (json["extension"] is JsonObject extension) extension["requirementIds"] = new JsonArray("req_0", "req_1");
             response.Json = PlanningCorpus.Transport(json, schema, schema);
