@@ -20,6 +20,16 @@ zero permits no elements. The shared model grammar explains this distinction.
 Both values remain legal, with no automatic bound adjustment or change to the
 separate control/runtime capacities.
 
+A business finding may cite a newly contributed group or control scope together
+with its producer. Compare that scope with the accepted baseline and offer only
+its existing export bindings through the shared typed repair slots, together
+with the cited tasks' ordinary input/output bindings. Accepted scopes, absent
+exports, caller interfaces and structural edits gain no authority from this route.
+The exact same finding can require renewed review when a cited export is rebound
+to or from its unchanged producer. Retain the original review context; unrelated
+exports, stale context and repeated unchanged bindings remain non-progress.
+Changing the composition neither resolves the finding nor grants approval.
+
 The planner constructs one authoritative semantic TaskPlan in bounded fragments.
 The compiler lowers it through PlanningGraph and JavaScript to YAML v15. Construction
 metadata is a non-executable journal, never another workflow or scheduler.

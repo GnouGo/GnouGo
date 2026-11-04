@@ -14,6 +14,30 @@ The preceding `ebf01483` source retains its [2,618-case Planning result](busines
 
 The prior `a23cbbb2` baseline remains source-specific evidence: [2,425 Planning cases](business-block-a23cbbb2-continuation-review-validation.json), [7,327 full-solution passes with thirteen declared skips](business-block-a23cbbb2-solution-validation.json), and [publication checks](business-block-a23cbbb2-publication-validation.json). Those technical results did not establish live business convergence.
 
+### 4 November 2026: bounded tentative-scope export repair
+
+The received mixed task/scope finding reproduces generically for both a new group
+and a new control body: four initial fixtures failed because admission offered
+only `BUSINESS_REVIEW_REQUIRED`. The correction compares scope ownership with the
+accepted baseline and offers existing export bindings through the shared typed
+repair slots, together with the cited tasks' input/output bindings. Accepted
+scopes, missing exports, interfaces and structural changes gain no authority.
+
+The same retained finding can cite an unchanged producer and a changed scope
+export. That composition now permits renewed business review when the changed
+binding refers to or from that producer; it does not resolve the finding.
+Unrelated exports, stale/missing context and repeated unchanged bindings retain
+the existing non-progress guard. The four behavioral fixtures preserve the
+producer and independent accepted work, include direct repair and reconsideration,
+and execute input seven to output fourteen after renewed local review. These are
+simulated-response regressions, not live qualification of the correction.
+
+All **29 focused repair/progress cases** pass. The complete owning Planning suite
+passes **2,645 cases, zero failures/skips**, with warnings as errors; focused counts
+overlap that total. Final-source solution/publication checks and a fresh live
+diagnostic follow after the corrected source is committed and frozen. No stopped
+live plan is edited, continued or relabeled as a success.
+
 ### 4 November 2026, 09:56 UTC: received Amazon business-repair admission stop
 
 The fresh run stopped at revision twelve after **12 logical calls / 13 physical

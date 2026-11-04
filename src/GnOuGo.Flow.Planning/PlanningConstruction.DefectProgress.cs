@@ -118,6 +118,7 @@ internal static partial class PlanningConstruction
             var status = !sameBasis || !sameSource ? "basis_changed" : !sameClaims ? "claims_changed" : !found ? "unverified" :
                 entry["before"]?["hash"]?.ToString() == snapshot!["hash"]!.ToString() ? "unchanged" : "changed";
             if (status == "unchanged" && DefectDependencyChanged(candidate, witness, selector, currentContext)) status = "dependency_changed";
+            if (status == "unchanged" && DefectCompositionChanged(witness, selector, priorContext, currentContext)) status = "composition_changed";
             var progress = new JsonObject
             {
                 ["id"] = entry["id"]!.DeepClone(), ["kind"] = entry["kind"]!.DeepClone(), ["status"] = status,
@@ -142,6 +143,36 @@ internal static partial class PlanningConstruction
             result.Add((JsonNode)progress);
         }
         return result.Count == 0 ? null : result;
+    }
+
+    private static bool DefectCompositionChanged(JsonObject witness, JsonArray? selector, JsonObject? prior, JsonObject current)
+    {
+        if (prior is null || selector?.FirstOrDefault()?.ToString() != "actions" ||
+            selector.ElementAtOrDefault(1) is not JsonObject subject || subject["value"]?.ToString() is not { } task) return false;
+        // One finding may cite an action and the scope that exports its result.
+        // Rebinding that cited export changes the composition without changing
+        // the producer. Only the exact same report's scope targets qualify.
+        foreach (var entry in (witness["findings"] as JsonArray ?? []).OfType<JsonObject>())
+        {
+            if (entry["selector"] is not JsonArray boundary || boundary.FirstOrDefault()?.ToString() != "scopes" ||
+                !DefectRead(prior, boundary, out var before, out _) || !DefectRead(current, boundary, out var after, out _) ||
+                before is not JsonObject originalScope || after is not JsonObject scope ||
+                originalScope["outputs"] is not JsonArray originals || scope["outputs"] is not JsonArray outputs) continue;
+            foreach (var original in originals.OfType<JsonObject>())
+            {
+                var matches = outputs.OfType<JsonObject>().Where(output => output["name"]?.ToString() == original["name"]?.ToString()).ToArray();
+                if (matches.Length == 1 && !JsonNode.DeepEquals(original["value"], matches[0]["value"]) &&
+                    (References(original["value"]) || References(matches[0]["value"]))) return true;
+            }
+        }
+        return false;
+
+        bool References(JsonNode? node) => node switch
+        {
+            JsonObject value => value["kind"]?.ToString() is "output" or "present" && value["source"]?.ToString() == task || value.Any(pair => References(pair.Value)),
+            JsonArray values => values.Any(References),
+            _ => false
+        };
     }
 
     private static JsonObject? ExactSnapshot(JsonNode? snapshot, JsonObject? context, string? pointer)

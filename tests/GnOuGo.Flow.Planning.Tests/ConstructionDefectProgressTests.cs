@@ -108,6 +108,54 @@ public sealed class ConstructionDefectProgressTests
         Assert.False(state.Construction!.Candidate!.BusinessReviewed);
     }
 
+    [Theory]
+    [InlineData("binding", "composition_changed")]
+    [InlineData("unrelated", "unchanged")]
+    [InlineData("constant", "unchanged")]
+    [InlineData("uncited_scope", "unchanged")]
+    [InlineData("missing_context", "unchanged")]
+    [InlineData("stale_context", "unchanged")]
+    [InlineData("repeat", "unchanged")]
+    public async Task ExportRepairKeepsItsExactJointFindingBasis(string change, string expected)
+    {
+        var (state, _) = await BusinessReviewProtocolTests.Ready();
+        var candidate = state.Construction!.Candidate!;
+        candidate.Plan.Root.Outputs = [new("result", new() { Kind = "input", Source = "x" }),
+            new("unrelated", new() { Kind = "number", Number = 1 })];
+        candidate.Hash = PlanningConstruction.Hash(candidate.Plan);
+        Record();
+        var output = candidate.Plan.Root.Outputs[change == "unrelated" ? 1 : 0];
+        candidate.Plan.Root.Outputs[change == "unrelated" ? 1 : 0] = new(output.Name, change is "unrelated" or "constant"
+            ? new() { Kind = "number", Number = 3 }
+            : new() { Kind = "output", Source = "compute", Port = "result" });
+        candidate.Hash = PlanningConstruction.Hash(candidate.Plan);
+        if (change == "missing_context") candidate.Reviews.Single().Remove("context");
+        if (change == "stale_context") candidate.Reviews.Single()["context"]!["review"] = "different";
+        if (change == "repeat") Record();
+        state = BusinessReviewProtocolTests.Clone(state);
+        var progress = PlanningConstruction.DefectProgressContext(state, PlanningBusinessProjection.Build(state, false))!;
+        var action = progress.Last(item => item!["targets"]!.AsArray().Any(target => target!.ToString() == "compute"))!;
+        Assert.Equal(expected, action["status"]!.ToString());
+        Assert.Equal(action["before"]!["hash"]!.ToString(), action["current"]!["hash"]!.ToString());
+        Assert.False(state.Construction!.Candidate!.BusinessReviewed);
+
+        void Record()
+        {
+            var context = PlanningBusinessProjection.Build(state, false);
+            var scope = context["scopes"]!.AsArray().Select((value, index) => (value, index)).Single(row => row.value!["id"]!.ToString() == "/root").index;
+            var locations = change == "uncited_scope" ? new[] { "/actions/0" } : new[] { "/actions/0", "/scopes/" + scope };
+            var findings = new JsonArray(locations.Select(location => (JsonNode)new JsonObject
+            {
+                ["kind"] = "business_fulfillment", ["location"] = location,
+                ["evidence"] = new JsonArray("/requirements/0", location),
+                ["explanation"] = "Return the computed double rather than the original number.", ["uncertainty"] = ""
+            }).ToArray());
+            var witness = PlanningConstruction.DefectWitness(state, context, findings);
+            Assert.NotNull(witness);
+            candidate.Reviews.Add(new() { ["outcome"] = "needs_change", ["defectWitness"] = witness, ["context"] = context });
+        }
+    }
+
     private static void Reject(PlanningSession state, string? task = null, string suffix = "")
     {
         var context = PlanningBusinessProjection.Build(state, false);

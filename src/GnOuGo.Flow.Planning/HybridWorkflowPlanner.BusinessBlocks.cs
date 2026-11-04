@@ -23,16 +23,26 @@ public sealed partial class HybridWorkflowPlanner
         return true;
     }
 
-    // Only exact technically accepted tasks still awaiting business review receive
-    // repair authority. The existing typed patch verifier enforces every edit.
-    private static void AuthorizePendingBusinessRepair(PlanningSession state, JsonObject review, string[] targets)
+    // Newly contributed scope exports and exact accepted tasks still awaiting
+    // business review retain bounded typed repair, never structural authority.
+    private static void AuthorizeBusinessRepair(PlanningSession state, JsonObject review, string[] targets)
     {
         var construction = state.Construction!; var candidate = construction.Candidate!;
-        if (state.Plan is null || candidate.BaseHash != PlanningConstruction.Hash(state.Plan)) return;
-        var accepted = new TaskPlanSymbols(state.Plan); var current = new TaskPlanSymbols(candidate.Plan);
+        if (candidate.BaseHash != PlanningConstruction.Hash(state.Plan)) return;
+        var accepted = new TaskPlanSymbols(state.Plan ?? new()); var current = new TaskPlanSymbols(candidate.Plan);
         var paths = new List<string>(); var tasks = new List<string>();
+        var tentativeScope = false;
         foreach (var target in targets.Where(target => !candidate.TaskIds.Contains(target, StringComparer.Ordinal)))
         {
+            if (target == candidate.Extension.Scope || target.StartsWith("output:", StringComparison.Ordinal) &&
+                candidate.Extension.Outputs.Any(output => "output:" + output.Name == target)) continue;
+            if (current.Scopes.Any(scope => scope.Path == target) && accepted.Scopes.All(scope => scope.Path != target))
+            {
+                var exports = current.Values.Keys.Where(path => path.StartsWith(target + "/outputs/", StringComparison.Ordinal)).ToArray();
+                if (exports.Length == 0) return;
+                paths.AddRange(exports); tentativeScope = true;
+                continue;
+            }
             if (!accepted.Tasks.TryGetValue(target, out var task) || !current.Tasks.TryGetValue(target, out var next) ||
                 task.Scope.Path != next.Scope.Path || accepted.Phase(target) != current.Phase(target) ||
                 !JsonNode.DeepEquals(PlanningConstruction.TaskNode(task.Task), PlanningConstruction.TaskNode(next.Task))) return;
@@ -45,12 +55,21 @@ public sealed partial class HybridWorkflowPlanner
                 ? new[] { "/tasks/" + target + "/inputs" }
                 : accepted.Values.Keys.Where(path => path.StartsWith("/tasks/" + target + "/outputs/", StringComparison.Ordinal)).ToArray();
             if (offered.Length == 0) return;
-            try { TaskPlanRevisions.ValidateEditablePaths(state, offered); }
-            catch (ArgumentException) { return; }
             paths.AddRange(offered); tasks.Add(target);
         }
-        if (tasks.Count == 0) return;
-        candidate.AuthorizedPaths = (candidate.AuthorizedPaths ?? []).Concat(paths).Distinct(StringComparer.Ordinal).ToList();
+        if (paths.Count == 0) return;
+        if (tentativeScope)
+            foreach (var target in targets.Where(target => candidate.TaskIds.Contains(target, StringComparer.Ordinal)))
+            {
+                if (!current.Tasks.TryGetValue(target, out var task)) return;
+                paths.AddRange(task.Task.Kind is "operation" or "transform" or "call"
+                    ? ["/tasks/" + target + "/inputs"]
+                    : current.Values.Keys.Where(path => path.StartsWith("/tasks/" + target + "/outputs/", StringComparison.Ordinal)));
+            }
+        var authorized = (candidate.AuthorizedPaths ?? []).Concat(paths).Distinct(StringComparer.Ordinal).ToList();
+        try { TaskPlanRevisions.ValidateEditablePaths(new() { Plan = candidate.Plan, Catalog = state.Catalog }, authorized); }
+        catch (ArgumentException) { return; }
+        candidate.AuthorizedPaths = authorized;
         candidate.TaskIds = candidate.TaskIds.Concat(tasks).Distinct(StringComparer.Ordinal).ToList();
         review["pendingRepairPaths"] = new JsonArray(paths.Select(path => (JsonNode?)JsonValue.Create(path)).ToArray());
     }
