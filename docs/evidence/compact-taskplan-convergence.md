@@ -34,8 +34,10 @@ confirms all eight originals/timestamps and aggregate accounting unchanged, all
 reservations preserved, permanent replay/continuation rejection in fresh processes,
 **63 permanent closures and zero unresolved requests**. Available exposure remains
 **EUR 206.38886446821415917875403628** with unchanged ceiling and no supplement.
-Fresh same-source, same-profile cohort `biz65b1a0d4amz32b` is being admitted; no old
-request is replayed. Exact current-source solution validation remains active and
+Fresh same-source, same-profile `biz65b1a0d4amz32b-amazon-1` launches after
+[14:05:49 UTC admission](business-selection-65b1a0d4-amazon32b-live-admission.json)
+and unused-identity verification, with unchanged EUR 20.983630020574291081492083370
+phase headroom. No old request is replayed. Exact current-source solution validation remains active and
 qualification remains **0/6**.
 
 Previous correction **`a84fc50d1d7ba3313139c71c676bdf169b5b5f0b`** retains
@@ -163,8 +165,11 @@ Fresh independent cohort `biz65b1a0d4amz32b` retains frozen production/harness
 `65b1a0d457b43f403bcc0d058f7bc1506af3e2f5`, matching benchmark/Browser/Document
 binaries and established 32K profile
 `96a35087433a0d9751186a58cd9a2cbffcdf2cd552037b6fe727b80b5b2576ae`.
-Configuration, financial and exact phase admission are repeated before unused-identity
-verification and dispatch. This authorization covers no other future uncertain
+Configuration, financial and exact phase admission pass at **14:05:49 UTC**,
+with EUR 206.38886446821415917875403628 available and required phase headroom
+EUR 20.983630020574291081492083370. The fresh run launches after unused run/cohort
+identity verification. [Exact admission](business-selection-65b1a0d4-amazon32b-live-admission.json).
+This authorization covers no other future uncertain
 request. Qualification remains **0/6**.
 [Source-bound authorized retention proof](business-selection-65b1a0d4-amazon-authorized-retention.json).
 
