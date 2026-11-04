@@ -1,0 +1,26 @@
+{
+  "kind": "fresh_separate_output_exhaustion_profile",
+  "source": "a84fc50d1d7ba3313139c71c676bdf169b5b5f0b",
+  "scenario": "amazon",
+  "cohort": "biza84fc50damz32a",
+  "original_phase_policy_sha256": "3e9495d2877fed6d3ddbd9a10b1817842a145bf3a66b7c563d79037d6e215e1c",
+  "fresh_phase_policy_sha256": "1ae308efc238e137e12e98db45e533b7d270abaa680650f9946aa31c32d20e4c",
+  "changes": [
+    {
+      "path": "draft.outputTokens",
+      "before": 16384,
+      "after": 32768
+    }
+  ],
+  "reason": "Received output_limit at 16384 output tokens, all reasoning, zero visible text/JSON; original attempt preserved incomplete.",
+  "unchanged": [
+    "Original navigation and review policies",
+    "Draft reasoning medium and input targets/limits",
+    "OpenAi / gpt-5.5-2026-04-24",
+    "Both captured advisory policies",
+    "Source, benchmark harness, MCP binaries, oracles and permissions",
+    "Campaign ceiling and retained unknown reservations"
+  ],
+  "authority": "User attachment section 12 and requested execution plan: investigate received output exhaustion, then test a larger allocation in a separate fresh profile without routine confirmation.",
+  "qualification_effect": "Amazon streak restarts on this profile; prior incomplete attempts do not qualify."
+}

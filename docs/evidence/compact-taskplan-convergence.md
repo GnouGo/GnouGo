@@ -21,7 +21,22 @@ remains active. Fresh Amazon `biza84fc50damz01-amazon-1` launched after
 **12:07:44 UTC** [exact admission](business-selection-a84fc50d-live-admission.json)
 on the unchanged profile, with **EUR 211.67743231864800836025506498** available,
 **EUR 20.617228732444762501118167993** phase headroom and zero unresolved requests.
-No completed live result on this source is claimed yet.
+Original-profile `biza84fc50damz01-amazon-1` subsequently stopped with received
+output exhaustion: all **16,384 output tokens were reasoning**, with zero visible
+text or JSON. The request's HTTP **500 then 200** sequence retains the failed
+attempt's unknown reservation. [Exact received outcome](business-selection-a84fc50d-amazon-output-limit.json).
+
+Fresh separate cohort **`biza84fc50damz32a`** now tests [only `draft.outputTokens`
+16,384 → 32,768](business-selection-a84fc50d-amazon-output-profile.json), with the
+[same other phase settings](business-selection-a84fc50d-amazon-output32-phase-policy.json),
+source/harness, binaries, reasoning, inputs, permissions and oracles. Its profile
+hash is `96a35087433a0d9751186a58cd9a2cbffcdf2cd552037b6fe727b80b5b2576ae`.
+[Fresh 12:31:18 UTC admission](business-selection-a84fc50d-output32-live-admission.json)
+passes with **EUR 210.05713086055694475885959133** available,
+**EUR 20.983630020574291081492083370** required headroom and zero unresolved
+requests. Its run `biza84fc50damz32a-amazon-1` is active. Amazon qualification
+restarts on this separate profile; no complete generation or execution result
+is claimed yet.
 
 Previous correction **`b613426e2586fec447089532251ab8773df16b08`** copies projected
 producer-field schemas into temporary inferred array unions. It has [**2,653 owning
@@ -53,8 +68,10 @@ passes, zero failures/skips**](business-selection-f5789246-owning-validation.jso
 with six focused cases overlapping that total. The source is committed and frozen; matching benchmark/MCP builds pass.
 [**All eleven exact-source publication stages pass**](business-selection-f5789246-publication-validation.json),
 including actual Native AOT and published encrypted-storage/exact-receipt recovery,
-with zero warnings/errors and unchanged source. Exact-source full-solution testing
-remains active. Fresh Amazon `bizf5789246amz01-amazon-1` launched after
+with zero warnings/errors and unchanged source. Its exact-source solution now passes
+[**7,633 cases, zero failures and thirteen declared skips across all 33 assemblies**](business-selection-f5789246-solution-validation.json),
+with zero compiler diagnostics and unchanged source. Fresh Amazon
+`bizf5789246amz01-amazon-1` launched after
 **11:09:34 UTC** [exact admission](business-selection-f5789246-live-admission.json)
 on the unchanged profile, with zero unresolved requests and
 **EUR 214.01795919940657352708572962** available before dispatch.
@@ -90,6 +107,44 @@ remains **0/6**. [Source-bound terminal evidence](business-selection-cd864165-am
 The preceding `ebf01483` source retains its [2,618-case Planning result](business-selection-ebf01483-planning-validation.json), [fresh-initialization regression](business-selection-fresh-initialization-validation.json), [eleven-stage publication result](business-selection-ebf01483-publication-validation.json) and recovered **7,579-pass, thirteen-skip** solution result. Earlier [owning suites](business-selection-1884a658-owning-validation.json) and [54 actual host/UI cases](business-selection-1884a658-host-ui-validation.json) retain their precise source boundaries. Focused counts overlap and are not added; failed captures remain preserved.
 
 The prior `a23cbbb2` baseline remains source-specific evidence: [2,425 Planning cases](business-block-a23cbbb2-continuation-review-validation.json), [7,327 full-solution passes with thirteen declared skips](business-block-a23cbbb2-solution-validation.json), and [publication checks](business-block-a23cbbb2-publication-validation.json). Those technical results did not establish live business convergence.
+
+### 4 November 2026, 12:26-12:32 UTC: received reasoning exhaustion and separate output profile
+
+Original-profile `biza84fc50damz01-amazon-1` receives eight logical completions over
+nine physical attempts, all eight receipts, zero corrections and no candidate or
+checkpoint. The first draft request is issued with medium reasoning and **16,384**
+output tokens. Its received completion has provider `finish_reason:length`, normalized
+`output_limit`, **16,384 reasoning tokens already included in 16,384 output tokens**,
+zero visible content and no JSON. The complete response cannot be parsed or accepted.
+This is demonstrated generation exhaustion; no production-code correction is inferred.
+
+The preceding physical HTTP **500** has gateway code `ESG120`, message `Routing failed`;
+the captured retry receives HTTP **200** with that incomplete completion. Its unknown
+reservation remains **EUR 0.6846095357366490741569013329**. Total known usage is
+**31,626 input / 29,596 output tokens**, including **28,057 reasoning tokens** already
+in output, at **EUR 0.9356919223544145272385723230** known cost. Planning takes
+**1,071,217 ms**. No review, artifact, approval, execution or oracle occurs.
+
+The ledger has **6,909 physical calls, 151 historical unknown attempts, 62 closures
+and zero unresolved requests**. Known spending is **EUR 401.28437280852231311825522037**,
+reservations **EUR 128.68860016362704666533013560**, available exposure
+**EUR 210.05713086055694475885959133** under the unchanged ceiling. The incomplete
+run and exact requests/receipts remain unchanged. No supplement or reservation
+release occurs.
+
+After inspecting the raw finish reason and output/reasoning accounting, the user-authorized
+separate fresh profile changes only **`draft.outputTokens:16384 → 32768`**. Original
+navigation/review profiles, medium draft reasoning, provider/model, source/harness,
+binary hashes, permissions and oracles remain unchanged. Fresh cohort
+`biza84fc50damz32a` passes configuration, financial and exact phase admission at
+**12:31:18 UTC**, requiring **EUR 20.983630020574291081492083370** headroom, then
+launches after independently confirming its identity absent. Both advisory policies,
+including `diagnostic-v1`, remain captured. The new allocation is an experiment;
+Amazon's streak restarts and qualification remains **0/6**.
+[Received exhaustion](business-selection-a84fc50d-amazon-output-limit.json),
+[exact profile change](business-selection-a84fc50d-amazon-output-profile.json),
+[new profile](business-selection-a84fc50d-amazon-output32-phase-policy.json),
+[exact admission](business-selection-a84fc50d-output32-live-admission.json).
 
 ### 4 November 2026, 11:48 UTC: reachable-use prerequisite and invalid selection repeat
 
