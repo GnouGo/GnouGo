@@ -120,9 +120,13 @@ public sealed class PlanningHostPolicy(IKeyVaultRecordStore records, IOptions<Ty
             ["maxModelCalls"] = request.MaxModelCalls, ["maxReplanAttempts"] = request.MaxReplanAttempts,
             ["policy"] = JsonSerializer.SerializeToNode(request.Policy, PlanningJsonContext.Default.PlanningPolicy) };
         foreach (var key in new[] { CaptureOption, PlanningTokenThresholds.OptionName, PlanningTokenThresholds.OptimizationOptionName,
-                     "diagnostic_progress_policy", "generator", "construction_limits", "llm_budget", PlanningApplicationBudget.OptionName, CapturedPlanningModel.OptionName, "allocation_origin", "agent_generation_at_creation", "model_capacity",
+                     "diagnostic_progress_policy", "generator", "construction_limits", "llm_budget", CapturedPlanningModel.OptionName, "allocation_origin", "agent_generation_at_creation", "model_capacity",
                      "automatic_correction", "clarification_policy", "construction_preset", "compilation_profile", "mapping_profile", "planning_validation_profile", "business_selection_contract", "host_save" })
             capture[key] = options[key]?.DeepClone();
+        // Older authenticated captures predate this field. Absence must retain
+        // their exact signed shape; new captures still bind the complete policy.
+        if (options.ContainsKey(PlanningApplicationBudget.OptionName))
+            capture[PlanningApplicationBudget.OptionName] = options[PlanningApplicationBudget.OptionName]?.DeepClone();
         return capture;
     }
 }

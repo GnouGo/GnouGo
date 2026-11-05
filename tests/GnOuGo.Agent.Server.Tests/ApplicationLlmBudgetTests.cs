@@ -44,6 +44,37 @@ public sealed class ApplicationLlmBudgetTests
         var reopened = Policy(fixture, "limited"); await reopened.InitializeAsync(Ct); Assert.Equal("unlimited", reopened.Mode);
     }
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PrePreferenceAuthorityCapturesKeepTheirExactShapeAndOriginalFiniteAllowance(bool tamper)
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var settings = Options.Create(new TypedWorkflowPlanningSettings());
+        var oldOwner = new PlanningHostPolicy(fixture.Records, settings);
+        var state = new PlanningSession { Request = new() { TenantId = "planning-tests", Prompt = "Return 42",
+            Options = new() { ["llm_budget"] = new JsonObject { ["max_estimated_cost"] = new JsonObject { ["amount"] = 50, ["currency"] = "EUR" } } } } };
+        await oldOwner.CaptureAsync(state, DiagnosticPlanningTests.ModelOptions(), "diagnostic", new("operator"), Ct);
+        const string collection = "agent-planning-host-authority-v1";
+        var original = (await fixture.Records.GetAsync(collection, "planning-tests", state.Request.SessionId, EfPlanningSessionStore.Author, Ct))!;
+        // This is the exact pre-feature document shape, with no new optional key.
+        var historical = JsonNode.Parse(original.Value)!.AsObject(); historical.Remove("application_llm_budget");
+        await fixture.Records.UpsertAsync(collection, "planning-tests", state.Request.SessionId, historical.ToJsonString(), EfPlanningSessionStore.Author, Ct);
+        var retained = (await fixture.Records.GetAsync(collection, "planning-tests", state.Request.SessionId, EfPlanningSessionStore.Author, Ct))!.Value;
+        var currentOwner = new PlanningHostPolicy(fixture.Records, settings, Policy(fixture));
+        if (tamper)
+        {
+            state.Request.Options["application_llm_budget"] = Policy(fixture).Capture();
+            await Assert.ThrowsAsync<PlanningConflictException>(() => currentOwner.VerifyAsync(state, Ct));
+        }
+        else
+        {
+            await currentOwner.VerifyAsync(state, Ct); Assert.False(state.Request.Options.ContainsKey("application_llm_budget"));
+            Assert.Equal(50, state.Request.Options["llm_budget"]!["max_estimated_cost"]!["amount"]!.GetValue<int>());
+        }
+        Assert.Equal(retained, (await fixture.Records.GetAsync(collection, "planning-tests", state.Request.SessionId, EfPlanningSessionStore.Author, Ct))!.Value);
+    }
+
+    [Theory]
     [InlineData("unlimited", false, false)]
     [InlineData("unlimited", true, true)]
     [InlineData("limited", false, true)]
