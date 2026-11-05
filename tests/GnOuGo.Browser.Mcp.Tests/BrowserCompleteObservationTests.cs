@@ -74,6 +74,8 @@ public sealed class BrowserCompleteObservationTests
             }
         };
         var tools = new BrowserTools(host, NullLogger<BrowserTools>.Instance);
+        // Browser startup is fixture preparation; the invalidation test keeps its original 5-second acquisition deadline.
+        await host.GetContentAsync(site.Origin + "/warmup", "load", 30000, "main", "text", 1000, false, ct);
         var result = await tools.GetContentAsync(url: site.Origin, format: "observation_complete", timeoutMs: 5000, cancellationToken: ct);
         Assert.False(result.Success); Assert.Equal("SNAPSHOT_EXPIRED", result.ErrorCode);
         Assert.Null(result.ObservationSnapshot); Assert.Empty(result.Content);
