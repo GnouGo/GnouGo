@@ -17,6 +17,8 @@ description: Implement or review C#/.NET libraries, APIs, CLIs, MCP servers, per
 
 ## Tests and publishing
 
+- Agent.Server/Desktop application LLM budgets default to explicit tracking-only Unlimited. Persisted local operator preferences require authorization and antiforgery, and apply only to new captured sessions/runs. Keep finite workflow contracts positive and strict. Retain encrypted accounting and uncertain reservations without a ceiling; report missing pricing/FX as unavailable. Never migrate historical budgets or infer new authority during restore. Route Desktop operator bootstrap into Photino using the one-use fragment/cookie flow, with no authority link in logs.
+
 - Prefer explicit registration and source-generated `System.Text.Json`; avoid unbounded reflection, dynamic loading and assembly scanning. Check dependency compatibility with the component's trimming/AOT target.
 - Use compiled EF models and precompiled queries where applicable. Any unavoidable framework/dependency suppression must be narrow, publish-local, documented and covered by a published-binary smoke test.
 - Reproduce behavior with focused tests in the owning project; keep unit tests package-independent and place cross-component scenarios in integration/host tests.

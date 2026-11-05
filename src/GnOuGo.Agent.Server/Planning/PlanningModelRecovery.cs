@@ -58,7 +58,9 @@ internal static class PlanningModelRecovery
                     pair.Value.ReservedEstimatedCost != actual.ReservedEstimatedCost ||
                     pair.Value.VerifiedUsage is not null && pair.Value.VerifiedUsage != actual.VerifiedUsage)))
             throw new PlanningConflictException("The dispatch accounting changed; reconcile it before resuming.");
-        try { _ = new LLMUsageBudgetScope(limits ?? new() { MaxCalls = state.Request.MaxModelCalls }, usage); }
+        try { _ = PlanningApplicationBudget.TrackingOnly(state.Request)
+            ? LLMUsageBudgetScope.CreatePlanningTrackingOnly(state.Request, usage)
+            : new LLMUsageBudgetScope(limits ?? new() { MaxCalls = state.Request.MaxModelCalls }, usage); }
         catch (ArgumentException) { throw new PlanningConflictException("The durable dispatch accounting is invalid for this host."); }
         state.Usage = usage;
     }
@@ -85,10 +87,12 @@ internal static class PlanningModelRecovery
         if (issued?.Value != JsonSerializer.Serialize(pending.Request, PlanningJsonContext.Default.LLMRequest))
             throw new PlanningConflictException("The exact issued planning request is unavailable for HTTP recovery.");
         await RestoreUsageAsync(state, records, ct, limits);
-        var journal = new PlanningHttpModelJournal(records, new LLMUsageBudgetScope(limits, state.Usage, exchangeRateProvider: exchangeRates),
+        var budget = PlanningApplicationBudget.TrackingOnly(state.Request)
+            ? LLMUsageBudgetScope.CreatePlanningTrackingOnly(state.Request, state.Usage, exchangeRateProvider: exchangeRates)
+            : new LLMUsageBudgetScope(limits, state.Usage, exchangeRateProvider: exchangeRates);
+        var journal = new PlanningHttpModelJournal(records, budget,
             state.Request, pending.Request, estimator, PlanningModelJournal.HttpCollection, author,
-            DateTimeOffset.UtcNow + (PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed ?? TimeSpan.FromHours(5)) -
-            TimeSpan.FromMilliseconds(state.ActiveMilliseconds));
+            PlanningDispatchDeadline.Resolve(state.Request, state.ActiveMilliseconds));
         await journal.VerifyRecoveryAsync(ct);
         state.Status = PlanningStatus.Generating;
         ClearTransportDiagnostics(state);

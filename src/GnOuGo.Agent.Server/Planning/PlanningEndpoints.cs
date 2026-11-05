@@ -3,6 +3,7 @@ using GnOuGo.Agent.Shared;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
+using GnOuGo.Agent.Server.Configuration;
 
 namespace GnOuGo.Agent.Server.Planning;
 
@@ -10,6 +11,24 @@ internal static class PlanningEndpoints
 {
     public static void MapPlanningEndpoints(this WebApplication app)
     {
+        app.MapGet("/api/application-llm-budget", (ApplicationLlmBudgetPolicy policy) => Results.Json(policy.Describe()))
+            .WithMetadata(new LocalOperatorRequired());
+        app.MapPost("/api/application-llm-budget", async (JsonObject request, ApplicationLlmBudgetPolicy policy, LocalOperatorAccess access, CancellationToken ct) =>
+        {
+            try
+            {
+                if (request.Count != 1 || request["mode"] is not System.Text.Json.Nodes.JsonValue mode || !mode.TryGetValue<string>(out var selected))
+                    return Results.BadRequest("A mode selection is required.");
+                await policy.SetAsync(selected, access, ct); return Results.Json(policy.Describe());
+            }
+            catch (ArgumentException) { return Results.BadRequest("Mode must be unlimited or limited."); }
+        }).WithMetadata(new LocalOperatorRequired());
+        app.MapPost("/api/planning/{id}/start-with-current-settings", async (string id, PlanningSessionService service, LocalOperatorAccess access, CancellationToken ct) =>
+        {
+            try { return Results.Json(ToDto(await service.StartWithCurrentSettingsAsync(id, access, ct)), ChatJsonContext.Default.PlanningSessionDto); }
+            catch (KeyNotFoundException) { return Results.NotFound(); }
+            catch (PlanningConflictException ex) { return Results.Conflict(ex.Message); }
+        }).WithMetadata(new LocalOperatorRequired());
         app.MapGet("/api/planning/antiforgery", (HttpContext context, Microsoft.AspNetCore.Antiforgery.IAntiforgery antiforgery) =>
         {
             var tokens = antiforgery.GetAndStoreTokens(context);
@@ -107,7 +126,9 @@ internal static class PlanningEndpoints
         state.Yaml, PlanningArtifactApproval.Hash(state), state.ApprovedHash,
         state.Diagnostics.Select(d => new PlanningValidationDto(d.Code, d.Location, d.Message, d.Required)
         {
-            ValidationStage = d.ValidationStage, Rule = d.Rule,
+            ValidationStage = d.ValidationStage, Rule = d.Rule, BudgetFailure = d.BudgetFailure is { } failure ? new JsonObject
+            { ["scope"] = failure.Scope, ["origin"] = failure.Origin, ["limitKind"] = failure.LimitKind, ["allowance"] = failure.Allowance,
+                ["requiredReservation"] = failure.RequiredReservation, ["currency"] = failure.Currency, ["dispatchStatus"] = failure.DispatchStatus } : null,
             Prerequisite = d.Prerequisite is { } p ? new(p.Kind, p.Description, p.Output, p.ConsumerCapability, p.ContractPath, p.RootActionId) : null,
         }).ToArray(),
         state.ValidationResults.Select(s => new PlanningValidationResultDto(s.Id, s.Outcome, s.Description)).ToArray(),
@@ -116,11 +137,13 @@ internal static class PlanningEndpoints
         state.Usage?.EstimatedCost ?? 0, state.Usage?.EstimatedCostCurrency ?? "", state.ActiveMilliseconds, state.HumanWaitMilliseconds, state.Phase, state.Request.Mode)
     {
         SchemaVersion = state.SchemaVersion,
+        CostEstimateAvailable = state.Usage?.CostEstimateAvailable == true,
+        CostUnavailableReason = state.Usage?.CostUnavailableReason ?? (state.Usage is null ? "not_measured" : null),
         ThresholdMode = state.Request.Options[PlanningHostPolicy.CaptureOption]?["thresholdMode"]?.ToString() ?? "strict",
         EffectivePolicy = new JsonObject { ["phases"] = state.Request.Options["construction_limits"]?["phasePolicy"]?.DeepClone(),
             ["allocations"] = state.Request.Options["allocation_origin"]?.DeepClone(), ["model"] = state.Request.Options[GnOuGo.Flow.Integrations.Planning.CapturedPlanningModel.OptionName]?.DeepClone(),
             ["maxModelCalls"] = state.Request.MaxModelCalls, ["maxCorrections"] = state.Request.MaxReplanAttempts, ["capacity"] = state.Request.Options["model_capacity"]?.DeepClone(),
-            ["budget"] = state.Request.Options["llm_budget"]?.DeepClone(), ["construction"] = state.Request.Options["construction_limits"]?.DeepClone(),
+            ["budget"] = state.Request.Options["llm_budget"]?.DeepClone(), ["applicationBudget"] = state.Request.Options[PlanningApplicationBudget.OptionName]?.DeepClone(), ["construction"] = state.Request.Options["construction_limits"]?.DeepClone(),
             ["policy"] = System.Text.Json.JsonSerializer.SerializeToNode(state.Request.Policy, PlanningJsonContext.Default.PlanningPolicy) },
         OverallProgress = PlanningCompactConstruction.InspectOverallProgress(state),
         Events = state.InspectionEvents?.Select(e => new PlanningInspectionEventDto(e.Sequence, e.TimestampUtc, e.Phase, e.State, e.Reason, e.RequestId, e.BlockId, e.StepId, e.Checkpoint, e.Objective) { PhaseOccurrence = e.PhaseOccurrence }).ToArray() ?? [],

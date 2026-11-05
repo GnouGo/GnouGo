@@ -172,7 +172,7 @@ public sealed partial class PlanningSessionService(
                 state.PendingQuestions = [new("preserve_authored_intent", "Describe the intended behavior and outputs to preserve when revising this authored workflow. The original will remain unchanged.", [], null)];
             }
         }
-        if (hostPolicy is not null) await hostPolicy.CaptureAsync(state, runtime.Options, thresholdMode, diagnosticGrant, ct);
+        if (hostPolicy is not null) await hostPolicy.CaptureAsync(state, runtime.Options, thresholdMode, diagnosticGrant, ct, applicationOwnsLimits: true);
         else if (thresholdMode != "strict") throw new UnauthorizedAccessException("This host has no diagnostic authority.");
         PlanningGenerationPolicy.Validate(state.Request.Generation, PlanningTokenThresholds.OptimizationAdvisory(state.Request));
         PlanningSessionCreation.Capture(state);
@@ -359,9 +359,12 @@ public sealed partial class PlanningSessionService(
             MaxEstimatedCost = configured?.MaxEstimatedCost ?? new MonetaryAmount(budgetSettings.Value.Amount, budgetSettings.Value.Currency)
         };
         var estimator = new ModelMetadataUsageCostEstimator(runtime.Options);
-        var budget = new LLMUsageBudgetScope(PlanningTokenThresholds.Advisory(current.Request), limits, initial,
+        var budget = PlanningApplicationBudget.TrackingOnly(current.Request)
+            ? LLMUsageBudgetScope.CreatePlanningTrackingOnly(current.Request, initial, sink: new PlanningBudgetSink(records, Tenant, current.Request.SessionId),
+                exchangeRateProvider: exchangeRates)
+            : new LLMUsageBudgetScope(PlanningTokenThresholds.Advisory(current.Request), limits, initial,
             sink: new PlanningBudgetSink(records, Tenant, current.Request.SessionId), exchangeRateProvider: exchangeRates,
-            advisoryOptimization: PlanningTokenThresholds.OptimizationAdvisory(current.Request));
+            advisoryOptimization: PlanningTokenThresholds.OptimizationAdvisory(current.Request)) { PolicyOrigin = "captured_application_planning_limits" };
         var journal = new PlanningModelJournal(runtime.LlmClient, contexts, records, Tenant, current.Request.SessionId, budget, estimator, current.Request.Generation, runtime.LlmCapabilityResolver, current.Request,
             PlanningDispatchDeadline.Resolve(current.Request, current.ActiveMilliseconds), requireCapturedMetadata: hostPolicy is not null);
         if (current.PendingCall is { } retained)

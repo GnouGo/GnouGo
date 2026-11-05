@@ -19,7 +19,7 @@ using GnOuGo.Agent.Server.Telemetry;
 
 namespace GnOuGo.Agent.Server.Tests;
 
-public sealed class DiagnosticPlanningBrowserTests
+public sealed partial class DiagnosticPlanningBrowserTests
 {
     [Fact]
     public async Task ActualServerShowsActivePhasesAttemptsWarningsCancellationAndReload()
@@ -74,7 +74,7 @@ public sealed class DiagnosticPlanningBrowserTests
         options.ModelOverrides["openai/" + options.DefaultModel] = deployment;
         options.Models["openai"].Url = provider.Urls.Single() + "/v1";
         options.Models["openai"].ApiKey = "CONTROLLED_PROVIDER_KEY";
-        var args = TelemetryTestHostArgs.Create("--TypedWorkflowPlanning:MaxModelCalls=1",
+        var args = TelemetryTestHostArgs.Create("--ApplicationLlmBudget:Mode=limited", "--TypedWorkflowPlanning:MaxModelCalls=1",
             "--TypedWorkflowPlanning:MaxTotalTokens=1", "--TypedWorkflowPlanning:MaxActiveMilliseconds=1", "--Logging:LogLevel:Default=Warning")
             .Where(arg => !arg.StartsWith("--TypedWorkflowPlanning:OpenLocalOperatorBrowser=", StringComparison.Ordinal)).ToArray();
         var agentDatabase = args.Single(arg => arg.StartsWith("--Agent:DatabasePath=", StringComparison.Ordinal))["--Agent:DatabasePath=".Length..];

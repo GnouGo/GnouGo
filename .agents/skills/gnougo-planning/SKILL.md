@@ -106,9 +106,24 @@ A current global finding may also repair concrete accepted tasks with a still-va
 
 ## Recovery, accounting and execution
 
+Desktop and Agent.Server default new work to an explicit tracking-only Unlimited
+application LLM budget, independent of environment. Only a protected local operator
+can persist Limited/Unlimited; HTTP edits require antiforgery. Capture the policy
+before the first session/run checkpoint and verify it on restart. Existing captures,
+tariffs, charges and uncertain reservations never inherit new defaults. Limited
+retains configured financial ceilings; Unlimited removes application monetary,
+cumulative call/token and total LLM-time ceilings without huge numeric substitutes
+or weakening finite contract validation. Explicit workflow limits, physical provider
+limits, per-request timeouts/retries, cancellation, semantic validation, approvals
+and execution resources remain mandatory. Track unavailable price/FX data explicitly;
+it does not mean free usage or block Unlimited. Diagnostic nonprogress warnings
+retain their original side-effect-free/completed-only authority and replay barriers.
+Offer a new plan under current settings only after lease/journal/ledger checks prove
+the original budget-stopped session has no dispatch or reservation; preserve its identity.
+
 Maintain one active internal planning format. Reject retired sessions without upgrading or changing their records. Preserve archives and financial journals as historical data, without old planning readers or execution paths. Current issued requests and receipts recover exactly; never rebuild a pending request from newer context.
 
-Reserve each physical attempt before dispatch against money and required review capacity, accounting for captured calls, time and tokens. Enforce ordinary targets unless the exact trusted captured policy makes those targets advisory. Price complete requests and future mandatory reviews conservatively without treating advisory thresholds as exposure bounds. Retry only captured, journaled confirmed transient HTTP failures. Missing outcomes, invalid responses, output exhaustion and uncertain effects do not authorize replay. Preserve all unknown-usage reservations. Exact authorized abandonment forbids replay and continuation and releases no funds. Register supplements once under the campaign lease with stable authorization and fixed old/new ceilings. Separate pre-generation failures from reserved generation attempts.
+Journal each physical attempt before dispatch, accounting for captured calls, time, tokens and required reviews. Apply monetary admission wherever the captured Limited/workflow/campaign policy requires it; new application Unlimited captures track consumption without a ceiling. Enforce ordinary targets unless the exact trusted captured policy makes those targets advisory. Price complete requests and future mandatory reviews conservatively without treating advisory thresholds as exposure bounds. Retry only captured, journaled confirmed transient HTTP failures. Missing outcomes, invalid responses, output exhaustion and uncertain effects do not authorize replay. Preserve all unknown-usage reservations. Exact authorized abandonment forbids replay and continuation and releases no funds. Register supplements once under the campaign lease with stable authorization and fixed old/new ceilings. Separate pre-generation failures from reserved generation attempts.
 
 Execution requires artifact-bound approval, exact invocation confirmations, tenant isolation and workspace confinement. Benchmark delegation records delegated_test_reviewed, never human review or expanded effect authority. Compilation and favorable Judges do not authorize execution.
 

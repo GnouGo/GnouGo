@@ -12,6 +12,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Photino.NET;
 using GnOuGo.Agent.Server.Hosting;
+using GnOuGo.Agent.Server.Planning;
 
 internal static class DesktopProgram
 {
@@ -122,7 +123,9 @@ internal static class DesktopProgram
         Log($"HealthUrl={healthUrl}");
         Log($"BootLogUrl={bootLogUrl}");
 
-        var window = new PhotinoWindow();
+        // Photino 4.0.16 logs complete navigation URLs at its default verbosity.
+        // Keep authority fragments out of that third-party console logger.
+        var window = new PhotinoWindow { LogVerbosity = 0 };
         Log("PhotinoWindow created");
 
         var iconFile = ResolveIconFile(desktopContentRoot);
@@ -294,8 +297,7 @@ internal static class DesktopProgram
             setStatus('Local server is ready. Loading the embedded app…');
             if (consecutiveOk >= requiredConsecutiveHealthChecks) {
               navigating = true;
-              logBoot('top-level-navigate', appUrl);
-              window.location.replace(appUrl);
+              logBoot('operator-handoff-ready', 'Waiting for protected window handoff');
               return;
             }
           } else {
@@ -329,14 +331,16 @@ internal static class DesktopProgram
             Log("Window.StartString assigned (embedded mode)");
         }
 
-        window.RegisterWindowCreatedHandler((_, _) => Log("WindowCreated"));
+        var operatorLauncher = new DesktopOperatorLauncher(action => window.Invoke(action), address => window.Load(address), desktopToken, useExternalBrowserShell);
+        window.RegisterWindowCreatedHandler((_, _) => { Log("WindowCreated"); operatorLauncher.WindowCreated(); });
         window.RegisterFocusInHandler((_, _) => Log("WindowFocusIn"));
         window.RegisterFocusOutHandler((_, _) => Log("WindowFocusOut"));
         window.RegisterSizeChangedHandler((_, size) => Log($"WindowSizeChanged={size.Width}x{size.Height}"));
         window.RegisterLocationChangedHandler((_, pos) => Log($"WindowLocationChanged={pos.X},{pos.Y}"));
 
         using var cts = new CancellationTokenSource();
-        var app = GnOuGoAgentWebHost.Build(args, urls: RequestedServerUrl, contentRoot: desktopContentRoot, enableHttpsRedirection: false);
+        var app = GnOuGoAgentWebHost.Build(args, urls: RequestedServerUrl, contentRoot: desktopContentRoot, enableHttpsRedirection: false,
+            configureServices: services => services.AddSingleton<ILocalOperatorBrowserLauncher>(operatorLauncher));
         Log("Web host built");
 
         Task? serverTask = null;
@@ -378,13 +382,7 @@ internal static class DesktopProgram
 
                 if (useExternalBrowserShell)
                 {
-                    Thread.Sleep(250);
-                    Log("Opening browser shell target");
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = appUrl,
-                        UseShellExecute = true
-                    });
+                    Log("Protected browser shell is opened by the operator bootstrap");
                     return;
                 }
 
@@ -411,11 +409,7 @@ internal static class DesktopProgram
                         if (allowExternalBrowserFallback)
                         {
                             Log("Embedded webview still has not reported page-loaded after 15 seconds; opening external browser fallback");
-                            Process.Start(new ProcessStartInfo
-                            {
-                                FileName = appUrl,
-                                UseShellExecute = true
-                            });
+                            DesktopOperatorLauncher.OpenExternal(app.Services.GetRequiredService<LocalOperatorBootstrap>().CreateLaunchAddress(new Uri(url)));
                             return;
                         }
 
@@ -426,11 +420,7 @@ internal static class DesktopProgram
                 if (allowExternalBrowserFallback)
                 {
                     Log("Embedded webview did not report client-ready after extended wait; opening external browser fallback");
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = appUrl,
-                        UseShellExecute = true
-                    });
+                    DesktopOperatorLauncher.OpenExternal(app.Services.GetRequiredService<LocalOperatorBootstrap>().CreateLaunchAddress(new Uri(url)));
                     return;
                 }
 
@@ -438,7 +428,7 @@ internal static class DesktopProgram
             }
             catch (Exception ex)
             {
-                Log($"External browser fallback failed: {ex}");
+                Log($"External browser fallback failed ({ex.GetType().Name})");
             }
         })
         {

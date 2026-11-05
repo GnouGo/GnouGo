@@ -72,10 +72,12 @@ public sealed partial class PlanningSessionService
 
     internal async Task<PlanningSessionDto> ToDtoAsync(PlanningSession state, CancellationToken ct)
     {
-        var dto = PlanningEndpoints.ToDto(state) with { RequestInspection = await InspectRequestAsync(state, ct) };
+        var dto = PlanningEndpoints.ToDto(state) with { RequestInspection = await InspectRequestAsync(state, ct),
+            CanStartWithCurrentSettings = await CanStartWithCurrentSettingsAsync(state, ct) };
         var saved = await records.GetAsync(PlanningBudgetSink.Collection, Tenant, state.Request.SessionId, EfPlanningSessionStore.Author, ct);
         var usage = saved is null ? null : JsonSerializer.Deserialize(saved.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
         return usage is null ? dto : dto with { InputTokens = usage.InputTokens, OutputTokens = usage.OutputTokens,
-            EstimatedCost = usage.EstimatedCost, Currency = usage.EstimatedCostCurrency };
+            EstimatedCost = usage.EstimatedCost, Currency = usage.EstimatedCostCurrency,
+            CostEstimateAvailable = usage.CostEstimateAvailable, CostUnavailableReason = usage.CostUnavailableReason };
     }
 }

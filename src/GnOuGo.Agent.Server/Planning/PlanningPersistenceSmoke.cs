@@ -25,6 +25,20 @@ internal static class PlanningPersistenceSmoke
             .UseSqlite("Data Source=" + database + ";Pooling=False").UseModel(CompiledModels.PlanningDbContextModel.Instance).Options);
         await using (var db = factory.CreateDbContext()) await db.Database.EnsureCreatedAsync();
         var records = KeyVaultRecordStoreFactory.CreateWorkspaceStore(vault, directory);
+        var budgetPolicy = new Configuration.ApplicationLlmBudgetPolicy(records,
+            new ConfigurationBuilder().AddInMemoryCollection().Build(),
+            Microsoft.Extensions.Options.Options.Create(new Configuration.OpenTelemetrySettings { TenantId = "smoke" }),
+            Microsoft.Extensions.Options.Options.Create(new Configuration.WorkflowPlanningBudgetSettings()));
+        await budgetPolicy.InitializeAsync();
+        var operatorContext = new Microsoft.AspNetCore.Http.DefaultHttpContext();
+        operatorContext.Request.Scheme = "http"; operatorContext.Request.Host = new("127.0.0.1");
+        operatorContext.Connection.RemoteIpAddress = IPAddress.Loopback;
+        operatorContext.User = new(new System.Security.Claims.ClaimsIdentity([new System.Security.Claims.Claim(LocalOperatorAccess.Claim, "true")], "smoke"));
+        using var operatorServices = new ServiceCollection().BuildServiceProvider();
+        await budgetPolicy.SetAsync("unlimited", new LocalOperatorAccess(new Microsoft.AspNetCore.Http.HttpContextAccessor { HttpContext = operatorContext }, operatorServices), CancellationToken.None);
+        await budgetPolicy.InitializeAsync();
+        Check(budgetPolicy.Capture()["mode"]?.ToString() == "unlimited" && budgetPolicy.Capture()["origin"]?.ToString() == "operator_preference",
+            "protected application budget preference recovery");
         var store = new EfPlanningSessionStore(factory, records);
         await VerifySessionStorageAsync(store, factory, records, vault, directory);
         await VerifyJudgeRecoveryAsync(directory, vault, factory, records, store);
@@ -40,11 +54,18 @@ internal static class PlanningPersistenceSmoke
         var runs = (IWorkflowRunStore)mappings;
         var run = new WorkflowRun { TenantId = "smoke", RunId = "description-" + Guid.NewGuid().ToString("N") };
         run.Limits.TenantId = run.TenantId; run.Limits.RunId = run.RunId;
+        var tracking = LLMUsageBudgetScope.CreateTrackingOnly();
+        await tracking.ReserveJournaledAttemptAsync("smoke-uncertain", new() { Model = "private-deployment" }, null, 10, 128000, [], "smoke", CancellationToken.None);
+        run.ApplicationLlmBudgetMode = "unlimited"; run.ApplicationLlmBudgetVersion = 1; run.ApplicationLlmBudgetOrigin = "operator_preference";
+        run.ModelUsage = tracking.Snapshot;
         const string description = "Private literal ${metadata}";
         run.Invocations["/workflow/main/step/work"] = new() { Id = "/workflow/main/step/work", StepType = "set", Description = description,
             Status = "completed", Output = JsonNode.Parse("{\"value\":\"exact\"}") };
         await runs.CreateAsync(run, CancellationToken.None);
         var restoredRun = await ((IWorkflowRunStore)reopened).ReadAsync("smoke", run.RunId, CancellationToken.None);
+        Check(restoredRun?.ApplicationLlmBudgetMode == "unlimited" && restoredRun.ModelUsage?.UncertainCalls == 1 &&
+            !restoredRun.ModelUsage.CostEstimateAvailable && restoredRun.ModelUsage.JournaledAttempts!["smoke-uncertain"].VerifiedUsage is null,
+            "tracking-only encrypted accounting recovery");
         Check(restoredRun?.SchemaVersion == 9 && restoredRun.Invocations["/workflow/main/step/work"].Description == description &&
             restoredRun.Invocations["/workflow/main/step/work"].Output?["value"]?.ToString() == "exact", "runtime format-9 receipt recovery");
         foreach (var file in Directory.EnumerateFiles(directory, "*.db*"))

@@ -7,7 +7,7 @@ using GnOuGo.Flow.Integrations;
 namespace GnOuGo.Agent.Server.Tests;
 
 /// <summary>Current scripted responses delivered through the real HTTP journal and provider parser.</summary>
-internal sealed class JournaledPlanningModel(ILLMClient script, bool preserveUsage = false) : ILLMClient, IDisposable
+internal sealed class JournaledPlanningModel(ILLMClient script, bool preserveUsage = false, LLMOptions? modelOptions = null) : ILLMClient, IDisposable
 {
     private readonly Handler _handler = new(preserveUsage);
     private HttpClient? _http;
@@ -21,6 +21,7 @@ internal sealed class JournaledPlanningModel(ILLMClient script, bool preserveUsa
         var client = new RoutingLLMClientAdapter(new RoutingLLMClient(_http, new LLMOptions
         {
             DefaultProvider = provider, DefaultModel = request.Model,
+            ModelOverrides = modelOptions?.ModelOverrides ?? new(StringComparer.OrdinalIgnoreCase),
             Models = { [provider] = new() { Type = "openai", Url = "https://example.invalid/v1/chat/completions" } }
         }));
         return await client.CallAsync(request, ct);

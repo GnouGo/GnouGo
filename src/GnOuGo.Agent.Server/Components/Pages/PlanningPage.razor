@@ -13,7 +13,7 @@
 
 <PageTitle>Workflow designer</PageTitle>
 <main id="planningReview" data-interactive="@(_interactiveReady ? "true" : "false")" class="container py-4" style="max-width:1100px;margin:auto;padding:1.5rem">
-    <a href="/">← Back to chat</a> · <a href="/runs">Workflow executions</a>
+    <a href="/">← Back to chat</a> · <a href="/runs">Workflow executions</a> · <a href="/settings/llm-budget">Application LLM budget</a>
     <h1>Workflow designer</h1>
     @if (_error is not null) { <p role="alert" class="text-danger">@_error</p> }
     @if (_commandError is not null) { <p role="alert" class="text-danger">@_commandError</p> }
@@ -32,12 +32,13 @@
     else if (_state is null)
     {
         <p>Describe the workflow you need. Review its steps and validation results before approving it.</p>
+        <p id="application-budget-summary">@(Services.GetRequiredService<GnOuGo.Agent.Server.Configuration.ApplicationLlmBudgetPolicy>().Mode == "unlimited" ? "Unlimited — usage and costs tracked" : "Limited — configured application ceilings")</p>
         <form @onsubmit="StartAsync" @onsubmit:preventDefault>
             <label for="plan-mode">Planning mode</label><select id="plan-mode" @bind="_mode"><option value="interactive">Interactive</option><option value="auto">Auto</option></select>
             @if (_diagnosticAvailable)
             {
                 <label for="plan-thresholds">Threshold policy</label><select id="plan-thresholds" @bind="_thresholdMode"><option value="strict">Strict</option><option value="diagnostic">Diagnostic — thresholds are warnings</option></select>
-                <p>Diagnostic output allocations use verified model/deployment capacity. Financial admission and execution approval remain mandatory.</p>
+                <p>Diagnostic output allocations use verified model/deployment capacity. The captured application budget policy applies; execution requires approval.</p>
             }
             else { <PlanningDebugHelp /> }
             <label for="plan-name">Agent name</label><input id="plan-name" class="form-control" @bind="_name" required />
@@ -69,7 +70,7 @@
         </p>
         @if (IsWorkflowSession) { <p>This session is read-only here. Continue approvals and execution in the originating chat workflow.</p> }
         <p aria-live="polite"><strong>@Phase(_state.Status)</strong> · @CurrentPhase · Revision @_state.Revision</p>
-        <p>@CallsUsed / @CallCeiling @(PlanningTokenThresholds.OptimizationAdvisory(_state.Request) ? "model calls (advisory target)" : "model calls") · @_state.ReplanAttempts replans · @TimeSpan.FromMilliseconds(_state.ActiveMilliseconds).ToString(@"hh\:mm\:ss") active</p>
+        <p>@CallsUsed model calls · @(PlanningApplicationBudget.TrackingOnly(_state.Request) ? "Unlimited — usage and costs tracked" : $"Limited — {CallCeiling} calls ({(PlanningTokenThresholds.OptimizationAdvisory(_state.Request) ? "advisory" : "mandatory")})") · @_state.ReplanAttempts replans · @TimeSpan.FromMilliseconds(_state.ActiveMilliseconds).ToString(@"hh\:mm\:ss") active</p>
         @if (_state.Construction is { } construction)
         {
             <p role="status">@construction.Checkpoints.Count accepted drafts · @construction.OpenScopes.Count open scopes
@@ -81,8 +82,13 @@
             <p>The session model-call allowance is exhausted. Input/output token limits do not extend this cumulative budget.
                 <a href="/planning">Start a new planning session</a>. Existing requests and accounting are retained.</p>
         }
-        @if (_inspectionDto is { } inspected) { <p>Estimated cost @inspected.EstimatedCost.ToString("0.00") @inspected.Currency</p> }
-        else if (_state.Usage is { } usage) { <p>Estimated cost @usage.EstimatedCost.ToString("0.00") @usage.EstimatedCostCurrency</p> }
+        @if (_inspectionDto is { } inspected) { <p>Estimated cost: @(inspected.CostEstimateAvailable ? $"{inspected.EstimatedCost:0.00} {inspected.Currency}" : $"unavailable ({inspected.CostUnavailableReason})")</p> }
+        else if (_state.Usage is { } usage) { <p>Estimated cost: @(usage.CostEstimateAvailable ? $"{usage.EstimatedCost:0.00} {usage.EstimatedCostCurrency}" : $"unavailable ({usage.CostUnavailableReason})")</p> }
+        @if (!IsWorkflowSession && _diagnosticAvailable && _inspectionDto?.CanStartWithCurrentSettings == true)
+        {
+            <p>No dispatch or reservation was found. The original session will be preserved.</p>
+            <button id="start-with-current-settings" disabled="@_busy" @onclick="StartWithCurrentSettingsAsync">Start new plan with current settings</button>
+        }
         @if (_requestInspection?.CancellationRequested == true)
         { <p role="status">Cancellation requested. Waiting for the owner to stop; completed responses and accounting will be retained.</p> }
         else if (_requestInspection?.State == "active" && _state.Status != PlanningStatus.Stopped)
@@ -108,6 +114,13 @@
             <h3>Findings</h3><ul>@foreach (var diagnostic in _state.Diagnostics.DistinctBy(d => (d.Code, d.Location, d.Message)))
             {
                 <li><strong>@diagnostic.Code</strong>: @diagnostic.Message <small>@diagnostic.Location</small>
+                    @if (diagnostic.BudgetFailure is { } failure)
+                    {
+                        <dl><dt>Scope / origin</dt><dd>@(failure.Scope ?? "unavailable") / @(failure.Origin ?? "unavailable")</dd>
+                            <dt>Allowance / required reservation</dt><dd>@(failure.Allowance?.ToString() ?? "unavailable") / @(failure.RequiredReservation?.ToString() ?? "unavailable") @(failure.Currency ?? "unavailable")</dd>
+                            <dt>Dispatch</dt><dd>@(failure.DispatchStatus ?? "unavailable")</dd></dl>
+                    }
+                    else if (diagnostic.Code.StartsWith("LLM_BUDGET_", StringComparison.Ordinal)) { <p>Historical budget failure details are unavailable.</p> }
                     @if (diagnostic.Prerequisite is { } prerequisite)
                     {
                         <p>@prerequisite.Description</p>
@@ -238,7 +251,7 @@
     private int CallCeiling => _state is null ? 0 : Math.Min(_state.Request.MaxModelCalls,
         PlanningBudgetOptions.Parse(_state.Request.Options)?.MaxCalls ?? _state.Request.MaxModelCalls);
     private long CallsUsed => _state is null ? 0 : Math.Max(_state.ModelCalls, _state.Usage?.Calls ?? 0);
-    private bool IsCallBudgetExhausted => _state is not null && !PlanningTokenThresholds.OptimizationAdvisory(_state.Request) && CallsUsed >= CallCeiling;
+    private bool IsCallBudgetExhausted => _state is not null && !PlanningApplicationBudget.TrackingOnly(_state.Request) && !PlanningTokenThresholds.OptimizationAdvisory(_state.Request) && CallsUsed >= CallCeiling;
     private string? CurrentPhase => IsCallBudgetExhausted && _state is { Plan: null, Phase: PlanningPhase.Replanning }
         ? PlanningPhase.Tasks : _state?.Phase;
     private bool IsInputBudgetStop => _state is { Status: PlanningStatus.Stopped, PendingCall: null }
@@ -329,6 +342,19 @@
         try { var state = await Planning.StartAsync(_name, _prompt, _reviseExisting, _lifetime.Token, mode: _mode, constructionPreset: string.IsNullOrEmpty(_constructionPreset) ? null : _constructionPreset, thresholdMode: _thresholdMode,
             diagnosticGrant: _thresholdMode == "diagnostic" ? await Services.GetRequiredService<LocalOperatorAccess>().GrantAsync() : null); Navigation.NavigateTo("/planning/" + state.Request.SessionId); }
         catch (Exception ex) { _error = ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task StartWithCurrentSettingsAsync()
+    {
+        if (_state is null) return;
+        _busy = true;
+        try
+        {
+            var created = await Planning.StartWithCurrentSettingsAsync(_state.Request.SessionId, Services.GetRequiredService<LocalOperatorAccess>(), _lifetime.Token);
+            Navigation.NavigateTo("/planning/" + created.Request.SessionId);
+        }
+        catch (Exception ex) { _commandError = ex.Message; }
         finally { _busy = false; }
     }
     private static string RevisionLocationLabel(string path) => path.Split('/') is ["", "tasks", var task, ..] ? "Task " + task : "Binding";

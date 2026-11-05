@@ -368,7 +368,8 @@ public static class GnOuGoAgentWebHost
                 StaticQuotes = workflowPlanningBudget.CreateStaticQuotes()
             }));
         builder.Services.TryAddSingleton<ILLMUsageBudgetScopeFactory>(sp =>
-            new ConfiguredExecutionBudgetFactory(executionBudget, sp.GetRequiredService<IExchangeRateProvider>()));
+            new ConfiguredExecutionBudgetFactory(executionBudget, sp.GetRequiredService<IExchangeRateProvider>(), sp.GetRequiredService<ApplicationLlmBudgetPolicy>()));
+        builder.Services.AddSingleton<ApplicationLlmBudgetPolicy>();
         var localModelsDirectory = GnOuGoWorkspace.ResolveLocalModelsDirectory(applicationBasePath);
         builder.Services.AddSingleton<ILocalLLMRuntime>(sp => new LlamaSharpLocalLLMRuntime(
             localModelsDirectory,
@@ -552,6 +553,7 @@ public static class GnOuGoAgentWebHost
         app.Services.InitializeDocsIngestorMcpAsync().GetAwaiter().GetResult();
 
         app.Services.GetRequiredService<LlmDefaultsResolver>().InitializeAsync().GetAwaiter().GetResult();
+        app.Services.GetRequiredService<ApplicationLlmBudgetPolicy>().InitializeAsync().GetAwaiter().GetResult();
         ValidateLocalFallback(app.Services.GetRequiredService<LLMRuntimeOptionsStore>().Current);
 
         app.Services.InitializeOtlpCollectorAsync().GetAwaiter().GetResult();
@@ -659,7 +661,7 @@ public static class GnOuGoAgentWebHost
             if (context.GetEndpoint()?.Metadata.GetMetadata<LocalOperatorRequired>() is not null &&
                 (!LocalOperatorAccess.IsLocal(context) || !context.User.HasClaim(LocalOperatorAccess.Claim, "true")))
             { context.Response.StatusCode = 403; await context.Response.WriteAsync("LLM inspection requires the protected local operator window opened by the Diagnostic launch profile."); return; }
-            if ((planning || path.StartsWithSegments("/api/chat") && context.User.HasClaim(LocalOperatorAccess.Claim, "true")) &&
+            if ((planning || path.StartsWithSegments("/api/application-llm-budget") || path.StartsWithSegments("/api/chat") && context.User.HasClaim(LocalOperatorAccess.Claim, "true")) &&
                 path.StartsWithSegments("/api") && !HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method))
             {
                 try { await context.RequestServices.GetRequiredService<Microsoft.AspNetCore.Antiforgery.IAntiforgery>().ValidateRequestAsync(context); }

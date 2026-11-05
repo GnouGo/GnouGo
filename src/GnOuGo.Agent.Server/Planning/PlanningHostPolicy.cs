@@ -10,19 +10,39 @@ using Microsoft.Extensions.Options;
 namespace GnOuGo.Agent.Server.Planning;
 
 /// <summary>Authority is an encrypted host record bound to immutable creation settings, not an option string.</summary>
-public sealed class PlanningHostPolicy(IKeyVaultRecordStore records, IOptions<TypedWorkflowPlanningSettings> settings)
+public sealed class PlanningHostPolicy(IKeyVaultRecordStore records, IOptions<TypedWorkflowPlanningSettings> settings,
+    ApplicationLlmBudgetPolicy? budgetPolicy = null)
 {
     private const string Collection = "agent-planning-host-authority-v1";
     internal const string CaptureOption = "agent_host_policy";
 
     internal async Task CaptureAsync(PlanningSession state, GnOuGo.AI.Core.LLMOptions options,
-        string thresholdMode, PlanningDiagnosticGrant? grant, CancellationToken ct, PlanningSession? creation = null)
+        string thresholdMode, PlanningDiagnosticGrant? grant, CancellationToken ct, PlanningSession? creation = null, bool applicationOwnsLimits = false)
     {
         if (thresholdMode is not ("strict" or "diagnostic")) throw new ArgumentException("Unknown threshold mode.");
         PlanningTokenThresholds.RejectReserved(state.Request.Options);
         if (thresholdMode == "diagnostic" && (!settings.Value.DiagnosticEnabled || grant is null))
             throw new UnauthorizedAccessException("Diagnostic planning requires server enablement and a local operator grant.");
         state.Construction ??= new();
+        if (budgetPolicy is not null)
+        {
+            state.Request.Options[PlanningApplicationBudget.OptionName] = budgetPolicy.Capture();
+            var capturedBudget = state.Request.Options[PlanningApplicationBudget.OptionName]!.AsObject();
+            capturedBudget["applicationOwnsLimits"] = applicationOwnsLimits;
+            if (capturedBudget["mode"]!.ToString() == "limited")
+                capturedBudget["planningLimits"] = new JsonObject
+                {
+                    ["max_calls"] = settings.Value.Calls(state.Request.Options["construction_preset"]?.ToString() ?? "ordinary"),
+                    ["max_total_tokens"] = settings.Value.MaxTotalTokens,
+                    ["max_elapsed_ms"] = settings.Value.MaxActiveMilliseconds,
+                    ["max_estimated_cost"] = new JsonObject { ["amount"] = budgetPolicy.PlanningAllowance.Amount, ["currency"] = budgetPolicy.PlanningAllowance.Currency }
+                };
+            if (applicationOwnsLimits && PlanningApplicationBudget.TrackingOnly(state.Request)) state.Request.Options.Remove("llm_budget");
+            else if (!applicationOwnsLimits && state.Request.Options["llm_budget"] is not null)
+                state.Request.Options[PlanningApplicationBudget.OptionName]!["explicitWorkflowLimits"] = true;
+            else if (!applicationOwnsLimits && capturedBudget["mode"]!.ToString() == "limited")
+                state.Request.Options["llm_budget"] = capturedBudget["planningLimits"]!.DeepClone();
+        }
         var metadata = CapturedPlanningModel.Capture(state.Request, options);
         var deploymentCap = options.ResolveProvider(state.Request.Options["generator"]!["provider"]!.GetValue<string>())!.RequestPolicy.MaxOutputTokensCap;
         state.Request.Options["model_capacity"] = new JsonObject
@@ -100,7 +120,7 @@ public sealed class PlanningHostPolicy(IKeyVaultRecordStore records, IOptions<Ty
             ["maxModelCalls"] = request.MaxModelCalls, ["maxReplanAttempts"] = request.MaxReplanAttempts,
             ["policy"] = JsonSerializer.SerializeToNode(request.Policy, PlanningJsonContext.Default.PlanningPolicy) };
         foreach (var key in new[] { CaptureOption, PlanningTokenThresholds.OptionName, PlanningTokenThresholds.OptimizationOptionName,
-                     "diagnostic_progress_policy", "generator", "construction_limits", "llm_budget", CapturedPlanningModel.OptionName, "allocation_origin", "agent_generation_at_creation", "model_capacity",
+                     "diagnostic_progress_policy", "generator", "construction_limits", "llm_budget", PlanningApplicationBudget.OptionName, CapturedPlanningModel.OptionName, "allocation_origin", "agent_generation_at_creation", "model_capacity",
                      "automatic_correction", "clarification_policy", "construction_preset", "compilation_profile", "mapping_profile", "planning_validation_profile", "business_selection_contract", "host_save" })
             capture[key] = options[key]?.DeepClone();
         return capture;

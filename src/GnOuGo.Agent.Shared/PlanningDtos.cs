@@ -17,6 +17,7 @@ public sealed record PlanningQuestionDto(string Id, string Question, IReadOnlyLi
 public sealed record PlanningAnswerDto(string QuestionId, string? AlternativeId = null, string? Text = null);
 public sealed record PlanningValidationDto(string Code, string Location, string Message, bool Required)
 {
+    public JsonObject? BudgetFailure { get; init; }
     public string? ValidationStage { get; init; }
     public string? Rule { get; init; }
     public PlanningPrerequisiteContextDto? Prerequisite { get; init; }
@@ -34,6 +35,9 @@ public sealed record PlanningSessionDto(string Id, string Name, long Revision, s
     public int SchemaVersion { get; init; } = 11;
     public string ThresholdMode { get; init; } = "strict";
     public JsonObject? EffectivePolicy { get; init; }
+    public bool CostEstimateAvailable { get; init; }
+    public string? CostUnavailableReason { get; init; }
+    public bool CanStartWithCurrentSettings { get; init; }
     public JsonObject? OverallProgress { get; init; }
     public IReadOnlyList<PlanningInspectionEventDto> Events { get; init; } = [];
     public IReadOnlyList<PlanningThresholdWarningDto> ThresholdWarnings { get; init; } = [];

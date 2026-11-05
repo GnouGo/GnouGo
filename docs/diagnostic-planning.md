@@ -18,7 +18,7 @@ token for an eight-hour HttpOnly, SameSite=Strict protected cookie, and removes 
 token from browser history. Tokens never enter HTTP URLs or application logs.
 Restart the server for a fresh bootstrap window. Remote addresses, non-loopback
 hosts and foreign origins cannot activate or read diagnostics. Provider settings,
-money ceilings, workspace rules, approvals and replay restrictions remain effective.
+captured Limited ceilings, workspace rules, approvals and replay restrictions remain effective.
 
 Threshold policy is independent of Interactive/Auto and Ordinary/Large. The chat bridge
 passes the authenticated grant outside model-authored workflow inputs. Standalone
@@ -32,7 +32,7 @@ Headless hosts can set `OpenLocalOperatorBrowser=false`. `DiagnosticModelMaximum
 defaults to true: navigation, drafting/correction and review each request the
 verified model output maximum, restricted by an explicit deployment cap. False uses
 configured phase allocations. There is no artificial 65,536 output ceiling.
-Financial admission can refuse the complete reservation, never silently reduce it.
+In Limited mode, financial admission can refuse the complete reservation, never silently reduce it.
 Requested/effective allocations and restriction origins remain inspectable.
 
 The OpenTelemetry trace panel opens on **Pipeline / LLM calls**. Capture is enabled
@@ -40,6 +40,43 @@ by default; full redacted inputs/outputs load on demand from encrypted storage.
 Exported spans carry measurements and content references, not business prompt or
 response bodies. Existing collector endpoints and explicit export opt-outs remain
 unchanged.
+
+## Application LLM consumption
+
+Desktop and standalone Server default to **Unlimited — usage and costs tracked**,
+independently of environment. Open **Application LLM budget** in the Designer
+(`/settings/llm-budget`) to save Limited or Unlimited. A saved, encrypted local
+operator preference overrides `ApplicationLlmBudget:Mode`; its values are
+`unlimited` (default) and `limited`. Changes apply only to new plans and executions.
+The setting uses the same protected local operator session; HTTP edits also require
+antiforgery. It is not a workflow/model-authored option.
+
+Limited uses `WorkflowPlanningBudget` (the configured €50 default) and the existing
+planning targets, and `Flow:Execution:LlmBudget` for executions. Diagnostic planning
+targets retain their advisory behavior; monetary ceilings remain mandatory in Limited.
+Unlimited uses an explicit tracking-only scope with no application monetary,
+cumulative call/token or total LLM-time ceiling. Ordinary finite contracts still
+require positive configured limits. Explicit workflow-owned limits remain mandatory.
+Provider quotas/charges, physical capacity, finite request timeouts, bounded retries,
+cancellation, reviews, semantic validation, approvals and execution CPU/memory,
+iteration/concurrency limits remain effective.
+
+Accounting persists usage, exact captured tariff estimates, physical attempts and
+uncertain reservations. Unavailable prices or exchange quotes are labelled unavailable;
+they do not block Unlimited or mean zero cost. Existing sessions/runs keep their
+original captures, charges and reservations on restart, including the retained incident.
+
+Desktop hands the existing one-use fragment bootstrap into Photino and exchanges it
+for the protected cookie there. Its opt-in browser fallback uses a new one-use link.
+Authority links are never written to Desktop boot logs. Native window automation is
+separate from the controlled HTTP/Blazor handoff check.
+
+A stopped budget session can offer **Start new plan with current settings** after
+checking the session lease, counters, encrypted request/receipt/HTTP journals and
+reservations for absence of dispatch. This creates a new identity; the original
+remains unchanged. Missing or uncertain dispatch evidence cannot authorize replay.
+New budget failures retain scope, origin, allowance, required reservation, currency
+and dispatch state; old failures without those fields explicitly show unavailable.
 
 ## Effective default model
 
@@ -67,14 +104,16 @@ metadata from today's catalog.
 
 | Limit or invariant | Strict | Fresh authorized diagnostic session |
 | --- | --- | --- |
-| Calls, corrections, active planning time | Enforced | Durable warnings through downstream adapters |
+| Application cumulative calls/tokens/LLM time | No ceiling in Unlimited; captured limits in Limited | No ceiling in Unlimited; Limited planning targets remain advisory |
+| Corrections, active planning targets | Enforced | Durable warnings through downstream adapters |
 | Estimated input, cumulative tokens, context and prompt/response targets | Enforced according to capture | Warnings; complete mandatory context retained |
 | Fragments, checkpoints, blocks, operations, nodes, graph/frontier and recursive task counts | Enforced | Warnings; planner-owned schema maxima removed |
 | Discovery/retrieval targets, nonproductive-call counts | Enforced | Warnings; exact source identities/pagination required |
 | Completed repeated generation strategy | Stops with retained evidence | Warns under separately captured `diagnostic_progress_policy: advisory-v1`; retains rejection, receipts and repeat history |
 | Invalid/empty output, cardinality, types, references, uniqueness, expression rules | Reject | Reject; invalid work never becomes accepted progress |
 | Business judges, mandatory reviews, permissions, ownership, artifact approval, workspace confinement | Required | Required |
-| Financial ceiling, future-review and unknown-usage reservations | Required | Required; no automatic supplement or release |
+| Application financial ceiling | Mandatory in Limited; absent in Unlimited | Mandatory in Limited; absent in Unlimited |
+| Future-review/unknown-usage accounting; explicit workflow limits | Retained / enforced | Retained / enforced; no uncertain replay or automatic release |
 | Verified provider context/output/endpoint/reasoning capabilities | Required | Required; no protocol/model fallback |
 | Per-request timeout, bounded HTTP retries, cancellation | Required | Required; session targets cannot replace request timeout |
 | Uncertain dispatch, incomplete HTTP body, effects, invalid/cyclic discovery continuation | No blind replay | No blind replay |
@@ -82,7 +121,7 @@ metadata from today's catalog.
 
 Historical token-only and diagnostic optimization captures keep their original
 scope and repeat behavior. Advisory targets never widen repair authority or alter
-contracts. Output allocations require physical and financial admission before
+contracts. Output allocations require physical and applicable captured financial admission before
 request hashing/reservation.
 
 ## Timeline and exchanges

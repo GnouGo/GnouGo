@@ -21,6 +21,22 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class RuntimeExecutionBudgetTests
 {
+    [Fact]
+    public async Task UnlimitedExecutionTracksUsageAndKeepsCapturedPolicyDuringRecovery()
+    {
+        var model = new BudgetModel();
+        await using var host = BudgetHost.Create(TwoCallsYaml, model, new FakeMcpClientFactory(),
+            ["--ApplicationLlmBudget:Mode=unlimited", "--Flow:Execution:LlmBudget:MaxCalls=1", "--Flow:Execution:LlmBudget:MaxTotalTokens=1"]);
+        Assert.True(host.App.Services.GetRequiredService<ILLMUsageBudgetScopeFactory>().CreateScope()!.IsTrackingOnly);
+        var events = await host.ExecuteAsync("unlimited", Ct);
+        Assert.DoesNotContain(events, e => e.Type == "error"); Assert.Equal(2, model.Calls);
+        var run = (await host.Store.ReadAsync("local", "unlimited", Ct))!;
+        Assert.Equal("unlimited", run.ApplicationLlmBudgetMode); Assert.Null(run.ModelBudget); Assert.Equal(2, run.ModelUsage!.Calls);
+        await host.App.Services.GetRequiredService<ApplicationLlmBudgetPolicy>().SetAsync("limited", ApplicationLlmBudgetTests.Access(true), Ct);
+        var resumed = await host.App.Services.GetRequiredService<WorkflowRunService>().CommandAsync("unlimited", "resume", new(run.Revision), Ct);
+        Assert.Equal("unlimited", resumed.ApplicationLlmBudgetMode); Assert.Equal(2, model.Calls);
+    }
+
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     internal const string AdaptiveYaml = """
         version: 1
@@ -328,8 +344,10 @@ public sealed class RuntimeExecutionBudgetTests
         if (!success) Assert.Equal(ErrorCodes.LlmBudgetExceeded, resumed.Result.Error!.Code);
     }
 
-    [Fact]
-    public async Task UnknownCompletionRemainsBlockedWithoutCleanupOrReplay()
+    [Theory]
+    [InlineData("limited")]
+    [InlineData("unlimited")]
+    public async Task UnknownCompletionRemainsBlockedWithoutCleanupOrReplay(string mode)
     {
         var model = new BudgetModel { Unknown = true }; var effects = 0;
         var transport = new FakeMcpClientFactory(new FakeMcpSession("fixture").OnTool("effect", (_, _) =>
@@ -341,7 +359,7 @@ public sealed class RuntimeExecutionBudgetTests
                 steps: [{id: uncertain, type: llm.call, input: {model: gpt-4o-mini, prompt: observed}}]
                 finally: [{id: cleanup, type: mcp.call, input: {server: fixture, method: effect, arguments: {}}}]
             """;
-        await using var host = BudgetHost.Create(yaml, model, transport, ["--Flow:Execution:LlmBudget:MaxCalls=2"]);
+        await using var host = BudgetHost.Create(yaml, model, transport, ["--Flow:Execution:LlmBudget:MaxCalls=2", "--ApplicationLlmBudget:Mode=" + mode]);
         // The existing revision prompt for transport failures is not answered or advanced.
         await foreach (var evt in host.App.Services.GetRequiredService<SmartFlowService>().ExecuteAsync("fixture", "uncertain", "budget-fixture", Ct))
             if (evt.Type == "human_input_request") break;
@@ -350,6 +368,7 @@ public sealed class RuntimeExecutionBudgetTests
         var resumed = await host.App.Services.GetRequiredService<WorkflowRunService>().CommandAsync("uncertain", "resume", new(saved.Revision), Ct);
         Assert.False(resumed.Result!.Success); Assert.Equal(1, model.Calls); Assert.Equal(0, effects);
         Assert.Equal(1, resumed.ModelUsage!.Calls);
+        if (mode == "unlimited") { Assert.Equal(1, resumed.ModelUsage.UncertainCalls); Assert.False(resumed.ModelUsage.CostEstimateAvailable); }
     }
 
     [Fact]
@@ -427,7 +446,7 @@ internal sealed class BudgetHost(WebApplication app, IWorkflowRunStore store, st
     internal static BudgetHost Create(string yaml, ILLMClient model, IMcpClientFactory transport, string[] budgetArgs,
         IWorkflowRunStore? store = null, Action<IServiceCollection>? configure = null, bool withoutAppSettings = false)
     {
-        var args = TelemetryTestHostArgs.Create(["--OpenTelemetry:TenantId=local", .. budgetArgs]);
+        var args = TelemetryTestHostArgs.Create(["--OpenTelemetry:TenantId=local", "--ApplicationLlmBudget:Mode=limited", .. budgetArgs]);
         var directory = Path.GetDirectoryName(args.Single(a => a.StartsWith("--Database:Path=", StringComparison.Ordinal))["--Database:Path=".Length..])!;
         store ??= new InMemoryWorkflowRunStore();
         var agent = new FakeMcpSession(AgentMcpHostingExtensions.ServerName).OnTool("agent_get_by_name", new JsonObject

@@ -101,6 +101,12 @@ public sealed class LocalOperatorBootstrap
     private readonly object _gate = new();
     private string? _token;
     private DateTimeOffset _expires;
+    public Uri CreateLaunchAddress(Uri serverAddress)
+    {
+        if (!serverAddress.IsLoopback || serverAddress.Scheme is not ("http" or "https"))
+            throw new ArgumentException("Operator bootstrap requires a loopback HTTP host.");
+        return new Uri(serverAddress.GetLeftPart(UriPartial.Authority) + "/local-operator#" + Issue());
+    }
     internal string Issue()
     {
         lock (_gate) { _token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)); _expires = DateTimeOffset.UtcNow.AddMinutes(5); return _token; }
@@ -119,10 +125,10 @@ public sealed class LocalOperatorBootstrap
         app.MapGet("/local-operator", () => Results.Content("""
             <!doctype html><html lang="en"><meta charset="utf-8"><title>Local operator</title>
             <body><h1>Local operator access</h1><p id="status">Opening the protected local planning interface…</p>
-            <script>(async()=>{const t=location.hash.slice(1);history.replaceState(null,'','/local-operator');
+            <script>(async()=>{const t=location.hash.slice(1),d=new URLSearchParams(location.search).get('desktopToken');history.replaceState(null,'','/local-operator');
             if(!t){document.getElementById('status').textContent='Restart the local server to open an authenticated operator window.';return;}
             const r=await fetch('/local-operator/session',{method:'POST',headers:{'Content-Type':'text/plain'},body:t});
-            if(r.ok)location.replace('/planning');else document.getElementById('status').textContent='This operator link expired or was already used. Restart the local profile.';})();</script></body></html>
+            if(r.ok)location.replace(d&&/^[a-f0-9]{32}$/.test(d)?'/?desktopToken='+d:'/planning');else document.getElementById('status').textContent='This operator link expired or was already used. Restart the local profile.';})();</script></body></html>
             """, "text/html"));
         app.MapPost("/local-operator/session", async (HttpContext context, LocalOperatorBootstrap bootstrap) =>
         {
@@ -138,8 +144,7 @@ public sealed class LocalOperatorBootstrap
             {
                 var url = Hosting.GnOuGoAgentWebHost.ResolvePublishedEndpoints(app).AppBaseAddress;
                 if (!Uri.TryCreate(url, UriKind.Absolute, out var address) || !address.IsLoopback) return;
-                var token = app.Services.GetRequiredService<LocalOperatorBootstrap>().Issue();
-                try { app.Services.GetRequiredService<ILocalOperatorBrowserLauncher>().Open(new Uri(address.AbsoluteUri.TrimEnd('/') + "/local-operator#" + token)); }
+                try { app.Services.GetRequiredService<ILocalOperatorBrowserLauncher>().Open(app.Services.GetRequiredService<LocalOperatorBootstrap>().CreateLaunchAddress(address)); }
                 catch (Exception ex)
                 {
                     app.Logger.LogWarning("The local operator browser could not be opened ({ErrorType}). Ordinary strict planning remains available.", ex.GetType().Name);
