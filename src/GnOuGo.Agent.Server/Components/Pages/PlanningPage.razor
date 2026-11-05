@@ -5,6 +5,7 @@
 @using GnOuGo.Flow.Core.Planning
 @using GnOuGo.Flow.Planning
 @using System.Text.Json.Nodes
+@inject IServiceProvider Services
 @inject PlanningSessionService Planning
 @inject NavigationManager Navigation
 @inject IJSRuntime Js
@@ -33,6 +34,11 @@
         <p>Describe the workflow you need. Review its steps and validation results before approving it.</p>
         <form @onsubmit="StartAsync" @onsubmit:preventDefault>
             <label for="plan-mode">Planning mode</label><select id="plan-mode" @bind="_mode"><option value="interactive">Interactive</option><option value="auto">Auto</option></select>
+            @if (_diagnosticAvailable)
+            {
+                <label for="plan-thresholds">Threshold policy</label><select id="plan-thresholds" @bind="_thresholdMode"><option value="strict">Strict</option><option value="diagnostic">Diagnostic — thresholds are warnings</option></select>
+                <p>Diagnostic output allocations use verified model/deployment capacity. Financial admission and execution approval remain mandatory.</p>
+            }
             <label for="plan-name">Agent name</label><input id="plan-name" class="form-control" @bind="_name" required />
             <label for="plan-prompt">What should this agent do?</label><textarea id="plan-prompt" class="form-control" rows="7" @bind="_prompt" required></textarea>
             <label><input type="checkbox" @bind="_reviseExisting" /> Revise an existing agent with this name</label>
@@ -62,7 +68,7 @@
         </p>
         @if (IsWorkflowSession) { <p>This session is read-only here. Continue approvals and execution in the originating chat workflow.</p> }
         <p aria-live="polite"><strong>@Phase(_state.Status)</strong> · @CurrentPhase · Revision @_state.Revision</p>
-        <p>@CallsUsed / @CallCeiling model calls · @_state.ReplanAttempts replans · @TimeSpan.FromMilliseconds(_state.ActiveMilliseconds).ToString(@"hh\:mm\:ss") active</p>
+        <p>@CallsUsed / @CallCeiling @(PlanningTokenThresholds.OptimizationAdvisory(_state.Request) ? "model calls (advisory target)" : "model calls") · @_state.ReplanAttempts replans · @TimeSpan.FromMilliseconds(_state.ActiveMilliseconds).ToString(@"hh\:mm\:ss") active</p>
         @if (_state.Construction is { } construction)
         {
             <p role="status">@construction.Checkpoints.Count accepted drafts · @construction.OpenScopes.Count open scopes
@@ -80,6 +86,7 @@
         { <p role="status">Cancellation requested. Waiting for the owner to stop; completed responses and accounting will be retained.</p> }
         else if (_requestInspection?.State == "active" && _state.Status != PlanningStatus.Stopped)
         { <p role="status">A worker owns this planning request. Its completion will be recorded before further planning.</p> }
+        <PlanningDiagnostics Session="PlanningEndpoints.ToDto(_state)" Workflow="IsWorkflowSession" />
         <p>@_state.Requirements?.Summary</p>
         <PlannerDiscovery @key="(_state.Request.SessionId, IsWorkflowSession)" Session="_state" Workflow="IsWorkflowSession" />
         @if (_state.Graph is { } graph)
@@ -192,7 +199,7 @@
             {
                 <label>Planning mode<select @bind="_mode"><option value="interactive">Interactive</option><option value="auto">Auto</option></select></label>
                 <button disabled="@_busy" @onclick='() => SubmitAsync("configure_mode", mode: _mode)'>Apply planning mode</button>
-                <details open="@IsInputBudgetStop"><summary>Generation settings</summary>
+                <details id="planning-generation-settings" open="@IsInputBudgetStop"><summary>Generation settings</summary>
                     <label>Reasoning<select class="form-select" @bind="_reasoning"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
                     <label>Input token limit<input type="number" @bind="_inputLimit" /></label>
                     <label>Output token limit<input type="number" @bind="_outputLimit" /></label>
@@ -230,7 +237,7 @@
     private int CallCeiling => _state is null ? 0 : Math.Min(_state.Request.MaxModelCalls,
         PlanningBudgetOptions.Parse(_state.Request.Options)?.MaxCalls ?? _state.Request.MaxModelCalls);
     private long CallsUsed => _state is null ? 0 : Math.Max(_state.ModelCalls, _state.Usage?.Calls ?? 0);
-    private bool IsCallBudgetExhausted => _state is not null && CallsUsed >= CallCeiling;
+    private bool IsCallBudgetExhausted => _state is not null && !PlanningTokenThresholds.OptimizationAdvisory(_state.Request) && CallsUsed >= CallCeiling;
     private string? CurrentPhase => IsCallBudgetExhausted && _state is { Plan: null, Phase: PlanningPhase.Replanning }
         ? PlanningPhase.Tasks : _state?.Phase;
     private bool IsInputBudgetStop => _state is { Status: PlanningStatus.Stopped, PendingCall: null }
@@ -242,6 +249,8 @@
     private string _name = "", _prompt = "", _revision = "", _reasoning = "medium";
     private string _mode = PlanningMode.Interactive;
     private string _constructionPreset = "";
+    private string _thresholdMode = "strict";
+    private bool _diagnosticAvailable;
     private int _inputLimit, _outputLimit;
     private string? _error;
     private string? _commandError;
@@ -251,6 +260,9 @@
     private long _renderedRevision = -1;
     protected override async Task OnParametersSetAsync()
     {
+        if (Services.GetService<LocalOperatorAccess>() is { } access && !await access.CanInspectAsync())
+        { _error = "Protected planning access requires the local operator window opened by the Diagnostic launch profile."; return; }
+        _diagnosticAvailable = Services.GetService<Microsoft.Extensions.Options.IOptions<GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings>>()?.Value.DiagnosticEnabled == true;
         _viewVersion++;
         CloseTraces(); _traceSessionId = null;
         _state = null; _reviewedRequirements = []; _revisionPaths.Clear(); _entry = null; _renderedRevision = -1; _error = null; _commandError = null;
@@ -311,7 +323,8 @@
     private async Task StartAsync()
     {
         _busy = true; _error = null;
-        try { var state = await Planning.StartAsync(_name, _prompt, _reviseExisting, _lifetime.Token, mode: _mode, constructionPreset: string.IsNullOrEmpty(_constructionPreset) ? null : _constructionPreset); Navigation.NavigateTo("/planning/" + state.Request.SessionId); }
+        try { var state = await Planning.StartAsync(_name, _prompt, _reviseExisting, _lifetime.Token, mode: _mode, constructionPreset: string.IsNullOrEmpty(_constructionPreset) ? null : _constructionPreset, thresholdMode: _thresholdMode,
+            diagnosticGrant: _thresholdMode == "diagnostic" ? await Services.GetRequiredService<LocalOperatorAccess>().GrantAsync() : null); Navigation.NavigateTo("/planning/" + state.Request.SessionId); }
         catch (Exception ex) { _error = ex.Message; }
         finally { _busy = false; }
     }
@@ -327,7 +340,7 @@
     {
         if (_state is null || IsWorkflowSession || _busy) return;
         _busy = true; _error = null; _commandError = null;
-        try { _state = await Planning.SubmitAsync(_state.Request.SessionId, new() { Kind = kind, ExpectedRevision = _state.Revision, RequestId = _requestInspection?.RequestId, ArtifactHash = PlanningArtifactApproval.Hash(_state), Text = text, Selections = selections, Generation = generation, Mode = mode,
+        try { _state = kind == "cancel" ? await Planning.StopAsync(_state.Request.SessionId, _lifetime.Token) : await Planning.SubmitAsync(_state.Request.SessionId, new() { Kind = kind, ExpectedRevision = _state.Revision, RequestId = _requestInspection?.RequestId, ArtifactHash = PlanningArtifactApproval.Hash(_state), Text = text, Selections = selections, Generation = generation, Mode = mode,
             EditablePaths = editablePaths?.ToList(), PreserveRequirements = editablePaths is null ? null : true,
             ReviewedRequirementIds = kind == "approve" ? _reviewedRequirements.ToList() : null,
             Answers = answers?.Select(a => new PlanningAnswer(a.QuestionId, a.AlternativeId, a.Text)).ToList() }, _lifetime.Token); _reviewedRequirements = []; _revisionPaths.Clear(); }

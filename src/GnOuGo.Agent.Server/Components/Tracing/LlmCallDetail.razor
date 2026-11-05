@@ -55,6 +55,8 @@
     private async Task LoadAsync()
     {
         Dispose();
+        if (Services.GetService<GnOuGo.Agent.Server.Planning.LocalOperatorAccess>() is { } access && !await access.CanInspectAsync())
+        { _message = "Authenticate in a local operator window to inspect business prompts and responses."; return; }
         var store = Services.GetService<LlmTraceContentStore>();
         if (store is null) { _message = "Encrypted trace content is unavailable on this host."; return; }
         if (!store.Enabled) { _message = "Detailed capture is disabled. Enable TraceDebug:Enabled to retain inputs and outputs for new calls and inspect existing planner journals."; return; }

@@ -45,7 +45,11 @@ public static class LlmProviderEndpoints
                 Provider: resolvedProvider,
                 ProviderType: providerOptions.ResolvedType,
                 Models: models
-                    .Select(m => new LlmModelDto(m.Id, m.DisplayName, m.ProviderType, m.OwnedBy))
+                    .Select(m => new LlmModelDto(m.Id, m.DisplayName, m.ProviderType, m.OwnedBy)
+                    {
+                        DeclaredMetadata = new RoutingLLMClient(store.Current, []).ResolveDeclaredMetadata(resolvedProvider, m.Id) is { } metadata
+                            ? System.Text.Json.JsonSerializer.SerializeToNode(metadata, GnOuGo.AI.Core.ModelMetadataJsonContext.Default.LLMModelMetadata)!.AsObject() : null
+                    })
                     .ToList());
 
             return Results.Ok(response);

@@ -18,7 +18,7 @@ namespace GnOuGo.Agent.Server.Planning;
 
 /// <summary>Routes durable planner sessions to their originating conversation; never replays the enclosing workflow.</summary>
 public sealed class ChatPlanningService(IKeyVaultRecordStore records, SecureWorkflowRuntimeFactory runtimeFactory,
-    PlanningSessionService designer, IOptions<OpenTelemetrySettings> telemetry, IHostApplicationLifetime lifetime, ILogger<ChatPlanningService> logger)
+    PlanningSessionService designer, IOptions<OpenTelemetrySettings> telemetry, IHostApplicationLifetime lifetime, ILogger<ChatPlanningService> logger, PlanningHostPolicy? hostPolicy = null)
 {
     private readonly IKeyVaultRecordStore _records = records;
     private const string Origins = "agent-chat-planning-origins-v2";
@@ -29,9 +29,10 @@ public sealed class ChatPlanningService(IKeyVaultRecordStore records, SecureWork
     private readonly ConcurrentDictionary<string, byte> _owners = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _gates = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, Task<PlanningSession>> _recoveries = new(StringComparer.Ordinal);
-    private WorkflowPlanningRuntimeFactory Factory() => new(_records, GnOuGoWorkspace.ResolveDatabasePath(null, AppContext.BaseDirectory, ".GnOuGo/data/flow-planning-v11/leases"));
+    private WorkflowPlanningRuntimeFactory Factory(IPlanningHostPolicy? policy = null) => new(_records, GnOuGoWorkspace.ResolveDatabasePath(null, AppContext.BaseDirectory, ".GnOuGo/data/flow-planning-v11/leases"), policy);
 
-    public Bridge Attach(string conversationId, Action<PlanningSessionDto> changed) => new(this, conversationId, changed);
+    public Bridge Attach(string conversationId, Action<PlanningSessionDto> changed, GnOuGo.AI.Core.LLMOptions? options = null, PlanningDiagnosticGrant? grant = null)
+        => new(this, conversationId, changed, hostPolicy is null || options is null ? null : new WorkflowHostPolicy(hostPolicy, options, runtimeFactory, grant));
 
     public async Task<IReadOnlyList<ChatSessionDto>> ConversationsAsync(CancellationToken ct)
     {
@@ -134,7 +135,7 @@ public sealed class ChatPlanningService(IKeyVaultRecordStore records, SecureWork
             runtime.ConfigureAgentRunners(engine);
             var context = new StepExecutionContext { Engine = engine, Data = new(), Step = new() { Source = new StepDef { Id = origin.StepId, Type = "workflow.plan" } },
                 Limits = new() { TenantId = Tenant, RunId = origin.RunId }, CallDepth = origin.CallDepth, CallStack = new(origin.CallStack, StringComparer.Ordinal) };
-            await using var owned = await Factory().OpenAsync(context, new() { Request = JsonSerializer.Deserialize(JsonSerializer.Serialize(origin.Request, PlanningJsonContext.Default.PlanningRequest), PlanningJsonContext.Default.PlanningRequest)! }, ct);
+            await using var owned = await Factory(hostPolicy is null ? null : new WorkflowHostPolicy(hostPolicy, runtime.Options, runtimeFactory)).OpenAsync(context, new() { Request = JsonSerializer.Deserialize(JsonSerializer.Serialize(origin.Request, PlanningJsonContext.Default.PlanningRequest), PlanningJsonContext.Default.PlanningRequest)! }, ct);
             if (owned.Session.Request.SessionId != origin.Request.SessionId) throw new PlanningConflictException("Planning owner identity changed.");
             var planner = new HybridWorkflowPlanner();
             var state = await planner.AdvanceAsync(owned.Session, command, owned.Runtime, ct);
@@ -156,12 +157,12 @@ public sealed class ChatPlanningService(IKeyVaultRecordStore records, SecureWork
         internal TaskCompletionSource<PlanningSession> Saved { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
-    public sealed class Bridge(ChatPlanningService owner, string conversation, Action<PlanningSessionDto> changed) : IPlanningInteraction, IPlanningRuntimeFactory
+    public sealed class Bridge(ChatPlanningService owner, string conversation, Action<PlanningSessionDto> changed, IPlanningHostPolicy? policy = null) : IPlanningInteraction, IPlanningRuntimeFactory
     {
         public async Task<IPlanningRuntimeSession> OpenAsync(StepExecutionContext context, PlanningSession initial, CancellationToken ct)
         {
             if (initial.Request.TenantId != owner.Tenant) throw new PlanningConflictException("Planning tenant mismatch.");
-            var owned = await owner.Factory().OpenAsync(context, initial, ct);
+            var owned = await owner.Factory(policy).OpenAsync(context, initial, ct);
             try
             {
                 var origin = new ChatPlanningOrigin(conversation, true, context.Limits.RunId!, context.Step.Id, context.CallDepth, [.. context.CallStack], initial.Request);
@@ -179,7 +180,7 @@ public sealed class ChatPlanningService(IKeyVaultRecordStore records, SecureWork
             catch { await owned.DisposeAsync(); throw; }
         }
         public Task<string> ReadApprovedYamlAsync(StepExecutionContext context, string sessionId, string artifactHash, CancellationToken ct)
-            => owner.Factory().ReadApprovedYamlAsync(context, sessionId, artifactHash, ct);
+            => owner.Factory(policy).ReadApprovedYamlAsync(context, sessionId, artifactHash, ct);
         public async Task<PlanningCommand> RequestAsync(PlanningSession session, CancellationToken ct)
         {
             var waiter = new Waiter(session);

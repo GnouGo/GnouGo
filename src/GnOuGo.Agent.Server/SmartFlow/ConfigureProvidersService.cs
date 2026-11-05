@@ -2052,14 +2052,13 @@ public sealed partial class ConfigureProvidersService
         metadata.ContextWindowTokens = ReadPositiveInt(fields.GetValueOrDefault("context_window_tokens"), resolved.ContextWindowTokens ?? 128000);
         metadata.MaxInputTokens = ReadPositiveInt(fields.GetValueOrDefault("max_input_tokens"), resolved.MaxInputTokens ?? resolved.ContextWindowTokens ?? 128000);
         metadata.MaxOutputTokens = ReadPositiveInt(fields.GetValueOrDefault("max_output_tokens"), resolved.MaxOutputTokens ?? 4096);
-        metadata.Pricing = new ModelPricingMetadata
-        {
-            Currency = resolved.Pricing?.Currency ?? "USD",
-            InputPer1MTokens = ReadNonNegativeDecimal(fields.GetValueOrDefault("input_price_per_1m_tokens"), resolved.Pricing?.InputPer1MTokens ?? 0m),
-            OutputPer1MTokens = ReadNonNegativeDecimal(fields.GetValueOrDefault("output_price_per_1m_tokens"), resolved.Pricing?.OutputPer1MTokens ?? 0m),
-            CachedInputPer1MTokens = ReadOptionalNonNegativeDecimal(fields.GetValueOrDefault("cached_input_price_per_1m_tokens")),
-            ReasoningOutputPer1MTokens = ReadOptionalNonNegativeDecimal(fields.GetValueOrDefault("reasoning_output_price_per_1m_tokens"))
-        };
+        // Clone above retains documented cache, context, tier and regional conditions.
+        // Reviewing the editable base rates must not discard those conditions.
+        metadata.Pricing ??= new ModelPricingMetadata();
+        metadata.Pricing.InputPer1MTokens = ReadNonNegativeDecimal(fields.GetValueOrDefault("input_price_per_1m_tokens"), resolved.Pricing?.InputPer1MTokens ?? 0m);
+        metadata.Pricing.OutputPer1MTokens = ReadNonNegativeDecimal(fields.GetValueOrDefault("output_price_per_1m_tokens"), resolved.Pricing?.OutputPer1MTokens ?? 0m);
+        metadata.Pricing.CachedInputPer1MTokens = ReadOptionalNonNegativeDecimal(fields.GetValueOrDefault("cached_input_price_per_1m_tokens"));
+        metadata.Pricing.ReasoningOutputPer1MTokens = ReadOptionalNonNegativeDecimal(fields.GetValueOrDefault("reasoning_output_price_per_1m_tokens"));
         metadata.Capabilities ??= new ModelCapabilityMetadata();
         metadata.Capabilities.SupportsTemperature = ReadBool(fields.GetValueOrDefault("supports_temperature"), resolved.Capabilities.SupportsTemperature ?? true);
         metadata.Capabilities.SupportsReasoningEffort = ReadBool(fields.GetValueOrDefault("supports_reasoning_effort"), resolved.Capabilities.SupportsReasoningEffort ?? false);
@@ -2580,6 +2579,12 @@ public sealed partial class ConfigureProvidersService
         sb.AppendLine($"| Context window | {metadata.ContextWindowTokens?.ToString(CultureInfo.InvariantCulture) ?? "unknown"} tokens |");
         sb.AppendLine($"| Max input | {metadata.MaxInputTokens?.ToString(CultureInfo.InvariantCulture) ?? "unknown"} tokens |");
         sb.AppendLine($"| Max output | {metadata.MaxOutputTokens?.ToString(CultureInfo.InvariantCulture) ?? "unknown"} tokens |");
+        sb.AppendLine($"| Documentation verified | {EscapeMarkdownCell(metadata.VerifiedAt ?? "unavailable")} |");
+        sb.AppendLine($"| Responses / Chat Completions / streaming | {FormatOptionalBool(capabilities.SupportsResponses)} / {FormatOptionalBool(capabilities.SupportsChatCompletions)} / {FormatOptionalBool(capabilities.SupportsStreaming)} |");
+        if (capabilities.ChatToolsReasoningEfforts is { } toolEfforts)
+            sb.AppendLine($"| Chat tools reasoning levels | {EscapeMarkdownCell(toolEfforts.Count == 0 ? "Unavailable; use a configured Responses endpoint" : FormatStringList(toolEfforts))} |");
+        if (capabilities.TemperatureReasoningEfforts is { } temperatureEfforts)
+            sb.AppendLine($"| Temperature reasoning levels | {EscapeMarkdownCell(FormatStringList(temperatureEfforts))} |");
         sb.AppendLine($"| Input price / 1M | {metadata.Pricing?.InputPer1MTokens?.ToString(CultureInfo.InvariantCulture) ?? "unknown"} {EscapeMarkdownCell(metadata.Pricing?.Currency ?? "USD")} |");
         sb.AppendLine($"| Output price / 1M | {metadata.Pricing?.OutputPer1MTokens?.ToString(CultureInfo.InvariantCulture) ?? "unknown"} {EscapeMarkdownCell(metadata.Pricing?.Currency ?? "USD")} |");
         sb.AppendLine($"| Structured output | {FormatOptionalBool(capabilities.SupportsStructuredOutput)} |");
@@ -2595,6 +2600,10 @@ public sealed partial class ConfigureProvidersService
         if (capabilities.UnsupportedRequestParameters is { Count: > 0 })
             sb.AppendLine($"| Unsupported parameters | {EscapeMarkdownCell(FormatStringList(capabilities.UnsupportedRequestParameters))} |");
         sb.AppendLine();
+        if (metadata.SourceUrls is { Count: > 0 })
+            sb.AppendLine("Official metadata sources: " + string.Join(", ", metadata.SourceUrls.Select(EscapeMarkdownCell)) + ". Gateway availability is configured separately.");
+        if (metadata.Pricing is { } pricing)
+            sb.AppendLine("Captured tariff conditions: `" + System.Text.Json.JsonSerializer.Serialize(pricing, GnOuGo.AI.Core.ModelMetadataJsonContext.Default.ModelPricingMetadata) + "`.");
         sb.Append($"Configuration will be saved as key: `{KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.LlmProvider, provider)}`");
         return sb.ToString();
     }

@@ -176,6 +176,21 @@ internal static partial class PlanningModelCalls
         PlanningInspection.Record(state, purpose, "received", "Provider response retained; response validation is pending.", call.Id);
         correction?.Received();
         state.PendingCall = null;
+        // Estimates remain advisory. Contradictory measured provider usage is a
+        // physical/request-contract failure; the receipt and charge stay retained.
+        if (state.Request.Options["model_capacity"] is JsonObject capacity)
+        {
+            var input = activeMeasurement?.InputTokens;
+            var output = activeMeasurement?.OutputTokens;
+            var maximumOutput = Math.Min(capacity["maxOutputTokens"]!.GetValue<int>(), call.Request.MaxTokens!.Value);
+            if (input > capacity["maxInputTokens"]!.GetValue<int>() || output > maximumOutput ||
+                input + output > capacity["contextWindowTokens"]!.GetValue<int>())
+            {
+                if (activeMeasurement is not null) activeMeasurement.Result = "physical_limit_exceeded";
+                throw new WorkflowRuntimeException("MODEL_PHYSICAL_LIMIT", "Measured provider usage contradicts the captured model/deployment capacity or issued output allocation. No result was accepted; the exact receipt and charge remain retained.",
+                    details: new JsonObject { ["input_tokens"] = input, ["output_tokens"] = output, ["origin"] = capacity["origin"]?.DeepClone(), ["replay_allowed"] = false });
+            }
+        }
         if (response.CompletionStatus == "output_limit") throw new WorkflowRuntimeException("MODEL_OUTPUT_LIMIT",
             $"The provider returned incomplete output: allocation {call.Request.MaxTokens}, reported output {activeMeasurement?.OutputTokens?.ToString() ?? "unknown"}, " +
             $"reasoning {activeMeasurement?.ReasoningTokens?.ToString() ?? "unknown"}. No fragment was accepted; this response cannot authorize replay or allocation escalation.",

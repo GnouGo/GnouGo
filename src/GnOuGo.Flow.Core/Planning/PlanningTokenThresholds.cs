@@ -50,7 +50,7 @@ internal static class PlanningTokenThresholds
 
     internal static void RejectReserved(JsonObject options)
     {
-        if (new[] { OptionName, OptimizationOptionName, "agent_host_policy", "captured_model_metadata", "diagnostic_progress_policy", "allocation_origin", "agent_generation_at_creation" }.Any(options.ContainsKey))
+        if (new[] { OptionName, OptimizationOptionName, "agent_host_policy", "captured_model_metadata", "diagnostic_progress_policy", "allocation_origin", "agent_generation_at_creation", "model_capacity" }.Any(options.ContainsKey))
             throw new PlanningConflictException("Reserved threshold options require explicit trusted host authority.");
     }
 

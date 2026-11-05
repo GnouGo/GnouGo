@@ -6,13 +6,16 @@
     @if (Text is not null)
     {
         <div class="llm-document__controls">
-            <button type="button" @onclick="() => _formatted = !_formatted">@(_formatted ? "Formatted" : "Raw")</button>
             <button type="button" @onclick="CopyAsync">Copy @Title.ToLowerInvariant()</button>
             <input aria-label="Search retained content" placeholder="Search retained content" @bind="_search" @bind:event="oninput" />
             @if (_search.Length > 0) { <span>@Matches match(es)</span> }
             <span role="status">@_copyStatus</span>
         </div>
-        @TraceDebugValueRenderer.RenderValue(Text, _formatted)
+        <p role="status">Characters @(_offset + 1)–@(Math.Min(_offset + PageSize, Text.Length)) of @Text.Length. Export or copy retains the complete redacted document.</p>
+        <button type="button" disabled="@(_offset == 0)" @onclick="() => _offset = Math.Max(0, _offset - PageSize)">Previous content page</button>
+        <button type="button" disabled="@(_offset + PageSize >= Text.Length)" @onclick="() => _offset += PageSize">Next content page</button>
+        @if (_search.Length > 0) { <button type="button" @onclick="FindNext">Go to next match</button> }
+        <pre style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:30rem;overflow:auto">@Text.Substring(Math.Min(_offset, Text.Length), Math.Min(PageSize, Text.Length - Math.Min(_offset, Text.Length)))</pre>
     }
 </section>
 @code {
@@ -20,7 +23,9 @@
     [Parameter] public string Status { get; set; } = "unavailable";
     [Parameter] public string? Text { get; set; }
     [Parameter] public int? Bytes { get; set; }
-    private bool _formatted = true;
+    private const int PageSize = 32768;
+    private int _offset, _match = -1;
+    private void FindNext() { if (Text is null || _search.Length == 0) return; _match = Text.IndexOf(_search, Math.Min(_match + 1, Text.Length), StringComparison.OrdinalIgnoreCase); if (_match < 0) _match = Text.IndexOf(_search, StringComparison.OrdinalIgnoreCase); if (_match >= 0) _offset = _match / PageSize * PageSize; }
     private string _search = "", _copyStatus = "";
     private int Matches => string.IsNullOrEmpty(_search) || Text is null ? 0 : (Text.Length - Text.Replace(_search, "", StringComparison.OrdinalIgnoreCase).Length) / _search.Length;
     private async Task CopyAsync()

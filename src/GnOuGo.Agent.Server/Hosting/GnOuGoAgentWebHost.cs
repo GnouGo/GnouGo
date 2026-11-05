@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -508,6 +510,21 @@ public static class GnOuGoAgentWebHost
         builder.Services.AddSingleton<GnOuGo.Agent.Server.SmartFlow.WorkflowRunService>();
         builder.Services.AddSingleton<GnOuGo.Flow.Core.Planning.IPlanningSessionStore, GnOuGo.Agent.Server.Planning.EfPlanningSessionStore>();
         builder.Services.AddSingleton<GnOuGo.Flow.Core.Planning.IWorkflowPlanner, GnOuGo.Flow.Planning.HybridWorkflowPlanner>();
+        builder.Services.AddHttpContextAccessor();
+        builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie(options =>
+        {
+            options.Cookie.Name = "GnOuGo.LocalOperator";
+            options.Cookie.HttpOnly = true; options.Cookie.SameSite = SameSiteMode.Strict;
+            options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+            options.ExpireTimeSpan = TimeSpan.FromHours(8);
+            options.Events.OnRedirectToLogin = context => { context.Response.StatusCode = 401; return Task.CompletedTask; };
+            options.Events.OnRedirectToAccessDenied = context => { context.Response.StatusCode = 403; return Task.CompletedTask; };
+        });
+        builder.Services.AddAuthorization(); builder.Services.AddCascadingAuthenticationState();
+        builder.Services.AddSingleton<LocalOperatorBootstrap>();
+        builder.Services.AddScoped<LocalOperatorAccess>();
+        builder.Services.AddScoped<PlanningInspectionService>();
+        builder.Services.AddSingleton<PlanningHostPolicy>();
         builder.Services.AddSingleton<GnOuGo.Agent.Server.Planning.PlanningSessionService>();
         builder.Services.AddSingleton<GnOuGo.Agent.Server.Planning.ChatPlanningService>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<GnOuGo.Agent.Server.Planning.PlanningSessionService>());
@@ -627,7 +644,27 @@ public static class GnOuGoAgentWebHost
             Log($"Static web assets manifest not found at '{staticAssetsManifest}', skipping MapStaticAssets().");
         }
 
+        app.UseAuthentication(); app.UseAuthorization();
+        app.Use(async (context, next) =>
+        {
+            var path = context.Request.Path;
+            var planning = path.StartsWithSegments("/planning") || path.StartsWithSegments("/api/planning") ||
+                path.StartsWithSegments("/api/chat") && path.Value!.Contains("/planning", StringComparison.Ordinal);
+            if (context.User.HasClaim(LocalOperatorAccess.Claim, "true") && !LocalOperatorAccess.IsLocal(context))
+            { context.Response.StatusCode = 403; return; }
+            if (planning && (!LocalOperatorAccess.IsLocal(context) || !context.User.HasClaim(LocalOperatorAccess.Claim, "true")))
+            { context.Response.StatusCode = 403; await context.Response.WriteAsync("Protected planning access requires a local operator window. Start the Diagnostic launch profile."); return; }
+            if ((planning || path.StartsWithSegments("/api/chat") && context.User.HasClaim(LocalOperatorAccess.Claim, "true")) &&
+                path.StartsWithSegments("/api") && !HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method))
+            {
+                try { await context.RequestServices.GetRequiredService<Microsoft.AspNetCore.Antiforgery.IAntiforgery>().ValidateRequestAsync(context); }
+                catch (Microsoft.AspNetCore.Antiforgery.AntiforgeryValidationException)
+                { context.Response.StatusCode = 400; await context.Response.WriteAsync("An antiforgery token is required for planning changes."); return; }
+            }
+            await next();
+        });
         app.UseAntiforgery();
+        LocalOperatorBootstrap.Map(app);
 
         // --- API ---
         app.MapPost("/api/chat", ChatEndpoints.CompleteAsync);

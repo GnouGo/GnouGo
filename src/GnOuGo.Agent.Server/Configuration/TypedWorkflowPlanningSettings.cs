@@ -5,6 +5,9 @@ public sealed class TypedWorkflowPlanningSettings
 {
     public const string SectionName = "TypedWorkflowPlanning";
     public bool BackgroundProcessingEnabled { get; set; } = true;
+    public bool DiagnosticEnabled { get; set; }
+    public bool OpenLocalOperatorBrowser { get; set; }
+    public bool DiagnosticModelMaximum { get; set; } = true;
     public bool AutomaticCorrectionEnabled { get; set; } = true;
     public int MaxReplanAttempts { get; set; } = 4;
     public int MaxModelCalls { get; set; } = 64;
@@ -35,7 +38,7 @@ public sealed class TypedWorkflowPlanningSettings
             LargeMaxModelCalls is < 1 or > 1000 || LargeMaxReplanAttempts is < 0 or > 64 ||
             LargeMaxStepsTotal < 1 || LargeMaxStepsPerWorkflow < 1 || LargeMaxWorkflows < 1 ||
             MaxTotalTokens < 1 || MaxActiveMilliseconds < 1 ||
-            DraftOutputTokens is < 1 or > 65536 || ReviewOutputTokens is < 1 or > 65536)
+            DraftOutputTokens < 1 || ReviewOutputTokens < 1)
             throw new InvalidOperationException("Invalid typed workflow planning configuration.");
         PlanningGenerationPolicy.Validate(new() { Reasoning = Reasoning, MaxInputTokensPerRequest = MaxInputTokensPerRequest, MaxOutputTokens = MaxOutputTokens });
         if (PhasePolicy is not null) PlanningConstructionPhasePolicies.Validate(PhasePolicy);

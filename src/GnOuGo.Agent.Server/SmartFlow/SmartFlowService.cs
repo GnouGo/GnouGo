@@ -195,7 +195,7 @@ public sealed partial class SmartFlowService
         IReadOnlyList<string>? filesIds,
         JsonObject? workflowInputs,
         string? conversationId,
-        [EnumeratorCancellation] CancellationToken ct)
+        [EnumeratorCancellation] CancellationToken ct, PlanningDiagnosticGrant? diagnosticGrant = null)
     {
         var effectiveCorrelationId = string.IsNullOrWhiteSpace(correlationId)
             ? ActivityTraceId.CreateRandom().ToHexString()
@@ -233,7 +233,7 @@ public sealed partial class SmartFlowService
                                mergedWorkflowInputs,
                                messageTrace.Activity,
                                messageTrace.TraceContext,
-                               ct))
+                               ct, diagnosticGrant))
             {
                 hasError |= string.Equals(evt.Type, "error", StringComparison.OrdinalIgnoreCase);
                 if (evt.Type is "answer")
@@ -280,7 +280,7 @@ public sealed partial class SmartFlowService
         JsonObject? workflowInputs,
         Activity? parentActivity,
         AgentTraceContext traceContext,
-        [EnumeratorCancellation] CancellationToken ct)
+        [EnumeratorCancellation] CancellationToken ct, PlanningDiagnosticGrant? diagnosticGrant = null)
     {
         var previousActivity = Activity.Current;
         if (parentActivity is not null)
@@ -405,7 +405,7 @@ public sealed partial class SmartFlowService
                 new AgentStreamingTelemetry(evt => channel.Writer.TryWrite(evt), animationBridge),
                 _otel);
             var planningBridge = _chatPlanning?.Attach(workflowInputs?["conversation_id"]?.GetValue<string>() ?? correlationId,
-                state => channel.Writer.TryWrite(new SmartFlowEvent("planner_session", System.Text.Json.JsonSerializer.Serialize(state, GnOuGo.Agent.Shared.ChatJsonContext.Default.PlanningSessionDto))));
+                state => channel.Writer.TryWrite(new SmartFlowEvent("planner_session", System.Text.Json.JsonSerializer.Serialize(state, GnOuGo.Agent.Shared.ChatJsonContext.Default.PlanningSessionDto))), runtime.Options, diagnosticGrant);
             var engine = new WorkflowEngine
             {
                 RunStore = _runStore,

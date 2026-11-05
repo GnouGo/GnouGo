@@ -58,7 +58,7 @@ public sealed class LlmTraceContentStore(IKeyVaultRecordStore records, IOptionsM
         foreach (var journal in new[] { "flow", "agent" })
         {
             var key = journal == "flow" ? requestId : session + ":" + requestId;
-            if (await records.GetAsync(journal + "-planning-model-requests-v10", Tenant, key, Author, ct) is not null)
+            if (await records.GetAsync(journal + "-planning-model-requests-v11", Tenant, key, Author, ct) is not null)
                 return (journal, key);
         }
         return null;
@@ -77,16 +77,17 @@ public sealed class LlmTraceContentStore(IKeyVaultRecordStore records, IOptionsM
     {
         if (!Enabled || !await OwnsSession(session, workflow, ct)) return [];
         var prefix = workflow ? "flow" : "agent";
-        var requests = await records.ListAsync(prefix + "-planning-model-requests-v10", Tenant, Author, ct);
+        var requests = await records.ListAsync(prefix + "-planning-model-requests-v11", Tenant, Author, ct);
         var result = new List<LlmJournalCall>();
         foreach (var record in requests.Where(r => r.Key.StartsWith(session + ":", StringComparison.Ordinal)).OrderBy(r => r.CreatedAt))
         {
             var request = JsonSerializer.Deserialize(record.Value, PlanningJsonContext.Default.LLMRequest);
             if (request?.ClientRequestId?.StartsWith(session + ":", StringComparison.Ordinal) != true) continue;
-            var receipt = await records.GetAsync(prefix + "-planning-model-receipts-v10", Tenant, record.Key, Author, ct);
+            if (record.Key != (workflow ? request.ClientRequestId : session + ":" + request.ClientRequestId)) continue;
+            var receipt = await records.GetAsync(prefix + "-planning-model-receipts-v11", Tenant, record.Key, Author, ct);
             var response = receipt is null ? null : JsonSerializer.Deserialize(receipt.Value, PlanningJsonContext.Default.LLMResponse);
             result.Add(new(record.Key, record.CreatedAt, request.Provider ?? "unknown", request.Model,
-                receipt is null ? "uncertain — no receipt" : response?.CompletionStatus == "output_limit" ? "truncated receipt" : "completed receipt (replayable)",
+                receipt is null ? "uncertain — no receipt" : response?.CompletionStatus == "output_limit" ? "truncated receipt" : "completed receipt — validation is separate",
                 LlmTraceCapture.Usage(response?.Usage, "input_tokens", "prompt_tokens", "inputTokens"),
                 LlmTraceCapture.Usage(response?.Usage, "output_tokens", "completion_tokens", "outputTokens")));
         }
@@ -97,11 +98,12 @@ public sealed class LlmTraceContentStore(IKeyVaultRecordStore records, IOptionsM
     {
         if (!Enabled || !key.StartsWith(session + ":", StringComparison.Ordinal) || !await OwnsSession(session, workflow, ct)) return null;
         var prefix = workflow ? "flow" : "agent";
-        var record = await records.GetAsync(prefix + "-planning-model-requests-v10", Tenant, key, Author, ct);
+        var record = await records.GetAsync(prefix + "-planning-model-requests-v11", Tenant, key, Author, ct);
         if (record is null) return null;
         var request = JsonSerializer.Deserialize(record.Value, PlanningJsonContext.Default.LLMRequest);
         if (request?.ClientRequestId?.StartsWith(session + ":", StringComparison.Ordinal) != true) return null;
-        var receipt = await records.GetAsync(prefix + "-planning-model-receipts-v10", Tenant, key, Author, ct);
+        if (key != (workflow ? request.ClientRequestId : session + ":" + request.ClientRequestId)) return null;
+        var receipt = await records.GetAsync(prefix + "-planning-model-receipts-v11", Tenant, key, Author, ct);
         var result = new LlmTraceContent { TenantId = Tenant, SessionId = session, CreatedAt = record.CreatedAt };
         SetInput(result, RequestDocument(request));
         if (receipt is not null)
@@ -114,19 +116,20 @@ public sealed class LlmTraceContentStore(IKeyVaultRecordStore records, IOptionsM
     {
         text = Redact(text);
         content.InputBytes = Encoding.UTF8.GetByteCount(text);
-        content.InputStatus = content.InputBytes > Limit ? "oversized — not retained for display" : "available";
-        content.Input = content.InputBytes > Limit ? null : text;
+        content.InputStatus = "available";
+        content.Input = text;
     }
     internal void SetOutput(LlmTraceContent content, string text)
     {
         text = Redact(text);
         content.OutputBytes = Encoding.UTF8.GetByteCount(text);
-        content.OutputStatus = content.OutputBytes > Limit ? "oversized — not retained for display" : "available";
-        content.Output = content.OutputBytes > Limit ? null : text;
+        content.OutputStatus = "available";
+        content.Output = text;
     }
 
-    private string Redact(string value)
+    internal string Redact(string value)
     {
+        value = DiagnosticRedaction.Redact(value);
         if (runtimeOptions is null) return value;
         foreach (var provider in runtimeOptions.Current.Models.Values)
             foreach (var secret in new[] { provider.ApiKey, provider.ClientSecret, provider.PrivateKeyPem })

@@ -39,6 +39,7 @@
     {
         var conversation = ConversationId;
         if (Service is not { } service || string.IsNullOrWhiteSpace(conversation)) return;
+        if (Services.GetService<GnOuGo.Agent.Server.Planning.LocalOperatorAccess>() is { } access && !await access.CanInspectAsync()) return;
         try { var sessions = await service.ListAsync(conversation, _lifetime.Token); if (conversation == ConversationId) _sessions = sessions; }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
         catch (Exception) { _error = "Planning history could not be loaded. Retry shortly."; }

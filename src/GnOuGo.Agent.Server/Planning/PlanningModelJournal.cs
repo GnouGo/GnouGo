@@ -18,7 +18,7 @@ internal sealed class PlanningModelJournal(
     ILLMClient inner, IDbContextFactory<PlanningDbContext> contexts, IKeyVaultRecordStore records,
     string tenantId, string sessionId, LLMUsageBudgetScope budget, IModelUsageCostEstimator estimator, PlanningGenerationOptions? generation = null,
     ILLMCapabilityResolver? capabilities = null, PlanningRequest? planning = null,
-    DateTimeOffset? planningDeadlineUtc = null) : ILLMClient, IModelAdmissionOwner, IPlanningConstructionAdmission
+    DateTimeOffset? planningDeadlineUtc = null, bool requireCapturedMetadata = false) : ILLMClient, IModelAdmissionOwner, IPlanningConstructionAdmission
 {
     internal const string Collection = "agent-planning-model-receipts-v11";
     internal const string RequestCollection = "agent-planning-model-requests-v11";
@@ -82,9 +82,12 @@ internal sealed class PlanningModelJournal(
             if (reserved?.Value != JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest))
                 throw new PlanningConflictException("The retained planning request changed before HTTP recovery.");
         }
+        if (requireCapturedMetadata && planning?.Options[CapturedPlanningModel.OptionName] is null)
+            throw new WorkflowRuntimeException("MODEL_METADATA_CAPTURE_UNAVAILABLE", "Historical model metadata was not captured. Start a fresh session for new dispatch; exact completed receipts and accounting remain available.");
         if (!journaled || !await HttpJournal(request).HasSuccessfulResponseAsync(ct))
             await ModelRequestAdmission.ValidateAsync(request, capabilities ?? inner as ILLMCapabilityResolver,
-                planning is null ? generation?.MaxInputTokensPerRequest ?? 32_000 : PlanningConstructionInputPolicy.EffectiveLimit(planning, request), "planning", ct);
+                    planning is null ? generation?.MaxInputTokensPerRequest ?? 32_000 : PlanningConstructionInputPolicy.EffectiveLimit(planning, request), "planning", ct,
+                    planning is not null && PlanningTokenThresholds.Advisory(planning));
         var row = existing ?? new PlanningCallIndex { TenantId = tenantId, SessionId = sessionId, RequestHash = key, PayloadKey = sessionId + ":" + key };
         if (existing is null)
         {

@@ -10,10 +10,13 @@ public sealed partial class PlanningSessionService
 {
     private const string Cancellations = "agent-planning-cancellations-v1";
 
-    private async Task<PlanningSession> RequestCancellationAsync(string id, PlanningCommand command, CancellationToken ct)
+    /// <summary>An explicit Stop action targets this session's current owner even when the UI polling revision is stale.</summary>
+    public Task<PlanningSession> StopAsync(string id, CancellationToken ct) => RequestCancellationAsync(id, new() { Kind = "cancel" }, ct, stopCurrent: true);
+
+    private async Task<PlanningSession> RequestCancellationAsync(string id, PlanningCommand command, CancellationToken ct, bool stopCurrent = false)
     {
         var current = await store.LoadAsync(Tenant, id, ct) ?? throw new KeyNotFoundException("Planning session not found.");
-        if (current.Revision != command.ExpectedRevision) throw new PlanningConflictException("The session changed; reload its current revision.");
+        if (!stopCurrent && current.Revision != command.ExpectedRevision) throw new PlanningConflictException("The session changed; reload its current revision.");
         if (current.Status is PlanningStatus.Saved or PlanningStatus.Saving or PlanningStatus.Cancelled)
             throw new PlanningConflictException("This planning session is closed.");
         var request = new JsonObject { ["revision"] = current.Revision, ["requestId"] = current.PendingCall?.Id };

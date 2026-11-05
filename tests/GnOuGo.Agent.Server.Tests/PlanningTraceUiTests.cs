@@ -288,7 +288,7 @@ public sealed partial class PlanningTraceUiTests : BunitContext
         Services.GetRequiredService<NavigationManager>().NavigateTo("/planning/input-budget");
         var cut = Render<PlanningPage>(p => p.Add(c => c.SessionId, "input-budget"));
         cut.WaitForAssertion(() => Assert.Contains(code, cut.Markup));
-        var settings = cut.Find("details");
+        var settings = cut.Find("#planning-generation-settings");
         Assert.Equal(inputStop, settings.HasAttribute("open"));
         Assert.Equal(inputStop ? "Apply settings and resume planning" : "Apply settings", settings.QuerySelector("button")!.TextContent.Trim());
         Assert.Equal("12000", settings.QuerySelector("input[type=number]")!.GetAttribute("value"));
@@ -297,8 +297,8 @@ public sealed partial class PlanningTraceUiTests : BunitContext
         Assert.Equal(2, before.ModelCalls);
         if (inputStop)
         {
-            cut.Find("details input[type=number]").Change("24000");
-            cut.Find("details button").Click();
+            cut.Find("#planning-generation-settings input[type=number]").Change("24000");
+            cut.Find("#planning-generation-settings button").Click();
             cut.WaitForAssertion(() => Assert.DoesNotContain("Apply settings and resume planning", cut.Markup));
             var resumed = (await fixture.Store.LoadAsync("planning-tests", "input-budget", Ct))!;
             Assert.Equal(PlanningStatus.Generating, resumed.Status);
@@ -322,7 +322,7 @@ public sealed partial class PlanningTraceUiTests : BunitContext
         cut.WaitForAssertion(() => Assert.Contains("8 / 8 model calls", cut.Markup));
         Assert.Contains("token limits do not extend", cut.Markup);
         Assert.Single(cut.FindAll("li"), li => li.TextContent.Contains("LLM_BUDGET_EXCEEDED", StringComparison.Ordinal));
-        Assert.True(cut.Find("details button").HasAttribute("disabled"));
+        Assert.True(cut.Find("#planning-generation-settings button").HasAttribute("disabled"));
         cut.Find("#plan-revision").Change("Different requirements");
         Assert.True(cut.FindAll("button").Single(b => b.TextContent == "Revise workflow").HasAttribute("disabled"));
         Assert.DoesNotContain("· replanning ·", cut.Markup);

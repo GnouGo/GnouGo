@@ -1,0 +1,171 @@
+@using System.Text.Json
+@using System.Text.Json.Nodes
+@using GnOuGo.Agent.Server.Planning
+@using GnOuGo.Agent.Server.Components.Tracing
+@using GnOuGo.Agent.Shared
+@inject IServiceProvider Services
+<section class="planning-diagnostics" aria-label="Planning progress and model calls">
+    <h3>Generation timeline</h3>
+    <p><strong>@(Session.ThresholdMode == "diagnostic" ? "Diagnostic — thresholds are warnings" : "Strict thresholds")</strong> · Generation and approval; execution is a separate operation.</p>
+    <p>Waiting → active → succeeded / warning / correction / blocked / cancelled. Repeated occurrences show actual loops; no completion percentage is inferred.</p>
+    @if (_events.Count == 0) { <p role="status">No historical transition timestamps were recorded for this session. Current phase: @Session.Phase.</p> }
+    else
+    {
+        <ol class="planning-timeline" aria-live="polite">
+            @foreach (var occurrence in Occurrences)
+            {
+                var last = occurrence.Last(); var first = occurrence.First();
+                <li @key="first.Sequence" class="phase-@last.State">
+                    <strong>@Label(first.Phase)</strong> <span class="phase-state">@(last.State == "succeeded" && Session.ThresholdWarnings.Any(w => w.RequestId is not null && w.RequestId == last.RequestId) ? "warning (completed)" : last.State)</span>
+                    <small>@first.TimestampUtc.ToString("u") · @Duration(first.TimestampUtc, last.TimestampUtc, last.State)</small>
+                    <p>@last.Reason</p>
+                    @if (last.BlockId is not null) { <p>Business responsibility <code>@last.BlockId</code>: @last.Objective<br />Implementation fragment <code>@last.StepId</code> · checkpoint @last.Checkpoint</p> }
+                </li>
+            }
+        </ol>
+    }
+    @if (Session.OverallProgress is { } progress)
+    {
+        <details class="overall-progress" open>
+            <summary>Overall progress — expected results, accepted contributions and remaining obligations</summary>
+            <p>Accepted declarations, business review and observed execution are separate facts.</p>
+            <dl>
+                <dt>Expected results</dt><dd>@Describe(progress["expectedResults"])</dd>
+                <dt>Accepted contributions</dt><dd>@Describe(progress["acceptedContributions"])</dd>
+                <dt>Result connections</dt><dd>@Describe(progress["declaredResults"])</dd>
+                <dt>Remaining obligations</dt><dd>@Describe(progress["remainingObligations"])</dd>
+                <dt>Missing public bindings</dt><dd>@Describe(progress["missingDeliverableBindings"])</dd>
+                <dt>Composition findings</dt><dd>@Describe(progress["compositionFindings"])</dd>
+                <dt>Global review current</dt><dd>@progress["globalReviewCurrent"]</dd>
+            </dl>
+            <p>Large result indexes retain their exact totals and continuation links in the complete progress record.</p>
+            <pre>@progress.ToJsonString(Pretty)</pre>
+        </details>
+    }
+    @if (Session.ThresholdWarnings.Count > 0)
+    {
+        <h4>Advisory thresholds exceeded</h4>
+        <p>Showing @Math.Min(_warningCount, Session.ThresholdWarnings.Count) of @Session.ThresholdWarnings.Count recorded warnings. Each exchange retains its complete linked warnings.</p>
+        <ul class="planning-warnings">@foreach (var warning in Session.ThresholdWarnings.Take(_warningCount))
+        {
+            <li><strong>Warning: @warning.Kind</strong> — observed @warning.Current; target @warning.Threshold.<br />
+                Origin: @warning.Origin · phase @Label(warning.Stage) · <code>@(warning.RequestId ?? "preparation/admission before an issued call")</code><br />@warning.Consequence</li>
+        }</ul>
+        @if (_warningCount < Session.ThresholdWarnings.Count) { <button type="button" @onclick="() => _warningCount += 20">Show next 20 warnings</button> }
+    }
+    <details><summary>Captured model, phase allocations and restriction origins</summary><pre>@Session.EffectivePolicy?.ToJsonString(Pretty)</pre></details>
+    <h3>LLM calls by business responsibility and phase</h3>
+    @if (_error is not null) { <p role="status">@_error</p> }
+    <label>Search calls <input @bind="_search" @bind:event="oninput" placeholder="Block, phase, model or request ID" /></label>
+    @foreach (var group in Calls.GroupBy(call => (Block: call["blockId"]?.ToString() ?? "Request-wide", Phase: call["phase"]?.ToString() ?? "Unknown")))
+    {
+        <section class="planning-call-group" aria-label="@($"Calls for {group.Key.Block}: {Label(group.Key.Phase)}")">
+            <h4>@group.Key.Block · @Label(group.Key.Phase)</h4>
+            @foreach (var call in group)
+            {
+                var key = call["key"]!.ToString();
+                <article class="planning-call" @key="key">
+                    <p><code>@call["requestId"]</code><br />@call["model"] · @call["status"] · output allocation @call["issuedOutputTokens"]<br />
+                    Provider input: @(call["inputTokens"]?.ToString() ?? "unknown") · output: @(call["outputTokens"]?.ToString() ?? "unknown") · estimated input: @call["estimatedInputTokens"]</p>
+                    <button type="button" @onclick="() => OpenAsync(key)">Inspect LLM exchange</button>
+                    <a href="@ExportUrl(key)" download>Export complete redacted JSON</a>
+                    @if (_selected == key && _detail is { } detail)
+                    {
+                        <p>@detail["costBasis"]</p>
+                        <dl><dt>Measured usage × captured tariff (estimated cost)</dt><dd>@(detail["costBreakdown"]?["measuredUsageTariffEstimate"]?.ToString() ?? "unknown") @detail["costBreakdown"]?["currency"]</dd>
+                            <dt>Uncertain usage reservation</dt><dd>@(detail["costBreakdown"]?["uncertainReservation"]?.ToString() ?? "unknown") @detail["costBreakdown"]?["currency"]</dd>
+                            <dt>Provider-reported cost</dt><dd>@(detail["costBreakdown"]?["providerReportedCost"]?.ToString() ?? "Unavailable; no provider cost was supplied.") @detail["costBreakdown"]?["providerReportedCurrency"]</dd></dl>
+                        @if (detail["http"]?["transport"] is JsonObject transport)
+                        {
+                            <p>Endpoint: @transport["Endpoint"] · protocol method: @transport["RequestMethod"]</p>
+                            <LlmTraceDocument Title="Actual serialized HTTP request" Text="@transport["RequestBody"]?.ToString()" Status="redacted" />
+                            @foreach (var attempt in transport["Attempts"]?.AsArray() ?? [])
+                            {
+                                <section class="http-attempt">
+                                    <h5>HTTP attempt <code>@attempt?["Id"]</code></h5>
+                                    <p>Started @attempt?["StartedAtUtc"] · completed @attempt?["CompletedAtUtc"] · observed HTTP @(attempt?["ObservedStatus"] ?? attempt?["Status"])<br />
+                                        Failure: @(attempt?["Failure"]?.ToString() ?? "none recorded") · complete body: @(attempt?["ResponseBodyComplete"]?.ToString() ?? "historical evidence unavailable") · retry not before: @attempt?["NotBefore"]<br />
+                                        Retry decision: @(attempt?["RetryDecision"]?.ToString() ?? "historical decision unavailable")</p>
+                                    <LlmTraceDocument Title="HTTP response, including invalid or partial content" Text="@((attempt?["Body"] ?? attempt?["PartialBody"])?.ToString())" Status="encrypted journal; redacted for display" />
+                                </section>
+                            }
+                        }
+                        <LlmTraceDocument Title="Logical request, effective settings and response schema" Text="@detail["logicalRequest"]?.ToJsonString(Pretty)" Status="redacted" />
+                        <LlmTraceDocument Title="Logical response and reported usage" Text="@detail["logicalResponse"]?.ToJsonString(Pretty)" Status="@detail["responseStatus"]?.ToString()" />
+                        <LlmTraceDocument Title="Validation, warnings and accounting evidence" Text="@detail.ToJsonString(Pretty)" Status="estimates and uncertain reservations are labelled; unavailable values remain unknown" />
+                    }
+                </article>
+            }
+        </section>
+    }
+    @if (_calls.Count == 0) { <p>No retained calls are available yet. The next refresh reads the encrypted journals.</p> }
+</section>
+@code {
+    [Parameter, EditorRequired] public PlanningSessionDto Session { get; set; } = null!;
+    [Parameter] public bool Workflow { get; set; }
+    private static readonly System.Text.Json.JsonSerializerOptions Pretty = new() { WriteIndented = true };
+    private JsonArray _calls = [];
+    private readonly List<PlanningInspectionEventDto> _events = [];
+    private string? _eventSession;
+    private JsonObject? _detail;
+    private string? _selected, _error, _selectedStatus;
+    private string _search = "";
+    private int _warningCount = 20;
+    private IEnumerable<JsonNode> Calls => _calls.Where(call => call is not null &&
+        (_search.Length == 0 || call.ToJsonString().Contains(_search, StringComparison.OrdinalIgnoreCase))).Select(call => call!);
+    private IEnumerable<IEnumerable<PlanningInspectionEventDto>> Occurrences
+    {
+        get
+        {
+            var indexed = new List<(string Key, PlanningInspectionEventDto Event)>();
+            string? previousPhase = null, previousRequest = null; var key = "";
+            foreach (var item in _events)
+            {
+                if (item.PhaseOccurrence > 0) key = "occurrence:" + item.PhaseOccurrence;
+                else if (item.RequestId is not null) key = item.Phase + ":" + item.RequestId;
+                else if (previousPhase != item.Phase || previousRequest is not null) key = item.Phase + ":" + item.Sequence;
+                indexed.Add((key, item)); previousPhase = item.Phase; previousRequest = item.RequestId;
+            }
+            return indexed.GroupBy(item => item.Key).Select(group => group.Select(item => item.Event));
+        }
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        var inspection = Services.GetService<PlanningInspectionService>();
+        if (_eventSession != Session.Id || inspection is null)
+        { _eventSession = Session.Id; _events.Clear(); _events.AddRange(Session.Events); }
+        if (inspection is null) return;
+        try
+        {
+            var view = await inspection.ReadAsync(Session.Id, Workflow, _events.LastOrDefault()?.Sequence ?? 0, CancellationToken.None);
+            var nextEvents = view["events"]!.Deserialize(PlanningInspectionJsonContext.Default.PlanningInspectionEventArray)!;
+            _events.AddRange(nextEvents.Select(e => new PlanningInspectionEventDto(e.Sequence, e.TimestampUtc, e.Phase, e.State, e.Reason, e.RequestId, e.BlockId, e.StepId, e.Checkpoint, e.Objective) { PhaseOccurrence = e.PhaseOccurrence }));
+            _calls = view["calls"]!.AsArray(); _error = null;
+            if (_selected is not null)
+            {
+                var status = _calls.FirstOrDefault(call => call?["key"]?.ToString() == _selected)?["status"]?.ToString();
+                if (status != _selectedStatus || status?.StartsWith("active", StringComparison.Ordinal) == true)
+                    _detail = await inspection.CallAsync(Session.Id, Workflow, _selected, CancellationToken.None);
+                _selectedStatus = status;
+            }
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or KeyNotFoundException or GnOuGo.Flow.Core.Planning.PlanningConflictException)
+        { _error = "Inspection unavailable: " + ex.Message; }
+    }
+    private async Task OpenAsync(string key)
+    {
+        try { _selected = key; _detail = await Services.GetRequiredService<PlanningInspectionService>().CallAsync(Session.Id, Workflow, key, CancellationToken.None); }
+        catch (Exception) { _error = "The encrypted exchange is unavailable or this operator cannot inspect it."; }
+    }
+    private string ExportUrl(string key) => $"/api/planning/{Uri.EscapeDataString(Session.Id)}/calls/export?workflow={Workflow.ToString().ToLowerInvariant()}&key={Uri.EscapeDataString(key)}";
+    private static string Describe(JsonNode? value) => value is null ? "Unavailable" : value.ToJsonString();
+    private static string Duration(DateTimeOffset start, DateTimeOffset end, string state) =>
+        ((state is "active" or "received" ? DateTimeOffset.UtcNow : end) - start).TotalSeconds.ToString("0.0") + "s";
+    private static string Label(string phase) => phase switch
+    {
+        "construction_intent" => "Understanding", "construction_select" => "Business selection", "construction_implementation" => "Implementation selection",
+        "construction_discovery" or "discovery" => "Capability / context discovery", "construction_draft" => "Fragment generation",
+        "technical_validation" => "Technical validation", "construction_local_judge" => "Local business review", "replan" or "replanning" => "Correction",
+        "construction_global_judge" => "Global business review", "compilation" or "validation" => "Compilation", "ready_for_approval" => "Ready to approve", _ => phase
+    };
+}

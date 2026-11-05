@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using GnOuGo.Agent.Shared;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
@@ -9,6 +10,11 @@ internal static class PlanningEndpoints
 {
     public static void MapPlanningEndpoints(this WebApplication app)
     {
+        app.MapGet("/api/planning/antiforgery", (HttpContext context, Microsoft.AspNetCore.Antiforgery.IAntiforgery antiforgery) =>
+        {
+            var tokens = antiforgery.GetAndStoreTokens(context);
+            return Results.Json(new JsonObject { ["headerName"] = tokens.HeaderName, ["requestToken"] = tokens.RequestToken });
+        });
         app.MapGet("/api/chat/conversations/{conversationId}/planning", async (string conversationId, ChatPlanningService service, CancellationToken ct) =>
             Results.Json((await service.ListAsync(conversationId, ct)).ToList(), ChatJsonContext.Default.ListPlanningSessionDto));
         app.MapPost("/api/chat/conversations/{conversationId}/planning/{id}/commands", async (string conversationId, string id, PlanningCommandDto request, ChatPlanningService service, CancellationToken ct) =>
@@ -19,13 +25,47 @@ internal static class PlanningEndpoints
             catch (KeyNotFoundException) { return Results.NotFound(); }
             catch (ArgumentException) { return Results.BadRequest("Invalid planner decision command."); }
         });
+        app.MapGet("/api/planning/{id}/inspection", async (string id, bool? workflow, long? after, PlanningInspectionService inspection, CancellationToken ct) =>
+        {
+            try { return Results.Json(await inspection.ReadAsync(id, workflow == true, after ?? 0, ct)); }
+            catch (UnauthorizedAccessException) { return Results.Forbid(); }
+            catch (KeyNotFoundException) { return Results.NotFound(); }
+        });
+        app.MapPost("/api/planning/{id}/stop", async (string id, PlanningSessionService service, CancellationToken ct) =>
+        {
+            try { return Results.Json(await service.ToDtoAsync(await service.StopAsync(id, ct), ct), ChatJsonContext.Default.PlanningSessionDto); }
+            catch (KeyNotFoundException) { return Results.NotFound(); }
+            catch (PlanningConflictException ex) { return Results.Conflict(ex.Message); }
+        });
+        app.MapGet("/api/planning/{id}/calls/export", async (string id, string key, bool? workflow, PlanningInspectionService inspection, CancellationToken ct) =>
+        {
+            try { return Results.File(System.Text.Encoding.UTF8.GetBytes((await inspection.CallAsync(id, workflow == true, key, ct)).ToJsonString()), "application/json", "planning-call-redacted.json"); }
+            catch (UnauthorizedAccessException) { return Results.Forbid(); }
+            catch (KeyNotFoundException) { return Results.NotFound(); }
+        });
+        app.MapGet("/api/planning/{id}/calls/content", async (string id, string key, bool? workflow, int? offset, int? count, string? search, PlanningInspectionService inspection, CancellationToken ct) =>
+        {
+            try
+            {
+                var full = (await inspection.CallAsync(id, workflow == true, key, ct)).ToJsonString();
+                var start = Math.Clamp(offset ?? 0, 0, full.Length); var size = Math.Clamp(count ?? 32768, 1, 65536);
+                var length = Math.Min(size, full.Length - start);
+                var match = string.IsNullOrEmpty(search) ? -1 : full.IndexOf(search, start, StringComparison.OrdinalIgnoreCase);
+                return Results.Json(new JsonObject { ["text"] = full.Substring(start, length), ["offset"] = start, ["totalCharacters"] = full.Length,
+                    ["nextOffset"] = start + length, ["complete"] = start + length == full.Length, ["nextMatch"] = match });
+            }
+            catch (UnauthorizedAccessException) { return Results.Forbid(); }
+            catch (KeyNotFoundException) { return Results.NotFound(); }
+        });
         app.MapGet("/api/planning", async (PlanningSessionService service, CancellationToken ct) =>
             Results.Json((await Task.WhenAll((await service.ListAsync(ct)).Select(state => service.ToDtoAsync(state, ct)))).ToList(), ChatJsonContext.Default.ListPlanningSessionDto));
         app.MapGet("/api/planning/{id}", async (string id, PlanningSessionService service, CancellationToken ct) =>
             await service.GetAsync(id, ct) is { } state ? Results.Json(await service.ToDtoAsync(state, ct), ChatJsonContext.Default.PlanningSessionDto) : Results.NotFound());
-        app.MapPost("/api/planning", async (PlanningStartDto request, PlanningSessionService service, CancellationToken ct) =>
+        app.MapPost("/api/planning", async (PlanningStartDto request, PlanningSessionService service, LocalOperatorAccess access, CancellationToken ct) =>
         {
-            try { return Results.Json(ToDto(await service.StartAsync(request.Name, request.Prompt, request.ReviseExisting, ct, mode: request.Mode, constructionPreset: request.ConstructionPreset)), ChatJsonContext.Default.PlanningSessionDto); }
+            try { return Results.Json(ToDto(await service.StartAsync(request.Name, request.Prompt, request.ReviseExisting, ct, mode: request.Mode, constructionPreset: request.ConstructionPreset, thresholdMode: request.ThresholdMode,
+                diagnosticGrant: request.ThresholdMode == "diagnostic" ? await access.GrantAsync() : null)), ChatJsonContext.Default.PlanningSessionDto); }
+            catch (UnauthorizedAccessException) { return Results.Forbid(); }
             catch (ArgumentException) { return Results.BadRequest("Invalid planning request."); }
             catch (InvalidOperationException ex) { return Results.Conflict(ex.Message); }
         });
@@ -72,6 +112,19 @@ internal static class PlanningEndpoints
         state.Usage?.EstimatedCost ?? 0, state.Usage?.EstimatedCostCurrency ?? "", state.ActiveMilliseconds, state.HumanWaitMilliseconds, state.Phase, state.Request.Mode)
     {
         SchemaVersion = state.SchemaVersion,
+        ThresholdMode = state.Request.Options[PlanningHostPolicy.CaptureOption]?["thresholdMode"]?.ToString() ?? "strict",
+        EffectivePolicy = new JsonObject { ["phases"] = state.Request.Options["construction_limits"]?["phasePolicy"]?.DeepClone(),
+            ["allocations"] = state.Request.Options["allocation_origin"]?.DeepClone(), ["model"] = state.Request.Options[GnOuGo.Flow.Integrations.Planning.CapturedPlanningModel.OptionName]?.DeepClone(),
+            ["maxModelCalls"] = state.Request.MaxModelCalls, ["maxCorrections"] = state.Request.MaxReplanAttempts, ["capacity"] = state.Request.Options["model_capacity"]?.DeepClone(),
+            ["budget"] = state.Request.Options["llm_budget"]?.DeepClone(), ["construction"] = state.Request.Options["construction_limits"]?.DeepClone(),
+            ["policy"] = System.Text.Json.JsonSerializer.SerializeToNode(state.Request.Policy, PlanningJsonContext.Default.PlanningPolicy) },
+        OverallProgress = PlanningCompactConstruction.InspectOverallProgress(state),
+        Events = state.InspectionEvents?.Select(e => new PlanningInspectionEventDto(e.Sequence, e.TimestampUtc, e.Phase, e.State, e.Reason, e.RequestId, e.BlockId, e.StepId, e.Checkpoint, e.Objective) { PhaseOccurrence = e.PhaseOccurrence }).ToArray() ?? [],
+        ThresholdWarnings = (state.ThresholdWarnings ?? []).Concat(state.Usage?.Warnings ?? [])
+            .Concat(state.RequestMeasurements?.SelectMany(measurement => (measurement.Warnings ?? []).Select(warning => warning with
+            { SessionId = state.Request.SessionId, RequestId = measurement.RequestId, BlockId = measurement.BlockId, StepId = measurement.StepId })) ?? [])
+            .Distinct().Select(w =>
+            new PlanningThresholdWarningDto(w.Kind, w.Current, w.Threshold, w.Basis, w.Stage, w.RequestId, w.BlockId)).ToArray(),
         RequestText = state.Request.Prompt,
         RevisionScope = state.RevisionScope.ToArray(),
         DiscoveryLimitations = state.Discovery.Limitations.ToArray(),

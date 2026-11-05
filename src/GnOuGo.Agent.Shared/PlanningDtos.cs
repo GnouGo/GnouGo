@@ -1,7 +1,7 @@
 using System.Text.Json.Nodes;
 namespace GnOuGo.Agent.Shared;
 public sealed record PlanningStartDto(string Name, string Prompt, bool ReviseExisting = false, string Mode = "interactive",
-    string? ConstructionPreset = null);
+    string? ConstructionPreset = null, string ThresholdMode = "strict");
 public sealed record PlanningGenerationDto(string Reasoning = "medium", int MaxInputTokensPerRequest = 32_000, int MaxOutputTokens = 32_768);
 public sealed record PlanningCommandDto(string Kind, long ExpectedRevision, string? ArtifactHash = null, string? Text = null, JsonObject? Selections = null, PlanningGenerationDto? Generation = null, string? Mode = null,
     IReadOnlyList<PlanningAnswerDto>? Answers = null, string? RequestId = null)
@@ -32,6 +32,11 @@ public sealed record PlanningSessionDto(string Id, string Name, long Revision, s
     decimal EstimatedCost, string Currency, double ActiveMilliseconds, double HumanWaitMilliseconds, string Phase, string Mode = "interactive", bool WorkflowSession = false)
 {
     public int SchemaVersion { get; init; } = 11;
+    public string ThresholdMode { get; init; } = "strict";
+    public JsonObject? EffectivePolicy { get; init; }
+    public JsonObject? OverallProgress { get; init; }
+    public IReadOnlyList<PlanningInspectionEventDto> Events { get; init; } = [];
+    public IReadOnlyList<PlanningThresholdWarningDto> ThresholdWarnings { get; init; } = [];
     public IReadOnlyList<string> RevisionScope { get; init; } = [];
     public IReadOnlyList<string> DiscoveryLimitations { get; init; } = [];
     public JsonObject? TaskPlan { get; init; }
@@ -42,3 +47,10 @@ public sealed record PlanningSessionDto(string Id, string Name, long Revision, s
     public PlanningRequestInspectionDto? RequestInspection { get; init; }
 }
 public sealed record PlanningRequestInspectionDto(string State, string? RequestId, bool CancellationRequested = false);
+public sealed record PlanningInspectionEventDto(long Sequence, DateTimeOffset TimestampUtc, string Phase, string State, string Reason,
+    string? RequestId, string? BlockId, string? StepId, int? Checkpoint, string? Objective)
+{
+    public long PhaseOccurrence { get; init; }
+}
+public sealed record PlanningThresholdWarningDto(string Kind, long Current, long Threshold, string Origin, string Stage,
+    string? RequestId, string? BlockId, string Consequence = "Continues; mandatory controls remain enforced.");

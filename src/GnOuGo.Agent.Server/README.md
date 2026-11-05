@@ -6,7 +6,7 @@ Diagrams explicitly retain the existing Dagre layout, classic look, and custom
 theme. The lazy ELK engine is an upstream prebuilt module with a separate 1,500 kB
 bundle limit; all other Agent chunks retain an enforced 700 kB limit.
 
-Workflow planning uses `Requirements → progressive capability discovery → LLM TaskPlan → deterministic compiler → PlanningGraph → YAML → validation → approval`; see [the planning architecture](../../docs/workflow-planning-v9.md). The planning page offers **Retry with retained usage** after an uncertain model dispatch. This explicit action preserves the failed call, conservatively accounts for missing usage, and reserves a new call within existing session limits. A stored completion is reused instead. Restart never silently redispatches an uncertain request. Workflow approval and generic runtime effect confirmation remain separate.
+Workflow planning uses `Requirements → progressive capability discovery → LLM TaskPlan → deterministic compiler → PlanningGraph → YAML → validation → approval`; see [the planning architecture](../../docs/workflow-planning-v9.md). Stored completions are reused with their exact accounting. An uncertain construction request requires reconciliation of its original receipt; refresh and restart never redispatch it. Missing historical metadata remains unavailable and cannot be replaced with current prices. Workflow approval and generic runtime effect confirmation remain separate.
 
 Workflow Designer keeps incompatible saved sessions visible as **Unavailable**, with their origin, identity and existing traces. Other sessions remain usable. These entries cannot be resumed, approved or executed; start a new plan instead. Encrypted historical payloads and uncertain reservations remain unchanged, and startup recovery skips records that cannot satisfy the current strict session format.
 
@@ -20,7 +20,7 @@ This solution contains:
 
 ### Typed workflow designer
 
-Open `/planning` to create or revise a workflow. `/gnougo add`, reprompt and failure improvement open this durable designer. It displays progress, TaskPlan tasks and choices, compiled graph, findings, usage and final review. Approving and saving requires the current revision and artifact hash. Runtime write confirmation remains a separate gate.
+Open the authenticated local operator window to create or revise a workflow at `/planning`. See [diagnostic planning](../../docs/diagnostic-planning.md) for the `Diagnostic` launch profile, host authorization, advisory/mandatory limits, retained exchanges and official model metadata. Strict remains the default. `/gnougo add`, reprompt and failure improvement open this durable designer. It displays progress, TaskPlan tasks and choices, compiled graph, findings, usage and final review. Approving and saving requires the current revision and artifact hash. Runtime write confirmation remains a separate gate.
 
 At final review, **Approve this revision and save** stays disabled until you explicitly check every business requirement. The text beside it shows how many requirements you have reviewed, lists the remaining descriptions, and links to their checkboxes. Checking requirements does not submit approval. The separate button approves the displayed revision and artifact, then saves it; saving does not execute the workflow. Polling preserves acknowledgments for the same artifact. Navigation, a changed revision/artifact or a reload requires fresh review. The server still rejects incomplete or stale approval, and **Save approved workflow** remains available after an interrupted save.
 
@@ -58,9 +58,9 @@ selector for 384 calls, 64 cumulative corrections and a larger captured graph po
 `LargeMaxModelCalls`, `LargeMaxReplanAttempts`, `LargeMaxStepsTotal`,
 `LargeMaxStepsPerWorkflow` and `LargeMaxWorkflows` configure that explicit preset.
 Ordinary remains the default. Both presets retain the host financial, token and
-active-time ceilings. Recovery intersects saved call/token allowances with current
-host ceilings and rejects changed graph policy; monetary and active-time limits
-remain captured in the session.
+active-time ceilings. New host-authorized sessions recover their verified captured policy, model metadata,
+tariffs and transport settings without substituting current defaults. Historical
+sessions retain their original recovery rules and accounting.
 
 Every new planning request is admitted against declared Structured Output support,
 reasoning settings and model input capacity after reserving the unchanged output limit.
@@ -68,8 +68,8 @@ The effective input ceiling is the smaller of configuration and verified model c
 Missing indispensable metadata or incompatible settings stop before dispatch, without
 switching models, clamping output or truncating required data. Safe diagnostics retain
 stage, measurement unit, limit and measured input; a per-request input refusal is
-separate from cumulative exhaustion. Existing financial, cumulative-token and active-time
-ceilings remain unchanged.
+separate from cumulative exhaustion. Financial ceilings remain mandatory. Diagnostic cumulative-token and active-time
+targets warn through the same captured policy; finite per-request network deadlines remain mandatory.
 
 `TypedWorkflowPlanning.AutomaticCorrectionEnabled` defaults to `true` for new
 Agent.Server sessions. Its value is captured in session options; omission in a

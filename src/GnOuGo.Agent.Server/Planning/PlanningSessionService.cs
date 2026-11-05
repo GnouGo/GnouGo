@@ -29,7 +29,8 @@ public sealed partial class PlanningSessionService(
     IOptions<WorkflowPlanningBudgetSettings> budgetSettings,
     IOptions<TypedWorkflowPlanningSettings> settings,
     IOptions<OpenTelemetrySettings> telemetrySettings,
-    ILogger<PlanningSessionService> logger) : BackgroundService
+    ILogger<PlanningSessionService> logger,
+    PlanningHostPolicy? hostPolicy = null) : BackgroundService
 {
     private readonly Channel<string> _queue = Channel.CreateUnbounded<string>();
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new(StringComparer.Ordinal);
@@ -89,15 +90,15 @@ public sealed partial class PlanningSessionService(
 
     internal bool AutomaticCorrectionEnabled => settings.Value.AutomaticCorrectionEnabled;
 
-    public Task<PlanningSession> StartAsync(string name, string prompt, bool reviseExisting, CancellationToken ct, JsonObject? failureEvidence = null, string mode = PlanningMode.Interactive, string? constructionPreset = null)
-        => StartCoreAsync(name, prompt, reviseExisting, ct, failureEvidence, mode, null, null, constructionPreset);
+    public Task<PlanningSession> StartAsync(string name, string prompt, bool reviseExisting, CancellationToken ct, JsonObject? failureEvidence = null, string mode = PlanningMode.Interactive, string? constructionPreset = null, string thresholdMode = "strict", PlanningDiagnosticGrant? diagnosticGrant = null)
+        => StartCoreAsync(name, prompt, reviseExisting, ct, failureEvidence, mode, null, null, constructionPreset, thresholdMode, diagnosticGrant);
 
     internal Task<PlanningSession> StartFailureRevisionAsync(string name, string prompt, string runId, string artifactHash,
         JsonObject evidence, string mode, CancellationToken ct)
         => StartCoreAsync(name, prompt, true, ct, evidence, mode, runId, artifactHash);
 
     private async Task<PlanningSession> StartCoreAsync(string name, string prompt, bool reviseExisting, CancellationToken ct,
-        JsonObject? failureEvidence, string mode, string? runId, string? artifactHash, string? constructionPreset = null)
+        JsonObject? failureEvidence, string mode, string? runId, string? artifactHash, string? constructionPreset = null, string thresholdMode = "strict", PlanningDiagnosticGrant? diagnosticGrant = null)
     {
         PlanningMode.Validate(mode);
         var preset = settings.Value.ResolvePreset(constructionPreset);
@@ -171,7 +172,9 @@ public sealed partial class PlanningSessionService(
                 state.PendingQuestions = [new("preserve_authored_intent", "Describe the intended behavior and outputs to preserve when revising this authored workflow. The original will remain unchanged.", [], null)];
             }
         }
-        PlanningGenerationPolicy.Validate(state.Request.Generation);
+        if (hostPolicy is not null) await hostPolicy.CaptureAsync(state, runtime.Options, thresholdMode, diagnosticGrant, ct);
+        else if (thresholdMode != "strict") throw new UnauthorizedAccessException("This host has no diagnostic authority.");
+        PlanningGenerationPolicy.Validate(state.Request.Generation, PlanningTokenThresholds.OptimizationAdvisory(state.Request));
         PlanningSessionCreation.Capture(state);
         if (!await store.TrySaveAsync(state, expectedRevision: null, ct))
         {
@@ -325,7 +328,8 @@ public sealed partial class PlanningSessionService(
 
     private async Task<PlanningSession> AdvanceAsync(PlanningSession current, PlanningCommand command, CancellationToken ct)
     {
-        PlanningTokenThresholds.RejectReserved(current.Request.Options);
+        if (hostPolicy is not null) await hostPolicy.VerifyAsync(current, ct);
+        else PlanningTokenThresholds.RejectReserved(current.Request.Options);
         using var activity = Activities.StartActivity("planning.advance", ActivityKind.Internal, default(ActivityContext),
             tags: new ActivityTagsCollection { ["tenant.id"] = Tenant, ["gnougo.planning.session_id"] = current.Request.SessionId });
         var clock = Stopwatch.StartNew();
@@ -343,20 +347,23 @@ public sealed partial class PlanningSessionService(
             if (!await store.TrySaveAsync(result, current.Revision, ct)) throw new PlanningConflictException("A newer revision was saved.");
             return result;
         }
-        await using var runtime = await runtimeFactory.CreateAsync(ct);
+        await using var runtime = await runtimeFactory.CreateAsync(ct, current.Request);
         var receipt = await records.GetAsync(PlanningBudgetSink.Collection, Tenant, current.Request.SessionId, EfPlanningSessionStore.Author, ct);
         var initial = receipt is null ? current.Usage : JsonSerializer.Deserialize(receipt.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
         var configured = PlanningBudgetOptions.Parse(current.Request.Options);
         var limits = new LLMUsageBudgetLimits
         {
             MaxCalls = EffectiveModelCalls(current, configured, settings.Value),
-            MaxTotalTokens = Math.Min(configured?.MaxTotalTokens ?? settings.Value.MaxTotalTokens, settings.Value.MaxTotalTokens),
+            MaxTotalTokens = current.Request.Options[PlanningHostPolicy.CaptureOption] is not null
+                ? configured?.MaxTotalTokens : Math.Min(configured?.MaxTotalTokens ?? settings.Value.MaxTotalTokens, settings.Value.MaxTotalTokens),
             MaxEstimatedCost = configured?.MaxEstimatedCost ?? new MonetaryAmount(budgetSettings.Value.Amount, budgetSettings.Value.Currency)
         };
         var estimator = new ModelMetadataUsageCostEstimator(runtime.Options);
-        var budget = new LLMUsageBudgetScope(limits, initial, sink: new PlanningBudgetSink(records, Tenant, current.Request.SessionId), exchangeRateProvider: exchangeRates);
+        var budget = new LLMUsageBudgetScope(PlanningTokenThresholds.Advisory(current.Request), limits, initial,
+            sink: new PlanningBudgetSink(records, Tenant, current.Request.SessionId), exchangeRateProvider: exchangeRates,
+            advisoryOptimization: PlanningTokenThresholds.OptimizationAdvisory(current.Request));
         var journal = new PlanningModelJournal(runtime.LlmClient, contexts, records, Tenant, current.Request.SessionId, budget, estimator, current.Request.Generation, runtime.LlmCapabilityResolver, current.Request,
-            DateTimeOffset.UtcNow + (configured?.MaxElapsed ?? TimeSpan.FromHours(5)) - TimeSpan.FromMilliseconds(current.ActiveMilliseconds));
+            PlanningDispatchDeadline.Resolve(current.Request, current.ActiveMilliseconds), requireCapturedMetadata: hostPolicy is not null);
         if (current.PendingCall is { } retained)
         {
             await journal.RecoverSavedResponseAsync(retained.Request, ct);
@@ -386,7 +393,7 @@ public sealed partial class PlanningSessionService(
         }
         var engine = new WorkflowEngine
         {
-            PlanningPolicy = CreatePolicy(CapturedPreset(current)),
+            PlanningPolicy = current.Request.Options[PlanningHostPolicy.CaptureOption] is not null ? current.Request.Policy : CreatePolicy(CapturedPreset(current)),
             LLMClient = journal, McpClientFactory = runtime.McpClientFactory, LLMCapabilities = runtime.LlmCapabilityResolver,
             ModelUsageCostEstimator = estimator, ExchangeRateProvider = exchangeRates,
             LlmDefaults = new() { Provider = runtime.Options.DefaultProvider, Model = runtime.Options.DefaultModel },
@@ -421,7 +428,7 @@ public sealed partial class PlanningSessionService(
             throw new PlanningConflictException("Saving requires approval of this exact validated artifact.");
         PlanningArtifactApproval.Verify(state);
         await using var runtime = await runtimeFactory.CreateAsync(ct);
-        var validation = new WorkflowPlanningRuntime(runtime.ConfigureAgentRunners(new WorkflowEngine { McpClientFactory = runtime.McpClientFactory, PlanningPolicy = CreatePolicy(CapturedPreset(state)) }), (_, _) => Task.CompletedTask);
+        var validation = new WorkflowPlanningRuntime(runtime.ConfigureAgentRunners(new WorkflowEngine { McpClientFactory = runtime.McpClientFactory, PlanningPolicy = state.Request.Options[PlanningHostPolicy.CaptureOption] is not null ? state.Request.Policy : CreatePolicy(CapturedPreset(state)) }), (_, _) => Task.CompletedTask);
         var errors = await validation.ValidateCatalogAsync(state.Catalog!, ct);
         if (errors.Count == 0) errors = await validation.ValidateAsync(new(state.Yaml!, state.Request, state.Catalog!, PlanningGraphCompiler.CapabilityBindings(state.Graph!)), ct);
         if (errors.Count != 0)
@@ -475,7 +482,9 @@ public sealed partial class PlanningSessionService(
     }
 
     internal static int EffectiveModelCalls(PlanningSession state, LLMUsageBudgetLimits? configured, TypedWorkflowPlanningSettings host)
-        => Math.Min(state.Request.MaxModelCalls, Math.Min(configured?.MaxCalls ?? state.Request.MaxModelCalls,
+        => state.Request.Options[PlanningHostPolicy.CaptureOption] is not null
+            ? Math.Min(state.Request.MaxModelCalls, configured?.MaxCalls ?? state.Request.MaxModelCalls)
+            : Math.Min(state.Request.MaxModelCalls, Math.Min(configured?.MaxCalls ?? state.Request.MaxModelCalls,
             host.Calls(CapturedPreset(state))));
 
     private static string CapturedPreset(PlanningSession state)

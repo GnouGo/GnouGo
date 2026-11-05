@@ -12,6 +12,7 @@
 @using GnOuGo.Flow.Core.Runtime
 @implements IAsyncDisposable
 
+@inject IServiceProvider Services
 @inject IJSRuntime Js
 @inject IHttpClientFactory HttpClientFactory
 @inject NavigationManager Navigation
@@ -620,6 +621,8 @@
 
         <footer class="gnougo-chat__composer">
             <label>Planning mode <select @bind="_planningMode" disabled="@_isStreaming"><option value="interactive">Interactive</option><option value="auto">Auto</option></select></label>
+            @if (Services.GetService<Microsoft.Extensions.Options.IOptions<GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings>>()?.Value.DiagnosticEnabled == true)
+            { <label>Threshold policy <select @bind="_thresholdMode" disabled="@_isStreaming"><option value="strict">Strict</option><option value="diagnostic">Diagnostic — thresholds are warnings</option></select></label> }
             <EditForm id="@ComposerDropZoneId" class="gnougo-composer" Model="_model" OnValidSubmit="SendAsync">
                 <DataAnnotationsValidator />
                 <input id="@ComposerFileInputId" class="gnougo-composer__file-input" type="file" multiple />
@@ -835,6 +838,7 @@
 @code
 {
     private string _planningMode = "interactive";
+    private string _thresholdMode = "strict";
     private sealed class ComposeModel
     {
         public string Prompt { get; set; } = "";
@@ -1876,7 +1880,8 @@
         try
         {
             var conversationId = string.IsNullOrWhiteSpace(_active.ConversationId) ? _active.Id : _active.ConversationId;
-            await foreach (var evt in SmartFlow.ExecuteAsync(prompt, correlationId, agentName: null, filesIds, workflowInputs, conversationId, _cts.Token))
+            var diagnosticGrant = _thresholdMode == "diagnostic" ? await Services.GetRequiredService<GnOuGo.Agent.Server.Planning.LocalOperatorAccess>().GrantAsync() : null;
+            await foreach (var evt in SmartFlow.ExecuteAsync(prompt, correlationId, agentName: null, filesIds, workflowInputs, conversationId, _cts.Token, diagnosticGrant))
             {
                 if (evt.Type is "animation.prepared" && evt.Animation?.Prepared is { } prepared)
                 {

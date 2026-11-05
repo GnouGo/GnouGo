@@ -7,9 +7,9 @@ using GnOuGo.Flow.Integrations;
 namespace GnOuGo.Agent.Server.Tests;
 
 /// <summary>Current scripted responses delivered through the real HTTP journal and provider parser.</summary>
-internal sealed class JournaledPlanningModel(ILLMClient script) : ILLMClient, IDisposable
+internal sealed class JournaledPlanningModel(ILLMClient script, bool preserveUsage = false) : ILLMClient, IDisposable
 {
-    private readonly Handler _handler = new();
+    private readonly Handler _handler = new(preserveUsage);
     private HttpClient? _http;
     internal List<LLMRequest> Requests { get; } = [];
     public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
@@ -26,7 +26,7 @@ internal sealed class JournaledPlanningModel(ILLMClient script) : ILLMClient, ID
         return await client.CallAsync(request, ct);
     }
     public void Dispose() => _http?.Dispose();
-    private sealed class Handler : HttpMessageHandler
+    private sealed class Handler(bool preserveUsage) : HttpMessageHandler
     {
         internal LLMResponse? Response;
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
@@ -36,7 +36,7 @@ internal sealed class JournaledPlanningModel(ILLMClient script) : ILLMClient, ID
             {
                 ["choices"] = new JsonArray(new JsonObject { ["finish_reason"] = "stop", ["message"] = new JsonObject
                     { ["role"] = "assistant", ["content"] = response.Json?.ToJsonString() ?? response.Text } }),
-                ["usage"] = new JsonObject { ["prompt_tokens"] = 10, ["completion_tokens"] = 5, ["total_tokens"] = 15 }
+                ["usage"] = preserveUsage && response.Usage is not null ? response.Usage.DeepClone() : new JsonObject { ["prompt_tokens"] = 10, ["completion_tokens"] = 5, ["total_tokens"] = 15 }
             }.ToJsonString(), System.Text.Encoding.UTF8, "application/json") });
         }
     }
