@@ -12,7 +12,7 @@
 @implements IAsyncDisposable
 
 <PageTitle>Workflow designer</PageTitle>
-<main id="planningReview" class="container py-4" style="max-width:1100px;margin:auto;padding:1.5rem">
+<main id="planningReview" data-interactive="@(_interactiveReady ? "true" : "false")" class="container py-4" style="max-width:1100px;margin:auto;padding:1.5rem">
     <a href="/">← Back to chat</a> · <a href="/runs">Workflow executions</a>
     <h1>Workflow designer</h1>
     @if (_error is not null) { <p role="alert" class="text-danger">@_error</p> }
@@ -50,7 +50,7 @@
                 <option value="large">Large workflow</option>
             </select>
             <p>Each draft includes an independent review. Capacity limits are fixed when the session starts.</p>
-            <button class="btn btn-primary" type="submit" disabled="@_busy">Create plan</button>
+            <button class="btn btn-primary" type="submit" disabled="@(_busy || !_interactiveReady)">Create plan</button>
         </form>
         <ul>@foreach (var entry in _sessions)
         {
@@ -252,6 +252,7 @@
     private string _constructionPreset = "";
     private string _thresholdMode = "strict";
     private bool _diagnosticAvailable;
+    private bool _interactiveReady;
     private int _inputLimit, _outputLimit;
     private string? _error;
     private string? _commandError;
@@ -275,6 +276,7 @@
     }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender) { _interactiveReady = true; StateHasChanged(); }
         if (_state is null || _renderedRevision == _state.Revision) return;
         try { await Js.InvokeVoidAsync("GnOuGo.Agent.markdown.enhance", "planningReview"); _renderedRevision = _state.Revision; }
         catch (JSDisconnectedException) { }

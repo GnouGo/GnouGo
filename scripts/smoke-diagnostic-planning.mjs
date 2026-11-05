@@ -14,8 +14,7 @@ try {
   assert.equal((await anonymous.get(`${url}/api/planning`)).status(), 200);
   async function start(name, mode) {
     await page.goto(`${url}/planning`);
-    await page.waitForFunction(() => window.Blazor?._internal?.navigationManager != null);
-    await page.waitForTimeout(300);
+    await page.locator('#planningReview[data-interactive="true"]').waitFor();
     if (mode === 'default') assert.equal(await page.locator('#plan-thresholds').inputValue(), 'diagnostic');
     else if (mode) await page.locator('#plan-thresholds').selectOption(mode);
     else assert.equal(await page.locator('#plan-thresholds').count(), 0);
@@ -114,8 +113,7 @@ try {
   await page.getByText('Planning stopped', { exact: true }).waitFor({ timeout: 20000 });
   await page.reload();
   await page.getByText('Planning stopped', { exact: true }).waitFor();
-  await page.waitForFunction(() => window.Blazor?._internal?.navigationManager != null);
-  await page.waitForTimeout(300);
+  await page.locator('#planningReview[data-interactive="true"]').waitFor();
   await page.getByRole('button', { name: 'Inspect LLM exchange', exact: true }).first().click();
   await page.getByRole('heading', { name: /HTTP response, including invalid or partial content/ }).waitFor();
   const partialCalls = (await (await page.request.get(`${url}/api/planning/${partialSessionId}/inspection`)).json()).calls;
