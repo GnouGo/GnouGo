@@ -47,6 +47,12 @@ Present short original requests once and in full through selection, discovery, d
 
 Measure the complete serialized request, including instructions, response schema and envelope. Compact optional navigation toward the captured input target, preserving actual bindings, controls and explicitly retrieved evidence. A trusted benchmark campaign may capture advisory project token thresholds: crossings then produce host warnings throughout preparation, evidence admission, dispatch and cumulative accounting, never repair diagnostics or rejection. Ordinary hosts and model-authored inputs reject reserved authority. Agent.Server captures it only for a new session after server enablement and protected loopback operator authentication; verify the encrypted tenant/session capture on restart and pass host authority outside model inputs. Preserve strict financial, permission, physical-provider and replay controls.
 Normal local Agent.Server startup opens its protected operator window, and new authenticated operator plans default to diagnostic warnings. Keep Strict explicitly selectable; unauthenticated ordinary hosts remain strict. Resolve omitted request policies from authorized host defaults, never model-authored options. Operator authentication protects diagnostic activation and detailed LLM inspection; it must not gate ordinary strict planning pages or commands. Explain normal local startup when inspection is unavailable; the Diagnostic profile remains an alias. Show full redacted input/output through encrypted OTel content references, not exported business-content span attributes. Resolve the provider's configured KeyVault model ahead of stale user model defaults, before workers start; preserve existing captured sessions.
+Warning authority is independent of output allocation. New diagnostic sessions use
+configured phase allocations and overrides by default; verified model maximum is
+an explicit host opt-in. Preserve historical captures. Planning exposes engine
+progress and links to the shared OTel/journal inspector, never a second call list.
+Exact journal receipts/reservations remain authoritative; telemetry grants no
+acceptance, replay or planning authority.
 The captured fresh diagnostic optimization policy also makes planning call, correction,
 checkpoint, graph-size, session-time and nonproductive-count targets advisory. Historical
 token-only captures retain their original scope. Explicit execution resource budgets and

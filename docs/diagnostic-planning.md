@@ -29,9 +29,11 @@ true. `DefaultThresholdMode` defaults to `diagnostic` for authenticated local
 operators; set it to `strict` for an explicit host opt-out. Omitted API selections
 use this authorized default; explicit unauthorized diagnostic requests are rejected.
 Headless hosts can set `OpenLocalOperatorBrowser=false`. `DiagnosticModelMaximum`
-defaults to true: navigation, drafting/correction and review each request the
-verified model output maximum, restricted by an explicit deployment cap. False uses
-configured phase allocations. There is no artificial 65,536 output ceiling.
+defaults to false: navigation, drafting/correction and review use configured phase
+allocations, including phase-policy overrides. Set it explicitly to true to request
+the verified model output maximum, restricted by an explicit deployment cap.
+The Diagnostic profile does not override this setting. Warning authority and output
+allocation are independent. There is no artificial 65,536 output ceiling.
 In Limited mode, financial admission can refuse the complete reservation, never silently reduce it.
 Requested/effective allocations and restriction origins remain inspectable.
 
@@ -147,27 +149,54 @@ linked warnings accompany calls. Reasoning tokens already belong to output total
 Cost labels distinguish measured usage, estimates, usage-times-captured-tariff
 estimates, uncertain reservations and unavailable provider invoice costs.
 
-Content loads when expanded and renders in explicit 32,768-character pages with
-search and complete redacted JSON export. Credentials, tokens, cookies, sensitive
+Planning retains engine progress, phase/block, warnings and blocking causes.
+Timeline request links open the same `TraceSidebar`, `TracePipeline`, `LlmCallDetail`
+and `LlmTraceDocument` used by chat. Exact tenant/session-owner/request identities
+join spans and journals into one logical call, with nested HTTP attempts. Calls
+span all owned traces; the trace selector controls raw spans/logs. Missing telemetry
+is labelled as journal evidence, with no fabricated spans, durations or acceptance.
+Receipt, technical validation and business review remain separate facts.
+
+Content loads when expanded and reads encrypted 32,768-character pages on demand,
+with bounded server-side search continuations and streaming complete redacted JSON
+export. The viewer retains its current page, not a hydrated full document.
+Credentials, tokens, cookies, sensitive
 headers and endpoint secrets are removed, including decoded JSON string content.
 Large documents are neither withheld nor silently truncated. Inspection grants
 no planning authority and dispatches no inference.
 
 Protected reads:
 
-- `GET /api/planning/{id}/inspection?after={sequence}` returns up to 200 events,
-  the exact next cursor, and independently refreshed call summaries.
-- `GET /api/planning/{id}/calls/content?key={exactKey}&offset=0&count=32768&search=...`
-  returns text, total characters, exact next offset, completeness and next match.
+- `GET /api/planning/{id}/inspection?after={sequence}&callsAfter={encodedCursorJson}`
+  returns up to 200 events and a bounded metadata-only call delta. Pass
+  `nextCallCursor` back as URL-encoded JSON; follow `hasMoreCalls`.
+- `GET /api/planning/{id}/calls/content?key={exactKey}` returns request-only
+  accounting, effective settings, decisions and document references, without bodies
+  or the complete session budget.
+- Add `document={id}&version={version}&offset=0&count=32768` to read text, total
+  characters, exact next offset and completeness. Add `search={query}` for bounded
+  search with `nextMatch` / `nextOffset` continuation. Changed versions return 409;
+  never concatenate pages from different versions.
   The maximum 65,536 characters is a display page size.
 - `GET /api/planning/{id}/calls/export?key={exactKey}` returns the complete redacted
   exchange. Use `workflow=true` only for the original chat-owned journal.
+- `GET /api/traces/llm/export?reference={id}&trace={trace}&span={span}&session={session}`
+  exports the same documents for a trace-owned nonplanning call.
 - API mutations require the request token/header returned by
   `GET /api/planning/antiforgery`. Blazor uses its protected circuit.
 
 Every read verifies current tenant, exact session, original version-11 journal
-owner and request key. Cross-session/request substitution fails. Old records are
-not copied or migrated.
+owner and request key. Cross-session/request/document substitution fails. Existing
+KeyVault storage supplies bounded metadata queries and authenticated chunks;
+full-record replay reconstructs identical logical bytes. Optional observers prepare
+redacted document parts after journal persistence and grant no planning/replay
+authority. Interrupted preparation cannot publish a partial descriptor. No new
+database service, synchronization worker or progress cache is introduced.
+Explicit access to an older monolithic document may decrypt it once to prepare
+pages. Original logical content, timestamps, charges and reservations remain
+unchanged; subsequent reads use pages. Refreshes neither convert old documents nor
+list/decrypt tenant history. Diagnostic retention includes parts; planner replay
+journals retain their existing lifetime.
 
 ## OpenAI sources and billing
 

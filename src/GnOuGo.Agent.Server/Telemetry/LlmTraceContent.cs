@@ -19,6 +19,7 @@ public sealed class LlmTraceContent
     public int? OutputBytes { get; set; }
     public string? Input { get; set; }
     public string? Output { get; set; }
+    public List<LlmDocumentReference>? Documents { get; set; }
 }
 
 public sealed record LlmJournalCall(string Key, DateTimeOffset CreatedAt, string Provider, string Model, string Status, long? InputTokens = null, long? OutputTokens = null);

@@ -11,8 +11,9 @@ namespace GnOuGo.Agent.Server.Planning;
 
 /// <summary>Authority is an encrypted host record bound to immutable creation settings, not an option string.</summary>
 public sealed class PlanningHostPolicy(IKeyVaultRecordStore records, IOptions<TypedWorkflowPlanningSettings> settings,
-    ApplicationLlmBudgetPolicy? budgetPolicy = null)
+    ApplicationLlmBudgetPolicy? budgetPolicy = null, GnOuGo.Agent.Server.Telemetry.LlmTraceContentStore? inspection = null)
 {
+    internal IPlanningJournalObserver? Observer => inspection;
     private const string Collection = "agent-planning-host-authority-v1";
     internal const string CaptureOption = "agent_host_policy";
 
@@ -139,9 +140,10 @@ internal sealed class WorkflowHostPolicy(PlanningHostPolicy policy, GnOuGo.AI.Co
     public Task VerifyAsync(PlanningSession session, CancellationToken ct) => policy.VerifyAsync(session, ct);
     public Task VerifyCreationAsync(PlanningSession session, CancellationToken ct) => policy.VerifyCreationAsync(session, ct);
     public async Task<IPlanningRuntimeModel?> CreateModelAsync(PlanningSession session, CancellationToken ct)
-        => session.Request.Options[CapturedPlanningModel.OptionName] is null ? null : new RuntimeModel(await runtimeFactory.CreateAsync(ct, session.Request));
-    private sealed class RuntimeModel(GnOuGo.Agent.Server.SmartFlow.SecureWorkflowRuntimeSession runtime) : IPlanningRuntimeModel
+        => session.Request.Options[CapturedPlanningModel.OptionName] is null ? null : new RuntimeModel(await runtimeFactory.CreateAsync(ct, session.Request), policy.Observer);
+    private sealed class RuntimeModel(GnOuGo.Agent.Server.SmartFlow.SecureWorkflowRuntimeSession runtime, IPlanningJournalObserver? observer) : IPlanningRuntimeModel
     {
+        public IPlanningJournalObserver? JournalObserver => observer;
         public GnOuGo.Flow.Core.Runtime.ILLMClient Client => runtime.LlmClient;
         public GnOuGo.Flow.Core.Runtime.ILLMCapabilityResolver? Capabilities => runtime.LlmCapabilityResolver;
         public GnOuGo.Flow.Core.Runtime.IModelUsageCostEstimator CostEstimator => new GnOuGo.Flow.Integrations.ModelMetadataUsageCostEstimator(runtime.Options);

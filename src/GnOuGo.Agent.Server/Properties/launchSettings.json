@@ -18,8 +18,7 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "TypedWorkflowPlanning__DiagnosticEnabled": "true",
-        "TypedWorkflowPlanning__OpenLocalOperatorBrowser": "true",
-        "TypedWorkflowPlanning__DiagnosticModelMaximum": "true"
+        "TypedWorkflowPlanning__OpenLocalOperatorBrowser": "true"
       }
     }
   }

@@ -125,7 +125,7 @@ public sealed class ApplicationLlmBudgetTests
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var budgetPolicy = Policy(fixture, mode); await budgetPolicy.InitializeAsync(Ct);
-        var settings = new TypedWorkflowPlanningSettings { BackgroundProcessingEnabled = false, DiagnosticEnabled = true };
+        var settings = new TypedWorkflowPlanningSettings { BackgroundProcessingEnabled = false, DiagnosticEnabled = true, DiagnosticModelMaximum = true };
         var authority = new PlanningHostPolicy(fixture.Records, Options.Create(settings), budgetPolicy);
         var options = DiagnosticPlanningTests.ModelOptions(); options.DefaultModel = "private-sol-deployment";
         Assert.True(GnOuGo.AI.Core.ModelMetadataCatalog.TryGetBuiltin("openai", "gpt-6.1-sol", out var metadata));

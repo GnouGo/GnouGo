@@ -50,7 +50,7 @@ public sealed partial class DiagnosticPlanningBrowserTests
         options.ModelOverrides["openai/" + options.DefaultModel] = deployment;
         options.Models["openai"].Url = provider.Urls.Single() + "/v1"; options.Models["openai"].ApiKey = "CONTROLLED_BUDGET_SECRET";
         var args = TelemetryTestHostArgs.Create("--TypedWorkflowPlanning:MaxModelCalls=1", "--TypedWorkflowPlanning:MaxTotalTokens=1",
-            "--TypedWorkflowPlanning:MaxActiveMilliseconds=1", "--Logging:LogLevel:Default=Warning")
+            "--TypedWorkflowPlanning:MaxActiveMilliseconds=1", "--TypedWorkflowPlanning:DiagnosticModelMaximum=true", "--Logging:LogLevel:Default=Warning")
             .Where(arg => !arg.StartsWith("--TypedWorkflowPlanning:OpenLocalOperatorBrowser=", StringComparison.Ordinal)).ToArray();
         var browser = new RecordingOperatorBrowser();
         void Configure(IServiceCollection services)
@@ -62,11 +62,12 @@ public sealed partial class DiagnosticPlanningBrowserTests
                 sp.GetRequiredService<IKeyVaultRuntimeConfigStore>(), sp.GetRequiredService<ILoggerFactory>(),
                 mcpClientFactoryOverride: new FakeMcpClientFactory(PlanningSessionLifecycleTests.AgentCatalog()), defaults: sp.GetRequiredService<LlmDefaultsResolver>()));
         }
-        var url = "http://127.0.0.1:" + Port();
+        var url = "http://127.0.0.1:0";
         await using var app = GnOuGoAgentWebHost.Build(args, url, Path.Combine(root, "src/GnOuGo.Agent.Server"), false, Configure);
         Assert.Equal("unlimited", app.Services.GetRequiredService<ApplicationLlmBudgetPolicy>().Mode);
         Assert.True(app.Services.GetRequiredService<ILLMUsageBudgetScopeFactory>().CreateScope()!.IsTrackingOnly);
         await app.StartAsync(ct); var token = browser.Address!.Fragment[1..];
+        url = GnOuGoAgentWebHost.ResolvePublishedEndpoints(app).AppBaseAddress!.TrimEnd('/');
         var start = new ProcessStartInfo("node") { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false, WorkingDirectory = root };
         start.ArgumentList.Add(Path.Combine(root, "scripts/smoke-unlimited-budget.mjs")); start.ArgumentList.Add(url); start.ArgumentList.Add(token); start.ArgumentList.Add(output);
         start.Environment["PLAYWRIGHT_MODULE_PATH"] = module;
@@ -83,7 +84,7 @@ public sealed partial class DiagnosticPlanningBrowserTests
         Assert.Equal(PlanningStatus.FinalReview, completed.Status); Assert.True(completed.ModelCalls > 1); Assert.True(completed.Usage!.CostEstimateAvailable);
         var before = physical; await app.StopAsync(ct);
         // Persisted preference takes precedence even over an explicitly different host default.
-        await using var reopened = GnOuGoAgentWebHost.Build([.. args, "--ApplicationLlmBudget:Mode=limited"], "http://127.0.0.1:" + Port(), Path.Combine(root, "src/GnOuGo.Agent.Server"), false, Configure);
+        await using var reopened = GnOuGoAgentWebHost.Build([.. args, "--ApplicationLlmBudget:Mode=limited"], "http://127.0.0.1:0", Path.Combine(root, "src/GnOuGo.Agent.Server"), false, Configure);
         await reopened.StartAsync(ct); Assert.Equal("unlimited", reopened.Services.GetRequiredService<ApplicationLlmBudgetPolicy>().Mode);
         var restored = (await reopened.Services.GetRequiredService<PlanningSessionService>().GetAsync(completed.Request.SessionId, ct))!;
         Assert.Equal(completed.Usage, restored.Usage, new UsageComparer()); Assert.Equal(before, physical);

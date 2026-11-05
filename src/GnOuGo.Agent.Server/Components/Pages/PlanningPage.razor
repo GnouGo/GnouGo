@@ -69,8 +69,8 @@
             <button type="button" @onclick="() => OpenTraces(_state.Request.SessionId, IsWorkflowSession)">Traces</button>
         </p>
         @if (IsWorkflowSession) { <p>This session is read-only here. Continue approvals and execution in the originating chat workflow.</p> }
-        <p aria-live="polite"><strong>@Phase(_state.Status)</strong> · @CurrentPhase · Revision @_state.Revision</p>
-        <p>@CallsUsed model calls · @(PlanningApplicationBudget.TrackingOnly(_state.Request) ? "Unlimited — usage and costs tracked" : $"Limited — {CallCeiling} calls ({(PlanningTokenThresholds.OptimizationAdvisory(_state.Request) ? "advisory" : "mandatory")})") · @_state.ReplanAttempts replans · @TimeSpan.FromMilliseconds(_state.ActiveMilliseconds).ToString(@"hh\:mm\:ss") active</p>
+        <p aria-live="polite"><strong>@Phase(_state.Status)</strong> · @GnOuGo.Agent.Server.Telemetry.LlmInspectionLabels.Phase(CurrentPhase) · Revision @_state.Revision</p>
+        <p>@_state.ModelCalls model calls (logical planning) · @CallsUsed charged/reserved model attempts · @(PlanningApplicationBudget.TrackingOnly(_state.Request) ? "Unlimited — usage and costs tracked" : $"Limited — {CallCeiling} calls ({(PlanningTokenThresholds.OptimizationAdvisory(_state.Request) ? "advisory" : "mandatory")})") · @_state.ReplanAttempts replans · @TimeSpan.FromMilliseconds(_state.ActiveMilliseconds).ToString(@"hh\:mm\:ss") active</p>
         @if (_state.Construction is { } construction)
         {
             <p role="status">@construction.Checkpoints.Count accepted drafts · @construction.OpenScopes.Count open scopes
@@ -82,7 +82,7 @@
             <p>The session model-call allowance is exhausted. Input/output token limits do not extend this cumulative budget.
                 <a href="/planning">Start a new planning session</a>. Existing requests and accounting are retained.</p>
         }
-        @if (_inspectionDto is { } inspected) { <p>Estimated cost: @(inspected.CostEstimateAvailable ? $"{inspected.EstimatedCost:0.00} {inspected.Currency}" : $"unavailable ({inspected.CostUnavailableReason})")</p> }
+        @if (_inspectionDto is { } inspected) { <p>Estimated cost (including retained reservations): @(inspected.CostEstimateAvailable ? $"{inspected.EstimatedCost:0.00} {inspected.Currency}" : $"unavailable ({inspected.CostUnavailableReason})")</p> }
         else if (_state.Usage is { } usage) { <p>Estimated cost: @(usage.CostEstimateAvailable ? $"{usage.EstimatedCost:0.00} {usage.EstimatedCostCurrency}" : $"unavailable ({usage.CostUnavailableReason})")</p> }
         @if (!IsWorkflowSession && _operatorAvailable && _inspectionDto?.CanStartWithCurrentSettings == true)
         {
@@ -93,7 +93,7 @@
         { <p role="status">Cancellation requested. Waiting for the owner to stop; completed responses and accounting will be retained.</p> }
         else if (_requestInspection?.State == "active" && _state.Status != PlanningStatus.Stopped)
         { <p role="status">A worker owns this planning request. Its completion will be recorded before further planning.</p> }
-        <PlanningDiagnostics Session="PlanningEndpoints.ToDto(_state)" Workflow="IsWorkflowSession" />
+        <PlanningDiagnostics Session="PlanningEndpoints.ToDto(_state)" Workflow="IsWorkflowSession" InspectRequest="InspectRequest" />
         <p>@_state.Requirements?.Summary</p>
         <PlannerDiscovery @key="(_state.Request.SessionId, IsWorkflowSession)" Session="_state" Workflow="IsWorkflowSession" />
         @if (_state.Graph is { } graph)
@@ -223,7 +223,7 @@
         }
     }
 </main>
-<TraceSidebar PlanningSessionId="@_traceSessionId" WorkflowSession="_traceWorkflow" IsOpen="_tracesOpen" OnClose="CloseTraces" />
+<TraceSidebar PlanningSessionId="@_traceSessionId" WorkflowSession="_traceWorkflow" SelectedRequestId="@_traceRequestId" IsOpen="_tracesOpen" OnClose="CloseTraces" />
 @code {
     [Parameter] public string? SessionId { get; set; }
     [SupplyParameterFromQuery(Name = "source")] public string? Source { get; set; }
@@ -271,7 +271,7 @@
     private string? _error;
     private string? _commandError;
     private bool _busy, _reviseExisting, _loading, _tracesOpen, _traceWorkflow;
-    private string? _traceSessionId;
+    private string? _traceSessionId, _traceRequestId;
     private long _viewVersion;
     private long _renderedRevision = -1;
     protected override async Task OnParametersSetAsync()
@@ -325,7 +325,8 @@
         finally { if (version == _viewVersion) _loading = false; }
     }
     private static string SessionUrl(string id, bool workflow) => "/planning/" + Uri.EscapeDataString(id) + (workflow ? "?source=workflow" : "");
-    private void OpenTraces(string id, bool workflow) { _traceSessionId = id; _traceWorkflow = workflow; _tracesOpen = true; }
+    private void OpenTraces(string id, bool workflow) { _traceRequestId = null; _traceSessionId = id; _traceWorkflow = workflow; _tracesOpen = true; }
+    private void InspectRequest(string requestId) { OpenTraces(_state!.Request.SessionId, IsWorkflowSession); _traceRequestId = requestId; }
     private void CloseTraces() => _tracesOpen = false;
     private async Task PollAsync()
     {

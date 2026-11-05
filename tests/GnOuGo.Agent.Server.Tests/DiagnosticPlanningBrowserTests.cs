@@ -31,7 +31,7 @@ public sealed partial class DiagnosticPlanningBrowserTests
         var root = repository.FullName;
         var module = Environment.GetEnvironmentVariable("PLAYWRIGHT_MODULE_PATH") ?? Path.Combine(root, "src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/.playwright/package/index.mjs");
         Assert.True(File.Exists(module), "Build the bundled browser MCP tool to make Playwright available.");
-        var output = Path.Combine(root, "artifacts/diagnostic-planning/browser"); Directory.CreateDirectory(output);
+        var output = Path.Combine(root, "artifacts/one-inspector/browser"); Directory.CreateDirectory(output);
         var providerBuilder = WebApplication.CreateBuilder(); providerBuilder.Configuration.Sources.Clear(); providerBuilder.Configuration.AddInMemoryCollection();
         providerBuilder.Logging.ClearProviders(); providerBuilder.WebHost.UseUrls("http://127.0.0.1:0");
         await using var provider = providerBuilder.Build();
@@ -60,7 +60,7 @@ public sealed partial class DiagnosticPlanningBrowserTests
             var content = prompt.Contains("empty fixture", StringComparison.Ordinal) ? "" :
                 prompt.Contains("correction fixture", StringComparison.Ordinal) && request.StructuredOutputSchema["title"]!.ToString() == "construction_select" &&
                 Interlocked.Increment(ref invalidSelection) == 1 ? "{}" : response.Json!.ToJsonString();
-            return Results.Json(new JsonObject { ["choices"] = new JsonArray(new JsonObject { ["finish_reason"] = "stop",
+            return Results.Json(new JsonObject { ["diagnostic_padding"] = number == 2 ? new string('x', 100000) + "😀 Bearer CONTROLLED_PROVIDER_KEY" : "", ["choices"] = new JsonArray(new JsonObject { ["finish_reason"] = "stop",
                 ["message"] = new JsonObject { ["role"] = "assistant", ["content"] = content } }),
                 ["usage"] = new JsonObject { ["prompt_tokens"] = 10, ["completion_tokens"] = 5, ["total_tokens"] = 15,
                     ["prompt_tokens_details"] = new JsonObject { ["cached_tokens"] = 2 },
@@ -80,10 +80,12 @@ public sealed partial class DiagnosticPlanningBrowserTests
         var agentDatabase = args.Single(arg => arg.StartsWith("--Agent:DatabasePath=", StringComparison.Ordinal))["--Agent:DatabasePath=".Length..];
         await AgentMcpTestPersistence.SeedUserConfigAsync(agentDatabase, new UserConfigUpdate("openai", LlmDefaultsResolverTests.StaleModel, null), ct);
         var browser = new RecordingOperatorBrowser();
-        var url = "http://127.0.0.1:" + Port();
+        var url = "http://127.0.0.1:0";
         void Configure(IServiceCollection services)
         {
             services.AddSingleton<ILocalOperatorBrowserLauncher>(browser);
+            services.Configure<Microsoft.AspNetCore.Components.Server.CircuitOptions>(options => options.DetailedErrors = true);
+            services.AddSingleton<IExchangeRateProvider>(new TestExchangeRateProvider());
             services.AddSingleton<IKeyVaultRuntimeConfigStore>(new FakeKeyVaultRuntimeConfigStore().WithEffectiveOptions(options));
             services.AddSingleton<SecureWorkflowRuntimeFactory>(sp => new(SmartFlowTestFactory.CreateRuntimeOptionsStore(options),
                 sp.GetRequiredService<IKeyVaultRuntimeConfigStore>(), sp.GetRequiredService<ILoggerFactory>(),
@@ -93,6 +95,7 @@ public sealed partial class DiagnosticPlanningBrowserTests
         await using var app = GnOuGoAgentWebHost.Build(args, url, Path.Combine(root, "src/GnOuGo.Agent.Server"), false, Configure);
         Assert.Equal(options.DefaultModel, app.Services.GetRequiredService<LLMRuntimeOptionsStore>().Current.DefaultModel);
         await app.StartAsync(ct);
+        url = GnOuGoAgentWebHost.ResolvePublishedEndpoints(app).AppBaseAddress!.TrimEnd('/');
         Assert.NotNull(browser.Address); Assert.Equal(url, browser.Address.GetLeftPart(UriPartial.Authority));
         var token = browser.Address.Fragment[1..];
         var start = new ProcessStartInfo("node") { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, WorkingDirectory = root };
@@ -105,6 +108,11 @@ public sealed partial class DiagnosticPlanningBrowserTests
         var result = (await stdout).Replace(token, "[redacted]", StringComparison.Ordinal);
         var errors = (await stderr).Replace(token, "[redacted]", StringComparison.Ordinal);
         await File.WriteAllTextAsync(Path.Combine(output, "browser-process.log"), result + "\n" + errors, ct);
+        if (process.ExitCode != 0)
+        {
+            var states = await app.Services.GetRequiredService<PlanningSessionService>().ListAsync(ct);
+            result += "\nHost state: " + string.Join("; ", states.Select(s => s.Status + "/" + s.Phase + "/revision=" + s.Revision + "/calls=" + s.ModelCalls));
+        }
         Assert.True(process.ExitCode == 0, result + "\n" + errors);
         var report = JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(output, "result.json"), ct))!;
         var service = app.Services.GetRequiredService<PlanningSessionService>();
@@ -140,9 +148,11 @@ public sealed partial class DiagnosticPlanningBrowserTests
         Assert.Equal(PlanningStatus.Stopped, (await service.GetAsync(report["strictSessionId"]!.ToString(), ct))!.Status);
         var before = physicalCalls;
         await app.StopAsync(ct);
-        var reopenedUrl = "http://127.0.0.1:" + Port();
-        await using var reopened = GnOuGoAgentWebHost.Build(args, reopenedUrl, Path.Combine(root, "src/GnOuGo.Agent.Server"), false, Configure);
+        var reopenedUrl = "http://127.0.0.1:0";
+        // Keep the original journals/accounting, but deliberately omit telemetry to exercise truthful fallback.
+        await using var reopened = GnOuGoAgentWebHost.Build([.. args, "--Database:Path=" + Path.Combine(output, "empty-restart-telemetry-" + Guid.NewGuid().ToString("N") + ".db")], reopenedUrl, Path.Combine(root, "src/GnOuGo.Agent.Server"), false, Configure);
         await reopened.StartAsync(ct);
+        reopenedUrl = GnOuGoAgentWebHost.ResolvePublishedEndpoints(reopened).AppBaseAddress!.TrimEnd('/');
         Assert.Equal(options.DefaultModel, reopened.Services.GetRequiredService<LLMRuntimeOptionsStore>().Current.DefaultModel);
         var restored = (await reopened.Services.GetRequiredService<PlanningSessionService>().GetAsync(complete.Request.SessionId, ct))!;
         Assert.Equal(complete.InspectionEvents, restored.InspectionEvents);
@@ -153,6 +163,17 @@ public sealed partial class DiagnosticPlanningBrowserTests
         Assert.Equal(HttpStatusCode.NoContent, signIn.StatusCode);
         var history = await authenticated.GetStringAsync(reopenedUrl + "/api/planning/" + complete.Request.SessionId + "/inspection", ct);
         Assert.Equal(5, JsonNode.Parse(history)!["calls"]!.AsArray().Count);
+        var restartStart = new ProcessStartInfo("node") { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, WorkingDirectory = root };
+        var browserToken = reopened.Services.GetRequiredService<LocalOperatorBootstrap>().Issue();
+        foreach (var arg in new[] { Path.Combine(root, "scripts/smoke-inspector-restart.mjs"), reopenedUrl, browserToken, complete.Request.SessionId, output }) restartStart.ArgumentList.Add(arg);
+        restartStart.Environment["PLAYWRIGHT_MODULE_PATH"] = module;
+        using var restartProcess = Process.Start(restartStart)!;
+        var restartOutput = restartProcess.StandardOutput.ReadToEndAsync(ct); var restartErrors = restartProcess.StandardError.ReadToEndAsync(ct);
+        try { await restartProcess.WaitForExitAsync(ct).WaitAsync(TimeSpan.FromMinutes(1), ct); }
+        finally { if (!restartProcess.HasExited) restartProcess.Kill(entireProcessTree: true); }
+        var restartLog = ((await restartOutput) + (await restartErrors)).Replace(browserToken, "[redacted]", StringComparison.Ordinal);
+        await File.WriteAllTextAsync(Path.Combine(output, "restart-browser-process.log"), restartLog, ct);
+        Assert.True(restartProcess.ExitCode == 0, restartLog);
         Assert.Equal(before, physicalCalls);
         await reopened.StopAsync(ct);
         await provider.StopAsync(ct);
@@ -168,5 +189,4 @@ public sealed partial class DiagnosticPlanningBrowserTests
             System.Text.Json.JsonSerializer.Serialize(a, PlanningJsonContext.Default.LLMUsageBudgetSnapshot) == System.Text.Json.JsonSerializer.Serialize(b, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
         public int GetHashCode(LLMUsageBudgetSnapshot value) => 0;
     }
-    private static int Port() { using var listener = new TcpListener(IPAddress.Loopback, 0); listener.Start(); return ((IPEndPoint)listener.LocalEndpoint).Port; }
 }

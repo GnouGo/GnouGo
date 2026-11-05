@@ -16,6 +16,26 @@ public interface IPlanningRuntimeModel : IAsyncDisposable
     GnOuGo.Flow.Core.Runtime.ILLMClient Client { get; }
     GnOuGo.Flow.Core.Runtime.ILLMCapabilityResolver? Capabilities { get; }
     GnOuGo.Flow.Core.Runtime.IModelUsageCostEstimator CostEstimator { get; }
+    IPlanningJournalObserver? JournalObserver => null;
+}
+
+/// <summary>Optional inspection of evidence already committed by its journal. Grants no replay or planning authority.</summary>
+public interface IPlanningJournalObserver
+{
+    Task ObserveAsync(string collection, string tenant, string session, string key, string value, long version, CancellationToken ct);
+}
+
+public static class PlanningJournalObservation
+{
+    public static async Task PublishAsync(IPlanningJournalObserver? observer, string collection, string tenant, string session,
+        string key, string value, long version)
+    {
+        if (observer is null) return;
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        try { await observer.ObserveAsync(collection, tenant, session, key, value, version, timeout.Token); }
+        // Inspection cannot change receipt persistence, dispatch, admission or recovery outcomes.
+        catch (Exception) { }
+    }
 }
 
 /// <summary>Inspection evidence only. It cannot authorize a transition or execution.</summary>

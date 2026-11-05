@@ -42,6 +42,32 @@ if (sparseRequest.MaxModelCalls != 64 || sparseRequest.MaxReplanAttempts != 4 ||
     sparseRequest.Options.ContainsKey("business_judge"))
     throw new InvalidOperationException("Current creation defaults failed under Native AOT.");
 Console.WriteLine("planning defaults: one current protocol survives source-generated serialization");
+var pageDirectory = Path.Combine(Path.GetTempPath(), "gnougo-aot-record-pages", Guid.NewGuid().ToString("N"));
+Directory.CreateDirectory(pageDirectory);
+try
+{
+    var path = Path.Combine(pageDirectory, "vault.db");
+    var pageStore = new GnOuGo.KeyVault.Core.Services.KeyVaultRecordStore(path);
+    var pageText = new string('x', 32767) + "😀" + new string('y', 70000);
+    await pageStore.UpsertAsync("smoke", "tenant", "session:request", pageText, "smoke");
+    var page = await pageStore.ReadRangeAsync("smoke", "tenant", "session:request", "smoke", null, 0, 32768);
+    var metadataPage = await pageStore.QueryMetadataAsync("smoke", "tenant", "session:", "smoke");
+    var cursorJson = JsonSerializer.Serialize(metadataPage.Next, PagingSmokeJsonContext.Default.KeyVaultRecordCursor);
+    var cursor = JsonSerializer.Deserialize(cursorJson, PagingSmokeJsonContext.Default.KeyVaultRecordCursor);
+    var reopenedPages = new GnOuGo.KeyVault.Core.Services.KeyVaultRecordStore(path);
+    if (page?.NextOffset != 32767 || metadataPage.Records.Count != 1 || cursor != metadataPage.Next ||
+        !cursorJson.Contains("\"updatedAtTicks\":\"", StringComparison.Ordinal) ||
+        (await reopenedPages.GetAsync("smoke", "tenant", "session:request", "smoke"))?.Value != pageText ||
+        (await reopenedPages.ReadRangeAsync("smoke", "other", "session:request", "smoke", null, 0, 100)) is not null ||
+        (await reopenedPages.QueryMetadataAsync("smoke", "tenant", "session:", "smoke", cursor)).Records.Count != 0)
+        throw new InvalidOperationException("Native AOT encrypted paging, exact cursors or replay failed.");
+    Console.WriteLine("encrypted record pages: exact replay, Unicode, restart, tenant ownership and source-generated cursors");
+}
+finally
+{
+    Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+    Directory.Delete(pageDirectory, recursive: true);
+}
 var tracking = LLMUsageBudgetScope.CreateTrackingOnly();
 await tracking.ReserveJournaledAttemptAsync("aot-uncertain", new() { Model = "private-deployment", MaxTokens = 128000 }, null,
     16000, 128000, [128000, 128000], "smoke", CancellationToken.None);
@@ -686,3 +712,7 @@ sealed class AdaptiveSmokeModel : ILLMClient, ILLMCapabilityResolver
     public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
     public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>([]);
 }
+
+[System.Text.Json.Serialization.JsonSourceGenerationOptions(PropertyNamingPolicy = System.Text.Json.Serialization.JsonKnownNamingPolicy.CamelCase)]
+[System.Text.Json.Serialization.JsonSerializable(typeof(GnOuGo.KeyVault.Core.Services.KeyVaultRecordCursor))]
+internal partial class PagingSmokeJsonContext : System.Text.Json.Serialization.JsonSerializerContext;

@@ -14,7 +14,7 @@ namespace GnOuGo.Flow.Integrations.Planning;
 public sealed class PlanningHttpModelJournal(
     IKeyVaultRecordStore records, LLMUsageBudgetScope budget, PlanningRequest planning,
     LLMRequest request, IModelUsageCostEstimator? estimator, string collection, string author,
-    DateTimeOffset deadlineUtc) : ILLMHttpRetryJournal
+    DateTimeOffset deadlineUtc, IPlanningJournalObserver? observer = null) : ILLMHttpRetryJournal
 {
     private string Key => request.ClientRequestId ?? throw Conflict();
     private PlanningTransportPolicy Policy => PlanningTransportPolicies.Read(planning) ?? throw Conflict();
@@ -170,8 +170,11 @@ public sealed class PlanningHttpModelJournal(
         return record;
     }
 
-    private async Task WriteAsync(JsonObject record, CancellationToken ct) =>
-        await records.UpsertAsync(collection, planning.TenantId, Key, record.ToJsonString(), author, ct);
+    private async Task WriteAsync(JsonObject record, CancellationToken ct)
+    {
+        var saved = await records.UpsertAsync(collection, planning.TenantId, Key, record.ToJsonString(), author, ct);
+        await PlanningJournalObservation.PublishAsync(observer, collection, planning.TenantId, planning.SessionId, Key, saved.Value, saved.UpdatedAt.UtcTicks);
+    }
     private static LLMHttpRetryState? Transport(JsonObject record) => record["transport"]?.Deserialize(LLMHttpRetryJsonContext.Default.LLMHttpRetryState);
     private static bool HasSuccessfulResponse(JsonObject record) => Transport(record)?.Attempts.LastOrDefault() is
         { Status: >= 200 and < 300, Body: not null, Failure: null };

@@ -4,6 +4,7 @@ using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
 using GnOuGo.Agent.Server.Configuration;
+using GnOuGo.Agent.Server.Telemetry;
 
 namespace GnOuGo.Agent.Server.Planning;
 
@@ -11,6 +12,12 @@ internal static class PlanningEndpoints
 {
     public static void MapPlanningEndpoints(this WebApplication app)
     {
+        app.MapGet("/api/traces/llm/export", async (string reference, string trace, string span, string? session, LocalOperatorAccess access, LlmTraceContentStore content, CancellationToken ct) =>
+        {
+            if (!await access.CanInspectAsync()) return Results.Forbid();
+            var detail = await content.TraceDocumentsAsync(reference, trace, span, string.IsNullOrEmpty(session) ? null : session, ct);
+            return detail is null ? Results.NotFound() : Results.Stream(stream => content.ExportDocumentsAsync(detail, stream, ct), "application/json", "llm-exchange-redacted.json");
+        }).WithMetadata(new LocalOperatorRequired());
         app.MapGet("/api/application-llm-budget", (ApplicationLlmBudgetPolicy policy) => Results.Json(policy.Describe()))
             .WithMetadata(new LocalOperatorRequired());
         app.MapPost("/api/application-llm-budget", async (JsonObject request, ApplicationLlmBudgetPolicy policy, LocalOperatorAccess access, CancellationToken ct) =>
@@ -44,11 +51,17 @@ internal static class PlanningEndpoints
             catch (KeyNotFoundException) { return Results.NotFound(); }
             catch (ArgumentException) { return Results.BadRequest("Invalid planner decision command."); }
         });
-        app.MapGet("/api/planning/{id}/inspection", async (string id, bool? workflow, long? after, PlanningInspectionService inspection, CancellationToken ct) =>
+        app.MapGet("/api/planning/{id}/inspection", async (string id, bool? workflow, long? after, string? callsAfter, PlanningInspectionService inspection, CancellationToken ct) =>
         {
-            try { return Results.Json(await inspection.ReadAsync(id, workflow == true, after ?? 0, ct)); }
+            try
+            {
+                if (callsAfter?.Length > 8192) return Results.BadRequest("Invalid call cursor.");
+                var cursor = callsAfter is null ? null : System.Text.Json.JsonSerializer.Deserialize(callsAfter, PlanningInspectionJsonContext.Default.LlmCallCursor);
+                return Results.Json(await inspection.ReadAsync(id, workflow == true, after ?? 0, ct, cursor));
+            }
             catch (UnauthorizedAccessException) { return Results.Forbid(); }
             catch (KeyNotFoundException) { return Results.NotFound(); }
+            catch (System.Text.Json.JsonException) { return Results.BadRequest("Invalid call cursor."); }
         }).WithMetadata(new LocalOperatorRequired());
         app.MapPost("/api/planning/{id}/stop", async (string id, PlanningSessionService service, CancellationToken ct) =>
         {
@@ -58,23 +71,34 @@ internal static class PlanningEndpoints
         });
         app.MapGet("/api/planning/{id}/calls/export", async (string id, string key, bool? workflow, PlanningInspectionService inspection, CancellationToken ct) =>
         {
-            try { return Results.File(System.Text.Encoding.UTF8.GetBytes((await inspection.CallAsync(id, workflow == true, key, ct)).ToJsonString()), "application/json", "planning-call-redacted.json"); }
-            catch (UnauthorizedAccessException) { return Results.Forbid(); }
-            catch (KeyNotFoundException) { return Results.NotFound(); }
-        }).WithMetadata(new LocalOperatorRequired());
-        app.MapGet("/api/planning/{id}/calls/content", async (string id, string key, bool? workflow, int? offset, int? count, string? search, PlanningInspectionService inspection, CancellationToken ct) =>
-        {
             try
             {
-                var full = (await inspection.CallAsync(id, workflow == true, key, ct)).ToJsonString();
-                var start = Math.Clamp(offset ?? 0, 0, full.Length); var size = Math.Clamp(count ?? 32768, 1, 65536);
-                var length = Math.Min(size, full.Length - start);
-                var match = string.IsNullOrEmpty(search) ? -1 : full.IndexOf(search, start, StringComparison.OrdinalIgnoreCase);
-                return Results.Json(new JsonObject { ["text"] = full.Substring(start, length), ["offset"] = start, ["totalCharacters"] = full.Length,
-                    ["nextOffset"] = start + length, ["complete"] = start + length == full.Length, ["nextMatch"] = match });
+                await inspection.CallAsync(id, workflow == true, key, ct);
+                return Results.Stream(stream => inspection.ExportAsync(id, workflow == true, key, stream, ct), "application/json", "planning-call-redacted.json");
             }
             catch (UnauthorizedAccessException) { return Results.Forbid(); }
             catch (KeyNotFoundException) { return Results.NotFound(); }
+        }).WithMetadata(new LocalOperatorRequired());
+        app.MapGet("/api/planning/{id}/calls/content", async (string id, string key, bool? workflow, string? document, string? version,
+            int? offset, int? count, string? search, PlanningInspectionService inspection, CancellationToken ct) =>
+        {
+            try
+            {
+                if (document is null) return Results.Json(await inspection.CallAsync(id, workflow == true, key, ct));
+                if (!string.IsNullOrEmpty(search))
+                {
+                    if (version is null) return Results.BadRequest("A document version is required for search.");
+                    var found = await inspection.SearchAsync(id, workflow == true, key, document, version, search, offset ?? 0, ct);
+                    return Results.Json(new JsonObject { ["nextMatch"] = found.Match, ["nextOffset"] = found.NextOffset, ["complete"] = found.Complete, ["version"] = found.Version });
+                }
+                var page = await inspection.PageAsync(id, workflow == true, key, document, version, offset ?? 0, count ?? 32768, ct);
+                return Results.Json(new JsonObject { ["text"] = page.Text, ["offset"] = page.Offset, ["totalCharacters"] = page.TotalCharacters,
+                    ["nextOffset"] = page.NextOffset, ["complete"] = page.Complete, ["version"] = page.Version });
+            }
+            catch (UnauthorizedAccessException) { return Results.Forbid(); }
+            catch (KeyNotFoundException) { return Results.NotFound(); }
+            catch (GnOuGo.KeyVault.Core.Services.KeyVaultRecordVersionException ex) { return Results.Conflict(ex.Message); }
+            catch (ArgumentException) { return Results.BadRequest("Invalid content range or search."); }
         }).WithMetadata(new LocalOperatorRequired());
         app.MapGet("/api/planning", async (PlanningSessionService service, CancellationToken ct) =>
             Results.Json((await Task.WhenAll((await service.ListAsync(ct)).Select(state => service.ToDtoAsync(state, ct)))).ToList(), ChatJsonContext.Default.ListPlanningSessionDto));

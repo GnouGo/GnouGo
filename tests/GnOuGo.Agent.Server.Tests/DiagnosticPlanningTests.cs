@@ -27,7 +27,7 @@ public sealed class DiagnosticPlanningTests
     public async Task ContradictoryMeasuredPhysicalUsageIsNeverAcceptedOrReplayed(string kind, string mode)
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var settings = new TypedWorkflowPlanningSettings { BackgroundProcessingEnabled = false, DiagnosticEnabled = true };
+        var settings = new TypedWorkflowPlanningSettings { BackgroundProcessingEnabled = false, DiagnosticEnabled = true, DiagnosticModelMaximum = true };
         var policy = new PlanningHostPolicy(fixture.Records, Options.Create(settings));
         using var model = new JournaledPlanningModel(new PhysicalUsageModel(kind), preserveUsage: true);
         // Zero fixture tariffs isolate physical validation from an earlier monetary
@@ -68,7 +68,7 @@ public sealed class DiagnosticPlanningTests
     public async Task IsolatedThresholdsTraverseRealServerAdmissionAndEncryptedRestart(string category, string mode)
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var settings = new TypedWorkflowPlanningSettings { BackgroundProcessingEnabled = false, DiagnosticEnabled = true };
+        var settings = new TypedWorkflowPlanningSettings { BackgroundProcessingEnabled = false, DiagnosticEnabled = true, DiagnosticModelMaximum = true };
         switch (category)
         {
             case "calls": settings.MaxModelCalls = 1; break;
@@ -130,7 +130,7 @@ public sealed class DiagnosticPlanningTests
     public async Task ChatCreationSnapshotRecoversResolvedAllocationsOnlyWithUntamperedHostEvidence(bool tamper)
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var policy = new PlanningHostPolicy(fixture.Records, Options.Create(new TypedWorkflowPlanningSettings { DiagnosticEnabled = true }));
+        var policy = new PlanningHostPolicy(fixture.Records, Options.Create(new TypedWorkflowPlanningSettings { DiagnosticEnabled = true, DiagnosticModelMaximum = true }));
         var factory = new WorkflowPlanningRuntimeFactory(fixture.Records, Path.Combine(fixture.Root, "leases"), new CreationHostPolicy(policy));
         PlanningSession Initial() => new() { Request = new() { TenantId = "planning-tests", Prompt = "Return 42" } };
         var context = new GnOuGo.Flow.Core.Runtime.StepExecutionContext
@@ -171,7 +171,7 @@ public sealed class DiagnosticPlanningTests
     public async Task DiagnosticNeverWaivesFinancialAdmissionOrAcceptsInvalidOutput(bool invalidOutput)
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var settings = new TypedWorkflowPlanningSettings { BackgroundProcessingEnabled = false, DiagnosticEnabled = true };
+        var settings = new TypedWorkflowPlanningSettings { BackgroundProcessingEnabled = false, DiagnosticEnabled = true, DiagnosticModelMaximum = true };
         var policy = new PlanningHostPolicy(fixture.Records, Options.Create(settings));
         using var model = new JournaledPlanningModel(new InvalidModel());
         using var server = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog(), model,
@@ -204,7 +204,7 @@ public sealed class DiagnosticPlanningTests
     public async Task RealServerChainRetainsThresholdPolicyAllocationsAndMoneyAcrossReload(string mode)
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var settings = new TypedWorkflowPlanningSettings { BackgroundProcessingEnabled = false, DiagnosticEnabled = true,
+        var settings = new TypedWorkflowPlanningSettings { BackgroundProcessingEnabled = false, DiagnosticEnabled = true, DiagnosticModelMaximum = true,
             MaxModelCalls = 1, MaxTotalTokens = 1, MaxActiveMilliseconds = 1 };
         var policy = new PlanningHostPolicy(fixture.Records, Options.Create(settings));
         using var model = new JournaledPlanningModel(new GnOuGo.Planning.Examples.CurrentPlanningFixture.LiteralModel());
@@ -242,7 +242,7 @@ public sealed class DiagnosticPlanningTests
     public async Task GrantEnablementAndUntamperedHostRecordAreRequired()
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var enabled = new PlanningHostPolicy(fixture.Records, Options.Create(new TypedWorkflowPlanningSettings { DiagnosticEnabled = true }));
+        var enabled = new PlanningHostPolicy(fixture.Records, Options.Create(new TypedWorkflowPlanningSettings { DiagnosticEnabled = true, DiagnosticModelMaximum = true }));
         var state = new PlanningSession { Request = new() { TenantId = "tenant", Prompt = "Return 42" } };
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => enabled.CaptureAsync(state, ModelOptions(), "diagnostic", null, Ct));
         var disabled = new PlanningHostPolicy(fixture.Records, Options.Create(new TypedWorkflowPlanningSettings { DiagnosticEnabled = false }));

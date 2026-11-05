@@ -1,78 +1,130 @@
+@using System.Text.Json.Nodes
 @using GnOuGo.Agent.Server.Telemetry
+@using GnOuGo.Agent.Server.Planning
+@using GnOuGo.KeyVault.Core.Services
 @implements IDisposable
 @inject IServiceProvider Services
 <button type="button" class="llm-call__expand" aria-expanded="@_open" @onclick="ToggleAsync">@(_open ? "Hide" : "Inspect") request / response</button>
 @if (_open)
 {
-    @if (_loading) { <p role="status">Loading encrypted content…</p> }
-    else if (_content is null) { <p role="status">@_message</p> }
+    @if (_loading && _detail is null) { <p role="status">Loading encrypted content metadata…</p> }
+    else if (_detail is null) { <p role="status">@_message</p> }
     else
     {
-        @if (_content.Input is not null)
+        <p>@_detail["responseStatus"]</p>
+        @if (_detail["settings"] is { } settings)
         {
-            var parts = LlmTraceCapture.Breakdown(_content.Input);
-            <table class="llm-breakdown">
-                <caption>Prompt analysis — logical content, not provider usage or wire encoding. Estimates use UTF-8 bytes ÷ 4.</caption>
-                <thead><tr><th>Section</th><th>Exact UTF-8 bytes</th><th>Estimated tokens</th></tr></thead>
-                <tbody>@foreach (var part in parts) { <tr><td>@part.Name</td><td>@part.Bytes</td><td>@part.EstimatedTokens</td></tr> }</tbody>
+            <dl><dt>Effective output allocation</dt><dd>@(settings["maxTokens"] ?? _detail["outputAllocation"])</dd>
+                <dt>Reasoning</dt><dd>@(settings["reasoning"]?.ToString() ?? "unavailable")</dd>
+                <dt>Captured transport/retry policy</dt><dd>@(_detail["transportPolicy"]?.ToJsonString() ?? "unavailable")</dd>
+                <dt>Request deadline</dt><dd>@(_detail["deadlineUtc"]?.ToString() ?? "unavailable")</dd></dl>
+        }
+        @if (_detail["measurement"]?["components"] is JsonArray components)
+        {
+            <table class="llm-breakdown"><caption>Complete serialized request components — estimates are not billed usage</caption>
+                <thead><tr><th>Component</th><th>Bytes</th><th>Estimated tokens</th></tr></thead>
+                <tbody>@foreach (var part in components) { <tr><td>@part?["component"]</td><td>@part?["serializedBytes"]</td><td>@part?["estimatedTokens"]</td></tr> }</tbody>
             </table>
         }
-        <LlmTraceDocument Title="Request and response schema" Text="@_content.Input" Status="@_content.InputStatus" Bytes="_content.InputBytes" />
-        <LlmTraceDocument Title="Response and tool calls" Text="@_content.Output" Status="@_content.OutputStatus" Bytes="_content.OutputBytes" />
+        @if (_detail["costBreakdown"] is { } cost)
+        {
+            <dl><dt>Measured usage × captured tariff (estimated cost)</dt><dd>@(cost["measuredUsageTariffEstimate"]?.ToString() ?? "unavailable") @cost["currency"]</dd>
+                <dt>Uncertain usage reservation</dt><dd>@(cost["uncertainReservation"]?.ToString() ?? "unavailable") @cost["currency"]</dd>
+                <dt>Provider-reported cost</dt><dd>@(cost["providerReportedCost"]?.ToString() ?? "unavailable") @cost["providerReportedCurrency"]</dd></dl>
+            <p>@_detail["costBasis"]</p>
+        }
+        @if (_detail["transport"]?["Attempts"] is JsonArray attempts)
+        {
+            <details open><summary>@attempts.Count HTTP attempts within this logical call</summary>
+                <p>HTTP success records response receipt. Technical validation and business review remain separate.</p>
+                @foreach (var attempt in attempts)
+                {
+                    <section class="http-attempt"><h5>HTTP attempt @attempt?["Id"]</h5>
+                        <p>Started @attempt?["StartedAtUtc"] · completed @attempt?["CompletedAtUtc"] · observed HTTP @(attempt?["ObservedStatus"] ?? attempt?["Status"])<br />
+                            Failure: @(attempt?["Failure"]?.ToString() ?? "none recorded") · complete body: @(attempt?["ResponseBodyComplete"]?.ToString() ?? "unavailable")<br />
+                            Retry decision: @(attempt?["RetryDecision"]?.ToString() ?? "unavailable")</p>
+                        @foreach (var doc in LlmTraceContentStore.Documents(_detail).Where(d => d.Title.StartsWith("HTTP attempt " + attempt?["Id"] + " — ", StringComparison.Ordinal)))
+                        { <LlmTraceDocument @key="doc.Id" Title="@doc.Title" Status="encrypted journal; redacted" Document="doc" Bytes="doc.Bytes"
+                            ReadPage="@((offset, count, version, ct) => ReadAsync(doc, offset, count, version, ct))"
+                            Search="@((query, offset, ct) => SearchAsync(doc, query, offset, ct))" ExportHref="@ExportUrl" /> }
+                    </section>
+                }
+            </details>
+        }
+        @foreach (var doc in LlmTraceContentStore.Documents(_detail).Where(d => !d.Title.StartsWith("HTTP attempt ", StringComparison.Ordinal)))
+        { <LlmTraceDocument @key="doc.Id" Title="@doc.Title" Status="encrypted evidence; redacted" Document="doc" Bytes="doc.Bytes"
+            ReadPage="@((offset, count, version, ct) => ReadAsync(doc, offset, count, version, ct))"
+            Search="@((query, offset, ct) => SearchAsync(doc, query, offset, ct))" ExportHref="@ExportUrl" /> }
+        <details><summary>Effective settings, validation, linked warnings and request accounting</summary><pre>@_detail.ToJsonString()</pre></details>
     }
 }
 @code {
     [Parameter] public string? Status { get; set; }
-    private string? _status;
+    [Parameter] public string? Version { get; set; }
     [Parameter] public string? Reference { get; set; }
     [Parameter] public string TraceId { get; set; } = "";
     [Parameter] public string SpanId { get; set; } = "";
     [Parameter] public string? SessionId { get; set; }
     [Parameter] public bool WorkflowSession { get; set; }
     [Parameter] public string? JournalKey { get; set; }
+    [Parameter] public bool InitiallyOpen { get; set; }
     private CancellationTokenSource? _load;
-    private bool _open, _loading;
-    private LlmTraceContent? _content;
+    private bool _open, _loading, _wasInitiallyOpen;
+    private JsonObject? _detail;
+    private string? _identity, _version;
     private string _message = "No retained model content. External MCP tools expose only the telemetry they supply.";
-    private string? _identity;
+    private string? ExportUrl => JournalKey is not null && SessionId is not null
+        ? $"/api/planning/{Uri.EscapeDataString(SessionId)}/calls/export?workflow={WorkflowSession.ToString().ToLowerInvariant()}&key={Uri.EscapeDataString(JournalKey)}"
+        : Reference is not null ? $"/api/traces/llm/export?reference={Uri.EscapeDataString(Reference)}&trace={Uri.EscapeDataString(TraceId)}&span={Uri.EscapeDataString(SpanId)}&session={Uri.EscapeDataString(SessionId ?? "")}" : null;
     protected override async Task OnParametersSetAsync()
     {
         var identity = string.Join('|', Reference, TraceId, SpanId, SessionId, WorkflowSession, JournalKey);
-        if (_identity == identity)
-        {
-            if (_status != Status && _open) { _status = Status; await LoadAsync(); }
-            return;
-        }
-        _status = Status;
-        _identity = identity; Dispose(); _content = null; _open = false; _loading = false;
+        var changed = _identity != identity || _version != (Version ?? Status);
+        if (_identity != identity) { Dispose(); _identity = identity; _detail = null; _open = false; _wasInitiallyOpen = false; }
+        var opened = InitiallyOpen && !_wasInitiallyOpen;
+        if (opened) _open = true;
+        _wasInitiallyOpen = InitiallyOpen;
+        _version = Version ?? Status;
+        if (_open && (changed || opened)) await LoadAsync();
     }
-    private async Task ToggleAsync()
+    private async Task ToggleAsync() { _open = !_open; if (_open) await LoadAsync(); else { Dispose(); _detail = null; } }
+    private async Task AuthorizeAsync()
     {
-        _open = !_open;
-        if (!_open) { Dispose(); _content = null; return; }
-        await LoadAsync();
+        if (Services.GetService<LocalOperatorAccess>() is { } access && !await access.CanInspectAsync()) throw new UnauthorizedAccessException();
+    }
+    private async Task<JsonObject?> ReadDetailAsync(CancellationToken ct)
+    {
+        await AuthorizeAsync();
+        var store = Services.GetService<LlmTraceContentStore>();
+        if (store is null || !store.Enabled) return null;
+        return JournalKey is not null && SessionId is not null
+            ? await Services.GetRequiredService<PlanningInspectionService>().CallAsync(SessionId, WorkflowSession, JournalKey, ct)
+            : Reference is not null ? await store.TraceDocumentsAsync(Reference, TraceId, SpanId, SessionId, ct) : null;
     }
     private async Task LoadAsync()
     {
-        Dispose();
-        if (Services.GetService<GnOuGo.Agent.Server.Planning.LocalOperatorAccess>() is { } access && !await access.CanInspectAsync())
-        { _message = "Authenticate in a local operator window to inspect business prompts and responses."; return; }
-        var store = Services.GetService<LlmTraceContentStore>();
-        if (store is null) { _message = "Encrypted trace content is unavailable on this host."; return; }
-        if (!store.Enabled) { _message = "Detailed capture is disabled. Enable TraceDebug:Enabled to retain inputs and outputs for new calls and inspect existing planner journals."; return; }
-        var load = new CancellationTokenSource(); _load = load; _loading = true;
+        Dispose(); var load = new CancellationTokenSource(); _load = load; _loading = true;
         try
         {
-            var content = JournalKey is not null && SessionId is not null
-                ? await store.LoadJournalAsync(SessionId, WorkflowSession, JournalKey, load.Token)
-                : Reference is not null ? await store.LoadAsync(Reference, TraceId, SpanId, SessionId, load.Token) : null;
-            if (_load != load || load.IsCancellationRequested) return;
-            _content = content;
-            _message = "Content unavailable: capture disabled, not retained, expired, or ownership could not be verified.";
+            var detail = await ReadDetailAsync(load.Token);
+            if (_load == load && !load.IsCancellationRequested) { _detail = detail; _message = "Content unavailable: capture disabled, not retained, expired, or ownership could not be verified."; }
         }
         catch (OperationCanceledException) when (load.IsCancellationRequested) { }
-        catch (Exception) { if (_load == load) _message = "Encrypted content is currently unavailable."; }
+        catch (Exception) { _message = "Protected encrypted content is currently unavailable."; }
         finally { if (_load == load) _loading = false; }
+    }
+    private async Task<KeyVaultRecordRange> ReadAsync(LlmDocumentReference doc, int offset, int count, string? version, CancellationToken ct)
+    {
+        await AuthorizeAsync();
+        if (JournalKey is not null && SessionId is not null) return await Services.GetRequiredService<PlanningInspectionService>().PageAsync(SessionId, WorkflowSession, JournalKey, doc.Id, version, offset, count, ct);
+        var current = await ReadDetailAsync(ct) ?? throw new KeyNotFoundException();
+        return await Services.GetRequiredService<LlmTraceContentStore>().ReadDocumentAsync(current, doc.Id, version, offset, count, ct);
+    }
+    private async Task<LlmDocumentSearch> SearchAsync(LlmDocumentReference doc, string query, int offset, CancellationToken ct)
+    {
+        await AuthorizeAsync();
+        if (JournalKey is not null && SessionId is not null) return await Services.GetRequiredService<PlanningInspectionService>().SearchAsync(SessionId, WorkflowSession, JournalKey, doc.Id, doc.Version, query, offset, ct);
+        return await Services.GetRequiredService<LlmTraceContentStore>().SearchDocumentAsync(await ReadDetailAsync(ct) ?? throw new KeyNotFoundException(), doc.Id, doc.Version, query, offset, ct);
     }
     public void Dispose() { var load = _load; _load = null; load?.Cancel(); load?.Dispose(); }
 }

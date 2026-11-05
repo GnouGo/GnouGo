@@ -18,7 +18,7 @@ internal sealed class PlanningModelJournal(
     ILLMClient inner, IDbContextFactory<PlanningDbContext> contexts, IKeyVaultRecordStore records,
     string tenantId, string sessionId, LLMUsageBudgetScope budget, IModelUsageCostEstimator estimator, PlanningGenerationOptions? generation = null,
     ILLMCapabilityResolver? capabilities = null, PlanningRequest? planning = null,
-    DateTimeOffset? planningDeadlineUtc = null, bool requireCapturedMetadata = false) : ILLMClient, IModelAdmissionOwner, IPlanningConstructionAdmission
+    DateTimeOffset? planningDeadlineUtc = null, bool requireCapturedMetadata = false, IPlanningJournalObserver? observer = null) : ILLMClient, IModelAdmissionOwner, IPlanningConstructionAdmission
 {
     internal const string Collection = "agent-planning-model-receipts-v11";
     internal const string RequestCollection = "agent-planning-model-requests-v11";
@@ -42,7 +42,7 @@ internal sealed class PlanningModelJournal(
 
     private PlanningHttpModelJournal HttpJournal(LLMRequest request) => new(records, budget, planning!, request, estimator,
         HttpCollection, EfPlanningSessionStore.Author,
-        planningDeadlineUtc ?? DateTimeOffset.UtcNow + (PlanningBudgetOptions.Parse(planning!.Options)?.MaxElapsed ?? TimeSpan.FromHours(5)));
+        planningDeadlineUtc ?? DateTimeOffset.UtcNow + (PlanningBudgetOptions.Parse(planning!.Options)?.MaxElapsed ?? TimeSpan.FromHours(5)), observer);
 
     public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
     {
@@ -95,7 +95,8 @@ internal sealed class PlanningModelJournal(
             try { await db.SaveChangesAsync(ct); }
             catch (DbUpdateException) { throw new PlanningConflictException("This model request was reserved by another session worker."); }
 
-            await records.UpsertAsync(RequestCollection, tenantId, row.PayloadKey, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), EfPlanningSessionStore.Author, ct);
+            var saved = await records.UpsertAsync(RequestCollection, tenantId, row.PayloadKey, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), EfPlanningSessionStore.Author, ct);
+            await PlanningJournalObservation.PublishAsync(observer, RequestCollection, tenantId, sessionId, row.PayloadKey, saved.Value, saved.UpdatedAt.UtcTicks);
         }
         else db.Attach(row);
         var response = journaled
@@ -105,7 +106,8 @@ internal sealed class PlanningModelJournal(
         using var flush = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         // Publish replayable evidence only after its usage is durable. Neither flush
         // inherits a cancellation that arrived alongside the completed response.
-        await records.UpsertAsync(Collection, tenantId, row.PayloadKey, JsonSerializer.Serialize(response, PlanningJsonContext.Default.LLMResponse), EfPlanningSessionStore.Author, flush.Token);
+        var receipt = await records.UpsertAsync(Collection, tenantId, row.PayloadKey, JsonSerializer.Serialize(response, PlanningJsonContext.Default.LLMResponse), EfPlanningSessionStore.Author, flush.Token);
+        await PlanningJournalObservation.PublishAsync(observer, Collection, tenantId, sessionId, row.PayloadKey, receipt.Value, receipt.UpdatedAt.UtcTicks);
         RecordTokens(response.Usage, request.Model);
         row.Status = "completed";
         await db.SaveChangesAsync(flush.Token);

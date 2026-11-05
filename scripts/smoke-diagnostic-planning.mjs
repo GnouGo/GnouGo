@@ -9,6 +9,7 @@ const context = await browser.newContext({ viewport: { width: 1440, height: 1080
 const page = await context.newPage();
 const errors = [];
 page.on('pageerror', error => errors.push(error.message));
+page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
 try {
   const anonymous = await request.newContext();
   assert.equal((await anonymous.get(`${url}/api/planning`)).status(), 200);
@@ -55,12 +56,14 @@ try {
   await page.getByRole('heading', { name: 'Generation timeline', exact: true }).waitFor();
   await page.getByText('Ready for your review', { exact: true }).waitFor({ timeout: 90000 });
   await page.getByRole('heading', { name: 'Advisory thresholds exceeded', exact: true }).waitFor();
+  assert.ok((await page.locator('body').innerText()).includes('5 model calls (logical planning)'));
+  assert.ok((await page.locator('body').innerText()).includes('6 charged/reserved model attempts'));
   await page.getByRole('button', { name: 'Traces', exact: true }).click();
   const tracePanel = page.locator('.gnougo-trace-panel--open');
   await tracePanel.getByRole('heading', { name: 'Planning traces', exact: true }).waitFor();
   await tracePanel.getByRole('button', { name: 'Inspect request / response', exact: true }).first().click();
-  await tracePanel.getByRole('heading', { name: /Request and response schema/ }).waitFor();
-  await tracePanel.getByRole('heading', { name: /Response and tool calls/ }).waitFor();
+  await tracePanel.getByRole('heading', { name: /Logical request and response schema/ }).waitFor();
+  await tracePanel.getByRole('heading', { name: /Logical response and reported usage/ }).waitFor();
   assert.ok(!(await tracePanel.innerText()).includes('CONTROLLED_PROVIDER_KEY'));
   await page.screenshot({ path: `${output}/otel-input-output.png` });
   await tracePanel.getByRole('button', { name: 'Close trace panel', exact: true }).click();
@@ -75,9 +78,9 @@ try {
   const full = await exported.text();
   assert.ok(!full.includes('CONTROLLED_PROVIDER_KEY'));
   const detail = JSON.parse(full);
-  assert.equal(detail.http.transport.Attempts.length, 2);
-  assert.deepEqual(detail.http.transport.Attempts.map(attempt => attempt.Status), [500, 200]);
-  assert.ok(detail.http.transport.RequestBody.includes('max_completion_tokens'));
+  assert.equal(detail.metadata.transport.Attempts.length, 2);
+  assert.deepEqual(detail.metadata.transport.Attempts.map(attempt => attempt.Status), [500, 200]);
+  assert.ok(detail.content['Actual serialized HTTP request'].includes('max_completion_tokens'));
   assert.ok(full.includes('reasoning_tokens'));
   await writeFile(`${output}/call-redacted.json`, full);
   await page.getByRole('heading', { name: /Actual serialized HTTP request/ }).scrollIntoViewIfNeeded();
@@ -90,22 +93,36 @@ try {
   const antiforgery = await (await page.request.get(`${url}/api/planning/antiforgery`)).json();
   assert.equal((await page.request.post(`${url}/api/planning/foreign/stop`, { headers: { [antiforgery.headerName]: antiforgery.requestToken } })).status(), 404);
   const contentUrl = `${url}/api/planning/${sessionId}/calls/content?key=${encodeURIComponent(calls[0].key)}`;
+  const manifest = await (await page.request.get(contentUrl)).json();
+  const httpDocument = manifest.documents.find(doc => doc.title.startsWith('HTTP attempt') && doc.characters > 32768);
+  assert.ok(httpDocument, 'The fixture must exercise a genuinely paged large HTTP response');
   let reconstructed = '', offset = 0;
   while (true) {
-    const part = await (await page.request.get(`${contentUrl}&offset=${offset}&count=8192&search=reasoning_tokens`)).json();
+    const part = await (await page.request.get(`${contentUrl}&document=${httpDocument.id}&version=${httpDocument.version}&offset=${offset}&count=8192`)).json();
     assert.equal(part.offset, offset); reconstructed += part.text;
+    assert.ok(part.text.length <= 8192);
     if (part.complete) { assert.equal(reconstructed.length, part.totalCharacters); break; }
     assert.ok(part.nextOffset > offset); offset = part.nextOffset;
   }
-  assert.deepEqual(JSON.parse(reconstructed), detail);
-  const search = await (await page.request.get(`${contentUrl}&search=reasoning_tokens`)).json();
+  assert.equal(reconstructed, detail.content[httpDocument.title]);
+  const search = await (await page.request.get(`${contentUrl}&document=${httpDocument.id}&version=${httpDocument.version}&search=reasoning_tokens`)).json();
   assert.ok(search.nextMatch >= 0);
+  assert.equal((await page.request.get(`${contentUrl}&document=${httpDocument.id}&version=changed&offset=0`)).status(), 409);
+  assert.equal((await page.request.get(`${contentUrl}&document=foreign&offset=0`)).status(), 404);
+  const logicalRows = tracePanel.locator('.llm-call');
+  assert.equal(await logicalRows.count(), 5);
+  const identities = await logicalRows.evaluateAll(rows => rows.map(row => row.dataset.requestId));
+  assert.equal(new Set(identities).size, 5, 'Spans and journal receipts must not duplicate calls');
+  assert.ok((await tracePanel.innerText()).includes('Technical validation:'));
+  assert.ok((await tracePanel.innerText()).includes('Business review:'));
+  await tracePanel.getByRole('button', { name: 'Close trace panel', exact: true }).click();
   await page.setViewportSize({ width: 390, height: 844 });
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Responsive planning view must fit the viewport');
   await page.screenshot({ path: `${output}/mobile.png`, fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1080 });
   const correctedSessionId = await start('correction-browser', 'diagnostic');
   await page.getByText('Ready for your review', { exact: true }).waitFor({ timeout: 90000 });
+  assert.equal((await page.request.get(`${url}/api/planning/${correctedSessionId}/calls/export?key=${encodeURIComponent(calls[0].key)}`)).status(), 404);
   await page.screenshot({ path: `${output}/correction-loop.png` });
   const emptySessionId = await start('empty-browser', 'diagnostic');
   await page.getByText('Planning stopped', { exact: true }).waitFor({ timeout: 20000 });
@@ -115,14 +132,14 @@ try {
   await page.getByText('Planning stopped', { exact: true }).waitFor();
   await page.locator('#planningReview[data-interactive="true"]').waitFor();
   await page.getByRole('button', { name: 'Inspect LLM exchange', exact: true }).first().click();
-  await page.getByRole('heading', { name: /HTTP response, including invalid or partial content/ }).waitFor();
+  await page.getByRole('heading', { name: /HTTP attempt .*PartialBody/ }).waitFor();
   const partialCalls = (await (await page.request.get(`${url}/api/planning/${partialSessionId}/inspection`)).json()).calls;
   const partialExport = await (await page.request.get(`${url}/api/planning/${partialSessionId}/calls/export?key=${encodeURIComponent(partialCalls[0].key)}`)).json();
-  assert.equal(partialExport.http.transport.Attempts.length, 1);
-  assert.equal(partialExport.http.transport.Attempts[0].ObservedStatus, 200);
-  assert.equal(partialExport.http.transport.Attempts[0].Status, null);
-  assert.ok(partialExport.http.transport.Attempts[0].PartialBody.length > 0);
-  assert.equal(partialExport.http.transport.Attempts[0].ResponseBodyComplete, false);
+  assert.equal(partialExport.metadata.transport.Attempts.length, 1);
+  assert.equal(partialExport.metadata.transport.Attempts[0].ObservedStatus, 200);
+  assert.equal(partialExport.metadata.transport.Attempts[0].Status, null);
+  assert.ok(Object.entries(partialExport.content).some(([title, text]) => title.includes('PartialBody') && text.length > 0));
+  assert.equal(partialExport.metadata.transport.Attempts[0].ResponseBodyComplete, false);
   const strictSessionId = await start('strict-browser', 'strict');
   await page.getByText('Planning stopped', { exact: true }).waitFor({ timeout: 20000 });
   const cancelledSessionId = await start('cancelled-browser', 'diagnostic');

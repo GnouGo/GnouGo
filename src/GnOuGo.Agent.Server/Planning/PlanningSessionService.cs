@@ -366,7 +366,7 @@ public sealed partial class PlanningSessionService(
             sink: new PlanningBudgetSink(records, Tenant, current.Request.SessionId), exchangeRateProvider: exchangeRates,
             advisoryOptimization: PlanningTokenThresholds.OptimizationAdvisory(current.Request)) { PolicyOrigin = "captured_application_planning_limits" };
         var journal = new PlanningModelJournal(runtime.LlmClient, contexts, records, Tenant, current.Request.SessionId, budget, estimator, current.Request.Generation, runtime.LlmCapabilityResolver, current.Request,
-            PlanningDispatchDeadline.Resolve(current.Request, current.ActiveMilliseconds), requireCapturedMetadata: hostPolicy is not null);
+            PlanningDispatchDeadline.Resolve(current.Request, current.ActiveMilliseconds), requireCapturedMetadata: hostPolicy is not null, observer: hostPolicy?.Observer);
         if (current.PendingCall is { } retained)
         {
             await journal.RecoverSavedResponseAsync(retained.Request, ct);

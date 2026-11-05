@@ -36,7 +36,7 @@ internal sealed class WorkflowPlanningModelJournal(StepExecutionContext context,
 
     private PlanningHttpModelJournal HttpJournal(LLMRequest request) => new(records, budget, planning, request,
         capturedModel?.CostEstimator ?? context.Engine.ModelUsageCostEstimator, Http, WorkflowPlanningRuntimeFactory.Author,
-        planningDeadlineUtc ?? DateTimeOffset.UtcNow + (PlanningBudgetOptions.Parse(planning.Options)?.MaxElapsed ?? TimeSpan.FromHours(5)));
+        planningDeadlineUtc ?? DateTimeOffset.UtcNow + (PlanningBudgetOptions.Parse(planning.Options)?.MaxElapsed ?? TimeSpan.FromHours(5)), capturedModel?.JournalObserver);
 
     public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
     {
@@ -75,7 +75,10 @@ internal sealed class WorkflowPlanningModelJournal(StepExecutionContext context,
                 await ModelRequestAdmission.ValidateAsync(request, capturedModel?.Capabilities ?? context.Engine.LLMCapabilities ?? context.Engine.LLMClient as ILLMCapabilityResolver,
                     PlanningConstructionInputPolicy.EffectiveLimit(planning, request), "planning", ct, PlanningTokenThresholds.Advisory(planning));
             if (reserved is null)
-                await records.UpsertAsync(Requests, planning.TenantId, key, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), WorkflowPlanningRuntimeFactory.Author, ct);
+            {
+                var saved = await records.UpsertAsync(Requests, planning.TenantId, key, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), WorkflowPlanningRuntimeFactory.Author, ct);
+                await PlanningJournalObservation.PublishAsync(capturedModel?.JournalObserver, Requests, planning.TenantId, planning.SessionId, key, saved.Value, saved.UpdatedAt.UtcTicks);
+            }
             Event("reserved");
             var client = capturedModel?.Client ?? context.Engine.LLMClient ?? throw new InvalidOperationException("No planning model is configured.");
             var response = journaled
@@ -83,7 +86,8 @@ internal sealed class WorkflowPlanningModelJournal(StepExecutionContext context,
                     .CallAsync(client, allowInitialize: reserved is null, ct)
                 : await budget.CallAsync(client, capturedModel?.CostEstimator ?? context.Engine.ModelUsageCostEstimator, request, "workflow.plan.model", ct);
             using var flush = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-            await records.UpsertAsync(Receipts, planning.TenantId, key, JsonSerializer.Serialize(response, PlanningJsonContext.Default.LLMResponse), WorkflowPlanningRuntimeFactory.Author, flush.Token);
+            var receipt = await records.UpsertAsync(Receipts, planning.TenantId, key, JsonSerializer.Serialize(response, PlanningJsonContext.Default.LLMResponse), WorkflowPlanningRuntimeFactory.Author, flush.Token);
+            await PlanningJournalObservation.PublishAsync(capturedModel?.JournalObserver, Receipts, planning.TenantId, planning.SessionId, key, receipt.Value, receipt.UpdatedAt.UtcTicks);
             Event("completed");
             return response;
         }

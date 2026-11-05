@@ -90,7 +90,7 @@
         }
         else if (_activeTab == TracePanelTab.Pipeline)
         {
-            <TracePipeline @key="GetPanelContentKey()" Trace="_snapshot.Trace" SessionId="@PipelineSessionId" WorkflowSession="@PipelineWorkflowSession" />
+            <TracePipeline @key="PipelineSessionId ?? ContextKey" Trace="_snapshot.Trace" OwnedTraces="_snapshot.OwnedTraces" SessionId="@PipelineSessionId" WorkflowSession="@PipelineWorkflowSession" SelectedRequestId="@SelectedRequestId" />
         }
         else if (_activeTab == TracePanelTab.Logs)
         {
@@ -131,6 +131,7 @@
     [Parameter] public string? TraceId { get; set; }
     [Parameter] public string? PlanningSessionId { get; set; }
     [Parameter] public bool WorkflowSession { get; set; }
+    [Parameter] public string? SelectedRequestId { get; set; }
     private bool PipelineWorkflowSession => PlanningSessionId is not null ? WorkflowSession
         : _snapshot.Trace?.Spans.Any(s => s.Attributes.ContainsKey("gnougo-flow.plan.session_id")) == true;
     private string? PipelineSessionId => PlanningSessionId ?? _snapshot.Trace?.Spans

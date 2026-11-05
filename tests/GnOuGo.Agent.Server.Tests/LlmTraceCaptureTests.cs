@@ -205,7 +205,7 @@ public sealed class LlmTraceCaptureTests : BunitContext
             Span("call", "parent", new() { ["gen_ai.request.model"] = "test", ["gnougo.llm.call_id"] = "id", ["gnougo.llm.stage"] = "workflow.plan.repair", ["gen_ai.usage.input_tokens"] = 42L }),
             Span("provider-child", "call", new() { ["gen_ai.operation.name"] = "chat", ["gen_ai.request.model"] = "test", ["gen_ai.usage.input_tokens"] = 42L })]);
         var cut = Render<TracePipeline>(p => p.Add(c => c.Trace, trace));
-        Assert.Contains("1 calls", cut.Markup); Assert.Contains("Repairs", cut.Markup);
+        Assert.Contains("1 calls", cut.Markup); Assert.Contains("Correction", cut.Markup);
         Assert.Contains("Output: unknown", cut.Markup); Assert.Contains("incomplete coverage", cut.Markup);
         Assert.Single(TraceDebugUiHelpers.BuildSummary(trace).LlmMetrics);
         Assert.False(TraceDebugUiHelpers.BuildSummary(trace).UsageComplete);
@@ -291,7 +291,7 @@ public sealed class LlmTraceCaptureTests : BunitContext
         Assert.Contains(records.Values, r => r.TenantId == "other");
     }
 
-    private sealed class DiagnosticRecords : IKeyVaultRecordStore
+    private sealed class DiagnosticRecords : IKeyVaultRecordStore, IKeyVaultRecordReader
     {
         public bool Fail { get; init; }
         public List<KeyVaultRecordValue> Values { get; } = [];
@@ -300,9 +300,22 @@ public sealed class LlmTraceCaptureTests : BunitContext
         public Task<KeyVaultRecordValue> UpsertAsync(string collection, string tenantId, string key, string value, string author, CancellationToken ct = default)
             => Fail ? Task.FromException<KeyVaultRecordValue>(new IOException("unavailable")) : throw new NotSupportedException();
         public Task<IReadOnlyList<KeyVaultRecordValue>> ListAsync(string collection, string tenantId, string author, CancellationToken ct = default)
-            => Task.FromResult<IReadOnlyList<KeyVaultRecordValue>>(Values.Where(v => v.Collection == collection && v.TenantId == tenantId).ToArray());
+            => throw new InvalidOperationException("Inspection and retention must not hydrate tenant history.");
         public Task<bool> DeleteAsync(string collection, string tenantId, string key, string author, CancellationToken ct = default)
             => Task.FromResult(Values.RemoveAll(v => v.Collection == collection && v.TenantId == tenantId && v.Key == key) > 0);
+        public Task<KeyVaultRecordMetadata?> GetMetadataAsync(string collection, string tenantId, string key, string author, CancellationToken ct = default)
+            => Task.FromResult(Values.FirstOrDefault(v => v.Collection == collection && v.TenantId == tenantId && v.Key == key) is { } value
+                ? new KeyVaultRecordMetadata(key, value.CreatedAt, value.UpdatedAt, null, null) : null);
+        public Task<KeyVaultRecordMetadataPage> QueryMetadataAsync(string collection, string tenantId, string prefix, string author, KeyVaultRecordCursor? after = null, int count = 100, CancellationToken ct = default)
+        {
+            var rows = Values.Where(v => v.Collection == collection && v.TenantId == tenantId && v.Key.StartsWith(prefix, StringComparison.Ordinal))
+                .Where(v => after is null || v.UpdatedAt.UtcTicks > after.UpdatedAtTicks || v.UpdatedAt.UtcTicks == after.UpdatedAtTicks && string.CompareOrdinal(v.Key, after.Key) > 0)
+                .OrderBy(v => v.UpdatedAt).ThenBy(v => v.Key, StringComparer.Ordinal).Take(count + 1).ToArray();
+            var result = rows.Take(count).Select(v => new KeyVaultRecordMetadata(v.Key, v.CreatedAt, v.UpdatedAt, null, null)).ToArray();
+            return Task.FromResult(new KeyVaultRecordMetadataPage(result, result.Length == 0 ? after : new(result[^1].UpdatedAt.UtcTicks, result[^1].Key), rows.Length > count));
+        }
+        public Task<KeyVaultRecordRange?> ReadRangeAsync(string collection, string tenantId, string key, string author, string? version, int offset, int count, CancellationToken ct = default)
+            => throw new NotSupportedException();
     }
 
     private sealed class DelegateClient(Func<LLMRequest, CancellationToken, Task<LLMResponse>> call) : ILLMClient

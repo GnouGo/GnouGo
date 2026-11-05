@@ -8,7 +8,7 @@ public sealed class TypedWorkflowPlanningSettings
     public bool DiagnosticEnabled { get; set; } = true;
     public bool OpenLocalOperatorBrowser { get; set; } = true;
     public string DefaultThresholdMode { get; set; } = "diagnostic";
-    public bool DiagnosticModelMaximum { get; set; } = true;
+    public bool DiagnosticModelMaximum { get; set; }
     public bool AutomaticCorrectionEnabled { get; set; } = true;
     public int MaxReplanAttempts { get; set; } = 4;
     public int MaxModelCalls { get; set; } = 64;

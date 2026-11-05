@@ -1,0 +1,113 @@
+using System.Text.Json;
+using GnOuGo.Agent.Server.Configuration;
+using GnOuGo.Agent.Server.Telemetry;
+using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.KeyVault.Core.Services;
+using Microsoft.Extensions.Options;
+
+namespace GnOuGo.Agent.Server.Tests;
+
+public sealed class LlmInspectorDocumentsTests
+{
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SessionRefreshIsMetadataOnlyAndExplicitHistoricalConversionOccursOnce(bool workflow)
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var state = new PlanningSession { Request = new() { SessionId = "session", TenantId = "tenant" } };
+        if (workflow) await fixture.Records.UpsertAsync("flow-planning-sessions-v11", "tenant", "session", JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), "test", Ct);
+        else Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        var spy = new CountingStore(fixture.Records); var store = Store(spy, fixture.Store);
+        var collection = (workflow ? "flow" : "agent") + "-planning-model-requests-v11";
+        var key = workflow ? "session:1:hash" : "session:session:1:hash";
+        var request = new LLMRequest { ClientRequestId = "session:1:hash", Prompt = new string('x', 32760) + "\nAuthorization: Bearer SUPER_SECRET\n😀 needle tail" };
+        var saved = await spy.UpsertAsync(collection, "tenant", key, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), "test", Ct);
+        var first = await store.ReadCallsAsync("session", workflow, null, Ct);
+        Assert.Single(first.Calls);
+        Assert.Empty((await store.ReadCallsAsync("session", workflow, first.Cursor, Ct)).Calls);
+        Assert.Equal(0, spy.Lists); Assert.Equal(0, spy.RequestHydrations);
+        var opened = await Task.WhenAll(Enumerable.Range(0, 4).Select(_ => store.JournalDocumentsAsync("session", workflow, key, Ct)));
+        var detail = opened[0];
+        Assert.Equal(1, spy.RequestHydrations);
+        var doc = Assert.Single(LlmTraceContentStore.Documents(detail));
+        var result = ""; var offset = 0;
+        do
+        {
+            var current = await Store(spy, fixture.Store).JournalDocumentsAsync("session", workflow, key, Ct);
+            var page = await store.ReadDocumentAsync(current, doc.Id, doc.Version, offset, 8192, Ct);
+            Assert.InRange(page.Text.Length, 0, 8192); result += page.Text; offset = page.NextOffset;
+            if (page.Complete) break;
+        } while (true);
+        Assert.Equal(1, spy.RequestHydrations); Assert.Equal(0, spy.DocumentHydrations); Assert.True(spy.Ranges > 1);
+        Assert.DoesNotContain("SUPER_SECRET", result); Assert.Contains("needle", result);
+        Assert.NotNull(JsonDocument.Parse(result));
+        Assert.Equal(saved, await fixture.Records.GetAsync(collection, "tenant", key, "test", Ct));
+        var search = await store.SearchDocumentAsync(detail, doc.Id, doc.Version, "needle", 0, Ct);
+        Assert.NotNull(search.Match);
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => store.ReadDocumentAsync(detail, "foreign", doc.Version, 0, 100, Ct));
+        await Assert.ThrowsAsync<KeyVaultRecordVersionException>(() => store.ReadDocumentAsync(detail, doc.Id, "changed", 0, 100, Ct));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => Store(spy, fixture.Store, "foreign").JournalDocumentsAsync("session", workflow, key, Ct));
+        await using var export = new MemoryStream(); await store.ExportDocumentsAsync(detail, export, Ct);
+        using var json = JsonDocument.Parse(export.ToArray());
+        Assert.Equal(result, json.RootElement.GetProperty("content").GetProperty(doc.Title).GetString());
+    }
+
+    [Fact]
+    public async Task NewlyObservedEvidencePagesWithoutHydratingJournalBodiesAndCannotSubstituteRequests()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        Assert.True(await fixture.Store.TrySaveAsync(new() { Request = new() { SessionId = "session", TenantId = "tenant" } }, null, Ct));
+        var spy = new CountingStore(fixture.Records); var store = Store(spy, fixture.Store);
+        var details = new List<System.Text.Json.Nodes.JsonObject>();
+        for (var i = 0; i < 2; i++)
+        {
+            var request = new LLMRequest { ClientRequestId = "session:" + i + ":hash", Prompt = new string('x', 100000) };
+            var key = "session:" + request.ClientRequestId;
+            var saved = await spy.UpsertAsync("agent-planning-model-requests-v11", "tenant", key, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), "test", Ct);
+            await store.ObserveAsync(saved.Collection, "tenant", "session", key, saved.Value, saved.UpdatedAt.UtcTicks, Ct);
+            details.Add(await store.JournalDocumentsAsync("session", false, key, Ct));
+        }
+        var doc = Assert.Single(LlmTraceContentStore.Documents(details[0]));
+        Assert.Equal(100, (await store.ReadDocumentAsync(details[0], doc.Id, doc.Version, 0, 100, Ct)).Text.Length);
+        Assert.Equal(0, spy.RequestHydrations); Assert.Equal(0, spy.DocumentHydrations);
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => store.ReadDocumentAsync(details[1], doc.Id, doc.Version, 0, 100, Ct));
+    }
+
+    [Fact]
+    public async Task HistoricalTraceContentConvertsOnceUnderConcurrentAccessAndKeepsItsOriginalRecord()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var content = new LlmTraceContent { TenantId = "tenant", TraceId = "trace", SpanId = "span", Input = new string('x', 100000) };
+        var saved = await fixture.Records.UpsertAsync(LlmTraceContentStore.Collection, "tenant", "old", JsonSerializer.Serialize(content, LlmTraceJsonContext.Default.LlmTraceContent), "test", Ct);
+        var spy = new CountingStore(fixture.Records);
+        var opened = await Task.WhenAll(Enumerable.Range(0, 4).Select(_ => Store(spy, fixture.Store).TraceDocumentsAsync("old", "trace", "span", null, Ct)));
+        var doc = Assert.Single(LlmTraceContentStore.Documents(opened[0]!));
+        Assert.Equal(1, spy.TraceHydrations);
+        Assert.Equal(100, (await Store(spy, fixture.Store).ReadDocumentAsync(opened[0]!, doc.Id, doc.Version, 0, 100, Ct)).Text.Length);
+        Assert.NotNull(await Store(spy, fixture.Store).TraceDocumentsAsync("old", "trace", "span", null, Ct));
+        Assert.Null(await Store(spy, fixture.Store).TraceDocumentsAsync("old", "other", "span", null, Ct));
+        Assert.Equal(1, spy.TraceHydrations);
+        Assert.Equal(saved, await fixture.Records.GetAsync(LlmTraceContentStore.Collection, "tenant", "old", "test", Ct));
+    }
+
+    private static LlmTraceContentStore Store(IKeyVaultRecordStore records, IPlanningSessionStore sessions, string tenant = "tenant") => new(records,
+        new TestOptionsMonitor<TraceDebugSettings>(new() { Enabled = true }), Options.Create(new OpenTelemetrySettings { TenantId = tenant }), sessions);
+
+    private sealed class CountingStore(IKeyVaultRecordStore inner) : IKeyVaultRecordStore, IKeyVaultRecordReader
+    {
+        internal int Lists, RequestHydrations, DocumentHydrations, TraceHydrations, Ranges;
+        public Task<KeyVaultRecordValue?> GetAsync(string c, string t, string k, string a, CancellationToken ct = default)
+        { if (c.Contains("-model-requests-", StringComparison.Ordinal)) RequestHydrations++; if (k.StartsWith("document:", StringComparison.Ordinal)) DocumentHydrations++; if (c == LlmTraceContentStore.Collection) TraceHydrations++; return inner.GetAsync(c, t, k, a, ct); }
+        public Task<IReadOnlyList<KeyVaultRecordValue>> ListAsync(string c, string t, string a, CancellationToken ct = default)
+        { Lists++; throw new InvalidOperationException("Inspection must not list tenant bodies."); }
+        public Task<KeyVaultRecordValue> UpsertAsync(string c, string t, string k, string v, string a, CancellationToken ct = default) => inner.UpsertAsync(c, t, k, v, a, ct);
+        public Task<bool> DeleteAsync(string c, string t, string k, string a, CancellationToken ct = default) => inner.DeleteAsync(c, t, k, a, ct);
+        public Task<KeyVaultRecordMetadata?> GetMetadataAsync(string c, string t, string k, string a, CancellationToken ct = default) => ((IKeyVaultRecordReader)inner).GetMetadataAsync(c, t, k, a, ct);
+        public Task<KeyVaultRecordMetadataPage> QueryMetadataAsync(string c, string t, string p, string a, KeyVaultRecordCursor? after = null, int count = 100, CancellationToken ct = default) => ((IKeyVaultRecordReader)inner).QueryMetadataAsync(c, t, p, a, after, count, ct);
+        public Task<KeyVaultRecordRange?> ReadRangeAsync(string c, string t, string k, string a, string? version, int offset, int count, CancellationToken ct = default)
+        { Ranges++; return ((IKeyVaultRecordReader)inner).ReadRangeAsync(c, t, k, a, version, offset, count, ct); }
+    }
+}

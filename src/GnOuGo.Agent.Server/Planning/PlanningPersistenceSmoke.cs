@@ -25,6 +25,15 @@ internal static class PlanningPersistenceSmoke
             .UseSqlite("Data Source=" + database + ";Pooling=False").UseModel(CompiledModels.PlanningDbContextModel.Instance).Options);
         await using (var db = factory.CreateDbContext()) await db.Database.EnsureCreatedAsync();
         var records = KeyVaultRecordStoreFactory.CreateWorkspaceStore(vault, directory);
+        var pagedText = new string('x', 32767) + "😀 protected page payload" + new string('y', 70000);
+        var paged = await records.UpsertAsync("published-pages", "smoke", "request", pagedText, "smoke");
+        var reader = (IKeyVaultRecordReader)records;
+        var firstPage = await reader.ReadRangeAsync("published-pages", "smoke", "request", "smoke", null, 0, 32768)
+            ?? throw new InvalidOperationException("Published encrypted page unavailable.");
+        if (firstPage.NextOffset != 32767 || firstPage.Text != new string('x', 32767) ||
+            await reader.ReadRangeAsync("published-pages", "foreign", "request", "smoke", null, 0, 100) is not null ||
+            (await records.GetAsync("published-pages", "smoke", "request", "smoke")) != paged)
+            throw new InvalidOperationException("Published encrypted paging/replay ownership failed.");
         var budgetPolicy = new Configuration.ApplicationLlmBudgetPolicy(records,
             new ConfigurationBuilder().AddInMemoryCollection().Build(),
             Microsoft.Extensions.Options.Options.Create(new Configuration.OpenTelemetrySettings { TenantId = "smoke" }),
