@@ -84,7 +84,7 @@
         }
         @if (_inspectionDto is { } inspected) { <p>Estimated cost: @(inspected.CostEstimateAvailable ? $"{inspected.EstimatedCost:0.00} {inspected.Currency}" : $"unavailable ({inspected.CostUnavailableReason})")</p> }
         else if (_state.Usage is { } usage) { <p>Estimated cost: @(usage.CostEstimateAvailable ? $"{usage.EstimatedCost:0.00} {usage.EstimatedCostCurrency}" : $"unavailable ({usage.CostUnavailableReason})")</p> }
-        @if (!IsWorkflowSession && _diagnosticAvailable && _inspectionDto?.CanStartWithCurrentSettings == true)
+        @if (!IsWorkflowSession && _operatorAvailable && _inspectionDto?.CanStartWithCurrentSettings == true)
         {
             <p>No dispatch or reservation was found. The original session will be preserved.</p>
             <button id="start-with-current-settings" disabled="@_busy" @onclick="StartWithCurrentSettingsAsync">Start new plan with current settings</button>
@@ -265,6 +265,7 @@
     private string _constructionPreset = "";
     private string _thresholdMode = "strict";
     private bool _diagnosticAvailable;
+    private bool _operatorAvailable;
     private bool _interactiveReady;
     private int _inputLimit, _outputLimit;
     private string? _error;
@@ -275,8 +276,8 @@
     private long _renderedRevision = -1;
     protected override async Task OnParametersSetAsync()
     {
-        _diagnosticAvailable = Services.GetService<Microsoft.Extensions.Options.IOptions<GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings>>()?.Value.DiagnosticEnabled == true
-            && Services.GetService<LocalOperatorAccess>() is { } access && await access.CanInspectAsync();
+        _operatorAvailable = Services.GetService<LocalOperatorAccess>() is { } access && await access.CanInspectAsync();
+        _diagnosticAvailable = Services.GetService<Microsoft.Extensions.Options.IOptions<GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings>>()?.Value.DiagnosticEnabled == true && _operatorAvailable;
         _thresholdMode = Services.GetService<Microsoft.Extensions.Options.IOptions<GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings>>()?.Value.ResolveThresholdMode(null, _diagnosticAvailable) ?? "strict";
         _viewVersion++;
         CloseTraces(); _traceSessionId = null;

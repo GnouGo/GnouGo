@@ -34,6 +34,7 @@ public sealed partial class PlanningSessionService
             throw new PlanningConflictException("A fresh start requires verified absence of dispatches and reservations. The original session is retained.");
         var selection = await access.ResolveAsync(null);
         return await StartAsync(state.Request.Name, state.Request.Prompt, state.Request.Options["host_save"] is not null, ct,
+            failureEvidence: state.Request.FailureEvidence?.DeepClone().AsObject(),
             mode: state.Request.Mode, constructionPreset: CapturedPreset(state), thresholdMode: selection.Mode, diagnosticGrant: selection.Grant);
     }
 }
