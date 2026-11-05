@@ -107,6 +107,13 @@ try {
   assert.equal(reconstructed, detail.content[httpDocument.title]);
   const search = await (await page.request.get(`${contentUrl}&document=${httpDocument.id}&version=${httpDocument.version}&search=reasoning_tokens`)).json();
   assert.ok(search.nextMatch >= 0);
+  const largeViewer = tracePanel.locator('.llm-document').filter({ hasText: httpDocument.title }).first();
+  await largeViewer.getByLabel('Search retained content', { exact: true }).fill('reasoning_tokens');
+  await largeViewer.getByRole('button', { name: 'Find next match', exact: true }).click();
+  await largeViewer.locator('pre').filter({ hasText: 'reasoning_tokens' }).waitFor();
+  await largeViewer.getByRole('button', { name: 'Previous content page', exact: true }).click();
+  await largeViewer.getByRole('button', { name: 'Next content page', exact: true }).click();
+  await largeViewer.getByRole('status').filter({ hasText: 'Characters 32768' }).waitFor();
   assert.equal((await page.request.get(`${contentUrl}&document=${httpDocument.id}&version=changed&offset=0`)).status(), 409);
   assert.equal((await page.request.get(`${contentUrl}&document=foreign&offset=0`)).status(), 404);
   const logicalRows = tracePanel.locator('.llm-call');

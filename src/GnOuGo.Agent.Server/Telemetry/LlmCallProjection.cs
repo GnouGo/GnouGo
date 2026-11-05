@@ -62,7 +62,9 @@ public sealed record LlmCallProjection(string TenantId, string SessionId, bool W
                     Number(span, "gen_ai.usage.input_tokens", "gen_ai.usage.prompt_tokens"),
                     Number(span, "gen_ai.usage.output_tokens", "gen_ai.usage.completion_tokens"), span, V("gnougo.llm.trace_id") ?? trace.TraceId);
                 if (result.TryGetValue(candidate.Identity, out var retained))
-                    result[candidate.Identity] = retained with { Span = retained.Span ?? span, TraceId = retained.TraceId ?? candidate.TraceId };
+                    result[candidate.Identity] = retained with { Span = retained.Span ?? span, TraceId = retained.TraceId ?? candidate.TraceId,
+                        Phase = retained.Phase ?? candidate.Phase, BlockId = retained.BlockId ?? candidate.BlockId,
+                        Provider = retained.Provider ?? candidate.Provider, Model = retained.Model ?? candidate.Model };
                 else result[candidate.Identity] = candidate;
             }
         return result.Values.OrderBy(c => c.CreatedAt).ThenBy(c => c.RequestId, StringComparer.Ordinal).ToArray();

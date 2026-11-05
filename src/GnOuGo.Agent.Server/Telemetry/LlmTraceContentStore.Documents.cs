@@ -131,6 +131,7 @@ public sealed partial class LlmTraceContentStore
         if (http is not null && !string.Equals(http["requestHash"]?.ToString(), request["requestHash"]?.ToString(), StringComparison.OrdinalIgnoreCase)) throw new KeyNotFoundException("HTTP evidence does not match this request.");
         return new JsonObject { ["sessionId"] = session, ["requestId"] = requestId, ["settings"] = request["settings"]?.DeepClone(),
             ["responseStatus"] = response is null ? "No completion receipt — outcome or usage may be uncertain" : "Response received — validation and business review are separate",
+            ["completionStatus"] = response?["completionStatus"]?.DeepClone(),
             ["usage"] = response?["usage"]?.DeepClone(), ["transport"] = http?["transport"]?.DeepClone(),
             ["transportPolicy"] = http?["policy"]?.DeepClone(), ["deadlineUtc"] = http?["deadlineUtc"]?.DeepClone(),
             ["outputAllocation"] = http?["outputAllocation"]?.DeepClone(), ["reservationInputEstimate"] = http?["reservationInputEstimate"]?.DeepClone(),

@@ -9,7 +9,7 @@
     {
         <div class="llm-document__controls">
             <button type="button" @onclick="CopyAsync">Copy current page</button>
-            <input aria-label="Search retained content" placeholder="Search retained content" @bind="_search" />
+            <input aria-label="Search retained content" placeholder="Search retained content" @bind="_search" @bind:event="oninput" />
             <button type="button" disabled="@(_search.Length == 0 || _busy)" @onclick="FindNextAsync">Find next match</button>
             @if (ExportHref is not null) { <a href="@ExportHref" download>Export complete redacted JSON</a> }
         </div>

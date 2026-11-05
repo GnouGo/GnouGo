@@ -93,19 +93,70 @@ public sealed class LlmInspectorDocumentsTests
         Assert.Equal(saved, await fixture.Records.GetAsync(LlmTraceContentStore.Collection, "tenant", "old", "test", Ct));
     }
 
+    [Fact]
+    public async Task InitialHistoryAndEventDeltasKeepMetadataWorkBoundedForLongSessions()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var state = new PlanningSession { Request = new() { TenantId = "tenant", SessionId = "session" }, InspectionEvents = [] };
+        for (var i = 1; i <= 350; i++)
+        {
+            var request = new LLMRequest { ClientRequestId = "session:" + i + ":hash", Prompt = "controlled" };
+            await fixture.Records.UpsertAsync("agent-planning-model-requests-v11", "tenant", "session:" + request.ClientRequestId,
+                JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), "test", Ct);
+            state.InspectionEvents.Add(new(i, DateTimeOffset.UtcNow, "construction_draft", "received", "controlled evidence", request.ClientRequestId, null, null, null, null));
+        }
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        var spy = new CountingStore(fixture.Records); var store = Store(spy, fixture.Store);
+        var first = await store.ReadCallsAsync("session", false, null, Ct);
+        Assert.Equal(100, first.Calls.Count); Assert.True(first.HasMore); Assert.InRange(spy.MetadataReads, 0, 400);
+        var ids = first.Calls.Select(c => c.RequestId).ToHashSet(StringComparer.Ordinal);
+        var page = first;
+        while (page.HasMore)
+        {
+            spy.MetadataReads = 0; page = await store.ReadCallsAsync("session", false, page.Cursor, Ct);
+            Assert.InRange(page.Calls.Count, 0, 100); Assert.InRange(spy.MetadataReads, 0, 400);
+            foreach (var call in page.Calls) Assert.True(ids.Add(call.RequestId));
+        }
+        Assert.Equal(350, ids.Count);
+        Assert.Empty((await store.ReadCallsAsync("session", false, page.Cursor, Ct)).Calls);
+        var selected = await store.ReadCallsAsync("session", false, null, Ct, "session:350:hash");
+        Assert.Equal(101, selected.Calls.Count); Assert.Contains(selected.Calls, c => c.RequestId == "session:350:hash");
+        Assert.Equal(0, spy.Lists); Assert.Equal(0, spy.RequestHydrations);
+    }
+
+    [Fact]
+    public async Task ReceiptMetadataSuppliesMeasuredUsageAndIncompleteStatusWithoutHydratingContent()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        Assert.True(await fixture.Store.TrySaveAsync(new() { Request = new() { SessionId = "session", TenantId = "tenant" } }, null, Ct));
+        var spy = new CountingStore(fixture.Records); var store = Store(spy, fixture.Store);
+        const string key = "session:session:1:hash";
+        var request = await spy.UpsertAsync("agent-planning-model-requests-v11", "tenant", key,
+            JsonSerializer.Serialize(new LLMRequest { ClientRequestId = "session:1:hash", Prompt = "controlled" }, PlanningJsonContext.Default.LLMRequest), "test", Ct);
+        var response = await spy.UpsertAsync("agent-planning-model-receipts-v11", "tenant", key,
+            JsonSerializer.Serialize(new LLMResponse { Text = "incomplete", CompletionStatus = "output_limit", Usage = new System.Text.Json.Nodes.JsonObject
+            { ["input_tokens"] = 7, ["output_tokens"] = 9, ["reasoning_tokens"] = 3 } }, PlanningJsonContext.Default.LLMResponse), "test", Ct);
+        foreach (var source in new[] { request, response }) await store.ObserveAsync(source.Collection, "tenant", "session", key, source.Value, source.UpdatedAt.UtcTicks, Ct);
+        var call = Assert.Single((await store.ReadCallsAsync("session", false, null, Ct)).Calls);
+        Assert.Equal(7, call.InputTokens); Assert.Equal(9, call.OutputTokens); Assert.Contains("incomplete", call.ResponseStatus);
+        Assert.Equal("Unavailable", call.TechnicalValidation); Assert.Equal("Unavailable", call.BusinessReview);
+        Assert.Equal(0, spy.RequestHydrations); Assert.Equal(0, spy.ReceiptHydrations); Assert.Equal(0, spy.DocumentHydrations);
+    }
+
     private static LlmTraceContentStore Store(IKeyVaultRecordStore records, IPlanningSessionStore sessions, string tenant = "tenant") => new(records,
         new TestOptionsMonitor<TraceDebugSettings>(new() { Enabled = true }), Options.Create(new OpenTelemetrySettings { TenantId = tenant }), sessions);
 
     private sealed class CountingStore(IKeyVaultRecordStore inner) : IKeyVaultRecordStore, IKeyVaultRecordReader
     {
-        internal int Lists, RequestHydrations, DocumentHydrations, TraceHydrations, Ranges;
+        internal int Lists, RequestHydrations, ReceiptHydrations, DocumentHydrations, TraceHydrations, Ranges, MetadataReads;
         public Task<KeyVaultRecordValue?> GetAsync(string c, string t, string k, string a, CancellationToken ct = default)
-        { if (c.Contains("-model-requests-", StringComparison.Ordinal)) RequestHydrations++; if (k.StartsWith("document:", StringComparison.Ordinal)) DocumentHydrations++; if (c == LlmTraceContentStore.Collection) TraceHydrations++; return inner.GetAsync(c, t, k, a, ct); }
+        { if (c.Contains("-model-requests-", StringComparison.Ordinal)) RequestHydrations++; if (c.Contains("-model-receipts-", StringComparison.Ordinal)) ReceiptHydrations++; if (k.StartsWith("document:", StringComparison.Ordinal)) DocumentHydrations++; if (c == LlmTraceContentStore.Collection) TraceHydrations++; return inner.GetAsync(c, t, k, a, ct); }
         public Task<IReadOnlyList<KeyVaultRecordValue>> ListAsync(string c, string t, string a, CancellationToken ct = default)
         { Lists++; throw new InvalidOperationException("Inspection must not list tenant bodies."); }
         public Task<KeyVaultRecordValue> UpsertAsync(string c, string t, string k, string v, string a, CancellationToken ct = default) => inner.UpsertAsync(c, t, k, v, a, ct);
         public Task<bool> DeleteAsync(string c, string t, string k, string a, CancellationToken ct = default) => inner.DeleteAsync(c, t, k, a, ct);
-        public Task<KeyVaultRecordMetadata?> GetMetadataAsync(string c, string t, string k, string a, CancellationToken ct = default) => ((IKeyVaultRecordReader)inner).GetMetadataAsync(c, t, k, a, ct);
+        public Task<KeyVaultRecordMetadata?> GetMetadataAsync(string c, string t, string k, string a, CancellationToken ct = default)
+        { MetadataReads++; return ((IKeyVaultRecordReader)inner).GetMetadataAsync(c, t, k, a, ct); }
         public Task<KeyVaultRecordMetadataPage> QueryMetadataAsync(string c, string t, string p, string a, KeyVaultRecordCursor? after = null, int count = 100, CancellationToken ct = default) => ((IKeyVaultRecordReader)inner).QueryMetadataAsync(c, t, p, a, after, count, ct);
         public Task<KeyVaultRecordRange?> ReadRangeAsync(string c, string t, string k, string a, string? version, int offset, int count, CancellationToken ct = default)
         { Ranges++; return ((IKeyVaultRecordReader)inner).ReadRangeAsync(c, t, k, a, version, offset, count, ct); }
