@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Updates model pricing inside model-metadata.json and regenerates the C# model metadata catalog.
 .DESCRIPTION
@@ -276,7 +276,14 @@ function CsBool($Value) {
 function CsStringList($Value) {
     if ($null -eq $Value) { return "null" }
     $items = @($Value) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } | ForEach-Object { CsString $_ }
-    if ($items.Count -eq 0) { return "null" }
+    if ($items.Count -eq 0) { return "[]" }
+    return "[" + ($items -join ", ") + "]"
+}
+function CsStringListProperty($Object, [string]$Name) {
+    if ($null -eq $Object) { return "null" }
+    $property = $Object.PSObject.Properties[$Name]
+    if ($null -eq $property -or $null -eq $property.Value) { return "null" }
+    $items = @($property.Value | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } | ForEach-Object { CsString $_ })
     return "[" + ($items -join ", ") + "]"
 }
 function Split-ProviderQualifiedKey([string]$Key) {
@@ -319,6 +326,8 @@ foreach ($prop in $models.PSObject.Properties) {
     [void]$sb.AppendLine("            DisplayName = $((CsString $displayName)),")
     Append-IfNotNull $sb "ProviderType" (CsString $providerType)
     Append-IfNotNull $sb "OwnedBy" (CsString (Get-JsonPropertyValue $m "ownedBy"))
+    Append-IfNotNull $sb "VerifiedAt" (CsString (Get-JsonPropertyValue $m "verifiedAt"))
+    Append-IfNotNull $sb "SourceUrls" (CsStringListProperty $m "sourceUrls")
     Append-IfNotNull $sb "ContextWindowTokens" (CsInt (Get-JsonPropertyValue $m "contextWindowTokens"))
     Append-IfNotNull $sb "MaxInputTokens" (CsInt (Get-JsonPropertyValue $m "maxInputTokens"))
     Append-IfNotNull $sb "MaxOutputTokens" (CsInt (Get-JsonPropertyValue $m "maxOutputTokens"))
@@ -331,6 +340,15 @@ foreach ($prop in $models.PSObject.Properties) {
         Append-IfNotNull $sb "InputPer1MTokens" (CsDecimal (Get-JsonPropertyValue $pricing "inputPer1MTokens"))
         Append-IfNotNull $sb "OutputPer1MTokens" (CsDecimal (Get-JsonPropertyValue $pricing "outputPer1MTokens"))
         Append-IfNotNull $sb "CachedInputPer1MTokens" (CsDecimal (Get-JsonPropertyValue $pricing "cachedInputPer1MTokens"))
+        Append-IfNotNull $sb "CacheWriteInputPer1MTokens" (CsDecimal (Get-JsonPropertyValue $pricing "cacheWriteInputPer1MTokens"))
+        Append-IfNotNull $sb "CacheWrite12hInputPer1MTokens" (CsDecimal (Get-JsonPropertyValue $pricing "cacheWrite12hInputPer1MTokens"))
+        Append-IfNotNull $sb "LongContextThresholdTokens" (CsInt (Get-JsonPropertyValue $pricing "longContextThresholdTokens"))
+        Append-IfNotNull $sb "LongContextInputMultiplier" (CsDecimal (Get-JsonPropertyValue $pricing "longContextInputMultiplier"))
+        Append-IfNotNull $sb "LongContextOutputMultiplier" (CsDecimal (Get-JsonPropertyValue $pricing "longContextOutputMultiplier"))
+        Append-IfNotNull $sb "FastMultiplier" (CsDecimal (Get-JsonPropertyValue $pricing "fastMultiplier"))
+        Append-IfNotNull $sb "FlexBatchMultiplier" (CsDecimal (Get-JsonPropertyValue $pricing "flexBatchMultiplier"))
+        Append-IfNotNull $sb "UltrafastMultiplier" (CsDecimal (Get-JsonPropertyValue $pricing "ultrafastMultiplier"))
+        Append-IfNotNull $sb "RegionalMultiplier" (CsDecimal (Get-JsonPropertyValue $pricing "regionalMultiplier"))
         Append-IfNotNull $sb "ReasoningOutputPer1MTokens" (CsDecimal (Get-JsonPropertyValue $pricing "reasoningOutputPer1MTokens"))
         [void]$sb.AppendLine("            },")
     }
@@ -344,9 +362,14 @@ foreach ($prop in $models.PSObject.Properties) {
         Append-IfNotNull $sb "SupportsJsonMode" (CsBool (Get-JsonPropertyValue $cap "supportsJsonMode"))
         Append-IfNotNull $sb "SupportsVision" (CsBool (Get-JsonPropertyValue $cap "supportsVision"))
         Append-IfNotNull $sb "SupportsAudio" (CsBool (Get-JsonPropertyValue $cap "supportsAudio"))
+        Append-IfNotNull $sb "SupportsResponses" (CsBool (Get-JsonPropertyValue $cap "supportsResponses"))
+        Append-IfNotNull $sb "SupportsChatCompletions" (CsBool (Get-JsonPropertyValue $cap "supportsChatCompletions"))
+        Append-IfNotNull $sb "SupportsStreaming" (CsBool (Get-JsonPropertyValue $cap "supportsStreaming"))
+        Append-IfNotNull $sb "ChatToolsReasoningEfforts" (CsStringListProperty $cap "chatToolsReasoningEfforts")
+        Append-IfNotNull $sb "TemperatureReasoningEfforts" (CsStringListProperty $cap "temperatureReasoningEfforts")
         Append-IfNotNull $sb "SupportsEmbeddings" (CsBool (Get-JsonPropertyValue $cap "supportsEmbeddings"))
-        Append-IfNotNull $sb "SupportedReasoningEfforts" (CsStringList (Get-JsonPropertyValue $cap "supportedReasoningEfforts"))
-        Append-IfNotNull $sb "UnsupportedRequestParameters" (CsStringList (Get-JsonPropertyValue $cap "unsupportedRequestParameters"))
+        Append-IfNotNull $sb "SupportedReasoningEfforts" (CsStringListProperty $cap "supportedReasoningEfforts")
+        Append-IfNotNull $sb "UnsupportedRequestParameters" (CsStringListProperty $cap "unsupportedRequestParameters")
         [void]$sb.AppendLine("            },")
     }
     [void]$sb.AppendLine("        },")

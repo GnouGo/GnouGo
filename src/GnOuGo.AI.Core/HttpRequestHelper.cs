@@ -178,6 +178,15 @@ public static class HttpRequestHelper
             : await context.LoadAsync(ct).ConfigureAwait(false) ?? new LLMHttpRetryState { Fingerprint = fingerprint };
         if (state.Attempts.Count == 0 && state.Fingerprint.Length == 0) state.Fingerprint = fingerprint;
         if (state.Fingerprint != fingerprint) throw new InvalidOperationException("The reserved HTTP operation changed.");
+        if (state.Attempts.Count == 0)
+        {
+            state.RequestMethod = template.Method.Method;
+            // Authentication headers, URL credentials and query strings never enter inspection evidence.
+            state.Endpoint = template.RequestUri?.GetLeftPart(UriPartial.Path);
+            if (template.RequestUri is { } endpoint && !string.IsNullOrEmpty(endpoint.UserInfo))
+                state.Endpoint = new UriBuilder(endpoint) { UserName = "", Password = "", Query = "", Fragment = "" }.Uri.GetLeftPart(UriPartial.Path);
+            state.RequestBody = payload;
+        }
         Exception? originalFailure = null;
         while (true)
         {
@@ -204,6 +213,10 @@ public static class HttpRequestHelper
                     previous.NotBefore is null && state.DelayMilliseconds + delay.TotalMilliseconds > retryPolicy.MaxTotalDelayMilliseconds;
                 var metadata = new LLMHttpRetryMetadata(state.Attempts.Count, retryable && exhausted, ToMilliseconds(retryAfter),
                     classification?.Kind ?? (previous.Failure == "permanent" ? LLMProviderFailureKind.Unknown : previous.Failure == "timeout" ? LLMProviderFailureKind.Timeout : LLMProviderFailureKind.Transport), classification?.SafeProviderCode);
+                var decision = response?.IsSuccessStatusCode == true ? "completed; no retry" : uncertain && confirmedOnly ? "blocked; uncertain outcome" :
+                    !retryable ? "blocked; nonretryable outcome" : exhausted ? "blocked; captured retry allowance exhausted" : "retry; captured transient-response policy";
+                if (previous.RetryDecision != decision)
+                { previous.RetryDecision = decision; await SaveAsync(ct).ConfigureAwait(false); }
                 if (response is not null && (response.IsSuccessStatusCode || !retryable || exhausted))
                 {
                     SetRetryMetadata(response, metadata);
@@ -238,7 +251,7 @@ public static class HttpRequestHelper
             }
 
             ct.ThrowIfCancellationRequested();
-            var attempt = new LLMHttpAttempt { Id = (context?.RequestId ?? "http") + ":" + Guid.NewGuid().ToString("N") };
+            var attempt = new LLMHttpAttempt { Id = (context?.RequestId ?? "http") + ":" + Guid.NewGuid().ToString("N"), StartedAtUtc = utcNow() };
             state.Attempts.Add(attempt);
             // Hosts reserve possible usage atomically with this identity before dispatch.
             await SaveAsync(ct).ConfigureAwait(false);
@@ -248,12 +261,21 @@ public static class HttpRequestHelper
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeout.CancelAfter(retryPolicy.AttemptTimeoutMilliseconds);
             HttpResponseMessage? received = null;
+            var partial = new StringBuilder();
             try
             {
-                received = await http.SendAsync(request, completionOption, timeout.Token).ConfigureAwait(false);
-                // Buffer under the attempt deadline: a truncated/timed-out body is also uncertain.
-                attempt.Body = await received.Content.ReadAsStringAsync(timeout.Token).ConfigureAwait(false);
+                received = await http.SendAsync(request, context is null ? completionOption : HttpCompletionOption.ResponseHeadersRead, timeout.Token).ConfigureAwait(false);
+                attempt.ObservedStatus = (int)received.StatusCode;
                 attempt.ContentType = received.Content.Headers.ContentType?.ToString();
+                // Buffer under the attempt deadline: a truncated/timed-out body is also uncertain.
+                // Some HttpContent implementations ignore cancellation while creating
+                // their stream. The attempt deadline still bounds that operation.
+                using var bodyReader = new StreamReader(await received.Content.ReadAsStreamAsync(timeout.Token).WaitAsync(timeout.Token).ConfigureAwait(false));
+                var buffer = new char[4096];
+                int read;
+                while ((read = await bodyReader.ReadAsync(buffer.AsMemory(), timeout.Token).AsTask().WaitAsync(timeout.Token).ConfigureAwait(false)) > 0) partial.Append(buffer, 0, read);
+                attempt.Body = partial.ToString();
+                attempt.ResponseBodyComplete = true;
                 attempt.RetryAfter = received.Headers.TryGetValues("Retry-After", out var values) ? values.FirstOrDefault() : null;
                 attempt.Status = (int)received.StatusCode;
             }
@@ -271,6 +293,9 @@ public static class HttpRequestHelper
             catch (Exception ex) { originalFailure = ex; attempt.Failure = ct.IsCancellationRequested ? "cancelled" : "permanent"; }
             finally
             {
+                attempt.CompletedAtUtc = utcNow();
+                if (ct.IsCancellationRequested) attempt.RetryDecision = "cancelled; no retry";
+                if (attempt.Body is null) { attempt.ResponseBodyComplete = false; attempt.PartialBody = partial.Length == 0 ? null : partial.ToString(); }
                 received?.Dispose();
                 System.Diagnostics.Activity.Current?.AddEvent(new System.Diagnostics.ActivityEvent("gnougo.llm.transport.attempt",
                     tags: new System.Diagnostics.ActivityTagsCollection {

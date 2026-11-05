@@ -345,6 +345,46 @@ public sealed class HttpRecoveryTests
         protected override bool TryComputeLength(out long length) { length = 0; return false; }
         protected override void Dispose(bool disposing) { Disposed = true; base.Dispose(disposing); }
     }
+    [Fact]
+    public async Task PartialSuccessfulBodyRetainsObservedStatusButNeverBecomesReplayableCompletion()
+    {
+        var journal = new Journal(); var calls = 0;
+        using var http = new HttpClient(new Handler((_, _) =>
+        {
+            calls++;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new PartialStream()) });
+        }));
+        for (var restart = 0; restart < 2; restart++)
+        {
+            using var scope = new LLMHttpRetryContext("partial", journal, ConfirmedPolicy(timeout: 100)).Activate();
+            await Assert.ThrowsAsync<TimeoutException>(() => Send(http, post: true));
+        }
+        Assert.Equal(1, calls);
+        var attempt = Assert.Single(journal.State!.Attempts);
+        Assert.Equal(200, attempt.ObservedStatus); Assert.Null(attempt.Status);
+        Assert.Equal("{\"partial\":", attempt.PartialBody); Assert.False(attempt.ResponseBodyComplete);
+        Assert.NotNull(attempt.StartedAtUtc); Assert.NotNull(attempt.CompletedAtUtc);
+        Assert.Equal("{}", journal.State.RequestBody);
+    }
+    private sealed class PartialStream : Stream
+    {
+        private bool _sent;
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken ct = default)
+        {
+            if (_sent) { await Task.Delay(Timeout.Infinite, ct); return 0; }
+            _sent = true; "{\"partial\":"u8.CopyTo(buffer.Span); return 11;
+        }
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override void Flush() => throw new NotSupportedException();
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
     private static Task<HttpResponseMessage> Send(HttpClient http, bool post = false, LLMProviderRetryPolicyOptions? policy = null, CancellationToken? ct = null)
         => HttpRequestHelper.SendWithTransientRetryAsync(http,
             () => post ? HttpRequestHelper.CreateJsonPost("https://provider.example/generate", "{}"u8.ToArray()) : HttpRequestHelper.CreateGet("https://provider.example/models"),

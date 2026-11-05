@@ -14,6 +14,12 @@ public interface ILLMHttpRetryJournal
 /// <summary>Encrypted by durable hosts. A missing response is unknown usage, never zero.</summary>
 public sealed class LLMHttpRetryState
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RequestMethod { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Endpoint { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RequestBody { get; set; }
     public string Fingerprint { get; set; } = "";
     public List<LLMHttpAttempt> Attempts { get; set; } = [];
     public double DelayMilliseconds { get; set; }
@@ -21,6 +27,18 @@ public sealed class LLMHttpRetryState
 
 public sealed class LLMHttpAttempt
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RetryDecision { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? StartedAtUtc { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? CompletedAtUtc { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? ObservedStatus { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PartialBody { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? ResponseBodyComplete { get; set; }
     public string Id { get; set; } = "";
     public int? Status { get; set; }
     public string? Body { get; set; }

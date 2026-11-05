@@ -492,10 +492,11 @@ public sealed partial class LLMUsageBudgetScope
 
             try
             {
-                sourceCost = costEstimator?.EstimateCostWithCurrency(
+                sourceCost = costEstimator?.EstimateReportedCostWithCurrency(
                     request.Model,
                     parsedUsage.InputTokens.Value,
                     parsedUsage.OutputTokens.Value,
+                    usage,
                     request.Provider);
             }
             catch

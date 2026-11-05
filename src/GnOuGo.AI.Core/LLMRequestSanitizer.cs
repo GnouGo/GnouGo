@@ -35,13 +35,22 @@ public static class LLMRequestSanitizer
         };
 
         var capabilities = metadata.Capabilities ?? new ModelCapabilityMetadata();
+        var responses = request.UseBackgroundMode && requestPolicy.BackgroundProtocol != LLMBackgroundProtocolMode.ChatCompletions;
+        if (responses && capabilities.SupportsResponses == false || !responses && capabilities.SupportsChatCompletions == false)
+            throw new InvalidOperationException("The selected endpoint is not supported by this model.");
+        if (request.Reasoning is { } effort && effort != "auto" && capabilities.SupportedReasoningEfforts is { } levels && !levels.Contains(effort, StringComparer.Ordinal))
+            throw new InvalidOperationException("The requested reasoning effort is not supported by this model.");
+        if (!responses && request.Tools is { Count: > 0 } && capabilities.ChatToolsReasoningEfforts is { } toolLevels &&
+            !toolLevels.Contains(request.Reasoning ?? "medium", StringComparer.Ordinal))
+            throw new InvalidOperationException("This model requires Responses for tool calling with the requested reasoning effort.");
         var unsupported = capabilities.UnsupportedRequestParameters ?? [];
         // Wire aliases belong to each transport. One unsupported alias must not
         // disable a ceiling that its supported protocol can still represent.
         if (request.RequireOutputTokenLimit && maxOutputTokens is not > 0)
             throw new InvalidOperationException("The configured model cannot enforce the required output-token limit.");
 
-        if (capabilities.SupportsTemperature == false || Contains(unsupported, "temperature"))
+        if (capabilities.SupportsTemperature == false || Contains(unsupported, "temperature") ||
+            capabilities.TemperatureReasoningEfforts is { } temperatureLevels && !temperatureLevels.Contains(request.Reasoning ?? "medium", StringComparer.Ordinal))
             sanitized.Temperature = null;
 
         if (capabilities.SupportsReasoningEffort == false

@@ -37,6 +37,9 @@ public interface ILLMCapabilityResolver
 /// </summary>
 public interface IModelUsageCostEstimator
 {
+    /// <summary>Optional provider-reported cache/tier detail. The default retains existing estimators.</summary>
+    ModelUsageCostEstimate? EstimateReportedCostWithCurrency(string? model, long inputTokens, long outputTokens,
+        JsonNode? usage, string? providerType = null) => EstimateCostWithCurrency(model, inputTokens, outputTokens, providerType);
     decimal? EstimateCost(
         string? model,
         long? inputTokens = null,

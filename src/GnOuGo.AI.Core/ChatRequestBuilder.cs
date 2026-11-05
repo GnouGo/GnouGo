@@ -307,7 +307,7 @@ public static class ChatRequestBuilder
 
     /// <summary>
     /// Normalizes a generic reasoning level to the OpenAI <c>reasoning_effort</c> enum
-    /// ("none" | "minimal" | "low" | "medium" | "high" | "xhigh"). Returns <c>null</c> when the field
+    /// ("none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max"). Returns <c>null</c> when the field
     /// must be omitted (auto / unknown / null).
     /// </summary>
     internal static string? NormalizeOpenAiReasoning(string? value)
@@ -320,7 +320,8 @@ public static class ChatRequestBuilder
             "minimal" or "min" => "minimal",
             "low" => "low",
             "medium" or "med" => "medium",
-            "high" or "max" or "maximum" => "high",
+            "high" => "high",
+            "max" or "maximum" => "max",
             "xhigh" => "xhigh",
             _ => null
         };

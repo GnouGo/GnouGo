@@ -47,6 +47,8 @@ public sealed class LLMOptions
     /// These have the highest precedence.
     /// </summary>
     public Dictionary<string, LLMModelMetadata> ModelOverrides { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>Exact host-captured metadata. When present, no catalog merge, files or heuristics are permitted.</summary>
+    public Dictionary<string, LLMModelMetadata>? CapturedModelMetadata { get; set; }
 
     /// <summary>
     /// Resolves the <see cref="ModelProviderOptions"/> for a given provider key.
@@ -182,6 +184,9 @@ public enum LLMUnspecifiedOutputTokensMode
 /// <summary>Provider-neutral request shaping policy for a configured model provider.</summary>
 public sealed class LLMProviderRequestPolicyOptions
 {
+    /// <summary>Explicit gateway billing declarations; these do not imply endpoint/model availability.</summary>
+    public string BillingServiceTier { get; set; } = "standard";
+    public bool BillingRegionalProcessing { get; set; }
     /// <summary>
     /// Protocol selection before dispatch. Auto and Responses use Responses; ChatCompletions selects chat directly.
     /// Non-transient rejections never trigger a protocol change.

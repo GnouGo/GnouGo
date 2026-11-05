@@ -147,6 +147,9 @@ public static class ChatResponseParser
         if (!root.TryGetProperty("usage", out var usage))
             return null;
 
-        return JsonNode.Parse(usage.GetRawText()) as JsonObject;
+        var result = JsonNode.Parse(usage.GetRawText()) as JsonObject;
+        if (result is not null && root.TryGetProperty("service_tier", out var tier) && tier.ValueKind == JsonValueKind.String)
+            result["service_tier"] = tier.GetString();
+        return result;
     }
 }

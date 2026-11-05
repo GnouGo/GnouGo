@@ -128,7 +128,7 @@ public sealed partial class LLMUsageBudgetScope
                     settled.Add(existing);
                     continue;
                 }
-                var cost = await scope.JournaledCostAsync(request, estimator, input, output, safeStage, ct).ConfigureAwait(false);
+                var cost = await scope.JournaledCostAsync(request, estimator, input, output, safeStage, ct, usage).ConfigureAwait(false);
                 settled.Add(new(input, output, parsed.TotalTokens, cost.Amount, cost.Usd, usageHash));
             }
             UpdateJournaledScopes(scopes, () =>
@@ -169,11 +169,12 @@ public sealed partial class LLMUsageBudgetScope
     }
 
     private async Task<(decimal Amount, decimal Usd)> JournaledCostAsync(LLMRequest request,
-        IModelUsageCostEstimator? estimator, long input, long output, string stage, CancellationToken ct)
+        IModelUsageCostEstimator? estimator, long input, long output, string stage, CancellationToken ct, JsonNode? usage = null)
     {
         if (_costLimit is null) return (0, 0);
         ModelUsageCostEstimate? source;
-        try { source = estimator?.EstimateCostWithCurrency(request.Model, input, output, request.Provider); }
+        try { source = usage is null ? estimator?.EstimateCostWithCurrency(request.Model, input, output, request.Provider)
+            : estimator?.EstimateReportedCostWithCurrency(request.Model, input, output, usage, request.Provider); }
         catch { throw CreateUnverifiable(stage, "pricing", Snapshot); }
         if (source is null) throw CreateUnverifiable(stage, "pricing", Snapshot);
         var cost = await ConvertToBudgetCurrencyAsync(source, stage, ct).ConfigureAwait(false);
