@@ -5,8 +5,9 @@ public sealed class TypedWorkflowPlanningSettings
 {
     public const string SectionName = "TypedWorkflowPlanning";
     public bool BackgroundProcessingEnabled { get; set; } = true;
-    public bool DiagnosticEnabled { get; set; }
-    public bool OpenLocalOperatorBrowser { get; set; }
+    public bool DiagnosticEnabled { get; set; } = true;
+    public bool OpenLocalOperatorBrowser { get; set; } = true;
+    public string DefaultThresholdMode { get; set; } = "diagnostic";
     public bool DiagnosticModelMaximum { get; set; } = true;
     public bool AutomaticCorrectionEnabled { get; set; } = true;
     public int MaxReplanAttempts { get; set; } = 4;
@@ -31,9 +32,17 @@ public sealed class TypedWorkflowPlanningSettings
     public int Calls(string preset) => ResolvePreset(preset) == PlanningConstructionPresets.Large ? LargeMaxModelCalls : MaxModelCalls;
     public int Corrections(string preset) => ResolvePreset(preset) == PlanningConstructionPresets.Large ? LargeMaxReplanAttempts : MaxReplanAttempts;
 
+    public string ResolveThresholdMode(string? requested, bool localOperator)
+    {
+        if (requested is not (null or "strict" or "diagnostic")) throw new ArgumentException("Unknown threshold mode.");
+        return requested ?? (DiagnosticEnabled && localOperator ? DefaultThresholdMode : "strict");
+    }
+
     public void Validate()
     {
         _ = ResolvePreset();
+        if (DefaultThresholdMode is not ("strict" or "diagnostic"))
+            throw new InvalidOperationException("Invalid default planning threshold mode.");
         if (MaxModelCalls is < 1 or > 1000 || MaxReplanAttempts is < 0 or > 10 ||
             LargeMaxModelCalls is < 1 or > 1000 || LargeMaxReplanAttempts is < 0 or > 64 ||
             LargeMaxStepsTotal < 1 || LargeMaxStepsPerWorkflow < 1 || LargeMaxWorkflows < 1 ||

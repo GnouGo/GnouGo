@@ -22,6 +22,7 @@ internal static class TelemetryTestHostArgs
         return
         [
             "--DevMode:Enabled=true",
+            "--TypedWorkflowPlanning:OpenLocalOperatorBrowser=false",
             "--OpenTelemetry:Enabled=true",
             "--Ingest:BatchSize=1",
             "--Ingest:FlushSeconds=1",

@@ -6,9 +6,16 @@ namespace GnOuGo.Agent.Server.Endpoints;
 
 public static class LlmProviderEndpoints
 {
+    public static async Task<IResult> ListProvidersAsync(LLMRuntimeOptionsStore store, LlmDefaultsResolver defaults, CancellationToken ct)
+    {
+        await defaults.ResolveAsync(ct);
+        return ListProviders(store);
+    }
+
     public static IResult ListProviders(LLMRuntimeOptionsStore store)
     {
-        var current = store.Current;
+        var selection = store.Selection;
+        var current = selection.Options;
         var providers = current.Models
             .Select(kv => new LlmConfiguredProviderDto(
                 Key: kv.Key,
@@ -17,7 +24,8 @@ public static class LlmProviderEndpoints
                 DefaultModel: string.Equals(current.DefaultProvider, kv.Key, StringComparison.OrdinalIgnoreCase)
                     ? current.DefaultModel
                     : null,
-                IsDefault: string.Equals(current.DefaultProvider, kv.Key, StringComparison.OrdinalIgnoreCase)))
+                IsDefault: string.Equals(current.DefaultProvider, kv.Key, StringComparison.OrdinalIgnoreCase))
+            { DefaultModelSource = string.Equals(current.DefaultProvider, kv.Key, StringComparison.OrdinalIgnoreCase) ? selection.ModelSource : null })
             .OrderByDescending(provider => provider.IsDefault)
             .ThenBy(provider => provider.Key, StringComparer.OrdinalIgnoreCase)
             .ToList();

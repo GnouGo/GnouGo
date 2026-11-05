@@ -16,7 +16,8 @@ try {
     await page.goto(`${url}/planning`);
     await page.waitForFunction(() => window.Blazor?._internal?.navigationManager != null);
     await page.waitForTimeout(300);
-    if (mode) await page.locator('#plan-thresholds').selectOption(mode);
+    if (mode === 'default') assert.equal(await page.locator('#plan-thresholds').inputValue(), 'diagnostic');
+    else if (mode) await page.locator('#plan-thresholds').selectOption(mode);
     else assert.equal(await page.locator('#plan-thresholds').count(), 0);
     await page.locator('#plan-name').fill(name);
     const marker = name.startsWith('cancelled') ? ' cancelled test' : name.startsWith('correction') ? ' correction fixture' : name.startsWith('empty') ? ' empty fixture' : name.startsWith('partial') ? ' partial fixture' : '';
@@ -39,7 +40,15 @@ try {
   await page.goto(`${url}/local-operator#${token}`);
   await page.waitForURL(`${url}/planning`);
   await page.locator('#plan-name').waitFor();
-  const sessionId = await start('diagnostic-browser', 'diagnostic');
+  await page.goto(`${url}/`);
+  await page.getByLabel('Threshold policy').waitFor();
+  assert.equal(await page.getByLabel('Threshold policy').inputValue(), 'diagnostic');
+  await page.getByLabel('Threshold policy').selectOption('strict');
+  assert.equal(await page.getByLabel('Threshold policy').inputValue(), 'strict');
+  const defaults = await (await page.request.get(`${url}/api/llm/providers`)).json();
+  assert.equal(defaults.find(provider => provider.isDefault).defaultModel, 'gpt-6.1-sol-2026-09-29');
+  assert.equal(defaults.find(provider => provider.isDefault).defaultModelSource, 'keyvault_provider_configuration');
+  const sessionId = await start('diagnostic-browser', 'default');
   await page.getByRole('heading', { name: 'Generation timeline', exact: true }).waitFor();
   await page.waitForFunction(() => document.querySelector('.planning-timeline .phase-active'));
   await page.screenshot({ path: `${output}/active-phase.png` });
@@ -47,6 +56,15 @@ try {
   await page.getByRole('heading', { name: 'Generation timeline', exact: true }).waitFor();
   await page.getByText('Ready for your review', { exact: true }).waitFor({ timeout: 90000 });
   await page.getByRole('heading', { name: 'Advisory thresholds exceeded', exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Traces', exact: true }).click();
+  const tracePanel = page.locator('.gnougo-trace-panel--open');
+  await tracePanel.getByRole('heading', { name: 'Planning traces', exact: true }).waitFor();
+  await tracePanel.getByRole('button', { name: 'Inspect request / response', exact: true }).first().click();
+  await tracePanel.getByRole('heading', { name: /Request and response schema/ }).waitFor();
+  await tracePanel.getByRole('heading', { name: /Response and tool calls/ }).waitFor();
+  assert.ok(!(await tracePanel.innerText()).includes('CONTROLLED_PROVIDER_KEY'));
+  await page.screenshot({ path: `${output}/otel-input-output.png` });
+  await tracePanel.getByRole('button', { name: 'Close trace panel', exact: true }).click();
   await page.getByRole('heading', { name: 'Advisory thresholds exceeded', exact: true }).scrollIntoViewIfNeeded();
   await page.screenshot({ path: `${output}/warning-continues.png` });
   const inspect = page.getByRole('button', { name: 'Inspect LLM exchange', exact: true });
@@ -116,6 +134,11 @@ try {
   await page.getByText('Cancelled', { exact: true }).first().waitFor({ timeout: 30000 });
   await page.reload();
   await page.getByText('Cancelled', { exact: true }).first().waitFor();
+  const omitted = await page.request.post(`${url}/api/planning`, { headers: { [antiforgery.headerName]: antiforgery.requestToken },
+    data: { name: 'cancelled-api-default', prompt: 'Return 42 cancelled test' } });
+  assert.equal(omitted.status(), 200, await omitted.text());
+  const apiDefault = await omitted.json(); assert.equal(apiDefault.thresholdMode, 'diagnostic');
+  assert.equal((await page.request.post(`${url}/api/planning/${apiDefault.id}/stop`, { headers: { [antiforgery.headerName]: antiforgery.requestToken } })).status(), 200);
   await writeFile(`${output}/result.json`, JSON.stringify({ provider: 'controlled HTTP fixture; no paid inference', ordinarySessionId, sessionId, strictSessionId, correctedSessionId, emptySessionId, partialSessionId, cancelledSessionId, browserErrors: errors }, null, 2));
   assert.deepEqual(errors, []);
 } catch (error) { await page.screenshot({ path: `${output}/failure.png`, fullPage: true }); await writeFile(`${output}/failure.txt`, await page.locator("body").innerText() + "\n" + JSON.stringify(errors)); throw error; } finally { await browser.close(); }

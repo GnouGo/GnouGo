@@ -154,7 +154,7 @@
     private string? _selectedSpanId;
     private string? _selectedTraceId;
     private bool _renderFormatted = true;
-    private TracePanelTab _activeTab = TracePanelTab.Traces;
+    private TracePanelTab _activeTab = TracePanelTab.Pipeline;
     private bool _isDisposed;
 
     protected override async Task OnParametersSetAsync()
@@ -173,7 +173,7 @@
         _snapshot = EmptySnapshot();
         _selectedSpanId = null;
         _loadError = null;
-        _activeTab = TracePanelTab.Traces;
+        _activeTab = TracePanelTab.Pipeline;
         StopRefreshLoop();
         var refreshCts = new CancellationTokenSource();
         _refreshCts = refreshCts;

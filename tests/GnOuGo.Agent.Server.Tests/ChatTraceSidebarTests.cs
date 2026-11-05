@@ -118,6 +118,8 @@ public sealed class ChatTraceSidebarTests : BunitContext
             .Add(p => p.IsOpen, true)
             .Add(p => p.OnClose, EventCallback.Factory.Create(this, () => closed = true)));
 
+        cut.WaitForAssertion(() => Assert.Contains("Pipeline / LLM calls", cut.Find("button.gnougo-trace-panel__tab--active").TextContent));
+        cut.FindAll("button[role='tab']").Single(button => button.TextContent.Trim().StartsWith("Traces", StringComparison.Ordinal)).Click();
         cut.WaitForAssertion(() => Assert.Contains("Workflow trace", cut.Markup));
 
         var logsTab = cut.FindAll("button")

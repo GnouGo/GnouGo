@@ -15,6 +15,7 @@ public interface IKeyVaultRuntimeConfigStore
     Task SaveSecretValueAsync(string key, string value, CancellationToken ct);
     Task<bool> DeleteSecretAsync(string key, CancellationToken ct);
     Task<LLMOptions> BuildEffectiveOptionsAsync(LLMOptions baseOptions, CancellationToken ct);
+    Task<string?> GetConfiguredModelAsync(string provider, CancellationToken ct) => Task.FromResult<string?>(null);
 }
 
 public sealed record KeyVaultSecretSummary(string Key, string CreatedAt, int LatestVersion);
@@ -79,6 +80,24 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
 
     public Task<bool> DeleteSecretAsync(string key, CancellationToken ct)
         => DeleteSecretValueAsync(key, ct);
+
+    public async Task<string?> GetConfiguredModelAsync(string provider, CancellationToken ct)
+    {
+        string? configured = null;
+        foreach (var secret in KeyVaultConfigNaming.SelectPreferredSecrets(await ListSecretsAsync(ct), KeyVaultConfigSecretKind.LlmProvider))
+        {
+            var config = await LoadSecretJsonAsync(secret.Key, ct);
+            if (config is null) continue;
+            if (string.IsNullOrWhiteSpace(ReadConfigString(config, "url"))) continue;
+            var name = ReadConfigString(config, "provider") ?? KeyVaultConfigNaming.TryGetLogicalName(KeyVaultConfigSecretKind.LlmProvider, secret.Key);
+            if (string.Equals(name, provider, StringComparison.OrdinalIgnoreCase))
+            {
+                var model = ReadConfigString(config, "model");
+                if (!string.IsNullOrWhiteSpace(model)) configured = model;
+            }
+        }
+        return configured;
+    }
 
     public async Task<LLMOptions> BuildEffectiveOptionsAsync(LLMOptions baseOptions, CancellationToken ct)
     {

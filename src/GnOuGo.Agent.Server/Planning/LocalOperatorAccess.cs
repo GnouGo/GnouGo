@@ -40,6 +40,14 @@ public sealed class LocalOperatorAccess(IHttpContextAccessor http, IServiceProvi
         if (!await CanInspectAsync()) throw new UnauthorizedAccessException("Authenticate as the local operator before enabling diagnostic planning.");
         return new("local-operator");
     }
+    internal async Task<(string Mode, PlanningDiagnosticGrant? Grant)> ResolveAsync(string? requested)
+    {
+        var settings = services.GetRequiredService<IOptions<TypedWorkflowPlanningSettings>>().Value;
+        var mode = settings.ResolveThresholdMode(requested, await CanInspectAsync());
+        if (mode == "diagnostic" && !settings.DiagnosticEnabled)
+            throw new UnauthorizedAccessException("Diagnostic planning is disabled on this host.");
+        return (mode, mode == "diagnostic" ? await GrantAsync() : null);
+    }
     internal static bool IsLocal(HttpContext context)
     {
         if (context.Connection.RemoteIpAddress is not { } address || !IPAddress.IsLoopback(address) ||
@@ -47,6 +55,43 @@ public sealed class LocalOperatorAccess(IHttpContextAccessor http, IServiceProvi
         if (context.Request.Headers.Origin is { Count: > 0 } origin &&
             (!Uri.TryCreate(origin.ToString(), UriKind.Absolute, out var source) || source.Authority != host.Authority || source.Scheme != host.Scheme)) return false;
         return true;
+    }
+}
+
+public interface ILocalOperatorBrowserLauncher
+{
+    void Open(Uri address);
+}
+
+internal sealed class LocalOperatorBrowserLauncher(ILogger<LocalOperatorBrowserLauncher> logger) : ILocalOperatorBrowserLauncher
+{
+    public void Open(Uri address)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            using var shell = Process.Start(new ProcessStartInfo(address.AbsoluteUri) { UseShellExecute = true });
+            return;
+        }
+        // Shell launchers can echo a failed URL. Drain their output without logging
+        // it, so an unavailable headless browser cannot disclose a bootstrap token.
+        var start = new ProcessStartInfo(OperatingSystem.IsMacOS() ? "/usr/bin/open" : "xdg-open")
+        { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };
+        start.ArgumentList.Add(address.AbsoluteUri);
+        var process = Process.Start(start) ?? throw new InvalidOperationException("The browser launcher did not start.");
+        _ = ObserveAsync(process);
+    }
+    private async Task ObserveAsync(Process process)
+    {
+        using (process)
+        {
+            try
+            {
+                await Task.WhenAll(process.StandardOutput.BaseStream.CopyToAsync(Stream.Null), process.StandardError.BaseStream.CopyToAsync(Stream.Null));
+                await process.WaitForExitAsync();
+                if (process.ExitCode != 0) logger.LogWarning("The local operator browser launcher exited with code {ExitCode}. Ordinary strict planning remains available.", process.ExitCode);
+            }
+            catch (Exception ex) { logger.LogWarning("The local operator browser launcher could not be observed ({ErrorType}).", ex.GetType().Name); }
+        }
     }
 }
 
@@ -75,7 +120,7 @@ public sealed class LocalOperatorBootstrap
             <!doctype html><html lang="en"><meta charset="utf-8"><title>Local operator</title>
             <body><h1>Local operator access</h1><p id="status">Opening the protected local planning interface…</p>
             <script>(async()=>{const t=location.hash.slice(1);history.replaceState(null,'','/local-operator');
-            if(!t){document.getElementById('status').textContent='Start the Diagnostic launch profile to open an authenticated operator window.';return;}
+            if(!t){document.getElementById('status').textContent='Restart the local server to open an authenticated operator window.';return;}
             const r=await fetch('/local-operator/session',{method:'POST',headers:{'Content-Type':'text/plain'},body:t});
             if(r.ok)location.replace('/planning');else document.getElementById('status').textContent='This operator link expired or was already used. Restart the local profile.';})();</script></body></html>
             """, "text/html"));
@@ -91,10 +136,14 @@ public sealed class LocalOperatorBootstrap
         if (app.Services.GetRequiredService<IOptions<TypedWorkflowPlanningSettings>>().Value.OpenLocalOperatorBrowser)
             app.Lifetime.ApplicationStarted.Register(() =>
             {
-                var url = app.Urls.FirstOrDefault(value => Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.IsLoopback);
-                if (url is null) return;
+                var url = Hosting.GnOuGoAgentWebHost.ResolvePublishedEndpoints(app).AppBaseAddress;
+                if (!Uri.TryCreate(url, UriKind.Absolute, out var address) || !address.IsLoopback) return;
                 var token = app.Services.GetRequiredService<LocalOperatorBootstrap>().Issue();
-                Process.Start(new ProcessStartInfo(url.TrimEnd('/') + "/local-operator#" + token) { UseShellExecute = true });
+                try { app.Services.GetRequiredService<ILocalOperatorBrowserLauncher>().Open(new Uri(address.AbsoluteUri.TrimEnd('/') + "/local-operator#" + token)); }
+                catch (Exception ex)
+                {
+                    app.Logger.LogWarning("The local operator browser could not be opened ({ErrorType}). Ordinary strict planning remains available.", ex.GetType().Name);
+                }
             });
     }
 }

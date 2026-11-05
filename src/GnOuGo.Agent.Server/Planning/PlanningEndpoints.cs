@@ -63,8 +63,12 @@ internal static class PlanningEndpoints
             await service.GetAsync(id, ct) is { } state ? Results.Json(await service.ToDtoAsync(state, ct), ChatJsonContext.Default.PlanningSessionDto) : Results.NotFound());
         app.MapPost("/api/planning", async (PlanningStartDto request, PlanningSessionService service, LocalOperatorAccess access, CancellationToken ct) =>
         {
-            try { return Results.Json(ToDto(await service.StartAsync(request.Name, request.Prompt, request.ReviseExisting, ct, mode: request.Mode, constructionPreset: request.ConstructionPreset, thresholdMode: request.ThresholdMode,
-                diagnosticGrant: request.ThresholdMode == "diagnostic" ? await access.GrantAsync() : null)), ChatJsonContext.Default.PlanningSessionDto); }
+            try
+            {
+                var selection = await access.ResolveAsync(request.ThresholdMode);
+                return Results.Json(ToDto(await service.StartAsync(request.Name, request.Prompt, request.ReviseExisting, ct, mode: request.Mode, constructionPreset: request.ConstructionPreset, thresholdMode: selection.Mode,
+                    diagnosticGrant: selection.Grant)), ChatJsonContext.Default.PlanningSessionDto);
+            }
             catch (UnauthorizedAccessException) { return Results.Forbid(); }
             catch (ArgumentException) { return Results.BadRequest("Invalid planning request."); }
             catch (InvalidOperationException ex) { return Results.Conflict(ex.Message); }

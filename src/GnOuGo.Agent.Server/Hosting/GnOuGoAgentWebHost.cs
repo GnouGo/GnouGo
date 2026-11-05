@@ -427,7 +427,8 @@ public static class GnOuGoAgentWebHost
             humanInputProvider: sp.GetRequiredService<AgentHumanInputProvider>(),
             localRuntime: sp.GetRequiredService<ILocalLLMRuntime>(),
             capture: sp.GetRequiredService<LlmTraceCapture>(),
-            copilotRunners: builder.Configuration.GetSection("Flow:CopilotRunners").GetChildren().ToDictionary(c => c.Key, c => c.Value ?? throw new InvalidOperationException("A Copilot runner requires an MCP server name."), StringComparer.Ordinal)));
+            copilotRunners: builder.Configuration.GetSection("Flow:CopilotRunners").GetChildren().ToDictionary(c => c.Key, c => c.Value ?? throw new InvalidOperationException("A Copilot runner requires an MCP server name."), StringComparer.Ordinal),
+            defaults: sp.GetRequiredService<LlmDefaultsResolver>()));
         builder.Services.AddSingleton<CollectorTracePersistence>();
         builder.Services.AddSingleton<ILoggerProvider, CollectorLoggerProvider>();
 
@@ -446,7 +447,8 @@ public static class GnOuGoAgentWebHost
                 store,
                 loggerFactory,
                 sp.GetRequiredService<ILocalLLMRuntime>(),
-                sp.GetRequiredService<LlmTraceCapture>());
+                sp.GetRequiredService<LlmTraceCapture>(),
+                sp.GetRequiredService<LlmDefaultsResolver>());
         });
         builder.Services.AddSingleton<CachedLlmModelCatalog>(sp =>
         {
@@ -522,6 +524,8 @@ public static class GnOuGoAgentWebHost
         });
         builder.Services.AddAuthorization(); builder.Services.AddCascadingAuthenticationState();
         builder.Services.AddSingleton<LocalOperatorBootstrap>();
+        builder.Services.TryAddSingleton<ILocalOperatorBrowserLauncher, LocalOperatorBrowserLauncher>();
+        builder.Services.AddSingleton<LlmDefaultsResolver>();
         builder.Services.AddScoped<LocalOperatorAccess>();
         builder.Services.AddScoped<PlanningInspectionService>();
         builder.Services.AddSingleton<PlanningHostPolicy>();
@@ -547,7 +551,7 @@ public static class GnOuGoAgentWebHost
         app.Services.InitializeKeyVaultMcpAsync().GetAwaiter().GetResult();
         app.Services.InitializeDocsIngestorMcpAsync().GetAwaiter().GetResult();
 
-        HydrateRuntimeOptionsFromKeyVaultAsync(app.Services).GetAwaiter().GetResult();
+        app.Services.GetRequiredService<LlmDefaultsResolver>().InitializeAsync().GetAwaiter().GetResult();
         ValidateLocalFallback(app.Services.GetRequiredService<LLMRuntimeOptionsStore>().Current);
 
         app.Services.InitializeOtlpCollectorAsync().GetAwaiter().GetResult();
@@ -555,7 +559,7 @@ public static class GnOuGoAgentWebHost
         // locally even when OTLP export is disabled.
         _ = app.Services.GetRequiredService<AgentOTelTelemetry>();
 
-        app.Lifetime.ApplicationStarted.Register(() => _ = InitializeMountedMcpServicesAsync(app));
+        app.Lifetime.ApplicationStarted.Register(() => InitializeMountedMcpServices(app));
 
         if (isDesktopHosted)
         {
@@ -676,7 +680,7 @@ public static class GnOuGoAgentWebHost
         app.MapGet("/api/version", (AppVersionInfo versionInfo) => versionInfo.ToDto());
         app.MapPlanningEndpoints();
         app.MapWorkflowRunEndpoints();
-        app.MapGet("/api/llm/providers", LlmProviderEndpoints.ListProviders);
+        app.MapGet("/api/llm/providers", LlmProviderEndpoints.ListProvidersAsync);
         app.MapGet("/api/llm/providers/{provider}/models", LlmProviderEndpoints.ListModelsAsync);
 
         if (collectorEndpointSettings.Enabled)
@@ -949,7 +953,7 @@ public static class GnOuGoAgentWebHost
         return null;
     }
 
-    private static async Task InitializeMountedMcpServicesAsync(WebApplication app)
+    private static void InitializeMountedMcpServices(WebApplication app)
     {
         ArgumentNullException.ThrowIfNull(app);
 
@@ -962,7 +966,6 @@ public static class GnOuGoAgentWebHost
             foreach (var registration in MountedMcpEndpointCatalog.Registrations)
                 TryConfigureMountedMcpServer(app, registration, publishedEndpoints.AppBaseAddress);
 
-            await InitializeMountedAgentServicesFromServicesAsync(app.Services);
         }
         catch (OperationCanceledException) when (app.Lifetime.ApplicationStopping.IsCancellationRequested)
         {
@@ -975,69 +978,6 @@ public static class GnOuGoAgentWebHost
             logger.LogError(ex, "The directly mounted MCP endpoints could not be published to runtime configuration.");
         }
     }
-
-    private static async Task InitializeMountedAgentServicesFromServicesAsync(IServiceProvider services)
-    {
-        ArgumentNullException.ThrowIfNull(services);
-
-        try
-        {
-            await HydrateRuntimeOptionsFromKeyVaultAsync(services);
-
-            using var scope = services.CreateScope();
-            var userConfigs = scope.ServiceProvider.GetRequiredService<IUserConfigRepository>();
-            var runtimeOptions = scope.ServiceProvider.GetRequiredService<LLMRuntimeOptionsStore>();
-            var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>()
-                .CreateLogger("GnOuGo.Agent.Server.UserConfigBootstrap");
-
-            var snapshot = await userConfigs.GetAsync(ct: CancellationToken.None);
-            foreach (var kv in NormalizeModelOverrides(snapshot.ModelOverrides))
-                runtimeOptions.UpsertModelOverride(kv.Key, kv.Value);
-
-            if (!string.IsNullOrWhiteSpace(snapshot.DefaultLlmProvider))
-            {
-                if (!runtimeOptions.SetDefaultProvider(snapshot.DefaultLlmProvider, snapshot.DefaultLlmModel))
-                {
-                    logger.LogWarning(
-                        "Persisted default LLM provider '{Provider}' could not be applied because it is not configured in runtime options.",
-                        snapshot.DefaultLlmProvider);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            var logger = services.GetRequiredService<ILoggerFactory>()
-                .CreateLogger("GnOuGo.Agent.Server.UserConfigBootstrap");
-            logger.LogWarning(ex, "Could not hydrate persisted user defaults from Agent MCP.");
-        }
-    }
-
-    private static async Task HydrateRuntimeOptionsFromKeyVaultAsync(IServiceProvider services, CancellationToken ct = default)
-    {
-        ArgumentNullException.ThrowIfNull(services);
-
-        try
-        {
-            using var scope = services.CreateScope();
-            var keyVaultStore = scope.ServiceProvider.GetRequiredService<IKeyVaultRuntimeConfigStore>();
-            var runtimeOptions = scope.ServiceProvider.GetRequiredService<LLMRuntimeOptionsStore>();
-
-            var effectiveOptions = await keyVaultStore.BuildEffectiveOptionsAsync(runtimeOptions.Current, ct);
-            runtimeOptions.ReplaceRuntimeOptions(effectiveOptions);
-        }
-        catch (Exception ex)
-        {
-            var logger = services.GetRequiredService<ILoggerFactory>()
-                .CreateLogger("GnOuGo.Agent.Server.KeyVaultConfigBootstrap");
-            logger.LogWarning(ex, "Could not hydrate runtime LLM and MCP settings from KeyVault.");
-        }
-    }
-
-    private static IReadOnlyDictionary<string, LLMModelMetadata> NormalizeModelOverrides(
-        IReadOnlyDictionary<string, LLMModelMetadata>? modelOverrides)
-        => modelOverrides is null
-            ? new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase)
-            : new Dictionary<string, LLMModelMetadata>(modelOverrides, StringComparer.OrdinalIgnoreCase);
 
     private static void TryConfigureMountedMcpServer(
         WebApplication app,

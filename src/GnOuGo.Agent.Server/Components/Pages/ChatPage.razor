@@ -1018,6 +1018,7 @@
         {
             _diagnosticAvailable = Services.GetService<Microsoft.Extensions.Options.IOptions<GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings>>()?.Value.DiagnosticEnabled == true
                 && Services.GetService<GnOuGo.Agent.Server.Planning.LocalOperatorAccess>() is { } access && await access.CanInspectAsync();
+            _thresholdMode = Services.GetService<Microsoft.Extensions.Options.IOptions<GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings>>()?.Value.ResolveThresholdMode(null, _diagnosticAvailable) ?? "strict";
             var snapshot = await UserConfigClient.GetAsync();
             _defaultAgentName = snapshot.DefaultAgent;
             await RefreshAvailableAgentsAsync();

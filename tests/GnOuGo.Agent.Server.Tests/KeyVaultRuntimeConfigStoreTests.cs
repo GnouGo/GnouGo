@@ -160,6 +160,7 @@ public sealed class KeyVaultRuntimeConfigStoreTests
             Assert.Equal("https://api.openai.com/v1", providerConfig.Url);
             Assert.Equal("top-secret", providerConfig.ApiKey);
             Assert.Equal("gpt-4.1", effective.DefaultModel);
+            Assert.Equal("gpt-4.1", await store.GetConfiguredModelAsync("OPENAI", CancellationToken.None));
             Assert.Equal(LLMBackgroundProtocolMode.ChatCompletions, providerConfig.RequestPolicy.BackgroundProtocol);
             Assert.Equal("fast", providerConfig.RequestPolicy.BillingServiceTier);
             Assert.True(providerConfig.RequestPolicy.BillingRegionalProcessing);

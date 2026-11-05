@@ -1,6 +1,6 @@
 <details class="planning-debug-help">
     <summary>Debug workflow generation</summary>
-    <p>You can create and review workflows with the normal launch profile. To inspect LLM requests and responses, stop this server and select the <strong>Diagnostic</strong> launch profile in your IDE, or run:</p>
-    <pre><code>dotnet run --project src/GnOuGo.Agent.Server --launch-profile Diagnostic</code></pre>
-    <p>Use the browser window opened by that profile. It authenticates local operator access. Choose <strong>Diagnostic — thresholds are warnings</strong> when creating a new plan to relax planning targets. Financial limits and execution approval still apply.</p>
+    <p>Normal local startup opens a protected browser window with diagnostic planning and LLM trace inspection ready. If you opened this window separately, restart the local server and use the window it opens:</p>
+    <pre><code>dotnet run --project src/GnOuGo.Agent.Server</code></pre>
+    <p>New operator plans default to <strong>Diagnostic — thresholds are warnings</strong>; Strict remains selectable. Open <strong>Traces → Pipeline / LLM calls</strong> to inspect inputs and outputs. Financial limits and execution approval still apply. The Diagnostic launch profile remains available as an alias.</p>
 </details>

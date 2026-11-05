@@ -245,7 +245,7 @@ public sealed class DiagnosticPlanningTests
         var enabled = new PlanningHostPolicy(fixture.Records, Options.Create(new TypedWorkflowPlanningSettings { DiagnosticEnabled = true }));
         var state = new PlanningSession { Request = new() { TenantId = "tenant", Prompt = "Return 42" } };
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => enabled.CaptureAsync(state, ModelOptions(), "diagnostic", null, Ct));
-        var disabled = new PlanningHostPolicy(fixture.Records, Options.Create(new TypedWorkflowPlanningSettings()));
+        var disabled = new PlanningHostPolicy(fixture.Records, Options.Create(new TypedWorkflowPlanningSettings { DiagnosticEnabled = false }));
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => disabled.CaptureAsync(state, ModelOptions(), "diagnostic", new("operator"), Ct));
         state.Request.Options["optimization_threshold_policy"] = "diagnostic-v1";
         await Assert.ThrowsAsync<PlanningConflictException>(() => enabled.VerifyAsync(state, Ct));

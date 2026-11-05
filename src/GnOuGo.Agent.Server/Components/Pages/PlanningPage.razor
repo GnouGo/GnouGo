@@ -263,6 +263,7 @@
     {
         _diagnosticAvailable = Services.GetService<Microsoft.Extensions.Options.IOptions<GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings>>()?.Value.DiagnosticEnabled == true
             && Services.GetService<LocalOperatorAccess>() is { } access && await access.CanInspectAsync();
+        _thresholdMode = Services.GetService<Microsoft.Extensions.Options.IOptions<GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings>>()?.Value.ResolveThresholdMode(null, _diagnosticAvailable) ?? "strict";
         _viewVersion++;
         CloseTraces(); _traceSessionId = null;
         _state = null; _reviewedRequirements = []; _revisionPaths.Clear(); _entry = null; _renderedRevision = -1; _error = null; _commandError = null;

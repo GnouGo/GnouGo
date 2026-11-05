@@ -1,38 +1,58 @@
 # Diagnostic planning and local LLM inspection
 
-Start the development operator window:
+Start the local server normally:
 
 ```sh
-dotnet run --project src/GnOuGo.Agent.Server --launch-profile Diagnostic
+dotnet run --project src/GnOuGo.Agent.Server
 ```
 
-The normal `GnOuGo.Agent.Server` launch profile continues to support creating and
-reviewing workflows in strict mode without an operator cookie. Diagnostic access
-is required only for activating diagnostic thresholds and inspecting detailed LLM
-evidence. For debugging, stop the current server, choose **Diagnostic** in your
-IDE's launch-profile selector (or use the command above), and use the browser window
-that profile opens. A separate manually opened browser may not have its operator
-cookie. The designer includes these instructions under **Debug workflow generation**.
+The normal `GnOuGo.Agent.Server` launch profile opens the protected operator window
+automatically. **Diagnostic — thresholds are warnings** is the default for new
+authenticated local plans, in both Designer and chat. Strict remains an explicit
+choice. The `Diagnostic` launch profile is a compatible alias. Use the automatically
+opened window: a separately opened browser may not have its operator cookie.
+Ordinary planning without that cookie remains available in Strict mode.
 
-The profile opens a loopback browser, exchanges a five-minute single-use fragment
+Local startup opens a loopback browser, exchanges a five-minute single-use fragment
 token for an eight-hour HttpOnly, SameSite=Strict protected cookie, and removes the
 token from browser history. Tokens never enter HTTP URLs or application logs.
-Restart the profile for a fresh bootstrap window. Remote addresses, non-loopback
+Restart the server for a fresh bootstrap window. Remote addresses, non-loopback
 hosts and foreign origins cannot activate or read diagnostics. Provider settings,
 money ceilings, workspace rules, approvals and replay restrictions remain effective.
 
-Choose **Diagnostic — thresholds are warnings** before creating a plan. Strict is
-the default, independently of Interactive/Auto and Ordinary/Large. The chat bridge
+Threshold policy is independent of Interactive/Auto and Ordinary/Large. The chat bridge
 passes the authenticated grant outside model-authored workflow inputs. Standalone
 factories reject reserved host options. Existing sessions acquire no new authority.
 
-`TypedWorkflowPlanning:DiagnosticEnabled` enables the option;
-`OpenLocalOperatorBrowser` opens the bootstrap window. `DiagnosticModelMaximum`
+`TypedWorkflowPlanning:DiagnosticEnabled` and `OpenLocalOperatorBrowser` default to
+true. `DefaultThresholdMode` defaults to `diagnostic` for authenticated local
+operators; set it to `strict` for an explicit host opt-out. Omitted API selections
+use this authorized default; explicit unauthorized diagnostic requests are rejected.
+Headless hosts can set `OpenLocalOperatorBrowser=false`. `DiagnosticModelMaximum`
 defaults to true: navigation, drafting/correction and review each request the
 verified model output maximum, restricted by an explicit deployment cap. False uses
 configured phase allocations. There is no artificial 65,536 output ceiling.
 Financial admission can refuse the complete reservation, never silently reduce it.
 Requested/effective allocations and restriction origins remain inspectable.
+
+The OpenTelemetry trace panel opens on **Pipeline / LLM calls**. Capture is enabled
+by default; full redacted inputs/outputs load on demand from encrypted storage.
+Exported spans carry measurements and content references, not business prompt or
+response bodies. Existing collector endpoints and explicit export opt-outs remain
+unchanged.
+
+## Effective default model
+
+The host resolves persisted provider selection and KeyVault configuration before
+workers or the operator browser start. For the selected provider, the KeyVault model
+wins over a persisted user model; absent a configured model, the persisted user model
+then the host default apply. An unavailable persisted provider does not donate its
+model identifier to another provider. Chat, new runtimes and the provider API use the
+same resolver; later MCP endpoint publication cannot overwrite the result.
+Startup logs the effective provider/model and source. `/api/llm/providers` exposes
+`defaultModelSource`. Conflicting stale user defaults produce a redacted warning and
+are not rewritten. Private deployment identifiers remain exact configuration.
+Existing planning sessions keep their captured models, tariffs and reservations.
 
 Before the first durable checkpoint, the host captures authority, threshold values,
 phase policy, exact declared model/deployment metadata, tariffs, route identity and

@@ -65,8 +65,9 @@ public static class ChatEndpoints
 
         try
         {
-            if (request.ThresholdMode is not ("strict" or "diagnostic")) throw new ArgumentException("Unknown threshold mode.");
-            var grant = request.ThresholdMode == "diagnostic" ? await (context ?? throw new UnauthorizedAccessException()).RequestServices.GetRequiredService<GnOuGo.Agent.Server.Planning.LocalOperatorAccess>().GrantAsync() : null;
+            if (request.ThresholdMode is not (null or "strict" or "diagnostic")) throw new ArgumentException("Unknown threshold mode.");
+            var grant = context is not null ? (await context.RequestServices.GetRequiredService<LocalOperatorAccess>().ResolveAsync(request.ThresholdMode)).Grant
+                : request.ThresholdMode == "diagnostic" ? throw new UnauthorizedAccessException() : null;
             var lastUserMsg = ResolvePrompt(request);
 
             var conversationId = request.ConversationId;
@@ -112,8 +113,7 @@ public static class ChatEndpoints
 
         try
         {
-            if (request.ThresholdMode is not ("strict" or "diagnostic")) throw new ArgumentException("Unknown threshold mode.");
-            var grant = request.ThresholdMode == "diagnostic" ? await ctx.RequestServices.GetRequiredService<GnOuGo.Agent.Server.Planning.LocalOperatorAccess>().GrantAsync() : null;
+            var grant = (await ctx.RequestServices.GetRequiredService<LocalOperatorAccess>().ResolveAsync(request.ThresholdMode)).Grant;
             var lastUserMsg = ResolvePrompt(request);
 
             await foreach (var evt in smartFlow.ExecuteAsync(lastUserMsg, correlationId: null, request.AgentName, request.FilesIds, workflowInputs: new System.Text.Json.Nodes.JsonObject { ["planning_mode"] = request.PlanningMode }, request.ConversationId, ct, grant).ConfigureAwait(false))

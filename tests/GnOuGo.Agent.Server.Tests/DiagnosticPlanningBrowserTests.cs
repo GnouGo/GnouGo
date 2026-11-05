@@ -14,6 +14,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using GnOuGo.Agent.Mcp.Services;
+using GnOuGo.Agent.Server.Telemetry;
 
 namespace GnOuGo.Agent.Server.Tests;
 
@@ -34,11 +36,13 @@ public sealed class DiagnosticPlanningBrowserTests
         providerBuilder.Logging.ClearProviders(); providerBuilder.WebHost.UseUrls("http://127.0.0.1:0");
         await using var provider = providerBuilder.Build();
         var physicalCalls = 0;
+        var requestedModels = new System.Collections.Concurrent.ConcurrentBag<string>();
         var invalidSelection = 0;
         var script = new GnOuGo.Planning.Examples.CurrentPlanningFixture.LiteralModel();
         provider.MapPost("/v1/chat/completions", async (HttpContext context) =>
         {
             var body = (await JsonNode.ParseAsync(context.Request.Body, cancellationToken: context.RequestAborted))!;
+            requestedModels.Add(body["model"]!.ToString());
             var number = Interlocked.Increment(ref physicalCalls);
             var prompt = body["messages"]![0]!["content"]!.ToString();
             if (prompt.Contains("partial fixture", StringComparison.Ordinal))
@@ -64,23 +68,33 @@ public sealed class DiagnosticPlanningBrowserTests
         });
         await provider.StartAsync(ct);
         var options = DiagnosticPlanningTests.ModelOptions();
+        options.DefaultModel = LlmDefaultsResolverTests.ConfiguredModel;
+        Assert.True(ModelMetadataCatalog.TryGetBuiltin("openai", "gpt-6.1-sol", out var metadata));
+        var deployment = ModelMetadataCatalog.Clone(metadata); deployment.Id = options.DefaultModel;
+        options.ModelOverrides["openai/" + options.DefaultModel] = deployment;
         options.Models["openai"].Url = provider.Urls.Single() + "/v1";
         options.Models["openai"].ApiKey = "CONTROLLED_PROVIDER_KEY";
-        var args = TelemetryTestHostArgs.Create("--TypedWorkflowPlanning:DiagnosticEnabled=true", "--TypedWorkflowPlanning:MaxModelCalls=1",
-            "--TypedWorkflowPlanning:MaxTotalTokens=1", "--TypedWorkflowPlanning:MaxActiveMilliseconds=1", "--Logging:LogLevel:Default=Warning",
-            "--OpenTelemetry:Enabled=false", "--TypedWorkflowPlanning:OpenLocalOperatorBrowser=false");
+        var args = TelemetryTestHostArgs.Create("--TypedWorkflowPlanning:MaxModelCalls=1",
+            "--TypedWorkflowPlanning:MaxTotalTokens=1", "--TypedWorkflowPlanning:MaxActiveMilliseconds=1", "--Logging:LogLevel:Default=Warning")
+            .Where(arg => !arg.StartsWith("--TypedWorkflowPlanning:OpenLocalOperatorBrowser=", StringComparison.Ordinal)).ToArray();
+        var agentDatabase = args.Single(arg => arg.StartsWith("--Agent:DatabasePath=", StringComparison.Ordinal))["--Agent:DatabasePath=".Length..];
+        await AgentMcpTestPersistence.SeedUserConfigAsync(agentDatabase, new UserConfigUpdate("openai", LlmDefaultsResolverTests.StaleModel, null), ct);
+        var browser = new RecordingOperatorBrowser();
         var url = "http://127.0.0.1:" + Port();
         void Configure(IServiceCollection services)
         {
+            services.AddSingleton<ILocalOperatorBrowserLauncher>(browser);
             services.AddSingleton<IKeyVaultRuntimeConfigStore>(new FakeKeyVaultRuntimeConfigStore().WithEffectiveOptions(options));
             services.AddSingleton<SecureWorkflowRuntimeFactory>(sp => new(SmartFlowTestFactory.CreateRuntimeOptionsStore(options),
                 sp.GetRequiredService<IKeyVaultRuntimeConfigStore>(), sp.GetRequiredService<ILoggerFactory>(),
                 mcpClientFactoryOverride: new FakeMcpClientFactory(PlanningSessionLifecycleTests.AgentCatalog()),
-                capture: sp.GetRequiredService<GnOuGo.Agent.Server.Telemetry.LlmTraceCapture>()));
+                capture: sp.GetRequiredService<GnOuGo.Agent.Server.Telemetry.LlmTraceCapture>(), defaults: sp.GetRequiredService<LlmDefaultsResolver>()));
         }
         await using var app = GnOuGoAgentWebHost.Build(args, url, Path.Combine(root, "src/GnOuGo.Agent.Server"), false, Configure);
+        Assert.Equal(options.DefaultModel, app.Services.GetRequiredService<LLMRuntimeOptionsStore>().Current.DefaultModel);
         await app.StartAsync(ct);
-        var token = app.Services.GetRequiredService<LocalOperatorBootstrap>().Issue();
+        Assert.NotNull(browser.Address); Assert.Equal(url, browser.Address.GetLeftPart(UriPartial.Authority));
+        var token = browser.Address.Fragment[1..];
         var start = new ProcessStartInfo("node") { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, WorkingDirectory = root };
         start.ArgumentList.Add(Path.Combine(root, "scripts/smoke-diagnostic-planning.mjs")); start.ArgumentList.Add(url); start.ArgumentList.Add(token); start.ArgumentList.Add(output);
         start.Environment["PLAYWRIGHT_MODULE_PATH"] = module;
@@ -88,7 +102,8 @@ public sealed class DiagnosticPlanningBrowserTests
         var stdout = process.StandardOutput.ReadToEndAsync(ct); var stderr = process.StandardError.ReadToEndAsync(ct);
         try { await process.WaitForExitAsync(ct).WaitAsync(TimeSpan.FromMinutes(3), ct); }
         finally { if (!process.HasExited) process.Kill(entireProcessTree: true); }
-        var result = await stdout; var errors = await stderr;
+        var result = (await stdout).Replace(token, "[redacted]", StringComparison.Ordinal);
+        var errors = (await stderr).Replace(token, "[redacted]", StringComparison.Ordinal);
         await File.WriteAllTextAsync(Path.Combine(output, "browser-process.log"), result + "\n" + errors, ct);
         Assert.True(process.ExitCode == 0, result + "\n" + errors);
         var report = JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(output, "result.json"), ct))!;
@@ -101,6 +116,17 @@ public sealed class DiagnosticPlanningBrowserTests
         Assert.Equal(PlanningStatus.FinalReview, complete.Status); Assert.Null(complete.ApprovedHash);
         Assert.Equal(5, complete.ModelCalls); Assert.Equal(6, complete.Usage!.Calls);
         Assert.Contains(complete.Usage.JournaledAttempts!.Values, attempt => attempt.VerifiedUsage is null);
+        Assert.Equal(options.DefaultModel, complete.Request.Options["generator"]!["model"]!.ToString());
+        Assert.All(requestedModels, model => Assert.Equal(options.DefaultModel, model));
+        var trace = await app.Services.GetRequiredService<TraceDebugService>().GetPlanningSnapshotAsync(complete.Request.SessionId, false, null, ct);
+        Assert.NotNull(trace.Trace);
+        Assert.Contains(trace.Trace.Spans, span => span.Name == "gen_ai.generate" && span.Attributes.ContainsKey("gnougo.llm.content_ref"));
+        Assert.All(trace.Trace.Spans.Where(span => span.Name == "gen_ai.generate"), span =>
+        {
+            var attributes = System.Text.Json.JsonSerializer.Serialize(span.Attributes);
+            Assert.DoesNotContain("CONTROLLED_PROVIDER_KEY", attributes);
+            Assert.DoesNotContain("Return the required public numeric result", attributes);
+        });
         var cancelled = (await service.GetAsync(report["cancelledSessionId"]!.ToString(), ct))!;
         Assert.Equal(PlanningStatus.Cancelled, cancelled.Status);
         Assert.Contains(cancelled.Usage!.JournaledAttempts!.Values, attempt => attempt.VerifiedUsage is null);
@@ -117,6 +143,7 @@ public sealed class DiagnosticPlanningBrowserTests
         var reopenedUrl = "http://127.0.0.1:" + Port();
         await using var reopened = GnOuGoAgentWebHost.Build(args, reopenedUrl, Path.Combine(root, "src/GnOuGo.Agent.Server"), false, Configure);
         await reopened.StartAsync(ct);
+        Assert.Equal(options.DefaultModel, reopened.Services.GetRequiredService<LLMRuntimeOptionsStore>().Current.DefaultModel);
         var restored = (await reopened.Services.GetRequiredService<PlanningSessionService>().GetAsync(complete.Request.SessionId, ct))!;
         Assert.Equal(complete.InspectionEvents, restored.InspectionEvents);
         Assert.Equal(complete.Usage, restored.Usage, new UsageComparer());
@@ -129,6 +156,11 @@ public sealed class DiagnosticPlanningBrowserTests
         Assert.Equal(before, physicalCalls);
         await reopened.StopAsync(ct);
         await provider.StopAsync(ct);
+    }
+    private sealed class RecordingOperatorBrowser : ILocalOperatorBrowserLauncher
+    {
+        public Uri? Address { get; private set; }
+        public void Open(Uri address) => Address = address;
     }
     private sealed class UsageComparer : IEqualityComparer<LLMUsageBudgetSnapshot>
     {

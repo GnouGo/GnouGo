@@ -7,8 +7,8 @@ namespace GnOuGo.Agent.Server.SmartFlow;
 /// Singleton that holds the live <see cref="LLMOptions"/> and allows runtime updates
 /// (e.g. from the /llm configure wizard) without restarting the server.
 /// Provider and MCP server definitions are hydrated from the trusted KeyVault store.
-/// Default provider/model selection is hydrated separately from the Agent MCP
-/// user-config persistence layer.
+/// LlmDefaultsResolver combines persisted provider selection with the authoritative
+/// KeyVault model before startup and model-dependent requests.
 /// </summary>
 public sealed class LLMRuntimeOptionsStore
 {
@@ -16,6 +16,9 @@ public sealed class LLMRuntimeOptionsStore
     private LLMOptions _current;
     private readonly object _lock = new();
     private readonly HashSet<string> _transientMcpServers = new(StringComparer.OrdinalIgnoreCase);
+    public string DefaultModelSource { get; private set; } = "host_configuration";
+    private bool _defaultLogged;
+    internal (string Provider, string Model) HostDefaults { get; }
 
     public LLMRuntimeOptionsStore(
         IOptions<LLMOptions> initialOptions,
@@ -23,6 +26,7 @@ public sealed class LLMRuntimeOptionsStore
     {
         _logger = logger;
         _current = DeepClone(initialOptions.Value);
+        HostDefaults = (_current.DefaultProvider, _current.DefaultModel);
         LLMOptionsValidation.ValidateAndThrow(_current);
     }
 
@@ -35,10 +39,13 @@ public sealed class LLMRuntimeOptionsStore
     /// <summary>
     /// Replaces the live runtime options snapshot.
     /// </summary>
-    public void ReplaceRuntimeOptions(LLMOptions options)
+    internal LLMOptions Snapshot() { lock (_lock) return DeepClone(_current); }
+    internal (LLMOptions Options, string ModelSource) Selection { get { lock (_lock) return (_current, DefaultModelSource); } }
+
+    public void ReplaceRuntimeOptions(LLMOptions options, string modelSource = "runtime_configuration")
     {
         ArgumentNullException.ThrowIfNull(options);
-
+        bool selectionChanged;
         lock (_lock)
         {
             var replacement = DeepClone(options);
@@ -53,13 +60,17 @@ public sealed class LLMRuntimeOptionsStore
             }
 
             LLMOptionsValidation.ValidateAndThrow(replacement);
+            selectionChanged = !_defaultLogged || _current.DefaultProvider != replacement.DefaultProvider ||
+                _current.DefaultModel != replacement.DefaultModel || DefaultModelSource != modelSource;
             _current = replacement;
+            DefaultModelSource = modelSource;
+            _defaultLogged = true;
         }
 
-        _logger.LogInformation(
-            "LLM runtime options reloaded with {ProviderCount} provider(s) and {McpServerCount} MCP server(s).",
+        if (selectionChanged) _logger.LogInformation(
+            "LLM runtime options reloaded with {ProviderCount} provider(s) and {McpServerCount} MCP server(s). Effective default: '{Provider}' / '{Model}' (model source: {ModelSource}).",
             options.Models.Count,
-            options.McpServers.Count);
+            options.McpServers.Count, options.DefaultProvider, options.DefaultModel, modelSource);
     }
 
     /// <summary>
@@ -190,6 +201,8 @@ public sealed class LLMRuntimeOptionsStore
 
             LLMOptionsValidation.ValidateAndThrow(opts);
             _current = opts;
+            if (!string.IsNullOrWhiteSpace(model) && string.Equals(opts.DefaultProvider, finalKey, StringComparison.OrdinalIgnoreCase))
+                DefaultModelSource = "provider_configuration";
         }
         _logger.LogInformation("LLM provider '{Provider}' updated at runtime.", providerKey);
     }
@@ -215,6 +228,7 @@ public sealed class LLMRuntimeOptionsStore
                 opts.DefaultModel = model;
 
             _current = opts;
+            if (!string.IsNullOrWhiteSpace(model)) DefaultModelSource = "user_selection";
         }
         _logger.LogInformation(
             "LLM default provider set to '{Provider}' with model '{Model}'.",
@@ -369,7 +383,10 @@ public sealed class LLMRuntimeOptionsStore
             BackgroundProtocol = source.BackgroundProtocol,
             UnspecifiedOutputTokens = source.UnspecifiedOutputTokens,
             DefaultMaxOutputTokens = source.DefaultMaxOutputTokens,
-            MaxOutputTokensCap = source.MaxOutputTokensCap
+            MaxOutputTokensCap = source.MaxOutputTokensCap,
+            BillingServiceTier = source.BillingServiceTier,
+            BillingRegionalProcessing = source.BillingRegionalProcessing,
+            BillingCacheRetention = source.BillingCacheRetention
         };
 
 
