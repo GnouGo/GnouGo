@@ -14,6 +14,22 @@ The library owns its persistence details. Its EF Core services use SQLite; its
 separately scoped record-store implementation supports Native AOT through the
 public record API. Consumers must not query or modify the database directly.
 
+`IKeyVaultRecordReader` is an optional bounded capability alongside the unchanged
+record API. `QueryMetadataAsync` scopes collection, tenant and exact key prefix,
+returns at most 200 headers without decrypting bodies, and continues by update
+ticks plus exact key. `GetMetadataAsync` addresses one record. Updates use monotonic
+scope timestamps so an updated key remains visible after its cursor.
+
+`ReadRangeAsync` takes a content version and UTF-16 offset/count (2–65,536). Follow
+`NextOffset`: pages never split Unicode scalar pairs. Changed versions fail.
+New large values use independently encrypted chunks; authenticated manifests/chunks
+bind collection, tenant, key, record, version and offset. Publication/replacement is
+transactional, including cancellation. `GetAsync`/`ListAsync` reconstruct the same
+logical value and verify its hash. An old monolithic value converts once on explicit
+range access without changing logical timestamps. Consumers enforce operator and
+session permissions and redact before publishing diagnostic documents; this generic
+component defines no application authority.
+
 ```sh
 dotnet build src/GnOuGo.KeyVault.Core
 dotnet test tests/GnOuGo.KeyVault.Core.Tests

@@ -6,7 +6,7 @@ namespace GnOuGo.KeyVault.Core.Services;
 /// <summary>
 /// Native AOT-friendly encrypted record store backed by the shared KeyVault database.
 /// </summary>
-public sealed class KeyVaultRecordStore : IKeyVaultRecordStore
+public sealed partial class KeyVaultRecordStore : IKeyVaultRecordStore, IKeyVaultRecordReader
 {
     private const string DefaultTenantName = "__default__";
     private const string DefaultAuthor = "GnOuGo.KeyVault.Core";
@@ -112,7 +112,7 @@ public sealed class KeyVaultRecordStore : IKeyVaultRecordStore
             var updatedAtTicks = reader.GetInt64(2);
             await reader.DisposeAsync();
 
-            var value = CryptoService.Decrypt(encryptedValue, privateKeyPem);
+            var value = await ReadPayloadAsync(connection, collection, tenantId, key, encryptedValue, privateKeyPem, ct);
             await WriteAuditAsync(connection, collection, tenantId, key, "GetRecord", author, null, ct);
             return ToValue(collection, tenantId, key, value, createdAtTicks, updatedAtTicks);
         }
@@ -135,10 +135,19 @@ public sealed class KeyVaultRecordStore : IKeyVaultRecordStore
         {
             await using var connection = await OpenAsync(ct);
             var (publicKeyPem, _) = await EnsureDefaultKeyPairAsync(connection, ct);
-            var encryptedValue = CryptoService.Encrypt(value, publicKeyPem);
+            var paged = value.Length > PayloadChunkCharacters;
+            var encryptedValue = CryptoService.Encrypt(paged ? PayloadHeader(value, collection, tenantId, key) : value, publicKeyPem);
             var nowTicks = DateTimeOffset.UtcNow.UtcTicks;
 
             await using var transaction = connection.BeginTransaction();
+            await using (var clock = connection.CreateCommand())
+            {
+                clock.Transaction = transaction;
+                clock.CommandText = "SELECT COALESCE(MAX(UpdatedAtTicks),0) FROM KeyVaultRecords WHERE Collection=$collection AND TenantId=$tenant;";
+                clock.Parameters.AddWithValue("$collection", collection);
+                clock.Parameters.AddWithValue("$tenant", tenantId);
+                nowTicks = Math.Max(nowTicks, (long)(await clock.ExecuteScalarAsync(ct) ?? 0L) + 1);
+            }
             await using (var command = connection.CreateCommand())
             {
                 command.Transaction = transaction;
@@ -164,6 +173,7 @@ public sealed class KeyVaultRecordStore : IKeyVaultRecordStore
             }
 
             var timestamps = await ReadTimestampsAsync(connection, transaction, collection, tenantId, key, ct);
+            await WritePayloadAsync(connection, transaction, collection, tenantId, key, paged ? value : null, publicKeyPem, ct);
             await WriteAuditAsync(
                 connection,
                 transaction,
@@ -218,15 +228,11 @@ public sealed class KeyVaultRecordStore : IKeyVaultRecordStore
                 }
             }
 
-            var records = encryptedRecords
-                .Select(record => ToValue(
-                    collection,
-                    tenantId,
-                    record.Key,
-                    CryptoService.Decrypt(record.EncryptedValue, privateKeyPem),
-                    record.CreatedAtTicks,
-                    record.UpdatedAtTicks))
-                .ToArray();
+            var records = new List<KeyVaultRecordValue>();
+            foreach (var record in encryptedRecords)
+                records.Add(ToValue(collection, tenantId, record.Key,
+                    await ReadPayloadAsync(connection, collection, tenantId, record.Key, record.EncryptedValue, privateKeyPem, ct),
+                    record.CreatedAtTicks, record.UpdatedAtTicks));
             await WriteAuditAsync(
                 connection,
                 collection,
@@ -234,7 +240,7 @@ public sealed class KeyVaultRecordStore : IKeyVaultRecordStore
                 recordKey: null,
                 "ListRecords",
                 author,
-                $"Returned {records.Length} record(s)",
+                $"Returned {records.Count} record(s)",
                 ct);
             return records;
         }
@@ -390,6 +396,19 @@ public sealed class KeyVaultRecordStore : IKeyVaultRecordStore
                 ON KeyVaultRecords (Collection, TenantId, RecordKey);
             CREATE INDEX IF NOT EXISTS IX_KeyVaultRecords_TenantId_UpdatedAtTicks
                 ON KeyVaultRecords (TenantId, UpdatedAtTicks);
+            CREATE INDEX IF NOT EXISTS IX_KeyVaultRecords_Collection_TenantId_UpdatedAtTicks_Key
+                ON KeyVaultRecords (Collection, TenantId, UpdatedAtTicks, RecordKey);
+
+            CREATE TABLE IF NOT EXISTS KeyVaultRecordPayloads (
+                RecordId TEXT PRIMARY KEY REFERENCES KeyVaultRecords(Id) ON DELETE CASCADE,
+                Version TEXT NOT NULL, Characters INTEGER NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS KeyVaultRecordChunks (
+                RecordId TEXT NOT NULL REFERENCES KeyVaultRecords(Id) ON DELETE CASCADE,
+                Version TEXT NOT NULL, Part INTEGER NOT NULL, Offset INTEGER NOT NULL,
+                Characters INTEGER NOT NULL, EncryptedValue TEXT NOT NULL,
+                PRIMARY KEY (RecordId, Part)
+            );
 
             CREATE TABLE IF NOT EXISTS KeyVaultRecordAuditEntries (
                 Id TEXT NOT NULL CONSTRAINT PK_KeyVaultRecordAuditEntries PRIMARY KEY,

@@ -196,6 +196,96 @@ public sealed class KeyVaultRecordStoreTests
         Assert.IsType<FormatException>(exception.InnerException);
     }
 
+    [Fact]
+    public async Task Pages_PreserveReplayBytesAndUnicodeAcrossRestartAndRejectChangedVersion()
+    {
+        using var db = new TemporaryKeyVaultDatabase();
+        var ct = TestContext.Current.CancellationToken;
+        var store = new KeyVaultRecordStore(db.DatabasePath);
+        var text = new string('a', 32767) + "😀" + new string('z', 100000);
+        await store.UpsertAsync(Collection, "tenant-a", "session:request", text, Author, ct);
+        var metadata = await store.GetMetadataAsync(Collection, "tenant-a", "session:request", Author, ct);
+        Assert.NotNull(metadata?.Version);
+        var first = await store.ReadRangeAsync(Collection, "tenant-a", "session:request", Author, metadata.Version, 0, 32768, ct);
+        Assert.NotNull(first); Assert.Equal(32767, first.NextOffset);
+        store = new(db.DatabasePath);
+        var second = await store.ReadRangeAsync(Collection, "tenant-a", "session:request", Author, first.Version, first.NextOffset, 100, ct);
+        Assert.StartsWith("😀", second!.Text);
+        Assert.Equal(text, (await store.GetAsync(Collection, "tenant-a", "session:request", Author, ct))!.Value);
+        Assert.Null(await store.ReadRangeAsync(Collection, "tenant-b", "session:request", Author, null, 0, 100, ct));
+        await store.UpsertAsync(Collection, "tenant-a", "session:request", "replacement", Author, ct);
+        await Assert.ThrowsAsync<KeyVaultRecordVersionException>(() => store.ReadRangeAsync(Collection, "tenant-a", "session:request", Author, first.Version, 0, 100, ct));
+    }
+
+    [Fact]
+    public async Task Pages_ConvertHistoricalContentOnceWithoutChangingLogicalTimestamps()
+    {
+        using var db = new TemporaryKeyVaultDatabase(); var ct = TestContext.Current.CancellationToken;
+        var store = new KeyVaultRecordStore(db.DatabasePath);
+        var before = await store.UpsertAsync(Collection, "tenant-a", "old", "original 😀 payload", Author, ct);
+        for (var i = 0; i < 3; i++) Assert.NotNull(await store.ReadRangeAsync(Collection, "tenant-a", "old", Author, null, 0, 100, ct));
+        var after = await store.GetAsync(Collection, "tenant-a", "old", Author, ct);
+        Assert.Equal(before, after);
+        await using var connection = db.CreateConnection(); await connection.OpenAsync(ct);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM KeyVaultRecordAuditEntries WHERE Operation='PrepareRecordPages';";
+        Assert.Equal(1L, await command.ExecuteScalarAsync(ct));
+    }
+
+    [Fact]
+    public async Task Metadata_IsBoundedIncrementalAndDoesNotDecryptUnrelatedPayloads()
+    {
+        using var db = new TemporaryKeyVaultDatabase(); var ct = TestContext.Current.CancellationToken;
+        var store = new KeyVaultRecordStore(db.DatabasePath);
+        await store.UpsertAsync(Collection, "tenant-a", "session:a", "first", Author, ct);
+        await store.UpsertAsync(Collection, "tenant-a", "other:bad", "secret", Author, ct);
+        await using var connection = db.CreateConnection(); await connection.OpenAsync(ct);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE KeyVaultRecords SET EncryptedValue='corrupt' WHERE RecordKey='other:bad';";
+        await command.ExecuteNonQueryAsync(ct);
+        var page = await store.QueryMetadataAsync(Collection, "tenant-a", "session:", Author, count: 1, ct: ct);
+        Assert.Single(page.Records); Assert.False(page.HasMore);
+        await store.UpsertAsync(Collection, "tenant-a", "session:a", "updated", Author, ct);
+        var delta = await store.QueryMetadataAsync(Collection, "tenant-a", "session:", Author, page.Next, ct: ct);
+        Assert.Single(delta.Records); Assert.Equal("session:a", delta.Records[0].Key);
+        Assert.Empty((await store.QueryMetadataAsync(Collection, "tenant-b", "session:", Author, ct: ct)).Records);
+    }
+
+    [Fact]
+    public async Task Pages_AuthenticateChunksAndDoNotHydrateUnrequestedChunks()
+    {
+        using var db = new TemporaryKeyVaultDatabase(); var ct = TestContext.Current.CancellationToken;
+        var store = new KeyVaultRecordStore(db.DatabasePath);
+        await store.UpsertAsync(Collection, "tenant-a", "large", new string('x', 120000), Author, ct);
+        await using var connection = db.CreateConnection(); await connection.OpenAsync(ct);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE KeyVaultRecordChunks SET EncryptedValue='corrupt' WHERE Part=2;";
+        await command.ExecuteNonQueryAsync(ct);
+        Assert.Equal(new string('x', 100), (await store.ReadRangeAsync(Collection, "tenant-a", "large", Author, null, 0, 100, ct))!.Text);
+        await Assert.ThrowsAsync<FormatException>(() => store.ReadRangeAsync(Collection, "tenant-a", "large", Author, null, 65536, 100, ct));
+        using var cancelled = new CancellationTokenSource(); cancelled.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => store.UpsertAsync(Collection, "tenant-a", "large", "changed", Author, cancelled.Token));
+        Assert.Equal(120000, (await store.GetMetadataAsync(Collection, "tenant-a", "large", Author, ct))!.Characters);
+    }
+
+    [Fact]
+    public async Task Pages_InterruptedPublicationRollsBackAndRecordCoordinatesAreAuthenticated()
+    {
+        using var db = new TemporaryKeyVaultDatabase(); var ct = TestContext.Current.CancellationToken;
+        var store = new KeyVaultRecordStore(db.DatabasePath);
+        var original = new string('a', 80000);
+        await store.UpsertAsync(Collection, "tenant-a", "large", original, Author, ct);
+        await using var connection = db.CreateConnection(); await connection.OpenAsync(ct);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "CREATE TRIGGER interrupt_chunks BEFORE INSERT ON KeyVaultRecordChunks WHEN NEW.Part=1 BEGIN SELECT RAISE(ABORT,'interrupted fixture'); END;";
+        await command.ExecuteNonQueryAsync(ct);
+        await Assert.ThrowsAsync<KeyVaultAccessException>(() => store.UpsertAsync(Collection, "tenant-a", "large", new string('b', 100000), Author, ct));
+        Assert.Equal(original, (await new KeyVaultRecordStore(db.DatabasePath).GetAsync(Collection, "tenant-a", "large", Author, ct))!.Value);
+        command.CommandText = "DROP TRIGGER interrupt_chunks; UPDATE KeyVaultRecords SET TenantId='tenant-b' WHERE RecordKey='large';";
+        await command.ExecuteNonQueryAsync(ct);
+        await Assert.ThrowsAsync<System.Security.Cryptography.CryptographicException>(() => store.ReadRangeAsync(Collection, "tenant-b", "large", Author, null, 0, 100, ct));
+    }
+
     private sealed class TemporaryKeyVaultDatabase : IDisposable
     {
         public TemporaryKeyVaultDatabase()
