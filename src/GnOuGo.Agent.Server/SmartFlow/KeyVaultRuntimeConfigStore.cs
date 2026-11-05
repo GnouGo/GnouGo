@@ -431,6 +431,9 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
         => new()
         {
             BackgroundProtocol = source.BackgroundProtocol,
+            BillingServiceTier = source.BillingServiceTier,
+            BillingRegionalProcessing = source.BillingRegionalProcessing,
+            BillingCacheRetention = source.BillingCacheRetention,
             UnspecifiedOutputTokens = source.UnspecifiedOutputTokens,
             DefaultMaxOutputTokens = source.DefaultMaxOutputTokens,
             MaxOutputTokensCap = source.MaxOutputTokensCap

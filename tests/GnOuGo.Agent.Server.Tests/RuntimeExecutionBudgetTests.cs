@@ -435,7 +435,9 @@ internal sealed class BudgetHost(WebApplication app, IWorkflowRunStore store, st
             ["success"] = true, ["agent"] = new JsonObject { ["id"] = "12345678-1234-1234-1234-1234567890ab", ["name"] = "budget-fixture",
                 ["workflow"] = yaml, ["created_at"] = "2026-10-01T00:00:00Z", ["updated_at"] = "2026-10-01T00:00:00Z" }
         });
-        var runtime = SmartFlowTestFactory.CreateRuntimeOptionsStore();
+        var fixtureOptions = new LLMOptions();
+        fixtureOptions.Models[fixtureOptions.DefaultProvider] = new() { Type = "openai", Url = "https://example.invalid/v1" };
+        var runtime = SmartFlowTestFactory.CreateRuntimeOptionsStore(fixtureOptions);
         try
         {
             // Missing-policy regressions use an isolated content root, not the shipped defaults.
