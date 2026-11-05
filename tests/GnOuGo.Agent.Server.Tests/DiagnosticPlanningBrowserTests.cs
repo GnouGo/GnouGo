@@ -93,6 +93,10 @@ public sealed class DiagnosticPlanningBrowserTests
         Assert.True(process.ExitCode == 0, result + "\n" + errors);
         var report = JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(output, "result.json"), ct))!;
         var service = app.Services.GetRequiredService<PlanningSessionService>();
+        var ordinary = (await service.GetAsync(report["ordinarySessionId"]!.ToString(), ct))!;
+        Assert.Equal(PlanningStatus.Stopped, ordinary.Status);
+        Assert.Equal("strict", ordinary.Request.Options["agent_host_policy"]!["thresholdMode"]!.ToString());
+        Assert.Equal(0, ordinary.ModelCalls);
         var complete = (await service.GetAsync(report["sessionId"]!.ToString(), ct))!;
         Assert.Equal(PlanningStatus.FinalReview, complete.Status); Assert.Null(complete.ApprovedHash);
         Assert.Equal(5, complete.ModelCalls); Assert.Equal(6, complete.Usage!.Calls);

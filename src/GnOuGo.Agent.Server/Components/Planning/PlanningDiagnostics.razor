@@ -4,6 +4,9 @@
 @using GnOuGo.Agent.Server.Components.Tracing
 @using GnOuGo.Agent.Shared
 @inject IServiceProvider Services
+@if (!_canInspect) { <PlanningDebugHelp /> }
+else
+{
 <section class="planning-diagnostics" aria-label="Planning progress and model calls">
     <h3>Generation timeline</h3>
     <p><strong>@(Session.ThresholdMode == "diagnostic" ? "Diagnostic — thresholds are warnings" : "Strict thresholds")</strong> · Generation and approval; execution is a separate operation.</p>
@@ -100,6 +103,7 @@
     }
     @if (_calls.Count == 0) { <p>No retained calls are available yet. The next refresh reads the encrypted journals.</p> }
 </section>
+}
 @code {
     [Parameter, EditorRequired] public PlanningSessionDto Session { get; set; } = null!;
     [Parameter] public bool Workflow { get; set; }
@@ -111,6 +115,7 @@
     private string? _selected, _error, _selectedStatus;
     private string _search = "";
     private int _warningCount = 20;
+    private bool _canInspect;
     private IEnumerable<JsonNode> Calls => _calls.Where(call => call is not null &&
         (_search.Length == 0 || call.ToJsonString().Contains(_search, StringComparison.OrdinalIgnoreCase))).Select(call => call!);
     private IEnumerable<IEnumerable<PlanningInspectionEventDto>> Occurrences
@@ -131,6 +136,8 @@
     }
     protected override async Task OnParametersSetAsync()
     {
+        _canInspect = Services.GetService<LocalOperatorAccess>() is { } access && await access.CanInspectAsync();
+        if (!_canInspect) { _events.Clear(); _calls = []; _detail = null; _selected = null; return; }
         var inspection = Services.GetService<PlanningInspectionService>();
         if (_eventSession != Session.Id || inspection is null)
         { _eventSession = Session.Id; _events.Clear(); _events.AddRange(Session.Events); }

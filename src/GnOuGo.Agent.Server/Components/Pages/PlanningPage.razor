@@ -39,6 +39,7 @@
                 <label for="plan-thresholds">Threshold policy</label><select id="plan-thresholds" @bind="_thresholdMode"><option value="strict">Strict</option><option value="diagnostic">Diagnostic — thresholds are warnings</option></select>
                 <p>Diagnostic output allocations use verified model/deployment capacity. Financial admission and execution approval remain mandatory.</p>
             }
+            else { <PlanningDebugHelp /> }
             <label for="plan-name">Agent name</label><input id="plan-name" class="form-control" @bind="_name" required />
             <label for="plan-prompt">What should this agent do?</label><textarea id="plan-prompt" class="form-control" rows="7" @bind="_prompt" required></textarea>
             <label><input type="checkbox" @bind="_reviseExisting" /> Revise an existing agent with this name</label>
@@ -260,9 +261,8 @@
     private long _renderedRevision = -1;
     protected override async Task OnParametersSetAsync()
     {
-        if (Services.GetService<LocalOperatorAccess>() is { } access && !await access.CanInspectAsync())
-        { _error = "Protected planning access requires the local operator window opened by the Diagnostic launch profile."; return; }
-        _diagnosticAvailable = Services.GetService<Microsoft.Extensions.Options.IOptions<GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings>>()?.Value.DiagnosticEnabled == true;
+        _diagnosticAvailable = Services.GetService<Microsoft.Extensions.Options.IOptions<GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings>>()?.Value.DiagnosticEnabled == true
+            && Services.GetService<LocalOperatorAccess>() is { } access && await access.CanInspectAsync();
         _viewVersion++;
         CloseTraces(); _traceSessionId = null;
         _state = null; _reviewedRequirements = []; _revisionPaths.Clear(); _entry = null; _renderedRevision = -1; _error = null; _commandError = null;

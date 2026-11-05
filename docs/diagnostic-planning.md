@@ -6,6 +6,14 @@ Start the development operator window:
 dotnet run --project src/GnOuGo.Agent.Server --launch-profile Diagnostic
 ```
 
+The normal `GnOuGo.Agent.Server` launch profile continues to support creating and
+reviewing workflows in strict mode without an operator cookie. Diagnostic access
+is required only for activating diagnostic thresholds and inspecting detailed LLM
+evidence. For debugging, stop the current server, choose **Diagnostic** in your
+IDE's launch-profile selector (or use the command above), and use the browser window
+that profile opens. A separate manually opened browser may not have its operator
+cookie. The designer includes these instructions under **Debug workflow generation**.
+
 The profile opens a loopback browser, exchanges a five-minute single-use fragment
 token for an eight-hour HttpOnly, SameSite=Strict protected cookie, and removes the
 token from browser history. Tokens never enter HTTP URLs or application logs.

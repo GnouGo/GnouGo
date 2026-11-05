@@ -11,16 +11,13 @@ const errors = [];
 page.on('pageerror', error => errors.push(error.message));
 try {
   const anonymous = await request.newContext();
-  assert.equal((await anonymous.get(`${url}/api/planning`)).status(), 403);
-  await anonymous.dispose();
-  await page.goto(`${url}/local-operator#${token}`);
-  await page.waitForURL(`${url}/planning`);
-  await page.locator('#plan-name').waitFor();
+  assert.equal((await anonymous.get(`${url}/api/planning`)).status(), 200);
   async function start(name, mode) {
     await page.goto(`${url}/planning`);
     await page.waitForFunction(() => window.Blazor?._internal?.navigationManager != null);
     await page.waitForTimeout(300);
-    await page.locator('#plan-thresholds').selectOption(mode);
+    if (mode) await page.locator('#plan-thresholds').selectOption(mode);
+    else assert.equal(await page.locator('#plan-thresholds').count(), 0);
     await page.locator('#plan-name').fill(name);
     const marker = name.startsWith('cancelled') ? ' cancelled test' : name.startsWith('correction') ? ' correction fixture' : name.startsWith('empty') ? ' empty fixture' : name.startsWith('partial') ? ' partial fixture' : '';
     await page.locator('#plan-prompt').fill('Return the required public numeric result named result with value 42.' + marker);
@@ -28,6 +25,20 @@ try {
     await page.waitForURL(/\/planning\/[a-f0-9]+$/);
     return new URL(page.url()).pathname.split('/').at(-1);
   }
+  const ordinarySessionId = await start('ordinary-browser', null);
+  await page.getByText('Planning stopped', { exact: true }).waitFor({ timeout: 20000 });
+  assert.ok(!(await page.locator('body').innerText()).includes('Protected planning access requires'));
+  await page.getByText('Debug workflow generation', { exact: true }).waitFor();
+  assert.equal((await anonymous.get(`${url}/api/planning/${ordinarySessionId}`)).status(), 200);
+  for (const suffix of ['inspection', 'calls/content?key=foreign', 'calls/export?key=foreign'])
+    assert.equal((await anonymous.get(`${url}/api/planning/${ordinarySessionId}/${suffix}`)).status(), 403);
+  const anonymousAntiforgery = await (await anonymous.get(`${url}/api/planning/antiforgery`)).json();
+  assert.equal((await anonymous.post(`${url}/api/planning`, { headers: { [anonymousAntiforgery.headerName]: anonymousAntiforgery.requestToken },
+    data: { name: 'unauthorized-diagnostic', prompt: 'Return 42', thresholdMode: 'diagnostic' } })).status(), 403);
+  await anonymous.dispose();
+  await page.goto(`${url}/local-operator#${token}`);
+  await page.waitForURL(`${url}/planning`);
+  await page.locator('#plan-name').waitFor();
   const sessionId = await start('diagnostic-browser', 'diagnostic');
   await page.getByRole('heading', { name: 'Generation timeline', exact: true }).waitFor();
   await page.waitForFunction(() => document.querySelector('.planning-timeline .phase-active'));
@@ -105,6 +116,6 @@ try {
   await page.getByText('Cancelled', { exact: true }).first().waitFor({ timeout: 30000 });
   await page.reload();
   await page.getByText('Cancelled', { exact: true }).first().waitFor();
-  await writeFile(`${output}/result.json`, JSON.stringify({ provider: 'controlled HTTP fixture; no paid inference', sessionId, strictSessionId, correctedSessionId, emptySessionId, partialSessionId, cancelledSessionId, browserErrors: errors }, null, 2));
+  await writeFile(`${output}/result.json`, JSON.stringify({ provider: 'controlled HTTP fixture; no paid inference', ordinarySessionId, sessionId, strictSessionId, correctedSessionId, emptySessionId, partialSessionId, cancelledSessionId, browserErrors: errors }, null, 2));
   assert.deepEqual(errors, []);
 } catch (error) { await page.screenshot({ path: `${output}/failure.png`, fullPage: true }); await writeFile(`${output}/failure.txt`, await page.locator("body").innerText() + "\n" + JSON.stringify(errors)); throw error; } finally { await browser.close(); }

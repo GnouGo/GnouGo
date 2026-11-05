@@ -652,8 +652,9 @@ public static class GnOuGoAgentWebHost
                 path.StartsWithSegments("/api/chat") && path.Value!.Contains("/planning", StringComparison.Ordinal);
             if (context.User.HasClaim(LocalOperatorAccess.Claim, "true") && !LocalOperatorAccess.IsLocal(context))
             { context.Response.StatusCode = 403; return; }
-            if (planning && (!LocalOperatorAccess.IsLocal(context) || !context.User.HasClaim(LocalOperatorAccess.Claim, "true")))
-            { context.Response.StatusCode = 403; await context.Response.WriteAsync("Protected planning access requires a local operator window. Start the Diagnostic launch profile."); return; }
+            if (context.GetEndpoint()?.Metadata.GetMetadata<LocalOperatorRequired>() is not null &&
+                (!LocalOperatorAccess.IsLocal(context) || !context.User.HasClaim(LocalOperatorAccess.Claim, "true")))
+            { context.Response.StatusCode = 403; await context.Response.WriteAsync("LLM inspection requires the protected local operator window opened by the Diagnostic launch profile."); return; }
             if ((planning || path.StartsWithSegments("/api/chat") && context.User.HasClaim(LocalOperatorAccess.Claim, "true")) &&
                 path.StartsWithSegments("/api") && !HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method))
             {

@@ -17,6 +17,8 @@ public sealed class PlanningDiagnosticGrant
     internal string Subject { get; }
 }
 
+internal sealed class LocalOperatorRequired { }
+
 public sealed class LocalOperatorAccess(IHttpContextAccessor http, IServiceProvider services)
 {
     internal const string Claim = "gnougo.local_operator";

@@ -20,6 +20,29 @@ public sealed partial class PlanningTraceUiTests : BunitContext
     private static CancellationToken Ct => Xunit.TestContext.Current.CancellationToken;
 
     [Fact]
+    public async Task OrdinaryDesignerWorksWithoutLocalOperatorAuthentication()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(); Configure(fixture);
+        Services.AddSingleton<Microsoft.AspNetCore.Http.IHttpContextAccessor>(new Microsoft.AspNetCore.Http.HttpContextAccessor
+        {
+            HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext()
+        });
+        Services.AddScoped<LocalOperatorAccess>();
+        var cut = Render<PlanningPage>();
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#plan-prompt")));
+        Assert.Empty(cut.FindAll("#plan-thresholds"));
+        Assert.Contains("Debug workflow generation", cut.Markup);
+        Assert.DoesNotContain("Protected planning access requires", cut.Markup);
+        cut.Find("#plan-name").Change("ordinary-ui");
+        cut.Find("#plan-prompt").Change("Return 42");
+        cut.Find("form").Submit();
+        cut.WaitForAssertion(() => Assert.Contains("/planning/", Services.GetRequiredService<NavigationManager>().Uri));
+        var saved = Assert.Single(await fixture.Store.ListAsync("planning-tests", Ct));
+        Assert.False(PlanningTokenThresholds.OptimizationAdvisory(saved.Request));
+        await DisposeComponentsAsync();
+    }
+
+    [Fact]
     public async Task CapacitySelectionIsPersistedWithoutAnOptionalReviewToggle()
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(); Configure(fixture);

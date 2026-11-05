@@ -30,7 +30,7 @@ internal static class PlanningEndpoints
             try { return Results.Json(await inspection.ReadAsync(id, workflow == true, after ?? 0, ct)); }
             catch (UnauthorizedAccessException) { return Results.Forbid(); }
             catch (KeyNotFoundException) { return Results.NotFound(); }
-        });
+        }).WithMetadata(new LocalOperatorRequired());
         app.MapPost("/api/planning/{id}/stop", async (string id, PlanningSessionService service, CancellationToken ct) =>
         {
             try { return Results.Json(await service.ToDtoAsync(await service.StopAsync(id, ct), ct), ChatJsonContext.Default.PlanningSessionDto); }
@@ -42,7 +42,7 @@ internal static class PlanningEndpoints
             try { return Results.File(System.Text.Encoding.UTF8.GetBytes((await inspection.CallAsync(id, workflow == true, key, ct)).ToJsonString()), "application/json", "planning-call-redacted.json"); }
             catch (UnauthorizedAccessException) { return Results.Forbid(); }
             catch (KeyNotFoundException) { return Results.NotFound(); }
-        });
+        }).WithMetadata(new LocalOperatorRequired());
         app.MapGet("/api/planning/{id}/calls/content", async (string id, string key, bool? workflow, int? offset, int? count, string? search, PlanningInspectionService inspection, CancellationToken ct) =>
         {
             try
@@ -56,7 +56,7 @@ internal static class PlanningEndpoints
             }
             catch (UnauthorizedAccessException) { return Results.Forbid(); }
             catch (KeyNotFoundException) { return Results.NotFound(); }
-        });
+        }).WithMetadata(new LocalOperatorRequired());
         app.MapGet("/api/planning", async (PlanningSessionService service, CancellationToken ct) =>
             Results.Json((await Task.WhenAll((await service.ListAsync(ct)).Select(state => service.ToDtoAsync(state, ct)))).ToList(), ChatJsonContext.Default.ListPlanningSessionDto));
         app.MapGet("/api/planning/{id}", async (string id, PlanningSessionService service, CancellationToken ct) =>
