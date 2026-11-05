@@ -79,13 +79,15 @@ public sealed partial class KeyVaultRecordStore
         {
             await using var connection = await OpenAsync(ct);
             var (pub, priv) = await EnsureDefaultKeyPairAsync(connection, ct);
-            var row = await PayloadRowAsync(connection, collection, tenantId, key, ct);
+            // Read the root and chunks from one snapshot. Taking the write reservation
+            // before reading also prevents historical conversion from overwriting a concurrent update.
+            await using var transaction = connection.BeginTransaction();
+            var row = await PayloadRowAsync(connection, collection, tenantId, key, ct, transaction);
             if (row is null) return null;
             if (row.Value.Version is null)
             {
                 // Explicit historical access only. The logical record and its timestamps are unchanged.
                 var text = CryptoService.Decrypt(row.Value.Encrypted, priv);
-                await using var transaction = connection.BeginTransaction();
                 await WritePayloadAsync(connection, transaction, collection, tenantId, key, text, pub, ct);
                 await using var update = connection.CreateCommand();
                 update.Transaction = transaction;
@@ -94,20 +96,20 @@ public sealed partial class KeyVaultRecordStore
                 update.Parameters.AddWithValue("$value", CryptoService.Encrypt(PayloadHeader(text, collection, tenantId, key), pub));
                 await update.ExecuteNonQueryAsync(ct);
                 await WriteAuditAsync(connection, transaction, collection, tenantId, key, "PrepareRecordPages", author, null, ct);
-                await transaction.CommitAsync(ct);
-                row = await PayloadRowAsync(connection, collection, tenantId, key, ct);
+                row = await PayloadRowAsync(connection, collection, tenantId, key, ct, transaction);
             }
             var value = row!.Value;
             VerifyHeader(value, priv);
             if (version is not null && version != value.Version) throw new KeyVaultRecordVersionException();
             if (offset > value.Characters) throw new ArgumentOutOfRangeException(nameof(offset));
             var end = (int)Math.Min((long)offset + count, value.Characters);
-            var textPage = await ReadChunksAsync(connection, value, priv, Math.Max(0, offset - 1), Math.Min(value.Characters, end + 1), ct);
+            var textPage = await ReadChunksAsync(connection, value, priv, Math.Max(0, offset - 1), Math.Min(value.Characters, end + 1), ct, transaction);
             var startInPage = offset == 0 ? 0 : 1;
             if (offset < value.Characters && char.IsLowSurrogate(textPage[startInPage]))
                 throw new ArgumentException("The offset splits a Unicode scalar.", nameof(offset));
             if (end < value.Characters && char.IsLowSurrogate(textPage[startInPage + end - offset])) end--;
-            await WriteAuditAsync(connection, collection, tenantId, key, "ReadRecordRange", author, null, ct);
+            await WriteAuditAsync(connection, transaction, collection, tenantId, key, "ReadRecordRange", author, null, ct);
+            await transaction.CommitAsync(ct);
             return new(value.Version!, offset, end, value.Characters, textPage.Substring(startInPage, end - offset));
         }
         finally { _databaseGate.Release(); }
@@ -143,9 +145,10 @@ public sealed partial class KeyVaultRecordStore
     }
 
     private readonly record struct PayloadRow(string Id, string Encrypted, string? Version, int Characters, string Scope);
-    private static async Task<PayloadRow?> PayloadRowAsync(SqliteConnection c, string collection, string tenant, string key, CancellationToken ct)
+    private static async Task<PayloadRow?> PayloadRowAsync(SqliteConnection c, string collection, string tenant, string key, CancellationToken ct, SqliteTransaction transaction)
     {
         await using var command = c.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText = """
             SELECT r.Id,r.EncryptedValue,p.Version,p.Characters FROM KeyVaultRecords r
             LEFT JOIN KeyVaultRecordPayloads p ON r.Id=p.RecordId
@@ -162,18 +165,19 @@ public sealed partial class KeyVaultRecordStore
         if (CryptoService.Decrypt(row.Encrypted, privateKey) != $"KeyVault-pages-v1\n{row.Scope}\n{row.Version}\n{row.Characters.ToString(CultureInfo.InvariantCulture)}")
             throw new CryptographicException("Invalid record page manifest.");
     }
-    private static async Task<string> ReadPayloadAsync(SqliteConnection c, string collection, string tenant, string key, string encrypted, string privateKey, CancellationToken ct)
+    private static async Task<string> ReadPayloadAsync(SqliteConnection c, string collection, string tenant, string key, string encrypted, string privateKey, CancellationToken ct, SqliteTransaction transaction)
     {
-        var row = await PayloadRowAsync(c, collection, tenant, key, ct);
+        var row = await PayloadRowAsync(c, collection, tenant, key, ct, transaction);
         if (row?.Version is null) return CryptoService.Decrypt(encrypted, privateKey);
         VerifyHeader(row.Value, privateKey);
-        var text = await ReadChunksAsync(c, row.Value, privateKey, 0, row.Value.Characters, ct);
+        var text = await ReadChunksAsync(c, row.Value, privateKey, 0, row.Value.Characters, ct, transaction);
         if (VersionOf(text) != row.Value.Version) throw new CryptographicException("Invalid record content hash.");
         return text;
     }
-    private static async Task<string> ReadChunksAsync(SqliteConnection c, PayloadRow row, string privateKey, int start, int end, CancellationToken ct)
+    private static async Task<string> ReadChunksAsync(SqliteConnection c, PayloadRow row, string privateKey, int start, int end, CancellationToken ct, SqliteTransaction transaction)
     {
         await using var command = c.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText = """
             SELECT Part,Offset,Characters,EncryptedValue FROM KeyVaultRecordChunks
             WHERE RecordId=$id AND Version=$version AND Offset<$end AND Offset+Characters>$start ORDER BY Part;

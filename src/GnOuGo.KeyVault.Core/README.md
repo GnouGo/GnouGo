@@ -30,6 +30,12 @@ range access without changing logical timestamps. Consumers enforce operator and
 session permissions and redact before publishing diagnostic documents; this generic
 component defines no application authority.
 
+Full-value and range reads use consistent SQLite snapshots across the record header
+and its chunks. Historical conversion obtains the write reservation before reading
+the old value, so it cannot overwrite a value committed by another store instance
+while waiting for that reservation. Audit writes occur after read-only snapshots
+complete; they do not upgrade a stale read snapshot into a write transaction.
+
 ```sh
 dotnet build src/GnOuGo.KeyVault.Core
 dotnet test tests/GnOuGo.KeyVault.Core.Tests

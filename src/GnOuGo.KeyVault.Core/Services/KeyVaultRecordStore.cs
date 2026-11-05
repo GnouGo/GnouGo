@@ -92,7 +92,9 @@ public sealed partial class KeyVaultRecordStore : IKeyVaultRecordStore, IKeyVaul
         {
             await using var connection = await OpenAsync(ct);
             var (_, privateKeyPem) = await EnsureDefaultKeyPairAsync(connection, ct);
+            await using var snapshot = connection.BeginTransaction(deferred: true);
             await using var command = connection.CreateCommand();
+            command.Transaction = snapshot;
             command.CommandText = """
                 SELECT EncryptedValue, CreatedAtTicks, UpdatedAtTicks
                 FROM KeyVaultRecords
@@ -112,7 +114,8 @@ public sealed partial class KeyVaultRecordStore : IKeyVaultRecordStore, IKeyVaul
             var updatedAtTicks = reader.GetInt64(2);
             await reader.DisposeAsync();
 
-            var value = await ReadPayloadAsync(connection, collection, tenantId, key, encryptedValue, privateKeyPem, ct);
+            var value = await ReadPayloadAsync(connection, collection, tenantId, key, encryptedValue, privateKeyPem, ct, snapshot);
+            await snapshot.CommitAsync(ct);
             await WriteAuditAsync(connection, collection, tenantId, key, "GetRecord", author, null, ct);
             return ToValue(collection, tenantId, key, value, createdAtTicks, updatedAtTicks);
         }
@@ -205,7 +208,9 @@ public sealed partial class KeyVaultRecordStore : IKeyVaultRecordStore, IKeyVaul
         {
             await using var connection = await OpenAsync(ct);
             var (_, privateKeyPem) = await EnsureDefaultKeyPairAsync(connection, ct);
+            await using var snapshot = connection.BeginTransaction(deferred: true);
             await using var command = connection.CreateCommand();
+            command.Transaction = snapshot;
             command.CommandText = """
                 SELECT RecordKey, EncryptedValue, CreatedAtTicks, UpdatedAtTicks
                 FROM KeyVaultRecords
@@ -231,8 +236,9 @@ public sealed partial class KeyVaultRecordStore : IKeyVaultRecordStore, IKeyVaul
             var records = new List<KeyVaultRecordValue>();
             foreach (var record in encryptedRecords)
                 records.Add(ToValue(collection, tenantId, record.Key,
-                    await ReadPayloadAsync(connection, collection, tenantId, record.Key, record.EncryptedValue, privateKeyPem, ct),
+                    await ReadPayloadAsync(connection, collection, tenantId, record.Key, record.EncryptedValue, privateKeyPem, ct, snapshot),
                     record.CreatedAtTicks, record.UpdatedAtTicks));
+            await snapshot.CommitAsync(ct);
             await WriteAuditAsync(
                 connection,
                 collection,
