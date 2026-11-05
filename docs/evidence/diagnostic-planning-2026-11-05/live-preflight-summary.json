@@ -1,0 +1,27 @@
+{
+  "provider_evidence": "retained live campaign, read-only; no paid inference dispatched",
+  "campaign": "schema-portability-20261019-incremental",
+  "unchanged": true,
+  "evidence_hash": "79ca579fe0431c32f7c489b6bd76c6e637d4f32b68a19a76bfd19bfae872f501",
+  "transport_accounting": {
+    "calls": 7035,
+    "session_calls": 0,
+    "known_input_tokens": 26974431,
+    "known_output_tokens": 10805980,
+    "known_cost_eur": "413.98214989055111712576930921",
+    "reserved_input_tokens": 3252666,
+    "reserved_output_tokens": 4653056,
+    "reserved_cost_eur": "157.57430550399738390479699311",
+    "cost_upper_bound_eur": "571.55645539454850103056630232",
+    "unknown_attempts": 160
+  },
+  "cost_ceiling_eur": "740.0301038327063045424449473",
+  "reserved_requests": 6938,
+  "completed_receipts": 6874,
+  "recorded_failures": 61,
+  "preflight_blocker": "The selected campaign configuration is missing, changed or does not match this deployment.",
+  "preflight_exit_code": 134,
+  "preflight_binary": "frozen prior incident binary ed9a3a3e; not a qualification of current source",
+  "configuration_id": "9bcafa16e4cfa77599bd5757901d11c41a9578f9efc36600b90589a81c50d9dd",
+  "model": "private deployment gpt-6.1-sol-2026-09-29; no inferred public alias"
+}
