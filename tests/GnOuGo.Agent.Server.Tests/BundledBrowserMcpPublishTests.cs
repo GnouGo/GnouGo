@@ -7,8 +7,9 @@ public sealed class BundledBrowserMcpPublishTests
     public void DevelopmentBuild_StagesAllBundledMcpAppHostsAndAvoidsDotnetRunConfiguration()
     {
         var root = GetRepositoryRoot();
-        var configuration = new DirectoryInfo(AppContext.BaseDirectory).Parent!.Name;
-        var toolsRoot = Path.Combine(root, "src", "GnOuGo.Agent.Server", "bin", configuration, "net10.0", "tools");
+        // The shared bundle target stages the actual test host too. This also works
+        // with --artifacts-path, RID directories and nonstandard configuration names.
+        var toolsRoot = Path.Combine(AppContext.BaseDirectory, "tools");
         var executableExtension = OperatingSystem.IsWindows() ? ".exe" : string.Empty;
         var toolNames = new[]
         {

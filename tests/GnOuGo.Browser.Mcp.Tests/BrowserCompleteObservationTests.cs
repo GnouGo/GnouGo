@@ -1,6 +1,6 @@
 using System.Diagnostics;
 using System.Net;
-using System.Net.Sockets;
+using Microsoft.AspNetCore.Http;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -18,7 +18,7 @@ public sealed class BrowserCompleteObservationTests
     public async Task NavigationDiscardsWholeGenerationAndRetriesWithoutRenavigation(string phase, bool sameUrl)
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var site = new Site();
+        await using var site = await Site.CreateAsync();
         var injected = false;
         await using var host = new PlaywrightBrowserHost(Options.Create(Settings()), NullLogger<PlaywrightBrowserHost>.Instance)
         {
@@ -64,7 +64,7 @@ public sealed class BrowserCompleteObservationTests
     public async Task RepeatedNavigationStopsAfterThreeAttemptsWithNoPartialResult()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var site = new Site();
+        await using var site = await Site.CreateAsync();
         var transitions = 0;
         await using var host = new PlaywrightBrowserHost(Options.Create(Settings()), NullLogger<PlaywrightBrowserHost>.Instance)
         {
@@ -86,7 +86,7 @@ public sealed class BrowserCompleteObservationTests
     public async Task DeadlineDuringInvalidatedCaptureRetainsNavigationEvidence()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var site = new Site();
+        await using var site = await Site.CreateAsync();
         await using var host = new PlaywrightBrowserHost(Options.Create(Settings()), NullLogger<PlaywrightBrowserHost>.Instance)
         {
             ObservationCheckpoint = async (page, phase, token) =>
@@ -115,7 +115,7 @@ public sealed class BrowserCompleteObservationTests
     {
         var ct = TestContext.Current.CancellationToken;
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        await using var site = new Site();
+        await using var site = await Site.CreateAsync();
         await using var host = new PlaywrightBrowserHost(Options.Create(Settings()), NullLogger<PlaywrightBrowserHost>.Instance)
         {
             ObservationCheckpoint = async (_, phase, token) =>
@@ -149,7 +149,7 @@ public sealed class BrowserCompleteObservationTests
     public async Task AcquisitionDeadlineIsSharedAndCancellationIsNotRetried()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var site = new Site();
+        await using var site = await Site.CreateAsync();
         await using var host = new PlaywrightBrowserHost(Options.Create(Settings()), NullLogger<PlaywrightBrowserHost>.Instance)
         {
             ObservationCheckpoint = (_, _, token) => Task.Delay(Timeout.Infinite, token)
@@ -171,7 +171,7 @@ public sealed class BrowserCompleteObservationTests
     public async Task RestartSharesDeadlineAndNeverFallsBackToBroaderSelector()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var site = new Site();
+        await using var site = await Site.CreateAsync();
         var moved = false;
         await using var host = new PlaywrightBrowserHost(Options.Create(Settings()), NullLogger<PlaywrightBrowserHost>.Instance)
         {
@@ -197,7 +197,7 @@ public sealed class BrowserCompleteObservationTests
     public async Task ClosureIsNotRetriedAndRedirectedReadsStillRequireAllowedHost()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var site = new Site();
+        await using var site = await Site.CreateAsync();
         foreach (var cause in new[] { "closure", "disallowed" })
         {
             await using var host = new PlaywrightBrowserHost(Options.Create(Settings()), NullLogger<PlaywrightBrowserHost>.Instance)
@@ -225,7 +225,7 @@ public sealed class BrowserCompleteObservationTests
     public async Task CompletenessAndOriginalLimitsAreEnforced(string variant, bool succeeds)
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var site = new Site();
+        await using var site = await Site.CreateAsync();
         if (variant == "capture") site.Body = "<p>" + new string('x', 2_000_100) + "</p>";
         if (variant == "oversized") site.Body = "<p>" + new string('x', 4000) + "</p>";
         if (variant == "empty") site.Body = "";
@@ -246,7 +246,7 @@ public sealed class BrowserCompleteObservationTests
     public async Task KnownExpirationRetainsCauseWhileUnknownCursorsRemainInvalid(string cause)
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var site = new Site();
+        await using var site = await Site.CreateAsync();
         await using var host = new PlaywrightBrowserHost(Options.Create(Settings()), NullLogger<PlaywrightBrowserHost>.Instance);
         var tools = new BrowserTools(host, NullLogger<BrowserTools>.Instance);
         var manifest = await tools.GetContentAsync(url: site.Origin, format: "observation_pages", selector: "main", cancellationToken: ct);
@@ -273,7 +273,7 @@ public sealed class BrowserCompleteObservationTests
     public async Task InvalidLimitsFailBeforeNavigation(int characters, int records, int pages)
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var site = new Site();
+        await using var site = await Site.CreateAsync();
         var settings = Settings(); settings.MaxObservationPages = pages;
         await using var host = new PlaywrightBrowserHost(Options.Create(settings), NullLogger<PlaywrightBrowserHost>.Instance);
         var result = await new BrowserTools(host, NullLogger<BrowserTools>.Instance).GetContentAsync(url: site.Origin,
@@ -286,36 +286,25 @@ public sealed class BrowserCompleteObservationTests
 
     private sealed class Site : IAsyncDisposable
     {
-        private readonly HttpListener _listener = new();
-        private readonly Task _serving;
-        public string Origin { get; }
+        private LoopbackTestServer _server = null!;
+        public string Origin => _server.Origin;
         public string Label { get; set; } = "old";
         public string? Body { get; set; }
-        public List<string> Visits { get; } = [];
+        public System.Collections.Concurrent.ConcurrentQueue<string> Visits { get; } = new();
         public int TotalRequests => Visits.Count;
-        public Site()
+        public static async Task<Site> CreateAsync()
         {
-            var probe = new TcpListener(IPAddress.Loopback, 0); probe.Start();
-            var port = ((IPEndPoint)probe.LocalEndpoint).Port; probe.Stop();
-            Origin = "http://127.0.0.1:" + port;
-            _listener.Prefixes.Add(Origin + "/"); _listener.Start();
-            _serving = Task.Run(async () =>
+            var site = new Site();
+            site._server = await LoopbackTestServer.StartAsync(async context =>
             {
-                try
-                {
-                    while (_listener.IsListening)
-                    {
-                        var context = await _listener.GetContextAsync();
-                        Visits.Add(context.Request.Url!.AbsolutePath);
-                        var body = Body ?? string.Concat(Enumerable.Range(0, 9).Select(i => "<p>" + Label + " " + i + "</p>"));
-                        var html = "<html><head><title>Observed " + Label + "</title></head><body><main>" + body + "</main><button>Change</button></body></html>";
-                        context.Response.ContentType = "text/html; charset=utf-8";
-                        await context.Response.OutputStream.WriteAsync(Encoding.UTF8.GetBytes(html)); context.Response.Close();
-                    }
-                }
-                catch (Exception ex) when (ex is HttpListenerException or ObjectDisposedException) { }
-            });
+                site.Visits.Enqueue(context.Request.Path.Value ?? "/");
+                var body = site.Body ?? string.Concat(Enumerable.Range(0, 9).Select(i => "<p>" + site.Label + " " + i + "</p>"));
+                var html = "<html><head><title>Observed " + site.Label + "</title></head><body><main>" + body + "</main><button>Change</button></body></html>";
+                context.Response.ContentType = "text/html; charset=utf-8";
+                await context.Response.WriteAsync(html, context.RequestAborted);
+            }, TestContext.Current.CancellationToken);
+            return site;
         }
-        public async ValueTask DisposeAsync() { _listener.Close(); await _serving; }
+        public ValueTask DisposeAsync() => _server.DisposeAsync();
     }
 }

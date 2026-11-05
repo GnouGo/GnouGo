@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net;
-using System.Net.Sockets;
+using Microsoft.AspNetCore.Http;
 using System.Text;
 using Microsoft.Playwright;
 using Xunit;
@@ -220,10 +220,8 @@ public sealed class BrowserLifecycleTests
 
     private sealed class Site(LoadState state) : IAsyncDisposable
     {
-        private readonly HttpListener _listener = new();
+        private LoopbackTestServer _server = null!;
         private readonly CancellationTokenSource _stop = CancellationTokenSource.CreateLinkedTokenSource(Ct);
-        private readonly List<Task> _responses = [];
-        private Task _serving = Task.CompletedTask;
         private IPlaywright _playwright = null!;
         private IBrowser _browser = null!;
         internal IPage Page = null!;
@@ -238,11 +236,8 @@ public sealed class BrowserLifecycleTests
         internal static async Task<Site> CreateAsync(LoadState state)
         {
             var site = new Site(state);
-            var probe = new TcpListener(IPAddress.Loopback, 0); probe.Start();
-            var port = ((IPEndPoint)probe.LocalEndpoint).Port; probe.Stop();
-            site.Origin = "http://127.0.0.1:" + port;
-            site._listener.Prefixes.Add(site.Origin + "/"); site._listener.Start();
-            site._serving = site.ServeAsync();
+            site._server = await LoopbackTestServer.StartAsync(site.RespondAsync, Ct);
+            site.Origin = site._server.Origin;
             site._playwright = await Playwright.CreateAsync();
             site._browser = await site._playwright.Chromium.LaunchAsync(new() { Headless = true });
             site.Page = await site._browser.NewPageAsync();
@@ -261,19 +256,13 @@ public sealed class BrowserLifecycleTests
             finally { Page.Load -= OnLoad; }
         }
 
-        private async Task ServeAsync()
+        private async Task RespondAsync(HttpContext context)
         {
-            try { while (!_stop.IsCancellationRequested) _responses.Add(RespondAsync(await _listener.GetContextAsync().WaitAsync(_stop.Token))); }
-            catch (OperationCanceledException) when (_stop.IsCancellationRequested) { }
-        }
-
-        private async Task RespondAsync(HttpListenerContext context)
-        {
-            var path = context.Request.Url!.AbsolutePath; Visits.Enqueue(path);
+            var path = context.Request.Path.Value ?? "/"; Visits.Enqueue(path);
             try
             {
                 context.Response.Headers["Cache-Control"] = "no-store";
-                if (path == "/redirect") { context.Response.StatusCode = 302; context.Response.RedirectLocation = "/destination"; return; }
+                if (path == "/redirect") { context.Response.StatusCode = 302; context.Response.Headers.Location = "/destination"; return; }
                 if (path == "/child")
                 {
                     ChildRequested.TrySetResult(); await ChildRelease.Task.WaitAsync(_stop.Token);
@@ -294,20 +283,18 @@ public sealed class BrowserLifecycleTests
             }
             catch (OperationCanceledException) when (_stop.IsCancellationRequested) { }
             catch (IOException) when (_stop.IsCancellationRequested) { }
-            finally { context.Response.Close(); }
 
             async Task WriteAsync(string content)
             {
-                var bytes = Encoding.UTF8.GetBytes(content); context.Response.ContentLength64 = bytes.Length;
-                await context.Response.OutputStream.WriteAsync(bytes, _stop.Token);
+                var bytes = Encoding.UTF8.GetBytes(content); context.Response.ContentLength = bytes.Length;
+                await context.Response.Body.WriteAsync(bytes, _stop.Token);
             }
         }
 
         public async ValueTask DisposeAsync()
         {
             await _stop.CancelAsync();
-            await _serving; await Task.WhenAll(_responses);
-            _listener.Close();
+            await _server.DisposeAsync();
             await _browser.CloseAsync(); _playwright.Dispose(); _stop.Dispose();
         }
     }
