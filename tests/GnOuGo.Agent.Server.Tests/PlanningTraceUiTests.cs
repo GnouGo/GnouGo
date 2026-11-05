@@ -342,7 +342,8 @@ public sealed partial class PlanningTraceUiTests : BunitContext
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         Services.GetRequiredService<NavigationManager>().NavigateTo("/planning/call-budget");
         var cut = Render<PlanningPage>(p => p.Add(c => c.SessionId, "call-budget"));
-        cut.WaitForAssertion(() => Assert.Contains("8 / 8 model calls", cut.Markup));
+        cut.WaitForAssertion(() => Assert.Contains("8 model calls", cut.Markup));
+        Assert.Contains("Limited — 8 calls (mandatory)", cut.Markup);
         Assert.Contains("token limits do not extend", cut.Markup);
         Assert.Single(cut.FindAll("li"), li => li.TextContent.Contains("LLM_BUDGET_EXCEEDED", StringComparison.Ordinal));
         Assert.True(cut.Find("#planning-generation-settings button").HasAttribute("disabled"));
@@ -358,6 +359,7 @@ public sealed partial class PlanningTraceUiTests : BunitContext
     private void Configure(PlanningPersistenceTests.StoreFixture fixture, IWorkflowPlanner? planner = null, GnOuGo.Flow.Core.Runtime.IMcpSession? agents = null)
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
+        Services.AddSingleton(ApplicationLlmBudgetTests.Policy(fixture, "limited"));
         Services.AddSingleton(PlanningSessionLifecycleTests.Create(fixture, planner ?? new HybridWorkflowPlanner(), agents ?? PlanningSessionLifecycleTests.AgentCatalog(),
             settings: new() { BackgroundProcessingEnabled = false }));
         Services.AddLogging();
