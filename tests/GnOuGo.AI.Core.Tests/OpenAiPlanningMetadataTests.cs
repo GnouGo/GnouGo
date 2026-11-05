@@ -6,6 +6,34 @@ namespace GnOuGo.AI.Core.Tests;
 public sealed class OpenAiPlanningMetadataTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ActualProviderSerializationPreservesMaximumAllocationAndReasoningOnEachEndpoint(bool responses)
+    {
+        var sends = 0;
+        using var http = new HttpClient(new WireHandler(async (request, ct) =>
+        {
+            sends++;
+            Assert.EndsWith(responses ? "/responses" : "/chat/completions", request.RequestUri!.AbsolutePath);
+            using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(ct));
+            Assert.Equal(128000, body.RootElement.GetProperty(responses ? "max_output_tokens" : "max_completion_tokens").GetInt32());
+            Assert.Equal("max", responses ? body.RootElement.GetProperty("reasoning").GetProperty("effort").GetString() : body.RootElement.GetProperty("reasoning_effort").GetString());
+            return new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(responses
+                ? """{"id":"fixture","status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"42"}]}],"usage":{"input_tokens":10,"output_tokens":5}}"""
+                : """{"choices":[{"finish_reason":"stop","message":{"role":"assistant","content":"42"}}],"usage":{"prompt_tokens":10,"completion_tokens":5}}""") };
+        }));
+        var options = new LLMOptions { DefaultProvider = "fixture", DefaultModel = "gpt-6.1-sol",
+            Models = { ["fixture"] = new() { Type = "openai", Url = "https://example.invalid/v1", RequestPolicy = new()
+                { BackgroundProtocol = responses ? LLMBackgroundProtocolMode.Responses : LLMBackgroundProtocolMode.ChatCompletions } } } };
+        var client = new RoutingLLMClient(http, options);
+        var result = await client.CallAsync(new() { Prompt = "Return 42", UseBackgroundMode = true, Reasoning = "max", MaxOutputTokens = 128000, RequireOutputTokenLimit = true }, TestContext.Current.CancellationToken);
+        Assert.Equal("42", result.Text); Assert.Equal(1, sends);
+    }
+    private sealed class WireHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) => send(request, ct);
+    }
+    [Theory]
     [InlineData("gpt-6-astra", 10, 50, 1, false)]
     [InlineData("gpt-6.1-sol", 2, 10, .1, false)]
     [InlineData("gpt-6.1-terra", 1, 5, .05, true)]

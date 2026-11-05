@@ -55,8 +55,10 @@ public sealed class ModelMetadataUsageCostEstimator : IModelUsageCostEstimator
         var cached = Count(details?["cached_tokens"] ?? usage?["cached_input_tokens"]);
         var writes = Count(details?["cache_write_tokens"] ?? usage?["cache_write_tokens"]);
         var tier = usage?["service_tier"]?.ToString() ?? route?.RequestPolicy.BillingServiceTier ?? "standard";
+        var retention = usage?["cache_retention"]?.ToString() ?? route?.RequestPolicy.BillingCacheRetention ?? "30m";
+        if (writes > 0 && retention is not ("30m" or "12h")) return null;
         return new(ModelMetadataCatalog.EstimateUsageCost(pricing, inputTokens, outputTokens, cached, tier,
-            route?.RequestPolicy.BillingRegionalProcessing == true, writes), pricing.Currency);
+            route?.RequestPolicy.BillingRegionalProcessing == true, writes, retention == "12h"), pricing.Currency);
     }
 
     public ModelUsageCostEstimate? EstimateCostWithCurrency(

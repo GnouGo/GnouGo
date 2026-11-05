@@ -187,6 +187,7 @@ public sealed class LLMProviderRequestPolicyOptions
     /// <summary>Explicit gateway billing declarations; these do not imply endpoint/model availability.</summary>
     public string BillingServiceTier { get; set; } = "standard";
     public bool BillingRegionalProcessing { get; set; }
+    public string BillingCacheRetention { get; set; } = "30m";
     /// <summary>
     /// Protocol selection before dispatch. Auto and Responses use Responses; ChatCompletions selects chat directly.
     /// Non-transient rejections never trigger a protocol change.
