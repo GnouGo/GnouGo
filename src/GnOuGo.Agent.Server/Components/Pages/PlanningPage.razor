@@ -117,7 +117,7 @@
                     @if (diagnostic.BudgetFailure is { } failure)
                     {
                         <dl><dt>Scope / origin</dt><dd>@(failure.Scope ?? "unavailable") / @(failure.Origin ?? "unavailable")</dd>
-                            <dt>Allowance / required reservation</dt><dd>@(failure.Allowance?.ToString() ?? "unavailable") / @(failure.RequiredReservation?.ToString() ?? "unavailable") @(failure.Currency ?? "unavailable")</dd>
+                            <dt>Allowance / required reservation</dt><dd>@(failure.Allowance?.ToString() ?? "unavailable") / @(failure.RequiredReservation?.ToString() ?? "unavailable") @(failure.LimitKind is "estimated_cost" or "estimated_cost_usd" or "reserved_cost" ? failure.Currency ?? "currency unavailable" : failure.LimitKind ?? "unit unavailable")</dd>
                             <dt>Dispatch</dt><dd>@(failure.DispatchStatus ?? "unavailable")</dd></dl>
                     }
                     else if (diagnostic.Code.StartsWith("LLM_BUDGET_", StringComparison.Ordinal)) { <p>Historical budget failure details are unavailable.</p> }
