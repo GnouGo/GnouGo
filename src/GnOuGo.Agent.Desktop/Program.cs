@@ -350,6 +350,8 @@ internal static class DesktopProgram
             {
                 app.StartAsync(cts.Token).GetAwaiter().GetResult();
                 Log("Web host StartAsync completed");
+                if (!app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings>>().Value.OpenLocalOperatorBrowser)
+                    operatorLauncher.Open(new Uri(appUrl)); // Explicit opt-out keeps ordinary local startup available.
 
                 var publishedEndpoints = GnOuGoAgentWebHost.ResolvePublishedEndpoints(app);
                 Log($"PublishedServerUrl={publishedEndpoints.AppBaseAddress ?? "<unresolved>"}");
