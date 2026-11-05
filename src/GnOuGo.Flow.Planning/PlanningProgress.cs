@@ -155,6 +155,14 @@ internal static class PlanningProgress
         void Repeated(JsonObject current, JsonObject? previous = null)
         {
             previous ??= attempts.SingleOrDefault(attempt => attempt["requestId"]?.ToString() == current["previousRequestId"]?.ToString());
+            // This policy is captured only for fresh host-authorized sessions.
+            // Historical campaigns retain their original repeat barrier.
+            if (PlanningOptimizationThresholds.RepeatsAdvisory(state))
+            {
+                PlanningOptimizationThresholds.Record(state, purpose, "repeated_strategy", 2, 1,
+                    new JsonObject { ["previousRequestId"] = previous?["requestId"]?.DeepClone(), ["requestId"] = requestId });
+                return;
+            }
             throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS",
                 "The same canonical strategy was repeated on unchanged useful evidence and accepted behavior" +
                 (schemaHash is null ? "." : " under the same issued response schema.") + " Current request: " + requestId +

@@ -29,7 +29,7 @@ public sealed class PlanningGenerationPolicyTests
     [InlineData(0, 8192, "medium")]
     [InlineData(-1, 8192, "medium")]
     [InlineData(16000, 0, "medium")]
-    [InlineData(16000, 65537, "medium")]
+    [InlineData(16000, -1, "medium")]
     [InlineData(16000, 8192, "unsupported")]
     public void DiagnosticInputTargetsPreservePositiveValuesOutputAllocationsAndReasoningValidation(int input, int output, string reasoning)
     {

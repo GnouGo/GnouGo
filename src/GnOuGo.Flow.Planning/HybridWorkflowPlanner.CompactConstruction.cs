@@ -33,7 +33,11 @@ public sealed partial class HybridWorkflowPlanner
             { await ReviewConstructionAsync(state, runtime, candidate.Extension.Complete, ct); return; }
             if (candidate.Diagnostics.Count > 0) { await CorrectConstructionAsync(state, runtime, ct); return; }
             if (NeedsBusinessReview(state, candidate) && !ConstructionBusinessReviewValid(state, candidate, candidate.Extension.Complete))
-            { await ReviewConstructionAsync(state, runtime, candidate.Extension.Complete, ct); return; }
+            {
+                if (candidate.Extension.Complete)
+                    PlanningInspection.Record(state, PlanningConstruction.LocalPurpose, "skipped", "The complete workflow receives the mandatory global review directly.");
+                await ReviewConstructionAsync(state, runtime, candidate.Extension.Complete, ct); return;
+            }
             await AcceptConstructionAsync(state, runtime, ct); return;
         }
         if (PlanningOptimizationThresholds.Exceeded(state, "construction", "checkpoints", construction.Checkpoints.Count + 1L, construction.Limits.MaxCheckpoints))
@@ -256,6 +260,8 @@ public sealed partial class HybridWorkflowPlanner
         else step.DiscoveryComplete = step.Kind is not null && step.Kind != "operation";
         compact.NextStep++;
         compact.CurrentStep = step;
+        if (step.DiscoveryComplete)
+            PlanningInspection.Record(state, PlanningCompactConstruction.DiscoveryPurpose, "skipped", "The selected implementation already has the exact contracts it needs.");
         if (step.Kind is null) await ReserveCompactContinuationAsync(state, runtime, ct);
         if (!known) compact.PendingCommitments.Clear();
         PlanningCompactConstruction.RetainPrerequisiteEvidence(state);

@@ -10,7 +10,7 @@ using GnOuGo.Workspace;
 namespace GnOuGo.Flow.Integrations.Planning;
 
 /// <summary>Encrypted sessions for workflow.plan in runtime hosts.</summary>
-public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records, string leaseDirectory) : IPlanningRuntimeFactory
+public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records, string leaseDirectory, IPlanningHostPolicy? hostPolicy = null) : IPlanningRuntimeFactory
 {
     internal const string Author = "GnOuGo.Flow.Planning";
     internal const string Sessions = "flow-planning-sessions-v11";
@@ -45,6 +45,7 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
             throw new PlanningConflictException("This planning session is active in another runtime. Resume with the same run ID after it releases the session.");
         }
         var inheritedBudget = context.LLMUsageBudget;
+        IPlanningRuntimeModel? capturedModel = null;
         try
         {
             var savedDefinition = await records.GetAsync(Definitions, tenant, key, Author, ct);
@@ -63,7 +64,11 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
                 : PlanningSessionStorage.Read(saved.Value, tenant, key);
             if (saved is null)
             {
-                if (savedDefinition is null) PlanningSessionCreation.Capture(state, initial);
+                if (savedDefinition is null)
+                {
+                    if (hostPolicy is not null) await hostPolicy.CaptureAsync(state, initial, ct);
+                    PlanningSessionCreation.Capture(state, initial);
+                }
                 else if (hasCreationCheckpoint)
                 {
                     // This host-owned snapshot precedes the first session write. It
@@ -74,13 +79,20 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
                     state = PlanningSessionStorage.Read(creation.ToJsonString(), tenant, key);
                     if (await records.GetAsync(WorkflowPlanningBudgetSink.Collection, tenant, key, Author, ct) is not null)
                         throw new PlanningConflictException("The active planning session checkpoint is missing. Its creation snapshot cannot reset retained usage.");
+                    // A trusted host can resolve phase allocations before the first
+                    // session write. Authenticate that capture before allowing its
+                    // generation/phase fields to differ from the authored definition.
+                    if (hostPolicy is not null) await hostPolicy.VerifyCreationAsync(state, ct);
                     foreach (var option in retainedDefinition!.Options)
-                        if (!state.Request.Options.TryGetPropertyValue(option.Key, out var captured) || !JsonNode.DeepEquals(option.Value, captured))
+                        if (!(hostPolicy is not null && option.Key == "construction_limits") &&
+                            (!state.Request.Options.TryGetPropertyValue(option.Key, out var captured) || !JsonNode.DeepEquals(option.Value, captured)))
                             throw new PlanningConflictException("The planning creation checkpoint no longer matches its authored options.");
                     var capturedRequest = JsonSerializer.SerializeToNode(state.Request, PlanningJsonContext.Default.PlanningRequest)!.AsObject();
                     // Capture adds only private options. All authored request fields,
                     // including generation and policy limits, must still agree.
                     capturedRequest["options"] = retainedDefinition!.Options.DeepClone();
+                    if (hostPolicy is not null)
+                        capturedRequest["generation"] = JsonSerializer.SerializeToNode(retainedDefinition.Generation, PlanningJsonContext.Default.PlanningGenerationOptions);
                     if (!JsonNode.DeepEquals(capturedRequest, JsonNode.Parse(definition)))
                         throw new PlanningConflictException("The planning creation checkpoint no longer matches its authored request.");
                 }
@@ -105,18 +117,21 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
                 state.ActiveMilliseconds += (completion.UpdatedAt - state.UpdatedAtUtc).TotalMilliseconds;
                 state.UpdatedAtUtc = completion.UpdatedAt;
             }
-            PlanningTokenThresholds.RejectReserved(state.Request.Options);
+            if (hostPolicy is not null) await hostPolicy.VerifyAsync(state, ct);
+            else PlanningTokenThresholds.RejectReserved(state.Request.Options);
+            if (hostPolicy is not null) capturedModel = await hostPolicy.CreateModelAsync(state, ct);
             var receipt = await records.GetAsync(WorkflowPlanningBudgetSink.Collection, tenant, key, Author, ct);
             var usage = receipt is null ? state.Usage : JsonSerializer.Deserialize(receipt.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot)
                 ?? throw new PlanningConflictException("The encrypted planning budget is invalid.");
             var limits = (PlanningBudgetOptions.Parse(state.Request.Options) ?? new LLMUsageBudgetLimits()) with
                 { MaxElapsed = null, MaxCalls = Math.Min(PlanningBudgetOptions.Parse(state.Request.Options)?.MaxCalls ?? state.Request.MaxModelCalls, state.Request.MaxModelCalls) };
-            var budget = new LLMUsageBudgetScope(limits, usage, inheritedBudget, new WorkflowPlanningBudgetSink(records, tenant, key),
-                exchangeRateProvider: context.Engine.ExchangeRateProvider);
+            var budget = new LLMUsageBudgetScope(PlanningTokenThresholds.Advisory(state.Request), limits, usage, inheritedBudget,
+                new WorkflowPlanningBudgetSink(records, tenant, key), exchangeRateProvider: context.Engine.ExchangeRateProvider,
+                advisoryOptimization: PlanningTokenThresholds.OptimizationAdvisory(state.Request));
             // The journal meters actual dispatches; replaying a receipt consumes no new allowance.
             context.LLMUsageBudget = null;
             var client = new WorkflowPlanningModelJournal(context, records, state.Request, budget,
-                DateTimeOffset.UtcNow + (PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed ?? TimeSpan.FromHours(5)) - TimeSpan.FromMilliseconds(state.ActiveMilliseconds));
+                PlanningDispatchDeadline.Resolve(state.Request, state.ActiveMilliseconds), capturedModel, requireCapturedMetadata: hostPolicy is not null);
             if (state.PendingCall is { } retainedCall)
             {
                 await client.RecoverSavedResponseAsync(retainedCall.Request, ct);
@@ -134,9 +149,9 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
             await Checkpoint(state, ct);
             context.SetTelemetryAttribute("gnougo-flow.plan.session_id", key);
             context.SetTelemetryAttribute("gnougo-flow.plan.run_id", context.Limits.RunId);
-            return new OwnedSession(state, new WorkflowPlanningRuntime(context, client, Checkpoint), lease, () => context.LLMUsageBudget = inheritedBudget);
+            return new OwnedSession(state, new WorkflowPlanningRuntime(context, client, Checkpoint, capturedModel?.Capabilities), lease, () => context.LLMUsageBudget = inheritedBudget, capturedModel);
         }
-        catch { context.LLMUsageBudget = inheritedBudget; await lease.DisposeAsync(); throw; }
+        catch { context.LLMUsageBudget = inheritedBudget; if (capturedModel is not null) await capturedModel.DisposeAsync(); await lease.DisposeAsync(); throw; }
     }
 
     public async Task<string> ReadApprovedYamlAsync(StepExecutionContext context, string sessionId, string artifactHash, CancellationToken ct)
@@ -145,7 +160,8 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
         var stored = await records.GetAsync(Sessions, tenant, sessionId, Author, ct)
             ?? throw new PlanningConflictException("The approved format-11 planning session is unavailable for this tenant. Regenerate and approve the workflow.");
         var state = PlanningSessionStorage.Read(stored.Value, tenant, sessionId);
-        PlanningTokenThresholds.RejectReserved(state.Request.Options);
+        if (hostPolicy is not null) await hostPolicy.VerifyAsync(state, ct);
+        else PlanningTokenThresholds.RejectReserved(state.Request.Options);
         if (state.SchemaVersion != 11 || state.Request.TenantId != tenant || state.Request.SessionId != sessionId ||
             state.Status != PlanningStatus.Approved || state.ApprovedHash != artifactHash || PlanningArtifactApproval.Hash(state) != artifactHash)
             throw new PlanningConflictException("The artifact does not have a current, tenant-owned approval.");
@@ -156,8 +172,8 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
         return state.Yaml!;
     }
 
-    private sealed record OwnedSession(PlanningSession Session, IPlanningRuntime Runtime, FileStream Lease, Action Restore) : IPlanningRuntimeSession
+    private sealed record OwnedSession(PlanningSession Session, IPlanningRuntime Runtime, FileStream Lease, Action Restore, IPlanningRuntimeModel? Model) : IPlanningRuntimeSession
     {
-        public async ValueTask DisposeAsync() { Restore(); await Lease.DisposeAsync(); }
+        public async ValueTask DisposeAsync() { Restore(); try { if (Model is not null) await Model.DisposeAsync(); } finally { await Lease.DisposeAsync(); } }
     }
 }

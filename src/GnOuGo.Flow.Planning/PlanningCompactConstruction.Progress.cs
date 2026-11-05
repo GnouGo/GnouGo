@@ -6,6 +6,15 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningCompactConstruction
 {
+    internal static JsonObject? InspectOverallProgress(PlanningSession state)
+    {
+        if (state.Requirements is null || state.Construction?.Compact is null) return null;
+        var facts = new SelectionFacts(state);
+        var view = OverallProgress(state, facts);
+        view["acceptedContributions"] = facts.Results.DeepClone();
+        view["compositionFindings"] = facts.Findings.DeepClone();
+        return view;
+    }
     // Request-local facts only. Reuse the ordinary completion assessment when it
     // ran; otherwise coverage and contribution reachability share one traversal.
     private sealed class SelectionFacts

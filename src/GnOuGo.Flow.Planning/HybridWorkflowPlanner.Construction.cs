@@ -100,7 +100,7 @@ public sealed partial class HybridWorkflowPlanner
             !PlanningTokenThresholds.OptimizationAdvisory(state.Request) &&
             (limits.MaxTasksPerDraft > 32 || limits.MaxCheckpoints > 1024 ||
              limits.MaxCorrectionsPerDraft > 64 || limits.MaxNonProductiveModelCalls > 64) ||
-            limits.DraftOutputTokens is < 1 or > 65536 || limits.ReviewOutputTokens is < 1 or > 65536)
+            limits.DraftOutputTokens < 1 || limits.ReviewOutputTokens < 1)
             throw new PlanningConflictException("The captured construction contract or limits are unsupported.");
         { await AdvanceCompactConstructionAsync(state, runtime, ct); return; }
     }
@@ -274,6 +274,7 @@ public sealed partial class HybridWorkflowPlanner
 
     private static Task ValidateConstructionCandidateAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
     {
+        PlanningInspection.Record(state, "technical_validation", "active", "Validate the complete candidate against types, exact bindings and contracts.", state.RequestMeasurements?.LastOrDefault()?.RequestId);
         ct.ThrowIfCancellationRequested();
         var draft = state.Construction!.Candidate!;
         var pendingRevision = draft.AuthorizedPaths is { Count: > 0 } authorized && draft.Hash == draft.BaseHash &&
@@ -325,6 +326,8 @@ public sealed partial class HybridWorkflowPlanner
         draft.Diagnostics.AddRange(pendingRevision);
         state.Diagnostics = draft.Diagnostics.ToList();
         state.Phase = draft.Diagnostics.Count == 0 ? PlanningConstruction.LocalPurpose : PlanningPhase.Replanning;
+        PlanningInspection.Record(state, "technical_validation", draft.Diagnostics.Count == 0 ? "succeeded" : "correction",
+            draft.Diagnostics.Count == 0 ? "Technical checks passed; business review is independent." : string.Join(", ", draft.Diagnostics.Select(finding => finding.Code).Distinct()), state.RequestMeasurements?.LastOrDefault()?.RequestId);
         if (draft.Diagnostics.Count > 0) PlanningConstruction.RecordRejection(state, draft);
         return Task.CompletedTask;
     }

@@ -16,18 +16,23 @@ public sealed class WorkflowPlanningRuntime : IPlanningRuntime, IPlanningConstru
     private readonly StepExecutionContext _context;
     private readonly ILLMClient? _model;
     private readonly Func<PlanningSession, CancellationToken, Task> _checkpoint;
+    private readonly ILLMCapabilityResolver? _capturedCapabilities;
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _advisoryRequests = new(StringComparer.Ordinal);
     public WorkflowPlanningRuntime(WorkflowEngine engine, Func<PlanningSession, CancellationToken, Task> checkpoint, ICapabilityCatalog? capabilities = null)
     {
         _engine = engine; Capabilities = capabilities ?? new CapabilityDiscovery(engine); _checkpoint = checkpoint;
         _context = new() { Engine = engine, Step = new() { Source = new() { Id = "planning", Type = "workflow.plan" } },
             Data = new(), Limits = engine.Limits, LLMUsageBudget = engine.LLMUsageBudget };
     }
-    public WorkflowPlanningRuntime(StepExecutionContext context, ILLMClient model, Func<PlanningSession, CancellationToken, Task> checkpoint)
-    { _context = context; _engine = context.Engine; Capabilities = new CapabilityDiscovery(context.Engine); _model = model; _checkpoint = checkpoint; }
+    public WorkflowPlanningRuntime(StepExecutionContext context, ILLMClient model, Func<PlanningSession, CancellationToken, Task> checkpoint, ILLMCapabilityResolver? capturedCapabilities = null)
+    { _context = context; _engine = context.Engine; Capabilities = new CapabilityDiscovery(context.Engine); _model = model; _checkpoint = checkpoint; _capturedCapabilities = capturedCapabilities; }
     public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => CapabilityDiscovery.DiscoverAsync(_engine, request, ct);
-    internal Task AdmitAsync(LLMRequest request, int inputLimit, string purpose, CancellationToken ct, bool advisoryTokens = false) =>
-        ModelRequestAdmission.ValidateAsync(request, _engine.LLMCapabilities ?? _model as ILLMCapabilityResolver ??
+    internal async Task AdmitAsync(LLMRequest request, int inputLimit, string purpose, CancellationToken ct, bool advisoryTokens = false)
+    {
+        await ModelRequestAdmission.ValidateAsync(request, _capturedCapabilities ?? _engine.LLMCapabilities ?? _model as ILLMCapabilityResolver ??
             _engine.LLMClient as ILLMCapabilityResolver, inputLimit, purpose, ct, advisoryTokens);
+        if (advisoryTokens && request.ClientRequestId is { } id) _advisoryRequests.TryAdd(id, 0);
+    }
     public Task AdmitConstructionAsync(LLMRequest request, int inputTokenCeiling, IReadOnlyList<int> outputTokenCeilings, CancellationToken ct)
     {
         if ((_model ?? _engine.LLMClient) is IPlanningConstructionAdmission journal)
@@ -38,8 +43,10 @@ public sealed class WorkflowPlanningRuntime : IPlanningRuntime, IPlanningConstru
     public async Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
     {
         var client = _model ?? _engine.LLMClient ?? throw new InvalidOperationException("No planning model configured.");
+        var advisory = request.ClientRequestId is { } id && _advisoryRequests.TryRemove(id, out _);
         if (client is not IModelAdmissionOwner)
-            await ModelRequestAdmission.ValidateAsync(request, _engine.LLMCapabilities ?? client as ILLMCapabilityResolver, int.MaxValue, purpose, ct);
+            await ModelRequestAdmission.ValidateAsync(request, _capturedCapabilities ?? _engine.LLMCapabilities ?? client as ILLMCapabilityResolver, int.MaxValue, purpose, ct,
+                advisory);
         return await _context.CallLLMAsync(client, request, "workflow.plan." + purpose, ct);
     }
     public Task CheckpointAsync(PlanningSession session, CancellationToken ct) => _checkpoint(session, ct);

@@ -9,6 +9,23 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class DiagnosticOptimizationPolicyTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void FreshHostProgressPolicyWarnsOnRepeatedKnownGenerationWhileHistoricalPolicyStillStops(bool fresh)
+    {
+        var state = DiagnosticSession();
+        if (fresh) state.Request.Options["diagnostic_progress_policy"] = "advisory-v1";
+        var response = new JsonObject { ["action"] = "same completed generation strategy" };
+        PlanningProgress.AssessAttempt(state, "construction_select", response, "first-known-response");
+        if (!fresh) Assert.Throws<WorkflowRuntimeException>(() => PlanningProgress.AssessAttempt(state, "construction_select", response, "second-known-response"));
+        else
+        {
+            PlanningProgress.AssessAttempt(state, "construction_select", response, "second-known-response");
+            Assert.Contains(state.ThresholdWarnings!, warning => warning.Kind == "repeated_strategy");
+            Assert.Empty(state.Diagnostics); Assert.Null(state.ApprovedHash); Assert.Equal(2, state.StrategyAttempts!.Count);
+        }
+    }
+    [Theory]
     [InlineData(10)]
     [InlineData(25)]
     public async Task CompleteNestedContributionsSurviveSchemaRepairCompilationAndRestart(int count)

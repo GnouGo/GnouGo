@@ -3,7 +3,7 @@ using System.Text.Json.Nodes;
 
 namespace GnOuGo.Flow.Core.Planning;
 
-// Trusted benchmark configuration, never a model-owned or public MCP option.
+// Trusted host capture, never a model-owned or public MCP option.
 internal static class PlanningTokenThresholds
 {
     internal const string OptionName = "token_threshold_policy";
@@ -50,8 +50,8 @@ internal static class PlanningTokenThresholds
 
     internal static void RejectReserved(JsonObject options)
     {
-        if (options.ContainsKey(OptionName) || options.ContainsKey(OptimizationOptionName))
-            throw new PlanningConflictException("Campaign threshold authority cannot be enabled by a production planning host.");
+        if (new[] { OptionName, OptimizationOptionName, "agent_host_policy", "captured_model_metadata", "diagnostic_progress_policy", "allocation_origin", "agent_generation_at_creation" }.Any(options.ContainsKey))
+            throw new PlanningConflictException("Reserved threshold options require explicit trusted host authority.");
     }
 
     internal static void Warn(string stage, string kind, long current, long threshold)

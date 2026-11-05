@@ -126,6 +126,7 @@ internal static partial class PlanningModelCalls
             if (purpose == "replan" && correction?.Enabled != true) state.ReplanAttempts++;
             state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = purpose, Request = request,
                 CorrectionAccounting = correction?.IssuedMode, EvidenceAddresses = evidenceAddresses };
+            PlanningInspection.Record(state, purpose, "active", "Exact request prepared and admitted; waiting for the provider.");
             issued?.Invoke();
             await runtime.CheckpointAsync(state, ct);
 
@@ -139,12 +140,16 @@ internal static partial class PlanningModelCalls
         var call = state.PendingCall;
         if (call.Purpose != purpose) throw new PlanningConflictException("Complete the pending request before changing planning phases.");
         ValidateEvidenceAddresses(call);
+        System.Diagnostics.Activity.Current?.SetTag("gnougo.llm.stage", purpose);
+        System.Diagnostics.Activity.Current?.SetTag("gnougo.planning.block_id", state.Construction?.Compact?.CurrentBlockId);
+        System.Diagnostics.Activity.Current?.SetTag("gnougo.planning.step_id", state.Construction?.Compact?.CurrentStep?.Id);
         var started = System.Diagnostics.Stopwatch.GetTimestamp();
         LLMResponse response;
         try { response = await runtime.CallAsync(call.Request, purpose, ct); }
         catch
         {
             if (activeMeasurement is not null) activeMeasurement.Result = "no_retained_completion";
+            PlanningInspection.Record(state, purpose, ct.IsCancellationRequested ? "cancelled" : "blocked", "No verified completion; inspect the retained HTTP attempts.", call.Id);
             throw;
         }
         finally
@@ -168,6 +173,7 @@ internal static partial class PlanningModelCalls
             activeMeasurement.CumulativeInputTokens = CumulativeTokens(admitted.Select(measurement => measurement.InputTokens));
             activeMeasurement.CumulativeOutputTokens = CumulativeTokens(admitted.Select(measurement => measurement.OutputTokens));
         }
+        PlanningInspection.Record(state, purpose, "received", "Provider response retained; response validation is pending.", call.Id);
         correction?.Received();
         state.PendingCall = null;
         if (response.CompletionStatus == "output_limit") throw new WorkflowRuntimeException("MODEL_OUTPUT_LIMIT",
@@ -212,6 +218,7 @@ internal static partial class PlanningModelCalls
         if (findings.Count != 0)
         {
             if (activeMeasurement is not null) activeMeasurement.Result = "invalid_response";
+            PlanningInspection.Record(state, purpose, "correction", "Response rejected by the exact issued schema.", call.Id);
             PlanningProgress.AssessAttempt(state, purpose == "replan" ? PlanningConstruction.DraftPurpose : purpose,
                 json, call.Id, prefix: "invalid:", issuedSchema: CanonicalEvidenceRequest(call).StructuredOutputSchema,
                 strategyResponse: InvalidResponseStrategy(json, call.EvidenceAddresses), exactIssuedSchema: call.Request.StructuredOutputSchema);
@@ -223,6 +230,7 @@ internal static partial class PlanningModelCalls
             };
         }
         state.RejectedProposalHash = null;
+        PlanningInspection.Record(state, purpose, "succeeded", "Response satisfies the issued schema; semantic validation and business review remain separate.", call.Id);
         var normalized = NormalizeEvidenceResponse(json, call.EvidenceAddresses);
         return normalized;
     }

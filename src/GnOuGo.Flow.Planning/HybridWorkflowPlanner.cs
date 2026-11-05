@@ -165,17 +165,34 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
                 ? state.Diagnostics.Concat(ex.Diagnostics).Distinct().ToList() : ex.Diagnostics;
             Invalidate(state); state.Status = state.EditablePaths is null ? PlanningStatus.Generating : PlanningStatus.Stopped;
             if (ex.Diagnostics.Any(diagnostic => diagnostic.Code == "REPLAN_NO_PROGRESS"))
-                Stop(state);
+            {
+                if (PlanningOptimizationThresholds.RepeatsAdvisory(state))
+                {
+                    PlanningOptimizationThresholds.RejectedRepeat(state, "REPLAN_NO_PROGRESS",
+                        JsonSerializer.SerializeToNode(ex.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic));
+                    state.Diagnostics.RemoveAll(diagnostic => diagnostic.Code == "REPLAN_NO_PROGRESS");
+                    state.Status = PlanningStatus.Generating;
+                }
+                else Stop(state);
+            }
             if (state.Construction is { Candidate: null, LastProposalHash: { } proposalHash } construction &&
                 !construction.FailedCandidates.Contains(proposalHash, StringComparer.Ordinal)) construction.FailedCandidates.Add(proposalHash);
         }
         catch (WorkflowRuntimeException ex)
         {
+            if (PlanningOptimizationThresholds.RepeatsAdvisory(state) && ex.Code is "REPLAN_NO_PROGRESS" or "CLARIFICATION_NO_PROGRESS")
+            {
+                PlanningOptimizationThresholds.RejectedRepeat(state, ex.Code, new JsonObject { ["message"] = ex.Message, ["details"] = ex.Details?.DeepClone() });
+                Invalidate(state); state.Status = PlanningStatus.Generating;
+            }
+            else
+            {
             var location = ex.Code is "MODEL_INPUT_LIMIT" or "MODEL_OUTPUT_LIMIT" or "DISCOVERY_INCOMPLETE" or "DISCOVERY_NOT_ALLOWED"
                 ? ex.Details?["location"]?.GetValue<string>() ?? "/" : "/";
             if (!state.Diagnostics.Any(d => d.Code == ex.Code && d.Location == location))
                 state.Diagnostics.Add(new(ex.Code, location, ex.Message));
             Stop(state);
+            }
         }
         catch (LLMClientException ex)
         {
@@ -199,6 +216,13 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
         if (PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed is { } elapsedTarget)
             _ = PlanningOptimizationThresholds.Exceeded(state, "checkpoint", "session_elapsed_ms", (long)state.ActiveMilliseconds, (long)elapsedTarget.TotalMilliseconds);
         state.Revision++; state.UpdatedAtUtc = _time.GetUtcNow();
+        if (state.Status != session.Status || state.Phase != session.Phase || state.Diagnostics.Count > 0)
+            PlanningInspection.Record(state, state.Status == PlanningStatus.FinalReview ? "ready_for_approval" : state.Phase,
+                state.Status switch { PlanningStatus.Cancelled => "cancelled", PlanningStatus.Stopped or PlanningStatus.Failed => "blocked",
+                    PlanningStatus.Clarification => "waiting", PlanningStatus.FinalReview or PlanningStatus.Approved => "succeeded",
+                    _ => state.Diagnostics.Count > 0 ? "correction" : "succeeded" },
+                state.Diagnostics.Count > 0 ? string.Join(", ", state.Diagnostics.Select(finding => finding.Code).Distinct()) : "Coordinator transition: " + state.Status,
+                state.PendingCall?.Id ?? (command.Kind == "advance" ? state.RequestMeasurements?.LastOrDefault()?.RequestId : null));
         if (PlanningStatus.IsWaiting(state.Status)) state.WaitingSinceUtc = state.UpdatedAtUtc;
         await runtime.CheckpointAsync(state, ct);
         return state;
@@ -212,6 +236,10 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
 
     private static async Task CompileAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
     {
+        PlanningInspection.Record(state, "compilation", "active", "Compile the accepted TaskPlan and validate its executable contracts.");
+        await runtime.CheckpointAsync(state, ct);
+        try
+        {
         var plan = state.Plan!;
         if (PlanningClarifications.InputFindings(state) is { Count: > 0 } inputFindings)
         { state.Diagnostics = inputFindings; state.Graph = null; Stop(state); return; }
@@ -280,6 +308,14 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
         // A valid semantic contract must compile to valid plumbing. Never ask the model to repair compiler output.
         state.Diagnostics = findings.Select(d => d with { Code = "TASK_COMPILER_VALIDATION", Message = d.Code + ": " + d.Message }).ToList();
         Stop(state);
+        }
+        finally
+        {
+            PlanningInspection.Record(state, "compilation", state.Status == PlanningStatus.FinalReview ? "succeeded" :
+                state.Status == PlanningStatus.Clarification ? "waiting" : "blocked",
+                state.Status == PlanningStatus.FinalReview ? "Compilation and executable validation passed; artifact approval is still required." :
+                state.Diagnostics.Count == 0 ? "Compilation needs a further planning decision." : string.Join(", ", state.Diagnostics.Select(d => d.Code).Distinct()));
+        }
     }
 
     private static void SemanticFailure(PlanningSession state, IReadOnlyList<PlanningDiagnostic> findings)

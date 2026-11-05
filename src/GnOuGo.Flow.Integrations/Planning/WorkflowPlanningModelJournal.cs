@@ -12,7 +12,8 @@ namespace GnOuGo.Flow.Integrations.Planning;
 
 /// <summary>Reservations and completed receipts share the session's exclusive host lease.</summary>
 internal sealed class WorkflowPlanningModelJournal(StepExecutionContext context, IKeyVaultRecordStore records,
-    PlanningRequest planning, LLMUsageBudgetScope budget, DateTimeOffset? planningDeadlineUtc = null) : ILLMClient, IModelAdmissionOwner, IPlanningConstructionAdmission
+    PlanningRequest planning, LLMUsageBudgetScope budget, DateTimeOffset? planningDeadlineUtc = null, IPlanningRuntimeModel? capturedModel = null,
+    bool requireCapturedMetadata = false) : ILLMClient, IModelAdmissionOwner, IPlanningConstructionAdmission
 {
     internal const string Requests = "flow-planning-model-requests-v11";
     internal const string Receipts = "flow-planning-model-receipts-v11";
@@ -20,7 +21,7 @@ internal sealed class WorkflowPlanningModelJournal(StepExecutionContext context,
     private readonly ConcurrentDictionary<string, byte> _active = new(StringComparer.Ordinal);
 
     public Task AdmitConstructionAsync(LLMRequest request, int inputTokenCeiling, IReadOnlyList<int> outputTokenCeilings, CancellationToken ct)
-        => budget.EnsureAllowanceAsync(request, context.Engine.ModelUsageCostEstimator, inputTokenCeiling,
+        => budget.EnsureAllowanceAsync(request, capturedModel?.CostEstimator ?? context.Engine.ModelUsageCostEstimator, inputTokenCeiling,
             outputTokenCeilings, "workflow.plan.construction", ct);
 
     public async Task RecoverSavedResponseAsync(LLMRequest request, CancellationToken ct)
@@ -34,7 +35,7 @@ internal sealed class WorkflowPlanningModelJournal(StepExecutionContext context,
     }
 
     private PlanningHttpModelJournal HttpJournal(LLMRequest request) => new(records, budget, planning, request,
-        context.Engine.ModelUsageCostEstimator, Http, WorkflowPlanningRuntimeFactory.Author,
+        capturedModel?.CostEstimator ?? context.Engine.ModelUsageCostEstimator, Http, WorkflowPlanningRuntimeFactory.Author,
         planningDeadlineUtc ?? DateTimeOffset.UtcNow + (PlanningBudgetOptions.Parse(planning.Options)?.MaxElapsed ?? TimeSpan.FromHours(5)));
 
     public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
@@ -68,17 +69,19 @@ internal sealed class WorkflowPlanningModelJournal(StepExecutionContext context,
             }
             if (reserved is not null && reserved.Value != JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest))
                 throw new PlanningConflictException("The retained planning request changed before HTTP recovery.");
+            if (requireCapturedMetadata && planning.Options[CapturedPlanningModel.OptionName] is null)
+                throw new WorkflowRuntimeException("MODEL_METADATA_CAPTURE_UNAVAILABLE", "Historical model metadata was not captured. New dispatch is blocked; exact completed receipts and accounting remain available.");
             if (!journaled || !await HttpJournal(request).HasSuccessfulResponseAsync(ct))
-                await ModelRequestAdmission.ValidateAsync(request, context.Engine.LLMCapabilities ?? context.Engine.LLMClient as ILLMCapabilityResolver,
-                    PlanningConstructionInputPolicy.EffectiveLimit(planning, request), "planning", ct);
+                await ModelRequestAdmission.ValidateAsync(request, capturedModel?.Capabilities ?? context.Engine.LLMCapabilities ?? context.Engine.LLMClient as ILLMCapabilityResolver,
+                    PlanningConstructionInputPolicy.EffectiveLimit(planning, request), "planning", ct, PlanningTokenThresholds.Advisory(planning));
             if (reserved is null)
                 await records.UpsertAsync(Requests, planning.TenantId, key, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), WorkflowPlanningRuntimeFactory.Author, ct);
             Event("reserved");
-            var client = context.Engine.LLMClient ?? throw new InvalidOperationException("No planning model is configured.");
+            var client = capturedModel?.Client ?? context.Engine.LLMClient ?? throw new InvalidOperationException("No planning model is configured.");
             var response = journaled
                 ? await HttpJournal(request)
                     .CallAsync(client, allowInitialize: reserved is null, ct)
-                : await budget.CallAsync(client, context.Engine.ModelUsageCostEstimator, request, "workflow.plan.model", ct);
+                : await budget.CallAsync(client, capturedModel?.CostEstimator ?? context.Engine.ModelUsageCostEstimator, request, "workflow.plan.model", ct);
             using var flush = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             await records.UpsertAsync(Receipts, planning.TenantId, key, JsonSerializer.Serialize(response, PlanningJsonContext.Default.LLMResponse), WorkflowPlanningRuntimeFactory.Author, flush.Token);
             Event("completed");

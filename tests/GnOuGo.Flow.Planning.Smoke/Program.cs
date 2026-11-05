@@ -650,6 +650,23 @@ if (!(await new WorkflowEngine { RunStore = adaptiveStore }.ResumeAsync("smoke",
     throw new InvalidOperationException("Native adaptive receipt recovery repeated inference.");
 Console.WriteLine("adaptive mappings: three source-grounded specializations, shared budget, ordered values and durable replay");
 
+var nativeModelOptions = new GnOuGo.AI.Core.LLMOptions
+{
+    DefaultProvider = "gateway", DefaultModel = "gpt-6-luna",
+    Models = { ["gateway"] = new() { Type = "openai", Url = "https://example.invalid/v1" } }
+};
+var nativeCreation = new PlanningRequest();
+GnOuGo.Flow.Integrations.Planning.CapturedPlanningModel.Capture(nativeCreation, nativeModelOptions);
+nativeCreation = JsonSerializer.Deserialize(JsonSerializer.Serialize(nativeCreation, PlanningJsonContext.Default.PlanningRequest), PlanningJsonContext.Default.PlanningRequest)!;
+var frozenModelOptions = GnOuGo.Flow.Integrations.Planning.CapturedPlanningModel.Restore(nativeModelOptions, nativeCreation);
+nativeModelOptions.Models["gateway"].RequestPolicy.MaxOutputTokensCap = 1;
+var nativeMetadata = new GnOuGo.AI.Core.RoutingLLMClient(frozenModelOptions, []).ResolveDeclaredMetadata("gateway", "gpt-6-luna")!;
+if (nativeMetadata.MaxOutputTokens != 128000 || nativeMetadata.Pricing!.CachedInputPer1MTokens != .01m ||
+    nativeMetadata.Capabilities.ChatToolsReasoningEfforts is not { Count: 1 } || frozenModelOptions.Models["gateway"].RequestPolicy.MaxOutputTokensCap is not null ||
+    GnOuGo.AI.Core.ModelMetadataCatalog.EstimateUsageCost(nativeMetadata.Pricing, 1000, 100, 500) != .000105m)
+    throw new InvalidOperationException("Captured metadata, conditional capabilities or cached pricing changed through Native AOT serialization.");
+Console.WriteLine("captured metadata: exact deployment, conditional capabilities, frozen policy and cached pricing; no inference");
+
 sealed class AdaptiveSmokeModel : ILLMClient, ILLMCapabilityResolver
 {
     internal int Calls;

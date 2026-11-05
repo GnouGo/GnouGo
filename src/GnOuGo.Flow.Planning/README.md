@@ -100,11 +100,16 @@ boundaries, retaining exact source identities and the same byte/cardinality limi
 Indexed globals remain visible; final review retains every original obligation. Optional
 navigation is fitted toward the captured target in selection, discovery and authoring.
 Necessary requests above target continue with measurement warnings. A trusted benchmark
-can capture advisory project token thresholds throughout admission and journals; production
-hosts reject that authority. Warnings never enter candidate diagnostics or artifact approval
+can capture advisory project token thresholds throughout admission and journals. Ordinary
+hosts reject reserved authority; Agent.Server authenticates its local operator capture
+through the protected host policy described in [diagnostic planning](../../docs/diagnostic-planning.md). Warnings never enter candidate diagnostics or artifact approval
 hashes. A separate fresh `optimization_threshold_policy: diagnostic-v1` makes planning
 call, correction, checkpoint, graph-size, elapsed and nonproductive-call targets advisory
-through all layers. Demonstrated repeated strategies remain blocking. Financial/review
+through all layers. Demonstrated repeated strategies remain blocking under historical captures. Fresh
+authenticated host sessions may additionally capture `diagnostic_progress_policy:
+advisory-v1`, warning on completed side-effect-free repeats while preserving rejection
+findings, receipts and repeat history. Invalid results remain rejected; uncertain
+requests remain non-replayable. Financial/review
 reservations, correctness, permission, actual provider limits and explicit execution
 resource budgets remain enforced; historical token-only authority is unchanged.
 

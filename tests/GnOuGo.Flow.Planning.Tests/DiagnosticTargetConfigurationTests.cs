@@ -58,9 +58,9 @@ public sealed class DiagnosticTargetConfigurationTests
     [InlineData("draftCorrections", -1)]
     [InlineData("nonproductive", 0)]
     [InlineData("draftOutput", 0)]
-    [InlineData("draftOutput", 65537)]
+    [InlineData("draftOutput", -1)]
     [InlineData("reviewOutput", 0)]
-    [InlineData("reviewOutput", 65537)]
+    [InlineData("reviewOutput", -1)]
     public Task DiagnosticPolicyPreservesValidTargetsAndExplicitOutputAllocationBounds(string target, int value)
         => RejectBeforeDispatch(Session(target, value, diagnostic: true), target);
 

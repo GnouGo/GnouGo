@@ -56,7 +56,7 @@ flowchart TD
     L --> T
     G --> T
     T -->|diagnostic target crossed| W[Durable warning, normal validation continues]
-    T -->|same strategy on unchanged useful state| X[Stop with repeated-attempt evidence]
+    T -->|repeated completed strategy| X[Strict stop or fresh authorized warning; retain evidence]
 ```
 
 The diagram shows authority boundaries, not a second scheduler. Technical compilation
@@ -582,7 +582,11 @@ Fresh sessions capture `MaxNonProductiveModelCalls = 6`. After six model calls w
 useful evidence, executable progress or reviewed completion, ordinary sessions stop.
 Fresh diagnostic sessions warn with affected obligations, attempted strategies and
 established missing prerequisites, then continue normal accounting and validation.
-A demonstrated exact repeated strategy on unchanged useful state still stops. Strategy identity includes actual
+A demonstrated exact repeated strategy on unchanged useful state stops under strict
+and historical captures. Fresh authenticated Agent.Server sessions additionally
+capture `diagnostic_progress_policy: advisory-v1`: completed side-effect-free repeats
+warn, retaining rejected findings, receipts and history. Invalid results and
+uncertain dispatches never gain acceptance or replay authority. Strategy identity includes actual
 arguments, producers, obligations, consumer prerequisites and available evidence; new
 step names, planning objectives, raw response hashes, checkpoint numbers and empty
 wrappers do not renew a failed strategy. Transform objectives remain executable
@@ -628,7 +632,9 @@ reappear as available work merely because new requirements reuse their identifie
 
 One resolver applies captured phase targets and exact reasoning/output allocations.
 The host-owned `optimization_threshold_policy: "diagnostic-v1"` is available only to
-new authorized diagnostic sessions. Production hosts reject this reserved option.
+new authorized diagnostic sessions. Ordinary hosts and model-authored inputs reject
+this reserved option; Agent.Server requires its encrypted authenticated local host
+capture. See [activation and inspection](diagnostic-planning.md).
 Historical `token_threshold_policy: "advisory"` remains token-only authority.
 
 | Provenance | Fresh diagnostic behavior |
@@ -637,7 +643,7 @@ Historical `token_threshold_policy: "advisory"` remains token-only authority.
 | Planning calls, corrections, session time, six nonproductive calls | Warn; retain accounting and attempted-strategy evidence |
 | Input/output estimates, context, prompt/response and reasoning targets | Warn through preparation, admission, dispatch, recovery and reports |
 | Navigation display windows | Exact lossless continuation; no silent truncation or semantic rediscovery |
-| Repeated strategy on unchanged useful state | Stop with retained attempt evidence |
+| Repeated strategy on unchanged useful state | Fresh authenticated progress policy warns with all rejection/history evidence; strict and historical captures stop |
 | Financial ceiling and mandatory future review reservations | Block dispatch |
 | Contract cardinality, expression arity, references, types, permissions and provenance | Reject invalid behavior |
 | Actual provider capability, per-request timeout/retries, sandbox memory/statements/recursion and explicit execution budgets | Remain enforced |
@@ -654,16 +660,18 @@ ranges; the captured values still define the reported warning thresholds.
 Execution controls remain explicit: foreach declares its total iteration ceiling within
 1–10,000 and concurrency within 1–100; parallel requires at least two branches and the
 same concurrency range. These govern actual runtime work. String expression arity remains
-`concat` 2–16 and `uri_component` exactly one. The current profile configuration accepts
-output allocations 1–65,536; this is the supported host allocation range, not a claim
-about a model's physical maximum. Provider readiness and actual admission remain separate.
+`concat` 2–16 and `uri_component` exactly one. Positive output allocations are resolved against captured model/deployment limits
+before hashing and financial reservation; there is no artificial 65,536 ceiling.
+Provider readiness and actual admission remain separate.
 
 Warnings are durable against the exact session, request, block or checkpoint and stay
 outside candidate diagnostics, repair counts and approval identity. Host advancement
 loops cannot silently substitute another call ceiling. Reasoning tokens remain part
 of reported output, never an extra billed total. Fresh explicit phase profiles preserve
-their actual allocations without silent clamping. After received exhaustion, a separate
-hypothesis may raise only the exhausted phase 16,384 to 32,768 tokens (review 8,192 to
+their actual allocations without silent clamping. Retained benchmark experiments keep
+their original allocation ladder; new authenticated Agent.Server Diagnostic sessions
+request verified model/deployment maxima at creation. In those benchmark experiments,
+after received exhaustion a separate hypothesis may raise only the exhausted phase 16,384 to 32,768 tokens (review 8,192 to
 16,384); 65,536 requires a subsequent hypothesis and verified support. Every run
 recalculates exposure and required review reservations from actual allocations.
 

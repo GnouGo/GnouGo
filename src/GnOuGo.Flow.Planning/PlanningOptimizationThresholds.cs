@@ -7,6 +7,21 @@ namespace GnOuGo.Flow.Planning;
 // changes admission, never the meaning of a contract or an execution limit.
 internal static class PlanningOptimizationThresholds
 {
+    internal static bool RepeatsAdvisory(PlanningSession state) =>
+        PlanningTokenThresholds.OptimizationAdvisory(state.Request) && state.Request.Options["diagnostic_progress_policy"]?.ToString() == "advisory-v1";
+
+    internal static void RejectedRepeat(PlanningSession state, string code, JsonNode? details = null)
+    {
+        var measurement = state.RequestMeasurements?.LastOrDefault();
+        Add(state, new("repeated_strategy", 2, 1, "captured_diagnostic_progress_policy", measurement?.Phase ?? state.Phase)
+        {
+            SessionId = state.Request.SessionId, RequestId = measurement?.RequestId,
+            BlockId = state.Construction?.Compact?.CurrentBlockId, StepId = state.Construction?.Compact?.CurrentStep?.Id,
+            Details = new JsonObject { ["rejection"] = code, ["evidence"] = details?.DeepClone() }
+        });
+        PlanningInspection.Record(state, measurement?.Phase ?? state.Phase, "warning",
+            "Repeated generation/evidence was rejected without accepting invalid or unchanged work. Generation may continue within the authorized financial and transport controls.", measurement?.RequestId);
+    }
     internal static int? Maximum(PlanningSession state, int target) =>
         PlanningTokenThresholds.OptimizationAdvisory(state.Request) ? null : target;
 

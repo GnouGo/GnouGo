@@ -161,6 +161,8 @@ public sealed class PlanningSession
     /// <summary>Durable advisory targets, separate from validation and repair diagnostics.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<PlanningThresholdWarning>? ThresholdWarnings { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<PlanningInspectionEvent>? InspectionEvents { get; set; }
     /// <summary>Canonical attempted strategies and exact request identities; never business review input.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<JsonObject>? StrategyAttempts { get; set; }

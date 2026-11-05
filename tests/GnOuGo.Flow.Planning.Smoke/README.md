@@ -4,7 +4,7 @@ Exercises the active format-11 planning path, source-generated request and recei
 
 The eight-case static TaskPlan corpus is compiled and executed against independent output and effect oracles. Contract discovery and resolution are deterministic fixture operations. Additional checks cover typed HTML extraction, ordered collection, cleanup, nullability, enum and default semantics, exact numeric JSON tokens, restricted transforms, scoped typed repair and adaptive mapping. The native binary also launches itself as a bounded local stdio MCP to verify annotated decimal arguments and results through actual transport.
 
-All model responses are deterministic test responses. This smoke makes no paid provider calls and does not establish live Judge quality or business convergence. Encrypted planning persistence, tenant isolation and receipt recovery are verified separately by the published Agent.Server persistence smoke. Runtime execution journals retain their own format and limits.
+Captured model metadata also round-trips through source-generated JSON in the native binary, retaining endpoint/conditional capabilities, cache pricing and an independently frozen deployment policy. All model responses are deterministic test responses. This smoke makes no paid provider calls and does not establish live Judge quality or business convergence. Encrypted planning persistence, tenant isolation and receipt recovery are verified separately by the published Agent.Server persistence smoke. Runtime execution journals retain their own format and limits.
 
 ```bash
 dotnet publish tests/GnOuGo.Flow.Planning.Smoke -c Release -r osx-arm64 -m:1 -warnaserror
