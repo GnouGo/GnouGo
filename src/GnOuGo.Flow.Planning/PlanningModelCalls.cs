@@ -19,7 +19,7 @@ internal static partial class PlanningModelCalls
     internal static long RemainingCalls(PlanningSession state) => Math.Max(0, CallLimit(state) - CallsUsed(state));
     internal static int RemainingRepairs(PlanningSession state) => Math.Max(0, state.Request.MaxReplanAttempts - state.ReplanAttempts);
     internal static bool HasCallCapacity(PlanningSession state, long required = 1) =>
-        PlanningTokenThresholds.OptimizationAdvisory(state.Request) || RemainingCalls(state) >= required;
+        PlanningApplicationBudget.TrackingOnly(state.Request) || PlanningTokenThresholds.OptimizationAdvisory(state.Request) || RemainingCalls(state) >= required;
     internal static bool HasRepairCapacity(PlanningSession state) =>
         PlanningTokenThresholds.OptimizationAdvisory(state.Request) || RemainingRepairs(state) > 0;
     internal static bool HasDraftRepairCapacity(PlanningSession state, int corrections) =>
@@ -35,7 +35,10 @@ internal static partial class PlanningModelCalls
             PlanningOptimizationThresholds.Record(state, "dispatch", "model_calls", CallsUsed(state) + 1, CallLimit(state));
         if (!HasCallCapacity(state))
             throw new WorkflowRuntimeException(ErrorCodes.LlmBudgetExceeded,
-                $"The session model-call budget was exhausted ({CallsUsed(state)}/{CallLimit(state)} calls). Input/output token settings do not extend this cumulative allowance. Start a new planning session; retained requests and accounting remain unchanged.");
+                $"The session model-call budget was exhausted ({CallsUsed(state)}/{CallLimit(state)} calls). Input/output token settings do not extend this cumulative allowance. Start a new planning session; retained requests and accounting remain unchanged.",
+                details: new JsonObject { ["scope"] = "planning_session", ["origin"] = state.Request.Options[PlanningApplicationBudget.OptionName]?["origin"]?.ToString() ?? "captured_planning_request",
+                    ["limit_kind"] = "calls", ["allowance"] = CallLimit(state), ["required_reservation"] = CallsUsed(state) + 1,
+                    ["dispatch_status"] = "not_started" });
     }
 
     internal static LLMRequest PrepareRequest(PlanningSession state, string purpose, string prompt, JsonObject schema, int? outputLimit = null,

@@ -2,16 +2,19 @@ using System.Collections.ObjectModel;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Models;
+using GnOuGo.Flow.Core.Expressions;
 
 namespace GnOuGo.Flow.Core.Runtime;
 
 /// <summary>One physical request's conservative reservation in its owning budget's currency.</summary>
 public sealed record LLMJournaledAttempt(int InputTokenCeiling, int OutputTokenCeiling,
-    decimal ReservedEstimatedCost, decimal ReservedEstimatedCostUsd, LLMJournaledAttemptUsage? VerifiedUsage = null);
+    decimal ReservedEstimatedCost, decimal ReservedEstimatedCostUsd, LLMJournaledAttemptUsage? VerifiedUsage = null,
+    string? CostUnavailableReason = null);
 
 /// <summary>Verified provider usage replacing only that physical request's reservation.</summary>
 public sealed record LLMJournaledAttemptUsage(long InputTokens, long OutputTokens, long TotalTokens,
-    decimal EstimatedCost, decimal EstimatedCostUsd, string UsageHash);
+    decimal EstimatedCost, decimal EstimatedCostUsd, string UsageHash, string? CostUnavailableReason = null);
 
 public sealed partial class LLMUsageBudgetScope
 {
@@ -52,7 +55,7 @@ public sealed partial class LLMUsageBudgetScope
                 }
                 var cost = await scope.JournaledCostAsync(request, estimator, inputTokenCeiling, outputTokenCeiling, safeStage, ct).ConfigureAwait(false);
                 var allowance = await scope.EnsureLocalAllowanceAsync(request, estimator, inputTokenCeiling, outputs, safeStage, ct).ConfigureAwait(false);
-                prepared.Add((new(inputTokenCeiling, outputTokenCeiling, cost.Amount, cost.Usd), allowance));
+                prepared.Add((new(inputTokenCeiling, outputTokenCeiling, cost.Amount, cost.Usd, CostUnavailableReason: cost.Unavailable), allowance));
             }
             UpdateJournaledScopes(scopes, () =>
             {
@@ -72,11 +75,14 @@ public sealed partial class LLMUsageBudgetScope
                     snapshots.Add(current with
                     {
                         Calls = checked(current.Calls + 1),
+                        UncertainCalls = checked(current.UncertainCalls + 1),
                         InputTokens = checked(current.InputTokens + inputTokenCeiling),
                         OutputTokens = checked(current.OutputTokens + outputTokenCeiling),
                         TotalTokens = checked(current.TotalTokens + (long)inputTokenCeiling + outputTokenCeiling),
                         EstimatedCost = checked(current.EstimatedCost + entry.ReservedEstimatedCost),
                         EstimatedCostUsd = checked(current.EstimatedCostUsd + entry.ReservedEstimatedCostUsd),
+                        CostEstimateAvailable = current.CostEstimateAvailable && entry.CostUnavailableReason is null,
+                        CostUnavailableReason = current.CostUnavailableReason ?? entry.CostUnavailableReason,
                         JournaledAttempts = WithJournaledAttempt(current, id, entry)
                     });
                 }
@@ -129,7 +135,7 @@ public sealed partial class LLMUsageBudgetScope
                     continue;
                 }
                 var cost = await scope.JournaledCostAsync(request, estimator, input, output, safeStage, ct, usage).ConfigureAwait(false);
-                settled.Add(new(input, output, parsed.TotalTokens, cost.Amount, cost.Usd, usageHash));
+                settled.Add(new(input, output, parsed.TotalTokens, cost.Amount, cost.Usd, usageHash, cost.Unavailable));
             }
             UpdateJournaledScopes(scopes, () =>
             {
@@ -151,8 +157,11 @@ public sealed partial class LLMUsageBudgetScope
                         InputTokens = checked(current.InputTokens - entry.InputTokenCeiling + actual.InputTokens),
                         OutputTokens = checked(current.OutputTokens - entry.OutputTokenCeiling + actual.OutputTokens),
                         TotalTokens = checked(current.TotalTokens - entry.InputTokenCeiling - entry.OutputTokenCeiling + actual.TotalTokens),
+                        UncertainCalls = Math.Max(0, current.UncertainCalls - 1),
                         EstimatedCost = checked(current.EstimatedCost - entry.ReservedEstimatedCost + actual.EstimatedCost),
                         EstimatedCostUsd = checked(current.EstimatedCostUsd - entry.ReservedEstimatedCostUsd + actual.EstimatedCostUsd),
+                        CostEstimateAvailable = current.CostEstimateAvailable && actual.CostUnavailableReason is null,
+                        CostUnavailableReason = current.CostUnavailableReason ?? actual.CostUnavailableReason,
                         JournaledAttempts = WithJournaledAttempt(current, id, entry with { VerifiedUsage = actual })
                     });
                 }
@@ -168,17 +177,26 @@ public sealed partial class LLMUsageBudgetScope
         }
     }
 
-    private async Task<(decimal Amount, decimal Usd)> JournaledCostAsync(LLMRequest request,
+    private async Task<(decimal Amount, decimal Usd, string? Unavailable)> JournaledCostAsync(LLMRequest request,
         IModelUsageCostEstimator? estimator, long input, long output, string stage, CancellationToken ct, JsonNode? usage = null)
     {
-        if (_costLimit is null) return (0, 0);
         ModelUsageCostEstimate? source;
         try { source = usage is null ? estimator?.EstimateCostWithCurrency(request.Model, input, output, request.Provider)
             : estimator?.EstimateReportedCostWithCurrency(request.Model, input, output, usage, request.Provider); }
+        catch when (_costLimit is null) { return (0, 0, "pricing_unavailable"); }
         catch { throw CreateUnverifiable(stage, "pricing", Snapshot); }
-        if (source is null) throw CreateUnverifiable(stage, "pricing", Snapshot);
-        var cost = await ConvertToBudgetCurrencyAsync(source, stage, ct).ConfigureAwait(false);
-        return (cost.Amount, ResolveLegacyUsdIncrement(source, cost));
+        if (source is null)
+        {
+            if (_costLimit is null) return (0, 0, "pricing_unavailable");
+            throw CreateUnverifiable(stage, "pricing", Snapshot);
+        }
+        try
+        {
+            var cost = await ConvertToBudgetCurrencyAsync(source, stage, ct).ConfigureAwait(false);
+            return (cost.Amount, ResolveLegacyUsdIncrement(source, cost), null);
+        }
+        catch (WorkflowRuntimeException) when (_costLimit is null)
+        { return (0, ResolveLegacyUsdIncrement(source, null), "exchange_rate_unavailable"); }
     }
 
     private void ValidateJournaledBounds(LLMJournaledAttempt entry, int input, int output, string stage)
@@ -199,7 +217,7 @@ public sealed partial class LLMUsageBudgetScope
             throw CreateExceeded(stage, "reserved_output_tokens", entry.OutputTokenCeiling, usage.OutputTokens, snapshot);
         if (usage.TotalTokens > ceiling && !WarnTokenThreshold(stage, "reserved_tokens", ceiling, usage.TotalTokens))
             throw CreateExceeded(stage, "reserved_tokens", ceiling, usage.TotalTokens, snapshot);
-        if (usage.EstimatedCost > entry.ReservedEstimatedCost || usage.EstimatedCostUsd > entry.ReservedEstimatedCostUsd)
+        if (_costLimit is not null && (usage.EstimatedCost > entry.ReservedEstimatedCost || usage.EstimatedCostUsd > entry.ReservedEstimatedCostUsd))
             throw CreateExceeded(stage, "reserved_cost", entry.ReservedEstimatedCost, usage.EstimatedCost, snapshot);
         if (Limits.MaxTotalTokens is { } tokens && snapshot.TotalTokens > tokens && !WarnTokenThreshold(stage, "total_tokens", tokens, snapshot.TotalTokens))
             throw CreateExceeded(stage, "total_tokens", tokens, snapshot.TotalTokens, snapshot);

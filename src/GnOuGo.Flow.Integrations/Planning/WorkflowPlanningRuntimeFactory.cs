@@ -123,11 +123,30 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
             var receipt = await records.GetAsync(WorkflowPlanningBudgetSink.Collection, tenant, key, Author, ct);
             var usage = receipt is null ? state.Usage : JsonSerializer.Deserialize(receipt.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot)
                 ?? throw new PlanningConflictException("The encrypted planning budget is invalid.");
-            var limits = (PlanningBudgetOptions.Parse(state.Request.Options) ?? new LLMUsageBudgetLimits()) with
-                { MaxElapsed = null, MaxCalls = Math.Min(PlanningBudgetOptions.Parse(state.Request.Options)?.MaxCalls ?? state.Request.MaxModelCalls, state.Request.MaxModelCalls) };
-            var budget = new LLMUsageBudgetScope(PlanningTokenThresholds.Advisory(state.Request), limits, usage, inheritedBudget,
+            var parentBudget = inheritedBudget;
+            if (state.Request.Options[PlanningApplicationBudget.OptionName] is JsonObject { } application &&
+                application["mode"]?.ToString() == "limited" && application["applicationOwnsLimits"]?.GetValue<bool>() == false &&
+                application["planningLimits"] is { } applicationLimits)
+            {
+                var capturedLimits = PlanningBudgetOptions.Parse(new JsonObject { ["llm_budget"] = applicationLimits.DeepClone() })! with { MaxElapsed = null };
+                var applicationUsage = await records.GetAsync(ApplicationBudgetSink.Collection, tenant, key, Author, ct);
+                var retainedUsage = applicationUsage is null ? null : JsonSerializer.Deserialize(applicationUsage.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot)
+                    ?? throw new PlanningConflictException("The encrypted application planning budget is invalid.");
+                parentBudget = new LLMUsageBudgetScope(PlanningTokenThresholds.Advisory(state.Request), capturedLimits, retainedUsage,
+                    inheritedBudget, new ApplicationBudgetSink(records, tenant, key), exchangeRateProvider: context.Engine.ExchangeRateProvider,
+                    advisoryOptimization: PlanningTokenThresholds.OptimizationAdvisory(state.Request)) { PolicyOrigin = "captured_application_planning_limits" };
+            }
+            var explicitLimits = PlanningApplicationBudget.ExplicitWorkflowLimits(state.Request);
+            var configuredLimits = PlanningBudgetOptions.Parse(state.Request.Options);
+            var limits = (configuredLimits ?? new LLMUsageBudgetLimits()) with
+                { MaxElapsed = explicitLimits ? configuredLimits?.MaxElapsed : null,
+                  MaxCalls = explicitLimits ? configuredLimits?.MaxCalls : Math.Min(configuredLimits?.MaxCalls ?? state.Request.MaxModelCalls, state.Request.MaxModelCalls) };
+            var budget = PlanningApplicationBudget.TrackingOnly(state.Request)
+                ? LLMUsageBudgetScope.CreatePlanningTrackingOnly(state.Request, usage, parentBudget, new WorkflowPlanningBudgetSink(records, tenant, key),
+                    exchangeRateProvider: context.Engine.ExchangeRateProvider)
+                : new LLMUsageBudgetScope(!explicitLimits && PlanningTokenThresholds.Advisory(state.Request), limits, usage, parentBudget,
                 new WorkflowPlanningBudgetSink(records, tenant, key), exchangeRateProvider: context.Engine.ExchangeRateProvider,
-                advisoryOptimization: PlanningTokenThresholds.OptimizationAdvisory(state.Request));
+                advisoryOptimization: !explicitLimits && PlanningTokenThresholds.OptimizationAdvisory(state.Request));
             // The journal meters actual dispatches; replaying a receipt consumes no new allowance.
             context.LLMUsageBudget = null;
             var client = new WorkflowPlanningModelJournal(context, records, state.Request, budget,
@@ -170,6 +189,14 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
         if ((await runtime.ValidateCatalogAsync(state.Catalog!, ct)).Any(d => d.Required))
             throw new PlanningConflictException("Capability contracts changed after approval.");
         return state.Yaml!;
+    }
+
+    private sealed class ApplicationBudgetSink(IKeyVaultRecordStore store, string tenant, string session) : ILLMUsageBudgetSink
+    {
+        internal const string Collection = "flow-planning-application-budgets-v1";
+        public async ValueTask PersistAsync(LLMUsageBudgetSnapshot snapshot, CancellationToken ct)
+            => await store.UpsertAsync(Collection, tenant, session,
+                JsonSerializer.Serialize(snapshot, PlanningJsonContext.Default.LLMUsageBudgetSnapshot), Author, ct);
     }
 
     private sealed record OwnedSession(PlanningSession Session, IPlanningRuntime Runtime, FileStream Lease, Action Restore, IPlanningRuntimeModel? Model) : IPlanningRuntimeSession

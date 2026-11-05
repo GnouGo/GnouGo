@@ -44,7 +44,7 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
         using var warnings = PlanningTokenThresholds.Observe((stage, kind, current, threshold) =>
             PlanningOptimizationThresholds.Record(state, stage, kind, current, threshold));
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        if (!PlanningTokenThresholds.OptimizationAdvisory(state.Request) && PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed is { } maximum)
+        if (PlanningApplicationBudget.HardElapsedLimit(state.Request) is { } maximum)
         {
             var remaining = maximum.TotalMilliseconds - state.ActiveMilliseconds;
             if (remaining <= 0) deadline.Cancel(); else deadline.CancelAfter(TimeSpan.FromMilliseconds(remaining));
@@ -158,7 +158,13 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
         catch (ArgumentException) when (command.Kind != "advance") { throw; }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (OperationCanceledException)
-        { state.Diagnostics.Add(new(ErrorCodes.LlmBudgetExceeded, "/", "Active planning time was exhausted.")); Stop(state); }
+        {
+            state.Diagnostics.Add(new(ErrorCodes.LlmBudgetExceeded, "/", "Active planning time was exhausted.")
+            { BudgetFailure = new("planning_session", "captured_planning_request", "elapsed_ms",
+                (decimal?)PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed?.TotalMilliseconds,
+                (decimal)state.ActiveMilliseconds, null, state.PendingCall is null ? "not_started" : "unavailable") });
+            Stop(state);
+        }
         catch (PlanningResponseException ex)
         {
             state.Diagnostics = state.Plan is not null && state.RevisionScope.Count > 0
@@ -190,7 +196,8 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
             var location = ex.Code is "MODEL_INPUT_LIMIT" or "MODEL_OUTPUT_LIMIT" or "DISCOVERY_INCOMPLETE" or "DISCOVERY_NOT_ALLOWED"
                 ? ex.Details?["location"]?.GetValue<string>() ?? "/" : "/";
             if (!state.Diagnostics.Any(d => d.Code == ex.Code && d.Location == location))
-                state.Diagnostics.Add(new(ex.Code, location, ex.Message));
+                state.Diagnostics.Add(new(ex.Code, location, ex.Message) { BudgetFailure =
+                    ex.Code is ErrorCodes.LlmBudgetExceeded or ErrorCodes.LlmBudgetUnverifiable ? PlanningBudgetFailure.FromDetails(ex.Details) : null });
             Stop(state);
             }
         }

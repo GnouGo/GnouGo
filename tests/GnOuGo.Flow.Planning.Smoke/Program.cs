@@ -42,6 +42,16 @@ if (sparseRequest.MaxModelCalls != 64 || sparseRequest.MaxReplanAttempts != 4 ||
     sparseRequest.Options.ContainsKey("business_judge"))
     throw new InvalidOperationException("Current creation defaults failed under Native AOT.");
 Console.WriteLine("planning defaults: one current protocol survives source-generated serialization");
+var tracking = LLMUsageBudgetScope.CreateTrackingOnly();
+await tracking.ReserveJournaledAttemptAsync("aot-uncertain", new() { Model = "private-deployment", MaxTokens = 128000 }, null,
+    16000, 128000, [128000, 128000], "smoke", CancellationToken.None);
+var trackingJson = JsonSerializer.Serialize(tracking.Snapshot, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
+var trackingRestored = LLMUsageBudgetScope.CreateTrackingOnly(JsonSerializer.Deserialize(trackingJson, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
+if (!trackingRestored.IsTrackingOnly || trackingRestored.Snapshot.Calls != 1 || trackingRestored.Snapshot.UncertainCalls != 1 ||
+    trackingRestored.Snapshot.CostEstimateAvailable || trackingRestored.Snapshot.CostUnavailableReason != "pricing_unavailable" ||
+    trackingRestored.Snapshot.JournaledAttempts!["aot-uncertain"].VerifiedUsage is not null)
+    throw new InvalidOperationException("Tracking-only uncertain accounting failed under Native AOT.");
+Console.WriteLine("tracking-only budget: unavailable pricing and uncertain reservations survive source-generated restore");
 await CompactConstructionSmoke.RunAsync();
 
 var committedIntent = new PlanningRequirements { Summary = "Retain contractual obligations", Outcomes =

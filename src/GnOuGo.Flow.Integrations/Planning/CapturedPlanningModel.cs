@@ -22,7 +22,8 @@ public static class CapturedPlanningModel
         var metadata = new RoutingLLMClient(options, []).ResolveDeclaredMetadata(provider, model)
             ?? throw new PlanningConflictException("Exact model/deployment metadata is unavailable. Configure an explicit deployment override; no public model is inferred from its name.");
         if (metadata.MaxInputTokens is not > 0 || metadata.ContextWindowTokens is not > 0 || metadata.MaxOutputTokens is not > 0 ||
-            metadata.Capabilities.SupportsStructuredOutput != true || metadata.Pricing?.InputPer1MTokens is null || metadata.Pricing.OutputPer1MTokens is null)
+            metadata.Capabilities.SupportsStructuredOutput != true || !PlanningApplicationBudget.Unlimited(planning) &&
+            (metadata.Pricing?.InputPer1MTokens is null || metadata.Pricing.OutputPer1MTokens is null))
             throw new PlanningConflictException("Model limits, structured output or pricing cannot be verified before session creation.");
         planning.Options[OptionName] = new JsonObject
         {

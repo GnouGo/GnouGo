@@ -80,6 +80,6 @@ public static class PlanningTransportPolicies
     {
         var maximum = Math.Min(planning.MaxModelCalls, PlanningBudgetOptions.Parse(planning.Options)?.MaxCalls ?? planning.MaxModelCalls);
         return request.RequiredReviewCalls is >= 0 &&
-            (PlanningTokenThresholds.OptimizationAdvisory(planning) || request.RequiredReviewCalls <= maximum);
+            (PlanningApplicationBudget.TrackingOnly(planning) || PlanningTokenThresholds.OptimizationAdvisory(planning) || request.RequiredReviewCalls <= maximum);
     }
 }

@@ -78,6 +78,7 @@ public sealed record LLMUsageBudgetSnapshot
 {
     public DateTimeOffset StartedAtUtc { get; init; }
     public long Calls { get; init; }
+    public long UncertainCalls { get; init; }
     public long InputTokens { get; init; }
     public long OutputTokens { get; init; }
     public long TotalTokens { get; init; }
@@ -85,6 +86,8 @@ public sealed record LLMUsageBudgetSnapshot
     public string EstimatedCostCurrency { get; init; } = "USD";
     public IReadOnlyList<CurrencyExchangeQuote> ExchangeRates { get; init; } = Array.Empty<CurrencyExchangeQuote>();
     public decimal EstimatedCostUsd { get; init; }
+    public bool CostEstimateAvailable { get; init; }
+    public string? CostUnavailableReason { get; init; } = "historical_cost_evidence_unavailable";
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyDictionary<string, LLMJournaledAttempt>? JournaledAttempts { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -123,6 +126,8 @@ public sealed partial class LLMUsageBudgetScope
     private readonly IExchangeRateProvider? _exchangeRateProvider;
     private readonly TimeProvider _timeProvider;
     private readonly MonetaryAmount? _costLimit;
+    public bool IsTrackingOnly { get; }
+    public string PolicyOrigin { get; init; } = "explicit_workflow_limit";
     private readonly bool _advisoryTokens;
     private readonly bool _advisoryOptimization;
     private readonly bool _advisoryOptimizationLimits;
@@ -153,7 +158,21 @@ public sealed partial class LLMUsageBudgetScope
     // inferred from warning records, and explicit execution bounds stay explicit.
     internal LLMUsageBudgetScope RestoreSnapshot(LLMUsageBudgetLimits limits, LLMUsageBudgetSnapshot? snapshot,
         ILLMUsageBudgetSink? sink = null, IExchangeRateProvider? exchangeRateProvider = null)
-        => new(this, limits, snapshot, sink, exchangeRateProvider);
+        => new(this, limits, snapshot, sink, exchangeRateProvider) { PolicyOrigin = PolicyOrigin };
+
+    /// <summary>Records usage and uncertain reservations without application consumption ceilings.
+    /// Explicit finite child scopes retain their own limits.</summary>
+    public static LLMUsageBudgetScope CreateTrackingOnly(LLMUsageBudgetSnapshot? snapshot = null,
+        LLMUsageBudgetScope? parent = null, ILLMUsageBudgetSink? sink = null,
+        TimeProvider? timeProvider = null, IExchangeRateProvider? exchangeRateProvider = null, string currency = "USD",
+        string origin = "application_tracking_only")
+        => new(new LLMUsageBudgetLimits(), snapshot, parent, sink, timeProvider, exchangeRateProvider, true, currency) { PolicyOrigin = origin };
+
+    internal static LLMUsageBudgetScope CreatePlanningTrackingOnly(PlanningRequest request, LLMUsageBudgetSnapshot? snapshot = null,
+        LLMUsageBudgetScope? parent = null, ILLMUsageBudgetSink? sink = null, IExchangeRateProvider? exchangeRateProvider = null)
+        => new(new LLMUsageBudgetLimits(), snapshot, parent, sink, null, exchangeRateProvider, true,
+            PlanningApplicationBudget.Currency(request), PlanningTokenThresholds.Advisory(request), PlanningTokenThresholds.OptimizationAdvisory(request))
+            { PolicyOrigin = request.Options[PlanningApplicationBudget.OptionName]?["origin"]?.ToString() ?? "captured_application_policy" };
 
     public LLMUsageBudgetScope(
         LLMUsageBudgetLimits limits,
@@ -162,14 +181,22 @@ public sealed partial class LLMUsageBudgetScope
         ILLMUsageBudgetSink? sink = null,
         TimeProvider? timeProvider = null,
         IExchangeRateProvider? exchangeRateProvider = null)
+        : this(limits, initialSnapshot, parent, sink, timeProvider, exchangeRateProvider, false, "USD") { }
+
+    private LLMUsageBudgetScope(LLMUsageBudgetLimits limits, LLMUsageBudgetSnapshot? initialSnapshot,
+        LLMUsageBudgetScope? parent, ILLMUsageBudgetSink? sink, TimeProvider? timeProvider,
+        IExchangeRateProvider? exchangeRateProvider, bool trackingOnly, string currency, bool advisoryTokens = false, bool advisoryOptimization = false)
     {
         ArgumentNullException.ThrowIfNull(limits);
-        limits.Validate();
+        if (!trackingOnly) limits.Validate();
+        IsTrackingOnly = trackingOnly;
+        currency = LLMUsageBudgetLimits.NormalizeCurrency(currency, nameof(currency));
 
         Limits = limits;
         _parent = parent;
-        _advisoryTokens = parent?._advisoryTokens ?? false;
-        _advisoryOptimization = parent?._advisoryOptimization ?? false;
+        _advisoryTokens = advisoryTokens || (parent?._advisoryTokens ?? false);
+        _advisoryOptimization = advisoryOptimization || (parent?._advisoryOptimization ?? false);
+        _advisoryOptimizationLimits = advisoryOptimization;
         _sink = sink;
         _exchangeRateProvider = exchangeRateProvider ?? parent?._exchangeRateProvider;
         _timeProvider = timeProvider ?? TimeProvider.System;
@@ -188,9 +215,11 @@ public sealed partial class LLMUsageBudgetScope
             ? new LLMUsageBudgetSnapshot
             {
                 StartedAtUtc = now,
-                EstimatedCostCurrency = _costLimit?.Currency ?? "USD"
+                EstimatedCostCurrency = _costLimit?.Currency ?? currency,
+                CostEstimateAvailable = true,
+                CostUnavailableReason = null
             }
-            : ValidateInitialSnapshot(initialSnapshot, now, _costLimit?.Currency);
+            : ValidateInitialSnapshot(initialSnapshot, now, trackingOnly ? currency : _costLimit?.Currency);
         _warnings = _snapshot.Warnings?.ToList();
     }
 
@@ -206,7 +235,12 @@ public sealed partial class LLMUsageBudgetScope
         {
             lock (_gate)
                 lock (_warningGate)
-                    return _snapshot with { Warnings = _warnings?.ToArray() };
+                {
+                    var unpricedDispatch = _snapshot.UncertainCalls > (_snapshot.JournaledAttempts?.Values.Count(attempt => attempt.VerifiedUsage is null) ?? 0);
+                    return _snapshot with { Warnings = _warnings?.ToArray(),
+                        CostEstimateAvailable = _snapshot.CostEstimateAvailable && !unpricedDispatch,
+                        CostUnavailableReason = _snapshot.CostUnavailableReason ?? (unpricedDispatch ? "usage_unconfirmed" : null) };
+                }
         }
     }
 
@@ -382,7 +416,7 @@ public sealed partial class LLMUsageBudgetScope
             {
                 snapshot = _snapshot;
                 EnsurePreCallLimits(snapshot, stage);
-                _snapshot = snapshot with { Calls = checked(snapshot.Calls + 1) };
+                _snapshot = snapshot with { Calls = checked(snapshot.Calls + 1), UncertainCalls = checked(snapshot.UncertainCalls + 1) };
                 snapshot = _snapshot;
                 incremented = true;
             }
@@ -395,7 +429,7 @@ public sealed partial class LLMUsageBudgetScope
             if (incremented)
             {
                 lock (_gate)
-                    _snapshot = _snapshot with { Calls = Math.Max(0, _snapshot.Calls - 1) };
+                    _snapshot = _snapshot with { Calls = Math.Max(0, _snapshot.Calls - 1), UncertainCalls = Math.Max(0, _snapshot.UncertainCalls - 1) };
             }
             if (ownsCostGate)
                 _unaccountedCostGate!.Release();
@@ -414,7 +448,7 @@ public sealed partial class LLMUsageBudgetScope
             LLMUsageBudgetSnapshot snapshot;
             lock (scope._gate)
             {
-                scope._snapshot = scope._snapshot with { Calls = Math.Max(0, scope._snapshot.Calls - 1) };
+                    scope._snapshot = scope._snapshot with { Calls = Math.Max(0, scope._snapshot.Calls - 1), UncertainCalls = Math.Max(0, scope._snapshot.UncertainCalls - 1) };
                 snapshot = scope._snapshot;
             }
 
@@ -485,27 +519,34 @@ public sealed partial class LLMUsageBudgetScope
 
         ModelUsageCostEstimate? sourceCost = null;
         MonetaryAmount? estimatedCost = null;
-        if (_costLimit is not null)
+        string? unavailable = parsedUsage is null ? "usage_unavailable" : costEstimator is null ? "pricing_unavailable" : null;
+        if (_costLimit is not null || IsTrackingOnly || costEstimator is not null)
         {
             if (parsedUsage?.InputTokens is null || parsedUsage.OutputTokens is null)
-                throw CreateUnverifiable(stage, "usage", Snapshot);
-
-            try
             {
-                sourceCost = costEstimator?.EstimateReportedCostWithCurrency(
-                    request.Model,
-                    parsedUsage.InputTokens.Value,
-                    parsedUsage.OutputTokens.Value,
-                    usage,
-                    request.Provider);
+                if (_costLimit is not null) throw CreateUnverifiable(stage, "usage", Snapshot);
+                unavailable = "usage_unavailable";
             }
-            catch
+            else
             {
-                throw CreateUnverifiable(stage, "pricing", Snapshot);
+                try
+                {
+                    sourceCost = costEstimator?.EstimateReportedCostWithCurrency(
+                        request.Model, parsedUsage.InputTokens.Value, parsedUsage.OutputTokens.Value, usage, request.Provider);
+                }
+                catch when (_costLimit is null) { unavailable = "pricing_unavailable"; }
+                catch { throw CreateUnverifiable(stage, "pricing", Snapshot); }
+                if (sourceCost is null)
+                {
+                    if (_costLimit is not null) throw CreateUnverifiable(stage, "pricing", Snapshot);
+                    unavailable = "pricing_unavailable";
+                }
+                else
+                {
+                    try { estimatedCost = await ConvertToBudgetCurrencyAsync(sourceCost, stage, ct).ConfigureAwait(false); }
+                    catch (WorkflowRuntimeException) when (_costLimit is null) { unavailable = "exchange_rate_unavailable"; }
+                }
             }
-            if (sourceCost is null)
-                throw CreateUnverifiable(stage, "pricing", Snapshot);
-            estimatedCost = await ConvertToBudgetCurrencyAsync(sourceCost, stage, ct).ConfigureAwait(false);
         }
 
         LLMUsageBudgetSnapshot snapshot;
@@ -519,8 +560,11 @@ public sealed partial class LLMUsageBudgetScope
                     InputTokens = checked(current.InputTokens + (parsedUsage?.InputTokens ?? 0)),
                     OutputTokens = checked(current.OutputTokens + (parsedUsage?.OutputTokens ?? 0)),
                     TotalTokens = checked(current.TotalTokens + (parsedUsage?.TotalTokens ?? 0)),
+                    UncertainCalls = parsedUsage is null ? current.UncertainCalls : Math.Max(0, current.UncertainCalls - 1),
                     EstimatedCost = checked(current.EstimatedCost + (estimatedCost?.Amount ?? 0m)),
-                    EstimatedCostUsd = checked(current.EstimatedCostUsd + ResolveLegacyUsdIncrement(sourceCost, estimatedCost))
+                    EstimatedCostUsd = checked(current.EstimatedCostUsd + ResolveLegacyUsdIncrement(sourceCost, estimatedCost)),
+                    CostEstimateAvailable = current.CostEstimateAvailable && unavailable is null,
+                    CostUnavailableReason = current.CostUnavailableReason ?? unavailable
                 };
                 _snapshot = snapshot;
             }
@@ -589,9 +633,6 @@ public sealed partial class LLMUsageBudgetScope
         CancellationToken ct,
         bool pinQuote = true)
     {
-        if (_costLimit is null)
-            throw new InvalidOperationException("A cost estimate was requested without a monetary budget.");
-
         string sourceCurrency;
         try
         {
@@ -604,7 +645,7 @@ public sealed partial class LLMUsageBudgetScope
             throw CreateUnverifiable(stage, "currency", Snapshot);
         }
 
-        var targetCurrency = _costLimit.Currency;
+        var targetCurrency = _costLimit?.Currency ?? Snapshot.EstimatedCostCurrency;
         if (string.Equals(sourceCurrency, targetCurrency, StringComparison.Ordinal))
             return new MonetaryAmount(estimate.Amount, targetCurrency);
 
@@ -812,6 +853,10 @@ public sealed partial class LLMUsageBudgetScope
         var details = new JsonObject
         {
             ["stage"] = stage,
+            ["scope"] = IsTrackingOnly ? "tracking_only" : "finite_llm_budget",
+            ["origin"] = PolicyOrigin,
+            ["allowance"] = limit is null ? null : CreateScalarNode(limit),
+            ["required_reservation"] = current is null ? null : CreateScalarNode(current),
             ["classification"] = classification,
             ["limit_kind"] = limitKind,
             ["retryable"] = false,
@@ -886,7 +931,7 @@ public sealed partial class LLMUsageBudgetScope
         }
 
         if (snapshot.StartedAtUtc == default || snapshot.StartedAtUtc > now
-            || snapshot.Calls < 0 || snapshot.InputTokens < 0 || snapshot.OutputTokens < 0
+            || snapshot.Calls < 0 || snapshot.UncertainCalls < 0 || snapshot.UncertainCalls > snapshot.Calls || snapshot.InputTokens < 0 || snapshot.OutputTokens < 0
             || snapshot.TotalTokens < componentTotal || normalizedEstimatedCost < 0 || normalizedLegacyUsd < 0
             || snapshot.ExchangeRates is null
             || !InitialExchangeRatesAreValid(snapshot.ExchangeRates, now))

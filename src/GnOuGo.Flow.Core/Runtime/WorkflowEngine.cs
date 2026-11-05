@@ -113,7 +113,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
                 if (step.Type == "mapping.dynamic" && step.Source.Input?["adaptive_each"] is { } flag &&
                     !(flag is JsonValue literal && literal.TryGetValue<bool>(out var value) && !value))
                     throw new WorkflowRuntimeException(ErrorCodes.LlmBudgetUnverifiable,
-                        "Adaptive mapping requires an explicit finite cumulative runtime budget before execution.",
+                        "Adaptive mapping requires an explicit finite or tracking-only application usage scope before execution.",
                         details: new JsonObject { ["dispatch_status"] = "not_started" });
                 RequireMappingBudget((step.Steps ?? []).Concat(step.Default ?? []).Concat((step.Branches ?? []).SelectMany(b => b)).Concat((step.Cases ?? []).SelectMany(c => c.Steps)));
             }

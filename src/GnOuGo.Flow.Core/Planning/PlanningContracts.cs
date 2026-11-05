@@ -235,7 +235,19 @@ public sealed record PlanningBinding(string Id, string WorkflowKey, PlanningValu
 public sealed record PlanningDiagnostic(string Code, string Location, string Message, bool Required = true, string? ValidationStage = null, string? Rule = null)
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningBudgetFailure? BudgetFailure { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PlanningPrerequisiteContext? Prerequisite { get; init; }
+}
+public sealed record PlanningBudgetFailure(string? Scope, string? Origin, string? LimitKind, decimal? Allowance,
+    decimal? RequiredReservation, string? Currency, string? DispatchStatus)
+{
+    internal static PlanningBudgetFailure? FromDetails(JsonNode? details) => details is not JsonObject value ? null : new(
+        value["scope"]?.GetValue<string>(), value["origin"]?.GetValue<string>(), value["limit_kind"]?.GetValue<string>(),
+        Number(value["allowance"] ?? value["limit"]), Number(value["required_reservation"] ?? value["current"]),
+        value["estimated_cost_currency"]?.GetValue<string>(), value["dispatch_status"]?.GetValue<string>());
+    private static decimal? Number(JsonNode? node) => node is null ? null : decimal.TryParse(node.ToString(),
+        System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var value) ? value : null;
 }
 /// <summary>Located evidence for a missing prerequisite; never grants execution or approval authority.</summary>
 public sealed record PlanningPrerequisiteContext(string Kind, string Description, string? Output = null,

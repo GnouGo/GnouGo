@@ -1,5 +1,15 @@
 # GnOuGo.Flow — YAML Workflow DSL Engine
 
+Hosts can attach `LLMUsageBudgetScope.CreateTrackingOnly(...)` to record usage,
+tariff estimates and uncertain reservations without application consumption ceilings.
+This explicit scope is distinct from ordinary `LLMUsageBudgetLimits`, which still
+requires positive finite limits. Finite child/workflow limits remain mandatory.
+New durable runs capture the selected policy; historical runs never inherit current
+host defaults. Unavailable pricing/FX is marked explicitly and does not mean zero cost.
+Physical provider capacity, request timeouts, retries, cancellation and execution
+resources remain bounded. Agent.Server/Desktop expose the protected shared setting
+described in [application consumption](../../docs/diagnostic-planning.md#application-llm-consumption).
+
 Execution storage uses `IWorkflowRunStore` (schema 9). Hosts inject the separately publishable `GnOuGo.Flow.Persistence`; Core remains independent of persistence libraries. A run records invocation paths, inputs, control decisions, receipts, usage, pending human answers and finalization. `ResumeAsync(tenantId, runId, expectedRevision, workflow, ct)` follows the same execution path as a new run. An external operation with an unknown outcome requires reconciliation and prevents cleanup. Custom executors default to external effects; declare `StepRecovery.ReplaySafe` only when restarting the executor cannot repeat an external effect.
 
 
@@ -1301,7 +1311,7 @@ Before each selected workflow runs, `workflow.route` emits a `gnougo-flow.step.t
 
 ### Checked mapping and runtime extraction
 
-Typed bindings compile to checked `set` expressions at final lowering. Insufficiently typed observations use the compiler-owned `mapping.dynamic` step with a restricted source-grounded Jint expression, immutable target schema and validated tenant cache. Historical bindings retain at most two model attempts. Fresh adaptive independent bindings specialize only unresolved items under an explicitly configured finite cumulative runtime budget; all items and the complete result still validate before publication. Business plans contain neither scripts nor mapping executors.
+Typed bindings compile to checked `set` expressions at final lowering. Insufficiently typed observations use the compiler-owned `mapping.dynamic` step with a restricted source-grounded Jint expression, immutable target schema and validated tenant cache. Historical bindings retain at most two model attempts. Fresh adaptive independent bindings specialize only unresolved items under an explicit finite or tracking-only application usage scope; all items and the complete result still validate before publication. Business plans contain neither scripts nor mapping executors.
 
 `value.project` and its public C# executor are retired. See [runtime mappings and migration](../../docs/runtime-mappings.md) for checked `set` examples, approval, default ownership, sandbox restrictions and encrypted recovery. Saved artifacts are never rewritten automatically.
 
