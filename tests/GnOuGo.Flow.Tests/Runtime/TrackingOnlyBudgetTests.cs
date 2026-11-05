@@ -12,6 +12,20 @@ public sealed class TrackingOnlyBudgetTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     private static readonly LLMRequest Request = new() { Model = "private-sol-deployment", MaxTokens = 128000 };
+    [Theory]
+    [InlineData("limited")]
+    [InlineData("unlimited")]
+    [InlineData(null)]
+    public void IncompletePersistedPolicyCannotBeReadAsAFreshAllowanceOrLegacyRun(string? mode)
+    {
+        var run = new WorkflowRun { TenantId = "tenant", RunId = "run", Limits = new() { TenantId = "tenant", RunId = "run" },
+            ApplicationLlmBudgetMode = mode, ApplicationLlmBudgetVersion = 1, ApplicationLlmBudgetOrigin = "operator_preference",
+            ModelBudget = mode == "limited" ? new() { MaxCalls = 1 } : null };
+        // Missing accounting must not become a new zero-usage scope on restart.
+        var saved = JsonSerializer.Serialize(run, WorkflowRunJsonContext.Default.WorkflowRun);
+        Assert.Throws<WorkflowRunConflictException>(() => WorkflowRunStorage.Read(saved, "tenant", "run"));
+        Assert.Null(run.ModelUsage);
+    }
     [Fact]
     public async Task HighTariffReviewHeadroomBlocksLimitedButTrackingRetainsIdenticalAllocations()
     {

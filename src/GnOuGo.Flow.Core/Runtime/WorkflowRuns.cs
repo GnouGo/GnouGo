@@ -164,9 +164,11 @@ public static class WorkflowRunStorage
         if (run.SchemaVersion != 9) throw new WorkflowRunConflictException(IncompatibleMessage);
         if (run.TenantId != tenantId || run.RunId != runId || run.Limits.TenantId != tenantId || run.Limits.RunId != runId)
             throw new WorkflowRunConflictException("Execution journal ownership is invalid.");
-        if (run.ApplicationLlmBudgetMode is { } mode && (run.ApplicationLlmBudgetVersion != 1 ||
+        if (run.ApplicationLlmBudgetMode is null && (run.ApplicationLlmBudgetVersion is not null || run.ApplicationLlmBudgetOrigin is not null))
+            throw new WorkflowRunConflictException("The captured application LLM budget policy is incomplete.");
+        if (run.ApplicationLlmBudgetMode is { } mode && (run.ApplicationLlmBudgetVersion != 1 || run.ModelUsage is null ||
             mode is not ("limited" or "unlimited") || string.IsNullOrWhiteSpace(run.ApplicationLlmBudgetOrigin) ||
-            mode == "unlimited" && (run.ModelBudget is not null || run.ModelUsage is null)))
+            mode == "unlimited" && run.ModelBudget is not null || mode == "limited" && run.ModelBudget is null))
             throw new WorkflowRunConflictException("The captured application LLM budget policy is invalid.");
     }
 
