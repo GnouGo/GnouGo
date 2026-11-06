@@ -57,7 +57,13 @@ try {
   assert.equal(stopped.status, 'stopped');
   assert.ok(stopped.diagnostics.some(d => ['LLM_BUDGET_EXCEEDED', 'CONSTRUCTION_REVIEW_ALLOWANCE'].includes(d.code)), JSON.stringify(stopped.diagnostics.map(d => ({ code: d.code, message: d.message }))));
   assert.equal(stopped.calls, before.calls); assert.equal(errors.length, 0, errors.join('\n'));
+  const cancelled = await (await page.request.post(`${url}/api/planning/${otherSession}/commands`, { headers,
+    data: { kind: 'cancel', expectedRevision: other.revision } })).json();
+  assert.equal(cancelled.status, 'cancelled');
+  assert.equal((await page.request.post(`${url}/api/planning/${otherSession}/commands`, { headers,
+    data: { kind: 'recover_discovery', expectedRevision: cancelled.revision,
+      discoveryRecovery: { failureId: other.discoveryFailures[0].id, resolution: 'continue_available' } } })).status(), 409);
   await writeFile(`${output}/result.json`, JSON.stringify({ evidence: 'controlled-provider', session,
     protectedRecovery: true, crossSessionRejected: true, metadataWarning: true, reload: true,
-    sharedInspector: true, modelCallsDuringRecovery: 0, finiteAdmissionPreserved: true, errors }, null, 2));
+    sharedInspector: true, cancellation: true, modelCallsDuringRecovery: 0, finiteAdmissionPreserved: true, errors }, null, 2));
 } finally { await browser.close(); }

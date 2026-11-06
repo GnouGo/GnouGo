@@ -93,7 +93,12 @@
         {
             <section aria-label="Discovery recovery">
                 <p>Accepted work and all accounting remain retained. These actions inspect metadata only; they do not call the model or execute the workflow.</p>
-                @foreach (var failure in _inspectionDto.DiscoveryFailures)
+                @if (_inspectionDto.PendingDiscoveryRecovery is { } retainedRecovery)
+                {
+                    <p>A metadata recovery was interrupted. Continue its retained action and snapshot before resuming planning.</p>
+                    <button disabled="@_busy" @onclick='() => SubmitAsync("recover_discovery", discoveryRecovery: new(retainedRecovery.FailureId, retainedRecovery.Resolution))'>Continue retained metadata recovery</button>
+                }
+                else foreach (var failure in _inspectionDto.DiscoveryFailures)
                 {
                     <p><code>@failure.SourceId</code> · @failure.Category — @failure.Message</p>
                     <button disabled="@_busy" @onclick='() => SubmitAsync("recover_discovery", discoveryRecovery: new(failure.Id, "continue_available"))'>Continue with available sources</button>
@@ -400,7 +405,7 @@
     private static string Phase(string status) => status switch
     {
         PlanningStatus.Created => "Discovering capabilities", PlanningStatus.Generating => "Building and validating workflow",
-        PlanningStatus.DiscoveryRecovery => "Discovery ready to resume", PlanningStatus.Clarification => "Clarify the intended workflow", PlanningStatus.FinalReview => "Ready for your review",
+        PlanningStatus.DiscoveryRecovery => "Discovery recovery", PlanningStatus.Clarification => "Clarify the intended workflow", PlanningStatus.FinalReview => "Ready for your review",
         PlanningStatus.Approved => "Approved", PlanningStatus.Saving => "Saving", PlanningStatus.Saved => "Saved",
         PlanningStatus.Stopped or PlanningStatus.Failed => "Planning stopped", PlanningStatus.Cancelled => "Cancelled", _ => status
     };

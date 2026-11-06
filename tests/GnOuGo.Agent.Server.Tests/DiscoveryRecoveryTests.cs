@@ -12,8 +12,10 @@ public sealed class DiscoveryRecoveryTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    [Fact]
-    public async Task ActualServerAdaptersRestoreEncryptedSnapshotAtFifthPageWithoutRefetchOrInference()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ActualServerAdaptersRestoreEncryptedSnapshotAtFifthPageWithoutRefetchOrInference(bool recovering)
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var source = new ManyTools();
@@ -33,14 +35,34 @@ public sealed class DiscoveryRecoveryTests
         Assert.Equal(4, state.Discovery.Pages.Count); Assert.Equal(1, source.Reads);
         Assert.NotNull(state.Construction!.Compact!.CurrentStep!.PendingDiscovery!.Snapshots);
         Assert.Null(state.Construction.Compact.CurrentStep.PendingDiscovery.InlineSnapshots);
+        PlanningDiscoveryRecovery? recovery = null;
+        if (recovering)
+        {
+            step = state.Construction.Compact.CurrentStep;
+            var failure = new CapabilityDiscoveryFailure("retained-failure", source.Id, focus.Id, focus.Query, null,
+                "transport_unavailable", "Retained source failure", null, null, request.Justification, DateTimeOffset.UtcNow) { StepId = step.Id };
+            state.Discovery.Failures = [failure]; state.Status = PlanningStatus.DiscoveryRecovery;
+            step.PendingDiscovery!.Recovery = recovery = new(failure.Id, "refresh_source");
+            previous = state.Revision++; Assert.True(await fixture.Store.TrySaveAsync(state, previous, Ct));
+            var interrupted = await service.ToDtoAsync(state, Ct);
+            Assert.True(interrupted.CanRecoverDiscovery); Assert.False(interrupted.CanResumeDiscovery);
+            Assert.Equal(recovery.FailureId, interrupted.PendingDiscoveryRecovery!.FailureId);
+        }
         source.Tools[0].Description = "Changed remote schema after the fourth page";
         using var restarted = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog(),
             settings: new() { BackgroundProcessingEnabled = false }, mcpFactory: source);
         state = (await fixture.Store.LoadAsync("planning-tests", state.Request.SessionId, Ct))!;
-        state = await restarted.SubmitAsync(state.Request.SessionId, new() { ExpectedRevision = state.Revision }, Ct);
+        state = await restarted.SubmitAsync(state.Request.SessionId, new() { Kind = recovering ? "recover_discovery" : "advance",
+            ExpectedRevision = state.Revision, DiscoveryRecovery = recovery }, Ct, recovering ? new("operator") : null);
         Assert.Empty(state.Diagnostics); Assert.Equal(6, state.Discovery.Pages.Count); Assert.Equal(1, source.Reads);
         Assert.Equal(0, state.ModelCalls); Assert.Null(state.Construction!.Compact!.CurrentStep!.PendingDiscovery);
         Assert.Single(state.Discovery.Pages.Select(p => p.SnapshotVersion).Distinct());
+        if (recovering)
+        {
+            Assert.Equal(PlanningStatus.DiscoveryRecovery, state.Status);
+            var ready = await restarted.ToDtoAsync(state, Ct);
+            Assert.False(ready.CanRecoverDiscovery); Assert.True(ready.CanResumeDiscovery); Assert.Null(ready.PendingDiscoveryRecovery);
+        }
         Assert.Empty(await fixture.Records.ListAsync(PlanningModelJournal.RequestCollection, "planning-tests", EfPlanningSessionStore.Author, Ct));
     }
 

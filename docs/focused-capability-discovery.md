@@ -40,6 +40,9 @@ Both actions perform metadata recovery only and enter `discovery_recovery`. Relo
 preserves this waiting state. **Resume planning after discovery recovery** is a
 separate action; subsequent inference uses the original captured budgets and settings.
 The user session `1a54de6fa5934c7aa9ddc3cd31da99cb` is not automatically modified.
+If the process stops during metadata recovery, **Continue retained metadata recovery**
+finishes the same action and pinned snapshot. Its failure and resolution remain
+retained until completion; selecting a different resolution cannot replace that action.
 
 The existing command endpoint accepts `kind: recover_discovery` with
 `discoveryRecovery: { failureId, resolution }`, where `resolution` is

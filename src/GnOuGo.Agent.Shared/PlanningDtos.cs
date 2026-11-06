@@ -44,6 +44,8 @@ public sealed record PlanningSessionDto(string Id, string Name, long Revision, s
     public bool CanStartWithCurrentSettings { get; init; }
     public bool CanRecoverDiscovery { get; init; }
     public bool CanResumeDiscovery { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningDiscoveryRecoveryDto? PendingDiscoveryRecovery { get; init; }
     public IReadOnlyList<PlanningDiscoveryFailureDto> DiscoveryFailures { get; init; } = [];
     public JsonObject? OverallProgress { get; init; }
     public IReadOnlyList<PlanningInspectionEventDto> Events { get; init; } = [];

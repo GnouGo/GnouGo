@@ -178,6 +178,8 @@ public sealed class PlanningConstructionDiscoveryContinuation
     /// <summary>Only runtimes without a journal retain snapshots inline in their existing checkpoint.</summary>
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public Dictionary<string, CapabilitySourceSnapshot>? InlineSnapshots { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningDiscoveryRecovery? Recovery { get; set; }
     public string ActionHash { get; set; } = "";
     public List<PlanningDiscoveryRequest> Requests { get; set; } = [];
     public List<PlanningDiscoveryRequest> Pending { get; set; } = [];

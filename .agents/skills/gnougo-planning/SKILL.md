@@ -186,6 +186,9 @@ request/receipt journals. Metadata recovery dispatches no inference and waits in
 accepted work, policies, charges or reservations. Ordinary runtimes gain no recovery
 authority by default. Detailed failure context remains protected/redacted; OTel events
 carry identities and outcomes, not business justifications or request content.
+Persist a recovery selection on its existing metadata continuation before reads.
+After interruption, explicitly finish that exact action/snapshot; keep the original
+failure available until completion and require separate inference resumption.
 
 ## Maintained references
 

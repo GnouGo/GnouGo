@@ -41,39 +41,47 @@ public static class PlanningDiscoveryRecoveryActions
         var failure = Failures(state).SingleOrDefault(f => f.Id == selection.FailureId)
             ?? throw new PlanningConflictException("The discovery failure does not belong to this session.");
         var step = state.Construction!.Compact!.CurrentStep!;
+        var retainedRecovery = step.PendingDiscovery?.Recovery;
+        if (retainedRecovery is not null && retainedRecovery != selection)
+            throw new PlanningConflictException("Finish the exact retained metadata recovery before selecting another resolution.");
         if (!state.Discovery.Sources.Any(s => s.Id == failure.SourceId) ||
-            step.PendingDiscovery is { } pending && !pending.Requests.Any(r => r.SourceId == failure.SourceId))
+            retainedRecovery is null && step.PendingDiscovery is { } pending && !pending.Requests.Any(r => r.SourceId == failure.SourceId))
             throw new PlanningConflictException("This failure does not belong to the retained discovery action.");
         await runtime.VerifyDiscoveryRecoveryAsync(state, ct);
-        step.DiscoveryProtocol = 2;
-        state.Discovery.Failures ??= [];
-        if (state.Discovery.Failures.All(f => f.Id != failure.Id)) state.Discovery.Failures.Add(failure);
-        var old = step.PendingDiscovery;
-        var remaining = old?.Pending.Where(r => r.SourceId != failure.SourceId).Select(r => r with
-            { Cursor = null, Query = null, FocusId = MatchingFocus(state, r.Query), Justification = r.Justification ?? "Explicit recovery of the retained metadata action." }).ToList() ?? [];
-        if (selection.Resolution == "refresh_source")
+        if (retainedRecovery is null)
         {
-            (state.Discovery.SupersededFailures ??= []).Add(failure.Id);
-            remaining.Insert(0, new(failure.SourceId) { FocusId = MatchingFocus(state, failure.Query),
-                Justification = "Operator requested a fresh metadata snapshot after the retained source failure." });
-        }
-        // Original action/pages remain in immutable historical session revisions.
-        step.PendingDiscovery = null;
-        if (remaining.Count > 0)
-        {
-            var requests = remaining.DistinctBy(r => (r.SourceId, r.FocusId)).ToList();
-            step.PendingDiscovery = new()
+            step.DiscoveryProtocol = 2;
+            state.Discovery.Failures ??= [];
+            if (state.Discovery.Failures.All(f => f.Id != failure.Id)) state.Discovery.Failures.Add(failure);
+            var old = step.PendingDiscovery;
+            var remaining = old?.Pending.Where(r => r.SourceId != failure.SourceId).Select(r => r with
+                { Cursor = null, Query = null, FocusId = MatchingFocus(state, r.Query), Justification = r.Justification ?? "Explicit recovery of the retained metadata action." }).ToList() ?? [];
+            if (selection.Resolution == "refresh_source")
             {
-                Id = Guid.NewGuid().ToString("N"), Requests = requests,
-                ActionHash = HybridWorkflowPlanner.DiscoveryActionHash(step, requests),
-                Pending = requests.Select(r => r with { Query = PlanningDiscoveryFocus.Query(state, r.FocusId) }).ToList()
-            };
-            foreach (var request in step.PendingDiscovery.Pending)
-                (state.Discovery.ActiveSourceActions ??= new(StringComparer.Ordinal))[PlanningDiscoveryFocus.SourceKey(request.SourceId, request.Query!, request.FocusId)] = step.PendingDiscovery.Id;
+                remaining.Insert(0, new(failure.SourceId) { FocusId = MatchingFocus(state, failure.Query),
+                    Justification = "Operator requested a fresh metadata snapshot after the retained source failure." });
+            }
+            // Original action/pages remain in immutable historical session revisions.
+            step.PendingDiscovery = null;
+            if (remaining.Count > 0)
+            {
+                var requests = remaining.DistinctBy(r => (r.SourceId, r.FocusId)).ToList();
+                step.PendingDiscovery = new()
+                {
+                    Id = Guid.NewGuid().ToString("N"), Requests = requests, Recovery = selection,
+                    ActionHash = HybridWorkflowPlanner.DiscoveryActionHash(step, requests),
+                    Pending = requests.Select(r => r with { Query = PlanningDiscoveryFocus.Query(state, r.FocusId) }).ToList()
+                };
+                foreach (var request in step.PendingDiscovery.Pending)
+                    (state.Discovery.ActiveSourceActions ??= new(StringComparer.Ordinal))[PlanningDiscoveryFocus.SourceKey(request.SourceId, request.Query!, request.FocusId)] = step.PendingDiscovery.Id;
+            }
+            state.Status = PlanningStatus.DiscoveryRecovery;
+            state.Phase = PlanningCompactConstruction.DiscoveryPurpose;
             await runtime.CheckpointAsync(state, ct);
-            while (step.PendingDiscovery is not null)
-                await HybridWorkflowPlanner.ContinueConstructionDiscoveryAsync(state, runtime, ct);
         }
+        while (step.PendingDiscovery is not null)
+            await HybridWorkflowPlanner.ContinueConstructionDiscoveryAsync(state, runtime, ct);
+        if (selection.Resolution == "refresh_source") (state.Discovery.SupersededFailures ??= []).Add(failure.Id);
         state.Diagnostics.RemoveAll(d => d.Code == "DISCOVERY_INCOMPLETE");
         state.Status = PlanningStatus.DiscoveryRecovery;
         state.Phase = PlanningCompactConstruction.DiscoveryPurpose;

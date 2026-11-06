@@ -126,6 +126,41 @@ public sealed class FocusedDiscoveryTests
         Assert.Contains(id, state.Discovery.SupersededFailures!); Assert.Equal("stale", state.Discovery.Pages[0].Cursor);
     }
 
+    [Fact]
+    public async Task InterruptedRecoveryRetainsItsExactMetadataActionAndSnapshotForExplicitContinuation()
+    {
+        var source = new Source("arbitrary", 48); var (state, runtime) = Ready(source);
+        state.Status = PlanningStatus.Stopped; state.Diagnostics = [new("DISCOVERY_INCOMPLETE", "/", "Historical failure")];
+        state.Discovery.Pages = [new(source.Id, "stale", [], null, "Historical", state.Construction!.Compact!.CurrentStep!.Objective)];
+        var failure = Assert.Single(PlanningDiscoveryRecoveryActions.Failures(state));
+        runtime.DiscoveryRecoveryGuard = (_, _) => Task.CompletedTask;
+        runtime.Checkpointed = saved =>
+        {
+            if (saved.Discovery.Pages.Count == 5)
+                throw new PlanningConflictException("Simulated process interruption after the fourth metadata page.");
+        };
+        await Assert.ThrowsAsync<PlanningConflictException>(() => new HybridWorkflowPlanner().AdvanceAsync(state,
+            new() { Kind = "recover_discovery", ExpectedRevision = state.Revision, DiscoveryRecovery = new(failure.Id, "refresh_source") }, runtime, Ct));
+        var retained = runtime.Checkpoints[^1];
+        Assert.Equal(PlanningStatus.DiscoveryRecovery, retained.Status);
+        Assert.Contains(PlanningDiscoveryRecoveryActions.Failures(retained), item => item.Id == failure.Id);
+        var actionId = retained.Construction!.Compact!.CurrentStep!.PendingDiscovery!.Id;
+        var version = retained.Discovery.Pages[^1].SnapshotVersion;
+        source.Tools[0].Description = "Changed remote metadata after the interrupted recovery";
+        var resumed = new TestRuntime { Capabilities = new CapabilityDiscovery(new() { McpClientFactory = source }),
+            DiscoveryRecoveryGuard = (_, _) => Task.CompletedTask,
+            Respond = (_, _) => throw new InvalidOperationException("Metadata recovery must not infer.") };
+        await Assert.ThrowsAsync<PlanningConflictException>(() => new HybridWorkflowPlanner().AdvanceAsync(retained,
+            new() { Kind = "recover_discovery", ExpectedRevision = retained.Revision, DiscoveryRecovery = new(failure.Id, "continue_available") }, resumed, Ct));
+        state = await new HybridWorkflowPlanner().AdvanceAsync(retained,
+            new() { Kind = "recover_discovery", ExpectedRevision = retained.Revision, DiscoveryRecovery = new(failure.Id, "refresh_source") }, resumed, Ct);
+        Assert.Equal(PlanningStatus.DiscoveryRecovery, state.Status); Assert.Null(state.Construction!.Compact!.CurrentStep!.PendingDiscovery);
+        Assert.Equal(1, source.Reads); Assert.Empty(runtime.Calls); Assert.Empty(resumed.Calls);
+        Assert.Equal(7, state.Discovery.Pages.Count);
+        Assert.All(state.Discovery.Pages.Skip(1), page => { Assert.Equal(version, page.SnapshotVersion); Assert.Equal(actionId, page.ActionId); });
+        Assert.Contains(failure.Id, state.Discovery.SupersededFailures!);
+    }
+
     [Theory]
     [InlineData("unavailable", false)]
     [InlineData("timeout", false)]
