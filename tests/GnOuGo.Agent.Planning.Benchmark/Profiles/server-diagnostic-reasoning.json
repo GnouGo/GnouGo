@@ -1,0 +1,5 @@
+{
+  "navigation": { "targetInputTokens": 3000, "maxInputTokens": 6000, "outputTokens": 16384, "reasoning": "medium" },
+  "draft": { "targetInputTokens": 8000, "maxInputTokens": 16000, "outputTokens": 16384, "reasoning": "medium" },
+  "review": { "targetInputTokens": 4000, "maxInputTokens": 8000, "outputTokens": 8192, "reasoning": "medium" }
+}

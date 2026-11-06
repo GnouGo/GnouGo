@@ -7,6 +7,9 @@ using GnOuGo.Agent.Server.Hosting;
 using GnOuGo.AI.Core;
 using GnOuGo.Planning.Examples;
 using Microsoft.Extensions.Logging;
+using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Parsing;
+using GnOuGo.Flow.Integrations;
 using GnOuGo.Agent.Server.Planning;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Agent.Server.Telemetry;
@@ -27,11 +30,12 @@ internal static class ServerLiveDiagnostics
     {
         var run = SchemaPortabilityCampaign.RequiredOption(args, "--run");
         var planning = args.ElementAtOrDefault(1) == "server-live-plan";
+        var inspectionOnly = args.ElementAtOrDefault(1) == "server-live-inspect";
         if (planning) model.RetainedExternalReservationsEur = decimal.Parse(
             SchemaPortabilityCampaign.RequiredOption(args, "--retained-external-reservations-eur"), System.Globalization.CultureInfo.InvariantCulture);
 
         if (run.Length > 70 || !run.All(c => char.IsAsciiLetterOrDigit(c) || c == '-')) throw new ArgumentException("Invalid fresh run identity.");
-        if (await campaign.LoadAsync("planning-evaluation-runs", run) is not null) throw new PlanningConflictException("This live run already exists; start a fresh independent identity.");
+        if (!inspectionOnly && await campaign.LoadAsync("planning-evaluation-runs", run) is not null) throw new PlanningConflictException("This live run already exists; start a fresh independent identity.");
         var root = Directory.GetCurrentDirectory();
         var stateRoot = Path.Combine(workspace, ".GnOuGo", "data", "live-server", run); Directory.CreateDirectory(stateRoot);
         var hostArgs = new[]
@@ -49,6 +53,18 @@ internal static class ServerLiveDiagnostics
             "--DocsIngestorMcp:VectorDatabasePath=" + Path.Combine(stateRoot, "vectors.sqlite"),
             "--DocsIngestorMcp:OriginalsDirectory=" + Path.Combine(stateRoot, "originals")
         };
+        var phaseFile = SchemaPortabilityCampaign.Option(args, "--server-phase-policy");
+        if (phaseFile is not null)
+        {
+            var phases = JsonSerializer.Deserialize(await File.ReadAllTextAsync(phaseFile), PlanningJsonContext.Default.PlanningConstructionPhasePolicy)
+                ?? throw new ArgumentException("Missing phase policy.");
+            PlanningConstructionPhasePolicies.Validate(phases);
+            hostArgs = hostArgs.Concat(new[] { ("Navigation", phases.Navigation), ("Draft", phases.Draft), ("Review", phases.Review) }.SelectMany(pair => new[] {
+                $"--TypedWorkflowPlanning:PhasePolicy:{pair.Item1}:TargetInputTokens={pair.Item2.TargetInputTokens}",
+                $"--TypedWorkflowPlanning:PhasePolicy:{pair.Item1}:MaxInputTokens={pair.Item2.MaxInputTokens}",
+                $"--TypedWorkflowPlanning:PhasePolicy:{pair.Item1}:OutputTokens={pair.Item2.OutputTokens}",
+                $"--TypedWorkflowPlanning:PhasePolicy:{pair.Item1}:Reasoning={pair.Item2.Reasoning}" })).ToArray();
+        }
         await using var app = GnOuGoAgentWebHost.Build(hostArgs, "http://127.0.0.1:0", Path.Combine(root, "src/GnOuGo.Agent.Server"), false,
             services => {
                 if (!planning) return;
@@ -67,9 +83,10 @@ internal static class ServerLiveDiagnostics
             ["campaign"] = campaign.Id, ["campaign_configuration"] = campaign.ConfigurationId,
             ["provider"] = options.DefaultProvider, ["model"] = options.DefaultModel, ["host"] = "GnOuGo.Agent.Server",
             ["budget_mode"] = "limited", ["retained_external_reservations_eur"] = model.RetainedExternalReservationsEur, ["started_utc"] = DateTimeOffset.UtcNow, ["phase"] = planning ? "server_planning" : "provider_probe" };
-        await campaign.SaveAsync("planning-evaluation-runs", run, report);
+        if (phaseFile is not null) report["phase_policy_sha256"] = PlanningGraphCompiler.Fingerprint(await File.ReadAllTextAsync(phaseFile));
+        if (!inspectionOnly) await campaign.SaveAsync("planning-evaluation-runs", run, report);
         var invoked = 0;
-        app.MapPost("/api/planning/live-provider-probe", async (HttpContext context, LocalOperatorAccess access, IAntiforgery antiforgery, LlmTraceCapture capture) =>
+        if (!inspectionOnly) app.MapPost("/api/planning/live-provider-probe", async (HttpContext context, LocalOperatorAccess access, IAntiforgery antiforgery, LlmTraceCapture capture) =>
         {
             if (!await access.CanInspectAsync()) return Results.Forbid();
             await antiforgery.ValidateRequestAsync(context);
@@ -116,8 +133,17 @@ internal static class ServerLiveDiagnostics
             using var auth = await client.PostAsync("/local-operator/session", new StringContent(launch.Fragment[1..])); auth.EnsureSuccessStatusCode();
             var csrf = await client.GetFromJsonAsync<JsonObject>("/api/planning/antiforgery");
             client.DefaultRequestHeaders.Add(csrf!["headerName"]!.ToString(), csrf["requestToken"]!.ToString());
-            using var limited = await client.PostAsJsonAsync("/api/application-llm-budget", new JsonObject { ["mode"] = "limited" }); limited.EnsureSuccessStatusCode();
-            if (planning)
+            if (!inspectionOnly)
+            {
+                using var limited = await client.PostAsJsonAsync("/api/application-llm-budget", new JsonObject { ["mode"] = "limited" }); limited.EnsureSuccessStatusCode();
+            }
+            if (inspectionOnly)
+            {
+                var saved = await campaign.LoadAsync("planning-evaluation-runs", run) ?? throw new PlanningConflictException("No retained live run.");
+                await ExportInspectionAsync(client, saved["session_id"]!.ToString(), root, run);
+                Console.WriteLine(new JsonObject { ["run"] = run, ["inspection_only"] = true, ["provider_dispatches"] = 0 }.ToJsonString());
+            }
+            else if (planning)
             {
                 var scenario = SchemaPortabilityCampaign.Option(args, "--case") ?? "local";
                 var prompt = scenario switch { "local" => PlanningBenchmarkCases.Prompt("local"),
@@ -150,6 +176,7 @@ internal static class ServerLiveDiagnostics
                     if (PlanningStatus.IsWaiting(state.Status) || PlanningStatus.IsTerminal(state.Status))
                     {
                         report["passed"] = state.Status == PlanningStatus.FinalReview; report["finished_utc"] = DateTimeOffset.UtcNow;
+                        await ExportInspectionAsync(client, id, root, run);
                         await campaign.SaveAsync("planning-evaluation-runs", run, report);
                         if (report["passed"]!.GetValue<bool>() != true) Environment.ExitCode = 1;
                         if (observer is not null)
@@ -159,6 +186,8 @@ internal static class ServerLiveDiagnostics
                             report["browser_observation_exit_code"] = observer.ExitCode;
                             await campaign.SaveAsync("planning-evaluation-runs", run, report);
                         }
+                        if (state.Status == PlanningStatus.FinalReview && args.Contains("--await-delegated-review", StringComparer.Ordinal))
+                            await ExecuteReviewedLocalAsync(app, campaign, state, report, root, workspace);
                         break;
                     }
                     await Task.Delay(2000);
@@ -173,6 +202,61 @@ internal static class ServerLiveDiagnostics
         }
         finally { await app.StopAsync(); }
     }
+    private static async Task ExportInspectionAsync(HttpClient client, string id, string root, string run)
+    {
+        var output = Path.Combine(root, "artifacts/live-server-20261106", run); Directory.CreateDirectory(output);
+        var summary = await client.GetFromJsonAsync<JsonObject>("/api/planning/" + id + "/inspection") ?? throw new InvalidOperationException("No inspection metadata.");
+        await File.WriteAllTextAsync(Path.Combine(output, "protected-inspection.json"), summary.ToJsonString());
+        foreach (var call in (summary["calls"] as JsonArray ?? []).OfType<JsonObject>())
+        {
+            var key = call["key"]!.ToString();
+            using var response = await client.GetAsync("/api/planning/" + id + "/calls/export?key=" + Uri.EscapeDataString(key), HttpCompletionOption.ResponseHeadersRead);
+            response.EnsureSuccessStatusCode();
+            await using var destination = File.Create(Path.Combine(output, "exchange-" + PlanningGraphCompiler.Fingerprint(key) + ".json"));
+            await response.Content.CopyToAsync(destination);
+        }
+    }
+
+    private static async Task ExecuteReviewedLocalAsync(WebApplication app, BenchmarkCampaign campaign, PlanningSession state,
+        JsonObject report, string root, string workspace)
+    {
+        if (report["scenario"]?.ToString() != "local") throw new PlanningConflictException("This native execution oracle authorizes only the local case.");
+        var output = Path.Combine(root, "artifacts/live-server-20261106", report["run"]!.ToString());
+        Console.WriteLine(new JsonObject { ["awaiting_delegated_review"] = true, ["session_id"] = state.Request.SessionId,
+            ["revision"] = state.Revision, ["artifact_hash"] = state.ComputeArtifactHash() }.ToJsonString());
+        // Review files acknowledge the already generated immutable artifact. They cannot edit it.
+        while (!File.Exists(Path.Combine(output, "authorization.json")) || !File.Exists(Path.Combine(output, "review.json"))) await Task.Delay(1000);
+        var authorization = JsonSerializer.Deserialize(await File.ReadAllTextAsync(Path.Combine(output, "authorization.json")), DelegatedTestJsonContext.Default.DelegatedTestAuthorization)!;
+        var document = JsonSerializer.Deserialize(await File.ReadAllTextAsync(Path.Combine(output, "review.json")), DelegatedTestJsonContext.Default.DelegatedTestReviewDocument)!;
+        var authority = new DelegatedTestReviewAuthority(authorization, document, campaign.Id, state.Request.SessionId, "synthetic", workspace, report["source"]!.ToString());
+        authority.Validate(state); await authority.PinAsync(campaign, CancellationToken.None);
+        var previousRevision = state.Revision;
+        var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { PlanningPolicy = state.Request.Policy }, async (s, ct) => {
+            if (s.Revision <= previousRevision) s.Revision = previousRevision + 1;
+            if (!await app.Services.GetRequiredService<IPlanningSessionStore>().TrySaveAsync(s, previousRevision, ct)) throw new PlanningConflictException("The reviewed Server artifact changed.");
+            previousRevision = s.Revision;
+        });
+        state = await new HybridWorkflowPlanner().AdvanceAsync(state, authority.Command(), new DelegatedTestReviewAuthority.Runtime(runtime, authority), CancellationToken.None);
+        PlanningArtifactApproval.Verify(state, authority.Receipt);
+        if (state.Status != PlanningStatus.Approved) throw new PlanningConflictException("Artifact-bound delegated approval failed.");
+        report["session"] = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession);
+        report["execution_started"] = DateTimeOffset.UtcNow; report["execution_artifact_hash"] = state.ComputeArtifactHash();
+        report["review_origin"] = "delegated_test_reviewed";
+        await campaign.SaveAsync("planning-evaluation-runs", report["run"]!.ToString(), report);
+        var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var engine = new WorkflowEngine { HumanInputProvider = new DelegatedTestReviewAuthority.Input(campaign, state.Request.SessionId, authority) };
+        var result = await engine.ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], new JsonObject(), cancellation.Token);
+        var correct = result.Success && result.Outputs is JsonObject outputs && outputs.Count == 1 &&
+            outputs["result"] is JsonValue value && value.TryGetValue<decimal>(out var actual) && actual == 42m;
+        report["execution"] = new JsonObject { ["success"] = result.Success, ["outputs"] = result.Outputs?.DeepClone() };
+        report["oracle"] = new JsonObject { ["version"] = "native-result42-v1", ["independent"] = true, ["passed"] = correct };
+        report["result"]!["execution_correct"] = correct; report["result"]!["execution_status"] = result.Success ? "completed" : "failed";
+        await campaign.SaveAsync("planning-evaluation-runs", report["run"]!.ToString(), report);
+        Console.WriteLine(new JsonObject { ["session_id"] = state.Request.SessionId, ["execution_success"] = result.Success, ["oracle_passed"] = correct }.ToJsonString());
+        if (!correct) Environment.ExitCode = 1;
+    }
+
     private static Process? StartObserver(WebApplication app, string root, string url, string id, string run)
     {
         var module = Path.Combine(root, "src/GnOuGo.Browser.Mcp/bin/Release/net10.0/.playwright/package/index.mjs");

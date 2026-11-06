@@ -399,6 +399,25 @@ old reservation. Report it separately from campaign charges to avoid double coun
 Server elapsed targets come from its captured session budget, without adding a
 benchmark-only option to the original Server request or inheriting current defaults.
 
+After a received reasoning-only output exhaustion, an explicitly selected
+`--server-phase-policy Profiles/server-diagnostic-reasoning.json` starts fresh
+captures with 16,384 navigation/draft and 8,192 review output tokens. It changes no
+application default or historical allocation and is never selected automatically.
+Its content hash is retained before session creation. `server-live-inspect --run <id>`
+reopens the actual host with background processing disabled and exports the existing
+protected inspection reader's redacted evidence; it maps no inference endpoint.
+
+For the real-provider native `local` case, `--await-delegated-review` waits after
+global review for `authorization.json` and `review.json` in that run's private artifact
+directory. Use the existing delegated review schema: exact source, session, revision,
+artifact, original requirement hashes and task hashes. The harness validates and
+retains this authority through `DelegatedTestReviewAuthority`, approves through the
+ordinary planner transition and executes the unchanged compiled YAML with no MCP or
+LLM client. An independent numeric-output oracle requires exactly `result: 42`;
+execution has a separate 30-second cancellation bound. Review is labelled
+`delegated_test_reviewed`, never human review. No raw response or plan edit can grant
+this authority, and an execution-start marker is durable before running.
+
 Use `--schema-portability inspect-configuration` to obtain the previous pin hash
 and `inspect-deployment --model <exact-snapshot>` for redacted readiness. Then
 preview `register-configuration --model <exact-snapshot>
