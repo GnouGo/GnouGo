@@ -221,3 +221,10 @@ previously rejected request to apply a schema fix.
 - [Compact compilation](../../../docs/compact-workflow-bindings.md)
 - [Runtime mappings](../../../docs/runtime-mappings.md)
 - [Benchmark operation](../../../tests/GnOuGo.Agent.Planning.Benchmark/README.md)
+
+A financially refused first attempt with a complete empty HTTP journal may use the
+existing unstarted-planning permanent-retention path. Bind the retained typed
+refusal to its exact request, unchanged ceiling, review/external reserves and
+captured transport; no missing receipt alone proves non-dispatch. Retain every
+reservation and forbid the old run's replay/continuation. This metadata action
+only isolates the incident; independent work still requires full admission.

@@ -545,3 +545,12 @@ remain unknown; no absent receipt alone proves whether dispatch began.
 Complete campaign funding/replay admission still gates live work. Qualification of
 Amazon means generation through mandatory final review, without approval/execution.
 A successful browser startup or preflight is not real-provider qualification.
+
+An old zero-attempt financial refusal can use the existing
+`unstarted-planning-request` permanent-retention resolution. Eligibility binds the
+exact request, terminal run, captured transport, empty attempt journal, refusal
+scope/currency/ceiling, denied first attempt and captured review/external reserves.
+Conflicting attempts, outcomes, ownership or refusal fields reject retention. The
+operator preview/apply writes only the immutable closure; old evidence, application
+reservations and campaign exposure remain unchanged. The old run cannot resume or
+replay. A fresh independent run must still pass complete financial admission.

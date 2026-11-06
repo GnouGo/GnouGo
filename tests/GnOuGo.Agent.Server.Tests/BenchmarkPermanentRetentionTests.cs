@@ -27,6 +27,8 @@ public sealed partial class BenchmarkPermanentRetentionTests
     private const string ErrorBody = """{"errorCode":"upstream_failure","errorMessage":"Provider unavailable.","errorDetail":"No completion receipt."}""";
 
     [Theory]
+    [InlineData(false, null, "Financial")]
+    [InlineData(true, null, "Financial")]
     [InlineData(false, null, "CallHeadroom")]
     [InlineData(true, null, "CallHeadroom")]
     [InlineData(false, null, "Unknown")]
@@ -42,8 +44,8 @@ public sealed partial class BenchmarkPermanentRetentionTests
     public async Task UnstartedPlanningRetentionPreservesZeroAttemptEvidenceAndSurvivesInterruptedPublication(bool afterCommit, int? status, string failureKind)
     {
         var records = new Records(); var campaign = failureKind == "CallHeadroom"
-            ? await SeedCallHeadroomUnstartedAsync(records) : await SeedUnstartedPlanningAsync(records);
-        if (failureKind is not ("Unknown" or "CallHeadroom"))
+            ? await SeedCallHeadroomUnstartedAsync(records) : failureKind == "Financial" ? await SeedFinancialUnstartedAsync(records) : await SeedUnstartedPlanningAsync(records);
+        if (failureKind is not ("Unknown" or "CallHeadroom" or "Financial"))
         {
             var failure = (await campaign.LoadAsync("planning-evaluation-failures", RequestId, Ct))!;
             failure["status_code"] = status;
@@ -153,6 +155,47 @@ public sealed partial class BenchmarkPermanentRetentionTests
         var before = records.Snapshot();
         await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.InspectPermanentRetentionAsync(
             SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, Ct, BenchmarkCampaign.UnstartedPlanningRetention));
+        Assert.Equal(before, records.Snapshot());
+    }
+
+    private static async Task<BenchmarkCampaign> SeedFinancialUnstartedAsync(Records records)
+    {
+        var campaign = await SeedUnstartedPlanningAsync(records);
+        var run = (await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, Ct))!;
+        run["session"]!["diagnostics"] = JsonSerializer.SerializeToNode(new List<PlanningDiagnostic> { new("LLM_BUDGET_EXCEEDED", "/", "Captured financial refusal") }, PlanningJsonContext.Default.ListPlanningDiagnostic);
+        await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, run, Ct);
+        var journal = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct))!;
+        journal["effective_transport_policy"]!["retained_external_reservations_eur"] = 100m;
+        journal["effective_transport_policy_hash"] = PlanningGraphCompiler.Fingerprint(journal["effective_transport_policy"]!.ToJsonString());
+        await campaign.SaveAsync(BenchmarkHttpJournal.Collection, RequestId, journal, Ct);
+        await campaign.SaveAsync("planning-evaluation-failures", RequestId, new() { ["stage"] = "dispatch", ["exception_type"] = "InvalidOperationException",
+            ["budget_refusal"] = new JsonObject { ["request_id"] = RequestId, ["scope"] = "campaign_llm_budget", ["origin"] = "captured_campaign_ceiling",
+                ["limit_kind"] = "estimated_cost", ["allowance"] = 50m, ["required_reservation"] = 101m, ["estimated_cost_currency"] = "EUR",
+                ["dispatch_status"] = "not_started", ["attempt_dispatch_status"] = "not_started", ["denied_attempt_number"] = 1,
+                ["mandatory_review_reserve_eur"] = journal["construction_review_cost_headroom_eur"]?.DeepClone() ?? JsonValue.Create(0m),
+                ["retained_external_reservations_eur"] = 100m } }, Ct);
+        return campaign;
+    }
+
+    [Theory]
+    [InlineData("request_id")]
+    [InlineData("allowance")]
+    [InlineData("required_reservation")]
+    [InlineData("dispatch_status")]
+    [InlineData("attempt_dispatch_status")]
+    [InlineData("retained_external_reservations_eur")]
+    [InlineData("mandatory_review_reserve_eur")]
+    public async Task FinancialZeroAttemptRetentionRejectsSubstitutedRefusalEvidence(string field)
+    {
+        var records = new Records(); var campaign = await SeedFinancialUnstartedAsync(records);
+        var failure = (await campaign.LoadAsync("planning-evaluation-failures", RequestId, Ct))!;
+        var refusal = failure["budget_refusal"]!;
+        refusal[field] = field is "request_id" or "dispatch_status" or "attempt_dispatch_status" ? JsonValue.Create("other") :
+            field is "mandatory_review_reserve_eur" or "retained_external_reservations_eur" ? JsonValue.Create(refusal[field]!.GetValue<decimal>() + 1m) : JsonValue.Create(0m);
+        await campaign.SaveAsync("planning-evaluation-failures", RequestId, failure, Ct);
+        var before = records.Snapshot();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.InspectPermanentRetentionAsync(SchemaPortabilityCampaign.Collection,
+            "run:" + Session, RequestId, Ct, BenchmarkCampaign.UnstartedPlanningRetention));
         Assert.Equal(before, records.Snapshot());
     }
 

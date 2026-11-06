@@ -120,7 +120,8 @@ internal sealed partial class BenchmarkCampaign
             pending.Request.ClientRequestId != requestId || !requestId.StartsWith(state.Request.SessionId + ":", StringComparison.Ordinal) ||
             pending.Request.Tools is { Count: > 0 } || pending.Request.MaxTokens is not > 0 ||
             !interrupted && !cancelled && !state.Diagnostics.Any(d => d.Code == "MODEL_DISPATCH_UNVERIFIABLE" ||
-                retentionKind == ExhaustedPlanningRetriesRetention && d.Code is ("MODEL_REQUEST_REJECTED" or ErrorCodes.LlmBudgetExceeded)) ||
+                retentionKind == ExhaustedPlanningRetriesRetention && d.Code is ("MODEL_REQUEST_REJECTED" or ErrorCodes.LlmBudgetExceeded) ||
+                unstarted && d.Code == ErrorCodes.LlmBudgetExceeded) ||
             state.Yaml is not null || state.ApprovedHash is not null || state.ApprovalReview is not null || state.SavedAgentId is not null ||
             run["artifact_hash"] is not null || run["execution_id"] is not null || run["execution_run_id"] is not null ||
             run["execution_started"] is not null || run["execution"] is not null ||
@@ -153,9 +154,10 @@ internal sealed partial class BenchmarkCampaign
         if (journal?["usage"] is not null || await LoadAsync("planning-evaluation-receipts", requestId, ct) is not null)
             throw new InvalidOperationException("A response or usage receipt cannot be retained as unexecuted uncertainty.");
         var accounting = await BenchmarkHttpJournal.AccountingAsync(this, requestId, ct: ct);
+        var campaignCeiling = await CostCeilingAsync(ct);
         _ = PlanningTokenThresholds.Advisory(state.Request);
         var unfundedRetry = retentionKind == ExhaustedPlanningRetriesRetention
-            ? UnfundedRetryEvidence(journal, failure, accounting, await CostCeilingAsync(ct)) : null;
+            ? UnfundedRetryEvidence(journal, failure, accounting, campaignCeiling) : null;
         if (request is null || !JsonNode.DeepEquals(request, JsonSerializer.SerializeToNode(pending.Request, PlanningJsonContext.Default.LLMRequest)) ||
             policy?["construction_review_headroom"]?.GetValue<int>() is not > 0 || retry is null ||
             policy["max_physical_attempts"]?.GetValue<int>() != Math.Min(state.Request.MaxModelCalls, PlanningBudgetOptions.Parse(state.Request.Options)?.MaxCalls ?? state.Request.MaxModelCalls) ||
@@ -174,7 +176,7 @@ internal sealed partial class BenchmarkCampaign
             (interrupted
                 ? failure is not null || !MatchesInterruptedPlanning(state, policy, journal, attempts)
                 : !(cancelled ? MatchesCancelledPlanning(state, policy, journal, attempts, failure) :
-                    MatchesCapturedPlanningFailure(state, policy, journal, attempts, failure, accounting, unstarted, unfundedRetry is not null))) ||
+                    MatchesCapturedPlanningFailure(state, policy, journal, attempts, failure, accounting, unstarted, unfundedRetry is not null, campaignCeiling))) ||
             journal["input_ceiling"]?.GetValue<long>() is not { } inputCeiling ||
             inputCeiling < (JsonSerializer.SerializeToUtf8Bytes(pending.Request, PlanningJsonContext.Default.LLMRequest).LongLength + 2) / 3 + 256 ||
             journal["output_ceiling"]?.GetValue<long>() is not { } outputCeiling || outputCeiling < pending.Request.MaxTokens ||
@@ -442,7 +444,7 @@ internal sealed partial class BenchmarkCampaign
             MatchesInterruptedPlanning(state, policy, journal, attempts);
 
     private static bool MatchesCapturedPlanningFailure(PlanningSession state, JsonObject policy, JsonObject journal, JsonArray attempts, JsonObject? failure, JsonObject accounting,
-        bool unstarted = false, bool unfundedRetry = false)
+        bool unstarted = false, bool unfundedRetry = false, decimal? campaignCeiling = null)
     {
         var captured = PlanningTransportPolicies.Read(state.Request);
         var effective = journal["effective_transport_policy"] as JsonObject;
@@ -489,7 +491,7 @@ internal sealed partial class BenchmarkCampaign
                 checked(accounting["session_calls"]!.GetValue<long>() + 1 + reviews) > limit;
             return attempts.Count == 0 && journal["transport"]?["Fingerprint"]?.ToString() == "" &&
                 journal["transport"]?["DelayMilliseconds"]?.GetValue<double>() == 0 &&
-                (callHeadroomExhausted || failure["exception_type"]?.ToString() == "LLMClientException" && (noHttpFailure || upstreamFailure) &&
+                (MatchesUnstartedFinancialRefusal(state, journal, failure, campaignCeiling) || callHeadroomExhausted || failure["exception_type"]?.ToString() == "LLMClientException" && (noHttpFailure || upstreamFailure) &&
                  failure["safe_provider_code"] is null && failure["retry_exhausted"]?.GetValue<bool>() == false &&
                  failure["attempt_count"]?.GetValue<int>() == 1 && failure["retry_after_ms"] is null);
         }
@@ -511,6 +513,22 @@ internal sealed partial class BenchmarkCampaign
         return unfundedRetry || failure["retry_exhausted"]?.GetValue<bool>() == true && failure["retryable"]?.GetValue<bool>() == true &&
             failure["status_code"]?.GetValue<int>() == attempts[^1]!["Status"]!.GetValue<int>() &&
             failure["kind"]?.ToString() is "RateLimited" or "ServiceUnavailable" or "Timeout";
+    }
+
+    private static bool MatchesUnstartedFinancialRefusal(PlanningSession state, JsonObject journal, JsonObject failure, decimal? ceiling)
+    {
+        // Abandon only this exact zero-attempt request. No receipt, release or permission to replay is inferred.
+        if (failure["exception_type"]?.ToString() != "InvalidOperationException" ||
+            new[] { "kind", "status_code", "safe_provider_code", "retryable", "attempt_count", "retry_exhausted", "retry_after_ms" }.Any(key => failure[key] is not null) ||
+            failure["budget_refusal"] is not JsonObject refusal) return false;
+        return refusal["request_id"]?.ToString() == state.PendingCall!.Id &&
+            refusal["scope"]?.ToString() == "campaign_llm_budget" && refusal["origin"]?.ToString() == "captured_campaign_ceiling" &&
+            refusal["limit_kind"]?.ToString() == "estimated_cost" && refusal["estimated_cost_currency"]?.ToString() == "EUR" &&
+            refusal["dispatch_status"]?.ToString() == "not_started" && refusal["attempt_dispatch_status"]?.ToString() == "not_started" &&
+            refusal["denied_attempt_number"]?.GetValue<int>() == 1 && ceiling is > 0 &&
+            refusal["allowance"]?.GetValue<decimal>() == ceiling && refusal["required_reservation"]?.GetValue<decimal>() > ceiling &&
+            refusal["mandatory_review_reserve_eur"]?.GetValue<decimal>() == (journal["construction_review_cost_headroom_eur"]?.GetValue<decimal>() ?? 0m) &&
+            refusal["retained_external_reservations_eur"]?.GetValue<decimal>() == (journal["effective_transport_policy"]?["retained_external_reservations_eur"]?.GetValue<decimal>() ?? 0m);
     }
 
     private static bool MatchesInterruptedPlanning(PlanningSession state, JsonObject policy, JsonObject journal, JsonArray attempts)
