@@ -31,11 +31,13 @@ internal static class ServerLiveDiagnostics
         var run = SchemaPortabilityCampaign.RequiredOption(args, "--run");
         var planning = args.ElementAtOrDefault(1) == "server-live-plan";
         var inspectionOnly = args.ElementAtOrDefault(1) == "server-live-inspect";
+        var executionOnly = args.ElementAtOrDefault(1) == "server-live-execute";
+        var retained = inspectionOnly || executionOnly;
         if (planning) model.RetainedExternalReservationsEur = decimal.Parse(
             SchemaPortabilityCampaign.RequiredOption(args, "--retained-external-reservations-eur"), System.Globalization.CultureInfo.InvariantCulture);
 
         if (run.Length > 70 || !run.All(c => char.IsAsciiLetterOrDigit(c) || c == '-')) throw new ArgumentException("Invalid fresh run identity.");
-        if (!inspectionOnly && await campaign.LoadAsync("planning-evaluation-runs", run) is not null) throw new PlanningConflictException("This live run already exists; start a fresh independent identity.");
+        if (!retained && await campaign.LoadAsync("planning-evaluation-runs", run) is not null) throw new PlanningConflictException("This live run already exists; start a fresh independent identity.");
         var root = Directory.GetCurrentDirectory();
         var stateRoot = Path.Combine(workspace, ".GnOuGo", "data", "live-server", run); Directory.CreateDirectory(stateRoot);
         var hostArgs = new[]
@@ -84,9 +86,9 @@ internal static class ServerLiveDiagnostics
             ["provider"] = options.DefaultProvider, ["model"] = options.DefaultModel, ["host"] = "GnOuGo.Agent.Server",
             ["budget_mode"] = "limited", ["retained_external_reservations_eur"] = model.RetainedExternalReservationsEur, ["started_utc"] = DateTimeOffset.UtcNow, ["phase"] = planning ? "server_planning" : "provider_probe" };
         if (phaseFile is not null) report["phase_policy_sha256"] = PlanningGraphCompiler.Fingerprint(await File.ReadAllTextAsync(phaseFile));
-        if (!inspectionOnly) await campaign.SaveAsync("planning-evaluation-runs", run, report);
+        if (!retained) await campaign.SaveAsync("planning-evaluation-runs", run, report);
         var invoked = 0;
-        if (!inspectionOnly) app.MapPost("/api/planning/live-provider-probe", async (HttpContext context, LocalOperatorAccess access, IAntiforgery antiforgery, LlmTraceCapture capture) =>
+        if (!planning && !retained) app.MapPost("/api/planning/live-provider-probe", async (HttpContext context, LocalOperatorAccess access, IAntiforgery antiforgery, LlmTraceCapture capture) =>
         {
             if (!await access.CanInspectAsync()) return Results.Forbid();
             await antiforgery.ValidateRequestAsync(context);
@@ -133,15 +135,25 @@ internal static class ServerLiveDiagnostics
             using var auth = await client.PostAsync("/local-operator/session", new StringContent(launch.Fragment[1..])); auth.EnsureSuccessStatusCode();
             var csrf = await client.GetFromJsonAsync<JsonObject>("/api/planning/antiforgery");
             client.DefaultRequestHeaders.Add(csrf!["headerName"]!.ToString(), csrf["requestToken"]!.ToString());
-            if (!inspectionOnly)
+            if (!retained)
             {
                 using var limited = await client.PostAsJsonAsync("/api/application-llm-budget", new JsonObject { ["mode"] = "limited" }); limited.EnsureSuccessStatusCode();
             }
-            if (inspectionOnly)
+            if (retained)
             {
                 var saved = await campaign.LoadAsync("planning-evaluation-runs", run) ?? throw new PlanningConflictException("No retained live run.");
                 await ExportInspectionAsync(client, saved["session_id"]!.ToString(), root, run);
-                Console.WriteLine(new JsonObject { ["run"] = run, ["inspection_only"] = true, ["provider_dispatches"] = 0 }.ToJsonString());
+                if (executionOnly)
+                {
+                    if (saved["execution_started"] is not null) throw new PlanningConflictException("Execution was already started; uncertain effects cannot be replayed.");
+                    var state = await app.Services.GetRequiredService<PlanningSessionService>().GetAsync(saved["session_id"]!.ToString(), CancellationToken.None)
+                        ?? throw new PlanningConflictException("No retained Server session.");
+                    if (state.Status != PlanningStatus.FinalReview || state.ComputeArtifactHash() != saved["session"]?.Deserialize(PlanningJsonContext.Default.PlanningSession)?.ComputeArtifactHash())
+                        throw new PlanningConflictException("Only the exact unexecuted review-ready artifact may continue.");
+                    saved["execution_harness_source"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD");
+                    await ExecuteReviewedLocalAsync(app, campaign, state, saved, root, workspace);
+                }
+                Console.WriteLine(new JsonObject { ["run"] = run, ["inspection_only"] = inspectionOnly, ["provider_dispatches"] = 0 }.ToJsonString());
             }
             else if (planning)
             {
@@ -220,6 +232,7 @@ internal static class ServerLiveDiagnostics
     private static async Task ExecuteReviewedLocalAsync(WebApplication app, BenchmarkCampaign campaign, PlanningSession state,
         JsonObject report, string root, string workspace)
     {
+        if (report["execution_started"] is not null) throw new PlanningConflictException("An execution-start marker forbids another execution.");
         if (report["scenario"]?.ToString() != "local") throw new PlanningConflictException("This native execution oracle authorizes only the local case.");
         var output = Path.Combine(root, "artifacts/live-server-20261106", report["run"]!.ToString());
         Console.WriteLine(new JsonObject { ["awaiting_delegated_review"] = true, ["session_id"] = state.Request.SessionId,
@@ -247,8 +260,7 @@ internal static class ServerLiveDiagnostics
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         var engine = new WorkflowEngine { HumanInputProvider = new DelegatedTestReviewAuthority.Input(campaign, state.Request.SessionId, authority) };
         var result = await engine.ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], new JsonObject(), cancellation.Token);
-        var correct = result.Success && result.Outputs is JsonObject outputs && outputs.Count == 1 &&
-            outputs["result"] is JsonValue value && value.TryGetValue<decimal>(out var actual) && actual == 42m;
+        var correct = NativeOutputOracle(result.Success, result.Outputs);
         report["execution"] = new JsonObject { ["success"] = result.Success, ["outputs"] = result.Outputs?.DeepClone() };
         report["oracle"] = new JsonObject { ["version"] = "native-result42-v1", ["independent"] = true, ["passed"] = correct };
         report["result"]!["execution_correct"] = correct; report["result"]!["execution_status"] = result.Success ? "completed" : "failed";
@@ -256,6 +268,10 @@ internal static class ServerLiveDiagnostics
         Console.WriteLine(new JsonObject { ["session_id"] = state.Request.SessionId, ["execution_success"] = result.Success, ["oracle_passed"] = correct }.ToJsonString());
         if (!correct) Environment.ExitCode = 1;
     }
+
+    internal static bool NativeOutputOracle(bool success, JsonNode? result) => success && result is JsonObject outputs && outputs.Count == 1 &&
+        outputs["result"] is JsonValue value && value.GetValueKind() == JsonValueKind.Number &&
+        decimal.TryParse(value.ToJsonString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var number) && number == 42m;
 
     private static Process? StartObserver(WebApplication app, string root, string url, string id, string run)
     {

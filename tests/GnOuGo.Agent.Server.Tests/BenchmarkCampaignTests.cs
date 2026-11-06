@@ -14,6 +14,20 @@ public sealed class BenchmarkCampaignTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Theory]
+    [InlineData("{\"result\":42}", true)]
+    [InlineData("{\"result\":42.0}", true)]
+    [InlineData("{\"result\":4.2e1}", true)]
+    [InlineData("{\"result\":\"42\"}", false)]
+    [InlineData("{\"result\":41}", false)]
+    [InlineData("{\"result\":42,\"extra\":1}", false)]
+    public void NativeLiveOracleRequiresTheNumericPublicResultAndSuccessfulExecution(string json, bool expected)
+    {
+        Assert.Equal(expected, ServerLiveDiagnostics.NativeOutputOracle(true, JsonNode.Parse(json)));
+        Assert.False(ServerLiveDiagnostics.NativeOutputOracle(false, JsonNode.Parse(json)));
+        Assert.True(ServerLiveDiagnostics.NativeOutputOracle(true, new JsonObject { ["result"] = 42d }));
+    }
+
+    [Theory]
     [InlineData("49", true)]
     [InlineData("49.01", false)]
     public async Task RetainedExternalReservationsRemainInsideTheUnchangedGlobalCeiling(string held, bool allowed)

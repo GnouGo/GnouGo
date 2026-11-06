@@ -417,6 +417,12 @@ LLM client. An independent numeric-output oracle requires exactly `result: 42`;
 execution has a separate 30-second cancellation bound. Review is labelled
 `delegated_test_reviewed`, never human review. No raw response or plan edit can grant
 this authority, and an execution-start marker is durable before running.
+`server-live-execute --run <id>` can continue only the identical review-ready,
+unexecuted Server artifact after correcting a rejected review document. It starts
+with background processing disabled and maps no inference endpoint. An existing
+execution-start marker always rejects continuation. Generation and execution harness
+sources are recorded separately; a harness correction does not become a claim of
+uninterrupted qualification on the original source.
 
 Use `--schema-portability inspect-configuration` to obtain the previous pin hash
 and `inspect-deployment --model <exact-snapshot>` for redacted readiness. Then
