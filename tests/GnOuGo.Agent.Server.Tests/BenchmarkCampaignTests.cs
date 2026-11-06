@@ -38,9 +38,42 @@ public sealed class BenchmarkCampaignTests
         await journal.PrepareAsync(Ct);
         var state = new LLMHttpRetryState { Attempts = [new() { Id = "fresh:1:hash:1" }] };
         if (allowed) await journal.SaveAsync(state, Ct);
-        else await Assert.ThrowsAsync<InvalidOperationException>(() => journal.SaveAsync(state, Ct));
+        else
+        {
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() => journal.SaveAsync(state, Ct));
+            var refusal = Assert.IsType<JsonObject>(error.Data[BenchmarkCampaign.BudgetRefusalData]);
+            Assert.Equal("campaign_llm_budget", refusal["scope"]!.ToString());
+            Assert.Equal(50m, refusal["allowance"]!.GetValue<decimal>());
+            Assert.Equal("not_started", refusal["dispatch_status"]!.ToString());
+            Assert.Equal("not_started", refusal["attempt_dispatch_status"]!.ToString());
+        }
         Assert.Equal(50m, await campaign.CostCeilingAsync(Ct));
         Assert.Equal(allowed ? 1 : 0, (await journal.LoadAsync(Ct))!.Attempts.Count);
+    }
+
+    [Fact]
+    public async Task RetryFundingRefusalRetainsTheReceivedAttemptAndReportsItsScopeWithoutSendingAnother()
+    {
+        var campaign = new BenchmarkCampaign(new Records(), "retry-funding");
+        var journal = new BenchmarkHttpJournal(campaign, "retry:1:hash", 10, 10, 30m,
+            reviewCostHeadroom: 10m, reviewAttemptHeadroom: 1, effectiveTransportPolicy: StrictTransport());
+        await journal.PrepareAsync(Ct);
+        var state = new LLMHttpRetryState { Attempts = [new() { Id = "retry:1:hash:1" }] };
+        await journal.SaveAsync(state, Ct);
+        state.Attempts[0].Status = 500; state.Attempts[0].Body = "{\"error\":{\"code\":\"upstream_failure\"}}";
+        await journal.SaveAsync(state, Ct);
+        state.Attempts.Add(new() { Id = "retry:1:hash:2" });
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => journal.SaveAsync(state, Ct));
+        var details = Assert.IsType<JsonObject>(error.Data[BenchmarkCampaign.BudgetRefusalData]);
+        var failure = PlanningBudgetFailure.FromDetails(details)!;
+        Assert.Equal("campaign_llm_budget", failure.Scope);
+        Assert.Equal("captured_campaign_ceiling", failure.Origin);
+        Assert.Equal(50m, failure.Allowance); Assert.Equal(70m, failure.RequiredReservation);
+        Assert.Equal("EUR", failure.Currency); Assert.Equal("started", failure.DispatchStatus);
+        Assert.Equal("not_started", details["attempt_dispatch_status"]!.ToString());
+        Assert.Equal(2, details["denied_attempt_number"]!.GetValue<int>());
+        Assert.Equal(500, Assert.Single((await journal.LoadAsync(Ct))!.Attempts).Status);
+        Assert.Equal(30m, (await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct))["reserved_cost_eur"]!.GetValue<decimal>());
     }
 
     [Fact]

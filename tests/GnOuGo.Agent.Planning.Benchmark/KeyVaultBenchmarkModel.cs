@@ -607,6 +607,12 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                     return response;
                 }, ct, allowHttpRecovery: true);
         }
+        catch (InvalidOperationException error) when (error.Data[BenchmarkCampaign.BudgetRefusalData] is JsonObject refusal &&
+            refusal["request_id"]?.ToString() == request.ClientRequestId)
+        {
+            throw new WorkflowRuntimeException(ErrorCodes.LlmBudgetExceeded, "The captured campaign budget cannot admit this LLM attempt.",
+                retryable: false, details: ((JsonObject)error.Data[BenchmarkCampaign.BudgetRefusalData]!).DeepClone().AsObject());
+        }
         finally { _dispatchGate.Release(); }
     }
 

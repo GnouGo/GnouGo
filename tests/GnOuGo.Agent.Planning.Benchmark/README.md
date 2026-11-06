@@ -411,6 +411,15 @@ bridge's redundant token-advisory flag is equivalent only when both records reta
 the identical broader diagnostic grant; Strict or token-only sessions gain no grant.
 Historical records remain unchanged. Server elapsed captures are validated against
 their retained session budget and explicit origin, never current host defaults.
+A terminal, tool-free generation with a received transient error and an unfunded
+next retry may use the existing `exhausted-planning-retries` retention flow. It
+requires the exact error-only attempts and a current funding proof using the
+unchanged ceiling, retained accounting, captured attempt/review prices and external
+reservations. The proof is labelled `unfunded_retry_at_inspection`; missing historical
+exception details remain unavailable. No receipt is manufactured and no reservation
+is released. Future financial refusals retain structured scope, origin, allowance,
+required exposure and logical/attempt dispatch status in existing journals. The
+Server bridge maps those fields into the existing budget-failure DTO and timeline.
 Financial comparisons use exact decimal units; aggregate estimates round upward
 when decimal capacity requires it. This changes no individual historical charge,
 reservation or tariff and cannot create extra headroom.

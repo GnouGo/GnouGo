@@ -163,6 +163,12 @@ Copy captured authority fields exactly in new adapters. A retained redundant tok
 flag may be recognized only under the identical captured broader diagnostic grant;
 it cannot upgrade Strict/token-only authority or rewrite either capture. Validate
 Server elapsed policy against its captured session budget and recorded origin.
+For a confirmed transient generation failure followed by an unfunded retry, retain
+the exact attempt and its complete reservation through the existing terminal
+retention flow. Bind current funding evidence separately from unavailable historical
+exception details. Financial refusal metadata distinguishes an unsent next attempt
+from the logical call's prior dispatch; preserve both facts in the existing budget
+DTO and journals without manufacturing an HTTP attempt or completion.
 
 ## Maintained references
 

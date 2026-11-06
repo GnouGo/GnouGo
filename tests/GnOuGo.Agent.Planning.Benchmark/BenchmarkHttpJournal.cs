@@ -134,8 +134,26 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
             }
             var retainedOtherReservations = _effectiveTransportPolicy?["retained_external_reservations_eur"]?.GetValue<decimal>() ?? 0;
             if (retainedOtherReservations < 0) throw new InvalidOperationException("Retained financial headroom cannot be negative.");
-            if (LLMUsageBudgetScope.CostSumExceeds(await campaign.CostCeilingAsync(ct), totals["cost_upper_bound_eur"]!.GetValue<decimal>(), reviewCostHeadroom, retainedOtherReservations) || sessionExhausted)
-            { campaign.BudgetExceeded(sessionExhausted); throw new InvalidOperationException("The campaign or session cannot cover another HTTP attempt."); }
+            var ceiling = await campaign.CostCeilingAsync(ct);
+            var moneyExceeded = LLMUsageBudgetScope.CostSumExceeds(ceiling, totals["cost_upper_bound_eur"]!.GetValue<decimal>(), reviewCostHeadroom, retainedOtherReservations);
+            if (moneyExceeded || sessionExhausted)
+            {
+                campaign.BudgetExceeded(sessionExhausted);
+                var error = new InvalidOperationException("The campaign or session cannot cover another HTTP attempt.");
+                decimal? required = null;
+                try { required = moneyExceeded ? LLMUsageBudgetScope.SumCostConservatively(totals["cost_upper_bound_eur"]!.GetValue<decimal>(), reviewCostHeadroom, retainedOtherReservations)
+                    : totals["session_calls"]!.GetValue<long>() + reviewAttemptHeadroom; }
+                catch (OverflowException) { /* Exact admission already rejects unrepresentable exposure. */ }
+                error.Data[BenchmarkCampaign.BudgetRefusalData] = new JsonObject {
+                    ["request_id"] = requestId, ["scope"] = moneyExceeded ? "campaign_llm_budget" : "planning_session_calls",
+                    ["origin"] = moneyExceeded ? "captured_campaign_ceiling" : "captured_session_attempt_limit",
+                    ["limit_kind"] = moneyExceeded ? "estimated_cost" : "calls", ["allowance"] = moneyExceeded ? ceiling : sessionAttemptLimit,
+                    ["required_reservation"] = required, ["estimated_cost_currency"] = moneyExceeded ? "EUR" : null,
+                    ["dispatch_status"] = oldCount == 0 ? "not_started" : existing!["transport"]!["Attempts"]!.AsArray().Any(a => a?["Status"] is not null) ? "started" : "unknown",
+                    ["attempt_dispatch_status"] = "not_started", ["denied_attempt_number"] = state.Attempts.Count,
+                    ["mandatory_review_reserve_eur"] = reviewCostHeadroom, ["retained_external_reservations_eur"] = retainedOtherReservations };
+                throw error;
+            }
         }
         await campaign.SaveAsync(Collection, requestId, record, ct);
     }

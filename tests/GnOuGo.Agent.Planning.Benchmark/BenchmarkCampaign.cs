@@ -12,6 +12,7 @@ using GnOuGo.KeyVault.Core.Services;
 internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
 {
     internal const string Author = "GnOuGo.Planning.Benchmark";
+    internal const string BudgetRefusalData = "gnougo.campaign_budget_refusal";
     internal string Id { get; } = ValidateId(id);
     internal string? ConfigurationId { get; private set; }
     internal IKeyVaultRecordStore Records => records;
@@ -448,6 +449,7 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
             var details = new JsonObject { ["stage"] = stage, ["exception_type"] = ex.GetType().Name, ["kind"] = failure?.Kind.ToString(),
                 ["status_code"] = failure?.StatusCode, ["safe_provider_code"] = failure?.SafeProviderCode, ["retryable"] = failure?.Retryable,
                 ["attempt_count"] = failure?.AttemptCount, ["retry_exhausted"] = failure?.RetryExhausted, ["retry_after_ms"] = failure?.RetryAfterMilliseconds };
+            if (ex.Data[BudgetRefusalData] is JsonObject budgetRefusal) details["budget_refusal"] = budgetRefusal.DeepClone();
             if (failure?.Stage == LLMClientFailureStage.Authentication) details["provider_stage"] = "authentication";
             if (stage == "preflight") details["reason"] = ex.Message switch
             { "No currency quote." => "currency_quote_unavailable", "No model price metadata." => "model_price_unavailable", _ => "preflight_failed" };
