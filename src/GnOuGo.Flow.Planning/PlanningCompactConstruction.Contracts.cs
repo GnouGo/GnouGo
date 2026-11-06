@@ -322,6 +322,9 @@ internal static partial class PlanningCompactConstruction
         return displayed;
     }
 
+    private static bool CanInspectProducerContractEvidence(PlanningSession state, PlanningCapability capability, string kind, string tail)
+        => (kind == "description" || InputEvidence(kind, tail) || OutputEvidence(kind, tail)) && AcceptedProducerOutput(state, capability);
+
     private static bool AcceptedProducerOutput(PlanningSession state, PlanningCapability capability)
     {
         if (state.Plan is null) return false;
@@ -607,13 +610,13 @@ internal static partial class PlanningCompactConstruction
             if (!int.TryParse(tail, NumberStyles.None, CultureInfo.InvariantCulture, out var offset) || offset < 0)
                 PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Use the issued description address with its nonnegative integer offset.");
             if (recordSchemaSelection && State(state).CurrentStep is null &&
-                !AcceptedProducerOutput(state, ExactContract(state, operation, version)))
+                !CanInspectProducerContractEvidence(state, ExactContract(state, operation, version), kind, tail))
                 PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Inspect only an accessible accepted producer before selecting a business step.");
             return OperationDescription(state, operation, version, identity, offset);
         }
         var capability = ExactContract(state, operation, version);
         var producerEvidence = recordSchemaSelection && state.Construction!.Compact!.CurrentStep?.OperationIds.Contains(operation, StringComparer.Ordinal) != true &&
-            (OutputEvidence(kind, tail) || InputEvidence(kind, tail)) && AcceptedProducerOutput(state, capability);
+            CanInspectProducerContractEvidence(state, capability, kind, tail);
         if (recordSchemaSelection && state.Construction!.Compact!.CurrentStep is null && !producerEvidence)
             PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Select a business step before inspecting its capability contracts.");
         if (kind == "contract" && tail.Length == 0) return ContractView(state, capability, useCandidate: false);

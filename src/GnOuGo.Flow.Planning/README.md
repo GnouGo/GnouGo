@@ -6,6 +6,13 @@ business effects or authorize production permissions.
 
 ## Planning and review
 
+Implementation-selection evidence choices share the reader's accepted-producer,
+scope and version checks. Unselected operation contracts remain available through
+the selected implementation's discovery phase. Contract/schema inspection is
+planning evidence; typed suspension prerequisites describe executable work producing
+runtime data. This keeps issued choices usable without admitting invalid fragments
+or changing the business decomposition, judges or execution permissions.
+
 Internal planning format **11** has one active protocol. Retired sessions and approvals
 are rejected without migration; original encrypted records remain unchanged. TaskPlan
 and execution journal schema 9 are separate from this storage rupture.

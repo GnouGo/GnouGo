@@ -10,6 +10,38 @@ public sealed class CompactDraftNavigationTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void SelectionNeverOffersUnselectedContractLinksThatTheEvidenceReaderRejects(bool diagnostic)
+    {
+        var state = State();
+        if (diagnostic) state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        state.Catalog!.AllowedStepTypes = ["mcp.call"];
+        state.Catalog!.Capabilities.Add(new() { Id = "read", Version = "v1", Kind = "tool", StepType = "mcp.call",
+            Description = "Read an observed value.", InputSchema = new JsonObject { ["type"] = "object", ["properties"] = new JsonObject() },
+            OutputSchema = new JsonObject { ["type"] = "object", ["properties"] = new JsonObject() } });
+        var step = state.Construction!.Compact!.CurrentStep!;
+        state.Construction.Compact.CurrentStep = null;
+        var baseline = PlanningConstruction.Hash(state.Plan);
+        var context = new JsonObject { ["knownOperations"] = new JsonArray(new JsonObject {
+            ["id"] = "read", ["version"] = "v1", ["descriptionEvidence"] = "description:read@v1:0",
+            ["inputDirectory"] = "schema-page:read@v1:/input:0", ["outputDirectory"] = "schema-page:read@v1:/output:0" }) };
+        var schema = PlanningCompactConstruction.ImplementationSchema(state);
+        PlanningCompactConstruction.ConstrainSelectionEvidence(state, context, schema);
+        foreach (var address in new[] { "description:read@v1:0", "schema-page:read@v1:/input:0", "schema-page:read@v1:/output:0" })
+        {
+            Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.LoadContractEvidence(state, address));
+            Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(SelectionEvidence(state, address), schema));
+        }
+        Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
+        Assert.Null(state.Construction.Compact.CurrentStep);
+        step.Kind = "operation"; step.OperationIds = ["read"];
+        state.Construction.Compact.CurrentStep = step;
+        Assert.NotNull(PlanningCompactConstruction.LoadContractEvidence(state, "description:read@v1:0"));
+        Assert.NotNull(PlanningCompactConstruction.LoadContractEvidence(state, "schema-page:read@v1:/input:0"));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void ContainerDraftRetainsReusableNavigationAndRejectsGuessedEvidence(bool repair)
     {
         var state = State();

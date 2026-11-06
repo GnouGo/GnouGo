@@ -135,6 +135,14 @@ Execution requires artifact-bound approval, exact invocation confirmations, tena
 
 Freeze source, harness, settings, contracts, inputs and oracles. Separate admission, output exhaustion, formatting and transport incidents. Compare completed outcomes; interrupted runs are not savings. Report actual provider usage separately from component estimates. Simulated responses and technical passes do not establish live convergence.
 
+Evidence choices issued during implementation selection must satisfy the same
+producer/scope/version preconditions as the evidence reader. Keep discovery of
+unselected operation contracts in the selected implementation's discovery phase;
+preserve accessible accepted-producer evidence before selection. Contract metadata
+is planning evidence; typed suspension prerequisites describe executable work that
+produces required runtime data. Reject invalid results without converting repeated
+completed diagnostic strategies into mandatory nonprogress stops.
+
 Explicit operator authorization may register current deployment settings through a
 new immutable campaign amendment; never rewrite an old pin or infer permission to
 increase funding. Compare safe setting values and fingerprints, retaining unavailable

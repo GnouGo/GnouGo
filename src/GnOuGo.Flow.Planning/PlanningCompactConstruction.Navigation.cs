@@ -38,7 +38,27 @@ internal static partial class PlanningCompactConstruction
             addresses.UnionWith(NavigationEvidence(state, [context["knownOperations"]]));
             addresses.UnionWith(NavigationEvidence(state, (context["requirements"] as JsonArray ?? []).Select(row => row?["acceptedProgress"])));
         }
+        if (State(state).CurrentStep is null) addresses.RemoveWhere(address => !AvailableBeforeSelection(state, address));
         ConstrainEvidenceChoices(state, schema, addresses, maximum: 4);
+    }
+
+    private static bool AvailableBeforeSelection(PlanningSession state, string address)
+    {
+        var separator = address.IndexOf(':');
+        if (separator < 0) return true;
+        var kind = address[..separator];
+        if (kind is not ("description" or "contract" or "schema" or "schema-page" or "port-page")) return true;
+        var rest = address[(separator + 1)..];
+        var end = rest.IndexOf(':');
+        var identity = end < 0 ? rest : rest[..end];
+        var at = identity.IndexOf('@');
+        if (at <= 0 || at == identity.Length - 1) return false;
+        var operation = Uri.UnescapeDataString(identity[..at]);
+        var version = Uri.UnescapeDataString(identity[(at + 1)..]);
+        if (identity != ContractIdentity(operation, version)) return false;
+        var tail = end < 0 ? "" : rest[(end + 1)..];
+        try { return CanInspectProducerContractEvidence(state, ExactContract(state, operation, version), kind, tail); }
+        catch (PlanningResponseException) { return false; }
     }
 
     private static void AddRequirementNavigation(PlanningSession state, JsonObject context)
