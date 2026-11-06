@@ -1,0 +1,337 @@
+{
+  "source_commit": "7169a2277d8af010d82f57de424e6efdb8082ffe",
+  "qualification_solution_sha256": "3b3d9b39a7f330a4e05d8269ca399477fe9fc3f4f955a005ae3ad3c11e8d95dd",
+  "assemblies": 33,
+  "outcomes": {
+    "Passed": 7800,
+    "NotExecuted": 12,
+    "Failed": 2
+  },
+  "checks": [
+    {
+      "name": "solution-restore",
+      "command": [
+        "dotnet",
+        "restore",
+        "GnOuGo.Agent.sln",
+        "-warnaserror",
+        "-p:SkipModelMetadataGeneration=true",
+        "-p:SkipClientBuild=true"
+      ],
+      "source_commit": "7169a2277d8af010d82f57de424e6efdb8082ffe",
+      "started_utc": "2026-11-05T23:04:19.630344+00:00",
+      "log": "logs/solution-restore.log",
+      "exit_code": 0,
+      "finished_utc": "2026-11-05T23:04:21.233563+00:00"
+    },
+    {
+      "name": "solution-build",
+      "command": [
+        "dotnet",
+        "build",
+        "GnOuGo.Agent.sln",
+        "--no-restore",
+        "-c",
+        "Release",
+        "-m:1",
+        "-warnaserror",
+        "-p:SkipModelMetadataGeneration=true",
+        "-p:SkipClientBuild=true",
+        "--verbosity",
+        "quiet"
+      ],
+      "source_commit": "7169a2277d8af010d82f57de424e6efdb8082ffe",
+      "started_utc": "2026-11-05T23:04:21.234143+00:00",
+      "log": "logs/solution-build.log",
+      "exit_code": 0,
+      "finished_utc": "2026-11-05T23:05:27.443822+00:00"
+    },
+    {
+      "name": "solution-tests",
+      "command": [
+        "dotnet",
+        "test",
+        "GnOuGo.Agent.sln",
+        "--no-build",
+        "--no-restore",
+        "-c",
+        "Release",
+        "-m:1",
+        "-warnaserror",
+        "-p:SkipModelMetadataGeneration=true",
+        "-p:SkipClientBuild=true",
+        "--logger",
+        "console;verbosity=normal",
+        "--logger",
+        "trx;LogFilePrefix=one-inspector",
+        "--results-directory",
+        "/Users/a115vc/.codex/worktrees/pr120-inspector-snapshotfix-20261105/artifacts/one-inspector/solution-tests",
+        "--verbosity",
+        "quiet"
+      ],
+      "source_commit": "7169a2277d8af010d82f57de424e6efdb8082ffe",
+      "started_utc": "2026-11-05T23:05:27.444730+00:00",
+      "log": "logs/solution-tests.log",
+      "exit_code": 1,
+      "finished_utc": "2026-11-06T00:17:15.800450+00:00"
+    }
+  ],
+  "test_results": [
+    {
+      "file": "one-inspector_net10.0_20261106000530.trx",
+      "sha256": "88242e80e7ebbe541d8570e0d6db711e079a54cc1619ba97a4ad5d348a472f1c",
+      "outcomes": {
+        "Passed": 89
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106000533.trx",
+      "sha256": "da3a16b6f47c9a7b1ad1a2774700167e0b17c06d652ca94d1f8e37d653b69e54",
+      "outcomes": {
+        "Passed": 52
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106000536.trx",
+      "sha256": "d1d29e17e5030e7995a2c0df35f1de4efb249e5af0ba572c5091f94a271cf910",
+      "outcomes": {
+        "Passed": 19
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106000539.trx",
+      "sha256": "23c59fe420166354754e6fb7b765ed7f32bba1b44fde5ab780021af2f2bcf716",
+      "outcomes": {
+        "Passed": 1519
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106000543.trx",
+      "sha256": "401b46026f4d26e36cfe98c5adaf81a2d3089afc2b2f69c1129c533dca335b7d",
+      "outcomes": {
+        "Passed": 107
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106000546.trx",
+      "sha256": "1054d1b3432b2dc01055949fb8cdf3bad15b48f3ef7685b19dbdeaea27d417a7",
+      "outcomes": {
+        "Passed": 279
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106000548.trx",
+      "sha256": "77a19acda0907477cca582ef958ee77d93fe92ddb4a8a01a4257b0792e35fa00",
+      "outcomes": {
+        "Passed": 14
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106000551.trx",
+      "sha256": "41304da85a8f68923735c2556438264472a8c58e75d94e96438328793be1434c",
+      "outcomes": {
+        "Passed": 103
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106000610.trx",
+      "sha256": "3c333c4b1b374bb3f04b34696d200ef299b8c37a77efbbca9dac1227a05adb56",
+      "outcomes": {
+        "Passed": 93,
+        "NotExecuted": 7
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106000632.trx",
+      "sha256": "571d167a30254e4ca9d3a40fdbd5013736e14b6719569925817170e9d9b60f70",
+      "outcomes": {
+        "Passed": 141,
+        "Failed": 1
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106011305.trx",
+      "sha256": "186a5ae8eac9920277b9ebfb73320ca41458afdfb6f36dd329c8be133cabd367",
+      "outcomes": {
+        "Passed": 1578,
+        "Failed": 1
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106011312.trx",
+      "sha256": "70aa730e68874bc0c2465c5f4e7bdd1369981af31ff3034a902d326b1e32006c",
+      "outcomes": {
+        "Passed": 73
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106011314.trx",
+      "sha256": "55b527f0549cd8ccfd466189eb3bc79a1754ce772b90f1fc147709defa1633d2",
+      "outcomes": {
+        "Passed": 9
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106011316.trx",
+      "sha256": "ed501d96e9a42964ecaf5549b23272340207f7420024c6eb9cfbe38a6c756d75",
+      "outcomes": {
+        "Passed": 10
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106011318.trx",
+      "sha256": "b514acc2dbf72e88f73127fe938556e9c7bc0eaa778f4f5243b7820622d94a8d",
+      "outcomes": {
+        "Passed": 7
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106011319.trx",
+      "sha256": "859c954125d748c7e21b7b9df1aff553434190cccab56f7cdb04a9a5f757fc7a",
+      "outcomes": {
+        "Passed": 7
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106011404.trx",
+      "sha256": "b4becdd5aa798ac6b006eb5bf8cda8b7e7faedcd94db31b7e103f2d9365e2c54",
+      "outcomes": {
+        "Passed": 243
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106011406.trx",
+      "sha256": "eb65ef348b77c08ee1bf59e1106f2294692e749bf467bb7a1ec32b426fb476ae",
+      "outcomes": {
+        "Passed": 173
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106011407.trx",
+      "sha256": "c4f30bfaad7cbba8a49f360560c308fd5472d65dd7c605a06e0e4c1ef822f391",
+      "outcomes": {
+        "NotExecuted": 5,
+        "Passed": 7
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106011408.trx",
+      "sha256": "dc02bb633419dbc35416f357a868fb66c34afaf2edc897bdf0332aa54dc895f9",
+      "outcomes": {
+        "Passed": 3
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106011415.trx",
+      "sha256": "d07f5f0468b1e2141fe85be5581daddda2b98bd08283564142e9c9e2d22df904",
+      "outcomes": {
+        "Passed": 84
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106011416.trx",
+      "sha256": "49d172f2ee2602770adeeb56ed2865f7dbeef8b19695d1f1e43c620d7fe44745",
+      "outcomes": {
+        "Passed": 30
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106011418.trx",
+      "sha256": "ba03571419b01e23f6fed29a82c1c8654ab49a16ccdd3655e6cc2e4d79d6dd4c",
+      "outcomes": {
+        "Passed": 49
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106011419.trx",
+      "sha256": "07f4e0636272c86a00f0aaf98c14f3b64ce8dcd6180b64af66a464e6413c4c7c",
+      "outcomes": {
+        "Passed": 12
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106011428.trx",
+      "sha256": "73aa1eee58ee725d30c1261cf8c440ae7296c71b057b23a88c456b497dcb54fe",
+      "outcomes": {
+        "Passed": 91
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106011429.trx",
+      "sha256": "c8767f453f3764dc504315b7a74100874327455a2123d97453d70e111d58c03f",
+      "outcomes": {
+        "Passed": 42
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106011435.trx",
+      "sha256": "e044028771b22ef9a9fe6b314d906c21ced897a0c1f408bcefd81bb23284b919",
+      "outcomes": {
+        "Passed": 13
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106011436.trx",
+      "sha256": "b890546f95ac1b9a47737ed8fca69c27ead1c4325483418ebd56b60e6ea57d80",
+      "outcomes": {
+        "Passed": 28
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106011655.trx",
+      "sha256": "ba6c77d7e8d47b8e813a6fe6388a0d498174df2a1e188235a340989c240ce8bb",
+      "outcomes": {
+        "Passed": 2709
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106011705.trx",
+      "sha256": "dbb68c09411e7cb95c094746e29c2c089406e6cb356a19cf522ec7b0dcd5611e",
+      "outcomes": {
+        "Passed": 177
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106011707.trx",
+      "sha256": "45e153c702a62c50d01afa4d9a500aa1739f5698c66ab8a0e025125e94e828c9",
+      "outcomes": {
+        "Passed": 8
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106011714.trx",
+      "sha256": "9de4a56ca44edfb65fcba124ec091accdf915bb40a13ae0adc13d4396e68d603",
+      "outcomes": {
+        "Passed": 26
+      }
+    },
+    {
+      "file": "one-inspector_net10.0_20261106011715.trx",
+      "sha256": "fe81c323e123c395b56becc56da494b1b646122bb10818706005a82563abf1b1",
+      "outcomes": {
+        "Passed": 5
+      }
+    }
+  ],
+  "failures": [
+    {
+      "test": "GnOuGo.Browser.Mcp.Tests.BrowserCompleteObservationTests.RepeatedNavigationStopsAfterThreeAttemptsWithNoPartialResult",
+      "message": "Assert.Equal() Failure: Strings differ\n           \u2193 (pos 0)\nExpected: \"SNAPSHOT_EXPIRED\"\nActual:   \"TIMEOUT\"\n           \u2191 (pos 0)",
+      "stack": "   at GnOuGo.Browser.Mcp.Tests.BrowserCompleteObservationTests.RepeatedNavigationStopsAfterThreeAttemptsWithNoPartialResult() in /Users/a115vc/.codex/worktrees/pr120-inspector-snapshotfix-20261105/tests/GnOuGo.Browser.Mcp.Tests/BrowserCompleteObservationTests.cs:line 78\n   at GnOuGo.Browser.Mcp.Tests.BrowserCompleteObservationTests.RepeatedNavigationStopsAfterThreeAttemptsWithNoPartialResult() in /Users/a115vc/.codex/worktrees/pr120-inspector-snapshotfix-20261105/tests/GnOuGo.Browser.Mcp.Tests/BrowserCompleteObservationTests.cs:line 82\n   at GnOuGo.Browser.Mcp.Tests.BrowserCompleteObservationTests.RepeatedNavigationStopsAfterThreeAttemptsWithNoPartialResult() in /Users/a115vc/.codex/worktrees/pr120-inspector-snapshotfix-20261105/tests/GnOuGo.Browser.Mcp.Tests/BrowserCompleteObservationTests.cs:line 82\n--- End of stack trace from previous location ---",
+      "correction_commit": "af51549a",
+      "cause": "Cold browser startup consumed the 5-second observation deadline under concurrent publishing.",
+      "correction": "Warm the browser before the measured operation. Original 5-second deadline and three-attempt/no-partial assertions retained.",
+      "corrected_rerun": "142 browser MCP tests passed at e2d3e01a; see followup-validation-results.json."
+    },
+    {
+      "test": "GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission",
+      "message": "\n\u2190 Back to chat \u00b7 Workflow executions \u00b7 Application LLM budget\nWorkflow designer\nBrowser cancel\n\nDesigner \u00b7 6beaed869e31417caa82ab2ddfb21f98 Traces\n\nCancelled \u00b7 Understanding \u00b7 Revision 2\n\n1 model calls (logical planning) \u00b7 1 charged/reserved model attempts \u00b7 Limited \u2014 64 calls (mandatory) \u00b7 0 replans \u00b7 00:00:00 active\n\n0 accepted drafts \u00b7 1 open scopes\n\nEstimated cost (including retained reservations): unavailable (not_measured)\n\nDebug workflow generation\nGeneration timeline\n\nStrict thresholds \u00b7 Generation and approval; execution is a separate operation.\n\nWaiting \u2192 active \u2192 succeeded / warning / correction / blocked / cancelled. Repeated occurrences show actual loops; no completion percentage is inferred.\n\nUnderstanding Waiting\n2026-11-06 00:12:29Z \u00b7 0,0s\n\nCoordinator transition: clarification\n\nUnderstanding Cancelled\n2026-11-06 00:12:38Z \u00b7 0,0s\n\nCoordinator transition: cancelled\n\nCaptured model, phase allocations and restriction origins\n\nInspect discovered tools\n\nBusiness review is required and shares this session's model allowance.\n\nOPENTELEMETRY / GENAI\nMessage traces\nCorrelation: n/a\nTrace: pending\nFormatted\nDisabled\nx\nPipeline / LLM calls\nTraces\n0\nLogs\n0\nSelect a trace\nOpen a message or planning session to inspect its telemetry.\n[]\nnode:internal/modules/run_main:123\n    triggerUncaughtException(\n    ^\n\nlocator.waitFor: Error: strict mode violation: getByText('Cancelled', { exact: true }) resolved to 2 elements:\n    1) <strong b-t8daacs5aq=\"\">Cancelled</strong> aka getByRole('strong').filter({ hasText: 'Cancelled' })\n    2) <span b-bplaicfeau=\"\" class=\"phase-state\">Cancelled</span> aka getByLabel('Planning progress and model').getByText('Cancelled', { exact: true })\n\nCall log:\n  - waiting for getByText('Cancelled', { exact: true }) to be visible\n\n    at /Users/a115vc/.codex/worktrees/pr120-inspector-snapshotfix-20261105/scripts/smoke-planning-clarification.mjs:64:102 {\n  log: [\n    \"  - waiting for getByText('Cancelled', { exact: true }) to be visible\"\n  ]\n}\n\nNode.js v22.20.0\n",
+      "stack": "   at GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission() in /Users/a115vc/.codex/worktrees/pr120-inspector-snapshotfix-20261105/tests/GnOuGo.Agent.Server.Tests/PlanningClarificationBrowserTests.cs:line 93\n   at GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission()\n   at GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission() in /Users/a115vc/.codex/worktrees/pr120-inspector-snapshotfix-20261105/tests/GnOuGo.Agent.Server.Tests/PlanningClarificationBrowserTests.cs:line 107\n--- End of stack trace from previous location ---",
+      "correction_commit": "62e3e6de5f3227434aa66305dfa24f0bfbc5dc70",
+      "cause": "The cancellation locator matched both session status and the new engine timeline.",
+      "correction": "Scope the unchanged cancellation assertion to the live session status.",
+      "corrected_rerun": "PlanningClarificationBrowserTests passed; see clarification-validation.json."
+    }
+  ],
+  "note": "Full-run failures remain recorded. Passing focused reruns are separate checks and are not added to these counters."
+}
