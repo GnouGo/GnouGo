@@ -19,4 +19,5 @@
   <ItemGroup><Compile Include="../Shared/PlanningBenchmarkCases.cs" Link="PlanningBenchmarkCases.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../Shared/RealProductContracts.cs" Link="RealProductContracts.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../Shared/BusinessReviewCorpus.cs" Link="BusinessReviewCorpus.cs" /></ItemGroup>
+  <Import Project="../../build/GnOuGo.BundledMcpTools.targets" />
 </Project>

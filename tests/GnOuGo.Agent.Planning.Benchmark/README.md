@@ -439,6 +439,10 @@ after inspecting the exact operation and destination. No permission is pregrante
 uses the actual Server runtime factory to list tool metadata with background planning
 disabled. It records the configured launch, existence check and redacted exception/
 stderr through the existing encrypted campaign records, with zero inference calls.
+The benchmark executable imports the same bundled MCP staging target as Server
+integration fixtures, so its configured `tools/...` apphosts resolve at the actual
+entrypoint. Tool readiness must pass before retrying paid planning after a launch
+failure; a missing source never becomes evidence of absent business capabilities.
 
 Use `--schema-portability inspect-configuration` to obtain the previous pin hash
 and `inspect-deployment --model <exact-snapshot>` for redacted readiness. Then

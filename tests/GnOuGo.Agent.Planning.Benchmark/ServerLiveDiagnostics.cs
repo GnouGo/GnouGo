@@ -164,7 +164,7 @@ internal static class ServerLiveDiagnostics
                 var config = runtime.Options.McpServers[server];
                 report["phase"] = "mcp_readiness"; report["mcp_server"] = server; report["transport"] = config.Type;
                 report["command"] = config.Command;
-                report["command_file_exists"] = config.Command is { } command && File.Exists(command);
+                report["command_file_exists_at_entry_base"] = config.Command is { } command && File.Exists(Path.GetFullPath(command, AppContext.BaseDirectory));
                 report["argument_count"] = config.Args?.Count;
                 try
                 {
