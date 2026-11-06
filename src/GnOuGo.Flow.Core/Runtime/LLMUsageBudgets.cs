@@ -469,6 +469,11 @@ public sealed partial class LLMUsageBudgetScope
         LLMUsageBudgetSnapshot snapshot,
         string stage)
     {
+        // Unknown historical consumption cannot finance another physical request.
+        // Journaled outstanding attempts remain covered by their retained bounds.
+        if (_costLimit is not null && (!snapshot.CostEstimateAvailable ||
+            snapshot.UncertainCalls > (snapshot.JournaledAttempts?.Values.Count(a => a.VerifiedUsage is null) ?? 0)))
+            throw CreateUnverifiable(stage, "historical_cost_evidence", snapshot);
         if (Limits.MaxElapsed is { } maxElapsed)
         {
             var elapsed = _timeProvider.GetUtcNow() - snapshot.StartedAtUtc;

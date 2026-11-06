@@ -10,6 +10,27 @@ namespace GnOuGo.Flow.Tests.Runtime;
 
 public sealed class LLMUsageBudgetTests
 {
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task IncompleteFiniteHistoryCannotFinancePlanningOrExecution(bool experimental, bool uncertain)
+    {
+        var snapshot = new LLMUsageBudgetSnapshot { StartedAtUtc = DateTimeOffset.UtcNow,
+            Calls = 1, EstimatedCostCurrency = "EUR", CostEstimateAvailable = uncertain,
+            UncertainCalls = uncertain ? 1 : 0, CostUnavailableReason = uncertain ? null : "historical_pricing_unavailable" };
+        var scope = new LLMUsageBudgetScope(new() { MaxEstimatedCost = new(10m, "EUR") }, snapshot)
+            { AdvisoryFinancialForecasts = experimental };
+        var ct = TestContext.Current.CancellationToken; var estimator = new FixedCurrencyCostEstimator(1m, "EUR");
+        var planning = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => scope.EnsureAllowanceAsync(Request(), estimator, 10, [10], "planning", ct));
+        Assert.Equal("LLM_BUDGET_UNVERIFIABLE", planning.Code);
+        var client = new StubClient(Usage(1, 1));
+        var execution = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => scope.CallAsync(client, estimator, Request(), "execution", ct));
+        Assert.Equal("LLM_BUDGET_UNVERIFIABLE", execution.Code);
+        Assert.Equal(1, scope.Snapshot.Calls); Assert.Equal(0m, scope.Snapshot.EstimatedCost);
+    }
+
     [Fact]
     public async Task ChangingForecastCannotUnderstateTheCurrentPhysicalReservation()
     {
@@ -504,7 +525,7 @@ public sealed class LLMUsageBudgetTests
     }
 
     [Fact]
-    public async Task ProviderFailure_ConsumesCallAndReleasesMonetaryGate()
+    public async Task ProviderFailureRetainsUnverifiedSpendAndReleasesMonetaryGate()
     {
         var client = new FailOnceClient();
         var scope = Scope(maxCalls: 3, maxCost: 100m);
@@ -512,16 +533,14 @@ public sealed class LLMUsageBudgetTests
 
         await Assert.ThrowsAsync<LLMClientException>(() =>
             scope.CallAsync(client, estimator, Request(), "neutral.stage", TestContext.Current.CancellationToken));
-        var response = await scope.CallAsync(
-            client,
-            estimator,
-            Request(),
-            "neutral.stage",
-            TestContext.Current.CancellationToken);
-
-        Assert.Equal("ok", response.Text);
-        Assert.Equal(2, scope.Snapshot.Calls);
-        Assert.Equal(2, client.CallCount);
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        deadline.CancelAfter(TimeSpan.FromSeconds(5));
+        var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() =>
+            scope.CallAsync(client, estimator, Request(), "neutral.stage", deadline.Token));
+        Assert.Equal("LLM_BUDGET_UNVERIFIABLE", error.Code);
+        Assert.Equal(1, scope.Snapshot.Calls);
+        Assert.Equal(1, scope.Snapshot.UncertainCalls);
+        Assert.Equal(1, client.CallCount);
     }
 
     [Fact]

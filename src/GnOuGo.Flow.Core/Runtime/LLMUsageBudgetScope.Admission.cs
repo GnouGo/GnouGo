@@ -71,9 +71,6 @@ public sealed partial class LLMUsageBudgetScope
     private void EnsureLocalAllowanceCore(LLMUsageBudgetSnapshot snapshot, int inputTokens,
         IReadOnlyList<int> outputs, decimal cost, string stage, decimal currentCost)
     {
-        if (AdvisoryFinancialForecasts && _costLimit is not null && (!snapshot.CostEstimateAvailable ||
-            snapshot.UncertainCalls > (snapshot.JournaledAttempts?.Values.Count(a => a.VerifiedUsage is null) ?? 0)))
-            throw CreateUnverifiable(stage, "historical_cost_evidence", snapshot);
         EnsurePreCallLimits(snapshot, stage);
         if (Limits.MaxCalls is { } calls && outputs.Count > calls - snapshot.Calls &&
             !WarnOptimizationThreshold(stage, "calls", calls, checked(snapshot.Calls + outputs.Count)))
