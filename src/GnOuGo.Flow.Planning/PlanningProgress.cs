@@ -215,7 +215,41 @@ internal static class PlanningProgress
                 ["evidence"] = Strings(item.Prerequisite.EvidenceAddresses)
             }).ToArray());
         Normalize(consumers, local: false);
-        return new JsonObject { ["action"] = projected, ["selected"] = selected, ["consumers"] = consumers };
+        var result = new JsonObject { ["action"] = projected, ["selected"] = selected, ["consumers"] = consumers };
+        // A protected refresh may establish another exact version of an operation
+        // whose binding previously failed. That is another selected contract,
+        // even if its operation ID is stable. Random action IDs, re-reading the
+        // same metadata and unrelated new catalog rows are never novelty.
+        var operations = new HashSet<string>(StringComparer.Ordinal);
+        SelectedOperations(response);
+        var refreshed = new JsonArray();
+        foreach (var failure in (state.Discovery.Failures ?? []).Where(f =>
+                     f.StepId == state.Construction?.Compact?.CurrentStep?.Id && state.Discovery.SupersededFailures?.Contains(f.Id, StringComparer.Ordinal) == true))
+        {
+            if (failure.CapabilityId is not null && failure.OperationId is not null && operations.Contains(failure.OperationId) &&
+                failure.Category is "transport_unavailable" or "timeout" or "access_denied" &&
+                state.Discovery.Resolved.Any(c => c.Id == failure.CapabilityId && c.Version == failure.ContractVersion))
+                refreshed.Add((JsonNode)new JsonObject { ["operation"] = failure.OperationId, ["currentVersion"] = failure.ContractVersion, ["verifiedAfterFailure"] = true });
+            if (failure.Category is not ("catalog_changed" or "invalid_contract")) continue;
+            var previous = state.Discovery.Pages.Where(p => p.SourceId == failure.SourceId && p.SnapshotVersion == failure.SnapshotVersion)
+                .SelectMany(p => p.Capabilities).ToArray();
+            foreach (var current in PlanningDiscoveryFocus.VisiblePages(state).Where(p => p.SourceId == failure.SourceId)
+                         .SelectMany(p => p.Capabilities).Where(c => c.Operation is not null && operations.Contains(c.Operation.Id)))
+                foreach (var old in previous.Where(c => c.Id == current.Id && c.Version != current.Version))
+                    refreshed.Add((JsonNode)new JsonObject { ["operation"] = current.Operation!.Id, ["previousVersion"] = old.Version, ["currentVersion"] = current.Version });
+        }
+        if (refreshed.Count > 0) result["refreshedContracts"] = new JsonArray(refreshed.Select(row => row!.ToJsonString()).Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal).Select(text => JsonNode.Parse(text)).ToArray());
+        return result;
+
+        void SelectedOperations(JsonNode? node)
+        {
+            if (node is JsonArray array) { foreach (var child in array) SelectedOperations(child); }
+            if (node is not JsonObject obj) return;
+            if (obj["operationIds"] is JsonArray ids) foreach (var id in ids.OfType<JsonValue>()) operations.Add(id.ToString());
+            if (obj["kind"]?.ToString() == "operation" && obj["operation"] is JsonValue operation) operations.Add(operation.ToString());
+            foreach (var child in obj.Select(p => p.Value)) SelectedOperations(child);
+        }
 
         void Tasks(JsonNode? node, string path)
         {

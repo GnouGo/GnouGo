@@ -112,13 +112,18 @@ public sealed class CapabilityDiscovery(WorkflowEngine engine) : ICapabilityCata
 
     public async Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct)
     {
-        var entries = await ReadSourceAsync(summary.SourceId, ct);
+        List<PlanningCapability> entries;
+        try { entries = await ReadSourceAsync(summary.SourceId, ct); }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (PlanningConflictException) { throw; }
+        catch (WorkflowRuntimeException) { throw; }
+        catch (Exception ex) { throw ProviderFailure(ex, "invalid_contract"); }
         var capability = entries.SingleOrDefault(c => c.Id == summary.Id &&
             (c.Version == summary.Version || CapabilityContractIdentity.LegacyVersion(c) == summary.Version))
-            ?? throw new PlanningConflictException("The selected capability changed. Rediscover and review it.");
+            ?? throw new PlanningConflictException("The selected capability changed. Rediscover and review it.", "catalog_changed");
         if (PlanningContractValidation.ValidateSchema(capability.InputSchema).Count > 0 ||
             capability.OutputSchema.Count > 0 && PlanningContractValidation.ValidateSchema(capability.OutputSchema).Count > 0)
-            throw new PlanningConflictException("The selected capability has an invalid declared schema.");
+            throw new PlanningConflictException("The selected capability has an invalid declared schema.", "invalid_contract");
         var resolved = JsonSerializer.Deserialize(JsonSerializer.Serialize(capability, PlanningJsonContext.Default.PlanningCapability), PlanningJsonContext.Default.PlanningCapability)!;
         resolved.Version = summary.Version; // Exact legacy verification retains the issued version.
         return resolved;

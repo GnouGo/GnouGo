@@ -27,7 +27,9 @@ try {
   const headers = { [csrf.headerName]: csrf.requestToken };
   assert.equal((await page.request.post(`${url}/api/planning/${session}/commands`, {
     headers, data: { ...recovery, expectedRevision: before.revision + 100 } })).status(), 409);
-  const other = await (await page.request.get(`${url}/api/planning/${otherSession}`)).json();
+  let other = await (await page.request.get(`${url}/api/planning/${otherSession}`)).json();
+  assert.ok(other.diagnostics.some(d => d.code === 'DISCOVERY_REQUIRED_CONTRACT_CHANGED'));
+  assert.equal(other.discoveryFailures[0].category, 'catalog_changed');
   assert.equal((await page.request.post(`${url}/api/planning/${otherSession}/commands`, {
     headers, data: { ...recovery, expectedRevision: other.revision } })).status(), 409);
   await page.getByRole('button', { name: 'Refresh source metadata', exact: true }).click();
@@ -58,6 +60,15 @@ try {
   assert.equal(stopped.status, 'stopped');
   assert.ok(stopped.diagnostics.some(d => ['LLM_BUDGET_EXCEEDED', 'CONSTRUCTION_REVIEW_ALLOWANCE'].includes(d.code)), JSON.stringify(stopped.diagnostics.map(d => ({ code: d.code, message: d.message }))));
   assert.equal(stopped.calls, before.calls); assert.equal(errors.length, 0, errors.join('\n'));
+  await page.goto(`${url}/planning/${otherSession}`);
+  await page.locator('#planningReview[data-interactive="true"]').waitFor();
+  await page.getByRole('button', { name: 'Continue with available sources', exact: true }).click();
+  await page.getByRole('button', { name: 'Resume planning after discovery recovery', exact: true }).waitFor();
+  other = await (await page.request.get(`${url}/api/planning/${otherSession}`)).json();
+  assert.equal(other.status, 'discovery_recovery'); assert.equal(other.calls, before.calls);
+  await page.reload(); await page.locator('#planningReview[data-interactive="true"]').waitFor();
+  await page.getByRole('button', { name: 'Resume planning after discovery recovery', exact: true }).waitFor();
+  await page.screenshot({ path: `${output}/required-contract-recovery.png`, fullPage: true });
   const cancelled = await (await page.request.post(`${url}/api/planning/${otherSession}/commands`, { headers,
     data: { kind: 'cancel', expectedRevision: other.revision } })).json();
   assert.equal(cancelled.status, 'cancelled');
@@ -66,7 +77,7 @@ try {
       discoveryRecovery: { failureId: other.discoveryFailures[0].id, resolution: 'continue_available' } } })).status(), 409);
   await writeFile(`${output}/result.json`, JSON.stringify({ evidence: 'controlled-provider', session,
     protectedRecovery: true, crossSessionRejected: true, metadataWarning: true, reload: true,
-    sharedInspector: true, cancellation: true, modelCallsDuringRecovery: 0, finiteAdmissionPreserved: true, errors }, null, 2));
+    sharedInspector: true, requiredContractRecovery: true, cancellation: true, modelCallsDuringRecovery: 0, finiteAdmissionPreserved: true, errors }, null, 2));
 } catch (error) {
   await page.screenshot({ path: `${output}/failure.png`, fullPage: true });
   await writeFile(`${output}/failure.json`, JSON.stringify({ errors, message: error.message,

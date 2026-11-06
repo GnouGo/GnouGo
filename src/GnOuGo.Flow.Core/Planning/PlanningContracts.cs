@@ -284,7 +284,12 @@ public interface IPlanningSessionStore
     Task<IReadOnlyList<PlanningSession>> ListAsync(string tenantId, CancellationToken ct);
 }
 
-public sealed class PlanningConflictException(string message) : InvalidOperationException(message);
+public sealed class PlanningConflictException : InvalidOperationException
+{
+    public PlanningConflictException(string message) : this(message, null) { }
+    public PlanningConflictException(string message, string? category) : base(message) => Category = category;
+    public string? Category { get; }
+}
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow, AllowOutOfOrderMetadataProperties = true)]
 [JsonSerializable(typeof(TaskPlan))]

@@ -76,6 +76,56 @@ public sealed class FocusedDiscoveryTests
     }
 
     [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    public async Task SelectedContractFailureRecoversWithoutLosingIndependentWork(bool diagnostic, bool changed)
+    {
+        var source = new Source("arbitrary-contracts", 1); var (state, runtime) = Ready(source);
+        if (diagnostic) state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        state.Plan!.Root.Tasks.Add(new() { Id = "independent", Kind = "value", Objective = "Keep the original supplied value",
+            Outputs = [new("retained", new() { Kind = "string", Text = "Original value" })] });
+        state.Construction!.Compact!.CurrentStep!.BaseHash = PlanningConstruction.Hash(state.Plan);
+        var baseline = PlanningConstruction.Hash(state.Plan); var block = state.Construction.Compact.CurrentBlockId;
+        runtime.Respond = (request, _) => Discover(request, state, source.Id);
+        state = await Advance(state, runtime);
+        var original = Assert.Single(state.Discovery.Pages).Capabilities[0];
+        if (changed) source.Tools[0].OutputSchema!["type"] = "integer";
+        else source.OpenFailure = new IOException("PRIVATE_SOURCE_FAILURE");
+        runtime.Capabilities = new CapabilityDiscovery(new() { McpClientFactory = source });
+        runtime.Respond = (request, _) => new() { Json = PlanningCorpus.Transport(new JsonObject
+        {
+            ["binding"] = new JsonObject { ["kind"] = "operation", ["operationIds"] = new JsonArray(original.Operation!.Id), ["groupId"] = null, ["closeScopes"] = null },
+            ["discoveryRequests"] = null, ["evidenceRequests"] = null, ["clarifications"] = null, ["reselectStep"] = null
+        }, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
+        state = await Advance(state, runtime);
+        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Null(state.PendingCall);
+        Assert.Contains(state.Diagnostics, d => d.Required && d.Code == (changed ? "DISCOVERY_REQUIRED_CONTRACT_CHANGED" : "DISCOVERY_REQUIRED_CONTRACT_UNAVAILABLE"));
+        var failure = Assert.Single(PlanningDiscoveryRecoveryActions.Failures(state)); Assert.Equal(changed ? "catalog_changed" : "transport_unavailable", failure.Category);
+        Assert.Equal(original.Id, failure.CapabilityId); Assert.Equal(original.Version, failure.ContractVersion);
+        Assert.True(PlanningDiscoveryRecoveryActions.Eligible(state)); Assert.Equal(2, state.ModelCalls);
+        source.OpenFailure = null;
+        runtime.DiscoveryRecoveryGuard = (_, _) => Task.CompletedTask;
+        state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { Kind = "recover_discovery", ExpectedRevision = state.Revision,
+            DiscoveryRecovery = new(failure.Id, "refresh_source") }, runtime, Ct);
+        Assert.Equal(PlanningStatus.DiscoveryRecovery, state.Status); Assert.Equal(2, state.ModelCalls);
+        Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan)); Assert.Equal(block, state.Construction!.Compact!.CurrentBlockId);
+        Assert.Empty(state.Diagnostics); Assert.Equal(changed ? 0 : 1, state.Discovery.Resolved.Count); Assert.Equal(2, state.Discovery.Pages.Count);
+        state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { Kind = "resume_discovery", ExpectedRevision = state.Revision }, runtime, Ct);
+        var repeatProbe = PlannerFixture.Clone(state);
+        var sameBinding = new JsonObject { ["binding"] = new JsonObject { ["kind"] = "operation", ["operationIds"] = new JsonArray(original.Operation!.Id), ["groupId"] = null, ["closeScopes"] = null } };
+        PlanningProgress.AssessAttempt(repeatProbe, PlanningCompactConstruction.DiscoveryPurpose, sameBinding, "fresh-contract-binding");
+        var repeated = Assert.Throws<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() =>
+            PlanningProgress.AssessAttempt(repeatProbe, PlanningCompactConstruction.DiscoveryPurpose, sameBinding, "same-contract-binding"));
+        Assert.Equal("REPLAN_NO_PROGRESS", repeated.Code);
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics); Assert.True(state.Construction!.Compact!.CurrentStep!.DiscoveryComplete);
+        Assert.Equal(changed, original.Version != Assert.Single(state.Discovery.Resolved).Version);
+        Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan)); Assert.Equal(block, state.Construction.Compact.CurrentBlockId);
+    }
+
+    [Theory]
     [InlineData(false, false)]
     [InlineData(false, true)]
     [InlineData(true, false)]
@@ -372,12 +422,13 @@ public sealed class FocusedDiscoveryTests
     {
         internal string Id => CapabilityDiscovery.SourceId(name);
         internal int Reads;
+        internal Exception? OpenFailure;
         internal List<McpToolInfo> Tools = Enumerable.Range(0, count).Select(i => new McpToolInfo { Name = "operation_" + i,
             Description = "Declared operation", EffectKind = "read", InputSchema = new JsonObject { ["type"] = "object", ["properties"] = new JsonObject() },
             OutputSchema = new JsonObject { ["type"] = "string" } }).ToList();
         public IReadOnlyList<McpServerMetadata> ServerMetadata => [new() { Name = name, Description = "Business operations" }];
         public Task<IMcpSession> GetClientAsync(string server, CancellationToken ct)
-        { Reads++; var inner = new InMemoryMcpClientFactory(); inner.RegisterServer(name, new() { Tools = Tools }); return inner.GetClientAsync(server, ct); }
+        { Reads++; if (OpenFailure is not null) throw OpenFailure; var inner = new InMemoryMcpClientFactory(); inner.RegisterServer(name, new() { Tools = Tools }); return inner.GetClientAsync(server, ct); }
     }
     private sealed class Mixed(Source healthy, string failed) : ICapabilityCatalog
     {

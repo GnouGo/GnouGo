@@ -197,6 +197,14 @@ not arrays, values or contract meaning. Keep exact encrypted payload hashes and 
 version verification separate. Explicit source refresh selects its new action for
 decision directories while retaining old pages and exact versioned evidence. Never
 merge old and refreshed versions to infer capability absence or authorize a binding.
+Persist selected-contract resolution failures as required, categorized blockages after
+receipt retention; protected metadata recovery cannot waive the contract or replay the
+model. A refreshed exact version of the actually selected operation distinguishes its
+binding strategy; action IDs, repeated reads and unrelated catalog changes do not.
+After a selected-contract transport/access failure, protected refresh may resolve
+that exact unchanged identity/version mechanically. Retain it as metadata, never an
+accepted binding or effect. Its first verified restoration distinguishes a new
+binding decision; unchanged repetitions retain their original guards.
 Keep tentative reselection findings and their retrievable evidence visible through
 implementation, discovery and drafting only for the same block, scope, obligations
 and unchanged accepted baseline. A stale finding remains historical evidence, not

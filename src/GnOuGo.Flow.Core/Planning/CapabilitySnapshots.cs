@@ -28,6 +28,13 @@ public sealed record CapabilityDiscoveryFailure(string Id, string SourceId, stri
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? StepId { get; init; }
+    // Present only for an exact selected contract, never inferred for history.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? CapabilityId { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? OperationId { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ContractVersion { get; init; }
 }
 
 public sealed record PlanningDiscoveryRecovery(string FailureId, string Resolution);

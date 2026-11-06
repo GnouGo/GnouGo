@@ -10,7 +10,12 @@ internal static class PlanningDiscoveryContext
     internal static async Task ResolveAsync(PlanningSession state, IPlanningRuntime runtime, CapabilitySummary summary, CancellationToken ct)
     {
         var cached = state.Discovery.Resolved.SingleOrDefault(c => c.Id == summary.Id && c.Version == summary.Version);
-        var resolved = cached ?? await runtime.Capabilities.ResolveAsync(summary, ct);
+        PlanningCapability resolved;
+        try { resolved = cached ?? await runtime.Capabilities.ResolveAsync(summary, ct); }
+        catch (PlanningConflictException ex) when (ex.Category is "catalog_changed" or "invalid_contract")
+        { throw RequiredContractFailure(ex.Category); }
+        catch (CapabilityDiscoveryException ex)
+        { throw RequiredContractFailure(ex.Category); }
         if (resolved.Id != summary.Id || resolved.Version != summary.Version ||
             summary.ArtifactContract is not null && !JsonNode.DeepEquals(
                 JsonSerializer.SerializeToNode(summary.ArtifactContract, PlanningJsonContext.Default.McpArtifactContract),
@@ -24,6 +29,26 @@ internal static class PlanningDiscoveryContext
             throw new PlanningConflictException("The operation contract changed after discovery.");
         if (cached is null) state.Discovery.Resolved.Add(resolved);
         state.Discovery.ResolutionFailures?.RemoveAll(f => f.Id == summary.Id && f.Version == summary.Version);
+
+        GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException RequiredContractFailure(string category)
+        {
+            category = category is "catalog_changed" or "invalid_contract" or "access_denied" or "timeout" or "cursor_incompatible"
+                ? category : "transport_unavailable";
+            if (!state.Discovery.Sources.Any(s => s.Id == summary.SourceId))
+                return new("DISCOVERY_OWNERSHIP_INVALID", "The selected contract does not belong to an owned metadata source.");
+            var step = state.Construction!.Compact!.CurrentStep!;
+            var focus = PlanningDiscoveryFocus.Choices(state)[0];
+            var page = state.Discovery.Pages.LastOrDefault(p => p.SourceId == summary.SourceId && p.Capabilities.Any(c => c.Id == summary.Id && c.Version == summary.Version));
+            var failure = new CapabilityDiscoveryFailure(Guid.NewGuid().ToString("N"), summary.SourceId, focus.Id, focus.Query, page?.Cursor,
+                category, "The selected operation contract could not be verified; no implementation binding was accepted.",
+                page?.SnapshotVersion, state.RequestMeasurements?.LastOrDefault()?.RequestId, null, DateTimeOffset.UtcNow)
+                { StepId = step.Id, CapabilityId = summary.Id, OperationId = summary.Operation?.Id, ContractVersion = summary.Version };
+            (state.Discovery.Failures ??= []).Add(failure);
+            PlanningInspection.Record(state, PlanningCompactConstruction.DiscoveryPurpose, "blocked", failure.Message, failure.RequestId,
+                new(failure.SourceId, failure.FocusId, null, failure.SnapshotVersion, failure.Cursor, category, failure.Id));
+            var code = category switch { "catalog_changed" => "DISCOVERY_REQUIRED_CONTRACT_CHANGED", "invalid_contract" => "DISCOVERY_REQUIRED_CONTRACT_INVALID", _ => "DISCOVERY_REQUIRED_CONTRACT_UNAVAILABLE" };
+            return new(code, failure.Message + " Explicit metadata recovery is required before a new binding decision.");
+        }
     }
     internal static async Task DiscoverPageAsync(PlanningSession state, IPlanningRuntime runtime, string source, string? cursor, CancellationToken ct, string? query = null, string? producedArtifactKind = null,
         PlanningConstructionDiscoveryContinuation? action = null, PlanningDiscoveryRequest? selection = null)

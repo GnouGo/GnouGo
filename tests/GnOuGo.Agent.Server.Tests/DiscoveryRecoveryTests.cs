@@ -148,6 +148,29 @@ public sealed class DiscoveryRecoveryTests
             new() { Kind = "recover_discovery", ExpectedRevision = state.Revision, DiscoveryRecovery = new(failure.Id, "continue_available") }, Ct, new("operator")));
         Assert.Equal(PlanningStatus.Stopped, (await fixture.Store.LoadAsync("planning-tests", state.Request.SessionId, Ct))!.Status);
     }
+    [Theory]
+    [InlineData("DISCOVERY_REQUIRED_CONTRACT_CHANGED")]
+    [InlineData("DISCOVERY_REQUIRED_CONTRACT_INVALID")]
+    [InlineData("DISCOVERY_REQUIRED_CONTRACT_UNAVAILABLE")]
+    public async Task RequiredContractBlockageUsesProtectedMetadataRecoveryAndCompletedJournals(string code)
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        using var service = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog(),
+            settings: new() { BackgroundProcessingEnabled = false });
+        var state = await BlockedAsync(service, fixture);
+        state.Diagnostics = [new(code, "/binding", "The selected contract requires explicit recovery.")];
+        var previous = state.Revision++; Assert.True(await fixture.Store.TrySaveAsync(state, previous, Ct));
+        Assert.True(await service.CanRecoverDiscoveryAsync(state, Ct));
+        var baseline = PlanningConstruction.Hash(state.Plan); var calls = state.ModelCalls;
+        var failure = Assert.Single(PlanningDiscoveryRecoveryActions.Failures(state));
+        var command = new PlanningCommand { Kind = "recover_discovery", ExpectedRevision = state.Revision, DiscoveryRecovery = new(failure.Id, "continue_available") };
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.SubmitAsync(state.Request.SessionId, command, Ct));
+        state = await service.SubmitAsync(state.Request.SessionId, command, Ct, new("operator"));
+        Assert.Equal(PlanningStatus.DiscoveryRecovery, state.Status); Assert.Empty(state.Diagnostics);
+        Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan)); Assert.Equal(calls, state.ModelCalls);
+        Assert.Equal(2, state.Construction!.Checkpoints.Count); Assert.Null(state.PendingCall);
+    }
+
     private sealed class RetainedOwner : IPlanningDiscoveryRecoveryGuard
     {
         public Task VerifyAsync(PlanningSession session, CancellationToken ct) => throw new InvalidOperationException("Existing permanent retention forbids old continuation.");

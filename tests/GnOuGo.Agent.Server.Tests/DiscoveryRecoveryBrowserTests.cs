@@ -5,6 +5,7 @@ using GnOuGo.Agent.Server.Planning;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Planning;
 using GnOuGo.Flow.Planning.Capabilities;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -47,6 +48,16 @@ public sealed partial class DiagnosticPlanningBrowserTests
             state.Discovery.Pages = [new(source, "old", [], null, "Original exception unavailable", state.Request.Prompt)];
             state.Construction!.Compact!.CurrentStep!.PendingDiscovery = new()
                 { Requests = [new(source)], Pending = [new(source, "old", state.Request.Prompt)] };
+            if (name == "other-session")
+            {
+                var step = state.Construction.Compact.CurrentStep; step.DiscoveryProtocol = 2; step.PendingDiscovery = null;
+                var focus = PlanningDiscoveryFocus.Choices(state)[0];
+                var failure = new CapabilityDiscoveryFailure("required-" + state.Request.SessionId, source, focus.Id, focus.Query, "old",
+                    "catalog_changed", "The selected contract changed; refresh or select another verified operation.", null, null, null, DateTimeOffset.UtcNow) { StepId = step.Id };
+                state.Discovery.Failures = [failure];
+                state.Discovery.Pages[0] = state.Discovery.Pages[0] with { FailureId = failure.Id, FocusId = focus.Id, FailureCategory = failure.Category };
+                state.Diagnostics = [new("DISCOVERY_REQUIRED_CONTRACT_CHANGED", "/binding", failure.Message)];
+            }
             var previous = state.Revision++; Assert.True(await store.TrySaveAsync(state, previous, ct)); return state;
         }
         var state = await Seed("recovery-browser"); var other = await Seed("other-session");

@@ -45,6 +45,21 @@ Access denial and metadata timeout retain distinct safe categories. A cursor tha
 not belong to its pinned snapshot fails as `DISCOVERY_CURSOR_INCOMPATIBLE`; ownership,
 corruption and cycles remain hard failures.
 
+When an operation selected by a received model response changes or cannot be verified,
+the engine retains a required-contract blockage and its structured cause, rather than
+losing the transition through a generic conflict. The original completed model receipt
+is retained; the binding is not accepted. Protected metadata recovery remains available
+after the ordinary completed-journal and ownership checks, with separate explicit resume.
+A changed exact operation version established by that refresh distinguishes a subsequent
+binding strategy. After a transport/access failure, recovery can mechanically resolve
+the exact previously selected unchanged contract, retaining its identity/version in
+the failure evidence. This verifies metadata only; binding still waits for explicit
+resume and ordinary validation. That newly verified selected contract distinguishes
+the retry, while another unchanged attempt retains its repeat barrier.
+Reading the same metadata, random action identities and unrelated
+catalog rows do not reset strategy or nonproductive-call guards. Accepted independent
+work and its original business responsibility remain unchanged.
+
 Tentative rejection feedback remains visible in discovery and drafting, with its exact
 evidence link, when block, scope, original obligations and accepted baseline match.
 Historical feedback remains retrievable after that applicability expires. The model

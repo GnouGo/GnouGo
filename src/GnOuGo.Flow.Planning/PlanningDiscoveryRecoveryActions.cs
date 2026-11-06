@@ -10,10 +10,13 @@ public static class PlanningDiscoveryRecoveryActions
         state.Construction?.Compact?.CurrentStep is not null && state.Yaml is null && state.ApprovedHash is null &&
         state.ApprovalReview is null && state.SavedAgentId is null &&
         (state.Status == PlanningStatus.DiscoveryRecovery ||
-         state.Status == PlanningStatus.Stopped && state.Diagnostics.Any(d => d.Code == "DISCOVERY_INCOMPLETE") ||
+         state.Status == PlanningStatus.Stopped && state.Diagnostics.Any(d => RecoverableDiagnostic(d.Code)) ||
          state.Status == PlanningStatus.Generating && state.Phase is PlanningPhase.Discovery or PlanningCompactConstruction.DiscoveryPurpose &&
          state.Construction.Compact.CurrentStep is { Kind: null, PendingDiscovery: null, DiscoveryComplete: false } && Failures(state).Count > 0) &&
-        state.Diagnostics.All(d => !d.Required || d.Code == "DISCOVERY_INCOMPLETE");
+        state.Diagnostics.All(d => !d.Required || RecoverableDiagnostic(d.Code));
+
+    private static bool RecoverableDiagnostic(string code) => code is "DISCOVERY_INCOMPLETE" or
+        "DISCOVERY_REQUIRED_CONTRACT_CHANGED" or "DISCOVERY_REQUIRED_CONTRACT_INVALID" or "DISCOVERY_REQUIRED_CONTRACT_UNAVAILABLE";
 
     public static IReadOnlyList<CapabilityDiscoveryFailure> Failures(PlanningSession state)
     {
@@ -86,8 +89,18 @@ public static class PlanningDiscoveryRecoveryActions
         }
         while (step.PendingDiscovery is not null)
             await HybridWorkflowPlanner.ContinueConstructionDiscoveryAsync(state, runtime, ct);
+        if (selection.Resolution == "refresh_source" && failure.Category is "transport_unavailable" or "timeout" or "access_denied" &&
+            failure.CapabilityId is not null && failure.ContractVersion is not null && failure.OperationId is not null)
+        {
+            // Re-read the exact contract already selected by a completed response.
+            // Resolving metadata accepts no binding, task, completion or effect.
+            var recovered = PlanningDiscoveryFocus.Pages(state, failure.SourceId, failure.Query, MatchingFocus(state, failure.Query, failure.FocusId))
+                .SelectMany(p => p.Capabilities).Where(c => c.Id == failure.CapabilityId && c.Version == failure.ContractVersion &&
+                    c.Operation?.Id == failure.OperationId).DistinctBy(c => (c.Id, c.Version)).ToArray();
+            if (recovered.Length == 1) await PlanningDiscoveryContext.ResolveAsync(state, runtime, recovered[0], ct);
+        }
         if (selection.Resolution == "refresh_source") (state.Discovery.SupersededFailures ??= []).Add(failure.Id);
-        state.Diagnostics.RemoveAll(d => d.Code == "DISCOVERY_INCOMPLETE");
+        state.Diagnostics.RemoveAll(d => RecoverableDiagnostic(d.Code));
         state.Status = PlanningStatus.DiscoveryRecovery;
         state.Phase = PlanningCompactConstruction.DiscoveryPurpose;
         PlanningCompactConstruction.RemoveStaleDiscoveryDirectories(state);
