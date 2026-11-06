@@ -14,9 +14,14 @@ public static class PlanningDiscoveryRecoveryActions
 
     public static IReadOnlyList<CapabilityDiscoveryFailure> Failures(PlanningSession state)
     {
+        if (state.Construction?.Compact?.CurrentStep is not { } step) return [];
+        var focuses = PlanningDiscoveryFocus.Choices(state);
         var failures = (state.Discovery.Failures ?? []).Where(f =>
+            (f.StepId is null || f.StepId == step.Id) &&
+            focuses.Any(focus => focus.Query == f.Query && (f.FocusId is null || focus.Id == f.FocusId)) &&
             !(state.Discovery.SupersededFailures?.Contains(f.Id, StringComparer.Ordinal) ?? false)).ToList();
-        foreach (var page in state.Discovery.Pages.Where(p => p.UnavailableReason is not null && p.FailureId is null))
+        foreach (var page in state.Discovery.Pages.Where(p => p.UnavailableReason is not null && p.FailureId is null &&
+                     focuses.Any(focus => focus.Query == (p.Query ?? step.Objective) && (p.FocusId is null || focus.Id == p.FocusId))))
         {
             var id = "historical_" + PlanningGraphCompiler.Fingerprint(string.Join("\n", state.Request.SessionId,
                 page.SourceId, page.Query, page.Cursor, page.UnavailableReason));

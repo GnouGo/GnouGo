@@ -168,6 +168,28 @@ public sealed class FocusedDiscoveryTests
     }
 
     [Fact]
+    public async Task RecoveryRejectsFailuresOwnedByAnotherRetainedStepOrFocus()
+    {
+        var source = new Source("arbitrary", 1); var (state, runtime) = Ready(source);
+        state.Status = PlanningStatus.Stopped;
+        state.Diagnostics = [new("DISCOVERY_INCOMPLETE", "/", "Retained discovery failure")];
+        var step = state.Construction!.Compact!.CurrentStep!;
+        var focus = PlanningDiscoveryFocus.Choices(state)[0];
+        state.Discovery.Failures = [
+            new("other-step", source.Id, focus.Id, focus.Query, null, "transport_unavailable", "Unavailable", null, null, null, DateTimeOffset.UtcNow) { StepId = "another-step" },
+            new("other-focus", source.Id, "another-focus", focus.Query, null, "transport_unavailable", "Unavailable", null, null, null, DateTimeOffset.UtcNow) { StepId = step.Id }
+        ];
+        state.Discovery.Pages = [new(source.Id, null, [], null, "Historical failure", "Another retained objective")];
+        runtime.DiscoveryRecoveryGuard = (_, _) => throw new InvalidOperationException("Foreign failures must be rejected before authorization.");
+        Assert.Empty(PlanningDiscoveryRecoveryActions.Failures(state));
+        foreach (var failure in state.Discovery.Failures)
+            await Assert.ThrowsAsync<PlanningConflictException>(() => new HybridWorkflowPlanner().AdvanceAsync(state,
+                new() { Kind = "recover_discovery", ExpectedRevision = state.Revision, DiscoveryRecovery = new(failure.Id, "continue_available") }, runtime, Ct));
+        Assert.Equal(2, state.Discovery.Failures.Count); Assert.Single(state.Discovery.Pages);
+        Assert.Empty(runtime.Calls); Assert.Equal(0, source.Reads);
+    }
+
+    [Fact]
     public async Task RuntimeWithoutRecoveryAuthorityCannotChangeAStoppedSession()
     {
         var source = new Source("arbitrary", 1); var (state, runtime) = Ready(source);
