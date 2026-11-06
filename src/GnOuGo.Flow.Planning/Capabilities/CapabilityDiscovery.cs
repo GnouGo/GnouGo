@@ -1,3 +1,4 @@
+using GnOuGo.Flow.Core.Expressions;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
@@ -6,7 +7,7 @@ using GnOuGo.Flow.Core.Runtime.Executors;
 namespace GnOuGo.Flow.Planning.Capabilities;
 
 /// <summary>Lazy source discovery. Only resolved contracts are authorized for graph binding.</summary>
-public sealed class CapabilityDiscovery(WorkflowEngine engine) : ICapabilityCatalog
+public sealed class CapabilityDiscovery(WorkflowEngine engine) : ICapabilityCatalog, ICapabilitySnapshotCatalog
 {
     private readonly Dictionary<string, List<PlanningCapability>> _cache = new(StringComparer.Ordinal);
     internal static Task<PlanningCatalog> DiscoverAsync(WorkflowEngine engine, PlanningRequest request, CancellationToken ct)
@@ -45,31 +46,67 @@ public sealed class CapabilityDiscovery(WorkflowEngine engine) : ICapabilityCata
         try
         {
             var capabilities = await ReadSourceAsync(sourceId, ct);
-            var summaries = capabilities.Select(c => new CapabilitySummary(c.Id, sourceId,
-                c.Method ?? c.Id, c.Description, c.StepType, c.EffectKind, c.Version, c.Composition, PlanningCapabilityArguments.Editable(c), c.ArtifactContract)).ToArray();
-            if (producedArtifactKind is not null)
-            {
-                ArgumentException.ThrowIfNullOrWhiteSpace(producedArtifactKind);
-                summaries = summaries.Where(c => c.ArtifactContract?.Produces.Any(p => p.Kind == producedArtifactKind) == true).ToArray();
-            }
-            // Null queries retain the ordering and numeric cursors of already-issued requests.
-            var ordered = query is null ? summaries : CapabilityRelevance.Rank(summaries, query);
-            var identity = new[] { sourceId, CapabilityRelevance.Query(query ?? "") }.AsEnumerable();
-            if (producedArtifactKind is not null) identity = identity.Append(producedArtifactKind);
-            var prefix = query is null && producedArtifactKind is null ? "" : "rank:" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(
-                identity.Concat(capabilities.Select(c => c.Id + ":" + c.Version)).ToArray(),
-                PlanningJsonContext.Default.StringArray)) + ":";
-            var offsetText = cursor is null ? "0" : cursor.StartsWith(prefix, StringComparison.Ordinal) ? cursor[prefix.Length..] : "invalid";
-            if (!int.TryParse(offsetText, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var offset))
-                throw new ArgumentException("The discovery cursor does not match this query and metadata snapshot.");
-            if (offset > summaries.Length) throw new ArgumentException("Discovery cursor is outside this source.");
-            var pageSize = query is null && producedArtifactKind is null ? 24 : 8;
-            return new(sourceId, cursor, ordered.Skip(offset).Take(pageSize).ToList(),
-                offset + pageSize < summaries.Length ? prefix + (offset + pageSize).ToString(System.Globalization.CultureInfo.InvariantCulture) : null, Query: query, ProducedArtifactKind: producedArtifactKind);
+            return ReadPage(new(sourceId, ConfigurationFingerprint(sourceId), capabilities), cursor, query, producedArtifactKind);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex) when (ex is not ArgumentException)
         { return new(sourceId, cursor, [], null, "The source could not be discovered. Its capabilities remain unavailable.", query, producedArtifactKind); }
+    }
+
+    public async Task<CapabilitySourceSnapshot> CaptureAsync(string sourceId, CancellationToken ct)
+    {
+        if (!engine.AgentTaskRunners.Any(r => RunnerSource(r.Key) == sourceId) &&
+            !(engine.McpClientFactory?.ServerMetadata.Any(s => SourceId(s.Name) == sourceId) ?? false))
+            throw new PlanningConflictException("The selected metadata source is not owned by this runtime.");
+        try
+        {
+            var entries = await ReadSourceAsync(sourceId, ct);
+            var snapshot = new CapabilitySourceSnapshot(sourceId, ConfigurationFingerprint(sourceId), entries);
+            return JsonSerializer.Deserialize(JsonSerializer.Serialize(snapshot, CapabilitySnapshotJsonContext.Default.CapabilitySourceSnapshot),
+                CapabilitySnapshotJsonContext.Default.CapabilitySourceSnapshot)!;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (PlanningConflictException) { throw; }
+        catch (WorkflowRuntimeException) { throw; }
+        catch (OperationCanceledException) { throw new CapabilityDiscoveryException("timeout", "Metadata discovery timed out."); }
+        catch (Exception ex) when (ex is not CapabilityDiscoveryException)
+        { throw new CapabilityDiscoveryException(ex is ArgumentException or JsonException ? "invalid_contract" : "transport_unavailable",
+            "The source metadata could not be captured; its capabilities remain unverified."); }
+    }
+
+    private string ConfigurationFingerprint(string sourceId)
+    {
+        var source = engine.McpClientFactory?.ServerMetadata.SingleOrDefault(s => SourceId(s.Name) == sourceId);
+        return source is not null && engine.McpClientFactory is IMcpSourceConfigurationFingerprint fingerprints
+            ? fingerprints.SourceConfigurationFingerprint(source.Name)
+            : PlanningGraphCompiler.Fingerprint(sourceId + "\n" + (source?.Description ?? "runner"));
+    }
+
+    public CapabilityPage ReadPage(CapabilitySourceSnapshot snapshot, string? cursor, string? query, string? producedArtifactKind = null)
+    {
+        var sourceId = snapshot.SourceId;
+        var capabilities = snapshot.Capabilities;
+        var summaries = capabilities.Select(c => new CapabilitySummary(c.Id, sourceId,
+            c.Method ?? c.Id, c.Description, c.StepType, c.EffectKind, c.Version, c.Composition, PlanningCapabilityArguments.Editable(c), c.ArtifactContract)).ToArray();
+        if (producedArtifactKind is not null)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(producedArtifactKind);
+            summaries = summaries.Where(c => c.ArtifactContract?.Produces.Any(p => p.Kind == producedArtifactKind) == true).ToArray();
+        }
+        // Null queries retain the ordering and numeric cursors of already-issued requests.
+        var ordered = query is null ? summaries : CapabilityRelevance.Rank(summaries, query);
+        var identity = new[] { sourceId, CapabilityRelevance.Query(query ?? "") }.AsEnumerable();
+        if (producedArtifactKind is not null) identity = identity.Append(producedArtifactKind);
+        var prefix = query is null && producedArtifactKind is null ? "" : "rank:" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(
+            identity.Concat(capabilities.Select(c => c.Id + ":" + c.Version)).ToArray(),
+            PlanningJsonContext.Default.StringArray)) + ":";
+        var offsetText = cursor is null ? "0" : cursor.StartsWith(prefix, StringComparison.Ordinal) ? cursor[prefix.Length..] : "invalid";
+        if (!int.TryParse(offsetText, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var offset))
+            throw new ArgumentException("The discovery cursor does not match this query and metadata snapshot.");
+        if (offset > summaries.Length) throw new ArgumentException("Discovery cursor is outside this source.");
+        var pageSize = query is null && producedArtifactKind is null ? 24 : 8;
+        return new(sourceId, cursor, ordered.Skip(offset).Take(pageSize).ToList(),
+            offset + pageSize < summaries.Length ? prefix + (offset + pageSize).ToString(System.Globalization.CultureInfo.InvariantCulture) : null, Query: query, ProducedArtifactKind: producedArtifactKind);
     }
 
     public async Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct)

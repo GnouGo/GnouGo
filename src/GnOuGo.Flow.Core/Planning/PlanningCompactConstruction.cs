@@ -96,6 +96,8 @@ public sealed class PlanningConstructionSource
 /// <summary>One immediate business step and its host-checked selection, not a future workflow outline.</summary>
 public sealed class PlanningConstructionStep
 {
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public int? DiscoveryProtocol { get; set; }
     /// <summary>Owning business responsibility, independent of this implementation cursor.</summary>
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? BlockId { get; set; }
@@ -169,6 +171,13 @@ public sealed class PlanningConstructionBoundaryTransition
 /// <summary>Continuation of one received metadata action; never another model request or executable task.</summary>
 public sealed class PlanningConstructionDiscoveryContinuation
 {
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Id { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, CapabilitySnapshotReference>? Snapshots { get; set; }
+    /// <summary>Only runtimes without a journal retain snapshots inline in their existing checkpoint.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, CapabilitySourceSnapshot>? InlineSnapshots { get; set; }
     public string ActionHash { get; set; } = "";
     public List<PlanningDiscoveryRequest> Requests { get; set; } = [];
     public List<PlanningDiscoveryRequest> Pending { get; set; } = [];

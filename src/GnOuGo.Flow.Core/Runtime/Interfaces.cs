@@ -304,6 +304,12 @@ public sealed class McpServerMetadata
     public int? CallTimeoutSeconds { get; set; }
 }
 
+/// <summary>Optional connection identity digest. Credential values never leave the configuration owner.</summary>
+public interface IMcpSourceConfigurationFingerprint
+{
+    string SourceConfigurationFingerprint(string serverName);
+}
+
 /// <summary>
 /// Factory for obtaining MCP clients by server name.
 /// Implementations manage connection lifecycle (stdio, SSE, etc.).

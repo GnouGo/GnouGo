@@ -63,8 +63,8 @@ public static class PlanningStatus
 {
     public const string Created = "created", Generating = "generating", Clarification = "clarification",
         FinalReview = "final_review", Approved = "approved", Saving = "saving", Saved = "saved",
-        Stopped = "stopped", Failed = "failed", Cancelled = "cancelled";
-    public static bool IsWaiting(string status) => status is Clarification or FinalReview;
+        Stopped = "stopped", Failed = "failed", Cancelled = "cancelled", DiscoveryRecovery = "discovery_recovery";
+    public static bool IsWaiting(string status) => status is Clarification or FinalReview or DiscoveryRecovery;
     public static bool IsTerminal(string status) => status is Approved or Saved or Stopped or Failed or Cancelled;
 }
 
@@ -76,6 +76,8 @@ public sealed class PlanningCommand
     public string? ArtifactHash { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? RequestId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningDiscoveryRecovery? DiscoveryRecovery { get; set; }
     public string? Text { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? PreserveRequirements { get; set; }
@@ -265,6 +267,9 @@ public interface IWorkflowPlanner
 public interface IPlanningRuntime
 {
     ICapabilityCatalog Capabilities { get; }
+    IPlanningCapabilitySnapshotJournal? CapabilitySnapshots => null;
+    Task VerifyDiscoveryRecoveryAsync(PlanningSession session, CancellationToken ct) =>
+        throw new PlanningConflictException("This runtime has no host authorization for discovery recovery.");
     Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct);
     Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct);
     Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct);

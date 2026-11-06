@@ -168,7 +168,7 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
             await Checkpoint(state, ct);
             context.SetTelemetryAttribute("gnougo-flow.plan.session_id", key);
             context.SetTelemetryAttribute("gnougo-flow.plan.run_id", context.Limits.RunId);
-            return new OwnedSession(state, new WorkflowPlanningRuntime(context, client, Checkpoint, capturedModel?.Capabilities), lease, () => context.LLMUsageBudget = inheritedBudget, capturedModel);
+            return new OwnedSession(state, new WorkflowPlanningRuntime(context, client, Checkpoint, capturedModel?.Capabilities, new PlanningCapabilitySnapshotJournal(records)), lease, () => context.LLMUsageBudget = inheritedBudget, capturedModel);
         }
         catch { context.LLMUsageBudget = inheritedBudget; if (capturedModel is not null) await capturedModel.DisposeAsync(); await lease.DisposeAsync(); throw; }
     }

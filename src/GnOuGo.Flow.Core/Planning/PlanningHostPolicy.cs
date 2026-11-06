@@ -44,4 +44,13 @@ public sealed record PlanningInspectionEvent(long Sequence, DateTimeOffset Times
     string? Objective)
 {
     public long PhaseOccurrence { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningDiscoveryInspectionEvidence? Discovery { get; init; }
+}
+
+public sealed record PlanningDiscoveryInspectionEvidence(string SourceId, string? FocusId, string? Justification,
+    string? SnapshotVersion, string? Cursor, string Outcome, string? FailureId)
+{
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? SourceLabel { get; init; }
 }

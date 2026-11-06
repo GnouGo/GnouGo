@@ -13,19 +13,28 @@ public sealed class WorkflowPlanningRuntime : IPlanningRuntime, IPlanningConstru
 {
     private readonly WorkflowEngine _engine;
     public ICapabilityCatalog Capabilities { get; }
+    public IPlanningCapabilitySnapshotJournal? CapabilitySnapshots { get; }
+    private readonly Func<PlanningSession, CancellationToken, Task>? _discoveryRecoveryGuard;
     private readonly StepExecutionContext _context;
     private readonly ILLMClient? _model;
     private readonly Func<PlanningSession, CancellationToken, Task> _checkpoint;
     private readonly ILLMCapabilityResolver? _capturedCapabilities;
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _advisoryRequests = new(StringComparer.Ordinal);
     public WorkflowPlanningRuntime(WorkflowEngine engine, Func<PlanningSession, CancellationToken, Task> checkpoint, ICapabilityCatalog? capabilities = null)
+        : this(engine, checkpoint, capabilities, null) { }
+    public WorkflowPlanningRuntime(WorkflowEngine engine, Func<PlanningSession, CancellationToken, Task> checkpoint, ICapabilityCatalog? capabilities,
+        IPlanningCapabilitySnapshotJournal? capabilitySnapshots, Func<PlanningSession, CancellationToken, Task>? discoveryRecoveryGuard = null)
     {
-        _engine = engine; Capabilities = capabilities ?? new CapabilityDiscovery(engine); _checkpoint = checkpoint;
+        _engine = engine; Capabilities = capabilities ?? new CapabilityDiscovery(engine); _checkpoint = checkpoint; CapabilitySnapshots = capabilitySnapshots;
+        _discoveryRecoveryGuard = discoveryRecoveryGuard;
         _context = new() { Engine = engine, Step = new() { Source = new() { Id = "planning", Type = "workflow.plan" } },
             Data = new(), Limits = engine.Limits, LLMUsageBudget = engine.LLMUsageBudget };
     }
     public WorkflowPlanningRuntime(StepExecutionContext context, ILLMClient model, Func<PlanningSession, CancellationToken, Task> checkpoint, ILLMCapabilityResolver? capturedCapabilities = null)
-    { _context = context; _engine = context.Engine; Capabilities = new CapabilityDiscovery(context.Engine); _model = model; _checkpoint = checkpoint; _capturedCapabilities = capturedCapabilities; }
+        : this(context, model, checkpoint, capturedCapabilities, null) { }
+    public WorkflowPlanningRuntime(StepExecutionContext context, ILLMClient model, Func<PlanningSession, CancellationToken, Task> checkpoint, ILLMCapabilityResolver? capturedCapabilities,
+        IPlanningCapabilitySnapshotJournal? capabilitySnapshots)
+    { _context = context; _engine = context.Engine; Capabilities = new CapabilityDiscovery(context.Engine); _model = model; _checkpoint = checkpoint; _capturedCapabilities = capturedCapabilities; CapabilitySnapshots = capabilitySnapshots; }
     public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => CapabilityDiscovery.DiscoverAsync(_engine, request, ct);
     internal async Task AdmitAsync(LLMRequest request, int inputLimit, string purpose, CancellationToken ct, bool advisoryTokens = false)
     {
@@ -50,6 +59,8 @@ public sealed class WorkflowPlanningRuntime : IPlanningRuntime, IPlanningConstru
         return await _context.CallLLMAsync(client, request, "workflow.plan." + purpose, ct);
     }
     public Task CheckpointAsync(PlanningSession session, CancellationToken ct) => _checkpoint(session, ct);
+    public Task VerifyDiscoveryRecoveryAsync(PlanningSession session, CancellationToken ct) => _discoveryRecoveryGuard?.Invoke(session, ct)
+        ?? throw new PlanningConflictException("This runtime has no host authorization for discovery recovery.");
 
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct)
     {
