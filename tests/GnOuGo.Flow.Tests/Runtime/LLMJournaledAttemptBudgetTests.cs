@@ -17,6 +17,49 @@ public sealed class LLMJournaledAttemptBudgetTests
         { ["input_tokens"] = input, ["output_tokens"] = output, ["total_tokens"] = input + output };
 
     [Fact]
+    public async Task HighPrecisionSettlementRoundTripsWithoutUnderstatingImmutableCharges()
+    {
+        const decimal charge = 0.1234567890123456789012345671m;
+        var limits = new LLMUsageBudgetLimits { MaxCalls = 32, MaxEstimatedCostUsd = 100m };
+        var scope = new LLMUsageBudgetScope(limits);
+        var pricing = new PrecisionPricing(10m, charge);
+        for (var i = 0; i < 20; i++)
+        {
+            await scope.ReserveJournaledAttemptAsync("request-" + i, Request(), pricing, 100, 100, [], "planning", Ct);
+            await scope.SettleJournaledAttemptAsync("request-" + i, Request(), pricing, Usage(1, 1), "planning", Ct);
+            var saved = JsonSerializer.Serialize(scope.Snapshot, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
+            scope = new(limits, JsonSerializer.Deserialize(saved, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
+            Assert.Equal(i + 1, scope.Snapshot.Calls);
+            Assert.True(scope.Snapshot.EstimatedCost >= charge * (i + 1));
+            Assert.All(scope.Snapshot.JournaledAttempts!.Values, entry => Assert.Equal(charge, entry.VerifiedUsage!.EstimatedCost));
+        }
+        var reversed = scope.Snapshot with { JournaledAttempts = scope.Snapshot.JournaledAttempts!.Reverse().ToDictionary(p => p.Key, p => p.Value) };
+        var recovered = new LLMUsageBudgetScope(limits, reversed);
+        Assert.Equal(scope.Snapshot.EstimatedCost, recovered.Snapshot.EstimatedCost);
+        var invalid = reversed with { EstimatedCost = 0m, EstimatedCostUsd = 0m };
+        Assert.Throws<ArgumentException>(() => new LLMUsageBudgetScope(limits, invalid));
+    }
+
+    [Fact]
+    public async Task FinancialAdmissionRejectsAnExactOverageBelowTheRoundedDecimalSum()
+    {
+        const decimal charge = 0.1234567890123456789012345671m;
+        var scope = new LLMUsageBudgetScope(new() { MaxEstimatedCostUsd = 10m });
+        await scope.ReserveJournaledAttemptAsync("settled", Request(), new PrecisionPricing(10m, charge), 100, 100, [], "planning", Ct);
+        await scope.SettleJournaledAttemptAsync("settled", Request(), new PrecisionPricing(10m, charge), Usage(1, 1), "planning", Ct);
+        var before = JsonSerializer.Serialize(scope.Snapshot, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
+        await Assert.ThrowsAsync<WorkflowRuntimeException>(() => scope.ReserveJournaledAttemptAsync("over-limit", Request(),
+            new PrecisionPricing(9.876543210987654321098765433m, 0m), 100, 100, [], "planning", Ct));
+        Assert.Equal(before, JsonSerializer.Serialize(scope.Snapshot, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
+    }
+
+    private sealed class PrecisionPricing(decimal reservation, decimal charge) : IModelUsageCostEstimator
+    {
+        public decimal? EstimateCost(string? model, long? inputTokens = null, long? outputTokens = null, string? providerType = null)
+            => outputTokens >= 100 ? reservation : charge;
+    }
+
+    [Fact]
     public async Task DiagnosticCallWarningsAndUnknownReservationsSurviveIdempotentRecovery()
     {
         var sink = new Sink("usage", []); var limits = new LLMUsageBudgetLimits { MaxCalls = 1 };

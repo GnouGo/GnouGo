@@ -561,8 +561,8 @@ public sealed partial class LLMUsageBudgetScope
                     OutputTokens = checked(current.OutputTokens + (parsedUsage?.OutputTokens ?? 0)),
                     TotalTokens = checked(current.TotalTokens + (parsedUsage?.TotalTokens ?? 0)),
                     UncertainCalls = parsedUsage is null ? current.UncertainCalls : Math.Max(0, current.UncertainCalls - 1),
-                    EstimatedCost = checked(current.EstimatedCost + (estimatedCost?.Amount ?? 0m)),
-                    EstimatedCostUsd = checked(current.EstimatedCostUsd + ResolveLegacyUsdIncrement(sourceCost, estimatedCost)),
+                    EstimatedCost = SumCostConservatively(current.EstimatedCost, estimatedCost?.Amount ?? 0m),
+                    EstimatedCostUsd = SumCostConservatively(current.EstimatedCostUsd, ResolveLegacyUsdIncrement(sourceCost, estimatedCost)),
                     CostEstimateAvailable = current.CostEstimateAvailable && unavailable is null,
                     CostUnavailableReason = current.CostUnavailableReason ?? unavailable
                 };

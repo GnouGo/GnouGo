@@ -396,6 +396,9 @@ conservatively include retained application reservations not already represented
 by campaign HTTP attempts. The captured amount reduces every physical attempt's
 available financial headroom; it never raises the campaign ceiling or releases an
 old reservation. Report it separately from campaign charges to avoid double counting.
+Financial comparisons use exact decimal units; aggregate estimates round upward
+when decimal capacity requires it. This changes no individual historical charge,
+reservation or tariff and cannot create extra headroom.
 Server elapsed targets come from its captured session budget, without adding a
 benchmark-only option to the original Server request or inheriting current defaults.
 

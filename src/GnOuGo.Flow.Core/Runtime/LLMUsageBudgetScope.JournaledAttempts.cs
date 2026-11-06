@@ -79,8 +79,8 @@ public sealed partial class LLMUsageBudgetScope
                         InputTokens = checked(current.InputTokens + inputTokenCeiling),
                         OutputTokens = checked(current.OutputTokens + outputTokenCeiling),
                         TotalTokens = checked(current.TotalTokens + (long)inputTokenCeiling + outputTokenCeiling),
-                        EstimatedCost = checked(current.EstimatedCost + entry.ReservedEstimatedCost),
-                        EstimatedCostUsd = checked(current.EstimatedCostUsd + entry.ReservedEstimatedCostUsd),
+                        EstimatedCost = SumCostConservatively(current.EstimatedCost, entry.ReservedEstimatedCost),
+                        EstimatedCostUsd = SumCostConservatively(current.EstimatedCostUsd, entry.ReservedEstimatedCostUsd),
                         CostEstimateAvailable = current.CostEstimateAvailable && entry.CostUnavailableReason is null,
                         CostUnavailableReason = current.CostUnavailableReason ?? entry.CostUnavailableReason,
                         JournaledAttempts = WithJournaledAttempt(current, id, entry)
@@ -158,8 +158,8 @@ public sealed partial class LLMUsageBudgetScope
                         OutputTokens = checked(current.OutputTokens - entry.OutputTokenCeiling + actual.OutputTokens),
                         TotalTokens = checked(current.TotalTokens - entry.InputTokenCeiling - entry.OutputTokenCeiling + actual.TotalTokens),
                         UncertainCalls = Math.Max(0, current.UncertainCalls - 1),
-                        EstimatedCost = checked(current.EstimatedCost - entry.ReservedEstimatedCost + actual.EstimatedCost),
-                        EstimatedCostUsd = checked(current.EstimatedCostUsd - entry.ReservedEstimatedCostUsd + actual.EstimatedCostUsd),
+                        EstimatedCost = SumCostConservatively(current.EstimatedCost, -entry.ReservedEstimatedCost, actual.EstimatedCost),
+                        EstimatedCostUsd = SumCostConservatively(current.EstimatedCostUsd, -entry.ReservedEstimatedCostUsd, actual.EstimatedCostUsd),
                         CostEstimateAvailable = current.CostEstimateAvailable && actual.CostUnavailableReason is null,
                         CostUnavailableReason = current.CostUnavailableReason ?? actual.CostUnavailableReason,
                         JournaledAttempts = WithJournaledAttempt(current, id, entry with { VerifiedUsage = actual })
@@ -280,7 +280,7 @@ public sealed partial class LLMUsageBudgetScope
     {
         if (snapshot.JournaledAttempts is null) return null;
         long input = 0, output = 0, total = 0;
-        decimal cost = 0, usd = 0;
+        System.Numerics.BigInteger cost = 0, usd = 0;
         try
         {
             foreach (var (id, entry) in snapshot.JournaledAttempts)
@@ -296,13 +296,13 @@ public sealed partial class LLMUsageBudgetScope
                 input = checked(input + (usage?.InputTokens ?? entry.InputTokenCeiling));
                 output = checked(output + (usage?.OutputTokens ?? entry.OutputTokenCeiling));
                 total = checked(total + (usage?.TotalTokens ?? (long)entry.InputTokenCeiling + entry.OutputTokenCeiling));
-                cost = checked(cost + (usage?.EstimatedCost ?? entry.ReservedEstimatedCost));
-                usd = checked(usd + (usage?.EstimatedCostUsd ?? entry.ReservedEstimatedCostUsd));
+                cost += ExactCostUnits(usage?.EstimatedCost ?? entry.ReservedEstimatedCost);
+                usd += ExactCostUnits(usage?.EstimatedCostUsd ?? entry.ReservedEstimatedCostUsd);
             }
         }
         catch (OverflowException exception) { throw new ArgumentException("The initial journaled LLM accounting overflowed.", nameof(snapshot), exception); }
         if (snapshot.JournaledAttempts.Count > snapshot.Calls || input > snapshot.InputTokens || output > snapshot.OutputTokens ||
-            total > snapshot.TotalTokens || cost > snapshot.EstimatedCost || usd > snapshot.EstimatedCostUsd)
+            total > snapshot.TotalTokens || cost > ExactCostUnits(snapshot.EstimatedCost) || usd > ExactCostUnits(snapshot.EstimatedCostUsd))
             throw new ArgumentException("The initial journaled LLM accounting exceeds its cumulative snapshot.", nameof(snapshot));
         return new ReadOnlyDictionary<string, LLMJournaledAttempt>(new Dictionary<string, LLMJournaledAttempt>(snapshot.JournaledAttempts, StringComparer.Ordinal));
     }

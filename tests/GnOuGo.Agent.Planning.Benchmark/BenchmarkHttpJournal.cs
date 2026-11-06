@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
 using GnOuGo.Planning.Examples;
 
@@ -133,7 +134,7 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
             }
             var retainedOtherReservations = _effectiveTransportPolicy?["retained_external_reservations_eur"]?.GetValue<decimal>() ?? 0;
             if (retainedOtherReservations < 0) throw new InvalidOperationException("Retained financial headroom cannot be negative.");
-            if (totals["cost_upper_bound_eur"]!.GetValue<decimal>() + reviewCostHeadroom + retainedOtherReservations > await campaign.CostCeilingAsync(ct) || sessionExhausted)
+            if (LLMUsageBudgetScope.CostSumExceeds(await campaign.CostCeilingAsync(ct), totals["cost_upper_bound_eur"]!.GetValue<decimal>(), reviewCostHeadroom, retainedOtherReservations) || sessionExhausted)
             { campaign.BudgetExceeded(sessionExhausted); throw new InvalidOperationException("The campaign or session cannot cover another HTTP attempt."); }
         }
         await campaign.SaveAsync(Collection, requestId, record, ct);
@@ -201,11 +202,11 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
             uncertain += pending;
             reservedInput += pending * row["input_ceiling"]!.GetValue<long>();
             reservedOutput += pending * row["output_ceiling"]!.GetValue<long>();
-            reservedCost += pending * row["cost_ceiling_eur"]!.GetValue<decimal>();
+            reservedCost = LLMUsageBudgetScope.SumCostConservatively(new[] { reservedCost }.Concat(Enumerable.Repeat(row["cost_ceiling_eur"]!.GetValue<decimal>(), pending)).ToArray());
             if (usage is not null)
             {
                 input += usage["input_tokens"]!.GetValue<long>(); output += usage["output_tokens"]!.GetValue<long>();
-                cost += usage["benchmark_cost_eur"]!.GetValue<decimal>();
+                cost = LLMUsageBudgetScope.SumCostConservatively(cost, usage["benchmark_cost_eur"]!.GetValue<decimal>());
             }
         }
         if (requestId is not null)
@@ -215,7 +216,7 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
         }
         var result = new JsonObject { ["calls"] = calls, ["session_calls"] = sessionCalls, ["known_input_tokens"] = input, ["known_output_tokens"] = output,
             ["known_cost_eur"] = cost, ["reserved_input_tokens"] = reservedInput, ["reserved_output_tokens"] = reservedOutput,
-            ["reserved_cost_eur"] = reservedCost, ["cost_upper_bound_eur"] = cost + reservedCost, ["unknown_attempts"] = uncertain };
+            ["reserved_cost_eur"] = reservedCost, ["cost_upper_bound_eur"] = LLMUsageBudgetScope.SumCostConservatively(cost, reservedCost), ["unknown_attempts"] = uncertain };
         // Preserve historical accounting hashes when no new captured policy is being admitted.
         if (replacement is not null && PlanningBenchmarkMeasurements.RetainsAllHttpFailures(replacement))
             result["session_token_upper_bound"] = sessionTokens;

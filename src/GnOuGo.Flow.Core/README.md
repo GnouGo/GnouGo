@@ -10,6 +10,13 @@ Physical provider capacity, request timeouts, retries, cancellation and executio
 resources remain bounded. Agent.Server/Desktop expose the protected shared setting
 described in [application consumption](../../docs/diagnostic-planning.md#application-llm-consumption).
 
+Monetary admission compares exact scaled decimal amounts. Cumulative estimates
+round upward only when the exact aggregate exceeds decimal precision; settlement
+never rounds below its immutable receipt charges. Restore validates journal totals
+independently of entry order. Individual historical charges, reservations and
+captured tariffs are unchanged; an inconsistent historical snapshot is not repaired
+or repriced automatically.
+
 Execution storage uses `IWorkflowRunStore` (schema 9). Hosts inject the separately publishable `GnOuGo.Flow.Persistence`; Core remains independent of persistence libraries. A run records invocation paths, inputs, control decisions, receipts, usage, pending human answers and finalization. `ResumeAsync(tenantId, runId, expectedRevision, workflow, ct)` follows the same execution path as a new run. An external operation with an unknown outcome requires reconciliation and prevents cleanup. Custom executors default to external effects; declare `StepRecovery.ReplaySafe` only when restarting the executor cannot repeat an external effect.
 
 

@@ -58,7 +58,7 @@ public sealed partial class LLMUsageBudgetScope
                 catch { throw CreateUnverifiable(stage, "pricing", Snapshot); }
                 if (estimate is null) throw CreateUnverifiable(stage, "pricing", Snapshot);
                 var converted = await ConvertToBudgetCurrencyAsync(estimate, stage, ct, pinQuote: false).ConfigureAwait(false);
-                try { cost = checked(cost + converted.Amount); }
+                try { cost = SumCostConservatively(cost, converted.Amount); }
                 catch (OverflowException) { throw CreateUnverifiable(stage, "pricing", Snapshot); }
             }
         lock (_gate)
@@ -77,7 +77,7 @@ public sealed partial class LLMUsageBudgetScope
         if (Limits.MaxTotalTokens is { } tokenLimit && tokens > tokenLimit - snapshot.TotalTokens &&
             !WarnTokenThreshold(stage, "total_tokens", tokenLimit, checked(snapshot.TotalTokens + tokens)))
             throw CreateExceeded(stage, "total_tokens", tokenLimit, (decimal)snapshot.TotalTokens + tokens, snapshot);
-        if (_costLimit is { } money && cost > money.Amount - snapshot.EstimatedCost)
+        if (_costLimit is { } money && CostSumExceeds(money.Amount, snapshot.EstimatedCost, cost))
             throw CreateExceeded(stage, ResolveEstimatedCostLimitKind(), money.Amount, cost, snapshot);
     }
 }
