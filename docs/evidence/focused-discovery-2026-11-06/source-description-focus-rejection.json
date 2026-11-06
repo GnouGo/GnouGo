@@ -1,0 +1,164 @@
+{
+  "session": "1a54de6fa5934c7aa9ddc3cd31da99cb",
+  "revision": 177,
+  "trace_reported_by_operator": "67506b00e5fe97b2959fff0424e4c61d",
+  "request": "1a54de6fa5934c7aa9ddc3cd31da99cb:71:d773e2ea30a84c20457f4cd2f33b5ffcf80c93056b3d94d5dae5d439ba643633:aa6e54f5a5f9fa1c08ebb000cb4c0b07da100eec7398eb62cad62582ce4fa66a",
+  "recorded_at_utc": "2026-11-06T13:34:43.917126+00:00",
+  "provider": "OpenAi",
+  "model": "gpt-6.1-sol-2026-09-29",
+  "output_allocation": 8192,
+  "reasoning_effort": "medium",
+  "http_status": 400,
+  "response_body_complete": true,
+  "attempts": 1,
+  "retry_decision": "blocked; nonretryable outcome",
+  "provider_error": {
+    "message": "Invalid schema for response_format 'output': context=('properties', 'discoveryRequests', 'anyof', '0', 'items', 'properties', 'focusId'), enum value None does not validate against {'type': 'string'}.",
+    "type": "invalid_request_error",
+    "param": "response_format",
+    "code": null
+  },
+  "accepted_checkpoints": 2,
+  "completed_calls": 70,
+  "reserved_calls": 1,
+  "observed_model_dispatches_by_agent": 0,
+  "raw_inspection_sha256": "5b7370e1d9fd2692d428ece14e97123072d1726b4a612106b8e4d6d50e91a10f",
+  "fix_source": "3f9bdd8da232ea1d5c6d6581581fca76878c02cb",
+  "validation": {
+    "steps": [
+      {
+        "source": "3f9bdd8da232ea1d5c6d6581581fca76878c02cb",
+        "name": "solution-build",
+        "command": [
+          "dotnet",
+          "build",
+          "GnOuGo.Agent.sln",
+          "-c",
+          "Release",
+          "--no-restore",
+          "-m:1",
+          "-warnaserror",
+          "-p:SkipClientBuild=true",
+          "-p:SkipModelMetadataGeneration=true",
+          "--verbosity",
+          "quiet"
+        ],
+        "started_utc": "2026-11-06T13:53:25.723561+00:00",
+        "log": "solution-build.log",
+        "exit_code": 0,
+        "finished_utc": "2026-11-06T13:54:19.164151+00:00",
+        "log_sha256": "87e95d130cb905a6958adbb077c4aae0cdb872e80a51ff34c9d8a985436af764",
+        "evidence_log": "focus-fix-solution-build.log.gz",
+        "evidence_sha256": "d4e1ccc785896f4d7eefec1971fc1f9aac1c46cca1b5e9a51f15ed115a164b54"
+      },
+      {
+        "source": "3f9bdd8da232ea1d5c6d6581581fca76878c02cb",
+        "name": "planning-tests",
+        "command": [
+          "dotnet",
+          "test",
+          "tests/GnOuGo.Flow.Planning.Tests",
+          "-c",
+          "Release",
+          "--no-build",
+          "--no-restore",
+          "-m:1",
+          "-warnaserror",
+          "--logger",
+          "trx;LogFileName=planning.trx",
+          "--results-directory",
+          "artifacts/session-diagnosis-20261106/validation/planning",
+          "--verbosity",
+          "quiet"
+        ],
+        "started_utc": "2026-11-06T13:54:19.166892+00:00",
+        "log": "planning-tests.log",
+        "exit_code": 0,
+        "finished_utc": "2026-11-06T13:56:48.717254+00:00",
+        "log_sha256": "5e97170d78e54742976081fcc8e6443f20328cb2d5eae2adc6edc8aa0e8d95ba",
+        "evidence_log": "focus-fix-planning-tests.log.gz",
+        "evidence_sha256": "773a170eb40b3c0546c2ba27b424918008b438873cc5b7a6cffec9b2e39be421"
+      },
+      {
+        "source": "3f9bdd8da232ea1d5c6d6581581fca76878c02cb",
+        "name": "server-recovery-browser",
+        "command": [
+          "dotnet",
+          "test",
+          "tests/GnOuGo.Agent.Server.Tests",
+          "-c",
+          "Release",
+          "--no-build",
+          "--no-restore",
+          "-m:1",
+          "-warnaserror",
+          "--filter",
+          "FullyQualifiedName~DiscoveryRecoveryTests|FullyQualifiedName~ActualHostRecoversDiscoveryWithoutInference",
+          "--logger",
+          "trx;LogFileName=server.trx",
+          "--results-directory",
+          "artifacts/session-diagnosis-20261106/validation/server",
+          "--verbosity",
+          "quiet"
+        ],
+        "started_utc": "2026-11-06T13:56:48.717947+00:00",
+        "log": "server-recovery-browser.log",
+        "exit_code": 0,
+        "finished_utc": "2026-11-06T13:56:58.942205+00:00",
+        "log_sha256": "36a8a71316c9d4686eda8fb31c9f3962e6e2c3760c4e5479c2525a9306483aa1",
+        "evidence_log": "focus-fix-server-recovery-browser.log.gz",
+        "evidence_sha256": "bff82005aa6c8c5d2e8ac00cadaee216ed1f04febfd2a481dcf2ab0b89faa5e1"
+      },
+      {
+        "source": "3f9bdd8da232ea1d5c6d6581581fca76878c02cb",
+        "name": "planning-pack",
+        "command": [
+          "dotnet",
+          "pack",
+          "src/GnOuGo.Flow.Planning",
+          "-c",
+          "Release",
+          "--no-build",
+          "--no-restore",
+          "-warnaserror",
+          "-o",
+          "artifacts/session-diagnosis-20261106/validation/packages"
+        ],
+        "started_utc": "2026-11-06T13:56:58.944095+00:00",
+        "log": "planning-pack.log",
+        "exit_code": 0,
+        "finished_utc": "2026-11-06T13:56:59.729134+00:00",
+        "log_sha256": "1f13ffdd7fb80cd37df7f76be014bc39b3f57404dd38e9a9c518de41a18c635a",
+        "evidence_log": "focus-fix-planning-pack.log.gz",
+        "evidence_sha256": "f6db3d7305b170aed532d4c5658f1c67064a0ba7a18f027a62bf77d94e60f7e8"
+      }
+    ],
+    "test_projects": [
+      {
+        "trx": "validation/planning/planning.trx",
+        "sha256": "1d7f7cf8c6d466781722bd59f1843cd93ee9ff45a0a792e5b37e5339199c6a5f",
+        "outcomes": {
+          "Passed": 2735
+        }
+      },
+      {
+        "trx": "validation/server/server.trx",
+        "sha256": "f5b44e0d903ee3119e60d9217b7c5b2ff4f28d7c3613878234b994a091b0188d",
+        "outcomes": {
+          "Passed": 13
+        }
+      }
+    ],
+    "before_regression": {
+      "failed": 4,
+      "passed": 0,
+      "trx_sha256": "8f050c291a8f21f40612a256acc41680b7ef1ee420b4f1704ed4e646b00ae4e0"
+    },
+    "focused_after": {
+      "passed": 166,
+      "failed": 0,
+      "trx_sha256": "80ef6547e25c2e72d7f6ab5af55fdd834f454259059298768e72b683db77245c"
+    },
+    "limits": "No paid inference, current-session mutation or rejected-request replay. The full solution tests and frontend/AOT/storage checks were not repeated for this request-schema-only fix; earlier results remain separately source-bound."
+  }
+}

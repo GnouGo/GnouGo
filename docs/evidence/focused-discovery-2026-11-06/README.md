@@ -83,3 +83,25 @@ and one older isolated clarification smoke requiring `PLAYWRIGHT_MODULE_PATH`.
 The new actual-host discovery browser case ran and passed. No skips were added to
 hide failures; final affected suites have no skips. Full-run and final-suite counts
 overlap and are deliberately not summed.
+
+## Source-description focus regression — 13:34 UTC rejection
+
+After explicit resumption, the retained user session reached call 71 and received a
+complete HTTP 400 response. The provider rejected `response_format`: the `focusId`
+string enum contained `null`. Its inspected-description projection omitted the issued
+focus even though ordinary source-directory entries retained it. This was an application
+schema bug. The configured Sol deployment, medium reasoning and 8,192-token allocation
+were preserved. No valid model completion was received; the call and reservation remain
+retained, and both accepted checkpoints remain intact.
+
+Fix **`3f9bdd8d`** shares the source/cursor/focus projection between both views. Four
+regressions reproduced the problem in Strict/Diagnostic modes, before/after legacy
+recovery; all pass after the fix. Validation: **2,735 planner tests and 13 Server
+recovery/browser tests passed**, zero failures/skips; warning-free solution build and
+planning package build passed. The 166 focused tests overlap the full planner suite.
+See the [sanitized rejection and source-bound results](source-description-focus-rejection.json).
+
+The fix applies to newly constructed requests. It does not rewrite or make call 71
+eligible for retry. Existing rejection recovery rules still require a new planning
+session after correcting this nonretryable request; no such session or inference was
+started by this diagnosis. No financial reservation was released or repriced.
