@@ -22,6 +22,15 @@ This solution contains:
 
 Normal local startup opens an authenticated operator window at `/planning`. New operator plans default to diagnostic warnings; Strict remains selectable and available without an operator cookie. See [diagnostic planning](../../docs/diagnostic-planning.md) for host authorization, advisory/mandatory limits, effective model precedence and retained exchanges. The `Diagnostic` profile remains an alias. Open Traces → Pipeline / LLM calls to inspect encrypted, redacted inputs and outputs. `/gnougo add`, reprompt and failure improvement open this durable designer. It displays progress, TaskPlan tasks and choices, compiled graph, findings, usage and final review. Approving and saving requires the current revision and artifact hash. Runtime write confirmation remains a separate gate.
 
+The browser starts Blazor only after the versioned Vite module has registered its
+Markdown helpers and the UI stylesheet has loaded. Missing assets leave a visible
+startup error. Build them with `pnpm --dir src/GnOuGo.Agent.Server/ClientApp run build`
+from the repository root, then reload. A delayed module delays the circuit rather
+than racing its first render. Ordinary planning API access does not depend on a
+browser. The live qualification harness additionally verifies asset delivery,
+helper registration and an interactive circuit before creating a session.
+
+
 At final review, **Approve this revision and save** stays disabled until you explicitly check every business requirement. The text beside it shows how many requirements you have reviewed, lists the remaining descriptions, and links to their checkboxes. Checking requirements does not submit approval. The separate button approves the displayed revision and artifact, then saves it; saving does not execute the workflow. Polling preserves acknowledgments for the same artifact. Navigation, a changed revision/artifact or a reload requires fresh review. The server still rejects incomplete or stale approval, and **Save approved workflow** remains available after an interrupted save.
 
 New planning sessions review accepted business requirements alongside the TaskPlan; compilation does not prove business completeness or execution success. Unfinished legacy sessions require an explicit revision. Designer can settle a saved response under its original schema and restore accounting without applying the old proposal; unknown completion still requires reconciliation. Already-approved artifacts retain approval. See [planner simplification and rollout](../../docs/planner-simplification.md).

@@ -515,3 +515,33 @@ unchanged; incomplete external pricing means global available funding is unavail
 In particular, reported cache writes with no captured cache-write tariff cannot be
 treated as free or covered by an invented rate. Use the ordinary live admission only
 after complete external cost, FX and retained-reservation evidence is established.
+
+
+### Startup and configuration diagnosis
+
+`inspect-deployment --model <exact-deployment> --campaign-configuration <id>`
+uses the same read-only checks as selection: record existence, exact material
+hash, configuration equality, host fingerprint and authorization binding. Missing
+historical values remain unavailable. Safe leaf differences distinguish missing
+billing-policy fields from today's `standard`, `false` and `30m` defaults;
+endpoint and unknown values are hashed. The fingerprint algorithm is unchanged.
+The campaign loader applies appsettings, the explicit provider/model pin, KeyVault
+provider configuration and persisted metadata overrides; it does not read environment
+configuration or the persisted user model default. The actual Server resolves its
+own configuration providers and logs its final model source. Neither path changes
+an existing session capture. Use an immutable preview/apply amendment only for a
+legitimate demonstrated change, never to bypass material or authorization failure.
+
+New live probe/plan runs require staged Playwright and built Server frontend assets.
+Before creating a session, the existing observer authenticates through the one-use
+bootstrap, checks JavaScript/CSS delivery, registered helpers and an interactive
+circuit. Readiness failure records no model dispatch and requires rebuilding assets.
+The manifest records the actual working directory, safe launch arguments, source
+revision and loaded entry/Server assembly hashes. The probe reports physical HTTP
+attempts and durable receipt evidence separately from logical calls/reservations.
+Financial refusal before dispatch is not a provider HTTP error. Unknown outcomes
+remain unknown; no absent receipt alone proves whether dispatch began.
+
+Complete campaign funding/replay admission still gates live work. Qualification of
+Amazon means generation through mandatory final review, without approval/execution.
+A successful browser startup or preflight is not real-provider qualification.

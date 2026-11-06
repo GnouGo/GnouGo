@@ -97,7 +97,12 @@ internal static class ServerLiveDiagnostics
         var report = new JsonObject { ["source"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD"), ["run"] = run,
             ["campaign"] = campaign.Id, ["campaign_configuration"] = campaign.ConfigurationId,
             ["provider"] = options.DefaultProvider, ["model"] = options.DefaultModel, ["host"] = "GnOuGo.Agent.Server",
-            ["budget_mode"] = "limited", ["retained_external_reservations_eur"] = model.RetainedExternalReservationsEur, ["started_utc"] = DateTimeOffset.UtcNow, ["phase"] = planning ? "server_planning" : "provider_probe" };
+            ["budget_mode"] = "limited", ["retained_external_reservations_eur"] = model.RetainedExternalReservationsEur, ["started_utc"] = DateTimeOffset.UtcNow, ["phase"] = planning ? "server_planning" : "provider_probe",
+            ["working_directory"] = root, ["launch_arguments"] = SafeLaunchArguments(),
+            ["loaded_assemblies"] = new JsonObject { ["entry"] = AssemblyEvidence(System.Reflection.Assembly.GetEntryAssembly()!),
+                ["server"] = AssemblyEvidence(typeof(GnOuGoAgentWebHost).Assembly) },
+            ["configuration_sources"] = model.ConfigurationSources.DeepClone(),
+            ["server_model_source"] = app.Services.GetRequiredService<LLMRuntimeOptionsStore>().DefaultModelSource };
         if (phaseFile is not null) report["phase_policy_sha256"] = PlanningGraphCompiler.Fingerprint(await File.ReadAllTextAsync(phaseFile));
         if (!retained) await campaign.SaveAsync("planning-evaluation-runs", run, report);
         var invoked = 0;
@@ -133,8 +138,15 @@ internal static class ServerLiveDiagnostics
                     report["failure_kind"] = failure.Kind.ToString(); report["http_status"] = failure.StatusCode;
                     report["safe_provider_code"] = failure.SafeProviderCode; report["provider_stage"] = failure.Stage.ToString();
                 }
+                if (error.Data[BenchmarkCampaign.BudgetRefusalData] is JsonObject refusal) report["financial_refusal"] = refusal.DeepClone();
+                if (error is GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException runtimeFailure)
+                { report["failure_code"] = runtimeFailure.Code; report["financial_refusal"] = runtimeFailure.Details?.DeepClone(); }
                 // Exception messages and provider bodies remain in protected encrypted evidence.
             }
+            var transportEvidence = await campaign.LoadAsync(BenchmarkHttpJournal.Collection, request.ClientRequestId, CancellationToken.None);
+            report["physical_http_attempts"] = transportEvidence?["transport"]?["Attempts"] is JsonArray attempts ? attempts.Count :
+                report["financial_refusal"]?["dispatch_status"]?.ToString() == "not_started" ? 0 : null;
+            report["durable_receipt"] = await campaign.LoadAsync("planning-evaluation-receipts", request.ClientRequestId, CancellationToken.None) is not null;
             report["finished_utc"] = DateTimeOffset.UtcNow; report["trace_id"] = activity.TraceId.ToHexString();
             await campaign.SaveAsync("planning-evaluation-runs", run, report, CancellationToken.None);
             return Results.Json(report);
@@ -148,6 +160,12 @@ internal static class ServerLiveDiagnostics
             using var auth = await client.PostAsync("/local-operator/session", new StringContent(launch.Fragment[1..])); auth.EnsureSuccessStatusCode();
             var csrf = await client.GetFromJsonAsync<JsonObject>("/api/planning/antiforgery");
             client.DefaultRequestHeaders.Add(csrf!["headerName"]!.ToString(), csrf["requestToken"]!.ToString());
+            if (!retained && !mcpReadiness)
+            {
+                await VerifyFrontendAsync(app, root, url, run, CancellationToken.None);
+                report["frontend_ready"] = true;
+                await campaign.SaveAsync("planning-evaluation-runs", run, report);
+            }
             if (!retained)
             {
                 using var limited = await client.PostAsJsonAsync("/api/application-llm-budget", new JsonObject { ["mode"] = "limited" }); limited.EnsureSuccessStatusCode();
@@ -415,20 +433,51 @@ internal static class ServerLiveDiagnostics
         outputs["result"] is JsonValue value && value.GetValueKind() == JsonValueKind.Number &&
         decimal.TryParse(value.ToJsonString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var number) && number == 42m;
 
-    private static Process? StartObserver(WebApplication app, string root, string url, string id, string run)
+    internal static async Task VerifyFrontendAsync(WebApplication app, string root, string url, string run, CancellationToken ct)
     {
-        var module = Path.Combine(root, "src/GnOuGo.Browser.Mcp/bin/Release/net10.0/.playwright/package/index.mjs");
-        if (!File.Exists(module)) return null;
+        using var process = StartObserver(app, root, url, null, run);
+        try { await process.WaitForExitAsync(ct).WaitAsync(TimeSpan.FromSeconds(45), ct); }
+        finally { if (!process.HasExited) process.Kill(entireProcessTree: true); }
+        if (process.ExitCode != 0) throw new PlanningConflictException(
+            "Agent.Server frontend readiness failed before session creation or provider admission. Build ClientApp (pnpm run build), verify /ui/app.js and /ui/app.css, and inspect the browser readiness artifacts.",
+            "frontend_not_ready");
+    }
+    private static JsonArray SafeLaunchArguments()
+    {
+        var command = Environment.GetCommandLineArgs(); var result = new JsonArray();
+        var safeValue = false;
+        for (var i = 0; i < command.Length; i++)
+        {
+            var value = command[i];
+            if (i == 0) result.Add(value);
+            else if (value.StartsWith("--", StringComparison.Ordinal))
+            {
+                safeValue = value is "--schema-portability" or "--run" or "--case" or "--model" or "--campaign-configuration" or "--workspace" or "--campaign" or "--retained-external-reservations-eur" or "--server-phase-policy";
+                result.Add(safeValue ? value : "[unrecorded option]");
+            }
+            else { result.Add(safeValue ? value : "[withheld]"); safeValue = false; }
+        }
+        return result;
+    }
+    private static JsonObject AssemblyEvidence(System.Reflection.Assembly assembly) => new() {
+        ["path"] = assembly.Location, ["sha256"] = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(assembly.Location))) };
+
+    private static Process StartObserver(WebApplication app, string root, string url, string? id, string run)
+    {
+        var module = Environment.GetEnvironmentVariable("PLAYWRIGHT_MODULE_PATH") ?? Path.Combine(AppContext.BaseDirectory, "tools/GnOuGo.Browser.Mcp/.playwright/package/index.mjs");
+        if (!File.Exists(module)) throw new PlanningConflictException("The staged Playwright module is missing; build bundled browser tools before live qualification.", "frontend_not_ready");
         var output = Path.Combine(root, "artifacts/live-server-20261106", run); Directory.CreateDirectory(output);
         var start = new ProcessStartInfo("node") { UseShellExecute = false, RedirectStandardInput = true,
             RedirectStandardOutput = true, RedirectStandardError = true, WorkingDirectory = root };
         start.ArgumentList.Add(Path.Combine(root, "scripts/observe-live-planning.mjs")); start.Environment["PLAYWRIGHT_MODULE_PATH"] = module;
         var process = Process.Start(start)!;
-        // Drain diagnostics into private artifacts; do not print authority-bearing browser input.
-        _ = Task.Run(async () => await File.WriteAllTextAsync(Path.Combine(output, "observer.stdout.log"), await process.StandardOutput.ReadToEndAsync()));
-        _ = Task.Run(async () => await File.WriteAllTextAsync(Path.Combine(output, "observer.stderr.log"), await process.StandardError.ReadToEndAsync()));
         var launch = app.Services.GetRequiredService<LocalOperatorBootstrap>().CreateLaunchAddress(new Uri(url));
-        process.StandardInput.Write(JsonSerializer.Serialize(new { launch = launch.AbsoluteUri, url = url.TrimEnd('/'), session = id, output }));
+        string Redact(string value) => value.Replace(launch.AbsoluteUri, "[protected bootstrap]", StringComparison.Ordinal)
+            .Replace(launch.Fragment[1..], "[redacted]", StringComparison.Ordinal);
+        // Drain both pipes; authority-bearing browser input is never logged, including on child failure.
+        _ = Task.Run(async () => await File.WriteAllTextAsync(Path.Combine(output, id is null ? "readiness.stdout.log" : "observer.stdout.log"), Redact(await process.StandardOutput.ReadToEndAsync())));
+        _ = Task.Run(async () => await File.WriteAllTextAsync(Path.Combine(output, id is null ? "readiness.stderr.log" : "observer.stderr.log"), Redact(await process.StandardError.ReadToEndAsync())));
+        process.StandardInput.Write(JsonSerializer.Serialize(new { launch = launch.AbsoluteUri, url = url.TrimEnd('/'), session = id, output, mode = id is null ? "readiness" : "observe" }));
         process.StandardInput.Close(); return process;
     }
     private sealed class CampaignClient(KeyVaultBenchmarkModel model, IPlanningSessionStore sessions,
