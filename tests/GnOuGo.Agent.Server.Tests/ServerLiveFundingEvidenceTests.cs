@@ -6,6 +6,7 @@ using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Integrations.Planning;
 using GnOuGo.Flow.Planning;
+using Microsoft.EntityFrameworkCore;
 
 namespace GnOuGo.Agent.Server.Tests;
 
@@ -29,7 +30,9 @@ public sealed class ServerLiveFundingEvidenceTests
         var state = new PlanningSession { Request = new() { TenantId = "owner", SessionId = "financial", Prompt = "Return a record" }, ModelCalls = pending ? 2 : 1 };
         CapturedPlanningModel.Capture(state.Request, options);
         Assert.True(await fixture.Store.TrySaveAsync(state, null, ct));
-        var original = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        await using var initialDb = fixture.CreateDbContext();
+        var payloadKey = (await initialDb.Sessions.AsNoTracking().SingleAsync(ct)).PayloadKey;
+        var original = (await fixture.Records.GetAsync(EfPlanningSessionStore.Collection, "owner", payloadKey, EfPlanningSessionStore.Author, ct))!.Value;
         await using (var db = fixture.CreateDbContext())
         {
             for (var number = 1; number <= state.ModelCalls; number++)
@@ -59,7 +62,7 @@ public sealed class ServerLiveFundingEvidenceTests
         Assert.False(evidence["historical_accounting_modified"]!.GetValue<bool>());
         Assert.Equal(0, evidence["model_dispatches_by_inspection"]!.GetValue<int>());
         Assert.DoesNotContain("PRIVATE_TEST_PROMPT", evidence.ToJsonString());
-        Assert.Equal(original, JsonSerializer.Serialize(await fixture.Store.LoadAsync("owner", "financial", ct), PlanningJsonContext.Default.PlanningSession));
+        Assert.Equal(original, (await fixture.Records.GetAsync(EfPlanningSessionStore.Collection, "owner", payloadKey, EfPlanningSessionStore.Author, ct))!.Value);
         await Assert.ThrowsAsync<PlanningConflictException>(() => ServerLiveFundingEvidence.ReadAsync(fixture.Records, fixture, "another-owner", "financial", ct));
     }
 }
