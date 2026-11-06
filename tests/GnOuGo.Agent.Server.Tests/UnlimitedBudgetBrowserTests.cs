@@ -24,7 +24,7 @@ public sealed partial class DiagnosticPlanningBrowserTests
         var ct = TestContext.Current.CancellationToken;
         var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
         var output = Path.Combine(root, "artifacts/unlimited-budget/browser"); Directory.CreateDirectory(output);
-        var module = Environment.GetEnvironmentVariable("PLAYWRIGHT_MODULE_PATH") ?? Path.Combine(root, "src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/.playwright/package/index.mjs");
+        var module = PlaywrightModule();
         Assert.True(File.Exists(module));
         var builder = WebApplication.CreateBuilder(); builder.Configuration.Sources.Clear(); builder.Configuration.AddInMemoryCollection();
         builder.Logging.ClearProviders(); builder.WebHost.UseUrls("http://127.0.0.1:0");

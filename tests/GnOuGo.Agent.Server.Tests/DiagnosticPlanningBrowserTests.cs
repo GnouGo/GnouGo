@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Net;
-using System.Net.Sockets;
 using System.Text.Json.Nodes;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.Hosting;
@@ -21,6 +20,9 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed partial class DiagnosticPlanningBrowserTests
 {
+    private static string PlaywrightModule() => Environment.GetEnvironmentVariable("PLAYWRIGHT_MODULE_PATH") ??
+        Path.Combine(AppContext.BaseDirectory, "tools", "GnOuGo.Browser.Mcp", ".playwright", "package", "index.mjs");
+
     [Fact]
     public async Task ActualServerShowsActivePhasesAttemptsWarningsCancellationAndReload()
     {
@@ -29,7 +31,7 @@ public sealed partial class DiagnosticPlanningBrowserTests
         while (repository is not null && !File.Exists(Path.Combine(repository.FullName, "GnOuGo.Agent.sln"))) repository = repository.Parent;
         Assert.NotNull(repository);
         var root = repository.FullName;
-        var module = Environment.GetEnvironmentVariable("PLAYWRIGHT_MODULE_PATH") ?? Path.Combine(root, "src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/.playwright/package/index.mjs");
+        var module = PlaywrightModule();
         Assert.True(File.Exists(module), "Build the bundled browser MCP tool to make Playwright available.");
         var output = Path.Combine(root, "artifacts/one-inspector/browser"); Directory.CreateDirectory(output);
         var providerBuilder = WebApplication.CreateBuilder(); providerBuilder.Configuration.Sources.Clear(); providerBuilder.Configuration.AddInMemoryCollection();
