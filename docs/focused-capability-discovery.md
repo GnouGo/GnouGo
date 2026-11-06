@@ -6,6 +6,9 @@ provides a short justification for each explored source. The host derives the qu
 from that focus. Source descriptions, original obligations, inspected contracts and
 limitations remain visible. A justification is a model proposal, not proof that the
 source is required. There is no scenario-specific allowlist or additional judge call.
+Source directories and inspected source descriptions share the same source/cursor/focus
+projection. A description read must retain its issued focus when constructing the next
+response schema; historical descriptions remain unchanged as evidence.
 
 Selected MCP sources paginate automatically. The complete canonical catalog is
 captured once and published through the existing encrypted KeyVault planning journal
@@ -39,6 +42,9 @@ with retained exploratory warnings offer:
 
 Active model calls, unfinished ordinary metadata pagination and selected implementation
 contracts must finish first. Recovery never dismisses a pending clarification.
+An already issued request rejected by the model provider retains its exact schema,
+HTTP evidence and reservations. Updating the schema factory does not rewrite that
+request or make it eligible for automatic retry.
 
 Both actions perform metadata recovery only and enter `discovery_recovery`. Reload
 preserves this waiting state. **Resume planning after discovery recovery** is a

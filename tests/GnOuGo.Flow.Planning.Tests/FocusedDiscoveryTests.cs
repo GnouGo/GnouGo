@@ -75,6 +75,50 @@ public sealed class FocusedDiscoveryTests
         Assert.NotEmpty(PlanningModelCalls.ValidateResponseFindings(response, schema));
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task InspectedSourceDescriptionsRetainIssuedFocusBeforeAndAfterLegacyRecovery(bool recover, bool diagnostic)
+    {
+        var source = new Source("renamed-source", 1); var (state, runtime) = Ready(source);
+        if (diagnostic) state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        var step = state.Construction!.Compact!.CurrentStep!;
+        step.Prerequisites = [new() { Need = "Use the retained prerequisite result", EvidenceAddresses = ["requirement:req_0"] }];
+        if (recover) step.DiscoveryProtocol = null;
+        var description = PlanningCompactConstruction.DiscoveryContext(state)["providerRequests"]!["items"]![0]!["descriptionEvidence"]!.ToString();
+        PlanningConstruction.LoadEvidence(state, [description]);
+        var original = state.Construction.Evidence![description]!.ToJsonString();
+        if (recover)
+        {
+            const string unavailable = "unavailable-source";
+            state.Discovery.Sources.Add(new(unavailable, "Exploratory unavailable source"));
+            state.Discovery.Pages.Add(new(unavailable, "old-cursor", [], null, "Historical source failure", step.Objective));
+            step.PendingDiscovery = new() { Requests = [new(unavailable)], Pending = [new(unavailable, "old-cursor", step.Objective)] };
+            state.Status = PlanningStatus.Stopped; state.Diagnostics = [new("DISCOVERY_INCOMPLETE", "/", "Historical source failure")];
+            var failure = Assert.Single(PlanningDiscoveryRecoveryActions.Failures(state));
+            runtime.DiscoveryRecoveryGuard = (_, _) => Task.CompletedTask;
+            state = await new HybridWorkflowPlanner().AdvanceAsync(state,
+                new() { Kind = "recover_discovery", ExpectedRevision = state.Revision, DiscoveryRecovery = new(failure.Id, "continue_available") }, runtime, Ct);
+            state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { Kind = "resume_discovery", ExpectedRevision = state.Revision }, runtime, Ct);
+        }
+        var choices = PlanningDiscoveryFocus.Choices(state).Select(f => f.Id).ToArray();
+        var items = PlanningCompactConstruction.DiscoveryContext(state)["providerRequests"]!["items"]!.AsArray();
+        Assert.Equal(2, items.Count);
+        Assert.All(items, item => Assert.Contains(item!["focusId"]?.ToString(), choices));
+        var schema = PlanningCompactConstruction.DiscoverySchema(state);
+        var request = new LLMRequest { StructuredOutputSchema = schema };
+        var response = Discover(request, state, [source.Id], choices[0]).Json!;
+        Assert.Empty(PlanningModelCalls.ValidateResponseFindings(response, schema));
+        response["discoveryRequests"]![0]!["focusId"] = null;
+        Assert.NotEmpty(PlanningModelCalls.ValidateResponseFindings(response, schema));
+        response["discoveryRequests"]![0]!["focusId"] = "another-session-focus";
+        Assert.NotEmpty(PlanningModelCalls.ValidateResponseFindings(response, schema));
+        Assert.Equal(original, state.Construction!.Evidence![description]!.ToJsonString());
+        Assert.Empty(runtime.Calls); Assert.Equal(0, source.Reads);
+    }
+
     [Fact]
     public async Task SourceJustificationUsesTheIssuedUnicodeCodePointLimit()
     {

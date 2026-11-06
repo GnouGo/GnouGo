@@ -62,15 +62,22 @@ internal static partial class PlanningCompactConstruction
             {
                 var source = state.Discovery.Sources.Single(s => s.Id == option.SourceId);
                 var description = NavigationDescription(source.Description);
-                var item = new JsonObject { ["sourceId"] = source.Id, ["cursor"] = option.Cursor,
-                    ["canRequestPage"] = option.Available, ["unavailable"] = option.Unavailable, ["resultCount"] = option.ResultCount,
-                    ["description"] = description, ["descriptionComplete"] = description.Length == source.Description.Length,
-                    ["descriptionEvidence"] = "source-description:" + Uri.EscapeDataString(source.Id) + "@" + PlanningGraphCompiler.Fingerprint(source.Description) + ":0" };
-                if (option.FocusId is not null) item["focusId"] = option.FocusId;
+                var item = ProviderRequestIdentity(option);
+                item["description"] = description;
+                item["descriptionComplete"] = description.Length == source.Description.Length;
+                item["descriptionEvidence"] = "source-description:" + Uri.EscapeDataString(source.Id) + "@" + PlanningGraphCompiler.Fingerprint(source.Description) + ":0";
                 return item;
             }).ToArray()),
             ["next"] = offset + count < options.Count ? ProviderRequestAddress(state, offset + count) : null
         };
+    }
+
+    private static JsonObject ProviderRequestIdentity(ProviderRequest option)
+    {
+        var item = new JsonObject { ["sourceId"] = option.SourceId, ["cursor"] = option.Cursor,
+            ["canRequestPage"] = option.Available, ["unavailable"] = option.Unavailable, ["resultCount"] = option.ResultCount };
+        if (option.FocusId is not null) item["focusId"] = option.FocusId;
+        return item;
     }
 
     private static JsonObject? ProviderEvidencePage(PlanningSession state) => ProviderEvidencePages(state).FirstOrDefault();
@@ -357,11 +364,7 @@ internal static partial class PlanningCompactConstruction
             yield return new JsonObject
             {
                 ["version"] = ProviderRequestVersion(state), ["sourceId"] = sourceId, ["total"] = selected.Length,
-                ["items"] = new JsonArray(selected.Take(2).Select(option => (JsonNode)new JsonObject
-                {
-                    ["sourceId"] = option.SourceId, ["cursor"] = option.Cursor, ["canRequestPage"] = option.Available,
-                    ["unavailable"] = option.Unavailable, ["resultCount"] = option.ResultCount
-                }).ToArray()),
+                ["items"] = new JsonArray(selected.Take(2).Select(option => (JsonNode)ProviderRequestIdentity(option)).ToArray()),
                 ["next"] = selected.Length > 2 ? ProviderRequestAddress(state, offset + 2) : null
             };
         }

@@ -191,6 +191,10 @@ After interruption, explicitly finish that exact action/snapshot; keep the origi
 failure available until completion and require separate inference resumption.
 The same protected path may refresh an idle discovery warning; it cannot interrupt
 an issued call, pending clarification, ordinary metadata action or selected contract.
+Use one source/cursor/focus projection for directories and inspected descriptions.
+Validate the next schema after description reads and legacy recovery; never turn an
+absent historical focus into a null member of an issued string enum or rewrite a
+previously rejected request to apply a schema fix.
 
 ## Maintained references
 
