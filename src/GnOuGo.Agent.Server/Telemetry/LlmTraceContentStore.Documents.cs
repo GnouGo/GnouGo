@@ -121,7 +121,7 @@ public sealed partial class LlmTraceContentStore
 
     internal async Task<JsonObject> JournalDocumentsAsync(string session, bool workflow, string key, CancellationToken ct)
     {
-        if (!Enabled || !await OwnsSession(session, workflow, ct)) throw new KeyNotFoundException("Planning session not found.");
+        if (!Enabled || await OwnedSessionAsync(session, workflow, ct) is not { } state) throw new KeyNotFoundException("Planning session not found.");
         var prefix = workflow ? "flow" : "agent";
         var requestId = workflow ? key : key.StartsWith(session + ":", StringComparison.Ordinal) ? key[(session.Length + 1)..] : "";
         if (!requestId.StartsWith(session + ":", StringComparison.Ordinal) || key != (workflow ? requestId : session + ":" + requestId)) throw new KeyNotFoundException("Request not owned by this session.");
@@ -130,7 +130,9 @@ public sealed partial class LlmTraceContentStore
         var http = await SourceAsync(prefix + "-planning-model-http-v11", session, requestId, true, ct);
         if (http is not null && !string.Equals(http["requestHash"]?.ToString(), request["requestHash"]?.ToString(), StringComparison.OrdinalIgnoreCase)) throw new KeyNotFoundException("HTTP evidence does not match this request.");
         return new JsonObject { ["sessionId"] = session, ["requestId"] = requestId, ["settings"] = request["settings"]?.DeepClone(),
-            ["responseStatus"] = response is null ? "No completion receipt — outcome or usage may be uncertain" : "Response received — validation and business review are separate",
+            ["responseStatus"] = response is not null ? "Response received — validation and business review are separate" :
+                state.RequestMeasurements?.SingleOrDefault(m => m.RequestId == requestId)?.Result == "financial_refusal_before_dispatch"
+                    ? LlmInspectionLabels.FinancialRefusal : "No completion receipt — outcome or usage may be uncertain",
             ["completionStatus"] = response?["completionStatus"]?.DeepClone(),
             ["usage"] = response?["usage"]?.DeepClone(), ["transport"] = http?["transport"]?.DeepClone(),
             ["transportPolicy"] = http?["policy"]?.DeepClone(), ["deadlineUtc"] = http?["deadlineUtc"]?.DeepClone(),

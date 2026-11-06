@@ -149,10 +149,16 @@ internal static partial class PlanningModelCalls
         var started = System.Diagnostics.Stopwatch.GetTimestamp();
         LLMResponse response;
         try { response = await runtime.CallAsync(call.Request, purpose, ct); }
-        catch
+        catch (Exception error)
         {
-            if (activeMeasurement is not null) activeMeasurement.Result = "no_retained_completion";
-            PlanningInspection.Record(state, purpose, ct.IsCancellationRequested ? "cancelled" : "blocked", "No verified completion; inspect the retained HTTP attempts.", call.Id);
+            var refused = error is WorkflowRuntimeException failure &&
+                failure.Code is ErrorCodes.LlmBudgetExceeded or ErrorCodes.LlmBudgetUnverifiable &&
+                failure.Details?["dispatch_status"]?.ToString() == "not_started" &&
+                (failure.Details["request_id"] is null || failure.Details["request_id"]?.ToString() == call.Id);
+            if (activeMeasurement is not null) activeMeasurement.Result = refused ? "financial_refusal_before_dispatch" : "no_retained_completion";
+            PlanningInspection.Record(state, purpose, ct.IsCancellationRequested ? "cancelled" : "blocked", refused
+                ? "Financial admission refused before provider dispatch; retained reservations remain unchanged."
+                : "No verified completion; inspect the retained HTTP attempts.", call.Id);
             throw;
         }
         finally

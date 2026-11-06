@@ -10,6 +10,27 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CompactRequestMeasurementTests
 {
     [Theory]
+    [InlineData("not_started", false, "financial_refusal_before_dispatch")]
+    [InlineData("started", false, "no_retained_completion")]
+    [InlineData(null, false, "no_retained_completion")]
+    [InlineData("not_started", true, "no_retained_completion")]
+    public async Task FinancialRefusalIsDistinctFromUncertainTransportAndKeepsPendingWork(string? dispatch, bool wrongRequest, string expected)
+    {
+        var state = PlannerFixture.Session();
+        var runtime = new TestRuntime { Respond = (request, _) => throw new WorkflowRuntimeException("LLM_BUDGET_EXCEEDED", "Controlled refusal",
+            details: new JsonObject { ["dispatch_status"] = dispatch, ["request_id"] = wrongRequest ? "other:request" : request.ClientRequestId }) };
+        await Assert.ThrowsAsync<WorkflowRuntimeException>(() => PlanningModelCalls.CallAsync(state, runtime,
+            PlanningCompactConstruction.SelectPurpose, "Select the requested result.", PlanningSchemas.Object(("value", PlanningSchemas.String())), PlannerFixture.Ct));
+        Assert.NotNull(state.PendingCall);
+        var measurement = Assert.Single(state.RequestMeasurements!);
+        Assert.Equal(expected, measurement.Result);
+        Assert.Equal(state.PendingCall.Id, measurement.RequestId);
+        Assert.Equal(1, state.ModelCalls); Assert.Null(measurement.InputTokens); Assert.Null(measurement.OutputTokens);
+        Assert.Equal(state.PendingCall.Id, state.InspectionEvents!.Last().RequestId);
+        Assert.Equal(expected == "financial_refusal_before_dispatch", state.InspectionEvents!.Last().Reason.Contains("before provider dispatch", StringComparison.Ordinal));
+    }
+
+    [Theory]
     [InlineData("[]")]
     [InlineData("42")]
     [InlineData("{\"output_tokens_details\":42,\"completion_tokens_details\":[]}")]

@@ -145,7 +145,7 @@ completed diagnostic strategies into mandatory nonprogress stops.
 
 Explicit operator authorization may register current deployment settings through a
 new immutable campaign amendment; never rewrite an old pin or infer permission to
-increase funding. Compare safe setting values and fingerprints, retaining unavailable
+increase funding. Use the same five immutable configuration-selection predicates in read-only diagnosis and dispatch selection. Report safe field origins and exact failed predicates, without changing the hash recipe or inferring missing historical defaults. Distinguish an explicit request-bound financial refusal before dispatch from uncertain transport; keep reservations and replay barriers unchanged. Compare safe setting values and fingerprints, retaining unavailable
 historical details explicitly. Use fresh session/request identities and the actual
 Agent.Server protected operator path for live probes. Keep the existing campaign's
 global financial ceiling, all old charges and uncertain reservations; application

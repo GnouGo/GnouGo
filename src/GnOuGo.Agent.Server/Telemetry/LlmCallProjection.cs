@@ -76,6 +76,8 @@ public sealed record LlmCallPage(IReadOnlyList<LlmCallProjection> Calls, LlmCall
 
 public static class LlmInspectionLabels
 {
+    public const string FinancialRefusal = "Not dispatched — financial admission refused; reservations retained";
+
     public static string Phase(string? phase) => phase switch
     {
         "construction_intent" or "requirements" or "workflow.plan.intent" => "Understanding",

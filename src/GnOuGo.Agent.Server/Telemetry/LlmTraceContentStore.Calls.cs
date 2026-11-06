@@ -46,7 +46,7 @@ public sealed partial class LlmTraceContentStore
             string Decision(string phase) => decisions.LastOrDefault(e => e.Phase == phase) is { } e ? LlmInspectionLabels.State(e.State) + " — " + e.Reason : "Unavailable";
             result.Add(new(Tenant, session, workflow, id, key, metadata.CreatedAt,
                 source?["provider"]?.ToString() ?? generator?["provider"]?.ToString(), source?["model"]?.ToString() ?? generator?["model"]?.ToString(), measurement?.Phase,
-                measurement?.BlockId, completed?["completionStatus"]?.ToString() == "output_limit" ? "Response received — output limit reached; incomplete result" : receipt is not null ? "Response received — acceptance is separate" : state.PendingCall?.Id == id && !PlanningStatus.IsTerminal(state.Status)
+                measurement?.BlockId, completed?["completionStatus"]?.ToString() == "output_limit" ? "Response received — output limit reached; incomplete result" : receipt is not null ? "Response received — acceptance is separate" : measurement?.Result == "financial_refusal_before_dispatch" ? LlmInspectionLabels.FinancialRefusal : state.PendingCall?.Id == id && !PlanningStatus.IsTerminal(state.Status)
                     ? "Waiting for provider" : "uncertain — no receipt", Decision("technical_validation"),
                 decisions.LastOrDefault(e => e.Phase is "construction_local_judge" or "construction_global_judge") is { } review ? LlmInspectionLabels.State(review.State) + " — " + review.Reason : "Unavailable",
                 measurement?.InputTokens ?? LlmTraceCapture.Usage(completed?["usage"], "input_tokens", "prompt_tokens", "inputTokens"),

@@ -14,6 +14,31 @@ public sealed class LlmInspectorDocumentsTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public async Task ExplicitFinancialRefusalUsesExactRequestWithoutCreatingAReceipt(bool workflow)
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var state = new PlanningSession { Request = new() { SessionId = "session", TenantId = "tenant" }, Status = PlanningStatus.Stopped,
+            RequestMeasurements = [new() { RequestId = "session:1:hash", Result = "financial_refusal_before_dispatch" }] };
+        if (workflow) await fixture.Records.UpsertAsync("flow-planning-sessions-v11", "tenant", "session", JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), "test", Ct);
+        else Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        var store = Store(fixture.Records, fixture.Store);
+        foreach (var id in new[] { "session:1:hash", "session:2:hash" })
+        {
+            var key = workflow ? id : "session:" + id;
+            await fixture.Records.UpsertAsync((workflow ? "flow" : "agent") + "-planning-model-requests-v11", "tenant", key,
+                JsonSerializer.Serialize(new LLMRequest { ClientRequestId = id, Prompt = "controlled" }, PlanningJsonContext.Default.LLMRequest), "test", Ct);
+            var detail = await store.JournalDocumentsAsync("session", workflow, key, Ct);
+            Assert.Equal(id == "session:1:hash", detail["responseStatus"]!.ToString().StartsWith("Not dispatched", StringComparison.Ordinal));
+            Assert.Null(detail["usage"]); Assert.Null(detail["transport"]);
+        }
+        var calls = await store.ReadCallsAsync("session", workflow, null, Ct);
+        Assert.Equal(LlmInspectionLabels.FinancialRefusal, calls.Calls.Single(c => c.RequestId == "session:1:hash").ResponseStatus);
+        Assert.Contains("uncertain", calls.Calls.Single(c => c.RequestId == "session:2:hash").ResponseStatus);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task SessionRefreshIsMetadataOnlyAndExplicitHistoricalConversionOccursOnce(bool workflow)
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
