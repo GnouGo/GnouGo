@@ -127,6 +127,27 @@ public sealed class FocusedDiscoveryTests
     }
 
     [Fact]
+    public async Task IdleExploratoryWarningCanBeExplicitlyRefreshedWithoutNewInference()
+    {
+        var source = new Source("arbitrary", 1); var (state, runtime) = Ready(source);
+        runtime.Capabilities = new Faulty(source.Id, "unavailable");
+        runtime.Respond = (request, _) => Discover(request, state, source.Id);
+        state = await Advance(state, runtime);
+        Assert.Equal(PlanningStatus.Generating, state.Status); Assert.Empty(state.Diagnostics);
+        Assert.True(PlanningDiscoveryRecoveryActions.Eligible(state));
+        var selected = PlannerFixture.Clone(state); selected.Construction!.Compact!.CurrentStep!.Kind = "mcp";
+        Assert.False(PlanningDiscoveryRecoveryActions.Eligible(selected));
+        var failure = Assert.Single(PlanningDiscoveryRecoveryActions.Failures(state));
+        runtime.Capabilities = new CapabilityDiscovery(new() { McpClientFactory = source });
+        runtime.DiscoveryRecoveryGuard = (_, _) => Task.CompletedTask;
+        state = await new HybridWorkflowPlanner().AdvanceAsync(state,
+            new() { Kind = "recover_discovery", ExpectedRevision = state.Revision, DiscoveryRecovery = new(failure.Id, "refresh_source") }, runtime, Ct);
+        Assert.Equal(PlanningStatus.DiscoveryRecovery, state.Status); Assert.Single(runtime.Calls);
+        Assert.Equal(1, source.Reads); Assert.Equal(2, state.Discovery.Pages.Count);
+        Assert.Single(state.Discovery.Pages[^1].Capabilities); Assert.Null(state.Construction!.Compact!.CurrentStep!.Kind);
+    }
+
+    [Fact]
     public async Task RefreshKeepsTheExactPrerequisiteFocusWhenItsTextEqualsTheObjective()
     {
         var source = new Source("arbitrary", 1); var (state, runtime) = Ready(source);

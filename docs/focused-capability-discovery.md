@@ -29,12 +29,16 @@ threshold authority and phase allocations are unchanged.
 ## Local operator recovery
 
 After restarting Agent.Server/Desktop on the updated binaries, open the protected
-local operator window. Eligible blocked Designer sessions offer:
+local operator window. Eligible blocked Designer sessions and idle discovery steps
+with retained exploratory warnings offer:
 
 - **Continue with available sources**: retain the failed source as unavailable and
   return to discovery using preserved work and evidence.
 - **Refresh source metadata**: start from its first page with a new snapshot; retain
   old pages, cursors and failures as history.
+
+Active model calls, unfinished ordinary metadata pagination and selected implementation
+contracts must finish first. Recovery never dismisses a pending clarification.
 
 Both actions perform metadata recovery only and enter `discovery_recovery`. Reload
 preserves this waiting state. **Resume planning after discovery recovery** is a

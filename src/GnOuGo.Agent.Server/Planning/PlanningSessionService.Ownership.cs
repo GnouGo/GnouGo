@@ -74,7 +74,7 @@ public sealed partial class PlanningSessionService
     {
         var discovery = await CanRecoverDiscoveryAsync(state, ct);
         var pendingRecovery = state.Construction?.Compact?.CurrentStep?.PendingDiscovery?.Recovery;
-        var dto = PlanningEndpoints.ToDto(state) with { CanRecoverDiscovery = discovery && (state.Status == PlanningStatus.Stopped || pendingRecovery is not null),
+        var dto = PlanningEndpoints.ToDto(state) with { CanRecoverDiscovery = discovery && (state.Status != PlanningStatus.DiscoveryRecovery || pendingRecovery is not null),
             CanResumeDiscovery = discovery && state.Status == PlanningStatus.DiscoveryRecovery && state.Construction?.Compact?.CurrentStep?.PendingDiscovery is null,
             PendingDiscoveryRecovery = pendingRecovery is null ? null : new(pendingRecovery.FailureId, pendingRecovery.Resolution), RequestInspection = await InspectRequestAsync(state, ct),
             CanStartWithCurrentSettings = await CanStartWithCurrentSettingsAsync(state, ct) };

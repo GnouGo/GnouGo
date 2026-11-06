@@ -189,6 +189,8 @@ carry identities and outcomes, not business justifications or request content.
 Persist a recovery selection on its existing metadata continuation before reads.
 After interruption, explicitly finish that exact action/snapshot; keep the original
 failure available until completion and require separate inference resumption.
+The same protected path may refresh an idle discovery warning; it cannot interrupt
+an issued call, pending clarification, ordinary metadata action or selected contract.
 
 ## Maintained references
 

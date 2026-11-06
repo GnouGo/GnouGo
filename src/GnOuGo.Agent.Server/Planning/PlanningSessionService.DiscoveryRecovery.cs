@@ -53,7 +53,8 @@ public sealed partial class PlanningSessionService
     {
         using var activity = Activities.StartActivity("planning.discovery.recovery", ActivityKind.Internal, default(ActivityContext),
             tags: new ActivityTagsCollection { ["tenant.id"] = Tenant, ["gnougo.planning.session_id"] = current.Request.SessionId,
-                ["gnougo.discovery.resolution"] = command.DiscoveryRecovery?.Resolution ?? "resume" });
+                ["gnougo.discovery.resolution"] = command.Kind == "resume_discovery" ? "resume" : command.DiscoveryRecovery?.Resolution switch
+                { "continue_available" => "continue_available", "refresh_source" => "refresh_source", _ => "invalid" } });
         if (hostPolicy is not null) await hostPolicy.VerifyAsync(current, ct);
         else PlanningTokenThresholds.RejectReserved(current.Request.Options);
         // The metadata-only path deliberately creates no model journal/budget owner.

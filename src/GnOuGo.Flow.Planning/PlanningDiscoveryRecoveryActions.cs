@@ -6,10 +6,13 @@ namespace GnOuGo.Flow.Planning;
 public static class PlanningDiscoveryRecoveryActions
 {
     public static bool Eligible(PlanningSession state) => state.SchemaVersion == 11 &&
-        state.Status is PlanningStatus.Stopped or PlanningStatus.DiscoveryRecovery && state.PendingCall is null &&
+        state.PendingCall is null && state.PendingQuestions is null &&
         state.Construction?.Compact?.CurrentStep is not null && state.Yaml is null && state.ApprovedHash is null &&
         state.ApprovalReview is null && state.SavedAgentId is null &&
-        (state.Status == PlanningStatus.DiscoveryRecovery || state.Diagnostics.Any(d => d.Code == "DISCOVERY_INCOMPLETE")) &&
+        (state.Status == PlanningStatus.DiscoveryRecovery ||
+         state.Status == PlanningStatus.Stopped && state.Diagnostics.Any(d => d.Code == "DISCOVERY_INCOMPLETE") ||
+         state.Status == PlanningStatus.Generating && state.Phase is PlanningPhase.Discovery or PlanningCompactConstruction.DiscoveryPurpose &&
+         state.Construction.Compact.CurrentStep is { Kind: null, PendingDiscovery: null, DiscoveryComplete: false } && Failures(state).Count > 0) &&
         state.Diagnostics.All(d => !d.Required || d.Code == "DISCOVERY_INCOMPLETE");
 
     public static IReadOnlyList<CapabilityDiscoveryFailure> Failures(PlanningSession state)

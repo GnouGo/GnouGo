@@ -66,15 +66,25 @@ public sealed class DiscoveryRecoveryTests
         Assert.Empty(await fixture.Records.ListAsync(PlanningModelJournal.RequestCollection, "planning-tests", EfPlanningSessionStore.Author, Ct));
     }
 
-    [Fact]
-    public async Task OperatorRecoveryUsesOriginalSessionAndWaitsBeforeNewInference()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task OperatorRecoveryUsesOriginalSessionAndWaitsBeforeNewInference(bool idleWarning)
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         using var service = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog(), settings: new() { BackgroundProcessingEnabled = false });
         var state = await BlockedAsync(service, fixture);
+        if (idleWarning)
+        {
+            state.Status = PlanningStatus.Generating; state.Phase = PlanningPhase.Discovery; state.Diagnostics.Clear();
+            state.Construction!.Compact!.CurrentStep!.DiscoveryProtocol = 2;
+            state.Construction.Compact.CurrentStep.PendingDiscovery = null;
+            var previous = state.Revision++; Assert.True(await fixture.Store.TrySaveAsync(state, previous, Ct));
+        }
         var request = JsonSerializer.Serialize(state.Request, PlanningJsonContext.Default.PlanningRequest);
         var original = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
         Assert.True(await service.CanRecoverDiscoveryAsync(state, Ct));
+        Assert.True((await service.ToDtoAsync(state, Ct)).CanRecoverDiscovery);
         var failure = Assert.Single(PlanningDiscoveryRecoveryActions.Failures(state));
         var command = new PlanningCommand { Kind = "recover_discovery", ExpectedRevision = state.Revision, DiscoveryRecovery = new(failure.Id, "continue_available") };
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.SubmitAsync(state.Request.SessionId, command, Ct));
@@ -97,6 +107,7 @@ public sealed class DiscoveryRecoveryTests
     [InlineData("cancelled")]
     [InlineData("approved")]
     [InlineData("wrong_failure")]
+    [InlineData("wrong_resolution")]
     [InlineData("stale_revision")]
     public async Task UnsafeOrSubstitutedRecoveryIsRejectedWithoutChangingStoredState(string condition)
     {
@@ -119,7 +130,8 @@ public sealed class DiscoveryRecoveryTests
         var failure = Assert.Single(PlanningDiscoveryRecoveryActions.Failures(state));
         await Assert.ThrowsAsync<PlanningConflictException>(() => service.SubmitAsync(state.Request.SessionId,
             new() { Kind = "recover_discovery", ExpectedRevision = state.Revision + (condition == "stale_revision" ? 1 : 0),
-                DiscoveryRecovery = new(condition == "wrong_failure" ? "other-session-failure" : failure.Id, "continue_available") }, Ct, new("operator")));
+                DiscoveryRecovery = new(condition == "wrong_failure" ? "other-session-failure" : failure.Id,
+                    condition == "wrong_resolution" ? "invalid-authored-resolution" : "continue_available") }, Ct, new("operator")));
         Assert.Equal(before, JsonSerializer.Serialize((await fixture.Store.LoadAsync("planning-tests", state.Request.SessionId, Ct))!, PlanningJsonContext.Default.PlanningSession));
     }
 
