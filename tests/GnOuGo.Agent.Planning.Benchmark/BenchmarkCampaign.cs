@@ -35,7 +35,8 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
     // The caller holds the campaign lease. An explicit amendment adds authority
     // for fresh runs only; the original pin and financial records are immutable.
     internal async Task<JsonObject> RegisterConfigurationAsync(JsonObject configuration, string hostHash, string metadataHash,
-        string expectedPreviousHash, string authorization, bool apply, CancellationToken ct, string? expectedIdentity = null)
+        string expectedPreviousHash, string authorization, bool apply, CancellationToken ct, string? expectedIdentity = null,
+        bool captureCurrentSettings = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(authorization);
         var original = await LoadAsync("planning-evaluation-configuration", "configuration", ct)
@@ -47,6 +48,10 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
         unchanged["model"] = original["model"]?.DeepClone();
         if (original.ContainsKey("endpoint") || unchanged.AsObject().ContainsKey("endpoint"))
             unchanged["endpoint"] = original["endpoint"]?.DeepClone();
+        if (captureCurrentSettings)
+            foreach (var key in new[] { "provider", "request_policy", "reasoning" })
+                if (original.ContainsKey(key)) unchanged[key] = original[key]?.DeepClone();
+                else unchanged.AsObject().Remove(key);
         if (string.IsNullOrWhiteSpace(configuration["model"]?.ToString()) || !JsonNode.DeepEquals(unchanged, original))
             throw new PlanningConflictException("A model amendment cannot change other campaign settings. Conflicting fields: " +
                 string.Join(", ", original.Select(pair => pair.Key).Union(unchanged.AsObject().Select(pair => pair.Key), StringComparer.Ordinal)
@@ -54,6 +59,7 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
         var material = new JsonObject { ["previous_configuration_hash"] = expectedPreviousHash,
             ["configuration"] = configuration.DeepClone(), ["host_configuration_hash"] = hostHash,
             ["declared_metadata_hash"] = metadataHash, ["authorization"] = authorization };
+        if (captureCurrentSettings) material["amendment_scope"] = "current_deployment_settings";
         var identity = PlanningGraphCompiler.Fingerprint(material.ToJsonString());
         if (expectedIdentity is not null && expectedIdentity != identity)
             throw new PlanningConflictException("The proposed amendment changed after its concrete preview; no configuration was written.");

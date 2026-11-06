@@ -54,13 +54,29 @@ internal static class SchemaPortabilityCampaign
             var readiness = await proposed.ReadinessAsync(CancellationToken.None);
             if (phase == "inspect-deployment")
             {
-                var original = await campaign.LoadAsync("planning-evaluation-configuration", "configuration");
+                var original = await campaign.LoadAsync("planning-evaluation-configuration", "configuration")
+                    ?? throw new PlanningConflictException("The original campaign configuration is missing.");
+                var selectedId = Option(args, "--campaign-configuration");
+                var selected = selectedId is null ? null : await campaign.LoadAsync("planning-evaluation-configuration", "configuration:" + selectedId)
+                    ?? throw new PlanningConflictException("The configuration selected for comparison does not exist.");
+                if (selected is not null) original = selected["configuration"]!.AsObject();
                 var current = proposed.CampaignConfiguration();
                 string? Origin(JsonNode? endpoint) => Uri.TryCreate(endpoint?.ToString(), UriKind.Absolute, out var uri)
                     ? uri.Scheme + "://" + uri.IdnHost + (uri.IsDefaultPort ? "" : ":" + uri.Port) : null;
-                var oldEndpoint = original?["endpoint"]?.ToString(); var newEndpoint = current["endpoint"]?.ToString();
-                Console.WriteLine(new JsonObject { ["readiness"] = readiness,
-                    ["previous_endpoint_origin"] = Origin(original?["endpoint"]), ["configured_endpoint_origin"] = Origin(current["endpoint"]),
+                var oldEndpoint = original["endpoint"]?.ToString(); var newEndpoint = current["endpoint"]?.ToString();
+                var differences = new JsonArray();
+                foreach (var key in original.Select(p => p.Key).Union(current.Select(p => p.Key), StringComparer.Ordinal).Order(StringComparer.Ordinal))
+                    if (!JsonNode.DeepEquals(original[key], current[key]))
+                        differences.Add(new JsonObject { ["field"] = key,
+                            ["previous"] = key == "endpoint" ? PlanningGraphCompiler.Fingerprint(original[key]?.ToString() ?? "") : original[key]?.DeepClone(),
+                            ["current"] = key == "endpoint" ? PlanningGraphCompiler.Fingerprint(current[key]?.ToString() ?? "") : current[key]?.DeepClone(),
+                            ["representation"] = key == "endpoint" ? "sha256; endpoint secrets withheld" : "configuration_value" });
+                Console.WriteLine(new JsonObject { ["readiness"] = readiness, ["compared_configuration"] = selectedId ?? "original",
+                    ["differences"] = differences,
+                    ["host_fingerprint_matches"] = selected is null ? null : selected["host_configuration_hash"]?.ToString() == proposed.ConfigurationFingerprint,
+                    ["metadata_fingerprint_matches"] = selected is null ? null : selected["declared_metadata_hash"]?.ToString() == readiness["declared_metadata_hash"]?.ToString(),
+                    ["historical_host_options_available"] = false,
+                    ["previous_endpoint_origin"] = Origin(original["endpoint"]), ["configured_endpoint_origin"] = Origin(current["endpoint"]),
                     ["endpoint_matches"] = oldEndpoint == newEndpoint,
                     ["endpoint_differs_only_by_trailing_slash"] = oldEndpoint?.TrimEnd('/') == newEndpoint?.TrimEnd('/') }.ToJsonString());
                 return;
@@ -71,7 +87,8 @@ internal static class SchemaPortabilityCampaign
             var amendment = await campaign.RegisterConfigurationAsync(proposed.CampaignConfiguration(), proposed.ConfigurationFingerprint,
                 readiness["declared_metadata_hash"]!.ToString(), RequiredOption(args, "--expected-configuration"),
                 RequiredOption(args, "--authorization"), apply, CancellationToken.None,
-                apply ? RequiredOption(args, "--expected-amendment") : null);
+                apply ? RequiredOption(args, "--expected-amendment") : null,
+                captureCurrentSettings: args.Contains("--capture-current-settings", StringComparer.Ordinal));
             // Full deployment configuration stays encrypted in the campaign.
             // The exact hash identifies the preview without logging URL secrets.
             amendment.Remove("material");
@@ -289,6 +306,7 @@ internal static class SchemaPortabilityCampaign
             await campaign.RequireRunNotRetainedAsync(Option(args, "--run") ?? "diagnostic-" + (Option(args, "--case") ?? "amazon") + "-1");
         using var model = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", RequiredOption(args, "--model"), campaign, root, CancellationToken.None,
             campaignConfiguration: RequiredOption(args, "--campaign-configuration"));
+        if (phase == "server-live-probe") { await ServerLiveDiagnostics.RunAsync(args, campaign, model, root); return; }
         if (phase == "copilot-probe") { await LiveExecutionReadiness.CopilotAsync(args, campaign, model, root); return; }
         if (phase == "mapping") { await MappingLiveEvaluation.RunAsync(args, campaign, model, root); return; }
         if (phase is "readiness" or "plan" or "revise" or "execute")

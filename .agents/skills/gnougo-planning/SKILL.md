@@ -135,6 +135,17 @@ Execution requires artifact-bound approval, exact invocation confirmations, tena
 
 Freeze source, harness, settings, contracts, inputs and oracles. Separate admission, output exhaustion, formatting and transport incidents. Compare completed outcomes; interrupted runs are not savings. Report actual provider usage separately from component estimates. Simulated responses and technical passes do not establish live convergence.
 
+Explicit operator authorization may register current deployment settings through a
+new immutable campaign amendment; never rewrite an old pin or infer permission to
+increase funding. Compare safe setting values and fingerprints, retaining unavailable
+historical details explicitly. Use fresh session/request identities and the actual
+Agent.Server protected operator path for live probes. Keep the existing campaign's
+global financial ceiling, all old charges and uncertain reservations; application
+Unlimited defaults never authorize an Unlimited live campaign. Recover exact receipts
+when available, otherwise use the existing evidence-bound retention mechanism only
+after verifying tool-free, unexecuted generation. Retention forbids old replay and
+continuation without releasing money, allowing independent fresh work to be admitted.
+
 ## Maintained references
 
 - [Incremental construction](../../../docs/incremental-taskplan-construction.md)

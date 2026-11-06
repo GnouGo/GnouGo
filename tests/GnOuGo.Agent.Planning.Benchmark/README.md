@@ -360,6 +360,29 @@ closures and historical cohorts remain unchanged. A new immutable amendment may
 capture the saved model and its exact deployment URL; provider, request policy
 and other campaign settings cannot change through that operation.
 
+An operator explicitly authorizing the currently configured provider/model/request
+settings may instead use `register-configuration --capture-current-settings`.
+This extends the same immutable amendment mechanism to provider, request policy and
+reasoning. It cannot alter campaign money, call/output limits or the original pin.
+Preview and apply still bind the exact source, configuration, metadata and authorization;
+the original retry-policy check remains effective. Compare a retained amendment with
+`inspect-deployment --campaign-configuration <id>`: endpoint changes are represented
+by hashes, and missing historical host options remain explicitly unavailable.
+
+`--schema-portability server-live-probe --run <fresh-id> --model <configured-model>
+--campaign-configuration <new-id> --workspace <workspace> --campaign <existing-campaign>`
+starts the actual Agent.Server on a Kestrel-owned loopback port. Its one-use operator
+bootstrap and antiforgery protect a small, tool-free, structured-output probe using
+the configured foreground planning protocol and medium reasoning. It verifies the
+Server and campaign provider/model/endpoint/request policy match before inference.
+The existing campaign lease, encrypted HTTP journal and conservative global EUR
+admission remain authoritative, including every historical reservation. The probe
+uses one physical attempt and a 1,024-token output allocation, never model maximum;
+its usage and outcome are captured through the shared LLM inspector and OTel.
+No bootstrap link, credential or raw provider error is printed. A used run identity
+cannot be invoked again. Failed probes are not evidence of successful planning,
+approval, execution or an independent oracle.
+
 Use `--schema-portability inspect-configuration` to obtain the previous pin hash
 and `inspect-deployment --model <exact-snapshot>` for redacted readiness. Then
 preview `register-configuration --model <exact-snapshot>

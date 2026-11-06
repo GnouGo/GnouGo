@@ -13,6 +13,38 @@ public sealed class BenchmarkCampaignTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("cost_ceiling_eur")]
+    [InlineData("max_calls")]
+    public async Task CurrentSettingsAmendmentRequiresExplicitScopeAndPreservesFinancialGuards(string? forbidden)
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "current-settings");
+        var original = new JsonObject { ["provider"] = "openai", ["model"] = "old", ["endpoint"] = "old-route",
+            ["request_policy"] = new JsonObject(), ["max_calls"] = 8, ["cost_ceiling_eur"] = 50 };
+        await campaign.PinAsync(original, Ct);
+        var next = original.DeepClone().AsObject(); next["model"] = "configured-deployment";
+        next["request_policy"] = new JsonObject { ["BillingServiceTier"] = "standard" };
+        var previous = PlanningGraphCompiler.Fingerprint(original.ToJsonString()); var writes = records.Writes;
+        await Assert.ThrowsAsync<PlanningConflictException>(() => campaign.RegisterConfigurationAsync(next, new string('a', 64),
+            new string('b', 64), previous, "current-settings-authorization", true, Ct));
+        Assert.Equal(writes, records.Writes);
+        if (forbidden is not null)
+        {
+            next[forbidden] = 100;
+            await Assert.ThrowsAsync<PlanningConflictException>(() => campaign.RegisterConfigurationAsync(next, new string('a', 64),
+                new string('b', 64), previous, "current-settings-authorization", true, Ct, captureCurrentSettings: true));
+            Assert.Equal(writes, records.Writes); return;
+        }
+        var preview = await campaign.RegisterConfigurationAsync(next, new string('a', 64), new string('b', 64), previous,
+            "current-settings-authorization", false, Ct, captureCurrentSettings: true);
+        var applied = await campaign.RegisterConfigurationAsync(next, new string('a', 64), new string('b', 64), previous,
+            "current-settings-authorization", true, Ct, preview["configuration_id"]!.ToString(), captureCurrentSettings: true);
+        Assert.Equal("current_deployment_settings", applied["material"]!["amendment_scope"]!.ToString());
+        Assert.True(JsonNode.DeepEquals(original, await campaign.LoadAsync("planning-evaluation-configuration", "configuration", Ct)));
+        Assert.Equal(50m, await campaign.CostCeilingAsync(Ct));
+    }
+
     [Fact]
     public async Task ModelAmendmentPreservesOriginalFinancialStateAndRegistersExactlyOnce()
     {
