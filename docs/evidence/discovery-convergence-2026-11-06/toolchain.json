@@ -1,0 +1,48 @@
+{
+  "dotnet": {
+    "command": [
+      "dotnet",
+      "--version"
+    ],
+    "exit_code": 0,
+    "value": "10.0.403"
+  },
+  "node": {
+    "command": [
+      "node",
+      "--version"
+    ],
+    "exit_code": 0,
+    "value": "v22.20.0"
+  },
+  "pnpm": {
+    "command": [
+      "pnpm",
+      "--version"
+    ],
+    "exit_code": 0,
+    "value": "10.14.0"
+  },
+  "macos": {
+    "command": [
+      "sw_vers",
+      "-productVersion"
+    ],
+    "exit_code": 0,
+    "value": "26.7.1"
+  },
+  "architecture": {
+    "command": [
+      "uname",
+      "-m"
+    ],
+    "exit_code": 0,
+    "value": "arm64"
+  },
+  "global.json_sha256": "c41dd7bdd92cf2d223effe7a486ded23a4af13e9b27f73c0d425d8b4e3d413c5",
+  "pnpm-lock.yaml_sha256": "db3bab2918353006e25ccdc553aff3775280ed9209e615291b90c054b9f5ed26",
+  "package.json_sha256": "57f73200900e18a9a72f3288b1fa212f322301a1978f4e1ec69bea0dc54a9580",
+  "source": "2a83c9c09c2dedeb481f15d19eb6ce74c3670797",
+  "captured_at_utc": "2026-11-06T19:38:42.814885+00:00",
+  "test_runtime_from_adapter_log": ".NET 10.0.14"
+}

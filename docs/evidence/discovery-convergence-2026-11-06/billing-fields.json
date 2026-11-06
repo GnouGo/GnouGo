@@ -1,0 +1,56 @@
+{
+  "implementation_source": "2a83c9c09c2dedeb481f15d19eb6ce74c3670797",
+  "scope": "Exact owned retained normalized usage and raw provider usage; no external invoice API was called.",
+  "reader": "artifacts/session-diagnosis-20261106/Program.cs --cost-fields (local auxiliary diagnostic reader; not a production service)",
+  "reader_source_sha256": "9077b30bb40df89e594782f6a02161d36493370425dfc110d70c42cc781e85bc",
+  "reader_build": "dotnet build artifacts/session-diagnosis-20261106/ReadSession.csproj -c Release --no-restore --no-dependencies -warnaserror",
+  "sessions": [
+    {
+      "session": "9fce45f8750a4ed19a3fe1b5ba48adb3",
+      "inspectedAtUtc": "2026-11-06T19:26:52.662936+00:00",
+      "indexedCalls": 258,
+      "receipts": 257,
+      "usageFields": {
+        "completion_tokens": 257,
+        "completion_tokens_details": 257,
+        "latency_checkpoint": 257,
+        "prompt_tokens": 257,
+        "prompt_tokens_details": 257,
+        "total_tokens": 257,
+        "service_tier": 257,
+        "transport_attempts": 257,
+        "unknown_attempts": 257,
+        "reserved_input_tokens": 257,
+        "reserved_output_tokens": 257
+      },
+      "costFieldPaths": {},
+      "providerReportedCostFields": 0,
+      "modelDispatches": 0,
+      "historicalChanges": false
+    },
+    {
+      "session": "1a54de6fa5934c7aa9ddc3cd31da99cb",
+      "inspectedAtUtc": "2026-11-06T19:26:52.35047+00:00",
+      "indexedCalls": 71,
+      "receipts": 70,
+      "usageFields": {
+        "completion_tokens": 70,
+        "completion_tokens_details": 70,
+        "latency_checkpoint": 70,
+        "prompt_tokens": 70,
+        "prompt_tokens_details": 70,
+        "total_tokens": 70,
+        "service_tier": 70,
+        "transport_attempts": 70,
+        "unknown_attempts": 70,
+        "reserved_input_tokens": 70,
+        "reserved_output_tokens": 70
+      },
+      "costFieldPaths": {},
+      "providerReportedCostFields": 0,
+      "modelDispatches": 0,
+      "historicalChanges": false
+    }
+  ],
+  "provider_invoice_or_charge_available_from_these_usage_records": false
+}

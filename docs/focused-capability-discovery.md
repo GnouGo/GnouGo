@@ -77,8 +77,10 @@ with retained exploratory warnings offer:
 - **Refresh source metadata**: start from its first page with a new snapshot; retain
   old pages, cursors and failures as history.
 
-Active model calls, unfinished ordinary metadata pagination and selected implementation
-contracts must finish first. Recovery never dismisses a pending clarification.
+Active model calls and unfinished ordinary metadata pagination must finish first.
+A retained required-contract failure is eligible only after its completed model
+journal passes the same recovery checks; metadata recovery never accepts that binding.
+Recovery never dismisses a pending clarification.
 An already issued request rejected by the model provider retains its exact schema,
 HTTP evidence and reservations. Updating the schema factory does not rewrite that
 request or make it eligible for automatic retry.
@@ -132,3 +134,8 @@ Normal local startup opens its protected operator window; the `Diagnostic` launc
 profile remains a compatible alias. Do not use stale `--no-build` binaries for this
 upgrade. [Validation evidence and screenshots](evidence/focused-discovery-2026-11-06/README.md)
 separate controlled-host checks, live metadata reads and the unfunded paid continuation.
+
+[Continuity and convergence qualification](evidence/discovery-convergence-2026-11-06/README.md)
+records the later 48-capability host/process restart regressions, applicable rejection
+feedback, selected-contract recovery, live metadata checks and fresh external-session
+accounting. It does not claim autonomous live convergence when funding is unverified.
