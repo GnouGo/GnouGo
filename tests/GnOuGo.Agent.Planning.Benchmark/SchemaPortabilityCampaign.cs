@@ -39,6 +39,18 @@ internal static class SchemaPortabilityCampaign
             await ServerLiveFundingEvidence.RunAsync(args, campaign, records, root);
             return;
         }
+        if (phase == "financial-audit")
+        {
+            var authorization = await campaign.LoadAsync("planning-evaluation-configuration", "spending-authorization");
+            Console.WriteLine(new JsonObject { ["campaign"] = campaign.Id, ["ceilingEur"] = await campaign.CostCeilingAsync(),
+                ["ceilingSource"] = authorization is null ? "code_default_50_eur" : "persisted_spending_authorizations",
+                ["ceilingHistory"] = new JsonArray((authorization?["history"]?.AsArray() ?? []).Select(entry => (JsonNode)new JsonObject {
+                    ["previousCeilingEur"] = entry?["previous_ceiling_eur"]?.DeepClone(), ["ceilingEur"] = entry?["ceiling_eur"]?.DeepClone(),
+                    ["authorizedAtUtc"] = entry?["authorized_at"]?.DeepClone(), ["authorizationHash"] = PlanningGraphCompiler.Fingerprint(entry?["authorization"]?.ToString() ?? "") }).ToArray()),
+                ["accounting"] = await BenchmarkHttpJournal.AccountingAsync(campaign, includeSessions: true),
+                ["globallyAvailableFunding"] = null, ["fundingLimitation"] = "External session pricing and lost historical ledger evidence are not established by this campaign-only read.",
+                ["modelDispatches"] = 0, ["historicalChanges"] = false }.ToJsonString()); return;
+        }
         if (phase == "inspect-configuration")
         {
             var original = await campaign.LoadAsync("planning-evaluation-configuration", "configuration")

@@ -554,3 +554,22 @@ Conflicting attempts, outcomes, ownership or refusal fields reject retention. Th
 operator preview/apply writes only the immutable closure; old evidence, application
 reservations and campaign exposure remain unchanged. The old run cannot resume or
 replay. A fresh independent run must still pass complete financial admission.
+
+
+### Financial audit and forecast experiment
+
+`--schema-portability financial-audit --workspace <workspace> --campaign <id>` is
+a read-only projection of the existing campaign ledger. It reports the persisted
+ceiling authorization chain, per-session measured-usage tariff estimates, unresolved
+reservations, empty-attempt records and potential overlap with legacy attempt IDs.
+It does not construct a provider or settle/release a reservation. The extra projection
+is opt-in so historical accounting values and evidence hashes remain unchanged.
+
+`server-live-probe` / `server-live-plan` accept
+`--financial-forecast-mode experimental_warning` for fresh captures. The existing
+Limited ceiling remains mandatory for the current request and retained liabilities;
+only future review forecasts can warn. Scalar external provisional holds are not
+verified pricing evidence. Experimental dispatch fails with
+`external_financial_history_incomplete` while they remain unverified. Do not pass
+zero, drop a hold, change deployment, or raise a ceiling to get a live pass. Capture
+an exact fresh refusal when complete funding cannot be established.

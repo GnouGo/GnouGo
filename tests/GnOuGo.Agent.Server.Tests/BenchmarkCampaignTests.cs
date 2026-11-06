@@ -14,6 +14,41 @@ public sealed class BenchmarkCampaignTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CampaignFinancialForecastWarningsKeepCurrentAndUnknownExposureHard(bool experimental)
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "forecast");
+        JsonObject Policy() => new() { ["financial_forecast_mode"] = experimental ? "experimental_warning" : "strict" };
+        var first = new BenchmarkHttpJournal(campaign, "one:1:hash", 10, 10, 30m, reviewCostHeadroom: 30m, reviewAttemptHeadroom: 1, effectiveTransportPolicy: Policy());
+        await first.PrepareAsync(Ct);
+        var attempt = new LLMHttpRetryState { Attempts = [new() { Id = "one:1:hash:1" }] };
+        if (!experimental)
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => first.SaveAsync(attempt, Ct));
+            Assert.Empty((await first.LoadAsync(Ct))!.Attempts); return;
+        }
+        await first.SaveAsync(attempt, Ct);
+        var record = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, "one:1:hash", Ct))!;
+        Assert.NotNull(record["financial_forecast_warning"]);
+        var current = new BenchmarkHttpJournal(campaign, "two:1:hash", 10, 10, 30m, effectiveTransportPolicy: Policy());
+        await current.PrepareAsync(Ct);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => current.SaveAsync(new() { Attempts = [new() { Id = "two:1:hash:1" }] }, Ct));
+        var unverified = Policy(); unverified["external_accounting_status"] = "unverified_external_holds";
+        var missing = new BenchmarkHttpJournal(campaign, "three:1:hash", 10, 10, 1m, effectiveTransportPolicy: unverified);
+        await missing.PrepareAsync(Ct);
+        var failure = await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => missing.SaveAsync(new() { Attempts = [new() { Id = "three:1:hash:1" }] }, Ct));
+        Assert.Equal("LLM_BUDGET_UNVERIFIABLE", failure.Code);
+        var before = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
+        var audit = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct, includeSessions: true);
+        Assert.Equal(before["reserved_cost_eur"]!.GetValue<decimal>(), audit["reserved_cost_eur"]!.GetValue<decimal>());
+        Assert.Equal(30m, audit["reserved_cost_eur"]!.GetValue<decimal>());
+        Assert.Equal(3, audit["sessions"]!.AsArray().Count);
+        Assert.Null(audit["providerInvoicedCost"]);
+        Assert.False(audit["legacyAggregate"]!["present"]!.GetValue<bool>());
+    }
+
+    [Theory]
     [InlineData("valid")]
     [InlineData("missing")]
     [InlineData("material")]

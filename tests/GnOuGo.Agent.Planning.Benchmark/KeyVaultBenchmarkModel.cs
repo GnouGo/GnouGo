@@ -62,6 +62,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
     internal string ConfigurationFingerprint => PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(_options) +
         JsonSerializer.Serialize(new RoutingLLMClient(_options, []).ResolveDeclaredMetadata(Provider, Model)));
     internal JsonObject MetadataSources { get; private init; } = new();
+    internal bool AdvisoryFinancialForecasts { get; set; }
     internal JsonObject ConfigurationSources { get; private init; } = new();
     public async Task AdmitConstructionAsync(LLMRequest request, int inputTokenCeiling,
         IReadOnlyList<int> outputTokenCeilings, CancellationToken ct)
@@ -106,6 +107,8 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             ["max_corrections"] = request.MaxReplanAttempts, ["construction_preset"] = request.Options["construction_preset"]?.DeepClone(),
             ["llm_budget"] = request.Options["llm_budget"]?.DeepClone() };
         value["planning_format"] = 11;
+        if (request.Options["application_llm_budget"]?["financialForecastMode"]?.ToString() == "experimental_warning")
+            value["financial_forecast_mode"] = "experimental_warning";
         if (_campaign.ConfigurationId is { } configurationId) value["campaign_configuration"] = configurationId;
         value["construction_review_headroom"] = 2;
         value["construction_review_output_tokens"] = PlanningConstructionPhasePolicies.Resolve(request, "construction_local_judge").OutputTokens;
@@ -479,6 +482,8 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
 
     private async Task<LLMResponse> DispatchAsync(LLMRequest request, CancellationToken ct, bool execution = false)
     {
+        if (AdvisoryFinancialForecasts && RetainedExternalReservationsEur > 0)
+            throw BenchmarkCampaign.AdmissionFailure("external_financial_history_incomplete");
         var runtimeJournal = execution ? await RuntimeJournalAsync(request, ct) : null;
         var policy = execution ? null : await _campaign.LoadAsync("planning-evaluation-session-policy", request.ClientRequestId!.Split(':')[0], ct);
         var incremental = policy?["construction_review_headroom"]?.GetValue<int>() > 0;
@@ -603,6 +608,12 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             var advisory = PlanningTokenThresholds.Advisory(state.Request);
             var input = advisory ? await InputTokenAllowanceAsync(Provider, Model, output, ct)
                 ?? throw BenchmarkCampaign.AdmissionFailure("physical_input_allowance") : PlanningConstructionInputPolicy.EffectiveLimit(state.Request, request);
+            var experimentalForecast = state.Request.Options["application_llm_budget"]?["financialForecastMode"]?.ToString() == "experimental_warning" &&
+                state.Request.Options["application_llm_budget"]?["explicitWorkflowLimits"]?.GetValue<bool>() != true;
+            if (experimentalForecast) input = Math.Max(PlanningConstructionInputPolicy.EffectiveLimit(state.Request, request),
+                checked(JsonSerializer.SerializeToUtf8Bytes(request, PlanningJsonContext.Default.LLMRequest).Length + 256));
+            if (experimentalForecast && RetainedExternalReservationsEur > 0)
+                throw BenchmarkCampaign.AdmissionFailure("external_financial_history_incomplete");
             var reviews = request.RequiredReviewCalls ?? 0;
             var reviewOutput = PlanningConstructionPhasePolicies.Resolve(state.Request, "construction_local_judge").OutputTokens;
             var reviewInput = reviews == 0 ? 0 : await InputTokenAllowanceAsync(Provider, Model, reviewOutput, ct)
@@ -622,6 +633,12 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             if (PlanningTokenThresholds.OptimizationAdvisory(state.Request)) effective[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
             if (RetainedExternalReservationsEur < 0) throw new ArgumentOutOfRangeException(nameof(RetainedExternalReservationsEur));
             effective["retained_external_reservations_eur"] = RetainedExternalReservationsEur;
+            if (experimentalForecast)
+            {
+                effective["financial_forecast_mode"] = "experimental_warning";
+                effective["reservation_input_origin"] = "serialized_request_bytes_plus_envelope_and_phase_target";
+                if (RetainedExternalReservationsEur > 0) effective["external_accounting_status"] = "unverified_external_holds";
+            }
             var retained = await _campaign.LoadAsync(BenchmarkHttpJournal.Collection, request.ClientRequestId, ct);
             if (retained?["effective_transport_policy"] is JsonObject prior) effective = prior.DeepClone().AsObject();
             BenchmarkHttpJournal? journal = null;

@@ -58,6 +58,10 @@ internal static class ServerLiveDiagnostics
             "--DocsIngestorMcp:VectorDatabasePath=" + Path.Combine(stateRoot, "vectors.sqlite"),
             "--DocsIngestorMcp:OriginalsDirectory=" + Path.Combine(stateRoot, "originals")
         };
+        var financialForecastMode = SchemaPortabilityCampaign.Option(args, "--financial-forecast-mode") ?? "strict";
+        if (financialForecastMode is not ("strict" or "experimental_warning")) throw new ArgumentException("Invalid financial forecast mode.");
+        model.AdvisoryFinancialForecasts = financialForecastMode == "experimental_warning";
+        hostArgs = hostArgs.Append("--ApplicationLlmBudget:FinancialForecastMode=" + financialForecastMode).ToArray();
         var phaseFile = SchemaPortabilityCampaign.Option(args, "--server-phase-policy");
         if (phaseFile is not null)
         {
@@ -97,7 +101,7 @@ internal static class ServerLiveDiagnostics
         var report = new JsonObject { ["source"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD"), ["run"] = run,
             ["campaign"] = campaign.Id, ["campaign_configuration"] = campaign.ConfigurationId,
             ["provider"] = options.DefaultProvider, ["model"] = options.DefaultModel, ["host"] = "GnOuGo.Agent.Server",
-            ["budget_mode"] = "limited", ["retained_external_reservations_eur"] = model.RetainedExternalReservationsEur, ["started_utc"] = DateTimeOffset.UtcNow, ["phase"] = planning ? "server_planning" : "provider_probe",
+            ["budget_mode"] = "limited", ["financial_forecast_mode"] = financialForecastMode, ["retained_external_reservations_eur"] = model.RetainedExternalReservationsEur, ["started_utc"] = DateTimeOffset.UtcNow, ["phase"] = planning ? "server_planning" : "provider_probe",
             ["working_directory"] = root, ["launch_arguments"] = SafeLaunchArguments(),
             ["loaded_assemblies"] = new JsonObject { ["entry"] = AssemblyEvidence(System.Reflection.Assembly.GetEntryAssembly()!),
                 ["server"] = AssemblyEvidence(typeof(GnOuGoAgentWebHost).Assembly) },
@@ -169,7 +173,7 @@ internal static class ServerLiveDiagnostics
             }
             if (!retained)
             {
-                using var limited = await client.PostAsJsonAsync("/api/application-llm-budget", new JsonObject { ["mode"] = "limited" }); limited.EnsureSuccessStatusCode();
+                using var limited = await client.PostAsJsonAsync("/api/application-llm-budget", new JsonObject { ["mode"] = "limited", ["financialForecastMode"] = financialForecastMode }); limited.EnsureSuccessStatusCode();
             }
             if (retained)
             {
@@ -453,7 +457,7 @@ internal static class ServerLiveDiagnostics
             if (i == 0) result.Add(value);
             else if (value.StartsWith("--", StringComparison.Ordinal))
             {
-                safeValue = value is "--schema-portability" or "--run" or "--case" or "--model" or "--campaign-configuration" or "--workspace" or "--campaign" or "--retained-external-reservations-eur" or "--server-phase-policy";
+                safeValue = value is "--schema-portability" or "--run" or "--case" or "--model" or "--campaign-configuration" or "--workspace" or "--campaign" or "--retained-external-reservations-eur" or "--server-phase-policy" or "--financial-forecast-mode";
                 result.Add(safeValue ? value : "[unrecorded option]");
             }
             else { result.Add(safeValue ? value : "[withheld]"); safeValue = false; }

@@ -135,7 +135,18 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
             var retainedOtherReservations = _effectiveTransportPolicy?["retained_external_reservations_eur"]?.GetValue<decimal>() ?? 0;
             if (retainedOtherReservations < 0) throw new InvalidOperationException("Retained financial headroom cannot be negative.");
             var ceiling = await campaign.CostCeilingAsync(ct);
+            var experimentalForecast = _effectiveTransportPolicy?["financial_forecast_mode"]?.ToString() == "experimental_warning";
+            if (experimentalForecast && _effectiveTransportPolicy?["external_accounting_status"]?.ToString() == "unverified_external_holds")
+                throw BenchmarkCampaign.AdmissionFailure("external_financial_history_incomplete");
+            var currentExceeded = LLMUsageBudgetScope.CostSumExceeds(ceiling, totals["cost_upper_bound_eur"]!.GetValue<decimal>(), retainedOtherReservations);
             var moneyExceeded = LLMUsageBudgetScope.CostSumExceeds(ceiling, totals["cost_upper_bound_eur"]!.GetValue<decimal>(), reviewCostHeadroom, retainedOtherReservations);
+            if (moneyExceeded && experimentalForecast && !currentExceeded)
+            {
+                record["financial_forecast_warning"] = new JsonObject { ["request_id"] = requestId, ["currency"] = "EUR", ["allowance"] = ceiling,
+                    ["current_and_retained_exposure"] = LLMUsageBudgetScope.SumCostConservatively(totals["cost_upper_bound_eur"]!.GetValue<decimal>(), retainedOtherReservations),
+                    ["future_review_forecast"] = reviewCostHeadroom, ["policy"] = "experimental_warning", ["current_reservation_enforced"] = true };
+                moneyExceeded = false;
+            }
             if (moneyExceeded || sessionExhausted)
             {
                 campaign.BudgetExceeded(sessionExhausted);
@@ -194,7 +205,7 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
         return usage;
     }
 
-    internal static async Task<JsonObject> AccountingAsync(BenchmarkCampaign campaign, string? requestId = null, JsonObject? replacement = null, CancellationToken ct = default)
+    internal static async Task<JsonObject> AccountingAsync(BenchmarkCampaign campaign, string? requestId = null, JsonObject? replacement = null, CancellationToken ct = default, bool includeSessions = false)
     {
         var prefix = campaign.Id + ":";
         var rows = (await campaign.Records.ListAsync(Collection, "benchmark", BenchmarkCampaign.Author, ct))
@@ -207,6 +218,7 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
         long reservedInput = 0, reservedOutput = 0, uncertain = 0, sessionCalls = 0, sessionTokens = 0;
         decimal cost = snapshot?.EstimatedCost ?? 0, reservedCost = 0;
         var session = requestId?.Split(':')[0] + ":";
+        var perSession = includeSessions ? new Dictionary<string, JsonObject>(StringComparer.Ordinal) : null;
         foreach (var (key, row) in rows)
         {
             var attempts = row["transport"]!["Attempts"]!.AsArray();
@@ -214,6 +226,18 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
             if (requestId is not null && key.StartsWith(session, StringComparison.Ordinal)) sessionCalls += attempts.Count;
             var usage = row["usage"];
             var pending = attempts.Count(a => PlanningBenchmarkMeasurements.RequiresHttpUsageReservation(a?["Status"]?.GetValue<int>(), usage is not null, PlanningBenchmarkMeasurements.RetainsAllHttpFailures(row)));
+            if (perSession is not null)
+            {
+                var owner = key.Split(':')[0];
+                if (!perSession.TryGetValue(owner, out var item)) perSession[owner] = item = new() { ["sessionId"] = owner,
+                    ["httpAttempts"] = 0L, ["unresolvedAttempts"] = 0L, ["measuredUsageTariffEstimateEur"] = 0m,
+                    ["unresolvedReservationEur"] = 0m, ["zeroAttemptRequests"] = new JsonArray() };
+                item["httpAttempts"] = item["httpAttempts"]!.GetValue<long>() + attempts.Count;
+                item["unresolvedAttempts"] = item["unresolvedAttempts"]!.GetValue<long>() + pending;
+                item["measuredUsageTariffEstimateEur"] = LLMUsageBudgetScope.SumCostConservatively(item["measuredUsageTariffEstimateEur"]!.GetValue<decimal>(), usage?["benchmark_cost_eur"]?.GetValue<decimal>() ?? 0m);
+                item["unresolvedReservationEur"] = LLMUsageBudgetScope.SumCostConservatively(new[] { item["unresolvedReservationEur"]!.GetValue<decimal>() }.Concat(Enumerable.Repeat(row["cost_ceiling_eur"]!.GetValue<decimal>(), pending)).ToArray());
+                if (attempts.Count == 0) item["zeroAttemptRequests"]!.AsArray().Add(key);
+            }
             if (requestId is not null && key.StartsWith(session, StringComparison.Ordinal))
                 sessionTokens = checked(sessionTokens + pending * checked(row["input_ceiling"]!.GetValue<long>() + row["output_ceiling"]!.GetValue<long>()) +
                     (usage?["input_tokens"]?.GetValue<long>() ?? 0) + (usage?["output_tokens"]?.GetValue<long>() ?? 0));
@@ -235,6 +259,16 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
         var result = new JsonObject { ["calls"] = calls, ["session_calls"] = sessionCalls, ["known_input_tokens"] = input, ["known_output_tokens"] = output,
             ["known_cost_eur"] = cost, ["reserved_input_tokens"] = reservedInput, ["reserved_output_tokens"] = reservedOutput,
             ["reserved_cost_eur"] = reservedCost, ["cost_upper_bound_eur"] = LLMUsageBudgetScope.SumCostConservatively(cost, reservedCost), ["unknown_attempts"] = uncertain };
+        if (perSession is not null)
+        {
+            result["sessions"] = new JsonArray(perSession.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => (JsonNode)p.Value).ToArray());
+            result["legacyAggregate"] = new JsonObject { ["present"] = snapshot is not null, ["estimatedCost"] = snapshot?.EstimatedCost,
+                ["currency"] = snapshot?.EstimatedCostCurrency, ["indexedAttempts"] = snapshot?.JournaledAttempts?.Count,
+                ["potentialOverlappingRequests"] = new JsonArray(rows.Keys.Where(key => snapshot?.JournaledAttempts?.Keys.Any(id => id == key || id.StartsWith(key + ":", StringComparison.Ordinal)) == true)
+                    .Select(key => (JsonNode?)JsonValue.Create(key)).ToArray()) };
+            result["providerInvoicedCost"] = null;
+            result["basis"] = "Measured usage × captured tariffs and unresolved reservations; not provider invoices. Group sums may round upward differently. Zero-attempt campaign records reserve no money. No reservation is released by inspection.";
+        }
         // Preserve historical accounting hashes when no new captured policy is being admitted.
         if (replacement is not null && PlanningBenchmarkMeasurements.RetainsAllHttpFailures(replacement))
             result["session_token_upper_bound"] = sessionTokens;
