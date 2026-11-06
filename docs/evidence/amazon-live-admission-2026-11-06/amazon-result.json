@@ -1,0 +1,65 @@
+{
+  "source": "2a83c9c09c2dedeb481f15d19eb6ce74c3670797",
+  "run": "amazon-2a83-live-20261106-2001",
+  "provider": "OpenAi",
+  "model": "gpt-6.1-sol-2026-09-29",
+  "budget_mode": "limited",
+  "retained_external_reservations_eur": "731.9247059871703492516037064",
+  "started_utc": "2026-11-06T20:01:32.46422+00:00",
+  "finished_utc": "2026-11-06T20:02:09.460757+00:00",
+  "session_id": "11386753f6ce4c4eb456deb20376e057",
+  "scenario": "amazon",
+  "result": {
+    "status": "stopped",
+    "calls": 1,
+    "repairs": 0,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "passed": false,
+  "browser_observation_exit_code": 1,
+  "status": "stopped",
+  "phase": "construction_intent",
+  "revision": 2,
+  "modelCalls": 1,
+  "diagnostics": [
+    {
+      "code": "LLM_BUDGET_EXCEEDED",
+      "location": "/",
+      "message": "The captured campaign budget cannot admit this LLM attempt.",
+      "required": true,
+      "validationStage": null,
+      "rule": null,
+      "budgetFailure": {
+        "scope": "campaign_llm_budget",
+        "origin": "captured_campaign_ceiling",
+        "limitKind": "estimated_cost",
+        "allowance": "740.0301038327063045424449473",
+        "requiredReservation": "1487.6589143113189934076732151",
+        "currency": "EUR",
+        "dispatchStatus": "not_started"
+      }
+    }
+  ],
+  "request_id": "11386753f6ce4c4eb456deb20376e057:1:b26b07922ca5b5450e481bfa85bb891364a4832b0e547a8d2873a4b23c6489af",
+  "physical_http_attempts": 0,
+  "captured_application_policy": {
+    "version": 1,
+    "mode": "limited",
+    "origin": "operator_preference",
+    "currency": "EUR",
+    "applicationOwnsLimits": true,
+    "planningLimits": {
+      "max_calls": 64,
+      "max_total_tokens": 15000000,
+      "max_elapsed_ms": 18000000,
+      "max_estimated_cost": {
+        "amount": 50,
+        "currency": "EUR"
+      }
+    }
+  },
+  "output_allocation": 8192,
+  "http_preparation_present": true,
+  "run_evidence_hash": "1cbf4142b291bb19b36d388c3c1628ffc82d5c60a374f1c3b549c5de153baff4"
+}

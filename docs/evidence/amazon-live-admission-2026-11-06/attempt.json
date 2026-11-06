@@ -1,0 +1,29 @@
+{
+  "source": "2a83c9c09c2dedeb481f15d19eb6ce74c3670797",
+  "documentation_head": "a7f381a7",
+  "command": [
+    "dotnet",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Release/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+    "--schema-portability",
+    "server-live-plan",
+    "--case",
+    "amazon",
+    "--run",
+    "amazon-2a83-live-20261106-2001",
+    "--model",
+    "gpt-6.1-sol-2026-09-29",
+    "--campaign-configuration",
+    "75abc1936a9d2c5cf41ba8cccf7787bd8e3c2370bb8df32d9de604ab6291c491",
+    "--workspace",
+    "<application-workspace>",
+    "--campaign",
+    "schema-portability-20261019-incremental",
+    "--retained-external-reservations-eur",
+    "731.9247059871703492516037064"
+  ],
+  "started_utc": "2026-11-06T20:01:31.297322+00:00",
+  "exit_code": 1,
+  "finished_utc": "2026-11-06T20:02:42.154975+00:00",
+  "log_sha256": "74f7b5c10d96ec5785436d84539f9d1d4808cd63d8354307f2049378169f8c53",
+  "scope": "Actual Agent.Server Amazon admission attempt; not a completed live-provider generation"
+}
