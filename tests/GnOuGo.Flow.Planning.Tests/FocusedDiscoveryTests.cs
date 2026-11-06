@@ -76,6 +76,18 @@ public sealed class FocusedDiscoveryTests
     }
 
     [Fact]
+    public async Task SourceJustificationUsesTheIssuedUnicodeCodePointLimit()
+    {
+        var source = new Source("arbitrary", 1); var (state, runtime) = Ready(source);
+        var justification = string.Concat(Enumerable.Repeat("😀", 256));
+        runtime.Respond = (request, _) => Discover(request, state, [source.Id],
+            PlanningDiscoveryFocus.Choices(state)[0].Id, justification);
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(1, source.Reads); Assert.Single(state.Discovery.Pages);
+    }
+
+    [Fact]
     public async Task HistoricalFailureRecoveryPreservesWorkAndAccountingAndRequiresSeparateResume()
     {
         var source = new Source("arbitrary", 1); var (state, runtime) = Ready(source);
@@ -178,11 +190,12 @@ public sealed class FocusedDiscoveryTests
     private static Task<PlanningSession> Advance(PlanningSession state, TestRuntime runtime) =>
         new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
     private static LLMResponse Discover(LLMRequest request, PlanningSession state, params string[] sources) => Discover(request, state, sources, PlanningDiscoveryFocus.Choices(state)[0].Id);
-    private static LLMResponse Discover(LLMRequest request, PlanningSession state, string[] sources, string focus) => new()
+    private static LLMResponse Discover(LLMRequest request, PlanningSession state, string[] sources, string focus,
+        string justification = "Its described metadata may establish the required operation.") => new()
     {
         Json = PlanningCorpus.Transport(new JsonObject { ["binding"] = null, ["evidenceRequests"] = null, ["clarifications"] = null, ["reselectStep"] = null,
             ["discoveryRequests"] = new JsonArray(sources.Select(source => (JsonNode)new JsonObject { ["sourceId"] = source, ["cursor"] = null,
-                ["query"] = null, ["operationIds"] = null, ["focusId"] = focus, ["justification"] = "Its described metadata may establish the required operation." }).ToArray()) },
+                ["query"] = null, ["operationIds"] = null, ["focusId"] = focus, ["justification"] = justification }).ToArray()) },
             request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject())
     };
     internal sealed class Source(string name, int count) : IMcpClientFactory

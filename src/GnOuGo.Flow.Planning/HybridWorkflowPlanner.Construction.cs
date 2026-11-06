@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -539,7 +540,7 @@ public sealed partial class HybridWorkflowPlanner
         {
             var query = PlanningDiscoveryFocus.Query(state, request.FocusId);
             if (PlanningDiscoveryFocus.Enabled(state) && (string.IsNullOrWhiteSpace(request.Justification) ||
-                PlanningOptimizationThresholds.Exceeded(state, "discovery", "source_justification_characters", request.Justification.Length, 256)))
+                PlanningOptimizationThresholds.Exceeded(state, "discovery", "source_justification_characters", request.Justification.EnumerateRunes().Count(), 256)))
                 PlanningConstruction.Fail("DISCOVERY_SCOPE_INVALID", "/discoveryRequests", "Justify each issued source against its selected focus.");
             if (PlanningDiscoveryFocus.Failure(state, request.SourceId, query, request.FocusId) is not null)
                 PlanningConstruction.Fail("DISCOVERY_SCOPE_INVALID", "/discoveryRequests", "This failed source requires explicit operator refresh.");
