@@ -132,7 +132,8 @@ internal static class ServerLiveDiagnostics
             }
             catch (Exception error)
             {
-                report["passed"] = false; report["exception_type"] = error.GetType().Name;
+                report["passed"] = false; report["exception_type"] = error.GetType().FullName;
+                report["exception_stack"] = error.StackTrace; report["campaign_stop_reason"] = campaign.StopReason;
                 if (error is LLMClientException failure)
                 {
                     report["failure_kind"] = failure.Kind.ToString(); report["http_status"] = failure.StatusCode;
