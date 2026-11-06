@@ -27,7 +27,7 @@ internal static partial class PlanningCompactConstruction
         var addresses = PrerequisiteAddresses(state, requirements).Where(IsOriginalAddress).ToHashSet(StringComparer.Ordinal);
         addresses.UnionWith(ProgressEvidence(state, context));
         addresses.UnionWith(NavigationEvidence(state, new[] { "nextRequirements", "requirementsDirectory", "nextScopes", "scopes", "interfaces",
-            "nextInterfaces", "publicOutputs", "rebuild", "reselection" }.Select(name => context[name])
+            "nextInterfaces", "publicOutputs", "rebuild", "reselection", "reselectionHistory" }.Select(name => context[name])
             .Concat((state.Construction!.Evidence ?? []).Select(item => item.Value).Where(value => value is JsonObject or JsonArray))));
         {
             addresses.UnionWith(NavigationEvidence(state, [context["interfacesDirectory"], context["continuation"]]));
@@ -93,7 +93,7 @@ internal static partial class PlanningCompactConstruction
         addresses.UnionWith(PrerequisiteAddresses(state, (context["requirements"] as JsonArray ?? []).Select(row => row!["id"]!.ToString())).Where(IsOriginalAddress));
         addresses.UnionWith(NavigationEvidence(state, [context["requirementsDirectory"], context["nextRequirements"]]));
         addresses.UnionWith(NavigationEvidence(state, new[] { "scopeEvidence", "interfacesDirectory", "reusableInterfaces", "taskEvidence", "scopeInterface",
-            "operations", "companionOperations", "rebuild", "continuation" }.Select(name => context[name])
+            "operations", "companionOperations", "rebuild", "continuation", "reselection" }.Select(name => context[name])
             .Append(context["taskEvidence"]?["scopeOwner"])
             .Concat((state.Construction!.Evidence ?? []).Select(item => item.Value).Where(value => value is JsonObject or JsonArray))));
         addresses.UnionWith(NavigationEvidence(state, [context["interfaces"]]));
@@ -127,7 +127,7 @@ internal static partial class PlanningCompactConstruction
         addresses.UnionWith(NavigationEvidence(state, new[] { context["descriptors"], context["providerRequests"], context["scopeOwner"] }
             .Concat((context["directoryEvidence"] as JsonObject ?? []).Select(item => item.Value))
             .Concat((context["evidence"] as JsonObject ?? []).Select(item => item.Value))));
-        addresses.UnionWith(NavigationEvidence(state, [context["describedOperations"]]));
+        addresses.UnionWith(NavigationEvidence(state, [context["describedOperations"], context["reselection"]]));
         // DiscoveryEvidence only omits original descriptions when the existing
         // exact single-read knowledge guard permits them to be restored.
         var rereads = (context["evidence"] as JsonObject ?? []).Where(item =>

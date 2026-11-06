@@ -473,11 +473,13 @@ internal static partial class PlanningCompactConstruction
             ["evidence"] = state.Construction.Evidence?.DeepClone(),
             ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics),
             ["rebuild"] = state.Construction.RebuildTasks.Count > 0 ? RebuildDirectory(state) : null,
-            ["reselection"] = compact.ReplacementScope is null ? null : new JsonObject { ["scope"] = compact.ReplacementScope,
-                ["requirementIds"] = new JsonArray(compact.ReplacementRequirements!.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
-                ["reason"] = compact.RejectedSteps.Last()["reason"]?.DeepClone(), ["evidence"] = "rejected:" + (compact.RejectedSteps.Count - 1) },
+            ["reselection"] = ReselectionContext(state),
             ["budget"] = new JsonObject { ["remainingCalls"] = PlanningModelCalls.RemainingCalls(state) }
         };
+        // Historical evidence remains retrievable even when a changed baseline
+        // makes its old finding inapplicable to this decision.
+        if (context["reselection"] is null && compact.ReplacementScope is not null && compact.RejectedSteps.Count > 0)
+            context["reselectionHistory"] = new JsonObject { ["evidence"] = "rejected:" + (compact.RejectedSteps.Count - 1) };
         if (progress.Findings.Count > 0) context["currentPlanFindings"] = progress.Findings;
         {
             // The anchor and issued continuation already identify the displayed
@@ -695,6 +697,7 @@ internal static partial class PlanningCompactConstruction
         }
         if (PlanningConstruction.TechnicalRejectionContext(state) is { } technicalHistory)
             context["historicalTechnicalRejections"] = technicalHistory;
+        if (ReselectionContext(state) is { } reselection) context["reselection"] = reselection;
         if (PlanningConstruction.DefectProgressContext(state, context) is { } progress)
             context["defectProgress"] = progress;
         if (!useCandidate && PlanningConstruction.PriorRepairObservations(state) is { } history)
@@ -723,6 +726,7 @@ internal static partial class PlanningCompactConstruction
             ["evidence"] = evidence?.DeepClone(),
             ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics)
         };
+        if (ReselectionContext(state) is { } reselection) context["reselection"] = reselection;
         if (PlanningDiscoveryFocus.Enabled(state))
         {
             context["businessResponsibility"] = CurrentBlock(state) is { } block ? BusinessBlockContext(block) : null;

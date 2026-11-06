@@ -140,6 +140,12 @@ public sealed class CompactDraftReselectionTests
         Assert.Equal(replacementKind != "operation", state.Construction.Compact.CurrentStep.DiscoveryComplete);
         Assert.Equal(1, state.ReplanAttempts); Assert.Equal(1, state.Construction.DraftCorrections);
         Assert.Equal(accepted, Accepted(state));
+        if (replacementKind == "operation")
+        {
+            var discovery = PlanningCompactConstruction.DiscoveryContext(PlannerFixture.Clone(state));
+            Assert.Equal(Reason, discovery["reselection"]?["reason"]?.ToString());
+            Assert.Equal("rejected:0", discovery["reselection"]?["evidence"]?.ToString());
+        }
         if (replacementKind == "transform")
         {
             var imported = Assert.Single(state.Construction.Compact.CurrentStep.Inputs);
@@ -147,6 +153,7 @@ public sealed class CompactDraftReselectionTests
             runtime.Respond = (request, purpose) =>
             {
                 Assert.Equal(PlanningConstruction.DraftPurpose, purpose);
+                Assert.Equal(Reason, Context(request)["reselection"]?["reason"]?.ToString());
                 var response = Reselect(request);
                 response["reselectStep"] = null;
                 response["extension"] = JsonSerializer.SerializeToNode(new PlanningConstructionExtension
