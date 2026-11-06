@@ -370,7 +370,8 @@ the original retry-policy check remains effective. Compare a retained amendment 
 by hashes, and missing historical host options remain explicitly unavailable.
 
 `--schema-portability server-live-probe --run <fresh-id> --model <configured-model>
---campaign-configuration <new-id> --workspace <workspace> --campaign <existing-campaign>`
+ --campaign-configuration <new-id> --workspace <workspace> --campaign <existing-campaign>
+ --retained-external-reservations-eur <verified-amount>`
 starts the actual Agent.Server on a Kestrel-owned loopback port. Its one-use operator
 bootstrap and antiforgery protect a small, tool-free, structured-output probe using
 the configured foreground planning protocol and medium reasoning. It verifies the

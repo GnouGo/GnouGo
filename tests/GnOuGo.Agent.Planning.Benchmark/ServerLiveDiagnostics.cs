@@ -34,7 +34,7 @@ internal static class ServerLiveDiagnostics
         var executionOnly = args.ElementAtOrDefault(1) == "server-live-execute";
         var retained = inspectionOnly || executionOnly;
         var mcpReadiness = args.ElementAtOrDefault(1) == "server-live-mcp-readiness";
-        if (planning) model.RetainedExternalReservationsEur = decimal.Parse(
+        if (planning || !retained && !mcpReadiness) model.RetainedExternalReservationsEur = decimal.Parse(
             SchemaPortabilityCampaign.RequiredOption(args, "--retained-external-reservations-eur"), System.Globalization.CultureInfo.InvariantCulture);
 
         if (run.Length > 70 || !run.All(c => char.IsAsciiLetterOrDigit(c) || c == '-')) throw new ArgumentException("Invalid fresh run identity.");
