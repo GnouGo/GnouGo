@@ -7,6 +7,52 @@ namespace GnOuGo.AI.Core.Tests;
 public sealed class HttpRecoveryTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    [Fact]
+    public void AdditionalJournalScopeCannotReinstateADisposedRequest()
+    {
+        var owner = new LLMHttpRetryContext("scoped", new Journal(), ConfirmedPolicy()).Activate();
+        var added = LLMHttpRetryContext.RequireAdditionalJournal(new Journal());
+        added.Dispose(); owner.Dispose(); added.Dispose();
+        Assert.Throws<InvalidOperationException>(() => LLMHttpRetryContext.RequireAdditionalJournal(new Journal()));
+    }
+
+    [Theory]
+    [InlineData("reservation", 0)]
+    [InlineData("outcome", 1)]
+    public async Task RequiredGlobalJournalFailureCannotDispatchOrReplay(string boundary, int expectedSends)
+    {
+        var primary = new Journal(); var failure = new IOException("Global funding journal unavailable"); var sends = 0;
+        using var http = new HttpClient(new Handler((_, _) => { sends++; return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("received") }); }));
+        using var context = new LLMHttpRetryContext("global-admission", primary, ConfirmedPolicy()).Activate();
+        using (LLMHttpRetryContext.RequireAdditionalJournal(new FailingJournal(boundary, failure)))
+            Assert.Same(failure, await Assert.ThrowsAsync<IOException>(() => Send(http, post: true)));
+        Assert.Equal(expectedSends, sends);
+        if (boundary == "outcome")
+        {
+            await Assert.ThrowsAsync<HttpRequestException>(() => Send(http, post: true));
+            Assert.Equal(1, sends); // The primary journal's unresolved reservation survives the added scope.
+        }
+    }
+
+    [Fact]
+    public async Task RequiredJournalPreservesExactAttemptsAndRejectsDivergentRecovery()
+    {
+        var primary = new Journal(); var financial = new Journal(); var sends = 0;
+        using var http = new HttpClient(new Handler((_, _) =>
+        {
+            sends++; Assert.Equal(sends, primary.State!.Attempts.Count); Assert.Equal(sends, financial.State!.Attempts.Count);
+            return Task.FromResult(new HttpResponseMessage(sends == 1 ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.OK) { Content = new StringContent("body") });
+        }));
+        using var context = new LLMHttpRetryContext("combined", primary, ConfirmedPolicy()).Activate();
+        using (LLMHttpRetryContext.RequireAdditionalJournal(financial))
+        {
+            using var response = await Send(http, post: true); Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            using var recovered = await Send(http, post: true); Assert.Equal(2, sends);
+            financial.State!.Attempts[^1].Body = "different receipt";
+            await Assert.ThrowsAsync<InvalidOperationException>(() => Send(http, post: true)); Assert.Equal(2, sends);
+        }
+    }
     [Theory]
     [InlineData("load", 0)] [InlineData("reservation", 0)] [InlineData("outcome", 1)] [InlineData("provider", 1)]
     public async Task RoutingPreservesOnlyTheExactHostJournalFailure(string boundary, int sends)

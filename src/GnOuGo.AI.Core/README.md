@@ -106,6 +106,14 @@ safe to repeat. Generation POSTs require an explicit `LLMHttpRetryContext` backe
 its possible usage before allowing dispatch. Tool-bearing/background calls cannot use this
 context. Hosts must not wrap this HTTP recovery in another retry loop.
 
+A host may attach an additional mandatory admission journal with
+`LLMHttpRetryContext.RequireAdditionalJournal`. The active host keeps its request
+identity, retry policy and recovery ownership. Both journals persist admission
+before sending; disagreement on retained outcomes stops recovery without replay.
+This permits a finite shared campaign ceiling alongside per-session accounting,
+without another retry loop or a new storage service. Journal failures never release
+uncertain reservations or authorize redispatch.
+
 The journal retains complete HTTP responses, so restart can replay a completion without
 sending or charging again. A reserved attempt without a response remains uncertain and
 consumes the uncertain-retry allowance; its identity is never reused. Caller cancellation

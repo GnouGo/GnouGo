@@ -383,6 +383,15 @@ No bootstrap link, credential or raw provider error is printed. A used run ident
 cannot be invoked again. Failed probes are not evidence of successful planning,
 approval, execution or an independent oracle.
 
+`server-live-plan --case local|collections|amazon|code` uses the same protected host
+and fresh identities, with Server-owned session journals and the existing campaign
+journal attached as mandatory global financial admission to the same HTTP context.
+It preserves configured phase allocations, diagnostic warnings and captured retry
+policy. It never starts another retry loop or dispatches around a failed journal.
+The read-only `scripts/observe-live-planning.mjs` receives its one-use bootstrap on
+stdin and records the shared inspector, live phases and final state. Planning
+success means ready for separate artifact review, not execution/oracle success.
+
 Use `--schema-portability inspect-configuration` to obtain the previous pin hash
 and `inspect-deployment --model <exact-snapshot>` for redacted readiness. Then
 preview `register-configuration --model <exact-snapshot>

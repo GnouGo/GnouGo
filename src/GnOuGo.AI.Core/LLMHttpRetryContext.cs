@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using System.Runtime.ExceptionServices;
+using System.Text.Json;
 
 namespace GnOuGo.AI.Core;
 
@@ -91,7 +92,43 @@ public sealed class LLMHttpRetryContext
         Ambient.Value = this;
         return new Scope();
     }
-    private sealed class Scope : IDisposable { public void Dispose() => Ambient.Value = null; }
+
+    /// <summary>
+    /// Adds a mandatory host admission journal to the active request without changing
+    /// its retry policy or recovery owner. Both reservations precede every physical send.
+    /// A failed/mismatched journal forbids dispatch; it never authorizes replay.
+    /// </summary>
+    public static IDisposable RequireAdditionalJournal(ILLMHttpRetryJournal journal)
+    {
+        ArgumentNullException.ThrowIfNull(journal);
+        var owner = Ambient.Value ?? throw new InvalidOperationException("An active host HTTP journal is required.");
+        Ambient.Value = new(owner.RequestId, new RequiredJournal(owner.Journal, journal), owner.PolicyOverride);
+        return new Scope(owner);
+    }
+
+    private sealed class RequiredJournal(ILLMHttpRetryJournal owner, ILLMHttpRetryJournal required) : ILLMHttpRetryJournal
+    {
+        public async Task<LLMHttpRetryState?> LoadAsync(CancellationToken ct)
+        {
+            var state = await owner.LoadAsync(ct).ConfigureAwait(false);
+            var other = await required.LoadAsync(ct).ConfigureAwait(false);
+            if (other is { Attempts.Count: > 0 } && (state is null ||
+                JsonSerializer.Serialize(state, LLMHttpRetryJsonContext.Default.LLMHttpRetryState) !=
+                JsonSerializer.Serialize(other, LLMHttpRetryJsonContext.Default.LLMHttpRetryState)))
+                throw new InvalidOperationException("Required HTTP journals disagree; independent receipt recovery is required.");
+            return state;
+        }
+        public async Task SaveAsync(LLMHttpRetryState state, CancellationToken ct)
+        {
+            await required.SaveAsync(state, ct).ConfigureAwait(false);
+            await owner.SaveAsync(state, ct).ConfigureAwait(false);
+        }
+    }
+    private sealed class Scope(LLMHttpRetryContext? previous = null) : IDisposable
+    {
+        private int _disposed;
+        public void Dispose() { if (Interlocked.Exchange(ref _disposed, 1) == 0) Ambient.Value = previous; }
+    }
 }
 
 [JsonSourceGenerationOptions(PropertyNameCaseInsensitive = true, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow)]

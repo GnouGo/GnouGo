@@ -521,21 +521,74 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         {
             using var context = new LLMHttpRetryContext(request.ClientRequestId!, journal!, execution ? RuntimeRetryPolicy(effectiveTransportPolicy) : capturedTransport is null ? null : retryPolicy).Activate();
             var response = await _client.CallAsync(dispatched, token);
-            long ReadTokens(params string[] keys)
-            {
-                foreach (var key in keys)
-                    if (long.TryParse(response.Usage?[key]?.ToString(), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var value) && value >= 0) return value;
-                throw new InvalidOperationException("Provider usage is missing; the reservation remains conservative.");
-            }
-            var input = ReadTokens("input_tokens", "prompt_tokens"); var output = ReadTokens("output_tokens", "completion_tokens");
-            var measuredUsage = new JsonObject { ["input_tokens"] = input, ["output_tokens"] = output,
-                ["total_tokens"] = checked(input + output), ["benchmark_cost_eur"] = await CompletedCostAsync(request.ClientRequestId!, input, output) };
-            var reasoning = response.Usage?["reasoning_tokens"] ?? response.Usage?["output_tokens_details"]?["reasoning_tokens"] ??
-                response.Usage?["completion_tokens_details"]?["reasoning_tokens"];
-            if (reasoning is not null) measuredUsage["reasoning_tokens"] = reasoning.DeepClone();
-            response.Usage = await journal!.CompleteAsync(measuredUsage, CancellationToken.None);
+            await CompleteResponseAsync(request, response, journal!);
             return response;
         }, ct, allowHttpRecovery: capturedTransport is not null || !incremental);
+    }
+
+    private async Task CompleteResponseAsync(LLMRequest request, LLMResponse response, BenchmarkHttpJournal journal)
+    {
+        long ReadTokens(params string[] keys)
+        {
+            foreach (var key in keys)
+                if (long.TryParse(response.Usage?[key]?.ToString(), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var value) && value >= 0) return value;
+            throw new InvalidOperationException("Provider usage is missing; the reservation remains conservative.");
+        }
+        var input = ReadTokens("input_tokens", "prompt_tokens"); var output = ReadTokens("output_tokens", "completion_tokens");
+        var measuredUsage = new JsonObject { ["input_tokens"] = input, ["output_tokens"] = output,
+            ["total_tokens"] = checked(input + output), ["benchmark_cost_eur"] = await CompletedCostAsync(request.ClientRequestId!, input, output) };
+        var reasoning = response.Usage?["reasoning_tokens"] ?? response.Usage?["output_tokens_details"]?["reasoning_tokens"] ??
+            response.Usage?["completion_tokens_details"]?["reasoning_tokens"];
+        if (reasoning is not null) measuredUsage["reasoning_tokens"] = reasoning.DeepClone();
+        response.Usage = await journal.CompleteAsync(measuredUsage, CancellationToken.None);
+    }
+
+    // Agent.Server owns recovery and per-session admission. The existing campaign
+    // journal adds global financial admission to that exact HTTP context, not a second retry loop.
+    internal async Task<LLMResponse> CallServerPlanningAsync(LLMRequest request, PlanningSession state, CancellationToken ct)
+    {
+        if (state.Request.TenantId != "benchmark" || request.ClientRequestId is null ||
+            !request.ClientRequestId.StartsWith(state.Request.SessionId + ":", StringComparison.Ordinal) || request.Tools is { Count: > 0 })
+            throw new PlanningConflictException("Only exact owned, tool-free planning calls may enter the live campaign.");
+        await _dispatchGate.WaitAsync(ct);
+        try
+        {
+            await CapturePlanningPolicyAsync(state.Request, ct, state.ActiveMilliseconds);
+            var transport = PlanningTransportPolicies.Read(state.Request) ?? throw new PlanningConflictException("Server transport policy is missing.");
+            PlanningTransportPolicies.ValidateIssued(request, state.Request);
+            var output = request.MaxTokens ?? throw new PlanningConflictException("Output allocation is required.");
+            var advisory = PlanningTokenThresholds.Advisory(state.Request);
+            var input = advisory ? await InputTokenAllowanceAsync(Provider, Model, output, ct)
+                ?? throw BenchmarkCampaign.AdmissionFailure("physical_input_allowance") : PlanningConstructionInputPolicy.EffectiveLimit(state.Request, request);
+            var reviews = request.RequiredReviewCalls ?? 0;
+            var reviewOutput = PlanningConstructionPhasePolicies.Resolve(state.Request, "construction_local_judge").OutputTokens;
+            var reviewInput = reviews == 0 ? 0 : await InputTokenAllowanceAsync(Provider, Model, reviewOutput, ct)
+                ?? throw BenchmarkCampaign.AdmissionFailure("declared_review_exposure");
+            var effective = new JsonObject { ["version"] = 2, ["disable_transport_retries"] = request.DisableTransportRetries,
+                ["allow_http_recovery"] = true, ["planning_transport_policy"] = state.Request.Options[PlanningTransportPolicies.OptionName]!.DeepClone(),
+                ["effective_retry_policy"] = JsonSerializer.SerializeToNode(new LLMProviderRetryPolicyOptions {
+                    MaxAttempts = request.DisableTransportRetries ? 1 : transport.MaxAttempts, MaxUncertainRetries = 0,
+                    AttemptTimeoutMilliseconds = transport.AttemptTimeoutMilliseconds, BaseDelayMilliseconds = transport.BaseDelayMilliseconds,
+                    MaxDelayMilliseconds = transport.MaxDelayMilliseconds, MaxTotalDelayMilliseconds = transport.MaxTotalDelayMilliseconds }),
+                ["deadline_utc"] = (_time.GetUtcNow() + PlanningBenchmarkMeasurements.PlanningElapsedLimit(state.Request)).ToString("O"),
+                ["max_elapsed_ms"] = (long)PlanningBenchmarkMeasurements.PlanningElapsedLimit(state.Request).TotalMilliseconds,
+                ["max_total_tokens"] = PlanningBudgetOptions.Parse(state.Request.Options)?.MaxTotalTokens ?? 15_000_000L,
+                ["review_token_headroom"] = checked(reviews * ((long)reviewInput + reviewOutput)) };
+            if (advisory) effective[PlanningTokenThresholds.OptionName] = "advisory";
+            if (PlanningTokenThresholds.OptimizationAdvisory(state.Request)) effective[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+            var retained = await _campaign.LoadAsync(BenchmarkHttpJournal.Collection, request.ClientRequestId, ct);
+            if (retained?["effective_transport_policy"] is JsonObject prior) effective = prior.DeepClone().AsObject();
+            BenchmarkHttpJournal? journal = null;
+            return await _campaign.CallAsync(request, async token => journal = await PrepareAdmissionAsync(request.ClientRequestId, input, output,
+                    state.Request.MaxModelCalls, token, reviews, reviewInput, reviewOutput, effective),
+                async token => {
+                    using var combined = LLMHttpRetryContext.RequireAdditionalJournal(journal!);
+                    var response = await _client.CallAsync(request, token);
+                    await CompleteResponseAsync(request, response, journal!);
+                    return response;
+                }, ct, allowHttpRecovery: true);
+        }
+        finally { _dispatchGate.Release(); }
     }
 
     internal static int PlanningInputLimit(JsonObject? policy, LLMRequest request)
