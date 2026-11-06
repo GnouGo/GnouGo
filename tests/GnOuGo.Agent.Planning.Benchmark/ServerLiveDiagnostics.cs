@@ -33,6 +33,7 @@ internal static class ServerLiveDiagnostics
         var inspectionOnly = args.ElementAtOrDefault(1) == "server-live-inspect";
         var executionOnly = args.ElementAtOrDefault(1) == "server-live-execute";
         var retained = inspectionOnly || executionOnly;
+        var mcpReadiness = args.ElementAtOrDefault(1) == "server-live-mcp-readiness";
         if (planning) model.RetainedExternalReservationsEur = decimal.Parse(
             SchemaPortabilityCampaign.RequiredOption(args, "--retained-external-reservations-eur"), System.Globalization.CultureInfo.InvariantCulture);
 
@@ -88,7 +89,7 @@ internal static class ServerLiveDiagnostics
         if (phaseFile is not null) report["phase_policy_sha256"] = PlanningGraphCompiler.Fingerprint(await File.ReadAllTextAsync(phaseFile));
         if (!retained) await campaign.SaveAsync("planning-evaluation-runs", run, report);
         var invoked = 0;
-        if (!planning && !retained) app.MapPost("/api/planning/live-provider-probe", async (HttpContext context, LocalOperatorAccess access, IAntiforgery antiforgery, LlmTraceCapture capture) =>
+        if (!planning && !retained && !mcpReadiness) app.MapPost("/api/planning/live-provider-probe", async (HttpContext context, LocalOperatorAccess access, IAntiforgery antiforgery, LlmTraceCapture capture) =>
         {
             if (!await access.CanInspectAsync()) return Results.Forbid();
             await antiforgery.ValidateRequestAsync(context);
@@ -155,6 +156,35 @@ internal static class ServerLiveDiagnostics
                     await ExecuteReviewedLocalAsync(app, campaign, model, state, saved, root, workspace);
                 }
                 Console.WriteLine(new JsonObject { ["run"] = run, ["inspection_only"] = inspectionOnly, ["provider_dispatches"] = 0 }.ToJsonString());
+            }
+            else if (mcpReadiness)
+            {
+                var server = SchemaPortabilityCampaign.RequiredOption(args, "--mcp-server");
+                await using var runtime = await app.Services.GetRequiredService<SecureWorkflowRuntimeFactory>().CreateAsync(CancellationToken.None);
+                var config = runtime.Options.McpServers[server];
+                report["phase"] = "mcp_readiness"; report["mcp_server"] = server; report["transport"] = config.Type;
+                report["command"] = config.Command;
+                report["command_file_exists"] = config.Command is { } command && File.Exists(command);
+                report["argument_count"] = config.Args?.Count;
+                try
+                {
+                    using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+                    var connection = await runtime.McpClientFactory.GetClientAsync(server, deadline.Token);
+                    var tools = await connection.ListToolsAsync(deadline.Token);
+                    report["tool_count"] = tools.Count; report["passed"] = true;
+                }
+                catch (Exception error)
+                {
+                    var formatted = runtime.McpClientFactory is IMcpExecutionHooks hooks ? hooks.FormatFailureDiagnostics(server, error) : error.ToString();
+                    formatted = app.Services.GetRequiredService<LlmTraceContentStore>().Redact(formatted);
+                    foreach (var secret in new[] { config.ApiKey, config.ClientSecret })
+                        if (!string.IsNullOrEmpty(secret)) formatted = formatted.Replace(secret, "[redacted]", StringComparison.Ordinal);
+                    report["passed"] = false; report["exception_type"] = error.GetType().Name; report["diagnostics"] = formatted;
+                    Environment.ExitCode = 1;
+                }
+                report["provider_dispatches"] = 0; report["finished_utc"] = DateTimeOffset.UtcNow;
+                await campaign.SaveAsync("planning-evaluation-runs", run, report);
+                Console.WriteLine(report.ToJsonString());
             }
             else if (planning)
             {

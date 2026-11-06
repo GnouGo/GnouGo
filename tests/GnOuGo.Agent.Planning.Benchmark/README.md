@@ -435,6 +435,10 @@ authorization serialization/hashes. It must stay under this campaign's workspace
 External artifact gates and individual invocation permissions still require the
 existing bounded interactive answers: run execution with a real TTY and respond only
 after inspecting the exact operation and destination. No permission is pregranted.
+`server-live-mcp-readiness --mcp-server <exact-configured-name> --run <fresh-id>`
+uses the actual Server runtime factory to list tool metadata with background planning
+disabled. It records the configured launch, existence check and redacted exception/
+stderr through the existing encrypted campaign records, with zero inference calls.
 
 Use `--schema-portability inspect-configuration` to obtain the previous pin hash
 and `inspect-deployment --model <exact-snapshot>` for redacted readiness. Then
