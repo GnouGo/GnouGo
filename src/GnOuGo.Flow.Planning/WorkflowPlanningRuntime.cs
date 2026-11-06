@@ -121,6 +121,13 @@ public sealed class WorkflowPlanningRuntime : IPlanningRuntime, IPlanningConstru
                 catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
                 catch (Exception ex) when (ex is PlanningConflictException or ArgumentException)
                 { findings.Add(new("CATALOG_CHANGED", capability.Id, "A selected capability changed or was removed. Regenerate and approve the workflow.")); }
+                catch (CapabilityDiscoveryException ex)
+                {
+                    var category = ex.Category is "catalog_changed" or "invalid_contract" or "access_denied" or "timeout" or "cursor_incompatible"
+                        ? ex.Category : "transport_unavailable";
+                    findings.Add(new(category is "catalog_changed" or "invalid_contract" ? "CATALOG_CHANGED" : "CATALOG_UNAVAILABLE",
+                        capability.Id, "The selected capability could not be verified (" + category + ").", Rule: category));
+                }
                 catch (Exception) { findings.Add(new("CATALOG_UNAVAILABLE", capability.Id, "The selected capability could not be verified.")); }
             }
             return findings;

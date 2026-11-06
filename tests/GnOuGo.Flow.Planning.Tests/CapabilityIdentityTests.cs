@@ -68,6 +68,17 @@ public sealed class CapabilityIdentityTests
         Assert.Equal(original, JsonSerializer.Serialize(snapshot, CapabilitySnapshotJsonContext.Default.CapabilitySourceSnapshot));
     }
 
+    [Fact]
+    public async Task RemovedSourceIsCatalogChangeRatherThanTransportUnavailability()
+    {
+        var source = new FocusedDiscoveryTests.Source("removed-source", 1);
+        var original = new CapabilityDiscovery(new() { McpClientFactory = source });
+        var selected = Assert.Single((await original.ListAsync(source.Id, null, Ct)).Capabilities);
+        var current = new CapabilityDiscovery(new() { McpClientFactory = new FocusedDiscoveryTests.Source("different-source", 1) });
+        var error = await Assert.ThrowsAsync<PlanningConflictException>(() => current.ResolveAsync(selected, Ct));
+        Assert.Equal("catalog_changed", error.Category);
+    }
+
     [Theory]
     [InlineData("denied", "access_denied")]
     [InlineData("forbidden", "access_denied")]

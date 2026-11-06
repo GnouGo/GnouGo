@@ -112,6 +112,10 @@ public sealed class CapabilityDiscovery(WorkflowEngine engine) : ICapabilityCata
 
     public async Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
+        if (!engine.AgentTaskRunners.Any(r => RunnerSource(r.Key) == summary.SourceId) &&
+            !(engine.McpClientFactory?.ServerMetadata.Any(s => SourceId(s.Name) == summary.SourceId) ?? false))
+            throw new PlanningConflictException("The selected capability source was removed from this runtime.", "catalog_changed");
         List<PlanningCapability> entries;
         try { entries = await ReadSourceAsync(summary.SourceId, ct); }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
