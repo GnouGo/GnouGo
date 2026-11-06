@@ -61,7 +61,9 @@ try {
       await page.screenshot({ path: `${output}/${name}.png`, fullPage: true });
       await confirm.focus(); await page.keyboard.press('Enter');
     }
-    await page.getByText(name === 'cancel' ? 'Cancelled' : 'Ready for your review', { exact: true }).waitFor({ timeout: 30000 });
+    // The engine timeline also labels cancellation; assert the page's live session status.
+    const sessionStatus = page.locator('p[aria-live="polite"]');
+    await sessionStatus.getByText(name === 'cancel' ? 'Cancelled' : 'Ready for your review', { exact: true }).waitFor({ timeout: 30000 });
     if (name !== 'cancel') {
       const support = page.locator('details').filter({ has: page.locator('summary', { hasText: 'Business requirements' }) });
       await support.waitFor();
@@ -101,7 +103,7 @@ try {
       assert.equal(await support.getAttribute('open'), null);
       await page.keyboard.press('Enter');
       await page.reload(); await support.waitFor();
-      await page.getByText('Ready for your review', { exact: true }).waitFor();
+      await sessionStatus.getByText('Ready for your review', { exact: true }).waitFor();
       assert.equal(await approval.isEnabled(), false);
       await page.screenshot({ path: `${output}/${name}-outcomes.png`, fullPage: true });
     }
