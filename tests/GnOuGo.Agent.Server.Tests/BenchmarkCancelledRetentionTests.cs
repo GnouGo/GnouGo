@@ -34,6 +34,7 @@ public sealed partial class BenchmarkPermanentRetentionTests
     [InlineData("configuration")]
     [InlineData("provider")]
     [InlineData("metadata")]
+    [InlineData("elapsed")]
     [InlineData("status")]
     [InlineData("execution")]
     [InlineData("tools")]
@@ -52,6 +53,7 @@ public sealed partial class BenchmarkPermanentRetentionTests
             case "configuration": run["campaign_configuration"] = new string('d', 64); break;
             case "provider": run["provider"] = null; break;
             case "metadata": run["session"]!["request"]!["options"]!["captured_model_metadata"]!["model"] = "other"; break;
+            case "elapsed": run["session"]!["request"]!["options"]!["llm_budget"]!["max_elapsed_ms"] = 1; break;
             case "status": run["session"]!["status"] = PlanningStatus.Generating; break;
             case "execution": run["execution_started"] = "issued"; break;
             case "tools": run["session"]!["pendingCall"]!["request"]!["tools"] = new JsonArray(new JsonObject()); break;
@@ -86,6 +88,10 @@ public sealed partial class BenchmarkPermanentRetentionTests
         await campaign.SaveAsync("planning-evaluation-configuration", "configuration:" + new string('c', 64), new()
         { ["configuration"] = new JsonObject { ["provider"] = "OpenAi", ["model"] = "private-deployment" } }, Ct);
         await campaign.SaveAsync("planning-evaluation-requests", RequestId, run["session"]!["pendingCall"]!["request"]!.DeepClone().AsObject(), Ct);
+        run["session"]!["request"]!["options"]!.AsObject().Remove("benchmark_planning_elapsed_ms");
+        var policy = (await campaign.LoadAsync("planning-evaluation-session-policy", Session, Ct))!;
+        policy["elapsed_limit_origin"] = "captured_server_session_budget";
+        await campaign.SaveAsync("planning-evaluation-session-policy", Session, policy, Ct);
         await campaign.SaveAsync("planning-evaluation-runs", CancelledRun, run, Ct);
         var journal = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct))!;
         journal["transport"]!["Attempts"]![0]!["Failure"] = null;

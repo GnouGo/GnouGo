@@ -371,6 +371,21 @@ internal sealed partial class BenchmarkCampaign
             throw new ArgumentException("Choose an exact supported permanent-retention kind.", nameof(retentionKind));
     }
 
+    private static bool MatchesCapturedElapsed(PlanningSession state, JsonObject policy)
+    {
+        var origin = policy["elapsed_limit_origin"]?.ToString();
+        if (origin is null) return JsonNode.DeepEquals(policy["benchmark_planning_elapsed_ms"], state.Request.Options["benchmark_planning_elapsed_ms"]);
+        if (origin != "captured_server_session_budget") return false;
+        try
+        {
+            return PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed is { } elapsed && elapsed > TimeSpan.Zero &&
+                policy["benchmark_planning_elapsed_ms"]?.GetValue<long>() == checked((long)elapsed.TotalMilliseconds) &&
+                (state.Request.Options["benchmark_planning_elapsed_ms"] is null ||
+                 JsonNode.DeepEquals(policy["benchmark_planning_elapsed_ms"], state.Request.Options["benchmark_planning_elapsed_ms"]));
+        }
+        catch (Exception error) when (error is ArgumentException or OverflowException or InvalidOperationException) { return false; }
+    }
+
     private static bool MatchesCancelledPlanning(PlanningSession state, JsonObject policy, JsonObject journal, JsonArray attempts, JsonObject? failure)
         => failure?["stage"]?.ToString() == "dispatch" &&
             failure["exception_type"]?.ToString() is "OperationCanceledException" or "TaskCanceledException" &&
@@ -389,7 +404,7 @@ internal sealed partial class BenchmarkCampaign
         if (captured is null || effective?["version"]?.GetValue<int>() != 2 ||
             !JsonNode.DeepEquals(policy[PlanningTransportPolicies.OptionName], state.Request.Options[PlanningTransportPolicies.OptionName]) ||
             !JsonNode.DeepEquals(effective["planning_transport_policy"], policy[PlanningTransportPolicies.OptionName]) ||
-            !JsonNode.DeepEquals(policy["benchmark_planning_elapsed_ms"], state.Request.Options["benchmark_planning_elapsed_ms"]) ||
+            !MatchesCapturedElapsed(state, policy) ||
             !JsonNode.DeepEquals(policy["llm_budget"], state.Request.Options["llm_budget"]) ||
             policy["planning_format"]?.GetValue<int>() != 11 ||
             state.PendingCall!.Request.UseBackgroundMode || !PlanningTransportPolicies.ReviewHeadroomValid(state.PendingCall.Request, state.Request) ||
@@ -457,7 +472,7 @@ internal sealed partial class BenchmarkCampaign
         if (captured is null || effective?["version"]?.GetValue<int>() != 2 ||
             !JsonNode.DeepEquals(policy[PlanningTransportPolicies.OptionName], state.Request.Options[PlanningTransportPolicies.OptionName]) ||
             !JsonNode.DeepEquals(effective["planning_transport_policy"], policy[PlanningTransportPolicies.OptionName]) ||
-            !JsonNode.DeepEquals(policy["benchmark_planning_elapsed_ms"], state.Request.Options["benchmark_planning_elapsed_ms"]) ||
+            !MatchesCapturedElapsed(state, policy) ||
             !JsonNode.DeepEquals(policy["llm_budget"], state.Request.Options["llm_budget"]) ||
             state.PendingCall!.Request.UseBackgroundMode || !PlanningTransportPolicies.ReviewHeadroomValid(state.PendingCall.Request, state.Request) ||
             effective["disable_transport_retries"]?.GetValue<bool>() != state.PendingCall.Request.DisableTransportRetries ||
