@@ -55,10 +55,10 @@ public static class PlanningDiscoveryRecoveryActions
             if (state.Discovery.Failures.All(f => f.Id != failure.Id)) state.Discovery.Failures.Add(failure);
             var old = step.PendingDiscovery;
             var remaining = old?.Pending.Where(r => r.SourceId != failure.SourceId).Select(r => r with
-                { Cursor = null, Query = null, FocusId = MatchingFocus(state, r.Query), Justification = r.Justification ?? "Explicit recovery of the retained metadata action." }).ToList() ?? [];
+                { Cursor = null, Query = null, FocusId = MatchingFocus(state, r.Query, r.FocusId), Justification = r.Justification ?? "Explicit recovery of the retained metadata action." }).ToList() ?? [];
             if (selection.Resolution == "refresh_source")
             {
-                remaining.Insert(0, new(failure.SourceId) { FocusId = MatchingFocus(state, failure.Query),
+                remaining.Insert(0, new(failure.SourceId) { FocusId = MatchingFocus(state, failure.Query, failure.FocusId),
                     Justification = "Operator requested a fresh metadata snapshot after the retained source failure." });
             }
             // Original action/pages remain in immutable historical session revisions.
@@ -100,7 +100,7 @@ public static class PlanningDiscoveryRecoveryActions
         state.Phase = PlanningCompactConstruction.DiscoveryPurpose;
     }
 
-    private static string MatchingFocus(PlanningSession state, string? query) =>
-        PlanningDiscoveryFocus.Choices(state).FirstOrDefault(f => f.Query == query)?.Id
+    private static string MatchingFocus(PlanningSession state, string? query, string? focusId) =>
+        PlanningDiscoveryFocus.Choices(state).FirstOrDefault(f => f.Query == query && (focusId is null || f.Id == focusId))?.Id
         ?? throw new PlanningConflictException("The original discovery query has no retained focus; no new objective was invented.");
 }

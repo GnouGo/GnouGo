@@ -127,6 +127,24 @@ public sealed class FocusedDiscoveryTests
     }
 
     [Fact]
+    public async Task RefreshKeepsTheExactPrerequisiteFocusWhenItsTextEqualsTheObjective()
+    {
+        var source = new Source("arbitrary", 1); var (state, runtime) = Ready(source);
+        var step = state.Construction!.Compact!.CurrentStep!;
+        step.Prerequisites = [new() { Need = step.Objective, EvidenceAddresses = ["requirement:req_0"] }];
+        var focus = PlanningDiscoveryFocus.Choices(state).Single(f => f.Basis == "retained_prerequisite");
+        state.Status = PlanningStatus.Stopped; state.Diagnostics = [new("DISCOVERY_INCOMPLETE", "/", "Source unavailable")];
+        var failure = new CapabilityDiscoveryFailure("retained-focus", source.Id, focus.Id, focus.Query, null,
+            "transport_unavailable", "Source unavailable", null, null, "Retained prerequisite metadata", DateTimeOffset.UtcNow) { StepId = step.Id };
+        state.Discovery.Failures = [failure]; runtime.DiscoveryRecoveryGuard = (_, _) => Task.CompletedTask;
+        state = await new HybridWorkflowPlanner().AdvanceAsync(state,
+            new() { Kind = "recover_discovery", ExpectedRevision = state.Revision, DiscoveryRecovery = new(failure.Id, "refresh_source") }, runtime, Ct);
+        var page = Assert.Single(state.Discovery.Pages);
+        Assert.Equal(focus.Id, page.FocusId); Assert.Equal(focus.Query, page.Query);
+        Assert.Empty(runtime.Calls); Assert.Equal(1, source.Reads);
+    }
+
+    [Fact]
     public async Task InterruptedRecoveryRetainsItsExactMetadataActionAndSnapshotForExplicitContinuation()
     {
         var source = new Source("arbitrary", 48); var (state, runtime) = Ready(source);
