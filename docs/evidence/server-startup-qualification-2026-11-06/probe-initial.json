@@ -1,0 +1,66 @@
+{
+  "source": "84a9e271bf046957486904d144f2a0c112b063cd",
+  "run": "startup-qualified-probe-84a9-20261106-2144",
+  "campaign": "schema-portability-20261019-incremental",
+  "campaign_configuration": "75abc1936a9d2c5cf41ba8cccf7787bd8e3c2370bb8df32d9de604ab6291c491",
+  "provider": "OpenAi",
+  "model": "gpt-6.1-sol-2026-09-29",
+  "host": "GnOuGo.Agent.Server",
+  "budget_mode": "limited",
+  "retained_external_reservations_eur": "733.8902769679137437881016912",
+  "started_utc": "2026-11-06T21:41:07.960706+00:00",
+  "phase": "provider_probe",
+  "working_directory": "<source-root>/artifacts/continuity-live-e673a51e",
+  "launch_arguments": [
+    "<source-root>/artifacts/continuity-live-e673a51e/tests/GnOuGo.Agent.Planning.Benchmark/bin/Release/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+    "--schema-portability",
+    "server-live-probe",
+    "--run",
+    "startup-qualified-probe-84a9-20261106-2144",
+    "--model",
+    "gpt-6.1-sol-2026-09-29",
+    "--campaign-configuration",
+    "75abc1936a9d2c5cf41ba8cccf7787bd8e3c2370bb8df32d9de604ab6291c491",
+    "--workspace",
+    "<application-workspace>",
+    "--campaign",
+    "schema-portability-20261019-incremental",
+    "--retained-external-reservations-eur",
+    "733.8902769679137437881016912"
+  ],
+  "loaded_assemblies": {
+    "entry": {
+      "path": "<source-root>/artifacts/continuity-live-e673a51e/tests/GnOuGo.Agent.Planning.Benchmark/bin/Release/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+      "sha256": "5db7a06192ac73fc466a52c408b10331ca2fbe21dcc8f47168eaab753578a8a8"
+    },
+    "server": {
+      "path": "<source-root>/artifacts/continuity-live-e673a51e/tests/GnOuGo.Agent.Planning.Benchmark/bin/Release/net10.0/GnOuGo.Agent.Server.dll",
+      "sha256": "c1dc1a7cd76fbaf2995f8576792a332846dd201d7a127b141e829b77f3bfc34d"
+    }
+  },
+  "configuration_sources": {
+    "provider": "campaign_provider_pin",
+    "model": "keyvault_provider_configuration",
+    "endpoint": "keyvault_provider_configuration",
+    "metadata": "bundled_catalog_and_host_overrides_then_persisted_user_overrides",
+    "environment": "not applied by the campaign loader; Server configuration providers are reported separately",
+    "historical_host_options": "unavailable",
+    "request_policy.BillingServiceTier": "code_default",
+    "request_policy.BillingRegionalProcessing": "code_default",
+    "request_policy.BillingCacheRetention": "code_default",
+    "request_policy.BackgroundProtocol": "keyvault_provider_configuration",
+    "request_policy.UnspecifiedOutputTokens": "code_default",
+    "request_policy.DefaultMaxOutputTokens": "code_default",
+    "request_policy.MaxOutputTokensCap": "code_default"
+  },
+  "server_model_source": "keyvault_provider_configuration",
+  "frontend_ready": true,
+  "request_id": "startup-qualified-probe-84a9-20261106-2144:probe:a982f05bbba7130a9b568b035bcec3f510319a4585926843ee5d77213d1220a7",
+  "requested_output_tokens": 1024,
+  "passed": false,
+  "exception_type": "InvalidOperationException",
+  "physical_http_attempts": null,
+  "durable_receipt": false,
+  "finished_utc": "2026-11-06T21:41:17.239571+00:00",
+  "trace_id": "1d5fd90ddf83d6d0477172c81cfa4c81"
+}
