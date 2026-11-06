@@ -60,6 +60,10 @@ internal sealed class TestRuntime : IPlanningRuntime, IPlanningConstructionAdmis
     internal IReadOnlyList<PlanningDiagnostic>? Validation { get; set; }
     internal int Discoveries;
     public ICapabilityCatalog Capabilities { get; set; }
+    public IPlanningCapabilitySnapshotJournal? CapabilitySnapshots { get; set; }
+    internal Func<PlanningSession, CancellationToken, Task>? DiscoveryRecoveryGuard { get; set; }
+    public Task VerifyDiscoveryRecoveryAsync(PlanningSession state, CancellationToken ct) => DiscoveryRecoveryGuard?.Invoke(state, ct)
+        ?? throw new PlanningConflictException("No fixture recovery authorization.");
     internal TestRuntime(WorkflowEngine? engine = null)
     { Actual = new(engine ?? new(), (_, _) => Task.CompletedTask); Capabilities = Actual.Capabilities; }
     public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) { Discoveries++; return Actual.DiscoverAsync(request, ct); }

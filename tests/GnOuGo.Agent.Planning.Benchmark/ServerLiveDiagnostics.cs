@@ -1,3 +1,5 @@
+using GnOuGo.Flow.Planning.Capabilities;
+using GnOuGo.Flow.Integrations.Planning;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
@@ -71,6 +73,7 @@ internal static class ServerLiveDiagnostics
         await using var app = GnOuGoAgentWebHost.Build(hostArgs, "http://127.0.0.1:0", Path.Combine(root, "src/GnOuGo.Agent.Server"), false,
             services => {
                 if (!planning) return;
+                services.AddSingleton<IPlanningDiscoveryRecoveryGuard>(new RetainedDiscoveryGuard(campaign));
                 services.AddSingleton<SecureWorkflowRuntimeFactory>(sp => new(sp.GetRequiredService<LLMRuntimeOptionsStore>(),
                     sp.GetRequiredService<IKeyVaultRuntimeConfigStore>(), sp.GetRequiredService<ILoggerFactory>(),
                     llmClientOverride: new CampaignClient(model, sp.GetRequiredService<IPlanningSessionStore>(),
@@ -169,9 +172,40 @@ internal static class ServerLiveDiagnostics
                 try
                 {
                     using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(45));
-                    var connection = await runtime.McpClientFactory.GetClientAsync(server, deadline.Token);
-                    var tools = await connection.ListToolsAsync(deadline.Token);
-                    report["tool_count"] = tools.Count; report["passed"] = true;
+                    if (args.Contains("--snapshot-pagination", StringComparer.Ordinal))
+                    {
+                        var catalog = new CapabilityDiscovery(new() { McpClientFactory = runtime.McpClientFactory });
+                        var snapshot = await catalog.CaptureAsync(CapabilityDiscovery.SourceId(server), deadline.Token);
+                        var journal = new PlanningCapabilitySnapshotJournal(app.Services.GetRequiredService<GnOuGo.KeyVault.Core.Services.IKeyVaultRecordStore>());
+                        var action = Guid.NewGuid().ToString("N");
+                        var reference = await journal.PublishAsync("benchmark", run, action, snapshot, deadline.Token);
+                        var expectedCount = snapshot.Capabilities.Count;
+                        var seen = new HashSet<string>(StringComparer.Ordinal); string? cursor = null; var pages = 0; var recreations = 0;
+                        do
+                        {
+                            var retainedSnapshot = await journal.ReadAsync(reference, "benchmark", run, action, reference.SourceId, deadline.Token);
+                            var page = catalog.ReadPage(retainedSnapshot, cursor, "Inspect the declared operations of this configured source.");
+                            if (page.Capabilities.Any(c => !seen.Add(c.Id))) throw new InvalidOperationException("Duplicate capability in snapshot pagination.");
+                            pages++; cursor = page.NextCursor;
+                            if (cursor is not null && pages % 4 == 0)
+                            {
+                                catalog = new(new() { McpClientFactory = runtime.McpClientFactory });
+                                journal = new(app.Services.GetRequiredService<GnOuGo.KeyVault.Core.Services.IKeyVaultRecordStore>());
+                                recreations++;
+                            }
+                        } while (cursor is not null);
+                        if (seen.Count != expectedCount) throw new InvalidOperationException("Snapshot pagination did not preserve exact coverage.");
+                        report["capability_count"] = expectedCount; report["distinct_capabilities"] = seen.Count;
+                        report["page_count"] = pages; report["runtime_recreations"] = recreations;
+                        report["snapshot_version"] = reference.Version; report["provider_dispatches"] = 0;
+                    }
+                    else
+                    {
+                        var connection = await runtime.McpClientFactory.GetClientAsync(server, deadline.Token);
+                        var tools = await connection.ListToolsAsync(deadline.Token);
+                        report["tool_count"] = tools.Count;
+                    }
+                    report["passed"] = true;
                 }
                 catch (Exception error)
                 {
@@ -393,4 +427,9 @@ internal static class ServerLiveDiagnostics
             return await capture.CallAsync(request, options.Current, (r, token) => model.CallServerPlanningAsync(r, state, token), ct);
         }
     }
+    private sealed class RetainedDiscoveryGuard(BenchmarkCampaign campaign) : IPlanningDiscoveryRecoveryGuard
+    {
+        public Task VerifyAsync(PlanningSession session, CancellationToken ct) => campaign.RequireRunNotRetainedAsync(session.Request.SessionId, ct);
+    }
+
 }

@@ -241,6 +241,7 @@ public sealed partial class HybridWorkflowPlanner
         if (await CompactOtherActionAsync(state, runtime, response, "step", ct, correction: correction)) return;
         var compact = PlanningCompactConstruction.State(state);
         var step = response["step"]!.Deserialize(PlanningJsonContext.Default.PlanningConstructionStep)!;
+        step.DiscoveryProtocol = 2; // New action protocol; already-issued historical discoveries remain unchanged.
         var block = PlanningCompactConstruction.CurrentBlock(state) ?? throw new PlanningConflictException("Implementation requires a retained business block.");
         step.BlockId = block.Id; step.Objective = block.Objective;
         step.RequirementIds = block.RequirementIds.ToList(); step.ExpectedOutputs = block.ExpectedResults.ToList();

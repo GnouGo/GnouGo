@@ -1087,7 +1087,7 @@ public sealed class CompactDeferredBindingTests
         new JsonObject { ["baseHash"] = request.StructuredOutputSchema!["properties"]?["baseHash"]?["enum"]?[0]?.DeepClone(),
             ["evidenceRequests"] = new JsonArray(address) });
 
-    private static (PlanningSession, TestRuntime) Ready(bool selected = true)
+    internal static (PlanningSession, TestRuntime) Ready(bool selected = true)
     {
         var state = new PlanningSession { Request = new() { TenantId = "test", Prompt = Objective,
             Options = new JsonObject { ["automatic_correction"] = true } } };

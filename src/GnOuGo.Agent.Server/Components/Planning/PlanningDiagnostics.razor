@@ -21,6 +21,8 @@
                     <strong>@Label(first.Phase)</strong> <span class="phase-state">@(last.State == "succeeded" && Session.ThresholdWarnings.Any(w => w.RequestId is not null && w.RequestId == last.RequestId) ? "warning (completed)" : LlmInspectionLabels.State(last.State))</span>
                     <small>@first.TimestampUtc.ToString("u") · @Duration(first.TimestampUtc, last.TimestampUtc, last.State)</small>
                     <p>@last.Reason</p>
+                    @if (last.Discovery is { } discovery)
+                    { <p>Metadata source <strong>@(discovery["sourceLabel"] ?? discovery["sourceId"])</strong> · focus <code>@discovery["focusId"]</code> · @discovery["outcome"]</p> }
                     @if (_canInspect && last.RequestId is { } requestId)
                     { <button type="button" @onclick="() => InspectRequest.InvokeAsync(requestId)">Inspect LLM exchange</button> }
                     @if (last.BlockId is not null) { <p>Business responsibility <code>@last.BlockId</code>: @last.Objective<br />Implementation fragment <code>@last.StepId</code> · checkpoint @last.Checkpoint</p> }

@@ -25,22 +25,50 @@ internal static class PlanningDiscoveryContext
         if (cached is null) state.Discovery.Resolved.Add(resolved);
         state.Discovery.ResolutionFailures?.RemoveAll(f => f.Id == summary.Id && f.Version == summary.Version);
     }
-    internal static async Task DiscoverPageAsync(PlanningSession state, IPlanningRuntime runtime, string source, string? cursor, CancellationToken ct, string? query = null, string? producedArtifactKind = null)
+    internal static async Task DiscoverPageAsync(PlanningSession state, IPlanningRuntime runtime, string source, string? cursor, CancellationToken ct, string? query = null, string? producedArtifactKind = null,
+        PlanningConstructionDiscoveryContinuation? action = null, PlanningDiscoveryRequest? selection = null)
     {
         CapabilityPage page;
+        var focused = action?.Id is not null;
         try
         {
-            page = await runtime.Capabilities.ListAsync(source, cursor, ct, query, producedArtifactKind);
+            page = focused ? await PlanningDiscoverySnapshots.ReadAsync(state, runtime, action!, selection!, ct)
+                : await runtime.Capabilities.ListAsync(source, cursor, ct, query, producedArtifactKind);
+            if (focused && (page.SourceId != source || page.Capabilities.Any(c => c.SourceId != source)))
+                throw new GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException("DISCOVERY_OWNERSHIP_INVALID", "The metadata page belongs to another source.");
             if (page.SourceId != source || page.Cursor != cursor || page.ProducedArtifactKind != producedArtifactKind ||
                 producedArtifactKind is not null && page.Capabilities.Any(c => c.ArtifactContract?.Produces.Any(a => a.Kind == producedArtifactKind) != true) || page.Query is not null && page.Query != query || page.Capabilities.Any(c => c.SourceId != source) ||
                 page.Capabilities.Select(c => c.Id).Distinct(StringComparer.Ordinal).Count() != page.Capabilities.Count)
                 page = new(source, cursor, [], null, "The source returned an ambiguous discovery contract.");
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-        catch { page = new(source, cursor, [], null, "This source is unavailable; its capabilities have not been inspected."); }
-        page = page with { Query = query, ProducedArtifactKind = producedArtifactKind };
+        catch (PlanningConflictException) when (focused) { throw; }
+        catch (GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException) when (focused) { throw; }
+        catch (CapabilityDiscoveryException ex) when (focused)
+        { page = new(source, cursor, [], null, ex.Message) { FailureId = RecordFailure(ex.Category) }; }
+        catch (Exception) when (!focused)
+        { page = new(source, cursor, [], null, "This source is unavailable; its capabilities have not been inspected."); }
+        if (focused && page.UnavailableReason is not null && page.FailureId is null)
+            page = page with { FailureId = RecordFailure("invalid_contract") };
+        page = page with { Query = query, ProducedArtifactKind = producedArtifactKind, FocusId = selection?.FocusId, ActionId = action?.Id };
         state.Discovery.Pages.Add(page);
         if (page.UnavailableReason is { } reason) state.Discovery.Limitations.Add(source + ": " + reason);
+        if (focused)
+            PlanningInspection.Record(state, PlanningCompactConstruction.DiscoveryPurpose, page.UnavailableReason is null ? "succeeded" : "warning",
+                page.UnavailableReason is null ? "Metadata page retained; contract validation and business review remain separate." : "Exploratory source unavailable — continuing with other sources.",
+                state.RequestMeasurements?.LastOrDefault()?.RequestId,
+                new(source, selection?.FocusId, selection?.Justification, page.SnapshotVersion, cursor,
+                    page.FailureId is { } failure ? state.Discovery.Failures!.Single(f => f.Id == failure).Category : "received", page.FailureId));
+
+        string RecordFailure(string category)
+        {
+            var failure = new CapabilityDiscoveryFailure(Guid.NewGuid().ToString("N"), source, selection?.FocusId, query!, cursor,
+                category, "The source metadata is unavailable; incomplete inspection proves no absence.",
+                action?.Snapshots?.GetValueOrDefault(source)?.Version, state.RequestMeasurements?.LastOrDefault()?.RequestId,
+                selection?.Justification, DateTimeOffset.UtcNow) { StepId = state.Construction?.Compact?.CurrentStep?.Id };
+            (state.Discovery.Failures ??= []).Add(failure);
+            return failure.Id;
+        }
     }
 
 }

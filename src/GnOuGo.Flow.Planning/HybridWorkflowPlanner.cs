@@ -61,6 +61,8 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
             else switch (command.Kind)
             {
                 case "advance": await AdvancePlanAsync(state, runtime, deadline.Token); break;
+                case "recover_discovery": await PlanningDiscoveryRecoveryActions.RecoverAsync(state, command, runtime, deadline.Token); break;
+                case "resume_discovery": await PlanningDiscoveryRecoveryActions.ResumeAsync(state, runtime, deadline.Token); break;
                 case "approve":
                     if (state.Status != PlanningStatus.FinalReview || command.ArtifactHash is null || command.ArtifactHash != state.ComputeArtifactHash())
                         throw new PlanningConflictException("Approval must identify the exact current artifact.");
@@ -226,7 +228,7 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
         if (state.Status != session.Status || state.Phase != session.Phase || state.Diagnostics.Count > 0)
             PlanningInspection.Record(state, state.Status == PlanningStatus.FinalReview ? "ready_for_approval" : state.Phase,
                 state.Status switch { PlanningStatus.Cancelled => "cancelled", PlanningStatus.Stopped or PlanningStatus.Failed => "blocked",
-                    PlanningStatus.Clarification => "waiting", PlanningStatus.FinalReview or PlanningStatus.Approved => "succeeded",
+                    PlanningStatus.Clarification or PlanningStatus.DiscoveryRecovery => "waiting", PlanningStatus.FinalReview or PlanningStatus.Approved => "succeeded",
                     _ => state.Diagnostics.Count > 0 ? "correction" : "succeeded" },
                 state.Diagnostics.Count > 0 ? string.Join(", ", state.Diagnostics.Select(finding => finding.Code).Distinct()) : "Coordinator transition: " + state.Status,
                 state.PendingCall?.Id ?? (command.Kind == "advance" ? state.RequestMeasurements?.LastOrDefault()?.RequestId : null));

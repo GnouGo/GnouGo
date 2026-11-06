@@ -9,33 +9,43 @@ internal static partial class PlanningCompactConstruction
 {
     private const string ContentPageSchemaDescription = "Content-addressed operation pages only.";
     private const string DescriptionKnowledgePrefix = ContentPageSchemaDescription + " Description reads v1@";
-    private sealed record ProviderRequest(string SourceId, string? Cursor, bool Available = true, string? Unavailable = null, int ResultCount = 0);
+    private sealed record ProviderRequest(string SourceId, string? Cursor, bool Available = true, string? Unavailable = null, int ResultCount = 0, string? FocusId = null);
 
     private static List<ProviderRequest> ProviderRequestOptions(PlanningSession state)
     {
         var result = new List<ProviderRequest>();
-        var objective = State(state).CurrentStep!.Objective;
+        var focuses = PlanningDiscoveryFocus.Enabled(state) ? PlanningDiscoveryFocus.Choices(state)
+            : new[] { new PlanningDiscoveryFocus.Focus("", State(state).CurrentStep!.Objective, "legacy") };
         foreach (var source in state.Discovery.Sources)
+        foreach (var focus in focuses)
         {
-            var pages = state.Discovery.Pages.Where(p => p.SourceId == source.Id && p.Query == objective && p.ProducedArtifactKind is null).ToArray();
-            if (pages.Length == 0) result.Add(new(source.Id, null));
+            var objective = focus.Query;
+            var focusId = PlanningDiscoveryFocus.Enabled(state) ? focus.Id : null;
+            var failure = PlanningDiscoveryFocus.Failure(state, source.Id, objective, focusId);
+            if (failure is not null) { result.Add(new(source.Id, null, false, failure.Message, FocusId: focusId)); continue; }
+            var pages = PlanningDiscoveryFocus.Pages(state, source.Id, objective, focusId).ToArray();
+            if (pages.Length == 0) result.Add(new(source.Id, null, FocusId: focusId));
             else
             {
                 var continuations = pages.Where(p => p.NextCursor is not null && pages.All(next => next.Cursor != p.NextCursor))
-                    .Select(p => new ProviderRequest(source.Id, p.NextCursor, ResultCount: pages.Sum(page => page.Capabilities.Count))).Distinct().ToArray();
+                    .Select(p => new ProviderRequest(source.Id, p.NextCursor, ResultCount: pages.Sum(page => page.Capabilities.Count), FocusId: focusId)).Distinct().ToArray();
                 if (continuations.Length > 0) result.AddRange(continuations);
                 else result.Add(new(source.Id, null, Available: false, Unavailable: pages[^1].UnavailableReason,
-                    ResultCount: pages.Sum(page => page.Capabilities.Count)));
+                    ResultCount: pages.Sum(page => page.Capabilities.Count), FocusId: focusId));
             }
         }
         return result;
     }
 
     private static string ProviderRequestVersion(PlanningSession state) => PlanningGraphCompiler.Fingerprint(
-        State(state).CurrentStep!.Objective + "\n" + new JsonArray(ProviderRequestOptions(state).Select(option => (JsonNode)new JsonObject
-            { ["sourceId"] = option.SourceId, ["cursor"] = option.Cursor, ["available"] = option.Available,
+        State(state).CurrentStep!.Objective + "\n" + new JsonArray(ProviderRequestOptions(state).Select(option =>
+        {
+            var item = new JsonObject { ["sourceId"] = option.SourceId, ["cursor"] = option.Cursor, ["available"] = option.Available,
                 ["sourceVersion"] = PlanningGraphCompiler.Fingerprint(state.Discovery.Sources.Single(s => s.Id == option.SourceId).Description),
-                ["unavailable"] = option.Unavailable, ["resultCount"] = option.ResultCount }).ToArray()).ToJsonString());
+                ["unavailable"] = option.Unavailable, ["resultCount"] = option.ResultCount };
+            if (option.FocusId is not null) item["focusId"] = option.FocusId;
+            return (JsonNode)item;
+        }).ToArray()).ToJsonString());
 
     internal static string ProviderRequestAddress(PlanningSession state, int offset) =>
         "page:provider-requests:" + ProviderRequestVersion(state) + ":" + offset.ToString(CultureInfo.InvariantCulture);
@@ -52,10 +62,12 @@ internal static partial class PlanningCompactConstruction
             {
                 var source = state.Discovery.Sources.Single(s => s.Id == option.SourceId);
                 var description = NavigationDescription(source.Description);
-                return (JsonNode)new JsonObject { ["sourceId"] = source.Id, ["cursor"] = option.Cursor,
+                var item = new JsonObject { ["sourceId"] = source.Id, ["cursor"] = option.Cursor,
                     ["canRequestPage"] = option.Available, ["unavailable"] = option.Unavailable, ["resultCount"] = option.ResultCount,
                     ["description"] = description, ["descriptionComplete"] = description.Length == source.Description.Length,
                     ["descriptionEvidence"] = "source-description:" + Uri.EscapeDataString(source.Id) + "@" + PlanningGraphCompiler.Fingerprint(source.Description) + ":0" };
+                if (option.FocusId is not null) item["focusId"] = option.FocusId;
+                return item;
             }).ToArray()),
             ["next"] = offset + count < options.Count ? ProviderRequestAddress(state, offset + count) : null
         };
@@ -371,18 +383,27 @@ internal static partial class PlanningCompactConstruction
         {
             var supplied = ProviderEvidencePages(state).Concat(DescribedProviderRequestPages(state))
                 .SelectMany(page => page["items"]!.AsArray())
-                .DistinctBy(item => (item!["sourceId"]!.ToString(), item["cursor"]?.ToString())).ToArray();
+                .DistinctBy(item => (item!["sourceId"]!.ToString(), item["cursor"]?.ToString(), item["focusId"]?.ToString())).ToArray();
             if (supplied.Length > 0) visible = supplied;
         }
         var available = visible.Where(request => (request!["canRequestPage"] ?? request["available"])!.GetValue<bool>()).ToArray();
         // Factor only identical cursor branches. The accepted source/cursor pairs
         // stay exact; grouping every source with every cursor would widen authority.
-        var choices = available.GroupBy(request => request!["cursor"]?.ToString(), StringComparer.Ordinal)
-                .Select(group => (Sources: group.Select(request => request!["sourceId"]!.ToString()).ToArray(), Cursor: group.Key));
-        var alternatives = new JsonArray(choices.Select(choice => (JsonNode)PlanningSchemas.Object(
-            ("sourceId", PlanningSchemas.Enum(choice.Sources)),
-            ("cursor", choice.Cursor is { } cursor ? PlanningSchemas.Enum(cursor) : PlanningSchemas.Type("null")),
-            ("query", PlanningSchemas.Type("null")), ("operationIds", PlanningSchemas.Type("null")))).ToArray());
+        var alternatives = new JsonArray();
+        foreach (var group in available.GroupBy(request => (Cursor: request!["cursor"]?.ToString(), Focus: request["focusId"]?.ToString())))
+        {
+            var branch = PlanningSchemas.Object(("sourceId", PlanningSchemas.Enum(group.Select(r => r!["sourceId"]!.ToString()).ToArray())),
+                ("cursor", group.Key.Cursor is { } cursor ? PlanningSchemas.Enum(cursor) : PlanningSchemas.Type("null")),
+                ("query", PlanningSchemas.Type("null")), ("operationIds", PlanningSchemas.Type("null")));
+            if (PlanningDiscoveryFocus.Enabled(state))
+            {
+                branch["properties"]!["focusId"] = PlanningSchemas.Enum(group.Key.Focus!);
+                branch["properties"]!["justification"] = Text(state, 256);
+                branch["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("focusId"));
+                branch["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("justification"));
+            }
+            alternatives.Add((JsonNode)branch);
+        }
         var schema = PlanningSchemas.Object(
             ("operationIds", PlanningSchemas.Nullable(Strings(state, 1, PlanningOptimizationThresholds.Maximum(state, state.Construction!.Limits.MaxTasksPerDraft)))),
             ("discoveryRequests", alternatives.Count == 0 ? PlanningSchemas.Type("null") : PlanningSchemas.Nullable(

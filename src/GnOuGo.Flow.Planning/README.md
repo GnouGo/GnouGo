@@ -282,3 +282,7 @@ Completion action availability and final validation share a side-effect-free tec
 assessment over cloned TaskPlan state. Required compiler, interface, coverage and
 executable graph findings hide impossible completion; uncertainty alone does not.
 Contribution connection status is structural evidence, never business or runtime proof.
+
+### Focused discovery
+
+New discovery actions use issued objective/prerequisite focuses, automatic immutable-snapshot pagination and source-local warnings. Explicit local-operator recovery preserves accepted work and accounting and waits before further inference. See [focused discovery](../../docs/focused-capability-discovery.md) for compatibility, authorization and recovery contracts.

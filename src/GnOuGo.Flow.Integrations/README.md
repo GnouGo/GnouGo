@@ -66,3 +66,7 @@ a missing outcome cannot. Historical sessions keep their original journal path.
 `ReadApprovedYamlAsync` verifies tenant ownership, stored approval, exact content and current capability contracts before `workflow.execute` receives YAML. Integrations propagate provider-neutral effect metadata; unknown MCP effects require conservative confirmation. See [architecture](../../docs/workflow-planning-v9.md).
 
 Typed business choices use the encrypted format-11 planning journal and exclusive owner lease. An injected `IPlanningInteraction` selects recommended alternatives separately from runtime `human.input`. Old approvals are rejected; regenerate and approve the workflow. Run `dotnet test tests/GnOuGo.Flow.Integrations.Tests -m:1 -warnaserror` to verify receipt replay, tenant ownership and approval boundaries.
+
+### Durable discovery pagination
+
+The existing planning runtime journal adapter stores immutable catalog snapshots through `PlanningCapabilitySnapshotJournal`. References bind exact tenant/session/action/source/configuration and content hashes. Host checkpoints retain references; reads verify ownership and versions, reuse metadata within a transition and never refetch a missing or corrupt payload. See [focused discovery](../../docs/focused-capability-discovery.md).

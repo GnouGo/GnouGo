@@ -116,7 +116,7 @@ internal static class PlanningEndpoints
             catch (ArgumentException) { return Results.BadRequest("Invalid planning request."); }
             catch (InvalidOperationException ex) { return Results.Conflict(ex.Message); }
         });
-        app.MapPost("/api/planning/{id}/commands", async (string id, PlanningCommandDto request, PlanningSessionService service, CancellationToken ct) =>
+        app.MapPost("/api/planning/{id}/commands", async (string id, PlanningCommandDto request, PlanningSessionService service, LocalOperatorAccess access, CancellationToken ct) =>
         {
             try
             {
@@ -127,6 +127,7 @@ internal static class PlanningEndpoints
                     ExpectedRevision = request.ExpectedRevision,
                     ArtifactHash = request.ArtifactHash,
                     RequestId = request.RequestId,
+                    DiscoveryRecovery = request.DiscoveryRecovery is { } recovery ? new(recovery.FailureId, recovery.Resolution) : null,
                     ReviewedRequirementIds = request.ReviewedRequirementIds?.ToList(),
                     Text = request.Text,
                     PreserveRequirements = request.PreserveRequirements,
@@ -134,12 +135,13 @@ internal static class PlanningEndpoints
                     Selections = request.Selections,
                     Answers = request.Answers?.Select(a => a is null ? throw new ArgumentException("Invalid planner answer.") : new PlanningAnswer(a.QuestionId, a.AlternativeId, a.Text)).ToList(),
                     Generation = request.Generation is { } options ? new() { Reasoning = options.Reasoning, MaxInputTokensPerRequest = options.MaxInputTokensPerRequest, MaxOutputTokens = options.MaxOutputTokens } : null
-                }, ct);
+                }, ct, request.Kind is "recover_discovery" or "resume_discovery" ? await access.GrantAsync() : null);
                 return Results.Json(await service.ToDtoAsync(state, ct), ChatJsonContext.Default.PlanningSessionDto);
             }
             catch (PlanningConflictException ex) { return Results.Conflict(ex.Message); }
             catch (KeyNotFoundException) { return Results.NotFound(); }
             catch (ArgumentException) { return Results.BadRequest("Invalid planning command."); }
+            catch (UnauthorizedAccessException) { return Results.Forbid(); }
         });
     }
 
@@ -170,7 +172,9 @@ internal static class PlanningEndpoints
             ["budget"] = state.Request.Options["llm_budget"]?.DeepClone(), ["applicationBudget"] = state.Request.Options[PlanningApplicationBudget.OptionName]?.DeepClone(), ["construction"] = state.Request.Options["construction_limits"]?.DeepClone(),
             ["policy"] = System.Text.Json.JsonSerializer.SerializeToNode(state.Request.Policy, PlanningJsonContext.Default.PlanningPolicy) },
         OverallProgress = PlanningCompactConstruction.InspectOverallProgress(state),
-        Events = state.InspectionEvents?.Select(e => new PlanningInspectionEventDto(e.Sequence, e.TimestampUtc, e.Phase, e.State, e.Reason, e.RequestId, e.BlockId, e.StepId, e.Checkpoint, e.Objective) { PhaseOccurrence = e.PhaseOccurrence }).ToArray() ?? [],
+        Events = state.InspectionEvents?.Select(e => new PlanningInspectionEventDto(e.Sequence, e.TimestampUtc, e.Phase, e.State, e.Reason, e.RequestId, e.BlockId, e.StepId, e.Checkpoint, e.Objective) { PhaseOccurrence = e.PhaseOccurrence,
+            Discovery = e.Discovery is null ? null : new JsonObject { ["sourceId"] = e.Discovery.SourceId, ["sourceLabel"] = e.Discovery.SourceLabel, ["focusId"] = e.Discovery.FocusId,
+                ["snapshotVersion"] = e.Discovery.SnapshotVersion, ["outcome"] = e.Discovery.Outcome, ["failureId"] = e.Discovery.FailureId } }).ToArray() ?? [],
         ThresholdWarnings = (state.ThresholdWarnings ?? []).Concat(state.Usage?.Warnings ?? [])
             .Concat(state.RequestMeasurements?.SelectMany(measurement => (measurement.Warnings ?? []).Select(warning => warning with
             { SessionId = state.Request.SessionId, RequestId = measurement.RequestId, BlockId = measurement.BlockId, StepId = measurement.StepId })) ?? [])
@@ -179,6 +183,8 @@ internal static class PlanningEndpoints
         RequestText = state.Request.Prompt,
         RevisionScope = state.RevisionScope.ToArray(),
         DiscoveryLimitations = state.Discovery.Limitations.ToArray(),
+        DiscoveryFailures = state.Construction?.Compact?.CurrentStep is null ? [] : PlanningDiscoveryRecoveryActions.Failures(state)
+            .Select(f => new PlanningDiscoveryFailureDto(f.Id, f.SourceId, f.FocusId, f.Category, f.Message)).ToArray(),
         Questions = state.PendingQuestions?.Select(q => new PlanningQuestionDto(q.Id, q.Question,
             q.Alternatives.Select(a => new PlanningAlternativeDto(a.Id, a.Description, null)).ToArray(), q.Recommended)).ToArray() ?? [],
         TaskPlan = state.Plan is null ? null : System.Text.Json.JsonSerializer.SerializeToNode(state.Plan, PlanningJsonContext.Default.TaskPlan)!.AsObject()

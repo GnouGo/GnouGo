@@ -500,3 +500,5 @@ starting the servers and freeze binary SHA256/source evidence in their manifests
 Run the actual command or physical launcher with `tty=true`; do not launch it from
 a script whose source consumes stdin. Execution repeats preflight and retains
 exact artifact-bound delegated review and each individual invocation confirmation.
+
+`server-live-mcp-readiness --snapshot-pagination` verifies the configured source through the actual Server runtime, publishes an immutable catalog snapshot in the existing journal and recreates its reader every four pages. It checks exact coverage with zero LLM inference. Use a fresh run identity; ordinary live funding and replay preflight remain mandatory before any later paid planning.

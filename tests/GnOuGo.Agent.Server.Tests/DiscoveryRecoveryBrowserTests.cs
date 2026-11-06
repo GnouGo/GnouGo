@@ -1,0 +1,79 @@
+using System.Diagnostics;
+using System.Text.Json;
+using GnOuGo.Agent.Server.Hosting;
+using GnOuGo.Agent.Server.Planning;
+using GnOuGo.Agent.Server.SmartFlow;
+using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Planning.Capabilities;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+namespace GnOuGo.Agent.Server.Tests;
+
+public sealed partial class DiagnosticPlanningBrowserTests
+{
+    [Fact]
+    public async Task ActualHostRecoversDiscoveryWithoutInferenceAndPreservesProtectedInspectionAndFiniteAdmission()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        var output = Path.Combine(root, "artifacts/focused-discovery/browser"); Directory.CreateDirectory(output);
+        var args = TelemetryTestHostArgs.Create("--TypedWorkflowPlanning:BackgroundProcessingEnabled=false", "--ApplicationLlmBudget:Mode=limited", "--WorkflowPlanningBudget:Amount=0.000000001",
+            "--Logging:LogLevel:Default=Warning")
+            .Where(a => !a.StartsWith("--TypedWorkflowPlanning:OpenLocalOperatorBrowser=", StringComparison.Ordinal)).ToArray();
+        var browser = new RecordingOperatorBrowser(); var model = new NeverInference(); var options = DiagnosticPlanningTests.ModelOptions();
+        void Configure(IServiceCollection services)
+        {
+            services.AddSingleton<ILocalOperatorBrowserLauncher>(browser);
+            services.AddSingleton<IKeyVaultRuntimeConfigStore>(new FakeKeyVaultRuntimeConfigStore().WithEffectiveOptions(options));
+            services.AddSingleton<IExchangeRateProvider>(new TestExchangeRateProvider());
+            services.AddSingleton<SecureWorkflowRuntimeFactory>(sp => new(SmartFlowTestFactory.CreateRuntimeOptionsStore(options),
+                sp.GetRequiredService<IKeyVaultRuntimeConfigStore>(), sp.GetRequiredService<ILoggerFactory>(),
+                mcpClientFactoryOverride: new UnavailableMetadata(), llmClientOverride: model, defaults: sp.GetRequiredService<LlmDefaultsResolver>()));
+        }
+        await using var app = GnOuGoAgentWebHost.Build(args, "http://127.0.0.1:0", Path.Combine(root, "src/GnOuGo.Agent.Server"), false, Configure);
+        await app.StartAsync(ct);
+        var url = GnOuGoAgentWebHost.ResolvePublishedEndpoints(app).AppBaseAddress!.TrimEnd('/');
+        var service = app.Services.GetRequiredService<PlanningSessionService>(); var store = app.Services.GetRequiredService<IPlanningSessionStore>();
+        async Task<PlanningSession> Seed(string name)
+        {
+            var state = await service.StartAsync(name, "Return the requested result", false, ct, thresholdMode: "diagnostic", diagnosticGrant: new("controlled-operator"));
+            DiscoveryRecoveryTests.ConfigureBlocked(state);
+            await DiscoveryRecoveryTests.SeedModelHistoryAsync(app.Services.GetRequiredService<GnOuGo.KeyVault.Core.Services.IKeyVaultRecordStore>(),
+                app.Services.GetRequiredService<Microsoft.EntityFrameworkCore.IDbContextFactory<PlanningDbContext>>(), state);
+            var source = CapabilityDiscovery.SourceId("exploratory");
+            state.Discovery.Sources = [new(source, "Unrelated exploratory source")];
+            state.Discovery.Pages = [new(source, "old", [], null, "Original exception unavailable", state.Request.Prompt)];
+            state.Construction!.Compact!.CurrentStep!.PendingDiscovery = new()
+                { Requests = [new(source)], Pending = [new(source, "old", state.Request.Prompt)] };
+            var previous = state.Revision++; Assert.True(await store.TrySaveAsync(state, previous, ct)); return state;
+        }
+        var state = await Seed("recovery-browser"); var other = await Seed("other-session");
+        var start = new ProcessStartInfo("node") { UseShellExecute = false, RedirectStandardInput = true, RedirectStandardOutput = true,
+            RedirectStandardError = true, WorkingDirectory = root };
+        start.ArgumentList.Add(Path.Combine(root, "scripts/smoke-discovery-recovery.mjs")); start.Environment["PLAYWRIGHT_MODULE_PATH"] = PlaywrightModule();
+        using var process = Process.Start(start)!;
+        await process.StandardInput.WriteAsync(JsonSerializer.Serialize(new { url, launch = browser.Address!.ToString(), session = state.Request.SessionId,
+            otherSession = other.Request.SessionId, output })); process.StandardInput.Close();
+        var stdout = process.StandardOutput.ReadToEndAsync(ct); var stderr = process.StandardError.ReadToEndAsync(ct);
+        try { await process.WaitForExitAsync(ct).WaitAsync(TimeSpan.FromMinutes(2), ct); }
+        finally { if (!process.HasExited) process.Kill(entireProcessTree: true); }
+        var log = await stdout + "\n" + await stderr;
+        await File.WriteAllTextAsync(Path.Combine(output, "browser-process.log"), log.Replace(browser.Address.Fragment, "[redacted]", StringComparison.Ordinal), ct);
+        Assert.True(process.ExitCode == 0, log); Assert.Equal(0, model.Calls);
+        await app.StopAsync(ct);
+    }
+    private sealed class NeverInference : ILLMClient
+    {
+        internal int Calls;
+        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+        { Interlocked.Increment(ref Calls); throw new InvalidOperationException("Recovery must not bypass admission or dispatch a model request."); }
+    }
+    private sealed class UnavailableMetadata : IMcpClientFactory
+    {
+        public IReadOnlyList<McpServerMetadata> ServerMetadata => [new() { Name = "exploratory", Description = "Exploratory metadata source" }];
+        public Task<IMcpSession> GetClientAsync(string name, CancellationToken ct) => name == "exploratory"
+            ? throw new IOException("PRIVATE_MCP_CREDENTIAL") : Task.FromResult<IMcpSession>(PlanningSessionLifecycleTests.AgentCatalog());
+    }
+}

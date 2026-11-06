@@ -89,6 +89,23 @@
             <p>No dispatch or reservation was found. The original session will be preserved.</p>
             <button id="start-with-current-settings" disabled="@_busy" @onclick="StartWithCurrentSettingsAsync">Start new plan with current settings</button>
         }
+        @if (!IsWorkflowSession && _operatorAvailable && _inspectionDto?.CanRecoverDiscovery == true)
+        {
+            <section aria-label="Discovery recovery">
+                <p>Accepted work and all accounting remain retained. These actions inspect metadata only; they do not call the model or execute the workflow.</p>
+                @foreach (var failure in _inspectionDto.DiscoveryFailures)
+                {
+                    <p><code>@failure.SourceId</code> · @failure.Category — @failure.Message</p>
+                    <button disabled="@_busy" @onclick='() => SubmitAsync("recover_discovery", discoveryRecovery: new(failure.Id, "continue_available"))'>Continue with available sources</button>
+                    <button disabled="@_busy" @onclick='() => SubmitAsync("recover_discovery", discoveryRecovery: new(failure.Id, "refresh_source"))'>Refresh source metadata</button>
+                }
+            </section>
+        }
+        @if (!IsWorkflowSession && _operatorAvailable && _inspectionDto?.CanResumeDiscovery == true)
+        {
+            <p role="status">Discovery recovery retained. Resume uses the session’s original settings and ordinary financial admission.</p>
+            <button disabled="@_busy" @onclick='() => SubmitAsync("resume_discovery")'>Resume planning after discovery recovery</button>
+        }
         @if (_requestInspection?.CancellationRequested == true)
         { <p role="status">Cancellation requested. Waiting for the owner to stop; completed responses and accounting will be retained.</p> }
         else if (_requestInspection?.State == "active" && _state.Status != PlanningStatus.Stopped)
@@ -367,14 +384,14 @@
     }
     private Task ReviseSelectedAsync() => CanTargetRevision && _revisionPaths.Count > 0 && !string.IsNullOrWhiteSpace(_revision)
         ? SubmitAsync("revise", _revision, editablePaths: _revisionPaths.Order(StringComparer.Ordinal).ToArray()) : Task.CompletedTask;
-    private async Task SubmitAsync(string kind, string? text = null, JsonObject? selections = null, PlanningGenerationOptions? generation = null, string? mode = null, IReadOnlyList<PlanningAnswerDto>? answers = null, IReadOnlyList<string>? editablePaths = null)
+    private async Task SubmitAsync(string kind, string? text = null, JsonObject? selections = null, PlanningGenerationOptions? generation = null, string? mode = null, IReadOnlyList<PlanningAnswerDto>? answers = null, IReadOnlyList<string>? editablePaths = null, PlanningDiscoveryRecovery? discoveryRecovery = null)
     {
         if (_state is null || IsWorkflowSession || _busy) return;
         _busy = true; _error = null; _commandError = null;
         try { _state = kind == "cancel" ? await Planning.StopAsync(_state.Request.SessionId, _lifetime.Token) : await Planning.SubmitAsync(_state.Request.SessionId, new() { Kind = kind, ExpectedRevision = _state.Revision, RequestId = _requestInspection?.RequestId, ArtifactHash = PlanningArtifactApproval.Hash(_state), Text = text, Selections = selections, Generation = generation, Mode = mode,
-            EditablePaths = editablePaths?.ToList(), PreserveRequirements = editablePaths is null ? null : true,
+            DiscoveryRecovery = discoveryRecovery, EditablePaths = editablePaths?.ToList(), PreserveRequirements = editablePaths is null ? null : true,
             ReviewedRequirementIds = kind == "approve" ? _reviewedRequirements.ToList() : null,
-            Answers = answers?.Select(a => new PlanningAnswer(a.QuestionId, a.AlternativeId, a.Text)).ToList() }, _lifetime.Token); _reviewedRequirements = []; _revisionPaths.Clear(); }
+            Answers = answers?.Select(a => new PlanningAnswer(a.QuestionId, a.AlternativeId, a.Text)).ToList() }, _lifetime.Token, kind is "recover_discovery" or "resume_discovery" ? await Services.GetRequiredService<LocalOperatorAccess>().GrantAsync() : null); _reviewedRequirements = []; _revisionPaths.Clear(); }
         catch (Exception ex) { _commandError = ex.Message; await RefreshAsync(); }
         finally { _busy = false; }
     }
@@ -383,7 +400,7 @@
     private static string Phase(string status) => status switch
     {
         PlanningStatus.Created => "Discovering capabilities", PlanningStatus.Generating => "Building and validating workflow",
-        PlanningStatus.Clarification => "Clarify the intended workflow", PlanningStatus.FinalReview => "Ready for your review",
+        PlanningStatus.DiscoveryRecovery => "Discovery ready to resume", PlanningStatus.Clarification => "Clarify the intended workflow", PlanningStatus.FinalReview => "Ready for your review",
         PlanningStatus.Approved => "Approved", PlanningStatus.Saving => "Saving", PlanningStatus.Saved => "Saved",
         PlanningStatus.Stopped or PlanningStatus.Failed => "Planning stopped", PlanningStatus.Cancelled => "Cancelled", _ => status
     };

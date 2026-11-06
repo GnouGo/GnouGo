@@ -170,6 +170,23 @@ exception details. Financial refusal metadata distinguishes an unsent next attem
 from the logical call's prior dispatch; preserve both facts in the existing budget
 DTO and journals without manufacturing an HTTP attempt or completion.
 
+Discovery selects an issued immediate focus (objective or retained prerequisite) and
+records each source justification; prose establishes no mandatory dependency or
+execution authority. Paginate deliberately selected sources automatically from an
+immutable source snapshot. Existing encrypted planning journals own snapshot payloads;
+checkpoints carry exact tenant/session/action/source/configuration references. Reuse
+metadata within the transition, validating versions; never reinterpret a cursor against
+a refreshed catalog. Exploratory source failures warn and permit alternatives; unresolved
+selected contracts, invalid ownership, corrupt snapshots and cycles remain hard failures.
+Keep failed sources unavailable for that focus until explicit operator refresh.
+Preserve old discovery wire contracts and issued requests. Protected recovery checks
+the lease, cancellation, existing owner retention guards and complete owned model
+request/receipt journals. Metadata recovery dispatches no inference and waits in
+`discovery_recovery`; explicit resume uses original captured admission. Never reset
+accepted work, policies, charges or reservations. Ordinary runtimes gain no recovery
+authority by default. Detailed failure context remains protected/redacted; OTel events
+carry identities and outcomes, not business justifications or request content.
+
 ## Maintained references
 
 - [Incremental construction](../../../docs/incremental-taskplan-construction.md)

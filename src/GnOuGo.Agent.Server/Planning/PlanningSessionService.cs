@@ -30,7 +30,7 @@ public sealed partial class PlanningSessionService(
     IOptions<TypedWorkflowPlanningSettings> settings,
     IOptions<OpenTelemetrySettings> telemetrySettings,
     ILogger<PlanningSessionService> logger,
-    PlanningHostPolicy? hostPolicy = null) : BackgroundService
+    PlanningHostPolicy? hostPolicy = null, IEnumerable<IPlanningDiscoveryRecoveryGuard>? discoveryRecoveryGuards = null) : BackgroundService
 {
     private readonly Channel<string> _queue = Channel.CreateUnbounded<string>();
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new(StringComparer.Ordinal);
@@ -185,8 +185,10 @@ public sealed partial class PlanningSessionService(
         return state;
     }
 
-    public async Task<PlanningSession> SubmitAsync(string id, PlanningCommand command, CancellationToken ct)
+    public async Task<PlanningSession> SubmitAsync(string id, PlanningCommand command, CancellationToken ct, PlanningDiagnosticGrant? operatorGrant = null)
     {
+        if (command.Kind is "recover_discovery" or "resume_discovery" && operatorGrant is null)
+            throw new UnauthorizedAccessException("Discovery recovery requires authenticated local operator access.");
         if (command.Kind == "cancel") return await RequestCancellationAsync(id, command, ct);
         var gate = _locks.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(ct);
@@ -198,7 +200,12 @@ public sealed partial class PlanningSessionService(
             var current = await store.LoadAsync(Tenant, id, ct) ?? throw new KeyNotFoundException("Planning session not found.");
             if (current.Revision != command.ExpectedRevision) throw new PlanningConflictException("The session changed; reload its current revision.");
             if (await IsCancellationRequestedAsync(current, ct)) throw new PlanningConflictException("Cancellation is pending for this revision.");
-            result = command.Kind == "save" ? await SaveAsync(current, command, ct) : await AdvanceAsync(current, command, ct);
+            if (command.Kind is "recover_discovery" or "resume_discovery")
+            {
+                await RequireDiscoveryRecoverySafeAsync(current, ct);
+                result = await RecoverDiscoveryAsync(current, command, ct);
+            }
+            else result = command.Kind == "save" ? await SaveAsync(current, command, ct) : await AdvanceAsync(current, command, ct);
         }
         finally { gate.Release(); }
         if (!PlanningStatus.IsWaiting(result.Status) && !PlanningStatus.IsTerminal(result.Status))
@@ -412,7 +419,7 @@ public sealed partial class PlanningSessionService(
             state.UpdatedAtUtc = DateTimeOffset.UtcNow;
             if (!await store.TrySaveAsync(state, revision, token)) throw new PlanningConflictException("A newer planning revision was saved.");
             revision = state.Revision;
-        });
+        }, capabilities: null, capabilitySnapshots: new GnOuGo.Flow.Integrations.Planning.PlanningCapabilitySnapshotJournal(records));
         var updated = await planner.AdvanceAsync(current, command, adapter, ct);
         activity?.SetTag("gnougo.planning.status", updated.Status);
         activity?.SetTag("gnougo.planning.calls", updated.ModelCalls);

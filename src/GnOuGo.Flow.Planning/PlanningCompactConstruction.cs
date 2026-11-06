@@ -30,7 +30,8 @@ internal static partial class PlanningCompactConstruction
         Close only fulfilled obligations: closeScopes:[] closes requirements, [scope] that offered boundary, otherwise null. Return one step, offered resumeStep, evidenceRequests or missing-business-fact clarifications; others null. Evidence grants no edit/execution authority.
         """;
 
-    internal static string DiscoveryGuidance(PlanningSession state) => $"""
+    internal static string DiscoveryGuidance(PlanningSession state) => (PlanningDiscoveryFocus.Enabled(state)
+        ? "Select an issued focus for the immediate objective or retained prerequisite and justify each source from its description. Prefer suitable inspected contracts; stop once sufficient. Exploratory failures prove no capability absence and require alternatives, not invented results. " : "") + $"""
         Resolve the current implementation cursor within its selected scope and retained business obligations. Inspect original descriptions/constraints and exact continuations; incomplete inspection proves no absence. Stop once suitable.
         Return one action with others null: binding, discoveryRequests, evidenceRequests, reselectStep or clarifications. binding selects the anchor, inspected operationIds and optional closed groupId. Value/transform helpers share the fragment. closeScopes:[] means requirement-only closure, [scope] the offered boundary, otherwise null.
         {ContainerBoundaryGuidance} {ValueSemantics} {TransformSemantics} {SelectedExpectationsSemantics}
@@ -722,6 +723,14 @@ internal static partial class PlanningCompactConstruction
             ["evidence"] = evidence?.DeepClone(),
             ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics)
         };
+        if (PlanningDiscoveryFocus.Enabled(state))
+        {
+            context["businessResponsibility"] = CurrentBlock(state) is { } block ? BusinessBlockContext(block) : null;
+            context["discoveryFocuses"] = PlanningDiscoveryFocus.Presentation(state);
+            context["discoveryLimitations"] = new JsonArray((state.Discovery.Failures ?? []).Select(f => (JsonNode)new JsonObject
+                { ["sourceId"] = f.SourceId, ["focusId"] = f.FocusId, ["outcome"] = f.Category,
+                  ["message"] = f.Message, ["superseded"] = state.Discovery.SupersededFailures?.Contains(f.Id) == true }).ToArray());
+        }
         AddRequirementNavigation(state, context);
         context["continuation"] = ContinuationContext(state);
         if (DescribedOperationChoices(state) is { } described) context["describedOperations"] = described;

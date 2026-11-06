@@ -1226,7 +1226,9 @@ public sealed class CompactConstructionTests
             { var selection = Implement(request, "value", close: false); selection["step"]!["kind"] = null; return Wire(request, selection); }
             if (pages > 0) Assert.Equal("next", Context(request)["providerRequests"]!["items"]![0]!["cursor"]!.ToString());
             return Wire(request, new() { ["binding"] = null, ["clarifications"] = null, ["evidenceRequests"] = null,
-                ["discoveryRequests"] = new JsonArray(new JsonObject { ["sourceId"] = "source", ["cursor"] = pages++ == 0 ? null : "next", ["query"] = null, ["operationIds"] = null }) });
+                ["discoveryRequests"] = new JsonArray(new JsonObject { ["sourceId"] = "source", ["cursor"] = pages++ == 0 ? null : "next", ["query"] = null, ["operationIds"] = null,
+                    ["focusId"] = Context(request)["providerRequests"]!["items"]![0]!["focusId"]!.DeepClone(),
+                    ["justification"] = "This declared source reads the exact record needed by this implementation." }) });
         } };
         var state = Fresh("First read the specified record, then do unrelated later business work."); var planner = new HybridWorkflowPlanner();
         for (var i = 0; i < 5; i++) state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);

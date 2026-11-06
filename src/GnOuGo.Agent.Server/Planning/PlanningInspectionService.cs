@@ -31,10 +31,11 @@ public sealed class PlanningInspectionService(PlanningSessionService planning, L
                 ["estimatedInputTokens"] = measurement?.EstimatedInputTokens, ["issuedOutputTokens"] = measurement?.IssuedOutputTokens,
                 ["durationMilliseconds"] = measurement?.DurationMilliseconds, ["durationBasis"] = measurement?.DurationBasis });
         }
-        return new JsonObject { ["sessionId"] = id, ["events"] = JsonSerializer.SerializeToNode(events, PlanningInspectionJsonContext.Default.PlanningInspectionEventArray),
+        var result = new JsonObject { ["sessionId"] = id, ["events"] = JsonSerializer.SerializeToNode(events, PlanningInspectionJsonContext.Default.PlanningInspectionEventArray),
             ["nextEvent"] = events.LastOrDefault()?.Sequence ?? after, ["hasMoreEvents"] = (state.InspectionEvents?.LastOrDefault()?.Sequence ?? 0) > (events.LastOrDefault()?.Sequence ?? after),
             ["calls"] = calls, ["callCount"] = history.Calls.Count,
             ["nextCallCursor"] = JsonSerializer.SerializeToNode(history.Cursor, PlanningInspectionJsonContext.Default.LlmCallCursor), ["hasMoreCalls"] = history.HasMore };
+        return JsonNode.Parse(content.Redact(result.ToJsonString()))!.AsObject();
     }
 
     public async Task<JsonObject> CallAsync(string id, bool workflow, string key, CancellationToken ct)

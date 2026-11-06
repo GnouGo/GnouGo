@@ -237,13 +237,13 @@ public sealed class PlanningSessionLifecycleTests
 
     internal static FakeMcpSession AgentCatalog() => new FakeMcpSession("GnOuGo.Agent.Mcp")
         .OnTool("agent_get_by_name", (_, _) => Task.FromResult(new McpCallResult { Content = new JsonObject { ["success"] = false, ["error_code"] = "NOT_FOUND" } }));
-    internal static PlanningSessionService Create(PlanningPersistenceTests.StoreFixture fixture, IWorkflowPlanner planner, IMcpSession agents, ILLMClient? llm = null, TypedWorkflowPlanningSettings? settings = null, PlanningHostPolicy? hostPolicy = null, LLMOptions? runtimeOptions = null, WorkflowPlanningBudgetSettings? budget = null)
+    internal static PlanningSessionService Create(PlanningPersistenceTests.StoreFixture fixture, IWorkflowPlanner planner, IMcpSession agents, ILLMClient? llm = null, TypedWorkflowPlanningSettings? settings = null, PlanningHostPolicy? hostPolicy = null, LLMOptions? runtimeOptions = null, WorkflowPlanningBudgetSettings? budget = null, IEnumerable<IPlanningDiscoveryRecoveryGuard>? recoveryGuards = null, IMcpClientFactory? mcpFactory = null)
     {
         var options = runtimeOptions ?? new LLMOptions { DefaultProvider = "openai", DefaultModel = "gpt-4o-mini" };
         var runtime = new SecureWorkflowRuntimeFactory(SmartFlowTestFactory.CreateRuntimeOptionsStore(options), new FakeKeyVaultRuntimeConfigStore().WithEffectiveOptions(options),
-            mcpClientFactoryOverride: new FakeMcpClientFactory(agents), llmClientOverride: llm, llmCapabilityResolver: new DeclaredTestModel());
+            mcpClientFactoryOverride: mcpFactory ?? new FakeMcpClientFactory(agents), llmClientOverride: llm, llmCapabilityResolver: new DeclaredTestModel());
         return new(fixture.Store, fixture, fixture.Records, runtime, planner, new TestExchangeRateProvider(), Options.Create(budget ?? new WorkflowPlanningBudgetSettings()),
-            Options.Create(settings ?? new TypedWorkflowPlanningSettings()), Options.Create(new OpenTelemetrySettings { TenantId = "planning-tests" }), NullLogger<PlanningSessionService>.Instance, hostPolicy);
+            Options.Create(settings ?? new TypedWorkflowPlanningSettings()), Options.Create(new OpenTelemetrySettings { TenantId = "planning-tests" }), NullLogger<PlanningSessionService>.Instance, hostPolicy, recoveryGuards);
     }
     private sealed class DeclaredTestModel : ILLMCapabilityResolver
     {

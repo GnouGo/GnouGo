@@ -1773,3 +1773,7 @@ Agent budget stops retain safe admission diagnostics and execution observations.
 ## Numeric execution
 
 Ordinary calculations use JavaScript `Number` (binary64) through expressions and `set`; nonfinite expression results fail before publication. `NumericTransformExecutor`, `number.add`, `number.multiply` and `number.default` are removed, including their public C# API. Saved uses fail preflight and require explicit revision and approval. Exact business arithmetic belongs to the MCP producer. The optional `type: number, format: decimal` annotation enables validated MCP boundary conversion; see [numeric compilation](../../docs/numeric-compilation.md).
+
+### Optional discovery snapshots
+
+`ICapabilitySnapshotCatalog` and `IPlanningCapabilitySnapshotJournal` are provider-neutral optional contracts. Existing catalog implementations and runtime constructors remain supported. Snapshots and references grant no binding, execution or recovery authority. Default runtime recovery authorization rejects commands; a trusted owner must supply its guard.

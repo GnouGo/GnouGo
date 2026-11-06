@@ -512,7 +512,7 @@ public sealed partial class HybridWorkflowPlanner
 
     private static async Task ConstructionDiscoveryAsync(PlanningSession state, IPlanningRuntime runtime, List<PlanningDiscoveryRequest> requests, CancellationToken ct, PlanningCorrectionAttempt? correction = null)
     {
-        if (requests.Count < 1 || !PlanningTokenThresholds.OptimizationAdvisory(state.Request) && requests.Count > 4 || requests.Distinct().Count() != requests.Count)
+        if (requests.Count < 1 || !PlanningTokenThresholds.OptimizationAdvisory(state.Request) && requests.Count > 4 || requests.Select(r => (r.SourceId, r.Cursor, r.FocusId)).Distinct().Count() != requests.Count)
             PlanningConstruction.Fail("DISCOVERY_BATCH_INVALID", "/discoveryRequests", "Request distinct metadata reads within the captured discovery policy.");
         if (PlanningTokenThresholds.OptimizationAdvisory(state.Request) && requests.Count > 2)
             PlanningOptimizationThresholds.Record(state, "discovery", "provider_requests", requests.Count, 2);
@@ -526,7 +526,7 @@ public sealed partial class HybridWorkflowPlanner
         }
     }
 
-    private static string DiscoveryActionHash(PlanningConstructionStep step, IEnumerable<PlanningDiscoveryRequest> requests) =>
+    internal static string DiscoveryActionHash(PlanningConstructionStep step, IEnumerable<PlanningDiscoveryRequest> requests) =>
         PlanningGraphCompiler.Fingerprint(step.Id + "\n" + step.BaseHash + "\n" + step.Objective + "\n" +
             JsonSerializer.Serialize(requests.ToList(), PlanningJsonContext.Default.ListPlanningDiscoveryRequest));
 
@@ -537,23 +537,33 @@ public sealed partial class HybridWorkflowPlanner
             throw new PlanningConflictException("Complete the exact retained discovery action before selecting another.");
         foreach (var request in requests)
         {
+            var query = PlanningDiscoveryFocus.Query(state, request.FocusId);
+            if (PlanningDiscoveryFocus.Enabled(state) && (string.IsNullOrWhiteSpace(request.Justification) ||
+                PlanningOptimizationThresholds.Exceeded(state, "discovery", "source_justification_characters", request.Justification.Length, 256)))
+                PlanningConstruction.Fail("DISCOVERY_SCOPE_INVALID", "/discoveryRequests", "Justify each issued source against its selected focus.");
+            if (PlanningDiscoveryFocus.Failure(state, request.SourceId, query, request.FocusId) is not null)
+                PlanningConstruction.Fail("DISCOVERY_SCOPE_INVALID", "/discoveryRequests", "This failed source requires explicit operator refresh.");
             if (request.OperationIds is not null || request.Query is not null || request.ProducedArtifactKind is not null ||
                 !state.Discovery.Sources.Any(source => source.Id == request.SourceId))
                 PlanningConstruction.Fail("DISCOVERY_SCOPE_INVALID", "/discoveryRequests", "Select an issued source/cursor pair for this exact business action.");
             if (request.Cursor is not null && !state.Discovery.Pages.Any(page => page.SourceId == request.SourceId &&
-                    page.NextCursor == request.Cursor && page.Query == step.Objective && page.ProducedArtifactKind is null))
+                    page.NextCursor == request.Cursor && page.Query == query && page.ProducedArtifactKind is null))
                 PlanningConstruction.Fail("CURSOR_UNKNOWN", "/discoveryRequests", "A continuation must come from a retained page for this same provider and business action.");
         }
         step.PendingDiscovery = new()
         {
+            Id = PlanningDiscoveryFocus.Enabled(state) ? Guid.NewGuid().ToString("N") : null,
             ActionHash = DiscoveryActionHash(step, requests), Requests = requests.ToList(),
-            Pending = requests.Select(request => request with { Query = step.Objective }).ToList()
+            Pending = requests.Select(request => request with { Query = PlanningDiscoveryFocus.Query(state, request.FocusId) }).ToList()
         };
+        if (step.PendingDiscovery.Id is { } actionId)
+            foreach (var request in step.PendingDiscovery.Pending.Where(r => r.Cursor is null))
+                (state.Discovery.ActiveSourceActions ??= new(StringComparer.Ordinal))[PlanningDiscoveryFocus.SourceKey(request.SourceId, request.Query!, request.FocusId)] = actionId;
         state.Diagnostics.RemoveAll(d => d.Location.StartsWith("/discoveryRequests", StringComparison.Ordinal) &&
             d.Code is "DISCOVERY_SCOPE_INVALID" or "SOURCE_UNKNOWN" or "CURSOR_UNKNOWN" or "DISCOVERY_BATCH_INVALID" or "DISCOVERY_NO_PROGRESS");
     }
 
-    private static async Task ContinueConstructionDiscoveryAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
+    internal static async Task ContinueConstructionDiscoveryAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
     {
         var step = PlanningCompactConstruction.State(state).CurrentStep!;
         var action = step.PendingDiscovery ?? throw new PlanningConflictException("No received discovery action is pending.");
@@ -572,22 +582,22 @@ public sealed partial class HybridWorkflowPlanner
                     "This selected provider action reached its captured 1024-page target. Its received pages and exact remaining cursor are retained.");
             var request = action.Pending[0];
             var identity = JsonSerializer.Serialize(new List<PlanningDiscoveryRequest> { request }, PlanningJsonContext.Default.ListPlanningDiscoveryRequest);
-            if (request.Query != step.Objective || request.OperationIds is not null || request.ProducedArtifactKind is not null ||
+            if (request.Query != PlanningDiscoveryFocus.Query(state, request.FocusId) || request.OperationIds is not null || request.ProducedArtifactKind is not null ||
                 !action.Requests.Any(original => original.SourceId == request.SourceId) ||
                 !state.Discovery.Sources.Any(source => source.Id == request.SourceId) || action.Visited.Contains(identity, StringComparer.Ordinal))
                 throw new WorkflowRuntimeException("DISCOVERY_NO_PROGRESS", "The retained provider continuation is invalid or cyclic.");
-            if (request.Cursor is not null && !state.Discovery.Pages.Any(page => page.SourceId == request.SourceId && page.Query == step.Objective &&
-                    page.ProducedArtifactKind is null && page.NextCursor == request.Cursor))
+            if (request.Cursor is not null && !PlanningDiscoveryFocus.Pages(state, request.SourceId, request.Query!, request.FocusId).Any(page =>
+                    page.NextCursor == request.Cursor))
                 throw new PlanningConflictException("The retained provider cursor lost its exact original page.");
-            var page = state.Discovery.Pages.SingleOrDefault(page => page.SourceId == request.SourceId && page.Cursor == request.Cursor &&
-                page.Query == step.Objective && page.ProducedArtifactKind is null);
+            var page = PlanningDiscoveryFocus.Pages(state, request.SourceId, request.Query!, request.FocusId).SingleOrDefault(page => page.Cursor == request.Cursor);
             if (page is null)
             {
-                await PlanningDiscoveryContext.DiscoverPageAsync(state, runtime, request.SourceId, request.Cursor, ct, step.Objective);
+                await PlanningDiscoveryContext.DiscoverPageAsync(state, runtime, request.SourceId, request.Cursor, ct, request.Query,
+                    action: action.Id is null ? null : action, selection: request);
                 action.RemainingReads--;
                 page = state.Discovery.Pages[^1];
             }
-            if (page.UnavailableReason is not null)
+            if (page.UnavailableReason is not null && action.Id is null)
             {
                 await runtime.CheckpointAsync(state, ct);
                 throw new WorkflowRuntimeException("DISCOVERY_INCOMPLETE", "The selected provider metadata is unavailable; its retained outcome cannot establish a capability absence.");
@@ -597,7 +607,7 @@ public sealed partial class HybridWorkflowPlanner
             {
                 if (string.IsNullOrWhiteSpace(cursor) || cursor == page.Cursor)
                     throw new WorkflowRuntimeException("DISCOVERY_NO_PROGRESS", "The selected provider returned an invalid or cyclic continuation.");
-                action.Pending.Add(new(request.SourceId, cursor, step.Objective));
+                action.Pending.Add(request with { Cursor = cursor });
             }
             await runtime.CheckpointAsync(state, ct);
         }

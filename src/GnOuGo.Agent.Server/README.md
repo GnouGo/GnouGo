@@ -872,3 +872,7 @@ New sessions capture intent version 3 while keeping compiler v15. Optional requi
 Confirmed violations block approval. Individual requirement checkboxes may explicitly acknowledge unverified aspects; they remain unverified after approval, separately from `human_reviewed`. No checkbox is preselected, polling does not submit, and a changed artifact clears acknowledgments. Approval recomputes coverage instead of trusting displayed labels. Saving still does not execute the workflow.
 
 With the existing automatic-correction policy, disconnected exports use bounded scoped repair. Missing committed operations may use the existing structural fallback with captured exact-contract authority; unrelated additions, weakened checks and changed independent work are rejected. Existing sessions, pending requests, receipts and approved workflows retain their captured behavior. No stopped session is automatically reopened. See [coverage and offline evidence](../../docs/evidence/business-commitments-2026-10-16/README.md).
+
+### Discovery recovery
+
+The protected local operator window offers metadata-only recovery for eligible blocked Designer sessions, followed by explicit planning resume under captured admission. Exploratory source failures remain visible without blocking healthy alternatives. See [focused discovery and recovery](../../docs/focused-capability-discovery.md). Existing sessions are not automatically resumed or repriced.
