@@ -391,6 +391,13 @@ policy. It never starts another retry loop or dispatches around a failed journal
 The read-only `scripts/observe-live-planning.mjs` receives its one-use bootstrap on
 stdin and records the shared inspector, live phases and final state. Planning
 success means ready for separate artifact review, not execution/oracle success.
+This command requires `--retained-external-reservations-eur <verified-amount>`:
+conservatively include retained application reservations not already represented
+by campaign HTTP attempts. The captured amount reduces every physical attempt's
+available financial headroom; it never raises the campaign ceiling or releases an
+old reservation. Report it separately from campaign charges to avoid double counting.
+Server elapsed targets come from its captured session budget, without adding a
+benchmark-only option to the original Server request or inheriting current defaults.
 
 Use `--schema-portability inspect-configuration` to obtain the previous pin hash
 and `inspect-deployment --model <exact-snapshot>` for redacted readiness. Then

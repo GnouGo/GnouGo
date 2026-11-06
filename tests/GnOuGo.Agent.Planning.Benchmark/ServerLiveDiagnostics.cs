@@ -27,6 +27,9 @@ internal static class ServerLiveDiagnostics
     {
         var run = SchemaPortabilityCampaign.RequiredOption(args, "--run");
         var planning = args.ElementAtOrDefault(1) == "server-live-plan";
+        if (planning) model.RetainedExternalReservationsEur = decimal.Parse(
+            SchemaPortabilityCampaign.RequiredOption(args, "--retained-external-reservations-eur"), System.Globalization.CultureInfo.InvariantCulture);
+
         if (run.Length > 70 || !run.All(c => char.IsAsciiLetterOrDigit(c) || c == '-')) throw new ArgumentException("Invalid fresh run identity.");
         if (await campaign.LoadAsync("planning-evaluation-runs", run) is not null) throw new PlanningConflictException("This live run already exists; start a fresh independent identity.");
         var root = Directory.GetCurrentDirectory();
@@ -63,7 +66,7 @@ internal static class ServerLiveDiagnostics
         var report = new JsonObject { ["source"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD"), ["run"] = run,
             ["campaign"] = campaign.Id, ["campaign_configuration"] = campaign.ConfigurationId,
             ["provider"] = options.DefaultProvider, ["model"] = options.DefaultModel, ["host"] = "GnOuGo.Agent.Server",
-            ["budget_mode"] = "limited", ["started_utc"] = DateTimeOffset.UtcNow, ["phase"] = planning ? "server_planning" : "provider_probe" };
+            ["budget_mode"] = "limited", ["retained_external_reservations_eur"] = model.RetainedExternalReservationsEur, ["started_utc"] = DateTimeOffset.UtcNow, ["phase"] = planning ? "server_planning" : "provider_probe" };
         await campaign.SaveAsync("planning-evaluation-runs", run, report);
         var invoked = 0;
         app.MapPost("/api/planning/live-provider-probe", async (HttpContext context, LocalOperatorAccess access, IAntiforgery antiforgery, LlmTraceCapture capture) =>

@@ -40,6 +40,8 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
     private readonly TimeProvider _time;
     private readonly Dictionary<string, DateTimeOffset> _planningDeadlines = new(StringComparer.Ordinal);
     private bool _advisoryTokens;
+    internal decimal RetainedExternalReservationsEur { get; set; }
+
     internal void CaptureTokenPolicy(PlanningRequest request) => _advisoryTokens = PlanningTokenThresholds.Advisory(request);
     private static readonly TimeSpan MaxQuoteAge = new EcbExchangeRateProviderOptions().MaxQuoteAge;
     private readonly SemaphoreSlim _dispatchGate = new(1, 1);
@@ -94,7 +96,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         }
         finally { _dispatchGate.Release(); }
     }
-    internal async Task CapturePlanningPolicyAsync(PlanningRequest request, CancellationToken ct, double activeMilliseconds = 0)
+    internal async Task CapturePlanningPolicyAsync(PlanningRequest request, CancellationToken ct, double activeMilliseconds = 0, TimeSpan? capturedElapsedLimit = null)
     {
         CaptureTokenPolicy(request);
         var value = new JsonObject { ["max_physical_attempts"] = PlanningTransportPolicies.Read(request) is null ? request.MaxModelCalls :
@@ -114,10 +116,16 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             if (!double.IsFinite(activeMilliseconds) || activeMilliseconds < 0) throw new ArgumentOutOfRangeException(nameof(activeMilliseconds));
             // An elapsed deadline still permits settlement of an already received response.
             // The journal rejects every new physical attempt against this unchanged bound.
-            var remaining = PlanningBenchmarkMeasurements.PlanningElapsedLimit(request) - TimeSpan.FromMilliseconds(activeMilliseconds);
+            var remaining = (capturedElapsedLimit ?? PlanningBenchmarkMeasurements.PlanningElapsedLimit(request)) - TimeSpan.FromMilliseconds(activeMilliseconds);
             var deadline = _time.GetUtcNow() + remaining;
             if (!_planningDeadlines.TryGetValue(request.SessionId, out var prior) || deadline < prior)
                 _planningDeadlines[request.SessionId] = deadline;
+        }
+        if (capturedElapsedLimit is { } elapsed)
+        {
+            if (elapsed <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(capturedElapsedLimit));
+            value["benchmark_planning_elapsed_ms"] = checked((long)elapsed.TotalMilliseconds);
+            value["elapsed_limit_origin"] = "captured_server_session_budget";
         }
         var saved = await _campaign.LoadAsync("planning-evaluation-session-policy", request.SessionId, ct);
         if (saved is not null)
@@ -553,7 +561,9 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         await _dispatchGate.WaitAsync(ct);
         try
         {
-            await CapturePlanningPolicyAsync(state.Request, ct, state.ActiveMilliseconds);
+            var elapsed = PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed
+                ?? throw new PlanningConflictException("The captured Server planning duration is unavailable.");
+            await CapturePlanningPolicyAsync(state.Request, ct, state.ActiveMilliseconds, capturedElapsedLimit: elapsed);
             var transport = PlanningTransportPolicies.Read(state.Request) ?? throw new PlanningConflictException("Server transport policy is missing.");
             PlanningTransportPolicies.ValidateIssued(request, state.Request);
             var output = request.MaxTokens ?? throw new PlanningConflictException("Output allocation is required.");
@@ -570,12 +580,14 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                     MaxAttempts = request.DisableTransportRetries ? 1 : transport.MaxAttempts, MaxUncertainRetries = 0,
                     AttemptTimeoutMilliseconds = transport.AttemptTimeoutMilliseconds, BaseDelayMilliseconds = transport.BaseDelayMilliseconds,
                     MaxDelayMilliseconds = transport.MaxDelayMilliseconds, MaxTotalDelayMilliseconds = transport.MaxTotalDelayMilliseconds }),
-                ["deadline_utc"] = (_time.GetUtcNow() + PlanningBenchmarkMeasurements.PlanningElapsedLimit(state.Request)).ToString("O"),
-                ["max_elapsed_ms"] = (long)PlanningBenchmarkMeasurements.PlanningElapsedLimit(state.Request).TotalMilliseconds,
+                ["deadline_utc"] = (_time.GetUtcNow() + elapsed).ToString("O"),
+                ["max_elapsed_ms"] = (long)elapsed.TotalMilliseconds,
                 ["max_total_tokens"] = PlanningBudgetOptions.Parse(state.Request.Options)?.MaxTotalTokens ?? 15_000_000L,
                 ["review_token_headroom"] = checked(reviews * ((long)reviewInput + reviewOutput)) };
             if (advisory) effective[PlanningTokenThresholds.OptionName] = "advisory";
             if (PlanningTokenThresholds.OptimizationAdvisory(state.Request)) effective[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+            if (RetainedExternalReservationsEur < 0) throw new ArgumentOutOfRangeException(nameof(RetainedExternalReservationsEur));
+            effective["retained_external_reservations_eur"] = RetainedExternalReservationsEur;
             var retained = await _campaign.LoadAsync(BenchmarkHttpJournal.Collection, request.ClientRequestId, ct);
             if (retained?["effective_transport_policy"] is JsonObject prior) effective = prior.DeepClone().AsObject();
             BenchmarkHttpJournal? journal = null;

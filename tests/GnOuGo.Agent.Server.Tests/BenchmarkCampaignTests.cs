@@ -14,6 +14,42 @@ public sealed class BenchmarkCampaignTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Theory]
+    [InlineData("49", true)]
+    [InlineData("49.01", false)]
+    public async Task RetainedExternalReservationsRemainInsideTheUnchangedGlobalCeiling(string held, bool allowed)
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "external-reservation");
+        var policy = new JsonObject { ["retained_external_reservations_eur"] = decimal.Parse(held, System.Globalization.CultureInfo.InvariantCulture) };
+        var journal = new BenchmarkHttpJournal(campaign, "fresh:1:hash", 10, 10, 1m, effectiveTransportPolicy: policy);
+        await journal.PrepareAsync(Ct);
+        var state = new LLMHttpRetryState { Attempts = [new() { Id = "fresh:1:hash:1" }] };
+        if (allowed) await journal.SaveAsync(state, Ct);
+        else await Assert.ThrowsAsync<InvalidOperationException>(() => journal.SaveAsync(state, Ct));
+        Assert.Equal(50m, await campaign.CostCeilingAsync(Ct));
+        Assert.Equal(allowed ? 1 : 0, (await journal.LoadAsync(Ct))!.Attempts.Count);
+    }
+
+    [Fact]
+    public async Task ServerCaptureUsesItsRetainedElapsedBudgetWithoutAddingBenchmarkAuthorityToTheRequest()
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "server-duration");
+        using var model = new KeyVaultBenchmarkModel(campaign, new LLMOptions());
+        var request = LiveWorkflowEvaluation.FreshPlanningRequest([], "server", "amazon", "Requested work", "provider", "model");
+        request.Options.Remove("benchmark_planning_elapsed_ms");
+        var original = JsonSerializer.Serialize(request, PlanningJsonContext.Default.PlanningRequest);
+        await model.CapturePlanningPolicyAsync(request, Ct, capturedElapsedLimit: TimeSpan.FromMinutes(7));
+        Assert.Equal(original, JsonSerializer.Serialize(request, PlanningJsonContext.Default.PlanningRequest));
+        var captured = (await campaign.LoadAsync("planning-evaluation-session-policy", "server", Ct))!;
+        Assert.Equal(420000, captured["benchmark_planning_elapsed_ms"]!.GetValue<int>());
+        Assert.Equal("captured_server_session_budget", captured["elapsed_limit_origin"]!.ToString());
+        var writes = records.Writes;
+        await model.CapturePlanningPolicyAsync(request, Ct, capturedElapsedLimit: TimeSpan.FromMinutes(7));
+        Assert.Equal(writes, records.Writes);
+        await Assert.ThrowsAsync<PlanningConflictException>(() => model.CapturePlanningPolicyAsync(request, Ct, capturedElapsedLimit: TimeSpan.FromMinutes(8)));
+        Assert.Equal(writes, records.Writes);
+    }
+
+    [Theory]
     [InlineData(null)]
     [InlineData("cost_ceiling_eur")]
     [InlineData("max_calls")]

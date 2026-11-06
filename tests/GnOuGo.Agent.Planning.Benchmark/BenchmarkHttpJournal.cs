@@ -131,7 +131,9 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
                     }
                 }
             }
-            if (totals["cost_upper_bound_eur"]!.GetValue<decimal>() + reviewCostHeadroom > await campaign.CostCeilingAsync(ct) || sessionExhausted)
+            var retainedOtherReservations = _effectiveTransportPolicy?["retained_external_reservations_eur"]?.GetValue<decimal>() ?? 0;
+            if (retainedOtherReservations < 0) throw new InvalidOperationException("Retained financial headroom cannot be negative.");
+            if (totals["cost_upper_bound_eur"]!.GetValue<decimal>() + reviewCostHeadroom + retainedOtherReservations > await campaign.CostCeilingAsync(ct) || sessionExhausted)
             { campaign.BudgetExceeded(sessionExhausted); throw new InvalidOperationException("The campaign or session cannot cover another HTTP attempt."); }
         }
         await campaign.SaveAsync(Collection, requestId, record, ct);
