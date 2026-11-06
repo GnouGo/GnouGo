@@ -77,6 +77,8 @@ public static class PlanningDiscoveryRecoveryActions
                 };
                 foreach (var request in step.PendingDiscovery.Pending)
                     (state.Discovery.ActiveSourceActions ??= new(StringComparer.Ordinal))[PlanningDiscoveryFocus.SourceKey(request.SourceId, request.Query!, request.FocusId)] = step.PendingDiscovery.Id;
+                if (selection.Resolution == "refresh_source")
+                    state.Discovery.ActiveSourceActions![PlanningDiscoveryFocus.SourceKey(failure.SourceId, failure.Query, failure.FocusId)] = step.PendingDiscovery.Id;
             }
             state.Status = PlanningStatus.DiscoveryRecovery;
             state.Phase = PlanningCompactConstruction.DiscoveryPurpose;

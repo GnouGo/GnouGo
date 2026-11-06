@@ -29,6 +29,11 @@ internal static class PlanningDiscoveryFocus
     internal static JsonArray Presentation(PlanningSession state) => new(Choices(state).Select(f => (JsonNode)new JsonObject
         { ["id"] = f.Id, ["need"] = f.Query, ["basis"] = f.Basis }).ToArray());
     internal static string SourceKey(string source, string query, string? focus = null) => source + "\n" + query + (focus is null ? "" : "\n" + focus);
+    // Active action references select metadata for decisions. Historical pages
+    // remain retained and available through their exact versioned evidence.
+    internal static IEnumerable<CapabilityPage> VisiblePages(PlanningSession state) => state.Discovery.Pages.Where(page =>
+        page.Query is null || state.Discovery.ActiveSourceActions?.GetValueOrDefault(SourceKey(page.SourceId, page.Query, page.FocusId)) is not { } action ||
+        page.ActionId == action);
     internal static IEnumerable<CapabilityPage> Pages(PlanningSession state, string source, string query, string? focus = null)
     {
         var active = state.Discovery.ActiveSourceActions?.GetValueOrDefault(SourceKey(source, query, focus));

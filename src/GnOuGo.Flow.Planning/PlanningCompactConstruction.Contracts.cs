@@ -53,8 +53,8 @@ internal static partial class PlanningCompactConstruction
         var step = state.Construction!.Compact!.CurrentStep!;
         var query = CapabilityRelevance.Query(step.Objective);
         var pages = !retained
-            ? state.Discovery.Pages.Where(page => page.Query == step.Objective && page.ProducedArtifactKind is null)
-            : state.Discovery.Pages;
+            ? PlanningDiscoveryFocus.VisiblePages(state).Where(page => page.Query == step.Objective && page.ProducedArtifactKind is null)
+            : PlanningDiscoveryFocus.VisiblePages(state);
         var ranked = CapabilityRelevance.Rank(DescriptorCandidates(state, pages), query).ToArray();
         if (offset < 0 || offset > ranked.Length)
             PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "The operation directory offset is outside the retained metadata.");
@@ -85,7 +85,7 @@ internal static partial class PlanningCompactConstruction
     {
         if (State(state).CurrentStep is not { OperationIds.Count: > 0 } step)
             return null;
-        var companions = state.Discovery.Pages.Where(page => page.Query == step.Objective && page.ProducedArtifactKind is null)
+        var companions = PlanningDiscoveryFocus.VisiblePages(state).Where(page => page.Query == step.Objective && page.ProducedArtifactKind is null)
             .SelectMany(page => page.Capabilities).Where(capability => capability.Operation is not null &&
                 state.Catalog!.AllowedStepTypes.Contains(capability.StepType) && !state.Catalog.Policy.DeniedCapabilityIds.Contains(capability.Id) &&
                 !step.OperationIds.Contains(capability.Operation.Id, StringComparer.Ordinal))
@@ -109,7 +109,7 @@ internal static partial class PlanningCompactConstruction
     {
         if (State(state).CurrentStep is not { } step) return null;
         var reads = state.Construction!.EvidenceRequests.ToHashSet(StringComparer.Ordinal);
-        var ranked = CapabilityRelevance.Rank(DescriptorCandidates(state, state.Discovery.Pages), CapabilityRelevance.Query(step.Objective))
+        var ranked = CapabilityRelevance.Rank(DescriptorCandidates(state, PlanningDiscoveryFocus.VisiblePages(state)), CapabilityRelevance.Query(step.Objective))
             .Where(capability => capability.Operation!.Version == capability.Version).ToArray();
         var described = ranked.Where(capability => state.Construction.Evidence is { Count: > 0 } &&
             reads.Contains(PlanningConstruction.EvidenceBatchFingerprint(state,
@@ -118,7 +118,7 @@ internal static partial class PlanningCompactConstruction
         // immutable operation metadata already returned by those providers.
         // These bounded descriptions remain selection aids, never resolved
         // contracts, new reads, or authority to execute.
-        var earlier = state.Discovery.Pages.Where(page => page.Query != step.Objective && page.ProducedArtifactKind is null)
+        var earlier = PlanningDiscoveryFocus.VisiblePages(state).Where(page => page.Query != step.Objective && page.ProducedArtifactKind is null)
             .SelectMany(page => page.Capabilities).Where(capability => capability.Operation is not null)
             .Select(capability => (capability.Id, capability.Operation!.Id, capability.Operation.Version)).ToHashSet();
         var cached = step.BaseHash == PlanningConstruction.Hash(state.Plan)

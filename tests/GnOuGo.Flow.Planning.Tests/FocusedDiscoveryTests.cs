@@ -170,6 +170,36 @@ public sealed class FocusedDiscoveryTests
         Assert.Contains(id, state.Discovery.SupersededFailures!); Assert.Equal("stale", state.Discovery.Pages[0].Cursor);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RefreshOffersOnlyTheNewActionVersionWhileKeepingOldPages(bool diagnostic)
+    {
+        var source = new Source("renamed-records", 1); var (state, runtime) = Ready(source);
+        if (diagnostic) state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        runtime.Respond = (request, _) => Discover(request, state, source.Id);
+        state = await Advance(state, runtime);
+        var originalPage = Assert.Single(state.Discovery.Pages);
+        var originalVersion = Assert.Single(originalPage.Capabilities).Version;
+        var step = state.Construction!.Compact!.CurrentStep!; var focus = PlanningDiscoveryFocus.Choices(state)[0];
+        var failure = new CapabilityDiscoveryFailure("changed-source", source.Id, focus.Id, focus.Query, null,
+            "catalog_changed", "Explicit metadata refresh required", originalPage.SnapshotVersion, null, null, DateTimeOffset.UtcNow) { StepId = step.Id };
+        state.Discovery.Failures = [failure];
+        source.Tools[0].OutputSchema!["type"] = "integer";
+        runtime.Capabilities = new CapabilityDiscovery(new() { McpClientFactory = source });
+        runtime.DiscoveryRecoveryGuard = (_, _) => Task.CompletedTask;
+        state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { Kind = "recover_discovery", ExpectedRevision = state.Revision,
+            DiscoveryRecovery = new(failure.Id, "refresh_source") }, runtime, Ct);
+        Assert.Equal(2, state.Discovery.Pages.Count); Assert.Single(runtime.Calls);
+        Assert.Equal(originalVersion, state.Discovery.Pages[0].Capabilities[0].Version);
+        var current = state.Discovery.Pages[1].Capabilities[0]; Assert.NotEqual(originalVersion, current.Version);
+        var descriptor = Assert.Single(PlanningCompactConstruction.ContractDescriptors(state));
+        Assert.Equal(current.Version, descriptor!["version"]!.ToString());
+        Assert.Equal(current.Version, (await runtime.Capabilities.ResolveAsync(current, Ct)).Version);
+        await Assert.ThrowsAsync<PlanningConflictException>(() => runtime.Capabilities.ResolveAsync(originalPage.Capabilities[0], Ct));
+        Assert.Equal("block_1", state.Construction!.Compact!.CurrentBlockId);
+    }
+
     [Fact]
     public async Task IdleExploratoryWarningCanBeExplicitlyRefreshedWithoutNewInference()
     {

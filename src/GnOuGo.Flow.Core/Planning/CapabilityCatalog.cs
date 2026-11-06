@@ -27,6 +27,8 @@ public sealed record CapabilityPage(string SourceId, string? Cursor, List<Capabi
     public string? FailureId { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? ActionId { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? FailureCategory { get; init; }
 }
 
 public sealed class CapabilityDiscoveryState

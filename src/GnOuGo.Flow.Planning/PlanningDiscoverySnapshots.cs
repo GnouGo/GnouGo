@@ -3,6 +3,7 @@ using System.Text.Json;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Core.Models;
+using GnOuGo.Flow.Planning.Capabilities;
 
 namespace GnOuGo.Flow.Planning;
 
@@ -18,7 +19,7 @@ internal static class PlanningDiscoverySnapshots
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (PlanningConflictException) { throw; }
             catch (WorkflowRuntimeException) { throw; }
-            catch (Exception ex) { throw ProviderFailure(ex); }
+            catch (Exception ex) { throw CapabilityDiscovery.ProviderFailure(ex); }
         }
         CapabilitySourceSnapshot snapshot;
         string version;
@@ -40,7 +41,7 @@ internal static class PlanningDiscoverySnapshots
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (PlanningConflictException) { throw; }
             catch (WorkflowRuntimeException) { throw; }
-            catch (Exception ex) { throw ProviderFailure(ex); }
+            catch (Exception ex) { throw CapabilityDiscovery.ProviderFailure(ex); }
             if (snapshot.SourceId != request.SourceId || string.IsNullOrWhiteSpace(snapshot.ConfigurationFingerprint))
                 throw new PlanningConflictException("The captured source snapshot has another owner.");
             version = Version(snapshot);
@@ -56,12 +57,9 @@ internal static class PlanningDiscoverySnapshots
             throw new PlanningConflictException("The retained source snapshot is invalid.");
         try { return catalog.ReadPage(snapshot, request.Cursor, query) with { SnapshotVersion = version }; }
         // A pinned snapshot must never silently reinterpret a mismatched cursor.
-        catch (ArgumentException) { throw new WorkflowRuntimeException("DISCOVERY_NO_PROGRESS", "The cursor does not belong to the retained catalog snapshot."); }
+        catch (ArgumentException) { throw new WorkflowRuntimeException("DISCOVERY_CURSOR_INCOMPATIBLE", "The cursor does not belong to the retained catalog snapshot."); }
     }
 
     internal static string Version(CapabilitySourceSnapshot snapshot) => PlanningGraphCompiler.Fingerprint(
         JsonSerializer.Serialize(snapshot, CapabilitySnapshotJsonContext.Default.CapabilitySourceSnapshot));
-    private static CapabilityDiscoveryException ProviderFailure(Exception ex) => ex as CapabilityDiscoveryException ?? new(
-        ex is OperationCanceledException ? "timeout" : ex is ArgumentException ? "catalog_changed" : ex is JsonException ? "invalid_contract" : "transport_unavailable",
-        "The source metadata is unavailable; no capability absence has been established.");
 }

@@ -342,7 +342,7 @@ public sealed partial class HybridWorkflowPlanner
                     PlanningConstruction.Fail("DISCOVERY_SELECTION_INVALID", "/operationIds", "The selected operation is not policy-allowed.");
                 continue;
             }
-            var discovered = state.Discovery.Pages.SelectMany(p => p.Capabilities).Where(c => c.Operation?.Id == operation)
+            var discovered = PlanningDiscoveryFocus.VisiblePages(state).SelectMany(p => p.Capabilities).Where(c => c.Operation?.Id == operation)
                 .DistinctBy(c => (c.Id, c.Version)).ToArray();
             if (discovered.Length != 1) PlanningConstruction.Fail("DISCOVERY_SELECTION_INVALID", "/operationIds", "Select an unambiguous discovered operation.");
             await PlanningDiscoveryContext.ResolveAsync(state, runtime, discovered[0], ct);

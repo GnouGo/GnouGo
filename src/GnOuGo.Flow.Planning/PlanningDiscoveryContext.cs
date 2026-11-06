@@ -45,11 +45,14 @@ internal static class PlanningDiscoveryContext
         catch (PlanningConflictException) when (focused) { throw; }
         catch (GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException) when (focused) { throw; }
         catch (CapabilityDiscoveryException ex) when (focused)
-        { page = new(source, cursor, [], null, ex.Message) { FailureId = RecordFailure(ex.Category) }; }
-        catch (Exception) when (!focused)
-        { page = new(source, cursor, [], null, "This source is unavailable; its capabilities have not been inspected."); }
+        { page = new(source, cursor, [], null, ex.Message) { FailureId = RecordFailure(ex.Category), FailureCategory = ex.Category }; }
+        catch (Exception ex) when (!focused)
+        {
+            var failure = Capabilities.CapabilityDiscovery.ProviderFailure(ex);
+            page = new(source, cursor, [], null, failure.Message) { FailureCategory = failure.Category };
+        }
         if (focused && page.UnavailableReason is not null && page.FailureId is null)
-            page = page with { FailureId = RecordFailure("invalid_contract") };
+            page = page with { FailureId = RecordFailure(page.FailureCategory ?? "invalid_contract"), FailureCategory = page.FailureCategory ?? "invalid_contract" };
         page = page with { Query = query, ProducedArtifactKind = producedArtifactKind, FocusId = selection?.FocusId, ActionId = action?.Id };
         state.Discovery.Pages.Add(page);
         if (page.UnavailableReason is { } reason) state.Discovery.Limitations.Add(source + ": " + reason);
