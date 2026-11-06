@@ -14,6 +14,68 @@ public sealed class BenchmarkCampaignTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Theory]
+    [InlineData("valid")]
+    [InlineData("missing")]
+    [InlineData("material")]
+    [InlineData("configuration")]
+    [InlineData("host")]
+    [InlineData("authorization")]
+    public async Task SelectionDiagnosisUsesEveryOriginalGuardWithoutWrites(string defect)
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "selection");
+        var original = new JsonObject { ["provider"] = "OpenAi", ["model"] = "original" };
+        await campaign.PinAsync(original, Ct);
+        var current = original.DeepClone().AsObject(); current["model"] = "configured-private-deployment";
+        var preview = await campaign.RegisterConfigurationAsync(current, new string('a', 64), new string('b', 64), PlanningGraphCompiler.Fingerprint(original.ToJsonString()),
+            "selection-authorization", false, Ct);
+        var id = preview["configuration_id"]!.ToString();
+        await campaign.RegisterConfigurationAsync(current, new string('a', 64), new string('b', 64), PlanningGraphCompiler.Fingerprint(original.ToJsonString()),
+            "selection-authorization", true, Ct, id);
+        var saved = (await campaign.LoadAsync("planning-evaluation-configuration", "configuration:" + id, Ct))!;
+        var savedBytes = saved.ToJsonString();
+        if (defect == "material") { saved["extra"] = true; await campaign.SaveAsync("planning-evaluation-configuration", "configuration:" + id, saved, Ct); }
+        if (defect == "authorization") await campaign.SaveAsync("planning-evaluation-configuration", "configuration-authorization:" + PlanningGraphCompiler.Fingerprint("selection-authorization"), new() { ["configuration_id"] = "other" }, Ct);
+        if (defect == "configuration") current["model"] = "stale";
+        if (defect == "missing") id = "missing";
+        var writes = records.Writes;
+        var result = await campaign.CheckConfigurationSelectionAsync(id, current, defect == "host" ? "changed" : new string('a', 64), Ct);
+        Assert.Equal(defect == "valid", result.Accepted);
+        if (defect == "valid") await campaign.SelectConfigurationAsync(id, current, new string('a', 64), Ct);
+        else
+        {
+            var error = await Assert.ThrowsAsync<PlanningConflictException>(() => campaign.SelectConfigurationAsync(id, current, defect == "host" ? "changed" : new string('a', 64), Ct));
+            Assert.Equal(result.ToJson().ToJsonString(), Assert.IsType<JsonObject>(error.Data["gnougo.campaign_configuration_selection"]).ToJsonString());
+            Assert.Null(campaign.ConfigurationId);
+            Assert.Single(result.Failures);
+        }
+        Assert.Equal(writes, records.Writes);
+        Assert.Equal(original.ToJsonString(), (await campaign.LoadAsync("planning-evaluation-configuration", "configuration", Ct))!.ToJsonString());
+        if (defect == "missing") { Assert.Null(result.MaterialHashMatches); Assert.Null(result.AuthorizationBindingMatches); }
+        else if (defect != "material") Assert.Equal(savedBytes, (await campaign.LoadAsync("planning-evaluation-configuration", "configuration:" + id, Ct))!.ToJsonString());
+    }
+
+    [Fact]
+    public void BillingDefaultDifferencesAreExactAndSecretsAreWithheld()
+    {
+        var previous = new JsonObject { ["model"] = "private-deployment", ["endpoint"] = "https://secret-host/?key=old-secret", ["request_policy"] = new JsonObject() };
+        var current = previous.DeepClone().AsObject();
+        current["endpoint"] = "https://other-secret/?key=new-secret";
+        current["credential"] = "credential-secret";
+        current["request_policy"] = new JsonObject { ["BillingServiceTier"] = "standard", ["BillingRegionalProcessing"] = false, ["BillingCacheRetention"] = "30m" };
+        var differences = BenchmarkCampaign.ConfigurationDifferences(previous, current);
+        Assert.Equal(5, differences.Count);
+        var billing = differences.OfType<JsonObject>().Where(p => p["field"]!.ToString().StartsWith("request_policy.", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(3, billing.Length);
+        Assert.All(billing, field => Assert.False(field["previous_present"]!.GetValue<bool>()));
+        Assert.Contains("standard", differences.ToJsonString()); Assert.Contains("30m", differences.ToJsonString());
+        Assert.DoesNotContain("secret", differences.ToJsonString());
+        Assert.Empty(BenchmarkCampaign.ConfigurationDifferences(null, current));
+        var sources = KeyVaultBenchmarkModel.DescribeConfigurationSources(new JsonObject(), "OpenAi", new() { ["model"] = "keyvault_provider_configuration" });
+        Assert.Equal("code_default", sources["request_policy.BillingServiceTier"]!.ToString());
+        Assert.Equal("keyvault_provider_configuration", sources["model"]!.ToString());
+    }
+
+    [Theory]
     [InlineData("{\"result\":42}", true)]
     [InlineData("{\"result\":42.0}", true)]
     [InlineData("{\"result\":4.2e1}", true)]

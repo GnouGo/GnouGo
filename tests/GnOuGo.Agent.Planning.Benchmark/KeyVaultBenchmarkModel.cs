@@ -62,6 +62,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
     internal string ConfigurationFingerprint => PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(_options) +
         JsonSerializer.Serialize(new RoutingLLMClient(_options, []).ResolveDeclaredMetadata(Provider, Model)));
     internal JsonObject MetadataSources { get; private init; } = new();
+    internal JsonObject ConfigurationSources { get; private init; } = new();
     public async Task AdmitConstructionAsync(LLMRequest request, int inputTokenCeiling,
         IReadOnlyList<int> outputTokenCeilings, CancellationToken ct)
     {
@@ -310,7 +311,21 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             ["persisted_user_config_available"] = File.Exists(database), ["persisted_override_count"] = userOverrides?.Count ?? 0,
             ["persisted_overrides_hash"] = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(userOverrides)) };
         var settings = options.ResolveProvider(options.DefaultProvider) ?? throw new InvalidOperationException("No configured provider.");
-        var result = new KeyVaultBenchmarkModel(campaign, options) { MetadataSources = sources };
+        var providerSources = new JsonObject();
+        foreach (var secret in KeyVaultConfigNaming.SelectPreferredSecrets(await config.ListSecretsAsync(ct), KeyVaultConfigSecretKind.LlmProvider))
+        {
+            var text = await config.GetSecretValueAsync(secret.Key, ct);
+            if (text is null || JsonNode.Parse(text) is not JsonObject entry) continue;
+            string? Field(string name) => entry.FirstOrDefault(p => string.Equals(p.Key, name, StringComparison.OrdinalIgnoreCase)).Value?.ToString();
+            var name = Field("provider") ?? KeyVaultConfigNaming.TryGetLogicalName(KeyVaultConfigSecretKind.LlmProvider, secret.Key);
+            if (!string.Equals(name, options.DefaultProvider, StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(Field("url"))) continue;
+            providerSources["endpoint"] = "keyvault_provider_configuration";
+            if (!string.IsNullOrWhiteSpace(Field("model"))) providerSources["model"] = "keyvault_provider_configuration";
+            if (LlmGenerationProtocol.Read(entry) is not null) providerSources["request_policy.BackgroundProtocol"] = "keyvault_provider_configuration";
+            if (entry.ContainsKey("retryPolicy")) providerSources["retry_policy"] = "keyvault_provider_configuration";
+        }
+        var provenance = DescribeConfigurationSources(host, providerName, providerSources);
+        var result = new KeyVaultBenchmarkModel(campaign, options) { MetadataSources = sources, ConfigurationSources = provenance };
         if (!pinConfiguration && campaignConfiguration is null) return result;
         try
         {
@@ -329,6 +344,18 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             return result;
         }
         catch { result.Dispose(); throw; }
+    }
+    internal static JsonObject DescribeConfigurationSources(JsonNode? host, string provider, JsonObject keyVaultSources)
+    {
+        var policy = host?["LLM"]?["Models"]?[provider]?["RequestPolicy"] as JsonObject;
+        var result = new JsonObject { ["provider"] = "campaign_provider_pin", ["model"] = "expected_model_argument",
+            ["endpoint"] = "host_configuration", ["metadata"] = "bundled_catalog_and_host_overrides_then_persisted_user_overrides",
+            ["environment"] = "not applied by the campaign loader; Server configuration providers are reported separately",
+            ["historical_host_options"] = "unavailable" };
+        foreach (var field in new[] { "BillingServiceTier", "BillingRegionalProcessing", "BillingCacheRetention", "BackgroundProtocol", "UnspecifiedOutputTokens", "DefaultMaxOutputTokens", "MaxOutputTokensCap" })
+            result["request_policy." + field] = policy?.Any(p => string.Equals(p.Key, field, StringComparison.OrdinalIgnoreCase)) == true ? "host_configuration" : "code_default";
+        foreach (var pair in keyVaultSources) result[pair.Key] = pair.Value?.DeepClone();
+        return result;
     }
     internal JsonObject CampaignConfiguration() => new() { ["provider"] = Provider, ["model"] = Model,
         ["endpoint"] = _options.ResolveProvider(Provider)!.Url, ["request_policy"] = JsonSerializer.SerializeToNode(_options.ResolveProvider(Provider)!.RequestPolicy),

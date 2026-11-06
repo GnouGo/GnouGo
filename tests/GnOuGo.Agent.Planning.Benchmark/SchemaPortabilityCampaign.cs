@@ -59,31 +59,20 @@ internal static class SchemaPortabilityCampaign
             var readiness = await proposed.ReadinessAsync(CancellationToken.None);
             if (phase == "inspect-deployment")
             {
-                var original = await campaign.LoadAsync("planning-evaluation-configuration", "configuration")
-                    ?? throw new PlanningConflictException("The original campaign configuration is missing.");
                 var selectedId = Option(args, "--campaign-configuration");
-                var selected = selectedId is null ? null : await campaign.LoadAsync("planning-evaluation-configuration", "configuration:" + selectedId)
-                    ?? throw new PlanningConflictException("The configuration selected for comparison does not exist.");
-                if (selected is not null) original = selected["configuration"]!.AsObject();
+                var selected = selectedId is null ? null : await campaign.LoadAsync("planning-evaluation-configuration", "configuration:" + selectedId);
+                var original = selectedId is null ? await campaign.LoadAsync("planning-evaluation-configuration", "configuration") : selected?["configuration"] as JsonObject;
                 var current = proposed.CampaignConfiguration();
-                string? Origin(JsonNode? endpoint) => Uri.TryCreate(endpoint?.ToString(), UriKind.Absolute, out var uri)
-                    ? uri.Scheme + "://" + uri.IdnHost + (uri.IsDefaultPort ? "" : ":" + uri.Port) : null;
-                var oldEndpoint = original["endpoint"]?.ToString(); var newEndpoint = current["endpoint"]?.ToString();
-                var differences = new JsonArray();
-                foreach (var key in original.Select(p => p.Key).Union(current.Select(p => p.Key), StringComparer.Ordinal).Order(StringComparer.Ordinal))
-                    if (!JsonNode.DeepEquals(original[key], current[key]))
-                        differences.Add(new JsonObject { ["field"] = key,
-                            ["previous"] = key == "endpoint" ? PlanningGraphCompiler.Fingerprint(original[key]?.ToString() ?? "") : original[key]?.DeepClone(),
-                            ["current"] = key == "endpoint" ? PlanningGraphCompiler.Fingerprint(current[key]?.ToString() ?? "") : current[key]?.DeepClone(),
-                            ["representation"] = key == "endpoint" ? "sha256; endpoint secrets withheld" : "configuration_value" });
+                var checks = selectedId is null ? null : await campaign.CheckConfigurationSelectionAsync(selectedId, current, proposed.ConfigurationFingerprint, CancellationToken.None);
+                var oldEndpoint = original?["endpoint"]?.ToString(); var newEndpoint = current["endpoint"]?.ToString();
                 Console.WriteLine(new JsonObject { ["readiness"] = readiness, ["compared_configuration"] = selectedId ?? "original",
-                    ["differences"] = differences,
-                    ["host_fingerprint_matches"] = selected is null ? null : selected["host_configuration_hash"]?.ToString() == proposed.ConfigurationFingerprint,
+                    ["selection_checks"] = checks?.ToJson(), ["configuration_sources"] = proposed.ConfigurationSources.DeepClone(),
+                    ["differences"] = BenchmarkCampaign.ConfigurationDifferences(original, current),
+                    ["host_fingerprint_matches"] = checks?.HostFingerprintMatches,
                     ["metadata_fingerprint_matches"] = selected is null ? null : selected["declared_metadata_hash"]?.ToString() == readiness["declared_metadata_hash"]?.ToString(),
-                    ["historical_host_options_available"] = false,
-                    ["previous_endpoint_origin"] = Origin(original["endpoint"]), ["configured_endpoint_origin"] = Origin(current["endpoint"]),
-                    ["endpoint_matches"] = oldEndpoint == newEndpoint,
-                    ["endpoint_differs_only_by_trailing_slash"] = oldEndpoint?.TrimEnd('/') == newEndpoint?.TrimEnd('/') }.ToJsonString());
+                    ["historical_host_options_available"] = false, ["historical_configuration_available"] = original is not null,
+                    ["endpoint_matches"] = original is null ? null : oldEndpoint == newEndpoint,
+                    ["endpoint_differs_only_by_trailing_slash"] = original is null ? null : oldEndpoint?.TrimEnd('/') == newEndpoint?.TrimEnd('/') }.ToJsonString());
                 return;
             }
             KeyVaultBenchmarkModel.RequireReady(readiness);

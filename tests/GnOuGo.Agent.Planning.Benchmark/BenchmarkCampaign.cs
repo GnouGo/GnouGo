@@ -85,13 +85,68 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
 
     internal async Task SelectConfigurationAsync(string identity, JsonObject configuration, string hostHash, CancellationToken ct)
     {
-        var saved = await LoadAsync("planning-evaluation-configuration", "configuration:" + identity, ct);
-        if (saved is null || identity != PlanningGraphCompiler.Fingerprint(saved.ToJsonString()) ||
-            !JsonNode.DeepEquals(saved["configuration"], configuration) || saved["host_configuration_hash"]?.ToString() != hostHash ||
-            (await LoadAsync("planning-evaluation-configuration", "configuration-authorization:" +
-                PlanningGraphCompiler.Fingerprint(saved["authorization"]!.ToString()), ct))?["configuration_id"]?.ToString() != identity)
-            throw new PlanningConflictException("The selected campaign configuration is missing, changed or does not match this deployment.");
+        var selection = await CheckConfigurationSelectionAsync(identity, configuration, hostHash, ct);
+        if (!selection.Accepted)
+        {
+            var error = new PlanningConflictException("The selected campaign configuration is missing, changed or does not match this deployment. Failed checks: " +
+                string.Join(", ", selection.Failures) + ".", "campaign_configuration_mismatch");
+            error.Data["gnougo.campaign_configuration_selection"] = selection.ToJson();
+            throw error;
+        }
         ConfigurationId = identity;
+    }
+
+    // Read-only diagnosis uses the exact same predicates as selection; no historical hash is rebuilt from current defaults.
+    internal async Task<ConfigurationSelection> CheckConfigurationSelectionAsync(string identity, JsonObject configuration, string hostHash, CancellationToken ct)
+    {
+        var saved = await LoadAsync("planning-evaluation-configuration", "configuration:" + identity, ct);
+        if (saved is null) return new(false, null, null, null, null);
+        var authorization = saved["authorization"]?.ToString();
+        var binding = authorization is null ? null : await LoadAsync("planning-evaluation-configuration", "configuration-authorization:" +
+            PlanningGraphCompiler.Fingerprint(authorization), ct);
+        return new(true, identity == PlanningGraphCompiler.Fingerprint(saved.ToJsonString()),
+            JsonNode.DeepEquals(saved["configuration"], configuration), saved["host_configuration_hash"]?.ToString() == hostHash,
+            binding?["configuration_id"]?.ToString() == identity);
+    }
+
+    internal sealed record ConfigurationSelection(bool RecordExists, bool? MaterialHashMatches, bool? ConfigurationMatches,
+        bool? HostFingerprintMatches, bool? AuthorizationBindingMatches)
+    {
+        internal bool Accepted => RecordExists && MaterialHashMatches == true && ConfigurationMatches == true &&
+            HostFingerprintMatches == true && AuthorizationBindingMatches == true;
+        internal string[] Failures => new (string Name, bool? Value)[] {
+            ("configuration_exists", RecordExists), ("material_hash_matches", MaterialHashMatches),
+            ("configuration_matches", ConfigurationMatches), ("host_fingerprint_matches", HostFingerprintMatches),
+            ("authorization_binding_matches", AuthorizationBindingMatches) }.Where(check => check.Value == false).Select(check => check.Name).ToArray();
+        internal JsonObject ToJson() => new() { ["accepted"] = Accepted, ["configuration_exists"] = RecordExists,
+            ["material_hash_matches"] = MaterialHashMatches, ["configuration_matches"] = ConfigurationMatches,
+            ["host_fingerprint_matches"] = HostFingerprintMatches, ["authorization_binding_matches"] = AuthorizationBindingMatches,
+            ["failed_checks"] = new JsonArray(Failures.Select(name => (JsonNode?)JsonValue.Create(name)).ToArray()) };
+    }
+
+    internal static JsonArray ConfigurationDifferences(JsonObject? previous, JsonObject current)
+    {
+        var result = new JsonArray();
+        if (previous is null) return result; // No historical values are inferred from today's defaults.
+        Compare(previous, current, "");
+        return result;
+
+        void Compare(JsonObject before, JsonObject after, string path)
+        {
+            foreach (var key in before.Select(p => p.Key).Union(after.Select(p => p.Key), StringComparer.Ordinal).Order(StringComparer.Ordinal))
+            {
+                var field = path + key;
+                if (JsonNode.DeepEquals(before[key], after[key]) && before.ContainsKey(key) == after.ContainsKey(key)) continue;
+                if (field == "request_policy" && before[key] is JsonObject left && after[key] is JsonObject right)
+                { Compare(left, right, field + "."); continue; }
+                var visible = field is "provider" or "model" or "reasoning" or "max_input_tokens" or "max_output_tokens" or "max_calls" or "max_repairs" or "cost_ceiling_eur" or
+                    "request_policy.BillingServiceTier" or "request_policy.BillingRegionalProcessing" or "request_policy.BillingCacheRetention" or
+                    "request_policy.BackgroundProtocol" or "request_policy.UnspecifiedOutputTokens" or "request_policy.DefaultMaxOutputTokens" or "request_policy.MaxOutputTokensCap";
+                JsonNode? Value(JsonNode? node) => node is null ? null : visible ? node.DeepClone() : JsonValue.Create(PlanningGraphCompiler.Fingerprint(node.ToJsonString()));
+                result.Add(new JsonObject { ["field"] = field, ["previous_present"] = before.ContainsKey(key), ["current_present"] = after.ContainsKey(key),
+                    ["previous"] = Value(before[key]), ["current"] = Value(after[key]), ["representation"] = visible ? "configuration_value" : "sha256; value withheld" });
+            }
+        }
     }
     internal async Task<decimal> CostCeilingAsync(CancellationToken ct = default)
         => (await LoadAsync("planning-evaluation-configuration", "spending-authorization", ct))?["ceiling_eur"]?.GetValue<decimal>() ?? 50m;
