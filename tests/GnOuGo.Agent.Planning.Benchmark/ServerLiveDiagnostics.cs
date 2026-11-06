@@ -72,13 +72,22 @@ internal static class ServerLiveDiagnostics
         }
         await using var app = GnOuGoAgentWebHost.Build(hostArgs, "http://127.0.0.1:0", Path.Combine(root, "src/GnOuGo.Agent.Server"), false,
             services => {
-                if (!planning) return;
                 services.AddSingleton<IPlanningDiscoveryRecoveryGuard>(new RetainedDiscoveryGuard(campaign));
+                if (!planning) return;
                 services.AddSingleton<SecureWorkflowRuntimeFactory>(sp => new(sp.GetRequiredService<LLMRuntimeOptionsStore>(),
                     sp.GetRequiredService<IKeyVaultRuntimeConfigStore>(), sp.GetRequiredService<ILoggerFactory>(),
                     llmClientOverride: new CampaignClient(model, sp.GetRequiredService<IPlanningSessionStore>(),
                         sp.GetRequiredService<LlmTraceCapture>(), sp.GetRequiredService<LLMRuntimeOptionsStore>()),
                     defaults: sp.GetRequiredService<LlmDefaultsResolver>()));
+            });
+        if (!planning)
+            app.Use(async (context, next) =>
+            {
+                var safeProbe = !retained && !mcpReadiness && context.Request.Path == "/api/planning/live-provider-probe";
+                if (context.Request.Path.StartsWithSegments("/api/planning") && !safeProbe &&
+                    !HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method))
+                { context.Response.StatusCode = 403; return; }
+                await next(context);
             });
         var options = await app.Services.GetRequiredService<LlmDefaultsResolver>().ResolveAsync();
         if (options.DefaultProvider != model.Provider || options.DefaultModel != model.Model ||
@@ -162,6 +171,11 @@ internal static class ServerLiveDiagnostics
             }
             else if (mcpReadiness)
             {
+                using (var denied = await client.PostAsJsonAsync("/api/planning", new GnOuGo.Agent.Shared.PlanningStartDto("forbidden-metadata-inference", "No inference is authorized by metadata readiness.")))
+                {
+                    if (denied.StatusCode != HttpStatusCode.Forbidden) throw new InvalidOperationException("Metadata readiness exposed a planning mutation endpoint.");
+                    report["planning_mutations_blocked"] = true;
+                }
                 var server = SchemaPortabilityCampaign.RequiredOption(args, "--mcp-server");
                 await using var runtime = await app.Services.GetRequiredService<SecureWorkflowRuntimeFactory>().CreateAsync(CancellationToken.None);
                 var config = runtime.Options.McpServers[server];

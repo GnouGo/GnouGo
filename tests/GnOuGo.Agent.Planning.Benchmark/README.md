@@ -502,3 +502,5 @@ a script whose source consumes stdin. Execution repeats preflight and retains
 exact artifact-bound delegated review and each individual invocation confirmation.
 
 `server-live-mcp-readiness --snapshot-pagination` verifies the configured source through the actual Server runtime, publishes an immutable catalog snapshot in the existing journal and recreates its reader every four pages. It checks exact coverage with zero LLM inference. Use a fresh run identity; ordinary live funding and replay preflight remain mandatory before any later paid planning.
+
+Metadata-readiness and retained-inspection hosts reject planning mutation HTTP endpoints. Their authenticated bootstrap does not authorize inference. The existing campaign retention guard remains registered in every harness mode; snapshot readiness verifies the mutation rejection before reading real metadata.
