@@ -161,7 +161,7 @@ internal sealed partial class BenchmarkCampaign
             policy["planning_format"]?.GetValue<int>() != 11 ||
             !JsonNode.DeepEquals(policy["construction_limits"], state.Request.Options["construction_limits"]) ||
             !JsonNode.DeepEquals(policy[PlanningTokenThresholds.OptionName], state.Request.Options[PlanningTokenThresholds.OptionName]) ||
-            !JsonNode.DeepEquals(journal?["effective_transport_policy"]?[PlanningTokenThresholds.OptionName], state.Request.Options[PlanningTokenThresholds.OptionName]) ||
+            !MatchesCapturedTokenAuthority(state.Request, journal?["effective_transport_policy"] as JsonObject) ||
             !JsonNode.DeepEquals(policy[PlanningTokenThresholds.OptimizationOptionName], state.Request.Options[PlanningTokenThresholds.OptimizationOptionName]) ||
             !JsonNode.DeepEquals(journal?["effective_transport_policy"]?[PlanningTokenThresholds.OptimizationOptionName], state.Request.Options[PlanningTokenThresholds.OptimizationOptionName]) ||
             journal?["transport"]?["Attempts"] is not JsonArray attempts ||
@@ -369,6 +369,19 @@ internal sealed partial class BenchmarkCampaign
     {
         if (retentionKind is not (null or SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention or InterruptedProcessRetention or ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention or CancelledPlanningRetention))
             throw new ArgumentException("Choose an exact supported permanent-retention kind.", nameof(retentionKind));
+    }
+
+    private static bool MatchesCapturedTokenAuthority(PlanningRequest request, JsonObject? transport)
+    {
+        var original = request.Options[PlanningTokenThresholds.OptionName];
+        var retained = transport?[PlanningTokenThresholds.OptionName];
+        if (JsonNode.DeepEquals(original, retained)) return true;
+        // Older Server bridges repeated token advisory authority already included
+        // in the exact captured diagnostic grant. Verify that grant on both sides;
+        // this cannot upgrade a strict/token-only session or change either record.
+        return original is null && JsonNode.DeepEquals(retained, JsonValue.Create("advisory")) &&
+            PlanningTokenThresholds.OptimizationAdvisory(request) &&
+            JsonNode.DeepEquals(transport?[PlanningTokenThresholds.OptimizationOptionName], request.Options[PlanningTokenThresholds.OptimizationOptionName]);
     }
 
     private static bool MatchesCapturedElapsed(PlanningSession state, JsonObject policy)

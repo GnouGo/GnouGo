@@ -159,6 +159,10 @@ configuration, tool-free request, exact transport and cancellation failure. Pres
 the complete uncertain reservation; never treat cancellation as a receipt or permit
 old continuation. Any execution marker, received body/usage or ownership mismatch
 requires its existing reconciliation path instead.
+Copy captured authority fields exactly in new adapters. A retained redundant token
+flag may be recognized only under the identical captured broader diagnostic grant;
+it cannot upgrade Strict/token-only authority or rewrite either capture. Validate
+Server elapsed policy against its captured session budget and recorded origin.
 
 ## Maintained references
 

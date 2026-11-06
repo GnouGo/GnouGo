@@ -590,7 +590,8 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                 ["max_elapsed_ms"] = (long)elapsed.TotalMilliseconds,
                 ["max_total_tokens"] = PlanningBudgetOptions.Parse(state.Request.Options)?.MaxTotalTokens ?? 15_000_000L,
                 ["review_token_headroom"] = checked(reviews * ((long)reviewInput + reviewOutput)) };
-            if (advisory) effective[PlanningTokenThresholds.OptionName] = "advisory";
+            if (state.Request.Options[PlanningTokenThresholds.OptionName] is { } tokenAuthority)
+                effective[PlanningTokenThresholds.OptionName] = tokenAuthority.DeepClone();
             if (PlanningTokenThresholds.OptimizationAdvisory(state.Request)) effective[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
             if (RetainedExternalReservationsEur < 0) throw new ArgumentOutOfRangeException(nameof(RetainedExternalReservationsEur));
             effective["retained_external_reservations_eur"] = RetainedExternalReservationsEur;

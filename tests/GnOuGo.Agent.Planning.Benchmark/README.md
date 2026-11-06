@@ -405,6 +405,11 @@ Retaining the incident permits independent fresh work and forbids old continuati
 or replay. It never creates a receipt or releases money. A campaign reservation
 already covering that exact Server attempt is counted once; do not add it again to
 `--retained-external-reservations-eur`.
+Fresh Server bridge captures copy the exact threshold authority fields. An older
+bridge's redundant token-advisory flag is equivalent only when both records retain
+the identical broader diagnostic grant; Strict or token-only sessions gain no grant.
+Historical records remain unchanged. Server elapsed captures are validated against
+their retained session budget and explicit origin, never current host defaults.
 Financial comparisons use exact decimal units; aggregate estimates round upward
 when decimal capacity requires it. This changes no individual historical charge,
 reservation or tariff and cannot create extra headroom.

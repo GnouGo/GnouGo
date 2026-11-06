@@ -35,6 +35,8 @@ public sealed partial class BenchmarkPermanentRetentionTests
     [InlineData("provider")]
     [InlineData("metadata")]
     [InlineData("elapsed")]
+    [InlineData("threshold")]
+    [InlineData("strict_authority")]
     [InlineData("status")]
     [InlineData("execution")]
     [InlineData("tools")]
@@ -54,6 +56,16 @@ public sealed partial class BenchmarkPermanentRetentionTests
             case "provider": run["provider"] = null; break;
             case "metadata": run["session"]!["request"]!["options"]!["captured_model_metadata"]!["model"] = "other"; break;
             case "elapsed": run["session"]!["request"]!["options"]!["llm_budget"]!["max_elapsed_ms"] = 1; break;
+            case "threshold": run["session"]!["request"]!["options"]!.AsObject().Remove("optimization_threshold_policy"); break;
+            case "strict_authority":
+                run["session"]!["request"]!["options"]!.AsObject().Remove("optimization_threshold_policy");
+                var policy = (await campaign.LoadAsync("planning-evaluation-session-policy", Session, Ct))!;
+                policy.Remove("optimization_threshold_policy");
+                await campaign.SaveAsync("planning-evaluation-session-policy", Session, policy, Ct);
+                var transport = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct))!;
+                transport["effective_transport_policy"]!.AsObject().Remove("optimization_threshold_policy");
+                transport["effective_transport_policy_hash"] = GnOuGo.Flow.Planning.PlanningGraphCompiler.Fingerprint(transport["effective_transport_policy"]!.ToJsonString());
+                await campaign.SaveAsync(BenchmarkHttpJournal.Collection, RequestId, transport, Ct); break;
             case "status": run["session"]!["status"] = PlanningStatus.Generating; break;
             case "execution": run["execution_started"] = "issued"; break;
             case "tools": run["session"]!["pendingCall"]!["request"]!["tools"] = new JsonArray(new JsonObject()); break;
@@ -90,11 +102,16 @@ public sealed partial class BenchmarkPermanentRetentionTests
         await campaign.SaveAsync("planning-evaluation-requests", RequestId, run["session"]!["pendingCall"]!["request"]!.DeepClone().AsObject(), Ct);
         run["session"]!["request"]!["options"]!.AsObject().Remove("benchmark_planning_elapsed_ms");
         var policy = (await campaign.LoadAsync("planning-evaluation-session-policy", Session, Ct))!;
+        run["session"]!["request"]!["options"]!["optimization_threshold_policy"] = "diagnostic-v1";
+        policy["optimization_threshold_policy"] = "diagnostic-v1";
         policy["elapsed_limit_origin"] = "captured_server_session_budget";
         await campaign.SaveAsync("planning-evaluation-session-policy", Session, policy, Ct);
         await campaign.SaveAsync("planning-evaluation-runs", CancelledRun, run, Ct);
         var journal = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct))!;
         journal["transport"]!["Attempts"]![0]!["Failure"] = null;
+        journal["effective_transport_policy"]!["optimization_threshold_policy"] = "diagnostic-v1";
+        journal["effective_transport_policy"]!["token_threshold_policy"] = "advisory";
+        journal["effective_transport_policy_hash"] = GnOuGo.Flow.Planning.PlanningGraphCompiler.Fingerprint(journal["effective_transport_policy"]!.ToJsonString());
         await campaign.SaveAsync(BenchmarkHttpJournal.Collection, RequestId, journal, Ct);
         await campaign.SaveAsync("planning-evaluation-failures", RequestId, new()
         { ["stage"] = "dispatch", ["exception_type"] = "OperationCanceledException" }, Ct);
