@@ -64,6 +64,44 @@ public sealed class ApplicationLlmBudgetTests
     }
 
     [Theory]
+    [InlineData("strict", false, false)]
+    [InlineData("strict", false, true)]
+    [InlineData("strict", true, false)]
+    [InlineData("strict", true, true)]
+    [InlineData("diagnostic", false, false)]
+    [InlineData("diagnostic", false, true)]
+    [InlineData("diagnostic", true, false)]
+    [InlineData("diagnostic", true, true)]
+    public async Task RestoredUnverifiedHistoryCannotFinanceANewRequest(string thresholdMode, bool experimental, bool uncertain)
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var policy = Policy(fixture, "limited", experimental ? "experimental_warning" : "strict");
+        await policy.InitializeAsync(Ct);
+        var settings = new TypedWorkflowPlanningSettings { BackgroundProcessingEnabled = false, DiagnosticEnabled = true };
+        var authority = new PlanningHostPolicy(fixture.Records, Options.Create(settings), policy);
+        var options = DiagnosticPlanningTests.ModelOptions();
+        using var model = new JournaledPlanningModel(new GnOuGo.Planning.Examples.CurrentPlanningFixture.LiteralModel(), modelOptions: options);
+        using var server = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog(), model, settings, authority, options);
+        var state = await server.StartAsync("restored-finances", "Return the public numeric result 42.", false, Ct,
+            thresholdMode: thresholdMode, diagnosticGrant: thresholdMode == "diagnostic" ? new("operator") : null);
+        var frozen = state.Request.Options.ToJsonString();
+        var authorityBytes = (await fixture.Records.GetAsync("agent-planning-host-authority-v1", "planning-tests", state.Request.SessionId, EfPlanningSessionStore.Author, Ct))!.Value;
+        var historical = new GnOuGo.Flow.Core.Runtime.LLMUsageBudgetSnapshot { StartedAtUtc = DateTimeOffset.UtcNow,
+            Calls = 1, EstimatedCostCurrency = "EUR", CostEstimateAvailable = uncertain, UncertainCalls = uncertain ? 1 : 0,
+            CostUnavailableReason = uncertain ? null : "historical_pricing_unavailable" };
+        var bytes = System.Text.Json.JsonSerializer.Serialize(historical, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
+        await fixture.Records.UpsertAsync(PlanningBudgetSink.Collection, "planning-tests", state.Request.SessionId, bytes, EfPlanningSessionStore.Author, Ct);
+        for (var n = 0; n < 10 && !PlanningStatus.IsTerminal(state.Status); n++)
+            state = await server.SubmitAsync(state.Request.SessionId, new() { ExpectedRevision = state.Revision }, Ct);
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Contains(state.Diagnostics, d => d.Code == "LLM_BUDGET_UNVERIFIABLE");
+        Assert.Empty(model.Requests);
+        Assert.True(JsonNode.DeepEquals(JsonNode.Parse(frozen), state.Request.Options));
+        Assert.Equal(authorityBytes, (await fixture.Records.GetAsync("agent-planning-host-authority-v1", "planning-tests", state.Request.SessionId, EfPlanningSessionStore.Author, Ct))!.Value);
+        Assert.Equal(bytes, (await fixture.Records.GetAsync(PlanningBudgetSink.Collection, "planning-tests", state.Request.SessionId, EfPlanningSessionStore.Author, Ct))!.Value);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task PrePreferenceAuthorityCapturesKeepTheirExactShapeAndOriginalFiniteAllowance(bool tamper)
