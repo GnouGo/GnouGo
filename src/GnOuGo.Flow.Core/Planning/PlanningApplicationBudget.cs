@@ -15,6 +15,13 @@ internal static class PlanningApplicationBudget
             throw new PlanningConflictException("The captured application LLM budget policy is invalid.");
         return policy["mode"]!.GetValue<string>() == "unlimited";
     }
+    internal static bool AdvisoryFinancialForecasts(PlanningRequest request)
+    {
+        _ = Unlimited(request);
+        var mode = request.Options[OptionName]?["financialForecastMode"]?.GetValue<string>() ?? "strict";
+        if (mode is not ("strict" or "experimental_warning")) throw new PlanningConflictException("Invalid captured financial forecast policy.");
+        return request.Options[OptionName]?["mode"]?.ToString() == "limited" && mode == "experimental_warning" && !ExplicitWorkflowLimits(request);
+    }
     internal static bool TrackingOnly(PlanningRequest request) => Unlimited(request) && !ExplicitWorkflowLimits(request);
     internal static bool ExplicitWorkflowLimits(PlanningRequest request) => request.Options[OptionName]?["explicitWorkflowLimits"]?.GetValue<bool>() == true;
     internal static string Currency(PlanningRequest request) => request.Options[OptionName]?["currency"]?.GetValue<string>() ?? "USD";

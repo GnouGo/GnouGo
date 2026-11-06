@@ -38,6 +38,23 @@ public sealed class PlanningInspectionService(PlanningSessionService planning, L
         return JsonNode.Parse(content.Redact(result.ToJsonString()))!.AsObject();
     }
 
+    public async Task<JsonObject> FinancialAsync(string id, bool workflow, CancellationToken ct)
+    {
+        var state = await OwnedAsync(id, workflow, ct);
+        var row = await records.GetAsync((workflow ? "flow" : "agent") + "-planning-budgets-v11", state.Request.TenantId, id, EfPlanningSessionStore.Author, ct);
+        var snapshot = row is null ? state.Usage : JsonSerializer.Deserialize(row.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
+        var allowance = PlanningBudgetOptions.Parse(state.Request.Options)?.MaxEstimatedCost;
+        var report = GnOuGo.Flow.Core.Runtime.LLMFinancialProjection.Describe(snapshot, allowance,
+            PlanningApplicationBudget.AdvisoryFinancialForecasts(state.Request) ? "experimental_warning" : "strict");
+        report["applicationAllowance"] = state.Request.Options["application_llm_budget"]?["planningLimits"]?["max_estimated_cost"]?.DeepClone();
+        report["explicitWorkflowLimits"] = state.Request.Options["application_llm_budget"]?["explicitWorkflowLimits"]?.GetValue<bool>() == true;
+        report["sessionId"] = id; report["tenantId"] = state.Request.TenantId;
+        report["source"] = row is null ? "retained_session_snapshot" : "encrypted_budget_journal";
+        report["capturedApplicationPolicy"] = state.Request.Options["application_llm_budget"]?.DeepClone();
+        report["admissionFailures"] = JsonSerializer.SerializeToNode(state.Diagnostics.Where(d => d.BudgetFailure is not null).ToList(), PlanningJsonContext.Default.ListPlanningDiagnostic);
+        return JsonNode.Parse(content.Redact(report.ToJsonString()))!.AsObject();
+    }
+
     public async Task<JsonObject> CallAsync(string id, bool workflow, string key, CancellationToken ct)
     {
         var state = await OwnedAsync(id, workflow, ct);

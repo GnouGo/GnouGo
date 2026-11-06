@@ -44,13 +44,13 @@ public sealed partial class LLMUsageBudgetScope
         {
             await AcquireJournaledCostGatesAsync(scopes, gates, ct).ConfigureAwait(false);
             var outputs = new[] { outputTokenCeiling }.Concat(remainingReviewOutputs).ToArray();
-            var prepared = new List<(LLMJournaledAttempt Entry, decimal Allowance)>();
+            var prepared = new List<(LLMJournaledAttempt Entry, (decimal Total, decimal Current) Allowance)>();
             foreach (var scope in scopes)
             {
                 if (scope.Snapshot.JournaledAttempts?.TryGetValue(id, out var retained) == true)
                 {
                     scope.ValidateJournaledBounds(retained, inputTokenCeiling, outputTokenCeiling, safeStage);
-                    prepared.Add((retained, 0));
+                    prepared.Add((retained, (0, 0)));
                     continue;
                 }
                 var cost = await scope.JournaledCostAsync(request, estimator, inputTokenCeiling, outputTokenCeiling, safeStage, ct).ConfigureAwait(false);
@@ -71,7 +71,7 @@ public sealed partial class LLMUsageBudgetScope
                         continue;
                     }
                     var (entry, allowance) = prepared[index];
-                    scope.EnsureLocalAllowanceCore(current, inputTokenCeiling, outputs, allowance, safeStage);
+                    scope.EnsureLocalAllowanceCore(current, inputTokenCeiling, outputs, allowance.Total, safeStage, entry.ReservedEstimatedCost);
                     snapshots.Add(current with
                     {
                         Calls = checked(current.Calls + 1),

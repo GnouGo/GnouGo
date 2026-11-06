@@ -11,6 +11,71 @@ namespace GnOuGo.Flow.Tests.Runtime;
 public sealed class LLMUsageBudgetTests
 {
     [Fact]
+    public async Task ChangingForecastCannotUnderstateTheCurrentPhysicalReservation()
+    {
+        var scope = new LLMUsageBudgetScope(new() { MaxEstimatedCost = new(10m, "EUR") }) { AdvisoryFinancialForecasts = true };
+        var estimator = new ChangingCostEstimator();
+        await Assert.ThrowsAsync<WorkflowRuntimeException>(() => scope.ReserveJournaledAttemptAsync("current:1", Request(), estimator,
+            10, 10, [10], "planning", TestContext.Current.CancellationToken));
+        Assert.Equal(0, scope.Snapshot.Calls); Assert.Equal(0m, scope.Snapshot.EstimatedCost); Assert.Null(scope.Snapshot.JournaledAttempts);
+    }
+    private sealed class ChangingCostEstimator : IModelUsageCostEstimator
+    {
+        private int _calls;
+        public decimal? EstimateCost(string? model, long? inputTokens = null, long? outputTokens = null, string? providerType = null) => 3m;
+        public ModelUsageCostEstimate? EstimateCostWithCurrency(string? model, long? inputTokens = null, long? outputTokens = null, string? providerType = null)
+            => new(++_calls == 1 ? 12m : 3m, "EUR");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ForecastOptInWarnsForFutureReviewsButKeepsCurrentSpendAndUnknownHistoryHard(bool experimental)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var estimator = new FixedCurrencyCostEstimator(6m, "EUR");
+        var scope = new LLMUsageBudgetScope(new() { MaxEstimatedCost = new(10m, "EUR") }) { AdvisoryFinancialForecasts = experimental };
+        var request = Request(); request.ClientRequestId = "session:1:hash";
+        if (!experimental)
+        {
+            await Assert.ThrowsAsync<WorkflowRuntimeException>(() => scope.EnsureAllowanceAsync(request, estimator, 10, [10, 10], "planning", ct));
+            Assert.Equal(0, scope.Snapshot.Calls); return;
+        }
+        await scope.EnsureAllowanceAsync(request, estimator, 10, [10, 10], "planning", ct);
+        Assert.Equal(0, scope.Snapshot.Calls); // Forecasts never become physical reservations.
+        await scope.ReserveJournaledAttemptAsync("session:1:hash:attempt:1", request, estimator, 10, 10, [10], "planning", ct);
+        Assert.Equal(6m, scope.Snapshot.EstimatedCost); Assert.Equal(1, scope.Snapshot.Calls);
+        Assert.Contains(scope.Snapshot.Warnings!, w => w.Kind == "financial_forecast" && w.RequestId == request.ClientRequestId && w.Details!["currentReservationEnforced"]!.GetValue<bool>());
+        await Assert.ThrowsAsync<WorkflowRuntimeException>(() => scope.ReserveJournaledAttemptAsync("session:2:hash:attempt:1", request, estimator, 10, 10, [], "planning", ct));
+        Assert.Equal(6m, scope.Snapshot.EstimatedCost);
+        await Assert.ThrowsAsync<WorkflowRuntimeException>(() => scope.SettleJournaledAttemptAsync("session:1:hash:attempt:1", request,
+            new FixedCurrencyCostEstimator(11m, "EUR"), Usage(1, 1), "planning", ct));
+        Assert.Equal(11m, scope.Snapshot.EstimatedCost); // Actual overrun is recorded before rejection.
+        var incomplete = new LLMUsageBudgetScope(new LLMUsageBudgetLimits { MaxEstimatedCost = new(10m, "EUR") }, new LLMUsageBudgetSnapshot {
+            StartedAtUtc = DateTimeOffset.UtcNow, EstimatedCostCurrency = "EUR", CostEstimateAvailable = false }) { AdvisoryFinancialForecasts = true };
+        var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => incomplete.EnsureAllowanceAsync(request, estimator, 10, [10, 10], "planning", ct));
+        Assert.Equal("LLM_BUDGET_UNVERIFIABLE", error.Code);
+        var child = scope.CreateChild(new() { MaxEstimatedCost = new(20m, "EUR") });
+        Assert.False(child.AdvisoryFinancialForecasts);
+    }
+
+    [Fact]
+    public void FinancialProjectionDoesNotPromoteUnpricedConsumptionOrReservationsToInvoicesOrAvailableFunds()
+    {
+        var snapshot = new LLMUsageBudgetSnapshot { Calls = 3, EstimatedCost = 9m, EstimatedCostCurrency = "EUR", CostEstimateAvailable = false,
+            CostUnavailableReason = "cache_write_tariff_unavailable", JournaledAttempts = new Dictionary<string, LLMJournaledAttempt> {
+                ["one"] = new(10, 10, 5m, 0, new(1, 2, 3, 2m, 0, "a")),
+                ["two"] = new(10, 10, 8m, 0, new(1, 2, 3, 0, 0, "b", "cache_write_tariff_unavailable")),
+                ["three"] = new(10, 10, 7m, 0) } };
+        var report = LLMFinancialProjection.Describe(snapshot, new(10m, "EUR"));
+        Assert.Equal(2m, report["measuredUsageTariffEstimate"]!.GetValue<decimal>());
+        Assert.Equal(7m, report["uncertainReservations"]!.GetValue<decimal>());
+        Assert.Equal(8m, report["unpricedCompletedNominalReservations"]!.GetValue<decimal>());
+        Assert.False(report["historyComplete"]!.GetValue<bool>()); Assert.Null(report["providerReportedCost"]); Assert.Null(report["availableForAdmission"]);
+        Assert.Equal(9m, snapshot.EstimatedCost);
+    }
+
+    [Fact]
     public async Task DiagnosticCallAndElapsedWarningsSurviveSerializationWithoutResettingUsage()
     {
         var clock = new MutableTimeProvider(); var sink = new CancellationCheckingSink();

@@ -24,11 +24,13 @@ internal static class PlanningEndpoints
         {
             try
             {
-                if (request.Count != 1 || request["mode"] is not System.Text.Json.Nodes.JsonValue mode || !mode.TryGetValue<string>(out var selected))
+                if (request.Any(pair => pair.Key is not ("mode" or "financialForecastMode")) || request["mode"] is not System.Text.Json.Nodes.JsonValue mode || !mode.TryGetValue<string>(out var selected))
                     return Results.BadRequest("A mode selection is required.");
-                await policy.SetAsync(selected, access, ct); return Results.Json(policy.Describe());
+                if (request.ContainsKey("financialForecastMode") && (request["financialForecastMode"] is not System.Text.Json.Nodes.JsonValue forecast || !forecast.TryGetValue<string>(out _)))
+                    return Results.BadRequest("Invalid financial forecast mode.");
+                await policy.SetAsync(selected, access, ct, request["financialForecastMode"]?.GetValue<string>()); return Results.Json(policy.Describe());
             }
-            catch (ArgumentException) { return Results.BadRequest("Mode must be unlimited or limited."); }
+            catch (ArgumentException) { return Results.BadRequest("Use unlimited/limited consumption and strict/experimental_warning financial forecasts."); }
         }).WithMetadata(new LocalOperatorRequired());
         app.MapPost("/api/planning/{id}/start-with-current-settings", async (string id, PlanningSessionService service, LocalOperatorAccess access, CancellationToken ct) =>
         {
@@ -51,6 +53,12 @@ internal static class PlanningEndpoints
             catch (KeyNotFoundException) { return Results.NotFound(); }
             catch (ArgumentException) { return Results.BadRequest("Invalid planner decision command."); }
         });
+        app.MapGet("/api/planning/{id}/financial", async (string id, bool? workflow, PlanningInspectionService inspection, CancellationToken ct) =>
+        {
+            try { return Results.Json(await inspection.FinancialAsync(id, workflow == true, ct)); }
+            catch (UnauthorizedAccessException) { return Results.Forbid(); }
+            catch (KeyNotFoundException) { return Results.NotFound(); }
+        }).WithMetadata(new LocalOperatorRequired());
         app.MapGet("/api/planning/{id}/inspection", async (string id, bool? workflow, long? after, string? callsAfter, PlanningInspectionService inspection, CancellationToken ct) =>
         {
             try

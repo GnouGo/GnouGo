@@ -46,10 +46,11 @@ public sealed partial class LLMUsageBudgetScope
         }
     }
 
-    private async Task<decimal> EnsureLocalAllowanceAsync(LLMRequest request, IModelUsageCostEstimator? estimator,
+    private async Task<(decimal Total, decimal Current)> EnsureLocalAllowanceAsync(LLMRequest request, IModelUsageCostEstimator? estimator,
         int inputTokens, IReadOnlyList<int> outputs, string stage, CancellationToken ct)
     {
-        decimal cost = 0;
+        decimal cost = 0, currentCost = 0;
+        var first = true;
         if (_costLimit is not null)
             foreach (var outputTokens in outputs)
             {
@@ -58,17 +59,21 @@ public sealed partial class LLMUsageBudgetScope
                 catch { throw CreateUnverifiable(stage, "pricing", Snapshot); }
                 if (estimate is null) throw CreateUnverifiable(stage, "pricing", Snapshot);
                 var converted = await ConvertToBudgetCurrencyAsync(estimate, stage, ct, pinQuote: false).ConfigureAwait(false);
+                if (first) { currentCost = converted.Amount; first = false; }
                 try { cost = SumCostConservatively(cost, converted.Amount); }
                 catch (OverflowException) { throw CreateUnverifiable(stage, "pricing", Snapshot); }
             }
         lock (_gate)
-            EnsureLocalAllowanceCore(_snapshot, inputTokens, outputs, cost, stage);
-        return cost;
+            EnsureLocalAllowanceCore(_snapshot, inputTokens, outputs, cost, stage, currentCost);
+        return (cost, currentCost);
     }
 
     private void EnsureLocalAllowanceCore(LLMUsageBudgetSnapshot snapshot, int inputTokens,
-        IReadOnlyList<int> outputs, decimal cost, string stage)
+        IReadOnlyList<int> outputs, decimal cost, string stage, decimal currentCost)
     {
+        if (AdvisoryFinancialForecasts && _costLimit is not null && (!snapshot.CostEstimateAvailable ||
+            snapshot.UncertainCalls > (snapshot.JournaledAttempts?.Values.Count(a => a.VerifiedUsage is null) ?? 0)))
+            throw CreateUnverifiable(stage, "historical_cost_evidence", snapshot);
         EnsurePreCallLimits(snapshot, stage);
         if (Limits.MaxCalls is { } calls && outputs.Count > calls - snapshot.Calls &&
             !WarnOptimizationThreshold(stage, "calls", calls, checked(snapshot.Calls + outputs.Count)))
@@ -77,7 +82,23 @@ public sealed partial class LLMUsageBudgetScope
         if (Limits.MaxTotalTokens is { } tokenLimit && tokens > tokenLimit - snapshot.TotalTokens &&
             !WarnTokenThreshold(stage, "total_tokens", tokenLimit, checked(snapshot.TotalTokens + tokens)))
             throw CreateExceeded(stage, "total_tokens", tokenLimit, (decimal)snapshot.TotalTokens + tokens, snapshot);
+        if (_costLimit is { } currentLimit && CostSumExceeds(currentLimit.Amount, snapshot.EstimatedCost, currentCost))
+            throw CreateExceeded(stage, ResolveEstimatedCostLimitKind(), currentLimit.Amount, currentCost, snapshot);
         if (_costLimit is { } money && CostSumExceeds(money.Amount, snapshot.EstimatedCost, cost))
-            throw CreateExceeded(stage, ResolveEstimatedCostLimitKind(), money.Amount, cost, snapshot);
+        {
+            if (!AdvisoryFinancialForecasts || outputs.Count < 2 || CostSumExceeds(money.Amount, snapshot.EstimatedCost, currentCost))
+                throw CreateExceeded(stage, ResolveEstimatedCostLimitKind(), money.Amount, cost, snapshot);
+            var warning = new GnOuGo.Flow.Core.Planning.PlanningThresholdWarning("financial_forecast", outputs.Count, 1,
+                "planned_calls; monetary amounts in details", stage) { RequestId = WarningRequestId.Value,
+                Details = new System.Text.Json.Nodes.JsonObject { ["currency"] = money.Currency, ["allowance"] = money.Amount,
+                    ["trackedExposure"] = snapshot.EstimatedCost, ["forecastAdditionalCost"] = cost, ["currentRequestReservation"] = currentCost,
+                    ["origin"] = PolicyOrigin, ["policy"] = "experimental_warning", ["currentReservationEnforced"] = true } };
+            lock (_warningGate)
+            {
+                var warnings = _warnings ??= [];
+                if (!warnings.Any(w => w.Kind == warning.Kind && w.RequestId == warning.RequestId && w.Stage == warning.Stage &&
+                    System.Text.Json.Nodes.JsonNode.DeepEquals(w.Details, warning.Details))) warnings.Add(warning);
+            }
+        }
     }
 }

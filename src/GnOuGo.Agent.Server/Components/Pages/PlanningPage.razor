@@ -84,6 +84,25 @@
         }
         @if (_inspectionDto is { } inspected) { <p>Estimated cost (including retained reservations): @(inspected.CostEstimateAvailable ? $"{inspected.EstimatedCost:0.00} {inspected.Currency}" : $"unavailable ({inspected.CostUnavailableReason})")</p> }
         else if (_state.Usage is { } usage) { <p>Estimated cost: @(usage.CostEstimateAvailable ? $"{usage.EstimatedCost:0.00} {usage.EstimatedCostCurrency}" : $"unavailable ({usage.CostUnavailableReason})")</p> }
+        @if (_operatorAvailable)
+        {
+            <button type="button" id="inspect-session-finances" @onclick="InspectFinancesAsync">Inspect session finances</button>
+            @if (_financial is { } finance)
+            {
+                <section aria-label="Session financial accounting">
+                    <p>Source: @finance["source"] · Forecast policy: @finance["forecastMode"]</p>
+                    <dl><dt>Measured usage × captured tariff (estimate)</dt><dd>@finance["measuredUsageTariffEstimate"] @finance["currency"]</dd>
+                        <dt>Unresolved request reservations</dt><dd>@finance["uncertainReservations"] @finance["currency"]</dd>
+                        <dt>Original estimates for completed, unpriced usage</dt><dd>@finance["unpricedCompletedNominalReservations"] @finance["currency"]</dd>
+                        <dt>Tracked local exposure</dt><dd>@finance["trackedExposure"] @finance["currency"]</dd>
+                        <dt>Captured allowance</dt><dd>@(finance["allowance"]?.ToString() ?? "unavailable") @finance["allowanceCurrency"]</dd></dl>
+                    <p>Provider-invoiced cost and globally available funding are unavailable in this local snapshot.</p>
+                    @if (finance["historyComplete"]?.GetValue<bool>() != true) { <p role="alert">Financial history incomplete: @finance["unavailableReason"]. Unknown funds are not available for admission.</p> }
+                    @foreach (var warning in finance["forecastWarnings"]?.AsArray() ?? [])
+                    { <p role="status">Future-call forecast exceeds the allowance. The current request reservation remains enforced. @warning?["details"]</p> }
+                </section>
+            }
+        }
         @if (!IsWorkflowSession && _operatorAvailable && _inspectionDto?.CanStartWithCurrentSettings == true)
         {
             <p>No dispatch or reservation was found. The original session will be preserved.</p>
@@ -272,6 +291,22 @@
         _requestInspection?.State != "active";
     private int CallCeiling => _state is null ? 0 : Math.Min(_state.Request.MaxModelCalls,
         PlanningBudgetOptions.Parse(_state.Request.Options)?.MaxCalls ?? _state.Request.MaxModelCalls);
+    private JsonObject? _financial;
+    private async Task InspectFinancesAsync()
+    {
+        if (_state is null || !_operatorAvailable) return;
+        var id = _state.Request.SessionId; var workflow = IsWorkflowSession; var version = _viewVersion;
+        try
+        {
+            var report = await Services.GetRequiredService<PlanningInspectionService>().FinancialAsync(id, workflow, _lifetime.Token);
+            if (version == _viewVersion && _state?.Request.SessionId == id && IsWorkflowSession == workflow) _financial = report;
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        catch (Exception)
+        {
+            if (version == _viewVersion) { _financial = null; _commandError = "Protected session financial accounting is unavailable; no available funds are inferred."; }
+        }
+    }
     private long CallsUsed => _state is null ? 0 : Math.Max(_state.ModelCalls, _state.Usage?.Calls ?? 0);
     private bool IsCallBudgetExhausted => _state is not null && !PlanningApplicationBudget.TrackingOnly(_state.Request) && !PlanningTokenThresholds.OptimizationAdvisory(_state.Request) && CallsUsed >= CallCeiling;
     private string? CurrentPhase => IsCallBudgetExhausted && _state is { Plan: null, Phase: PlanningPhase.Replanning }
@@ -334,13 +369,15 @@
             else
             {
                 var inspection = await Planning.InspectAsync(id, workflow, _lifetime.Token);
+                var financial = _financial is not null && _operatorAvailable && inspection?.Session is not null
+                    ? await Services.GetRequiredService<PlanningInspectionService>().FinancialAsync(id, workflow, _lifetime.Token) : null;
                 var dto = !workflow && inspection?.Session is { } inspected ? await Planning.ToDtoAsync(inspected, _lifetime.Token) : null;
                 if (version == _viewVersion)
                 {
                     if (_state?.Request.SessionId != inspection?.Session?.Request.SessionId ||
                         _state?.Revision != inspection?.Session?.Revision || _state?.ComputeArtifactHash() != inspection?.Session?.ComputeArtifactHash())
                     { _reviewedRequirements = []; _revisionPaths.Clear(); }
-                    _inspectionDto = dto; _requestInspection = dto?.RequestInspection; _state = inspection?.Session; _entry = inspection?.Entry; _error = null;
+                    _financial = financial; _inspectionDto = dto; _requestInspection = dto?.RequestInspection; _state = inspection?.Session; _entry = inspection?.Entry; _error = null;
                 }
             }
         }

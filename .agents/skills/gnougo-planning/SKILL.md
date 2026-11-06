@@ -213,6 +213,17 @@ Validate the next schema after description reads and legacy recovery; never turn
 absent historical focus into a null member of an issued string enum or rewrite a
 previously rejected request to apply a schema fix.
 
+Experimental financial forecasts are a separate captured application policy, never
+model-authored input. In Limited mode, only unissued future-call/review forecasts
+may warn. Reserve the current physical request under the unchanged monetary limit;
+actual usage, uncertain liabilities, explicit workflow limits, missing pricing/FX
+and replay barriers remain hard. Missing historical fields mean strict forecasting.
+Persist protected operator preferences for new sessions only. Keep per-session
+financial projections read-only and separate measured tokens, captured-tariff
+estimates, unpriced completed consumption, unresolved holds and provider invoices.
+Do not call a provisional hold an invoice, infer available funds from missing
+history, release an unverified reservation or sum parent/child scopes as distinct calls.
+
 ## Maintained references
 
 - [Incremental construction](../../../docs/incremental-taskplan-construction.md)

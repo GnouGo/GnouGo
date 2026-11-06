@@ -31,7 +31,7 @@ try {
   assert.ok(!(await page.locator('body').innerText()).includes('Protected planning access requires'));
   await page.getByText('Debug workflow generation', { exact: true }).waitFor();
   assert.equal((await anonymous.get(`${url}/api/planning/${ordinarySessionId}`)).status(), 200);
-  for (const suffix of ['inspection', 'calls/content?key=foreign', 'calls/export?key=foreign'])
+  for (const suffix of ['inspection', 'financial', 'calls/content?key=foreign', 'calls/export?key=foreign'])
     assert.equal((await anonymous.get(`${url}/api/planning/${ordinarySessionId}/${suffix}`)).status(), 403);
   const anonymousAntiforgery = await (await anonymous.get(`${url}/api/planning/antiforgery`)).json();
   assert.equal((await anonymous.post(`${url}/api/planning`, { headers: { [anonymousAntiforgery.headerName]: anonymousAntiforgery.requestToken },
@@ -58,6 +58,26 @@ try {
   await page.getByRole('heading', { name: 'Advisory thresholds exceeded', exact: true }).waitFor();
   assert.ok((await page.locator('body').innerText()).includes('5 model calls (logical planning)'));
   assert.ok((await page.locator('body').innerText()).includes('6 charged/reserved model attempts'));
+  const finances = await (await page.request.get(`${url}/api/planning/${sessionId}/financial`)).json();
+  assert.equal(finances.sessionId, sessionId);
+  assert.equal(finances.forecastMode, 'experimental_warning');
+  assert.equal(finances.unresolvedAttempts, 1);
+  assert.equal(finances.settledAttempts, 5);
+  assert.equal(finances.measuredOutputTokensIncludingReasoning, 25);
+  assert.equal(finances.providerReportedCost, null);
+  assert.equal(finances.availableForAdmission, null);
+  assert.ok(finances.uncertainReservations > 0);
+  assert.equal((await page.request.get(`${url}/api/planning/${sessionId}/financial?workflow=true`)).status(), 404);
+  await page.getByRole('button', { name: 'Inspect session finances', exact: true }).click();
+  await page.getByRole('region', { name: 'Session financial accounting' }).waitFor();
+  await page.screenshot({ path: `${output}/session-finances.png`, fullPage: true });
+  await writeFile(`${output}/session-finances.json`, JSON.stringify(finances, null, 2));
+  const financialCsrf = await (await page.request.get(`${url}/api/planning/antiforgery`)).json();
+  assert.equal((await page.request.post(`${url}/api/application-llm-budget`, { data: { mode: 'limited', financialForecastMode: 'strict' } })).status(), 400);
+  assert.equal((await page.request.post(`${url}/api/application-llm-budget`, { headers: { [financialCsrf.headerName]: financialCsrf.requestToken },
+    data: { mode: 'limited', financialForecastMode: 'strict' } })).status(), 200);
+  assert.equal((await (await page.request.get(`${url}/api/planning/${sessionId}/financial`)).json()).forecastMode, 'experimental_warning', 'Saved settings do not migrate existing captures');
+
   await page.getByRole('button', { name: 'Traces', exact: true }).click();
   const tracePanel = page.locator('.gnougo-trace-panel--open');
   await tracePanel.getByRole('heading', { name: 'Planning traces', exact: true }).waitFor();

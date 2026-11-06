@@ -134,7 +134,7 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
                     ?? throw new PlanningConflictException("The encrypted application planning budget is invalid.");
                 parentBudget = new LLMUsageBudgetScope(PlanningTokenThresholds.Advisory(state.Request), capturedLimits, retainedUsage,
                     inheritedBudget, new ApplicationBudgetSink(records, tenant, key), exchangeRateProvider: context.Engine.ExchangeRateProvider,
-                    advisoryOptimization: PlanningTokenThresholds.OptimizationAdvisory(state.Request)) { PolicyOrigin = "captured_application_planning_limits" };
+                    advisoryOptimization: PlanningTokenThresholds.OptimizationAdvisory(state.Request)) { PolicyOrigin = "captured_application_planning_limits", AdvisoryFinancialForecasts = application["financialForecastMode"]?.ToString() == "experimental_warning" };
             }
             var explicitLimits = PlanningApplicationBudget.ExplicitWorkflowLimits(state.Request);
             var configuredLimits = PlanningBudgetOptions.Parse(state.Request.Options);
@@ -146,7 +146,8 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
                     exchangeRateProvider: context.Engine.ExchangeRateProvider)
                 : new LLMUsageBudgetScope(!explicitLimits && PlanningTokenThresholds.Advisory(state.Request), limits, usage, parentBudget,
                 new WorkflowPlanningBudgetSink(records, tenant, key), exchangeRateProvider: context.Engine.ExchangeRateProvider,
-                advisoryOptimization: !explicitLimits && PlanningTokenThresholds.OptimizationAdvisory(state.Request));
+                advisoryOptimization: !explicitLimits && PlanningTokenThresholds.OptimizationAdvisory(state.Request))
+                    { AdvisoryFinancialForecasts = PlanningApplicationBudget.AdvisoryFinancialForecasts(state.Request) };
             // The journal meters actual dispatches; replaying a receipt consumes no new allowance.
             context.LLMUsageBudget = null;
             var client = new WorkflowPlanningModelJournal(context, records, state.Request, budget,

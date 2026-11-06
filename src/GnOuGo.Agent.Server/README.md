@@ -885,3 +885,28 @@ With the existing automatic-correction policy, disconnected exports use bounded 
 ### Discovery recovery
 
 The protected local operator window offers metadata-only recovery for eligible blocked Designer sessions, followed by explicit planning resume under captured admission. Exploratory source failures remain visible without blocking healthy alternatives. See [focused discovery and recovery](../../docs/focused-capability-discovery.md). Existing sessions are not automatically resumed or repriced.
+
+
+### Experimental financial forecasting
+
+At `/settings/llm-budget`, an authenticated local operator can select **Limited**
+and **Experimental — warn for future reviews**. HTTP setting changes require the
+existing operator cookie and antiforgery token. Saved preferences apply to new
+sessions only and override host defaults. With no saved preference, configure
+`ApplicationLlmBudget:FinancialForecastMode=experimental_warning` (default `strict`).
+
+This opt-in warns when the combined forecast for an unissued request and future
+reviews exceeds the allowance, provided the current physical request still fits.
+It does not soften current reservations, actual-cost settlement, explicit workflow
+limits, unresolved exposure, missing pricing/FX, request timeouts or replay barriers.
+Mandatory reviews remain necessary before approval and can stop later if unfunded.
+Input reservation estimates for new experimental calls use the serialized envelope
+and configured phase target, separately from physical model capacity and output
+allocations. Existing captures keep their previous reservation calculation.
+
+On a planning session, **Inspect session finances** shows the existing encrypted
+budget's categories. The protected `GET /api/planning/{id}/financial` returns the
+same read-only projection (`workflow=true` for an owned chat planning session).
+Measured tokens and captured-tariff estimates are not provider invoices. Unpriced
+completed usage and unresolved holds remain visible; the projection cannot establish
+global available funding. It does not scan tenant history or release money.

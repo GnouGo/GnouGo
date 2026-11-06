@@ -16,8 +16,8 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class ApplicationLlmBudgetTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
-    internal static ApplicationLlmBudgetPolicy Policy(PlanningPersistenceTests.StoreFixture fixture, string? mode = null)
-        => new(fixture.Records, new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["ApplicationLlmBudget:Mode"] = mode }).Build(),
+    internal static ApplicationLlmBudgetPolicy Policy(PlanningPersistenceTests.StoreFixture fixture, string? mode = null, string forecastMode = "strict")
+        => new(fixture.Records, new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["ApplicationLlmBudget:Mode"] = mode, ["ApplicationLlmBudget:FinancialForecastMode"] = forecastMode }).Build(),
             Options.Create(new OpenTelemetrySettings { TenantId = "planning-tests" }), Options.Create(new WorkflowPlanningBudgetSettings()));
     internal static LocalOperatorAccess Access(bool authorized)
     {
@@ -43,6 +43,26 @@ public sealed class ApplicationLlmBudgetTests
         var explicitHost = Policy(fixture, "limited"); await explicitHost.SetAsync("unlimited", Access(true), Ct);
         var reopened = Policy(fixture, "limited"); await reopened.InitializeAsync(Ct); Assert.Equal("unlimited", reopened.Mode);
     }
+    [Fact]
+    public async Task FinancialForecastPreferenceIsProtectedPersistedAndDoesNotUpgradeHistoricalCaptures()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var policy = Policy(fixture, "limited"); await policy.InitializeAsync(Ct);
+        Assert.Equal("strict", policy.FinancialForecastMode);
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => policy.SetAsync("limited", Access(false), Ct, "experimental_warning"));
+        await policy.SetAsync("limited", Access(true), Ct, "experimental_warning");
+        var reopened = Policy(fixture, "limited"); await reopened.InitializeAsync(Ct);
+        Assert.Equal("experimental_warning", reopened.FinancialForecastMode);
+        var host = new PlanningHostPolicy(fixture.Records, Options.Create(new TypedWorkflowPlanningSettings()), reopened);
+        var state = new PlanningSession { Request = new() { TenantId = "planning-tests", Prompt = "Return 42" } };
+        await host.CaptureAsync(state, DiagnosticPlanningTests.ModelOptions(), "diagnostic", new("operator"), Ct);
+        var capture = state.Request.Options["application_llm_budget"]!.ToJsonString();
+        await reopened.SetAsync("limited", Access(true), Ct, "strict");
+        await host.VerifyAsync(state, Ct); Assert.Equal(capture, state.Request.Options["application_llm_budget"]!.ToJsonString());
+        state.Request.Options["application_llm_budget"]!["financialForecastMode"] = "strict";
+        await Assert.ThrowsAsync<PlanningConflictException>(() => host.VerifyAsync(state, Ct));
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -118,13 +138,14 @@ public sealed class ApplicationLlmBudgetTests
     }
 
     [Theory]
-    [InlineData("limited", false)]
-    [InlineData("unlimited", false)]
-    [InlineData("unlimited", true)]
-    public async Task CapturedFiftyEuroHighTariffCaseUsesRealServerAdaptersAndSurvivesReload(string mode, bool missingPricing)
+    [InlineData("limited", false, false)]
+    [InlineData("limited", false, true)]
+    [InlineData("unlimited", false, false)]
+    [InlineData("unlimited", true, false)]
+    public async Task CapturedFiftyEuroHighTariffCaseUsesRealServerAdaptersAndSurvivesReload(string mode, bool missingPricing, bool experimental)
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var budgetPolicy = Policy(fixture, mode); await budgetPolicy.InitializeAsync(Ct);
+        var budgetPolicy = Policy(fixture, mode, experimental ? "experimental_warning" : "strict"); await budgetPolicy.InitializeAsync(Ct);
         var settings = new TypedWorkflowPlanningSettings { BackgroundProcessingEnabled = false, DiagnosticEnabled = true, DiagnosticModelMaximum = true };
         var authority = new PlanningHostPolicy(fixture.Records, Options.Create(settings), budgetPolicy);
         var options = DiagnosticPlanningTests.ModelOptions(); options.DefaultModel = "private-sol-deployment";
@@ -147,7 +168,7 @@ public sealed class ApplicationLlmBudgetTests
             await authority.VerifyAsync(state, Ct);
         }
         Assert.True(JsonNode.DeepEquals(JsonNode.Parse(frozen), state.Request.Options));
-        if (mode == "limited")
+        if (mode == "limited" && !experimental)
         {
             Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Empty(model.Requests);
             var failure = Assert.Single(state.Diagnostics, d => d.Code == "LLM_BUDGET_EXCEEDED").BudgetFailure!;
@@ -164,6 +185,7 @@ public sealed class ApplicationLlmBudgetTests
             if (missingPricing) Assert.Equal("pricing_unavailable", state.Usage.CostUnavailableReason);
             else Assert.True(state.Usage.EstimatedCost > 0);
             Assert.Null(state.ApprovedHash);
+            if (experimental) Assert.Contains(state.Usage.Warnings!, w => w.Kind == "financial_forecast");
         }
     }
 }

@@ -128,6 +128,8 @@ public sealed partial class LLMUsageBudgetScope
     private readonly MonetaryAmount? _costLimit;
     public bool IsTrackingOnly { get; }
     public string PolicyOrigin { get; init; } = "explicit_workflow_limit";
+    /// <summary>Host opt-in: future-call forecasts may warn. Current reservations, settlement and explicit child limits stay mandatory.</summary>
+    public bool AdvisoryFinancialForecasts { get; init; }
     private readonly bool _advisoryTokens;
     private readonly bool _advisoryOptimization;
     private readonly bool _advisoryOptimizationLimits;
@@ -158,7 +160,7 @@ public sealed partial class LLMUsageBudgetScope
     // inferred from warning records, and explicit execution bounds stay explicit.
     internal LLMUsageBudgetScope RestoreSnapshot(LLMUsageBudgetLimits limits, LLMUsageBudgetSnapshot? snapshot,
         ILLMUsageBudgetSink? sink = null, IExchangeRateProvider? exchangeRateProvider = null)
-        => new(this, limits, snapshot, sink, exchangeRateProvider) { PolicyOrigin = PolicyOrigin };
+        => new(this, limits, snapshot, sink, exchangeRateProvider) { PolicyOrigin = PolicyOrigin, AdvisoryFinancialForecasts = AdvisoryFinancialForecasts };
 
     /// <summary>Records usage and uncertain reservations without application consumption ceilings.
     /// Explicit finite child scopes retain their own limits.</summary>
@@ -248,7 +250,7 @@ public sealed partial class LLMUsageBudgetScope
     // async request identity reaches parent budget checks and nested observers.
     internal IDisposable? ObserveTokenWarnings(string? requestId = null)
     {
-        if (!_advisoryTokens) return null;
+        if (!_advisoryTokens && !AdvisoryFinancialForecasts) return null;
         var previous = WarningRequestId.Value;
         if (requestId is not null) WarningRequestId.Value = requestId;
         return new WarningObservation(PlanningTokenThresholds.Observe(RecordTokenWarning), previous);

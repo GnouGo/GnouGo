@@ -104,7 +104,7 @@ public sealed class PlanningHttpModelJournal(
     }
 
     // Use the existing conservative bound for future review envelopes as well as this request.
-    private int ReservationInput => Reviews.Length == 0 ? Input : Math.Max(Input,
+    private int ReservationInput => Reviews.Length == 0 || budget.AdvisoryFinancialForecasts ? Input : Math.Max(Input,
         checked(3 * PlanningConstructionPhasePolicies.Resolve(planning, "construction_local_judge").MaxInputTokens));
 
     private Task ReserveAsync(int number, CancellationToken ct) => budget.ReserveJournaledAttemptAsync(

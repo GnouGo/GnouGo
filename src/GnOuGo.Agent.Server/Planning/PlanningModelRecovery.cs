@@ -60,7 +60,7 @@ internal static class PlanningModelRecovery
             throw new PlanningConflictException("The dispatch accounting changed; reconcile it before resuming.");
         try { _ = PlanningApplicationBudget.TrackingOnly(state.Request)
             ? LLMUsageBudgetScope.CreatePlanningTrackingOnly(state.Request, usage)
-            : new LLMUsageBudgetScope(limits ?? new() { MaxCalls = state.Request.MaxModelCalls }, usage); }
+            : new LLMUsageBudgetScope(limits ?? new() { MaxCalls = state.Request.MaxModelCalls }, usage) { AdvisoryFinancialForecasts = PlanningApplicationBudget.AdvisoryFinancialForecasts(state.Request) }; }
         catch (ArgumentException) { throw new PlanningConflictException("The durable dispatch accounting is invalid for this host."); }
         state.Usage = usage;
     }
@@ -89,7 +89,7 @@ internal static class PlanningModelRecovery
         await RestoreUsageAsync(state, records, ct, limits);
         var budget = PlanningApplicationBudget.TrackingOnly(state.Request)
             ? LLMUsageBudgetScope.CreatePlanningTrackingOnly(state.Request, state.Usage, exchangeRateProvider: exchangeRates)
-            : new LLMUsageBudgetScope(limits, state.Usage, exchangeRateProvider: exchangeRates);
+            : new LLMUsageBudgetScope(limits, state.Usage, exchangeRateProvider: exchangeRates) { AdvisoryFinancialForecasts = PlanningApplicationBudget.AdvisoryFinancialForecasts(state.Request) };
         var journal = new PlanningHttpModelJournal(records, budget,
             state.Request, pending.Request, estimator, PlanningModelJournal.HttpCollection, author,
             PlanningDispatchDeadline.Resolve(state.Request, state.ActiveMilliseconds));
