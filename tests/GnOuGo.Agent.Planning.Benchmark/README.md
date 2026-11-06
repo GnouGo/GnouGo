@@ -504,3 +504,14 @@ exact artifact-bound delegated review and each individual invocation confirmatio
 `server-live-mcp-readiness --snapshot-pagination` verifies the configured source through the actual Server runtime, publishes an immutable catalog snapshot in the existing journal and recreates its reader every four pages. It checks exact coverage with zero LLM inference. Use a fresh run identity; ordinary live funding and replay preflight remain mandatory before any later paid planning.
 
 Metadata-readiness and retained-inspection hosts reject planning mutation HTTP endpoints. Their authenticated bootstrap does not authorize inference. The existing campaign retention guard remains registered in every harness mode; snapshot readiness verifies the mutation rejection before reading real metadata.
+
+`--schema-portability server-live-funding --tenant <owner> --session <operator-session>`
+reads an independently started Server session through the owning EF index and public
+encrypted request/receipt/HTTP APIs, without starting the host or constructing an
+inference client. It compares measured usage with captured tariffs and reports missing
+pricing conditions and unresolved dispatches separately. It never reprices journals,
+settles reservations or grants admission. The campaign ceiling and ledger remain
+unchanged; incomplete external pricing means global available funding is unavailable.
+In particular, reported cache writes with no captured cache-write tariff cannot be
+treated as free or covered by an invented rate. Use the ordinary live admission only
+after complete external cost, FX and retained-reservation evidence is established.

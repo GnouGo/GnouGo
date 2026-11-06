@@ -29,6 +29,28 @@ compiler and business judges remain mandatory. Ownership violations, corrupt sna
 invalid authored requests and cyclic cursors do not become warnings. Diagnostic
 threshold authority and phase allocations are unchanged.
 
+New capability comparison versions use `json-v1:` followed by a canonical JSON digest.
+Whitespace and object-property order do not change this identity; arrays, values,
+constraints, descriptions, effects and metadata remain significant. This is not general
+JSON Schema equivalence. Exact snapshot payload hashes remain byte-sensitive. Legacy
+contract versions still require their original exact serialization; no old snapshot,
+request or receipt is rewritten to adopt the new identity.
+
+An explicit refresh selects its new action in current operation directories. Old
+pages and exact versioned descriptions remain retained as history, rather than mixing
+versions and hiding an operation as ambiguous. A selected changed contract still fails
+resolution or approval validation; refresh cannot approve it or clear accepted work.
+Existing scoped revision/rollback controls remain responsible for affected work.
+Access denial and metadata timeout retain distinct safe categories. A cursor that does
+not belong to its pinned snapshot fails as `DISCOVERY_CURSOR_INCOMPATIBLE`; ownership,
+corruption and cycles remain hard failures.
+
+Tentative rejection feedback remains visible in discovery and drafting, with its exact
+evidence link, when block, scope, original obligations and accepted baseline match.
+Historical feedback remains retrievable after that applicability expires. The model
+still chooses a suitable operation or clarification; a copied value cannot establish
+a user-facing communication effect. Diagnostic nonprogress remains a warning.
+
 ## Local operator recovery
 
 After restarting Agent.Server/Desktop on the updated binaries, open the protected

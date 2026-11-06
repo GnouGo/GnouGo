@@ -192,6 +192,15 @@ failure available until completion and require separate inference resumption.
 The same protected path may refresh an idle discovery warning; it cannot interrupt
 an issued call, pending clarification, ordinary metadata action or selected contract.
 Use one source/cursor/focus projection for directories and inspected descriptions.
+New capability comparison versions canonicalize JSON object ordering and whitespace,
+not arrays, values or contract meaning. Keep exact encrypted payload hashes and legacy
+version verification separate. Explicit source refresh selects its new action for
+decision directories while retaining old pages and exact versioned evidence. Never
+merge old and refreshed versions to infer capability absence or authorize a binding.
+Keep tentative reselection findings and their retrievable evidence visible through
+implementation, discovery and drafting only for the same block, scope, obligations
+and unchanged accepted baseline. A stale finding remains historical evidence, not
+current authority. Diagnostic repetition remains advisory; invalid plans remain invalid.
 Validate the next schema after description reads and legacy recovery; never turn an
 absent historical focus into a null member of an issued string enum or rewrite a
 previously rejected request to apply a schema fix.

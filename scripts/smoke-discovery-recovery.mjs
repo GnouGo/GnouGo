@@ -40,6 +40,7 @@ try {
   assert.ok(!(await page.locator('body').innerText()).includes('PRIVATE_MCP_CREDENTIAL'));
   await page.screenshot({ path: `${output}/metadata-warning-recovery.png`, fullPage: true });
   await page.reload();
+  await page.locator('#planningReview[data-interactive="true"]').waitFor();
   await page.getByRole('button', { name: 'Resume planning after discovery recovery', exact: true }).waitFor();
   await page.getByRole('button', { name: 'Traces', exact: true }).click();
   await page.getByRole('heading', { name: 'Planning traces', exact: true }).waitFor();
@@ -66,4 +67,10 @@ try {
   await writeFile(`${output}/result.json`, JSON.stringify({ evidence: 'controlled-provider', session,
     protectedRecovery: true, crossSessionRejected: true, metadataWarning: true, reload: true,
     sharedInspector: true, cancellation: true, modelCallsDuringRecovery: 0, finiteAdmissionPreserved: true, errors }, null, 2));
+} catch (error) {
+  await page.screenshot({ path: `${output}/failure.png`, fullPage: true });
+  await writeFile(`${output}/failure.json`, JSON.stringify({ errors, message: error.message,
+    headings: await page.getByRole('heading').allTextContents(),
+    panels: await page.locator('.gnougo-trace-panel').count() }, null, 2));
+  throw error;
 } finally { await browser.close(); }
