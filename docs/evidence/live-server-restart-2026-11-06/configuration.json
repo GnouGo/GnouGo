@@ -1,0 +1,31 @@
+{
+  "compared_configuration": "9bcafa16e4cfa77599bd5757901d11c41a9578f9efc36600b90589a81c50d9dd",
+  "differences": [
+    {
+      "field": "request_policy",
+      "previous": {
+        "BackgroundProtocol": 2,
+        "UnspecifiedOutputTokens": 0,
+        "DefaultMaxOutputTokens": null,
+        "MaxOutputTokensCap": null
+      },
+      "current": {
+        "BillingServiceTier": "standard",
+        "BillingRegionalProcessing": false,
+        "BillingCacheRetention": "30m",
+        "BackgroundProtocol": 2,
+        "UnspecifiedOutputTokens": 0,
+        "DefaultMaxOutputTokens": null,
+        "MaxOutputTokensCap": null
+      },
+      "representation": "configuration_value"
+    }
+  ],
+  "host_fingerprint_matches": false,
+  "metadata_fingerprint_matches": false,
+  "historical_host_options_available": false,
+  "endpoint_matches": true,
+  "provider": "OpenAi",
+  "model": "gpt-6.1-sol-2026-09-29",
+  "new_configuration_id": "75abc1936a9d2c5cf41ba8cccf7787bd8e3c2370bb8df32d9de604ab6291c491"
+}

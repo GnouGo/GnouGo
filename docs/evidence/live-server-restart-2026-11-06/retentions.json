@@ -1,0 +1,89 @@
+[
+  {
+    "reason": "operator_retained_uncertain_planning",
+    "evidence_hash": "a0d8283ecdbe148880d00d699361bd265a76c704fd60a9f738761418eca36e49",
+    "outcome": "inconclusive",
+    "reservation_retained": true,
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "retained_at": "2026-11-06T02:33:25.7397890+00:00",
+    "evidence": {
+      "campaign": "schema-portability-20261019-incremental",
+      "run_collection": "planning-schema-portability",
+      "run_key": "run:g615656ccddamz32a-amazon-1",
+      "session_id": "g615656ccddamz32a-amazon-1",
+      "request_id": "g615656ccddamz32a-amazon-1:9:54d078626aa95900b40be6bbea68ce2850fb60430f820f836fb8d88b34e10a37:3fdce3ddf6a2c098bdcb3b71bf57e0d8917d9c83ddfd54ab5e9db68ea38a2047",
+      "phase": "construction_draft",
+      "source": "5656ccdd7fe7c625e42680d41bedff71690ecca8",
+      "retention_kind": "exhausted-planning-retries",
+      "financial_admission_hash": "dfc8973aad82d39b5800552d6af3910f868800b657499c4c8130bf7a68f68919",
+      "http_journal_hash": "1154d6decbfd08b50413170a7225a0a05f5436c9b5a40eb77ac696b1e7de4349",
+      "request_hash": "687c431192b1bae0cc999e5c25965c84f5371817479b42151b7611851d18b73e",
+      "run_hash": "930e22b3c11b784ddf18092e2c2ddf052ed20bf34d6b12f1d745287c8feb5ade",
+      "failure_hash": "8c8c2befdabe4ac0c56689d7464619554ce9c00b7a746ad128bb27251b665352"
+    },
+    "private_retention_record_sha256": "d3652d11c849d55950615f6bea169704e0a9906e11b4f5c3afe2faa7f0b69d20"
+  },
+  {
+    "reason": "operator_retained_uncertain_planning",
+    "evidence_hash": "c90799889b15dfd6c29cf81a4c81d792461168ddac78f37eb1eed20bfaffcb3a",
+    "outcome": "inconclusive",
+    "reservation_retained": true,
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "retained_at": "2026-11-06T05:37:00.9272460+00:00",
+    "evidence": {
+      "campaign": "schema-portability-20261019-incremental",
+      "run_collection": "planning-evaluation-runs",
+      "run_key": "serverlive-20261106-reviewpr-01",
+      "session_id": "7d11bcf6a17d4fa687902b141cd7c7b7",
+      "request_id": "7d11bcf6a17d4fa687902b141cd7c7b7:43:b438a28794c050a60e3d3e2760cbb58d425c5191d088dd89ae5ec9fcb93952db:2b23e4410a5d3484bb07de6a3c3542843811af7fa30b25de40123ac2d914e46a",
+      "phase": "construction_implementation",
+      "source": "e0e3605daa8ea2dff4cd2840319f480a1b7ad303",
+      "retention_kind": "cancelled-planning-request",
+      "outcome_evidence": "cancelled_reserved_attempt_without_persisted_outcome",
+      "source_evidence": "server_session_and_frozen_configuration",
+      "configuration_hash": "19c8689c8b17eb300bdc09a724213a66e0b689855932000a7f55114339f5bc22",
+      "financial_admission_hash": "463491737a59a91af7b727e38e050b34e3190ccf8a28bac5ef424554c23daa55",
+      "http_journal_hash": "f242805587f373d60522e091c53f3838bfb345ca32d57e4660e587f8fd11551f",
+      "request_hash": "d15c2776d6aad56c7cdf07248db13061a4d91163707910769b536491b5f5350e",
+      "run_hash": "4f3a1f0e8bb14768355ff515ceaff1deb826427863aa2905cd0cc7d7b2a339f3",
+      "failure_hash": "832ec4635daa899d05584cdfbace41fc2acb6f4539dcb12b7845603eae0b24ba"
+    },
+    "private_retention_record_sha256": "9f1e9e534c7a931448c80d238499ed5d4806a72dee380a2be2d617c0ea780fd2"
+  },
+  {
+    "reason": "operator_retained_uncertain_planning",
+    "evidence_hash": "9e35b703320083468dfc32a6e892b5d493f9b31e388acd78c3761821a935a4ac",
+    "outcome": "inconclusive",
+    "reservation_retained": true,
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "retained_at": "2026-11-06T07:04:52.1849170+00:00",
+    "evidence": {
+      "campaign": "schema-portability-20261019-incremental",
+      "run_collection": "planning-evaluation-runs",
+      "run_key": "serverlive-20261106-reviewpr-02",
+      "session_id": "2b32920c7d9e47bab3be23ccf116a9e8",
+      "request_id": "2b32920c7d9e47bab3be23ccf116a9e8:47:720a3a972660acf022a37045967148cf99f2c3566616d8ef85d4d147349cd809:de0f0d3ad3ea405fd258df9476ebdc9659656339a9d36322dcd3de05b3bf6092",
+      "phase": "construction_draft",
+      "source": "e01f173087a4d746c6c6c11d807fd3d17ea00932",
+      "retention_kind": "exhausted-planning-retries",
+      "financial_admission_hash": "463491737a59a91af7b727e38e050b34e3190ccf8a28bac5ef424554c23daa55",
+      "http_journal_hash": "4590b8a8dca18d310a5a9dd5088e6bda60c1ef0d070ac7f0ec097235ca04b909",
+      "request_hash": "d00b12f44f4fdcd514e1428e7b22fc8e3e6d4354ffb1b17d02de00b53f6b2d10",
+      "run_hash": "1a50d867ebb9d67e89076c2ea7c5c2c8b43c6736ddbc977faf60633be1104863",
+      "failure_hash": "1cee45976f7e28cbdb7fb884b657368909a19b7bc91d66bf2ced7b4c7cdbc5b4",
+      "unfunded_retry_at_inspection": {
+        "scope": "campaign_llm_budget",
+        "ceiling_eur": "740.0301038327063045424449473",
+        "retained_cost_upper_bound_eur": "697.99613694030393532701503148",
+        "next_attempt_reservation_eur": "32.574648895250022363359871187",
+        "mandatory_review_reserve_eur": "29.277037302084265139994632794",
+        "external_reserve_eur": "1.9552387740555951532430506058",
+        "next_attempt_dispatch_started": false
+      }
+    },
+    "private_retention_record_sha256": "5802fa75d18d4c0e28cbc6f94085eba84a3566d95abfdfda192f5684d18a4597"
+  }
+]

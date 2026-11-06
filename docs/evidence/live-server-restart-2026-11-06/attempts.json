@@ -1,0 +1,457 @@
+[
+  {
+    "source": "8a2b5bc63e8703bcbdb49b2d67c70b2a74fffb0b",
+    "run": "serverlive-20261106-local-01",
+    "campaign_configuration": "75abc1936a9d2c5cf41ba8cccf7787bd8e3c2370bb8df32d9de604ab6291c491",
+    "provider": "OpenAi",
+    "model": "gpt-6.1-sol-2026-09-29",
+    "host": "GnOuGo.Agent.Server",
+    "budget_mode": "limited",
+    "started_utc": "2026-11-06T02:52:56.167991+00:00",
+    "finished_utc": "2026-11-06T02:52:58.583038+00:00",
+    "session_id": "f5c42ecede6a403fa7f5db0031a5c02c",
+    "scenario": "local",
+    "result": {
+      "status": "stopped",
+      "calls": 1,
+      "repairs": 0,
+      "execution_status": "not_started",
+      "execution_correct": false
+    },
+    "planning_status": "stopped",
+    "diagnostic_codes": [
+      "MODEL_DISPATCH_UNVERIFIABLE"
+    ],
+    "captured_accounting": {
+      "calls": 1,
+      "inputTokens": 24000,
+      "outputTokens": 8192,
+      "totalTokens": 32192,
+      "uncertainCalls": 1,
+      "estimatedCost": "1.9552387740555951532430506058",
+      "estimatedCostUsd": "2.19456",
+      "estimatedCostCurrency": "EUR"
+    },
+    "execution": null,
+    "private_run_export_sha256": "44113d689efd5b7724a34c32c721b7f10bf01c71cc56f6b7a4594d330806bd68",
+    "evidence": "live-provider",
+    "interpretation": "Stopped before campaign HTTP admission or provider send; separate Server reservation remains held.",
+    "captured_accounting_origin": "Server session capture, separate from authoritative campaign accounting; do not sum overlapping charges/reservations."
+  },
+  {
+    "source": "bf0562befd8394f788414328f346c2de9306648f",
+    "run": "serverlive-20261106-local-02",
+    "campaign_configuration": "75abc1936a9d2c5cf41ba8cccf7787bd8e3c2370bb8df32d9de604ab6291c491",
+    "provider": "OpenAi",
+    "model": "gpt-6.1-sol-2026-09-29",
+    "host": "GnOuGo.Agent.Server",
+    "budget_mode": "limited",
+    "started_utc": "2026-11-06T03:03:16.263988+00:00",
+    "finished_utc": "2026-11-06T03:05:39.548361+00:00",
+    "session_id": "667b6c2f6563481b8270c43766b7e8ec",
+    "scenario": "local",
+    "result": {
+      "status": "stopped",
+      "calls": 1,
+      "repairs": 0,
+      "execution_status": "not_started",
+      "execution_correct": false
+    },
+    "planning_status": "stopped",
+    "diagnostic_codes": [
+      "MODEL_OUTPUT_LIMIT"
+    ],
+    "captured_accounting": {
+      "calls": 1,
+      "inputTokens": 1045,
+      "outputTokens": 8192,
+      "totalTokens": 9237,
+      "uncertainCalls": 0,
+      "estimatedCost": "1.3416874554526015680684248040",
+      "estimatedCostUsd": "1.50591",
+      "estimatedCostCurrency": "EUR"
+    },
+    "execution": null,
+    "private_run_export_sha256": "26492f04ddd61fe5975191172777568dfdb6eba3955ead0678e482b5537bff81",
+    "evidence": "live-provider",
+    "interpretation": "Received empty final content; all 8192 output tokens were reasoning. No replay.",
+    "captured_accounting_origin": "Server session capture, separate from authoritative campaign accounting; do not sum overlapping charges/reservations."
+  },
+  {
+    "source": "949287fa4e39a622201463f73a7b7f6c13ebed65",
+    "run": "serverlive-20261106-local-03",
+    "campaign_configuration": "75abc1936a9d2c5cf41ba8cccf7787bd8e3c2370bb8df32d9de604ab6291c491",
+    "provider": "OpenAi",
+    "model": "gpt-6.1-sol-2026-09-29",
+    "host": "GnOuGo.Agent.Server",
+    "budget_mode": "limited",
+    "started_utc": "2026-11-06T03:15:57.088403+00:00",
+    "finished_utc": "2026-11-06T03:20:42.997658+00:00",
+    "session_id": "c5f30cf4087f4894ad8a2e7f82e9ec77",
+    "scenario": "local",
+    "phase_policy_sha256": "2528fe49af46921ca9cced9e8606c4fee405cc54a08d2bfcbaed4a2b5bf4627c",
+    "execution_harness_source": "a5a9ad87b9f0a5d5970c31420f2a3aac0bf5b1be",
+    "execution_artifact_hash": "ab73b956bcc042d3d0bbba32c1788237632552b907b884bf788dfae8444b250e",
+    "review_origin": "delegated_test_reviewed",
+    "oracle": {
+      "version": "native-result42-v1",
+      "independent": true,
+      "passed": true
+    },
+    "result": {
+      "status": "final_review",
+      "calls": 7,
+      "repairs": 0,
+      "execution_status": "completed",
+      "execution_correct": true
+    },
+    "planning_status": "approved",
+    "diagnostic_codes": [],
+    "captured_accounting": {
+      "calls": 7,
+      "inputTokens": 10811,
+      "outputTokens": 3667,
+      "totalTokens": 14478,
+      "uncertainCalls": 0,
+      "estimatedCost": "0.8770402708481824661439771917",
+      "estimatedCostUsd": "0.98439",
+      "estimatedCostCurrency": "EUR"
+    },
+    "execution": {
+      "success": true,
+      "outputs": {
+        "result": 42
+      }
+    },
+    "private_run_export_sha256": "5d7db440d6f0101e7b1ccab53209f59fdebd939bc5ebeaf1347f0649d1db6d3c",
+    "evidence": "live-provider",
+    "interpretation": "Native generation and execution sources differ; only review metadata was corrected before execution. Plan bytes unchanged.",
+    "captured_accounting_origin": "Server session capture, separate from authoritative campaign accounting; do not sum overlapping charges/reservations."
+  },
+  {
+    "source": "873db7e2970363dcc94644f263c1807006ec3c28",
+    "run": "serverlive-20261106-amazon-01",
+    "campaign_configuration": "75abc1936a9d2c5cf41ba8cccf7787bd8e3c2370bb8df32d9de604ab6291c491",
+    "provider": "OpenAi",
+    "model": "gpt-6.1-sol-2026-09-29",
+    "host": "GnOuGo.Agent.Server",
+    "budget_mode": "limited",
+    "started_utc": "2026-11-06T03:40:50.179008+00:00",
+    "finished_utc": "2026-11-06T03:43:22.541421+00:00",
+    "session_id": "e5624a102aec439d9ebf44e92ee9ffc5",
+    "scenario": "amazon",
+    "phase_policy_sha256": "2528fe49af46921ca9cced9e8606c4fee405cc54a08d2bfcbaed4a2b5bf4627c",
+    "result": {
+      "status": "stopped",
+      "calls": 4,
+      "repairs": 0,
+      "execution_status": "not_started",
+      "execution_correct": false
+    },
+    "planning_status": "stopped",
+    "diagnostic_codes": [
+      "DISCOVERY_INCOMPLETE"
+    ],
+    "captured_accounting": {
+      "calls": 4,
+      "inputTokens": 7533,
+      "outputTokens": 2009,
+      "totalTokens": 9542,
+      "uncertainCalls": 0,
+      "estimatedCost": "0.5235299358517462580185317177",
+      "estimatedCostUsd": "0.58761",
+      "estimatedCostCurrency": "EUR"
+    },
+    "execution": null,
+    "private_run_export_sha256": "5278df0408c32ead80c5dd995222e99983d717993d84f0afb85d292ab2ef39a3",
+    "evidence": "live-provider",
+    "interpretation": "Missing Browser apphost at actual Server entrypoint; fixed using existing staging target, then zero-inference MCP readiness passed.",
+    "captured_accounting_origin": "Server session capture, separate from authoritative campaign accounting; do not sum overlapping charges/reservations."
+  },
+  {
+    "source": "23a0a94115f5eaccdd5433866815d04ec38bd58a",
+    "run": "serverlive-20261106-amazon-02",
+    "campaign_configuration": "75abc1936a9d2c5cf41ba8cccf7787bd8e3c2370bb8df32d9de604ab6291c491",
+    "provider": "OpenAi",
+    "model": "gpt-6.1-sol-2026-09-29",
+    "host": "GnOuGo.Agent.Server",
+    "budget_mode": "limited",
+    "started_utc": "2026-11-06T03:52:22.813918+00:00",
+    "finished_utc": "2026-11-06T03:56:44.590829+00:00",
+    "session_id": "d96f3c14ce804bf28895a5ec52342e71",
+    "scenario": "amazon",
+    "phase_policy_sha256": "2528fe49af46921ca9cced9e8606c4fee405cc54a08d2bfcbaed4a2b5bf4627c",
+    "result": {
+      "status": "stopped",
+      "calls": 1,
+      "repairs": 0,
+      "execution_status": "not_started",
+      "execution_correct": false
+    },
+    "planning_status": "stopped",
+    "diagnostic_codes": [
+      "MODEL_OUTPUT_LIMIT"
+    ],
+    "captured_accounting": {
+      "calls": 1,
+      "inputTokens": 1210,
+      "outputTokens": 16384,
+      "totalTokens": 17594,
+      "uncertainCalls": 0,
+      "estimatedCost": "2.6598538845331432644333570919",
+      "estimatedCostUsd": "2.98542",
+      "estimatedCostCurrency": "EUR"
+    },
+    "execution": null,
+    "private_run_export_sha256": "59630b1242370baf9b848da09cbe2b8e7a7d7fe820a49c489def2bb9472d5ad1",
+    "evidence": "live-provider",
+    "interpretation": "Received empty final content; all 16384 output tokens were reasoning.",
+    "captured_accounting_origin": "Server session capture, separate from authoritative campaign accounting; do not sum overlapping charges/reservations."
+  },
+  {
+    "source": "5b86d91720e4848f2321922bd9ed94a7711a58ea",
+    "run": "serverlive-20261106-amazon-03",
+    "campaign_configuration": "75abc1936a9d2c5cf41ba8cccf7787bd8e3c2370bb8df32d9de604ab6291c491",
+    "provider": "OpenAi",
+    "model": "gpt-6.1-sol-2026-09-29",
+    "host": "GnOuGo.Agent.Server",
+    "budget_mode": "limited",
+    "started_utc": "2026-11-06T03:59:21.915931+00:00",
+    "finished_utc": "2026-11-06T04:06:10.762965+00:00",
+    "session_id": "cf2f6a6e9676478eb61e8bcbd48f87dd",
+    "scenario": "amazon",
+    "phase_policy_sha256": "89385f4eb637582ffa51e93b73cd2f55da7cd4fd1f7885fa99cac508ff8b349c",
+    "result": {
+      "status": "failed",
+      "calls": 11,
+      "repairs": 1,
+      "execution_status": "not_started",
+      "execution_correct": false
+    },
+    "planning_status": "failed",
+    "diagnostic_codes": [
+      "PLANNING_HOST_FAILURE"
+    ],
+    "captured_accounting": {
+      "calls": 11,
+      "inputTokens": 63011,
+      "outputTokens": 3240,
+      "totalTokens": 66251,
+      "uncertainCalls": 0,
+      "estimatedCost": "2.2037865288667141838916607270",
+      "estimatedCostUsd": "2.47353",
+      "estimatedCostCurrency": "EUR"
+    },
+    "execution": null,
+    "private_run_export_sha256": "228de6620821b9b8b91482083573f7c954cda5106c0000a2f72409784f9fa9ca",
+    "evidence": "live-provider",
+    "interpretation": "Exact sum of immutable charges exceeded saved aggregate by 0.0000000000000000000000000001 EUR; restore rejected. Historical snapshot unchanged.",
+    "captured_accounting_origin": "Server session capture, separate from authoritative campaign accounting; do not sum overlapping charges/reservations."
+  },
+  {
+    "source": "40d386d7aa03dc5a34cb676d8ad93736fd787167",
+    "run": "serverlive-20261106-amazon-04",
+    "campaign_configuration": "75abc1936a9d2c5cf41ba8cccf7787bd8e3c2370bb8df32d9de604ab6291c491",
+    "provider": "OpenAi",
+    "model": "gpt-6.1-sol-2026-09-29",
+    "host": "GnOuGo.Agent.Server",
+    "budget_mode": "limited",
+    "started_utc": "2026-11-06T04:30:22.546718+00:00",
+    "finished_utc": "2026-11-06T04:46:03.766685+00:00",
+    "session_id": "5db683cffd604b9a9e658dc7d81a694a",
+    "scenario": "amazon",
+    "phase_policy_sha256": "89385f4eb637582ffa51e93b73cd2f55da7cd4fd1f7885fa99cac508ff8b349c",
+    "result": {
+      "status": "stopped",
+      "calls": 23,
+      "repairs": 3,
+      "execution_status": "not_started",
+      "execution_correct": false
+    },
+    "planning_status": "stopped",
+    "diagnostic_codes": [
+      "MODEL_OUTPUT_LIMIT"
+    ],
+    "captured_accounting": {
+      "calls": 23,
+      "inputTokens": 174806,
+      "outputTokens": 21926,
+      "totalTokens": 196732,
+      "uncertainCalls": 0,
+      "estimatedCost": "8.188578047042052744119743412",
+      "estimatedCostUsd": "9.19086",
+      "estimatedCostCurrency": "EUR"
+    },
+    "execution": null,
+    "private_run_export_sha256": "164a4cf0204822fc1a6ee8b0c0da98298e50d7ddc7929e1764d3d5836b3d08eb",
+    "evidence": "live-provider",
+    "interpretation": "Received draft output exhaustion after 23 calls; 16384 output tokens in last call were reasoning. No external execution.",
+    "captured_accounting_origin": "Server session capture, separate from authoritative campaign accounting; do not sum overlapping charges/reservations."
+  },
+  {
+    "source": "e0e3605daa8ea2dff4cd2840319f480a1b7ad303",
+    "run": "serverlive-20261106-reviewpr-01",
+    "campaign_configuration": "75abc1936a9d2c5cf41ba8cccf7787bd8e3c2370bb8df32d9de604ab6291c491",
+    "provider": "OpenAi",
+    "model": "gpt-6.1-sol-2026-09-29",
+    "host": "GnOuGo.Agent.Server",
+    "budget_mode": "limited",
+    "retained_external_reservations_eur": "1.9552387740555951532430506058",
+    "started_utc": "2026-11-06T04:48:04.452489+00:00",
+    "finished_utc": "2026-11-06T05:12:02.991561+00:00",
+    "session_id": "7d11bcf6a17d4fa687902b141cd7c7b7",
+    "scenario": "code",
+    "phase_policy_sha256": "47bb3227ecb210c52f2bf31218636af2967d1814aee9cf4ba4411736b4d2d6dc",
+    "result": {
+      "status": "cancelled",
+      "calls": 43,
+      "repairs": 17,
+      "execution_status": "not_started",
+      "execution_correct": false
+    },
+    "planning_status": "cancelled",
+    "diagnostic_codes": [
+      "CONSTRUCTION_EVIDENCE_INVALID"
+    ],
+    "captured_accounting": {
+      "startedAtUtc": "2026-11-06T04:48:04.911129+00:00",
+      "calls": 43,
+      "uncertainCalls": 1,
+      "inputTokens": 404421,
+      "outputTokens": 42122,
+      "totalTokens": 446543,
+      "estimatedCost": "17.564673913043478260869565247",
+      "estimatedCostCurrency": "EUR",
+      "estimatedCostUsd": "19.71459",
+      "costEstimateAvailable": true,
+      "costUnavailableReason": null
+    },
+    "accepted_checkpoints": 0,
+    "private_run_export_sha256": "4e955abde7e41b13af82eadd8de1030f2aea60cc4422a2a7ab58494030db1c77",
+    "evidence": "live-provider",
+    "interpretation": "Operator cancelled the defective issued-evidence loop. Last attempt uncertain; full reservation retained, no replay or execution.",
+    "captured_accounting_origin": "Server session capture, separate from authoritative campaign accounting; do not sum overlapping charges/reservations."
+  },
+  {
+    "source": "edbc23fa948ca5252daac78e35cf68f5809f9421",
+    "run": "serverlive-20261106-collections-01",
+    "campaign_configuration": "75abc1936a9d2c5cf41ba8cccf7787bd8e3c2370bb8df32d9de604ab6291c491",
+    "provider": "OpenAi",
+    "model": "gpt-6.1-sol-2026-09-29",
+    "host": "GnOuGo.Agent.Server",
+    "budget_mode": "limited",
+    "retained_external_reservations_eur": "1.9552387740555951532430506058",
+    "started_utc": "2026-11-06T05:38:02.468867+00:00",
+    "finished_utc": "2026-11-06T05:47:00.354755+00:00",
+    "session_id": "36632bd69a7a4ed3a116245a70a703c1",
+    "scenario": "collections",
+    "phase_policy_sha256": "2528fe49af46921ca9cced9e8606c4fee405cc54a08d2bfcbaed4a2b5bf4627c",
+    "result": {
+      "status": "final_review",
+      "calls": 16,
+      "repairs": 2,
+      "execution_status": "completed",
+      "execution_correct": true
+    },
+    "execution_artifact_hash": "84e5bf4524be9a1371576f258e1e2b11afad04d0cee096f15a2d58c1e299c126",
+    "review_origin": "delegated_test_reviewed",
+    "oracle": {
+      "version": "collections-native-variants-v1",
+      "independent": true,
+      "passed": true
+    },
+    "execution": {
+      "success": true,
+      "variants": [
+        {
+          "variant": "nominal",
+          "success": true,
+          "outputs": {
+            "result": [
+              2,
+              4,
+              8
+            ]
+          },
+          "oracle_passed": true
+        },
+        {
+          "variant": "alternate",
+          "success": true,
+          "outputs": {
+            "result": [
+              6,
+              6,
+              -4
+            ]
+          },
+          "oracle_passed": true
+        }
+      ]
+    },
+    "planning_status": "approved",
+    "diagnostic_codes": [],
+    "captured_accounting": {
+      "startedAtUtc": "2026-11-06T05:38:02.856304+00:00",
+      "calls": 16,
+      "uncertainCalls": 0,
+      "inputTokens": 50329,
+      "outputTokens": 3781,
+      "totalTokens": 54110,
+      "estimatedCost": "1.9515769779044903777619387027",
+      "estimatedCostCurrency": "EUR",
+      "estimatedCostUsd": "2.19045",
+      "costEstimateAvailable": true,
+      "costUnavailableReason": null
+    },
+    "accepted_checkpoints": 3,
+    "private_run_export_sha256": "8891821ebf3818c0003ba2d679278a10ff92b9042b487d80ba8e328ee3523d52",
+    "evidence": "live-provider",
+    "interpretation": "Both native execution variants passed independent oracles, on unchanged generated artifact and same source.",
+    "captured_accounting_origin": "Server session capture, separate from authoritative campaign accounting; do not sum overlapping charges/reservations."
+  },
+  {
+    "source": "e01f173087a4d746c6c6c11d807fd3d17ea00932",
+    "run": "serverlive-20261106-reviewpr-02",
+    "campaign_configuration": "75abc1936a9d2c5cf41ba8cccf7787bd8e3c2370bb8df32d9de604ab6291c491",
+    "provider": "OpenAi",
+    "model": "gpt-6.1-sol-2026-09-29",
+    "host": "GnOuGo.Agent.Server",
+    "budget_mode": "limited",
+    "retained_external_reservations_eur": "1.9552387740555951532430506058",
+    "started_utc": "2026-11-06T05:50:28.770139+00:00",
+    "finished_utc": "2026-11-06T06:29:53.237215+00:00",
+    "session_id": "2b32920c7d9e47bab3be23ccf116a9e8",
+    "scenario": "code",
+    "phase_policy_sha256": "47bb3227ecb210c52f2bf31218636af2967d1814aee9cf4ba4411736b4d2d6dc",
+    "result": {
+      "status": "stopped",
+      "calls": 47,
+      "repairs": 1,
+      "execution_status": "not_started",
+      "execution_correct": false
+    },
+    "planning_status": "stopped",
+    "diagnostic_codes": [
+      "MODEL_DISPATCH_UNVERIFIABLE"
+    ],
+    "captured_accounting": {
+      "startedAtUtc": "2026-11-06T05:50:29.33125+00:00",
+      "calls": 47,
+      "uncertainCalls": 1,
+      "inputTokens": 1148574,
+      "outputTokens": 67605,
+      "totalTokens": 1216179,
+      "estimatedCost": "41.541446899501069137562366378",
+      "estimatedCostCurrency": "EUR",
+      "estimatedCostUsd": "46.62612",
+      "costEstimateAvailable": true,
+      "costUnavailableReason": null
+    },
+    "accepted_checkpoints": 9,
+    "private_run_export_sha256": "b96ffa4dcebb8a309b66d2f536a26ef2918d1c883f601faccb3c284f9b4209f0",
+    "evidence": "live-provider",
+    "interpretation": "One HTTP 500 ESG120 on call 47, no completion/usage. Next retry funding unavailable at inspection; retained full reservation and forbade old replay/continuation.",
+    "captured_accounting_origin": "Server session capture, separate from authoritative campaign accounting; do not sum overlapping charges/reservations."
+  }
+]
