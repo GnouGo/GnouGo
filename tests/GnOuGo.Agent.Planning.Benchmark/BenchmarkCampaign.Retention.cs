@@ -14,6 +14,7 @@ internal sealed partial class BenchmarkCampaign
     internal const string InterruptedProcessRetention = "interrupted-process";
     internal const string ExhaustedPlanningRetriesRetention = "exhausted-planning-retries";
     internal const string UnstartedPlanningRetention = "unstarted-planning-request";
+    internal const string CancelledPlanningRetention = "cancelled-planning-request";
 
     internal async Task<JsonObject> InspectRetentionOriginalsAsync(string collection, string runKey, string requestId, CancellationToken ct = default)
     {
@@ -100,22 +101,23 @@ internal sealed partial class BenchmarkCampaign
             inspection["existing_closure_hash"] = Hash(retained);
             return inspection;
         }
-        if (retentionKind is not (InterruptedProcessRetention or ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention))
+        if (retentionKind is not (InterruptedProcessRetention or ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention or CancelledPlanningRetention))
             throw new InvalidOperationException("New closures require the active captured-transport retention mode; historical closures remain immutable.");
         var run = await LoadAsync(collection, runKey, ct) ?? throw new InvalidOperationException("No retained planning run.");
         var state = ReadCurrentSession(run["session"]);
         var pending = state.PendingCall;
         var interrupted = retentionKind == InterruptedProcessRetention;
         var unstarted = retentionKind == UnstartedPlanningRetention;
+        var cancelled = retentionKind == CancelledPlanningRetention;
         var result = run["result"] as JsonObject;
         if (state.SchemaVersion != 11 || state.Request.TenantId != "benchmark" ||
-            state.Status != (interrupted ? PlanningStatus.Generating : PlanningStatus.Stopped) ||
+            state.Status != (interrupted ? PlanningStatus.Generating : cancelled ? PlanningStatus.Cancelled : PlanningStatus.Stopped) ||
             state.Construction is null || pending is null || pending.Id != requestId ||
             pending.Purpose is not ("construction_intent" or "construction_select" or "construction_implementation" or "construction_discovery" or
                 "construction_draft" or "construction_local_judge" or "construction_global_judge" or "replan") ||
             pending.Request.ClientRequestId != requestId || !requestId.StartsWith(state.Request.SessionId + ":", StringComparison.Ordinal) ||
             pending.Request.Tools is { Count: > 0 } || pending.Request.MaxTokens is not > 0 ||
-            !interrupted && !state.Diagnostics.Any(d => d.Code == "MODEL_DISPATCH_UNVERIFIABLE" ||
+            !interrupted && !cancelled && !state.Diagnostics.Any(d => d.Code == "MODEL_DISPATCH_UNVERIFIABLE" ||
                 retentionKind == ExhaustedPlanningRetriesRetention && d.Code == "MODEL_REQUEST_REJECTED") ||
             state.Yaml is not null || state.ApprovedHash is not null || state.ApprovalReview is not null || state.SavedAgentId is not null ||
             run["artifact_hash"] is not null || run["execution_id"] is not null || run["execution_run_id"] is not null ||
@@ -133,6 +135,14 @@ internal sealed partial class BenchmarkCampaign
                     (runKey != "run:" + state.Request.SessionId || result["status"]?.ToString() != "stopped" ||
                      result["execution_status"]?.ToString() != "not_started")))
             throw new InvalidOperationException("Permanent retention requires the exact unexecuted, tool-free uncertain planning request in its selected terminal or interrupted mode.");
+        if (cancelled && (collection != "planning-evaluation-runs" || run["host"]?.ToString() != "GnOuGo.Agent.Server" ||
+            string.IsNullOrWhiteSpace(run["provider"]?.ToString()) || string.IsNullOrWhiteSpace(run["model"]?.ToString()) ||
+            run["session_id"]?.ToString() != state.Request.SessionId || result?["status"]?.ToString() != PlanningStatus.Cancelled ||
+            result["execution_status"]?.ToString() != "not_started" || run["provider"]?.ToString() != pending.Request.Provider ||
+            run["model"]?.ToString() != pending.Request.Model ||
+            state.Request.Options["captured_model_metadata"]?["provider"]?.ToString() != run["provider"]?.ToString() ||
+            state.Request.Options["captured_model_metadata"]?["model"]?.ToString() != run["model"]?.ToString()))
+            throw new InvalidOperationException("Cancelled retention requires the exact unexecuted Server session and captured deployment.");
         var request = await LoadAsync("planning-evaluation-requests", requestId, ct);
         var journal = await LoadAsync(BenchmarkHttpJournal.Collection, requestId, ct);
         var failure = await LoadAsync("planning-evaluation-failures", requestId, ct);
@@ -159,7 +169,8 @@ internal sealed partial class BenchmarkCampaign
             !unstarted && attempts[0]?["Id"]?.ToString() is not { Length: > 0 } ||
             (interrupted
                 ? failure is not null || !MatchesInterruptedPlanning(state, policy, journal, attempts)
-                : !MatchesCapturedPlanningFailure(state, policy, journal, attempts, failure, accounting, unstarted)) ||
+                : !(cancelled ? MatchesCancelledPlanning(state, policy, journal, attempts, failure) :
+                    MatchesCapturedPlanningFailure(state, policy, journal, attempts, failure, accounting, unstarted))) ||
             journal["input_ceiling"]?.GetValue<long>() is not { } inputCeiling ||
             inputCeiling < (JsonSerializer.SerializeToUtf8Bytes(pending.Request, PlanningJsonContext.Default.LLMRequest).LongLength + 2) / 3 + 256 ||
             journal["output_ceiling"]?.GetValue<long>() is not { } outputCeiling || outputCeiling < pending.Request.MaxTokens ||
@@ -169,7 +180,17 @@ internal sealed partial class BenchmarkCampaign
         var source = (run["source"] ?? result?["source_commit"])?.ToString();
         string? configurationHash = null;
         string? manifestHash = null;
-        if (interrupted && collection == SchemaPortabilityCampaign.Collection)
+        if (cancelled)
+        {
+            var configurationId = run["campaign_configuration"]?.ToString();
+            var amendment = configurationId is { Length: 64 } && configurationId.All(Uri.IsHexDigit)
+                ? await LoadAsync("planning-evaluation-configuration", "configuration:" + configurationId, ct) : null;
+            if (amendment?["configuration"] is not JsonObject configuration || configuration["provider"]?.ToString() != run["provider"]?.ToString() ||
+                configuration["model"]?.ToString() != run["model"]?.ToString())
+                throw new InvalidOperationException("The cancelled Server run has no matching immutable configuration.");
+            configurationHash = Hash(configuration);
+        }
+        else if (interrupted && collection == SchemaPortabilityCampaign.Collection)
         {
             // Live workflow identity is already frozen in its exact manifest. Reading it
             // does not resume planning or invent a terminal failure after an interruption.
@@ -252,6 +273,12 @@ internal sealed partial class BenchmarkCampaign
         };
         if (retentionKind is not null) evidence["retention_kind"] = retentionKind;
         if (unstarted) evidence["outcome_evidence"] = "no_reserved_physical_attempt";
+        if (cancelled)
+        {
+            evidence["outcome_evidence"] = "cancelled_reserved_attempt_without_persisted_outcome";
+            evidence["source_evidence"] = "server_session_and_frozen_configuration";
+            evidence["configuration_hash"] = configurationHash;
+        }
         if (interrupted)
         {
             evidence.Remove("failure_hash");
@@ -308,7 +335,12 @@ internal sealed partial class BenchmarkCampaign
     {
         if (closure["reason"]?.ToString() != PermanentRetentionReason ||
             closure["evidence"] is not JsonObject evidence || evidence["version"]?.GetValue<int>() != 1 ||
-            evidence["retention_kind"]?.ToString() is not (null or SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention or InterruptedProcessRetention or ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention) ||
+            evidence["retention_kind"]?.ToString() is not (null or SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention or InterruptedProcessRetention or ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention or CancelledPlanningRetention) ||
+            evidence["retention_kind"]?.ToString() == CancelledPlanningRetention &&
+                (evidence["outcome_evidence"]?.ToString() != "cancelled_reserved_attempt_without_persisted_outcome" ||
+                 evidence["source_evidence"]?.ToString() != "server_session_and_frozen_configuration" ||
+                 evidence["configuration_hash"]?.ToString() is not { Length: 64 } cancelledConfiguration || !cancelledConfiguration.All(Uri.IsHexDigit) ||
+                 evidence["failure_hash"]?.ToString() is not { Length: 64 } cancelledFailure || !cancelledFailure.All(Uri.IsHexDigit)) ||
             evidence["retention_kind"]?.ToString() == UnstartedPlanningRetention && evidence["outcome_evidence"]?.ToString() != "no_reserved_physical_attempt" ||
             evidence["retention_kind"]?.ToString() == InterruptedProcessRetention &&
                 (evidence.ContainsKey("failure_hash") || evidence["outcome_evidence"]?.ToString() != "reserved_attempt_without_persisted_outcome" ||
@@ -335,9 +367,15 @@ internal sealed partial class BenchmarkCampaign
 
     private static void ValidateRetentionKind(string? retentionKind)
     {
-        if (retentionKind is not (null or SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention or InterruptedProcessRetention or ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention))
+        if (retentionKind is not (null or SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention or InterruptedProcessRetention or ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention or CancelledPlanningRetention))
             throw new ArgumentException("Choose an exact supported permanent-retention kind.", nameof(retentionKind));
     }
+
+    private static bool MatchesCancelledPlanning(PlanningSession state, JsonObject policy, JsonObject journal, JsonArray attempts, JsonObject? failure)
+        => failure?["stage"]?.ToString() == "dispatch" &&
+            failure["exception_type"]?.ToString() is "OperationCanceledException" or "TaskCanceledException" &&
+            new[] { "kind", "status_code", "safe_provider_code", "retryable", "attempt_count", "retry_exhausted", "retry_after_ms" }.All(key => failure[key] is null) &&
+            MatchesInterruptedPlanning(state, policy, journal, attempts);
 
     private static bool MatchesCapturedPlanningFailure(PlanningSession state, JsonObject policy, JsonObject journal, JsonArray attempts, JsonObject? failure, JsonObject accounting,
         bool unstarted = false)

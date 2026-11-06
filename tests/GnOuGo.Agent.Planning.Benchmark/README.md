@@ -396,6 +396,15 @@ conservatively include retained application reservations not already represented
 by campaign HTTP attempts. The captured amount reduces every physical attempt's
 available financial headroom; it never raises the campaign ceiling or releases an
 old reservation. Report it separately from campaign charges to avoid double counting.
+An explicitly cancelled, unexecuted Server generation with missing outcome may use
+`retain-uncertain-request --retention-kind cancelled-planning-request` in the same
+existing retention flow. Preview/apply binds its exact run key, session, captured
+deployment/configuration, request, transport, cancellation failure and unchanged
+reservation. Received bodies/usage, execution markers and substitutions are rejected.
+Retaining the incident permits independent fresh work and forbids old continuation
+or replay. It never creates a receipt or releases money. A campaign reservation
+already covering that exact Server attempt is counted once; do not add it again to
+`--retained-external-reservations-eur`.
 Financial comparisons use exact decimal units; aggregate estimates round upward
 when decimal capacity requires it. This changes no individual historical charge,
 reservation or tariff and cannot create extra headroom.

@@ -153,6 +153,12 @@ Unlimited defaults never authorize an Unlimited live campaign. Recover exact rec
 when available, otherwise use the existing evidence-bound retention mechanism only
 after verifying tool-free, unexecuted generation. Retention forbids old replay and
 continuation without releasing money, allowing independent fresh work to be admitted.
+For an explicitly cancelled Server generation with missing outcome, the same
+evidence-bound retention mechanism must bind its cancelled state, session, frozen
+configuration, tool-free request, exact transport and cancellation failure. Preserve
+the complete uncertain reservation; never treat cancellation as a receipt or permit
+old continuation. Any execution marker, received body/usage or ownership mismatch
+requires its existing reconciliation path instead.
 
 ## Maintained references
 
