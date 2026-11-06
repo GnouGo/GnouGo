@@ -83,3 +83,9 @@ recreates the reader every four pages and verifies exact coverage without infere
 Use fresh run identities and the existing campaign configuration; it neither raises
 funding nor dispatches a model request. Paid continuation still requires a fresh
 configuration, funding and replay preflight within the unchanged authorized ceiling.
+
+Start the updated standalone host with `dotnet run --project src/GnOuGo.Agent.Server`.
+Normal local startup opens its protected operator window; the `Diagnostic` launch
+profile remains a compatible alias. Do not use stale `--no-build` binaries for this
+upgrade. [Validation evidence and screenshots](evidence/focused-discovery-2026-11-06/README.md)
+separate controlled-host checks, live metadata reads and the unfunded paid continuation.
