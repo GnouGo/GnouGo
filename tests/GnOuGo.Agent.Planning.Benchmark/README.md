@@ -406,6 +406,11 @@ After a received reasoning-only output exhaustion, an explicitly selected
 `--server-phase-policy Profiles/server-diagnostic-reasoning.json` starts fresh
 captures with 16,384 navigation/draft and 8,192 review output tokens. It changes no
 application default or historical allocation and is never selected automatically.
+The separately selected `Profiles/server-diagnostic-navigation32k.json` retains
+16K drafting and requests 32K navigation. After a received 16K reasoning-only draft,
+`Profiles/server-diagnostic-complex32k.json` is an explicit fresh-session trial with
+32K navigation/drafting and 8K review. Neither profile changes the provider/model,
+uses the model maximum, increases funding, or resumes the exhausted request.
 Its content hash is retained before session creation. `server-live-inspect --run <id>`
 reopens the actual host with background processing disabled and exports the existing
 protected inspection reader's redacted evidence; it maps no inference endpoint.
