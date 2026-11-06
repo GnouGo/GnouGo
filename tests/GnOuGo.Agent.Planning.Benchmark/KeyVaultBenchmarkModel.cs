@@ -224,6 +224,12 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
     private async Task<BenchmarkHttpJournal> PrepareAdmissionAsync(string requestId, long input, long output, int? sessionLimit, CancellationToken ct,
         int reviewCount = 0, long reviewInput = 0, int reviewOutput = 0, JsonObject? effectiveTransportPolicy = null)
     {
+        if (RetainedExternalReservationsEur < 0) throw new ArgumentOutOfRangeException(nameof(RetainedExternalReservationsEur));
+        if (RetainedExternalReservationsEur > 0)
+        {
+            effectiveTransportPolicy = effectiveTransportPolicy?.DeepClone().AsObject() ?? new JsonObject();
+            effectiveTransportPolicy["retained_external_reservations_eur"] = RetainedExternalReservationsEur;
+        }
         var existing = await _campaign.LoadAsync(BenchmarkHttpJournal.Collection, requestId, ct);
         if (existing is not null)
         {

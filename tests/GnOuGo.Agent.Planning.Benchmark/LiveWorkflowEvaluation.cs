@@ -28,6 +28,8 @@ internal static class LiveWorkflowEvaluation
         " premiers produits; une seule entrée publique nommée query, de type texte (string), obligatoire et sans valeur par défaut. Sauvegarde le classeur à " + relative +
         "/products.xlsx. Ferme le navigateur même en cas d’échec. Les erreurs observées, prix ou données absents restent explicites, jamais inventés. Ne déclare pas de réussite si le travail n’a pas abouti.";
 
+    internal static string CodeEvaluationPrompt(string relative) => CodePrompt + "\nÉvaluation autorisée: deux entrées publiques nommées pullRequestUrl et reviewText. Cible SmartGuide PR #610, https://github.com/AxaFrance/SmartGuide/pull/610 ; head " + Head + " et base " + Base + ". L’unique git_clone autorisé doit définir explicitement branch=\"" + Head + "\" et targetDirectory=\"" + relative + "/repository\" ; omettre branch ou cloner la branche par défaut avant un checkout n’est pas autorisé. Utilise les toolchains et checks déclarés par ce dépôt. Tous les feedbacks, décisions et commentaires de diff restent LOCAUX: aucune publication GitHub. Sauvegarde les preuves exactes de commandes et leurs codes de sortie dans " + relative + "/review.json, puis nettoie le clone même en cas d’échec. Une capacité absente ou un test échoué reste explicite. Aucune extension de permission/sandbox. Le rapport review.json contient decision (approve ou request_changes), findings (liste), et les commandes/codes de sortie observés. Vérifie explicitement node --version, pnpm --version et python --version avant les checks. Ne présente pas une capacité manquante ou un prérequis indisponible comme un test réussi.";
+
     internal static async Task RunAsync(string[] args, string phase, BenchmarkCampaign campaign, KeyVaultBenchmarkModel model, string root)
     {
         var scenario = SchemaPortabilityCampaign.Option(args, "--case") ?? "amazon";
@@ -208,7 +210,7 @@ internal static class LiveWorkflowEvaluation
         var relative = "workflows/" + campaign.Id + "/" + label;
         var prompt = scenario == "amazon"
             ? AmazonEvaluationPrompt(relative, productLimit)
-            : CodePrompt + "\nÉvaluation autorisée: deux entrées publiques nommées pullRequestUrl et reviewText. Cible SmartGuide PR #610, https://github.com/AxaFrance/SmartGuide/pull/610 ; head " + Head + " et base " + Base + ". L’unique git_clone autorisé doit définir explicitement branch=\"" + Head + "\" et targetDirectory=\"" + relative + "/repository\" ; omettre branch ou cloner la branche par défaut avant un checkout n’est pas autorisé. Utilise les toolchains et checks déclarés par ce dépôt. Tous les feedbacks, décisions et commentaires de diff restent LOCAUX: aucune publication GitHub. Sauvegarde les preuves exactes de commandes et leurs codes de sortie dans " + relative + "/review.json, puis nettoie le clone même en cas d’échec. Une capacité absente ou un test échoué reste explicite. Aucune extension de permission/sandbox. Le rapport review.json contient decision (approve ou request_changes), findings (liste), et les commandes/codes de sortie observés. Vérifie explicitement node --version, pnpm --version et python --version avant les checks. Ne présente pas une capacité manquante ou un prérequis indisponible comme un test réussi.";
+            : CodeEvaluationPrompt(relative);
         if (phase != "revise")
         {
             run["max_products"] = productLimit;
@@ -316,7 +318,7 @@ internal static class LiveWorkflowEvaluation
         return new HybridWorkflowPlanner().AdvanceAsync(session, command, runtime, ct);
     }
 
-    internal static Dictionary<string, McpServerOptions> Configuration(IReadOnlyDictionary<string, McpServerOptions> configured, string scenario, string inferenceEndpoint)
+    internal static Dictionary<string, McpServerOptions> Configuration(IReadOnlyDictionary<string, McpServerOptions> configured, string scenario, string inferenceEndpoint, string buildConfiguration = "Debug")
     {
         var names = scenario == "amazon" ? new[] { "Browser", "Document" } : ["Git", "Cmd", "GithubCopilot", "Document"];
         var result = new Dictionary<string, McpServerOptions>(StringComparer.Ordinal);
@@ -325,7 +327,7 @@ internal static class LiveWorkflowEvaluation
             var key = "GnOuGo." + name + ".Mcp";
             if (!configured.TryGetValue(key, out var settings)) throw new InvalidOperationException("Missing configured MCP: " + key);
             var clone = JsonSerializer.Deserialize<McpServerOptions>(JsonSerializer.Serialize(settings))!;
-            var assembly = Path.GetFullPath(Path.Combine("src", key, "bin", "Debug", "net10.0", key + ".dll"));
+            var assembly = Path.GetFullPath(Path.Combine("src", key, "bin", buildConfiguration, "net10.0", key + ".dll"));
             if (!File.Exists(assembly)) throw new InvalidOperationException("Build the current MCP first: " + key);
             clone.Type = "stdio"; clone.Command = "dotnet"; clone.Args = [assembly];
             clone.EnvironmentVariables ??= new();
@@ -503,7 +505,7 @@ internal static class LiveWorkflowEvaluation
         }
     }
 
-    private sealed class ExecutionModel(KeyVaultBenchmarkModel model, string run) : ILLMClient, ILLMCapabilityResolver
+    internal sealed class ExecutionModel(KeyVaultBenchmarkModel model, string run) : ILLMClient, ILLMCapabilityResolver
     {
         public Task<int?> InputTokenAllowanceAsync(string? provider, string name, int outputTokens, CancellationToken ct)
             => model.InputTokenAllowanceAsync(provider, name, outputTokens, ct);

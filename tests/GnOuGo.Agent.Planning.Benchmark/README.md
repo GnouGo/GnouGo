@@ -424,6 +424,18 @@ execution-start marker always rejects continuation. Generation and execution har
 sources are recorded separately; a harness correction does not become a claim of
 uninterrupted qualification on the original source.
 
+Server runs also reuse the unchanged Collections inputs/oracle in two real native
+executions, and the existing Amazon/Review PR MCP configuration, observation hooks,
+SDK inference proxy, encrypted execution store and independent business oracles.
+Review PR uses the existing pinned checkout and local-report prompt. Release MCP
+binary hashes/source stamps are frozen before generation and checked before effects.
+The optional signed `workspaceRelativePath` binds a Server-generated session identity
+to its separately named isolated run directory; absence preserves historical
+authorization serialization/hashes. It must stay under this campaign's workspace.
+External artifact gates and individual invocation permissions still require the
+existing bounded interactive answers: run execution with a real TTY and respond only
+after inspecting the exact operation and destination. No permission is pregranted.
+
 Use `--schema-portability inspect-configuration` to obtain the previous pin hash
 and `inspect-deployment --model <exact-snapshot>` for redacted readiness. Then
 preview `register-configuration --model <exact-snapshot>

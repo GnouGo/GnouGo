@@ -9,7 +9,8 @@ using GnOuGo.Planning.Examples;
 
 // Test-host authority only. Neither planner responses nor Judge findings can create a review.
 internal sealed record DelegatedTestAuthorization(string Id, string UserAuthorization, string Reviewer,
-    string Campaign, string Run, string Scenario, string WorkspaceRoot, string SourceRevision);
+    string Campaign, string Run, string Scenario, string WorkspaceRoot, string SourceRevision,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? WorkspaceRelativePath = null);
 internal sealed record DelegatedRequirementReview(string Id, string RequirementHash, List<string> Obligations, string Assessment,
     string UnverifiedAspects = "Business completeness and successful execution remain unverified.");
 internal sealed record DelegatedTaskReview(string Id, string TaskHash, string Evidence, string Assessment);
@@ -24,7 +25,7 @@ internal sealed record DelegatedTestReviewDocument(PlanningApprovalReview Receip
 internal partial class DelegatedTestJsonContext : JsonSerializerContext;
 
 internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization authorization,
-    DelegatedTestReviewDocument document, string campaign, string run, string scenario, string root, string source)
+    DelegatedTestReviewDocument document, string campaign, string run, string scenario, string root, string source, string? authorizedRelativePath = null)
 {
     private string? _confirmationPrompt;
     private string? _confirmationStep;
@@ -67,6 +68,10 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
     internal void Validate(PlanningSession state)
     {
         _proofReadValidated = false;
+        if (authorization.WorkspaceRelativePath != authorizedRelativePath || authorizedRelativePath is { } relative &&
+            (Path.IsPathRooted(relative) || !relative.StartsWith("workflows/" + campaign + "/", StringComparison.Ordinal) ||
+             relative.Split('/', '\\').Any(segment => segment is "" or "." or "..")))
+            throw new PlanningConflictException("The delegated workspace path is not bound to this isolated host authorization.");
         if (string.IsNullOrWhiteSpace(authorization.Id) || string.IsNullOrWhiteSpace(authorization.UserAuthorization) ||
             string.IsNullOrWhiteSpace(authorization.Reviewer) || authorization.Campaign != campaign || authorization.Run != run ||
             authorization.Scenario != scenario || Path.GetFullPath(authorization.WorkspaceRoot) != Path.GetFullPath(root) ||
@@ -161,7 +166,7 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
             RequirePath("seed.txt", "seed.txt", exact: true);
             return;
         }
-        var relative = "workflows/" + campaign + "/" + run;
+        var relative = authorizedRelativePath ?? "workflows/" + campaign + "/" + run;
         if (tool == "document_write") RequirePath(args["filePath"]?.ToString(), relative + (scenario == "amazon" ? "/products.xlsx" : "/review.json"), exact: true);
         if (tool == "browser_close") ClearBrowser();
         if (tool == "browser_get_content")

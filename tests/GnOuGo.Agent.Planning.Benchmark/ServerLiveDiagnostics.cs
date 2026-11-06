@@ -151,18 +151,29 @@ internal static class ServerLiveDiagnostics
                     if (state.Status != PlanningStatus.FinalReview || state.ComputeArtifactHash() != saved["session"]?.Deserialize(PlanningJsonContext.Default.PlanningSession)?.ComputeArtifactHash())
                         throw new PlanningConflictException("Only the exact unexecuted review-ready artifact may continue.");
                     saved["execution_harness_source"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD");
-                    await ExecuteReviewedLocalAsync(app, campaign, state, saved, root, workspace);
+                    model.RetainedExternalReservationsEur = saved["retained_external_reservations_eur"]?.GetValue<decimal>() ?? 0;
+                    await ExecuteReviewedLocalAsync(app, campaign, model, state, saved, root, workspace);
                 }
                 Console.WriteLine(new JsonObject { ["run"] = run, ["inspection_only"] = inspectionOnly, ["provider_dispatches"] = 0 }.ToJsonString());
             }
             else if (planning)
             {
                 var scenario = SchemaPortabilityCampaign.Option(args, "--case") ?? "local";
+                var relative = "workflows/" + campaign.Id + "/" + run;
                 var prompt = scenario switch { "local" => PlanningBenchmarkCases.Prompt("local"),
                     "collections" => PlanningBenchmarkCases.Prompt("collections"),
-                    "amazon" => LiveWorkflowEvaluation.AmazonEvaluationPrompt("workflows/" + run, 3),
-                    "code" => LiveWorkflowEvaluation.CodePrompt, _ => throw new ArgumentException("Unknown live scenario.") };
+                    "amazon" => LiveWorkflowEvaluation.AmazonEvaluationPrompt(relative, 3),
+                    "code" => LiveWorkflowEvaluation.CodeEvaluationPrompt(relative), _ => throw new ArgumentException("Unknown live scenario.") };
                 report["scenario"] = scenario;
+                report["workspace_relative"] = relative;
+                report["inputs"] = scenario == "amazon" ? new JsonObject { ["query"] = "chaussure geox homme 45" } : scenario == "code"
+                    ? new JsonObject { ["pullRequestUrl"] = "https://github.com/AxaFrance/SmartGuide/pull/610", ["reviewText"] = "Review correctness, regressions, security and test coverage of the pinned pull-request diff. Report checks truthfully and keep proposed comments local." } : new JsonObject();
+                report["max_products"] = 3;
+                if (scenario is "amazon" or "code")
+                {
+                    report["oracle_version"] = scenario == "amazon" ? LiveWorkflowOracles.AmazonBusinessVersion : LiveWorkflowOracles.CodeBusinessVersion;
+                    report["mcp_builds"] = LiveWorkflowEvaluation.CaptureMcpBuilds(LiveWorkflowEvaluation.Configuration(model.McpServers, scenario, "preflight-only", "Release"), report["source"]!.ToString());
+                }
                 using var started = await client.PostAsJsonAsync("/api/planning", new JsonObject { ["name"] = run, ["prompt"] = prompt,
                     ["mode"] = "auto", ["thresholdMode"] = "diagnostic" });
                 started.EnsureSuccessStatusCode();
@@ -199,7 +210,7 @@ internal static class ServerLiveDiagnostics
                             await campaign.SaveAsync("planning-evaluation-runs", run, report);
                         }
                         if (state.Status == PlanningStatus.FinalReview && args.Contains("--await-delegated-review", StringComparer.Ordinal))
-                            await ExecuteReviewedLocalAsync(app, campaign, state, report, root, workspace);
+                            await ExecuteReviewedLocalAsync(app, campaign, model, state, report, root, workspace);
                         break;
                     }
                     await Task.Delay(2000);
@@ -229,11 +240,12 @@ internal static class ServerLiveDiagnostics
         }
     }
 
-    private static async Task ExecuteReviewedLocalAsync(WebApplication app, BenchmarkCampaign campaign, PlanningSession state,
+    private static async Task ExecuteReviewedLocalAsync(WebApplication app, BenchmarkCampaign campaign, KeyVaultBenchmarkModel model, PlanningSession state,
         JsonObject report, string root, string workspace)
     {
         if (report["execution_started"] is not null) throw new PlanningConflictException("An execution-start marker forbids another execution.");
-        if (report["scenario"]?.ToString() != "local") throw new PlanningConflictException("This native execution oracle authorizes only the local case.");
+        var scenario = report["scenario"]!.ToString();
+        if (scenario is not ("local" or "collections" or "amazon" or "code")) throw new PlanningConflictException("Unknown reviewed execution scenario.");
         var output = Path.Combine(root, "artifacts/live-server-20261106", report["run"]!.ToString());
         Console.WriteLine(new JsonObject { ["awaiting_delegated_review"] = true, ["session_id"] = state.Request.SessionId,
             ["revision"] = state.Revision, ["artifact_hash"] = state.ComputeArtifactHash() }.ToJsonString());
@@ -241,7 +253,8 @@ internal static class ServerLiveDiagnostics
         while (!File.Exists(Path.Combine(output, "authorization.json")) || !File.Exists(Path.Combine(output, "review.json"))) await Task.Delay(1000);
         var authorization = JsonSerializer.Deserialize(await File.ReadAllTextAsync(Path.Combine(output, "authorization.json")), DelegatedTestJsonContext.Default.DelegatedTestAuthorization)!;
         var document = JsonSerializer.Deserialize(await File.ReadAllTextAsync(Path.Combine(output, "review.json")), DelegatedTestJsonContext.Default.DelegatedTestReviewDocument)!;
-        var authority = new DelegatedTestReviewAuthority(authorization, document, campaign.Id, state.Request.SessionId, "synthetic", workspace, report["source"]!.ToString());
+        var authority = new DelegatedTestReviewAuthority(authorization, document, campaign.Id, state.Request.SessionId, scenario is "local" or "collections" ? "synthetic" : scenario, workspace, report["source"]!.ToString(),
+            scenario is "amazon" or "code" ? report["workspace_relative"]!.ToString() : null);
         authority.Validate(state); await authority.PinAsync(campaign, CancellationToken.None);
         var previousRevision = state.Revision;
         var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { PlanningPolicy = state.Request.Policy }, async (s, ct) => {
@@ -253,20 +266,71 @@ internal static class ServerLiveDiagnostics
         PlanningArtifactApproval.Verify(state, authority.Receipt);
         if (state.Status != PlanningStatus.Approved) throw new PlanningConflictException("Artifact-bound delegated approval failed.");
         report["session"] = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession);
-        report["execution_started"] = DateTimeOffset.UtcNow; report["execution_artifact_hash"] = state.ComputeArtifactHash();
+        report["execution_artifact_hash"] = state.ComputeArtifactHash();
         report["review_origin"] = "delegated_test_reviewed";
         await campaign.SaveAsync("planning-evaluation-runs", report["run"]!.ToString(), report);
         var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));
-        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        var engine = new WorkflowEngine { HumanInputProvider = new DelegatedTestReviewAuthority.Input(campaign, state.Request.SessionId, authority) };
-        var result = await engine.ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], new JsonObject(), cancellation.Token);
-        var correct = NativeOutputOracle(result.Success, result.Outputs);
-        report["execution"] = new JsonObject { ["success"] = result.Success, ["outputs"] = result.Outputs?.DeepClone() };
-        report["oracle"] = new JsonObject { ["version"] = "native-result42-v1", ["independent"] = true, ["passed"] = correct };
-        report["result"]!["execution_correct"] = correct; report["result"]!["execution_status"] = result.Success ? "completed" : "failed";
+        if (scenario is "local" or "collections")
+        {
+            report["execution_started"] = DateTimeOffset.UtcNow;
+            await campaign.SaveAsync("planning-evaluation-runs", report["run"]!.ToString(), report);
+            var variants = new JsonArray();
+            foreach (var variant in scenario == "local" ? new[] { "nominal" } : new[] { "nominal", "alternate" })
+            {
+                using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                var engine = new WorkflowEngine { HumanInputProvider = new DelegatedTestReviewAuthority.Input(campaign, state.Request.SessionId, authority) };
+                var inputs = scenario == "local" ? new JsonObject() : PlanningBenchmarkCases.Inputs("collections", variant);
+                var result = await engine.ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], inputs, cancellation.Token);
+                var correct = scenario == "local" ? NativeOutputOracle(result.Success, result.Outputs) :
+                    new PlanningBenchmarkCases.Environment("collections", variant).Verify(result) &&
+                    SyntheticArtifactOracle.Validate("collections", state.Plan, state.Catalog).Count == 0;
+                variants.Add(new JsonObject { ["variant"] = variant, ["success"] = result.Success, ["outputs"] = result.Outputs?.DeepClone(), ["oracle_passed"] = correct });
+            }
+            var passed = variants.All(v => v!["oracle_passed"]!.GetValue<bool>());
+            report["execution"] = new JsonObject { ["success"] = passed, ["variants"] = variants };
+            report["oracle"] = new JsonObject { ["version"] = scenario == "local" ? "native-result42-v1" : "collections-native-variants-v1", ["independent"] = true, ["passed"] = passed };
+        }
+        else
+        {
+            model.CaptureTokenPolicy(state.Request);
+            await using var proxy = await CampaignInferenceProxy.StartAsync(model, state.Request.SessionId);
+            var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, scenario, proxy.Endpoint, "Release");
+            var builds = LiveWorkflowEvaluation.CaptureMcpBuilds(configurations, report["source"]!.ToString());
+            if (!JsonNode.DeepEquals(builds, report["mcp_builds"])) throw new PlanningConflictException("The frozen execution tools changed after generation.");
+            var human = new DelegatedTestReviewAuthority.Input(campaign, state.Request.SessionId, authority);
+            await using var transport = new ConfiguredMcpClientFactory(configurations, human, model.Provider, model.Model);
+            report["events"] = new JsonArray();
+            async Task Save() => await campaign.SaveAsync("planning-evaluation-runs", report["run"]!.ToString(), report);
+            var observed = new LiveWorkflowEvaluation.ObservedMcp(transport, async e => {
+                report["events"]!.AsArray().Add(e);
+                if (scenario == "code") await LiveCodeEvidence.ObserveCheckoutAsync(workspace, report);
+                await Save();
+            }, authority, scenario);
+            foreach (var server in configurations.Keys) _ = await (await observed.GetClientAsync(server, CancellationToken.None)).ListToolsAsync(CancellationToken.None);
+            if (scenario == "code" && !proxy.Ready) throw new PlanningConflictException("SDK inference interception is not attested; execution is forbidden.");
+            var options = app.Services.GetRequiredService<LLMRuntimeOptionsStore>().Current;
+            var engine = new WorkflowEngine { McpClientFactory = observed, HumanInputProvider = human,
+                LLMClient = new LiveWorkflowEvaluation.ExecutionModel(model, state.Request.SessionId), LLMCapabilities = model,
+                ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(options), RunStore = LiveWorkflowEvaluation.ExecutionStore(workspace),
+                LLMUsageBudget = LiveWorkflowEvaluation.ModelBudget("execute", state.Request),
+                LlmDefaults = new() { Provider = model.Provider, Model = model.Model },
+                Limits = new() { TenantId = "benchmark", RunId = state.Request.SessionId, AgentId = campaign.Id + "-" + scenario, MaxMappingInputTokens = 96000 } };
+            using var cancellation = new CancellationTokenSource(TimeSpan.FromMinutes(30));
+            report["execution_started"] = DateTimeOffset.UtcNow; await Save();
+            proxy.ExecutionEnabled = true;
+            try
+            {
+                var result = await engine.ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], report["inputs"]!.DeepClone(), cancellation.Token);
+                report["execution"] = new JsonObject { ["success"] = result.Success, ["outputs"] = result.Outputs?.DeepClone(), ["error"] = result.Error is null ? null : JsonSerializer.SerializeToNode(result.Error) };
+            }
+            finally { proxy.ExecutionEnabled = false; await Save(); }
+            report["oracle"] = await LiveWorkflowOracles.VerifyAsync(scenario, workspace, report, observed, observed.ProbeBrowserClosureAsync);
+        }
+        var accepted = report["oracle"]!["passed"]!.GetValue<bool>();
+        report["result"]!["execution_correct"] = accepted; report["result"]!["execution_status"] = "completed";
         await campaign.SaveAsync("planning-evaluation-runs", report["run"]!.ToString(), report);
-        Console.WriteLine(new JsonObject { ["session_id"] = state.Request.SessionId, ["execution_success"] = result.Success, ["oracle_passed"] = correct }.ToJsonString());
-        if (!correct) Environment.ExitCode = 1;
+        Console.WriteLine(new JsonObject { ["session_id"] = state.Request.SessionId, ["execution_success"] = report["execution"]!["success"]!.DeepClone(), ["oracle_passed"] = accepted }.ToJsonString());
+        if (!accepted) Environment.ExitCode = 1;
     }
 
     internal static bool NativeOutputOracle(bool success, JsonNode? result) => success && result is JsonObject outputs && outputs.Count == 1 &&

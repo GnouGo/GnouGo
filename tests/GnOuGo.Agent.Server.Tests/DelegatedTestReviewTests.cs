@@ -9,6 +9,24 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class DelegatedTestReviewTests
 {
+    [Theory]
+    [InlineData("workflows/campaign/fresh-server-run", true)]
+    [InlineData("workflows/other/fresh-server-run", false)]
+    [InlineData("workflows/campaign/../escape", false)]
+    [InlineData("/tmp/escape", false)]
+    public async Task ExplicitServerWorkspaceMustMatchTheSignedConfinedAuthorization(string path, bool allowed)
+    {
+        var (state, _, original, evidence, receipt) = await Fixture();
+        Assert.DoesNotContain("workspaceRelativePath", JsonSerializer.Serialize(original, DelegatedTestJsonContext.Default.DelegatedTestAuthorization));
+        var authorization = original with { WorkspaceRelativePath = path };
+        receipt = receipt with { AuthorizationHash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(authorization, DelegatedTestJsonContext.Default.DelegatedTestAuthorization)) };
+        var authority = new DelegatedTestReviewAuthority(authorization, new(receipt, evidence), "campaign", "test-run", "synthetic",
+            Path.GetTempPath(), "frozen-source", path);
+        if (allowed) authority.Validate(state);
+        else Assert.Throws<PlanningConflictException>(() => authority.Validate(state));
+        Assert.Throws<PlanningConflictException>(() => Authority(authorization, evidence, receipt).Validate(state));
+    }
+
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Theory]
