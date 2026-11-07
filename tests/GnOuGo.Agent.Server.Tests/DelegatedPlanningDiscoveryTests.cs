@@ -75,16 +75,19 @@ public sealed class DelegatedPlanningDiscoveryTests
     public async Task HostLookupUsesTheMountedHttpTransportResolvedAfterTheListenerBinds()
     {
         var database = AgentMcpTestPersistence.CreateIsolatedDatabasePath("delegated-host-lookup");
-        var app = AgentMcpWebHost.Build(["--Agent:DatabasePath=" + database], urls: "http://127.0.0.1:0", routePrefix: "/mcp/agent");
+        var app = AgentMcpWebHost.Build(["--contentRoot=" + Path.GetDirectoryName(database), "--Agent:DatabasePath=" + database,
+            "--Kestrel:Endpoints:LookupA:Url=http://127.0.0.1:0", "--Kestrel:Endpoints:LookupB:Url=http://127.0.0.1:0"], routePrefix: "/mcp/agent");
         var factoryCreations = 0;
         var business = new Factory("GnOuGo.Browser.Mcp", "browser_get_content", "browser_fill");
         await using var discovery = new ServerLiveDiagnostics.DelegatedPlanningDiscovery(business, "amazon", "frozen-authority-assembly", _ =>
         {
             factoryCreations++;
-            var address = app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.Single();
+            var addresses = app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses;
+            Assert.True(addresses.Count >= 2);
+            var address = addresses.Select(value => new Uri(value)).First(value => value.IsLoopback && value.Scheme == Uri.UriSchemeHttp && value.Port > 0);
             return Task.FromResult<IMcpClientFactory>(new ConfiguredMcpClientFactory(new Dictionary<string, McpServerOptions>
             {
-                ["GnOuGo.Agent.Mcp"] = new() { Type = "http", Url = address.TrimEnd('/') + "/mcp/agent" }
+                ["GnOuGo.Agent.Mcp"] = new() { Type = "http", Url = address.GetLeftPart(UriPartial.Authority) + "/mcp/agent" }
             }));
         });
         try
