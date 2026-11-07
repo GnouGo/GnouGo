@@ -51,6 +51,21 @@ public sealed class ChatPlanningChoiceTests
             llmClientOverride: model, mcpClientFactoryOverride: new InMemoryMcpClientFactory(), llmCapabilityResolver: model);
         return new(fixture.Records, factory, designer, Options.Create(new OpenTelemetrySettings { TenantId = "planning-tests" }), new Lifetime(), NullLogger<ChatPlanningService>.Instance);
     }
+    private static void AddPlanningEndpointServices(WebApplicationBuilder builder, PlanningPersistenceTests.StoreFixture fixture,
+        ChatPlanningService chat, PlanningSessionService designer)
+    {
+        builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.TypeInfoResolverChain.Insert(0, ChatJsonContext.Default));
+        builder.Services.Configure<OpenTelemetrySettings>(o => o.TenantId = "planning-tests");
+        builder.Services.AddSingleton(chat); builder.Services.AddSingleton(designer);
+        builder.Services.AddSingleton<GnOuGo.KeyVault.Core.Services.IKeyVaultRecordStore>(fixture.Records);
+        builder.Services.AddSingleton<IPlanningSessionStore>(fixture.Store);
+        // Minimal API parameter inference inspects the complete mapped endpoint set,
+        // including inspection/operator endpoints that these chat tests never invoke.
+        builder.Services.AddHttpContextAccessor(); builder.Services.AddAntiforgery();
+        builder.Services.AddScoped<LocalOperatorAccess>(); builder.Services.AddScoped<PlanningInspectionService>();
+        builder.Services.AddSingleton<ApplicationLlmBudgetPolicy>();
+        builder.Services.AddSingleton<GnOuGo.Agent.Server.Telemetry.LlmTraceContentStore>();
+    }
     [Fact]
     public async Task LiveAnswerIsAcknowledgedOnlyAfterOwnerCheckpointAndCannotCrossConversations()
     {
@@ -148,9 +163,10 @@ public sealed class ChatPlanningChoiceTests
         var builder = WebApplication.CreateSlimBuilder();
         // Do not inherit the host's development/CI Kestrel endpoints or configuration overlays.
         builder.Configuration.Sources.Clear(); builder.WebHost.ConfigureKestrel(o => o.Listen(System.Net.IPAddress.Loopback, 0)); builder.Logging.ClearProviders();
-        builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.TypeInfoResolverChain.Insert(0, ChatJsonContext.Default));
-        builder.Services.AddSingleton(reopened); builder.Services.AddSingleton(designer);
-        await using var app = builder.Build(); app.MapPlanningEndpoints(); await app.StartAsync(Ct);
+        AddPlanningEndpointServices(builder, fixture, reopened, designer);
+        await using var app = builder.Build(); app.MapPlanningEndpoints();
+        Assert.NotEmpty(((Microsoft.AspNetCore.Routing.IEndpointRouteBuilder)app).DataSources.SelectMany(source => source.Endpoints));
+        await app.StartAsync(Ct);
         using var http = new HttpClient { BaseAddress = new Uri(app.Urls.Single()) };
         var response = await http.PostAsJsonAsync("/api/chat/conversations/scope-chat/planning/" + id + "/commands",
             new PlanningCommandDto("choose", revision, Selections: command.Selections), ChatJsonContext.Default.PlanningCommandDto, Ct);
@@ -182,9 +198,10 @@ public sealed class ChatPlanningChoiceTests
             Assert.DoesNotContain("PRIVATE_INPUT_CONTEXT", System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
         var builder = WebApplication.CreateSlimBuilder();
         builder.Configuration.Sources.Clear(); builder.WebHost.ConfigureKestrel(o => o.Listen(System.Net.IPAddress.Loopback, 0)); builder.Logging.ClearProviders();
-        builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.TypeInfoResolverChain.Insert(0, ChatJsonContext.Default));
-        builder.Services.AddSingleton(reopened); builder.Services.AddSingleton(designer);
-        await using var app = builder.Build(); app.MapPlanningEndpoints(); await app.StartAsync(Ct);
+        AddPlanningEndpointServices(builder, fixture, reopened, designer);
+        await using var app = builder.Build(); app.MapPlanningEndpoints();
+        Assert.NotEmpty(((Microsoft.AspNetCore.Routing.IEndpointRouteBuilder)app).DataSources.SelectMany(source => source.Endpoints));
+        await app.StartAsync(Ct);
         using var http = new HttpClient { BaseAddress = new Uri(app.Urls.Single()) };
         var command = new PlanningCommandDto(action == "cancel" ? "cancel" : "answer", revision, Answers: action == "cancel" ? null :
             [action == "custom" ? new("interface", Text: "PRIVATE_CUSTOM_ANSWER: only a reference and checklist") : new("interface", "reference")]);
