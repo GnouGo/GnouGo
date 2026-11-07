@@ -1,0 +1,36 @@
+{
+  "source": "d7d3e4b86cbdd25a4ba930343f934e419ad51d53",
+  "session": "01a4e292867d4a239a96ee8d49a3473d",
+  "revision": 40,
+  "status": "stopped",
+  "phase": "construction_draft",
+  "logicalCalls": 17,
+  "completedModelReceipts": 16,
+  "acceptedCheckpoints": 1,
+  "acceptedPlan": false,
+  "delegatedApproval": false,
+  "workflowExecuted": false,
+  "independentOracleRun": false,
+  "lastRequest": "01a4e292867d4a239a96ee8d49a3473d:17:fec0b0676f1380e5fdffa14569448822d7a4d0e66dc9a5c2bdbe2bf9bdef5181:36bd0ee5cde6e3f80d9d4dbdd59f7396f3a601bf28f69a3c65c17c8f9375c79b",
+  "lastAttempt": {
+    "Id": "01a4e292867d4a239a96ee8d49a3473d:17:fec0b0676f1380e5fdffa14569448822d7a4d0e66dc9a5c2bdbe2bf9bdef5181:36bd0ee5cde6e3f80d9d4dbdd59f7396f3a601bf28f69a3c65c17c8f9375c79b:7de5f0941cb1435d88f8aa0c6b547211",
+    "StartedAtUtc": "2026-11-07T10:25:29.953054+00:00",
+    "CompletedAtUtc": "2026-11-07T10:30:29.829509+00:00",
+    "Status": null,
+    "Failure": "transport",
+    "ResponseBodyComplete": false,
+    "RetryDecision": "blocked; uncertain outcome"
+  },
+  "actualHttp": {
+    "reasoning_effort": "low",
+    "max_completion_tokens": 32768,
+    "protocol": "ChatCompletions foreground JSON",
+    "tools": false,
+    "background": false
+  },
+  "retentionApplied": false,
+  "requestRetryAllowed": false,
+  "reservationPerCampaignAttemptEur": "7.297671294223018360949395432",
+  "retentionEvidenceHash": "b03322da0283377945ddab40ea460c0b82d6c3c3468ada70660a2902abe32b39",
+  "acceptedPrefixIncludesToolsOutsideDelegatedAuthority": true
+}

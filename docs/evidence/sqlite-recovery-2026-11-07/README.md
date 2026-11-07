@@ -101,3 +101,8 @@ The requested Amazon business outcome remains incomplete: the configured backend
 return a usable generation before artifact review, execution and the unchanged
 independent oracle can proceed. The latest exhausted request retains its evidence
 and holds; no new retry allowance or permanent closure was applied to it.
+
+Subsequent work is recorded in [Amazon fragment qualification](../amazon-fragment-qualification-2026-11-07/README.md).
+That report preserves this historical boundary and records the later authorized
+request-17 retention, independent lower-effort experiments and first accepted
+technical contribution. Its accounting includes the costs and holds above.
