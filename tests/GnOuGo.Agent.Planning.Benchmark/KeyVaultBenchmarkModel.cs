@@ -612,7 +612,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             if (experimentalForecast) input = Math.Max(PlanningConstructionInputPolicy.EffectiveLimit(state.Request, request),
                 checked(JsonSerializer.SerializeToUtf8Bytes(request, PlanningJsonContext.Default.LLMRequest).Length + 256));
             if (experimentalForecast && RetainedExternalReservationsEur > 0)
-                throw BenchmarkCampaign.AdmissionFailure("external_financial_history_incomplete");
+                await _campaign.RequireRetainedApplicationHoldsAsync(RetainedExternalReservationsEur, ct, requireComplete: true);
             var reviews = request.RequiredReviewCalls ?? 0;
             var reviewOutput = PlanningConstructionPhasePolicies.Resolve(state.Request, "construction_local_judge").OutputTokens;
             var reviewInput = reviews == 0 ? 0 : await InputTokenAllowanceAsync(Provider, Model, reviewOutput, ct)
@@ -636,7 +636,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             {
                 effective["financial_forecast_mode"] = "experimental_warning";
                 effective["reservation_input_origin"] = "serialized_request_bytes_plus_envelope_and_phase_target";
-                if (RetainedExternalReservationsEur > 0) effective["external_accounting_status"] = "unverified_external_holds";
+                if (RetainedExternalReservationsEur > 0) effective["external_accounting_status"] = "bounded_retained_application_holds";
             }
             var retained = await _campaign.LoadAsync(BenchmarkHttpJournal.Collection, request.ClientRequestId, ct);
             if (retained?["effective_transport_policy"] is JsonObject prior) effective = prior.DeepClone().AsObject();

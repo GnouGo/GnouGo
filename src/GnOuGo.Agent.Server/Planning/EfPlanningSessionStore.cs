@@ -10,6 +10,13 @@ public sealed class EfPlanningSessionStore(IDbContextFactory<PlanningDbContext> 
     internal const string Collection = "agent-planning-sessions-v11";
     internal const string Author = "GnOuGo.Agent.Server.Planning";
 
+    /// <summary>Acquire the same exclusive owner lease for offline inspection/recovery. Null means an owner is still active.</summary>
+    public Task<FileStream?> TryAcquireLeaseAsync(string tenantId, string sessionId, CancellationToken ct)
+    {
+        ValidateKey(tenantId, sessionId);
+        return PlanningSessionLease.TryAcquireAsync(contexts, tenantId, sessionId, ct);
+    }
+
     public async Task<PlanningSession?> LoadAsync(string tenantId, string sessionId, CancellationToken ct)
     {
         ValidateKey(tenantId, sessionId);

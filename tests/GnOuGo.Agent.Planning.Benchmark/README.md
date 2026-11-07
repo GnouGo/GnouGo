@@ -406,6 +406,19 @@ Retaining the incident permits independent fresh work and forbids old continuati
 or replay. It never creates a receipt or releases money. A campaign reservation
 already covering that exact Server attempt is counted once; do not add it again to
 `--retained-external-reservations-eur`.
+Interrupted Server generation also uses `interrupted-process` in that same
+preview/apply flow. Inspection holds the session's existing owner lease, reads the
+authoritative encrypted revision and both receipt/HTTP journals, and binds the
+captured deployment, cancellation failure and exact application hold. A missing
+transport record or empty campaign attempt list leaves dispatch **unknown**. It
+cannot prove non-dispatch, release money or authorize replay. Received evidence,
+active ownership, execution markers and mismatched records reject retention.
+Persisted bounded application holds outside HTTP accounting are enforced at every
+new physical admission; the supplied external-reservation total cannot omit them.
+Experimental forecasts accept those attributable holds only when the complete
+supplied amount matches their unchanged encrypted evidence. Other unknown external
+history retains its existing refusal. Independent work uses the same campaign and
+ceiling; the old run remains permanently inconclusive and cannot continue.
 Fresh Server bridge captures copy the exact threshold authority fields. An older
 bridge's redundant token-advisory flag is equivalent only when both records retain
 the identical broader diagnostic grant; Strict or token-only sessions gain no grant.

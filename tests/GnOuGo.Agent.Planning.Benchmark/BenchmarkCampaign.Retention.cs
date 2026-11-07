@@ -83,7 +83,7 @@ internal sealed partial class BenchmarkCampaign
     }
 
     internal async Task<JsonObject> InspectPermanentRetentionAsync(string collection, string runKey, string requestId, CancellationToken ct,
-        string? retentionKind = null)
+        string? retentionKind = null, string? workspace = null)
     {
         ValidateRetentionKind(retentionKind);
         if (collection is not ("planning-evaluation-runs" or SchemaPortabilityCampaign.Collection))
@@ -105,6 +105,11 @@ internal sealed partial class BenchmarkCampaign
         if (retentionKind is not (InterruptedProcessRetention or ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention or CancelledPlanningRetention))
             throw new InvalidOperationException("New closures require the active captured-transport retention mode; historical closures remain immutable.");
         var run = await LoadAsync(collection, runKey, ct) ?? throw new InvalidOperationException("No retained planning run.");
+        if (retentionKind == InterruptedProcessRetention && run["host"]?.ToString() == "GnOuGo.Agent.Server")
+        {
+            await using var scope = await OpenInterruptedServerAsync(run, collection, runKey, workspace, ct);
+            return await InspectInterruptedServerAsync(run, collection, runKey, requestId, scope, ct);
+        }
         var state = ReadCurrentSession(run["session"]);
         var pending = state.PendingCall;
         var interrupted = retentionKind == InterruptedProcessRetention;
@@ -304,7 +309,7 @@ internal sealed partial class BenchmarkCampaign
     // The caller holds the campaign lease. Inspect is read-only; apply publishes exactly one
     // immutable closure. Neither path constructs a provider, alters evidence or settles usage.
     internal async Task<JsonObject> ApplyPermanentRetentionAsync(string collection, string runKey, string requestId,
-        string expectedEvidenceHash, string operatorIdentity, string authorization, CancellationToken ct, string? retentionKind = null)
+        string expectedEvidenceHash, string operatorIdentity, string authorization, CancellationToken ct, string? retentionKind = null, string? workspace = null)
     {
         ValidateRetentionKind(retentionKind);
         ArgumentException.ThrowIfNullOrWhiteSpace(operatorIdentity);
@@ -325,7 +330,11 @@ internal sealed partial class BenchmarkCampaign
                 throw new InvalidOperationException("The existing closure is immutable and does not match this authorization.");
             return existing;
         }
-        var inspected = await InspectPermanentRetentionAsync(collection, runKey, requestId, ct, retentionKind);
+        var serverRun = retentionKind == InterruptedProcessRetention ? await LoadAsync(collection, runKey, ct) : null;
+        await using var serverScope = serverRun?["host"]?.ToString() == "GnOuGo.Agent.Server"
+            ? await OpenInterruptedServerAsync(serverRun, collection, runKey, workspace, ct) : null;
+        var inspected = serverScope is null ? await InspectPermanentRetentionAsync(collection, runKey, requestId, ct, retentionKind)
+            : await InspectInterruptedServerAsync(serverRun!, collection, runKey, requestId, serverScope, ct);
         if (inspected["evidence_hash"]?.ToString() != expectedEvidenceHash)
             throw new InvalidOperationException("Retention evidence changed; inspect and review the exact current evidence.");
         var closure = inspected.DeepClone().AsObject();
@@ -354,7 +363,9 @@ internal sealed partial class BenchmarkCampaign
                      evidence["source_evidence"]?.ToString() == "corpus_key_and_frozen_configuration" ||
                    evidence["run_collection"]?.ToString() == SchemaPortabilityCampaign.Collection &&
                      evidence["source_evidence"]?.ToString() == "live_manifest_and_frozen_configuration" &&
-                     evidence["manifest_hash"]?.ToString() is { Length: 64 } manifestHash && manifestHash.All(Uri.IsHexDigit)) ||
+                     evidence["manifest_hash"]?.ToString() is { Length: 64 } manifestHash && manifestHash.All(Uri.IsHexDigit) ||
+                   evidence["run_collection"]?.ToString() == "planning-evaluation-runs" &&
+                     evidence["source_evidence"]?.ToString() == "server_session_and_frozen_configuration" && ValidInterruptedServerEvidence(evidence)) ||
                  evidence["configuration_hash"]?.ToString() is not { Length: 64 } configurationHash || !configurationHash.All(Uri.IsHexDigit)) ||
             evidence.ContainsKey("unfunded_retry_at_inspection") && evidence["unfunded_retry_at_inspection"] is not JsonObject ||
             evidence["unfunded_retry_at_inspection"] is JsonObject funding &&
@@ -530,7 +541,7 @@ internal sealed partial class BenchmarkCampaign
             refusal["retained_external_reservations_eur"]?.GetValue<decimal>() == (journal["effective_transport_policy"]?["retained_external_reservations_eur"]?.GetValue<decimal>() ?? 0m);
     }
 
-    private static bool MatchesInterruptedPlanning(PlanningSession state, JsonObject policy, JsonObject journal, JsonArray attempts)
+    private static bool MatchesInterruptedPlanning(PlanningSession state, JsonObject policy, JsonObject journal, JsonArray attempts, bool allowEmptyTransport = false)
     {
         var captured = PlanningTransportPolicies.Read(state.Request);
         var effective = journal["effective_transport_policy"] as JsonObject;
@@ -550,7 +561,10 @@ internal sealed partial class BenchmarkCampaign
             retry["MaxUncertainRetries"]?.GetValue<int>() != 0 || attempts.Count > retry["MaxAttempts"]!.GetValue<int>() ||
             attempts.Select(a => a?["Id"]?.ToString()).Distinct(StringComparer.Ordinal).Count() != attempts.Count ||
             attempts.Any(a => a?["Id"]?.ToString() is not { Length: > 0 } id || !id.StartsWith(state.PendingCall.Id + ":", StringComparison.Ordinal)) ||
-            journal["transport"]?["Fingerprint"]?.ToString() is not { Length: 64 } fingerprint || !fingerprint.All(Uri.IsHexDigit)) return false;
+            !(allowEmptyTransport && attempts.Count == 0 && journal["transport"]?["Fingerprint"]?.ToString() == "" &&
+              journal["transport"]?["DelayMilliseconds"]?.GetValue<double>() == 0 ||
+              journal["transport"]?["Fingerprint"]?.ToString() is { Length: 64 } fingerprint && fingerprint.All(Uri.IsHexDigit))) return false;
+        if (attempts.Count == 0) return allowEmptyTransport;
         for (var index = 0; index < attempts.Count - 1; index++)
             if (attempts[index]?["Status"]?.GetValue<int>() is not (429 or 500 or 502 or 503 or 504) ||
                 attempts[index]?["Failure"] is not null || !IsRetainedErrorOnlyBody(attempts[index]?["Body"]?.ToString())) return false;

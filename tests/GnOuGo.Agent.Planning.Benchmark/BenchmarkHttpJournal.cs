@@ -135,6 +135,7 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
             }
             var retainedOtherReservations = _effectiveTransportPolicy?["retained_external_reservations_eur"]?.GetValue<decimal>() ?? 0;
             if (retainedOtherReservations < 0) throw new InvalidOperationException("Retained financial headroom cannot be negative.");
+            await campaign.RequireRetainedApplicationHoldsAsync(retainedOtherReservations, ct);
             var ceiling = await campaign.CostCeilingAsync(ct);
             var experimentalForecast = _effectiveTransportPolicy?["financial_forecast_mode"]?.ToString() == "experimental_warning";
             if (experimentalForecast && _effectiveTransportPolicy?["external_accounting_status"]?.ToString() == "unverified_external_holds")

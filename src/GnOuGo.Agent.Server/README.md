@@ -884,6 +884,14 @@ With the existing automatic-correction policy, disconnected exports use bounded 
 
 ### Discovery recovery
 
+Planning cancellation surveillance reads only its small encrypted cancellation
+marker, without loading the full session on each tick. Recovery selects bounded
+active index coordinates and cancellation metadata before loading work. Exhausted
+KeyVault contention suspends the affected owner and retains requests, receipts,
+reservations and cancellation markers; it does not terminate the host or rewrite
+the session as failed. Periodic recovery and cold restart use the same owner lease
+and exact journals, so a missing outcome never grants another dispatch.
+
 The protected local operator window offers metadata-only recovery for eligible blocked Designer sessions, followed by explicit planning resume under captured admission. Exploratory source failures remain visible without blocking healthy alternatives. See [focused discovery and recovery](../../docs/focused-capability-discovery.md). Existing sessions are not automatically resumed or repriced.
 
 

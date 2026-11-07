@@ -85,7 +85,7 @@ public sealed partial class BenchmarkPermanentRetentionTests
         Assert.Equal(before, records.Snapshot());
     }
 
-    private static async Task<BenchmarkCampaign> SeedCancelledServerAsync(Records records)
+    private static async Task<BenchmarkCampaign> SeedCancelledServerAsync(GnOuGo.KeyVault.Core.Services.IKeyVaultRecordStore records)
     {
         var campaign = await SeedCapturedRetriesAsync(records, 1, true);
         var run = (await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, Ct))!;

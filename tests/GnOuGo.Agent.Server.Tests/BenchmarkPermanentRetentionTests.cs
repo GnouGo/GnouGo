@@ -398,7 +398,7 @@ public sealed partial class BenchmarkPermanentRetentionTests
         Assert.Equal(before, records.Snapshot());
     }
 
-    private static async Task<BenchmarkCampaign> SeedCapturedRetriesAsync(Records records, int count, bool unknownLast,
+    private static async Task<BenchmarkCampaign> SeedCapturedRetriesAsync(IKeyVaultRecordStore records, int count, bool unknownLast,
         int reviewHeadroom = 2)
     {
         var campaign = await SeedAsync(records);
