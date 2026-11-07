@@ -224,7 +224,11 @@ public static class HttpRequestHelper
             var previous = state.Attempts.LastOrDefault();
             if (previous is not null)
             {
-                if (backgroundStreaming && previous.ProviderResponseId is not null && previous.ProtocolComplete != true && previous.Failure != "cancelled")
+                // A fired generation timer is authoritative even if UTC clock resolution
+                // still shows time remaining. Only a new receipt-recovery invocation may
+                // retrieve after that timeout; this invocation must not extend its work.
+                if (backgroundStreaming && previous.ProviderResponseId is not null && previous.ProtocolComplete != true && previous.Failure != "cancelled" &&
+                    (originalFailure is null || previous.Failure != "timeout"))
                     await RecoverBackgroundResponseAsync(http, template, previous, retryPolicy, () => SaveAsync(CancellationToken.None), delayAsync, utcNow, originalFailure is null, ct).ConfigureAwait(false);
                 if (previous.Failure == "cancelled") throw new OperationCanceledException("The reserved attempt was cancelled; it cannot be retried.", ct);
                 if (confirmedOnly && previous.Status is not null && (previous.Body is null || previous.Failure is not null))

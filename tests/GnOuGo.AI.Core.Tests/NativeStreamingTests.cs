@@ -400,6 +400,41 @@ public sealed class NativeStreamingTests
     }
 
     [Fact]
+    public async Task ExpiredGenerationTimerCannotStartInlineRetrievalWhenUtcClockLags()
+    {
+        var journal = new Journal(); var posts = 0; var gets = 0;
+        var capturedUtc = DateTimeOffset.UtcNow;
+        using var http = NewHttp(new Handler(req =>
+        {
+            if (req.Method != HttpMethod.Post) { gets++; throw new InvalidOperationException("Expired generation attempted receipt retrieval."); }
+            posts++;
+            return Task.FromResult(Response("openai", new FragmentStream(Encoding.UTF8.GetBytes(Event(new
+            {
+                type = "response.created", sequence_number = 0,
+                response = new { id = "resp_clock", status = "in_progress" }
+            })), waitAtEnd: true)));
+        }));
+        var policy = new LLMProviderRetryPolicyOptions { MaxAttempts = 3, MaxUncertainRetries = 0, AttemptTimeoutMilliseconds = 250 };
+        using var context = new LLMHttpRetryContext("clock", journal, policy).Activate();
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() => HttpRequestHelper.SendWithTransientRetryAsync(
+            http, () =>
+            {
+                var request = HttpRequestHelper.CreateJsonPost("https://gateway.example/v1/responses", "{\"stream\":true,\"background\":true}"u8.ToArray());
+                request.Options.Set(LLMTransportResolver.SelectionKey,
+                    new(LLMStreamingMode.Streaming, LLMStreamingMode.Streaming, LLMTransportResolver.Responses, "controlled native route"));
+                return request;
+            }, HttpCompletionOption.ResponseHeadersRead, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance,
+            "controlled generation", policy,
+            static (_, _) => Task.CompletedTask, static upper => upper, () => capturedUtc, Ct));
+        Assert.Equal(LLMProviderFailureKind.Timeout, LLMProviderFailureClassifier.Classify(error).Kind);
+        var attempt = Assert.Single(journal.State!.Attempts);
+        Assert.Equal("resp_clock", attempt.ProviderResponseId);
+        Assert.Equal("timeout", attempt.Failure);
+        Assert.Null(attempt.ReceiptRetrievals);
+        Assert.Equal(1, posts); Assert.Equal(0, gets);
+    }
+
+    [Fact]
     public async Task BackgroundRecoveryKeepsTheActualDeadlineAndColdRecoveryOnlyRetrievesTheReceipt()
     {
         var journal = new Journal(); var posts = 0; var gets = 0;
