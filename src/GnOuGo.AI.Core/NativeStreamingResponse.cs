@@ -121,7 +121,7 @@ internal static class NativeStreamingResponse
                     if (item[name] is { } annotation)
                     {
                         if (choice["stream_filter_annotations"] is not JsonArray) choice["stream_filter_annotations"] = new JsonArray();
-                        choice["stream_filter_annotations"]!.AsArray().Add(new JsonObject { [name] = annotation.DeepClone() });
+                        choice["stream_filter_annotations"]!.AsArray().Add((JsonNode)new JsonObject { [name] = annotation.DeepClone() });
                         choice[name] = annotation.DeepClone();
                     }
                 if (item["finish_reason"] is { } finish)
