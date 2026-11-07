@@ -1,0 +1,67 @@
+{
+  "implementation_source": "8f2dee04",
+  "complete_solution": {
+    "status": "running",
+    "source": "ac5b18e5",
+    "worktree": "artifacts/native-streaming-final-validation",
+    "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror -p:SkipModelMetadataGeneration=true -p:SkipClientBuild=true --logger trx --results-directory ../native-streaming-20261107/final-full-tests",
+    "log": "artifacts/native-streaming-20261107/final-full-solution.log",
+    "final_exit_code": null
+  },
+  "intermediate_solution": {
+    "source": "59f69a2a4fede5c4ac58425f1e203fc763d8c4ca",
+    "passed": 8146,
+    "failed": 1,
+    "skipped": 13,
+    "failure": "RecoveredTypedRepairExpiresCandidateEvidenceAndKeepsConsumedHistory",
+    "fix": "ac5b18e5",
+    "focused_post_fix": {
+      "passed": 55,
+      "failed": 0
+    }
+  },
+  "focused_checks": [
+    {
+      "project": "GnOuGo.AI.Core.Tests",
+      "passed": 342,
+      "failed": 0,
+      "source": "8f2dee04"
+    },
+    {
+      "project": "GnOuGo.Flow.Integrations.Tests",
+      "passed": 121,
+      "failed": 0,
+      "source": "ac5b18e5"
+    },
+    {
+      "scope": "funding/retention/capture/inspector/encrypted HTTP recovery/permissions",
+      "project": "GnOuGo.Agent.Server.Tests",
+      "passed": 251,
+      "failed": 0,
+      "source": "341f63fd"
+    }
+  ],
+  "published_checks": {
+    "native_aot_proxy": "passed",
+    "native_aot_planning_smoke": "passed",
+    "trimmed_single_file_agent_server": "passed",
+    "published_encrypted_storage_separate_processes": 2,
+    "release_packages": [
+      "GnOuGo.AI.Core",
+      "GnOuGo.AI.Local",
+      "GnOuGo.Flow.Planning",
+      "GnOuGo.Flow.Integrations",
+      "GnOuGo.DocIngestor.Core"
+    ],
+    "frontend_production_build": "passed",
+    "new_warning_suppressions": false
+  },
+  "qualification_limitations": [
+    "Only the configured OpenAI-compatible deployment was live-tested.",
+    "Real Anthropic/Ollama/GGUF inference was not run. Local iterator and adapter protocol tests use controlled fixtures.",
+    "Retired default GitHub Models service was not live-qualified.",
+    "Agent.Server uses its CI-supported trimmed JIT profile. Its existing EF dependencies do not support its attempted Native AOT publish. Native AOT checks passed for the proxy and planner smoke.",
+    "No new Amazon session: representative streaming generation remained incomplete."
+  ],
+  "post_freeze_change": "8f2dee04 casts an Azure annotation to JsonNode to select the trimming/AOT-safe insertion overload. Final AI.Core tests and all published checks include it; complete-solution freeze precedes only this overload-selection change and documentation."
+}

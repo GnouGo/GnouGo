@@ -839,6 +839,8 @@ The Save confirmation and `/llm list` show the selection. Saving preserves unrel
 stores the selection encrypted in KeyVault, and applies it to new calls immediately. The existing
 post-save credential check uses the selected protocol; reserved planning calls and receipts stay unchanged.
 
+The same provider wizard exposes **Generation transport** (`Auto`, `Streaming`, `NonStreaming`) and native protocol support declarations for custom routes. Model review offers an exact deployment override. New planning sessions freeze the effective selection; historical captures retain non-streaming behavior. The common LLM inspector shows captured transport, terminal proof and usage availability. See [native streaming configuration, completion and recovery](../../docs/native-provider-streaming.md) and the [source-bound qualification](../../docs/evidence/native-streaming-2026-11-07/README.md). Streaming does not change the selected generation protocol or endpoint.
+
 ### Inspectable model calls
 
 The shared `appsettings.json` enables `TraceDebug:Enabled=true` for retained content. Open
