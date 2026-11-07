@@ -1,8 +1,8 @@
 {
-  "implementation_source": "8f2dee04",
+  "implementation_source": "9b23387d24745cd2df0423167710b7aaf8079ba4",
   "complete_solution": {
     "status": "running",
-    "source": "ac5b18e5",
+    "source": "ac5b18e52226a74d6cbc721032235b79bcf756fc",
     "worktree": "artifacts/native-streaming-final-validation",
     "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror -p:SkipModelMetadataGeneration=true -p:SkipClientBuild=true --logger trx --results-directory ../native-streaming-20261107/final-full-tests",
     "log": "artifacts/native-streaming-20261107/final-full-solution.log",
@@ -23,9 +23,9 @@
   "focused_checks": [
     {
       "project": "GnOuGo.AI.Core.Tests",
-      "passed": 342,
+      "passed": 344,
       "failed": 0,
-      "source": "8f2dee04"
+      "source": "9b23387d24745cd2df0423167710b7aaf8079ba4"
     },
     {
       "project": "GnOuGo.Flow.Integrations.Tests",
@@ -39,6 +39,19 @@
       "passed": 251,
       "failed": 0,
       "source": "341f63fd"
+    },
+    {
+      "project": "GnOuGo.Agent.Server.Tests",
+      "scope": "HTTP deadlines, financial admission/retention, journal recovery, transport capture and inspector",
+      "passed": 224,
+      "failed": 0,
+      "source": "9b23387d24745cd2df0423167710b7aaf8079ba4"
+    },
+    {
+      "project": "GnOuGo.DocIngestor.Tests",
+      "passed": 97,
+      "failed": 0,
+      "source": "9b23387d24745cd2df0423167710b7aaf8079ba4"
     }
   ],
   "published_checks": {
@@ -54,7 +67,8 @@
       "GnOuGo.DocIngestor.Core"
     ],
     "frontend_production_build": "passed",
-    "new_warning_suppressions": false
+    "new_warning_suppressions": false,
+    "source": "9b23387d24745cd2df0423167710b7aaf8079ba4"
   },
   "qualification_limitations": [
     "Only the configured OpenAI-compatible deployment was live-tested.",
@@ -63,5 +77,14 @@
     "Agent.Server uses its CI-supported trimmed JIT profile. Its existing EF dependencies do not support its attempted Native AOT publish. Native AOT checks passed for the proxy and planner smoke.",
     "No new Amazon session: representative streaming generation remained incomplete."
   ],
-  "post_freeze_change": "8f2dee04 casts an Azure annotation to JsonNode to select the trimming/AOT-safe insertion overload. Final AI.Core tests and all published checks include it; complete-solution freeze precedes only this overload-selection change and documentation."
+  "post_freeze_changes": [
+    {
+      "source": "8f2dee04",
+      "change": "Use JsonNode overload for Azure annotations; trimming/AOT compatibility."
+    },
+    {
+      "source": "9b23387d24745cd2df0423167710b7aaf8079ba4",
+      "change": "The owning HTTP attempt also honors a shorter explicit effective HttpClient.Timeout during body consumption. Live deadlines were already 600 seconds at both layers and do not change. Current AI.Core 344, targeted Server 224, DocIngestor 97 and all refreshed publications include this fix."
+    }
+  ]
 }
