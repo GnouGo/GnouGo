@@ -1,7 +1,7 @@
 [
   {
     "name": "latest-server-publish",
-    "source": "9b23387d24745cd2df0423167710b7aaf8079ba4",
+    "source": "d2aa3d4f7e7f49f27e2930a417be776bb8e82556",
     "arguments": [
       "dotnet",
       "publish",
@@ -24,37 +24,37 @@
       "-p:DebugType=None",
       "-p:DebugSymbols=false"
     ],
-    "started_utc": "2026-11-07T16:57:17.383121+00:00",
-    "finished_utc": "2026-11-07T16:58:11.430035+00:00",
+    "started_utc": "2026-11-07T17:09:26.005443+00:00",
+    "finished_utc": "2026-11-07T17:10:18.567185+00:00",
     "exit_code": 0
   },
   {
     "name": "latest-storage-process-1",
-    "source": "9b23387d24745cd2df0423167710b7aaf8079ba4",
+    "source": "d2aa3d4f7e7f49f27e2930a417be776bb8e82556",
     "arguments": [
       "artifacts/native-streaming-20261107/final-publish/server/GnOuGo.Agent.Server",
       "--planning-persistence-smoke",
-      "artifacts/native-streaming-20261107/latest-published-storage-smoke"
+      "artifacts/native-streaming-20261107/published-storage-d2aa3d4f"
     ],
-    "started_utc": "2026-11-07T16:58:11.430814+00:00",
-    "finished_utc": "2026-11-07T16:58:16.317414+00:00",
+    "started_utc": "2026-11-07T17:10:18.568290+00:00",
+    "finished_utc": "2026-11-07T17:10:20.785998+00:00",
     "exit_code": 0
   },
   {
     "name": "latest-storage-process-2",
-    "source": "9b23387d24745cd2df0423167710b7aaf8079ba4",
+    "source": "d2aa3d4f7e7f49f27e2930a417be776bb8e82556",
     "arguments": [
       "artifacts/native-streaming-20261107/final-publish/server/GnOuGo.Agent.Server",
       "--planning-persistence-smoke",
-      "artifacts/native-streaming-20261107/latest-published-storage-smoke"
+      "artifacts/native-streaming-20261107/published-storage-d2aa3d4f"
     ],
-    "started_utc": "2026-11-07T16:58:16.319626+00:00",
-    "finished_utc": "2026-11-07T16:58:17.310802+00:00",
+    "started_utc": "2026-11-07T17:10:20.789260+00:00",
+    "finished_utc": "2026-11-07T17:10:21.790239+00:00",
     "exit_code": 0
   },
   {
     "name": "latest-proxy-aot-publish",
-    "source": "9b23387d24745cd2df0423167710b7aaf8079ba4",
+    "source": "d2aa3d4f7e7f49f27e2930a417be776bb8e82556",
     "arguments": [
       "dotnet",
       "publish",
@@ -72,26 +72,26 @@
       "artifacts/native-streaming-20261107/final-publish/proxy",
       "-p:PublishAot=true"
     ],
-    "started_utc": "2026-11-07T16:58:17.313003+00:00",
-    "finished_utc": "2026-11-07T16:58:31.095924+00:00",
+    "started_utc": "2026-11-07T17:10:21.792915+00:00",
+    "finished_utc": "2026-11-07T17:10:35.704499+00:00",
     "exit_code": 0
   },
   {
     "name": "latest-proxy-native-smoke",
-    "source": "9b23387d24745cd2df0423167710b7aaf8079ba4",
+    "source": "d2aa3d4f7e7f49f27e2930a417be776bb8e82556",
     "arguments": [
       "python3",
       "scripts/smoke-proxy-copilot.py",
       "--binary",
       "artifacts/native-streaming-20261107/final-publish/proxy/GnOuGo.ProxyCopilot.Server"
     ],
-    "started_utc": "2026-11-07T16:58:31.097814+00:00",
-    "finished_utc": "2026-11-07T16:58:32.314660+00:00",
+    "started_utc": "2026-11-07T17:10:35.705320+00:00",
+    "finished_utc": "2026-11-07T17:10:37.038905+00:00",
     "exit_code": 0
   },
   {
     "name": "latest-planning-aot-publish",
-    "source": "9b23387d24745cd2df0423167710b7aaf8079ba4",
+    "source": "d2aa3d4f7e7f49f27e2930a417be776bb8e82556",
     "arguments": [
       "dotnet",
       "publish",
@@ -109,23 +109,23 @@
       "artifacts/native-streaming-20261107/final-publish/planning-smoke",
       "-p:PublishAot=true"
     ],
-    "started_utc": "2026-11-07T16:58:32.315314+00:00",
-    "finished_utc": "2026-11-07T16:59:20.190153+00:00",
+    "started_utc": "2026-11-07T17:10:37.041351+00:00",
+    "finished_utc": "2026-11-07T17:11:24.263548+00:00",
     "exit_code": 0
   },
   {
     "name": "latest-planning-native-smoke",
-    "source": "9b23387d24745cd2df0423167710b7aaf8079ba4",
+    "source": "d2aa3d4f7e7f49f27e2930a417be776bb8e82556",
     "arguments": [
       "artifacts/native-streaming-20261107/final-publish/planning-smoke/GnOuGo.Flow.Planning.Smoke"
     ],
-    "started_utc": "2026-11-07T16:59:20.196187+00:00",
-    "finished_utc": "2026-11-07T16:59:26.301341+00:00",
+    "started_utc": "2026-11-07T17:11:24.264178+00:00",
+    "finished_utc": "2026-11-07T17:11:30.527888+00:00",
     "exit_code": 0
   },
   {
     "name": "latest-GnOuGo.AI.Core-pack",
-    "source": "9b23387d24745cd2df0423167710b7aaf8079ba4",
+    "source": "d2aa3d4f7e7f49f27e2930a417be776bb8e82556",
     "arguments": [
       "dotnet",
       "pack",
@@ -138,13 +138,13 @@
       "-o",
       "artifacts/native-streaming-20261107/final-packages"
     ],
-    "started_utc": "2026-11-07T16:59:26.303021+00:00",
-    "finished_utc": "2026-11-07T16:59:27.679523+00:00",
+    "started_utc": "2026-11-07T17:11:30.528526+00:00",
+    "finished_utc": "2026-11-07T17:11:31.991854+00:00",
     "exit_code": 0
   },
   {
     "name": "latest-GnOuGo.AI.Local-pack",
-    "source": "9b23387d24745cd2df0423167710b7aaf8079ba4",
+    "source": "d2aa3d4f7e7f49f27e2930a417be776bb8e82556",
     "arguments": [
       "dotnet",
       "pack",
@@ -157,13 +157,13 @@
       "-o",
       "artifacts/native-streaming-20261107/final-packages"
     ],
-    "started_utc": "2026-11-07T16:59:27.682158+00:00",
-    "finished_utc": "2026-11-07T16:59:28.987326+00:00",
+    "started_utc": "2026-11-07T17:11:31.992580+00:00",
+    "finished_utc": "2026-11-07T17:11:33.294221+00:00",
     "exit_code": 0
   },
   {
     "name": "latest-GnOuGo.Flow.Planning-pack",
-    "source": "9b23387d24745cd2df0423167710b7aaf8079ba4",
+    "source": "d2aa3d4f7e7f49f27e2930a417be776bb8e82556",
     "arguments": [
       "dotnet",
       "pack",
@@ -176,13 +176,13 @@
       "-o",
       "artifacts/native-streaming-20261107/final-packages"
     ],
-    "started_utc": "2026-11-07T16:59:28.989378+00:00",
-    "finished_utc": "2026-11-07T16:59:38.203964+00:00",
+    "started_utc": "2026-11-07T17:11:33.295822+00:00",
+    "finished_utc": "2026-11-07T17:11:42.957434+00:00",
     "exit_code": 0
   },
   {
     "name": "latest-GnOuGo.Flow.Integrations-pack",
-    "source": "9b23387d24745cd2df0423167710b7aaf8079ba4",
+    "source": "d2aa3d4f7e7f49f27e2930a417be776bb8e82556",
     "arguments": [
       "dotnet",
       "pack",
@@ -195,13 +195,13 @@
       "-o",
       "artifacts/native-streaming-20261107/final-packages"
     ],
-    "started_utc": "2026-11-07T16:59:38.207701+00:00",
-    "finished_utc": "2026-11-07T16:59:39.868364+00:00",
+    "started_utc": "2026-11-07T17:11:42.957998+00:00",
+    "finished_utc": "2026-11-07T17:11:44.656937+00:00",
     "exit_code": 0
   },
   {
     "name": "latest-GnOuGo.DocIngestor.Core-pack",
-    "source": "9b23387d24745cd2df0423167710b7aaf8079ba4",
+    "source": "d2aa3d4f7e7f49f27e2930a417be776bb8e82556",
     "arguments": [
       "dotnet",
       "pack",
@@ -214,8 +214,8 @@
       "-o",
       "artifacts/native-streaming-20261107/final-packages"
     ],
-    "started_utc": "2026-11-07T16:59:39.870967+00:00",
-    "finished_utc": "2026-11-07T16:59:41.581622+00:00",
+    "started_utc": "2026-11-07T17:11:44.657613+00:00",
+    "finished_utc": "2026-11-07T17:11:46.112217+00:00",
     "exit_code": 0
   }
 ]

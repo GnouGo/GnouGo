@@ -1,5 +1,5 @@
 {
-  "implementation_source": "9b23387d24745cd2df0423167710b7aaf8079ba4",
+  "implementation_source": "d2aa3d4f7e7f49f27e2930a417be776bb8e82556",
   "complete_solution": {
     "status": "running",
     "source": "ac5b18e52226a74d6cbc721032235b79bcf756fc",
@@ -23,9 +23,9 @@
   "focused_checks": [
     {
       "project": "GnOuGo.AI.Core.Tests",
-      "passed": 344,
+      "passed": 345,
       "failed": 0,
-      "source": "9b23387d24745cd2df0423167710b7aaf8079ba4"
+      "source": "d2aa3d4f7e7f49f27e2930a417be776bb8e82556"
     },
     {
       "project": "GnOuGo.Flow.Integrations.Tests",
@@ -45,13 +45,13 @@
       "scope": "HTTP deadlines, financial admission/retention, journal recovery, transport capture and inspector",
       "passed": 224,
       "failed": 0,
-      "source": "9b23387d24745cd2df0423167710b7aaf8079ba4"
+      "source": "d2aa3d4f7e7f49f27e2930a417be776bb8e82556"
     },
     {
       "project": "GnOuGo.DocIngestor.Tests",
       "passed": 97,
       "failed": 0,
-      "source": "9b23387d24745cd2df0423167710b7aaf8079ba4"
+      "source": "d2aa3d4f7e7f49f27e2930a417be776bb8e82556"
     }
   ],
   "published_checks": {
@@ -68,7 +68,7 @@
     ],
     "frontend_production_build": "passed",
     "new_warning_suppressions": false,
-    "source": "9b23387d24745cd2df0423167710b7aaf8079ba4"
+    "source": "d2aa3d4f7e7f49f27e2930a417be776bb8e82556"
   },
   "qualification_limitations": [
     "Only the configured OpenAI-compatible deployment was live-tested.",
@@ -85,6 +85,10 @@
     {
       "source": "9b23387d24745cd2df0423167710b7aaf8079ba4",
       "change": "The owning HTTP attempt also honors a shorter explicit effective HttpClient.Timeout during body consumption. Live deadlines were already 600 seconds at both layers and do not change. Current AI.Core 344, targeted Server 224, DocIngestor 97 and all refreshed publications include this fix."
+    },
+    {
+      "source": "d2aa3d4f7e7f49f27e2930a417be776bb8e82556",
+      "change": "Persist actual attempt deadlines in the owned journal and prevent automatic Responses receipt recovery from extending them. Cold read-only recovery retrieves the same persisted response without a generation POST. Current AI.Core 345, targeted Server 224, DocIngestor 97, and all 12 refreshed publication stages include the fix."
     }
   ]
 }
