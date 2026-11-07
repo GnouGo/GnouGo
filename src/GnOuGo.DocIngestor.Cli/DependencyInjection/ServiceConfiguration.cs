@@ -239,7 +239,8 @@ public static class ServiceConfiguration
                     model: "gpt-4o-mini",
                     apiKeyProvider: apiKeyProvider,
                     http: httpClient,
-                    telemetry: telemetry);
+                    telemetry: telemetry,
+                        providerOptions: openAiConfig.GenerationTransport);
                 rerankers.Add(new CrossEncoderReranker(scorer, maxConcurrency: 5));
             }
 
@@ -251,7 +252,8 @@ public static class ServiceConfiguration
                     baseUrl: ollamaConfig.BaseUrl,
                     model: ollamaConfig.ChatModel,
                     http: httpClient,
-                    telemetry: telemetry);
+                    telemetry: telemetry,
+                        providerOptions: ollamaConfig.GenerationTransport);
                 rerankers.Add(new CrossEncoderReranker(scorer, maxConcurrency: 3));
             }
 
@@ -293,7 +295,8 @@ public static class ServiceConfiguration
                         baseUrl: config.Ollama.BaseUrl,
                         model: config.Ollama.VisionModel,
                         http: httpClient,
-                        telemetry: telemetry);
+                        telemetry: telemetry,
+                        providerOptions: config.Ollama.GenerationTransport);
                 });
                 break;
 
@@ -313,7 +316,8 @@ public static class ServiceConfiguration
                         model: "gpt-4o-mini",
                         apiKeyProvider: apiKeyProvider,
                         http: httpClient,
-                        telemetry: telemetry);
+                        telemetry: telemetry,
+                        providerOptions: config.OpenAi.GenerationTransport);
                 });
                 break;
         }

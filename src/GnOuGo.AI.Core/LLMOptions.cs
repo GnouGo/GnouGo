@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace GnOuGo.AI.Core;
 
 /// <summary>
@@ -49,6 +51,8 @@ public sealed class LLMOptions
     public Dictionary<string, LLMModelMetadata> ModelOverrides { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     /// <summary>Exact host-captured metadata. When present, no catalog merge, files or heuristics are permitted.</summary>
     public Dictionary<string, LLMModelMetadata>? CapturedModelMetadata { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, LLMTransportSelection>? CapturedTransports { get; set; }
 
     /// <summary>
     /// Resolves the <see cref="ModelProviderOptions"/> for a given provider key.
@@ -144,6 +148,10 @@ public sealed class ModelProviderOptions
     /// <summary>Provider-scoped bounded transient HTTP retry policy.</summary>
     public LLMProviderRetryPolicyOptions RetryPolicy { get; set; } = new();
 
+    /// <summary>Exact deployment ids only; no alias or fuzzy transport-policy matching.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, LLMModelTransportOptions>? ModelTransportOverrides { get; set; }
+
     /// <summary>
     /// Returns the effective provider type: explicit <see cref="Type"/>, or inferred from URL.
     /// Supported values: "openai", "ollama", "copilot", "anthropic", "local". The legacy alias "claude" is accepted.
@@ -184,6 +192,19 @@ public enum LLMUnspecifiedOutputTokensMode
 /// <summary>Provider-neutral request shaping policy for a configured model provider.</summary>
 public sealed class LLMProviderRequestPolicyOptions
 {
+    // Nullable and omitted for legacy policy byte/hash compatibility. New calls resolve null as Auto.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LLMStreamingMode? StreamingMode { get; set; }
+    /// <summary>Explicit configured-route declarations, keyed by native protocol name.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, bool>? StreamingSupport { get; set; }
+    public LLMProviderRequestPolicyOptions Clone()
+    {
+        var copy = (LLMProviderRequestPolicyOptions)MemberwiseClone();
+        copy.StreamingSupport = StreamingSupport is null ? null : new(StreamingSupport, StringComparer.Ordinal);
+        return copy;
+    }
+
     /// <summary>Explicit gateway billing declarations; these do not imply endpoint/model availability.</summary>
     public string BillingServiceTier { get; set; } = "standard";
     public bool BillingRegionalProcessing { get; set; }
@@ -260,6 +281,16 @@ public static class LLMOptionsValidation
 
         var requestPolicy = provider.RequestPolicy
             ?? throw new InvalidOperationException($"LLM provider '{providerName}' RequestPolicy cannot be null.");
+        if (requestPolicy.StreamingMode is { } streaming && !Enum.IsDefined(streaming))
+            throw new InvalidOperationException($"LLM provider '{providerName}' has an invalid StreamingMode.");
+        LLMTransportResolver.ValidateSupport(requestPolicy.StreamingSupport);
+        if (provider.ModelTransportOverrides is not null)
+            foreach (var (model, transport) in provider.ModelTransportOverrides)
+            {
+                if (string.IsNullOrWhiteSpace(model) || transport is null || transport.StreamingMode is { } mode && !Enum.IsDefined(mode))
+                    throw new InvalidOperationException("Invalid exact model transport override.");
+                LLMTransportResolver.ValidateSupport(transport.StreamingSupport);
+            }
         if (!Enum.IsDefined(requestPolicy.BackgroundProtocol))
             throw new InvalidOperationException($"LLM provider '{providerName}' has an invalid BackgroundProtocol.");
         if (!Enum.IsDefined(requestPolicy.UnspecifiedOutputTokens))

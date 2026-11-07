@@ -16,6 +16,8 @@ public interface ILLMHttpRetryJournal
 public sealed class LLMHttpRetryState
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LLMTransportSelection? Transport { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? RequestMethod { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Endpoint { get; set; }
@@ -26,8 +28,41 @@ public sealed class LLMHttpRetryState
     public double DelayMilliseconds { get; set; }
 }
 
+public sealed class LLMHttpReceiptRetrieval
+{
+    public DateTimeOffset StartedAtUtc { get; set; }
+    public DateTimeOffset? CompletedAtUtc { get; set; }
+    public int? Status { get; set; }
+    public string? Body { get; set; }
+    public string? Failure { get; set; }
+}
+
 public sealed class LLMHttpAttempt
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? StreamFailure { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<LLMHttpReceiptRetrieval>? ReceiptRetrievals { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? ProtocolComplete { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AssembledBody { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PartialBodyBase64 { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ProviderResponseId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? StreamCursor { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? TerminationStatus { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? UsageKnown { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? FirstByteAtUtc { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? LastByteAtUtc { get; set; }
+
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? RetryDecision { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

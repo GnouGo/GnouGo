@@ -4,6 +4,8 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
 
 namespace GnOuGo.AI.Core;
@@ -52,6 +54,11 @@ public static class HttpRequestHelper
 
         return builder.ToString();
     }
+
+    public static Task<HttpResponseMessage> SendGenerationAsync(HttpClient http, Func<HttpRequestMessage> requestFactory,
+        LLMProviderRetryPolicyOptions retryPolicy, CancellationToken ct = default)
+        => SendWithServerErrorRetryAsync(http, requestFactory, HttpCompletionOption.ResponseHeadersRead,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, "native model generation", retryPolicy, ct);
 
     internal static Task<HttpResponseMessage> SendWithServerErrorRetryAsync(
         HttpClient http,
@@ -162,6 +169,8 @@ public static class HttpRequestHelper
         if (retryPolicy.MaxAttempts < 1 || retryPolicy.MaxUncertainRetries < 0 || retryPolicy.AttemptTimeoutMilliseconds <= 0)
             throw new ArgumentException("Invalid HTTP retry limits.");
         using var template = requestFactory();
+        template.Options.TryGetValue(LLMTransportResolver.SelectionKey, out var transport);
+        var streaming = transport?.IsStreaming == true;
         var context = template.Method == HttpMethod.Get ? null : LLMHttpRetryContext.Current;
         var confirmedOnly = context?.PolicyOverride is not null;
         if (context?.PolicyOverride is { } capturedPolicy)
@@ -186,7 +195,10 @@ public static class HttpRequestHelper
             if (template.RequestUri is { } endpoint && !string.IsNullOrEmpty(endpoint.UserInfo))
                 state.Endpoint = new UriBuilder(endpoint) { UserName = "", Password = "", Query = "", Fragment = "" }.Uri.GetLeftPart(UriPartial.Path);
             state.RequestBody = payload;
+            state.Transport = transport;
         }
+        var backgroundStreaming = streaming && transport!.Protocol == LLMTransportResolver.Responses &&
+            JsonNode.Parse(payload)?["background"]?.GetValue<bool>() == true;
         Exception? originalFailure = null;
         while (true)
         {
@@ -194,9 +206,14 @@ public static class HttpRequestHelper
             var previous = state.Attempts.LastOrDefault();
             if (previous is not null)
             {
+                if (backgroundStreaming && previous.ProviderResponseId is not null && previous.ProtocolComplete != true && previous.Failure != "cancelled")
+                    await RecoverBackgroundResponseAsync(http, template, previous, retryPolicy, () => SaveAsync(CancellationToken.None), delayAsync, utcNow, originalFailure is null, ct).ConfigureAwait(false);
                 if (previous.Failure == "cancelled") throw new OperationCanceledException("The reserved attempt was cancelled; it cannot be retried.", ct);
                 if (confirmedOnly && previous.Status is not null && (previous.Body is null || previous.Failure is not null))
                     throw new InvalidOperationException("A confirmed HTTP response requires a complete durably recorded body and outcome.");
+                if (streaming && previous.ObservedStatus is >= 200 and < 300 &&
+                    (previous.ProtocolComplete != true || previous.AssembledBody is null))
+                    throw new HttpRequestException("The native stream is incomplete; exact receipt recovery is required before independent generation.", originalFailure);
                 var response = previous.Status is { } code ? Restore(previous, code) : null;
                 var classification = response is null ? null : LLMProviderFailureClassifier.ClassifyResponse(response.StatusCode, previous.Body ?? "", confirmedOnly);
                 var uncertain = response is null;
@@ -204,7 +221,7 @@ public static class HttpRequestHelper
                 var retryable = response is not null
                     ? safeToRepeat && (confirmedOnly ? ConfirmedTransient(response.StatusCode, classification!, retryAfter)
                         : IsRetryableStatus(response.StatusCode) && classification!.Kind is not (LLMProviderFailureKind.QuotaOrBilling or LLMProviderFailureKind.Authentication or LLMProviderFailureKind.Authorization))
-                    : !confirmedOnly && safeToRepeat && previous.Failure is null or "transport" or "timeout";
+                    : !streaming && !confirmedOnly && safeToRepeat && previous.Failure is null or "transport" or "timeout";
                 var exhausted = state.Attempts.Count >= retryPolicy.MaxAttempts || uncertain &&
                     state.Attempts.Count(a => a.Status is null) > retryPolicy.MaxUncertainRetries;
                 var delay = !retryable || exhausted || response?.IsSuccessStatusCode == true ? TimeSpan.Zero : previous.NotBefore is { } due ? due - utcNow() : retryAfter ?? CalculateJitterDelay(retryPolicy, state.Attempts.Count, jitter);
@@ -262,20 +279,41 @@ public static class HttpRequestHelper
             timeout.CancelAfter(retryPolicy.AttemptTimeoutMilliseconds);
             HttpResponseMessage? received = null;
             var partial = new StringBuilder();
+            CapturedResponseStream? capturedStream = null;
             try
             {
-                received = await http.SendAsync(request, context is null ? completionOption : HttpCompletionOption.ResponseHeadersRead, timeout.Token).ConfigureAwait(false);
+                received = await http.SendAsync(request, context is null && !streaming ? completionOption : HttpCompletionOption.ResponseHeadersRead, timeout.Token).ConfigureAwait(false);
                 attempt.ObservedStatus = (int)received.StatusCode;
                 attempt.ContentType = received.Content.Headers.ContentType?.ToString();
-                // Buffer under the attempt deadline: a truncated/timed-out body is also uncertain.
-                // Some HttpContent implementations ignore cancellation while creating
-                // their stream. The attempt deadline still bounds that operation.
-                using var bodyReader = new StreamReader(await received.Content.ReadAsStreamAsync(timeout.Token).WaitAsync(timeout.Token).ConfigureAwait(false));
-                var buffer = new char[4096];
-                int read;
-                while ((read = await bodyReader.ReadAsync(buffer.AsMemory(), timeout.Token).AsTask().WaitAsync(timeout.Token).ConfigureAwait(false)) > 0) partial.Append(buffer, 0, read);
-                attempt.Body = partial.ToString();
-                attempt.ResponseBodyComplete = true;
+                if (streaming && received.IsSuccessStatusCode)
+                {
+                    var media = received.Content.Headers.ContentType?.MediaType;
+                    if (transport!.Protocol == LLMTransportResolver.OllamaChat
+                        ? media is not ("application/x-ndjson" or "application/ndjson" or "application/json")
+                        : media != "text/event-stream")
+                        throw new InvalidDataException("The configured provider did not return the requested native streaming protocol.");
+                    capturedStream = new CapturedResponseStream(
+                        await received.Content.ReadAsStreamAsync(timeout.Token).WaitAsync(timeout.Token).ConfigureAwait(false),
+                        attempt, token => SaveAsync(token), utcNow);
+                    var assembled = await NativeStreamingResponse.ReadAsync(capturedStream, transport.Protocol, attempt,
+                        () => capturedStream.CheckpointAsync(timeout.Token), timeout.Token).ConfigureAwait(false);
+                    timeout.Token.ThrowIfCancellationRequested();
+                    attempt.AssembledBody = JsonSerializer.Serialize(assembled, StreamingJsonContext.Default.JsonObject);
+                    attempt.Body = capturedStream.CompleteText();
+                    attempt.PartialBody = null;
+                    attempt.PartialBodyBase64 = null;
+                    attempt.ProtocolComplete = true;
+                    attempt.ResponseBodyComplete = true;
+                }
+                else
+                {
+                    using var bodyReader = new StreamReader(await received.Content.ReadAsStreamAsync(timeout.Token).WaitAsync(timeout.Token).ConfigureAwait(false));
+                    var buffer = new char[4096];
+                    int read;
+                    while ((read = await bodyReader.ReadAsync(buffer.AsMemory(), timeout.Token).AsTask().WaitAsync(timeout.Token).ConfigureAwait(false)) > 0) partial.Append(buffer, 0, read);
+                    attempt.Body = partial.ToString();
+                    attempt.ResponseBodyComplete = true;
+                }
                 attempt.RetryAfter = received.Headers.TryGetValues("Retry-After", out var values) ? values.FirstOrDefault() : null;
                 attempt.Status = (int)received.StatusCode;
             }
@@ -285,17 +323,36 @@ public static class HttpRequestHelper
                 attempt.Failure = ct.IsCancellationRequested ? "cancelled" : "timeout";
             }
             catch (TimeoutException ex) { originalFailure = ex; attempt.Failure = ct.IsCancellationRequested ? "cancelled" : "timeout"; }
+            catch (Exception ex) when (streaming && ex is IOException or InvalidDataException or JsonException)
+            {
+                originalFailure = ex;
+                attempt.Failure = ct.IsCancellationRequested ? "cancelled" : "transport";
+            }
             catch (HttpRequestException ex)
             {
                 originalFailure = ex;
                 attempt.Failure = ct.IsCancellationRequested ? "cancelled" : IsTransientTransport(ex) ? "transport" : "permanent";
             }
-            catch (Exception ex) { originalFailure = ex; attempt.Failure = ct.IsCancellationRequested ? "cancelled" : "permanent"; }
+            catch (Exception ex) { originalFailure = ex; attempt.Failure = ct.IsCancellationRequested ? "cancelled" : streaming && attempt.ObservedStatus is >= 200 and < 300 ? "transport" : "permanent"; }
             finally
             {
                 attempt.CompletedAtUtc = utcNow();
+                if (streaming)
+                {
+                    System.Diagnostics.Activity.Current?.SetTag("gnougo.llm.stream.protocol_complete", attempt.ProtocolComplete == true);
+                    System.Diagnostics.Activity.Current?.SetTag("gnougo.llm.stream.termination", attempt.TerminationStatus);
+                    System.Diagnostics.Activity.Current?.SetTag("gnougo.llm.stream.usage_known", attempt.UsageKnown);
+                }
+                if (streaming && attempt.ProtocolComplete != true && attempt.ObservedStatus is >= 200 and < 300)
+                    attempt.RetryDecision = "blocked; incomplete native stream; exact receipt recovery required";
                 if (ct.IsCancellationRequested) attempt.RetryDecision = "cancelled; no retry";
-                if (attempt.Body is null) { attempt.ResponseBodyComplete = false; attempt.PartialBody = partial.Length == 0 ? null : partial.ToString(); }
+                if (attempt.Body is null)
+                {
+                    attempt.ResponseBodyComplete = false;
+                    if (capturedStream is not null) capturedStream.Snapshot();
+                    else attempt.PartialBody = partial.Length == 0 ? null : partial.ToString();
+                }
+                capturedStream?.Dispose();
                 received?.Dispose();
                 System.Diagnostics.Activity.Current?.AddEvent(new System.Diagnostics.ActivityEvent("gnougo.llm.transport.attempt",
                     tags: new System.Diagnostics.ActivityTagsCollection {
@@ -311,6 +368,86 @@ public static class HttpRequestHelper
         }
 
         Task SaveAsync(CancellationToken token) => context?.SaveAsync(state, token) ?? Task.CompletedTask;
+    }
+
+    // Receipt retrieval continues the same response id. It never creates or reserves another generation.
+    private static async Task RecoverBackgroundResponseAsync(HttpClient http, HttpRequestMessage original, LLMHttpAttempt attempt,
+        LLMProviderRetryPolicyOptions policy, Func<Task> save, Func<TimeSpan, CancellationToken, Task> delay,
+        Func<DateTimeOffset> utcNow, bool allowExpiredReceipt, CancellationToken ct)
+    {
+        var endpoint = new UriBuilder(original.RequestUri!) { Path = original.RequestUri!.AbsolutePath.TrimEnd('/') + "/" + Uri.EscapeDataString(attempt.ProviderResponseId!) };
+        attempt.ReceiptRetrievals ??= [];
+        attempt.StreamFailure ??= attempt.Failure;
+        var deadline = (attempt.StartedAtUtc ?? utcNow()).AddMilliseconds(policy.AttemptTimeoutMilliseconds);
+        // Historical exact retrieval remains read-only; it cannot finance another POST.
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var remaining = deadline - utcNow();
+        if (remaining <= TimeSpan.Zero && !allowExpiredReceipt) throw new TimeoutException("The captured generation deadline expired before receipt recovery.");
+        timeout.CancelAfter(remaining > TimeSpan.Zero ? remaining : TimeSpan.FromSeconds(30));
+        if (attempt.ReceiptRetrievals.Any(r => r.Status is >= 400 && !IsRetryableStatus((HttpStatusCode)r.Status.Value)))
+            throw new HttpRequestException("The recorded non-transient receipt retrieval cannot be retried.");
+        var token = timeout.Token;
+        while (attempt.ReceiptRetrievals.Count < 128 && attempt.ReceiptRetrievals.Count(r => r.Failure is not null || r.Status is >= 400) < policy.MaxAttempts)
+        {
+            token.ThrowIfCancellationRequested();
+            var retrieval = new LLMHttpReceiptRetrieval { StartedAtUtc = utcNow() };
+            attempt.ReceiptRetrievals.Add(retrieval);
+            await save().ConfigureAwait(false);
+            try
+            {
+                using var get = new HttpRequestMessage(HttpMethod.Get, endpoint.Uri);
+                foreach (var header in original.Headers)
+                    if (header.Key is not ("Accept" or "X-Client-Request-Id")) get.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                using var response = await http.SendAsync(get, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
+                retrieval.Status = (int)response.StatusCode;
+                // Bounded full receipt retrieval; never interpret connection EOF as native stream completion.
+                using var body = new StreamReader(await response.Content.ReadAsStreamAsync(token).WaitAsync(token).ConfigureAwait(false));
+                var text = new StringBuilder(); var buffer = new char[4096]; int count;
+                while ((count = await body.ReadAsync(buffer.AsMemory(), token).AsTask().WaitAsync(token).ConfigureAwait(false)) > 0)
+                {
+                    if (text.Length + count > 16 * 1024 * 1024) throw new InvalidDataException("Retrieved response exceeds the size limit.");
+                    text.Append(buffer, 0, count);
+                }
+                retrieval.Body = text.ToString();
+                if (!response.IsSuccessStatusCode)
+                {
+                    if (!IsRetryableStatus(response.StatusCode)) throw new InvalidDataException("The configured Responses route rejected receipt retrieval.");
+                }
+                else
+                {
+                    var result = JsonNode.Parse(retrieval.Body) as JsonObject ?? throw new InvalidDataException("Invalid retrieved response.");
+                    if (result["id"]?.ToString() != attempt.ProviderResponseId) throw new InvalidDataException("Retrieved response identity mismatch.");
+                    var status = result["status"]?.ToString();
+                    if (status is "completed" or "incomplete" or "failed")
+                    {
+                        if (status != "failed" && result["output"] is not JsonArray) throw new InvalidDataException("Retrieved response output is missing.");
+                        attempt.Body = retrieval.Body;
+                        attempt.AssembledBody = retrieval.Body;
+                        attempt.Status = (int)response.StatusCode;
+                        attempt.Failure = null;
+                        attempt.ProtocolComplete = true;
+                        attempt.ResponseBodyComplete = true;
+                        attempt.TerminationStatus = status;
+                        attempt.UsageKnown = result["usage"]?["input_tokens"] is JsonValue i && i.TryGetValue<long>(out var input) && input >= 0 &&
+                            result["usage"]?["output_tokens"] is JsonValue o && o.TryGetValue<long>(out var output) && output >= 0;
+                        return;
+                    }
+                    if (status is not ("queued" or "in_progress")) throw new InvalidDataException("Unexpected retrieved response status.");
+                }
+            }
+            catch (Exception ex)
+            {
+                retrieval.Failure = ct.IsCancellationRequested ? "cancelled" : ex is OperationCanceledException ? "timeout" : "retrieval failed";
+                throw;
+            }
+            finally
+            {
+                retrieval.CompletedAtUtc = utcNow();
+                await save().ConfigureAwait(false);
+            }
+            await delay(TimeSpan.FromSeconds(Math.Min(10, Math.Pow(1.5, attempt.ReceiptRetrievals.Count - 1))), token).ConfigureAwait(false);
+        }
+        throw new HttpRequestException("The captured response receipt retrieval allowance is exhausted; no generation was replayed.");
     }
 
     private static bool ConfirmedTransient(HttpStatusCode status, LLMHttpFailureClassification classification, TimeSpan? retryAfter)
@@ -329,8 +466,9 @@ public static class HttpRequestHelper
 
     private static HttpResponseMessage Restore(LLMHttpAttempt attempt, int status)
     {
-        var response = new HttpResponseMessage((HttpStatusCode)status) { Content = new StringContent(attempt.Body ?? "", Encoding.UTF8) };
-        if (MediaTypeHeaderValue.TryParse(attempt.ContentType, out var contentType)) response.Content.Headers.ContentType = contentType;
+        var response = new HttpResponseMessage((HttpStatusCode)status) { Content = new StringContent(attempt.AssembledBody ?? attempt.Body ?? "", Encoding.UTF8) };
+        if (attempt.AssembledBody is not null) response.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+        else if (MediaTypeHeaderValue.TryParse(attempt.ContentType, out var contentType)) response.Content.Headers.ContentType = contentType;
         if (attempt.RetryAfter is not null) response.Headers.TryAddWithoutValidation("Retry-After", attempt.RetryAfter);
         return response;
     }

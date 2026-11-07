@@ -16,6 +16,7 @@ public sealed class OllamaChatScorer : IChatScorer
     public string Name => "ollama";
 
     private readonly HttpClient _http;
+    private readonly ModelProviderOptions _transportOptions;
     private readonly string _baseUrl;
     private readonly string _model;
     private readonly GenAiTelemetry? _telemetry;
@@ -25,21 +26,33 @@ public sealed class OllamaChatScorer : IChatScorer
     /// <param name="model">Chat model name.</param>
     /// <param name="http">HTTP client used for requests.</param>
     /// <param name="telemetry">Optional telemetry recorder.</param>
+    /// <param name="providerOptions">Common generation transport policy and exact model overrides; the constructor endpoint remains authoritative.</param>
     public OllamaChatScorer(
         string baseUrl,
         string model,
         HttpClient http,
-        GenAiTelemetry? telemetry = null)
+        GenAiTelemetry? telemetry = null,
+        ModelProviderOptions? providerOptions = null)
     {
         _baseUrl = (baseUrl ?? "http://localhost:11434").TrimEnd('/');
         _model = model ?? "llama3.2";
         _http = http;
         _telemetry = telemetry;
+        _transportOptions = new ModelProviderOptions
+        {
+            Type = "ollama", Url = _baseUrl,
+            RequestPolicy = providerOptions?.RequestPolicy.Clone() ?? new(),
+            RetryPolicy = providerOptions?.RetryPolicy.Clone() ?? new() { MaxAttempts = 1 },
+            ModelTransportOverrides = LLMTransportResolver.CloneOverrides(providerOptions?.ModelTransportOverrides)
+        };
+        LLMOptionsValidation.ValidateProvider("generation", _transportOptions);
     }
 
     /// <inheritdoc />
     public async Task<double> ScoreAsync(string query, string passage, CancellationToken ct = default)
     {
+        var transport = LLMTransportResolver.Resolve(_model, _transportOptions, false,
+            new LLMModelMetadataResolver(new LLMOptions()).ResolveDeclaredMetadata("ollama", _model)?.Capabilities);
         var url = OllamaEndpoints.Chat(_baseUrl);
         var truncated = passage.Length > 2000 ? passage[..2000] + "…" : passage;
         var userMessage = $"Query: {query}\n\nPassage: {truncated}";
@@ -54,9 +67,13 @@ public sealed class OllamaChatScorer : IChatScorer
 
         try
         {
-            using var req = HttpRequestHelper.CreateJsonPost(url, payload);
-
-            using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+            HttpRequestMessage CreateRequest()
+            {
+                var req = HttpRequestHelper.CreateJsonPost(url, payload);
+                LLMTransportResolver.Apply(req, transport);
+                return req;
+            }
+            using var resp = await HttpRequestHelper.SendGenerationAsync(_http, CreateRequest, _transportOptions.RetryPolicy, ct);
             await using var stream = await resp.Content.ReadAsStreamAsync(ct);
 
             if (!resp.IsSuccessStatusCode)

@@ -1,4 +1,4 @@
-﻿namespace GnOuGo.AI.Core;
+namespace GnOuGo.AI.Core;
 
 /// <summary>
 /// Removes optional request parameters that are not supported by the resolved model metadata.
@@ -20,6 +20,8 @@ public static class LLMRequestSanitizer
             throw new InvalidOperationException("The configured model or provider cannot preserve the required output-token reservation. Select compatible settings before dispatch.");
         var sanitized = new LLMClientRequest
         {
+            ResolvedTransport = request.ResolvedTransport,
+            DeclaredTransportCapabilities = request.DeclaredTransportCapabilities,
             Provider = request.Provider,
             Model = request.Model,
             Prompt = request.Prompt,

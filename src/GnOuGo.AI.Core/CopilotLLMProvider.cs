@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -42,6 +42,8 @@ public sealed class CopilotLLMProvider : ILLMProvider, ILLMModelCatalogProvider
     public async Task<LLMClientResponse> CallAsync(
         string model, ModelProviderOptions provider, LLMClientRequest request, CancellationToken ct)
     {
+        request = LocalLLMProvider.CloneRequest(request);
+        request.ResolvedTransport ??= LLMTransportResolver.ForRequest(model, provider, request);
         // Resolve the base URL (default to GitHub Models endpoint)
         var baseUrl = !string.IsNullOrWhiteSpace(provider.Url)
             ? provider.Url
@@ -59,13 +61,14 @@ public sealed class CopilotLLMProvider : ILLMProvider, ILLMModelCatalogProvider
         byte[] payload = ChatRequestBuilder.OpenAiFull(
             resolvedModel, request.Prompt, request.Temperature, tools,
             request.StructuredOutputSchema, request.StructuredOutputStrict,
-            request.Reasoning);
+            request.Reasoning, request.MaxOutputTokens);
 
         HttpRequestMessage CreateChatRequest()
         {
             var requestMessage = HttpRequestHelper.CreateJsonPost(url, payload);
             if (!string.IsNullOrWhiteSpace(bearerToken))
                 HttpRequestHelper.SetBearerAuth(requestMessage, bearerToken);
+            LLMTransportResolver.Apply(requestMessage, request.ResolvedTransport!, request.DeclaredTransportCapabilities);
             return requestMessage;
         }
 

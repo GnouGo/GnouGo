@@ -16,6 +16,7 @@ namespace DocIngestor.Core.Ocr;
 public sealed class OllamaVisionOcrEngine : IOcrEngine
 {
     private readonly HttpClient _http;
+    private readonly ModelProviderOptions _transportOptions;
     private readonly string _baseUrl;
     private readonly string _model;
     private readonly GenAiTelemetry? _telemetry;
@@ -24,16 +25,26 @@ public sealed class OllamaVisionOcrEngine : IOcrEngine
     /// <param name="model">Vision-capable model name (e.g. "llava", "llava-llama3", "moondream").</param>
     /// <param name="http">Shared HttpClient.</param>
     /// <param name="telemetry">Optional GenAI telemetry for trace tracking.</param>
+    /// <param name="providerOptions">Common generation transport policy and exact model overrides; the constructor endpoint remains authoritative.</param>
     public OllamaVisionOcrEngine(
         string baseUrl,
         string model,
         HttpClient http,
-        GenAiTelemetry? telemetry = null)
+        GenAiTelemetry? telemetry = null,
+        ModelProviderOptions? providerOptions = null)
     {
         _baseUrl = (baseUrl ?? "http://localhost:11434").TrimEnd('/');
         _model = model ?? "llava";
         _http = http;
         _telemetry = telemetry;
+        _transportOptions = new ModelProviderOptions
+        {
+            Type = "ollama", Url = _baseUrl,
+            RequestPolicy = providerOptions?.RequestPolicy.Clone() ?? new(),
+            RetryPolicy = providerOptions?.RetryPolicy.Clone() ?? new() { MaxAttempts = 1 },
+            ModelTransportOverrides = LLMTransportResolver.CloneOverrides(providerOptions?.ModelTransportOverrides)
+        };
+        LLMOptionsValidation.ValidateProvider("generation", _transportOptions);
     }
 
     /// <inheritdoc />
@@ -47,6 +58,8 @@ public sealed class OllamaVisionOcrEngine : IOcrEngine
         // Down-scale large images to stay within model context limits
         imageBytes = OcrImageHelper.ResizeIfNeeded(imageBytes);
 
+        var transport = LLMTransportResolver.Resolve(_model, _transportOptions, false,
+            new LLMModelMetadataResolver(new LLMOptions()).ResolveDeclaredMetadata("ollama", _model)?.Capabilities);
         var url = OllamaEndpoints.Chat(_baseUrl);
         var base64Image = Convert.ToBase64String(imageBytes);
 
@@ -64,9 +77,13 @@ public sealed class OllamaVisionOcrEngine : IOcrEngine
 
         try
         {
-            using var req = HttpRequestHelper.CreateJsonPost(url, payload);
-
-            using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+            HttpRequestMessage CreateRequest()
+            {
+                var req = HttpRequestHelper.CreateJsonPost(url, payload);
+                LLMTransportResolver.Apply(req, transport);
+                return req;
+            }
+            using var resp = await HttpRequestHelper.SendGenerationAsync(_http, CreateRequest, _transportOptions.RetryPolicy, ct);
 
             if (!resp.IsSuccessStatusCode)
             {

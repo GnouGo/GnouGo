@@ -56,8 +56,6 @@ public sealed class RoutingLLMClient
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        if (LLMHttpRetryContext.Current is not null && (request.Tools is { Count: > 0 } || request.UseBackgroundMode))
-            throw new InvalidOperationException("Durable HTTP recovery requires synchronous generation without tools or external effects.");
         var providerKey = ResolveProviderKey(request.Provider, request.Model);
         var providerOpts = _options.ResolveProvider(providerKey)
             ?? throw new InvalidOperationException(
@@ -78,6 +76,18 @@ public sealed class RoutingLLMClient
 
         var metadata = _metadataResolver.Resolve(resolvedType, model);
         var sanitizedRequest = LLMRequestSanitizer.Sanitize(request, metadata, providerOpts.RequestPolicy);
+        if (_options.CapturedTransports?.TryGetValue(ModelMetadataCatalog.ModelIdentityKey(resolvedType, model), out var frozenTransport) == true)
+        {
+            if (frozenTransport.Protocol != LLMTransportResolver.Protocol(providerOpts, request.UseBackgroundMode))
+                throw new InvalidOperationException("The captured native generation protocol cannot change.");
+            sanitizedRequest.ResolvedTransport = frozenTransport;
+        }
+        else sanitizedRequest.ResolvedTransport = LLMTransportResolver.Resolve(model, providerOpts, request.UseBackgroundMode,
+            _metadataResolver.ResolveDeclaredMetadata(resolvedType, model)?.Capabilities);
+        sanitizedRequest.DeclaredTransportCapabilities = _metadataResolver.ResolveDeclaredMetadata(resolvedType, model)?.Capabilities;
+        if (LLMHttpRetryContext.Current is not null && (request.Tools is { Count: > 0 } || request.UseBackgroundMode &&
+            !(sanitizedRequest.ResolvedTransport is { IsStreaming: true, Protocol: LLMTransportResolver.Responses })))
+            throw new InvalidOperationException("Durable HTTP recovery requires side-effect-free generation; background recovery requires native Responses streaming.");
         if (LLMHttpRetryContext.Current?.PolicyOverride is { } capturedPolicy)
             providerOpts = providerOpts.WithRetryPolicy(capturedPolicy);
         if (request.DisableTransportRetries) providerOpts = providerOpts.WithSingleAttempt();
@@ -173,6 +183,7 @@ public sealed class RoutingLLMClient
             }
             catch (LocalLLMException ex)
             {
+                if (ex.GenerationStarted && ex.Kind == LocalLLMFailureKind.Inference) throw;
                 lastFailure = ex;
                 activity?.SetTag("gnougo.local.failure_kind", ex.Kind.ToString());
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Kind.ToString());
@@ -200,6 +211,10 @@ public sealed class RoutingLLMClient
         fallbackRequest.Model = fallbackModel;
         var metadata = _metadataResolver.Resolve(fallbackOptions.ResolvedType, fallbackModel);
         fallbackRequest = LLMRequestSanitizer.Sanitize(fallbackRequest, metadata, fallbackOptions.RequestPolicy);
+        if (request.ResolvedTransport?.IsStreaming == true)
+            throw lastFailure!; // A streaming attempt never silently changes transport or supplier.
+        fallbackRequest.ResolvedTransport = LLMTransportResolver.Resolve(fallbackModel, fallbackOptions, fallbackRequest.UseBackgroundMode,
+            _metadataResolver.ResolveDeclaredMetadata(fallbackOptions.ResolvedType, fallbackModel)?.Capabilities);
 
         using var fallbackActivity = ActivitySource.StartActivity("local_llm.fallback");
         fallbackActivity?.SetTag("gen_ai.provider.name", fallbackOptions.ResolvedType);
@@ -331,6 +346,10 @@ public static class LLMHttpClientDefaults
 /// </summary>
 public sealed class LLMClientRequest
 {
+    [System.Text.Json.Serialization.JsonIgnore]
+    public LLMTransportSelection? ResolvedTransport { get; internal set; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    internal ModelCapabilityMetadata? DeclaredTransportCapabilities { get; set; }
     public string? Provider { get; set; }
     public string Model { get; set; } = "";
     public string Prompt { get; set; } = "";

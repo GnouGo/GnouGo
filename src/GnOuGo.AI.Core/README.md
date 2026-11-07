@@ -370,3 +370,5 @@ dotnet test tests/GnOuGo.AI.Core.Tests/GnOuGo.AI.Core.Tests.csproj
 | `ChatRequestBuilder` | AOT-friendly JSON request builder |
 | `ChatResponseParser` | Response parser for all providers |
 | `CopilotEndpoints` / `OpenAiEndpoints` / `OllamaEndpoints` | URL helpers |
+
+Native generation transport is configurable as `Auto`, `Streaming` or `NonStreaming`, including exact deployment overrides. See [configuration, protocol completion and recovery](../../docs/native-provider-streaming.md).

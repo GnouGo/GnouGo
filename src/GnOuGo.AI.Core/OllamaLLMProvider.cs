@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -27,6 +27,8 @@ public sealed class OllamaLLMProvider : ILLMProvider, ILLMModelCatalogProvider
     public async Task<LLMClientResponse> CallAsync(
         string model, ModelProviderOptions provider, LLMClientRequest request, CancellationToken ct)
     {
+        request = LocalLLMProvider.CloneRequest(request);
+        request.ResolvedTransport ??= LLMTransportResolver.ForRequest(model, provider, request);
         var url = OllamaEndpoints.Chat(provider.Url);
         var tools = MapTools(request.Tools);
         var jsonMode = request.StructuredOutputSchema != null;
@@ -41,6 +43,7 @@ public sealed class OllamaLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             // Ollama can also have an API key (e.g. behind a proxy)
             if (!string.IsNullOrWhiteSpace(provider.ApiKey))
                 HttpRequestHelper.SetBearerAuth(requestMessage, provider.ApiKey);
+            LLMTransportResolver.Apply(requestMessage, request.ResolvedTransport!, request.DeclaredTransportCapabilities);
             return requestMessage;
         }
 
