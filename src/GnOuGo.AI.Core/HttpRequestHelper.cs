@@ -291,7 +291,9 @@ public static class HttpRequestHelper
             }
 
             ct.ThrowIfCancellationRequested();
-            var attempt = new LLMHttpAttempt { Id = (context?.RequestId ?? "http") + ":" + Guid.NewGuid().ToString("N"), StartedAtUtc = utcNow() };
+            var started = utcNow();
+            var attempt = new LLMHttpAttempt { Id = (context?.RequestId ?? "http") + ":" + Guid.NewGuid().ToString("N"), StartedAtUtc = started,
+                DeadlineAtUtc = started + EffectiveAttemptTimeout(http, retryPolicy) };
             state.Attempts.Add(attempt);
             // Hosts reserve possible usage atomically with this identity before dispatch.
             await SaveAsync(ct).ConfigureAwait(false);
@@ -301,13 +303,15 @@ public static class HttpRequestHelper
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
             // ResponseHeadersRead ends HttpClient's own timeout at the headers. Retain
             // its stricter caller deadline throughout body consumption as well.
-            timeout.CancelAfter(http.Timeout == Timeout.InfiniteTimeSpan ? TimeSpan.FromMilliseconds(retryPolicy.AttemptTimeoutMilliseconds)
-                : TimeSpan.FromMilliseconds(Math.Min(http.Timeout.TotalMilliseconds, retryPolicy.AttemptTimeoutMilliseconds)));
+            var remainingAttempt = attempt.DeadlineAtUtc!.Value - utcNow();
+            if (remainingAttempt <= TimeSpan.Zero) timeout.Cancel();
+            else timeout.CancelAfter(remainingAttempt);
             HttpResponseMessage? received = null;
             var partial = new StringBuilder();
             CapturedResponseStream? capturedStream = null;
             try
             {
+                timeout.Token.ThrowIfCancellationRequested();
                 received = await http.SendAsync(request, context is null && !streaming ? completionOption : HttpCompletionOption.ResponseHeadersRead, timeout.Token).ConfigureAwait(false);
                 attempt.ObservedStatus = (int)received.StatusCode;
                 attempt.ContentType = received.Content.Headers.ContentType?.ToString();
@@ -402,6 +406,10 @@ public static class HttpRequestHelper
         Task SaveAsync(CancellationToken token) => context?.SaveAsync(state, token) ?? Task.CompletedTask;
     }
 
+    private static TimeSpan EffectiveAttemptTimeout(HttpClient http, LLMProviderRetryPolicyOptions policy)
+        => http.Timeout == Timeout.InfiniteTimeSpan ? TimeSpan.FromMilliseconds(policy.AttemptTimeoutMilliseconds)
+            : TimeSpan.FromMilliseconds(Math.Min(http.Timeout.TotalMilliseconds, policy.AttemptTimeoutMilliseconds));
+
     // Receipt retrieval continues the same response id. It never creates or reserves another generation.
     private static async Task RecoverBackgroundResponseAsync(HttpClient http, HttpRequestMessage original, LLMHttpAttempt attempt,
         LLMProviderRetryPolicyOptions policy, Func<Task> save, Func<TimeSpan, CancellationToken, Task> delay,
@@ -410,12 +418,13 @@ public static class HttpRequestHelper
         var endpoint = new UriBuilder(original.RequestUri!) { Path = original.RequestUri!.AbsolutePath.TrimEnd('/') + "/" + Uri.EscapeDataString(attempt.ProviderResponseId!) };
         attempt.ReceiptRetrievals ??= [];
         attempt.StreamFailure ??= attempt.Failure;
-        var deadline = (attempt.StartedAtUtc ?? utcNow()).AddMilliseconds(policy.AttemptTimeoutMilliseconds);
+        var deadline = attempt.DeadlineAtUtc ?? (attempt.StartedAtUtc ?? utcNow()) + EffectiveAttemptTimeout(http, policy);
         // Historical exact retrieval remains read-only; it cannot finance another POST.
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var remaining = deadline - utcNow();
         if (remaining <= TimeSpan.Zero && !allowExpiredReceipt) throw new TimeoutException("The captured generation deadline expired before receipt recovery.");
-        timeout.CancelAfter(remaining > TimeSpan.Zero ? remaining : TimeSpan.FromSeconds(30));
+        var retrievalWindow = remaining > TimeSpan.Zero ? remaining : TimeSpan.FromSeconds(30);
+        timeout.CancelAfter(retrievalWindow < EffectiveAttemptTimeout(http, policy) ? retrievalWindow : EffectiveAttemptTimeout(http, policy));
         if (attempt.ReceiptRetrievals.Any(r => r.Status is >= 400 && !IsRetryableStatus((HttpStatusCode)r.Status.Value)))
             throw new HttpRequestException("The recorded non-transient receipt retrieval cannot be retried.");
         var token = timeout.Token;

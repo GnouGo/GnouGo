@@ -46,7 +46,7 @@ Background Responses receipt recovery retrieves the same persisted response id f
 
 The common framer derives from the existing proxy reader: fragmented UTF-8, LF/CRLF, multiline SSE data and comment keepalives are supported, frames and response evidence are bounded. Malformed data is an error. Proxy adapters reuse that framer; no response is converted into artificial token chunks. The separate GitHub Copilot SDK tool integration already has native streaming/event controls and remains distinct from the AI provider and protocol proxy.
 
-The owning attempt bounds header and body consumption by the stricter of the captured attempt deadline and the effective `HttpClient.Timeout`. Receiving headers or progressive bytes cannot reset or extend that deadline. Cancellation still stops both modes, and an interrupted generation cannot trigger a new POST.
+The owning attempt persists its actual deadline and bounds header and body consumption by the stricter of the captured attempt allowance and the effective `HttpClient.Timeout`. Receiving headers, progressive bytes or an automatic background receipt GET cannot reset or extend it. A later explicit read-only recovery can retrieve the same persisted background response under a bounded retrieval window; it never starts another generation. Cancellation still stops both modes, and an interrupted generation cannot trigger a new POST.
 
 HTTP 200, connection closure, syntactically valid partial JSON, an initial usage zero, or a content-block stop do not establish completion. Refusals, output exhaustion, tool arguments, raw responses and usage reach the existing response mapping. Absent final usage stays unknown; conservative reservations and financial admission remain authoritative.
 

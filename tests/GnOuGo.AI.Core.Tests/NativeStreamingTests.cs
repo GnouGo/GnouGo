@@ -381,6 +381,41 @@ public sealed class NativeStreamingTests
     }
 
     [Fact]
+    public async Task BackgroundRecoveryKeepsTheActualDeadlineAndColdRecoveryOnlyRetrievesTheReceipt()
+    {
+        var journal = new Journal(); var posts = 0; var gets = 0;
+        using (var http = NewHttp(new Handler(req =>
+        {
+            if (req.Method != HttpMethod.Post) { gets++; throw new InvalidOperationException("The generation deadline cannot be extended by retrieval."); }
+            posts++;
+            return Task.FromResult(Response("openai", new FragmentStream(Encoding.UTF8.GetBytes(Event(new { type = "response.created",
+                sequence_number = 0, response = new { id = "resp_deadline", status = "in_progress" } })), waitAtEnd: true)));
+        })))
+        {
+            var client = Client(http, "openai"); http.Timeout = TimeSpan.FromMilliseconds(150);
+            var request = Request(); request.UseBackgroundMode = true;
+            using var context = Context(journal);
+            var failure = await Assert.ThrowsAsync<LLMProviderException>(() => client.CallAsync(request, Ct));
+            Assert.Equal(LLMProviderFailureKind.Timeout, failure.Kind);
+        }
+        var original = Assert.Single(journal.State!.Attempts);
+        Assert.Equal(TimeSpan.FromMilliseconds(150), original.DeadlineAtUtc - original.StartedAtUtc);
+        Assert.Equal(0, gets); Assert.Equal("timeout", original.Failure); Assert.Null(original.Status);
+        using (var http = NewHttp(new Handler(req =>
+        {
+            Assert.Equal(HttpMethod.Get, req.Method); Assert.EndsWith("/responses/resp_deadline", req.RequestUri!.AbsolutePath); gets++;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{\"id\":\"resp_deadline\",\"status\":\"completed\",\"output\":[{\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"output_text\",\"text\":\"retrieved\"}]}],\"usage\":{\"input_tokens\":3,\"output_tokens\":1}}", Encoding.UTF8, "application/json") });
+        })))
+        {
+            var request = Request(); request.UseBackgroundMode = true;
+            using var context = Context(journal);
+            Assert.Equal("retrieved", (await Client(http, "openai").CallAsync(request, Ct)).Text);
+        }
+        Assert.Equal(1, posts); Assert.Equal(1, gets); Assert.Single(journal.State.Attempts);
+        Assert.Equal(original.DeadlineAtUtc, journal.State.Attempts.Single().DeadlineAtUtc);
+    }
+
+    [Fact]
     public async Task InitialAnthropicZeroIsNotFinalUsageWhenFinalUsageIsMissing()
     {
         var stream = Fixture("anthropic").Replace("\"usage\":{\"output_tokens\":5}", "\"usage\":null", StringComparison.Ordinal);
