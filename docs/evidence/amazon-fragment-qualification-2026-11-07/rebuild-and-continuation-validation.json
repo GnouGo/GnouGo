@@ -1,0 +1,30 @@
+{
+  "sources": [
+    "4d48ee0b",
+    "927c4669"
+  ],
+  "countsOverlap": true,
+  "results": [
+    {
+      "selection": "continued-contract-clean-tests",
+      "outcomes": {
+        "Passed": 118
+      }
+    },
+    {
+      "selection": "rebuild-export-planning-tests",
+      "outcomes": {
+        "Passed": 2776
+      }
+    },
+    {
+      "selection": "cancelled-transport-tests",
+      "outcomes": {
+        "Passed": 248
+      }
+    }
+  ],
+  "finalFullSolutionStatus": "running_on_927c4669",
+  "interruptedEarlierFullSolutionSource": "4d48ee0b",
+  "interruptionReason": "Superseded by the demonstrated continued-contract evidence correction; not counted as a full pass."
+}

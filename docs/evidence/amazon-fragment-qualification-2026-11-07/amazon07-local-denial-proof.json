@@ -1,0 +1,35 @@
+{
+  "runId": "d41ffc3a0ce249819fe37a3d0d2763f6",
+  "revision": 28,
+  "definitionHash": "2ABDD09E8FEEBCFB48F37AE61DBA410CABF44A58C39AB1C32E36766543F1F1F2",
+  "invocationId": "/workflow/main/step/n_30067062c23c68db/workflow/w_0713df6489795e4e/step/n_f0e0b524f5a07b80/workflow/w_73c079d76b6e73f5/step/n_fc2890042cf0fa29/iteration/0/step/n_882ab68d914bcf39/workflow/w_33810d656cdfaa68/step/n_88229be6e9f6dccf",
+  "resolvedInput": {
+    "request": {
+      "url": "https://www.amazon.fr/gp/aw/d/B0CFXD921L?pd_rd_plhdr=t&hsa_cr_id=0&qid=1794055831&sr=1-1-941ebe59-d25b-49d0-b214-12cc5b66c90f&i=aps&aref=F4h4NEiUC5",
+      "format": "observation_complete",
+      "waitUntil": "domcontentloaded"
+    },
+    "preserve_optional_nulls": true,
+    "server": "GnOuGo.Browser.Mcp",
+    "method": "browser_get_content",
+    "kind": "tool"
+  },
+  "sourceRevision": "70ad476dfeef9cb9996ec6c54c918fc63caf59bc",
+  "sourceFiles": [
+    {
+      "path": "tests/GnOuGo.Agent.Planning.Benchmark/DelegatedTestReview.cs",
+      "sha256": "ed144a4b76cd93f25d03e2aac7a01b113a57ea7001670f189f4e8d2dfa43db58"
+    },
+    {
+      "path": "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs",
+      "sha256": "1b5eeab9715a52b26e0e8b3dfa36521f42f2f0b52d0275767b607332ff916873"
+    }
+  ],
+  "facts": [
+    "The exact resolved HTTPS Amazon.fr mobile product URL fails the frozen AmazonUrl predicate (only search, dp, gp/product and titled dp routes).",
+    "Frozen ObservedMcp.RequireTool executes before event creation and before inner.CallToolAsync. It throws synchronously for this URL.",
+    "The saved failure is a PlanningConflictException at the delegated product/search guard; source plus exact input establishes non-dispatch independently of absent tool events.",
+    "Search and listing interpretation completed; this executed workflow is ineligible for generation retention."
+  ],
+  "confirmedStoppedReason": "Codex operator confirms exact local pre-transport denial: frozen 70ad476d AmazonUrl rejected retained https://www.amazon.fr/gp/aw/d/B0CFXD921L route synchronously in RequireTool before inner.CallToolAsync. No remote product request was issued by this invocation. Original journal r28 and source/input proof retained in encrypted planning-evaluation-execution-recovery. Reconcile as failed only; no success, replay or financial release."
+}

@@ -1,0 +1,14 @@
+{
+  "run": "fragmentfix-amazon-20261107-03",
+  "source": "10370a0e070952306748508684ad22cb73a62205",
+  "processExitCode": 134,
+  "sessionCreated": false,
+  "providerDispatches": 0,
+  "accountingExactlyEqualToBeforeStartup": true,
+  "proof": "The captured stack fails at StartCoreAsync agent_get_by_name setup before constructing/persisting a session or queueing its inference worker; the exact run record has no session_id and campaign accounting compares equal.",
+  "failure": "MCP server GnOuGo.Agent.Mcp not found; the delegated discovery configuration contained only business MCPs.",
+  "correctionSource": "9e7a93fe",
+  "correction": "Source-bound Release Agent MCP supplies only the host name lookup; its metadata and all other calls remain hidden/denied.",
+  "interimCorrectionFailed": "Trial 04 exposed the HTTP-only Agent MCP transport; see amazon04-bootstrap-proof.json.",
+  "finalCorrectionSource": "1fe56119"
+}

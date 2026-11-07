@@ -1,0 +1,61 @@
+{
+  "run": "fragmentfix-amazon-20261107-05",
+  "source": "1fe56119",
+  "session": "35f8a17f38064254be5653d5bdfe9d70",
+  "capturedRevision": 43,
+  "acceptedCheckpoints": 2,
+  "firstCheckpoint": {
+    "sequence": 1,
+    "baseHash": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+    "planHash": "fe4d4d915f3945723c1de41ae988683057b914e40b3df0f67ee5aefed61827e3",
+    "taskIds": [
+      "close_search_browser",
+      "search_observation",
+      "select_first_products"
+    ]
+  },
+  "businessReview": {
+    "purpose": "construction_local_judge",
+    "requestId": "35f8a17f38064254be5653d5bdfe9d70:10:69c6f4703f8f78becccb87a76198ca5e34b01555e57bfcf9aee9899dd01a7de4:0fcf8ee47cfc36190bc41bcb84b3185b8cdf869d59f6aff3ed32510e15367f4f",
+    "requestHash": "938216711e9838d88db52f9aa45e82583f91067487e21f975c67e2f9b2b42cc9",
+    "responseHash": "ed37bc6f59dc851f15cd7bede9292cd9ca24d7f662ecb5d01349b1d3b3fe2593",
+    "outcome": "ok"
+  },
+  "rootCallerAccepted": [
+    "amazon_search_results"
+  ],
+  "closedRequirementIds": [],
+  "planAccepted": false,
+  "delegatedApproval": false,
+  "workflowExecuted": false,
+  "oracleRun": false,
+  "firstAcceptedEvents": [
+    {
+      "sequence": 41,
+      "timestampUtc": "2026-11-07T11:53:13.402657+00:00",
+      "phase": "construction_draft",
+      "state": "succeeded",
+      "reason": "Coordinator transition: generating",
+      "requestId": "35f8a17f38064254be5653d5bdfe9d70:10:69c6f4703f8f78becccb87a76198ca5e34b01555e57bfcf9aee9899dd01a7de4:0fcf8ee47cfc36190bc41bcb84b3185b8cdf869d59f6aff3ed32510e15367f4f",
+      "checkpoint": 1
+    },
+    {
+      "sequence": 42,
+      "timestampUtc": "2026-11-07T11:53:13.462857+00:00",
+      "phase": "construction_select",
+      "state": "active",
+      "reason": "Exact request prepared and admitted; waiting for the provider.",
+      "requestId": "35f8a17f38064254be5653d5bdfe9d70:11:d0a6d4a15da7a9f3ebd4959a6446098d7f3f809b8cf4a1e1347c07fdb7d5d422:b15ab1e267ab32fec3315b0f8225e3fb1913eb55df28c6a9761d6ef03dd40efd",
+      "checkpoint": 1
+    },
+    {
+      "sequence": 43,
+      "timestampUtc": "2026-11-07T11:53:22.888478+00:00",
+      "phase": "construction_select",
+      "state": "received",
+      "reason": "Provider response retained; response validation is pending.",
+      "requestId": "35f8a17f38064254be5653d5bdfe9d70:11:d0a6d4a15da7a9f3ebd4959a6446098d7f3f809b8cf4a1e1347c07fdb7d5d422:b15ab1e267ab32fec3315b0f8225e3fb1913eb55df28c6a9761d6ef03dd40efd",
+      "checkpoint": 1
+    }
+  ]
+}

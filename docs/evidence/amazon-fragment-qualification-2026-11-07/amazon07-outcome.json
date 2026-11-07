@@ -1,0 +1,50 @@
+{
+  "source": "70ad476dfeef9cb9996ec6c54c918fc63caf59bc",
+  "executionHarnessSource": "c31bc5f97ee0b66ba1564d3a93086d419d893e0e",
+  "sessionId": "d41ffc3a0ce249819fe37a3d0d2763f6",
+  "artifactHash": "ef66768f4907cdad10659e2ac41248acd29d298e2a50dc78f7a21349462e37ee",
+  "approvedRevision": 58,
+  "reviewOrigin": "delegated_test_reviewed",
+  "executionStarted": "2026-11-07T12:50:25.978826+00:00",
+  "normalPlanningReceipts": 21,
+  "localReviews": [],
+  "execution": {
+    "success": false,
+    "outputs": null,
+    "error": {
+      "Code": "RUN_NEEDS_RECONCILIATION",
+      "Type": "RUN_NEEDS_RECONCILIATION",
+      "Message": "An external invocation has no verified completion receipt. Reconcile it before resuming or running cleanup. [workflow 'w_33810d656cdfaa68', step 'n_88229be6e9f6dccf']",
+      "Retryable": false,
+      "Details": {
+        "invocation_id": "/workflow/main/step/n_30067062c23c68db/workflow/w_0713df6489795e4e/step/n_f0e0b524f5a07b80/workflow/w_73c079d76b6e73f5/step/n_fc2890042cf0fa29/iteration/0/step/n_882ab68d914bcf39/workflow/w_33810d656cdfaa68/step/n_88229be6e9f6dccf",
+        "failed_workflow": "w_33810d656cdfaa68",
+        "failed_step_id": "n_88229be6e9f6dccf",
+        "failed_step_type": "mcp.call",
+        "execution_phase": "step",
+        "workflow": "w_33810d656cdfaa68",
+        "step_id": "n_88229be6e9f6dccf",
+        "step_type": "mcp.call",
+        "step_status": "Failed",
+        "cleanup_blocked": true,
+        "unresolved_invocation_ids": [
+          "/workflow/main/step/n_30067062c23c68db/workflow/w_0713df6489795e4e/step/n_f0e0b524f5a07b80/workflow/w_73c079d76b6e73f5/step/n_fc2890042cf0fa29/iteration/0/step/n_882ab68d914bcf39/workflow/w_33810d656cdfaa68/step/n_88229be6e9f6dccf"
+        ]
+      }
+    }
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "browser_not_closed_by_workflow",
+      "workbook_missing"
+    ]
+  },
+  "revalidationDispatchedModels": 0,
+  "revalidationAccountingByteIdentical": true,
+  "localPreTransportDenialProof": "amazon07-local-denial-proof.json",
+  "reconciliation": "failed, never successful or replayed",
+  "cleanupRecovery": "amazon07-cleanup-result.json",
+  "originalExecutionAndOracleRetained": true
+}

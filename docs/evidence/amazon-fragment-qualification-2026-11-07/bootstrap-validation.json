@@ -1,0 +1,50 @@
+{
+  "selections": [
+    {
+      "selection": "bootstrap-tests",
+      "source": "9e7a93fe",
+      "counters": {
+        "total": "225",
+        "executed": "225",
+        "passed": "225",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      }
+    },
+    {
+      "selection": "http-bootstrap-tests",
+      "source": "1fe56119",
+      "counters": {
+        "total": "226",
+        "executed": "226",
+        "passed": "226",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      }
+    }
+  ],
+  "countsOverlap": true,
+  "productionSourceUnchangedSinceFullValidation": true
+}

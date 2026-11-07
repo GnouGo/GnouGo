@@ -1,0 +1,18 @@
+{
+  "originalRecordValueHashes": {
+    "planning-evaluation-runs": "dd0665e3c7ce18f5d86aac2fa9332df1c78af133fb9863f9c2d3ce5443f265c7",
+    "planning-evaluation-requests": "029533ac0aa443f57f536105779a79710a3c7465ece213e2f45e711d4163c915",
+    "planning-evaluation-http-attempts": "548a6596df49612e49b7aaf16a9ac7948abb86797ea387e4020792e1081cef44",
+    "planning-evaluation-failures": "832ec4635daa899d05584cdfbace41fc2acb6f4539dcb12b7845603eae0b24ba",
+    "planning-evaluation-session-policy": "d317c40526da5341b8cd8c5b42c63d878470b7ea67b23cc173af907468863c19",
+    "agent-planning-model-http-v11": "ee9c4af6c5f169b3371165c88519b2a955c21d122cca0c05d45dae288810090f",
+    "agent-planning-model-requests-v11": "029533ac0aa443f57f536105779a79710a3c7465ece213e2f45e711d4163c915",
+    "agent-planning-model-receipts-v11": null,
+    "agent-planning-budgets-v11": "0aab47aac514bb80027c4d152a3b6f0312f35e963eea49ba0575e01d61f95bf7"
+  },
+  "unchangedRecords": 9,
+  "exactCampaignAuditUnchanged": true,
+  "uncertainHoldPreserved": true,
+  "requestReplayForbidden": true,
+  "oldRunContinuationForbidden": true
+}

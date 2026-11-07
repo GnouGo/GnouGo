@@ -1,0 +1,43 @@
+{
+  "source": "927c4669",
+  "sourceRequestId": "d5a8f042e9be44dca666d278d125da50:1:6f0da030f0d708d460703b0e8898fd95e8f8a59a1c5ac40bc40b2f0f48e7b3e0",
+  "independentProbeRequestId": "intent-medium-20261107-01:probe:78b05c56881a4b488f4785a7e54e324e:f3923adaa1f03c32ffd82a9dfe6f9f379dac2a91ef058a9ca6b35da53ff6ea92",
+  "actualHTTPBodyEqualAfterOnlyReasoningChange": true,
+  "sameEndpointSha256": "663c036555fdf3cd0f345c1b75f21f61f3f91f4e7fd2cd13608f665f0a396758",
+  "promptBytes": 2460,
+  "schemaBytes": 3936,
+  "low": {
+    "status": 200,
+    "completionStatus": "output_limit",
+    "inputTokens": 1208,
+    "outputTokens": 32768,
+    "reasoningTokens": 32768,
+    "visibleOutput": "",
+    "hostDurationSeconds": 293.0284407,
+    "physicalHTTPSeconds": 292.323418,
+    "finishReason": "length",
+    "providerReportedLatencyCheckpoint": {
+      "engine_tbt_ms": 9,
+      "engine_ttft_ms": 599,
+      "engine_ttlt_ms": 286383,
+      "pre_inference_ms": 139,
+      "service_tbt_ms": 9,
+      "service_ttft_ms": 920,
+      "service_ttlt_ms": 286586,
+      "user_visible_ttft_ms": 781
+    }
+  },
+  "medium": {
+    "status": 200,
+    "physicalHTTPSeconds": 8.184297,
+    "inputTokens": 1208,
+    "outputTokens": 383,
+    "reasoningTokens": 114,
+    "schemaValid": true
+  },
+  "outputAllocation": 32768,
+  "requestTools": 0,
+  "businessToolsExecuted": false,
+  "candidateApplied": false,
+  "causalAttribution": "One successful changed-factor probe does not exclude backend/time variation or establish reliable convergence."
+}
