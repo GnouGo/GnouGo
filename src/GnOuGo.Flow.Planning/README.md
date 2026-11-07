@@ -303,3 +303,5 @@ Contribution connection status is structural evidence, never business or runtime
 ### Focused discovery
 
 New discovery actions use issued objective/prerequisite focuses, automatic immutable-snapshot pagination and source-local warnings. Explicit local-operator recovery preserves accepted work and accounting and waits before further inference. See [focused discovery](../../docs/focused-capability-discovery.md) for compatibility, authorization and recovery contracts.
+
+Rollback retains original scope exports as rebuild obligations. After their exact producers return, candidate construction restores missing original bindings in their recorded order, preserving surviving exports and validating all references and types normally. This mechanical restoration adds no business action or approval. The immediate draft context retains the original export contract even when every invalidated task has already returned; append-only fragments must not duplicate surviving exports.

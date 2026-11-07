@@ -283,6 +283,60 @@ public sealed class CompactConstructionTests
         Assert.Equal("remaining", Assert.Single(state.Construction!.Requirements).Status);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RollbackRestoresExactInterleavedExportsOnlyAfterTheirProducerReturns(bool restored)
+    {
+        var state = Fresh(); state.Catalog = new();
+        state.Requirements = new() { Outcomes = [new("req_0", "Retain the original greeting exports.")] };
+        state.Plan = new() { Root = new() { Tasks = [Value("first"), Value("middle"), Value("last")],
+            Outputs = [Export("before", "first"), Export("changed", "middle"), Export("alias", "middle"), Export("after", "last")] } };
+        state.Construction!.OpenScopes = ["/root"];
+        var original = JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan);
+        PlanningConstruction.Rollback(state, "middle", "Rebuild this producer without changing its retained output interface.");
+        Assert.Equal(["before", "after"], state.Plan.Root.Outputs.Select(o => o.Name));
+        state = PlannerFixture.Clone(state); // The saved obligations survive a cold restoration.
+        var frozen = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var extension = new PlanningConstructionExtension { Scope = "/root", Tasks = [Value(restored ? "middle" : "unrelated")],
+            ContinueInScope = "/root", RequirementIds = ["req_0"] };
+        var candidate = PlanningConstruction.Apply(state, extension);
+        Assert.Equal(frozen, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        Assert.Empty(extension.Outputs);
+        if (restored)
+        {
+            Assert.Equal(original, JsonSerializer.Serialize(candidate.Plan, PlanningJsonContext.Default.TaskPlan));
+            Assert.Empty(PlanningConstruction.RebuildFindings(state, candidate.Plan, complete: true));
+            Assert.Empty(TaskPlanCompiler.ValidateConstruction(candidate.Plan, state.Catalog!, state.Request, candidate.OpenScopes.ToHashSet()).Diagnostics);
+            candidate.Plan.Root.Tasks.Single(t => t.Id == "middle").Outputs[0] = new("wrong", new() { Kind = "string", Text = "Hello" });
+            Assert.NotEmpty(PlanningConstruction.RebuildFindings(state, candidate.Plan, complete: true));
+            Assert.Contains(TaskPlanCompiler.ValidateConstruction(candidate.Plan, state.Catalog!, state.Request, candidate.OpenScopes.ToHashSet()).Diagnostics,
+                d => d.Code == "TASK_OUTPUT_UNKNOWN");
+        }
+        else Assert.Equal(["before", "after"], candidate.Plan.Root.Outputs.Select(o => o.Name));
+
+        static TaskOutput Export(string name, string source) => new(name, new() { Kind = "output", Source = source, Port = "message" });
+    }
+
+    [Fact]
+    public async Task RebuildPresentationKeepsOriginalExportBindingsAfterAllTasksReturn()
+    {
+        var state = await PlannerFixture.RunAsync(new TestRuntime { Respond = Simple }, Fresh());
+        PlanningConstruction.Rollback(state, "greet", "Rebuild the original producer and preserve its interface.");
+        state.Plan!.Root.Tasks.Add(Value());
+        state.Construction!.Compact!.CurrentStep = new() { Id = "repair", Scope = "/root", Kind = "value",
+            BaseHash = PlanningConstruction.Hash(state.Plan), BlockId = state.Construction.Compact.CurrentBlockId! };
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var rebuild = PlanningCompactConstruction.Context(state)["rebuild"]!;
+        Assert.Equal(0, rebuild["remaining"]!.GetValue<int>());
+        var retained = rebuild["preservedScopeOutputs"]!;
+        Assert.Equal("/root", retained["scope"]!.ToString());
+        Assert.Equal("message", retained["outputs"]![0]!["name"]!.ToString());
+        Assert.Equal("greet", retained["outputs"]![0]!["value"]!["source"]!.ToString());
+        Assert.Contains("never duplicates", retained["semantics"]!.ToString(), StringComparison.Ordinal);
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+    }
+
     [Fact]
     public async Task UnrelatedContractDoesNotEnterNextDraftOrBusinessReview()
     {

@@ -73,6 +73,18 @@ internal static partial class PlanningConstruction
             var scope = symbols.Scopes.SingleOrDefault(s => s.Path == placement.Path)?.Source;
             if (scope is null) continue;
             Restore(scope.Tasks, placement.Tasks); Restore(scope.Always, placement.Always);
+            // Rollback removes exports that consume invalidated producers. Once
+            // those exact producers return, reuse their retained bindings rather
+            // than asking an append-only fragment to insert them between survivors.
+            foreach (var original in placement.Outputs)
+                if (scope.Outputs.All(o => o.Name != original.Name) &&
+                    TaskPlanCompiler.Values(original.Value).Where(v => v.Kind is "output" or "present")
+                        .All(v => v.Source is not null && symbols.Tasks.ContainsKey(v.Source)))
+                    scope.Outputs.Add(Clone(new TaskPlan { Root = new() { Outputs = [original] } }).Root.Outputs[0]);
+            var restored = placement.Outputs.Select(original => scope.Outputs.SingleOrDefault(o => o.Name == original.Name))
+                .OfType<TaskOutput>().ToList();
+            restored.AddRange(scope.Outputs.Where(o => placement.Outputs.All(original => original.Name != o.Name)));
+            scope.Outputs = restored;
         }
         void Restore(List<PlanTask> tasks, List<string> order)
         {

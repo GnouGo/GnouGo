@@ -826,6 +826,13 @@ internal static partial class PlanningCompactConstruction
                 }
                 return (JsonNode)item;
             }).ToArray()), ["invalidationCount"] = construction.Invalidations.Count };
+        var scope = construction.RebuildScopes.SingleOrDefault(s => s.Path == construction.Compact?.CurrentStep?.Scope);
+        if (scope is not null)
+        {
+            result["preservedScopeOutputs"] = new JsonObject { ["scope"] = scope.Path,
+                ["outputs"] = JsonSerializer.SerializeToNode(scope.Outputs, PlanningJsonContext.Default.ListTaskOutput),
+                ["semantics"] = "The host restores these exact retained export bindings in their original order when their producers are rebuilt. Existing exports are preserved; extension.outputs adds only new exports, never duplicates. Restoration still requires normal contract validation and business review." };
+        }
         if (remaining.Length > 0) result["semantics"] = RollbackSemantics;
         return result;
     }
