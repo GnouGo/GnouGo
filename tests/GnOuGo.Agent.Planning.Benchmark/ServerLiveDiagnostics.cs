@@ -153,7 +153,8 @@ internal static class ServerLiveDiagnostics
             var request = IndependentProbe(original, model.Provider, model.Model, run, nonce,
                 SchemaPortabilityCampaign.Option(args, "--probe-reasoning") ?? "medium",
                 SchemaPortabilityCampaign.Option(args, "--probe-output-tokens") is { } allocation
-                    ? int.Parse(allocation, System.Globalization.CultureInfo.InvariantCulture) : original?.MaxTokens ?? 1024);
+                    ? int.Parse(allocation, System.Globalization.CultureInfo.InvariantCulture) : original?.MaxTokens ?? 1024,
+                SchemaPortabilityCampaign.Option(args, "--probe-structured-strict") is { } strict ? bool.Parse(strict) : null);
             if (args.Contains("--probe-share-schema-evidence", StringComparer.Ordinal))
             {
                 var before = request.Prompt;
@@ -167,6 +168,7 @@ internal static class ServerLiveDiagnostics
             if (args.Contains("--probe-check-responses", StringComparer.Ordinal))
                 report["responses_route_inspection"] = await model.InspectResponsesRouteAsync(run, context.RequestAborted);
             report["requested_reasoning"] = request.Reasoning;
+            report["requested_structured_output_strict"] = request.StructuredOutputStrict;
             report["independent_probe"] = new JsonObject { ["source_request"] = sourceRequest,
                 ["source_request_hash"] = original is null ? null : PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(original, PlanningJsonContext.Default.LLMRequest)),
                 ["prompt_hash"] = PlanningGraphCompiler.Fingerprint(request.Prompt),
@@ -401,7 +403,8 @@ internal static class ServerLiveDiagnostics
         finally { await app.StopAsync(); }
     }
 
-    internal static LLMRequest IndependentProbe(LLMRequest? original, string provider, string model, string run, string nonce, string reasoning, int outputTokens)
+    internal static LLMRequest IndependentProbe(LLMRequest? original, string provider, string model, string run, string nonce, string reasoning, int outputTokens,
+        bool? structuredStrict = null)
     {
         if (outputTokens <= 0 || string.IsNullOrWhiteSpace(reasoning)) throw new ArgumentException("An explicit positive allocation and reasoning effort are required.");
         if (original is not null && (original.Provider != provider || original.Model != model || original.Tools is { Count: > 0 } ||
@@ -415,6 +418,7 @@ internal static class ServerLiveDiagnostics
             : JsonSerializer.Deserialize(JsonSerializer.Serialize(original, PlanningJsonContext.Default.LLMRequest), PlanningJsonContext.Default.LLMRequest)!;
         request.ClientRequestId = null;
         request.Reasoning = reasoning; request.MaxTokens = outputTokens; request.RequireOutputTokenLimit = true;
+        if (structuredStrict is { } strict) request.StructuredOutputStrict = strict;
         request.DisableTransportRetries = true; request.RequiredReviewCalls = null;
         request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
         return request;

@@ -9,6 +9,27 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class IndependentProviderProbeTests
 {
     [Fact]
+    public void ProviderDecoderProbePreservesTheExactSchemaAndFullHostValidation()
+    {
+        var original = new LLMRequest { Provider = "p", Model = "m", Prompt = "Retain every original obligation.", Reasoning = "medium", MaxTokens = 32768,
+            StructuredOutputStrict = true, StructuredOutputSchema = JsonNode.Parse("""{"type":"object","properties":{"requiredResult":{"type":"string"}},"required":["requiredResult"],"additionalProperties":false}""") };
+        var frozen = JsonSerializer.Serialize(original, PlanningJsonContext.Default.LLMRequest);
+        var control = ServerLiveDiagnostics.IndependentProbe(original, "p", "m", "control", "first", "medium", 32768);
+        var changed = ServerLiveDiagnostics.IndependentProbe(original, "p", "m", "decoder", "second", "medium", 32768, structuredStrict: false);
+        Assert.True(control.StructuredOutputStrict); Assert.False(changed.StructuredOutputStrict);
+        Assert.NotEqual(control.ClientRequestId, changed.ClientRequestId);
+        var normalized = JsonSerializer.SerializeToNode(changed, PlanningJsonContext.Default.LLMRequest)!;
+        normalized["clientRequestId"] = control.ClientRequestId; normalized["structuredOutputStrict"] = true;
+        Assert.True(JsonNode.DeepEquals(JsonSerializer.SerializeToNode(control, PlanningJsonContext.Default.LLMRequest), normalized));
+        Assert.Equal(frozen, JsonSerializer.Serialize(original, PlanningJsonContext.Default.LLMRequest));
+        foreach (var request in new[] { control, changed })
+        {
+            Assert.NotEmpty(PlanningContractValidation.ValidateInstance(new JsonObject(), request.StructuredOutputSchema!));
+            Assert.Empty(PlanningContractValidation.ValidateInstance(new JsonObject { ["requiredResult"] = "observed" }, request.StructuredOutputSchema!));
+        }
+    }
+
+    [Fact]
     public void ResponsesInspectionPreservesTheExactGatewayDeploymentPrefixAndQuery()
     {
         var route = KeyVaultBenchmarkModel.ResponsesRoute(new("https://gateway.invalid/authorized/deployments/model/chat/completions?api-version=version"));
