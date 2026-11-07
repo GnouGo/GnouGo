@@ -451,7 +451,7 @@ internal sealed partial class BenchmarkCampaign
         => failure?["stage"]?.ToString() == "dispatch" &&
             failure["exception_type"]?.ToString() is "OperationCanceledException" or "TaskCanceledException" &&
             new[] { "kind", "status_code", "safe_provider_code", "retryable", "attempt_count", "retry_exhausted", "retry_after_ms" }.All(key => failure[key] is null) &&
-            MatchesInterruptedPlanning(state, policy, journal, attempts);
+            MatchesInterruptedPlanning(state, policy, journal, attempts, allowCancelledAttempt: true);
 
     private static bool MatchesCapturedPlanningFailure(PlanningSession state, JsonObject policy, JsonObject journal, JsonArray attempts, JsonObject? failure, JsonObject accounting,
         bool unstarted = false, bool unfundedRetry = false, decimal? campaignCeiling = null)
@@ -541,7 +541,8 @@ internal sealed partial class BenchmarkCampaign
             refusal["retained_external_reservations_eur"]?.GetValue<decimal>() == (journal["effective_transport_policy"]?["retained_external_reservations_eur"]?.GetValue<decimal>() ?? 0m);
     }
 
-    private static bool MatchesInterruptedPlanning(PlanningSession state, JsonObject policy, JsonObject journal, JsonArray attempts, bool allowEmptyTransport = false)
+    private static bool MatchesInterruptedPlanning(PlanningSession state, JsonObject policy, JsonObject journal, JsonArray attempts, bool allowEmptyTransport = false,
+        bool allowCancelledAttempt = false)
     {
         var captured = PlanningTransportPolicies.Read(state.Request);
         var effective = journal["effective_transport_policy"] as JsonObject;
@@ -569,7 +570,9 @@ internal sealed partial class BenchmarkCampaign
             if (attempts[index]?["Status"]?.GetValue<int>() is not (429 or 500 or 502 or 503 or 504) ||
                 attempts[index]?["Failure"] is not null || !IsRetainedErrorOnlyBody(attempts[index]?["Body"]?.ToString())) return false;
         var last = attempts[^1]!;
-        return new[] { "Status", "Body", "Failure", "ContentType", "RetryAfter", "NotBefore" }.All(key => last[key] is null);
+        return new[] { "Status", "Body", "PartialBody", "ContentType", "RetryAfter", "NotBefore" }.All(key => last[key] is null) &&
+            (last["Failure"] is null || allowCancelledAttempt && last["Failure"]?.ToString() == "cancelled" &&
+                last["RetryDecision"]?.ToString() == "cancelled; no retry" && last["ResponseBodyComplete"]?.GetValue<bool>() == false);
     }
 
     private static bool IsRetainedErrorOnlyBody(string? body)

@@ -7,10 +7,19 @@ public sealed partial class BenchmarkPermanentRetentionTests
 {
     private const string CancelledRun = "server-cancelled-run";
 
-    [Fact]
-    public async Task CancelledServerGenerationRetentionPreservesReservationAndForbidsReplayAcrossRestart()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CancelledServerGenerationRetentionPreservesReservationAndForbidsReplayAcrossRestart(bool explicitTransportCancellation)
     {
         var records = new Records(); var campaign = await SeedCancelledServerAsync(records);
+        if (explicitTransportCancellation)
+        {
+            var journal = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct))!;
+            var attempt = journal["transport"]!["Attempts"]![0]!;
+            attempt["Failure"] = "cancelled"; attempt["RetryDecision"] = "cancelled; no retry"; attempt["ResponseBodyComplete"] = false;
+            await campaign.SaveAsync(BenchmarkHttpJournal.Collection, RequestId, journal, Ct);
+        }
         var original = records.Snapshot(excludeClosures: true);
         var accounting = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
         var proposal = await campaign.InspectPermanentRetentionAsync("planning-evaluation-runs", CancelledRun, RequestId, Ct,
@@ -44,6 +53,10 @@ public sealed partial class BenchmarkPermanentRetentionTests
     [InlineData("usage")]
     [InlineData("body")]
     [InlineData("failure")]
+    [InlineData("partial_body")]
+    [InlineData("transport_failure")]
+    [InlineData("unmatched_cancellation")]
+    [InlineData("complete_body")]
     public async Task CancelledServerRetentionRejectsSubstitutionEffectsAndReceivedOutcomes(string defect)
     {
         var records = new Records(); var campaign = await SeedCancelledServerAsync(records);
@@ -77,6 +90,17 @@ public sealed partial class BenchmarkPermanentRetentionTests
                 else journal["transport"]!["Attempts"]![0]!["Body"] = "partial";
                 await campaign.SaveAsync(BenchmarkHttpJournal.Collection, RequestId, journal, Ct); break;
             case "failure": await campaign.SaveAsync("planning-evaluation-failures", RequestId, new JsonObject(), Ct); break;
+            case "partial_body":
+            case "transport_failure":
+            case "unmatched_cancellation":
+            case "complete_body":
+                var cancelledJournal = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct))!;
+                var attempt = cancelledJournal["transport"]!["Attempts"]![0]!;
+                attempt["Failure"] = defect == "transport_failure" ? "transport" : "cancelled";
+                attempt["RetryDecision"] = defect == "unmatched_cancellation" ? "other" : "cancelled; no retry";
+                attempt["ResponseBodyComplete"] = defect == "complete_body";
+                if (defect == "partial_body") attempt["PartialBody"] = "partial received bytes";
+                await campaign.SaveAsync(BenchmarkHttpJournal.Collection, RequestId, cancelledJournal, Ct); break;
         }
         await campaign.SaveAsync("planning-evaluation-runs", CancelledRun, run, Ct);
         var before = records.Snapshot();
