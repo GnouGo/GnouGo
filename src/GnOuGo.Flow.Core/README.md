@@ -52,7 +52,7 @@ Workflow ports can carry an authoritative `schema` object when shorthand types c
 
 ## MCP protocol compatibility
 
-Flow.Core owns only provider-neutral MCP contracts and has no dependency on the MCP SDK or another GnOuGo package. `GnOuGo.Flow.Integrations` supplies the stable C# MCP SDK `2.2.0` HTTP/stdio implementation, which prefers MCP `2026-07-28` discovery with `server/discover` and automatically falls back to `2025-11-25` initialization. Flow does not use `Mcp-Session-Id` for Copilot identity.
+Flow.Core owns only provider-neutral MCP contracts and has no dependency on the MCP SDK or another GnOuGo package. `GnOuGo.Flow.Integrations` supplies the stable C# MCP SDK `2.4.0` HTTP/stdio implementation, which prefers MCP `2026-07-28` discovery with `server/discover` and automatically falls back to `2025-11-25` initialization. Flow does not use `Mcp-Session-Id` for Copilot identity.
 
 Every discovery/tool/resource/prompt request carries reserved technical metadata such as correlation, stable execution and agent identity, run, trace, step, and tenant identifiers under `_meta.gnougo`; HTTP headers and stdio environment receive the same technical identifiers. These host-owned fields cannot be overridden by workflow input. A caller may explicitly add domain-neutral request context through `mcp.call.input.context`, which is propagated only under `_meta.gnougo.context`. Flow never extracts domain fields from workflow data. MCP elicitation is bridged to the workflow `IHumanInputProvider`, enabling stable multi-round-trip HITL without putting credentials in YAML. MCP tools marked `gnougo.management.visibility=management_only` remain discoverable to management clients but are excluded from workflow planning catalogs.
 

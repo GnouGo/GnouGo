@@ -66,7 +66,7 @@ The shared inspector displays effective transport and terminal facts, and pages 
 - [Azure native filter preludes and asynchronous annotations](https://learn.microsoft.com/en-us/azure/foundry/openai/concepts/content-streaming): empty metadata ids do not create generation identities; filter diagnostics and terminal filtering remain preserved.
 - [Anthropic Messages streaming](https://platform.claude.com/docs/en/build-with-claude/streaming).
 - [Ollama streaming](https://docs.ollama.com/api/streaming), [chat](https://docs.ollama.com/api/chat), and [tool calling](https://docs.ollama.com/capabilities/tool-calling).
-- [Pinned LLamaSharp 0.27 native iterator](https://github.com/SciSharp/LLamaSharp/blob/v0.27.0/LLama/LLamaStatelessExecutor.cs).
+- [Pinned LLamaSharp 0.30 native iterator](https://github.com/SciSharp/LLamaSharp/blob/v0.30.0/LLama/LLamaStatelessExecutor.cs).
 - [GitHub Models retirement](https://docs.github.com/en/github-models): protocol compatibility does not prove availability of the retired default service. No endpoint migration is automatic.
 
 Streaming does not guarantee early bytes while a model reasons, gateway flushing, or avoidance of an external absolute cutoff. Live evidence must separate availability, complete generation, accepted planning work, execution and the independent business oracle. A short successful response does not prove that the earlier 300-second failure has been removed.

@@ -13,4 +13,4 @@ tests/GnOuGo.Flow.Planning.Smoke/bin/Release/net10.0/osx-arm64/publish/GnOuGo.Fl
 
 Fresh planning captures the current phase and transport policies before dispatch. Complete-request targets guide presentation; captured hard ceilings and stricter deployment limits control admission. Cumulative calls, corrections, tokens and time remain charged across exact recovery. No historical protocol reader, monolithic generation path or model-response retry is exercised.
 
-The existing publish-local IL2026/IL2104/IL3053 exceptions cover Jint 4.16.3 CLR-interoperability and default JsonNode-conversion paths. Flow disables CLR access and performs its own JsonNode conversion. Library analyzers remain enabled. Set `AuditKnownTrimWarnings=true` to inspect dependency warnings.
+The existing publish-local IL2026/IL2104/IL3053 exceptions cover Jint 4.17.0 CLR-interoperability and default JsonNode-conversion paths. Flow disables CLR access and performs its own JsonNode conversion. Library analyzers remain enabled. Set `AuditKnownTrimWarnings=true` to inspect dependency warnings.

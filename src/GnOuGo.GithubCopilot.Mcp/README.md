@@ -1,6 +1,6 @@
 # GnOuGo.GithubCopilot.Mcp
 
-Interactive permission and business-question callbacks are serialized within each MCP invocation, including captured asynchronous callbacks. Each question still requires its own answer and retains cancellation, tenant context and permission checks. MCP SDK 2.2.0 has a separate ten-round input-required limit; sufficiently long interactive calls can still stop at that limit. See the [live validation evidence](../../docs/planning-schema-portability-2026-10-02.md).
+Interactive permission and business-question callbacks are serialized within each MCP invocation, including captured asynchronous callbacks. Each question still requires its own answer and retains cancellation, tenant context and permission checks. Earlier qualification with MCP SDK 2.2.0 encountered a separate ten-round input-required limit on long interactive calls. See the [live validation evidence](../../docs/planning-schema-portability-2026-10-02.md).
 
 MCP stdio server for safe code operations on a local project.
 
@@ -330,7 +330,7 @@ Agent budget stops retain safe admission diagnostics and execution observations.
 ## Long interactive operations
 
 `copilot_interactive_one_shot` and `code_agent_edit` require the negotiated MCP Tasks extension, pinned
-with `ModelContextProtocol.Extensions.Tasks` 2.2.0 (protocol 2026-07-28 or later).
+with `ModelContextProtocol.Extensions.Tasks` 2.4.0 (protocol 2026-07-28 or later).
 The generic Flow MCP client polls task status, presents each new human-input request
 once, resends retained answers on repeated pending IDs, and returns one final tool
 result. Older clients must add Tasks support for these operations. Other tools retain

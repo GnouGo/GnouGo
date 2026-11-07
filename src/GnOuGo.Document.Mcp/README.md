@@ -4,7 +4,7 @@ MCP (Model Context Protocol) stdio server for reading and writing document files
 
 ## MCP protocol compatibility
 
-This stdio server uses the C# MCP SDK `2.2.0` with automatic protocol negotiation. Launch the built apphost, or use `dotnet GnOuGo.Document.Mcp.dll`; do not put `dotnet run` on an MCP stdio transport because CLI output can corrupt the JSONL stream.
+This stdio server uses the C# MCP SDK `2.4.0` with automatic protocol negotiation. Launch the built apphost, or use `dotnet GnOuGo.Document.Mcp.dll`; do not put `dotnet run` on an MCP stdio transport because CLI output can corrupt the JSONL stream.
 
 `document_write` publishes a successful structured-output schema: `success` is true,
 `filePath` and `filePathAbsolute` are nonempty strings, and `bytesWritten` is a

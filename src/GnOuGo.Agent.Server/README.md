@@ -164,7 +164,7 @@ flowchart TD
 - `GnOuGo.KeyVault.Mcp` → `/mcp/keyvault`
 - `GnOuGo.DocIngestor.Mcp` → `/mcp/docs-ingestor`
 
-All three mounted services use the stable C# MCP SDK `2.2.0` and one stateless Streamable HTTP transport. Each route carries its logical server identity as endpoint metadata. The SDK's request-local `ConfigureSessionOptions` hook sets the exact server name/version and replaces the request's tool collection with only tools marked for that route; missing or unknown metadata fails closed. Because the options are request-local, concurrent discovery cannot leak one route's catalog into another.
+All three mounted services use the stable C# MCP SDK `2.4.0` and one stateless Streamable HTTP transport. Each route carries its logical server identity as endpoint metadata. The SDK's request-local `ConfigureSessionOptions` hook sets the exact server name/version and replaces the request's tool collection with only tools marked for that route; missing or unknown metadata fails closed. Because the options are request-local, concurrent discovery cannot leak one route's catalog into another.
 
 The default placeholders in `appsettings.json` intentionally use port `0`:
 

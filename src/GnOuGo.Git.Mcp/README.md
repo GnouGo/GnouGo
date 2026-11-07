@@ -4,7 +4,7 @@ MCP stdio server for safe Git repository operations on local projects.
 
 ## MCP protocol compatibility
 
-This stdio server uses the stable C# MCP SDK `2.2.0` with automatic protocol negotiation: clients prefer `2026-07-28` discovery and can initialize with stable `2025-11-25`. Launch the built apphost, or use `dotnet GnOuGo.Git.Mcp.dll`; do not put `dotnet run` on an MCP stdio transport because CLI output can corrupt the JSONL stream.
+This stdio server uses the stable C# MCP SDK `2.4.0` with automatic protocol negotiation: clients prefer `2026-07-28` discovery and can initialize with stable `2025-11-25`. Launch the built apphost, or use `dotnet GnOuGo.Git.Mcp.dll`; do not put `dotnet run` on an MCP stdio transport because CLI output can corrupt the JSONL stream.
 
 ## Features
 

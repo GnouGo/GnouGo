@@ -53,7 +53,7 @@ result field defaults to an empty list when reading older serialized results. Bo
 legacy `terminal` and current `shell_exit` SDK receipts are supported; output-preview
 truncation and output-file metadata remain explicit.
 
-The library pins `GitHub.Copilot.SDK` `1.0.14`, bundles Copilot CLI `1.0.88`, and maintains an explicit GA allowlist. The CLI version supplies the native runtime wrapper and its adjacent runtime library required by this SDK. Experimental, preview, insiders, fleet, fork, remote/cloud sandbox, canvas, extensions, manual compaction, history truncation, agent-management, citations, and unknown RPC APIs are rejected.
+The library pins `GitHub.Copilot.SDK` `1.0.29`, bundles Copilot CLI `1.0.107`, and maintains an explicit GA allowlist. The CLI version supplies the native runtime wrapper and its adjacent runtime library required by this SDK. Experimental, preview, insiders, fleet, fork, remote/cloud sandbox, canvas, extensions, manual compaction, history truncation, agent-management, citations, and unknown RPC APIs are rejected.
 
 It provides:
 

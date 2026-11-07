@@ -1,6 +1,6 @@
 # GnOuGo.Mcp.Core
 
-GnOuGo-owned MCP servers use stable `ModelContextProtocol` `2.2.0` and leave protocol selection unpinned. The SDK prefers discovery-first `2026-07-28` (`GnOuGoMcpProtocol.PreferredRevision`) and accepts stable `2025-11-25` initialization as a compatibility fallback. `RequiredRevision` remains an obsolete source-compatible alias for the preferred revision.
+GnOuGo-owned MCP servers use stable `ModelContextProtocol` `2.4.0` and leave protocol selection unpinned. The SDK prefers discovery-first `2026-07-28` (`GnOuGoMcpProtocol.PreferredRevision`) and accepts stable `2025-11-25` initialization as a compatibility fallback. `RequiredRevision` remains an obsolete source-compatible alias for the preferred revision.
 
 Shared helpers for GnOuGo MCP servers.
 
@@ -39,7 +39,7 @@ authorization.
 
 ## MCP protocol compatibility
 
-The library targets the stable C# MCP SDK `2.2.0` and is shared by both MCP `2026-07-28` servers and down-level connections negotiated by the SDK. It does not add Tasks, MCP Apps, Roots, Sampling, or MCP Logging dependencies.
+The library targets the stable C# MCP SDK `2.4.0` and is shared by both MCP `2026-07-28` servers and down-level connections negotiated by the SDK. It does not add Tasks, MCP Apps, Roots, Sampling, or MCP Logging dependencies.
 
 ## Composed HTTP tool groups
 
