@@ -132,6 +132,29 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             ["previous_declared_metadata_hash"] = oldMetadata, ["before"] = new JsonArray(previousEfforts.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()),
             ["after"] = new JsonArray(after.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()) };
     }
+    internal async Task<JsonObject> StreamingTransportProofAsync(string previousIdentity, CancellationToken ct)
+    {
+        var previous = await _campaign.LoadAsync("planning-evaluation-configuration", "configuration:" + previousIdentity, ct)
+            ?? throw new PlanningConflictException("The exact prior deployment capture is missing.");
+        if (previous["configuration"] is not JsonObject configuration || !BenchmarkCampaign.OnlyStreamingTransportChanged(CampaignConfiguration(), configuration))
+            throw new PlanningConflictException("The streaming amendment cannot change any other deployment setting.");
+        var oldOptions = JsonSerializer.Deserialize<LLMOptions>(JsonSerializer.Serialize(_options))!;
+        var oldProvider = oldOptions.ResolveProvider(Provider)!;
+        var beforePolicy = configuration["request_policy"]!.Deserialize<LLMProviderRequestPolicyOptions>()!;
+        oldProvider.RequestPolicy.StreamingMode = beforePolicy.StreamingMode;
+        oldProvider.RequestPolicy.StreamingSupport = beforePolicy.StreamingSupport;
+        // Other deployments must compare unchanged before restoring this exact deployment's override.
+        oldProvider.ModelTransportOverrides = configuration["model_transport_overrides"]?.Deserialize<Dictionary<string, LLMModelTransportOptions>>();
+        var metadata = new RoutingLLMClient(oldOptions, []).ResolveDeclaredMetadata(Provider, Model);
+        var oldHost = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(oldOptions) + JsonSerializer.Serialize(metadata));
+        var oldMetadata = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(metadata));
+        if (oldHost != previous["host_configuration_hash"]?.ToString() || oldMetadata != previous["declared_metadata_hash"]?.ToString())
+            throw new PlanningConflictException("Restoring only streaming settings does not reconstruct the funded host; another setting, tariff, model limit or retry policy changed.");
+        return new() { ["previous_configuration_id"] = previousIdentity, ["previous_host_configuration_hash"] = oldHost,
+            ["previous_declared_metadata_hash"] = oldMetadata, ["host_configuration_hash"] = ConfigurationFingerprint,
+            ["before"] = BenchmarkCampaign.TransportProjection(configuration), ["after"] = BenchmarkCampaign.TransportProjection(CampaignConfiguration()) };
+    }
+
     public async Task AdmitConstructionAsync(LLMRequest request, int inputTokenCeiling,
         IReadOnlyList<int> outputTokenCeilings, CancellationToken ct)
     {
@@ -392,6 +415,9 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             providerSources["endpoint"] = "keyvault_provider_configuration";
             if (!string.IsNullOrWhiteSpace(Field("model"))) providerSources["model"] = "keyvault_provider_configuration";
             if (LlmGenerationProtocol.Read(entry) is not null) providerSources["request_policy.BackgroundProtocol"] = "keyvault_provider_configuration";
+            if (entry.ContainsKey("streamingMode")) providerSources["request_policy.StreamingMode"] = "keyvault_provider_configuration";
+            if (entry.ContainsKey("streamingSupport")) providerSources["request_policy.StreamingSupport"] = "keyvault_provider_configuration";
+            if (entry.ContainsKey("modelTransportOverrides")) providerSources["model_transport_overrides"] = "keyvault_provider_configuration";
             if (entry.ContainsKey("retryPolicy")) providerSources["retry_policy"] = "keyvault_provider_configuration";
         }
         var provenance = DescribeConfigurationSources(host, providerName, providerSources);
@@ -422,15 +448,21 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             ["endpoint"] = "host_configuration", ["metadata"] = "bundled_catalog_and_host_overrides_then_persisted_user_overrides",
             ["environment"] = "not applied by the campaign loader; Server configuration providers are reported separately",
             ["historical_host_options"] = "unavailable" };
-        foreach (var field in new[] { "BillingServiceTier", "BillingRegionalProcessing", "BillingCacheRetention", "BackgroundProtocol", "UnspecifiedOutputTokens", "DefaultMaxOutputTokens", "MaxOutputTokensCap" })
+        foreach (var field in new[] { "BillingServiceTier", "BillingRegionalProcessing", "BillingCacheRetention", "BackgroundProtocol", "UnspecifiedOutputTokens", "DefaultMaxOutputTokens", "MaxOutputTokensCap", "StreamingMode", "StreamingSupport" })
             result["request_policy." + field] = policy?.Any(p => string.Equals(p.Key, field, StringComparison.OrdinalIgnoreCase)) == true ? "host_configuration" : "code_default";
         foreach (var pair in keyVaultSources) result[pair.Key] = pair.Value?.DeepClone();
         return result;
     }
-    internal JsonObject CampaignConfiguration() => new() { ["provider"] = Provider, ["model"] = Model,
-        ["endpoint"] = _options.ResolveProvider(Provider)!.Url, ["request_policy"] = JsonSerializer.SerializeToNode(_options.ResolveProvider(Provider)!.RequestPolicy),
-        ["reasoning"] = "medium", ["max_input_tokens"] = 96_000, ["max_output_tokens"] = 32_768,
-        ["max_calls"] = 8, ["max_repairs"] = 2, ["cost_ceiling_eur"] = 50 };
+    internal JsonObject CampaignConfiguration()
+    {
+        var configured = _options.ResolveProvider(Provider)!;
+        var result = new JsonObject { ["provider"] = Provider, ["model"] = Model,
+            ["endpoint"] = configured.Url, ["request_policy"] = JsonSerializer.SerializeToNode(configured.RequestPolicy),
+            ["reasoning"] = "medium", ["max_input_tokens"] = 96_000, ["max_output_tokens"] = 32_768,
+            ["max_calls"] = 8, ["max_repairs"] = 2, ["cost_ceiling_eur"] = 50 };
+        if (configured.ModelTransportOverrides is not null) result["model_transport_overrides"] = JsonSerializer.SerializeToNode(configured.ModelTransportOverrides);
+        return result;
+    }
 
     internal static string WorkspaceDatabasePath(string root, string? configuredPath, string defaultPath)
         => Path.GetFullPath(Path.Combine(Path.GetFullPath(root), string.IsNullOrWhiteSpace(configuredPath) ? defaultPath : configuredPath));

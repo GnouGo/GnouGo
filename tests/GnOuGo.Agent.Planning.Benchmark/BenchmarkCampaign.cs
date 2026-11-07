@@ -73,7 +73,7 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
     // for fresh runs only; the original pin and financial records are immutable.
     internal async Task<JsonObject> RegisterConfigurationAsync(JsonObject configuration, string hostHash, string metadataHash,
         string expectedPreviousHash, string authorization, bool apply, CancellationToken ct, string? expectedIdentity = null,
-        bool captureCurrentSettings = false, JsonObject? reasoningCapabilityProof = null)
+        bool captureCurrentSettings = false, JsonObject? reasoningCapabilityProof = null, JsonObject? streamingTransportProof = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(authorization);
         var original = await LoadAsync("planning-evaluation-configuration", "configuration", ct)
@@ -81,7 +81,14 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
         if (PlanningGraphCompiler.Fingerprint(original.ToJsonString()) != expectedPreviousHash ||
             hostHash.Length != 64 || metadataHash.Length != 64 || !hostHash.All(char.IsAsciiHexDigit) || !metadataHash.All(char.IsAsciiHexDigit))
             throw new PlanningConflictException("The amendment must identify the exact previous configuration and inspected host/model metadata.");
+        if (reasoningCapabilityProof is not null && streamingTransportProof is not null)
+            throw new PlanningConflictException("One immutable amendment must vary one declared factor.");
         var unchanged = configuration.DeepClone();
+        if (streamingTransportProof is not null || reasoningCapabilityProof is not null)
+        {
+            if (original.ContainsKey("model_transport_overrides")) unchanged["model_transport_overrides"] = original["model_transport_overrides"]?.DeepClone();
+            else unchanged.AsObject().Remove("model_transport_overrides");
+        }
         unchanged["model"] = original["model"]?.DeepClone();
         if (original.ContainsKey("endpoint") || unchanged.AsObject().ContainsKey("endpoint"))
             unchanged["endpoint"] = original["endpoint"]?.DeepClone();
@@ -109,6 +116,23 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
                 throw new PlanningConflictException("The capability amendment must prove the exact unchanged funded deployment and previous host metadata.");
             material["amendment_scope"] = "reasoning_capabilities_only";
             material["reasoning_capability_proof"] = reasoningCapabilityProof.DeepClone();
+        }
+        if (streamingTransportProof is not null)
+        {
+            var parentId = streamingTransportProof["previous_configuration_id"]?.ToString();
+            var parent = parentId is { Length: 64 } ? await LoadAsync("planning-evaluation-configuration", "configuration:" + parentId, ct) : null;
+            if (!captureCurrentSettings || parent?["configuration"] is not JsonObject previous ||
+                parent["host_configuration_hash"]?.ToString() != streamingTransportProof["previous_host_configuration_hash"]?.ToString() ||
+                parent["declared_metadata_hash"]?.ToString() != metadataHash ||
+                streamingTransportProof["previous_declared_metadata_hash"]?.ToString() != metadataHash ||
+                streamingTransportProof["host_configuration_hash"]?.ToString() != hostHash ||
+                !OnlyStreamingTransportChanged(configuration, previous) ||
+                !JsonNode.DeepEquals(streamingTransportProof["before"], TransportProjection(previous)) ||
+                !JsonNode.DeepEquals(streamingTransportProof["after"], TransportProjection(configuration)) ||
+                !(await CheckConfigurationSelectionAsync(parentId!, previous, parent["host_configuration_hash"]!.ToString(), ct)).Accepted)
+                throw new PlanningConflictException("A transport amendment must prove only the exact deployment's streaming settings changed; route, prices, limits and retry policy remain captured.");
+            material["amendment_scope"] = "streaming_transport_only";
+            material["streaming_transport_proof"] = streamingTransportProof.DeepClone();
         }
         var identity = PlanningGraphCompiler.Fingerprint(material.ToJsonString());
         if (expectedIdentity is not null && expectedIdentity != identity)

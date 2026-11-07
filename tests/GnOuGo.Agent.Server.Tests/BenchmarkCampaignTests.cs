@@ -62,6 +62,124 @@ public sealed class BenchmarkCampaignTests
         Assert.Equal(funding, (await campaign.LoadAsync("planning-evaluation-configuration", "independent-funding-scope", Ct))!.ToJsonString());
     }
 
+    [Theory]
+    [InlineData("none")] [InlineData("price")] [InlineData("endpoint")]
+    [InlineData("output")] [InlineData("retry")] [InlineData("other-model")]
+    public async Task StreamingAmendmentChainsToTheSameGrantWithoutChangingAnyHold(string defect)
+    {
+        var records = new Records(); var previousCampaign = new BenchmarkCampaign(records, "old"); var campaign = new BenchmarkCampaign(records, "funded");
+        var options = new LLMOptions { DefaultProvider = "OpenAi", DefaultModel = "model", Models = new() { ["OpenAi"] = new() { Type = "openai", Url = "https://gateway.invalid/v1" } },
+            ModelOverrides = new() { ["openai/model"] = new() { Id = "model", ProviderType = "openai", MaxOutputTokens = 32768,
+                Pricing = new() { Currency = "EUR", InputPer1MTokens = 30, OutputPer1MTokens = 180 },
+                Capabilities = new() { SupportsReasoningEffort = true, SupportedReasoningEfforts = ["medium", "high"] } } } };
+        using var original = new KeyVaultBenchmarkModel(campaign, options);
+        var configuration = original.CampaignConfiguration(); await previousCampaign.PinAsync(configuration, Ct); await campaign.PinAsync(configuration, Ct);
+        string MetadataHash() => PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(new RoutingLLMClient(options, []).ResolveDeclaredMetadata("OpenAi", "model")));
+        var grant = await campaign.AuthorizeFreshAllocationAsync("old", 400, "same-400-grant", configuration, original.ConfigurationFingerprint, MetadataHash(), Ct);
+        var rootId = grant["configuration_id"]!.ToString();
+        var funding = (await campaign.LoadAsync("planning-evaluation-configuration", "independent-funding-scope", Ct))!.ToJsonString();
+        var retained = new BenchmarkHttpJournal(campaign, "earlier:1", 10, 10, 3m);
+        await retained.PrepareAsync(Ct); await retained.SaveAsync(new() { Attempts = [new() { Id = "uncertain" }] }, Ct);
+        options.ModelOverrides["openai/model"].Capabilities.SupportedReasoningEfforts = ["low", "medium", "high"];
+        using var reasoning = new KeyVaultBenchmarkModel(campaign, options);
+        var reasoningProof = await reasoning.ReasoningCapabilityProofAsync(rootId, ["medium", "high"], Ct);
+        var amended = await campaign.RegisterConfigurationAsync(configuration, reasoning.ConfigurationFingerprint, MetadataHash(), PlanningGraphCompiler.Fingerprint(configuration.ToJsonString()),
+            "reasoning-only", true, Ct, reasoningCapabilityProof: reasoningProof);
+        var parentId = amended["configuration_id"]!.ToString();
+        options.Models["OpenAi"].ModelTransportOverrides = new() { ["model"] = new() { StreamingMode = LLMStreamingMode.Streaming,
+            StreamingSupport = new() { [LLMTransportResolver.ChatCompletions] = true } } };
+        if (defect == "price") options.ModelOverrides["openai/model"].Pricing!.InputPer1MTokens = 1;
+        if (defect == "endpoint") options.Models["OpenAi"].Url = "https://other.invalid/v1";
+        if (defect == "output") options.ModelOverrides["openai/model"].MaxOutputTokens++;
+        if (defect == "retry") options.Models["OpenAi"].RetryPolicy.MaxAttempts++;
+        if (defect == "other-model") options.Models["OpenAi"].ModelTransportOverrides!["other"] = new() { StreamingMode = LLMStreamingMode.Streaming };
+        using var streaming = new KeyVaultBenchmarkModel(campaign, options);
+        if (defect != "none")
+        {
+            await Assert.ThrowsAsync<PlanningConflictException>(() => streaming.StreamingTransportProofAsync(parentId, Ct));
+            return;
+        }
+        var proof = await streaming.StreamingTransportProofAsync(parentId, Ct);
+        var preview = await campaign.RegisterConfigurationAsync(streaming.CampaignConfiguration(), streaming.ConfigurationFingerprint, MetadataHash(),
+            PlanningGraphCompiler.Fingerprint(configuration.ToJsonString()), "transport-only", false, Ct, captureCurrentSettings: true, streamingTransportProof: proof);
+        var committed = await campaign.RegisterConfigurationAsync(streaming.CampaignConfiguration(), streaming.ConfigurationFingerprint, MetadataHash(),
+            PlanningGraphCompiler.Fingerprint(configuration.ToJsonString()), "transport-only", true, Ct, preview["configuration_id"]!.ToString(), captureCurrentSettings: true, streamingTransportProof: proof);
+        await campaign.SelectConfigurationAsync(committed["configuration_id"]!.ToString(), streaming.CampaignConfiguration(), streaming.ConfigurationFingerprint, Ct);
+        Assert.Equal(400m, (await campaign.FreshAllocationAsync(Ct))!["allowance_eur"]!.GetValue<decimal>());
+        Assert.Equal(funding, (await campaign.LoadAsync("planning-evaluation-configuration", "independent-funding-scope", Ct))!.ToJsonString());
+        Assert.Equal(3m, (await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct))["reserved_cost_eur"]!.GetValue<decimal>());
+        var forged = proof.DeepClone().AsObject(); forged["previous_host_configuration_hash"] = new string('f', 64);
+        await Assert.ThrowsAsync<PlanningConflictException>(() => campaign.RegisterConfigurationAsync(streaming.CampaignConfiguration(), streaming.ConfigurationFingerprint, MetadataHash(),
+            PlanningGraphCompiler.Fingerprint(configuration.ToJsonString()), "forged-transport", true, Ct, captureCurrentSettings: true, streamingTransportProof: forged));
+    }
+
+    [Theory]
+    [InlineData("none")] [InlineData("receipt")] [InlineData("usage")] [InlineData("artifact")]
+    [InlineData("tools")] [InlineData("empty-attempts")] [InlineData("body")]
+    [InlineData("policy")] [InlineData("owner")] [InlineData("configuration")]
+    public async Task IndependentProbeRetentionPreservesEveryOriginalAndReservation(string defect)
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "probe-campaign");
+        const string runId = "independent-probe";
+        var request = ServerLiveDiagnostics.IndependentProbe(null, "OpenAi", "model", runId, new string('a', 32), "medium", 64, true);
+        var requestNode = JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!.AsObject();
+        var id = request.ClientRequestId!;
+        var config = new JsonObject { ["provider"] = "OpenAi", ["model"] = "model", ["endpoint"] = "https://gateway.invalid/v1" };
+        await campaign.PinAsync(config, Ct);
+        var registration = await campaign.RegisterConfigurationAsync(config, new string('a', 64), new string('b', 64),
+            PlanningGraphCompiler.Fingerprint(config.ToJsonString()), "fixture exact deployment", true, Ct);
+        var policy = new JsonObject { ["version"] = 2, ["mode"] = "runtime_single_attempt", ["disable_transport_retries"] = true,
+            ["allow_http_recovery"] = true, ["request_hash"] = PlanningGraphCompiler.Fingerprint(requestNode.ToJsonString()),
+            ["effective_retry_policy"] = JsonSerializer.SerializeToNode(new LLMProviderRetryPolicyOptions { MaxAttempts = 1, MaxUncertainRetries = 0 }, LLMHttpRetryJsonContext.Default.LLMProviderRetryPolicyOptions) };
+        var body = System.Text.Encoding.UTF8.GetString(ChatRequestBuilder.OpenAiFull("model", request.Prompt, structuredOutputSchema: request.StructuredOutputSchema, reasoning: "medium", maxOutputTokens: 64));
+        var journal = new BenchmarkHttpJournal(campaign, id, 4096, 64, 3m, effectiveTransportPolicy: policy);
+        await journal.PrepareAsync(Ct, new JsonObject { ["source"] = "fixture" });
+        await journal.SaveAsync(new() { Fingerprint = new string('c', 64), RequestMethod = "POST", Endpoint = "https://gateway.invalid/v1/chat/completions", RequestBody = body,
+            Attempts = [new() { Id = id + ":attempt", StartedAtUtc = DateTimeOffset.UtcNow.AddMinutes(-1), CompletedAtUtc = DateTimeOffset.UtcNow, Failure = "transport", ResponseBodyComplete = false }] }, Ct);
+        await campaign.SaveAsync("planning-evaluation-requests", id, requestNode, Ct);
+        await campaign.SaveAsync("planning-evaluation-failures", id, new() { ["stage"] = "dispatch", ["kind"] = "Transport", ["attempt_count"] = 1 }, Ct);
+        var run = new JsonObject { ["source"] = new string('a', 40), ["host"] = "GnOuGo.Agent.Server", ["phase"] = "provider_probe", ["run"] = runId,
+            ["campaign"] = campaign.Id, ["budget_mode"] = "limited", ["campaign_configuration"] = registration["configuration_id"]!.DeepClone(), ["request_id"] = id,
+            ["passed"] = false, ["frontend_ready"] = true, ["finished_utc"] = DateTimeOffset.UtcNow, ["durable_receipt"] = false, ["physical_http_attempts"] = 1,
+            ["provider"] = "OpenAi", ["model"] = "model", ["independent_probe"] = new JsonObject { ["applies_candidate"] = false, ["executes_business_tools"] = false,
+                ["prompt_hash"] = PlanningGraphCompiler.Fingerprint(request.Prompt), ["schema_hash"] = PlanningGraphCompiler.Fingerprint(request.StructuredOutputSchema!.ToJsonString()) },
+            ["effective_http"] = new JsonObject { ["body_sha256"] = PlanningGraphCompiler.Fingerprint(body), ["endpoint_sha256"] = PlanningGraphCompiler.Fingerprint("https://gateway.invalid/v1/chat/completions") } };
+        if (defect == "receipt") await campaign.SaveAsync("planning-evaluation-receipts", id, new(), Ct);
+        if (defect == "artifact") run["artifact_hash"] = "approved";
+        if (defect == "owner") run["campaign"] = "other";
+        if (defect == "configuration") run["campaign_configuration"] = new string('f', 64);
+        if (defect == "tools") { requestNode["tools"] = new JsonArray(new JsonObject { ["name"] = "business_effect" }); await campaign.SaveAsync("planning-evaluation-requests", id, requestNode, Ct); }
+        if (defect is "usage" or "body" or "empty-attempts" or "policy")
+        {
+            var changed = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!;
+            if (defect == "usage") changed["usage"] = new JsonObject { ["input_tokens"] = 1 };
+            if (defect == "body") changed["transport"]!["Attempts"]![0]!["Body"] = "received output";
+            if (defect == "empty-attempts") changed["transport"]!["Attempts"] = new JsonArray();
+            if (defect == "policy") changed["effective_transport_policy"]!["effective_retry_policy"]!["MaxAttempts"] = 2;
+            await campaign.SaveAsync(BenchmarkHttpJournal.Collection, id, changed, Ct);
+        }
+        await campaign.SaveAsync("planning-evaluation-runs", runId, run, Ct);
+        if (defect != "none")
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.InspectPermanentRetentionAsync("planning-evaluation-runs", runId, id, Ct, BenchmarkCampaign.ProviderProbeRetention));
+            return;
+        }
+        var accounting = (await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct)).ToJsonString();
+        var originals = new Dictionary<string, string>();
+        foreach (var collection in new[] { "planning-evaluation-runs", "planning-evaluation-requests", "planning-evaluation-failures", BenchmarkHttpJournal.Collection })
+            originals[collection] = (await campaign.LoadAsync(collection, collection == "planning-evaluation-runs" ? runId : id, Ct))!.ToJsonString();
+        var preview = await campaign.InspectPermanentRetentionAsync("planning-evaluation-runs", runId, id, Ct, BenchmarkCampaign.ProviderProbeRetention);
+        var closure = await campaign.ApplyPermanentRetentionAsync("planning-evaluation-runs", runId, id, preview["evidence_hash"]!.ToString(),
+            "operator", "explicit eligible generation retention", Ct, BenchmarkCampaign.ProviderProbeRetention);
+        Assert.Equal("inconclusive", closure["outcome"]!.ToString()); Assert.True(closure["reservation_retained"]!.GetValue<bool>());
+        Assert.True(closure["request_replay_forbidden"]!.GetValue<bool>());
+        Assert.False(await campaign.HasUncertainRequestAsync(Ct));
+        Assert.Equal(accounting, (await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct)).ToJsonString());
+        foreach (var original in originals)
+            Assert.Equal(original.Value, (await campaign.LoadAsync(original.Key, original.Key == "planning-evaluation-runs" ? runId : id, Ct))!.ToJsonString());
+        Assert.Equal(3m, (await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct))["reserved_cost_eur"]!.GetValue<decimal>());
+    }
+
     [Fact]
     public async Task NewRunPreflightRequiresReceiptOrExistingRetentionEvenWithAnEmptyHttpJournal()
     {

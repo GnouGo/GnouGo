@@ -23,7 +23,7 @@ internal sealed partial class BenchmarkCampaign
         if (collection is not ("planning-evaluation-runs" or SchemaPortabilityCampaign.Collection))
             throw new ArgumentException("Choose an existing benchmark planning-run collection.");
         var run = await LoadAsync(collection, runKey, ct) ?? throw new InvalidOperationException("No retained planning run.");
-        var session = run["session"]?["request"]?["sessionId"]?.ToString();
+        var session = run["phase"]?.ToString() == "provider_probe" ? runKey : run["session"]?["request"]?["sessionId"]?.ToString();
         if (string.IsNullOrEmpty(session) || !requestId.StartsWith(session + ":", StringComparison.Ordinal))
             throw new InvalidOperationException("The original request does not belong to this run.");
         var identities = new List<(string Collection, string Key)>
@@ -102,6 +102,8 @@ internal sealed partial class BenchmarkCampaign
             inspection["existing_closure_hash"] = Hash(retained);
             return inspection;
         }
+        if (retentionKind == ProviderProbeRetention)
+            return await InspectProviderProbeRetentionAsync(collection, runKey, requestId, ct);
         if (retentionKind is not (InterruptedProcessRetention or ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention or CancelledPlanningRetention))
             throw new InvalidOperationException("New closures require the active captured-transport retention mode; historical closures remain immutable.");
         var run = await LoadAsync(collection, runKey, ct) ?? throw new InvalidOperationException("No retained planning run.");
@@ -350,7 +352,8 @@ internal sealed partial class BenchmarkCampaign
     {
         if (closure["reason"]?.ToString() != PermanentRetentionReason ||
             closure["evidence"] is not JsonObject evidence || evidence["version"]?.GetValue<int>() != 1 ||
-            evidence["retention_kind"]?.ToString() is not (null or SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention or InterruptedProcessRetention or ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention or CancelledPlanningRetention) ||
+            evidence["retention_kind"]?.ToString() is not (null or SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention or InterruptedProcessRetention or ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention or CancelledPlanningRetention or ProviderProbeRetention) ||
+            evidence["retention_kind"]?.ToString() == ProviderProbeRetention && !ValidProviderProbeEvidence(evidence) ||
             evidence["retention_kind"]?.ToString() == CancelledPlanningRetention &&
                 (evidence["outcome_evidence"]?.ToString() != "cancelled_reserved_attempt_without_persisted_outcome" ||
                  evidence["source_evidence"]?.ToString() != "server_session_and_frozen_configuration" ||
@@ -395,7 +398,7 @@ internal sealed partial class BenchmarkCampaign
 
     private static void ValidateRetentionKind(string? retentionKind)
     {
-        if (retentionKind is not (null or SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention or InterruptedProcessRetention or ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention or CancelledPlanningRetention))
+        if (retentionKind is not (null or SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention or InterruptedProcessRetention or ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention or CancelledPlanningRetention or ProviderProbeRetention))
             throw new ArgumentException("Choose an exact supported permanent-retention kind.", nameof(retentionKind));
     }
 

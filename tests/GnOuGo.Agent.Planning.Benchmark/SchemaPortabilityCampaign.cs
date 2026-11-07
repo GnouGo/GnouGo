@@ -97,7 +97,9 @@ internal static class SchemaPortabilityCampaign
                 captureCurrentSettings: args.Contains("--capture-current-settings", StringComparer.Ordinal),
                 reasoningCapabilityProof: args.Contains("--reasoning-capability-amendment", StringComparer.Ordinal)
                     ? await proposed.ReasoningCapabilityProofAsync(RequiredOption(args, "--previous-configuration-id"),
-                        RequiredOption(args, "--previous-reasoning-efforts").Split(','), CancellationToken.None) : null);
+                        RequiredOption(args, "--previous-reasoning-efforts").Split(','), CancellationToken.None) : null,
+                streamingTransportProof: args.Contains("--streaming-transport-amendment", StringComparer.Ordinal)
+                    ? await proposed.StreamingTransportProofAsync(RequiredOption(args, "--previous-configuration-id"), CancellationToken.None) : null);
             // Full deployment configuration stays encrypted in the campaign.
             // The exact hash identifies the preview without logging URL secrets.
             amendment.Remove("material");
