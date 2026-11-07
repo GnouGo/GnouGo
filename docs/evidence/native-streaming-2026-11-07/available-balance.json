@@ -8,5 +8,7 @@
   "physical_attempts": 265,
   "unresolved_attempts": 11,
   "provider_invoiced_cost": null,
-  "new_financial_authorization": false
+  "new_financial_authorization": false,
+  "audit_observed_utc": "2026-11-07T17:52:03.130036+00:00",
+  "audit_sha256": "a9042cd977dafed55efddac197c22b7b906275bd617d3b9a36099257883acc2f"
 }
