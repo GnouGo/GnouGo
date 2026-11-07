@@ -1,5 +1,7 @@
 # Fresh authorized live allocation — 7 November 2026
 
+Follow-up: [SQLite correction, exact request-9 retention and new real Amazon trials](../sqlite-recovery-2026-11-07/README.md). The accounting below remains the historical boundary of this original report.
+
 The operator explicitly requested: “reset to 0 ceiling and restart with 400 euros authorized. live tests.” This authorizes **€400 of independent new spending starting at €0 new consumption**, not erasure or reconciliation of prior liabilities. The old campaign and every old request/reservation are retained. Global available funding remains unknown.
 
 Implementation source: `202048374d4d070f7f2f4c623eceac35a66b9997` on PR #120's current branch. Only the existing benchmark/operator harness changed; production financial admission, compiler, judges, permissions and replay contracts remain unchanged. User-staged solution and `.vscode` changes are preserved.
