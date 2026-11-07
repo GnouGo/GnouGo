@@ -23,6 +23,42 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
         => await records.GetAsync(collection, "benchmark", Id + ":" + key, Author, ct) is { } record ? JsonNode.Parse(record.Value)!.AsObject() : null;
     internal Task SaveAsync(string collection, string key, JsonObject value, CancellationToken ct = default)
         => records.UpsertAsync(collection, "benchmark", Id + ":" + key, value.ToJsonString(), Author, ct);
+    internal async Task<IReadOnlyList<string>> OwnedKeysAsync(string collection, CancellationToken ct, string relativePrefix = "")
+    {
+        var prefix = Id + ":" + relativePrefix;
+        if (records is not IKeyVaultRecordReader reader)
+            return (await records.ListAsync(collection, "benchmark", Author, ct)).Where(r => r.Key.StartsWith(prefix, StringComparison.Ordinal)).Select(r => r.Key).ToArray();
+        var keys = new HashSet<string>(StringComparer.Ordinal);
+        KeyVaultRecordCursor? cursor = null;
+        while (true)
+        {
+            var page = await reader.QueryMetadataAsync(collection, "benchmark", prefix, Author, cursor, 100, ct);
+            foreach (var row in page.Records)
+            {
+                if (!row.Key.StartsWith(prefix, StringComparison.Ordinal)) throw AdmissionFailure("campaign_record_owner_mismatch");
+                keys.Add(row.Key);
+            }
+            if (!page.HasMore) break;
+            if (page.Next is null || cursor is not null && (page.Next.UpdatedAtTicks < cursor.UpdatedAtTicks ||
+                page.Next.UpdatedAtTicks == cursor.UpdatedAtTicks && string.CompareOrdinal(page.Next.Key, cursor.Key) <= 0))
+                throw AdmissionFailure("campaign_metadata_cursor_invalid");
+            cursor = page.Next;
+        }
+        return keys.Order(StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+    internal async Task<IReadOnlyList<KeyVaultRecordValue>> OwnedRecordsAsync(string collection, CancellationToken ct)
+    {
+        if (records is not IKeyVaultRecordReader)
+            return (await records.ListAsync(collection, "benchmark", Author, ct)).Where(r => r.Key.StartsWith(Id + ":", StringComparison.Ordinal)).ToArray();
+        var owned = new List<KeyVaultRecordValue>();
+        foreach (var key in await OwnedKeysAsync(collection, ct))
+        {
+            var row = await records.GetAsync(collection, "benchmark", key, Author, ct) ?? throw AdmissionFailure("campaign_record_unavailable");
+            if (row.Key != key || row.Collection != collection || row.TenantId != "benchmark") throw AdmissionFailure("campaign_record_owner_mismatch");
+            owned.Add(row);
+        }
+        return owned;
+    }
     internal static WorkflowRuntimeException AdmissionFailure(string reason) => new(ErrorCodes.LlmBudgetUnverifiable,
         "Inference admission could not verify " + reason + "; no provider attempt was started.", retryable: false,
         details: new JsonObject { ["dispatch_status"] = "not_started", ["reason"] = reason });
@@ -176,8 +212,8 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
     }
     internal async Task<bool> HasUncertainRequestAsync(CancellationToken ct)
     {
-        foreach (var request in (await records.ListAsync("planning-evaluation-requests", "benchmark", Author, ct)).Where(r => r.Key.StartsWith(Id + ":", StringComparison.Ordinal)))
-            if (await records.GetAsync("planning-evaluation-receipts", "benchmark", request.Key, Author, ct) is null) return true;
+        foreach (var key in await OwnedKeysAsync("planning-evaluation-requests", ct))
+            if (await records.GetAsync("planning-evaluation-receipts", "benchmark", key, Author, ct) is null) return true;
         return false;
     }
     // A terminal schema rejection proves no generation started. Retain the failure
@@ -477,8 +513,8 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
             recoveryJournal["transport"]?["Attempts"] is JsonArray attempts &&
                 (attempts.Count == 0 || attempts[^1] is JsonObject last && last["Status"] is not null &&
                     last["Body"] is not null && last["Failure"] is null));
-        foreach (var pending in (await records.ListAsync("planning-evaluation-requests", "benchmark", Author, ct)).Where(r => r.Key.StartsWith(Id + ":", StringComparison.Ordinal)))
-            if (await records.GetAsync("planning-evaluation-receipts", "benchmark", pending.Key, Author, ct) is null && await records.GetAsync("planning-evaluation-closures", "benchmark", pending.Key, Author, ct) is null && !(pending.Key == Id + ":" + key && resumable))
+        foreach (var pending in await OwnedKeysAsync("planning-evaluation-requests", ct))
+            if (await records.GetAsync("planning-evaluation-receipts", "benchmark", pending, Author, ct) is null && await records.GetAsync("planning-evaluation-closures", "benchmark", pending, Author, ct) is null && !(pending == Id + ":" + key && resumable))
             { StopReason = "uncertain_dispatch"; throw new InvalidOperationException("The campaign has an uncertain dispatch without recoverable HTTP evidence."); }
         var stage = "preflight";
         try

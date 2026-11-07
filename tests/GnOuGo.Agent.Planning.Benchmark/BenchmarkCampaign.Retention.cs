@@ -71,8 +71,7 @@ internal sealed partial class BenchmarkCampaign
     // Called before any continuation, approval, execution or new request in the abandoned session.
     internal async Task RequireRunNotRetainedAsync(string sessionId, CancellationToken ct = default)
     {
-        foreach (var row in (await Records.ListAsync("planning-evaluation-closures", "benchmark", Author, ct))
-            .Where(r => r.Key.StartsWith(Id + ":", StringComparison.Ordinal)))
+        foreach (var row in await OwnedRecordsAsync("planning-evaluation-closures", ct))
         {
             var closure = JsonNode.Parse(row.Value)!.AsObject();
             if (closure["reason"]?.ToString() != PermanentRetentionReason) continue;

@@ -14,6 +14,40 @@ public sealed class BenchmarkCampaignTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
+    public async Task CampaignAdmissionPagesOnlyOwnedRecordsWithoutDecryptingOtherCampaignHistory()
+    {
+        var records = new Records(); var current = new BenchmarkCampaign(records, "current"); var old = new BenchmarkCampaign(records, "old");
+        var empty = new JsonObject { ["transport"] = new JsonObject { ["Attempts"] = new JsonArray() }, ["input_ceiling"] = 10,
+            ["output_ceiling"] = 10, ["cost_ceiling_eur"] = 1m };
+        for (var i = 0; i < 203; i++) await current.SaveAsync(BenchmarkHttpJournal.Collection, $"session:{i}:hash", empty, Ct);
+        await old.SaveAsync(BenchmarkHttpJournal.Collection, "pending:1:hash", empty, Ct);
+        await old.SaveAsync("planning-evaluation-requests", "pending:1:hash", new(), Ct);
+        records.ForbidList = true;
+        var accounting = await BenchmarkHttpJournal.AccountingAsync(current, ct: Ct);
+        Assert.Equal(0m, accounting["cost_upper_bound_eur"]!.GetValue<decimal>());
+        Assert.True(records.MetadataQueries >= 3);
+        await current.CallAsync(new() { ClientRequestId = "new:1:hash" }, _ => Task.CompletedTask,
+            _ => Task.FromResult(new LLMResponse { Text = "received" }), Ct);
+        Assert.DoesNotContain(records.ReadKeys, key => key.StartsWith("old:", StringComparison.Ordinal));
+        Assert.NotNull(await current.LoadAsync("planning-evaluation-receipts", "new:1:hash", Ct));
+    }
+
+    [Theory]
+    [InlineData("owner")]
+    [InlineData("missing")]
+    [InlineData("cursor")]
+    public async Task TargetedFinancialReadsFailClosedOnUnverifiableEvidence(string defect)
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "current");
+        await new BenchmarkHttpJournal(campaign, "one:1:hash", 10, 10, 1m).PrepareAsync(Ct);
+        if (defect == "missing") records.HideKey = "current:one:1:hash";
+        if (defect == "owner") records.MutateMetadata = page => page with { Records = [page.Records[0] with { Key = "another:one:1:hash" }] };
+        if (defect == "cursor") records.MutateMetadata = page => page with { HasMore = true, Next = null };
+        var error = await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct));
+        Assert.Equal("LLM_BUDGET_UNVERIFIABLE", error.Code);
+    }
+
+    [Fact]
     public async Task ExplicitFreshFundingRetainsOldLiabilitiesAndCannotResetOrDuplicateANewGrant()
     {
         var records = new Records(); var previous = new BenchmarkCampaign(records, "retained");
@@ -1704,15 +1738,34 @@ public sealed class BenchmarkCampaignTests
             Assert.False(audit["original_result"]!["execution_correct"]!.GetValue<bool>());
         }
     }
-    private sealed class Records : IKeyVaultRecordStore
+    private sealed class Records : IKeyVaultRecordStore, IKeyVaultRecordReader
     {
         internal int Writes;
         internal string? FailCollection;
         internal string? FailKey;
+        internal bool ForbidList;
+        internal int MetadataQueries;
+        internal string? HideKey;
+        internal Func<KeyVaultRecordMetadataPage, KeyVaultRecordMetadataPage>? MutateMetadata;
+        internal readonly List<string> ReadKeys = [];
         private readonly Dictionary<string, KeyVaultRecordValue> _rows = [];
-        public Task<KeyVaultRecordValue?> GetAsync(string c, string t, string k, string a, CancellationToken ct = default) { ct.ThrowIfCancellationRequested(); return Task.FromResult(_rows.GetValueOrDefault(c + t + k)); }
+        public Task<KeyVaultRecordValue?> GetAsync(string c, string t, string k, string a, CancellationToken ct = default) { ct.ThrowIfCancellationRequested(); ReadKeys.Add(k); return Task.FromResult(k == HideKey ? null : _rows.GetValueOrDefault(c + t + k)); }
         public Task<KeyVaultRecordValue> UpsertAsync(string c, string t, string k, string v, string a, CancellationToken ct = default) { ct.ThrowIfCancellationRequested(); if (c == FailCollection || k == FailKey) throw new IOException("Injected store failure"); Writes++; var row = new KeyVaultRecordValue(c, t, k, v, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow); _rows[c + t + k] = row; return Task.FromResult(row); }
-        public Task<IReadOnlyList<KeyVaultRecordValue>> ListAsync(string c, string t, string a, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<KeyVaultRecordValue>>(_rows.Values.Where(r => r.Collection == c && r.TenantId == t).ToArray());
+        public Task<IReadOnlyList<KeyVaultRecordValue>> ListAsync(string c, string t, string a, CancellationToken ct = default) => ForbidList
+            ? throw new InvalidOperationException("Tenant-wide history hydration is forbidden.")
+            : Task.FromResult<IReadOnlyList<KeyVaultRecordValue>>(_rows.Values.Where(r => r.Collection == c && r.TenantId == t).ToArray());
+        public Task<KeyVaultRecordMetadataPage> QueryMetadataAsync(string c, string t, string prefix, string a, KeyVaultRecordCursor? after = null, int count = 100, CancellationToken ct = default)
+        {
+            ct.ThrowIfCancellationRequested(); MetadataQueries++;
+            var rows = _rows.Values.Where(r => r.Collection == c && r.TenantId == t && r.Key.StartsWith(prefix, StringComparison.Ordinal))
+                .Where(r => after is null || r.UpdatedAt.UtcTicks > after.UpdatedAtTicks || r.UpdatedAt.UtcTicks == after.UpdatedAtTicks && string.CompareOrdinal(r.Key, after.Key) > 0)
+                .OrderBy(r => r.UpdatedAt).ThenBy(r => r.Key, StringComparer.Ordinal).Take(count + 1).ToArray();
+            var selected = rows.Take(count).Select(r => new KeyVaultRecordMetadata(r.Key, r.CreatedAt, r.UpdatedAt, null, null)).ToArray();
+            var page = new KeyVaultRecordMetadataPage(selected, selected.Length == 0 ? after : new(selected[^1].UpdatedAt.UtcTicks, selected[^1].Key), rows.Length > count);
+            return Task.FromResult(MutateMetadata?.Invoke(page) ?? page);
+        }
+        public Task<KeyVaultRecordMetadata?> GetMetadataAsync(string c, string t, string k, string a, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<KeyVaultRecordRange?> ReadRangeAsync(string c, string t, string k, string a, string? version, int offset, int count, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<bool> DeleteAsync(string c, string t, string k, string a, CancellationToken ct = default) => throw new NotSupportedException();
     }
 }

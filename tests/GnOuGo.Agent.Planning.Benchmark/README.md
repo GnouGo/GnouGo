@@ -603,3 +603,10 @@ remain explicitly unreconciled; globally available funding remains unavailable.
 This operation must never be invoked automatically to evade admission. It does not
 change historical sessions, tariffs, reservations, limits or receipts and does not
 authorize execution or replay of old requests.
+
+Live admission enumerates only its campaign's owned metadata in bounded pages and
+decrypts exact required records. Request-presence checks use metadata only. Preserve
+the accounting order and legacy aggregate; missing payloads, invalid cursors or
+foreign ownership fail admission. Do not reread/decrypt tenant-wide history on each
+physical attempt: those long snapshots contend with encrypted session and audit
+writes. The public record API fallback remains supported for older stores.

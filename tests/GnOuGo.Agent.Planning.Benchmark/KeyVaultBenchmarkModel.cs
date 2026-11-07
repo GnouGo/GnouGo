@@ -137,8 +137,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             if (!JsonNode.DeepEquals(saved, value)) throw new PlanningConflictException("The captured session transport policy cannot change during recovery.");
             return;
         }
-        if ((await _campaign.Records.ListAsync("planning-evaluation-requests", "benchmark", BenchmarkCampaign.Author, ct))
-            .Any(r => r.Key.StartsWith(_campaign.Id + ":" + request.SessionId + ":", StringComparison.Ordinal)))
+        if ((await _campaign.OwnedKeysAsync("planning-evaluation-requests", ct, request.SessionId + ":")).Count > 0)
             throw new PlanningConflictException("An issued run without its active-format policy cannot acquire new authority.");
         await _campaign.SaveAsync("planning-evaluation-session-policy", request.SessionId, value, ct);
     }

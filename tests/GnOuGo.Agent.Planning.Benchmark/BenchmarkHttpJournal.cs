@@ -209,7 +209,7 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
     internal static async Task<JsonObject> AccountingAsync(BenchmarkCampaign campaign, string? requestId = null, JsonObject? replacement = null, CancellationToken ct = default, bool includeSessions = false)
     {
         var prefix = campaign.Id + ":";
-        var rows = (await campaign.Records.ListAsync(Collection, "benchmark", BenchmarkCampaign.Author, ct))
+        var rows = (await campaign.OwnedRecordsAsync(Collection, ct))
             .Where(r => r.Key.StartsWith(prefix, StringComparison.Ordinal)).ToDictionary(r => r.Key[prefix.Length..], r => JsonNode.Parse(r.Value)!.AsObject(), StringComparer.Ordinal);
         if (requestId is not null && replacement is not null) rows[requestId] = replacement;
         var legacy = await campaign.Records.GetAsync("planning-evaluation-budgets", "benchmark", campaign.Id, BenchmarkCampaign.Author, ct);
@@ -254,8 +254,8 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
         }
         if (requestId is not null)
         {
-            var oldRequests = await campaign.Records.ListAsync("planning-evaluation-requests", "benchmark", BenchmarkCampaign.Author, ct);
-            sessionCalls += oldRequests.Count(r => r.Key.StartsWith(prefix + session, StringComparison.Ordinal) && !rows.ContainsKey(r.Key[prefix.Length..]));
+            var oldRequests = await campaign.OwnedKeysAsync("planning-evaluation-requests", ct, session);
+            sessionCalls += oldRequests.Count(key => !rows.ContainsKey(key[prefix.Length..]));
         }
         var result = new JsonObject { ["calls"] = calls, ["session_calls"] = sessionCalls, ["known_input_tokens"] = input, ["known_output_tokens"] = output,
             ["known_cost_eur"] = cost, ["reserved_input_tokens"] = reservedInput, ["reserved_output_tokens"] = reservedOutput,
