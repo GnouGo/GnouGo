@@ -1,0 +1,176 @@
+[
+  {
+    "name": "core-pack",
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Core",
+      "-c",
+      "Release",
+      "--no-build",
+      "--no-restore",
+      "-warnaserror",
+      "-o",
+      "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/financial-admission-20261106/published/packages",
+      "--verbosity",
+      "quiet"
+    ],
+    "source": "9faa818cebc43154c6a6a4f7198687216491cf7b",
+    "started_utc": "2026-11-06T23:00:57.445431+00:00",
+    "finished_utc": "2026-11-06T23:00:58.074554+00:00",
+    "exit_code": 0,
+    "log": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/financial-admission-20261106/published/core-pack.log",
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "name": "integrations-pack",
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Integrations",
+      "-c",
+      "Release",
+      "--no-build",
+      "--no-restore",
+      "-warnaserror",
+      "-o",
+      "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/financial-admission-20261106/published/packages",
+      "--verbosity",
+      "quiet"
+    ],
+    "source": "9faa818cebc43154c6a6a4f7198687216491cf7b",
+    "started_utc": "2026-11-06T23:00:58.075400+00:00",
+    "finished_utc": "2026-11-06T23:00:59.080815+00:00",
+    "exit_code": 0,
+    "log": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/financial-admission-20261106/published/integrations-pack.log",
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "name": "planning-pack",
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Planning",
+      "-c",
+      "Release",
+      "--no-build",
+      "--no-restore",
+      "-warnaserror",
+      "-o",
+      "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/financial-admission-20261106/published/packages",
+      "--verbosity",
+      "quiet"
+    ],
+    "source": "9faa818cebc43154c6a6a4f7198687216491cf7b",
+    "started_utc": "2026-11-06T23:00:59.081760+00:00",
+    "finished_utc": "2026-11-06T23:00:59.701896+00:00",
+    "exit_code": 0,
+    "log": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/financial-admission-20261106/published/planning-pack.log",
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "name": "cli-native",
+    "command": [
+      "dotnet",
+      "publish",
+      "src/GnOuGo.Flow.Cli",
+      "-c",
+      "Release",
+      "-m:1",
+      "-p:SkipClientBuild=true",
+      "-p:SkipModelMetadataGeneration=true",
+      "--verbosity",
+      "quiet",
+      "-r",
+      "osx-arm64",
+      "--self-contained",
+      "true",
+      "-p:TreatWarningsAsErrors=true",
+      "-p:PublishTrimmed=true",
+      "-p:PublishAot=true",
+      "-o",
+      "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/financial-admission-20261106/published/cli"
+    ],
+    "source": "9faa818cebc43154c6a6a4f7198687216491cf7b",
+    "started_utc": "2026-11-06T23:00:59.702786+00:00",
+    "finished_utc": "2026-11-06T23:01:58.453385+00:00",
+    "exit_code": 0,
+    "log": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/financial-admission-20261106/published/cli-native.log",
+    "log_sha256": "2e8cd8ad38f3e0aa988bc37bed40e515a4e2edb9e9d11373260e0506ac6bcb9b"
+  },
+  {
+    "name": "cli-diagnostic-audit",
+    "command": [
+      "python3",
+      "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/docs/evidence/discovery-convergence-2026-11-06/publish-audit.py",
+      "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/financial-admission-20261106/published/cli-native.log"
+    ],
+    "source": "9faa818cebc43154c6a6a4f7198687216491cf7b",
+    "started_utc": "2026-11-06T23:01:58.467405+00:00",
+    "finished_utc": "2026-11-06T23:01:58.521550+00:00",
+    "exit_code": 0,
+    "log": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/financial-admission-20261106/published/cli-diagnostic-audit.log",
+    "log_sha256": "95ec4976e208db3a659cb59ad1fddc811d514609fc40d480516ed78b63fd0145"
+  },
+  {
+    "name": "cli-storage",
+    "command": [
+      "python3",
+      "scripts/verify-flow-v9-published.py",
+      "--cli",
+      "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/financial-admission-20261106/published/cli/GnOuGo.Flow.Cli",
+      "--data-directory",
+      "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/financial-admission-20261106/published/cli-storage"
+    ],
+    "source": "9faa818cebc43154c6a6a4f7198687216491cf7b",
+    "started_utc": "2026-11-06T23:01:58.523248+00:00",
+    "finished_utc": "2026-11-06T23:02:00.573425+00:00",
+    "exit_code": 0,
+    "log": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/financial-admission-20261106/published/cli-storage.log",
+    "log_sha256": "aa5cb9e0ad4b1e521a2c71b3b1074bd49e50a708f06c0fd6defe7a6b09831623"
+  },
+  {
+    "name": "server-publish",
+    "command": [
+      "dotnet",
+      "publish",
+      "src/GnOuGo.Agent.Server",
+      "-c",
+      "Release",
+      "-m:1",
+      "-p:SkipClientBuild=true",
+      "-p:SkipModelMetadataGeneration=true",
+      "--verbosity",
+      "quiet",
+      "-r",
+      "osx-arm64",
+      "--self-contained",
+      "true",
+      "-warnaserror",
+      "-p:PublishTrimmed=true",
+      "-p:PublishAot=false",
+      "-o",
+      "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/financial-admission-20261106/published/server"
+    ],
+    "source": "9faa818cebc43154c6a6a4f7198687216491cf7b",
+    "started_utc": "2026-11-06T23:02:00.574653+00:00",
+    "finished_utc": "2026-11-06T23:05:08.359843+00:00",
+    "exit_code": 0,
+    "log": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/financial-admission-20261106/published/server-publish.log",
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "name": "server-storage",
+    "command": [
+      "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/financial-admission-20261106/published/server/GnOuGo.Agent.Server",
+      "--planning-persistence-smoke",
+      "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/financial-admission-20261106/published/server-storage"
+    ],
+    "source": "9faa818cebc43154c6a6a4f7198687216491cf7b",
+    "started_utc": "2026-11-06T23:05:08.362520+00:00",
+    "finished_utc": "2026-11-06T23:05:11.585736+00:00",
+    "exit_code": 0,
+    "log": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/financial-admission-20261106/published/server-storage.log",
+    "log_sha256": "0268a9c0ae5df08cde06a1818fae2b53cf86df674fc19dc0cfc070d58ffd6563"
+  }
+]

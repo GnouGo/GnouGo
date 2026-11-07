@@ -1,0 +1,1340 @@
+{
+  "sourceRevision": "9faa818cebc43154c6a6a4f7198687216491cf7b",
+  "acceptedFocusedSuites": [
+    {
+      "file": "flow-finance-full.trx.gz",
+      "originalSha256": "7112a0d5b606ffe67383acce6d449507db2e6ab26ee1124bdcdd071baf679e79",
+      "counters": {
+        "total": "1525",
+        "executed": "1525",
+        "passed": "1525",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "times": {
+        "creation": "2026-11-06T23:50:14.9831140+01:00",
+        "queuing": "2026-11-06T23:50:14.9831140+01:00",
+        "start": "2026-11-06T23:50:13.5107100+01:00",
+        "finish": "2026-11-06T23:50:16.5925550+01:00"
+      },
+      "sourceRevision": "9faa818cebc43154c6a6a4f7198687216491cf7b",
+      "note": "Accepted run. Financial implementation unchanged in c09bb520; benchmark audit added in 9faa818c. Overlapping results are not additive.",
+      "reproductionCommand": [
+        "dotnet",
+        "test",
+        "tests/GnOuGo.Flow.Tests",
+        "-c",
+        "Release",
+        "--no-build",
+        "--no-restore",
+        "-warnaserror",
+        "--logger",
+        "trx;LogFileName=flow-finance-full.trx",
+        "--results-directory",
+        "artifacts/financial-admission-20261106",
+        "--verbosity",
+        "quiet"
+      ]
+    },
+    {
+      "file": "server-finance-accepted.trx.gz",
+      "originalSha256": "7ae8149970366b73a38fb3b3e6b73929bc20d9031867a0a0d5827187db489949",
+      "counters": {
+        "total": "168",
+        "executed": "168",
+        "passed": "168",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "times": {
+        "creation": "2026-11-06T23:45:42.8965240+01:00",
+        "queuing": "2026-11-06T23:45:42.8965240+01:00",
+        "start": "2026-11-06T23:45:41.1875360+01:00",
+        "finish": "2026-11-06T23:46:49.7587680+01:00"
+      },
+      "sourceRevision": "9faa818cebc43154c6a6a4f7198687216491cf7b",
+      "note": "Accepted run. Financial implementation unchanged in c09bb520; benchmark audit added in 9faa818c. Overlapping results are not additive.",
+      "reproductionCommand": [
+        "dotnet",
+        "test",
+        "tests/GnOuGo.Agent.Server.Tests",
+        "-c",
+        "Release",
+        "--no-restore",
+        "-p:SkipClientBuild=true",
+        "-p:SkipModelMetadataGeneration=true",
+        "-warnaserror",
+        "--filter",
+        "FullyQualifiedName~ApplicationLlmBudgetTests|FullyQualifiedName~DiagnosticPlanningBrowserTests|FullyQualifiedName~LlmInspectorDocumentsTests|FullyQualifiedName~BenchmarkCampaignTests",
+        "--logger",
+        "trx;LogFileName=server-finance-accepted.trx",
+        "--results-directory",
+        "artifacts/financial-admission-20261106",
+        "--verbosity",
+        "quiet"
+      ]
+    }
+  ],
+  "builds": [
+    {
+      "name": "warning-free-solution-build",
+      "sourceRevision": "9faa818cebc43154c6a6a4f7198687216491cf7b",
+      "exitCode": 0,
+      "sha256": "c978be962e825effd1a80af084e466cdc682eee754d9cee0275290ba481246d4",
+      "log": "warning-free-solution-build.log",
+      "reproductionCommand": [
+        "dotnet",
+        "build",
+        "GnOuGo.Agent.sln",
+        "-c",
+        "Release",
+        "--no-restore",
+        "-m:1",
+        "-warnaserror",
+        "-p:SkipClientBuild=true",
+        "-p:SkipModelMetadataGeneration=true",
+        "--verbosity",
+        "quiet"
+      ]
+    },
+    {
+      "name": "frontend-production",
+      "sourceRevision": "9faa818cebc43154c6a6a4f7198687216491cf7b",
+      "exitCode": 0,
+      "sha256": "c02036c4c7cefdff03899ce6514ba0c60f24bd6834763a8b82f8afa08aeb9b8e",
+      "log": "frontend-production.log",
+      "reproductionCommand": [
+        "pnpm",
+        "--dir",
+        "src/GnOuGo.Agent.Server/ClientApp",
+        "run",
+        "build"
+      ]
+    },
+    {
+      "name": "final-warning-free-solution-build",
+      "sourceRevision": "77dfe36774f54ed09eb03b3bb16a1c3adc854b85",
+      "exitCode": 0,
+      "sha256": "89ac21776808f4bcbeaf5379471b80e382a9bc2fc59e50bb7489816ece312390",
+      "log": "final-warning-free-solution-build.log"
+    },
+    {
+      "name": "final-live-benchmark-build",
+      "sourceRevision": "77dfe36774f54ed09eb03b3bb16a1c3adc854b85",
+      "exitCode": 0,
+      "sha256": "f4cdf99abe019461f692ec31f4e89535cb11352170adfae6c0bd9a83dc86b328",
+      "log": "final-live-benchmark-build.log"
+    },
+    {
+      "name": "final-publish-source-build",
+      "sourceRevision": "77dfe36774f54ed09eb03b3bb16a1c3adc854b85",
+      "exitCode": 0,
+      "sha256": "9bc7d1c397adad97cd90a5b2c086c0d06e264b87fd07a2b66590ead85e04e0e4",
+      "log": "final-publish-source-build.log"
+    }
+  ],
+  "fullSolutionTestRun": {
+    "status": "passed",
+    "command": [
+      "dotnet",
+      "test",
+      "GnOuGo.Agent.sln",
+      "-c",
+      "Release",
+      "--no-build",
+      "--no-restore",
+      "-m:1",
+      "-warnaserror",
+      "-p:SkipClientBuild=true",
+      "-p:SkipModelMetadataGeneration=true",
+      "--logger",
+      "trx;LogFilePrefix=financial-qualification",
+      "--results-directory",
+      "artifacts/financial-admission-20261106/solution",
+      "--verbosity",
+      "quiet"
+    ],
+    "sourceRevision": "9faa818cebc43154c6a6a4f7198687216491cf7b",
+    "exitCode": 0,
+    "assemblies": [
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261106235547.trx.gz",
+        "sha256": "2a0336fe5b8b9fd49103126b3e7d7b7f936819617e0c8cd7be8ff39501b7c4ed",
+        "counters": {
+          "total": "89",
+          "executed": "89",
+          "passed": "89",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-06T23:55:46.3918840+01:00",
+          "queuing": "2026-11-06T23:55:46.3918840+01:00",
+          "start": "2026-11-06T23:55:45.1162040+01:00",
+          "finish": "2026-11-06T23:55:47.4027730+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261106235549.trx.gz",
+        "sha256": "2d1092049091a236fab6135c7b496f29d64a039154e9ae48fa2089d59657b23e",
+        "counters": {
+          "total": "52",
+          "executed": "52",
+          "passed": "52",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-06T23:55:48.7578740+01:00",
+          "queuing": "2026-11-06T23:55:48.7578740+01:00",
+          "start": "2026-11-06T23:55:47.7781240+01:00",
+          "finish": "2026-11-06T23:55:49.3527460+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261106235552.trx.gz",
+        "sha256": "1c3d906c84ab5a17a957fcb3045f03d7fc6645fae201812469d6e283a64460f3",
+        "counters": {
+          "total": "19",
+          "executed": "19",
+          "passed": "19",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-06T23:55:51.2441160+01:00",
+          "queuing": "2026-11-06T23:55:51.2441160+01:00",
+          "start": "2026-11-06T23:55:49.5107180+01:00",
+          "finish": "2026-11-06T23:55:52.0887070+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261106235555.trx.gz",
+        "sha256": "856b7f6d5e1b96b63143f5f11a353b8a8a2af9856a2d4e90d5cca145726c3d81",
+        "counters": {
+          "total": "1525",
+          "executed": "1525",
+          "passed": "1525",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-06T23:55:53.6609060+01:00",
+          "queuing": "2026-11-06T23:55:53.6609060+01:00",
+          "start": "2026-11-06T23:55:52.2808600+01:00",
+          "finish": "2026-11-06T23:55:55.2934520+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261106235558.trx.gz",
+        "sha256": "613c79c5edcc00a14dde1880e61e8bff03f9901d50e5acc1078ad1ede9cffe30",
+        "counters": {
+          "total": "116",
+          "executed": "116",
+          "passed": "116",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-06T23:55:56.6345470+01:00",
+          "queuing": "2026-11-06T23:55:56.6345470+01:00",
+          "start": "2026-11-06T23:55:55.5341670+01:00",
+          "finish": "2026-11-06T23:55:58.1996830+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261106235601.trx.gz",
+        "sha256": "bb2f636d89c6c5c259900dd46792776c5cabcae95593cf6312c0724137c95b84",
+        "counters": {
+          "total": "283",
+          "executed": "283",
+          "passed": "283",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-06T23:55:59.4332440+01:00",
+          "queuing": "2026-11-06T23:55:59.4332440+01:00",
+          "start": "2026-11-06T23:55:58.4024010+01:00",
+          "finish": "2026-11-06T23:56:00.9999970+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261106235602.trx.gz",
+        "sha256": "54bb38724febd5cdb88eee5737ce5d85cb42898d972cae53ea3c94c591101b12",
+        "counters": {
+          "total": "14",
+          "executed": "14",
+          "passed": "14",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-06T23:56:02.2049370+01:00",
+          "queuing": "2026-11-06T23:56:02.2049370+01:00",
+          "start": "2026-11-06T23:56:01.1790960+01:00",
+          "finish": "2026-11-06T23:56:02.2136330+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261106235605.trx.gz",
+        "sha256": "902f140599ca71758b4ec502067d7a8ac1c9070eabbcec63f31400460d90d80f",
+        "counters": {
+          "total": "103",
+          "executed": "103",
+          "passed": "103",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-06T23:56:03.4333680+01:00",
+          "queuing": "2026-11-06T23:56:03.4333680+01:00",
+          "start": "2026-11-06T23:56:02.3601740+01:00",
+          "finish": "2026-11-06T23:56:05.2368300+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261106235623.trx.gz",
+        "sha256": "9c7fc3543a663cbf4e4fee1700fb543fe26b61b5169461aa2012194eea595567",
+        "counters": {
+          "total": "100",
+          "executed": "93",
+          "passed": "93",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-06T23:56:06.4639210+01:00",
+          "queuing": "2026-11-06T23:56:06.4639210+01:00",
+          "start": "2026-11-06T23:56:05.3922970+01:00",
+          "finish": "2026-11-06T23:56:23.7800060+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261106235640.trx.gz",
+        "sha256": "bbaf6c2c2d47bb23bab90e8249111ada0d282e2c3271a892c7169059365872d6",
+        "counters": {
+          "total": "142",
+          "executed": "142",
+          "passed": "142",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-06T23:56:24.9876170+01:00",
+          "queuing": "2026-11-06T23:56:24.9876170+01:00",
+          "start": "2026-11-06T23:56:23.9366490+01:00",
+          "finish": "2026-11-06T23:56:40.2789830+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261107010702.trx.gz",
+        "sha256": "fbb5fb0948b8eb1cfd094903d9cd7f8b5494cea5a5dacc97e4b8721c4eea7e9c",
+        "counters": {
+          "total": "1675",
+          "executed": "1674",
+          "passed": "1674",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-06T23:56:42.1668020+01:00",
+          "queuing": "2026-11-06T23:56:42.1668020+01:00",
+          "start": "2026-11-06T23:56:40.4439490+01:00",
+          "finish": "2026-11-07T01:07:02.8105670+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261107010710.trx.gz",
+        "sha256": "427ec4696c37dbc36c90282ee518f2be320911137bfc785bb9ac64b6d09f3f27",
+        "counters": {
+          "total": "73",
+          "executed": "73",
+          "passed": "73",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:07:04.3659220+01:00",
+          "queuing": "2026-11-07T01:07:04.3659220+01:00",
+          "start": "2026-11-07T01:07:03.0953550+01:00",
+          "finish": "2026-11-07T01:07:10.0821070+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261107010711.trx.gz",
+        "sha256": "ee8ec55a8b1f8f792ecc64024a7e588fa1624b688378335e3083712e25986279",
+        "counters": {
+          "total": "9",
+          "executed": "9",
+          "passed": "9",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:07:11.9803810+01:00",
+          "queuing": "2026-11-07T01:07:11.9803810+01:00",
+          "start": "2026-11-07T01:07:10.2509840+01:00",
+          "finish": "2026-11-07T01:07:11.9826590+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261107010713.trx.gz",
+        "sha256": "a8410b4eea5458702938091fbc0580e89be14f454736ccb8e46411b18435f0ab",
+        "counters": {
+          "total": "10",
+          "executed": "10",
+          "passed": "10",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:07:13.1503820+01:00",
+          "queuing": "2026-11-07T01:07:13.1503820+01:00",
+          "start": "2026-11-07T01:07:12.1620070+01:00",
+          "finish": "2026-11-07T01:07:13.5580010+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261107010715.trx.gz",
+        "sha256": "541cabf5e6ae8fe8da939398e485b0b2541f1ae46315169b065ebcd1b0a19988",
+        "counters": {
+          "total": "7",
+          "executed": "7",
+          "passed": "7",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:07:15.4357970+01:00",
+          "queuing": "2026-11-07T01:07:15.4357970+01:00",
+          "start": "2026-11-07T01:07:13.7221810+01:00",
+          "finish": "2026-11-07T01:07:15.4389100+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261107010717.trx.gz",
+        "sha256": "130d2cc2e690dc55264dce969d0580d089fb907ba28086b1e48e829485da37d0",
+        "counters": {
+          "total": "7",
+          "executed": "7",
+          "passed": "7",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:07:17.2596180+01:00",
+          "queuing": "2026-11-07T01:07:17.2596180+01:00",
+          "start": "2026-11-07T01:07:15.5872980+01:00",
+          "finish": "2026-11-07T01:07:17.2619640+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261107010802.trx.gz",
+        "sha256": "f14a2127ce980d9f5a0c0c9d39667383b2d16b5cf8d24b6846077731aaa65678",
+        "counters": {
+          "total": "243",
+          "executed": "243",
+          "passed": "243",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:07:18.5085430+01:00",
+          "queuing": "2026-11-07T01:07:18.5085430+01:00",
+          "start": "2026-11-07T01:07:17.4162500+01:00",
+          "finish": "2026-11-07T01:08:02.3863540+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261107010804.trx.gz",
+        "sha256": "56db66dd3814802b5ff6ffebcd4e83666c507a762cf229b16d658d0341d2d788",
+        "counters": {
+          "total": "173",
+          "executed": "173",
+          "passed": "173",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:08:03.9709000+01:00",
+          "queuing": "2026-11-07T01:08:03.9709000+01:00",
+          "start": "2026-11-07T01:08:02.5548430+01:00",
+          "finish": "2026-11-07T01:08:04.2895710+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261107010805.trx.gz",
+        "sha256": "cf6a81b24a36282299fc36508db7b8ebadc72d84e5ad84390e83648b7507ef73",
+        "counters": {
+          "total": "12",
+          "executed": "7",
+          "passed": "7",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:08:05.6124010+01:00",
+          "queuing": "2026-11-07T01:08:05.6124010+01:00",
+          "start": "2026-11-07T01:08:04.4527210+01:00",
+          "finish": "2026-11-07T01:08:05.6238410+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261107010806.trx.gz",
+        "sha256": "ecc4c506f4ec4244ddafb309302bce3d054b124adc72291aa69810a5dcac9a63",
+        "counters": {
+          "total": "3",
+          "executed": "3",
+          "passed": "3",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:08:06.9126270+01:00",
+          "queuing": "2026-11-07T01:08:06.9126270+01:00",
+          "start": "2026-11-07T01:08:05.8026220+01:00",
+          "finish": "2026-11-07T01:08:06.9151820+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261107010814.trx.gz",
+        "sha256": "bd6fad10ee9134511f1278dc68d31c1ed7b538453e7a7b01600ca259974fad7a",
+        "counters": {
+          "total": "84",
+          "executed": "84",
+          "passed": "84",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:08:08.1319640+01:00",
+          "queuing": "2026-11-07T01:08:08.1319640+01:00",
+          "start": "2026-11-07T01:08:07.0734490+01:00",
+          "finish": "2026-11-07T01:08:14.3071200+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261107010815.trx.gz",
+        "sha256": "c0a7089184843f59500ff3d33d42565c3795af75d9887c43f000becbcdecac4e",
+        "counters": {
+          "total": "30",
+          "executed": "30",
+          "passed": "30",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:08:15.5144340+01:00",
+          "queuing": "2026-11-07T01:08:15.5144340+01:00",
+          "start": "2026-11-07T01:08:14.4586200+01:00",
+          "finish": "2026-11-07T01:08:15.5254130+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261107010816.trx.gz",
+        "sha256": "aa47f3696bbd403dc321abf6a40abec7117aa87fbe199d93784bec879f4a798d",
+        "counters": {
+          "total": "49",
+          "executed": "49",
+          "passed": "49",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:08:16.6517060+01:00",
+          "queuing": "2026-11-07T01:08:16.6517060+01:00",
+          "start": "2026-11-07T01:08:15.6661940+01:00",
+          "finish": "2026-11-07T01:08:16.6613060+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261107010817.trx.gz",
+        "sha256": "3469a666a176c6ffdf5b992462842adf9c50c30f8b1f0a6420f87e91a0925bdd",
+        "counters": {
+          "total": "12",
+          "executed": "12",
+          "passed": "12",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:08:17.7788130+01:00",
+          "queuing": "2026-11-07T01:08:17.7788130+01:00",
+          "start": "2026-11-07T01:08:16.8024380+01:00",
+          "finish": "2026-11-07T01:08:17.7887470+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261107010828.trx.gz",
+        "sha256": "49a423c4de067d9f9e6791cfcfb80215c4a6032b79b062f5d02b8b8fdc4fe7e7",
+        "counters": {
+          "total": "91",
+          "executed": "91",
+          "passed": "91",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:08:18.9622000+01:00",
+          "queuing": "2026-11-07T01:08:18.9622000+01:00",
+          "start": "2026-11-07T01:08:17.9451550+01:00",
+          "finish": "2026-11-07T01:08:28.9250770+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261107010830.trx.gz",
+        "sha256": "4a6087b57bedcba365ddac2569601ed52998f806d3b0e1a9915bf02c67866a1a",
+        "counters": {
+          "total": "42",
+          "executed": "42",
+          "passed": "42",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:08:30.2324920+01:00",
+          "queuing": "2026-11-07T01:08:30.2324920+01:00",
+          "start": "2026-11-07T01:08:29.1282950+01:00",
+          "finish": "2026-11-07T01:08:30.2477510+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261107010836.trx.gz",
+        "sha256": "b2deae36f468fd6b6e5f55f6b73da90d134d61ee298c49b4cd73f9ab9c58a7f2",
+        "counters": {
+          "total": "13",
+          "executed": "13",
+          "passed": "13",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:08:32.1529480+01:00",
+          "queuing": "2026-11-07T01:08:32.1529480+01:00",
+          "start": "2026-11-07T01:08:30.3849070+01:00",
+          "finish": "2026-11-07T01:08:36.0208600+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261107010837.trx.gz",
+        "sha256": "faba7003ed6f814a348247b313df7f463c477b5850b31c38f7fab2cdc1e82dd9",
+        "counters": {
+          "total": "28",
+          "executed": "28",
+          "passed": "28",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:08:37.3755210+01:00",
+          "queuing": "2026-11-07T01:08:37.3755210+01:00",
+          "start": "2026-11-07T01:08:36.1796830+01:00",
+          "finish": "2026-11-07T01:08:37.3842510+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261107011108.trx.gz",
+        "sha256": "210d13a3cd99d415fff60326a8691098decfdaf9d9be2860869d7c72cab35e66",
+        "counters": {
+          "total": "2763",
+          "executed": "2763",
+          "passed": "2763",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:08:39.1447970+01:00",
+          "queuing": "2026-11-07T01:08:39.1447970+01:00",
+          "start": "2026-11-07T01:08:37.5338550+01:00",
+          "finish": "2026-11-07T01:11:08.3303000+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261107011118.trx.gz",
+        "sha256": "3f24302e7c64c71ae7b423dec9cde26ebf73323d39744f772e843b76b4188985",
+        "counters": {
+          "total": "177",
+          "executed": "177",
+          "passed": "177",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:11:09.9872990+01:00",
+          "queuing": "2026-11-07T01:11:09.9872990+01:00",
+          "start": "2026-11-07T01:11:08.6825650+01:00",
+          "finish": "2026-11-07T01:11:18.9845170+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261107011120.trx.gz",
+        "sha256": "6f0ae58b4db7c8261d17f95582f8715a43af08802e47d305394cf2da3bcdc5cf",
+        "counters": {
+          "total": "8",
+          "executed": "8",
+          "passed": "8",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:11:20.2168450+01:00",
+          "queuing": "2026-11-07T01:11:20.2168450+01:00",
+          "start": "2026-11-07T01:11:19.1373070+01:00",
+          "finish": "2026-11-07T01:11:20.2190450+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261107011128.trx.gz",
+        "sha256": "34ef133ef685b5e0e6e560dc991cb208c7c1c4cd81b41510ef9fc00902f90c30",
+        "counters": {
+          "total": "26",
+          "executed": "26",
+          "passed": "26",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:11:22.0944130+01:00",
+          "queuing": "2026-11-07T01:11:22.0944130+01:00",
+          "start": "2026-11-07T01:11:20.3724840+01:00",
+          "finish": "2026-11-07T01:11:28.1873700+01:00"
+        }
+      },
+      {
+        "file": "feature-freeze-solution/financial-qualification_net10.0_20261107011129.trx.gz",
+        "sha256": "cf945fd1120fd299be0b4267224cd1b2d1a74d89618b0d5aad8ff2b04eeaec7f",
+        "counters": {
+          "total": "5",
+          "executed": "5",
+          "passed": "5",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:11:29.4326450+01:00",
+          "queuing": "2026-11-07T01:11:29.4326450+01:00",
+          "start": "2026-11-07T01:11:28.3386390+01:00",
+          "finish": "2026-11-07T01:11:29.4348310+01:00"
+        }
+      }
+    ],
+    "totals": {
+      "passed": 7970,
+      "failed": 0,
+      "skipped": 13
+    },
+    "log": "feature-freeze-solution.log",
+    "logSha256": "e0e3cfe948d03e21a24df6c7aadb5b18daf8df4c52d3ff0ee166135c00c014f4",
+    "note": "Complete feature-freeze run before dd930f98/77dfe367 hardening. Not relabelled as final-source validation.",
+    "skipCategories": {
+      "windowsOnly": 7,
+      "optInCopilotLive": 5,
+      "legacyBrowserExplicitModule": 1
+    }
+  },
+  "limitations": [
+    "No paid provider response; financial history incomplete.",
+    "No Amazon final review/execution/oracle run.",
+    "Full PowerShell publication matrix and Windows checks unavailable on this macOS host.",
+    "Native AOT uses the repository exact-notice audit for two pinned EFCORETASKS experimental notices; no other warning/error accepted."
+  ],
+  "sourceBinding": "Original feature freeze 9faa818c and final finite-history hardening freeze 77dfe367 are recorded separately. Full solution runs use identical copies of the preserved user-staged solution; publishing uses independently checked-out final source. No test/build overwrites another run\u2019s loaded outputs.",
+  "finalSourceRevision": "77dfe36774f54ed09eb03b3bb16a1c3adc854b85",
+  "finalAcceptedFocusedSuites": [
+    {
+      "file": "unknown-history-final.trx.gz",
+      "originalSha256": "6c522ec94757f617d570536b066d85a300fdf23dd94a92ef4b01e4a6a3ff15e0",
+      "counters": {
+        "total": "1529",
+        "executed": "1529",
+        "passed": "1529",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "times": {
+        "creation": "2026-11-07T00:30:35.5308580+01:00",
+        "queuing": "2026-11-07T00:30:35.5308580+01:00",
+        "start": "2026-11-07T00:30:34.0073320+01:00",
+        "finish": "2026-11-07T00:30:37.1623230+01:00"
+      },
+      "accepted": true,
+      "note": "1529 passed. Full Flow suite after shared finite-history correction; source later committed as dd930f98."
+    },
+    {
+      "file": "server-history-hardening-final.trx.gz",
+      "originalSha256": "efc90362f4c1aa42a5c440055876c75b8dd15975803eedc6aa366b2ee98b9497",
+      "counters": {
+        "total": "176",
+        "executed": "176",
+        "passed": "176",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "times": {
+        "creation": "2026-11-07T00:35:02.9939010+01:00",
+        "queuing": "2026-11-07T00:35:02.9939010+01:00",
+        "start": "2026-11-07T00:35:01.7097650+01:00",
+        "finish": "2026-11-07T00:36:14.0917010+01:00"
+      },
+      "accepted": true,
+      "note": "176 passed including eight Strict/Diagnostic restored-budget cases; tested tree committed as dd930f98 + 77dfe367."
+    }
+  ],
+  "reproductionAndIntermediateRuns": [
+    {
+      "file": "unknown-history-before.trx.gz",
+      "originalSha256": "da5a48878d7468bdf8d78a42bc37b2bc01890622d5c3ab8dbe152f1d35961ce1",
+      "counters": {
+        "total": "4",
+        "executed": "4",
+        "passed": "0",
+        "failed": "4",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "times": {
+        "creation": "2026-11-07T00:28:42.4318000+01:00",
+        "queuing": "2026-11-07T00:28:42.4318000+01:00",
+        "start": "2026-11-07T00:28:40.9677610+01:00",
+        "finish": "2026-11-07T00:28:42.4340380+01:00"
+      },
+      "accepted": false,
+      "note": "Four expected failures reproducing the missing shared finite-history check, before the correction."
+    },
+    {
+      "file": "unknown-history-after.trx.gz",
+      "originalSha256": "228f427a4bb6d5c7a63e1882a8f1adbb3653afbbeb6c17110d383e2735f56ee4",
+      "counters": {
+        "total": "1529",
+        "executed": "1529",
+        "passed": "1528",
+        "failed": "1",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "times": {
+        "creation": "2026-11-07T00:29:27.9663650+01:00",
+        "queuing": "2026-11-07T00:29:27.9663650+01:00",
+        "start": "2026-11-07T00:29:26.7315670+01:00",
+        "finish": "2026-11-07T00:29:29.7323190+01:00"
+      },
+      "accepted": false,
+      "note": "First corrected run: 1528 passed, one older test still expected retry despite unpriced failure. That test now asserts gate release plus financial refusal instead."
+    },
+    {
+      "file": "server-history-hardening.trx.gz",
+      "originalSha256": "3ed8395fa65fbc2a1ac93cc1bc9ade0804cc29c49e1a934723b6224d82826b22",
+      "counters": {
+        "total": "176",
+        "executed": "176",
+        "passed": "168",
+        "failed": "8",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "times": {
+        "creation": "2026-11-07T00:33:17.3541910+01:00",
+        "queuing": "2026-11-07T00:33:17.3541910+01:00",
+        "start": "2026-11-07T00:33:15.8138550+01:00",
+        "finish": "2026-11-07T00:34:28.7774180+01:00"
+      },
+      "accepted": false,
+      "note": "168 passed, eight new cases hit a JSON timestamp representation assertion; financial refusal assertions already passed. Test uses semantic option equality plus exact encrypted authority/budget bytes after correction."
+    }
+  ],
+  "finalFullSolutionTestRun": {
+    "status": "running",
+    "sourceRevision": "77dfe36774f54ed09eb03b3bb16a1c3adc854b85",
+    "workingDirectory": "artifacts/continuity-live-e673a51e",
+    "solutionSha256": "3b3d9b39a7f330a4e05d8269ca399477fe9fc3f4f955a005ae3ad3c11e8d95dd",
+    "command": [
+      "dotnet",
+      "test",
+      "GnOuGo.Agent.sln",
+      "-c",
+      "Release",
+      "--no-build",
+      "--no-restore",
+      "-m:1",
+      "-warnaserror",
+      "-p:SkipClientBuild=true",
+      "-p:SkipModelMetadataGeneration=true",
+      "--logger",
+      "trx;LogFilePrefix=financial-final",
+      "--results-directory",
+      "artifacts/financial-admission-20261106/final-solution",
+      "--verbosity",
+      "quiet"
+    ],
+    "note": "The final implementation and copied solution remain frozen at 77dfe367; the supplementary legacy browser run does not rewrite the default full-run skip count."
+  },
+  "additionalControlledBrowser": {
+    "sourceRevision": "77dfe36774f54ed09eb03b3bb16a1c3adc854b85",
+    "file": "legacy-clarification-browser.trx.gz",
+    "originalSha256": "cefee765e92f733e79a79cf4307b0ea172937a354096d065683d6d047e401edd",
+    "counters": {
+      "total": "1",
+      "executed": "1",
+      "passed": "1",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-11-07T01:14:00.4864220+01:00",
+      "queuing": "2026-11-07T01:14:00.4864220+01:00",
+      "start": "2026-11-07T01:13:45.3172960+01:00",
+      "finish": "2026-11-07T01:14:00.4885080+01:00"
+    },
+    "environmentOverride": "PLAYWRIGHT_MODULE_PATH points to the existing staged Browser.Mcp Playwright index.mjs",
+    "note": "Separate successful run of the legacy test which is skipped by default without its explicit module override; no model-provider inference."
+  }
+}

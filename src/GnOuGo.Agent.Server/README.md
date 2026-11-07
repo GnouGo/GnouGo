@@ -904,9 +904,26 @@ Input reservation estimates for new experimental calls use the serialized envelo
 and configured phase target, separately from physical model capacity and output
 allocations. Existing captures keep their previous reservation calculation.
 
+| Check | Strict financial forecasting | Experimental financial forecasting |
+| --- | --- | --- |
+| Unissued future-call/review forecast exceeds allowance | Refuse | Warn if current request fits |
+| Current request plus tracked exposure exceeds allowance | Refuse | Refuse |
+| Actual settlement exceeds its bound or allowance | Record and refuse further consumption | Record and refuse further consumption |
+| Unpriced history, missing FX or unverified external liability | Unavailable funding; refuse | Unavailable funding; refuse |
+| Explicit workflow financial limit | Enforce | Enforce |
+
+This setting does not change diagnostic optimization warnings, physical model
+limits, cancellation, request timeouts or network retry bounds. A budget's reserved
+attempt count is not an observed HTTP-send count; use the shared inspector's
+transport evidence to establish dispatch.
+
 On a planning session, **Inspect session finances** shows the existing encrypted
 budget's categories. The protected `GET /api/planning/{id}/financial` returns the
 same read-only projection (`workflow=true` for an owned chat planning session).
 Measured tokens and captured-tariff estimates are not provider invoices. Unpriced
 completed usage and unresolved holds remain visible; the projection cannot establish
 global available funding. It does not scan tenant history or release money.
+
+The [financial qualification report](../../docs/evidence/financial-admission-2026-11-06/README.md)
+explains the retained campaign ceiling, provisional external holds, duplicate checks
+and the fresh pre-dispatch refusal separately from controlled-provider validation.
