@@ -442,7 +442,7 @@ public sealed partial class HybridWorkflowPlanner
         PlanningConstruction.InvalidateRevisedCheckpoints(state);
         // Task/scope evidence describes the previous candidate. Its consumed
         // fingerprints remain auditable and already include that candidate hash.
-        PlanningCompactConstruction.RetainPrerequisiteEvidence(state);
+        PlanningCompactConstruction.RetainPrerequisiteEvidence(state, preserveConsumedHistory: true);
         PlanningConstruction.RefreshCandidate(state);
         construction.PendingReviewContext = null; construction.PendingReviewHash = null;
         await ValidateConstructionCandidateAsync(state, runtime, ct);

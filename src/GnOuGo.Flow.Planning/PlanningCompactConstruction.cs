@@ -1076,7 +1076,7 @@ internal static partial class PlanningCompactConstruction
         return addresses;
     }
 
-    internal static void RetainPrerequisiteEvidence(PlanningSession state)
+    internal static void RetainPrerequisiteEvidence(PlanningSession state, bool preserveConsumedHistory = false)
     {
         var construction = state.Construction!;
         var addresses = CurrentPrerequisiteAddresses(state);
@@ -1084,8 +1084,11 @@ internal static partial class PlanningCompactConstruction
         foreach (var item in construction.Evidence ?? [])
             if (addresses.Contains(item.Key)) retained[item.Key] = item.Value?.DeepClone();
         construction.Evidence = retained.Count > 0 ? retained : null;
-        construction.EvidenceRequests.Clear();
+        if (!preserveConsumedHistory) construction.EvidenceRequests.Clear();
         foreach (var address in retained.Select(item => item.Key))
-            construction.EvidenceRequests.Add(PlanningConstruction.EvidenceBatchFingerprint(state, [address]));
+        {
+            var fingerprint = PlanningConstruction.EvidenceBatchFingerprint(state, [address]);
+            if (!construction.EvidenceRequests.Contains(fingerprint, StringComparer.Ordinal)) construction.EvidenceRequests.Add(fingerprint);
+        }
     }
 }
