@@ -325,6 +325,32 @@ public sealed class NativeStreamingTests
         Assert.Equal(2, httpCalls(http));
     }
 
+    [Theory]
+    [InlineData(true)] [InlineData(false)]
+    public async Task ExplicitShorterHttpDeadlineStillCoversBodyAfterHeaders(bool streaming)
+    {
+        var journal = new Journal();
+        var provider = Provider("openai");
+        provider.RequestPolicy.StreamingMode = streaming ? LLMStreamingMode.Streaming : LLMStreamingMode.NonStreaming;
+        using var http = NewHttp(new Handler(_ =>
+        {
+            var text = streaming ? Fixture("openai") : "{\"choices\":[{\"message\":{\"content\":\"complete\"}}]}";
+            var response = Response("openai", new FragmentStream(Encoding.UTF8.GetBytes(text), delayAt: 1, pause: TimeSpan.FromMilliseconds(500)));
+            if (!streaming) response.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+            return Task.FromResult(response);
+        }));
+        var client = new RoutingLLMClient(http, Options(provider));
+        http.Timeout = TimeSpan.FromMilliseconds(100); // An explicit caller override after provider construction.
+        using var context = new LLMHttpRetryContext("deadline", journal, new() { MaxAttempts = 3, MaxUncertainRetries = 0,
+            AttemptTimeoutMilliseconds = 1000, BaseDelayMilliseconds = 1, MaxDelayMilliseconds = 1 }).Activate();
+        var error = await Assert.ThrowsAsync<LLMProviderException>(() => client.CallAsync(Request(), Ct));
+        Assert.Equal(LLMProviderFailureKind.Timeout, error.Kind);
+        var attempt = Assert.Single(journal.State!.Attempts);
+        Assert.Equal("timeout", attempt.Failure); Assert.Null(attempt.Status);
+        Assert.NotEqual(true, attempt.ProtocolComplete); Assert.NotNull(attempt.PartialBody);
+        Assert.Equal(1, httpCalls(http));
+    }
+
     [Fact]
     public async Task BackgroundStreamRecoveryRetrievesTheSameResponseWithoutAnotherPostOrCharge()
     {

@@ -299,7 +299,10 @@ public static class HttpRequestHelper
             request.Headers.Remove("X-Client-Request-Id");
             request.Headers.TryAddWithoutValidation("X-Client-Request-Id", attempt.Id);
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeout.CancelAfter(retryPolicy.AttemptTimeoutMilliseconds);
+            // ResponseHeadersRead ends HttpClient's own timeout at the headers. Retain
+            // its stricter caller deadline throughout body consumption as well.
+            timeout.CancelAfter(http.Timeout == Timeout.InfiniteTimeSpan ? TimeSpan.FromMilliseconds(retryPolicy.AttemptTimeoutMilliseconds)
+                : TimeSpan.FromMilliseconds(Math.Min(http.Timeout.TotalMilliseconds, retryPolicy.AttemptTimeoutMilliseconds)));
             HttpResponseMessage? received = null;
             var partial = new StringBuilder();
             CapturedResponseStream? capturedStream = null;

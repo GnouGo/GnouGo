@@ -46,6 +46,8 @@ Background Responses receipt recovery retrieves the same persisted response id f
 
 The common framer derives from the existing proxy reader: fragmented UTF-8, LF/CRLF, multiline SSE data and comment keepalives are supported, frames and response evidence are bounded. Malformed data is an error. Proxy adapters reuse that framer; no response is converted into artificial token chunks. The separate GitHub Copilot SDK tool integration already has native streaming/event controls and remains distinct from the AI provider and protocol proxy.
 
+The owning attempt bounds header and body consumption by the stricter of the captured attempt deadline and the effective `HttpClient.Timeout`. Receiving headers or progressive bytes cannot reset or extend that deadline. Cancellation still stops both modes, and an interrupted generation cannot trigger a new POST.
+
 HTTP 200, connection closure, syntactically valid partial JSON, an initial usage zero, or a content-block stop do not establish completion. Refusals, output exhaustion, tool arguments, raw responses and usage reach the existing response mapping. Absent final usage stays unknown; conservative reservations and financial admission remain authoritative.
 
 Explicit output allocations reach native wire fields in both modes, including Ollama `options.num_predict` and compatible chat `max_completion_tokens`. Older Copilot/Ollama builders omitted this bound. Only their exact, durably completed historical receipts may recover against that older payload: recovery dispatches nothing and rewrites no journal or fingerprint. Partial evidence, changed prompts/routes and streaming requests cannot use that compatibility path.
