@@ -36,6 +36,8 @@ internal static class ServerLiveDiagnostics
         var executionOnly = args.ElementAtOrDefault(1) == "server-live-execute";
         var retained = inspectionOnly || executionOnly;
         var mcpReadiness = args.ElementAtOrDefault(1) == "server-live-mcp-readiness";
+        var delegatedScenario = planning && SchemaPortabilityCampaign.Option(args, "--case") is "amazon" or "code"
+            ? SchemaPortabilityCampaign.Option(args, "--case") : null;
         var fundingScope = await campaign.FreshAllocationAsync(CancellationToken.None);
         if (!retained && !mcpReadiness && await campaign.HasUncertainRequestAsync(CancellationToken.None))
             throw BenchmarkCampaign.AdmissionFailure("campaign_uncertain_request_requires_recovery");
@@ -84,11 +86,21 @@ internal static class ServerLiveDiagnostics
             services => {
                 services.AddSingleton<IPlanningDiscoveryRecoveryGuard>(new RetainedDiscoveryGuard(campaign));
                 if (!planning) return;
-                services.AddSingleton<SecureWorkflowRuntimeFactory>(sp => new(sp.GetRequiredService<LLMRuntimeOptionsStore>(),
-                    sp.GetRequiredService<IKeyVaultRuntimeConfigStore>(), sp.GetRequiredService<ILoggerFactory>(),
-                    llmClientOverride: new CampaignClient(model, sp.GetRequiredService<IPlanningSessionStore>(),
-                        sp.GetRequiredService<LlmTraceCapture>(), sp.GetRequiredService<LLMRuntimeOptionsStore>()),
-                    defaults: sp.GetRequiredService<LlmDefaultsResolver>()));
+                services.AddSingleton<SecureWorkflowRuntimeFactory>(sp =>
+                {
+                    IMcpClientFactory? discovery = null;
+                    if (delegatedScenario is not null)
+                    {
+                        var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, delegatedScenario, "discovery-only", "Release");
+                        var policyHash = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(typeof(DelegatedTestReviewAuthority).Assembly.Location)));
+                        discovery = new DelegatedPlanningDiscovery(new ConfiguredMcpClientFactory(configurations, defaultLlmProvider: model.Provider, defaultLlmModel: model.Model), delegatedScenario, policyHash);
+                    }
+                    return new(sp.GetRequiredService<LLMRuntimeOptionsStore>(),
+                        sp.GetRequiredService<IKeyVaultRuntimeConfigStore>(), sp.GetRequiredService<ILoggerFactory>(),
+                        llmClientOverride: new CampaignClient(model, sp.GetRequiredService<IPlanningSessionStore>(),
+                            sp.GetRequiredService<LlmTraceCapture>(), sp.GetRequiredService<LLMRuntimeOptionsStore>()),
+                        mcpClientFactoryOverride: discovery, defaults: sp.GetRequiredService<LlmDefaultsResolver>());
+                });
             });
         if (!planning)
             app.Use(async (context, next) =>
@@ -115,6 +127,7 @@ internal static class ServerLiveDiagnostics
             ["server_model_source"] = app.Services.GetRequiredService<LLMRuntimeOptionsStore>().DefaultModelSource };
         if (fundingScope is not null) report["funding_scope"] = fundingScope.DeepClone();
         if (phaseFile is not null) report["phase_policy_sha256"] = PlanningGraphCompiler.Fingerprint(await File.ReadAllTextAsync(phaseFile));
+        if (delegatedScenario is not null) report["planning_discovery_authority"] = "existing_delegated_tool_allowlist_v1";
         if (!retained) await campaign.SaveAsync("planning-evaluation-runs", run, report);
         var invoked = 0;
         if (!planning && !retained && !mcpReadiness) app.MapPost("/api/planning/live-provider-probe", async (HttpContext context, LocalOperatorAccess access, IAntiforgery antiforgery, LlmTraceCapture capture) =>
@@ -554,6 +567,29 @@ internal static class ServerLiveDiagnostics
             var id = request.ClientRequestId?.Split(':')[0] ?? throw new PlanningConflictException("A captured Server request identity is required.");
             var state = await sessions.LoadAsync("benchmark", id, ct) ?? throw new PlanningConflictException("No owned live Server session.");
             return await capture.CallAsync(request, options.Current, (r, token) => model.CallServerPlanningAsync(r, state, token), ct);
+        }
+    }
+    internal sealed class DelegatedPlanningDiscovery(IMcpClientFactory inner, string scenario, string policyHash)
+        : IMcpClientFactory, IMcpSourceConfigurationFingerprint, IAsyncDisposable
+    {
+        private readonly LiveWorkflowEvaluation.ObservedMcp _filtered = new(inner, _ => Task.CompletedTask, discoveryScenario: scenario);
+        public IReadOnlyList<McpServerMetadata> ServerMetadata => _filtered.ServerMetadata;
+        public string SourceConfigurationFingerprint(string serverName) => inner is IMcpSourceConfigurationFingerprint source
+            ? PlanningGraphCompiler.Fingerprint(source.SourceConfigurationFingerprint(serverName) + "\ndelegated-planning-discovery-v1\n" + scenario + "\n" + policyHash)
+            : throw new InvalidOperationException("Delegated discovery requires an exact configured source fingerprint.");
+        public async Task<IMcpSession> GetClientAsync(string serverName, CancellationToken ct) => new ReadOnlySession(await _filtered.GetClientAsync(serverName, ct));
+        public ValueTask DisposeAsync() => inner is IAsyncDisposable owned ? owned.DisposeAsync() : ValueTask.CompletedTask;
+        private sealed class ReadOnlySession(IMcpSession inner) : IMcpSession
+        {
+            public string ServerName => inner.ServerName;
+            public Task<IReadOnlyList<McpToolInfo>> ListToolsAsync(CancellationToken ct) => inner.ListToolsAsync(ct);
+            public Task<IReadOnlyList<McpResourceInfo>> ListResourcesAsync(CancellationToken ct) => inner.ListResourcesAsync(ct);
+            public Task<IReadOnlyList<McpPromptInfo>> ListPromptsAsync(CancellationToken ct) => inner.ListPromptsAsync(ct);
+            public Task<McpGetPromptResult> GetPromptAsync(string promptName, JsonNode? arguments, CancellationToken ct)
+                => throw new InvalidOperationException("Delegated planning permits metadata discovery only.");
+            public Task<McpCallResult> CallToolAsync(string toolName, JsonNode? arguments, CancellationToken ct)
+                => throw new InvalidOperationException("Business tools require the later artifact-bound delegated execution.");
+            public ValueTask DisposeAsync() => inner.DisposeAsync();
         }
     }
     private sealed class RetainedDiscoveryGuard(BenchmarkCampaign campaign) : IPlanningDiscoveryRecoveryGuard
