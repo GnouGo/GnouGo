@@ -1,11 +1,11 @@
 [
   {
-    "artifact": "artifacts/native-streaming-20261107/final-captured-deadline-core-tests.log",
-    "sha256": "3f35b6dd10da16cba6e776ae582cb2aed3c8b5b25b8f51c21b70d0d138122aa6",
+    "artifact": "artifacts/native-streaming-20261107/final-built-route-core-tests.log",
+    "sha256": "5d8dd05d98eb71d719e225165a60325b3986f11ab36f6d9229edd588cc85e947",
     "compiler_diagnostics": [],
     "last_lines": [
       "",
-      "R\u00e9ussi!  - \u00e9chec\u00a0:     0, r\u00e9ussite\u00a0:   345, ignor\u00e9e(s)\u00a0:     0, total\u00a0:   345, dur\u00e9e\u00a0: 2 s - GnOuGo.AI.Core.Tests.dll (net10.0)"
+      "R\u00e9ussi!  - \u00e9chec\u00a0:     0, r\u00e9ussite\u00a0:   353, ignor\u00e9e(s)\u00a0:     0, total\u00a0:   353, dur\u00e9e\u00a0: 2 s - GnOuGo.AI.Core.Tests.dll (net10.0)"
     ]
   },
   {
@@ -27,21 +27,12 @@
     ]
   },
   {
-    "artifact": "artifacts/native-streaming-20261107/captured-deadline-host-tests.log",
-    "sha256": "2a4d0cac9e8a4575e56c906d05c73c2c76fbc66e954c03d093283fc7e4ef001c",
+    "artifact": "artifacts/native-streaming-20261107/final-built-route-host-tests.log",
+    "sha256": "61ae9f5076205bb2286673a3110f9c3b149e619d09fdb56ea2d2e5e3734db379",
     "compiler_diagnostics": [],
     "last_lines": [
       "",
-      "R\u00e9ussi!  - \u00e9chec\u00a0:     0, r\u00e9ussite\u00a0:   224, ignor\u00e9e(s)\u00a0:     0, total\u00a0:   224, dur\u00e9e\u00a0: 11 s - GnOuGo.Agent.Server.Tests.dll (net10.0)"
-    ]
-  },
-  {
-    "artifact": "artifacts/native-streaming-20261107/captured-deadline-docingestor-tests.log",
-    "sha256": "94196c22fef984e85ce32224ede58aa38cb5c79aa5ce47aef49e7ee3421ef082",
-    "compiler_diagnostics": [],
-    "last_lines": [
-      "",
-      "R\u00e9ussi!  - \u00e9chec\u00a0:     0, r\u00e9ussite\u00a0:    97, ignor\u00e9e(s)\u00a0:     0, total\u00a0:    97, dur\u00e9e\u00a0: 2 s - GnOuGo.DocIngestor.Tests.dll (net10.0)"
+      "R\u00e9ussi!  - \u00e9chec\u00a0:     0, r\u00e9ussite\u00a0:   279, ignor\u00e9e(s)\u00a0:     0, total\u00a0:   279, dur\u00e9e\u00a0: 16 s - GnOuGo.Agent.Server.Tests.dll (net10.0)"
     ]
   },
   {
@@ -55,7 +46,7 @@
   },
   {
     "artifact": "artifacts/native-streaming-20261107/latest-server-publish.log",
-    "sha256": "4d12f3a9a59e04fa2c3ac41d3aff904db9c5e76a19facf0e0af9aae87286d577",
+    "sha256": "faa3149f446e8f65966683e80b61bc83aa3f4dd9327d248de86ee7031d4d41f5",
     "compiler_diagnostics": [],
     "last_lines": [
       "    GnOuGo.Git.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/native-streaming-20261107/final-publish/server/tools/GnOuGo.Git.Mcp/",
@@ -80,7 +71,7 @@
   },
   {
     "artifact": "artifacts/native-streaming-20261107/latest-proxy-aot-publish.log",
-    "sha256": "060e8716c261857a40e621f634f1e31833bfddcf6a0b5e4207a0559c8f5c104d",
+    "sha256": "103509d23a0f6eef5f3fa51c9837d64984741015b6a9ffc235716b9134149a71",
     "compiler_diagnostics": [],
     "last_lines": [
       "  Generating native code",
@@ -89,15 +80,15 @@
   },
   {
     "artifact": "artifacts/native-streaming-20261107/latest-proxy-native-smoke.log",
-    "sha256": "880e9ccd2cd3b2bb3e7a17a2bdb915c9d7cad90f2c1ee46b15ea573a5df6de46",
+    "sha256": "9fb33467be49e6d5f0f09a030b0827bccc357997f52966ba4e409acd5f117411",
     "compiler_diagnostics": [],
     "last_lines": [
-      "PASS: published binary; four providers; streaming tool round trips; OIDC cache; UI; setup reasoning defaults; tier binding; separate currency totals; unknown costs. URL=http://127.0.0.1:57981"
+      "PASS: published binary; four providers; streaming tool round trips; OIDC cache; UI; setup reasoning defaults; tier binding; separate currency totals; unknown costs. URL=http://127.0.0.1:65455"
     ]
   },
   {
     "artifact": "artifacts/native-streaming-20261107/latest-planning-aot-publish.log",
-    "sha256": "79a625b48a17abc2da31a0783bf5b0cbb800e473792cba7e65654b7745090562",
+    "sha256": "b9fcc071517a362bf5102fadf6c86790d7bbc4b225001ed5b1f8dc4733386feb",
     "compiler_diagnostics": [],
     "last_lines": [
       "  Generating native code",
@@ -115,7 +106,7 @@
   },
   {
     "artifact": "artifacts/native-streaming-20261107/latest-GnOuGo.AI.Core-pack.log",
-    "sha256": "5722f8dd13f89cbd785567329c17f685178f69dede556f35e911c81bca89cfc7",
+    "sha256": "6e55972cb1f863a5cdc3e6a91bca6270d4f3625d4145c7986e65d85e0ab3ccb5",
     "compiler_diagnostics": [],
     "last_lines": [
       "  GnOuGo.AI.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.AI.Core/bin/Release/net10.0/GnOuGo.AI.Core.dll",
@@ -124,7 +115,7 @@
   },
   {
     "artifact": "artifacts/native-streaming-20261107/latest-GnOuGo.AI.Local-pack.log",
-    "sha256": "5da4ee0d5c5379f4f011b8ee90211adc1f0207e45304e3d41ff9f7d38e92c150",
+    "sha256": "bf35784322448d9ef40a5531a88e8c27c580c3ffbfd924137db151fd25049c40",
     "compiler_diagnostics": [],
     "last_lines": [
       "  GnOuGo.AI.Local -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.AI.Local/bin/Release/net10.0/GnOuGo.AI.Local.dll",
@@ -133,7 +124,7 @@
   },
   {
     "artifact": "artifacts/native-streaming-20261107/latest-GnOuGo.Flow.Planning-pack.log",
-    "sha256": "0a465ecfd6a96c29eb46af600ba2b72ec8a714b64d5c692ba9bdf9692e6e8ac7",
+    "sha256": "27aedd7618fc8144f9f5af7265c104a74c04172947ceffe740de7dd5bbb421ba",
     "compiler_diagnostics": [],
     "last_lines": [
       "  GnOuGo.Flow.Planning -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Planning/bin/Release/net10.0/GnOuGo.Flow.Planning.dll",
@@ -142,7 +133,7 @@
   },
   {
     "artifact": "artifacts/native-streaming-20261107/latest-GnOuGo.Flow.Integrations-pack.log",
-    "sha256": "ef9e2e9a59b28dc4538f68e6cb8dfaa38cf5106f1ce55a911d00d9f97d5a9c0f",
+    "sha256": "2339455faa2d3fe43ae66d6857f85aa6b73a2cf0a51eac9ae71b971d1ec02d94",
     "compiler_diagnostics": [],
     "last_lines": [
       "  GnOuGo.Flow.Integrations -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Integrations/bin/Release/net10.0/GnOuGo.Flow.Integrations.dll",
@@ -151,7 +142,7 @@
   },
   {
     "artifact": "artifacts/native-streaming-20261107/latest-GnOuGo.DocIngestor.Core-pack.log",
-    "sha256": "6f79e361c5498fb3f600cafb5b29f25e2345d0051376a08045b7438eeb15af2b",
+    "sha256": "fc42c8a29123fcff866291e953a4c9c5da4d2e85c66c4d632634dc9bd40b08e2",
     "compiler_diagnostics": [],
     "last_lines": [
       "  Il manque un fichier Lisez-moi au GnOuGo.DocIngestor.Core.1.0.0 du package. Acc\u00e9dez \u00e0 https://aka.ms/nuget/authoring-best-practices/readme pour savoir pourquoi les lisez-moi de package sont importants.",

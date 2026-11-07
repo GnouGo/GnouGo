@@ -2,7 +2,7 @@
   "version": 1,
   "campaign": "pr120-live-20261107-400",
   "active_transport_configuration": "140db3a53f380129b11a5395a367bfa4efc2d0898a41a36caee599675e2aab5f",
-  "implementation_source": "d2aa3d4f7e7f49f27e2930a417be776bb8e82556",
+  "implementation_source": "702ba2be8f1f76e7363020dc505cca43ea209491",
   "qualification_sources": [
     "59f69a2a4fede5c4ac58425f1e203fc763d8c4ca",
     "341f63fd108acb614c199ef97904478116668a8e",
@@ -10,11 +10,12 @@
   ],
   "full_solution_status": "running",
   "files": {
-    "README.md": "8f4958892cbf40a2a4997f4acac9e9879a7db5fc3eeaba631b40592202845956",
+    "README.md": "eb6144c767a28bf472841be3eb1c0db986178d64c553e0ee23b88951984dbde0",
     "audit-before.json": "3ed0174ce9aeeba120c0ca26f6aca54ddf37f4a4fec19c31c027c06176a76364",
     "audit-final.json": "a9042cd977dafed55efddac197c22b7b906275bd617d3b9a36099257883acc2f",
     "available-balance.json": "31a2029e9b32e7a9240529257e12bb55008de4671f4b9ffc40212dda92bf3bb0",
-    "completed-checks.json": "da2365c7e719f43afaf615acbb5f525dc9791f0ed2ad556c2c69e0fba0205876",
+    "completed-checks.json": "bf6bd6c1657996fcc95e09f6cfa03ba6613a321ba516d35a73aaba226145a77e",
+    "current-nonserver-validation.json": "cf0d92e2235b413ddf4456ed45eb368daf193c95c77d369613ca5d849b975791",
     "intermediate-full-validation.json": "5506cbf32bcd1b3aa257f98ce5459c7b8716edaf359b5f75cb313e00f7b579e8",
     "native-wire-evidence.json": "f1ed84d8189c3a486f4e33e296164199cb11be7587c43f4a96c7f67e8cc522ce",
     "nonstream-availability-result.json": "941541317d06b6da483113eea3c9c5c409949e3eb972972ca8b63c84e661bdd8",
@@ -22,7 +23,7 @@
     "nonstream-fragment-result.json": "552a0139baa71e0f5e52df1090efded92025832f6b476f1552f594d6edd6d392",
     "nonstream-fragment-retention-preview.json": "fb475ba8c2c8b56172e7499eca70519dc060a8aae325e2fcd2a10548991a5378",
     "nonstream-fragment-retention.json": "1b43275393d6665ae556794b91ddf68721fe8c3b6cc5d907e2209e995dd1fdf4",
-    "published-validation.json": "331ee0a5878b2b48ec71b82a43855252e0cabeef7888f40250d07d373ee7af18",
+    "published-validation.json": "db7cd9955d9a9882abd973f084fa49c67c51489ee92b66d072daab0df3ab3ee9",
     "retention-record-integrity.json": "18dfc804acce7435891283db0cc620b8f512fe9025dcfa80a0a211801986d8fa",
     "stream-availability-originals-after.json": "2d05923d671a791edc0d16390e1ce32e76ca1819cefde3c0753008a82632237d",
     "stream-availability-originals-before.json": "2d05923d671a791edc0d16390e1ce32e76ca1819cefde3c0753008a82632237d",
@@ -40,7 +41,7 @@
     "transport-amendment-preview.json": "8488a8fe375cb524703dfc86fe7bb118d1c5131b6d83a240fefd3975df4f5555",
     "transport-amendment.json": "9cfce3f27684eea5b1df90f0f97d2b0ef435296c1927121eeaafd35becd100b0",
     "transport-configuration-change.json": "1db07b861417d932ec5996f88d8f33fa2f484a6fcb171f9454b421c2b23a7ae7",
-    "validation.json": "dea437a57c10ace8e39a96a6f464588c32d64587b78a6880136f1d339471eb84",
+    "validation.json": "22c7f329ea5d11b8b0f070945623fe00aaddf4fa79393b0f7057698412333b81",
     "wire-comparison.json": "4afe667b2c956c8257f10582c270d23b4f39c3ace464aa604961679df1f16c44"
   }
 }
