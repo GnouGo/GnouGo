@@ -57,6 +57,7 @@ The shared inspector displays effective transport and terminal facts, and pages 
 ## Official protocol references and limits
 
 - [OpenAI Chat streaming events](https://developers.openai.com/api/reference/resources/chat/subresources/completions/streaming-events), [Responses events](https://developers.openai.com/api/reference/resources/responses/streaming-events), and [background receipt retrieval](https://developers.openai.com/api/docs/guides/background).
+- [Azure native filter preludes and asynchronous annotations](https://learn.microsoft.com/en-us/azure/foundry/openai/concepts/content-streaming): empty metadata ids do not create generation identities; filter diagnostics and terminal filtering remain preserved.
 - [Anthropic Messages streaming](https://platform.claude.com/docs/en/build-with-claude/streaming).
 - [Ollama streaming](https://docs.ollama.com/api/streaming), [chat](https://docs.ollama.com/api/chat), and [tool calling](https://docs.ollama.com/capabilities/tool-calling).
 - [Pinned LLamaSharp 0.27 native iterator](https://github.com/SciSharp/LLamaSharp/blob/v0.27.0/LLama/LLamaStatelessExecutor.cs).

@@ -55,7 +55,7 @@ internal static class NativeStreamingResponse
     private static async Task IdentityAsync(JsonObject root, LLMHttpAttempt attempt, Func<Task> checkpoint)
     {
         var id = Text(root["id"]);
-        if (id is null) return;
+        if (string.IsNullOrEmpty(id)) return; // Azure filter/usage metadata has no generation identity.
         if (attempt.ProviderResponseId is not null && attempt.ProviderResponseId != id) throw Invalid("A stream mixed provider response identities.");
         if (attempt.ProviderResponseId is null) { attempt.ProviderResponseId = id; await checkpoint(); }
     }
@@ -74,7 +74,14 @@ internal static class NativeStreamingResponse
             if (chunk["error"] is { } reported) throw ReportedError(reported, attempt);
             await IdentityAsync(chunk, attempt, checkpoint);
             foreach (var name in new[] { "id", "model", "created", "system_fingerprint", "service_tier" })
-                if (chunk[name] is { } field) result[name] = field.DeepClone();
+                if (chunk[name] is { } field && (name is not ("id" or "model") || !string.IsNullOrEmpty(Text(field))) &&
+                    (name != "created" || field.GetValue<long>() > 0)) result[name] = field.DeepClone();
+            foreach (var name in new[] { "prompt_filter_results", "prompt_annotations" })
+                if (chunk[name] is JsonArray annotations)
+                {
+                    if (result[name] is not JsonArray) result[name] = new JsonArray();
+                    foreach (var annotation in annotations) result[name]!.AsArray().Add(annotation?.DeepClone());
+                }
             if (chunk["choices"] is not JsonArray items) throw Invalid("Chat stream choices are missing.");
             foreach (var item in items)
             {
@@ -110,9 +117,17 @@ internal static class NativeStreamingResponse
                                 foreach (var key in new[] { "name", "arguments" }) fragments.Append(tool["function"]!.AsObject(), key, function[key]);
                         }
                 }
+                foreach (var name in new[] { "content_filter_results", "content_filter_offsets" })
+                    if (item[name] is { } annotation)
+                    {
+                        if (choice["stream_filter_annotations"] is not JsonArray) choice["stream_filter_annotations"] = new JsonArray();
+                        choice["stream_filter_annotations"]!.AsArray().Add(new JsonObject { [name] = annotation.DeepClone() });
+                        choice[name] = annotation.DeepClone();
+                    }
                 if (item["finish_reason"] is { } finish)
                 {
-                    if (choice["finish_reason"] is not null) throw Invalid("Duplicate chat finish reason.");
+                    // Azure asynchronous filtering can supply a later content_filter finish after generated text.
+                    if (choice["finish_reason"] is not null && Text(finish) != "content_filter") throw Invalid("Duplicate chat finish reason.");
                     choice["finish_reason"] = finish.DeepClone();
                 }
                 if (item["logprobs"] is JsonObject logprobs)

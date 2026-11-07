@@ -217,6 +217,28 @@ public sealed class NativeStreamingTests
         Assert.Equal(7, call.Arguments!["id"]!.GetValue<int>());
     }
 
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task AzureEmptyIdentityAnnotationsDoNotCreateAnotherGenerationOrEraseItsId(bool filtered)
+    {
+        var prelude = Event(new { id = "", created = 0, model = "", choices = Array.Empty<object>(), prompt_filter_results = new[] { new { prompt_index = 0, content_filter_results = new { hate = new { filtered = false } } } } });
+        var generated = Event(new { id = "real-response", created = 42, model = "deployment", choices = new[] { new { index = 0, delta = new { content = "ok" }, finish_reason = "stop" } } });
+        var annotation = Event(new { id = "", created = 0, model = "", choices = new[] { new { index = 0, content_filter_results = new { hate = new { filtered } }, finish_reason = filtered ? "content_filter" : null } } });
+        var usage = Event(new { id = "", created = 0, model = "", choices = Array.Empty<object>(), usage = new { prompt_tokens = 10, completion_tokens = 1 } });
+        using var http = NewHttp(new Handler(_ => Task.FromResult(Response("openai", prelude + generated + annotation + usage + "data: [DONE]\n\n"))));
+        var journal = new Journal();
+        using var context = Context(journal);
+        var response = await Client(http, "openai").CallAsync(Request(), Ct);
+        Assert.Equal("ok", response.Text);
+        Assert.Equal("real-response", response.Raw!["id"]!.ToString());
+        Assert.Equal("deployment", response.Raw["model"]!.ToString());
+        Assert.Equal(filtered ? "content_filter" : "stop", response.Raw["choices"]![0]!["finish_reason"]!.ToString());
+        Assert.NotNull(response.Raw["prompt_filter_results"]);
+        Assert.NotNull(response.Raw["choices"]![0]!["stream_filter_annotations"]);
+        Assert.Equal("real-response", journal.State!.Attempts.Single().ProviderResponseId);
+        Assert.True(journal.State.Attempts.Single().UsageKnown);
+    }
+
     [Fact]
     public async Task RefusalAndOutputLimitArePreservedAsTerminalOutcomes()
     {
