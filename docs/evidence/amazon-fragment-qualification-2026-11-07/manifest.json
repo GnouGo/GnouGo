@@ -4,8 +4,8 @@
   "files": [
     {
       "path": "README.md",
-      "bytes": 18944,
-      "sha256": "3507a2d02c23d0b80ddc2e623892e2490869de01bbed57de9eae18deb8ca01aa"
+      "bytes": 20085,
+      "sha256": "1df8f6f8f46fe06b9ced7d5a4f52ef3caa0276ce4979c8d324fccc8cecaa9aef"
     },
     {
       "path": "amazon-02-retention-preview.json",
@@ -46,6 +46,11 @@
       "path": "audit-before.json",
       "bytes": 2929,
       "sha256": "ed36a5074e2d8500269caaa67ca55bef55a55682c98e5426ac509abbd91d02f8"
+    },
+    {
+      "path": "audit-final.json",
+      "bytes": 4038,
+      "sha256": "cfba983455eab03d4f9f8284f036d6561e1add82fa77fd9c3817ddbc2cc59416"
     },
     {
       "path": "availability-low-http-summary.json",
@@ -93,6 +98,11 @@
       "sha256": "b0c77d4a364075b11e70e70982fe182480586f105056ea240ee9bf7d1200e54b"
     },
     {
+      "path": "final-audit-observation.json",
+      "bytes": 615,
+      "sha256": "42a51a57de400912f1cd2e067ba8d2c75940e82e1d6520e80399d50e29d15206"
+    },
+    {
       "path": "first-accepted-checkpoint.json.gz",
       "bytes": 3187,
       "sha256": "1a658da6021f26342ded6e7b358424f574c82397af05d50eb9ad6cc594a8fa52"
@@ -128,6 +138,26 @@
       "sha256": "c4db7f9ac58524a8b5de4553192791682a58a364d700400a15f5913cace32350"
     },
     {
+      "path": "full-solution-results.tar.gz",
+      "bytes": 2097602,
+      "sha256": "da6cf0057f3b2014eb8c7d049622e1615f295d5181899a59c9161b2ed98a2608"
+    },
+    {
+      "path": "full-solution.log.gz",
+      "bytes": 3257,
+      "sha256": "1f6903b74dfa6cf3b79259af2bce120c075a6bb879e424d9cbb50ee2cdcf21f4"
+    },
+    {
+      "path": "full-test-summary.json",
+      "bytes": 16675,
+      "sha256": "9ccc1a82c007dcaee06a84bf64c8b4a1f02dd4ea696aafe2595421c0f8d56faf"
+    },
+    {
+      "path": "live-authority-source-build.log.gz",
+      "bytes": 868,
+      "sha256": "2cf99d707211838998f1dd582b2ea1f3d43f996d31b8b2bf7d56de4a4304592c"
+    },
+    {
       "path": "metadata-effort-change.json",
       "bytes": 392,
       "sha256": "0980af6e3aad9c7bf9c56dd70552545cf9b72aa105a4b8f74a82c7f98be11a8a"
@@ -136,6 +166,11 @@
       "path": "operator-handoff.md",
       "bytes": 4348,
       "sha256": "7960e7398ff3aa03ca1f1f35638a902b52f131d69ac70ce51729453d69086699"
+    },
+    {
+      "path": "planning-pack.log.gz",
+      "bytes": 260,
+      "sha256": "49c2b590b1f566f1c90a3a959ad8a097ad821ef2792c346d347c4c86b5ca3078"
     },
     {
       "path": "planning-tests.log.gz",
@@ -229,8 +264,8 @@
     },
     {
       "path": "validation.json",
-      "bytes": 3501,
-      "sha256": "0d677433c85414e4163c408add21d20f9c78073dfb12c6e8a978be544b3ee2ff"
+      "bytes": 4343,
+      "sha256": "5ece5a61ec6d7d39d026867a373eed4c12952d22362bda15652b52db7b269812"
     }
   ]
 }

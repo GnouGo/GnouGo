@@ -1,0 +1,14 @@
+{
+  "observedUtc": "2026-11-07T11:33:57.165568+00:00",
+  "campaign": "pr120-live-20261107-400",
+  "publicApiAudit": "audit-final.json",
+  "exactlyEqualToStoppedRunBoundary": true,
+  "physicalAttempts": 96,
+  "knownCapturedTariffEstimateEur": "21.229789520824003582624272305",
+  "httpReservedEur": "43.727210031347962382445141066",
+  "retainedExternalHoldEur": "2.4215763546798029556650246305",
+  "remainingNewAllocationEur": "332.6214240931482310792655619985",
+  "remainingConservativeDisplayEur": "332.62",
+  "pendingRetention": "01a4e292867d4a239a96ee8d49a3473d:17",
+  "globallyAvailableFunding": "unavailable"
+}
