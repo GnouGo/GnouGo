@@ -5,6 +5,8 @@ using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
 using GnOuGo.KeyVault.Core.Services;
+using Microsoft.Data.Sqlite;
+using System.Diagnostics;
 
 namespace GnOuGo.Agent.Server.Tests;
 
@@ -75,6 +77,50 @@ public sealed class PlanningOwnershipTests
         await lease.DisposeAsync();
         await using var recovered = await PlanningSessionLease.TryAcquireAsync(fixture, "one", "same", Ct);
         Assert.NotNull(recovered);
+    }
+
+    [Fact]
+    public async Task FinancialAdmissionSessionSaveInspectionAndCancellationSurviveTheSameSqliteAuditContention()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var state = CapturedSession();
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        var client = new PausedClient { CompleteOnCancellation = true };
+        using var owner = PlanningSessionLifecycleTests.Create(fixture, new OneCallPlanner(), PlanningSessionLifecycleTests.AgentCatalog(), client);
+        using var controller = PlanningSessionLifecycleTests.Create(fixture, new OneCallPlanner(), PlanningSessionLifecycleTests.AgentCatalog(), client);
+        await owner.StartAsync(Ct);
+        await client.Entered.Task.WaitAsync(TimeSpan.FromSeconds(15), Ct);
+        var pending = (await controller.GetAsync(state.Request.SessionId, Ct))!;
+        var campaignRecords = new KeyVaultRecordStore(Path.Combine(fixture.Root, "vault.db"));
+        var campaign = new BenchmarkCampaign(campaignRecords, "contention");
+        var financial = new BenchmarkHttpJournal(campaign, "financial-session:1", 100, 100, 1m);
+        await financial.PrepareAsync(Ct);
+        await using var blocker = new SqliteConnection("Data Source=" + Path.Combine(fixture.Root, "vault.db"));
+        await blocker.OpenAsync(Ct);
+        // Hold a physical write reservation without inspecting KeyVault tables.
+        await using var reservation = blocker.BeginTransaction();
+        var other = CapturedSession(); other.Status = PlanningStatus.Stopped;
+        var admission = Task.Run(() => financial.SaveAsync(new() { Fingerprint = new string('f', 64),
+            Attempts = [new() { Id = "financial-session:1:attempt:1" }] }, Ct), Ct);
+        var saving = Task.Run(() => fixture.Store.TrySaveAsync(other, null, Ct), Ct);
+        var inspection = Task.Run(() => campaignRecords.QueryMetadataAsync(PlanningModelJournal.RequestCollection, "planning-tests",
+            state.Request.SessionId + ":", EfPlanningSessionStore.Author, ct: Ct), Ct);
+        var cancellation = Task.Run(() => controller.StopAsync(state.Request.SessionId, Ct), Ct);
+        await Task.Delay(1400, Ct); // Force a real BUSY audit/commit across the independent stores.
+        Assert.False(admission.IsCompleted);
+        await reservation.CommitAsync(Ct);
+        await Task.WhenAll(admission, saving, inspection, cancellation).WaitAsync(TimeSpan.FromSeconds(15), Ct);
+        Assert.True(await saving);
+        Assert.Single((await inspection).Records);
+        var cancelled = await WaitForAsync(controller, state.Request.SessionId, PlanningStatus.Cancelled);
+        Assert.Equal(1, client.Calls);
+        Assert.Equal(1, cancelled.Usage!.Calls);
+        Assert.Equal(15, cancelled.Usage.TotalTokens);
+        Assert.NotNull(await fixture.Records.GetAsync(PlanningModelJournal.Collection, "planning-tests",
+            state.Request.SessionId + ":" + pending.PendingCall!.Id, EfPlanningSessionStore.Author, Ct));
+        Assert.Equal(1m, (await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct))["reserved_cost_eur"]!.GetValue<decimal>());
+        await owner.StopAsync(Ct);
+        Assert.False(owner.ExecuteTask!.IsFaulted);
     }
 
     private static async Task<PlanningSession> WaitForAsync(PlanningSessionService service, string id, string status)
@@ -151,6 +197,80 @@ public sealed class PlanningOwnershipTests
         public Task<KeyVaultRecordValue> UpsertAsync(string c, string t, string k, string v, string a, CancellationToken ct = default) => inner.UpsertAsync(c, t, k, v, a, ct);
         public Task<IReadOnlyList<KeyVaultRecordValue>> ListAsync(string c, string t, string a, CancellationToken ct = default) => inner.ListAsync(c, t, a, ct);
         public Task<bool> DeleteAsync(string c, string t, string k, string a, CancellationToken ct = default) => inner.DeleteAsync(c, t, k, a, ct);
+    }
+
+    [Fact]
+    public async Task ReceiptAfterWatcherFailureRecoversAcrossSeparateProcessesWithoutDispatchOrDoubleAccounting()
+    {
+        const string phaseVariable = "GNOUGO_TEST_WATCHER_RECEIPT_PHASE";
+        const string directoryVariable = "GNOUGO_TEST_WATCHER_RECEIPT_DIRECTORY";
+        if (Environment.GetEnvironmentVariable(phaseVariable) is { } phase)
+        {
+            var directory = Environment.GetEnvironmentVariable(directoryVariable)!;
+            await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(directory);
+            var client = new PausedClient { CompleteOnCancellation = true };
+            PlanningSession state;
+            if (phase == "capture")
+            {
+                state = CapturedSession();
+                Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+                var records = new WatcherFailureRecords(fixture.Records);
+                using var owner = PlanningSessionLifecycleTests.Create(fixture, new OneCallPlanner(), PlanningSessionLifecycleTests.AgentCatalog(), client, records: records);
+                await owner.StartAsync(Ct);
+                await client.Entered.Task.WaitAsync(TimeSpan.FromSeconds(15), Ct);
+                records.Fail = true;
+                await records.Failed.Task.WaitAsync(TimeSpan.FromSeconds(5), Ct);
+                await owner.StopAsync(Ct);
+                Assert.False(owner.ExecuteTask!.IsFaulted);
+                state = (await fixture.Store.LoadAsync("planning-tests", state.Request.SessionId, Ct))!;
+                Assert.Equal(PlanningStatus.Generating, state.Status);
+                Assert.NotNull(state.PendingCall);
+                Assert.Equal(1, client.Calls);
+            }
+            else
+            {
+                Assert.Equal("continue", phase);
+                var captured = JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(directory, "capture.json"), Ct))!;
+                state = (await fixture.Store.LoadAsync("planning-tests", captured["session"]!.ToString(), Ct))!;
+                client.Release.TrySetResult();
+                using var cold = PlanningSessionLifecycleTests.Create(fixture, new OneCallPlanner(), PlanningSessionLifecycleTests.AgentCatalog(), client);
+                await cold.StartAsync(Ct);
+                state = await WaitForAsync(cold, state.Request.SessionId, PlanningStatus.FinalReview);
+                await cold.StopAsync(Ct);
+                Assert.Equal(0, client.Calls);
+                Assert.Equal(1, state.Usage!.Calls);
+                Assert.Equal(15, state.Usage.TotalTokens);
+            }
+            var receipts = await fixture.Records.ListAsync(PlanningModelJournal.Collection, "planning-tests", EfPlanningSessionStore.Author, Ct);
+            Assert.Single(receipts);
+            await File.WriteAllTextAsync(Path.Combine(directory, phase + ".json"), new JsonObject {
+                ["process"] = Environment.ProcessId, ["session"] = state.Request.SessionId, ["dispatches"] = client.Calls,
+                ["receiptHash"] = PlanningGraphCompiler.Fingerprint(receipts[0].Value), ["status"] = state.Status }.ToJsonString(), Ct);
+            return;
+        }
+        var repository = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        var retained = Path.Combine(repository, "artifacts/storage-recovery-process-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(retained);
+        foreach (var childPhase in new[] { "capture", "continue" })
+        {
+            var start = new ProcessStartInfo("dotnet") { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };
+            start.ArgumentList.Add("vstest"); start.ArgumentList.Add(typeof(PlanningOwnershipTests).Assembly.Location);
+            start.ArgumentList.Add("--TestCaseFilter:FullyQualifiedName=" + typeof(PlanningOwnershipTests).FullName + "." +
+                nameof(ReceiptAfterWatcherFailureRecoversAcrossSeparateProcessesWithoutDispatchOrDoubleAccounting));
+            start.Environment[phaseVariable] = childPhase; start.Environment[directoryVariable] = retained;
+            using var process = Process.Start(start)!;
+            var stdout = process.StandardOutput.ReadToEndAsync(Ct); var stderr = process.StandardError.ReadToEndAsync(Ct);
+            try { await process.WaitForExitAsync(Ct).WaitAsync(TimeSpan.FromSeconds(60), Ct); }
+            finally { if (!process.HasExited) process.Kill(entireProcessTree: true); }
+            var log = await stdout + await stderr;
+            await File.WriteAllTextAsync(Path.Combine(retained, childPhase + ".log"), log, Ct);
+            Assert.True(process.ExitCode == 0, log);
+        }
+        var before = JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(retained, "capture.json"), Ct))!;
+        var after = JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(retained, "continue.json"), Ct))!;
+        Assert.NotEqual(before["process"]!.GetValue<int>(), after["process"]!.GetValue<int>());
+        Assert.Equal(before["receiptHash"]!.ToString(), after["receiptHash"]!.ToString());
+        Assert.Equal(0, after["dispatches"]!.GetValue<int>());
     }
 
     private static PlanningSession CapturedSession()
