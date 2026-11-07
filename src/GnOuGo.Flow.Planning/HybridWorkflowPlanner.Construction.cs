@@ -267,7 +267,7 @@ public sealed partial class HybridWorkflowPlanner
         if (PlanningConstruction.PreviouslyRejected(state, next))
             throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "Construction repeated a failed semantic candidate. No budget was reset.");
         construction.Candidate = next; construction.PendingReviewContext = null; construction.PendingReviewHash = null;
-        construction.Evidence = null; construction.EvidenceRequests.Clear();
+        PlanningCompactConstruction.RetainPrerequisiteEvidence(state);
         await ValidateConstructionCandidateAsync(state, runtime, ct);
         if (next.Diagnostics.Count == 0 && state.Request.Mode == PlanningMode.Interactive && next.Plan.Choices.Any(c => c.Selected is null))
             state.Status = PlanningStatus.Clarification;
@@ -442,7 +442,7 @@ public sealed partial class HybridWorkflowPlanner
         PlanningConstruction.InvalidateRevisedCheckpoints(state);
         // Task/scope evidence describes the previous candidate. Its consumed
         // fingerprints remain auditable and already include that candidate hash.
-        construction.Evidence = null;
+        PlanningCompactConstruction.RetainPrerequisiteEvidence(state);
         PlanningConstruction.RefreshCandidate(state);
         construction.PendingReviewContext = null; construction.PendingReviewHash = null;
         await ValidateConstructionCandidateAsync(state, runtime, ct);
@@ -502,7 +502,8 @@ public sealed partial class HybridWorkflowPlanner
         checkpoint.Fragment["acceptedClaimsHash"] = PlanningGraphCompiler.Fingerprint(acceptedClaimsHash + "\n" + checkpoint.Fragment["acceptedConsumers"]!.ToJsonString());
         construction.Complete = draft.Extension.Complete; construction.Candidate = null;
         construction.DraftCorrections = 0; construction.LastProposalHash = null;
-        construction.PendingReviewContext = null; construction.PendingReviewHash = null; construction.Evidence = null; construction.EvidenceRequests.Clear();
+        construction.PendingReviewContext = null; construction.PendingReviewHash = null;
+        PlanningCompactConstruction.RetainPrerequisiteEvidence(state);
         construction.ScopeCursor = 0;
         state.Diagnostics.Clear(); state.Graph = null; Invalidate(state);
         state.Phase = construction.Complete ? PlanningPhase.Validation : PlanningConstruction.DraftPurpose;

@@ -8,6 +8,47 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CoherentBusinessFragmentTests
 {
     [Theory]
+    [InlineData("description:read@v1:0")]
+    [InlineData("schema:read@v1:/input")]
+    [InlineData("contract:read@v1")]
+    public async Task ExactPrerequisiteContractSurvivesCandidateValidationAcceptanceAndColdContinuation(string address)
+    {
+        var (state, runtime) = await BusinessReviewProtocolTests.Ready();
+        state.Construction!.Candidate = null;
+        state.Catalog!.Capabilities.Add(new() { Id = "read", Version = "v1", Kind = "tool", StepType = "mcp.call", Server = "source", Method = "read",
+            EffectKind = "read", Description = "Use only the originally authorized numeric record.",
+            InputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false },
+            OutputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false } });
+        var step = state.Construction.Compact!.CurrentStep!;
+        step.OperationIds = ["read"];
+        var original = PlanningCompactConstruction.LoadContractEvidence(state, address)!.DeepClone();
+        step.OperationIds.Clear();
+        step.Prerequisites = [new() { Need = "Preserve the inspected original restriction.", EvidenceAddresses = [address] }];
+        state.Construction.Evidence = new() { [address] = original.DeepClone(), ["task:stale"] = new JsonObject() };
+        var drafts = 0;
+        runtime.Respond = (request, purpose) => purpose == PlanningConstruction.LocalPurpose
+            ? new() { Json = BusinessReviewProtocolTests.Report("ok") }
+            : Draft(request, new() { Scope = "/root", Tasks = [Value(drafts)], RequirementIds = ["work"],
+                ContinueInScope = ++drafts == 1 ? "/root" : null, CompleteBlock = drafts == 2 });
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.True(JsonNode.DeepEquals(original, state.Construction!.Evidence![address]));
+        Assert.Null(state.Construction.Evidence["task:stale"]);
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Single(state.Construction!.Checkpoints);
+        state = PlannerFixture.Clone(state);
+        Assert.True(JsonNode.DeepEquals(original, state.Construction!.Evidence![address]));
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(2, drafts); Assert.Equal(2, state.Construction!.Checkpoints.Count);
+        Assert.Null(state.Construction.Compact!.CurrentStep);
+        Assert.Null(state.Construction.Evidence);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task TenTasksContinueOneSelectedBlockAcrossRestartWithTwoDraftsAndOneReview(bool closesRequirement)
