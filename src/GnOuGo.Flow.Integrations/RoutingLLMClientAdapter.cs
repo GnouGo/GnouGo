@@ -126,6 +126,11 @@ public sealed class RoutingLLMClientAdapter : ILLMClient, ILLMCapabilityResolver
             return "refused";
         var reason = (obj["choices"] as JsonArray)?.OfType<JsonObject>().FirstOrDefault()?["finish_reason"]?.ToString()
             ?? (obj["incomplete_details"] as JsonObject)?["reason"]?.ToString() ?? obj["stop_reason"]?.ToString() ?? obj["done_reason"]?.ToString();
-        return reason switch { "length" or "max_output_tokens" or "max_tokens" => "output_limit", "content_filter" or "refusal" => "refused", _ => null };
+        return reason switch
+        {
+            "length" or "max_output_tokens" or "max_tokens" => "output_limit",
+            "content_filter" or "refusal" => "refused",
+            _ => obj["status"]?.ToString() is "failed" or "incomplete" ? obj["status"]!.ToString() : null
+        };
     }
 }

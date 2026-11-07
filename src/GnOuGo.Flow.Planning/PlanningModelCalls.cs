@@ -208,6 +208,10 @@ internal static partial class PlanningModelCalls
                 ["limit"] = call.Request.MaxTokens, ["output_tokens"] = activeMeasurement?.OutputTokens,
                 ["reasoning_tokens"] = activeMeasurement?.ReasoningTokens, ["completion_status"] = response.CompletionStatus,
                 ["request_id"] = call.Id, ["replay_allowed"] = false });
+        if (response.CompletionStatus is "refused" or "failed" or "incomplete")
+            throw new WorkflowRuntimeException("MODEL_COMPLETION_REJECTED",
+                "The provider's terminal outcome does not authorize accepting its content. The receipt and accounting remain retained; no fragment or business operation was accepted.",
+                details: new JsonObject { ["completion_status"] = response.CompletionStatus, ["request_id"] = call.Id, ["replay_allowed"] = false });
         JsonNode json;
         try { json = response.Json?.DeepClone() ?? JsonNode.Parse(response.Text) ?? throw new JsonException("The model returned an empty response."); }
         catch (JsonException)

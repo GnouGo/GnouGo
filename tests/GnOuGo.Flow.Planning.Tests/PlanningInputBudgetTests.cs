@@ -49,6 +49,25 @@ public sealed class PlanningInputBudgetTests
         Assert.Null(state.Construction!.Candidate); Assert.Empty(state.Construction.Checkpoints);
     }
 
+    [Theory]
+    [InlineData("refused")] [InlineData("failed")] [InlineData("incomplete")]
+    public async Task TerminalRejectionCannotAcceptEvenSchemaValidContentAndRetainsUsage(string status)
+    {
+        var state = PlannerFixture.Session();
+        var runtime = new TestRuntime { Respond = (_, _) => new() { CompletionStatus = status,
+            Json = new JsonObject { ["answer"] = "otherwise valid" },
+            Usage = new JsonObject { ["input_tokens"] = 123, ["output_tokens"] = 45 } } };
+        var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => PlanningModelCalls.CallAsync(state, runtime,
+            PlanningConstruction.DraftPurpose, "Construct a bounded fragment", PlanningSchemas.Object(("answer", PlanningSchemas.String())), Ct));
+        Assert.Equal("MODEL_COMPLETION_REJECTED", error.Code);
+        Assert.False(error.Details!["replay_allowed"]!.GetValue<bool>());
+        var saved = PlannerFixture.Clone(state);
+        var measurement = Assert.Single(saved.RequestMeasurements!);
+        Assert.Equal(status, measurement.Result); Assert.Equal(123, measurement.InputTokens); Assert.Equal(45, measurement.OutputTokens);
+        Assert.Null(saved.PendingCall); Assert.Null(saved.Construction!.Candidate); Assert.Empty(saved.Construction.Checkpoints);
+        Assert.Single(runtime.Calls); Assert.Equal(0, saved.ReplanAttempts);
+    }
+
     [Fact]
     public async Task AdvisoryOversizedRequestDispatchesOnceWithDurableWarningAndExactRecovery()
     {
