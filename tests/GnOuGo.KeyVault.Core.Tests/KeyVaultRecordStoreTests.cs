@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GnOuGo.KeyVault.Core.Tests;
 
-public sealed class KeyVaultRecordStoreTests
+public sealed partial class KeyVaultRecordStoreTests
 {
     private const string Collection = "application.records";
     private const string Author = "generic-consumer";

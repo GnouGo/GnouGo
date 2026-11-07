@@ -114,9 +114,10 @@ public sealed partial class KeyVaultRecordStore : IKeyVaultRecordStore, IKeyVaul
             var updatedAtTicks = reader.GetInt64(2);
             await reader.DisposeAsync();
 
-            var value = await ReadPayloadAsync(connection, collection, tenantId, key, encryptedValue, privateKeyPem, ct, snapshot);
+            var payload = await ReadEncryptedPayloadAsync(connection, collection, tenantId, key, encryptedValue, ct, snapshot);
             await snapshot.CommitAsync(ct);
             await WriteAuditAsync(connection, collection, tenantId, key, "GetRecord", author, null, ct);
+            var value = DecryptPayload(payload, privateKeyPem);
             return ToValue(collection, tenantId, key, value, createdAtTicks, updatedAtTicks);
         }
         finally
@@ -140,6 +141,10 @@ public sealed partial class KeyVaultRecordStore : IKeyVaultRecordStore, IKeyVaul
             var (publicKeyPem, _) = await EnsureDefaultKeyPairAsync(connection, ct);
             var paged = value.Length > PayloadChunkCharacters;
             var encryptedValue = CryptoService.Encrypt(paged ? PayloadHeader(value, collection, tenantId, key) : value, publicKeyPem);
+            var id = await ReadRecordIdAsync(connection, collection, tenantId, key, ct) ?? Guid.CreateVersion7().ToString();
+            // RSA/AES work happens before acquiring SQLite's write reservation. The
+            // actual identity is checked inside the transaction before publishing.
+            var payload = PreparePayload(id, collection, tenantId, key, paged ? value : null, publicKeyPem, ct);
             var nowTicks = DateTimeOffset.UtcNow.UtcTicks;
 
             await using var transaction = connection.BeginTransaction();
@@ -164,7 +169,7 @@ public sealed partial class KeyVaultRecordStore : IKeyVaultRecordStore, IKeyVaul
                         UpdatedAtTicks = excluded.UpdatedAtTicks,
                         UpdatedBy = excluded.UpdatedBy;
                     """;
-                command.Parameters.AddWithValue("$id", Guid.CreateVersion7().ToString());
+                command.Parameters.AddWithValue("$id", id);
                 command.Parameters.AddWithValue("$collection", collection);
                 command.Parameters.AddWithValue("$tenantId", tenantId);
                 command.Parameters.AddWithValue("$recordKey", key);
@@ -176,7 +181,7 @@ public sealed partial class KeyVaultRecordStore : IKeyVaultRecordStore, IKeyVaul
             }
 
             var timestamps = await ReadTimestampsAsync(connection, transaction, collection, tenantId, key, ct);
-            await WritePayloadAsync(connection, transaction, collection, tenantId, key, paged ? value : null, publicKeyPem, ct);
+            await WritePayloadAsync(connection, transaction, collection, tenantId, key, payload, ct);
             await WriteAuditAsync(
                 connection,
                 transaction,
@@ -233,11 +238,9 @@ public sealed partial class KeyVaultRecordStore : IKeyVaultRecordStore, IKeyVaul
                 }
             }
 
-            var records = new List<KeyVaultRecordValue>();
+            var payloads = new List<EncryptedPayload>();
             foreach (var record in encryptedRecords)
-                records.Add(ToValue(collection, tenantId, record.Key,
-                    await ReadPayloadAsync(connection, collection, tenantId, record.Key, record.EncryptedValue, privateKeyPem, ct, snapshot),
-                    record.CreatedAtTicks, record.UpdatedAtTicks));
+                payloads.Add(await ReadEncryptedPayloadAsync(connection, collection, tenantId, record.Key, record.EncryptedValue, ct, snapshot));
             await snapshot.CommitAsync(ct);
             await WriteAuditAsync(
                 connection,
@@ -246,8 +249,10 @@ public sealed partial class KeyVaultRecordStore : IKeyVaultRecordStore, IKeyVaul
                 recordKey: null,
                 "ListRecords",
                 author,
-                $"Returned {records.Count} record(s)",
+                $"Returned {encryptedRecords.Count} record(s)",
                 ct);
+            var records = encryptedRecords.Select((record, index) => ToValue(collection, tenantId, record.Key,
+                DecryptPayload(payloads[index], privateKeyPem), record.CreatedAtTicks, record.UpdatedAtTicks)).ToList();
             return records;
         }
         finally
@@ -315,22 +320,29 @@ public sealed partial class KeyVaultRecordStore : IKeyVaultRecordStore, IKeyVaul
             DataSource = _databasePath,
             Mode = SqliteOpenMode.ReadWriteCreate,
             Cache = SqliteCacheMode.Shared,
-            DefaultTimeout = 5
+            DefaultTimeout = 1
         }.ToString());
-        await connection.OpenAsync(ct);
-
-        await using (var pragma = connection.CreateCommand())
+        try
         {
-            pragma.CommandText = "PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON;";
-            await pragma.ExecuteNonQueryAsync(ct);
-        }
+            await connection.OpenAsync(ct);
+            await using (var pragma = connection.CreateCommand())
+            {
+                pragma.CommandText = "PRAGMA busy_timeout=100; PRAGMA foreign_keys=ON;";
+                await pragma.ExecuteNonQueryAsync(ct);
+            }
 
-        if (!_initialized)
-        {
-            await EnsureSchemaAsync(connection, ct);
-            _initialized = true;
+            if (!_initialized)
+            {
+                await EnsureSchemaAsync(connection, ct);
+                _initialized = true;
+            }
+            return connection;
         }
-        return connection;
+        catch
+        {
+            await connection.DisposeAsync();
+            throw;
+        }
     }
 
     private static async Task EnsureSchemaAsync(SqliteConnection connection, CancellationToken ct)
@@ -563,7 +575,7 @@ public sealed partial class KeyVaultRecordStore : IKeyVaultRecordStore, IKeyVaul
     {
         try
         {
-            return await action();
+            return await RetryContentionAsync(action, ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -571,9 +583,27 @@ public sealed partial class KeyVaultRecordStore : IKeyVaultRecordStore, IKeyVaul
         }
         catch (Exception ex) when (IsAccessFailure(ex))
         {
-            throw new KeyVaultAccessException($"KeyVault could not {operation}.", ex);
+            throw new KeyVaultAccessException($"KeyVault could not {operation}.", ex, ex is SqliteException { SqliteErrorCode: 5 or 6 });
         }
     }
+
+    private static async Task<T> RetryContentionAsync<T>(Func<Task<T>> action, CancellationToken ct)
+    {
+        // Each failed attempt disposes its transaction/connection before yielding.
+        // Never retry crypto, ownership/version, permission or integrity failures.
+        for (var attempt = 0; ; attempt++)
+        {
+            ct.ThrowIfCancellationRequested();
+            try { return await action(); }
+            catch (Exception ex) when (attempt < 4 &&
+                (ex is SqliteException { SqliteErrorCode: 5 or 6 } || ex is PublicationConflictException))
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(50 * (1 << attempt)), ct);
+            }
+        }
+    }
+
+    private sealed class PublicationConflictException : InvalidOperationException;
 
     private static bool IsAccessFailure(Exception exception)
         => exception is IOException

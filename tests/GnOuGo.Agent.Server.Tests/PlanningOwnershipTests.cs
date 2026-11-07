@@ -4,6 +4,7 @@ using GnOuGo.Agent.Server.Planning;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
+using GnOuGo.KeyVault.Core.Services;
 
 namespace GnOuGo.Agent.Server.Tests;
 
@@ -87,6 +88,69 @@ public sealed class PlanningOwnershipTests
             Assert.DoesNotContain(state.Diagnostics, d => d.Code == "PLANNING_HOST_FAILURE");
             await Task.Delay(25, timeout.Token);
         }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task WatcherStorageFailureSuspendsOnlyItsOwnerAndColdRestartRecoversTheExactReceiptOnce(bool cancelDuringOutage)
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var state = CapturedSession();
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        var client = new PausedClient { CompleteOnCancellation = true };
+        var records = new WatcherFailureRecords(fixture.Records);
+        using (var service = PlanningSessionLifecycleTests.Create(fixture, new OneCallPlanner(), PlanningSessionLifecycleTests.AgentCatalog(), client, records: records))
+        {
+            await service.StartAsync(Ct);
+            await client.Entered.Task.WaitAsync(TimeSpan.FromSeconds(15), Ct);
+            var readsBefore = records.SessionReads;
+            await Task.Delay(800, Ct);
+            Assert.Equal(readsBefore, records.SessionReads); // Polling never hydrates a session.
+            records.Fail = true;
+            await records.Failed.Task.WaitAsync(TimeSpan.FromSeconds(5), Ct);
+            await service.StopAsync(Ct);
+            Assert.False(service.ExecuteTask!.IsFaulted);
+        }
+        var retained = (await fixture.Store.LoadAsync("planning-tests", state.Request.SessionId, Ct))!;
+        Assert.Equal(PlanningStatus.Generating, retained.Status);
+        Assert.NotNull(retained.PendingCall);
+        var receiptKey = state.Request.SessionId + ":" + retained.PendingCall.Id;
+        var before = (await fixture.Records.GetAsync(PlanningModelJournal.Collection, "planning-tests", receiptKey, EfPlanningSessionStore.Author, Ct))!;
+        Assert.NotNull(before);
+        if (cancelDuringOutage)
+            await fixture.Records.UpsertAsync("agent-planning-cancellations-v1", "planning-tests", state.Request.SessionId,
+                new JsonObject { ["revision"] = retained.Revision, ["requestId"] = retained.PendingCall.Id }.ToJsonString(), EfPlanningSessionStore.Author, Ct);
+        var coldRecords = new KeyVaultRecordStore(Path.Combine(fixture.Root, "vault.db"));
+        using var cold = PlanningSessionLifecycleTests.Create(fixture, new OneCallPlanner(), PlanningSessionLifecycleTests.AgentCatalog(), client, records: coldRecords);
+        client.Release.TrySetResult();
+        await cold.StartAsync(Ct);
+        var completed = await WaitForAsync(cold, state.Request.SessionId, cancelDuringOutage ? PlanningStatus.Cancelled : PlanningStatus.FinalReview);
+        await cold.StopAsync(Ct);
+        Assert.Equal(1, client.Calls);
+        Assert.Equal(1, completed.Usage!.Calls);
+        Assert.Equal(15, completed.Usage.TotalTokens);
+        Assert.Equal(before, await coldRecords.GetAsync(PlanningModelJournal.Collection, "planning-tests", receiptKey, EfPlanningSessionStore.Author, Ct));
+    }
+
+    private sealed class WatcherFailureRecords(IKeyVaultRecordStore inner) : IKeyVaultRecordStore
+    {
+        internal volatile bool Fail;
+        internal int SessionReads;
+        internal readonly TaskCompletionSource Failed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public Task<KeyVaultRecordValue?> GetAsync(string c, string t, string k, string a, CancellationToken ct = default)
+        {
+            if (c == EfPlanningSessionStore.Collection) Interlocked.Increment(ref SessionReads);
+            if (Fail && c == "agent-planning-cancellations-v1")
+            {
+                Failed.TrySetResult();
+                throw new KeyVaultAccessException("Injected exhausted contention", new IOException(), true);
+            }
+            return inner.GetAsync(c, t, k, a, ct);
+        }
+        public Task<KeyVaultRecordValue> UpsertAsync(string c, string t, string k, string v, string a, CancellationToken ct = default) => inner.UpsertAsync(c, t, k, v, a, ct);
+        public Task<IReadOnlyList<KeyVaultRecordValue>> ListAsync(string c, string t, string a, CancellationToken ct = default) => inner.ListAsync(c, t, a, ct);
+        public Task<bool> DeleteAsync(string c, string t, string k, string a, CancellationToken ct = default) => inner.DeleteAsync(c, t, k, a, ct);
     }
 
     private static PlanningSession CapturedSession()

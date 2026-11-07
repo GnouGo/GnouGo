@@ -229,8 +229,7 @@ public sealed partial class PlanningSessionService(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         if (!settings.Value.BackgroundProcessingEnabled) return;
-        foreach (var state in await store.ListAsync(Tenant, stoppingToken))
-            if ((!PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status)) || await IsCancellationRequestedAsync(state, stoppingToken)) _queue.Writer.TryWrite(state.Request.SessionId);
+        await QueueRecoveryAsync(stoppingToken);
         var recovery = RecoverAsync(stoppingToken);
         try
         {
@@ -248,13 +247,66 @@ public sealed partial class PlanningSessionService(
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
         try
         {
-            while (await timer.WaitForNextTickAsync(ct))
-                foreach (var state in await store.ListAsync(Tenant, ct))
-                    if ((!PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status)) || await IsCancellationRequestedAsync(state, ct)) _queue.Writer.TryWrite(state.Request.SessionId);
+            while (await timer.WaitForNextTickAsync(ct)) await QueueRecoveryAsync(ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
     }
+
+    private async Task QueueRecoveryAsync(CancellationToken ct)
+    {
+        try
+        {
+            // Select index coordinates first; never decrypt the tenant's historical
+            // sessions just to wake active owners or deliver cancellation markers.
+            await using var db = await contexts.CreateDbContextAsync(ct);
+            string? after = null;
+            while (true)
+            {
+                var ids = await db.Sessions.AsNoTracking().Where(s => s.TenantId == Tenant &&
+                    s.Status != PlanningStatus.Clarification && s.Status != PlanningStatus.FinalReview && s.Status != PlanningStatus.DiscoveryRecovery &&
+                    s.Status != PlanningStatus.Approved && s.Status != PlanningStatus.Saved && s.Status != PlanningStatus.Stopped &&
+                    s.Status != PlanningStatus.Failed && s.Status != PlanningStatus.Cancelled &&
+                    (after == null || string.Compare(s.SessionId, after) > 0))
+                    .OrderBy(s => s.SessionId).Select(s => s.SessionId).Take(100).ToListAsync(ct);
+                foreach (var id in ids) _queue.Writer.TryWrite(id);
+                if (ids.Count < 100) break;
+                after = ids[^1];
+            }
+            if (records is IKeyVaultRecordReader reader)
+            {
+                KeyVaultRecordCursor? cursor = null;
+                while (true)
+                {
+                    var page = await reader.QueryMetadataAsync(Cancellations, Tenant, "", EfPlanningSessionStore.Author, cursor, ct: ct);
+                    foreach (var marker in page.Records)
+                        if (await db.Sessions.AsNoTracking().AnyAsync(s => s.TenantId == Tenant && s.SessionId == marker.Key &&
+                            s.Status != PlanningStatus.Cancelled && s.Status != PlanningStatus.Saved, ct)) _queue.Writer.TryWrite(marker.Key);
+                    if (!page.HasMore) break;
+                    cursor = page.Next ?? throw new InvalidOperationException("Missing cancellation metadata cursor.");
+                }
+            }
+            else
+                foreach (var marker in await records.ListAsync(Cancellations, Tenant, EfPlanningSessionStore.Author, ct)) _queue.Writer.TryWrite(marker.Key);
+        }
+        catch (Exception ex) when (IsStorageFailure(ex))
+        {
+            logger.LogError("Planning recovery is suspended after {ErrorType}; the next recovery tick will retry retained work.", ex.GetType().Name);
+        }
+    }
+
     private async Task RunAsync(string id, CancellationToken stoppingToken)
+    {
+        try { await RunOwnedAsync(id, stoppingToken); }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { }
+        catch (Exception ex) when (IsStorageFailure(ex))
+        {
+            logger.LogError("Planning session {SessionId} is suspended after {ErrorType}; requests, receipts, reservations and cancellation markers are retained for recovery.", id, ex.GetType().Name);
+        }
+    }
+
+    private static bool IsStorageFailure(Exception ex) => ex is KeyVaultAccessException or System.Data.Common.DbException or DbUpdateException;
+
+    private async Task RunOwnedAsync(string id, CancellationToken stoppingToken)
     {
         var ownerGate = _locks.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
         await ownerGate.WaitAsync(stoppingToken);
@@ -313,7 +365,7 @@ public sealed partial class PlanningSessionService(
             }
         }
         catch (PlanningConflictException) { logger.LogInformation("Planning session {SessionId} changed in another worker.", id); }
-        catch (Exception ex)
+        catch (Exception ex) when (!IsStorageFailure(ex))
         {
             logger.LogError("Planning session {SessionId} stopped after {ErrorType}.", id, ex.GetType().Name);
             var state = await store.LoadAsync(Tenant, id, CancellationToken.None);

@@ -35,6 +35,17 @@ and its chunks. Historical conversion obtains the write reservation before readi
 the old value, so it cannot overwrite a value committed by another store instance
 while waiting for that reservation. Audit writes occur after read-only snapshots
 complete; they do not upgrade a stale read snapshot into a write transaction.
+Full reads copy encrypted headers/chunks in the snapshot and decrypt after releasing
+it. Normal range inspection also releases its snapshot before decryption/audit.
+Writes prepare encryption before reserving the writer and verify the record identity
+inside the atomic publication. Historical conversion retains its exclusive recheck.
+
+SQLite BUSY/LOCKED failures retry the complete rolled-back operation at most five
+times, with a one-second provider wait per attempt and cancellable 50/100/200/400 ms
+delays. Other errors are not retried. Exhausted contention raises
+`KeyVaultAccessException` with `IsTransient`; callers retain durable work and suspend
+until storage recovers. Successful audited operations never return without their
+audit write. No retry redispatches a model request or settles financial usage.
 
 ```sh
 dotnet build src/GnOuGo.KeyVault.Core

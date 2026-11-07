@@ -47,8 +47,11 @@ public sealed partial class PlanningSessionService
             using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(250));
             do
             {
-                var state = await store.LoadAsync(Tenant, id, ct);
-                if (state is not null && await IsCancellationRequestedAsync(state, ct))
+                // The lease owns one monotonic session. Its tiny cancellation marker
+                // is sufficient to interrupt; revision/status validation remains in
+                // the owner before applying the cancellation checkpoint.
+                var request = await records.GetAsync(Cancellations, Tenant, id, EfPlanningSessionStore.Author, ct);
+                if (request is not null)
                 {
                     await interrupt.CancelAsync();
                     return;
@@ -56,6 +59,11 @@ public sealed partial class PlanningSessionService
             } while (await timer.WaitForNextTickAsync(ct));
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            logger.LogError("Planning cancellation surveillance for {SessionId} is unavailable after {ErrorType}; suspending its owner with durable evidence retained.", id, ex.GetType().Name);
+            await interrupt.CancelAsync();
+        }
     }
 
     internal async Task<PlanningRequestInspectionDto?> InspectRequestAsync(PlanningSession state, CancellationToken ct)

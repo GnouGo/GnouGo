@@ -14,7 +14,10 @@ public sealed partial class KeyVaultRecordStore
         tenant.Length.ToString(CultureInfo.InvariantCulture) + ":" + tenant + key.Length.ToString(CultureInfo.InvariantCulture) + ":" + key);
     private static string PayloadHeader(string text, string collection, string tenant, string key) => $"KeyVault-pages-v1\n{Scope(collection, tenant, key)}\n{VersionOf(text)}\n{text.Length.ToString(CultureInfo.InvariantCulture)}";
 
-    public async Task<KeyVaultRecordMetadata?> GetMetadataAsync(string collection, string tenantId, string key, string author, CancellationToken ct = default)
+    public Task<KeyVaultRecordMetadata?> GetMetadataAsync(string collection, string tenantId, string key, string author, CancellationToken ct = default)
+        => ExecuteSqliteAsync(() => GetMetadataCoreAsync(collection, tenantId, key, author, ct), ct);
+
+    private async Task<KeyVaultRecordMetadata?> GetMetadataCoreAsync(string collection, string tenantId, string key, string author, CancellationToken ct)
     {
         ValidateCoordinates(collection, tenantId, key, author);
         await _databaseGate.WaitAsync(ct);
@@ -30,8 +33,12 @@ public sealed partial class KeyVaultRecordStore
         finally { _databaseGate.Release(); }
     }
 
-    public async Task<KeyVaultRecordMetadataPage> QueryMetadataAsync(string collection, string tenantId, string prefix, string author,
+    public Task<KeyVaultRecordMetadataPage> QueryMetadataAsync(string collection, string tenantId, string prefix, string author,
         KeyVaultRecordCursor? after = null, int count = 100, CancellationToken ct = default)
+        => ExecuteSqliteAsync(() => QueryMetadataCoreAsync(collection, tenantId, prefix, author, after, count, ct), ct);
+
+    private async Task<KeyVaultRecordMetadataPage> QueryMetadataCoreAsync(string collection, string tenantId, string prefix, string author,
+        KeyVaultRecordCursor? after, int count, CancellationToken ct)
     {
         ValidateCoordinates(collection, tenantId, "metadata", author);
         ArgumentNullException.ThrowIfNull(prefix);
@@ -68,8 +75,12 @@ public sealed partial class KeyVaultRecordStore
         finally { _databaseGate.Release(); }
     }
 
-    public async Task<KeyVaultRecordRange?> ReadRangeAsync(string collection, string tenantId, string key, string author,
+    public Task<KeyVaultRecordRange?> ReadRangeAsync(string collection, string tenantId, string key, string author,
         string? version, int offset, int count, CancellationToken ct = default)
+        => ExecuteSqliteAsync(() => ReadRangeCoreAsync(collection, tenantId, key, author, version, offset, count, ct), ct);
+
+    private async Task<KeyVaultRecordRange?> ReadRangeCoreAsync(string collection, string tenantId, string key, string author,
+        string? version, int offset, int count, CancellationToken ct)
     {
         ValidateCoordinates(collection, tenantId, key, author);
         if (offset < 0) throw new ArgumentOutOfRangeException(nameof(offset));
@@ -79,40 +90,55 @@ public sealed partial class KeyVaultRecordStore
         {
             await using var connection = await OpenAsync(ct);
             var (pub, priv) = await EnsureDefaultKeyPairAsync(connection, ct);
-            // Read the root and chunks from one snapshot. Taking the write reservation
-            // before reading also prevents historical conversion from overwriting a concurrent update.
-            await using var transaction = connection.BeginTransaction();
+            var initial = await PayloadRowAsync(connection, collection, tenantId, key, ct, null);
+            if (initial is null) return null;
+            if (initial.Value.Version is null)
+                await PrepareHistoricalPagesAsync(connection, collection, tenantId, key, author, pub, priv, ct);
+            // Normal inspection takes only a read snapshot, released before decryption
+            // and the mandatory audit write. Historical conversion rechecks under its own writer.
+            await using var transaction = connection.BeginTransaction(deferred: true);
             var row = await PayloadRowAsync(connection, collection, tenantId, key, ct, transaction);
             if (row is null) return null;
-            if (row.Value.Version is null)
-            {
-                // Explicit historical access only. The logical record and its timestamps are unchanged.
-                var text = CryptoService.Decrypt(row.Value.Encrypted, priv);
-                await WritePayloadAsync(connection, transaction, collection, tenantId, key, text, pub, ct);
-                await using var update = connection.CreateCommand();
-                update.Transaction = transaction;
-                update.CommandText = "UPDATE KeyVaultRecords SET EncryptedValue=$value WHERE Id=$id;";
-                update.Parameters.AddWithValue("$id", row.Value.Id);
-                update.Parameters.AddWithValue("$value", CryptoService.Encrypt(PayloadHeader(text, collection, tenantId, key), pub));
-                await update.ExecuteNonQueryAsync(ct);
-                await WriteAuditAsync(connection, transaction, collection, tenantId, key, "PrepareRecordPages", author, null, ct);
-                row = await PayloadRowAsync(connection, collection, tenantId, key, ct, transaction);
-            }
+            if (row.Value.Version is null) throw new PublicationConflictException();
             var value = row!.Value;
-            VerifyHeader(value, priv);
             if (version is not null && version != value.Version) throw new KeyVaultRecordVersionException();
             if (offset > value.Characters) throw new ArgumentOutOfRangeException(nameof(offset));
             var end = (int)Math.Min((long)offset + count, value.Characters);
-            var textPage = await ReadChunksAsync(connection, value, priv, Math.Max(0, offset - 1), Math.Min(value.Characters, end + 1), ct, transaction);
+            var start = Math.Max(0, offset - 1);
+            var readEnd = Math.Min(value.Characters, end + 1);
+            var chunks = await ReadEncryptedChunksAsync(connection, value, start, readEnd, ct, transaction);
+            await transaction.CommitAsync(ct);
+            await WriteAuditAsync(connection, collection, tenantId, key, "ReadRecordRange", author, null, ct);
+            VerifyHeader(value, priv);
+            var textPage = DecryptChunks(value, chunks, priv, start, readEnd);
             var startInPage = offset == 0 ? 0 : 1;
             if (offset < value.Characters && char.IsLowSurrogate(textPage[startInPage]))
                 throw new ArgumentException("The offset splits a Unicode scalar.", nameof(offset));
             if (end < value.Characters && char.IsLowSurrogate(textPage[startInPage + end - offset])) end--;
-            await WriteAuditAsync(connection, transaction, collection, tenantId, key, "ReadRecordRange", author, null, ct);
-            await transaction.CommitAsync(ct);
             return new(value.Version!, offset, end, value.Characters, textPage.Substring(startInPage, end - offset));
         }
         finally { _databaseGate.Release(); }
+    }
+
+    private static async Task PrepareHistoricalPagesAsync(SqliteConnection connection, string collection, string tenant, string key,
+        string author, string pub, string priv, CancellationToken ct)
+    {
+        await using var transaction = connection.BeginTransaction();
+        var row = await PayloadRowAsync(connection, collection, tenant, key, ct, transaction);
+        if (row is { Version: null })
+        {
+            var text = CryptoService.Decrypt(row.Value.Encrypted, priv);
+            await WritePayloadAsync(connection, transaction, collection, tenant, key,
+                PreparePayload(row.Value.Id, collection, tenant, key, text, pub, ct), ct);
+            await using var update = connection.CreateCommand();
+            update.Transaction = transaction;
+            update.CommandText = "UPDATE KeyVaultRecords SET EncryptedValue=$value WHERE Id=$id;";
+            update.Parameters.AddWithValue("$id", row.Value.Id);
+            update.Parameters.AddWithValue("$value", CryptoService.Encrypt(PayloadHeader(text, collection, tenant, key), pub));
+            await update.ExecuteNonQueryAsync(ct);
+            await WriteAuditAsync(connection, transaction, collection, tenant, key, "PrepareRecordPages", author, null, ct);
+        }
+        await transaction.CommitAsync(ct);
     }
 
     private static SqliteCommand MetadataCommand(SqliteConnection connection, string collection, string tenant)
@@ -145,7 +171,7 @@ public sealed partial class KeyVaultRecordStore
     }
 
     private readonly record struct PayloadRow(string Id, string Encrypted, string? Version, int Characters, string Scope);
-    private static async Task<PayloadRow?> PayloadRowAsync(SqliteConnection c, string collection, string tenant, string key, CancellationToken ct, SqliteTransaction transaction)
+    private static async Task<PayloadRow?> PayloadRowAsync(SqliteConnection c, string collection, string tenant, string key, CancellationToken ct, SqliteTransaction? transaction)
     {
         await using var command = c.CreateCommand();
         command.Transaction = transaction;
@@ -165,16 +191,45 @@ public sealed partial class KeyVaultRecordStore
         if (CryptoService.Decrypt(row.Encrypted, privateKey) != $"KeyVault-pages-v1\n{row.Scope}\n{row.Version}\n{row.Characters.ToString(CultureInfo.InvariantCulture)}")
             throw new CryptographicException("Invalid record page manifest.");
     }
-    private static async Task<string> ReadPayloadAsync(SqliteConnection c, string collection, string tenant, string key, string encrypted, string privateKey, CancellationToken ct, SqliteTransaction transaction)
+    private sealed record EncryptedChunk(int Part, int Offset, int Characters, string Encrypted);
+    private sealed record EncryptedPayload(string Encrypted, PayloadRow? Row, IReadOnlyList<EncryptedChunk> Chunks);
+
+    private static async Task<EncryptedPayload> ReadEncryptedPayloadAsync(SqliteConnection c, string collection, string tenant, string key,
+        string encrypted, CancellationToken ct, SqliteTransaction transaction)
     {
         var row = await PayloadRowAsync(c, collection, tenant, key, ct, transaction);
-        if (row?.Version is null) return CryptoService.Decrypt(encrypted, privateKey);
-        VerifyHeader(row.Value, privateKey);
-        var text = await ReadChunksAsync(c, row.Value, privateKey, 0, row.Value.Characters, ct, transaction);
-        if (VersionOf(text) != row.Value.Version) throw new CryptographicException("Invalid record content hash.");
+        if (row?.Version is null) return new(encrypted, null, []);
+        await using var command = c.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "SELECT Part,Offset,Characters,EncryptedValue FROM KeyVaultRecordChunks WHERE RecordId=$id AND Version=$version ORDER BY Part;";
+        command.Parameters.AddWithValue("$id", row.Value.Id);
+        command.Parameters.AddWithValue("$version", row.Value.Version);
+        var chunks = new List<EncryptedChunk>();
+        await using var reader = await command.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct)) chunks.Add(new(reader.GetInt32(0), reader.GetInt32(1), reader.GetInt32(2), reader.GetString(3)));
+        return new(encrypted, row, chunks);
+    }
+
+    private static string DecryptPayload(EncryptedPayload payload, string privateKey)
+    {
+        if (payload.Row is not { } row) return CryptoService.Decrypt(payload.Encrypted, privateKey);
+        VerifyHeader(row, privateKey);
+        var result = new StringBuilder(row.Characters);
+        var expectedPart = 0;
+        foreach (var chunk in payload.Chunks)
+        {
+            var plain = CryptoService.Decrypt(chunk.Encrypted, privateKey);
+            var prefix = $"{row.Id}\n{row.Scope}\n{row.Version}\n{chunk.Part.ToString(CultureInfo.InvariantCulture)}\n{chunk.Offset.ToString(CultureInfo.InvariantCulture)}\n";
+            if (chunk.Part != expectedPart++ || chunk.Offset != result.Length ||
+                !plain.StartsWith(prefix, StringComparison.Ordinal) || plain.Length - prefix.Length != chunk.Characters)
+                throw new CryptographicException("Invalid authenticated record chunk.");
+            result.Append(plain, prefix.Length, chunk.Characters);
+        }
+        var text = result.ToString();
+        if (text.Length != row.Characters || VersionOf(text) != row.Version) throw new CryptographicException("Invalid record content hash.");
         return text;
     }
-    private static async Task<string> ReadChunksAsync(SqliteConnection c, PayloadRow row, string privateKey, int start, int end, CancellationToken ct, SqliteTransaction transaction)
+    private static async Task<IReadOnlyList<EncryptedChunk>> ReadEncryptedChunksAsync(SqliteConnection c, PayloadRow row, int start, int end, CancellationToken ct, SqliteTransaction transaction)
     {
         await using var command = c.CreateCommand();
         command.Transaction = transaction;
@@ -186,13 +241,21 @@ public sealed partial class KeyVaultRecordStore
         command.Parameters.AddWithValue("$version", row.Version);
         command.Parameters.AddWithValue("$start", start);
         command.Parameters.AddWithValue("$end", end);
-        var result = new StringBuilder(end - start);
-        var next = start;
+        var chunks = new List<EncryptedChunk>();
         await using var reader = await command.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
+            chunks.Add(new(reader.GetInt32(0), reader.GetInt32(1), reader.GetInt32(2), reader.GetString(3)));
+        return chunks;
+    }
+
+    private static string DecryptChunks(PayloadRow row, IReadOnlyList<EncryptedChunk> chunks, string privateKey, int start, int end)
+    {
+        var result = new StringBuilder(end - start);
+        var next = start;
+        foreach (var chunk in chunks)
         {
-            var part = reader.GetInt32(0); var offset = reader.GetInt32(1); var chars = reader.GetInt32(2);
-            var plain = CryptoService.Decrypt(reader.GetString(3), privateKey);
+            var part = chunk.Part; var offset = chunk.Offset; var chars = chunk.Characters;
+            var plain = CryptoService.Decrypt(chunk.Encrypted, privateKey);
             var prefix = $"{row.Id}\n{row.Scope}\n{row.Version}\n{part.ToString(CultureInfo.InvariantCulture)}\n{offset.ToString(CultureInfo.InvariantCulture)}\n";
             if (!plain.StartsWith(prefix, StringComparison.Ordinal) || plain.Length - prefix.Length != chars || offset > next)
                 throw new CryptographicException("Invalid authenticated record chunk.");
@@ -203,36 +266,65 @@ public sealed partial class KeyVaultRecordStore
         if (next != end) throw new CryptographicException("Incomplete record pages.");
         return result.ToString();
     }
-    private static async Task WritePayloadAsync(SqliteConnection c, SqliteTransaction transaction, string collection, string tenant, string key, string? text, string publicKey, CancellationToken ct)
+    private sealed record PreparedPayload(string Id, string? Version, int Characters, IReadOnlyList<EncryptedChunk> Chunks);
+
+    private static PreparedPayload PreparePayload(string id, string collection, string tenant, string key, string? text, string publicKey, CancellationToken ct)
+    {
+        if (text is null) return new(id, null, 0, []);
+        var version = VersionOf(text);
+        var chunks = new List<EncryptedChunk>();
+        for (var offset = 0; offset < text.Length;)
+        {
+            ct.ThrowIfCancellationRequested();
+            var count = Math.Min(PayloadChunkCharacters, text.Length - offset);
+            if (offset + count < text.Length && char.IsHighSurrogate(text[offset + count - 1])) count--;
+            var part = chunks.Count;
+            var prefix = $"{id}\n{Scope(collection, tenant, key)}\n{version}\n{part.ToString(CultureInfo.InvariantCulture)}\n{offset.ToString(CultureInfo.InvariantCulture)}\n";
+            chunks.Add(new(part, offset, count, CryptoService.Encrypt(prefix + text.Substring(offset, count), publicKey)));
+            offset += count;
+        }
+        return new(id, version, text.Length, chunks);
+    }
+
+    private static async Task<string?> ReadRecordIdAsync(SqliteConnection c, string collection, string tenant, string key, CancellationToken ct, SqliteTransaction? transaction = null)
     {
         await using var lookup = c.CreateCommand();
         lookup.Transaction = transaction;
         lookup.CommandText = "SELECT Id FROM KeyVaultRecords WHERE Collection=$collection AND TenantId=$tenant AND RecordKey=$key;";
         lookup.Parameters.AddWithValue("$collection", collection); lookup.Parameters.AddWithValue("$tenant", tenant); lookup.Parameters.AddWithValue("$key", key);
-        var id = (string)(await lookup.ExecuteScalarAsync(ct) ?? throw new InvalidOperationException("Missing record."));
+        return (string?)await lookup.ExecuteScalarAsync(ct);
+    }
+
+    private static async Task WritePayloadAsync(SqliteConnection c, SqliteTransaction transaction, string collection, string tenant, string key, PreparedPayload payload, CancellationToken ct)
+    {
+        var id = await ReadRecordIdAsync(c, collection, tenant, key, ct, transaction);
+        if (id != payload.Id) throw new PublicationConflictException();
         await using var command = c.CreateCommand(); command.Transaction = transaction;
         command.CommandText = "DELETE FROM KeyVaultRecordChunks WHERE RecordId=$id; DELETE FROM KeyVaultRecordPayloads WHERE RecordId=$id;";
         command.Parameters.AddWithValue("$id", id);
         await command.ExecuteNonQueryAsync(ct);
-        if (text is null) return;
-        var version = VersionOf(text);
+        if (payload.Version is null) return;
         command.CommandText = "INSERT INTO KeyVaultRecordPayloads(RecordId,Version,Characters) VALUES($id,$version,$chars);";
-        command.Parameters.AddWithValue("$version", version); command.Parameters.AddWithValue("$chars", text.Length);
+        command.Parameters.AddWithValue("$version", payload.Version); command.Parameters.AddWithValue("$chars", payload.Characters);
         await command.ExecuteNonQueryAsync(ct);
-        var part = 0;
-        for (var offset = 0; offset < text.Length; part++)
+        foreach (var chunk in payload.Chunks)
         {
             ct.ThrowIfCancellationRequested();
-            var count = Math.Min(PayloadChunkCharacters, text.Length - offset);
-            if (offset + count < text.Length && char.IsHighSurrogate(text[offset + count - 1])) count--;
-            var prefix = $"{id}\n{Scope(collection, tenant, key)}\n{version}\n{part.ToString(CultureInfo.InvariantCulture)}\n{offset.ToString(CultureInfo.InvariantCulture)}\n";
             await using var insert = c.CreateCommand(); insert.Transaction = transaction;
             insert.CommandText = "INSERT INTO KeyVaultRecordChunks(RecordId,Version,Part,Offset,Characters,EncryptedValue) VALUES($id,$version,$part,$offset,$chars,$encrypted);";
-            insert.Parameters.AddWithValue("$id", id); insert.Parameters.AddWithValue("$version", version);
-            insert.Parameters.AddWithValue("$part", part); insert.Parameters.AddWithValue("$offset", offset); insert.Parameters.AddWithValue("$chars", count);
-            insert.Parameters.AddWithValue("$encrypted", CryptoService.Encrypt(prefix + text.Substring(offset, count), publicKey));
+            insert.Parameters.AddWithValue("$id", id); insert.Parameters.AddWithValue("$version", payload.Version);
+            insert.Parameters.AddWithValue("$part", chunk.Part); insert.Parameters.AddWithValue("$offset", chunk.Offset); insert.Parameters.AddWithValue("$chars", chunk.Characters);
+            insert.Parameters.AddWithValue("$encrypted", chunk.Encrypted);
             await insert.ExecuteNonQueryAsync(ct);
-            offset += count;
+        }
+    }
+
+    private static async Task<T> ExecuteSqliteAsync<T>(Func<Task<T>> action, CancellationToken ct)
+    {
+        try { return await RetryContentionAsync(action, ct); }
+        catch (SqliteException ex)
+        {
+            throw new KeyVaultAccessException("KeyVault record inspection could not access storage.", ex, ex.SqliteErrorCode is 5 or 6);
         }
     }
 }
