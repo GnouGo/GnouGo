@@ -573,3 +573,33 @@ verified pricing evidence. Experimental dispatch fails with
 `external_financial_history_incomplete` while they remain unverified. Do not pass
 zero, drop a hold, change deployment, or raise a ceiling to get a live pass. Capture
 an exact fresh refusal when complete funding cannot be established.
+
+### Explicit independent spending allocation
+
+An operator may explicitly authorize **additional, independent new spending**.
+That is different from discovering that old liabilities were paid or resetting
+their ledger. Only with that explicit authorization, initialize a fresh campaign:
+
+```sh
+dotnet <benchmark.dll> --schema-portability authorize-fresh-allocation \
+  --workspace <workspace> --campaign <new-empty-campaign> \
+  --previous-campaign <retained-campaign> --amount-eur 400 \
+  --authorization <one-use-authorization-reference> --model <exact-deployment>
+```
+
+The existing encrypted records retain the authorization, predecessor accounting,
+current immutable deployment registration and a pending/active publication marker.
+The operation requires both campaign and authorization-reference leases. A grant
+cannot fund two campaigns; retrying it never clears subsequent usage. An occupied
+campaign cannot be reset. Admission verifies publication and configuration binding
+before each new logical request and HTTP attempt; received evidence and exact
+receipt recovery remain writable/readable after authority failure.
+
+Use the returned configuration identity for fresh probe/plan runs. The host remains
+Limited and captures the new allowance for new sessions. The external-reservation
+argument then refers only to liabilities **inside this new allocation** (initially
+zero), not the retained predecessor's unresolved holds. Its historical liabilities
+remain explicitly unreconciled; globally available funding remains unavailable.
+This operation must never be invoked automatically to evade admission. It does not
+change historical sessions, tariffs, reservations, limits or receipts and does not
+authorize execution or replay of old requests.

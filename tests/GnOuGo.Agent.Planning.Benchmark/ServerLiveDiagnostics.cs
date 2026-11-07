@@ -36,6 +36,7 @@ internal static class ServerLiveDiagnostics
         var executionOnly = args.ElementAtOrDefault(1) == "server-live-execute";
         var retained = inspectionOnly || executionOnly;
         var mcpReadiness = args.ElementAtOrDefault(1) == "server-live-mcp-readiness";
+        var fundingScope = await campaign.FreshAllocationAsync(CancellationToken.None);
         if (planning || !retained && !mcpReadiness) model.RetainedExternalReservationsEur = decimal.Parse(
             SchemaPortabilityCampaign.RequiredOption(args, "--retained-external-reservations-eur"), System.Globalization.CultureInfo.InvariantCulture);
 
@@ -58,6 +59,9 @@ internal static class ServerLiveDiagnostics
             "--DocsIngestorMcp:VectorDatabasePath=" + Path.Combine(stateRoot, "vectors.sqlite"),
             "--DocsIngestorMcp:OriginalsDirectory=" + Path.Combine(stateRoot, "originals")
         };
+        if (fundingScope is not null)
+            hostArgs = hostArgs.Concat(new[] { "--WorkflowPlanningBudget:Currency=EUR",
+                "--WorkflowPlanningBudget:Amount=" + fundingScope["allowance_eur"]!.GetValue<decimal>().ToString("G29", System.Globalization.CultureInfo.InvariantCulture) }).ToArray();
         var financialForecastMode = SchemaPortabilityCampaign.Option(args, "--financial-forecast-mode") ?? "strict";
         if (financialForecastMode is not ("strict" or "experimental_warning")) throw new ArgumentException("Invalid financial forecast mode.");
         model.AdvisoryFinancialForecasts = financialForecastMode == "experimental_warning";
@@ -107,6 +111,7 @@ internal static class ServerLiveDiagnostics
                 ["server"] = AssemblyEvidence(typeof(GnOuGoAgentWebHost).Assembly) },
             ["configuration_sources"] = model.ConfigurationSources.DeepClone(),
             ["server_model_source"] = app.Services.GetRequiredService<LLMRuntimeOptionsStore>().DefaultModelSource };
+        if (fundingScope is not null) report["funding_scope"] = fundingScope.DeepClone();
         if (phaseFile is not null) report["phase_policy_sha256"] = PlanningGraphCompiler.Fingerprint(await File.ReadAllTextAsync(phaseFile));
         if (!retained) await campaign.SaveAsync("planning-evaluation-runs", run, report);
         var invoked = 0;

@@ -301,6 +301,19 @@ internal static class SchemaPortabilityCampaign
                 Option(args, "--authorization") ?? throw new ArgumentException("Supply the explicit authorization."), CancellationToken.None)).ToJsonString());
             return;
         }
+        if (phase == "authorize-fresh-allocation")
+        {
+            var reference = RequiredOption(args, "--authorization");
+            var grantLeasePath = Path.Combine(root, ".GnOuGo", "data", "planning-evaluation",
+                "funding-authorization-" + PlanningGraphCompiler.Fingerprint(reference) + ".lock");
+            await using var grantLease = new FileStream(grantLeasePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            using var proposed = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", RequiredOption(args, "--model"), campaign, root, CancellationToken.None);
+            var ready = await proposed.ReadinessAsync(CancellationToken.None); KeyVaultBenchmarkModel.RequireReady(ready);
+            var grant = await campaign.AuthorizeFreshAllocationAsync(RequiredOption(args, "--previous-campaign"),
+                decimal.Parse(RequiredOption(args, "--amount-eur"), System.Globalization.CultureInfo.InvariantCulture), reference,
+                proposed.CampaignConfiguration(), proposed.ConfigurationFingerprint, ready["declared_metadata_hash"]!.ToString(), CancellationToken.None);
+            Console.WriteLine(grant.ToJsonString()); return;
+        }
         if (phase == "retain-schema-rejection")
         {
             var requestId = Option(args, "--request-id") ?? throw new ArgumentException("Supply the exact --request-id.");

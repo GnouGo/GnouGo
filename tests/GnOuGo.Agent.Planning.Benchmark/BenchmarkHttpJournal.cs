@@ -80,6 +80,7 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
         var oldCount = existing?["transport"]?["Attempts"]?.AsArray().Count ?? 0;
         if (state.Attempts.Count > oldCount)
         {
+            _ = await campaign.FreshAllocationAsync(ct);
             if (state.Attempts.Count != oldCount + 1 || state.Attempts[^1].Status is not null)
                 throw new InvalidOperationException("Each new dispatch must have one reserved identity.");
             var totals = await AccountingAsync(campaign, requestId, record, ct);

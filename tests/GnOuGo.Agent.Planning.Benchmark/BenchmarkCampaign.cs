@@ -462,6 +462,7 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
         if (await LoadAsync("planning-evaluation-closures", key, ct) is not null) throw new InvalidOperationException("This request is permanently retained as inconclusive and cannot be dispatched again.");
         if (await LoadAsync("planning-evaluation-receipts", key, ct) is { } receipt)
             return JsonSerializer.Deserialize(receipt, PlanningJsonContext.Default.LLMResponse)!;
+        _ = await FreshAllocationAsync(ct);
         var requestHash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
         if (await LoadAsync("planning-evaluation-failures", key, ct) is { } denied && denied["dispatch_status"]?.ToString() == "not_started")
         {

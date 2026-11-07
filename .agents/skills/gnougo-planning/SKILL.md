@@ -224,6 +224,16 @@ estimates, unpriced completed consumption, unresolved holds and provider invoice
 Do not call a provisional hold an invoice, infer available funds from missing
 history, release an unverified reservation or sum parent/child scopes as distinct calls.
 
+Explicit operator authorization of an independent new-spending allocation may use
+the existing fresh-allocation campaign operation. Preserve the predecessor's ledger
+and unresolved liabilities, identify them as unreconciled, and report global funding
+as unavailable. Start a new empty namespace with zero new consumption and a finite
+positive authorized allowance; never erase history or reuse the grant for another
+campaign. Verify its pending/active publication and exact configuration binding at
+new request/attempt admission. Reauthorization of the same grant cannot reset usage.
+Existing receipt recovery remains available. This exception requires explicit new
+funding authority; it is never an automatic response to a refusal.
+
 ## Maintained references
 
 - [Incremental construction](../../../docs/incremental-taskplan-construction.md)

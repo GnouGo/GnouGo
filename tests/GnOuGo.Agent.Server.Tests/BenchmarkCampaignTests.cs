@@ -13,6 +13,85 @@ public sealed class BenchmarkCampaignTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    [Fact]
+    public async Task ExplicitFreshFundingRetainsOldLiabilitiesAndCannotResetOrDuplicateANewGrant()
+    {
+        var records = new Records(); var previous = new BenchmarkCampaign(records, "retained");
+        var config = new JsonObject { ["provider"] = "OpenAi", ["model"] = "configured-model" };
+        await previous.PinAsync(config, Ct);
+        var old = new BenchmarkHttpJournal(previous, "old:1:hash", 10, 10, 30m);
+        await old.PrepareAsync(Ct); await old.SaveAsync(new() { Attempts = [new() { Id = "old:1:hash:1" }] }, Ct);
+        var before = (await previous.LoadAsync(BenchmarkHttpJournal.Collection, "old:1:hash", Ct))!.ToJsonString();
+        var fresh = new BenchmarkCampaign(records, "new-allocation"); await fresh.PinAsync(config, Ct);
+        async Task<JsonObject> Authorize(BenchmarkCampaign target, decimal amount = 400) => await target.AuthorizeFreshAllocationAsync(
+            previous.Id, amount, "explicit-new-400", config, new string('a',64), new string('b',64), Ct);
+        var funding = await Authorize(fresh); Assert.Equal(400m, await fresh.CostCeilingAsync(Ct));
+        Assert.True(funding["historical_liabilities_unreconciled"]!.GetValue<bool>()); Assert.Null(funding["globally_available_funding"]);
+        Assert.Equal(before, (await previous.LoadAsync(BenchmarkHttpJournal.Collection, "old:1:hash", Ct))!.ToJsonString());
+        var current = new BenchmarkHttpJournal(fresh, "new:1:hash", 10, 10, 5m);
+        await current.PrepareAsync(Ct); await current.SaveAsync(new() { Attempts = [new() { Id = "new:1:hash:1" }] }, Ct);
+        await Authorize(fresh); // Idempotent authorization never clears subsequent consumption.
+        Assert.Equal(5m, (await BenchmarkHttpJournal.AccountingAsync(fresh, ct: Ct))["reserved_cost_eur"]!.GetValue<decimal>());
+        await Assert.ThrowsAsync<PlanningConflictException>(() => Authorize(fresh, 401));
+        var second = new BenchmarkCampaign(records, "second"); await second.PinAsync(config, Ct);
+        await Assert.ThrowsAsync<PlanningConflictException>(() => Authorize(second));
+        await Assert.ThrowsAsync<PlanningConflictException>(() => fresh.AuthorizeFreshAllocationAsync(previous.Id, 400,
+            "another-reference", config, new string('a',64), new string('b',64), Ct));
+        var wrong = new BenchmarkCampaign(records, "already-used"); await wrong.PinAsync(config, Ct);
+        var issued = new BenchmarkHttpJournal(wrong, "issued:1:hash", 10, 10, 1m); await issued.PrepareAsync(Ct);
+        await Assert.ThrowsAsync<PlanningConflictException>(() => wrong.AuthorizeFreshAllocationAsync(previous.Id, 400,
+            "distinct-reference", config, new string('a',64), new string('b',64), Ct));
+    }
+
+    [Theory]
+    [InlineData("pending")]
+    [InlineData("binding")]
+    [InlineData("ceiling")]
+    [InlineData("configuration")]
+    public async Task FreshFundingRejectsIncompleteOrSubstitutedAuthority(string defect)
+    {
+        var records = new Records(); var old = new BenchmarkCampaign(records, "old"); var campaign = new BenchmarkCampaign(records, "fresh");
+        var config = new JsonObject { ["model"] = "model" }; await old.PinAsync(config, Ct); await campaign.PinAsync(config, Ct);
+        await campaign.AuthorizeFreshAllocationAsync(old.Id, 25, "new-funds", config, new string('a',64), new string('b',64), Ct);
+        var scope = (await campaign.LoadAsync("planning-evaluation-configuration", "independent-funding-scope", Ct))!;
+        if (defect == "pending") scope["status"] = "pending";
+        if (defect == "binding") scope["material"]!["authorization_reference"] = "substituted";
+        if (defect == "ceiling") await campaign.ExtendBudgetAsync(25, 26, "different-extension", Ct);
+        if (defect == "configuration") scope["configuration_id"] = "missing";
+        await campaign.SaveAsync("planning-evaluation-configuration", "independent-funding-scope", scope, Ct);
+        var error = await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => campaign.FreshAllocationAsync(Ct));
+        Assert.Equal("LLM_BUDGET_UNVERIFIABLE", error.Code);
+        var dispatched = false;
+        await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => campaign.CallAsync(new() { ClientRequestId = "new:1:hash" },
+            _ => Task.CompletedTask, _ => { dispatched = true; return Task.FromResult(new LLMResponse()); }, Ct));
+        Assert.False(dispatched);
+        var journal = new BenchmarkHttpJournal(campaign, "new:1:hash", 10, 10, 1m); await journal.PrepareAsync(Ct);
+        await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => journal.SaveAsync(new() { Attempts = [new() { Id = "attempt" }] }, Ct));
+        Assert.Empty((await journal.LoadAsync(Ct))!.Attempts);
+    }
+
+    [Fact]
+    public async Task InterruptedFreshAllocationRequiresExactCompletionAndNeverDiscardsReceivedEvidence()
+    {
+        var records = new Records(); var old = new BenchmarkCampaign(records, "old"); var campaign = new BenchmarkCampaign(records, "fresh");
+        var config = new JsonObject { ["model"] = "model" }; await old.PinAsync(config, Ct); await campaign.PinAsync(config, Ct);
+        Task<JsonObject> Authorize() => campaign.AuthorizeFreshAllocationAsync(old.Id, 400, "fresh-grant", config, new string('a',64), new string('b',64), Ct);
+        records.FailKey = "fresh:spending-authorization";
+        await Assert.ThrowsAsync<IOException>(Authorize);
+        await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => campaign.FreshAllocationAsync(Ct));
+        records.FailKey = null; await Authorize();
+        var journal = new BenchmarkHttpJournal(campaign, "new:1:hash", 10, 10, 1m);
+        var state = new LLMHttpRetryState { Attempts = [new() { Id = "attempt" }] }; await journal.SaveAsync(state, Ct);
+        var scope = (await campaign.LoadAsync("planning-evaluation-configuration", "independent-funding-scope", Ct))!;
+        scope["status"] = "pending"; await campaign.SaveAsync("planning-evaluation-configuration", "independent-funding-scope", scope, Ct);
+        state.Attempts[0].Status = 200; state.Attempts[0].Body = "received";
+        await journal.SaveAsync(state, Ct); // Persist actual outcomes even if admission authority later becomes invalid.
+        Assert.Equal("received", (await journal.LoadAsync(Ct))!.Attempts[0].Body);
+        await campaign.SaveAsync("planning-evaluation-receipts", "new:1:hash", JsonSerializer.SerializeToNode(new LLMResponse { Text = "exact" }, PlanningJsonContext.Default.LLMResponse)!.AsObject(), Ct);
+        var recovered = await campaign.CallAsync(new() { ClientRequestId = "new:1:hash" }, _ => throw new Exception("No admission"), _ => throw new Exception("No dispatch"), Ct);
+        Assert.Equal("exact", recovered.Text);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -1629,9 +1708,10 @@ public sealed class BenchmarkCampaignTests
     {
         internal int Writes;
         internal string? FailCollection;
+        internal string? FailKey;
         private readonly Dictionary<string, KeyVaultRecordValue> _rows = [];
         public Task<KeyVaultRecordValue?> GetAsync(string c, string t, string k, string a, CancellationToken ct = default) { ct.ThrowIfCancellationRequested(); return Task.FromResult(_rows.GetValueOrDefault(c + t + k)); }
-        public Task<KeyVaultRecordValue> UpsertAsync(string c, string t, string k, string v, string a, CancellationToken ct = default) { ct.ThrowIfCancellationRequested(); if (c == FailCollection) throw new IOException("Injected store failure"); Writes++; var row = new KeyVaultRecordValue(c, t, k, v, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow); _rows[c + t + k] = row; return Task.FromResult(row); }
+        public Task<KeyVaultRecordValue> UpsertAsync(string c, string t, string k, string v, string a, CancellationToken ct = default) { ct.ThrowIfCancellationRequested(); if (c == FailCollection || k == FailKey) throw new IOException("Injected store failure"); Writes++; var row = new KeyVaultRecordValue(c, t, k, v, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow); _rows[c + t + k] = row; return Task.FromResult(row); }
         public Task<IReadOnlyList<KeyVaultRecordValue>> ListAsync(string c, string t, string a, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<KeyVaultRecordValue>>(_rows.Values.Where(r => r.Collection == c && r.TenantId == t).ToArray());
         public Task<bool> DeleteAsync(string c, string t, string k, string a, CancellationToken ct = default) => throw new NotSupportedException();
     }

@@ -45,6 +45,7 @@
   <ItemGroup><Compile Include="../GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.cs" Link="BenchmarkCampaign.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../../src/GnOuGo.Agent.Desktop/DesktopOperatorLauncher.cs" Link="DesktopOperatorLauncher.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.Retention.cs" Link="BenchmarkCampaign.Retention.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.Funding.cs" Link="BenchmarkCampaign.Funding.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../GnOuGo.Agent.Planning.Benchmark/SyntheticArtifactOracle.cs" Link="SyntheticArtifactOracle.cs" /></ItemGroup>
   <ItemGroup><None Include="../GnOuGo.Flow.Planning.Tests/Fixtures/SchemaPortability/retained-schema-rejection.json" Link="Fixtures/SchemaPortability/retained-schema-rejection.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
   <ItemGroup><Compile Include="../GnOuGo.Agent.Planning.Benchmark/BenchmarkHttpJournal.cs" Link="BenchmarkHttpJournal.cs" /></ItemGroup>
