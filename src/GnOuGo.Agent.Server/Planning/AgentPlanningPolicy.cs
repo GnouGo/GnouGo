@@ -6,6 +6,6 @@ internal static class AgentPlanningPolicy
     {
         RequireExternalConfirmation = false,
         AllowedStepTypes = ["mcp.call", "llm.call", "set", "agent.run", "mapping.dynamic", "emit", "template.render", "sequence", "parallel", "loop.sequential", "loop.parallel", "switch", "human.input", "workflow.call"],
-        Instructions = "Generate a self-contained chat-agent workflow. Host configuration, credentials and saving the agent belong to the host. Preserve requested outputs and cleanup. The .GnOuGo directory is reserved for internal state; workflow-created files belong under workflows/<purpose-specific-name>. Propagate declared materialization outputs. Express the requested business actions. The host manages approval of the generated plan before execution; do not add that approval as a business task."
+        Instructions = "Generate a self-contained chat-agent workflow. Host configuration, credentials and saving the agent belong to the host. Preserve requested outputs and cleanup. The .GnOuGo directory is reserved for internal state; workflow-created files belong under workflows/<purpose-specific-name>. Propagate requested public materialization results through their declared interface. File effects, internal exports and operation return schemas do not themselves declare additional public outputs. Preserve actual materialization evidence and truthful success/failure reporting. Express the requested business actions. The host manages approval of the generated plan before execution; do not add that approval as a business task."
     };
 }

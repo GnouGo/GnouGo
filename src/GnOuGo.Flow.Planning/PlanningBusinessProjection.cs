@@ -132,6 +132,9 @@ internal static class PlanningBusinessProjection
             ["claims"] = new JsonObject { ["completedRequirements"] = Strings(PlanningCompactConstruction.CandidateCompletionClaims(state)),
                 ["workflowComplete"] = candidate.Extension.Complete }
         };
+        if (global)
+            context["declaredPublicOutputs"] = new JsonArray((state.Requirements?.Outputs ?? [])
+                .Select(output => (JsonNode)Declaration(output, completeType: true)).ToArray());
         if (plan.Choices.Count > 0)
             context["choices"] = new JsonArray(plan.Choices.Where(choice => global || actions.ToJsonString().Contains('"' + choice.Id + '"', StringComparison.Ordinal))
                 .Select(choice => (JsonNode)new JsonObject { ["id"] = choice.Id, ["selected"] = choice.Selected,

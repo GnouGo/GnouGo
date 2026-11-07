@@ -271,6 +271,14 @@ Local business projections include enclosing scope states and their actual clean
 not only owned child scopes. A closed child may have an open parent; omitted parent
 context cannot establish a global cleanup defect or establish cleanup satisfaction.
 
+Global review presents the accepted `declaredPublicOutputs` separately from actual
+root `publicOutputs`. Preserve their complete types, requiredness and defaults even
+when a binding is missing. File effects, internal exports and operation return schemas
+do not create another public interface. Judges still compare the original request,
+actual materialization, provenance and truthful success/failure; an original caller
+result omitted from the declarations remains a business defect. This projection
+neither grants repair authority nor chooses a verdict.
+
 
 
 ## Validation and publishing
