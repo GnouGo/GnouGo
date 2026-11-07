@@ -164,6 +164,11 @@ internal static class ServerLiveDiagnostics
                 report["schema_evidence_compaction"] = new JsonObject { ["original_prompt_bytes"] = System.Text.Encoding.UTF8.GetByteCount(before),
                     ["compacted_prompt_bytes"] = System.Text.Encoding.UTF8.GetByteCount(request.Prompt), ["response_schema_unchanged"] = true };
             }
+            if (args.Contains("--probe-present-response-schema", StringComparer.Ordinal))
+            {
+                PresentProbeResponseSchema(request, run, nonce);
+                report["response_schema_presented_in_prompt"] = true;
+            }
             report["request_id"] = request.ClientRequestId; report["requested_output_tokens"] = request.MaxTokens;
             if (args.Contains("--probe-check-responses", StringComparer.Ordinal))
                 report["responses_route_inspection"] = await model.InspectResponsesRouteAsync(run, context.RequestAborted);
@@ -422,6 +427,16 @@ internal static class ServerLiveDiagnostics
         request.DisableTransportRetries = true; request.RequiredReviewCalls = null;
         request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
         return request;
+    }
+    internal static void PresentProbeResponseSchema(LLMRequest request, string run, string nonce)
+    {
+        if (request.StructuredOutputSchema is null || request.Tools is { Count: > 0 } || request.UseBackgroundMode)
+            throw new ArgumentException("An independent tool-free foreground structured request is required.");
+        var presentation = "\nReturn an object matching this exact JSON response schema. Emit every required key in the selected branch, including null-valued fields. No prose or workflow execution.\n" + request.StructuredOutputSchema.ToJsonString();
+        var contextOffset = request.Prompt.LastIndexOf("\n{", StringComparison.Ordinal);
+        request.Prompt = contextOffset < 0 ? request.Prompt + presentation : request.Prompt.Insert(contextOffset, presentation);
+        request.ClientRequestId = null;
+        request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
     }
     private static async Task ExportInspectionAsync(HttpClient client, string id, string root, string run)
     {

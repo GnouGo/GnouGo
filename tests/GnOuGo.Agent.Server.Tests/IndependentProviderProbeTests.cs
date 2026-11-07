@@ -9,6 +9,27 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class IndependentProviderProbeTests
 {
     [Fact]
+    public void VisibleResponseContractChangesOnlyTheIndependentPromptAndIdentity()
+    {
+        var request = ServerLiveDiagnostics.IndependentProbe(null, "p", "m", "visibility", "nonce", "low", 32768);
+        request.StructuredOutputStrict = true;
+        request.Prompt += "\n{\"baseHash\":\"retained-context\"}";
+        var before = JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!;
+        var originalPrompt = request.Prompt;
+        ServerLiveDiagnostics.PresentProbeResponseSchema(request, "visibility", "nonce");
+        Assert.NotEqual(before["clientRequestId"]!.ToString(), request.ClientRequestId);
+        Assert.StartsWith(originalPrompt[..originalPrompt.LastIndexOf('\n')], request.Prompt, StringComparison.Ordinal);
+        Assert.Contains(request.StructuredOutputSchema!.ToJsonString(), request.Prompt, StringComparison.Ordinal);
+        Assert.EndsWith("\n{\"baseHash\":\"retained-context\"}", request.Prompt, StringComparison.Ordinal);
+        var after = JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!;
+        after["clientRequestId"] = before["clientRequestId"]!.DeepClone(); after["prompt"] = before["prompt"]!.DeepClone();
+        Assert.True(JsonNode.DeepEquals(before, after));
+        Assert.True(request.StructuredOutputStrict);
+        request.UseBackgroundMode = true;
+        Assert.Throws<ArgumentException>(() => ServerLiveDiagnostics.PresentProbeResponseSchema(request, "visibility", "nonce"));
+    }
+
+    [Fact]
     public void ProviderDecoderProbePreservesTheExactSchemaAndFullHostValidation()
     {
         var original = new LLMRequest { Provider = "p", Model = "m", Prompt = "Retain every original obligation.", Reasoning = "medium", MaxTokens = 32768,
