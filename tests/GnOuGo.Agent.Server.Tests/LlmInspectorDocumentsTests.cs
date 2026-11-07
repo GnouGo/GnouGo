@@ -1,4 +1,11 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text;
+using GnOuGo.AI.Core;
+using Bunit;
+using GnOuGo.Agent.Server.Components.Tracing;
+using Microsoft.Extensions.DependencyInjection;
+
 using GnOuGo.Agent.Server.Configuration;
 using GnOuGo.Agent.Server.Telemetry;
 using GnOuGo.Flow.Core.Planning;
@@ -8,9 +15,54 @@ using Microsoft.Extensions.Options;
 
 namespace GnOuGo.Agent.Server.Tests;
 
-public sealed class LlmInspectorDocumentsTests
+public sealed class LlmInspectorDocumentsTests : BunitContext
 {
-    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+    private static CancellationToken Ct => Xunit.TestContext.Current.CancellationToken;
+    [Fact]
+    public async Task StreamingInspectorPagesNativeAndAssembledEvidenceWithoutExposingRecoveryBytes()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        Assert.True(await fixture.Store.TrySaveAsync(new() { Request = new() { SessionId = "session", TenantId = "tenant" } }, null, Ct));
+        var store = Store(fixture.Records, fixture.Store);
+        const string requestId = "session:1:hash";
+        var request = new LLMRequest { ClientRequestId = requestId, Prompt = "controlled" };
+        await fixture.Records.UpsertAsync("agent-planning-model-requests-v11", "tenant", "session:" + requestId,
+            JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), "test", Ct);
+        var transport = new LLMHttpRetryState
+        {
+            Transport = new(LLMStreamingMode.Auto, LLMStreamingMode.Streaming, LLMTransportResolver.ChatCompletions, "exact deployment declaration"),
+            Attempts = [new() { Id = "physical", ObservedStatus = 200, Status = 200, ProtocolComplete = true,
+                UsageKnown = false, TerminationStatus = "stop", Body = "data: {\"content\":\"safe\"}\n\n",
+                AssembledBody = "{\"result\":\"safe\"}", PartialBody = "Authorization: Bearer SUPER_SECRET",
+                PartialBodyBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes("SUPER_SECRET")) }]
+        };
+        var saved = await fixture.Records.UpsertAsync("agent-planning-model-http-v11", "tenant", requestId,
+            new JsonObject { ["tenant"] = "tenant", ["session"] = "session", ["request_hash"] = GnOuGo.Flow.Planning.PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)),
+                ["transport"] = JsonSerializer.SerializeToNode(transport, LLMHttpRetryJsonContext.Default.LLMHttpRetryState) }.ToJsonString(), "test", Ct);
+        await store.ObserveAsync(saved.Collection, "tenant", "session", requestId, saved.Value, saved.UpdatedAt.UtcTicks, Ct);
+        var detail = await store.JournalDocumentsAsync("session", false, "session:" + requestId, Ct);
+        Assert.Equal("Streaming", detail["transport"]!["Transport"]!["EffectiveMode"]!.ToString());
+        Assert.DoesNotContain("SUPER_SECRET", detail.ToJsonString());
+        Assert.DoesNotContain(Convert.ToBase64String(Encoding.UTF8.GetBytes("SUPER_SECRET")), detail.ToJsonString());
+        Assert.Contains(LlmTraceContentStore.Documents(detail), d => d.Title.EndsWith("AssembledBody", StringComparison.Ordinal));
+        foreach (var doc in LlmTraceContentStore.Documents(detail))
+            Assert.DoesNotContain("SUPER_SECRET", (await store.ReadDocumentAsync(detail, doc.Id, doc.Version, 0, 8192, Ct)).Text);
+        Assert.Equal(saved, await fixture.Records.GetAsync(saved.Collection, "tenant", requestId, "test", Ct));
+        await store.SaveAsync("stream-reference", new LlmTraceContent { TenantId = "tenant", TraceId = "trace", SpanId = "span",
+            SessionId = "session", Journal = "agent", RequestKey = "session:" + requestId }, Ct);
+        Services.AddSingleton(store); JSInterop.Mode = JSRuntimeMode.Loose;
+        var cut = Render<LlmCallDetail>(p => p.Add(c => c.Reference, "stream-reference").Add(c => c.TraceId, "trace")
+            .Add(c => c.SpanId, "span").Add(c => c.SessionId, "session"));
+        cut.Find(".llm-call__expand").Click();
+        cut.WaitForAssertion(() => Assert.Contains("Effective transport", cut.Markup));
+        Assert.Contains("Streaming", cut.Markup);
+        Assert.Contains("Native protocol complete", cut.Markup);
+        Assert.DoesNotContain("SUPER_SECRET", cut.Markup);
+        cut.Find(".llm-call__expand").Click();
+        Assert.DoesNotContain("Effective transport", cut.Markup);
+
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

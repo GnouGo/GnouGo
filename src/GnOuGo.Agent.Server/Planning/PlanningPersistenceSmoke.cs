@@ -49,6 +49,7 @@ internal static class PlanningPersistenceSmoke
         Check(budgetPolicy.Capture()["mode"]?.ToString() == "unlimited" && budgetPolicy.Capture()["origin"]?.ToString() == "operator_preference",
             "protected application budget preference recovery");
         var store = new EfPlanningSessionStore(factory, records);
+        await VerifyNativeTransportAsync(records);
         await VerifySessionStorageAsync(store, factory, records, vault, directory);
         await VerifyJudgeRecoveryAsync(directory, vault, factory, records, store);
         IMappingArtifactStore mappings = new GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore(records,
@@ -84,6 +85,51 @@ internal static class PlanningPersistenceSmoke
                 .All(secret => !bytes.Contains(secret, StringComparison.Ordinal)), "encrypted sensitive data");
         }
         Console.WriteLine("Format-11 planning persistence and exact receipt recovery passed; execution journal schema 9 is unchanged.");
+    }
+
+    private static async Task VerifyNativeTransportAsync(IKeyVaultRecordStore records)
+    {
+        var journal = new NativeSmokeJournal(records);
+        using var handler = new NativeSmokeHandler();
+        using var http = new HttpClient(handler);
+        var options = new LLMOptions { DefaultProvider = "smoke", DefaultModel = "native-smoke", Models = new()
+        {
+            ["smoke"] = new() { Type = "openai", Url = "https://native-smoke.invalid/v1", RequestPolicy = new()
+                { StreamingMode = LLMStreamingMode.Streaming, StreamingSupport = new() { [LLMTransportResolver.ChatCompletions] = true } } }
+        } };
+        for (var index = 0; index < 2; index++)
+        {
+            using var context = new LLMHttpRetryContext("published-native", journal, new() { MaxAttempts = 1, MaxUncertainRetries = 0 }).Activate();
+            var response = await new RoutingLLMClient(http, options).CallAsync(new() { Model = "native-smoke", Prompt = "private native smoke", MaxOutputTokens = 128 });
+            Check(response.Text == "native complete" && response.Usage is not null, "published native streaming complete response");
+        }
+        Check(handler.Calls <= 1, "published native streaming receipt recovered without inference");
+        var state = await journal.LoadAsync(CancellationToken.None);
+        Check(state?.Transport?.EffectiveMode == LLMStreamingMode.Streaming && state.Attempts.Single().ProtocolComplete == true,
+            "published native streaming encrypted transport serialization");
+    }
+    private sealed class NativeSmokeJournal(IKeyVaultRecordStore records) : ILLMHttpRetryJournal
+    {
+        public async Task<LLMHttpRetryState?> LoadAsync(CancellationToken ct)
+        {
+            var saved = await records.GetAsync("published-native-transport", "smoke", "generation", "smoke", ct);
+            return saved is null ? null : JsonSerializer.Deserialize(saved.Value, LLMHttpRetryJsonContext.Default.LLMHttpRetryState);
+        }
+        public async Task SaveAsync(LLMHttpRetryState state, CancellationToken ct)
+            => _ = await records.UpsertAsync("published-native-transport", "smoke", "generation",
+                JsonSerializer.Serialize(state, LLMHttpRetryJsonContext.Default.LLMHttpRetryState), "smoke", ct);
+    }
+    private sealed class NativeSmokeHandler : HttpMessageHandler
+    {
+        internal int Calls;
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            Calls++;
+            Check(JsonNode.Parse(await request.Content!.ReadAsStringAsync(ct))?["stream"]?.GetValue<bool>() == true,
+                "published native provider wire flag");
+            return new(HttpStatusCode.OK) { Content = new StringContent(
+                "data: {\"id\":\"published\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"native complete\"},\"finish_reason\":\"stop\"}]}\n\ndata: {\"id\":\"published\",\"choices\":[],\"usage\":{\"prompt_tokens\":5,\"completion_tokens\":2}}\n\ndata: [DONE]\n\n", Encoding.UTF8, "text/event-stream") };
+        }
     }
 
     private static async Task VerifySessionStorageAsync(EfPlanningSessionStore store, IDbContextFactory<PlanningDbContext> factory,

@@ -88,7 +88,10 @@ public sealed class LLMRuntimeOptionsStore
         string? oidcClientSecret = null,
         string? oidcPrivateKeyPem = null,
         string? apiVersion = null,
-        LLMBackgroundProtocolMode? backgroundProtocol = null)
+        LLMBackgroundProtocolMode? backgroundProtocol = null,
+        LLMStreamingMode? streamingMode = null,
+        Dictionary<string, bool>? streamingSupport = null,
+        Dictionary<string, LLMModelTransportOptions>? modelTransportOverrides = null)
     {
         lock (_lock)
         {
@@ -115,6 +118,9 @@ public sealed class LLMRuntimeOptionsStore
                 if (!Enum.IsDefined(protocol)) throw new ArgumentOutOfRangeException(nameof(backgroundProtocol));
                 existing.RequestPolicy.BackgroundProtocol = protocol;
             }
+            if (streamingMode is not null) existing.RequestPolicy.StreamingMode = streamingMode;
+            if (streamingSupport is not null) existing.RequestPolicy.StreamingSupport = new(streamingSupport, StringComparer.Ordinal);
+            if (modelTransportOverrides is not null) existing.ModelTransportOverrides = LLMTransportResolver.CloneOverrides(modelTransportOverrides);
             existing.Url = url;
             var normalizedAuthType = authType?.Trim().ToLowerInvariant();
             if (!string.IsNullOrWhiteSpace(normalizedAuthType))
@@ -368,6 +374,7 @@ public sealed class LLMRuntimeOptionsStore
                 ApiVersion = kv.Value.ApiVersion,
                 RequestPolicy = CloneRequestPolicy(kv.Value.RequestPolicy),
                 RetryPolicy = kv.Value.RetryPolicy.Clone(),
+                ModelTransportOverrides = LLMTransportResolver.CloneOverrides(kv.Value.ModelTransportOverrides),
             };
         }
         foreach (var kv in src.McpServers)
@@ -377,17 +384,7 @@ public sealed class LLMRuntimeOptionsStore
         return clone;
     }
 
-    private static LLMProviderRequestPolicyOptions CloneRequestPolicy(LLMProviderRequestPolicyOptions source)
-        => new()
-        {
-            BackgroundProtocol = source.BackgroundProtocol,
-            UnspecifiedOutputTokens = source.UnspecifiedOutputTokens,
-            DefaultMaxOutputTokens = source.DefaultMaxOutputTokens,
-            MaxOutputTokensCap = source.MaxOutputTokensCap,
-            BillingServiceTier = source.BillingServiceTier,
-            BillingRegionalProcessing = source.BillingRegionalProcessing,
-            BillingCacheRetention = source.BillingCacheRetention
-        };
+    private static LLMProviderRequestPolicyOptions CloneRequestPolicy(LLMProviderRequestPolicyOptions source) => source.Clone();
 
 
 

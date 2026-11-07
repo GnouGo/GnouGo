@@ -262,6 +262,31 @@ public sealed class DiagnosticPlanningTests
     }
 
     [Fact]
+    public void NewCaptureFreezesResolvedStreamingAndHistoricalCaptureRemainsNonStreaming()
+    {
+        var options = ModelOptions();
+        var provider = options.ResolveProvider(options.DefaultProvider)!;
+        provider.RequestPolicy.StreamingSupport = new() { [LLMTransportResolver.ChatCompletions] = true };
+        var state = new PlanningRequest();
+        CapturedPlanningModel.Capture(state, options);
+        var retained = state.Options.ToJsonString();
+        provider.RequestPolicy.StreamingMode = LLMStreamingMode.NonStreaming;
+        provider.RequestPolicy.StreamingSupport[LLMTransportResolver.ChatCompletions] = false;
+        var restored = CapturedPlanningModel.Restore(options, state);
+        Assert.Equal(LLMStreamingMode.Streaming, Assert.Single(restored.CapturedTransports!).Value.EffectiveMode);
+        Assert.Equal(retained, state.Options.ToJsonString());
+        var capture = state.Options[CapturedPlanningModel.OptionName]!.AsObject();
+        capture["version"] = 1; capture.Remove("transport"); capture.Remove("modelTransportOverrides");
+        capture["requestPolicy"]!.AsObject().Remove("streamingSupport");
+        provider.RequestPolicy.StreamingMode = LLMStreamingMode.Streaming;
+        provider.RequestPolicy.StreamingSupport[LLMTransportResolver.ChatCompletions] = true;
+        retained = state.Options.ToJsonString();
+        restored = CapturedPlanningModel.Restore(options, state);
+        Assert.Equal(LLMStreamingMode.NonStreaming, Assert.Single(restored.CapturedTransports!).Value.EffectiveMode);
+        Assert.Equal(retained, state.Options.ToJsonString());
+    }
+
+    [Fact]
     public void CapturedTariffsAndCapabilitiesIgnoreNewCatalogOverridesAndRejectRouteChanges()
     {
         var options = ModelOptions(); var state = new PlanningRequest();

@@ -19,6 +19,13 @@
                 <dt>Captured transport/retry policy</dt><dd>@(_detail["transportPolicy"]?.ToJsonString() ?? "unavailable")</dd>
                 <dt>Request deadline</dt><dd>@(_detail["deadlineUtc"]?.ToString() ?? "unavailable")</dd></dl>
         }
+        @if (_detail["transport"]?["Transport"] is { } transportMode)
+        {
+            <dl><dt>Requested transport</dt><dd>@transportMode["RequestedMode"]</dd>
+                <dt>Effective transport</dt><dd>@transportMode["EffectiveMode"]</dd>
+                <dt>Native protocol</dt><dd>@transportMode["Protocol"]</dd>
+                <dt>Capability evidence</dt><dd>@transportMode["CapabilitySource"]</dd></dl>
+        }
         @if (_detail["measurement"]?["components"] is JsonArray components)
         {
             <table class="llm-breakdown"><caption>Complete serialized request components — estimates are not billed usage</caption>
@@ -42,6 +49,8 @@
                     <section class="http-attempt"><h5>HTTP attempt @attempt?["Id"]</h5>
                         <p>Started @attempt?["StartedAtUtc"] · completed @attempt?["CompletedAtUtc"] · observed HTTP @(attempt?["ObservedStatus"] ?? attempt?["Status"])<br />
                             Failure: @(attempt?["Failure"]?.ToString() ?? "none recorded") · complete body: @(attempt?["ResponseBodyComplete"]?.ToString() ?? "unavailable")<br />
+                            Native protocol complete: @(attempt?["ProtocolComplete"]?.ToString() ?? "legacy / unavailable") · termination: @(attempt?["TerminationStatus"]?.ToString() ?? "unavailable") · usage known: @(attempt?["UsageKnown"]?.ToString() ?? "unavailable")<br />
+                            First byte: @(attempt?["FirstByteAtUtc"]?.ToString() ?? "unavailable") · last byte: @(attempt?["LastByteAtUtc"]?.ToString() ?? "unavailable")<br />
                             Retry decision: @(attempt?["RetryDecision"]?.ToString() ?? "unavailable")</p>
                         @foreach (var doc in LlmTraceContentStore.Documents(_detail).Where(d => d.Title.StartsWith("HTTP attempt " + attempt?["Id"] + " — ", StringComparison.Ordinal)))
                         { <LlmTraceDocument @key="doc.Id" Title="@doc.Title" Status="encrypted journal; redacted" Document="doc" Bytes="doc.Bytes"

@@ -495,7 +495,9 @@ public sealed partial class ConfigureProvidersService
         if (auth is null)
             yield break;
 
-        auth = auth with { BackgroundProtocol = ReadSelectedProtocol(provider, connection, LLMBackgroundProtocolMode.Responses) };
+        auth = auth with { BackgroundProtocol = ReadSelectedProtocol(provider, connection, LLMBackgroundProtocolMode.Responses),
+            StreamingMode = ReadTransportMode(connection), StreamingSupport = ReadTransportSupport(provider, connection),
+            ModelTransportOverrides = LLMTransportResolver.CloneOverrides(_optionsStore.Current.ResolveProvider(provider)?.ModelTransportOverrides) };
 
         string? model = null;
         await foreach (var evt in CollectModelSelectionAsync(runId, provider, defaults.Model, BuildProviderOptions(provider, url, auth), selected => model = selected, ct))
@@ -519,6 +521,7 @@ public sealed partial class ConfigureProvidersService
         if (modelReview is null)
             yield break;
 
+        auth = auth with { ModelTransportOverrides = MergeModelTransport(auth.ModelTransportOverrides, model, modelReview) };
         var summary = RenderLlmConfigSummary(provider, url, model, auth, modelReview);
         yield return new SmartFlowEvent("thinking:thinking", summary);
 
@@ -680,7 +683,9 @@ public sealed partial class ConfigureProvidersService
             oidcScopes: selectedConfig.Config.OidcScopes,
             oidcClientSecret: selectedConfig.Config.OidcClientSecret,
             oidcPrivateKeyPem: selectedConfig.Config.OidcPrivateKeyPem,
-            apiVersion: selectedConfig.Config.ApiVersion);
+            apiVersion: selectedConfig.Config.ApiVersion,
+            backgroundProtocol: selectedConfig.Config.BackgroundProtocol, streamingMode: selectedConfig.Config.StreamingMode,
+            streamingSupport: selectedConfig.Config.StreamingSupport, modelTransportOverrides: selectedConfig.Config.ModelTransportOverrides);
 
         if (!_optionsStore.SetDefaultProvider(selectedConfig.Provider, model))
         {
@@ -768,7 +773,9 @@ public sealed partial class ConfigureProvidersService
         auth = auth with
         {
             ApiVersion = existing.ApiVersion,
-            BackgroundProtocol = ReadSelectedProtocol(provider, connection, existing.BackgroundProtocol ?? EffectiveProtocol(provider))
+            BackgroundProtocol = ReadSelectedProtocol(provider, connection, existing.BackgroundProtocol ?? EffectiveProtocol(provider)),
+            StreamingMode = ReadTransportMode(connection), StreamingSupport = ReadTransportSupport(provider, connection),
+            ModelTransportOverrides = LLMTransportResolver.CloneOverrides(existing.ModelTransportOverrides)
         };
 
         string? model = null;
@@ -793,6 +800,7 @@ public sealed partial class ConfigureProvidersService
         if (modelReview is null)
             yield break;
 
+        auth = auth with { ModelTransportOverrides = MergeModelTransport(auth.ModelTransportOverrides, model, modelReview) };
         var summary = RenderLlmConfigSummary(provider, url, model, auth, modelReview);
         yield return new SmartFlowEvent("thinking:thinking", summary);
 
@@ -1401,6 +1409,7 @@ public sealed partial class ConfigureProvidersService
                && left.Pricing?.OutputPer1MTokens == right.Pricing?.OutputPer1MTokens
                && left.Pricing?.CachedInputPer1MTokens == right.Pricing?.CachedInputPer1MTokens
                && left.Pricing?.ReasoningOutputPer1MTokens == right.Pricing?.ReasoningOutputPer1MTokens
+               && leftCapabilities.SupportsStreaming == rightCapabilities.SupportsStreaming
                && leftCapabilities.SupportsTemperature == rightCapabilities.SupportsTemperature
                && leftCapabilities.SupportsReasoningEffort == rightCapabilities.SupportsReasoningEffort
                && leftCapabilities.SupportsStructuredOutput == rightCapabilities.SupportsStructuredOutput
@@ -2032,6 +2041,8 @@ public sealed partial class ConfigureProvidersService
                 new HumanInputFieldDef { Name = "supports_structured_output", Type = "select", Required = true, Description = "Whether the model supports structured output", Options = ["true", "false"], Default = FormatBool(resolved.Capabilities.SupportsStructuredOutput, true) },
                 new HumanInputFieldDef { Name = "supports_tools", Type = "select", Required = true, Description = "Whether the model supports tool/function calls", Options = ["true", "false"], Default = FormatBool(resolved.Capabilities.SupportsTools, true) },
                 new HumanInputFieldDef { Name = "supports_json_mode", Type = "select", Required = true, Description = "Whether the model supports JSON mode", Options = ["true", "false"], Default = FormatBool(resolved.Capabilities.SupportsJsonMode, true) },
+                new HumanInputFieldDef { Name = "model_transport_mode", Type = "select", Required = false, Description = "Transport override for this exact model/deployment", Options = ["inherit provider", "Auto", "Streaming", "NonStreaming"], Default = _optionsStore.Current.ResolveProvider(provider)?.ModelTransportOverrides?.GetValueOrDefault(model)?.StreamingMode?.ToString() ?? "inherit provider" },
+                new HumanInputFieldDef { Name = "supports_streaming", Type = "select", Required = false, Description = "Whether this exact model supports native streaming (route support is declared separately)", Options = ["unknown", "true", "false"], Default = FormatOptionalBool(resolved.Capabilities.SupportsStreaming) },
                 new HumanInputFieldDef { Name = "supports_vision", Type = "select", Required = false, Description = "Whether the model supports vision inputs", Options = ["unknown", "true", "false"], Default = FormatOptionalBool(resolved.Capabilities.SupportsVision) },
                 new HumanInputFieldDef { Name = "supports_audio", Type = "select", Required = false, Description = "Whether the model supports audio inputs", Options = ["unknown", "true", "false"], Default = FormatOptionalBool(resolved.Capabilities.SupportsAudio) },
                 new HumanInputFieldDef { Name = "supports_embeddings", Type = "select", Required = false, Description = "Whether the model supports embedding requests", Options = ["unknown", "true", "false"], Default = FormatOptionalBool(resolved.Capabilities.SupportsEmbeddings) },
@@ -2065,6 +2076,7 @@ public sealed partial class ConfigureProvidersService
         metadata.Capabilities.SupportsStructuredOutput = ReadBool(fields.GetValueOrDefault("supports_structured_output"), resolved.Capabilities.SupportsStructuredOutput ?? true);
         metadata.Capabilities.SupportsTools = ReadBool(fields.GetValueOrDefault("supports_tools"), resolved.Capabilities.SupportsTools ?? true);
         metadata.Capabilities.SupportsJsonMode = ReadBool(fields.GetValueOrDefault("supports_json_mode"), resolved.Capabilities.SupportsJsonMode ?? true);
+        metadata.Capabilities.SupportsStreaming = ReadOptionalBool(fields.GetValueOrDefault("supports_streaming"));
         metadata.Capabilities.SupportsVision = ReadOptionalBool(fields.GetValueOrDefault("supports_vision"));
         metadata.Capabilities.SupportsAudio = ReadOptionalBool(fields.GetValueOrDefault("supports_audio"));
         metadata.Capabilities.SupportsEmbeddings = ReadOptionalBool(fields.GetValueOrDefault("supports_embeddings"));
@@ -2073,7 +2085,9 @@ public sealed partial class ConfigureProvidersService
 
         var shouldPersist = resolution.MatchKind is LLMModelMetadataMatchKind.Fuzzy or LLMModelMetadataMatchKind.Heuristic
                             || !MetadataReviewFieldsEqual(resolved, metadata);
-        var review = new ModelMetadataReview(metadata, resolution, shouldPersist);
+        var modelMode = fields.GetValueOrDefault("model_transport_mode");
+        var review = new ModelMetadataReview(metadata, resolution, shouldPersist,
+            modelMode is null or "" or "inherit provider" ? null : LlmTransportConfiguration.ParseMode(JsonValue.Create(modelMode)), TransportReviewed: true);
         setReview(review);
         span.SetTag("gnougo.agent.llm.model_metadata.override_required", shouldPersist);
         span.SetStatus(ActivityStatusCode.Ok);
@@ -2389,7 +2403,40 @@ public sealed partial class ConfigureProvidersService
             fields.Add(new() { Name = "generation_protocol", Type = "select", Required = true,
                 Description = "Generation protocol", Options = [LlmGenerationProtocol.BackgroundLabel, LlmGenerationProtocol.ChatLabel],
                 Default = LlmGenerationProtocol.Label(protocol) });
+        var current = _optionsStore.Current.ResolveProvider(provider);
+        fields.Add(new() { Name = "transport_mode", Type = "select", Required = true, Description = "Generation transport", Options = ["Auto", "Streaming", "NonStreaming"], Default = (current?.RequestPolicy.StreamingMode ?? LLMStreamingMode.Auto).ToString() });
+        foreach (var native in TransportProtocols(provider))
+            fields.Add(new() { Name = "streaming_support_" + native, Type = "select", Required = true,
+                Description = $"Configured route supports native {native} streaming", Options = ["unknown", "true", "false"],
+                Default = current?.RequestPolicy.StreamingSupport?.TryGetValue(native, out var supported) == true ? supported ? "true" : "false" : "unknown" });
         return fields;
+    }
+
+    private static string[] TransportProtocols(string provider) => NormalizeProviderTypeForConfig(provider) switch
+    {
+        "openai" => [LLMTransportResolver.ChatCompletions, LLMTransportResolver.Responses],
+        "copilot" => [LLMTransportResolver.ChatCompletions], "anthropic" => [LLMTransportResolver.Messages],
+        "ollama" => [LLMTransportResolver.OllamaChat], "local" => [LLMTransportResolver.Local], _ => []
+    };
+    private static LLMStreamingMode ReadTransportMode(Dictionary<string, string> fields)
+        => LlmTransportConfiguration.ParseMode(JsonValue.Create(fields.GetValueOrDefault("transport_mode", "Auto"))) ?? LLMStreamingMode.Auto;
+    private static Dictionary<string, bool> ReadTransportSupport(string provider, Dictionary<string, string> fields)
+    {
+        var result = new Dictionary<string, bool>(StringComparer.Ordinal);
+        foreach (var native in TransportProtocols(provider))
+            if (fields.GetValueOrDefault("streaming_support_" + native) is { } value && value != "unknown")
+                result[native] = value == "true" ? true : value == "false" ? false : throw new InvalidOperationException("Invalid native streaming support.");
+        return result;
+    }
+    private static Dictionary<string, LLMModelTransportOptions>? MergeModelTransport(Dictionary<string, LLMModelTransportOptions>? current, string model, ModelMetadataReview review)
+    {
+        if (!review.TransportReviewed) return LLMTransportResolver.CloneOverrides(current);
+        var result = LLMTransportResolver.CloneOverrides(current) ?? new(StringComparer.Ordinal);
+        if (!result.TryGetValue(model, out var value)) value = new();
+        value.StreamingMode = review.TransportMode;
+        if (value.StreamingMode is null && value.StreamingSupport is null) result.Remove(model);
+        else result[model] = value;
+        return result;
     }
 
     private LLMBackgroundProtocolMode? ReadSelectedProtocol(string provider, Dictionary<string, string> fields, LLMBackgroundProtocolMode current)
@@ -2416,7 +2463,9 @@ public sealed partial class ConfigureProvidersService
             ClientSecret = auth.OidcClientSecret,
             PrivateKeyPem = auth.OidcPrivateKeyPem,
             ApiVersion = auth.ApiVersion,
-            RequestPolicy = new() { BackgroundProtocol = auth.BackgroundProtocol ?? LLMBackgroundProtocolMode.Auto }
+            RequestPolicy = new() { BackgroundProtocol = auth.BackgroundProtocol ?? LLMBackgroundProtocolMode.Auto,
+                StreamingMode = auth.StreamingMode, StreamingSupport = auth.StreamingSupport is null ? null : new(auth.StreamingSupport, StringComparer.Ordinal) },
+            ModelTransportOverrides = LLMTransportResolver.CloneOverrides(auth.ModelTransportOverrides)
         };
 
     private async Task SaveLlmProviderConfigAsync(string provider, string url, string model, LlmProviderConfig auth, CancellationToken ct)
@@ -2454,6 +2503,10 @@ public sealed partial class ConfigureProvidersService
             payload[field.Key] = field.Value?.DeepClone();
         if (auth.BackgroundProtocol is { } protocol)
             payload["backgroundProtocol"] = protocol.ToString();
+        if (auth.StreamingMode is { } streaming) payload["streamingMode"] = streaming.ToString();
+        if (auth.StreamingSupport is not null) payload["streamingSupport"] = LlmTransportConfiguration.SupportNode(auth.StreamingSupport);
+        if (auth.ModelTransportOverrides is not null) payload["modelTransportOverrides"] = LlmTransportConfiguration.OverridesNode(auth.ModelTransportOverrides);
+        LlmTransportConfiguration.Apply(payload, new ModelProviderOptions());
         _ = LlmGenerationProtocol.Read(payload); // Fail before saving malformed configuration.
         span.SetTag("keyvault.secret.key", targetSecretKey);
         span.SetTag(
@@ -2511,7 +2564,8 @@ public sealed partial class ConfigureProvidersService
                 OidcClientSecret: ReadConfigString(config, "oidcClientSecret", "oidc_client_secret") ?? "",
                 OidcPrivateKeyPem: ReadConfigString(config, "oidcPrivateKeyPem", "oidc_private_key_pem") ?? "",
                 ApiVersion: ReadConfigString(config, "apiVersion", "api_version") ?? "",
-                BackgroundProtocol: LlmGenerationProtocol.Read(config));
+                BackgroundProtocol: LlmGenerationProtocol.Read(config), StreamingMode: LlmTransportConfiguration.ReadMode(config),
+                StreamingSupport: LlmTransportConfiguration.ReadSupport(config), ModelTransportOverrides: LlmTransportConfiguration.ReadOverrides(config));
             span.SetTag("gnougo.agent.configure.found_existing", true);
             span.SetTag("gnougo.agent.llm.auth_type", result.AuthType);
             span.SetTag("gen_ai.request.model", result.Model);
@@ -2543,7 +2597,10 @@ public sealed partial class ConfigureProvidersService
             ["llm_oidc_client_secret"] = auth.OidcClientSecret,
             ["llm_oidc_private_key_pem"] = auth.OidcPrivateKeyPem,
             ["llm_api_version"] = auth.ApiVersion,
-            ["llm_background_protocol"] = auth.BackgroundProtocol?.ToString()
+            ["llm_background_protocol"] = auth.BackgroundProtocol?.ToString(),
+            ["llm_streaming_mode"] = auth.StreamingMode?.ToString(),
+            ["llm_streaming_support"] = LlmTransportConfiguration.SupportNode(auth.StreamingSupport),
+            ["llm_model_transport_overrides"] = LlmTransportConfiguration.OverridesNode(auth.ModelTransportOverrides)
         };
 
     private string RenderLlmConfigSummary(
@@ -2565,6 +2622,9 @@ public sealed partial class ConfigureProvidersService
         sb.AppendLine($"| Model | {EscapeMarkdownCell(model)} |");
         if (IsOpenAiCompatible(provider))
             sb.AppendLine($"| Generation protocol | {LlmGenerationProtocol.Label(auth.BackgroundProtocol ?? EffectiveProtocol(provider))} |");
+        sb.AppendLine($"| Transport mode | {auth.StreamingMode ?? LLMStreamingMode.Auto} |");
+        sb.AppendLine($"| Exact model transport override | {auth.ModelTransportOverrides?.GetValueOrDefault(model)?.StreamingMode?.ToString() ?? "inherit provider"} |");
+        sb.AppendLine($"| Native streaming declarations | {LlmTransportConfiguration.SupportNode(auth.StreamingSupport)?.ToJsonString() ?? "unknown"} |");
         sb.AppendLine($"| Auth | {EscapeMarkdownCell(auth.AuthType)} |");
         if (!string.IsNullOrWhiteSpace(auth.ApiKey))
             sb.AppendLine("| API Key | •••••••• |");
@@ -3173,8 +3233,8 @@ public sealed partial class ConfigureProvidersService
     private sealed record ModelMetadataReview(
         LLMModelMetadata Metadata,
         LLMModelMetadataResolution Resolution,
-        bool ShouldPersist);
-    private sealed record LlmProviderConfig(string Url, string Model, string AuthType, string ApiKey, string OidcIssuer, string OidcClientId, string OidcScopes, string OidcClientSecret, string OidcPrivateKeyPem, string ApiVersion = "", LLMBackgroundProtocolMode? BackgroundProtocol = null);
+        bool ShouldPersist, LLMStreamingMode? TransportMode = null, bool TransportReviewed = false);
+    private sealed record LlmProviderConfig(string Url, string Model, string AuthType, string ApiKey, string OidcIssuer, string OidcClientId, string OidcScopes, string OidcClientSecret, string OidcPrivateKeyPem, string ApiVersion = "", LLMBackgroundProtocolMode? BackgroundProtocol = null, LLMStreamingMode? StreamingMode = null, Dictionary<string, bool>? StreamingSupport = null, Dictionary<string, LLMModelTransportOptions>? ModelTransportOverrides = null);
     private sealed record McpServerConfig(string Name, string Transport, string Description, string Url, string Command, IReadOnlyList<string> Args, string AuthType, string ApiKey, string OidcIssuer, string OidcClientId, string OidcScopes, string OidcClientSecret);
     private sealed record McpListRow(string Name, string Source, string Editable, string Key, string Version, string Stored);
     private sealed record EmbeddingProviderConfig(string Name, string Provider, string? Model, string? EndpointUrl, string? BaseUrl, string? ApiKey, string? ApiKeySecretKey, int Dimensions);
@@ -3534,7 +3594,8 @@ public sealed partial class ConfigureProvidersService
                 OidcClientSecret: ReadConfigString(configJson, "oidcClientSecret", "oidc_client_secret") ?? string.Empty,
                 OidcPrivateKeyPem: ReadConfigString(configJson, "oidcPrivateKeyPem", "oidc_private_key_pem") ?? string.Empty,
                 ApiVersion: ReadConfigString(configJson, "apiVersion", "api_version") ?? string.Empty,
-                BackgroundProtocol: LlmGenerationProtocol.Read(configJson));
+                BackgroundProtocol: LlmGenerationProtocol.Read(configJson), StreamingMode: LlmTransportConfiguration.ReadMode(configJson),
+                StreamingSupport: LlmTransportConfiguration.ReadSupport(configJson), ModelTransportOverrides: LlmTransportConfiguration.ReadOverrides(configJson));
 
             providers.Add(new ConfiguredLlmProvider(provider, secret, config));
             secretSpan.SetTag("gnougo.agent.llm.provider", provider);
@@ -3901,7 +3962,10 @@ public sealed partial class ConfigureProvidersService
                 oidcClientSecret: oidcClientSecret,
                 oidcPrivateKeyPem: oidcPrivateKeyPem,
                 apiVersion: apiVersion,
-                backgroundProtocol: LlmGenerationProtocol.Parse(outputs["llm_background_protocol"]));
+                backgroundProtocol: LlmGenerationProtocol.Parse(outputs["llm_background_protocol"]),
+                streamingMode: LlmTransportConfiguration.ParseMode(outputs["llm_streaming_mode"]),
+                streamingSupport: outputs["llm_streaming_support"] is null ? null : LlmTransportConfiguration.ReadSupport(new JsonObject { ["streamingSupport"] = outputs["llm_streaming_support"]!.DeepClone() }),
+                modelTransportOverrides: outputs["llm_model_transport_overrides"] is null ? null : LlmTransportConfiguration.ReadOverrides(new JsonObject { ["modelTransportOverrides"] = outputs["llm_model_transport_overrides"]!.DeepClone() }));
 
             _logger.LogInformation(
                 "LLM provider '{Provider}' applied to runtime options (no restart required).", provider);

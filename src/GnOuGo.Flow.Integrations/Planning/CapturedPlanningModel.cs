@@ -27,10 +27,12 @@ public static class CapturedPlanningModel
             throw new PlanningConflictException("Model limits, structured output or pricing cannot be verified before session creation.");
         planning.Options[OptionName] = new JsonObject
         {
-            ["version"] = 1, ["provider"] = provider, ["model"] = model, ["providerType"] = route.ResolvedType,
+            ["version"] = 2, ["provider"] = provider, ["model"] = model, ["providerType"] = route.ResolvedType,
             ["routeHash"] = RouteHash(route),
             ["metadata"] = JsonSerializer.SerializeToNode(metadata, ModelMetadataJsonContext.Default.LLMModelMetadata),
             ["requestPolicy"] = JsonSerializer.SerializeToNode(route.RequestPolicy, ModelMetadataJsonContext.Default.LLMProviderRequestPolicyOptions),
+            ["transport"] = JsonSerializer.SerializeToNode(LLMTransportResolver.Resolve(model, route, false, metadata.Capabilities), StreamingJsonContext.Default.LLMTransportSelection),
+            ["modelTransportOverrides"] = route.ModelTransportOverrides is null ? null : JsonSerializer.SerializeToNode(route.ModelTransportOverrides, StreamingJsonContext.Default.DictionaryStringLLMModelTransportOptions),
             ["retryPolicy"] = JsonSerializer.SerializeToNode(route.RetryPolicy, ModelMetadataJsonContext.Default.LLMProviderRetryPolicyOptions),
             ["capturedAtUtc"] = DateTimeOffset.UtcNow
         };
@@ -43,24 +45,41 @@ public static class CapturedPlanningModel
         var provider = capture["provider"]!.GetValue<string>();
         var model = capture["model"]!.GetValue<string>();
         var route = current.ResolveProvider(provider) ?? throw new PlanningConflictException("The captured provider is unavailable.");
-        if (capture["version"]?.GetValue<int>() != 1 || capture["routeHash"]?.ToString() != RouteHash(route) ||
-            !JsonNode.DeepEquals(capture["requestPolicy"], JsonSerializer.SerializeToNode(route.RequestPolicy, ModelMetadataJsonContext.Default.LLMProviderRequestPolicyOptions)) ||
+        var version = capture["version"]?.GetValue<int>();
+        if (version is not (1 or 2) || capture["routeHash"]?.ToString() != RouteHash(route) ||
+            !JsonNode.DeepEquals(WithoutTransport(capture["requestPolicy"]), WithoutTransport(JsonSerializer.SerializeToNode(route.RequestPolicy, ModelMetadataJsonContext.Default.LLMProviderRequestPolicyOptions))) ||
             !JsonNode.DeepEquals(capture["retryPolicy"], JsonSerializer.SerializeToNode(route.RetryPolicy, ModelMetadataJsonContext.Default.LLMProviderRetryPolicyOptions)))
             throw new PlanningConflictException("The provider route or request policy changed since session creation. The captured request cannot use the new deployment.");
         var metadata = capture["metadata"]!.Deserialize(ModelMetadataJsonContext.Default.LLMModelMetadata)!;
+        var transport = version == 1 ? new LLMTransportSelection(LLMStreamingMode.NonStreaming, LLMStreamingMode.NonStreaming,
+            LLMTransportResolver.Protocol(route, false), "historical non-streaming capture")
+            : capture["transport"]?.Deserialize(StreamingJsonContext.Default.LLMTransportSelection)
+                ?? throw new PlanningConflictException("The captured generation transport is unavailable.");
         var frozenRoute = new ModelProviderOptions
         {
             Type = route.Type, Url = route.Url, ApiVersion = route.ApiVersion, ApiKey = route.ApiKey,
             Issuer = route.Issuer, ClientId = route.ClientId, ClientSecret = route.ClientSecret, PrivateKeyPem = route.PrivateKeyPem, Scopes = route.Scopes,
             RequestPolicy = capture["requestPolicy"]!.Deserialize(ModelMetadataJsonContext.Default.LLMProviderRequestPolicyOptions)!,
+            ModelTransportOverrides = capture["modelTransportOverrides"]?.Deserialize(StreamingJsonContext.Default.DictionaryStringLLMModelTransportOptions),
             RetryPolicy = capture["retryPolicy"]!.Deserialize(ModelMetadataJsonContext.Default.LLMProviderRetryPolicyOptions)!
         };
+        if (version == 1) frozenRoute.RequestPolicy.StreamingMode = LLMStreamingMode.NonStreaming;
+        else if (transport != LLMTransportResolver.Resolve(model, frozenRoute, false, metadata.Capabilities))
+            throw new PlanningConflictException("The captured generation transport does not match its captured capabilities and policy.");
         return new LLMOptions
         {
             DefaultProvider = provider, DefaultModel = model, Models = new(StringComparer.OrdinalIgnoreCase) { [provider] = frozenRoute }, McpServers = current.McpServers,
             DangerousAcceptAnyServerCertificate = current.DangerousAcceptAnyServerCertificate,
+            CapturedTransports = new(StringComparer.OrdinalIgnoreCase) { [ModelMetadataCatalog.ModelIdentityKey(route.ResolvedType, model)] = transport },
             CapturedModelMetadata = new(StringComparer.OrdinalIgnoreCase) { [ModelMetadataCatalog.ModelIdentityKey(route.ResolvedType, model)] = metadata }
         };
+    }
+
+    private static JsonNode? WithoutTransport(JsonNode? policy)
+    {
+        var copy = policy?.DeepClone();
+        if (copy is JsonObject value) { value.Remove("streamingMode"); value.Remove("streamingSupport"); }
+        return copy;
     }
 
     private static string RouteHash(ModelProviderOptions provider) =>

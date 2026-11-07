@@ -139,11 +139,14 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
                 RequestPolicy = existingProvider is null
                     ? new LLMProviderRequestPolicyOptions()
                     : CloneRequestPolicy(existingProvider.RequestPolicy),
+                ModelTransportOverrides = LLMTransportResolver.CloneOverrides(existingProvider?.ModelTransportOverrides),
                 RetryPolicy = config.TryGetPropertyValue("retryPolicy", out var retryPolicy)
                     ? JsonSerializer.Deserialize(retryPolicy, LLMHttpRetryJsonContext.Default.LLMProviderRetryPolicyOptions)
                         ?? throw new InvalidOperationException("The provider retry policy must be an object.")
                     : existingProvider?.RetryPolicy.Clone() ?? new LLMProviderRetryPolicyOptions()
             };
+
+            LlmTransportConfiguration.Apply(config, effective.Models[provider]);
 
             if (LlmGenerationProtocol.Read(config) is { } protocol)
                 effective.Models[provider].RequestPolicy.BackgroundProtocol = protocol;
@@ -446,17 +449,7 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
         return clone;
     }
 
-    private static LLMProviderRequestPolicyOptions CloneRequestPolicy(LLMProviderRequestPolicyOptions source)
-        => new()
-        {
-            BackgroundProtocol = source.BackgroundProtocol,
-            BillingServiceTier = source.BillingServiceTier,
-            BillingRegionalProcessing = source.BillingRegionalProcessing,
-            BillingCacheRetention = source.BillingCacheRetention,
-            UnspecifiedOutputTokens = source.UnspecifiedOutputTokens,
-            DefaultMaxOutputTokens = source.DefaultMaxOutputTokens,
-            MaxOutputTokensCap = source.MaxOutputTokensCap
-        };
+    private static LLMProviderRequestPolicyOptions CloneRequestPolicy(LLMProviderRequestPolicyOptions source) => source.Clone();
 
 
 }

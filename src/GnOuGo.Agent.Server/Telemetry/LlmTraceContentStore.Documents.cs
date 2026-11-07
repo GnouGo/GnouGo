@@ -65,9 +65,16 @@ public sealed partial class LlmTraceContentStore
             {
                 if (transport["RequestBody"] is { } body) { await AddDocument("Actual serialized HTTP request", body.ToString()); transport["RequestBody"] = null; }
                 foreach (var attempt in transport["Attempts"]?.AsArray() ?? [])
-                    foreach (var name in new[] { "Body", "PartialBody" })
+                {
+                    if (attempt is JsonObject attemptObject) attemptObject.Remove("PartialBodyBase64"); // Recovery-only bytes never bypass logical redaction.
+                    if (attempt?["ReceiptRetrievals"] is JsonArray retrievals)
+                        for (var retrievalIndex = 0; retrievalIndex < retrievals.Count; retrievalIndex++)
+                            if (retrievals[retrievalIndex] is JsonObject retrieval && retrieval["Body"] is { } retrieved)
+                            { await AddDocument("HTTP attempt " + attempt["Id"] + " — receipt retrieval " + retrievalIndex, retrieved.ToString()); retrieval["Body"] = null; }
+                    foreach (var name in new[] { "Body", "PartialBody", "AssembledBody" })
                         if (attempt?[name] is { } bodyPart)
                         { await AddDocument("HTTP attempt " + attempt["Id"] + " — " + name, bodyPart.ToString()); attempt[name] = null; }
+                }
                 metadata["transport"] = transport;
             }
         }

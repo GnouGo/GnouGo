@@ -20,6 +20,42 @@ public sealed class PlanningHttpJournalTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Theory]
+    [InlineData(false, false)] [InlineData(true, false)]
+    [InlineData(false, true)] [InlineData(true, true)]
+    public async Task NativeStreamingTerminalIsRequiredForSettlementAndColdReceiptRecovery(bool workflow, bool truncated)
+    {
+        await using var host = await Host.CreateAsync(workflow, [200], streaming: true);
+        host.Handler.NativeBody = NativeBody(truncated);
+        await host.OpenAsync(); var request = host.Issue();
+        if (truncated) await Assert.ThrowsAsync<LLMClientException>(() => host.CallAsync(request));
+        else Assert.Equal("secret result", (await host.CallAsync(request)).Json!["value"]!.ToString());
+        var before = Serialize(await host.UsageAsync());
+        var journal = await host.TransportAsync(request);
+        var attempt = journal["transport"]!["Attempts"]![0]!;
+        if (truncated)
+        {
+            Assert.Null(attempt["Status"]);
+            Assert.NotNull(attempt["PartialBodyBase64"]);
+            Assert.All((await host.UsageAsync()).JournaledAttempts!.Values, a => Assert.Null(a.VerifiedUsage));
+        }
+        else
+        {
+            Assert.True(attempt["ProtocolComplete"]!.GetValue<bool>());
+            Assert.Single((await host.UsageAsync()).JournaledAttempts!.Values, a => a.VerifiedUsage is not null);
+        }
+        await host.OpenAsync();
+        if (truncated) await Assert.ThrowsAsync<WorkflowRuntimeException>(() => host.CallAsync(request));
+        else Assert.Equal("secret result", (await host.CallAsync(request)).Json!["value"]!.ToString());
+        Assert.Equal(before, Serialize(await host.UsageAsync()));
+        Assert.Single(host.Handler.Bodies);
+        Assert.True(JsonNode.Parse(host.Handler.Bodies[0])!["stream"]!.GetValue<bool>());
+    }
+
+    private static string NativeBody(bool truncated) =>
+        "data: {\"id\":\"r\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"{\\\"value\\\":\\\"secret result\\\"}\"}}]}\n\n" +
+        (truncated ? "" : "data: {\"id\":\"r\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: {\"id\":\"r\",\"choices\":[],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":5}}\n\ndata: [DONE]\n\n");
+
+    [Theory]
     [InlineData(false)] [InlineData(true)]
     public async Task MandatoryReviewHeadroomSurvivesBothHostJournalsAndExactReceiptRecovery(bool workflow)
     {
@@ -283,14 +319,16 @@ public sealed class PlanningHttpJournalTests
         private string BudgetCollection => _workflow ? "flow-planning-budgets-v11" : PlanningBudgetSink.Collection;
         internal string HttpCollection => _workflow ? "flow-planning-model-http-v11" : PlanningModelJournal.HttpCollection;
 
-        private Host(PlanningPersistenceTests.StoreFixture fixture, bool workflow, int[] statuses, LLMUsageBudgetScope? parent)
+        private Host(PlanningPersistenceTests.StoreFixture fixture, bool workflow, int[] statuses, LLMUsageBudgetScope? parent, bool streaming)
         {
             Fixture = fixture; Records = new(fixture.Records); _workflow = workflow; _parent = parent;
             Handler = new(statuses); _http = new(Handler);
             Client = new(new RoutingLLMClient(_http, new LLMOptions
             {
                 DefaultProvider = "fixture", DefaultModel = "journal-fixture",
-                Models = { ["fixture"] = new() { Type = "openai", Url = "https://example.invalid/v1/chat/completions" } },
+                Models = { ["fixture"] = new() { Type = "openai", Url = "https://example.invalid/v1/chat/completions",
+                    RequestPolicy = new() { StreamingMode = streaming ? LLMStreamingMode.Streaming : LLMStreamingMode.NonStreaming,
+                        StreamingSupport = new() { [LLMTransportResolver.ChatCompletions] = true } } } },
                 ModelOverrides = { ["openai/journal-fixture"] = new() { Id = "journal-fixture", ProviderType = "openai",
                     MaxInputTokens = 128000, MaxOutputTokens = 65536, ContextWindowTokens = 200000,
                     Capabilities = new() { SupportsStructuredOutput = true, SupportsReasoningEffort = true, SupportedReasoningEfforts = ["medium"] } } }
@@ -311,8 +349,8 @@ public sealed class PlanningHttpJournalTests
             PlanningTransportPolicies.Capture(_initial.Request, new() { BaseDelayMilliseconds = 1, MaxDelayMilliseconds = 1, MaxTotalDelayMilliseconds = 10 });
         }
 
-        internal static async Task<Host> CreateAsync(bool workflow, int[] statuses, LLMUsageBudgetScope? parent = null) =>
-            new(await PlanningPersistenceTests.StoreFixture.CreateAsync(), workflow, statuses, parent);
+        internal static async Task<Host> CreateAsync(bool workflow, int[] statuses, LLMUsageBudgetScope? parent = null, bool streaming = false) =>
+            new(await PlanningPersistenceTests.StoreFixture.CreateAsync(), workflow, statuses, parent, streaming);
 
         internal async Task OpenAsync()
         {
@@ -384,6 +422,7 @@ public sealed class PlanningHttpJournalTests
         internal List<string> Bodies { get; } = [];
         internal List<string> Ids { get; } = [];
         internal Func<int, Task>? BeforeSend;
+        internal string? NativeBody;
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
             Bodies.Add(await request.Content!.ReadAsStringAsync(ct));
@@ -391,6 +430,8 @@ public sealed class PlanningHttpJournalTests
             if (BeforeSend is not null) await BeforeSend(Bodies.Count);
             var status = statuses[Bodies.Count - 1];
             if (status == 0) throw new HttpRequestException("No HTTP outcome.");
+            if (status == 200 && NativeBody is not null)
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(NativeBody, Encoding.UTF8, "text/event-stream") };
             var result = new HttpResponseMessage((HttpStatusCode)status) { Content = new StringContent(status == 200
                 ? """{"choices":[{"finish_reason":"stop","message":{"role":"assistant","content":"{\"value\":\"secret result\"}"}}],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}"""
                 : status == 429 ? """{"error":{"code":"rate_limit_exceeded"}}""" : """{"error":{"code":"upstream_error"}}""", Encoding.UTF8, "application/json") };
