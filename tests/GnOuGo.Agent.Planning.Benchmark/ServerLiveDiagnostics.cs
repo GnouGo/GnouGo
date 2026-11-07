@@ -144,7 +144,9 @@ internal static class ServerLiveDiagnostics
             using var activity = new Activity("live.provider.structured_output_probe").Start();
             try
             {
-                var result = await capture.CallAsync(request, options, (r, ct) => model.CallAsync(r, ct), context.RequestAborted);
+                // An isolated probe has no planning-session retry capture. Use the
+                // existing single-attempt inference journal, never planning defaults.
+                var result = await capture.CallAsync(request, options, (r, ct) => model.CallExecutionAsync(r, ct), context.RequestAborted);
                 var received = result.Json ?? (result.Text is null ? null : JsonNode.Parse(result.Text));
                 var schemaValid = PlanningContractValidation.ValidateInstance(received, request.StructuredOutputSchema!).Count == 0;
                 report["schema_valid"] = schemaValid;

@@ -31,6 +31,7 @@ public sealed class IndependentProviderProbeTests
         Assert.NotEqual(original.ClientRequestId, probe.ClientRequestId); Assert.NotEqual(probe.ClientRequestId, second.ClientRequestId);
         Assert.Equal("low", probe.Reasoning); Assert.Equal(32768, probe.MaxTokens);
         Assert.True(probe.RequireOutputTokenLimit); Assert.True(probe.DisableTransportRetries);
+        Assert.True(KeyVaultBenchmarkModel.CreateDispatchRequest(probe, "p", "m", execution: true).DisableTransportRetries);
         Assert.Null(probe.RequiredReviewCalls); Assert.False(probe.UseBackgroundMode); Assert.Null(probe.Tools);
         probe.StructuredOutputSchema!["properties"]!["contract"]!["const"] = "changed probe";
         Assert.Equal(retained, JsonSerializer.Serialize(original, PlanningJsonContext.Default.LLMRequest));
