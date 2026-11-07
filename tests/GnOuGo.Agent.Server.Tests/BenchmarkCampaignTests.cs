@@ -14,6 +14,20 @@ public sealed class BenchmarkCampaignTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
+    public async Task NewRunPreflightRequiresReceiptOrExistingRetentionEvenWithAnEmptyHttpJournal()
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "current");
+        await campaign.SaveAsync("planning-evaluation-requests", "session:1:hash", new(), Ct);
+        Assert.True(await campaign.HasUncertainRequestAsync(Ct));
+        await new BenchmarkHttpJournal(campaign, "session:1:hash", 10, 10, 1m).PrepareAsync(Ct);
+        Assert.True(await campaign.HasUncertainRequestAsync(Ct)); // Empty transport alone is not a no-dispatch proof.
+        await campaign.SaveAsync("planning-evaluation-receipts", "session:1:hash", new(), Ct);
+        Assert.False(await campaign.HasUncertainRequestAsync(Ct));
+        await new BenchmarkCampaign(records, "other").SaveAsync("planning-evaluation-requests", "unresolved:1:hash", new(), Ct);
+        Assert.False(await campaign.HasUncertainRequestAsync(Ct));
+    }
+
+    [Fact]
     public async Task CampaignAdmissionPagesOnlyOwnedRecordsWithoutDecryptingOtherCampaignHistory()
     {
         var records = new Records(); var current = new BenchmarkCampaign(records, "current"); var old = new BenchmarkCampaign(records, "old");

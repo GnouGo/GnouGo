@@ -213,7 +213,8 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
     internal async Task<bool> HasUncertainRequestAsync(CancellationToken ct)
     {
         foreach (var key in await OwnedKeysAsync("planning-evaluation-requests", ct))
-            if (await records.GetAsync("planning-evaluation-receipts", "benchmark", key, Author, ct) is null) return true;
+            if (await records.GetAsync("planning-evaluation-receipts", "benchmark", key, Author, ct) is null &&
+                await records.GetAsync("planning-evaluation-closures", "benchmark", key, Author, ct) is null) return true;
         return false;
     }
     // A terminal schema rejection proves no generation started. Retain the failure

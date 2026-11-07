@@ -610,3 +610,6 @@ the accounting order and legacy aggregate; missing payloads, invalid cursors or
 foreign ownership fail admission. Do not reread/decrypt tenant-wide history on each
 physical attempt: those long snapshots contend with encrypted session and audit
 writes. The public record API fallback remains supported for older stores.
+Fresh live runs reject unresolved campaign request identities before starting a host
+or creating a session/application reservation. Exact recovery and protected inspection
+retain their existing paths; an empty HTTP journal alone does not clear a request.

@@ -37,6 +37,8 @@ internal static class ServerLiveDiagnostics
         var retained = inspectionOnly || executionOnly;
         var mcpReadiness = args.ElementAtOrDefault(1) == "server-live-mcp-readiness";
         var fundingScope = await campaign.FreshAllocationAsync(CancellationToken.None);
+        if (!retained && !mcpReadiness && await campaign.HasUncertainRequestAsync(CancellationToken.None))
+            throw BenchmarkCampaign.AdmissionFailure("campaign_uncertain_request_requires_recovery");
         if (planning || !retained && !mcpReadiness) model.RetainedExternalReservationsEur = decimal.Parse(
             SchemaPortabilityCampaign.RequiredOption(args, "--retained-external-reservations-eur"), System.Globalization.CultureInfo.InvariantCulture);
 
