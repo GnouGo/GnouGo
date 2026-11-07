@@ -318,10 +318,9 @@ internal static class LiveWorkflowEvaluation
         return new HybridWorkflowPlanner().AdvanceAsync(session, command, runtime, ct);
     }
 
-    internal static Dictionary<string, McpServerOptions> Configuration(IReadOnlyDictionary<string, McpServerOptions> configured, string scenario, string inferenceEndpoint, string buildConfiguration = "Debug", bool includeAgentLookup = false)
+    internal static Dictionary<string, McpServerOptions> Configuration(IReadOnlyDictionary<string, McpServerOptions> configured, string scenario, string inferenceEndpoint, string buildConfiguration = "Debug")
     {
         var names = scenario == "amazon" ? new[] { "Browser", "Document" } : ["Git", "Cmd", "GithubCopilot", "Document"];
-        if (includeAgentLookup) names = [.. names, "Agent"];
         var result = new Dictionary<string, McpServerOptions>(StringComparer.Ordinal);
         foreach (var name in names)
         {

@@ -91,9 +91,17 @@ internal static class ServerLiveDiagnostics
                     IMcpClientFactory? discovery = null;
                     if (delegatedScenario is not null)
                     {
-                        var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, delegatedScenario, "discovery-only", "Release", includeAgentLookup: true);
+                        var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, delegatedScenario, "discovery-only", "Release");
                         var policyHash = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(typeof(DelegatedTestReviewAuthority).Assembly.Location)));
-                        discovery = new DelegatedPlanningDiscovery(new ConfiguredMcpClientFactory(configurations, defaultLlmProvider: model.Provider, defaultLlmModel: model.Model), delegatedScenario, policyHash);
+                        discovery = new DelegatedPlanningDiscovery(new ConfiguredMcpClientFactory(configurations, defaultLlmProvider: model.Provider, defaultLlmModel: model.Model), delegatedScenario, policyHash,
+                            async ct =>
+                            {
+                                // Resolve after Server has bound its mounted HTTP listener. Never
+                                // convert the host's Agent MCP into a standalone stdio process.
+                                var current = await sp.GetRequiredService<LlmDefaultsResolver>().ResolveAsync(ct);
+                                var agent = current.McpServers["GnOuGo.Agent.Mcp"];
+                                return new ConfiguredMcpClientFactory(new Dictionary<string, McpServerOptions> { ["GnOuGo.Agent.Mcp"] = agent });
+                            });
                     }
                     return new(sp.GetRequiredService<LLMRuntimeOptionsStore>(),
                         sp.GetRequiredService<IKeyVaultRuntimeConfigStore>(), sp.GetRequiredService<ILoggerFactory>(),
@@ -328,7 +336,7 @@ internal static class ServerLiveDiagnostics
                 if (scenario is "amazon" or "code")
                 {
                     report["oracle_version"] = scenario == "amazon" ? LiveWorkflowOracles.AmazonBusinessVersion : LiveWorkflowOracles.CodeBusinessVersion;
-                    report["mcp_builds"] = LiveWorkflowEvaluation.CaptureMcpBuilds(LiveWorkflowEvaluation.Configuration(model.McpServers, scenario, "preflight-only", "Release", includeAgentLookup: true), report["source"]!.ToString());
+                    report["mcp_builds"] = LiveWorkflowEvaluation.CaptureMcpBuilds(LiveWorkflowEvaluation.Configuration(model.McpServers, scenario, "preflight-only", "Release"), report["source"]!.ToString());
                 }
                 using var started = await client.PostAsJsonAsync("/api/planning", new JsonObject { ["name"] = run, ["prompt"] = prompt,
                     ["mode"] = "auto", ["thresholdMode"] = "diagnostic" });
@@ -569,7 +577,8 @@ internal static class ServerLiveDiagnostics
             return await capture.CallAsync(request, options.Current, (r, token) => model.CallServerPlanningAsync(r, state, token), ct);
         }
     }
-    internal sealed class DelegatedPlanningDiscovery(IMcpClientFactory inner, string scenario, string policyHash)
+    internal sealed class DelegatedPlanningDiscovery(IMcpClientFactory inner, string scenario, string policyHash,
+        Func<CancellationToken, Task<IMcpClientFactory>>? hostLookupFactory = null)
         : IMcpClientFactory, IMcpSourceConfigurationFingerprint, IAsyncDisposable
     {
         private readonly LiveWorkflowEvaluation.ObservedMcp _filtered = new(inner, _ => Task.CompletedTask, discoveryScenario: scenario);
@@ -578,10 +587,17 @@ internal static class ServerLiveDiagnostics
         public string SourceConfigurationFingerprint(string serverName) => inner is IMcpSourceConfigurationFingerprint source
             ? PlanningGraphCompiler.Fingerprint(source.SourceConfigurationFingerprint(serverName) + "\ndelegated-planning-discovery-v1\n" + scenario + "\n" + policyHash)
             : throw new InvalidOperationException("Delegated discovery requires an exact configured source fingerprint.");
-        public async Task<IMcpSession> GetClientAsync(string serverName, CancellationToken ct) => new ReadOnlySession(serverName == AgentServer
-            ? await inner.GetClientAsync(serverName, ct) : await _filtered.GetClientAsync(serverName, ct));
+        public async Task<IMcpSession> GetClientAsync(string serverName, CancellationToken ct)
+        {
+            if (serverName != AgentServer || hostLookupFactory is null)
+                return new ReadOnlySession(serverName == AgentServer ? await inner.GetClientAsync(serverName, ct) : await _filtered.GetClientAsync(serverName, ct));
+            var factory = await hostLookupFactory(ct);
+            if (factory is not IAsyncDisposable owner) throw new InvalidOperationException("The host lookup transport must have an owned lifetime.");
+            try { return new ReadOnlySession(await factory.GetClientAsync(serverName, ct), owner); }
+            catch { await owner.DisposeAsync(); throw; }
+        }
         public ValueTask DisposeAsync() => inner is IAsyncDisposable owned ? owned.DisposeAsync() : ValueTask.CompletedTask;
-        private sealed class ReadOnlySession(IMcpSession inner) : IMcpSession
+        private sealed class ReadOnlySession(IMcpSession inner, IAsyncDisposable? owner = null) : IMcpSession
         {
             public string ServerName => inner.ServerName;
             public Task<IReadOnlyList<McpToolInfo>> ListToolsAsync(CancellationToken ct) => ServerName == AgentServer
@@ -596,7 +612,7 @@ internal static class ServerLiveDiagnostics
                    value["name"] is JsonValue name && name.TryGetValue<string>(out var text) && !string.IsNullOrWhiteSpace(text)
                     ? inner.CallToolAsync(toolName, arguments, ct)
                     : throw new InvalidOperationException("Business tools require the later artifact-bound delegated execution; only the host agent-name lookup is permitted before planning.");
-            public ValueTask DisposeAsync() => inner.DisposeAsync();
+            public ValueTask DisposeAsync() => owner is null ? inner.DisposeAsync() : owner.DisposeAsync();
         }
     }
     private sealed class RetainedDiscoveryGuard(BenchmarkCampaign campaign) : IPlanningDiscoveryRecoveryGuard

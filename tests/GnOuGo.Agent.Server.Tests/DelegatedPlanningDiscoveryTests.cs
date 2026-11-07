@@ -1,5 +1,11 @@
 using System.Text.Json.Nodes;
+using GnOuGo.Agent.Mcp;
+using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Integrations;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace GnOuGo.Agent.Server.Tests;
 
@@ -63,6 +69,45 @@ public sealed class DelegatedPlanningDiscoveryTests
             new JsonObject { ["name"] = "run", ["unexpected"] = true } })
             await Assert.ThrowsAsync<InvalidOperationException>(() => session.CallToolAsync("agent_get_by_name", arguments, TestContext.Current.CancellationToken));
         Assert.Equal(0, inner.BusinessCalls);
+    }
+
+    [Fact]
+    public async Task HostLookupUsesTheMountedHttpTransportResolvedAfterTheListenerBinds()
+    {
+        var database = AgentMcpTestPersistence.CreateIsolatedDatabasePath("delegated-host-lookup");
+        var app = AgentMcpWebHost.Build(["--Agent:DatabasePath=" + database], urls: "http://127.0.0.1:0", routePrefix: "/mcp/agent");
+        var factoryCreations = 0;
+        var business = new Factory("GnOuGo.Browser.Mcp", "browser_get_content", "browser_fill");
+        await using var discovery = new ServerLiveDiagnostics.DelegatedPlanningDiscovery(business, "amazon", "frozen-authority-assembly", _ =>
+        {
+            factoryCreations++;
+            var address = app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.Single();
+            return Task.FromResult<IMcpClientFactory>(new ConfiguredMcpClientFactory(new Dictionary<string, McpServerOptions>
+            {
+                ["GnOuGo.Agent.Mcp"] = new() { Type = "http", Url = address.TrimEnd('/') + "/mcp/agent" }
+            }));
+        });
+        try
+        {
+            Assert.Equal(0, factoryCreations);
+            Assert.Equal("GnOuGo.Browser.Mcp", Assert.Single(discovery.ServerMetadata).Name);
+            await app.StartAsync(TestContext.Current.CancellationToken);
+            await using var lookup = await discovery.GetClientAsync("GnOuGo.Agent.Mcp", TestContext.Current.CancellationToken);
+            Assert.Equal(1, factoryCreations);
+            Assert.Empty(await lookup.ListToolsAsync(TestContext.Current.CancellationToken));
+            var result = await lookup.CallToolAsync("agent_get_by_name", new JsonObject { ["name"] = "absent-independent-run" }, TestContext.Current.CancellationToken);
+            var payload = Assert.IsType<JsonObject>(result.Content);
+            Assert.False(payload["success"]!.GetValue<bool>());
+            Assert.Equal("NOT_FOUND", payload["error_code"]!.GetValue<string>());
+            await Assert.ThrowsAsync<InvalidOperationException>(() => lookup.CallToolAsync("agent_create", new JsonObject { ["name"] = "not-authorized" }, TestContext.Current.CancellationToken));
+            Assert.Equal(0, business.BusinessCalls);
+        }
+        finally
+        {
+            await app.StopAsync(CancellationToken.None);
+            await app.DisposeAsync();
+            AgentMcpTestPersistence.CleanupIsolatedWorkspace(database);
+        }
     }
 
     private sealed class Factory(string server, string allowed, string denied) : IMcpClientFactory, IMcpSourceConfigurationFingerprint, IAsyncDisposable
