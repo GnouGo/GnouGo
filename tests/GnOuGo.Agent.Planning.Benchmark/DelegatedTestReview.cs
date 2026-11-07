@@ -238,6 +238,7 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
             address.Host is not ("www.amazon.fr" or "amazon.fr")) return false;
         var path = address.AbsolutePath; var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
         return path == "/s" || path.StartsWith("/dp/", StringComparison.Ordinal) || path.StartsWith("/gp/product/", StringComparison.Ordinal) ||
+            parts is ["gp", "aw", "d", var asin] && asin.Length == 10 && asin.All(c => c is >= 'A' and <= 'Z' or >= '0' and <= '9') ||
             parts.Length >= 3 && parts[1] == "dp" && parts[0] != "gp";
     }
 

@@ -693,3 +693,5 @@ writes. The public record API fallback remains supported for older stores.
 Fresh live runs reject unresolved campaign request identities before starting a host
 or creating a session/application reservation. Exact recovery and protected inspection
 retain their existing paths; an empty HTTP journal alone does not clear a request.
+
+Delegated Amazon product reads recognize the observed mobile `/gp/aw/d/<ASIN>` route on the same authorized HTTPS Amazon.fr hosts. The mobile route requires exactly one ten-character uppercase alphanumeric ASIN; account, cart, extra path segments and external hosts remain denied. A permission rejection before MCP transport produces an explicit local `DELEGATED_PERMISSION_DENIED` error receipt (`origin: delegated_permission_guard`, `dispatched: false`), allowing the durable engine to preserve failure and run approved cleanup. Remote exceptions retain their existing uncertain-outcome handling. This does not change an earlier pinned review or replay an executed run; use journal reconciliation for proved local failures and a separately reviewed independent trial.

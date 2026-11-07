@@ -564,7 +564,20 @@ internal static class LiveWorkflowEvaluation
             public Task<McpGetPromptResult> GetPromptAsync(string name, JsonNode? arguments, CancellationToken ct) => inner.GetPromptAsync(name, arguments, ct);
             public async Task<McpCallResult> CallToolAsync(string toolName, JsonNode? arguments, CancellationToken ct)
             {
-                owner._authority?.RequireTool(ServerName, toolName, arguments);
+                try { owner._authority?.RequireTool(ServerName, toolName, arguments); }
+                catch (PlanningConflictException)
+                {
+                    // This guard runs before transport. Publish its own known local failure,
+                    // so the durable engine can finalize failure and execute approved cleanup.
+                    var denied = new McpCallResult { IsError = true, Content = new JsonObject {
+                        ["success"] = false, ["error_code"] = "DELEGATED_PERMISSION_DENIED",
+                        ["error_message"] = "The operation was rejected by the delegated permission guard before transport.",
+                        ["origin"] = "delegated_permission_guard", ["dispatched"] = false } };
+                    await owner._save(new JsonObject { ["origin"] = "delegated_permission_guard", ["server"] = ServerName,
+                        ["tool"] = toolName, ["arguments"] = arguments?.DeepClone(), ["error"] = true,
+                        ["dispatched"] = false, ["result"] = denied.Content.DeepClone(), ["started"] = DateTimeOffset.UtcNow.ToString("O") });
+                    return denied;
+                }
                 if (toolName is "git_push" or "git_delete_remote_branch")
                     throw new InvalidOperationException("Remote publication is outside this live campaign.");
                 var evt = new JsonObject { ["server"] = ServerName, ["tool"] = toolName, ["arguments"] = arguments?.DeepClone(), ["started"] = DateTimeOffset.UtcNow.ToString("O") };

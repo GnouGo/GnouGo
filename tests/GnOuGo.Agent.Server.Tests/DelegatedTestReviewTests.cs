@@ -30,6 +30,87 @@ public sealed class DelegatedTestReviewTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Theory]
+    [InlineData("https://www.amazon.fr/gp/aw/d/B0CFXD921L?pd_rd_plhdr=t&qid=1794055831", true)]
+    [InlineData("https://amazon.fr/gp/aw/d/B0CFXD921L", true)]
+    [InlineData("http://www.amazon.fr/gp/aw/d/B0CFXD921L", false)]
+    [InlineData("https://user@www.amazon.fr/gp/aw/d/B0CFXD921L", false)]
+    [InlineData("https://www.amazon.fr.example.com/gp/aw/d/B0CFXD921L", false)]
+    [InlineData("https://www.amazon.fr/gp/aw/d/short", false)]
+    [InlineData("https://www.amazon.fr/gp/aw/d/B0CFXD921L/orders", false)]
+    [InlineData("https://www.amazon.fr/gp/aw/c/B0CFXD921L", false)]
+    [InlineData("https://www.amazon.fr/gp/aw/d/%2Fcart%2F", false)]
+    [InlineData("https://www.amazon.fr/ap/signin", false)]
+    public async Task ObservedMobileProductRouteRetainsExactHostAndReadOnlyPathRestrictions(string url, bool allowed)
+    {
+        var (_, _, authorization, evidence, receipt) = await Fixture();
+        var authority = Authority(authorization with { Scenario = "amazon" }, evidence, receipt, "amazon");
+        void Read() => authority.RequireTool("GnOuGo.Browser.Mcp", "browser_get_content", new JsonObject { ["url"] = url });
+        if (allowed) Read(); else Assert.Throws<PlanningConflictException>(Read);
+    }
+
+    [Fact]
+    public async Task LocalPermissionDenialIsKnownBeforeTransportAndDurableCleanupIsNotBlocked()
+    {
+        var (_, _, authorization, evidence, receipt) = await Fixture();
+        var authority = Authority(authorization with { Scenario = "amazon" }, evidence, receipt, "amazon");
+        var transport = new GuardTransport(); var events = new List<JsonObject>();
+        var observed = new LiveWorkflowEvaluation.ObservedMcp(transport, e => { events.Add(e); return Task.CompletedTask; }, authority);
+        var parsed = GnOuGo.Flow.Core.Parsing.WorkflowParser.Parse("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: denied
+                    type: mcp.call
+                    input:
+                      server: GnOuGo.Browser.Mcp
+                      method: browser_get_content
+                      request: { url: 'https://www.amazon.fr/ap/signin' }
+                finally:
+                  - id: cleanup
+                    type: mcp.call
+                    input:
+                      server: GnOuGo.Browser.Mcp
+                      method: browser_close
+                      request: {}
+            """);
+        var compiled = new GnOuGo.Flow.Core.Compilation.WorkflowCompiler().Compile(parsed).Workflows["main"];
+        var store = new InMemoryWorkflowRunStore();
+        WorkflowEngine Engine() => new() { McpClientFactory = observed, RunStore = store, Limits = new() { TenantId = "benchmark", RunId = "guard-test" } };
+        var result = await Engine().ExecuteAsync(compiled, null, Ct);
+        Assert.False(result.Success); Assert.NotEqual("RUN_NEEDS_RECONCILIATION", result.Error?.Code);
+        Assert.Equal(["browser_close"], transport.Calls);
+        var denial = events.Single(e => e["origin"]?.ToString() == "delegated_permission_guard");
+        Assert.False(denial["dispatched"]!.GetValue<bool>()); Assert.True(denial["error"]!.GetValue<bool>());
+        var run = (await store.ReadAsync("benchmark", "guard-test", Ct))!;
+        Assert.Equal(WorkflowRunStatus.Failed, run.Status);
+        Assert.DoesNotContain(run.Invocations.Values, i => i.Recovery == StepRecovery.External && i.DispatchedAt is not null && i.CompletedAt is null);
+        var known = run.Invocations.Values.Single(i => i.Id.EndsWith("/denied", StringComparison.Ordinal));
+        Assert.True(known.ExternalCompletionObserved); Assert.NotNull(known.CompletedAt);
+        await Engine().ResumeAsync("benchmark", "guard-test", run.Revision, compiled, Ct);
+        Assert.Equal(["browser_close"], transport.Calls); // Cold engine restores failure and cleanup without replay.
+    }
+
+    private sealed class GuardTransport : IMcpClientFactory, IMcpSession, IMcpExecutionHooks
+    {
+        internal List<string> Calls { get; } = [];
+        public string ServerName => "GnOuGo.Browser.Mcp";
+        public IReadOnlyList<McpServerMetadata> ServerMetadata { get; } = [new() { Name = "GnOuGo.Browser.Mcp" }];
+        public Task<IMcpSession> GetClientAsync(string name, CancellationToken ct) => Task.FromResult<IMcpSession>(this);
+        public Task<IReadOnlyList<McpToolInfo>> ListToolsAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<McpToolInfo>>(
+            [new() { Name = "browser_get_content", InputSchema = new JsonObject { ["type"] = "object" } }, new() { Name = "browser_close", InputSchema = new JsonObject { ["type"] = "object" } }]);
+        public Task<IReadOnlyList<McpPromptInfo>> ListPromptsAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<McpPromptInfo>>([]);
+        public Task<IReadOnlyList<McpResourceInfo>> ListResourcesAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<McpResourceInfo>>([]);
+        public Task<McpGetPromptResult> GetPromptAsync(string name, JsonNode? args, CancellationToken ct) => throw new NotSupportedException();
+        public Task<McpCallResult> CallToolAsync(string name, JsonNode? args, CancellationToken ct)
+        { Calls.Add(name); return Task.FromResult(new McpCallResult { Content = new JsonObject { ["success"] = true } }); }
+        public IDisposable BeginCall(McpCallExecutionContext context) => new Scope();
+        public string FormatFailureDiagnostics(string name, Exception exception) => exception.GetType().Name;
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        private sealed class Scope : IDisposable { public void Dispose() { } }
+    }
+
+    [Theory]
     [InlineData("")]
     [InlineData("{\"response\":true}")]
     [InlineData("{\"interaction_preflight\":\"stale\"}")]
