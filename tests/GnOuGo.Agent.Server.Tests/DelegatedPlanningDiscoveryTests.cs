@@ -36,6 +36,35 @@ public sealed class DelegatedPlanningDiscoveryTests
         await discovery.DisposeAsync(); Assert.True(inner.Disposed);
     }
 
+    [Fact]
+    public async Task HostNameLookupRemainsAvailableWithoutAdvertisingAgentOperationsOrPermittingWrites()
+    {
+        var inner = new Factory("GnOuGo.Agent.Mcp", "agent_get_by_name", "agent_create");
+        await using var discovery = new ServerLiveDiagnostics.DelegatedPlanningDiscovery(inner, "amazon", "frozen-authority-assembly");
+        Assert.Empty(discovery.ServerMetadata);
+        await using var session = await discovery.GetClientAsync("GnOuGo.Agent.Mcp", TestContext.Current.CancellationToken);
+        Assert.Empty(await session.ListToolsAsync(TestContext.Current.CancellationToken));
+        Assert.Empty(await session.ListResourcesAsync(TestContext.Current.CancellationToken));
+        Assert.Empty(await session.ListPromptsAsync(TestContext.Current.CancellationToken));
+        await session.CallToolAsync("agent_get_by_name", new JsonObject { ["name"] = "independent-run" }, TestContext.Current.CancellationToken);
+        Assert.Equal(1, inner.BusinessCalls);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => session.CallToolAsync("agent_create", new JsonObject { ["name"] = "independent-run" }, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => session.GetPromptAsync("unadvertised", null, TestContext.Current.CancellationToken));
+        Assert.Equal(1, inner.BusinessCalls);
+    }
+
+    [Fact]
+    public async Task HostLookupRejectsMissingNamesAndAdditionalArguments()
+    {
+        var inner = new Factory("GnOuGo.Agent.Mcp", "agent_get_by_name", "agent_create");
+        await using var discovery = new ServerLiveDiagnostics.DelegatedPlanningDiscovery(inner, "amazon", "frozen-authority-assembly");
+        await using var session = await discovery.GetClientAsync("GnOuGo.Agent.Mcp", TestContext.Current.CancellationToken);
+        foreach (var arguments in new JsonNode?[] { null, new JsonObject(), new JsonObject { ["name"] = " " },
+            new JsonObject { ["name"] = "run", ["unexpected"] = true } })
+            await Assert.ThrowsAsync<InvalidOperationException>(() => session.CallToolAsync("agent_get_by_name", arguments, TestContext.Current.CancellationToken));
+        Assert.Equal(0, inner.BusinessCalls);
+    }
+
     private sealed class Factory(string server, string allowed, string denied) : IMcpClientFactory, IMcpSourceConfigurationFingerprint, IAsyncDisposable
     {
         internal readonly McpToolInfo[] Tools = [new() { Name = allowed, InputSchema = new JsonObject { ["type"] = "object" } }, new() { Name = denied }];

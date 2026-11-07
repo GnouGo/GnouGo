@@ -219,11 +219,14 @@ and reports before/after bytes. The retained source request is never rewritten.
 Fresh Amazon/Code Server qualifications discover tools through the existing
 `ObservedMcp` scenario filter used by delegated execution. Source-bound Release
 tools and their contracts stay exact; operations outside the existing delegated
-allowlist are unavailable during selection. The metadata-only decorator rejects
+allowlist are unavailable during selection. The decorator rejects business
 tool/prompt invocation before artifact approval and binds both transport configuration
 and the authority assembly hash into its source fingerprint. This prevents a plan
 from accumulating interactive or publishing operations that its unchanged later
 delegation cannot execute. Original requirements and business judges still apply.
+Server's required `agent_get_by_name` bootstrap lookup uses the same source-bound
+Release Agent MCP, with exactly one nonempty `name` argument. Agent metadata is
+hidden from planner discovery; all its other calls, including writes, are denied.
 
 `--probe-check-responses` performs OPTIONS and a nonexistent-response GET under the
 same gateway/deployment prefix. It does not create a response, switch protocols or
