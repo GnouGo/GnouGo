@@ -61,9 +61,8 @@ public sealed class RoutingLLMClient
             ?? throw new InvalidOperationException(
                 $"No model provider configured for '{providerKey}'. Available: [{string.Join(", ", _options.Models.Keys)}]");
 
-        var model = string.IsNullOrWhiteSpace(request.Model) ? _options.DefaultModel : request.Model;
-
-        model = NormalizeModel(model);
+        var configuredModel = string.IsNullOrWhiteSpace(request.Model) ? _options.DefaultModel : request.Model;
+        var model = NormalizeModel(configuredModel);
 
         var resolvedType = providerOpts.ResolvedType;
 
@@ -76,13 +75,13 @@ public sealed class RoutingLLMClient
 
         var metadata = _metadataResolver.Resolve(resolvedType, model);
         var sanitizedRequest = LLMRequestSanitizer.Sanitize(request, metadata, providerOpts.RequestPolicy);
-        if (_options.CapturedTransports?.TryGetValue(ModelMetadataCatalog.ModelIdentityKey(resolvedType, model), out var frozenTransport) == true)
+        if (_options.CapturedTransports?.TryGetValue(ModelMetadataCatalog.ModelIdentityKey(resolvedType, configuredModel), out var frozenTransport) == true)
         {
             if (frozenTransport.Protocol != LLMTransportResolver.Protocol(providerOpts, request.UseBackgroundMode))
                 throw new InvalidOperationException("The captured native generation protocol cannot change.");
             sanitizedRequest.ResolvedTransport = frozenTransport;
         }
-        else sanitizedRequest.ResolvedTransport = LLMTransportResolver.Resolve(model, providerOpts, request.UseBackgroundMode,
+        else sanitizedRequest.ResolvedTransport = LLMTransportResolver.Resolve(configuredModel, providerOpts, request.UseBackgroundMode,
             _metadataResolver.ResolveDeclaredMetadata(resolvedType, model)?.Capabilities);
         sanitizedRequest.DeclaredTransportCapabilities = _metadataResolver.ResolveDeclaredMetadata(resolvedType, model)?.Capabilities;
         if (LLMHttpRetryContext.Current is not null && (request.Tools is { Count: > 0 } || request.UseBackgroundMode &&
@@ -131,7 +130,8 @@ public sealed class RoutingLLMClient
         return _metadataResolver.ResolveDeclaredMetadata(options.ResolvedType, NormalizeModel(string.IsNullOrWhiteSpace(model) ? _options.DefaultModel : model));
     }
 
-    private static string NormalizeModel(string model)
+    /// <summary>Returns the existing wire model identity, independently of exact configured transport override keys.</summary>
+    public static string NormalizeModel(string model)
     {
         // Strip "vendor/model" prefix for model routing if the provider is specified via prefix
         if (!string.IsNullOrWhiteSpace(model) && model.Contains('/'))

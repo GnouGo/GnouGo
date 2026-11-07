@@ -331,7 +331,7 @@ public sealed class PlanningHttpJournalTests
                         StreamingSupport = new() { [LLMTransportResolver.ChatCompletions] = true } } } },
                 ModelOverrides = { ["openai/journal-fixture"] = new() { Id = "journal-fixture", ProviderType = "openai",
                     MaxInputTokens = 128000, MaxOutputTokens = 65536, ContextWindowTokens = 200000,
-                    Capabilities = new() { SupportsStructuredOutput = true, SupportsReasoningEffort = true, SupportedReasoningEfforts = ["medium"] } } }
+                    Capabilities = new() { SupportsStreaming = true, SupportsStructuredOutput = true, SupportsReasoningEffort = true, SupportedReasoningEfforts = ["medium"] } } }
             }));
             var policy = new PlanningConstructionPhasePolicy
             {

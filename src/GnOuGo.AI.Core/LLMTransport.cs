@@ -52,7 +52,11 @@ public static class LLMTransportResolver
         bool? declared = null;
         var source = "unknown";
         if (modelPolicy?.StreamingSupport?.TryGetValue(protocol, out var exact) == true) { declared = exact; source = "exact deployment declaration"; }
-        else if (provider.RequestPolicy.StreamingSupport?.TryGetValue(protocol, out var route) == true) { declared = route; source = "configured route declaration"; }
+        else if (provider.RequestPolicy.StreamingSupport?.TryGetValue(protocol, out var route) == true)
+        {
+            declared = !route || capabilities?.SupportsStreaming == false ? false : capabilities?.SupportsStreaming == true ? true : null;
+            source = declared is null ? "route declared; exact model support unknown" : "configured route and declared model capability";
+        }
         else if (IsOfficialRoute(provider) && capabilities?.SupportsStreaming is { } supported) { declared = supported; source = "declared model capability on native route"; }
         // A declaration cannot grant a protocol the adapter cannot implement.
         if (protocol is MessageBatches or "Unsupported") { declared = false; source = "native protocol does not support generation streaming"; }

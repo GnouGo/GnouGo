@@ -267,6 +267,7 @@ public sealed class DiagnosticPlanningTests
         var options = ModelOptions();
         var provider = options.ResolveProvider(options.DefaultProvider)!;
         provider.RequestPolicy.StreamingSupport = new() { [LLMTransportResolver.ChatCompletions] = true };
+        provider.ModelTransportOverrides = new() { [options.DefaultModel] = new() { StreamingSupport = new() { [LLMTransportResolver.ChatCompletions] = true } } };
         var state = new PlanningRequest();
         CapturedPlanningModel.Capture(state, options);
         var retained = state.Options.ToJsonString();

@@ -71,7 +71,7 @@ public static class CapturedPlanningModel
             DefaultProvider = provider, DefaultModel = model, Models = new(StringComparer.OrdinalIgnoreCase) { [provider] = frozenRoute }, McpServers = current.McpServers,
             DangerousAcceptAnyServerCertificate = current.DangerousAcceptAnyServerCertificate,
             CapturedTransports = new(StringComparer.OrdinalIgnoreCase) { [ModelMetadataCatalog.ModelIdentityKey(route.ResolvedType, model)] = transport },
-            CapturedModelMetadata = new(StringComparer.OrdinalIgnoreCase) { [ModelMetadataCatalog.ModelIdentityKey(route.ResolvedType, model)] = metadata }
+            CapturedModelMetadata = new(StringComparer.OrdinalIgnoreCase) { [ModelMetadataCatalog.ModelIdentityKey(route.ResolvedType, RoutingLLMClient.NormalizeModel(model))] = metadata }
         };
     }
 

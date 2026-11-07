@@ -24,7 +24,8 @@ public sealed class NativeGenerationTransportTests
         var handler = new Handler(type, vision, truncated);
         using var http = new HttpClient(handler);
         var provider = new ModelProviderOptions { RequestPolicy = new() { StreamingMode = LLMStreamingMode.Streaming,
-            StreamingSupport = new() { [type == "openai" ? LLMTransportResolver.ChatCompletions : LLMTransportResolver.OllamaChat] = true } } };
+            StreamingSupport = new() { [type == "openai" ? LLMTransportResolver.ChatCompletions : LLMTransportResolver.OllamaChat] = true } },
+            ModelTransportOverrides = new() { ["deployment"] = new() { StreamingSupport = new() { [type == "openai" ? LLMTransportResolver.ChatCompletions : LLMTransportResolver.OllamaChat] = true } } } };
         async Task<string> Run()
         {
             if (!vision)

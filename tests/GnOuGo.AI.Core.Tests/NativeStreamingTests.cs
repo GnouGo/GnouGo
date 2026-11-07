@@ -150,6 +150,7 @@ public sealed class NativeStreamingTests
         using var http = NewHttp(new Handler(_ => throw new InvalidOperationException("Must not dispatch")));
         var provider = Provider(type);
         provider.RequestPolicy.StreamingSupport = null;
+        provider.ModelTransportOverrides = null;
         var client = new RoutingLLMClient(http, Options(provider));
         await Assert.ThrowsAsync<InvalidOperationException>(() => client.CallAsync(Request(), Ct));
         Assert.Equal(0, httpCalls(http));
@@ -163,10 +164,39 @@ public sealed class NativeStreamingTests
         Assert.True(LLMTransportResolver.Resolve("deployment", provider, false).IsStreaming);
         provider.ModelTransportOverrides = new() { ["deployment"] = new() { StreamingMode = LLMStreamingMode.NonStreaming } };
         Assert.False(LLMTransportResolver.Resolve("deployment", provider, false).IsStreaming);
-        Assert.True(LLMTransportResolver.Resolve("other", provider, false).IsStreaming);
+        Assert.False(LLMTransportResolver.Resolve("other", provider, false).IsStreaming);
+        Assert.True(LLMTransportResolver.Resolve("other", provider, false, new() { SupportsStreaming = true }).IsStreaming);
         provider.RequestPolicy.StreamingSupport = null;
         Assert.False(LLMTransportResolver.Resolve("other", provider, false).IsStreaming);
         Assert.Throws<InvalidOperationException>(() => LLMTransportResolver.Resolve("other", new() { Type = "anthropic", RequestPolicy = new() { StreamingMode = LLMStreamingMode.Streaming } }, true));
+    }
+
+    [Fact]
+    public async Task ExactConfiguredOverrideSurvivesExistingVendorPrefixWireNormalization()
+    {
+        var provider = Provider("copilot");
+        provider.RequestPolicy.StreamingMode = LLMStreamingMode.NonStreaming;
+        provider.ModelTransportOverrides = new() { ["vendor/deployment"] = new() { StreamingMode = LLMStreamingMode.Streaming,
+            StreamingSupport = new() { [LLMTransportResolver.ChatCompletions] = true } } };
+        using var http = NewHttp(new Handler(async message =>
+        {
+            var body = JsonNode.Parse(await message.Content!.ReadAsStringAsync(Ct))!;
+            Assert.Equal("deployment", body["model"]!.ToString());
+            Assert.True(body["stream"]!.GetValue<bool>());
+            return Response("copilot", Fixture("copilot"));
+        }));
+        var request = Request(); request.Model = "vendor/deployment";
+        Assert.NotEmpty((await new RoutingLLMClient(http, Options(provider)).CallAsync(request, Ct)).Text);
+    }
+
+    [Fact]
+    public void RouteSupportAloneCannotGrantUnknownOrExcludedModelSupport()
+    {
+        var provider = Provider("openai"); provider.ModelTransportOverrides = null;
+        Assert.Throws<InvalidOperationException>(() => LLMTransportResolver.Resolve("deployment", provider, false));
+        Assert.True(LLMTransportResolver.Resolve("deployment", provider, false, new() { SupportsStreaming = true }).IsStreaming);
+        provider.ModelTransportOverrides = new() { ["deployment"] = new() { StreamingSupport = new() { [LLMTransportResolver.ChatCompletions] = true } } };
+        Assert.Throws<InvalidOperationException>(() => LLMTransportResolver.Resolve("deployment", provider, false, new() { SupportsStreaming = false }));
     }
 
     [Fact]
@@ -304,7 +334,8 @@ public sealed class NativeStreamingTests
         using var http = NewHttp(new Handler(_ => throw new InvalidOperationException("Cloud fallback must not dispatch")));
         var options = new LLMOptions { DefaultProvider = "embedded", DefaultModel = "deployment", Fallback = new() { Provider = "cloud", Model = "deployment" },
             Models = new() { ["embedded"] = new() { Type = "local", RequestPolicy = new() { StreamingMode = LLMStreamingMode.Streaming,
-                StreamingSupport = new() { [LLMTransportResolver.Local] = true } } }, ["cloud"] = Provider("openai") } };
+                StreamingSupport = new() { [LLMTransportResolver.Local] = true } },
+                ModelTransportOverrides = new() { ["deployment"] = new() { StreamingSupport = new() { [LLMTransportResolver.Local] = true } } } }, ["cloud"] = Provider("openai") } };
         var client = new RoutingLLMClient(options, [new LocalLLMProvider(runtime), new OpenAiLLMProvider(http)]);
         await Assert.ThrowsAnyAsync<Exception>(() => client.CallAsync(Request(), Ct));
         Assert.Equal(1, runtime.Calls);
@@ -329,7 +360,9 @@ public sealed class NativeStreamingTests
         Type = type, Url = "https://gateway.example/v1", ApiKey = "test",
         RequestPolicy = new() { StreamingMode = LLMStreamingMode.Streaming, StreamingSupport = new() {
             [LLMTransportResolver.ChatCompletions] = true, [LLMTransportResolver.Messages] = true, [LLMTransportResolver.OllamaChat] = true, [LLMTransportResolver.Responses] = true } },
-        RetryPolicy = new() { BaseDelayMilliseconds = 1, MaxDelayMilliseconds = 1 }
+        RetryPolicy = new() { BaseDelayMilliseconds = 1, MaxDelayMilliseconds = 1 },
+        ModelTransportOverrides = new() { ["deployment"] = new() { StreamingSupport = new() {
+            [LLMTransportResolver.ChatCompletions] = true, [LLMTransportResolver.Messages] = true, [LLMTransportResolver.OllamaChat] = true, [LLMTransportResolver.Responses] = true } } }
     };
     private static RoutingLLMClient Client(HttpClient http, string type) => new(http, Options(Provider(type)));
     private static IDisposable Context(Journal journal) => new LLMHttpRetryContext("request", journal, new() { MaxAttempts = 3, MaxUncertainRetries = 0, BaseDelayMilliseconds = 1, MaxDelayMilliseconds = 1 }).Activate();

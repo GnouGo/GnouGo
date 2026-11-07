@@ -95,7 +95,8 @@ internal static class PlanningPersistenceSmoke
         var options = new LLMOptions { DefaultProvider = "smoke", DefaultModel = "native-smoke", Models = new()
         {
             ["smoke"] = new() { Type = "openai", Url = "https://native-smoke.invalid/v1", RequestPolicy = new()
-                { StreamingMode = LLMStreamingMode.Streaming, StreamingSupport = new() { [LLMTransportResolver.ChatCompletions] = true } } }
+                { StreamingMode = LLMStreamingMode.Streaming, StreamingSupport = new() { [LLMTransportResolver.ChatCompletions] = true } },
+                ModelTransportOverrides = new() { ["native-smoke"] = new() { StreamingSupport = new() { [LLMTransportResolver.ChatCompletions] = true } } } }
         } };
         for (var index = 0; index < 2; index++)
         {
