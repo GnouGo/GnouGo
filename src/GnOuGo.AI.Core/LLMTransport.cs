@@ -57,7 +57,7 @@ public static class LLMTransportResolver
             declared = !route || capabilities?.SupportsStreaming == false ? false : capabilities?.SupportsStreaming == true ? true : null;
             source = declared is null ? "route declared; exact model support unknown" : "configured route and declared model capability";
         }
-        else if (IsOfficialRoute(provider) && capabilities?.SupportsStreaming is { } supported) { declared = supported; source = "declared model capability on native route"; }
+        else if (IsOfficialRoute(provider, protocol) && capabilities?.SupportsStreaming is { } supported) { declared = supported; source = "declared model capability on native route"; }
         // A declaration cannot grant a protocol the adapter cannot implement.
         if (protocol is MessageBatches or "Unsupported") { declared = false; source = "native protocol does not support generation streaming"; }
         if (capabilities?.SupportsStreaming == false) { declared = false; source = "model explicitly excludes streaming"; }
@@ -71,16 +71,31 @@ public static class LLMTransportResolver
         => request.ResolvedTransport ?? Resolve(model, provider, request.UseBackgroundMode,
             new LLMModelMetadataResolver(new LLMOptions()).ResolveDeclaredMetadata(provider.ResolvedType, model)?.Capabilities);
 
-    private static bool IsOfficialRoute(ModelProviderOptions provider)
+    private static bool IsOfficialRoute(ModelProviderOptions provider, string protocol)
     {
         if (provider.ResolvedType == "local") return true;
-        if (!Uri.TryCreate(provider.Url, UriKind.Absolute, out var uri)) return false;
+        if (provider.Url is null) return false;
+        var endpoint = protocol switch
+        {
+            ChatCompletions when provider.ResolvedType == "openai" => OpenAiEndpoints.ChatCompletions(provider.Url, provider.ApiVersion),
+            Responses => OpenAiEndpoints.Responses(provider.Url, provider.ApiVersion),
+            Messages => AnthropicLLMProvider.BuildMessagesUrl(provider.Url),
+            OllamaChat => OllamaEndpoints.Chat(provider.Url),
+            _ => provider.Url
+        };
+        if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var uri)) return false;
+        var path = uri.AbsolutePath;
+        if (provider.ResolvedType == "ollama") return uri.IsLoopback && path == "/api/chat";
+        if (uri.Scheme != Uri.UriSchemeHttps) return false;
+        var azureChat = path.Split('/', StringSplitOptions.RemoveEmptyEntries) is ["openai", "deployments", _, "chat", "completions"];
         return provider.ResolvedType switch
         {
-            "openai" => uri.Host.Equals("api.openai.com", StringComparison.OrdinalIgnoreCase) || uri.Host.EndsWith(".openai.azure.com", StringComparison.OrdinalIgnoreCase),
-            "anthropic" => uri.Host.Equals("api.anthropic.com", StringComparison.OrdinalIgnoreCase),
+            "openai" => uri.Host.Equals("api.openai.com", StringComparison.OrdinalIgnoreCase) && path == (protocol == Responses ? "/v1/responses" : "/v1/chat/completions") ||
+                uri.Host.EndsWith(".openai.azure.com", StringComparison.OrdinalIgnoreCase) && (protocol == Responses
+                    ? path is "/openai/responses" or "/openai/v1/responses"
+                    : path == "/openai/v1/chat/completions" || azureChat),
+            "anthropic" => uri.Host.Equals("api.anthropic.com", StringComparison.OrdinalIgnoreCase) && path == "/v1/messages",
             // The former GitHub Models service is retired. Custom Copilot routes require declarations.
-            "ollama" => uri.IsLoopback,
             _ => false
         };
     }

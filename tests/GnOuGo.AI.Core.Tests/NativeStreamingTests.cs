@@ -235,6 +235,25 @@ public sealed class NativeStreamingTests
         Assert.Throws<InvalidOperationException>(() => LLMTransportResolver.Resolve("deployment", provider, false, new() { SupportsStreaming = false }));
     }
 
+    [Theory]
+    [InlineData("openai", "https://api.openai.com/v1", true)]
+    [InlineData("openai", "https://api.openai.com/custom", false)]
+    [InlineData("openai", "https://native.openai.azure.com/openai/deployments/exact", true)]
+    [InlineData("openai", "https://native.openai.azure.com/custom", false)]
+    [InlineData("anthropic", "", true)]
+    [InlineData("anthropic", "https://api.anthropic.com/custom", false)]
+    [InlineData("ollama", "http://127.0.0.1:11434", true)]
+    [InlineData("ollama", "http://127.0.0.1:11434/custom", false)]
+    public void NativeCapabilityRequiresTheActualBuiltProtocolRouteNotOnlyItsHostname(string type, string url, bool native)
+    {
+        var provider = new ModelProviderOptions { Type = type, Url = url };
+        var selection = LLMTransportResolver.Resolve("exact", provider, false, new() { SupportsStreaming = true });
+        Assert.Equal(native ? LLMStreamingMode.Streaming : LLMStreamingMode.NonStreaming, selection.EffectiveMode);
+        provider.RequestPolicy.StreamingMode = LLMStreamingMode.Streaming;
+        if (native) Assert.True(LLMTransportResolver.Resolve("exact", provider, false, new() { SupportsStreaming = true }).IsStreaming);
+        else Assert.Throws<InvalidOperationException>(() => LLMTransportResolver.Resolve("exact", provider, false, new() { SupportsStreaming = true }));
+    }
+
     [Fact]
     public async Task NativeToolArgumentsAreAssembledBeforeExistingParserReceivesThem()
     {

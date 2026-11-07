@@ -30,6 +30,8 @@ The provider configuration wizard exposes transport mode and per-protocol route 
 
 Resolution order is session capture, exact model override, provider default. An omitted provider mode means Auto for new calls. Auto streams only with confirmed native support on the selected route/model/protocol; unknown support selects non-streaming. Explicit Streaming rejects unknown or unsupported combinations before authentication/inference and never falls back to buffered generation. Custom gateways require route and exact model support, or an explicit protocol declaration on that exact deployment override. A provider route declaration alone cannot establish unknown model support. Official-route model declarations can establish support; a model explicitly excluding streaming remains unsupported.
 
+Native-route recognition checks the actual endpoint produced by the existing adapter builder, not only its hostname. Custom paths on official hosts and local proxy prefixes require declarations too. Endpoint construction remains unchanged; transport selection cannot redirect an unsupported path to another API.
+
 New planning captures freeze requested/effective transport, protocol and capability evidence. Historical captures restore NonStreaming without changing stored sessions, requests, fingerprints, tariffs or reservations. Changing global transport settings affects new captures; existing route, tariff and retry-policy protection remains effective.
 
 ## Protocol and completion
