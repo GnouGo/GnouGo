@@ -1,0 +1,7 @@
+{
+  "evidence": "actual Agent.Server; browser readiness only; no inference",
+  "assetsDelivered": true,
+  "helperRegistered": true,
+  "interactiveCircuit": true,
+  "errors": []
+}

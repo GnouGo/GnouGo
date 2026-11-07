@@ -1,0 +1,73 @@
+// Public KeyVault APIs and the existing EF-owned session store; local operator evidence.
+// No provider client or model dispatch is constructed.
+if(args.Contains("--measure-funded-reads")) {
+ const string collection="planning-evaluation-http-attempts",tenant="benchmark",author="GnOuGo.Planning.Benchmark",prefix="pr120-live-20261107-400:";
+ var timer=System.Diagnostics.Stopwatch.StartNew();
+ var all=await records.ListAsync(collection,tenant,author);
+ var broadMs=timer.Elapsed.TotalMilliseconds;
+ var broadBytes=all.Sum(r=>(long)System.Text.Encoding.UTF8.GetByteCount(r.Value));
+ timer.Restart();var targeted=0;long targetedBytes=0;KeyVaultRecordCursor? cursor=null;
+ do {var page=await ((IKeyVaultRecordReader)records).QueryMetadataAsync(collection,tenant,prefix,author,cursor,count:100);
+ foreach(var item in page.Records) {var r=await records.GetAsync(collection,tenant,item.Key,author)??throw new InvalidOperationException("Missing record");targeted++;targetedBytes+=System.Text.Encoding.UTF8.GetByteCount(r.Value);}
+ if(!page.HasMore)break;cursor=page.Next??throw new InvalidOperationException("Missing cursor");}while(true);
+ Console.WriteLine(new System.Text.Json.Nodes.JsonObject{["observedAtUtc"]=DateTimeOffset.UtcNow,["modelDispatches"]=0,["allTenantRecords"]=all.Count,["allTenantLogicalBytes"]=broadBytes,["allTenantReadMilliseconds"]=broadMs,["campaignRecords"]=targeted,["campaignLogicalBytes"]=targetedBytes,["campaignReadMilliseconds"]=timer.Elapsed.TotalMilliseconds,["payloadExported"]=false}.ToJsonString());return;
+}
+if(args.Contains("--funded-request")) {
+ var request=args[Array.IndexOf(args,"--funded-request")+1];
+ if(!request.StartsWith("d5f12d9d59f54bda9fefe441d19c0834:",StringComparison.Ordinal))throw new InvalidOperationException("Unexpected owner");
+ var rows=new System.Text.Json.Nodes.JsonObject();
+ foreach(var collection in new[]{"planning-evaluation-requests","planning-evaluation-receipts","planning-evaluation-http-attempts","planning-evaluation-failures","planning-evaluation-closures"}) {
+ var r=await records.GetAsync(collection,"benchmark","pr120-live-20261107-400:"+request,"GnOuGo.Planning.Benchmark");
+ var j=r is null?null:System.Text.Json.Nodes.JsonNode.Parse(r.Value);
+ var item=new System.Text.Json.Nodes.JsonObject{["present"]=r is not null,["sha256"]=r is null?null:PlanningGraphCompiler.Fingerprint(r.Value),["httpAttempts"]=j?["transport"]?["Attempts"]?.AsArray().Count,["usagePresent"]=j?["usage"] is not null};
+ foreach(var field in new[]{"stage","exception_type","dispatch_status","reason","kind","status_code"})if(j is System.Text.Json.Nodes.JsonObject o&&o.ContainsKey(field))item[field]=j[field]?.DeepClone();rows[collection]=item;
+ }
+ 
+ var primary=await records.GetAsync("agent-planning-model-http-v11","benchmark",request,"GnOuGo.Agent.Server.Planning");
+ var receipt=await records.GetAsync("agent-planning-model-receipts-v11","benchmark","d5f12d9d59f54bda9fefe441d19c0834:"+request,"GnOuGo.Agent.Server.Planning");
+ var primaryJson=primary is null?null:System.Text.Json.Nodes.JsonNode.Parse(primary.Value);
+ var attempts=new System.Text.Json.Nodes.JsonArray();
+ foreach(var item in primaryJson?["transport"]?["Attempts"]?.AsArray()??new System.Text.Json.Nodes.JsonArray()) {
+ var safe=new System.Text.Json.Nodes.JsonObject();foreach(var field in new[]{"Id","Status","Failure","StartedAtUtc","FinishedAtUtc","ElapsedMilliseconds","ResponseComplete"})if(item is System.Text.Json.Nodes.JsonObject io&&io.ContainsKey(field))safe[field]=item[field]?.DeepClone();
+ safe["responseBodyRetained"]=item?["Body"] is not null;attempts.Add(safe);
+ }
+ rows["serverPrimaryHttp"]=new System.Text.Json.Nodes.JsonObject{["present"]=primary is not null,["sha256"]=primary is null?null:PlanningGraphCompiler.Fingerprint(primary.Value),["attempts"]=attempts,["receiptPresent"]=receipt is not null};
+Console.WriteLine(rows.ToJsonString());return;
+}
+if(args.Contains("--funded-run")) {
+ var run=args[Array.IndexOf(args,"--funded-run")+1];
+ const string campaign="pr120-live-20261107-400";
+ var row=await records.GetAsync("planning-evaluation-runs","benchmark",campaign+":"+run,"GnOuGo.Planning.Benchmark")??throw new InvalidOperationException("Run unavailable");
+ var j=System.Text.Json.Nodes.JsonNode.Parse(row.Value)!.AsObject();
+ var fundedState=j["session"];
+ if(args.Contains("--funded-latest")) {
+ var ownPath=Path.Combine(root,".GnOuGo/data/live-server",run,"planning.db");
+ if(!File.Exists(ownPath))throw new InvalidOperationException("Existing owner database unavailable");
+ var ownFactory=new PooledDbContextFactory<PlanningDbContext>(new DbContextOptionsBuilder<PlanningDbContext>().UseSqlite("Data Source="+ownPath+";Mode=ReadOnly;Pooling=False").UseModel(PlanningDbContextModel.Instance).Options);
+ var latest=await new EfPlanningSessionStore(ownFactory,records).LoadAsync("benchmark",j["session_id"]!.ToString(),CancellationToken.None)??throw new InvalidOperationException("Owned session unavailable");
+ fundedState=JsonSerializer.SerializeToNode(latest,PlanningJsonContext.Default.PlanningSession);
+ }
+
+ var result=new System.Text.Json.Nodes.JsonObject();
+ foreach(var k in new[]{"source","run","session_id","campaign","campaign_configuration","provider","model","budget_mode","financial_forecast_mode","funding_scope","frontend_ready","started_utc","finished_utc","result","passed","browser_observation_exit_code","loaded_assemblies"}) if(j.ContainsKey(k))result[k]=j[k]?.DeepClone();
+ result["status"]=fundedState?["status"]?.DeepClone();result["phase"]=fundedState?["phase"]?.DeepClone();result["revision"]=fundedState?["revision"]?.DeepClone();
+ result["diagnostics"]=fundedState?["diagnostics"]?.DeepClone();result["budget"]=fundedState?["budget"]?.DeepClone();
+ result["generation"]=fundedState?["request"]?["generation"]?.DeepClone();result["threshold_policy"]=fundedState?["request"]?["options"]?["planning_threshold_policy"]?.DeepClone();
+ if(fundedState is not null) {
+ var capturedPlanning=fundedState.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
+ var financialRow=await records.GetAsync("agent-planning-budgets-v11",capturedPlanning.Request.TenantId,capturedPlanning.Request.SessionId,"GnOuGo.Agent.Server.Planning");
+ var snapshot=financialRow is null?capturedPlanning.Usage:JsonSerializer.Deserialize(financialRow.Value,PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
+ result["financial"]=LLMFinancialProjection.Describe(snapshot,PlanningBudgetOptions.Parse(capturedPlanning.Request.Options)?.MaxEstimatedCost,
+ capturedPlanning.Request.Options["application_llm_budget"]?["financialForecastMode"]?.ToString()??"strict");
+ result["capturedApplicationPolicy"]=capturedPlanning.Request.Options["application_llm_budget"]?.DeepClone();
+ result["requestMeasurements"]=fundedState["requestMeasurements"]?.DeepClone();
+ result["thresholdWarnings"]=fundedState["thresholdWarnings"]?.DeepClone();
+ result["acceptedCheckpoints"]=capturedPlanning.Construction?.Checkpoints.Count;
+ result["draftCorrections"]=capturedPlanning.Construction?.DraftCorrections;
+ result["activeMilliseconds"]=capturedPlanning.ActiveMilliseconds;
+ result["artifactHash"]=capturedPlanning.ComputeArtifactHash();
+
+ }
+ result["recordHash"]=PlanningGraphCompiler.Fingerprint(row.Value);result["inspectionInferenceCalls"]=0;
+ Console.WriteLine(result.ToJsonString());return;
+}
