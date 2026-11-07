@@ -94,7 +94,10 @@ internal static class SchemaPortabilityCampaign
                 readiness["declared_metadata_hash"]!.ToString(), RequiredOption(args, "--expected-configuration"),
                 RequiredOption(args, "--authorization"), apply, CancellationToken.None,
                 apply ? RequiredOption(args, "--expected-amendment") : null,
-                captureCurrentSettings: args.Contains("--capture-current-settings", StringComparer.Ordinal));
+                captureCurrentSettings: args.Contains("--capture-current-settings", StringComparer.Ordinal),
+                reasoningCapabilityProof: args.Contains("--reasoning-capability-amendment", StringComparer.Ordinal)
+                    ? await proposed.ReasoningCapabilityProofAsync(RequiredOption(args, "--previous-configuration-id"),
+                        RequiredOption(args, "--previous-reasoning-efforts").Split(','), CancellationToken.None) : null);
             // Full deployment configuration stays encrypted in the campaign.
             // The exact hash identifies the preview without logging URL secrets.
             amendment.Remove("material");

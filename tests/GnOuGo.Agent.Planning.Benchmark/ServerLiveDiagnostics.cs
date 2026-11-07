@@ -123,22 +123,35 @@ internal static class ServerLiveDiagnostics
             await antiforgery.ValidateRequestAsync(context);
             if (Interlocked.CompareExchange(ref invoked, 1, 0) != 0) return Results.Conflict("A fresh independent run is required; this probe cannot replay.");
             var nonce = Guid.NewGuid().ToString("N");
-            var request = new LLMRequest { Provider = model.Provider, Model = model.Model, Reasoning = "medium", MaxTokens = 1024,
-                UseBackgroundMode = false, DisableTransportRetries = true,
-                Prompt = "Return the requested JSON object. Set ok to true and nonce to " + nonce + ". No tools or external actions.",
-                StructuredOutputSchema = new JsonObject { ["type"] = "object", ["additionalProperties"] = false,
-                    ["properties"] = new JsonObject { ["ok"] = new JsonObject { ["type"] = "boolean" },
-                        ["nonce"] = new JsonObject { ["type"] = "string", ["const"] = nonce } },
-                    ["required"] = new JsonArray("ok", "nonce") } };
-            request.ClientRequestId = run + ":probe:" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+            var sourceRequest = SchemaPortabilityCampaign.Option(args, "--probe-source-request");
+            var original = sourceRequest is null ? null :
+                (await campaign.LoadAsync("planning-evaluation-requests", sourceRequest, context.RequestAborted))?.Deserialize(PlanningJsonContext.Default.LLMRequest)
+                ?? throw new ArgumentException("The exact owned source request is unavailable.");
+            var request = IndependentProbe(original, model.Provider, model.Model, run, nonce,
+                SchemaPortabilityCampaign.Option(args, "--probe-reasoning") ?? "medium",
+                SchemaPortabilityCampaign.Option(args, "--probe-output-tokens") is { } allocation
+                    ? int.Parse(allocation, System.Globalization.CultureInfo.InvariantCulture) : original?.MaxTokens ?? 1024);
             report["request_id"] = request.ClientRequestId; report["requested_output_tokens"] = request.MaxTokens;
+            if (args.Contains("--probe-check-responses", StringComparer.Ordinal))
+                report["responses_route_inspection"] = await model.InspectResponsesRouteAsync(run, context.RequestAborted);
+            report["requested_reasoning"] = request.Reasoning;
+            report["independent_probe"] = new JsonObject { ["source_request"] = sourceRequest,
+                ["source_request_hash"] = original is null ? null : PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(original, PlanningJsonContext.Default.LLMRequest)),
+                ["prompt_hash"] = PlanningGraphCompiler.Fingerprint(request.Prompt),
+                ["schema_hash"] = PlanningGraphCompiler.Fingerprint(request.StructuredOutputSchema!.ToJsonString()),
+                ["applies_candidate"] = false, ["executes_business_tools"] = false };
             await campaign.SaveAsync("planning-evaluation-runs", run, report);
             using var activity = new Activity("live.provider.structured_output_probe").Start();
             try
             {
                 var result = await capture.CallAsync(request, options, (r, ct) => model.CallAsync(r, ct), context.RequestAborted);
                 var received = result.Json ?? (result.Text is null ? null : JsonNode.Parse(result.Text));
-                report["passed"] = result.CompletionStatus != "output_limit" && received?["ok"]?.GetValue<bool>() == true && received?["nonce"]?.ToString() == nonce;
+                var schemaValid = PlanningContractValidation.ValidateInstance(received, request.StructuredOutputSchema!).Count == 0;
+                report["schema_valid"] = schemaValid;
+                report["executable_extension_returned"] = received?["extension"] is JsonObject;
+                report["passed"] = result.CompletionStatus is null && schemaValid && (original is null
+                    ? received?["ok"]?.GetValue<bool>() == true && received?["nonce"]?.ToString() == nonce
+                    : !args.Contains("--probe-require-extension", StringComparer.Ordinal) || received?["extension"] is JsonObject);
                 report["completion_status"] = result.CompletionStatus; report["usage"] = result.Usage?.DeepClone();
             }
             catch (Exception error)
@@ -155,10 +168,21 @@ internal static class ServerLiveDiagnostics
                 { report["failure_code"] = runtimeFailure.Code; report["financial_refusal"] = runtimeFailure.Details?.DeepClone(); }
                 // Exception messages and provider bodies remain in protected encrypted evidence.
             }
-            var transportEvidence = await campaign.LoadAsync(BenchmarkHttpJournal.Collection, request.ClientRequestId, CancellationToken.None);
+            var transportEvidence = await campaign.LoadAsync(BenchmarkHttpJournal.Collection, request.ClientRequestId!, CancellationToken.None);
             report["physical_http_attempts"] = transportEvidence?["transport"]?["Attempts"] is JsonArray attempts ? attempts.Count :
                 report["financial_refusal"]?["dispatch_status"]?.ToString() == "not_started" ? 0 : null;
-            report["durable_receipt"] = await campaign.LoadAsync("planning-evaluation-receipts", request.ClientRequestId, CancellationToken.None) is not null;
+            report["durable_receipt"] = await campaign.LoadAsync("planning-evaluation-receipts", request.ClientRequestId!, CancellationToken.None) is not null;
+            if (transportEvidence?["transport"] is JsonObject wire)
+            {
+                var body = JsonNode.Parse(wire["RequestBody"]!.ToString())!;
+                report["effective_http"] = new JsonObject { ["method"] = wire["RequestMethod"]?.DeepClone(),
+                    ["endpoint_sha256"] = PlanningGraphCompiler.Fingerprint(wire["Endpoint"]!.ToString()),
+                    ["body_sha256"] = PlanningGraphCompiler.Fingerprint(wire["RequestBody"]!.ToString()),
+                    ["model"] = body["model"]?.DeepClone(), ["reasoning_effort"] = body["reasoning_effort"]?.DeepClone(),
+                    ["max_completion_tokens"] = body["max_completion_tokens"]?.DeepClone(), ["stream"] = body["stream"]?.DeepClone(),
+                    ["tool_count"] = (body["tools"] as JsonArray)?.Count ?? 0,
+                    ["captured_transport"] = transportEvidence["effective_transport_policy"]?.DeepClone() };
+            }
             report["finished_utc"] = DateTimeOffset.UtcNow; report["trace_id"] = activity.TraceId.ToHexString();
             await campaign.SaveAsync("planning-evaluation-runs", run, report, CancellationToken.None);
             return Results.Json(report);
@@ -332,6 +356,25 @@ internal static class ServerLiveDiagnostics
             }
         }
         finally { await app.StopAsync(); }
+    }
+
+    internal static LLMRequest IndependentProbe(LLMRequest? original, string provider, string model, string run, string nonce, string reasoning, int outputTokens)
+    {
+        if (outputTokens <= 0 || string.IsNullOrWhiteSpace(reasoning)) throw new ArgumentException("An explicit positive allocation and reasoning effort are required.");
+        if (original is not null && (original.Provider != provider || original.Model != model || original.Tools is { Count: > 0 } ||
+            original.UseBackgroundMode || original.StructuredOutputSchema is null))
+            throw new ArgumentException("Only exact same-deployment tool-free foreground structured generation can seed an independent probe.");
+        var request = original is null ? new LLMRequest { Provider = provider, Model = model,
+            Prompt = "Return the requested JSON object. Set ok to true and nonce to " + nonce + ". No tools or external actions.",
+            StructuredOutputSchema = new JsonObject { ["type"] = "object", ["additionalProperties"] = false,
+                ["properties"] = new JsonObject { ["ok"] = new JsonObject { ["type"] = "boolean" },
+                    ["nonce"] = new JsonObject { ["type"] = "string", ["const"] = nonce } }, ["required"] = new JsonArray("ok", "nonce") } }
+            : JsonSerializer.Deserialize(JsonSerializer.Serialize(original, PlanningJsonContext.Default.LLMRequest), PlanningJsonContext.Default.LLMRequest)!;
+        request.ClientRequestId = null;
+        request.Reasoning = reasoning; request.MaxTokens = outputTokens; request.RequireOutputTokenLimit = true;
+        request.DisableTransportRetries = true; request.RequiredReviewCalls = null;
+        request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+        return request;
     }
     private static async Task ExportInspectionAsync(HttpClient client, string id, string root, string run)
     {

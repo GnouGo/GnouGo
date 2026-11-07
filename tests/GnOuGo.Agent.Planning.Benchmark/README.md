@@ -200,6 +200,36 @@ Configuration readiness is not a provider generation health check. Keep
 pre-generation failures, actual reserved attempts and completed receipts distinct.
 A default exception attempt count does not establish a generation dispatch.
 
+`server-live-probe` also supports independent diagnostic requests. Use
+`--probe-reasoning <declared-effort> --probe-output-tokens <positive-bound>` for the
+small nonce/schema availability check. `--probe-source-request <owned-request-id>`
+copies the exact retained prompt and schema into a fresh nonce/run identity;
+`--probe-require-extension` requires a generated extension rather than an evidence-only
+answer. It applies no candidate and executes no business tool. Every probe has one
+physical attempt, ordinary campaign admission, durable request/response accounting,
+the common trace capture and a report of actual serialized HTTP parameters. It never
+continues or resets its source request. Received schema validity, executable extension,
+accepted checkpoint and business approval remain separate facts.
+
+`--probe-check-responses` performs OPTIONS and a nonexistent-response GET under the
+same gateway/deployment prefix. It does not create a response, switch protocols or
+claim that a resource-not-found response proves background support. Exact route/body
+evidence stays encrypted under `protocol-inspection:<run>` in campaign configuration;
+the report contains hashes/statuses only. Existing foreground durable journals reject
+background generation; the provider's existing Responses implementation cannot simply
+be enabled under those journals without compatible retrieval/creation accounting.
+
+A stale local reasoning declaration can be corrected for new work through an explicit
+`register-configuration --reasoning-capability-amendment` preview/apply. Supply the
+funded `--previous-configuration-id`, exact comma-separated `--previous-reasoning-efforts`,
+ordinary original `--expected-configuration`, authorization and inspected amendment
+hash. The model reconstructs the previous complete host/metadata fingerprints by
+changing only the exact override's effort list back. Prices, provider, endpoint,
+physical limits, retry policy and every other option must match the funded capture.
+The separate immutable amendment grants no funds: the original funding scope, grant,
+ceiling, charges, receipts and uncertain holds remain unchanged. Ordinary model/route
+amendments cannot use this exception. Old sessions keep their captured metadata.
+
 ## Exact recovery and permanent retention
 
 Only active format-11 sessions can resume. Recovery uses the exact issued request,

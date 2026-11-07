@@ -64,6 +64,74 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
     internal JsonObject MetadataSources { get; private init; } = new();
     internal bool AdvisoryFinancialForecasts { get; set; }
     internal JsonObject ConfigurationSources { get; private init; } = new();
+    internal static Uri ResponsesRoute(Uri chat)
+    {
+        const string suffix = "/chat/completions";
+        if (!chat.IsAbsoluteUri || !chat.AbsolutePath.EndsWith(suffix, StringComparison.Ordinal) || !string.IsNullOrEmpty(chat.UserInfo))
+            throw new ArgumentException("An exact chat route is required; no alternate gateway or provider is inferred.");
+        return new UriBuilder(chat) { Path = chat.AbsolutePath[..^suffix.Length] + "/responses" }.Uri;
+    }
+    internal async Task<JsonObject> InspectResponsesRouteAsync(string run, CancellationToken ct)
+    {
+        var settings = _options.ResolveProvider(Provider)!;
+        var chat = new Uri(OpenAiEndpoints.ChatCompletions(settings.Url, settings.ApiVersion));
+        var responses = ResponsesRoute(chat);
+        var token = settings.ApiKey;
+        if (string.IsNullOrWhiteSpace(token) && !string.IsNullOrWhiteSpace(settings.Issuer))
+            token = await new GnOuGo.Auth.Core.OidcJwtApiKeyProvider(_http,
+                new(settings.Issuer, settings.ClientId!, settings.Scopes!, settings.ClientSecret, settings.PrivateKeyPem)).GetApiKeyAsync(ct);
+        if (string.IsNullOrWhiteSpace(token)) token = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+        var results = new JsonArray(); var originals = new JsonArray();
+        foreach (var method in new[] { HttpMethod.Options, HttpMethod.Get })
+        {
+            var address = method == HttpMethod.Get ? new UriBuilder(responses) { Path = responses.AbsolutePath + "/gnougo-route-check-" + Guid.NewGuid().ToString("N") }.Uri : responses;
+            using var message = new HttpRequestMessage(method, address);
+            if (!string.IsNullOrWhiteSpace(token)) message.Headers.Authorization = new("Bearer", token);
+            using var bound = CancellationTokenSource.CreateLinkedTokenSource(ct); bound.CancelAfter(TimeSpan.FromSeconds(30));
+            var elapsed = System.Diagnostics.Stopwatch.StartNew();
+            try
+            {
+                using var response = await _http.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, bound.Token);
+                var body = await response.Content.ReadAsStringAsync(bound.Token);
+                originals.Add(new JsonObject { ["method"] = method.Method, ["endpoint"] = address.ToString(), ["status"] = (int)response.StatusCode,
+                    ["body"] = body, ["elapsed_ms"] = elapsed.ElapsedMilliseconds });
+                JsonNode? json = null; try { json = JsonNode.Parse(body); } catch (JsonException) { }
+                results.Add(new JsonObject { ["method"] = method.Method, ["endpoint_sha256"] = PlanningGraphCompiler.Fingerprint(address.ToString()),
+                    ["status"] = (int)response.StatusCode, ["body_sha256"] = PlanningGraphCompiler.Fingerprint(body),
+                    ["gateway_error_code"] = json?["errorCode"]?.DeepClone(), ["elapsed_ms"] = elapsed.ElapsedMilliseconds });
+            }
+            catch (Exception ex) when (ex is HttpRequestException || ex is OperationCanceledException && !ct.IsCancellationRequested)
+            { results.Add(new JsonObject { ["method"] = method.Method, ["exception_type"] = ex.GetType().Name, ["elapsed_ms"] = elapsed.ElapsedMilliseconds }); }
+        }
+        await _campaign.SaveAsync("planning-evaluation-configuration", "protocol-inspection:" + run,
+            new() { ["configured_background_protocol"] = settings.RequestPolicy.BackgroundProtocol.ToString(), ["same_gateway_prefix"] = true,
+                ["model_dispatches"] = 0, ["http"] = originals }, ct);
+        return new() { ["configured_background_protocol"] = settings.RequestPolicy.BackgroundProtocol.ToString(),
+            ["same_gateway_prefix"] = true, ["model_dispatches"] = 0, ["http"] = results,
+            ["limitation"] = "Read-only route checks do not prove background creation or durable retrieval. No generation or fallback route is attempted." };
+    }
+    internal async Task<JsonObject> ReasoningCapabilityProofAsync(string previousIdentity, string[] previousEfforts, CancellationToken ct)
+    {
+        if (previousEfforts.Length == 0 || previousEfforts.Any(string.IsNullOrWhiteSpace) || previousEfforts.Distinct(StringComparer.Ordinal).Count() != previousEfforts.Length)
+            throw new ArgumentException("Supply the exact previous reasoning declaration.");
+        var previous = await _campaign.LoadAsync("planning-evaluation-configuration", "configuration:" + previousIdentity, ct)
+            ?? throw new PlanningConflictException("The exact prior deployment capture is missing.");
+        var oldOptions = JsonSerializer.Deserialize<LLMOptions>(JsonSerializer.Serialize(_options))!;
+        var key = ModelMetadataCatalog.ModelIdentityKey("openai", Model);
+        if (!oldOptions.ModelOverrides.TryGetValue(key, out var oldOverride) || oldOverride.Capabilities.SupportedReasoningEfforts is not { } current)
+            throw new PlanningConflictException("A capability correction requires the exact model override.");
+        var after = current.ToArray();
+        oldOverride.Capabilities.SupportedReasoningEfforts = [.. previousEfforts];
+        var metadata = new RoutingLLMClient(oldOptions, []).ResolveDeclaredMetadata(Provider, Model);
+        var oldHost = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(oldOptions) + JsonSerializer.Serialize(metadata));
+        var oldMetadata = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(metadata));
+        if (oldHost != previous["host_configuration_hash"]?.ToString() || oldMetadata != previous["declared_metadata_hash"]?.ToString() ||
+            !JsonNode.DeepEquals(previous["configuration"], CampaignConfiguration()))
+            throw new PlanningConflictException("Changing only the reasoning declaration does not reconstruct the funded host. Other settings, prices or limits changed.");
+        return new() { ["previous_configuration_id"] = previousIdentity, ["previous_host_configuration_hash"] = oldHost,
+            ["previous_declared_metadata_hash"] = oldMetadata, ["before"] = new JsonArray(previousEfforts.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()),
+            ["after"] = new JsonArray(after.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()) };
+    }
     public async Task AdmitConstructionAsync(LLMRequest request, int inputTokenCeiling,
         IReadOnlyList<int> outputTokenCeilings, CancellationToken ct)
     {

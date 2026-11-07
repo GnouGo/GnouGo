@@ -73,7 +73,7 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
     // for fresh runs only; the original pin and financial records are immutable.
     internal async Task<JsonObject> RegisterConfigurationAsync(JsonObject configuration, string hostHash, string metadataHash,
         string expectedPreviousHash, string authorization, bool apply, CancellationToken ct, string? expectedIdentity = null,
-        bool captureCurrentSettings = false)
+        bool captureCurrentSettings = false, JsonObject? reasoningCapabilityProof = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(authorization);
         var original = await LoadAsync("planning-evaluation-configuration", "configuration", ct)
@@ -97,6 +97,19 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
             ["configuration"] = configuration.DeepClone(), ["host_configuration_hash"] = hostHash,
             ["declared_metadata_hash"] = metadataHash, ["authorization"] = authorization };
         if (captureCurrentSettings) material["amendment_scope"] = "current_deployment_settings";
+        if (reasoningCapabilityProof is not null)
+        {
+            var parentId = reasoningCapabilityProof["previous_configuration_id"]?.ToString();
+            var parent = parentId is { Length: 64 } ? await LoadAsync("planning-evaluation-configuration", "configuration:" + parentId, ct) : null;
+            if (parent is null || !JsonNode.DeepEquals(parent["configuration"], configuration) ||
+                parent["host_configuration_hash"]?.ToString() != reasoningCapabilityProof["previous_host_configuration_hash"]?.ToString() ||
+                parent["declared_metadata_hash"]?.ToString() != reasoningCapabilityProof["previous_declared_metadata_hash"]?.ToString() ||
+                !(await CheckConfigurationSelectionAsync(parentId!, configuration, parent["host_configuration_hash"]!.ToString(), ct)).Accepted ||
+                reasoningCapabilityProof["before"] is not JsonArray { Count: > 0 } || reasoningCapabilityProof["after"] is not JsonArray { Count: > 0 })
+                throw new PlanningConflictException("The capability amendment must prove the exact unchanged funded deployment and previous host metadata.");
+            material["amendment_scope"] = "reasoning_capabilities_only";
+            material["reasoning_capability_proof"] = reasoningCapabilityProof.DeepClone();
+        }
         var identity = PlanningGraphCompiler.Fingerprint(material.ToJsonString());
         if (expectedIdentity is not null && expectedIdentity != identity)
             throw new PlanningConflictException("The proposed amendment changed after its concrete preview; no configuration was written.");

@@ -84,7 +84,21 @@ internal sealed partial class BenchmarkCampaign
             captured["declared_metadata_hash"]?.ToString() != material["declared_metadata_hash"]?.ToString() ||
             !(await CheckConfigurationSelectionAsync(identity, configuration, material["host_configuration_hash"]!.ToString(), ct)).Accepted)
             throw AdmissionFailure("funding_scope_configuration_changed");
-        if (ConfigurationId is not null && ConfigurationId != identity) throw AdmissionFailure("funding_scope_selected_configuration");
+        if (ConfigurationId is not null && ConfigurationId != identity)
+        {
+            var selected = await LoadAsync(FundingCollection, "configuration:" + ConfigurationId, ct);
+            var proof = selected?["reasoning_capability_proof"];
+            // A separately authorized capability correction can preserve this SAME
+            // allocation only when its reconstructed prior host matches the original
+            // funding capture. Never rewrite that grant, route, prices or ledger.
+            if (selected?["amendment_scope"]?.ToString() != "reasoning_capabilities_only" ||
+                proof?["previous_configuration_id"]?.ToString() != identity ||
+                proof["previous_host_configuration_hash"]?.ToString() != material["host_configuration_hash"]?.ToString() ||
+                proof["previous_declared_metadata_hash"]?.ToString() != material["declared_metadata_hash"]?.ToString() ||
+                !JsonNode.DeepEquals(selected["configuration"], configuration) ||
+                !(await CheckConfigurationSelectionAsync(ConfigurationId, configuration, selected["host_configuration_hash"]!.ToString(), ct)).Accepted)
+                throw AdmissionFailure("funding_scope_selected_configuration");
+        }
         return new() { ["kind"] = "independent_new_spend", ["campaign"] = Id, ["allowance_eur"] = material["allowance_eur"]!.DeepClone(),
             ["authorization_reference"] = reference, ["configuration_id"] = identity,
             ["previous_campaign"] = material["previous_campaign"]!.DeepClone(), ["previous_ceiling_eur"] = scope["previous_ceiling_eur"]!.DeepClone(),

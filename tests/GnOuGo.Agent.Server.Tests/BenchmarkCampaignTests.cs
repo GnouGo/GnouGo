@@ -13,6 +13,55 @@ public sealed class BenchmarkCampaignTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    [Theory]
+    [InlineData("none")]
+    [InlineData("price")]
+    [InlineData("endpoint")]
+    [InlineData("output")]
+    [InlineData("retry")]
+    public async Task ReasoningCapabilityCorrectionPreservesFundedAuthorityAndRejectsEveryOtherChange(string defect)
+    {
+        var records = new Records(); var old = new BenchmarkCampaign(records, "old"); var campaign = new BenchmarkCampaign(records, "funded");
+        var options = new LLMOptions { DefaultProvider = "OpenAi", DefaultModel = "model",
+            Models = new() { ["OpenAi"] = new() { Type = "openai", Url = "https://gateway.invalid/v1" } },
+            ModelOverrides = new() { ["openai/model"] = new() { Id = "model", ProviderType = "openai",
+                Pricing = new() { Currency = "EUR", InputPer1MTokens = 30, OutputPer1MTokens = 180 }, MaxOutputTokens = 32768,
+                Capabilities = new() { SupportsReasoningEffort = true, SupportedReasoningEfforts = ["medium", "high"] } } } };
+        using var before = new KeyVaultBenchmarkModel(campaign, options);
+        var config = before.CampaignConfiguration(); await old.PinAsync(config, Ct); await campaign.PinAsync(config, Ct);
+        var oldMetadata = new RoutingLLMClient(options, []).ResolveDeclaredMetadata("OpenAi", "model");
+        var authority = await campaign.AuthorizeFreshAllocationAsync("old", 400, "one-existing-grant", config,
+            before.ConfigurationFingerprint, PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(oldMetadata)), Ct);
+        var parent = authority["configuration_id"]!.ToString();
+        var funding = (await campaign.LoadAsync("planning-evaluation-configuration", "independent-funding-scope", Ct))!.ToJsonString();
+        var retained = new BenchmarkHttpJournal(campaign, "old:1:hash", 10, 10, 3m);
+        await retained.PrepareAsync(Ct); await retained.SaveAsync(new() { Attempts = [new() { Id = "old:1:hash:attempt" }] }, Ct);
+        options.ModelOverrides["openai/model"].Capabilities.SupportedReasoningEfforts = ["low", "medium", "high"];
+        if (defect == "price") options.ModelOverrides["openai/model"].Pricing!.InputPer1MTokens = 1;
+        if (defect == "endpoint") options.Models["OpenAi"].Url = "https://different.invalid/v1";
+        if (defect == "output") options.ModelOverrides["openai/model"].MaxOutputTokens = 65536;
+        if (defect == "retry") options.Models["OpenAi"].RetryPolicy.MaxAttempts++;
+        using var current = new KeyVaultBenchmarkModel(campaign, options);
+        if (defect != "none")
+        {
+            await Assert.ThrowsAsync<PlanningConflictException>(() => current.ReasoningCapabilityProofAsync(parent, ["medium", "high"], Ct));
+            return;
+        }
+        var proof = await current.ReasoningCapabilityProofAsync(parent, ["medium", "high"], Ct);
+        var metadata = new RoutingLLMClient(options, []).ResolveDeclaredMetadata("OpenAi", "model");
+        var amendment = await campaign.RegisterConfigurationAsync(config, current.ConfigurationFingerprint,
+            PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(metadata)), PlanningGraphCompiler.Fingerprint(config.ToJsonString()),
+            "explicit capability-only authorization", true, Ct, reasoningCapabilityProof: proof);
+        await campaign.SelectConfigurationAsync(amendment["configuration_id"]!.ToString(), config, current.ConfigurationFingerprint, Ct);
+        Assert.Equal(400m, (await campaign.FreshAllocationAsync(Ct))!["allowance_eur"]!.GetValue<decimal>());
+        Assert.Equal(funding, (await campaign.LoadAsync("planning-evaluation-configuration", "independent-funding-scope", Ct))!.ToJsonString());
+        Assert.Equal(3m, (await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct))["reserved_cost_eur"]!.GetValue<decimal>());
+        var next = new BenchmarkHttpJournal(campaign, "independent:1:hash", 10, 10, 1m);
+        await next.PrepareAsync(Ct); await next.SaveAsync(new() { Attempts = [new() { Id = "new-attempt" }] }, Ct);
+        Assert.Equal(4m, (await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct))["reserved_cost_eur"]!.GetValue<decimal>());
+        Assert.Equal(funding, (await campaign.LoadAsync("planning-evaluation-configuration", "independent-funding-scope", Ct))!.ToJsonString());
+    }
+
     [Fact]
     public async Task NewRunPreflightRequiresReceiptOrExistingRetentionEvenWithAnEmptyHttpJournal()
     {
