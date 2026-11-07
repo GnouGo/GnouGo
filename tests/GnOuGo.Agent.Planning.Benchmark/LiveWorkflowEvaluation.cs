@@ -318,7 +318,7 @@ internal static class LiveWorkflowEvaluation
         return new HybridWorkflowPlanner().AdvanceAsync(session, command, runtime, ct);
     }
 
-    internal static Dictionary<string, McpServerOptions> Configuration(IReadOnlyDictionary<string, McpServerOptions> configured, string scenario, string inferenceEndpoint, string buildConfiguration = "Debug")
+    internal static Dictionary<string, McpServerOptions> Configuration(IReadOnlyDictionary<string, McpServerOptions> configured, string scenario, string inferenceEndpoint, string buildConfiguration = "Debug", string? sourceRoot = null)
     {
         var names = scenario == "amazon" ? new[] { "Browser", "Document" } : ["Git", "Cmd", "GithubCopilot", "Document"];
         var result = new Dictionary<string, McpServerOptions>(StringComparer.Ordinal);
@@ -327,7 +327,7 @@ internal static class LiveWorkflowEvaluation
             var key = "GnOuGo." + name + ".Mcp";
             if (!configured.TryGetValue(key, out var settings)) throw new InvalidOperationException("Missing configured MCP: " + key);
             var clone = JsonSerializer.Deserialize<McpServerOptions>(JsonSerializer.Serialize(settings))!;
-            var assembly = Path.GetFullPath(Path.Combine("src", key, "bin", buildConfiguration, "net10.0", key + ".dll"));
+            var assembly = Path.GetFullPath(Path.Combine(sourceRoot ?? Directory.GetCurrentDirectory(), "src", key, "bin", buildConfiguration, "net10.0", key + ".dll"));
             if (!File.Exists(assembly)) throw new InvalidOperationException("Build the current MCP first: " + key);
             clone.Type = "stdio"; clone.Command = "dotnet"; clone.Args = [assembly];
             clone.EnvironmentVariables ??= new();

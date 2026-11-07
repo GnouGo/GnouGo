@@ -517,6 +517,25 @@ execution-start marker always rejects continuation. Generation and execution har
 sources are recorded separately; a harness correction does not become a claim of
 uninterrupted qualification on the original source.
 
+Live artifact approval uses metadata-only access to the actual frozen MCPs when
+revalidating selected contracts. An empty validation engine cannot establish that
+these capabilities still exist. Execution continues to require original Release
+binary hashes and source stamps; later harness fixes use that original source root
+and record their own source/assembly separately. Retained execution rejects any
+production-source change, execution marker, retention or cancellation.
+
+`server-live-revalidate --run <id> --expected-revision <revision> --artifact-hash <hash>`
+can recover only a completed, unapproved artifact stopped solely on catalog
+validation, with no pending call/question and exact equality to its retained final
+review in plan, graph, requirements, catalog, captures, construction and accounting.
+It acquires the session lease, checks cancellation and verifies the original MCP
+bytes and actual contracts. Existing coordinator commands restart with the identical
+captured generation values and deterministically recompile; there is no model client.
+The result must reproduce the exact original artifact hash with unchanged calls and
+usage. Both the failed and original review snapshots remain in recovery evidence.
+No approval or execution occurs; a new artifact-bound review receipt for the restored
+revision is still required, while the earlier immutable receipt remains retained.
+
 Server runs also reuse the unchanged Collections inputs/oracle in two real native
 executions, and the existing Amazon/Review PR MCP configuration, observation hooks,
 SDK inference proxy, encrypted execution store and independent business oracles.

@@ -23,6 +23,7 @@ using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 
 // Explicit live harness: actual Agent.Server, actual configured provider, existing campaign ledger.
 // No credentials or bootstrap links are exported. The campaign lease is held by the caller.
@@ -34,7 +35,8 @@ internal static class ServerLiveDiagnostics
         var planning = args.ElementAtOrDefault(1) == "server-live-plan";
         var inspectionOnly = args.ElementAtOrDefault(1) == "server-live-inspect";
         var executionOnly = args.ElementAtOrDefault(1) == "server-live-execute";
-        var retained = inspectionOnly || executionOnly;
+        var revalidationOnly = args.ElementAtOrDefault(1) == "server-live-revalidate";
+        var retained = inspectionOnly || executionOnly || revalidationOnly;
         var mcpReadiness = args.ElementAtOrDefault(1) == "server-live-mcp-readiness";
         var delegatedScenario = planning && SchemaPortabilityCampaign.Option(args, "--case") is "amazon" or "code"
             ? SchemaPortabilityCampaign.Option(args, "--case") : null;
@@ -242,14 +244,23 @@ internal static class ServerLiveDiagnostics
             {
                 var saved = await campaign.LoadAsync("planning-evaluation-runs", run) ?? throw new PlanningConflictException("No retained live run.");
                 await ExportInspectionAsync(client, saved["session_id"]!.ToString(), root, run);
-                if (executionOnly)
+                if (executionOnly || revalidationOnly)
                 {
                     if (saved["execution_started"] is not null) throw new PlanningConflictException("Execution was already started; uncertain effects cannot be replayed.");
+                    await campaign.RequireRunNotRetainedAsync(saved["session_id"]!.ToString(), CancellationToken.None);
+                    RequireSameProductionSource(saved["source"]!.ToString());
                     var state = await app.Services.GetRequiredService<PlanningSessionService>().GetAsync(saved["session_id"]!.ToString(), CancellationToken.None)
                         ?? throw new PlanningConflictException("No retained Server session.");
+                    if (revalidationOnly)
+                    {
+                        await RevalidateRetainedArtifactAsync(app, campaign, model, state, saved, args);
+                        Console.WriteLine(new JsonObject { ["run"] = run, ["revalidated"] = true, ["provider_dispatches"] = 0 }.ToJsonString());
+                        return;
+                    }
                     if (state.Status != PlanningStatus.FinalReview || state.ComputeArtifactHash() != saved["session"]?.Deserialize(PlanningJsonContext.Default.PlanningSession)?.ComputeArtifactHash())
                         throw new PlanningConflictException("Only the exact unexecuted review-ready artifact may continue.");
                     saved["execution_harness_source"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD");
+                    saved["execution_harness_assembly"] = AssemblyEvidence(System.Reflection.Assembly.GetEntryAssembly()!);
                     model.RetainedExternalReservationsEur = saved["retained_external_reservations_eur"]?.GetValue<decimal>() ?? 0;
                     await ExecuteReviewedLocalAsync(app, campaign, model, state, saved, root, workspace);
                 }
@@ -423,10 +434,70 @@ internal static class ServerLiveDiagnostics
         }
     }
 
+    private static void RequireSameProductionSource(string original)
+    {
+        if (original.Length != 40 || !original.All(char.IsAsciiHexDigit) ||
+            SchemaPortabilityCampaign.Git("diff", "--name-only", original, "HEAD", "--", "src").Length != 0)
+            throw new PlanningConflictException("Retained execution requires unchanged production source and the original frozen tools.");
+    }
+
+    private static async Task RequireNotCancelledAsync(WebApplication app, PlanningSession state, CancellationToken ct)
+    {
+        if (await app.Services.GetRequiredService<GnOuGo.KeyVault.Core.Services.IKeyVaultRecordStore>().GetAsync(
+            "agent-planning-cancellations-v1", state.Request.TenantId, state.Request.SessionId, EfPlanningSessionStore.Author, ct) is not null)
+            throw new PlanningConflictException("Cancellation is pending; artifact revalidation or execution is forbidden.");
+    }
+
+    private static async Task RevalidateRetainedArtifactAsync(WebApplication app, BenchmarkCampaign campaign, KeyVaultBenchmarkModel model,
+        PlanningSession current, JsonObject report, string[] args)
+    {
+        var expectedRevision = long.Parse(SchemaPortabilityCampaign.RequiredOption(args, "--expected-revision"), System.Globalization.CultureInfo.InvariantCulture);
+        var expectedHash = SchemaPortabilityCampaign.RequiredOption(args, "--artifact-hash");
+        var reviewed = report["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)
+            ?? throw new PlanningConflictException("No retained review-ready artifact.");
+        var scenario = report["scenario"]!.ToString();
+        if (scenario is not ("amazon" or "code")) throw new PlanningConflictException("This recovery requires a retained live MCP artifact.");
+        await using var lease = await PlanningSessionLease.TryAcquireAsync(app.Services.GetRequiredService<IDbContextFactory<PlanningDbContext>>(),
+            current.Request.TenantId, current.Request.SessionId, CancellationToken.None) ?? throw new PlanningConflictException("The retained session has another active owner.");
+        var store = app.Services.GetRequiredService<IPlanningSessionStore>();
+        current = await store.LoadAsync(current.Request.TenantId, current.Request.SessionId, CancellationToken.None)
+            ?? throw new PlanningConflictException("The retained session disappeared.");
+        await RequireNotCancelledAsync(app, current, CancellationToken.None);
+        var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, scenario, "metadata-only", "Release", report["working_directory"]!.ToString());
+        if (!JsonNode.DeepEquals(LiveWorkflowEvaluation.CaptureMcpBuilds(configurations, report["source"]!.ToString()), report["mcp_builds"]))
+            throw new PlanningConflictException("The original selected tool binaries changed; exact revalidation is forbidden.");
+        await using var metadata = new DelegatedPlanningDiscovery(new ConfiguredMcpClientFactory(configurations), scenario,
+            PlanningGraphCompiler.Fingerprint(typeof(DelegatedTestReviewAuthority).Assembly.FullName!));
+        var previousRevision = current.Revision;
+        var runtime = ServerLiveArtifactValidation.Runtime(metadata, current.Request.Policy, async (state, ct) =>
+        {
+            await RequireNotCancelledAsync(app, state, ct);
+            if (state.Revision <= previousRevision) state.Revision = previousRevision + 1;
+            if (!await store.TrySaveAsync(state, previousRevision, ct)) throw new PlanningConflictException("The revalidated artifact changed concurrently.");
+            previousRevision = state.Revision;
+        });
+        var restored = await ServerLiveArtifactValidation.RevalidateAsync(current, reviewed, expectedRevision, expectedHash, runtime, CancellationToken.None);
+        report["approval_validation_recovery"] = new JsonObject
+        {
+            ["harness_source"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD"),
+            ["harness_assembly"] = AssemblyEvidence(System.Reflection.Assembly.GetEntryAssembly()!),
+            ["reviewed_session"] = JsonSerializer.SerializeToNode(reviewed, PlanningJsonContext.Default.PlanningSession),
+            ["failed_session"] = JsonSerializer.SerializeToNode(current, PlanningJsonContext.Default.PlanningSession),
+            ["restored_revision"] = restored.Revision, ["artifact_hash"] = restored.ComputeArtifactHash(),
+            ["revalidated_at_utc"] = DateTimeOffset.UtcNow,
+            ["model_calls_unchanged"] = restored.ModelCalls == current.ModelCalls, ["provider_dispatches"] = 0,
+            ["execution_started"] = false
+        };
+        report["session"] = JsonSerializer.SerializeToNode(restored, PlanningJsonContext.Default.PlanningSession);
+        report["result"]!["status"] = restored.Status;
+        await campaign.SaveAsync("planning-evaluation-runs", report["run"]!.ToString(), report);
+    }
+
     private static async Task ExecuteReviewedLocalAsync(WebApplication app, BenchmarkCampaign campaign, KeyVaultBenchmarkModel model, PlanningSession state,
         JsonObject report, string root, string workspace)
     {
         if (report["execution_started"] is not null) throw new PlanningConflictException("An execution-start marker forbids another execution.");
+        if (await campaign.HasUncertainRequestAsync(CancellationToken.None)) throw BenchmarkCampaign.AdmissionFailure("campaign_uncertain_request_requires_recovery");
         var scenario = report["scenario"]!.ToString();
         if (scenario is not ("local" or "collections" or "amazon" or "code")) throw new PlanningConflictException("Unknown reviewed execution scenario.");
         var output = Path.Combine(root, "artifacts/live-server-20261106", report["run"]!.ToString());
@@ -434,13 +505,27 @@ internal static class ServerLiveDiagnostics
             ["revision"] = state.Revision, ["artifact_hash"] = state.ComputeArtifactHash() }.ToJsonString());
         // Review files acknowledge the already generated immutable artifact. They cannot edit it.
         while (!File.Exists(Path.Combine(output, "authorization.json")) || !File.Exists(Path.Combine(output, "review.json"))) await Task.Delay(1000);
+        await using var lease = await PlanningSessionLease.TryAcquireAsync(app.Services.GetRequiredService<IDbContextFactory<PlanningDbContext>>(),
+            state.Request.TenantId, state.Request.SessionId, CancellationToken.None) ?? throw new PlanningConflictException("The reviewed session has another active owner.");
+        var latest = await app.Services.GetRequiredService<IPlanningSessionStore>().LoadAsync(state.Request.TenantId, state.Request.SessionId, CancellationToken.None);
+        if (latest?.Revision != state.Revision || latest.Status != PlanningStatus.FinalReview || latest.ComputeArtifactHash() != state.ComputeArtifactHash())
+            throw new PlanningConflictException("The review-ready session changed while awaiting delegated review.");
+        await RequireNotCancelledAsync(app, state, CancellationToken.None);
         var authorization = JsonSerializer.Deserialize(await File.ReadAllTextAsync(Path.Combine(output, "authorization.json")), DelegatedTestJsonContext.Default.DelegatedTestAuthorization)!;
         var document = JsonSerializer.Deserialize(await File.ReadAllTextAsync(Path.Combine(output, "review.json")), DelegatedTestJsonContext.Default.DelegatedTestReviewDocument)!;
         var authority = new DelegatedTestReviewAuthority(authorization, document, campaign.Id, state.Request.SessionId, scenario is "local" or "collections" ? "synthetic" : scenario, workspace, report["source"]!.ToString(),
             scenario is "amazon" or "code" ? report["workspace_relative"]!.ToString() : null);
         authority.Validate(state); await authority.PinAsync(campaign, CancellationToken.None);
+        var sourceRoot = report["working_directory"]!.ToString();
+        var metadataConfigurations = scenario is "amazon" or "code"
+            ? LiveWorkflowEvaluation.Configuration(model.McpServers, scenario, "metadata-only", "Release", sourceRoot) : null;
+        if (metadataConfigurations is not null && !JsonNode.DeepEquals(LiveWorkflowEvaluation.CaptureMcpBuilds(metadataConfigurations, report["source"]!.ToString()), report["mcp_builds"]))
+            throw new PlanningConflictException("The frozen selected tools changed before approval.");
+        await using var metadata = metadataConfigurations is null ? null : new DelegatedPlanningDiscovery(
+            new ConfiguredMcpClientFactory(metadataConfigurations), scenario, PlanningGraphCompiler.Fingerprint(typeof(DelegatedTestReviewAuthority).Assembly.FullName!));
         var previousRevision = state.Revision;
-        var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { PlanningPolicy = state.Request.Policy }, async (s, ct) => {
+        var runtime = ServerLiveArtifactValidation.Runtime(metadata, state.Request.Policy, async (s, ct) => {
+            await RequireNotCancelledAsync(app, s, ct);
             if (s.Revision <= previousRevision) s.Revision = previousRevision + 1;
             if (!await app.Services.GetRequiredService<IPlanningSessionStore>().TrySaveAsync(s, previousRevision, ct)) throw new PlanningConflictException("The reviewed Server artifact changed.");
             previousRevision = s.Revision;
@@ -452,6 +537,8 @@ internal static class ServerLiveDiagnostics
         report["execution_artifact_hash"] = state.ComputeArtifactHash();
         report["review_origin"] = "delegated_test_reviewed";
         await campaign.SaveAsync("planning-evaluation-runs", report["run"]!.ToString(), report);
+        await RequireNotCancelledAsync(app, state, CancellationToken.None);
+        await lease.DisposeAsync(); // The execution journal owns effects after the approval transition.
         var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));
         if (scenario is "local" or "collections")
         {
@@ -477,7 +564,7 @@ internal static class ServerLiveDiagnostics
         {
             model.CaptureTokenPolicy(state.Request);
             await using var proxy = await CampaignInferenceProxy.StartAsync(model, state.Request.SessionId);
-            var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, scenario, proxy.Endpoint, "Release");
+            var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, scenario, proxy.Endpoint, "Release", sourceRoot);
             var builds = LiveWorkflowEvaluation.CaptureMcpBuilds(configurations, report["source"]!.ToString());
             if (!JsonNode.DeepEquals(builds, report["mcp_builds"])) throw new PlanningConflictException("The frozen execution tools changed after generation.");
             var human = new DelegatedTestReviewAuthority.Input(campaign, state.Request.SessionId, authority);
