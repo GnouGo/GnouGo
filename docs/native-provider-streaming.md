@@ -48,6 +48,8 @@ The common framer derives from the existing proxy reader: fragmented UTF-8, LF/C
 
 HTTP 200, connection closure, syntactically valid partial JSON, an initial usage zero, or a content-block stop do not establish completion. Refusals, output exhaustion, tool arguments, raw responses and usage reach the existing response mapping. Absent final usage stays unknown; conservative reservations and financial admission remain authoritative.
 
+Explicit output allocations reach native wire fields in both modes, including Ollama `options.num_predict` and compatible chat `max_completion_tokens`. Older Copilot/Ollama builders omitted this bound. Only their exact, durably completed historical receipts may recover against that older payload: recovery dispatches nothing and rewrites no journal or fingerprint. Partial evidence, changed prompts/routes and streaming requests cannot use that compatibility path.
+
 ## Journals and inspection
 
 The existing HTTP owner records the actual serialized request, transport selection, raw native response, assembled native response, terminal proof, response id, receipt retrievals, first/last byte timestamps and usage availability. Partial evidence is checkpointed in batches, with exact bytes retained encrypted when interruption splits UTF-8. Terminal evidence must persist before a response can return. Exact recovery uses that journal without dispatch or double settlement. Partial/uncertain generation does not authorize another POST or a supplier fallback.

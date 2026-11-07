@@ -18,6 +18,12 @@ public static class HttpRequestHelper
     private const int MaxErrorBodyCharacters = 64 * 1024;
     private const string ExceptionRetryMetadataKey = "gnougo.llm.retry_metadata";
     private static readonly ConditionalWeakTable<HttpResponseMessage, LLMHttpRetryMetadata> RetryMetadata = new();
+    private static readonly HttpRequestOptionsKey<byte[]> LegacyReceiptBody = new("gnougo.llm.legacy_receipt_body");
+
+    // Only providers whose older builders omitted an output bound may supply the exact old body.
+    // This permits receipt-only recovery; it never authorizes sending that older unbounded body.
+    internal static void AllowLegacyReceipt(HttpRequestMessage request, byte[] exactOlderBody)
+        => request.Options.Set(LegacyReceiptBody, exactOlderBody);
 
     /// <summary>Creates a GET request.</summary>
     public static HttpRequestMessage CreateGet(string url)
@@ -186,7 +192,19 @@ public static class HttpRequestHelper
         var state = context is null ? new LLMHttpRetryState { Fingerprint = fingerprint }
             : await context.LoadAsync(ct).ConfigureAwait(false) ?? new LLMHttpRetryState { Fingerprint = fingerprint };
         if (state.Attempts.Count == 0 && state.Fingerprint.Length == 0) state.Fingerprint = fingerprint;
-        if (state.Fingerprint != fingerprint) throw new InvalidOperationException("The reserved HTTP operation changed.");
+        if (state.Fingerprint != fingerprint)
+        {
+            if (!streaming && state.Transport is null && template.Options.TryGetValue(LegacyReceiptBody, out var olderBody) &&
+                state.Fingerprint == Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(template.Method + "\n" + template.RequestUri + "\n" + Encoding.UTF8.GetString(olderBody)))) &&
+                state.Attempts.LastOrDefault() is { Status: >= 200 and < 300, Failure: null, Body: not null } completed &&
+                completed.ResponseBodyComplete != false && completed.PartialBody is null && completed.PartialBodyBase64 is null)
+            {
+                var retained = Restore(completed, completed.Status.Value);
+                SetRetryMetadata(retained, new(state.Attempts.Count, false, null, null, null));
+                return retained; // No journal rewrite, dispatch, retry or settlement here.
+            }
+            throw new InvalidOperationException("The reserved HTTP operation changed.");
+        }
         if (state.Attempts.Count == 0)
         {
             state.RequestMethod = template.Method.Method;

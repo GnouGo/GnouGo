@@ -249,7 +249,8 @@ public static class ChatRequestBuilder
         double? temperature = null,
         IReadOnlyList<LLMToolDef>? tools = null,
         bool jsonMode = false,
-        string? reasoning = null)
+        string? reasoning = null,
+        int? maxOutputTokens = null)
     {
         using var ms = new MemoryStream();
         using (var w = new Utf8JsonWriter(ms))
@@ -257,6 +258,13 @@ public static class ChatRequestBuilder
             w.WriteStartObject();
             w.WriteString("model", model);
             w.WriteBoolean("stream", false);
+
+            if (maxOutputTokens is > 0)
+            {
+                w.WriteStartObject("options");
+                w.WriteNumber("num_predict", maxOutputTokens.Value);
+                w.WriteEndObject();
+            }
 
             if (temperature.HasValue)
                 w.WriteNumber("temperature", temperature.Value);

@@ -69,6 +69,10 @@ public sealed class CopilotLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             if (!string.IsNullOrWhiteSpace(bearerToken))
                 HttpRequestHelper.SetBearerAuth(requestMessage, bearerToken);
             LLMTransportResolver.Apply(requestMessage, request.ResolvedTransport!, request.DeclaredTransportCapabilities);
+            if (request.MaxOutputTokens is > 0)
+                HttpRequestHelper.AllowLegacyReceipt(requestMessage, ChatRequestBuilder.OpenAiFull(
+                    resolvedModel, request.Prompt, request.Temperature, tools,
+                    request.StructuredOutputSchema, request.StructuredOutputStrict, request.Reasoning));
             return requestMessage;
         }
 

@@ -28,6 +28,8 @@ public sealed class NativeStreamingTests
         using var context = Context(journal);
         var response = await client.CallAsync(Request(structured: true), Ct);
         Assert.True(sent!["stream"]!.GetValue<bool>());
+        if (type == "ollama") Assert.Equal(1024, sent["options"]!["num_predict"]!.GetValue<int>());
+        if (type is "openai" or "copilot") Assert.Equal(1024, sent["max_completion_tokens"]!.GetValue<int>());
         Assert.Equal("café", response.Json!["value"]!.GetValue<string>());
         Assert.NotNull(response.Usage);
         var attempt = Assert.Single(journal.State!.Attempts);
@@ -40,6 +42,34 @@ public sealed class NativeStreamingTests
         Assert.Contains("café", attempt.AssembledBody.Replace("\\u00E9", "é"));
         Assert.True(journal.Saves >= 3);
         Assert.Equal(1, httpCalls(http));
+    }
+
+    [Theory]
+    [InlineData("copilot", "complete")] [InlineData("ollama", "complete")]
+    [InlineData("copilot", "partial")] [InlineData("ollama", "partial")]
+    [InlineData("copilot", "changed_prompt")] [InlineData("ollama", "changed_prompt")]
+    [InlineData("copilot", "streaming")] [InlineData("ollama", "streaming")]
+    public async Task LegacyOmittedOutputBoundPermitsOnlyExactCompletedReceiptRecovery(string type, string condition)
+    {
+        var provider = Provider(type); provider.RequestPolicy.StreamingMode = LLMStreamingMode.NonStreaming;
+        var old = type == "ollama" ? ChatRequestBuilder.OllamaFull("deployment", "bounded") : ChatRequestBuilder.OpenAiFull("deployment", "bounded");
+        var endpoint = type == "ollama" ? "https://gateway.example/v1/api/chat" : "https://gateway.example/v1/chat/completions";
+        var body = type == "ollama" ? "{\"message\":{\"content\":\"old\"},\"done\":true,\"prompt_eval_count\":3,\"eval_count\":2}" : "{\"choices\":[{\"message\":{\"content\":\"old\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":3,\"completion_tokens\":2}}";
+        var journal = new Journal { State = new() {
+            Fingerprint = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes("POST\n" + endpoint + "\n" + Encoding.UTF8.GetString(old)))),
+            Attempts = [new() { Id = "old-attempt", Status = condition == "partial" ? null : 200, Body = condition == "partial" ? null : body,
+                PartialBody = condition == "partial" ? "partial" : null, ContentType = "application/json", ResponseBodyComplete = condition != "partial" }]
+        } };
+        var unchanged = JsonSerializer.Serialize(journal.State, LLMHttpRetryJsonContext.Default.LLMHttpRetryState);
+        using var http = NewHttp(new Handler(_ => throw new InvalidOperationException("Receipt recovery must not dispatch.")));
+        var request = Request(); if (condition == "changed_prompt") request.Prompt += " changed";
+        if (condition == "streaming") provider.RequestPolicy.StreamingMode = LLMStreamingMode.Streaming;
+        using var context = Context(journal);
+        var client = new RoutingLLMClient(http, Options(provider));
+        if (condition == "complete") Assert.Equal("old", (await client.CallAsync(request, Ct)).Text);
+        else await Assert.ThrowsAnyAsync<Exception>(() => client.CallAsync(request, Ct));
+        Assert.Equal(0, httpCalls(http)); Assert.Equal(0, journal.Saves);
+        Assert.Equal(unchanged, JsonSerializer.Serialize(journal.State, LLMHttpRetryJsonContext.Default.LLMHttpRetryState));
     }
 
     [Theory]
