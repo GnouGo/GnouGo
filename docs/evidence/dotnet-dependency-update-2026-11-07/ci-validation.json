@@ -1,0 +1,151 @@
+{
+  "source": "458c2f4ea1c8e8b321e8e9ae3f4768429ee4b3f5",
+  "repository": "GnouGo/GnouGo",
+  "workflows": [
+    {
+      "id": 42405116667,
+      "name": "Deterministic planner validation",
+      "status": "in_progress",
+      "conclusion": null,
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/42405116667"
+    },
+    {
+      "id": 42405116660,
+      "name": "ProxyCopilot standalone validation",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/42405116660"
+    },
+    {
+      "id": 42405116658,
+      "name": "Build ProxyCopilot Native AOT",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/42405116658"
+    }
+  ],
+  "nativeJobs": [
+    {
+      "name": "ProxyCopilot AOT (linux-x64)",
+      "conclusion": "success",
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/42405116658/job/128501025438",
+      "steps": [
+        {
+          "name": "Build frontend",
+          "conclusion": "success"
+        },
+        {
+          "name": "Publish Native AOT",
+          "conclusion": "success"
+        },
+        {
+          "name": "Package and smoke-test the extracted release archive",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "ProxyCopilot AOT (osx-x64)",
+      "conclusion": "success",
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/42405116658/job/128501025571",
+      "steps": [
+        {
+          "name": "Build frontend",
+          "conclusion": "success"
+        },
+        {
+          "name": "Publish Native AOT",
+          "conclusion": "success"
+        },
+        {
+          "name": "Package and smoke-test the extracted release archive",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "ProxyCopilot AOT (win-arm64)",
+      "conclusion": "success",
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/42405116658/job/128501025599",
+      "steps": [
+        {
+          "name": "Build frontend",
+          "conclusion": "success"
+        },
+        {
+          "name": "Publish Native AOT",
+          "conclusion": "success"
+        },
+        {
+          "name": "Package and smoke-test the extracted release archive",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "ProxyCopilot AOT (linux-arm64)",
+      "conclusion": "success",
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/42405116658/job/128501025611",
+      "steps": [
+        {
+          "name": "Build frontend",
+          "conclusion": "success"
+        },
+        {
+          "name": "Publish Native AOT",
+          "conclusion": "success"
+        },
+        {
+          "name": "Package and smoke-test the extracted release archive",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "ProxyCopilot AOT (win-x64)",
+      "conclusion": "success",
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/42405116658/job/128501025639",
+      "steps": [
+        {
+          "name": "Build frontend",
+          "conclusion": "success"
+        },
+        {
+          "name": "Publish Native AOT",
+          "conclusion": "success"
+        },
+        {
+          "name": "Package and smoke-test the extracted release archive",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "ProxyCopilot AOT (osx-arm64)",
+      "conclusion": "success",
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/42405116658/job/128501025643",
+      "steps": [
+        {
+          "name": "Build frontend",
+          "conclusion": "success"
+        },
+        {
+          "name": "Publish Native AOT",
+          "conclusion": "success"
+        },
+        {
+          "name": "Package and smoke-test the extracted release archive",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "correctedCiFailure": {
+    "source": "f015f5a4bad6feba552cd743ed54e447a41a0e81",
+    "url": "https://github.com/GnouGo/GnouGo/actions/runs/42403039456/job/128494746777",
+    "test": "BackgroundRecoveryKeepsTheActualDeadlineAndColdRecoveryOnlyRetrievesTheReceipt",
+    "expected": "Timeout",
+    "actual": "Unknown",
+    "deterministicReproduction": "ExpiredGenerationTimerCannotStartInlineRetrievalWhenUtcClockLags fails before the fix with an unwanted GET after timer expiry."
+  }
+}

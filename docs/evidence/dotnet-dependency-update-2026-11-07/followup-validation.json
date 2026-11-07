@@ -1,0 +1,407 @@
+{
+  "source": "458c2f4ea1c8e8b321e8e9ae3f4768429ee4b3f5",
+  "scope": "All 32 non-Server assemblies, then targeted Server transport, journal, retention and execution-budget tests; full unfiltered run is separately attributed to f015f5a4.",
+  "solutionBuild": {
+    "exitCode": 0,
+    "warnings": 0,
+    "errors": 0,
+    "logSha256": "3e1b451f55857b53c96ca1785876784a77828eb3ed5131836e50c5729f0be3b9"
+  },
+  "nonServer": {
+    "assemblies": 32,
+    "passed": 6413,
+    "failed": 0,
+    "skipped": 12,
+    "results": [
+      {
+        "assembly": "GnOuGo.AI.Core.Tests.dll",
+        "passed": 354,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "3566c7c8efeb03062db70362031236d3429828310edfc5c71a52af613f5cea6e"
+      },
+      {
+        "assembly": "GnOuGo.AI.Local.Tests.dll",
+        "passed": 19,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "9ddbc10e6641b0fb2f577d5841345a5e55262bbbc0f5d1d45f1676b24e86b2ae"
+      },
+      {
+        "assembly": "GnOuGo.Agent.Mcp.Tests.dll",
+        "passed": 103,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "66e8e8c9616e654bad04a188bfcd53931122f33453a0bfe226f5e6fd0c9866d8"
+      },
+      {
+        "assembly": "GnOuGo.Assets.Animation.Server.Tests.dll",
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "061d1e00debf8016656308ff692c896c65d447b5ef9af98eb03e7a1b6f72785a"
+      },
+      {
+        "assembly": "GnOuGo.Assets.Animation.Tests.dll",
+        "passed": 42,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "419f3ff1cd17c639358e25cd30c34cdf2627aee3bc85eae4f6628f07baaa1cb7"
+      },
+      {
+        "assembly": "GnOuGo.Assets.Bears.Server.Tests.dll",
+        "passed": 28,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "2a62f170ba496da3fa107ed27d5c10be1f7feef0540e9759d739b4bf1c8fbb25"
+      },
+      {
+        "assembly": "GnOuGo.Assets.Bears.Tests.dll",
+        "passed": 91,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "c4a37cc807d081329fc5c0ccb9de434ff90014ccc47c68c6ea3c852df627530f"
+      },
+      {
+        "assembly": "GnOuGo.Auth.Core.Tests.dll",
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "e77734d375ca44a875077c7ffb2227cdb80a073a7e249b994bff1b16122c76e1"
+      },
+      {
+        "assembly": "GnOuGo.Browser.Mcp.Tests.dll",
+        "passed": 142,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "5af28e2335b37c11d9e5aa166ab5f41e167e7addf7d0b75ec8929ccf1e58e0a4"
+      },
+      {
+        "assembly": "GnOuGo.Cmd.Mcp.Tests.dll",
+        "passed": 93,
+        "failed": 0,
+        "skipped": 7,
+        "trxSha256": "59b1679e66508c57a13dea8f20ca798b770a37d105052f5b20f15765ed01e873"
+      },
+      {
+        "assembly": "GnOuGo.Diff.Tests.dll",
+        "passed": 52,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "241fead7c12979f72ea856daf03458ed91335a7fa565501be35d8142ac6b46f7"
+      },
+      {
+        "assembly": "GnOuGo.DocIngestor.Mcp.Tests.dll",
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "1a99d2b313a796f88f541ef29e6368143a565d558cd76f4b30946888c3e8945d"
+      },
+      {
+        "assembly": "GnOuGo.DocIngestor.Tests.dll",
+        "passed": 97,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "d751ccb6abb05189c98b0696a9881e082079d88d92a29f0f064c08d8711ea91e"
+      },
+      {
+        "assembly": "GnOuGo.Document.Mcp.Tests.dll",
+        "passed": 73,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "8579557c00e379dedc6b2324e30b2175415797d63847b98ba7b7f9339fa3058a"
+      },
+      {
+        "assembly": "GnOuGo.Files.Server.Tests.dll",
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "0545000f68ad101aaf2f8980f9b45f86428bd9c58bc711cfe8c470633208738e"
+      },
+      {
+        "assembly": "GnOuGo.Flow.Copilot.Tests.dll",
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "03e94ae4fc7be7a95ecd20863cc74b3d05b62b828e2a3330b172936dd9941df0"
+      },
+      {
+        "assembly": "GnOuGo.Flow.Integrations.Tests.dll",
+        "passed": 121,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "5ea3ae227b0ce433f827168f3792e8f93f870aca233eb2b37509a7a1e917cf30"
+      },
+      {
+        "assembly": "GnOuGo.Flow.Mermaid.Tests.dll",
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "a1c4e41b2980845faa574fef4cbfd6742a8dfc95699f1a46c46df74890a8fb14"
+      },
+      {
+        "assembly": "GnOuGo.Flow.Persistence.Tests.dll",
+        "passed": 26,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "9e5a01165f18540d320687db913769c3e1307e98ed4a70b300c6d924214be56f"
+      },
+      {
+        "assembly": "GnOuGo.Flow.Planning.Tests.dll",
+        "passed": 2783,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "b0e6df9660f223b17cabfdeeb650ea2c53c0373b547ad450dd6ecbf1002a64d7"
+      },
+      {
+        "assembly": "GnOuGo.Flow.Tests.dll",
+        "passed": 1529,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "4501a099caaba66264ea83be291fee4df6d5529fc7a231ef10d329c606171089"
+      },
+      {
+        "assembly": "GnOuGo.Git.Mcp.Tests.dll",
+        "passed": 84,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "4980d5dd334885648c803c73210329a1b8fa0bb6995fd688c78edf61ed159ab5"
+      },
+      {
+        "assembly": "GnOuGo.GithubCopilot.Core.Tests.dll",
+        "passed": 173,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "521e22000bf70528d266f7eee690f448cc8264cc539c6d4cf16b77e6dea9210c"
+      },
+      {
+        "assembly": "GnOuGo.GithubCopilot.E2E.Tests.dll",
+        "passed": 7,
+        "failed": 0,
+        "skipped": 5,
+        "trxSha256": "1da3e50cbb09a3d7ab5d893ec44ba00a62d0049fe1c34da5494ac0753b9ed07b"
+      },
+      {
+        "assembly": "GnOuGo.GithubCopilot.Mcp.Tests.dll",
+        "passed": 243,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "66658606810ae320f5be095fe39aa1bc57c4e8a30786493a7322927a4123acb1"
+      },
+      {
+        "assembly": "GnOuGo.KeyVault.Core.Tests.dll",
+        "passed": 23,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "27b3110bfa8f2223b6cf198c2337a36ad3fb05125ba72684e3c4d089633fa59c"
+      },
+      {
+        "assembly": "GnOuGo.KeyVault.Mcp.Tests.dll",
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "4b31157b5ab908c3fa80f8e535321b90a5cde4c12c8093090bbf5cf34fd4a415"
+      },
+      {
+        "assembly": "GnOuGo.Mcp.Core.Tests.dll",
+        "passed": 49,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "8daecb00e8b361708c463a8a9806fe23ff004f9911c66155c0cb82a5d96a989c"
+      },
+      {
+        "assembly": "GnOuGo.Observability.Core.Tests.dll",
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "89446d9749afdc41adeb3cd9234c1bc86bf238d42f65f0ef12c867349a25e6c1"
+      },
+      {
+        "assembly": "GnOuGo.OtlpCollector.Server.Tests.dll",
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "4d203247c47344ae1eeaeb1211612d160b70dac41a890e5410d5bab4c688ea85"
+      },
+      {
+        "assembly": "GnOuGo.ProxyCopilot.Server.Tests.dll",
+        "passed": 177,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "fcc8cc9a385385502e235ca308b670b7c88cdebdbab45bd87b004ecaec9095de"
+      },
+      {
+        "assembly": "GnOuGo.Workspace.Tests.dll",
+        "passed": 30,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "725e4985b7c9a443b1c9409767e97a6e8b36b1e2871bae53ecc401d05233ba9c"
+      }
+    ]
+  },
+  "serverTargeted": {
+    "assemblies": 1,
+    "passed": 226,
+    "failed": 0,
+    "skipped": 0,
+    "results": [
+      {
+        "assembly": "GnOuGo.Agent.Server.Tests.dll",
+        "passed": 226,
+        "failed": 0,
+        "skipped": 0,
+        "trxSha256": "029504f23a187e2d7b959c87f90167e5355c3027605f457741efbf7c42c728ba"
+      }
+    ]
+  },
+  "publications": [
+    {
+      "source": "458c2f4ea1c8e8b321e8e9ae3f4768429ee4b3f5",
+      "name": "ai-core-pack",
+      "exitCode": 0,
+      "seconds": 1.8,
+      "command": [
+        "dotnet",
+        "pack",
+        "src/GnOuGo.AI.Core/GnOuGo.AI.Core.csproj",
+        "-c",
+        "Release",
+        "-m:1",
+        "-warnaserror",
+        "-p:SkipModelMetadataGeneration=true",
+        "-p:PackageOutputPath=/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/dotnet-dependency-update-20261107/current-packages"
+      ],
+      "logSha256": "8aa7332357405d3707929660ca8955fa5018928825ff3dbe7eb6cd2cb058fcf7",
+      "compilerDiagnostics": []
+    },
+    {
+      "source": "458c2f4ea1c8e8b321e8e9ae3f4768429ee4b3f5",
+      "name": "proxy-publish",
+      "exitCode": 0,
+      "seconds": 17.03,
+      "command": [
+        "dotnet",
+        "publish",
+        "src/GnOuGo.ProxyCopilot.Server/GnOuGo.ProxyCopilot.Server.csproj",
+        "-c",
+        "Release",
+        "-r",
+        "osx-arm64",
+        "--self-contained",
+        "true",
+        "-m:1",
+        "-warnaserror",
+        "-p:SkipClientBuild=true",
+        "-p:SkipModelMetadataGeneration=true",
+        "-p:PublishAot=true",
+        "-p:PublishTrimmed=true",
+        "-p:PublishSingleFile=true",
+        "-p:DebugType=None",
+        "-p:DebugSymbols=false",
+        "-o",
+        "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/dotnet-dependency-update-20261107/current-publish/proxy"
+      ],
+      "logSha256": "4c715653f6caf28573a05a9393fa8e0ce1718727d7a4258023389fb65973485a",
+      "compilerDiagnostics": []
+    },
+    {
+      "source": "458c2f4ea1c8e8b321e8e9ae3f4768429ee4b3f5",
+      "name": "server-publish",
+      "exitCode": 0,
+      "seconds": 213.42,
+      "command": [
+        "dotnet",
+        "publish",
+        "src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj",
+        "-c",
+        "Release",
+        "-r",
+        "osx-arm64",
+        "--self-contained",
+        "true",
+        "-m:1",
+        "-warnaserror",
+        "-p:SkipClientBuild=true",
+        "-p:SkipModelMetadataGeneration=true",
+        "-p:PublishAot=false",
+        "-p:PublishTrimmed=true",
+        "-p:PublishSingleFile=true",
+        "-p:DebugType=None",
+        "-p:DebugSymbols=false",
+        "-o",
+        "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/dotnet-dependency-update-20261107/current-publish/server"
+      ],
+      "logSha256": "789ae89ff737d7f03c1e149672773a1b50d760abf61031c665b80d4cb4cb24e7",
+      "compilerDiagnostics": []
+    },
+    {
+      "source": "458c2f4ea1c8e8b321e8e9ae3f4768429ee4b3f5",
+      "name": "planning-smoke-publish",
+      "exitCode": 0,
+      "seconds": 48.09,
+      "command": [
+        "dotnet",
+        "publish",
+        "tests/GnOuGo.Flow.Planning.Smoke/GnOuGo.Flow.Planning.Smoke.csproj",
+        "-c",
+        "Release",
+        "-r",
+        "osx-arm64",
+        "--self-contained",
+        "true",
+        "-m:1",
+        "-warnaserror",
+        "-p:SkipClientBuild=true",
+        "-p:SkipModelMetadataGeneration=true",
+        "-p:PublishAot=true",
+        "-p:PublishTrimmed=true",
+        "-p:PublishSingleFile=true",
+        "-p:DebugType=None",
+        "-p:DebugSymbols=false",
+        "-o",
+        "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/dotnet-dependency-update-20261107/current-publish/planning-smoke"
+      ],
+      "logSha256": "3c6b55cf4bbcd42b7a1cdb8b5540185b4798023d27fdbfe89d058328e16534f5",
+      "compilerDiagnostics": []
+    }
+  ],
+  "publishedSmokes": [
+    {
+      "name": "planning",
+      "exitCode": 0,
+      "seconds": 1.31,
+      "command": [
+        "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/dotnet-dependency-update-20261107/current-publish/planning-smoke/GnOuGo.Flow.Planning.Smoke"
+      ]
+    },
+    {
+      "name": "storage-1",
+      "exitCode": 0,
+      "seconds": 3.26,
+      "command": [
+        "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/dotnet-dependency-update-20261107/current-publish/server/GnOuGo.Agent.Server",
+        "--planning-persistence-smoke",
+        "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/dotnet-dependency-update-20261107/cross-version-storage"
+      ]
+    },
+    {
+      "name": "storage-2",
+      "exitCode": 0,
+      "seconds": 1.19,
+      "command": [
+        "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/dotnet-dependency-update-20261107/current-publish/server/GnOuGo.Agent.Server",
+        "--planning-persistence-smoke",
+        "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/dotnet-dependency-update-20261107/cross-version-storage"
+      ]
+    }
+  ],
+  "nativeProxySmoke": {
+    "exitCode": 0,
+    "logSha256": "1e49ade60ce3cd87c746f2facf7cbb55882d8e9c4b27fe06f8878aa7e40234c6"
+  },
+  "deterministicRegression": {
+    "failsBeforeFix": true,
+    "beforeLogSha256": "0b35989da0595f5be7a928729cd4c9591538b338bbc2ce49fcde9db4a17c203a",
+    "fixedTestIncludedInNonServer": true
+  }
+}
