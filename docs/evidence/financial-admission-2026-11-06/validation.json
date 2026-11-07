@@ -102,8 +102,7 @@
       "name": "warning-free-solution-build",
       "sourceRevision": "9faa818cebc43154c6a6a4f7198687216491cf7b",
       "exitCode": 0,
-      "sha256": "c978be962e825effd1a80af084e466cdc682eee754d9cee0275290ba481246d4",
-      "log": "warning-free-solution-build.log",
+      "log": "warning-free-solution-build.log.gz",
       "reproductionCommand": [
         "dotnet",
         "build",
@@ -117,42 +116,53 @@
         "-p:SkipModelMetadataGeneration=true",
         "--verbosity",
         "quiet"
-      ]
+      ],
+      "logEncoding": "gzip",
+      "uncompressedLogSha256": "c978be962e825effd1a80af084e466cdc682eee754d9cee0275290ba481246d4",
+      "sha256": "6d958b27822a1b1ff650d55f671c5346e8237bff180e41475e76d30de3951b24"
     },
     {
       "name": "frontend-production",
       "sourceRevision": "9faa818cebc43154c6a6a4f7198687216491cf7b",
       "exitCode": 0,
-      "sha256": "c02036c4c7cefdff03899ce6514ba0c60f24bd6834763a8b82f8afa08aeb9b8e",
-      "log": "frontend-production.log",
+      "log": "frontend-production.log.gz",
       "reproductionCommand": [
         "pnpm",
         "--dir",
         "src/GnOuGo.Agent.Server/ClientApp",
         "run",
         "build"
-      ]
+      ],
+      "logEncoding": "gzip",
+      "uncompressedLogSha256": "c02036c4c7cefdff03899ce6514ba0c60f24bd6834763a8b82f8afa08aeb9b8e",
+      "sha256": "122da1a414ed09a7f61c45f12bf22a36501527ae39e38e5e95c1762b4388a493"
     },
     {
       "name": "final-warning-free-solution-build",
       "sourceRevision": "77dfe36774f54ed09eb03b3bb16a1c3adc854b85",
       "exitCode": 0,
-      "sha256": "89ac21776808f4bcbeaf5379471b80e382a9bc2fc59e50bb7489816ece312390",
-      "log": "final-warning-free-solution-build.log"
+      "log": "final-warning-free-solution-build.log.gz",
+      "logEncoding": "gzip",
+      "uncompressedLogSha256": "89ac21776808f4bcbeaf5379471b80e382a9bc2fc59e50bb7489816ece312390",
+      "sha256": "935c9b70aecd7e98252fb4a8d03bb7b553a3e915cc791e76015c6df6719ebac5"
     },
     {
       "name": "final-live-benchmark-build",
       "sourceRevision": "77dfe36774f54ed09eb03b3bb16a1c3adc854b85",
       "exitCode": 0,
-      "sha256": "f4cdf99abe019461f692ec31f4e89535cb11352170adfae6c0bd9a83dc86b328",
-      "log": "final-live-benchmark-build.log"
+      "log": "final-live-benchmark-build.log.gz",
+      "logEncoding": "gzip",
+      "uncompressedLogSha256": "f4cdf99abe019461f692ec31f4e89535cb11352170adfae6c0bd9a83dc86b328",
+      "sha256": "595f85bf2aaafcce0589fef4c2c6271b44bfdb8a367928c176089335cd01bbbf"
     },
     {
       "name": "final-publish-source-build",
       "sourceRevision": "77dfe36774f54ed09eb03b3bb16a1c3adc854b85",
       "exitCode": 0,
-      "sha256": "9bc7d1c397adad97cd90a5b2c086c0d06e264b87fd07a2b66590ead85e04e0e4",
-      "log": "final-publish-source-build.log"
+      "log": "final-publish-source-build.log.gz",
+      "logEncoding": "gzip",
+      "uncompressedLogSha256": "9bc7d1c397adad97cd90a5b2c086c0d06e264b87fd07a2b66590ead85e04e0e4",
+      "sha256": "01edaaf17539b6168cbb9705a1ca1ca35fe46e22536fd5c7f66ad2379a227b8b"
     }
   ],
   "fullSolutionTestRun": {
@@ -1109,14 +1119,16 @@
       "failed": 0,
       "skipped": 13
     },
-    "log": "feature-freeze-solution.log",
-    "logSha256": "e0e3cfe948d03e21a24df6c7aadb5b18daf8df4c52d3ff0ee166135c00c014f4",
+    "log": "feature-freeze-solution.log.gz",
     "note": "Complete feature-freeze run before dd930f98/77dfe367 hardening. Not relabelled as final-source validation.",
     "skipCategories": {
       "windowsOnly": 7,
       "optInCopilotLive": 5,
       "legacyBrowserExplicitModule": 1
-    }
+    },
+    "logEncoding": "gzip",
+    "uncompressedLogSha256": "e0e3cfe948d03e21a24df6c7aadb5b18daf8df4c52d3ff0ee166135c00c014f4",
+    "logSha256": "f5c5ef51fab2ecc3e3ed93b5f57b8633a71f9e093c0113249747e697ca0f6c5a"
   },
   "limitations": [
     "No paid provider response; financial history incomplete.",
@@ -1281,7 +1293,7 @@
     }
   ],
   "finalFullSolutionTestRun": {
-    "status": "running",
+    "status": "passed",
     "sourceRevision": "77dfe36774f54ed09eb03b3bb16a1c3adc854b85",
     "workingDirectory": "artifacts/continuity-live-e673a51e",
     "solutionSha256": "3b3d9b39a7f330a4e05d8269ca399477fe9fc3f4f955a005ae3ad3c11e8d95dd",
@@ -1304,7 +1316,981 @@
       "--verbosity",
       "quiet"
     ],
-    "note": "The final implementation and copied solution remain frozen at 77dfe367; the supplementary legacy browser run does not rewrite the default full-run skip count."
+    "note": "Complete final-source run on frozen compiled source 77dfe367 and the preserved user-staged solution. Supplemental legacy browser passes separately with staged Playwright; default-run skip counters remain unchanged.",
+    "exitCode": 0,
+    "assemblies": [
+      {
+        "assembly": "gnougo.docingestor.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107003843.trx.gz",
+        "originalSha256": "1b7ce13c75fc29931e0494cb917a36d921bffa11c9d7b04ebc88528e51ac625b",
+        "counters": {
+          "total": "89",
+          "executed": "89",
+          "passed": "89",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T00:38:41.7460520+01:00",
+          "queuing": "2026-11-07T00:38:41.7460520+01:00",
+          "start": "2026-11-07T00:38:40.3182990+01:00",
+          "finish": "2026-11-07T00:38:43.5326870+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.diff.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107003855.trx.gz",
+        "originalSha256": "d0b14efbf1e3d586549cbbcdd50a43444c854b8e5bd2a6ff4f0905f4bcb8eb32",
+        "counters": {
+          "total": "52",
+          "executed": "52",
+          "passed": "52",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T00:38:55.0175350+01:00",
+          "queuing": "2026-11-07T00:38:55.0175350+01:00",
+          "start": "2026-11-07T00:38:44.1618150+01:00",
+          "finish": "2026-11-07T00:38:55.6467510+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.keyvault.core.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107003858.trx.gz",
+        "originalSha256": "7f0307da030ac109bbfed80dca04e1a071959df0217b4d4e1212590a1b651133",
+        "counters": {
+          "total": "19",
+          "executed": "19",
+          "passed": "19",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T00:38:57.5973100+01:00",
+          "queuing": "2026-11-07T00:38:57.5973100+01:00",
+          "start": "2026-11-07T00:38:55.8473280+01:00",
+          "finish": "2026-11-07T00:38:58.8642730+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.flow.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107003902.trx.gz",
+        "originalSha256": "ca98298fd0a96effd2812bf379ed515f2fbeee91448db1866514db55b701e898",
+        "counters": {
+          "total": "1529",
+          "executed": "1529",
+          "passed": "1529",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T00:39:00.6758930+01:00",
+          "queuing": "2026-11-07T00:39:00.6758930+01:00",
+          "start": "2026-11-07T00:38:59.1643520+01:00",
+          "finish": "2026-11-07T00:39:02.5443090+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.flow.integrations.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107003906.trx.gz",
+        "originalSha256": "61b9078083f4c704c926780fb1cf0f636b6753892f2c6abb2dff26d4d5169509",
+        "counters": {
+          "total": "116",
+          "executed": "116",
+          "passed": "116",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T00:39:04.0415890+01:00",
+          "queuing": "2026-11-07T00:39:04.0415890+01:00",
+          "start": "2026-11-07T00:39:02.8092980+01:00",
+          "finish": "2026-11-07T00:39:06.0220310+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.ai.core.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107003908.trx.gz",
+        "originalSha256": "50728f9351010c4dd27940d087d486b5d056e1bc0e68fc538fe28e624bd8072f",
+        "counters": {
+          "total": "283",
+          "executed": "283",
+          "passed": "283",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T00:39:07.4315340+01:00",
+          "queuing": "2026-11-07T00:39:07.4315340+01:00",
+          "start": "2026-11-07T00:39:06.2797370+01:00",
+          "finish": "2026-11-07T00:39:08.9247630+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.ai.local.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107003914.trx.gz",
+        "originalSha256": "0452ba2c50f42c105ebf4de70597288e89eb9350839cea444597e0013fc6a902",
+        "counters": {
+          "total": "14",
+          "executed": "14",
+          "passed": "14",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T00:39:14.4218920+01:00",
+          "queuing": "2026-11-07T00:39:14.4218920+01:00",
+          "start": "2026-11-07T00:39:09.1318380+01:00",
+          "finish": "2026-11-07T00:39:14.4335820+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.agent.mcp.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107003917.trx.gz",
+        "originalSha256": "9d0ef0088924c554b01d084c1a349115d39935d442f9836e9c35288c0fa17754",
+        "counters": {
+          "total": "103",
+          "executed": "103",
+          "passed": "103",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T00:39:15.6640850+01:00",
+          "queuing": "2026-11-07T00:39:15.6640850+01:00",
+          "start": "2026-11-07T00:39:14.6066920+01:00",
+          "finish": "2026-11-07T00:39:17.9289250+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.cmd.mcp.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107003940.trx.gz",
+        "originalSha256": "3a3b5e820fd54923dac8c9437d4c2ba4293f5b22f1d18ae348e470fcabb5444e",
+        "counters": {
+          "total": "100",
+          "executed": "93",
+          "passed": "93",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T00:39:19.3719260+01:00",
+          "queuing": "2026-11-07T00:39:19.3719260+01:00",
+          "start": "2026-11-07T00:39:18.1226830+01:00",
+          "finish": "2026-11-07T00:39:40.5392280+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.browser.mcp.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107003958.trx.gz",
+        "originalSha256": "5e9824c655beabe965e5d2e7c3cc9a09abdb724e4c5536afd63bd1d0a3a230e2",
+        "counters": {
+          "total": "142",
+          "executed": "142",
+          "passed": "142",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T00:39:41.7806660+01:00",
+          "queuing": "2026-11-07T00:39:41.7806660+01:00",
+          "start": "2026-11-07T00:39:40.7171900+01:00",
+          "finish": "2026-11-07T00:39:58.4471410+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.agent.server.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107014850.trx.gz",
+        "originalSha256": "00b4970f35b210e6b946e8cb4cfe77534d1f4d75dac436beb2522cb42b899ef0",
+        "counters": {
+          "total": "1683",
+          "executed": "1682",
+          "passed": "1682",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T00:40:00.3304960+01:00",
+          "queuing": "2026-11-07T00:40:00.3304960+01:00",
+          "start": "2026-11-07T00:39:58.6183350+01:00",
+          "finish": "2026-11-07T01:48:50.5476010+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.document.mcp.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107014857.trx.gz",
+        "originalSha256": "6dd629b45da7125777092467bcd62f4ae02edd51b085420da9b093948eda8168",
+        "counters": {
+          "total": "73",
+          "executed": "73",
+          "passed": "73",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:48:51.9679930+01:00",
+          "queuing": "2026-11-07T01:48:51.9679930+01:00",
+          "start": "2026-11-07T01:48:50.7938620+01:00",
+          "finish": "2026-11-07T01:48:57.6154320+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.keyvault.mcp.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107014859.trx.gz",
+        "originalSha256": "bb91fe0c77af3ac7a31eae5779ae6b246d13e4b22738129880d1ffb05c30f55b",
+        "counters": {
+          "total": "9",
+          "executed": "9",
+          "passed": "9",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:48:59.5065410+01:00",
+          "queuing": "2026-11-07T01:48:59.5065410+01:00",
+          "start": "2026-11-07T01:48:57.7707830+01:00",
+          "finish": "2026-11-07T01:48:59.8490920+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.files.server.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107014901.trx.gz",
+        "originalSha256": "f2c1d7255aa27b9018e85d705f81ce185ef9255c267a7cb6a2f809f2c215d00f",
+        "counters": {
+          "total": "10",
+          "executed": "10",
+          "passed": "10",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:49:00.9872460+01:00",
+          "queuing": "2026-11-07T01:49:00.9872460+01:00",
+          "start": "2026-11-07T01:49:00.0030080+01:00",
+          "finish": "2026-11-07T01:49:01.5405640+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.docingestor.mcp.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107014903.trx.gz",
+        "originalSha256": "e60cad9ef852c29a032eb90e212338b43a1017461d74ebfd44c27bb185726921",
+        "counters": {
+          "total": "7",
+          "executed": "7",
+          "passed": "7",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:49:03.4016980+01:00",
+          "queuing": "2026-11-07T01:49:03.4016980+01:00",
+          "start": "2026-11-07T01:49:01.6908090+01:00",
+          "finish": "2026-11-07T01:49:03.5321100+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.otlpcollector.server.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107014905.trx.gz",
+        "originalSha256": "e136003594adcd2f32a8a711041d16c7fca8ca3525000d4a722502cbedb395ff",
+        "counters": {
+          "total": "7",
+          "executed": "7",
+          "passed": "7",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:49:05.3534910+01:00",
+          "queuing": "2026-11-07T01:49:05.3534910+01:00",
+          "start": "2026-11-07T01:49:03.6605490+01:00",
+          "finish": "2026-11-07T01:49:05.3555320+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.githubcopilot.mcp.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107014950.trx.gz",
+        "originalSha256": "c3becd6900401a9cc5385d8de15dcfb335db2fac316f7fba64d42d50c56254db",
+        "counters": {
+          "total": "243",
+          "executed": "243",
+          "passed": "243",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:49:06.6721910+01:00",
+          "queuing": "2026-11-07T01:49:06.6721910+01:00",
+          "start": "2026-11-07T01:49:05.4937070+01:00",
+          "finish": "2026-11-07T01:49:50.1050470+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.githubcopilot.core.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107014951.trx.gz",
+        "originalSha256": "d12047e7c333797b67b33a18b5d1cbdd26f8d8540f620147491c049d9c5e65cc",
+        "counters": {
+          "total": "173",
+          "executed": "173",
+          "passed": "173",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:49:51.2891020+01:00",
+          "queuing": "2026-11-07T01:49:51.2891020+01:00",
+          "start": "2026-11-07T01:49:50.2548710+01:00",
+          "finish": "2026-11-07T01:49:51.6709510+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.githubcopilot.e2e.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107014952.trx.gz",
+        "originalSha256": "eeeb25c1754e26d7e5f46d35e2cabc81ee19136f3edffee279142798415fc0ca",
+        "counters": {
+          "total": "12",
+          "executed": "7",
+          "passed": "7",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:49:52.7456160+01:00",
+          "queuing": "2026-11-07T01:49:52.7456160+01:00",
+          "start": "2026-11-07T01:49:51.8079110+01:00",
+          "finish": "2026-11-07T01:49:52.7544070+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.observability.core.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107014953.trx.gz",
+        "originalSha256": "5a582a57cd0d8714e1cab7959c00c3d548c08736310d541e9525a2d6a609c7ed",
+        "counters": {
+          "total": "3",
+          "executed": "3",
+          "passed": "3",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:49:53.8823030+01:00",
+          "queuing": "2026-11-07T01:49:53.8823030+01:00",
+          "start": "2026-11-07T01:49:52.8834470+01:00",
+          "finish": "2026-11-07T01:49:53.8841970+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.git.mcp.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107015001.trx.gz",
+        "originalSha256": "8cae008d1335e017ef2c80295ec3042cfbe7663a91197486e5c7941415ddd5f4",
+        "counters": {
+          "total": "84",
+          "executed": "84",
+          "passed": "84",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:49:55.3518080+01:00",
+          "queuing": "2026-11-07T01:49:55.3518080+01:00",
+          "start": "2026-11-07T01:49:54.0213080+01:00",
+          "finish": "2026-11-07T01:50:01.3918420+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.workspace.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107015002.trx.gz",
+        "originalSha256": "9f6f8847e28b04a76aa58c4ba842cd7d12bd72bc8938bb7673ca23b87573452f",
+        "counters": {
+          "total": "30",
+          "executed": "30",
+          "passed": "30",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:50:02.5700360+01:00",
+          "queuing": "2026-11-07T01:50:02.5700360+01:00",
+          "start": "2026-11-07T01:50:01.5356760+01:00",
+          "finish": "2026-11-07T01:50:02.5815930+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.mcp.core.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107015003.trx.gz",
+        "originalSha256": "bcde4cb979e258d96da2e98347ea94ecb677ecd88045e9effb0a92ba4f1ea5de",
+        "counters": {
+          "total": "49",
+          "executed": "49",
+          "passed": "49",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:50:03.7467380+01:00",
+          "queuing": "2026-11-07T01:50:03.7467380+01:00",
+          "start": "2026-11-07T01:50:02.7210870+01:00",
+          "finish": "2026-11-07T01:50:03.7559580+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.flow.mermaid.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107015004.trx.gz",
+        "originalSha256": "7d845a532fd7ee41d019dd5a6eb6b365fa6fdf8a4743ef0b3b3fd3400b08c700",
+        "counters": {
+          "total": "12",
+          "executed": "12",
+          "passed": "12",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:50:04.8864030+01:00",
+          "queuing": "2026-11-07T01:50:04.8864030+01:00",
+          "start": "2026-11-07T01:50:03.8791330+01:00",
+          "finish": "2026-11-07T01:50:04.8956360+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.assets.bears.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107015014.trx.gz",
+        "originalSha256": "4fd1246fcef9340f8a5fec06b36859190137c7578098fd3e06a16e583f504497",
+        "counters": {
+          "total": "91",
+          "executed": "91",
+          "passed": "91",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:50:06.0697580+01:00",
+          "queuing": "2026-11-07T01:50:06.0697580+01:00",
+          "start": "2026-11-07T01:50:05.0419890+01:00",
+          "finish": "2026-11-07T01:50:14.8981220+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.assets.animation.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107015016.trx.gz",
+        "originalSha256": "cb9b91c58f12f019a21ded2967f2992b611cf31b9a6a1c7e5926ad1ab8924fd7",
+        "counters": {
+          "total": "42",
+          "executed": "42",
+          "passed": "42",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:50:16.4302130+01:00",
+          "queuing": "2026-11-07T01:50:16.4302130+01:00",
+          "start": "2026-11-07T01:50:15.0881430+01:00",
+          "finish": "2026-11-07T01:50:16.4393110+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.assets.animation.server.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107015022.trx.gz",
+        "originalSha256": "92a81f0c3916307926ef3c4e4bc69d979c2ccb36ae404048aee298f68e52c33d",
+        "counters": {
+          "total": "13",
+          "executed": "13",
+          "passed": "13",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:50:18.2981690+01:00",
+          "queuing": "2026-11-07T01:50:18.2981690+01:00",
+          "start": "2026-11-07T01:50:16.5631320+01:00",
+          "finish": "2026-11-07T01:50:22.1435680+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.assets.bears.server.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107015023.trx.gz",
+        "originalSha256": "d32f14c7802f58948216f676c3987d6b4b68e66b4eb8c025b3288209d3bcb003",
+        "counters": {
+          "total": "28",
+          "executed": "28",
+          "passed": "28",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:50:23.3960520+01:00",
+          "queuing": "2026-11-07T01:50:23.3960520+01:00",
+          "start": "2026-11-07T01:50:22.2740200+01:00",
+          "finish": "2026-11-07T01:50:23.4047390+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.flow.planning.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107015241.trx.gz",
+        "originalSha256": "763f115eea8fe33af397641690a526b0b36aa7caa8be0e4e7d7ad4e6bdacd7cc",
+        "counters": {
+          "total": "2763",
+          "executed": "2763",
+          "passed": "2763",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:50:25.1723150+01:00",
+          "queuing": "2026-11-07T01:50:25.1723150+01:00",
+          "start": "2026-11-07T01:50:23.5514390+01:00",
+          "finish": "2026-11-07T01:52:41.2406810+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.proxycopilot.server.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107015251.trx.gz",
+        "originalSha256": "ceb3e91b0aabadf601b0601beea14ed540a6c3383ead09533e84003343e1095c",
+        "counters": {
+          "total": "177",
+          "executed": "177",
+          "passed": "177",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:52:42.8617790+01:00",
+          "queuing": "2026-11-07T01:52:42.8617790+01:00",
+          "start": "2026-11-07T01:52:41.6039100+01:00",
+          "finish": "2026-11-07T01:52:51.9847120+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.auth.core.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107015253.trx.gz",
+        "originalSha256": "ba6306c33bf615bd8445ddc19e7f2764f3e3dda90aa5468aa8c5d327454f651a",
+        "counters": {
+          "total": "8",
+          "executed": "8",
+          "passed": "8",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:52:53.1643060+01:00",
+          "queuing": "2026-11-07T01:52:53.1643060+01:00",
+          "start": "2026-11-07T01:52:52.1209210+01:00",
+          "finish": "2026-11-07T01:52:53.1672660+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.flow.persistence.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107015300.trx.gz",
+        "originalSha256": "872119e405f92c6dabefd231e5d59817f540baddf862c75b4702d65beacc0e46",
+        "counters": {
+          "total": "26",
+          "executed": "26",
+          "passed": "26",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:52:55.0081780+01:00",
+          "queuing": "2026-11-07T01:52:55.0081780+01:00",
+          "start": "2026-11-07T01:52:53.3035620+01:00",
+          "finish": "2026-11-07T01:53:00.8080510+01:00"
+        }
+      },
+      {
+        "assembly": "gnougo.flow.copilot.tests.dll",
+        "file": "final-source-solution/financial-final_net10.0_20261107015302.trx.gz",
+        "originalSha256": "8431884dc2db7f9dce61bc491ee6f50093bee5aefd8c50b15d8caeeb8c2dda4a",
+        "counters": {
+          "total": "5",
+          "executed": "5",
+          "passed": "5",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "times": {
+          "creation": "2026-11-07T01:53:02.0819160+01:00",
+          "queuing": "2026-11-07T01:53:02.0819160+01:00",
+          "start": "2026-11-07T01:53:00.9708010+01:00",
+          "finish": "2026-11-07T01:53:02.0839210+01:00"
+        }
+      }
+    ],
+    "totals": {
+      "passed": 7982,
+      "failed": 0,
+      "skipped": 13
+    },
+    "log": "final-source-solution.log.gz",
+    "logEncoding": "gzip",
+    "logSha256": "147d7e47e723e07987e166715581bd8ad1b5a78e12fd2261ebb8cb9371cbec92",
+    "uncompressedLogSha256": "8a5b4b30e630550922131e0645efd93a9db93d6538da038768330d428ed551a1",
+    "skipCategories": {
+      "windowsOnly": 7,
+      "optInCopilotLive": 5,
+      "legacyBrowserExplicitModule": 1
+    }
   },
   "additionalControlledBrowser": {
     "sourceRevision": "77dfe36774f54ed09eb03b3bb16a1c3adc854b85",

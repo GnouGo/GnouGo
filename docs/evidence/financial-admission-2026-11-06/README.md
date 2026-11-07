@@ -223,17 +223,23 @@ the repository's exact-notice audit; no other warning/error was accepted. Full
 PowerShell/Windows publication checks are unavailable here. See
 [source-bound validation](validation.json) and [final published checks](published-validation-final.json).
 Reproduced failures and intermediate test-assertion corrections are retained there,
-separate from accepted results. The original `9faa818c` and final `77dfe367` full
-solution test runs are recorded independently when complete; overlapping totals
-are never added together.
+separate from accepted results. Both the original `9faa818c` and final `77dfe367`
+full solution runs completed successfully; their overlapping totals are recorded
+independently and never added together. Compressed logs retain both compressed
+file checksums and original uncompressed-content checksums.
 
 The original feature freeze completed with **7,970 passed, zero failed, 13 skipped**
 in 33 assemblies. Its default skips are seven Windows-only cases, five opt-in
 Copilot live cases and one legacy clarification browser test. The last also passed
 separately on final source when supplied the existing staged Playwright module:
 one passed, zero failed/skipped, including cancellation and exact receipt recovery.
-This supplementary run does not change the original full-run counters. The final
-hardening freeze's full result is recorded separately.
+This supplementary run does not change the original full-run counters.
+
+The final hardening freeze `77dfe367` completed with **7,982 passed, zero failed,
+13 skipped in 33 assemblies**, exit code zero. Its Server suite passed 1,682 tests
+with the same legacy browser opt-in skip, supplemented by the successful explicit
+browser run above. The preserved solution hash and loaded final assembly hashes
+are retained in the evidence. No new test was skipped to obtain this result.
 
 User-staged solution and `.vscode` changes remain preserved and excluded from these
 commits. No merge or release was performed.
