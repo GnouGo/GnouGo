@@ -4,6 +4,9 @@ using GnOuGo.Agent.Server.Planning;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Planning;
 using GnOuGo.KeyVault.Core.Services;
+using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.AI.Core;
+using GnOuGo.Flow.Integrations;
 
 namespace GnOuGo.Agent.Server.Tests;
 
@@ -37,6 +40,24 @@ public sealed partial class BenchmarkPermanentRetentionTests
         Assert.True(JsonNode.DeepEquals(accountingBefore, await BenchmarkHttpJournal.AccountingAsync(cold, ct: Ct)));
         Assert.Equal(budgetBefore, await fixture.Records.GetAsync("agent-planning-budgets-v11", "benchmark", Session, "test", Ct));
         Assert.Null(await cold.LoadAsync("planning-evaluation-receipts", RequestId, Ct));
+        using var handler = new RetainedHoldRuntimeHandler();
+        using var http = new HttpClient(handler);
+        var options = new LLMOptions { DefaultProvider = "fixture", DefaultModel = "pinned",
+            Models = { ["fixture"] = new() { Type = "openai", Url = "https://example.invalid/v1" } } };
+        using (var model = new KeyVaultBenchmarkModel(cold, options, new RoutingLLMClientAdapter(new RoutingLLMClient(http, options)),
+            new RetainedHoldRates(), new RetainedHoldPrice(), http: http) { AdvisoryFinancialForecasts = true, RetainedExternalReservationsEur = .95m })
+        {
+            var request = new LLMRequest { ClientRequestId = "fresh-execution:one", Prompt = "Exact approved input", MaxTokens = 8192 };
+            await model.CallExecutionAsync(request, Ct);
+            await model.CallExecutionAsync(request, Ct);
+            Assert.Equal(1, handler.Calls); // Exact receipt recovery cannot dispatch or charge again.
+            Assert.Equal(.09m, (await BenchmarkHttpJournal.AccountingAsync(cold, ct: Ct))["known_cost_eur"]!.GetValue<decimal>());
+            model.RetainedExternalReservationsEur = 1m;
+            await model.CallExecutionAsync(request, Ct); // Current funding cannot block an exact already-paid receipt.
+            await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => model.CallExecutionAsync(
+                new() { ClientRequestId = "fresh-execution:two", Prompt = "Different approved input", MaxTokens = 8192 }, Ct));
+            Assert.Equal(1, handler.Calls); // Additional unverified external history remains blocked.
+        }
         var admitted = new BenchmarkHttpJournal(cold, "independent-session:1", 100, 100, 1m,
             effectiveTransportPolicy: new() { ["retained_external_reservations_eur"] = .95m });
         await admitted.PrepareAsync(Ct);
@@ -50,6 +71,27 @@ public sealed partial class BenchmarkPermanentRetentionTests
         Assert.Empty((await understated.LoadAsync(Ct))!.Attempts);
         await fixture.DisposeAsync();
         Directory.Delete(workspace, true);
+    }
+
+    private sealed class RetainedHoldRuntimeHandler : HttpMessageHandler
+    {
+        internal int Calls;
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            Calls++;
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(
+                """{"choices":[{"finish_reason":"stop","message":{"role":"assistant","content":"exact result"}}],"usage":{"prompt_tokens":10,"completion_tokens":2}}""") });
+        }
+    }
+
+    private sealed class RetainedHoldRates : IExchangeRateProvider
+    {
+        public ValueTask<CurrencyExchangeQuote?> GetQuoteAsync(string sourceCurrency, string targetCurrency, CancellationToken ct)
+            => ValueTask.FromResult<CurrencyExchangeQuote?>(new(sourceCurrency, targetCurrency, .9m, DateTimeOffset.UtcNow, "fixture-authority"));
+    }
+    private sealed class RetainedHoldPrice : IModelUsageCostEstimator
+    {
+        public decimal? EstimateCost(string? model, long? inputTokens = null, long? outputTokens = null, string? providerType = null) => .1m;
     }
 
     [Theory]

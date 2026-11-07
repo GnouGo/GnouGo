@@ -481,8 +481,8 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
 
     private async Task<LLMResponse> DispatchAsync(LLMRequest request, CancellationToken ct, bool execution = false)
     {
-        if (AdvisoryFinancialForecasts && RetainedExternalReservationsEur > 0)
-            throw BenchmarkCampaign.AdmissionFailure("external_financial_history_incomplete");
+        if (AdvisoryFinancialForecasts && RetainedExternalReservationsEur > 0 && !await HasSavedResponseAsync(request, ct))
+            await _campaign.RequireRetainedApplicationHoldsAsync(RetainedExternalReservationsEur, ct, requireComplete: true);
         var runtimeJournal = execution ? await RuntimeJournalAsync(request, ct) : null;
         var policy = execution ? null : await _campaign.LoadAsync("planning-evaluation-session-policy", request.ClientRequestId!.Split(':')[0], ct);
         var incremental = policy?["construction_review_headroom"]?.GetValue<int>() > 0;
@@ -611,7 +611,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                 state.Request.Options["application_llm_budget"]?["explicitWorkflowLimits"]?.GetValue<bool>() != true;
             if (experimentalForecast) input = Math.Max(PlanningConstructionInputPolicy.EffectiveLimit(state.Request, request),
                 checked(JsonSerializer.SerializeToUtf8Bytes(request, PlanningJsonContext.Default.LLMRequest).Length + 256));
-            if (experimentalForecast && RetainedExternalReservationsEur > 0)
+            if (experimentalForecast && RetainedExternalReservationsEur > 0 && !await HasSavedResponseAsync(request, ct))
                 await _campaign.RequireRetainedApplicationHoldsAsync(RetainedExternalReservationsEur, ct, requireComplete: true);
             var reviews = request.RequiredReviewCalls ?? 0;
             var reviewOutput = PlanningConstructionPhasePolicies.Resolve(state.Request, "construction_local_judge").OutputTokens;
@@ -657,6 +657,21 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                 retryable: false, details: ((JsonObject)error.Data[BenchmarkCampaign.BudgetRefusalData]!).DeepClone().AsObject());
         }
         finally { _dispatchGate.Release(); }
+    }
+
+    private async Task<bool> HasSavedResponseAsync(LLMRequest request, CancellationToken ct)
+    {
+        var id = request.ClientRequestId ?? throw new PlanningConflictException("An exact request identity is required.");
+        var receipt = await _campaign.LoadAsync("planning-evaluation-receipts", id, ct);
+        var journal = receipt is null ? await _campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, ct) : null;
+        var last = journal?["transport"]?["Attempts"]?.AsArray().LastOrDefault();
+        if (receipt is null && !(last?["Status"]?.GetValue<int>() is >= 200 and < 300 && last["Body"] is not null && last["Failure"] is null)) return false;
+        var original = await _campaign.LoadAsync("planning-evaluation-requests", id, ct);
+        if (!JsonNode.DeepEquals(original, JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)))
+            throw new PlanningConflictException("The retained response belongs to a different exact request.");
+        // New-spending checks remain in physical admission. Parsing an exact saved
+        // response must remain available even when current financial evidence changes.
+        return true;
     }
 
     internal static int PlanningInputLimit(JsonObject? policy, LLMRequest request)
