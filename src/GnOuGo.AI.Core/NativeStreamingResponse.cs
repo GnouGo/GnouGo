@@ -20,6 +20,13 @@ internal static class NativeStreamingResponse
 
     private static JsonObject Object(string value) => JsonNode.Parse(value) as JsonObject ?? throw Invalid("Expected a native stream object.");
     private static InvalidDataException Invalid(string message) => new(message);
+    private static InvalidDataException ReportedError(JsonNode error, LLMHttpAttempt attempt)
+    {
+        attempt.TerminationStatus = "provider_error";
+        var code = Text((error as JsonObject)?["code"]) ?? Text((error as JsonObject)?["type"]);
+        if (code is { Length: > 0 and <= 64 } && code.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-' or '.')) attempt.ProviderErrorCode = code;
+        return Invalid("The provider reported an error inside its native generation stream; no completion was returned.");
+    }
     private static string? Text(JsonNode? node) => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
     private static int Index(JsonNode? node) => node is JsonValue value && value.TryGetValue<int>(out var index) && index >= 0 ? index : throw Invalid("Native stream index is missing or invalid.");
     private static bool KnownUsage(JsonNode? usage, string input, string output)
@@ -64,15 +71,10 @@ internal static class NativeStreamingResponse
         {
             if (data == "[DONE]") { done = true; break; }
             var chunk = Object(data);
-            if (chunk["error"] is not null) throw Invalid("The provider reported an error inside the chat stream.");
+            if (chunk["error"] is { } reported) throw ReportedError(reported, attempt);
             await IdentityAsync(chunk, attempt, checkpoint);
             foreach (var name in new[] { "id", "model", "created", "system_fingerprint", "service_tier" })
                 if (chunk[name] is { } field) result[name] = field.DeepClone();
-            if (chunk["usage"] is JsonObject usage)
-            {
-                if (choices.Count > 0 && choices.Values.All(c => c["finish_reason"] is not null)) result["usage"] = usage.DeepClone();
-                else result["stream_provisional_usage"] = usage.DeepClone();
-            }
             if (chunk["choices"] is not JsonArray items) throw Invalid("Chat stream choices are missing.");
             foreach (var item in items)
             {
@@ -124,6 +126,11 @@ internal static class NativeStreamingResponse
                     }
                 }
             }
+            if (chunk["usage"] is JsonObject usage)
+            {
+                if (choices.Count > 0 && choices.Values.All(c => c["finish_reason"] is not null)) result["usage"] = usage.DeepClone();
+                else result["stream_provisional_usage"] = usage.DeepClone();
+            }
         }
         if (!done || choices.Count == 0 || choices.Values.Any(c => c["finish_reason"] is null)) throw Invalid("Chat stream ended without complete choices and [DONE].");
         fragments.Flush();
@@ -148,7 +155,7 @@ internal static class NativeStreamingResponse
         {
             var evt = Object(data);
             var type = Text(evt["type"]);
-            if (type == "error") throw Invalid("The provider reported an error inside the Responses stream.");
+            if (type == "error") throw ReportedError(evt["error"] ?? evt, attempt);
             if (type != "keepalive" && evt["sequence_number"] is JsonValue sequence && sequence.TryGetValue<long>(out var cursor))
             {
                 if (attempt.StreamCursor is { } previous && cursor <= previous) throw Invalid("Responses stream events are out of order.");
@@ -186,7 +193,7 @@ internal static class NativeStreamingResponse
             var evt = Object(data);
             var type = Text(evt["type"]);
             if (type == "ping") continue;
-            if (type == "error") throw Invalid("Anthropic reported an error inside the Messages stream.");
+            if (type == "error") throw ReportedError(evt["error"] ?? evt, attempt);
             if (type == "message_start")
             {
                 if (message is not null || evt["message"] is not JsonObject start) throw Invalid("Invalid or duplicate Anthropic message_start.");
@@ -267,7 +274,8 @@ internal static class NativeStreamingResponse
         {
             if (string.IsNullOrWhiteSpace(line)) continue;
             var chunk = Object(line);
-            if (chunk["error"] is not null || chunk["message"] is not JsonObject delta) throw Invalid("Ollama reported an invalid response or streaming error.");
+            if (chunk["error"] is { } error) throw ReportedError(error, attempt);
+            if (chunk["message"] is not JsonObject delta) throw Invalid("Ollama returned an invalid native message.");
             fragments.Append(message, "content", delta["content"]);
             fragments.Append(message, "thinking", delta["thinking"]);
             if (delta["tool_calls"] is JsonArray calls)

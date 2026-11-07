@@ -40,6 +40,8 @@ public sealed class LLMHttpReceiptRetrieval
 public sealed class LLMHttpAttempt
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ProviderErrorCode { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? StreamFailure { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<LLMHttpReceiptRetrieval>? ReceiptRetrievals { get; set; }

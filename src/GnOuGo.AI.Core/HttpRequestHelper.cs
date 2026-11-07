@@ -213,7 +213,12 @@ public static class HttpRequestHelper
                     throw new InvalidOperationException("A confirmed HTTP response requires a complete durably recorded body and outcome.");
                 if (streaming && previous.ObservedStatus is >= 200 and < 300 &&
                     (previous.ProtocolComplete != true || previous.AssembledBody is null))
-                    throw new HttpRequestException("The native stream is incomplete; exact receipt recovery is required before independent generation.", originalFailure);
+                {
+                    var incomplete = new HttpRequestException("The native stream is incomplete; exact receipt recovery is required before independent generation.", originalFailure);
+                    incomplete.Data[ExceptionRetryMetadataKey] = new LLMHttpRetryMetadata(state.Attempts.Count, false, null,
+                        previous.Failure == "timeout" ? LLMProviderFailureKind.Timeout : LLMProviderFailureKind.Transport, previous.ProviderErrorCode);
+                    throw incomplete;
+                }
                 var response = previous.Status is { } code ? Restore(previous, code) : null;
                 var classification = response is null ? null : LLMProviderFailureClassifier.ClassifyResponse(response.StatusCode, previous.Body ?? "", confirmedOnly);
                 var uncertain = response is null;
@@ -287,14 +292,20 @@ public static class HttpRequestHelper
                 attempt.ContentType = received.Content.Headers.ContentType?.ToString();
                 if (streaming && received.IsSuccessStatusCode)
                 {
+                    capturedStream = new CapturedResponseStream(
+                        await received.Content.ReadAsStreamAsync(timeout.Token).WaitAsync(timeout.Token).ConfigureAwait(false),
+                        attempt, token => SaveAsync(token), utcNow);
                     var media = received.Content.Headers.ContentType?.MediaType;
                     if (transport!.Protocol == LLMTransportResolver.OllamaChat
                         ? media is not ("application/x-ndjson" or "application/ndjson" or "application/json")
                         : media != "text/event-stream")
+                    {
+                        // Preserve a returned rejection/JSON envelope without silently treating it as streaming success.
+                        var rejected = new byte[8192];
+                        while (await capturedStream.ReadAsync(rejected, timeout.Token).ConfigureAwait(false) > 0) { }
+                        attempt.TerminationStatus = "unexpected_content_type";
                         throw new InvalidDataException("The configured provider did not return the requested native streaming protocol.");
-                    capturedStream = new CapturedResponseStream(
-                        await received.Content.ReadAsStreamAsync(timeout.Token).WaitAsync(timeout.Token).ConfigureAwait(false),
-                        attempt, token => SaveAsync(token), utcNow);
+                    }
                     var assembled = await NativeStreamingResponse.ReadAsync(capturedStream, transport.Protocol, attempt,
                         () => capturedStream.CheckpointAsync(timeout.Token), timeout.Token).ConfigureAwait(false);
                     timeout.Token.ThrowIfCancellationRequested();

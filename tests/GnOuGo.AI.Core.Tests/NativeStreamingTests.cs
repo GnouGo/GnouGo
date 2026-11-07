@@ -59,7 +59,12 @@ public sealed class NativeStreamingTests
         var journal = new Journal();
         using var http = NewHttp(new Handler(_ => Task.FromResult(Response(type, Fixture(type, failure)))));
         var client = Client(http, type);
-        using (Context(journal)) await Assert.ThrowsAnyAsync<Exception>(() => client.CallAsync(Request(), Ct));
+        using (Context(journal))
+        {
+            var error = await Assert.ThrowsAsync<LLMProviderException>(() => client.CallAsync(Request(), Ct));
+            Assert.Equal(1, error.AttemptCount);
+            Assert.Equal(LLMProviderFailureKind.Transport, error.Kind);
+        }
         var attempt = Assert.Single(journal.State!.Attempts);
         Assert.Null(attempt.Status);
         Assert.NotEqual(true, attempt.ProtocolComplete);
@@ -123,16 +128,17 @@ public sealed class NativeStreamingTests
         Assert.Single(journal.State!.Attempts);
     }
 
-    [Fact]
-    public async Task ConfirmedTransientErrorUsesOneRetryOwnerAndFreshStreamAssembly()
+    [Theory]
+    [InlineData("openai")] [InlineData("copilot")] [InlineData("anthropic")] [InlineData("ollama")]
+    public async Task ConfirmedTransientErrorUsesOneRetryOwnerAndFreshStreamAssembly(string type)
     {
         var journal = new Journal();
         var calls = 0;
         using var http = NewHttp(new Handler(_ => Task.FromResult(++calls == 1
             ? new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) { Content = new StringContent("{\"error\":{\"type\":\"server_error\"}}") }
-            : Response("openai", Fixture("openai")))));
+            : Response(type, Fixture(type)))));
         using var context = Context(journal);
-        var response = await Client(http, "openai").CallAsync(Request(), Ct);
+        var response = await Client(http, type).CallAsync(Request(), Ct);
         Assert.Equal("{\"value\":\"café\"}", response.Text);
         Assert.Equal(2, calls);
         Assert.Equal(2, journal.State!.Attempts.Count);
