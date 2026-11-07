@@ -94,6 +94,7 @@ public sealed class DelegatedTestReviewTests
     private sealed class GuardTransport : IMcpClientFactory, IMcpSession, IMcpExecutionHooks
     {
         internal List<string> Calls { get; } = [];
+        internal bool LoseTransport { get; init; }
         public string ServerName => "GnOuGo.Browser.Mcp";
         public IReadOnlyList<McpServerMetadata> ServerMetadata { get; } = [new() { Name = "GnOuGo.Browser.Mcp" }];
         public Task<IMcpSession> GetClientAsync(string name, CancellationToken ct) => Task.FromResult<IMcpSession>(this);
@@ -103,11 +104,28 @@ public sealed class DelegatedTestReviewTests
         public Task<IReadOnlyList<McpResourceInfo>> ListResourcesAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<McpResourceInfo>>([]);
         public Task<McpGetPromptResult> GetPromptAsync(string name, JsonNode? args, CancellationToken ct) => throw new NotSupportedException();
         public Task<McpCallResult> CallToolAsync(string name, JsonNode? args, CancellationToken ct)
-        { Calls.Add(name); return Task.FromResult(new McpCallResult { Content = new JsonObject { ["success"] = true } }); }
+        { Calls.Add(name); if (LoseTransport) throw new IOException("Lost remote outcome.");
+            return Task.FromResult(new McpCallResult { Content = new JsonObject { ["success"] = true } }); }
         public IDisposable BeginCall(McpCallExecutionContext context) => new Scope();
         public string FormatFailureDiagnostics(string name, Exception exception) => exception.GetType().Name;
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
         private sealed class Scope : IDisposable { public void Dispose() { } }
+    }
+
+    [Fact]
+    public async Task TransportFailureAfterPermissionCheckRemainsAnUnknownRemoteOutcome()
+    {
+        var (_, _, authorization, evidence, receipt) = await Fixture();
+        var authority = Authority(authorization with { Scenario = "amazon" }, evidence, receipt, "amazon");
+        var transport = new GuardTransport { LoseTransport = true }; var events = new List<JsonObject>();
+        var observed = new LiveWorkflowEvaluation.ObservedMcp(transport, e => { events.Add(e); return Task.CompletedTask; }, authority);
+        await using var client = await observed.GetClientAsync("GnOuGo.Browser.Mcp", Ct);
+        await Assert.ThrowsAsync<IOException>(() => client.CallToolAsync("browser_get_content",
+            new JsonObject { ["url"] = "https://www.amazon.fr/gp/aw/d/B0CFXD921L" }, Ct));
+        Assert.Equal(["browser_get_content"], transport.Calls);
+        var evt = Assert.Single(events);
+        Assert.Equal("IOException", evt["exception"]!.ToString());
+        Assert.Null(evt["dispatched"]); Assert.Null(evt["result"]); Assert.Null(evt["origin"]);
     }
 
     [Theory]
