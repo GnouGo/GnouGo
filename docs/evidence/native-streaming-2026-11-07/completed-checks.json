@@ -1,0 +1,152 @@
+[
+  {
+    "artifact": "artifacts/native-streaming-20261107/final-built-route-core-tests.log",
+    "sha256": "5d8dd05d98eb71d719e225165a60325b3986f11ab36f6d9229edd588cc85e947",
+    "compiler_diagnostics": [],
+    "last_lines": [
+      "",
+      "R\u00e9ussi!  - \u00e9chec\u00a0:     0, r\u00e9ussite\u00a0:   353, ignor\u00e9e(s)\u00a0:     0, total\u00a0:   353, dur\u00e9e\u00a0: 2 s - GnOuGo.AI.Core.Tests.dll (net10.0)"
+    ]
+  },
+  {
+    "artifact": "artifacts/native-streaming-20261107/terminal-integration-tests.log",
+    "sha256": "a0c2be44ee10adc79f58d8132754311b81b5944f25589fdd5e7c54078bad900a",
+    "compiler_diagnostics": [],
+    "last_lines": [
+      "",
+      "R\u00e9ussi!  - \u00e9chec\u00a0:     0, r\u00e9ussite\u00a0:   121, ignor\u00e9e(s)\u00a0:     0, total\u00a0:   121, dur\u00e9e\u00a0: 2 s - GnOuGo.Flow.Integrations.Tests.dll (net10.0)"
+    ]
+  },
+  {
+    "artifact": "artifacts/native-streaming-20261107/terminal-repair-focused-tests.log",
+    "sha256": "f36bc81afff1badacebe86624da49f64b188a7f67f7866c1952d5d80d45dbcde",
+    "compiler_diagnostics": [],
+    "last_lines": [
+      "",
+      "R\u00e9ussi!  - \u00e9chec\u00a0:     0, r\u00e9ussite\u00a0:    55, ignor\u00e9e(s)\u00a0:     0, total\u00a0:    55, dur\u00e9e\u00a0: 1 s - GnOuGo.Flow.Planning.Tests.dll (net10.0)"
+    ]
+  },
+  {
+    "artifact": "artifacts/native-streaming-20261107/final-built-route-host-tests.log",
+    "sha256": "61ae9f5076205bb2286673a3110f9c3b149e619d09fdb56ea2d2e5e3734db379",
+    "compiler_diagnostics": [],
+    "last_lines": [
+      "",
+      "R\u00e9ussi!  - \u00e9chec\u00a0:     0, r\u00e9ussite\u00a0:   279, ignor\u00e9e(s)\u00a0:     0, total\u00a0:   279, dur\u00e9e\u00a0: 16 s - GnOuGo.Agent.Server.Tests.dll (net10.0)"
+    ]
+  },
+  {
+    "artifact": "artifacts/native-streaming-20261107/final-client-build.log",
+    "sha256": "276dded9bf40bad6bb696055c2abb7299b31c06dbcc26e4559615494f7e26617",
+    "compiler_diagnostics": [],
+    "last_lines": [
+      "",
+      "\u2713 built in 633ms"
+    ]
+  },
+  {
+    "artifact": "artifacts/native-streaming-20261107/latest-server-publish.log",
+    "sha256": "faa3149f446e8f65966683e80b61bc83aa3f4dd9327d248de86ee7031d4d41f5",
+    "compiler_diagnostics": [],
+    "last_lines": [
+      "    GnOuGo.Git.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/native-streaming-20261107/final-publish/server/tools/GnOuGo.Git.Mcp/",
+      "  Removed 0 PDB file(s) from publish output."
+    ]
+  },
+  {
+    "artifact": "artifacts/native-streaming-20261107/latest-storage-process-1.log",
+    "sha256": "0268a9c0ae5df08cde06a1818fae2b53cf86df674fc19dc0cfc070d58ffd6563",
+    "compiler_diagnostics": [],
+    "last_lines": [
+      "Format-11 planning persistence and exact receipt recovery passed; execution journal schema 9 is unchanged."
+    ]
+  },
+  {
+    "artifact": "artifacts/native-streaming-20261107/latest-storage-process-2.log",
+    "sha256": "0268a9c0ae5df08cde06a1818fae2b53cf86df674fc19dc0cfc070d58ffd6563",
+    "compiler_diagnostics": [],
+    "last_lines": [
+      "Format-11 planning persistence and exact receipt recovery passed; execution journal schema 9 is unchanged."
+    ]
+  },
+  {
+    "artifact": "artifacts/native-streaming-20261107/latest-proxy-aot-publish.log",
+    "sha256": "103509d23a0f6eef5f3fa51c9837d64984741015b6a9ffc235716b9134149a71",
+    "compiler_diagnostics": [],
+    "last_lines": [
+      "  Generating native code",
+      "  GnOuGo.ProxyCopilot.Server -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/native-streaming-20261107/final-publish/proxy/"
+    ]
+  },
+  {
+    "artifact": "artifacts/native-streaming-20261107/latest-proxy-native-smoke.log",
+    "sha256": "9fb33467be49e6d5f0f09a030b0827bccc357997f52966ba4e409acd5f117411",
+    "compiler_diagnostics": [],
+    "last_lines": [
+      "PASS: published binary; four providers; streaming tool round trips; OIDC cache; UI; setup reasoning defaults; tier binding; separate currency totals; unknown costs. URL=http://127.0.0.1:65455"
+    ]
+  },
+  {
+    "artifact": "artifacts/native-streaming-20261107/latest-planning-aot-publish.log",
+    "sha256": "b9fcc071517a362bf5102fadf6c86790d7bbc4b225001ed5b1f8dc4733386feb",
+    "compiler_diagnostics": [],
+    "last_lines": [
+      "  Generating native code",
+      "  GnOuGo.Flow.Planning.Smoke -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/native-streaming-20261107/final-publish/planning-smoke/"
+    ]
+  },
+  {
+    "artifact": "artifacts/native-streaming-20261107/latest-planning-native-smoke.log",
+    "sha256": "c329794b4a60bcc9157ef6480c38f3a392f8d31fd567845e8e585637b97a2b30",
+    "compiler_diagnostics": [],
+    "last_lines": [
+      "adaptive mappings: three source-grounded specializations, shared budget, ordered values and durable replay",
+      "captured metadata: exact deployment, conditional capabilities, frozen policy and cached pricing; no inference"
+    ]
+  },
+  {
+    "artifact": "artifacts/native-streaming-20261107/latest-GnOuGo.AI.Core-pack.log",
+    "sha256": "6e55972cb1f863a5cdc3e6a91bca6270d4f3625d4145c7986e65d85e0ab3ccb5",
+    "compiler_diagnostics": [],
+    "last_lines": [
+      "  GnOuGo.AI.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.AI.Core/bin/Release/net10.0/GnOuGo.AI.Core.dll",
+      "  Cr\u00e9ation r\u00e9ussie du package '/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/native-streaming-20261107/final-packages/GnOuGo.AI.Core.1.0.0.nupkg'."
+    ]
+  },
+  {
+    "artifact": "artifacts/native-streaming-20261107/latest-GnOuGo.AI.Local-pack.log",
+    "sha256": "bf35784322448d9ef40a5531a88e8c27c580c3ffbfd924137db151fd25049c40",
+    "compiler_diagnostics": [],
+    "last_lines": [
+      "  GnOuGo.AI.Local -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.AI.Local/bin/Release/net10.0/GnOuGo.AI.Local.dll",
+      "  Cr\u00e9ation r\u00e9ussie du package '/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/native-streaming-20261107/final-packages/GnOuGo.AI.Local.1.0.0.nupkg'."
+    ]
+  },
+  {
+    "artifact": "artifacts/native-streaming-20261107/latest-GnOuGo.Flow.Planning-pack.log",
+    "sha256": "27aedd7618fc8144f9f5af7265c104a74c04172947ceffe740de7dd5bbb421ba",
+    "compiler_diagnostics": [],
+    "last_lines": [
+      "  GnOuGo.Flow.Planning -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Planning/bin/Release/net10.0/GnOuGo.Flow.Planning.dll",
+      "  Cr\u00e9ation r\u00e9ussie du package '/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/native-streaming-20261107/final-packages/GnOuGo.Flow.Planning.1.0.0.nupkg'."
+    ]
+  },
+  {
+    "artifact": "artifacts/native-streaming-20261107/latest-GnOuGo.Flow.Integrations-pack.log",
+    "sha256": "2339455faa2d3fe43ae66d6857f85aa6b73a2cf0a51eac9ae71b971d1ec02d94",
+    "compiler_diagnostics": [],
+    "last_lines": [
+      "  GnOuGo.Flow.Integrations -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Integrations/bin/Release/net10.0/GnOuGo.Flow.Integrations.dll",
+      "  Cr\u00e9ation r\u00e9ussie du package '/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/native-streaming-20261107/final-packages/GnOuGo.Flow.Integrations.1.0.0.nupkg'."
+    ]
+  },
+  {
+    "artifact": "artifacts/native-streaming-20261107/latest-GnOuGo.DocIngestor.Core-pack.log",
+    "sha256": "fc42c8a29123fcff866291e953a4c9c5da4d2e85c66c4d632634dc9bd40b08e2",
+    "compiler_diagnostics": [],
+    "last_lines": [
+      "  Il manque un fichier Lisez-moi au GnOuGo.DocIngestor.Core.1.0.0 du package. Acc\u00e9dez \u00e0 https://aka.ms/nuget/authoring-best-practices/readme pour savoir pourquoi les lisez-moi de package sont importants.",
+      "  Cr\u00e9ation r\u00e9ussie du package '/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/native-streaming-20261107/final-packages/GnOuGo.DocIngestor.Core.1.0.0.nupkg'."
+    ]
+  }
+]

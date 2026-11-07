@@ -1,0 +1,8 @@
+{
+  "source": "422836b82c13fe95ab2d209ed0c003a0a7a3899d",
+  "files": {
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs": "0d8051d1a9d21b0697e55e25c347b17997eda636180a6cdb5c0652a344a9858c",
+    "tests/GnOuGo.Agent.Planning.Benchmark/DelegatedTestReview.cs": "ed144a4b76cd93f25d03e2aac7a01b113a57ea7001670f189f4e8d2dfa43db58",
+    "tests/Shared/PlanningBenchmarkCases.cs": "9268601bdbbedd987804eb1ee2efd6d6cb4c49e5e9d67a89321bfde2cd06e184"
+  }
+}

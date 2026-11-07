@@ -1,0 +1,36 @@
+{
+  "classification": "Generic structural fixture; not a reconstruction of an unissued live payload",
+  "base": "aeab2e9df0f04adebdc334412b0df83b67e82971",
+  "owning_suite": {
+    "passed": 278,
+    "failed": 0,
+    "log_sha256": "c549141c81fb83f6337c7823c408c2835800a1353e3c0aef23ebf8f861c69b61"
+  },
+  "measured_followup": {
+    "exit_code": 0,
+    "counts": {
+      "Passed": 8
+    },
+    "elapsed_seconds": 22.28030233300524,
+    "source_unchanged": true,
+    "log_sha256": "fc463f5d1efdef12c3c0c766e5ad35dd20621e35355791f3ef778927d34cb8ff"
+  },
+  "overlap_note": "Eight measured cases overlap the owning suite, not extra full-suite totals.",
+  "complete_request_comparisons": [
+    {
+      "ports": "100",
+      "control_bytes": "20389",
+      "candidate_bytes": "15918",
+      "control_tokens": "7053",
+      "candidate_tokens": "5562"
+    },
+    {
+      "ports": "19",
+      "control_bytes": "16499",
+      "candidate_bytes": "15916",
+      "control_tokens": "5756",
+      "candidate_tokens": "5562"
+    }
+  ],
+  "business_outcome": null
+}

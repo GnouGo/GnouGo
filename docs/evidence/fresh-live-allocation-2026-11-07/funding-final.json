@@ -1,0 +1,16 @@
+{
+  "campaign": "pr120-live-20261107-400",
+  "authorizedNewAllocationEur": "400",
+  "initialNewConsumptionEur": "0",
+  "knownMeasuredUsageTariffEstimateEur": "1.425248544558889386475593372",
+  "campaignHttpReservationsEur": "0",
+  "retainedApplicationReservationNotRepresentedByHttpEur": "2.4215763546798029556650246305",
+  "remainingNewAllocationAfterKnownEstimatesAndHoldsEur": "396.1531751007613076578593819975",
+  "globallyAvailableFunding": null,
+  "providerInvoicedCost": null,
+  "oldHistoryReconciled": false,
+  "continuationEligible": false,
+  "continuationBlocker": "retained_request_without_receipt",
+  "request": "d5f12d9d59f54bda9fefe441d19c0834:9:728f790d2755e66170fa53af8cc5175525ad46b1fa6b4f82afde866e4fca1800:7378e173dff6b9295256a5707aab22d18708384a33ca731b67bf28fe41d703f9",
+  "note": "Application reservation retained in full; no deduction is counted twice in the HTTP journal. Absence of a durable receipt or an empty HTTP journal alone is not a no-dispatch proof. No replay performed."
+}

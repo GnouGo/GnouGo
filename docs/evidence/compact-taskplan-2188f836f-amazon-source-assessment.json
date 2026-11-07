@@ -1,0 +1,208 @@
+{
+  "version": 1,
+  "prepared_utc": "2026-10-25T09:29:31.200591+00:00",
+  "source": "2188f836ff4c269b4b26f7507f02119856f36d42",
+  "cohort": "compactr2188f836famz20v5",
+  "scope": "Independent bounded static assessment of retained received requests and exact source; no runtime or business acceptance.",
+  "safe_sources": [
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr2188f836famz20v5/freeze.json",
+      "sha256": "d13a49d3f110958e6a334a1d7f0fcda397db94816ed5716d4d08c1b09a9b83c6",
+      "bytes": 22476
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v5-validation-20261024/candidate-2188f836f/amazon-state-witness.json",
+      "sha256": "a9d56269e048b3acfe33b1cc8d63c2e6dd79fced5c8f20af7a46ab7c0ee0fbb6",
+      "bytes": 246152
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v5-validation-20261024/candidate-2188f836f/amazon-requests-witness.json",
+      "sha256": "f01c697072e11b1aeb2efc94a075d50d536b951c5ac1a9d77707619c5959a589",
+      "bytes": 1640622
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr2188f836famz20v5/amazon-terminal-exact-metrics.json",
+      "sha256": "e2a9ac15adcf78014c9816f78b87bc0d05594264a5b7e6ccd50ac98c3c54c27f",
+      "bytes": 221589
+    }
+  ],
+  "source_files": [
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Contracts.cs",
+      "sha256": "6ddce6e5418b6ee8554f55eee24d32d2ab4af13362667a575f8ece25e9f45a3e",
+      "bytes": 49467
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Validation.cs",
+      "sha256": "54641c2f56b3bc686b4e50c086096815975cd3a56a3713c1a7675adc06016455",
+      "bytes": 24870
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Navigation.cs",
+      "sha256": "b33bf23fd62b46b1b6edf6bdbfe5f077aba30a4462cf310377b15e340273b435",
+      "bytes": 21245
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Schemas.cs",
+      "sha256": "c03c577b904de1de6966233e098257ff91461679a0b75c3e40566ca6c29c7b49",
+      "bytes": 21084
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.ConstructionReview.cs",
+      "sha256": "8ea79747731dd1b3a17a41d922f70e1c831d3eacd318f23ef08579484dd0ada8",
+      "bytes": 66556
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/TaskPlanCompiler.cs",
+      "sha256": "8bad618fc065498d04dc4354ac262298fe489eaf591d8815f6f8b6f8c7ac7236",
+      "bytes": 72428
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/TaskPlanCompiler.Transform.cs",
+      "sha256": "582143cde55e0400506e14360bb15ea09beb36b9c678d92971f4b668427149dc",
+      "bytes": 9467
+    },
+    {
+      "path": "src/GnOuGo.Browser.Mcp/BrowserTools.cs",
+      "sha256": "8cdf2ea36ab048a929d8cb83bf234d3b6d7b4562226842fe2ae3de035574994d",
+      "bytes": 28423
+    },
+    {
+      "path": "src/GnOuGo.Browser.Mcp/PlaywrightBrowserHost.Observations.cs",
+      "sha256": "4bfc788c7fd25be82e2c28cbfeaa754d52a6263dddc1cc6cc4e639412b3d6c4f",
+      "bytes": 36945
+    }
+  ],
+  "outcome": {
+    "logical_calls": 49,
+    "physical_attempts": 49,
+    "receipts": 49,
+    "corrections": 4,
+    "checkpoints": 6,
+    "status": "stopped",
+    "terminal_diagnostic": "CONSTRUCTION_BUSINESS_REVIEW",
+    "artifact": null,
+    "runtime_observed": false,
+    "closed_requirements": [
+      "req_2"
+    ],
+    "open_scopes": [
+      "/tasks/step_2/body",
+      "/tasks/step_8/body",
+      "/root"
+    ]
+  },
+  "assessment": [
+    {
+      "calls": [
+        1,
+        2
+      ],
+      "classification": "authorized input clarification resolved in this run",
+      "finding": "The required string query/no-default clause is present. The model declares query:string required with default:null and distinguishes the saved Excel artifact from public outputs. No intent clarification occurs; no causal/reliability claim is inferred."
+    },
+    {
+      "calls": [
+        15,
+        16,
+        17,
+        18
+      ],
+      "classification": "model mechanism reselection with existing escape route",
+      "finding": "The initial browser operation cannot construct a search URL directly from query. Call15 abandons that selection;16/17 choose the already available local interpret transform. Its executable objective derives a typed search URL. No new capability, permission or runtime mechanism was required. This abandon is one of the four recorded corrections."
+    },
+    {
+      "calls": [
+        19,
+        20,
+        21
+      ],
+      "classification": "unsupported as an established original-obligation violation",
+      "finding": "Judge19 rejects the URL transform association with cleanup req_4 although no requirement is claimed complete and the enclosing cleanup scope is open. The original cleanup obligation does not require every contributing task itself to close the browser. Call20 removes req_4 from extension associations and also rewrites the executable URL objective; therefore the correction is not described as byte-identical behavior. Judge21 clears it. This does not prove cleanup was implemented or that every association is useful."
+    },
+    {
+      "calls": [
+        28,
+        29,
+        30,
+        31,
+        32,
+        33
+      ],
+      "classification": "supported redundant-work finding",
+      "finding": "Accepted step4 already produces the search URL and step5 consumes it. Call30/31 propose another same-query URL transform step6 with no demonstrated new consumer or changed need. Judge32 identifies that concrete duplicate;33 abandons it. This is a semantic assessment of these exact tasks, not a general ban on repeated operation names."
+    },
+    {
+      "calls": [
+        34,
+        35,
+        36
+      ],
+      "classification": "demonstrated selected-input semantic mismatch; available evidence not requested",
+      "finding": "Step5 has literal format=observation_complete. Step7 binds its flat content, format, error_code and error_message plus the search URL, but not observationSnapshot.pages or typed records. The successful complete-observation source path preserves empty flat content and returns records in observationSnapshot.pages; acquisition is metadata, not a substitute for those records. Consequently those selected inputs do not supply the observed product facts the executable extraction objective requires. Judge36 resolves the earlier duplicate and returns no findings, missing this mismatch. No actual page observations or runtime outputs occurred."
+    },
+    {
+      "calls": [
+        35,
+        36
+      ],
+      "classification": "current accepted-producer navigation is present; no new host access defect demonstrated",
+      "finding": "Both exact contexts retain task:step5 with its literal format and an exact version/hash-bound producer row containing outputDirectory and descriptionEvidence. The draft schema offers that description address; the Judge schema accepts an evidenceRequests action with bounded string addresses rather than a literal-address enum. Neither response requests the producer prose/output pages. Existing loader/navigation code permits the exact producer route. Prose is not inline in these contexts, but it is retrievable; this is not the older inaccessible-prose defect."
+    },
+    {
+      "calls": [
+        38,
+        39,
+        40,
+        41
+      ],
+      "classification": "false-positive capacity finding under the declared consumed contract",
+      "finding": "Judge39 acknowledges that the consumed products array has maxItems:3, yet requires foreach.maxItems:100 to become3. A larger finite loop admission ceiling does not create a fourth item from the exact max-three array; the original says at most three products, not that every internal ceiling must equal three. The typed producer contract remains enforced; failure is not truncated success. Call40 changes only the loop maxItems and41 clears it. Whether the extraction preserves first-product order is a separate semantic obligation, not proved by this capacity change."
+    },
+    {
+      "calls": [
+        48,
+        49
+      ],
+      "classification": "terminal findings not established by the cited evidence; preserve uncertainty",
+      "finding": "The candidate uses item.productUrl with requires(productUrl!=null), and exports product identity plus Browser content/error fields if the operation succeeds. Both productUrl and observedLink are nullable. No cited evidence establishes that observedLink is a usable URL/reference when productUrl is absent, or that the original mandates an alternate per-item successful record instead of explicit failure. requires=false is a failing assertion, not silent skip or successful omission, and prevents a null URL from merely rereading the current page. The three scopes remain open and no requirement closure is claimed. Thus mandatory fallback and mandatory per-item absence-record conclusions are unsupported as established current violations. This is not a proof the candidate satisfies the whole business request; upstream observation mismatch and future extraction/save/cleanup remain unresolved."
+    }
+  ],
+  "terminal_review_precision": {
+    "findings": 2,
+    "explanation_character_lengths": [
+      512,
+      511
+    ],
+    "uncertainty_character_lengths": [
+      256,
+      194
+    ],
+    "qualification": "Original returned strings include abrupt endings within issued512/256 limits; the saved JSON parses and matches the original text. No response loss, provider exhaustion or host truncation is inferred. Cited pointers establish location/provenance, not semantic truth."
+  },
+  "source_locations": {
+    "producer_links": "PlanningCompactConstruction.Contracts.cs:219-222; Navigation.cs:147-151; Validation.cs:237-243",
+    "judge_action_and_grounding": "HybridWorkflowPlanner.ConstructionReview.cs:175-212,353-365",
+    "capacity_and_assertion_guidance": "PlanningCompactConstruction.Schemas.cs:157-169",
+    "requires_lowering": "TaskPlanCompiler.cs:278-286",
+    "transform_contract_and_objective": "TaskPlanCompiler.Transform.cs:43,98-112",
+    "browser_original_contract": "BrowserTools.cs:35-42",
+    "empty_flat_complete_result": "PlaywrightBrowserHost.Observations.cs:149-153,296,337-345"
+  },
+  "received_integrity": {
+    "received_texts_parsed_and_equal_saved_json": 49,
+    "request_http_journal_receipt_domains_joined": 49,
+    "join_digest_sha256": "36a945bddb69c122d170619b3bff26bc33d15c8672e0dd61c7073a812350e7b2",
+    "witness_money_not_used": "Witness usage money is shorter projection; exact numeric peer is separate.",
+    "formatting_evidence": {
+      "path": "/private/tmp/gnougo-2188-amazon-terminal-safe-tw8_hr9k/amazon-original-formatting-supplement-safe.json",
+      "sha256": "3583b48d15c1564ee57924ff22ed5938ce1c1d40dd173b7fe486f640b5de2f73"
+    }
+  },
+  "recommendation": "Retain the supported duplicate and observation-binding failure separately from unsupported review claims. No new production defect or rule change is demonstrated here; keep current type checks, original Browser contract, explicit-failure semantics and existing evidence routes. Do not introduce Browser-specific planner defaults, semantic keyword filters or a new review layer. Any separately authorized reasoning-profile experiment must retain this control and cannot establish cause from one outcome.",
+  "limits": [
+    "Static source and bounded witness assessment only; no actual Amazon products, browser effects, Excel artifact, cleanup execution or fulfilled business obligation verified.",
+    "An empty review or valid citation does not establish whole-plan correctness; incomplete scopes are not themselves current omissions.",
+    "No helper, model, store, runtime, build, test or source mutation. Only new private assessment/verification files."
+  ]
+}

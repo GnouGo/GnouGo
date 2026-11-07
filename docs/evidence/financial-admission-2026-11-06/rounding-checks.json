@@ -1,0 +1,20 @@
+{
+  "sourceRevision": "9faa818cebc43154c6a6a4f7198687216491cf7b",
+  "method": "Python Decimal precision 75 over per-session original decimal strings, not binary floats; per-session values already conservatively aggregated",
+  "comparisons": [
+    {
+      "category": "known_cost_eur",
+      "durableAggregateEur": "475.28093332377412455040481684",
+      "independentlyRegroupedSessionEstimatesEur": "475.2809333237741245504047864426",
+      "aggregateAboveRegroupedEur": "3.03974E-23",
+      "aggregateDoesNotUnderstateRegrouping": true
+    },
+    {
+      "category": "reserved_cost_eur",
+      "durableAggregateEur": "222.7236032944974286315167358",
+      "independentlyRegroupedSessionEstimatesEur": "222.7236032944974286315167354355",
+      "aggregateAboveRegroupedEur": "3.645E-25",
+      "aggregateDoesNotUnderstateRegrouping": true
+    }
+  ]
+}

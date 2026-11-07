@@ -8,6 +8,34 @@ namespace GnOuGo.Flow.Tests.Runtime;
 
 public sealed class ModelRequestAdmissionTests
 {
+    [Fact]
+    public async Task TrustedAdvisoryModeWarnsForEstimatesWithoutChangingWireAllocationOrCapabilities()
+    {
+        var request = Request(); request.Prompt = new string('x', 9000);
+        await ModelRequestAdmission.ValidateAsync(request, new Resolver(true, 10), 1, "judge",
+            TestContext.Current.CancellationToken, advisoryTokens: true);
+        Assert.Equal(32768, request.MaxTokens);
+        Assert.Equal("medium", request.Reasoning);
+        await Assert.ThrowsAsync<WorkflowRuntimeException>(() => ModelRequestAdmission.ValidateAsync(request,
+            new Resolver(false, 10), 1, "judge", TestContext.Current.CancellationToken, advisoryTokens: true));
+        await Assert.ThrowsAsync<WorkflowRuntimeException>(() => ModelRequestAdmission.ValidateAsync(request,
+            new Resolver(true, null), 1, "judge", TestContext.Current.CancellationToken, advisoryTokens: true));
+    }
+
+    [Theory]
+    [InlineData(false, 0)]
+    [InlineData(true, 0)]
+    [InlineData(true, -1)]
+    public async Task OutputReservationLeavingNoInputIsIncompatibleEvenWithAdvisoryThresholds(bool advisory, int remaining)
+    {
+        var request = Request();
+        var ex = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => ModelRequestAdmission.ValidateAsync(request,
+            new Resolver(true, remaining), 32000, "judge", TestContext.Current.CancellationToken, advisoryTokens: advisory));
+        Assert.Equal("MODEL_REQUEST_INCOMPATIBLE", ex.Code);
+        Assert.Equal("not_started", ex.Details!["dispatch_status"]!.ToString());
+        Assert.Equal(32768, request.MaxTokens);
+    }
+
     [Theory]
     [InlineData(null, 10000, "LLM_BUDGET_UNVERIFIABLE")]
     [InlineData(false, 10000, "MODEL_REQUEST_INCOMPATIBLE")]

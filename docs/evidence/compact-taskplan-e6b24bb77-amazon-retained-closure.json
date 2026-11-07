@@ -1,0 +1,100 @@
+{
+  "schema": "benchmark-retained-closure-supplement-v1",
+  "created_at": "2026-10-24T19:26:46.079628+00:00",
+  "kind": "authorized_permanent_request_and_run_closure",
+  "original_source": "e6b24bb77380828f04447d7cc2fff2cf3e4354e2",
+  "operator_source": "40bd4a048ac133ac688e72dae87802c8dcddf1bb",
+  "campaign": "schema-portability-20261019-incremental",
+  "cohort": "compactre6b24bb77amz20v5",
+  "run_collection": "planning-schema-portability",
+  "run_key": "run:compactre6b24bb77amz20v5-amazon-1",
+  "session_id": "compactre6b24bb77amz20v5-amazon-1",
+  "request_id": "compactre6b24bb77amz20v5-amazon-1:38:af2ca16cabf51b3ae4628a212b3aafad97fe04e8aa5cec6ab443db5157a0fa5d",
+  "retention_kind": "exhausted-planning-retries",
+  "evidence_hash": "a28739fc0173d917d5748ff41ad3fb55d5c1b1e092375b6ae9ed19368dbd7b67",
+  "authorization_hash": "b98c01b05e8ca72bf28e9b477c3eac1010c65b2746d998b1fda9d5e3820e7f7d",
+  "closure_hash": "06a28ab88abd45227e1170226f67561afd805bb74dcb90cbb18c07cb5001012a",
+  "retained_at": "2026-10-24T19:19:01.3653600+00:00",
+  "application_verified": true,
+  "readback_already_retained": true,
+  "original_evidence_equal": true,
+  "authorization_record_preceded_application": true,
+  "full_request_reservation_retained_eur": "0.5588353413654618473895582329",
+  "earlier_failed_http500_reservation_retained_eur": "0.9308701472556894243641231593",
+  "run_total_reservations_retained_eur": "1.4897054886211512717536813922",
+  "known_run_cost_eur": "2.6069790272199910754127621594",
+  "run_cost_upper_bound_eur": "4.0966845158411423471664435516",
+  "outcome": "inconclusive",
+  "request_replay_forbidden": true,
+  "run_continuation_forbidden": true,
+  "receipt_created_by_closure": false,
+  "funds_released": false,
+  "original_diagnosis": "One response-less Transport attempt without an HTTP status or completion receipt. Timeout, provider termination and empty received output are not established.",
+  "historical_pending_archive_preserved": true,
+  "captured_campaign_accounting": {
+    "calls": 2817,
+    "session_calls": 39,
+    "known_input_tokens": 7570066,
+    "known_output_tokens": 3145157,
+    "known_cost_eur": "117.82121447429577309802020960",
+    "reserved_input_tokens": 504222,
+    "reserved_output_tokens": 925696,
+    "reserved_cost_eur": "27.012625944995658453595774726",
+    "cost_upper_bound_eur": "144.83384041929143155161598433",
+    "unknown_attempts": 39
+  },
+  "accounting_interpretation": "The exact original inspection, reinspection, application and readback retain identical evidence and captured accounting. This is not a fresh post-dispatch balance or a new campaign-wide closure audit. The immutable authorization record predates application; its application_performed=false field remains unchanged.",
+  "arithmetic_note": {
+    "precision": 80,
+    "known_plus_reserved_minus_recorded_upper_eur": "-4E-27",
+    "interpretation": "Preserves the recorded CLR aggregate and its existing decimal rounding difference; no operands or reservations were changed."
+  },
+  "sources": {
+    "user_authorization": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactre6b24bb77amz20v5/authorized-retention-20261024/user-authorization-safe.json",
+      "sha256": "377579120f806aafb748a88e44c74aaa415fae00e446d501724aecb30242920b",
+      "bytes": 1167
+    },
+    "original_inspection": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactre6b24bb77amz20v5/retention-inspection.json",
+      "sha256": "789d9864ce0a8b295bcbc798fd0de2fd5ce1f1774c94f6438f772f0b622e20b8",
+      "bytes": 1824
+    },
+    "reinspection": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactre6b24bb77amz20v5/authorized-retention-20261024/inspection.json",
+      "sha256": "789d9864ce0a8b295bcbc798fd0de2fd5ce1f1774c94f6438f772f0b622e20b8",
+      "bytes": 1824
+    },
+    "application": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactre6b24bb77amz20v5/authorized-retention-20261024/application.json",
+      "sha256": "b547a2057faab042a0c9c2de47c5cbb3df695c615f690e46fd4ca33a7d0b487b",
+      "bytes": 2814
+    },
+    "readback": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactre6b24bb77amz20v5/authorized-retention-20261024/readback.json",
+      "sha256": "6d28e23c4ce129b4a684e2427081526e5d90742c6ee886f1c53f8c5f322f21fc",
+      "bytes": 2929
+    },
+    "application_command": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactre6b24bb77amz20v5/authorized-retention-20261024/application-command-safe.json",
+      "sha256": "922dcd0a5d047c481cb378a4d21520b6942f8c8bfa08717a44ec6911406f4e6b",
+      "bytes": 1676
+    },
+    "original_metrics": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactre6b24bb77amz20v5/amazon-terminal-safe-metrics.json",
+      "sha256": "ebe952c27717968d6dc63023a16c7fd0fa427fd99f9430d4196908fe4c8b7deb",
+      "bytes": 169200
+    },
+    "pending_archive": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactre6b24bb77amz20v5/pending-safe-archive/compact-taskplan-e6b24bb77-amazon-pending.json",
+      "sha256": "4ddf8f605550f3ccdd9c0a39c36ae8fe757cb32977253a60da98ee25d47af5cd",
+      "bytes": 17103
+    }
+  },
+  "limits": [
+    "This supplement records the already applied exact user-authorized closure. It does not invoke an operator or authorize another effect.",
+    "The original pending archive and its metrics remain immutable historical snapshots; no artifact, execution, provider usage or business success is inferred.",
+    "Fresh independent diagnostics still require ordinary source, financial, physical and runtime admission.",
+    "No encrypted store, reader, provider, model, runtime, build or main source was accessed or changed for this verification."
+  ]
+}

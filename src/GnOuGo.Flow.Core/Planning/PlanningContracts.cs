@@ -9,13 +9,11 @@ public sealed class PlanningRequest
 {
     public PlanningRequest() { }
 
-    // Missing persisted fields retain their original meaning. New objects use the
-    // current defaults below; issued requests and approval identities do not migrate.
     [JsonConstructor]
-    public PlanningRequest(int maxReplanAttempts = 2, int maxModelCalls = 8, PlanningGenerationOptions? generation = null)
+    public PlanningRequest(int maxReplanAttempts = 4, int maxModelCalls = 64, PlanningGenerationOptions? generation = null)
     {
         MaxReplanAttempts = maxReplanAttempts; MaxModelCalls = maxModelCalls;
-        Generation = generation ?? new PlanningGenerationOptions("medium", 12_000, 8_192);
+        Generation = generation ?? new PlanningGenerationOptions();
     }
     public string Mode { get; set; } = PlanningMode.Interactive;
     public string TenantId { get; set; } = "";
@@ -28,7 +26,7 @@ public sealed class PlanningRequest
     public JsonObject Options { get; set; } = new();
     public PlanningPolicy Policy { get; set; } = new();
     public int MaxReplanAttempts { get; set; } = 4;
-    public int MaxModelCalls { get; set; } = 12;
+    public int MaxModelCalls { get; set; } = 64;
     public PlanningGenerationOptions Generation { get; set; } = new();
 }
 
@@ -37,7 +35,7 @@ public sealed class PlanningGenerationOptions
     public PlanningGenerationOptions() { }
 
     [JsonConstructor]
-    public PlanningGenerationOptions(string reasoning = "medium", int maxInputTokensPerRequest = 12_000, int maxOutputTokens = 8_192)
+    public PlanningGenerationOptions(string reasoning = "medium", int maxInputTokensPerRequest = 32_000, int maxOutputTokens = 32_768)
     { Reasoning = reasoning; MaxInputTokensPerRequest = maxInputTokensPerRequest; MaxOutputTokens = maxOutputTokens; }
 
     public string Reasoning { get; set; } = "medium";
@@ -52,6 +50,12 @@ public sealed class PlanningPolicy
     public List<string> DeniedCapabilityIds { get; set; } = [];
     public bool RequireExternalConfirmation { get; set; } = true;
     public int MaxStepsTotal { get; set; } = 300;
+    /// <summary>Optional captured graph ceiling; omission retains the historical 300-node workflow limit.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MaxStepsPerWorkflow { get; set; }
+    /// <summary>Optional captured graph ceiling; omission retains the historical 100-workflow limit.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MaxWorkflows { get; set; }
     public string Instructions { get; set; } = "";
 }
 
@@ -59,8 +63,8 @@ public static class PlanningStatus
 {
     public const string Created = "created", Generating = "generating", Clarification = "clarification",
         FinalReview = "final_review", Approved = "approved", Saving = "saving", Saved = "saved",
-        Stopped = "stopped", Failed = "failed", Cancelled = "cancelled";
-    public static bool IsWaiting(string status) => status is Clarification or FinalReview;
+        Stopped = "stopped", Failed = "failed", Cancelled = "cancelled", DiscoveryRecovery = "discovery_recovery";
+    public static bool IsWaiting(string status) => status is Clarification or FinalReview or DiscoveryRecovery;
     public static bool IsTerminal(string status) => status is Approved or Saved or Stopped or Failed or Cancelled;
 }
 
@@ -72,6 +76,8 @@ public sealed class PlanningCommand
     public string? ArtifactHash { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? RequestId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningDiscoveryRecovery? DiscoveryRecovery { get; set; }
     public string? Text { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? PreserveRequirements { get; set; }
@@ -82,6 +88,8 @@ public sealed class PlanningCommand
     public List<PlanningAnswer>? Answers { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? ReviewedRequirementIds { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ApprovalReviewId { get; set; }
     public PlanningGenerationOptions? Generation { get; set; }
 }
 
@@ -90,16 +98,14 @@ public sealed class PlanningSession
 {
     public PlanningSession() { IsNewlyConstructed = true; }
 
-    // A queued historical session can still have revision zero and no model
-    // calls. Deserialization must not make it a new creation again. Bind an
-    // existing wire field; the construction identity itself is never persisted.
+    // Deserialization never recaptures creation settings or replaces an issued request.
     [JsonConstructor]
     internal PlanningSession(long revision = 0) { Revision = revision; }
 
     [JsonIgnore]
     internal bool IsNewlyConstructed { get; }
 
-    public IReadOnlyList<PlanningChoice> GetChoices() => Plan?.Choices ?? [];
+    public IReadOnlyList<PlanningChoice> GetChoices() => Construction?.Candidate?.Plan.Choices ?? Plan?.Choices ?? [];
     public IReadOnlyList<PlanningQuestion> GetQuestions() => PendingQuestions ?? GetChoices().Where(c => c.Selected is null)
         .Select(c => new PlanningQuestion(c.Id, c.Question, c.Alternatives.Select(a => new PlanningQuestionAlternative(a.Id, a.Description)).ToList(), c.Recommended)).ToList();
     public string? ComputeArtifactHash()
@@ -116,22 +122,14 @@ public sealed class PlanningSession
             ["options"] = Request.Options.DeepClone(),
             ["diagnostics"] = JsonSerializer.SerializeToNode(Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic)
         };
-        if (IntentVersion is 2 or 3) artifact["intentVersion"] = IntentVersion;
-        // Absent annotations preserve byte-for-byte historical approval identities.
-        if (OutcomeVersion is not null)
+        if (Construction is not null)
         {
-            artifact["outcomeVersion"] = OutcomeVersion;
-            artifact["outcomeBindings"] = JsonSerializer.SerializeToNode(OutcomeBindings, PlanningJsonContext.Default.ListPlanningOutcomeBinding);
+            artifact["constructionLimits"] = JsonSerializer.SerializeToNode(Construction.Limits, PlanningJsonContext.Default.PlanningConstructionOptions);
         }
         return Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(artifact.ToJsonString())));
     }
 
-    [JsonIgnore]
-    public bool RequiresPlanningRevision => IntentVersion is not (2 or 3) &&
-        (IntentVersion is not null || OutcomeVersion is not null || Requirements is not null || Plan is not null || PendingCall is not null || ModelCalls > 0) ||
-        Diagnostics.Any(d => d.Code == "TASK_CONDITIONAL_REQUIREMENT");
-
-    public int SchemaVersion { get; set; } = 10;
+    public int SchemaVersion { get; set; } = 11;
     public PlanningRequest Request { get; set; } = new();
     public long Revision { get; set; }
     public string Status { get; set; } = PlanningStatus.Created;
@@ -141,13 +139,6 @@ public sealed class PlanningSession
     public double HumanWaitMilliseconds { get; set; }
     public PlanningCatalog? Catalog { get; set; }
     public PlanningRequirements? Requirements { get; set; }
-    /// <summary>Null retains historical requirements semantics until an explicit revision.</summary>
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public int? IntentVersion { get; set; }
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public int? OutcomeVersion { get; set; }
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<PlanningOutcomeBinding>? OutcomeBindings { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<PlanningQuestion>? PendingQuestions { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -159,16 +150,30 @@ public sealed class PlanningSession
     public List<string>? EditablePaths { get; set; }
     public string Phase { get; set; } = PlanningPhase.Requirements;
     public TaskPlan? Plan { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningConstructionState? Construction { get; set; }
     public PlanningGraph? Graph { get; set; }
     public List<PlanningDiagnostic> Diagnostics { get; set; } = [];
     public List<PlanningValidationResult> ValidationResults { get; set; } = [];
     public int ReplanAttempts { get; set; }
     public int ModelCalls { get; set; }
     public PlanningModelCall? PendingCall { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<PlanningRequestMeasurement>? RequestMeasurements { get; set; }
+    /// <summary>Durable advisory targets, separate from validation and repair diagnostics.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<PlanningThresholdWarning>? ThresholdWarnings { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<PlanningInspectionEvent>? InspectionEvents { get; set; }
+    /// <summary>Canonical attempted strategies and exact request identities; never business review input.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<JsonObject>? StrategyAttempts { get; set; }
     public string? RejectedProposalHash { get; set; }
     public LLMUsageBudgetSnapshot? Usage { get; set; }
     public string? Yaml { get; set; }
     public string? ApprovedHash { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningApprovalReview? ApprovalReview { get; set; }
     public string? SavedAgentId { get; set; }
 }
 
@@ -177,6 +182,25 @@ public sealed class PlanningModelCall
     public string Id { get; set; } = "";
     public string Purpose { get; set; } = "tasks";
     public LLMRequest Request { get; set; } = new();
+    // Requests reserve correction authority at issuance and classify the retained
+    // response atomically with its transition.
+    // 0 = ordinary call, 1 = navigation correction, 3 = draft correction.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? CorrectionAccounting { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningEvidenceAddresses? EvidenceAddresses { get; set; }
+}
+
+/// <summary>Exact navigation authority captured with one issued model request.</summary>
+public sealed class PlanningEvidenceAddresses
+{
+    /// <summary>Fresh business reviews also use this exact map for implementation identities.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool ReviewImplementationIds { get; set; }
+    public string RequestHash { get; set; } = "";
+    public string RequestBasisHash { get; set; } = "";
+    public string MapHash { get; set; } = "";
+    public Dictionary<string, string> Addresses { get; set; } = new(StringComparer.Ordinal);
 }
 
 public sealed class PlanningCatalog
@@ -213,7 +237,19 @@ public sealed record PlanningBinding(string Id, string WorkflowKey, PlanningValu
 public sealed record PlanningDiagnostic(string Code, string Location, string Message, bool Required = true, string? ValidationStage = null, string? Rule = null)
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningBudgetFailure? BudgetFailure { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PlanningPrerequisiteContext? Prerequisite { get; init; }
+}
+public sealed record PlanningBudgetFailure(string? Scope, string? Origin, string? LimitKind, decimal? Allowance,
+    decimal? RequiredReservation, string? Currency, string? DispatchStatus)
+{
+    internal static PlanningBudgetFailure? FromDetails(JsonNode? details) => details is not JsonObject value ? null : new(
+        value["scope"]?.GetValue<string>(), value["origin"]?.GetValue<string>(), value["limit_kind"]?.GetValue<string>(),
+        Number(value["allowance"] ?? value["limit"]), Number(value["required_reservation"] ?? value["current"]),
+        value["estimated_cost_currency"]?.GetValue<string>(), value["dispatch_status"]?.GetValue<string>());
+    private static decimal? Number(JsonNode? node) => node is null ? null : decimal.TryParse(node.ToString(),
+        System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var value) ? value : null;
 }
 /// <summary>Located evidence for a missing prerequisite; never grants execution or approval authority.</summary>
 public sealed record PlanningPrerequisiteContext(string Kind, string Description, string? Output = null,
@@ -231,6 +267,9 @@ public interface IWorkflowPlanner
 public interface IPlanningRuntime
 {
     ICapabilityCatalog Capabilities { get; }
+    IPlanningCapabilitySnapshotJournal? CapabilitySnapshots => null;
+    Task VerifyDiscoveryRecoveryAsync(PlanningSession session, CancellationToken ct) =>
+        throw new PlanningConflictException("This runtime has no host authorization for discovery recovery.");
     Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct);
     Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct);
     Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct);
@@ -245,7 +284,12 @@ public interface IPlanningSessionStore
     Task<IReadOnlyList<PlanningSession>> ListAsync(string tenantId, CancellationToken ct);
 }
 
-public sealed class PlanningConflictException(string message) : InvalidOperationException(message);
+public sealed class PlanningConflictException : InvalidOperationException
+{
+    public PlanningConflictException(string message) : this(message, null) { }
+    public PlanningConflictException(string message, string? category) : base(message) => Category = category;
+    public string? Category { get; }
+}
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow, AllowOutOfOrderMetadataProperties = true)]
 [JsonSerializable(typeof(TaskPlan))]
@@ -263,12 +307,13 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 [JsonSerializable(typeof(CapabilityPage))]
 [JsonSerializable(typeof(CapabilitySummary))]
 [JsonSerializable(typeof(List<CapabilitySource>))]
-[JsonSerializable(typeof(PlanningProposal))]
 [JsonSerializable(typeof(PlanningPrerequisiteContext))]
 [JsonSerializable(typeof(List<PlanningSession>))]
 [JsonSerializable(typeof(PlanningRequest))]
 [JsonSerializable(typeof(PlanningCommand))]
+[JsonSerializable(typeof(PlanningApprovalReview))]
 [JsonSerializable(typeof(PlanningGenerationOptions))]
+[JsonSerializable(typeof(PlanningTransportPolicy))]
 [JsonSerializable(typeof(PlanningCatalog))]
 [JsonSerializable(typeof(PlanningCapability))]
 [JsonSerializable(typeof(PlanningGraph))]
@@ -282,4 +327,27 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 [JsonSerializable(typeof(LLMResponse))]
 [JsonSerializable(typeof(LLMUsageBudgetSnapshot))]
 [JsonSerializable(typeof(HumanInputRequest))]
+[JsonSerializable(typeof(PlanningConstructionState))]
+[JsonSerializable(typeof(PlanningConstructionOptions))]
+[JsonSerializable(typeof(PlanningConstructionPhasePolicy))]
+[JsonSerializable(typeof(PlanningPhaseSettings))]
+[JsonSerializable(typeof(PlanningConstructionCandidate))]
+[JsonSerializable(typeof(PlanningConstructionExtension))]
+[JsonSerializable(typeof(PlanningCompactConstructionState))]
+[JsonSerializable(typeof(PlanningConstructionStep))]
+[JsonSerializable(typeof(PlanningConstructionBlock))]
+[JsonSerializable(typeof(List<PlanningConstructionBlock>))]
+[JsonSerializable(typeof(PlanningConstructionReselection))]
+[JsonSerializable(typeof(PlanningConstructionTypedPrerequisite))]
+[JsonSerializable(typeof(PlanningConstructionSuspendedStep))]
+[JsonSerializable(typeof(PlanningConstructionContinuationBinding))]
+[JsonSerializable(typeof(PlanningConstructionBoundaryTransition))]
+[JsonSerializable(typeof(List<PlanningConstructionBoundaryTransition>))]
+[JsonSerializable(typeof(PlanningConstructionSource))]
+[JsonSerializable(typeof(PlanningConstructionCommitment))]
+[JsonSerializable(typeof(PlanningRequestMeasurement))]
+[JsonSerializable(typeof(PlanningEvidenceAddresses))]
+[JsonSerializable(typeof(PlanningModelCall))]
+[JsonSerializable(typeof(List<PlanningRequestMeasurement>))]
+[JsonSerializable(typeof(List<PlanningConstructionCheckpoint>))]
 public partial class PlanningJsonContext : JsonSerializerContext;

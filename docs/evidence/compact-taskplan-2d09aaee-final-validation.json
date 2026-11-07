@@ -1,0 +1,86 @@
+{
+  "source_revision": "2d09aaee916a88caf39e4cf1df674d407c161a2d",
+  "source_manifest_sha256": "9260141b95c411daf13d856ee998db3d7ade5dd853f5a597bb7ce02556a49433",
+  "completed_test_assemblies": 33,
+  "counters": {
+    "total": 7216,
+    "executed": 7204,
+    "passed": 7204,
+    "failed": 0,
+    "error": 0,
+    "timeout": 0,
+    "aborted": 0,
+    "inconclusive": 0,
+    "notExecuted": 0
+  },
+  "skipped_result_count": 12,
+  "failed_tests": [],
+  "build_diagnostics": [],
+  "paid_calls": 0,
+  "business_qualification_claimed": false,
+  "focused_tests_included_only_within_full_run_not_added_to_total": true,
+  "elapsed_seconds": 4469.513,
+  "publication_stages": [
+    {
+      "stage": "core-pack",
+      "exit_code": 0,
+      "elapsed_seconds": 8.93,
+      "log_sha256": "916a71bb3ae434abd8fa0cb78aa9629e33681db8dd98b1abaf27ee9f19f38cea"
+    },
+    {
+      "stage": "planning-pack",
+      "exit_code": 0,
+      "elapsed_seconds": 10.259,
+      "log_sha256": "2a7268d49f141ca521c8f484ef037ede8f96e63277e7876fdacd8153e6c9c30c"
+    },
+    {
+      "stage": "integrations-pack",
+      "exit_code": 0,
+      "elapsed_seconds": 6.64,
+      "log_sha256": "3c55fbf66d95098adc27bef927f375b822de4e378bf8cdfd3b676b189df44308"
+    },
+    {
+      "stage": "copilot-pack",
+      "exit_code": 0,
+      "elapsed_seconds": 1.668,
+      "log_sha256": "f6e4bef0be07f396ef1aff28eb57ba15a7ae2697806d81ff67bd9c744ca6f6b0"
+    },
+    {
+      "stage": "persistence-pack",
+      "exit_code": 0,
+      "elapsed_seconds": 2.079,
+      "log_sha256": "2044476d12330e7c0168bfd03385ead291b3bb253875cedcd562858801220eb1"
+    },
+    {
+      "stage": "native-publish",
+      "exit_code": 0,
+      "elapsed_seconds": 34.04,
+      "log_sha256": "eb1167c127283bbaba6c58b11cec257a8814165924e5802bc756fe8264e1ffbd"
+    },
+    {
+      "stage": "native-run",
+      "exit_code": 0,
+      "elapsed_seconds": 6.038,
+      "log_sha256": "b81e6a8d5dbd68514253a514214e82471849ea875985385997648e7084ceca35"
+    },
+    {
+      "stage": "server-restore",
+      "exit_code": 0,
+      "elapsed_seconds": 1.528,
+      "log_sha256": "daacb39ef5c03d80266ed3f5fc0a0955b2ad5c60e17a2cfda3cd5a610cd00754"
+    },
+    {
+      "stage": "server-publish",
+      "exit_code": 0,
+      "elapsed_seconds": 70.455,
+      "log_sha256": "9967022e7cb137501df9e4ba3bed42e1e159ba0d102320ba6358f74c0c37c532"
+    },
+    {
+      "stage": "server-storage-run",
+      "exit_code": 0,
+      "elapsed_seconds": 2.274,
+      "log_sha256": "0268a9c0ae5df08cde06a1818fae2b53cf86df674fc19dc0cfc070d58ffd6563"
+    }
+  ],
+  "newer_source_not_qualified_by_this_result": true
+}

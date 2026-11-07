@@ -1,0 +1,67 @@
+{
+  "base_source": "98418f2a0b597208eb74d5fae3a08e5e88eb9d1a",
+  "test_execution": "Isolated working-tree snapshot bound by owning file hashes; not a claim that a later documentation commit was executed.",
+  "production_files": {
+    "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.ConstructionReview.cs": "233ca45f0c296870095b2a67ab17aafd8447de695221de8a32e5ef45dbd53896",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactConstructionReviewCoverageTests.cs": "ea264f9461ee1eecd33e5338d130742a482dd79c18e6e986e2e0ffa572d76b0d",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactConvergentJudgeTests.EvidenceBatches.cs": "7f0a1f37d98fa0420a53b6656c687887fc8d66209ffa7fa3eb217a2e492f811f",
+    "tests/GnOuGo.Flow.Planning.Tests/IncrementalReviewTests.cs": "0379a2bfbde12939a2345e1e1ed90902eb2124cd0f47f5ab54e6676130952e80"
+  },
+  "validation": {
+    "full_planning_passed": 3647,
+    "focused_passed": 236,
+    "overlap": "Focused cases are included in the full suite.",
+    "warnings_as_errors": true,
+    "full_seconds": 309.31151312502334,
+    "full_log_sha256": "88d46e1844f6d27382a1551c8f92323ed4a17a43cb26cb450b8b48ce1d96334c",
+    "qualification_sha256": "d164bdd80cf2791d71496ea874047640b5e8cd2b2a2c0368f05f9417ecfe6c40",
+    "focused_peer_sha256": "af094d8eac5d2cc4b94a9ba7607dbeffd9cd2b6fe4b5030915115012d2f1f70e",
+    "source_manifest_sha256": "5bb9754b465acd8978f83ba06f3c23bdabea7f4f2ad311be3514c91a2e30703d",
+    "full_peer_sha256": "4de973536bb40069c32bda0d31b975624886dbec2822b56821e35dd281771a98"
+  },
+  "retained_fixture_failure": {
+    "counts": {
+      "Passed": 234,
+      "Failed": 2
+    },
+    "result": {
+      "path": "/var/folders/5j/c3fzgxh96_bgmjhkf57_g5xw0000gp/T/gnougo-v9-validation-ctdj70yg/result.json",
+      "sha256": "8d798fd1821926a342d957c6d2f5d5e7b4cc7d7ebf4bf0d4a669432f41262f9a"
+    },
+    "trx": {
+      "path": "/var/folders/5j/c3fzgxh96_bgmjhkf57_g5xw0000gp/T/gnougo-v9-validation-ctdj70yg/results/tests.trx",
+      "sha256": "2e0f4011d8822006e5d7a907db39f434e6d80eca48d4e281881beaed7bd6d89a"
+    },
+    "reason": "Both new v9/v10 cases exceeded the unchanged8k ceiling with repeated text sized for the v6 envelope. The fixture repetitions were reduced equally; v6 data and production bytes stayed unchanged."
+  },
+  "controlled_comparisons": [
+    {
+      "case": "task-local,3clauses,2consumers",
+      "v9_total": 55,
+      "v9_judges": 29,
+      "v10_total": 53,
+      "v10_judges": 27
+    },
+    {
+      "case": "mixed-prefix,3clauses,2consumers",
+      "v9_total": 42,
+      "v9_judges": 18,
+      "v10_total": 37,
+      "v10_judges": 13
+    },
+    {
+      "case": "mixed-prefix,3clauses,3consumers",
+      "v9_total": 54,
+      "v9_judges": 25,
+      "v10_total": 46,
+      "v10_judges": 17
+    }
+  ],
+  "interpretation": "Controlled model responses; identical independently checked runtime values. No live A/B savings claim. Added guidance changes packing; older51/25 and45/16 results are not attributed to this source.",
+  "boundaries": [
+    "No response schema, review coverage, phase allowance or execution authority changed.",
+    "Fresh version10 gains existing whole-window guidance; versions2\u20139 and already issued requests retain their handling.",
+    "Historical envelope recovery, all-window closure, supported one-follow-up reviews and complete-request admission remain tested.",
+    "No live business benefit or avoided correction is established by these tests."
+  ]
+}

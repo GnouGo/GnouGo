@@ -1,0 +1,400 @@
+{
+  "kind": "received_source_bound_compiler_contract_ownership_stop",
+  "version": 1,
+  "observed_at_utc": "2026-11-04T11:27:20.141541+00:00",
+  "campaign": "schema-portability-20261019-incremental",
+  "production_source": "f5789246ff4325e128bae14e985e08572c5bd9f1",
+  "harness_source": "f5789246ff4325e128bae14e985e08572c5bd9f1",
+  "cohort": "bizf5789246amz01",
+  "run": "bizf5789246amz01-amazon-1",
+  "captured_profile_hash": "5452b870c2561bcde1b6aa483b7b44edb2ea230851221e8fa8eb096f897113a6",
+  "optimization_threshold_policy": "diagnostic-v1",
+  "status": "stopped",
+  "revision": 13,
+  "planning_ms": 746465,
+  "logical_calls": 12,
+  "physical_attempts": 12,
+  "received_usage_receipts": 12,
+  "pending_request_id": null,
+  "corrections": 1,
+  "operator_plan_revisions": 0,
+  "accepted_checkpoints": 2,
+  "accepted_tasks": 23,
+  "local_judge_calls": 2,
+  "global_judge_calls": 1,
+  "favorable_global_review": true,
+  "judge_complete_request_bytes": [
+    69665,
+    180443,
+    104188
+  ],
+  "known_input_tokens": 122248,
+  "known_output_tokens": 31169,
+  "reasoning_tokens_included_in_output": 19830,
+  "known_cost_eur": "1.3832274800966097146435280436",
+  "retained_reservations_eur": 0,
+  "phases": {
+    "construction_intent": {
+      "input_tokens": 1210,
+      "output_tokens": 870,
+      "known_input_tokens": 1210,
+      "known_output_tokens": 870,
+      "estimated_cost_eur": "0.0287592807943465426245639145",
+      "known_cost_eur": "0.0287592807943465426245639145",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 1,
+      "elapsed_ms": "39839.154",
+      "physical_attempts": 1
+    },
+    "construction_select": {
+      "input_tokens": 2319,
+      "output_tokens": 1275,
+      "known_input_tokens": 2319,
+      "known_output_tokens": 1275,
+      "estimated_cost_eur": "0.0445880669111727345916450488",
+      "known_cost_eur": "0.0445880669111727345916450488",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 2,
+      "elapsed_ms": "66604.0779",
+      "physical_attempts": 2
+    },
+    "construction_implementation": {
+      "input_tokens": 2791,
+      "output_tokens": 2454,
+      "known_input_tokens": 2791,
+      "known_output_tokens": 2454,
+      "estimated_cost_eur": "0.0783388496287682261382950174",
+      "known_cost_eur": "0.0783388496287682261382950174",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 1,
+      "elapsed_ms": "56194.1157",
+      "physical_attempts": 1
+    },
+    "construction_discovery": {
+      "input_tokens": 10916,
+      "output_tokens": 6268,
+      "known_input_tokens": 10916,
+      "known_output_tokens": 6268,
+      "estimated_cost_eur": "0.2170319348778960551033187226",
+      "known_cost_eur": "0.2170319348778960551033187226",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 3,
+      "elapsed_ms": "162352.633",
+      "physical_attempts": 3
+    },
+    "construction_draft": {
+      "input_tokens": 10967,
+      "output_tokens": 7695,
+      "known_input_tokens": 10967,
+      "known_output_tokens": 7695,
+      "estimated_cost_eur": "0.2555550585920028625100635119",
+      "known_cost_eur": "0.2555550585920028625100635119",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 1,
+      "elapsed_ms": "104964.7073",
+      "physical_attempts": 1
+    },
+    "construction_local_judge": {
+      "input_tokens": 42196,
+      "output_tokens": 3442,
+      "known_input_tokens": 42196,
+      "known_output_tokens": 3442,
+      "estimated_cost_eur": "0.2810984882368727077556132033",
+      "known_cost_eur": "0.2810984882368727077556132033",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 2,
+      "elapsed_ms": "102263.2447",
+      "physical_attempts": 2
+    },
+    "replan": {
+      "input_tokens": 33495,
+      "output_tokens": 7955,
+      "known_input_tokens": 33495,
+      "known_output_tokens": 7955,
+      "estimated_cost_eur": "0.3632927811074335808211825745",
+      "known_cost_eur": "0.3632927811074335808211825745",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 1,
+      "elapsed_ms": "89563.1735",
+      "physical_attempts": 1
+    },
+    "construction_global_judge": {
+      "input_tokens": 18354,
+      "output_tokens": 1210,
+      "known_input_tokens": 18354,
+      "known_output_tokens": 1210,
+      "estimated_cost_eur": "0.1145630199481170050988460506",
+      "known_cost_eur": "0.1145630199481170050988460506",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 1,
+      "elapsed_ms": "43387.5079",
+      "physical_attempts": 1
+    }
+  },
+  "threshold_warnings": [
+    {
+      "kind": "prerequisites",
+      "current": 5,
+      "threshold": 4,
+      "basis": "captured_optimization_target",
+      "stage": "implementation",
+      "sessionId": "bizf5789246amz01-amazon-1",
+      "blockId": "block_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "recursive_tasks",
+      "current": 15,
+      "threshold": 8,
+      "basis": "captured_optimization_target",
+      "stage": "fragment",
+      "sessionId": "bizf5789246amz01-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "estimated_input_tokens",
+      "current": 23478,
+      "threshold": 20000,
+      "basis": "captured_optimization_target",
+      "stage": "construction_local_judge",
+      "sessionId": "bizf5789246amz01-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "estimated_input_tokens",
+      "current": 23478,
+      "threshold": 20000,
+      "basis": "captured_optimization_target",
+      "stage": "planning",
+      "requestId": "bizf5789246amz01-amazon-1:8:325201ca74714d99ea0d6621aa709f5066ede5b5b7032d6858fe83db14835d0c:281d1cee0a8915e79cfb9e5921421bc9c99e02729a95bb04f6525706e0f95418",
+      "sessionId": "bizf5789246amz01-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "finding_count",
+      "current": 7,
+      "threshold": 3,
+      "basis": "captured_optimization_target",
+      "stage": "business_review",
+      "sessionId": "bizf5789246amz01-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "estimated_input_tokens",
+      "current": 62264,
+      "threshold": 22000,
+      "basis": "captured_optimization_target",
+      "stage": "replan",
+      "sessionId": "bizf5789246amz01-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "estimated_input_tokens",
+      "current": 62264,
+      "threshold": 22000,
+      "basis": "captured_optimization_target",
+      "stage": "planning",
+      "requestId": "bizf5789246amz01-amazon-1:9:9d28296c16642dfc954825a38d8a0fd9e9268ee5b18281c16184c17ca6232268:600aefe8fac924cd46c052a1f5fc6a194ab936577c31c92bd45b79bd51f14ec7",
+      "sessionId": "bizf5789246amz01-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "recursive_tasks",
+      "current": 23,
+      "threshold": 8,
+      "basis": "captured_optimization_target",
+      "stage": "fragment",
+      "sessionId": "bizf5789246amz01-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "estimated_input_tokens",
+      "current": 60404,
+      "threshold": 20000,
+      "basis": "captured_optimization_target",
+      "stage": "construction_local_judge",
+      "sessionId": "bizf5789246amz01-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "estimated_input_tokens",
+      "current": 60404,
+      "threshold": 20000,
+      "basis": "captured_optimization_target",
+      "stage": "planning",
+      "requestId": "bizf5789246amz01-amazon-1:10:5216b7033563999d6ef4b22cd67fd4e176790763bfbc252738cffad42f101bc9:48449a6509e3e9f49f2f24d9ca557df9e6666e40ba2e883625a76e1e656b3993",
+      "sessionId": "bizf5789246amz01-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "estimated_input_tokens",
+      "current": 34986,
+      "threshold": 20000,
+      "basis": "captured_optimization_target",
+      "stage": "construction_global_judge",
+      "sessionId": "bizf5789246amz01-amazon-1",
+      "stepId": "step_2",
+      "checkpoint": 1
+    },
+    {
+      "kind": "estimated_input_tokens",
+      "current": 34986,
+      "threshold": 20000,
+      "basis": "captured_optimization_target",
+      "stage": "planning",
+      "requestId": "bizf5789246amz01-amazon-1:12:60d4231ba20af32bc6482e1692de74eaa3a5af53985853f8eaac6f2d8d560908:79cec7326a116f6273c7dfb7d47e646a1ea172f23a5f4c623b5c71858b68d39a",
+      "sessionId": "bizf5789246amz01-amazon-1",
+      "stepId": "step_2",
+      "checkpoint": 1
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "TASK_COMPILER_VALIDATION",
+      "location": "/tasks/append_search_error_row",
+      "message": "CONTRACT_UNSATISFIED: Cannot establish the input contract for operation cap_37c513d225bb1b870053c5d3: The node already has a parent.",
+      "required": true,
+      "validationStage": "contract",
+      "rule": null
+    },
+    {
+      "code": "TASK_COMPILER_VALIDATION",
+      "location": "/tasks/append_product1_row",
+      "message": "CONTRACT_UNSATISFIED: Cannot establish the input contract for operation cap_37c513d225bb1b870053c5d3: The node already has a parent.",
+      "required": true,
+      "validationStage": "contract",
+      "rule": null
+    },
+    {
+      "code": "TASK_COMPILER_VALIDATION",
+      "location": "/tasks/append_product2_row",
+      "message": "CONTRACT_UNSATISFIED: Cannot establish the input contract for operation cap_37c513d225bb1b870053c5d3: The node already has a parent.",
+      "required": true,
+      "validationStage": "contract",
+      "rule": null
+    },
+    {
+      "code": "TASK_COMPILER_VALIDATION",
+      "location": "/tasks/append_product3_row",
+      "message": "CONTRACT_UNSATISFIED: Cannot establish the input contract for operation cap_37c513d225bb1b870053c5d3: The node already has a parent.",
+      "required": true,
+      "validationStage": "contract",
+      "rule": null
+    }
+  ],
+  "business_repair": "The first draft always fetched three products even when fewer were observed. Automatic replacement adds conditional availability/error paths and actual browser URL bindings; renewed local and final global business reviews return ok.",
+  "optional_argument_fix_exercised": {
+    "issued_repair_request": 9,
+    "browser_original_optional_url_offered": true,
+    "accepted_browser_reads_with_url": 4,
+    "accepted_browser_argument_names": {
+      "read_search_results": [
+        "url",
+        "waitUntil",
+        "format"
+      ],
+      "read_product1_page": [
+        "url",
+        "waitUntil",
+        "format"
+      ],
+      "read_product2_page": [
+        "url",
+        "waitUntil",
+        "format"
+      ],
+      "read_product3_page": [
+        "url",
+        "waitUntil",
+        "format"
+      ]
+    }
+  },
+  "first_demonstrated_cause": "Final executable contract validation builds an inferred array element union from projected producer-field schema nodes that still have parents. JsonArray ownership throws for four workbook consumers. Semantic construction and business review had completed.",
+  "final_artifact": false,
+  "artifact_bound_approval": false,
+  "execution_started": false,
+  "independent_oracle_passed": false,
+  "qualification": {
+    "passed": 0,
+    "required": 6
+  },
+  "campaign_after": {
+    "ceiling_eur": "740.0301038327063045424449473",
+    "calls": 6886,
+    "session_calls": 0,
+    "known_input_tokens": 26210511,
+    "known_output_tokens": 10533741,
+    "known_cost_eur": "399.39138148550594313882951145",
+    "reserved_input_tokens": 2605626,
+    "reserved_output_tokens": 4341760,
+    "reserved_cost_eur": "128.00399062789039759117323427",
+    "cost_upper_bound_eur": "527.39537211339634073000274572",
+    "unknown_attempts": 150,
+    "available_eur": "212.63473171930996381244220158",
+    "closures": 62,
+    "unresolved_requests": [],
+    "evidence_hash": "98c05fad4ff488363b733ae98748d2025e80424c458b937e9c746ce562304b76"
+  },
+  "captures": {
+    "snapshot-20261104T112403606671Z.private.json": "23f9d7a45d2ccccf2e3bf6cb618996244a508da5750dadafd1b393d2e16c2007",
+    "final-ledger.private.json": "740bca902e3df0dcb8e8fa049b2bdf6a159513b695157054c3fbf48c060767fb",
+    "request9.private.json": "90c55660fdce50b2c2d2ff810ccf824a76029bc3561cdd4b71435cf621cd3674",
+    "planning.private.log": "3fd5748266cb8b544b9e787c66185b930e624dd80e1bb34a915e94f865986b05"
+  },
+  "limitations": [
+    "Favorable business review did not establish executable compiler correctness or authorize execution.",
+    "The stopped run remains unchanged; corrected-source evaluation requires a new identity.",
+    "No artifact, execution, browser observation, workbook or oracle success occurred."
+  ]
+}

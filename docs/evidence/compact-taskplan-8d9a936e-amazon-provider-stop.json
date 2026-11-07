@@ -1,0 +1,76 @@
+{
+  "production_source": "8d9a936e5a50bcd588bd38edd442ab470838fbfe",
+  "execution_source": "ff0ed3e19282084158c36cc41e20a63a3bd9f8f1",
+  "scenario": "amazon",
+  "cohort": "compactm8d9a936eamz11a",
+  "status": "stopped",
+  "classification": "confirmed_http500_then_transport_uncertainty",
+  "planning_ms": 703611,
+  "logical_requests": 2,
+  "physical_attempts": 3,
+  "received_responses": 1,
+  "correction_charges": 0,
+  "judge_calls": 0,
+  "checkpoints": 0,
+  "artifact": false,
+  "runtime_started": false,
+  "runtime_success": false,
+  "independently_satisfied_obligations": 0,
+  "calls_per_satisfied_obligation": null,
+  "usage": {
+    "logical_calls": 2,
+    "physical_attempts": 3,
+    "known_input_tokens": 543,
+    "known_output_tokens": 2868,
+    "known_cost_eur": "0.0797224467798437078954459714",
+    "unknown_attempts": 2,
+    "reserved_input_tokens": 24000,
+    "reserved_output_tokens": 65536,
+    "reserved_cost_eur": "1.8737806521153327943950417678"
+  },
+  "received_reasoning_tokens": 2560,
+  "peak_complete_request_bytes": 9665,
+  "peak_estimated_tokens": 3478,
+  "component_bytes_reconcile": true,
+  "model_or_output_settings_changed": false,
+  "unknown_reasoning_or_visible_output_not_inferred": true,
+  "retry_evidence": {
+    "statuses": [
+      500,
+      null
+    ],
+    "first_error": "provider_backend_routing_unavailable",
+    "last_failure": "transport",
+    "uncertain_retries": 0,
+    "last_completion_receipt": false
+  },
+  "exact_retention": {
+    "request_id": "compactm8d9a936eamz11a-amazon-1:2:c5def9f677d10118cf4a58ae43d1549517893ff36c5ef2a1523c3671bcf5f9b1:b85a2da5062235e30c1956624df6b0f5d0a8e246d393f7ed8a1838bfbc7a7f35",
+    "evidence_hash": "040f1e2d9051beb5b19d8544d05cde23067cfd1765567a1c5fee8015c0aa2423",
+    "full_retained_reservation_eur": "1.8737806521153327943950417678",
+    "same_authorized_delegation": true,
+    "repeat_idempotent": true,
+    "replay_and_continuation_forbidden": true,
+    "original_records": {
+      "previous_records_retrieved": 8,
+      "record_bytes_unchanged": true,
+      "raw_run_sha256": "2c35e860807f8882e741d137080745727b96a37447e6b87de4cfb7cdc5bdb7c8",
+      "paid_calls": 0,
+      "public_keyvault_api_only": true
+    }
+  },
+  "post_retention_accounting": {
+    "permanent_closures": 49,
+    "unresolved": 0,
+    "accounting_unchanged": true,
+    "restart_rejected_before_dispatch": true,
+    "calls": 6145,
+    "unknown_attempts": 132,
+    "known_cost_eur": "332.32706383779666429417102145",
+    "retained_unknown_eur": "111.76841006233269725823497289",
+    "available_eur": "195.93462993257694299003895296"
+  },
+  "repair_correction_exercised": false,
+  "business_qualification": false,
+  "raw_terminal_record_sha256": "2c35e860807f8882e741d137080745727b96a37447e6b87de4cfb7cdc5bdb7c8"
+}

@@ -1,6 +1,8 @@
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
+using GnOuGo.Flow.Core.Planning;
 
 namespace GnOuGo.Flow.Core.Runtime;
 
@@ -76,6 +78,7 @@ public sealed record LLMUsageBudgetSnapshot
 {
     public DateTimeOffset StartedAtUtc { get; init; }
     public long Calls { get; init; }
+    public long UncertainCalls { get; init; }
     public long InputTokens { get; init; }
     public long OutputTokens { get; init; }
     public long TotalTokens { get; init; }
@@ -83,6 +86,12 @@ public sealed record LLMUsageBudgetSnapshot
     public string EstimatedCostCurrency { get; init; } = "USD";
     public IReadOnlyList<CurrencyExchangeQuote> ExchangeRates { get; init; } = Array.Empty<CurrencyExchangeQuote>();
     public decimal EstimatedCostUsd { get; init; }
+    public bool CostEstimateAvailable { get; init; }
+    public string? CostUnavailableReason { get; init; } = "historical_cost_evidence_unavailable";
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<string, LLMJournaledAttempt>? JournaledAttempts { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<PlanningThresholdWarning>? Warnings { get; init; }
 }
 
 /// <summary>
@@ -106,9 +115,10 @@ public interface ILLMUsageBudgetScopeFactory
 /// Thread-safe, provider-neutral LLM usage budget. Child scopes enforce their own limits
 /// while atomically contributing the same call to their parent scope.
 /// </summary>
-public sealed class LLMUsageBudgetScope
+public sealed partial class LLMUsageBudgetScope
 {
     private readonly object _gate = new();
+    private readonly object _warningGate = new();
     private readonly SemaphoreSlim _persistenceGate = new(1, 1);
     private readonly SemaphoreSlim? _unaccountedCostGate;
     private readonly LLMUsageBudgetScope? _parent;
@@ -116,7 +126,55 @@ public sealed class LLMUsageBudgetScope
     private readonly IExchangeRateProvider? _exchangeRateProvider;
     private readonly TimeProvider _timeProvider;
     private readonly MonetaryAmount? _costLimit;
+    public bool IsTrackingOnly { get; }
+    public string PolicyOrigin { get; init; } = "explicit_workflow_limit";
+    /// <summary>Host opt-in: future-call forecasts may warn. Current reservations, settlement and explicit child limits stay mandatory.</summary>
+    public bool AdvisoryFinancialForecasts { get; init; }
+    private readonly bool _advisoryTokens;
+    private readonly bool _advisoryOptimization;
+    private readonly bool _advisoryOptimizationLimits;
+    private readonly HashSet<string> _thresholdWarnings = new(StringComparer.Ordinal);
+    private static readonly AsyncLocal<string?> WarningRequestId = new();
+    private List<PlanningThresholdWarning>? _warnings;
     private LLMUsageBudgetSnapshot _snapshot;
+
+    internal LLMUsageBudgetScope(bool advisoryTokens, LLMUsageBudgetLimits limits,
+        LLMUsageBudgetSnapshot? initialSnapshot = null, LLMUsageBudgetScope? parent = null,
+        ILLMUsageBudgetSink? sink = null, TimeProvider? timeProvider = null, IExchangeRateProvider? exchangeRateProvider = null,
+        bool advisoryOptimization = false)
+        : this(limits, initialSnapshot, parent, sink, timeProvider, exchangeRateProvider)
+    {
+        _advisoryTokens = advisoryTokens || advisoryOptimization;
+        _advisoryOptimization = advisoryOptimization || _advisoryOptimization;
+        _advisoryOptimizationLimits = advisoryOptimization;
+    }
+
+    private LLMUsageBudgetScope(LLMUsageBudgetScope authority, LLMUsageBudgetLimits limits,
+        LLMUsageBudgetSnapshot? snapshot, ILLMUsageBudgetSink? sink, IExchangeRateProvider? exchangeRateProvider)
+        : this(authority._advisoryTokens, limits, snapshot, sink: sink, timeProvider: authority._timeProvider,
+            exchangeRateProvider: exchangeRateProvider ?? authority._exchangeRateProvider,
+            advisoryOptimization: authority._advisoryOptimizationLimits)
+        => _advisoryOptimization = authority._advisoryOptimization;
+
+    // Restore accounting under the same trusted host authority. No policy is
+    // inferred from warning records, and explicit execution bounds stay explicit.
+    internal LLMUsageBudgetScope RestoreSnapshot(LLMUsageBudgetLimits limits, LLMUsageBudgetSnapshot? snapshot,
+        ILLMUsageBudgetSink? sink = null, IExchangeRateProvider? exchangeRateProvider = null)
+        => new(this, limits, snapshot, sink, exchangeRateProvider) { PolicyOrigin = PolicyOrigin, AdvisoryFinancialForecasts = AdvisoryFinancialForecasts };
+
+    /// <summary>Records usage and uncertain reservations without application consumption ceilings.
+    /// Explicit finite child scopes retain their own limits.</summary>
+    public static LLMUsageBudgetScope CreateTrackingOnly(LLMUsageBudgetSnapshot? snapshot = null,
+        LLMUsageBudgetScope? parent = null, ILLMUsageBudgetSink? sink = null,
+        TimeProvider? timeProvider = null, IExchangeRateProvider? exchangeRateProvider = null, string currency = "USD",
+        string origin = "application_tracking_only")
+        => new(new LLMUsageBudgetLimits(), snapshot, parent, sink, timeProvider, exchangeRateProvider, true, currency) { PolicyOrigin = origin };
+
+    internal static LLMUsageBudgetScope CreatePlanningTrackingOnly(PlanningRequest request, LLMUsageBudgetSnapshot? snapshot = null,
+        LLMUsageBudgetScope? parent = null, ILLMUsageBudgetSink? sink = null, IExchangeRateProvider? exchangeRateProvider = null)
+        => new(new LLMUsageBudgetLimits(), snapshot, parent, sink, null, exchangeRateProvider, true,
+            PlanningApplicationBudget.Currency(request), PlanningTokenThresholds.Advisory(request), PlanningTokenThresholds.OptimizationAdvisory(request))
+            { PolicyOrigin = request.Options[PlanningApplicationBudget.OptionName]?["origin"]?.ToString() ?? "captured_application_policy" };
 
     public LLMUsageBudgetScope(
         LLMUsageBudgetLimits limits,
@@ -125,12 +183,22 @@ public sealed class LLMUsageBudgetScope
         ILLMUsageBudgetSink? sink = null,
         TimeProvider? timeProvider = null,
         IExchangeRateProvider? exchangeRateProvider = null)
+        : this(limits, initialSnapshot, parent, sink, timeProvider, exchangeRateProvider, false, "USD") { }
+
+    private LLMUsageBudgetScope(LLMUsageBudgetLimits limits, LLMUsageBudgetSnapshot? initialSnapshot,
+        LLMUsageBudgetScope? parent, ILLMUsageBudgetSink? sink, TimeProvider? timeProvider,
+        IExchangeRateProvider? exchangeRateProvider, bool trackingOnly, string currency, bool advisoryTokens = false, bool advisoryOptimization = false)
     {
         ArgumentNullException.ThrowIfNull(limits);
-        limits.Validate();
+        if (!trackingOnly) limits.Validate();
+        IsTrackingOnly = trackingOnly;
+        currency = LLMUsageBudgetLimits.NormalizeCurrency(currency, nameof(currency));
 
         Limits = limits;
         _parent = parent;
+        _advisoryTokens = advisoryTokens || (parent?._advisoryTokens ?? false);
+        _advisoryOptimization = advisoryOptimization || (parent?._advisoryOptimization ?? false);
+        _advisoryOptimizationLimits = advisoryOptimization;
         _sink = sink;
         _exchangeRateProvider = exchangeRateProvider ?? parent?._exchangeRateProvider;
         _timeProvider = timeProvider ?? TimeProvider.System;
@@ -149,20 +217,59 @@ public sealed class LLMUsageBudgetScope
             ? new LLMUsageBudgetSnapshot
             {
                 StartedAtUtc = now,
-                EstimatedCostCurrency = _costLimit?.Currency ?? "USD"
+                EstimatedCostCurrency = _costLimit?.Currency ?? currency,
+                CostEstimateAvailable = true,
+                CostUnavailableReason = null
             }
-            : ValidateInitialSnapshot(initialSnapshot, now, _costLimit?.Currency);
+            : ValidateInitialSnapshot(initialSnapshot, now, trackingOnly ? currency : _costLimit?.Currency);
+        _warnings = _snapshot.Warnings?.ToList();
     }
 
     public LLMUsageBudgetLimits Limits { get; }
+    internal bool AdvisoryTokenThresholds => _advisoryTokens;
+    // Authority propagates to runtime optimization choices. Publicly created
+    // child scopes still enforce their own explicit execution call/time limits.
+    internal bool AdvisoryOptimizationThresholds => _advisoryOptimization;
 
     public LLMUsageBudgetSnapshot Snapshot
     {
         get
         {
             lock (_gate)
-                return _snapshot with { };
+                lock (_warningGate)
+                {
+                    var unpricedDispatch = _snapshot.UncertainCalls > (_snapshot.JournaledAttempts?.Values.Count(attempt => attempt.VerifiedUsage is null) ?? 0);
+                    return _snapshot with { Warnings = _warnings?.ToArray(),
+                        CostEstimateAvailable = _snapshot.CostEstimateAvailable && !unpricedDispatch,
+                        CostUnavailableReason = _snapshot.CostUnavailableReason ?? (unpricedDispatch ? "usage_unconfirmed" : null) };
+                }
         }
+    }
+
+    // Retain existing advisory events in the ordinary usage snapshot. The same
+    // async request identity reaches parent budget checks and nested observers.
+    internal IDisposable? ObserveTokenWarnings(string? requestId = null)
+    {
+        if (!_advisoryTokens && !AdvisoryFinancialForecasts) return null;
+        var previous = WarningRequestId.Value;
+        if (requestId is not null) WarningRequestId.Value = requestId;
+        return new WarningObservation(PlanningTokenThresholds.Observe(RecordTokenWarning), previous);
+    }
+
+    private void RecordTokenWarning(string stage, string kind, long current, long threshold)
+    {
+        var warning = new PlanningThresholdWarning(kind, current, threshold, "host_budget_measurement", stage)
+            { RequestId = WarningRequestId.Value };
+        lock (_warningGate)
+        {
+            var warnings = _warnings ??= [];
+            if (!warnings.Contains(warning)) warnings.Add(warning);
+        }
+    }
+
+    private sealed class WarningObservation(IDisposable observation, string? previous) : IDisposable
+    {
+        public void Dispose() { observation.Dispose(); WarningRequestId.Value = previous; }
     }
 
     public LLMUsageBudgetScope CreateChild(
@@ -206,6 +313,7 @@ public sealed class LLMUsageBudgetScope
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(request);
         ct.ThrowIfCancellationRequested();
+        using var warnings = ObserveTokenWarnings(request.ClientRequestId);
 
         var safeStage = SanitizeStage(stage);
         var reservations = new List<LocalReservation>();
@@ -310,7 +418,7 @@ public sealed class LLMUsageBudgetScope
             {
                 snapshot = _snapshot;
                 EnsurePreCallLimits(snapshot, stage);
-                _snapshot = snapshot with { Calls = checked(snapshot.Calls + 1) };
+                _snapshot = snapshot with { Calls = checked(snapshot.Calls + 1), UncertainCalls = checked(snapshot.UncertainCalls + 1) };
                 snapshot = _snapshot;
                 incremented = true;
             }
@@ -323,7 +431,7 @@ public sealed class LLMUsageBudgetScope
             if (incremented)
             {
                 lock (_gate)
-                    _snapshot = _snapshot with { Calls = Math.Max(0, _snapshot.Calls - 1) };
+                    _snapshot = _snapshot with { Calls = Math.Max(0, _snapshot.Calls - 1), UncertainCalls = Math.Max(0, _snapshot.UncertainCalls - 1) };
             }
             if (ownsCostGate)
                 _unaccountedCostGate!.Release();
@@ -342,7 +450,7 @@ public sealed class LLMUsageBudgetScope
             LLMUsageBudgetSnapshot snapshot;
             lock (scope._gate)
             {
-                scope._snapshot = scope._snapshot with { Calls = Math.Max(0, scope._snapshot.Calls - 1) };
+                    scope._snapshot = scope._snapshot with { Calls = Math.Max(0, scope._snapshot.Calls - 1), UncertainCalls = Math.Max(0, scope._snapshot.UncertainCalls - 1) };
                 snapshot = scope._snapshot;
             }
 
@@ -361,17 +469,25 @@ public sealed class LLMUsageBudgetScope
         LLMUsageBudgetSnapshot snapshot,
         string stage)
     {
+        // Unknown historical consumption cannot finance another physical request.
+        // Journaled outstanding attempts remain covered by their retained bounds.
+        if (_costLimit is not null && (!snapshot.CostEstimateAvailable ||
+            snapshot.UncertainCalls > (snapshot.JournaledAttempts?.Values.Count(a => a.VerifiedUsage is null) ?? 0)))
+            throw CreateUnverifiable(stage, "historical_cost_evidence", snapshot);
         if (Limits.MaxElapsed is { } maxElapsed)
         {
             var elapsed = _timeProvider.GetUtcNow() - snapshot.StartedAtUtc;
-            if (elapsed >= maxElapsed)
+            if (elapsed >= maxElapsed && !WarnOptimizationThreshold(stage, "elapsed_ms",
+                (long)Math.Ceiling(maxElapsed.TotalMilliseconds), (long)Math.Ceiling(elapsed.TotalMilliseconds)))
                 throw CreateExceeded(stage, "elapsed_ms", maxElapsed.TotalMilliseconds, elapsed.TotalMilliseconds, snapshot);
         }
 
-        if (Limits.MaxCalls is { } maxCalls && snapshot.Calls >= maxCalls)
+        if (Limits.MaxCalls is { } maxCalls && snapshot.Calls >= maxCalls &&
+            !WarnOptimizationThreshold(stage, "calls", maxCalls, checked(snapshot.Calls + 1)))
             throw CreateExceeded(stage, "calls", maxCalls, snapshot.Calls, snapshot);
 
-        if (Limits.MaxTotalTokens is { } maxTokens && snapshot.TotalTokens >= maxTokens)
+        if (Limits.MaxTotalTokens is { } maxTokens && snapshot.TotalTokens >= maxTokens &&
+            !WarnTokenThreshold(stage, "total_tokens", maxTokens, snapshot.TotalTokens))
             throw CreateExceeded(stage, "total_tokens", maxTokens, snapshot.TotalTokens, snapshot);
 
         if (_costLimit is { } maxCost)
@@ -410,26 +526,34 @@ public sealed class LLMUsageBudgetScope
 
         ModelUsageCostEstimate? sourceCost = null;
         MonetaryAmount? estimatedCost = null;
-        if (_costLimit is not null)
+        string? unavailable = parsedUsage is null ? "usage_unavailable" : costEstimator is null ? "pricing_unavailable" : null;
+        if (_costLimit is not null || IsTrackingOnly || costEstimator is not null)
         {
             if (parsedUsage?.InputTokens is null || parsedUsage.OutputTokens is null)
-                throw CreateUnverifiable(stage, "usage", Snapshot);
-
-            try
             {
-                sourceCost = costEstimator?.EstimateCostWithCurrency(
-                    request.Model,
-                    parsedUsage.InputTokens.Value,
-                    parsedUsage.OutputTokens.Value,
-                    request.Provider);
+                if (_costLimit is not null) throw CreateUnverifiable(stage, "usage", Snapshot);
+                unavailable = "usage_unavailable";
             }
-            catch
+            else
             {
-                throw CreateUnverifiable(stage, "pricing", Snapshot);
+                try
+                {
+                    sourceCost = costEstimator?.EstimateReportedCostWithCurrency(
+                        request.Model, parsedUsage.InputTokens.Value, parsedUsage.OutputTokens.Value, usage, request.Provider);
+                }
+                catch when (_costLimit is null) { unavailable = "pricing_unavailable"; }
+                catch { throw CreateUnverifiable(stage, "pricing", Snapshot); }
+                if (sourceCost is null)
+                {
+                    if (_costLimit is not null) throw CreateUnverifiable(stage, "pricing", Snapshot);
+                    unavailable = "pricing_unavailable";
+                }
+                else
+                {
+                    try { estimatedCost = await ConvertToBudgetCurrencyAsync(sourceCost, stage, ct).ConfigureAwait(false); }
+                    catch (WorkflowRuntimeException) when (_costLimit is null) { unavailable = "exchange_rate_unavailable"; }
+                }
             }
-            if (sourceCost is null)
-                throw CreateUnverifiable(stage, "pricing", Snapshot);
-            estimatedCost = await ConvertToBudgetCurrencyAsync(sourceCost, stage, ct).ConfigureAwait(false);
         }
 
         LLMUsageBudgetSnapshot snapshot;
@@ -443,8 +567,11 @@ public sealed class LLMUsageBudgetScope
                     InputTokens = checked(current.InputTokens + (parsedUsage?.InputTokens ?? 0)),
                     OutputTokens = checked(current.OutputTokens + (parsedUsage?.OutputTokens ?? 0)),
                     TotalTokens = checked(current.TotalTokens + (parsedUsage?.TotalTokens ?? 0)),
-                    EstimatedCost = checked(current.EstimatedCost + (estimatedCost?.Amount ?? 0m)),
-                    EstimatedCostUsd = checked(current.EstimatedCostUsd + ResolveLegacyUsdIncrement(sourceCost, estimatedCost))
+                    UncertainCalls = parsedUsage is null ? current.UncertainCalls : Math.Max(0, current.UncertainCalls - 1),
+                    EstimatedCost = SumCostConservatively(current.EstimatedCost, estimatedCost?.Amount ?? 0m),
+                    EstimatedCostUsd = SumCostConservatively(current.EstimatedCostUsd, ResolveLegacyUsdIncrement(sourceCost, estimatedCost)),
+                    CostEstimateAvailable = current.CostEstimateAvailable && unavailable is null,
+                    CostUnavailableReason = current.CostUnavailableReason ?? unavailable
                 };
                 _snapshot = snapshot;
             }
@@ -454,9 +581,11 @@ public sealed class LLMUsageBudgetScope
             throw CreateUnverifiable(stage, "usage", Snapshot);
         }
 
+        var tokenLimitExceeded = Limits.MaxTotalTokens is { } tokenLimit && snapshot.TotalTokens > tokenLimit &&
+            !WarnTokenThreshold(stage, "total_tokens", tokenLimit, snapshot.TotalTokens);
         await PersistAsync(snapshot, stage, ct).ConfigureAwait(false);
 
-        if (Limits.MaxTotalTokens is { } maxTokens && snapshot.TotalTokens > maxTokens)
+        if (tokenLimitExceeded && Limits.MaxTotalTokens is { } maxTokens)
             throw CreateExceeded(stage, "total_tokens", maxTokens, snapshot.TotalTokens, snapshot);
         if (_costLimit is { } maxCost && snapshot.EstimatedCost > maxCost.Amount)
         {
@@ -467,6 +596,23 @@ public sealed class LLMUsageBudgetScope
                 snapshot.EstimatedCost,
                 snapshot);
         }
+    }
+
+    private bool WarnTokenThreshold(string stage, string kind, long threshold, long current)
+        => _advisoryTokens && WarnThreshold(stage, kind, threshold, current);
+
+    private bool WarnOptimizationThreshold(string stage, string kind, long threshold, long current)
+        => _advisoryOptimizationLimits && WarnThreshold(stage, kind, threshold, current);
+
+    private bool WarnThreshold(string stage, string kind, long threshold, long current)
+    {
+        lock (_gate)
+            if (_thresholdWarnings.Add($"{stage}:{kind}:{WarningRequestId.Value ?? _snapshot.Calls.ToString(System.Globalization.CultureInfo.InvariantCulture)}:{current}:{threshold}"))
+            {
+                RecordTokenWarning(stage, kind, current, threshold);
+                PlanningTokenThresholds.Warn(stage, kind, current, threshold);
+            }
+        return true;
     }
 
     private decimal ResolveLegacyUsdIncrement(
@@ -491,11 +637,9 @@ public sealed class LLMUsageBudgetScope
     private async ValueTask<MonetaryAmount> ConvertToBudgetCurrencyAsync(
         ModelUsageCostEstimate estimate,
         string stage,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool pinQuote = true)
     {
-        if (_costLimit is null)
-            throw new InvalidOperationException("A cost estimate was requested without a monetary budget.");
-
         string sourceCurrency;
         try
         {
@@ -508,7 +652,7 @@ public sealed class LLMUsageBudgetScope
             throw CreateUnverifiable(stage, "currency", Snapshot);
         }
 
-        var targetCurrency = _costLimit.Currency;
+        var targetCurrency = _costLimit?.Currency ?? Snapshot.EstimatedCostCurrency;
         if (string.Equals(sourceCurrency, targetCurrency, StringComparison.Ordinal))
             return new MonetaryAmount(estimate.Amount, targetCurrency);
 
@@ -551,7 +695,7 @@ public sealed class LLMUsageBudgetScope
                 {
                     quote = existing;
                 }
-                else
+                else if (pinQuote)
                 {
                     quote = validatedQuote;
                     _snapshot = _snapshot with
@@ -716,6 +860,10 @@ public sealed class LLMUsageBudgetScope
         var details = new JsonObject
         {
             ["stage"] = stage,
+            ["scope"] = IsTrackingOnly ? "tracking_only" : "finite_llm_budget",
+            ["origin"] = PolicyOrigin,
+            ["allowance"] = limit is null ? null : CreateScalarNode(limit),
+            ["required_reservation"] = current is null ? null : CreateScalarNode(current),
             ["classification"] = classification,
             ["limit_kind"] = limitKind,
             ["retryable"] = false,
@@ -790,7 +938,7 @@ public sealed class LLMUsageBudgetScope
         }
 
         if (snapshot.StartedAtUtc == default || snapshot.StartedAtUtc > now
-            || snapshot.Calls < 0 || snapshot.InputTokens < 0 || snapshot.OutputTokens < 0
+            || snapshot.Calls < 0 || snapshot.UncertainCalls < 0 || snapshot.UncertainCalls > snapshot.Calls || snapshot.InputTokens < 0 || snapshot.OutputTokens < 0
             || snapshot.TotalTokens < componentTotal || normalizedEstimatedCost < 0 || normalizedLegacyUsd < 0
             || snapshot.ExchangeRates is null
             || !InitialExchangeRatesAreValid(snapshot.ExchangeRates, now))
@@ -800,7 +948,11 @@ public sealed class LLMUsageBudgetScope
             EstimatedCost = normalizedEstimatedCost,
             EstimatedCostCurrency = snapshotCurrency,
             EstimatedCostUsd = normalizedLegacyUsd,
-            ExchangeRates = snapshot.ExchangeRates.ToArray()
+            ExchangeRates = snapshot.ExchangeRates.ToArray(),
+            JournaledAttempts = ValidateJournaledAttempts(snapshot with
+            {
+                EstimatedCost = normalizedEstimatedCost, EstimatedCostUsd = normalizedLegacyUsd
+            })
         };
     }
 

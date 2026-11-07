@@ -1,0 +1,8 @@
+{
+  "evidence": "controlled assets; actual Agent.Server; no inference",
+  "scenario": "missing_css",
+  "startupFailureVisible": true,
+  "interactive": false,
+  "reload": false,
+  "errors": []
+}

@@ -1,0 +1,186 @@
+{
+  "version": 1,
+  "source": "66360362da0845513137178ff51752f61b4249ef",
+  "case": "amazon",
+  "cohort": "compactr66360362damz22v6o16",
+  "profile": {
+    "model": "gpt-5.5-2026-04-24",
+    "benchmark_binary_sha256": "a66358ba09da3337decaabc5822519579446dbc21657417c101628b178019d32",
+    "phase_policy": {
+      "version": 1,
+      "navigation": {
+        "reasoning": "high",
+        "targetInputTokens": 3000,
+        "maxInputTokens": 12000,
+        "outputTokens": 32768
+      },
+      "draft": {
+        "reasoning": "medium",
+        "targetInputTokens": 8000,
+        "maxInputTokens": 22000,
+        "outputTokens": 16384
+      },
+      "review": {
+        "reasoning": "medium",
+        "targetInputTokens": 4000,
+        "maxInputTokens": 16000,
+        "outputTokens": 16384
+      }
+    }
+  },
+  "comparison": {
+    "control_cohort": "compactr66360362damz22v6j16",
+    "control_freeze_sha256": "e5fc4bba7c1fe32bd8c38e3ca563506c4a597082fc3ee15f20ab6f667534245c",
+    "only_changed_field": "review.outputTokens",
+    "before": 8192,
+    "after": 16384,
+    "causal_or_business_benefit_established": false
+  },
+  "outcome": {
+    "session_status": "stopped",
+    "session_phase": "construction_local_judge",
+    "diagnostic_codes": [
+      "CONSTRUCTION_REVIEW_INCONCLUSIVE",
+      "MODEL_OUTPUT_LIMIT"
+    ],
+    "termination_reason": null,
+    "corrections": 1,
+    "checkpoints": 2,
+    "construction_complete": false,
+    "artifact_hash": null,
+    "execution_started": false,
+    "execution_success": false,
+    "execution_status": "not_started",
+    "oracle_passed": null,
+    "planning_ms": 916662,
+    "elapsed_ms": null,
+    "runtime_ms": null,
+    "logical_dispatched": 22,
+    "physical_attempts": 22,
+    "receipts": 22
+  },
+  "requests": {
+    "identities_measured": 24,
+    "prepared_but_undispatched": 2,
+    "measured_admission_rejections": 0,
+    "receiptless_dispatched": 0,
+    "provider_http_status_counts": {
+      "200": 22
+    },
+    "complete_request_bytes_total": 522226,
+    "all_constructed_request_bytes": {
+      "count": 24,
+      "p50": "18260.5",
+      "p95": "46823",
+      "max": "59602"
+    },
+    "estimated_input_tokens_total": 180229,
+    "all_constructed_estimated_input_tokens": {
+      "count": 24,
+      "p50": "6343.5",
+      "p95": "15864",
+      "max": "20124"
+    },
+    "receipted_logical_elapsed_ms": {
+      "count": 22,
+      "p50": "25624.70895",
+      "p95": "72058.1989",
+      "max": "200100.4382"
+    }
+  },
+  "usage_and_cost": {
+    "input_tokens": 99775,
+    "output_tokens": 46439,
+    "reasoning_tokens_within_output": 41948,
+    "known_cost_eur": "1.6885720660419455600178491745",
+    "retained_reservation_eur": 0,
+    "run_cost_upper_bound_eur": "1.6885720660419455600178491745",
+    "unknown_usage_attempts": 0,
+    "completed_logical_intervals_ms": "840315.7634"
+  },
+  "original_formatting": {
+    "receipt_count": 22,
+    "nonempty_valid_json_texts": 21,
+    "empty_original_texts": 1,
+    "nonempty_non_json_texts": 0,
+    "original_utf8_bytes": 13868,
+    "outside_string_whitespace_bytes_in_valid_json": 5,
+    "maximum_outside_string_whitespace_run_bytes_in_valid_json": 2,
+    "normalized_response_bytes": 14014
+  },
+  "last_received_judge": {
+    "request_ordinal": 22,
+    "http_statuses": [
+      200
+    ],
+    "completion_status": "output_limit",
+    "reasoning": "medium",
+    "max_output_tokens": 16384,
+    "input_tokens": 10142,
+    "output_tokens": 16384,
+    "reasoning_tokens_within_output": 16384,
+    "visible_text_bytes": 0,
+    "report": null
+  },
+  "post_run_campaign_snapshot": {
+    "checked_at_utc": "2026-10-25T22:02:22.288065+00:00",
+    "source": "66360362da0845513137178ff51752f61b4249ef",
+    "cost_ceiling_eur": "440.0301038327063045424449473",
+    "known_cost_eur": "184.56670309544704485170160177",
+    "retained_reservations_eur": "55.377596940087135472783637285",
+    "cost_upper_bound_eur": "239.94430003553418032448523906",
+    "available_eur": "200.08580379717212421795970824",
+    "retained_receiptless": 30,
+    "unresolved_receiptless": 0,
+    "transport_attempts": 4046,
+    "readiness_sha256": "991659193e0158e36e57e23f7b6644ed50918f43c118ab2abce20d86b567f9a8"
+  },
+  "snapshot_decimal_note": {
+    "known_plus_reserves_minus_reported_upper_eur": "-5E-27",
+    "reported_decimal_strings_preserved": true,
+    "available_equals_reported_ceiling_minus_upper": true
+  },
+  "verified_fulfilled_business_obligations": null,
+  "calls_per_fulfilled_obligation": null,
+  "provenance": [
+    {
+      "file": "amazon-terminal-numeric-safe.json",
+      "sha256": "52ab95120f1031ca765262198deca5896b86bcdfc3860a74a9319378c86be1d2"
+    },
+    {
+      "file": "numeric-reconciliation-safe.json",
+      "sha256": "2e825bbaa50a99b411aed156e4ad34a87f379dbaa474db4e536264c7c9d42c2a"
+    },
+    {
+      "file": "amazon-original-formatting-safe.json",
+      "sha256": "e7ba669853e0c48da67edfc5d6fec228bd71d2871f7daf01bc8cc9914a8c2cb6"
+    },
+    {
+      "file": "formatting-review-safe.json",
+      "sha256": "e68316bd99ad0b515c9aa7e179170393039a324065dd34844b59145864df2e01"
+    },
+    {
+      "file": "amazon-terminal-exact-metrics.json",
+      "sha256": "abb47f739dbbd0b5873d3af167d8ad0cd520f73a5f6843f6d509332e889b8c93"
+    },
+    {
+      "file": "freeze.json",
+      "sha256": "44b08e101ca99ffbe396d331a9001a3d0be82bdde158c4049feb215c39ede23b"
+    },
+    {
+      "file": "post-run-accounting-safe.json",
+      "sha256": "2c60c857f8aed5de6a49288d6b15fae2dedd99bdbd393669f3f6b62266d661c1"
+    },
+    {
+      "file": "amazon-last-review-settings-safe.json",
+      "sha256": "c875907eb3c2aefa4f3610a777bc59a565dc19773f99ff0065e3d425d20e17bc"
+    }
+  ],
+  "limitations": [
+    "One separately frozen run does not establish efficacy or causality relative to its control.",
+    "The received empty output-limit response contains no Judge verdict; semantic assessment is separate.",
+    "Original formatting aggregates come from the root in-memory scanner; independent review reconciled counters and receipt hashes without a raw rescan.",
+    "The accounting snapshot is dated; it is not a claim about later available funds.",
+    "No artifact, runtime result, independently fulfilled business denominator or completed comparison gate."
+  ]
+}

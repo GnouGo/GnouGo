@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "navigation": {
+    "targetInputTokens": 3000,
+    "maxInputTokens": 24000,
+    "reasoning": "high",
+    "outputTokens": 32768
+  },
+  "draft": {
+    "targetInputTokens": 8000,
+    "maxInputTokens": 32000,
+    "reasoning": "medium",
+    "outputTokens": 16384
+  },
+  "review": {
+    "targetInputTokens": 4000,
+    "maxInputTokens": 24000,
+    "reasoning": "medium",
+    "outputTokens": 16384
+  }
+}

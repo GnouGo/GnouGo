@@ -1,0 +1,681 @@
+{
+  "schema": 1,
+  "recorded_utc": "2026-10-30T10:41:04Z",
+  "purpose": "Completed source-bound live diagnostic; no accepted producer or qualification claim",
+  "source": "afe43f4a1803bd68cd78077306fb8eb801a0658e",
+  "run": "bizafe43f4aamz01-amazon-1",
+  "scenario": "amazon",
+  "prompt_hash": "5d736867756f6bd616a6ed1f657d2c657ba3a88912992a9b010098f42c7580a1",
+  "oracle_version": "amazon-business-v4",
+  "status": "stopped",
+  "planning_ms": 584228,
+  "calls": 12,
+  "repairs": 4,
+  "accepted_checkpoints": 0,
+  "productive_business_blocks": 0,
+  "final_artifact": false,
+  "global_review_approved": false,
+  "execution_status": "not_started",
+  "oracle_accepted": false,
+  "operator_intervention": false,
+  "planning_accounting": {
+    "logical_calls": 12,
+    "physical_attempts": 12,
+    "known_input_tokens": 64242,
+    "known_output_tokens": 17947,
+    "known_cost_eur": "0.7721368903260576663971975209",
+    "unknown_attempts": 0,
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0
+  },
+  "terminal_diagnostics": [
+    {
+      "code": "CONSTRUCTION_EVIDENCE_INVALID",
+      "location": "/evidenceRequests",
+      "message": "Inspect only an accessible accepted producer before selecting a business step.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REPLAN_NO_PROGRESS",
+      "location": "/",
+      "message": "The model repeated a rejected compact construction action.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "demonstrated_failure": {
+    "request": 7,
+    "draft": "Populated reusable group with eight recursive tasks, including foreach, dependent workbook mappings, browser/document operations and unconditional browser cleanup.",
+    "codes": [
+      "TASK_SCOPE_OPEN"
+    ],
+    "cause": "New populated child scopes were unconditionally marked open. The received fragment omitted closeScopes, so following tasks could not consume the loop completion or output.",
+    "subsequent_attempts": "Scoped repair could not close the producer boundary; reselection requested unavailable candidate evidence. Repeated rejected strategy and six nonproductive calls ended generation.",
+    "correction_hypothesis": "Mechanically close newly introduced complete scopes, retaining explicit block continuation/prerequisite boundaries and ancestors; do not automatically close existing scopes or root.",
+    "correction_verified": false
+  },
+  "campaign_after": {
+    "ledger_hash": "4d3a5b19dec7c9b4e5684596b18b4b31d21e161425b1535bffc0af630c487c0e",
+    "known_cost_eur": "387.57057412253572833800466921",
+    "retained_reservations_eur": "124.75017598346806059246653672",
+    "available_eur": "127.70935372670251561197374137",
+    "unknown_attempts": 146,
+    "unresolved_requests": 0,
+    "ceiling_eur": "640.0301038327063045424449473",
+    "permanent_closures": 56
+  },
+  "request_metrics": {
+    "estimator": "serialized_utf8_div3_plus256_v1",
+    "phases": {
+      "construction_intent": {
+        "prepared_requests": 1,
+        "requests": 1,
+        "rejected_before_dispatch": 0,
+        "above_target_warnings": 0,
+        "structured_warnings": 0,
+        "productive_transitions": 0,
+        "peak_complete_request_bytes": 7283,
+        "p50_complete_request_bytes": 7283,
+        "p95_complete_request_bytes": 7283,
+        "peak_estimated_input_tokens": 2684,
+        "peak_admitted_request_bytes": 7283,
+        "peak_admitted_input_tokens": 2684,
+        "p50_estimated_input_tokens": 2684,
+        "p95_estimated_input_tokens": 2684,
+        "within_captured_limits": true,
+        "admitted_within_captured_limits": true,
+        "components": {
+          "construction_context": {
+            "serialized_bytes": 29,
+            "estimated_tokens": 10
+          },
+          "diagnostics": {
+            "serialized_bytes": 26,
+            "estimated_tokens": 9
+          },
+          "envelope": {
+            "serialized_bytes": 422,
+            "estimated_tokens": 397
+          },
+          "instructions": {
+            "serialized_bytes": 1404,
+            "estimated_tokens": 468
+          },
+          "intent": {
+            "serialized_bytes": 1188,
+            "estimated_tokens": 396
+          },
+          "interfaces": {
+            "serialized_bytes": 59,
+            "estimated_tokens": 20
+          },
+          "response_schema": {
+            "serialized_bytes": 4155,
+            "estimated_tokens": 1385
+          }
+        }
+      },
+      "construction_select": {
+        "prepared_requests": 4,
+        "requests": 4,
+        "rejected_before_dispatch": 0,
+        "above_target_warnings": 4,
+        "structured_warnings": 4,
+        "productive_transitions": 0,
+        "peak_complete_request_bytes": 15259,
+        "p50_complete_request_bytes": 15120,
+        "p95_complete_request_bytes": 15259,
+        "peak_estimated_input_tokens": 5343,
+        "peak_admitted_request_bytes": 15259,
+        "peak_admitted_input_tokens": 5343,
+        "p50_estimated_input_tokens": "5296.5",
+        "p95_estimated_input_tokens": 5343,
+        "within_captured_limits": true,
+        "admitted_within_captured_limits": true,
+        "components": {
+          "construction_context": {
+            "serialized_bytes": 10157,
+            "estimated_tokens": 3388
+          },
+          "envelope": {
+            "serialized_bytes": 1967,
+            "estimated_tokens": 1681
+          },
+          "instructions": {
+            "serialized_bytes": 12144,
+            "estimated_tokens": 4048
+          },
+          "interfaces": {
+            "serialized_bytes": 1176,
+            "estimated_tokens": 392
+          },
+          "requirements": {
+            "serialized_bytes": 10449,
+            "estimated_tokens": 3483
+          },
+          "response_schema": {
+            "serialized_bytes": 20839,
+            "estimated_tokens": 6949
+          },
+          "diagnostics": {
+            "serialized_bytes": 554,
+            "estimated_tokens": 186
+          }
+        }
+      },
+      "construction_discovery": {
+        "prepared_requests": 4,
+        "requests": 3,
+        "rejected_before_dispatch": 0,
+        "above_target_warnings": 4,
+        "structured_warnings": 4,
+        "productive_transitions": 0,
+        "peak_complete_request_bytes": 23361,
+        "p50_complete_request_bytes": "18910.5",
+        "p95_complete_request_bytes": 23361,
+        "peak_estimated_input_tokens": 8043,
+        "peak_admitted_request_bytes": 23361,
+        "peak_admitted_input_tokens": 8043,
+        "p50_estimated_input_tokens": 6560,
+        "p95_estimated_input_tokens": 8043,
+        "within_captured_limits": true,
+        "admitted_within_captured_limits": true,
+        "components": {
+          "construction_context": {
+            "serialized_bytes": 5681,
+            "estimated_tokens": 1895
+          },
+          "envelope": {
+            "serialized_bytes": 1947,
+            "estimated_tokens": 1674
+          },
+          "instructions": {
+            "serialized_bytes": 8676,
+            "estimated_tokens": 2892
+          },
+          "mcp_descriptors": {
+            "serialized_bytes": 6782,
+            "estimated_tokens": 2263
+          },
+          "objective": {
+            "serialized_bytes": 1932,
+            "estimated_tokens": 644
+          },
+          "requirements": {
+            "serialized_bytes": 10449,
+            "estimated_tokens": 3483
+          },
+          "response_schema": {
+            "serialized_bytes": 25053,
+            "estimated_tokens": 8353
+          },
+          "evidence": {
+            "serialized_bytes": 12515,
+            "estimated_tokens": 4172
+          }
+        }
+      },
+      "construction_draft": {
+        "prepared_requests": 3,
+        "requests": 2,
+        "rejected_before_dispatch": 0,
+        "above_target_warnings": 3,
+        "structured_warnings": 3,
+        "productive_transitions": 0,
+        "peak_complete_request_bytes": 58727,
+        "p50_complete_request_bytes": 45741,
+        "p95_complete_request_bytes": 58727,
+        "peak_estimated_input_tokens": 19832,
+        "peak_admitted_request_bytes": 58727,
+        "peak_admitted_input_tokens": 19832,
+        "p50_estimated_input_tokens": 15503,
+        "p95_estimated_input_tokens": 19832,
+        "within_captured_limits": true,
+        "admitted_within_captured_limits": true,
+        "components": {
+          "construction_context": {
+            "serialized_bytes": 8125,
+            "estimated_tokens": 2709
+          },
+          "diagnostics": {
+            "serialized_bytes": 78,
+            "estimated_tokens": 27
+          },
+          "envelope": {
+            "serialized_bytes": 1488,
+            "estimated_tokens": 1266
+          },
+          "evidence": {
+            "serialized_bytes": 7178,
+            "estimated_tokens": 2394
+          },
+          "fragment": {
+            "serialized_bytes": 66,
+            "estimated_tokens": 24
+          },
+          "instructions": {
+            "serialized_bytes": 4029,
+            "estimated_tokens": 1344
+          },
+          "interfaces": {
+            "serialized_bytes": 1017,
+            "estimated_tokens": 339
+          },
+          "mcp_contracts": {
+            "serialized_bytes": 39519,
+            "estimated_tokens": 13173
+          },
+          "objective": {
+            "serialized_bytes": 1449,
+            "estimated_tokens": 483
+          },
+          "requirements": {
+            "serialized_bytes": 7839,
+            "estimated_tokens": 2613
+          },
+          "response_schema": {
+            "serialized_bytes": 78992,
+            "estimated_tokens": 26332
+          }
+        }
+      },
+      "replan": {
+        "prepared_requests": 2,
+        "requests": 2,
+        "rejected_before_dispatch": 0,
+        "above_target_warnings": 2,
+        "structured_warnings": 2,
+        "productive_transitions": 0,
+        "peak_complete_request_bytes": 52779,
+        "p50_complete_request_bytes": "52616.5",
+        "p95_complete_request_bytes": 52779,
+        "peak_estimated_input_tokens": 17849,
+        "peak_admitted_request_bytes": 52779,
+        "peak_admitted_input_tokens": 17849,
+        "p50_estimated_input_tokens": 17795,
+        "p95_estimated_input_tokens": 17849,
+        "within_captured_limits": true,
+        "admitted_within_captured_limits": true,
+        "components": {
+          "construction_context": {
+            "serialized_bytes": 32192,
+            "estimated_tokens": 10732
+          },
+          "diagnostics": {
+            "serialized_bytes": 1519,
+            "estimated_tokens": 507
+          },
+          "envelope": {
+            "serialized_bytes": 992,
+            "estimated_tokens": 844
+          },
+          "evidence": {
+            "serialized_bytes": 50,
+            "estimated_tokens": 18
+          },
+          "fragment": {
+            "serialized_bytes": 20454,
+            "estimated_tokens": 6818
+          },
+          "instructions": {
+            "serialized_bytes": 7120,
+            "estimated_tokens": 2374
+          },
+          "interfaces": {
+            "serialized_bytes": 350,
+            "estimated_tokens": 118
+          },
+          "mcp_contracts": {
+            "serialized_bytes": 17090,
+            "estimated_tokens": 5698
+          },
+          "objective": {
+            "serialized_bytes": 966,
+            "estimated_tokens": 322
+          },
+          "requirements": {
+            "serialized_bytes": 5224,
+            "estimated_tokens": 1742
+          },
+          "response_schema": {
+            "serialized_bytes": 19276,
+            "estimated_tokens": 6426
+          }
+        }
+      }
+    },
+    "productive_business_blocks": 0,
+    "interpretation": "Peaks, percentiles and component sums include all prepared requests, including rejected requests. Requests counts admitted requests; admitted peaks and limits are explicit. Component estimates describe serialized request bytes, not billed usage. Judge is a phase; component token rounding is not additive. Provider input/output usage is measured for each whole call."
+  },
+  "planning_stages": {
+    "construction_intent": {
+      "input_tokens": 1206,
+      "output_tokens": 1898,
+      "known_input_tokens": 1206,
+      "known_output_tokens": 1898,
+      "estimated_cost_eur": "0.0565615736998113715979520345",
+      "known_cost_eur": "0.0565615736998113715979520345",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 1,
+      "elapsed_ms": "42750.1005",
+      "physical_attempts": 1
+    },
+    "construction_select": {
+      "input_tokens": 12016,
+      "output_tokens": 3198,
+      "known_input_tokens": 12016,
+      "known_output_tokens": 3198,
+      "estimated_cost_eur": "0.1401419204167789454774095033",
+      "known_cost_eur": "0.1401419204167789454774095033",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 4,
+      "elapsed_ms": "136471.018",
+      "physical_attempts": 4
+    },
+    "construction_discovery": {
+      "input_tokens": 10120,
+      "output_tokens": 3955,
+      "known_input_tokens": 10120,
+      "known_output_tokens": 3955,
+      "estimated_cost_eur": "0.1520255097458007724782179107",
+      "known_cost_eur": "0.1520255097458007724782179107",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 3,
+      "elapsed_ms": "123457.2197",
+      "physical_attempts": 3
+    },
+    "construction_draft": {
+      "input_tokens": 21554,
+      "output_tokens": 4917,
+      "known_input_tokens": 21554,
+      "known_output_tokens": 4917,
+      "estimated_cost_eur": "0.2293002784514506422347974490",
+      "known_cost_eur": "0.2293002784514506422347974490",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 2,
+      "elapsed_ms": "104180.1304",
+      "physical_attempts": 2
+    },
+    "replan": {
+      "input_tokens": 19346,
+      "output_tokens": 3979,
+      "known_input_tokens": 19346,
+      "known_output_tokens": 3979,
+      "estimated_cost_eur": "0.1941076080122159346088206234",
+      "known_cost_eur": "0.1941076080122159346088206234",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 2,
+      "elapsed_ms": "96857.1623",
+      "physical_attempts": 2
+    }
+  },
+  "response_summary": {
+    "bizafe43f4aamz01-amazon-1:1:46fa69485f8005341b4641a65636acdc4c680e5d4ec69a14cca9472cf5452373": {
+      "purpose": "construction_intent",
+      "completion_status": null,
+      "content_bytes": 1466,
+      "reasoning_tokens": 1536
+    },
+    "bizafe43f4aamz01-amazon-1:2:7e09b154744039777acc46e65b339cd6bf41a19f439f8b22891beae2c7adfd7b:8a316497e9d494436d335d3c8b2f79bb986274379cabc927dd87a6a3d38549ed": {
+      "purpose": "construction_select",
+      "completion_status": null,
+      "content_bytes": 1555,
+      "reasoning_tokens": 1024
+    },
+    "bizafe43f4aamz01-amazon-1:3:5a36ceb2fa6501d7fb65ea5bc810acd91a34459835200a63a0d6a34472fe1b30:6517d0ececa39737cd586b18207bfa6b2b38a144c74e4c41711f80b80ed05716": {
+      "purpose": "construction_discovery",
+      "completion_status": null,
+      "content_bytes": 292,
+      "reasoning_tokens": 252
+    },
+    "bizafe43f4aamz01-amazon-1:4:536e6c70f9ca50bfbfc5c3c59489e5c1616c9b0dba9e7f49115d71d40f4a7cd8:015586d84c4f9df0e28825645982c09ce72524f613beaf7aa86615de0103b1fa": {
+      "purpose": "construction_discovery",
+      "completion_status": null,
+      "content_bytes": 174,
+      "reasoning_tokens": 307
+    },
+    "bizafe43f4aamz01-amazon-1:5:066ac14afd60e8582e152c429705501579f9e198b9f0206365b5679e5f5dcb85:7932d0d97d8d398a33ed7c59e6799b63b2a9af0ccbf9576ef513f34b1da3ef10": {
+      "purpose": "construction_discovery",
+      "completion_status": null,
+      "content_bytes": 263,
+      "reasoning_tokens": 3072
+    },
+    "bizafe43f4aamz01-amazon-1:6:ae0d80df5a2005949af5dfb26384ae305d40b903a3608ed368d233eccfa7b7b4:1c89d38fc7f8d2ef5a23af5be64c2bb026683c15bac4781ecbb61437f8ca9f6a": {
+      "purpose": "construction_draft",
+      "completion_status": null,
+      "content_bytes": 190,
+      "reasoning_tokens": 1024
+    },
+    "bizafe43f4aamz01-amazon-1:7:fca12f062464ad001072b2bd4b02fc3349a5590f9be22e06b20a98626036fdd5:4bd51b174a6113c5dec3f1a8e974ef974132646db9434426e2ace4a18d7923e7": {
+      "purpose": "construction_draft",
+      "completion_status": null,
+      "content_bytes": 6942,
+      "reasoning_tokens": 2048
+    },
+    "bizafe43f4aamz01-amazon-1:8:223f8c30733f792836fddf3c092a938d972bee7e65dec5cc18de498a7d671603:fddd405d9d256eb7995397c2bb2b1d2de57030920febca982ff008f999a4217f": {
+      "purpose": "replan",
+      "completion_status": null,
+      "content_bytes": 340,
+      "reasoning_tokens": 3180
+    },
+    "bizafe43f4aamz01-amazon-1:9:57b21999ed8d9d93f8b7794b462cc5f5fa1adcd5985d4d4d5bbff13387b37c22:e1501d82f4cc0f8b542a0187aa12895bdc967da8d906edd5a1955a8799e987da": {
+      "purpose": "replan",
+      "completion_status": null,
+      "content_bytes": 740,
+      "reasoning_tokens": 512
+    },
+    "bizafe43f4aamz01-amazon-1:10:afcdbf5898552099845a84400423b0a8aef9d2f1710ff9e726d2b3f5bc54d94b:faf472ee81a0d011ebb277b424e2d79ae78e8849113b393a56ae77cda7b296a3": {
+      "purpose": "construction_select",
+      "completion_status": null,
+      "content_bytes": 176,
+      "reasoning_tokens": 512
+    },
+    "bizafe43f4aamz01-amazon-1:11:c1af63736dbe9c269e1098669266eb3f43b2c1b65ef2e1533c3ddd8b54642673:04f2eee86138738f4d3164d26ee76d64cdd471c366e0ae6c23c4054120df199c": {
+      "purpose": "construction_select",
+      "completion_status": null,
+      "content_bytes": 148,
+      "reasoning_tokens": 512
+    },
+    "bizafe43f4aamz01-amazon-1:12:1267b2bffa7545096f4ee4c0effc6704d04c07bab06b0a874ef984e9180d89be:7ffddcb53657539a83b8fdc26d61ad563cd651874a6f4b3f787c1938586afb8e": {
+      "purpose": "construction_select",
+      "completion_status": null,
+      "content_bytes": 176,
+      "reasoning_tokens": 512
+    }
+  },
+  "evidence_hashes": {
+    "terminal_inspection_sha256": "eb27dd1d4e51f7fbaba6c556f80a9aabcc42b333f60b1804a519bb7a61c0a9e2",
+    "terminal_state_sha256": "29f843758fa3f59f5f00d7552f233e83ff3bbd3808e9cc552c7eea302652ea23",
+    "received_draft_response_sha256": "1aaa516d09513636ee98426dfeab456b52a710757eb4d74018320f78b479e1c1",
+    "terminal_campaign_sha256": "594d8bce94a253ff872f6fb13c76c11dbaf77c191804eb21bed70405be2a037a",
+    "terminal_summary_sha256": "12298ef7073f6097d31fb8b42a380f467e18aaa6d401dceb794fb5e02c4cb718"
+  },
+  "qualification": "Failed diagnostic; does not qualify. Two consecutive successes per scenario still required on final source.",
+  "warning_inventory": [
+    {
+      "phase": "construction_select",
+      "block": "step_1",
+      "warning": {
+        "kind": "input_target",
+        "current": 4185,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_select"
+      }
+    },
+    {
+      "phase": "construction_discovery",
+      "block": "step_1",
+      "warning": {
+        "kind": "input_target",
+        "current": 4207,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_discovery"
+      }
+    },
+    {
+      "phase": "construction_discovery",
+      "block": "step_1",
+      "warning": {
+        "kind": "input_target",
+        "current": 5667,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_discovery"
+      }
+    },
+    {
+      "phase": "construction_discovery",
+      "block": "step_1",
+      "warning": {
+        "kind": "input_target",
+        "current": 8043,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_discovery"
+      }
+    },
+    {
+      "phase": "construction_draft",
+      "block": "step_1",
+      "warning": {
+        "kind": "input_target",
+        "current": 15503,
+        "threshold": 8000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_draft"
+      }
+    },
+    {
+      "phase": "construction_draft",
+      "block": "step_1",
+      "warning": {
+        "kind": "input_target",
+        "current": 19832,
+        "threshold": 8000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_draft"
+      }
+    },
+    {
+      "phase": "replan",
+      "block": "step_1",
+      "warning": {
+        "kind": "input_target",
+        "current": 17741,
+        "threshold": 8000,
+        "basis": "conservative_request_estimate",
+        "stage": "replan"
+      }
+    },
+    {
+      "phase": "replan",
+      "block": "step_1",
+      "warning": {
+        "kind": "input_target",
+        "current": 17849,
+        "threshold": 8000,
+        "basis": "conservative_request_estimate",
+        "stage": "replan"
+      }
+    },
+    {
+      "phase": "construction_select",
+      "block": null,
+      "warning": {
+        "kind": "input_target",
+        "current": 5250,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_select"
+      }
+    },
+    {
+      "phase": "construction_select",
+      "block": null,
+      "warning": {
+        "kind": "input_target",
+        "current": 5343,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_select"
+      }
+    },
+    {
+      "phase": "construction_select",
+      "block": null,
+      "warning": {
+        "kind": "input_target",
+        "current": 5343,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_select"
+      }
+    },
+    {
+      "phase": "construction_discovery",
+      "block": "step_1",
+      "warning": {
+        "kind": "input_target",
+        "current": 7453,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_discovery"
+      }
+    },
+    {
+      "phase": "construction_draft",
+      "block": "step_1",
+      "warning": {
+        "kind": "input_target",
+        "current": 15360,
+        "threshold": 8000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_draft"
+      }
+    }
+  ],
+  "transition_guard": {
+    "counted_model_calls": 12,
+    "nonproductive_model_calls": 6,
+    "captured_limit": 6,
+    "accepted_behaviors": 0,
+    "review_completed_obligations": 0,
+    "useful_evidence_records": 15
+  },
+  "reasoning_tokens_included_in_output": 14491,
+  "qualification_report": {
+    "source": "afe43f4a1803bd68cd78077306fb8eb801a0658e",
+    "passed": 0,
+    "required": 6,
+    "complete": false,
+    "amazon_consecutive": 0,
+    "code_attempts": 0,
+    "collections_attempts": 0
+  }
+}

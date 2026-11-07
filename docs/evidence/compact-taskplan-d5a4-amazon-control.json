@@ -1,0 +1,170 @@
+{
+  "kind": "frozen_pagination_only_control",
+  "source": "d5a4cac23ebe7fa8525ecb8f0299c65b6613d870",
+  "cohort": "compactrd5a4cac23amz22j20v8p9a",
+  "case": "amazon",
+  "freeze_sha256": "4c721156a2d5357a8581e5e327890762e4b7a880190f7dcc689d91bd3f9547a7",
+  "safe_metrics_sha256": "149e9f3a7a48e0c399d05d836785ceab20084bd19dada4a9456ae75f341c48d1",
+  "canonical_state_sha256": "4c2bc68d53458bf80551116a88c7ebe543c1c285c8a429b24f69acdaf5922af3",
+  "reader_version": 2,
+  "read_at_utc": "2026-10-26T22:57:52.8886540+00:00",
+  "status": "stopped_before_next_draft_dispatch",
+  "artifact_available": false,
+  "runtime_started": false,
+  "runtime_success": false,
+  "oracle_passed": null,
+  "fulfilled_business_obligations": 0,
+  "calls_per_fulfilled_obligation": null,
+  "logical_requests": 29,
+  "physical_attempts": 29,
+  "receipts": 29,
+  "corrections": 3,
+  "accepted_checkpoints": 3,
+  "provider_input_tokens": 159057,
+  "provider_output_tokens": 47846,
+  "provider_reasoning_tokens": 41362,
+  "known_cost_eur": "1.9907764390896921017402945115",
+  "unknown_usage_reservation_eur": "0",
+  "planning_ms": 1190632,
+  "runtime_ms": null,
+  "empty_received_responses": 0,
+  "transport_uncertainty": false,
+  "admitted_complete_request_bytes": {
+    "count": 29,
+    "p50": 19116,
+    "p95_nearest_rank": 65065,
+    "maximum": 65076,
+    "total": 734178
+  },
+  "phase_metrics": {
+    "construction_discovery": {
+      "logical_requests": 10,
+      "physical_attempts": 10,
+      "receipts": 10,
+      "provider_input_tokens": 37588,
+      "provider_output_tokens": 16077,
+      "provider_reasoning_tokens": 15056,
+      "known_cost_eur": "0.5981704596162427487728692549",
+      "unknown_usage_reservation_eur": "0",
+      "complete_request_bytes": {
+        "count": 10,
+        "p50": 19019.0,
+        "p95_nearest_rank": 25453,
+        "maximum": 25453,
+        "total": 190338
+      }
+    },
+    "construction_draft": {
+      "logical_requests": 8,
+      "physical_attempts": 8,
+      "receipts": 8,
+      "provider_input_tokens": 78193,
+      "provider_output_tokens": 10270,
+      "provider_reasoning_tokens": 7368,
+      "known_cost_eur": "0.6238866577420794288264167782",
+      "unknown_usage_reservation_eur": "0",
+      "complete_request_bytes": {
+        "count": 8,
+        "p50": 40951.5,
+        "p95_nearest_rank": 65076,
+        "maximum": 65076,
+        "total": 338479
+      }
+    },
+    "construction_intent": {
+      "logical_requests": 2,
+      "physical_attempts": 2,
+      "receipts": 2,
+      "provider_input_tokens": 2316,
+      "provider_output_tokens": 3781,
+      "provider_reasoning_tokens": 3072,
+      "known_cost_eur": "0.1115662650602409638554216867",
+      "unknown_usage_reservation_eur": "0",
+      "complete_request_bytes": {
+        "count": 2,
+        "p50": 6256.5,
+        "p95_nearest_rank": 9422,
+        "maximum": 9422,
+        "total": 12513
+      }
+    },
+    "construction_local_judge": {
+      "logical_requests": 3,
+      "physical_attempts": 3,
+      "receipts": 3,
+      "provider_input_tokens": 16912,
+      "provider_output_tokens": 1827,
+      "provider_reasoning_tokens": 1591,
+      "known_cost_eur": "0.1243819723337795626952253458",
+      "unknown_usage_reservation_eur": "0",
+      "complete_request_bytes": {
+        "count": 3,
+        "p50": 19116,
+        "p95_nearest_rank": 46858,
+        "maximum": 46858,
+        "total": 80392
+      }
+    },
+    "construction_select": {
+      "logical_requests": 6,
+      "physical_attempts": 6,
+      "receipts": 6,
+      "provider_input_tokens": 24048,
+      "provider_output_tokens": 15891,
+      "provider_reasoning_tokens": 14275,
+      "known_cost_eur": "0.5327710843373493975903614459",
+      "unknown_usage_reservation_eur": "0",
+      "complete_request_bytes": {
+        "count": 6,
+        "p50": 18265.0,
+        "p95_nearest_rank": 30739,
+        "maximum": 30739,
+        "total": 112456
+      }
+    }
+  },
+  "constructed_request_measurements": {
+    "count": 37,
+    "admission_counts": {
+      "admitted": 29,
+      "prepared": 7,
+      "rejected_before_dispatch": 1
+    },
+    "components_reconcile": true
+  },
+  "rejected_request": {
+    "phase": "construction_draft",
+    "requestId": "compactrd5a4cac23amz22j20v8p9a-amazon-1:30:6ccf4ac7086b656cf1337fb4af32081582e4d12f4395e27e76b97428bf5f75e5",
+    "requestHash": "20f12c66a2c3aeeac96ad522ef439873ec20a0371fdab2bcaedd63d254c16260",
+    "schemaHash": "b97e0b26dd761cf8368ac94a3b608e97233aaeb0b486ecd0b28b86f890d1c2d1",
+    "inputLimit": 22000,
+    "completeRequestBytes": 79410,
+    "estimatedInputTokens": 26726
+  },
+  "frozen_phase_policy": {
+    "version": 1,
+    "navigation": {
+      "reasoning": "high",
+      "targetInputTokens": 3000,
+      "maxInputTokens": 12000,
+      "outputTokens": 32768
+    },
+    "draft": {
+      "reasoning": "medium",
+      "targetInputTokens": 8000,
+      "maxInputTokens": 22000,
+      "outputTokens": 16384
+    },
+    "review": {
+      "reasoning": "medium",
+      "targetInputTokens": 4000,
+      "maxInputTokens": 20000,
+      "outputTokens": 16384
+    }
+  },
+  "limitations": [
+    "No artifact or runtime result; fewer calls than a different failed run do not establish efficiency.",
+    "All original records and prior unknown reservations retained. This reader reports the selected run, not current campaign balance.",
+    "Source/profile and provider usage remain distinct from conservative component estimates."
+  ]
+}

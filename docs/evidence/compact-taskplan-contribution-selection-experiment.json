@@ -1,0 +1,44 @@
+{
+  "change": "Consolidate selection guidance around one executable contribution; attaching a complete original clause does not require completing it in this substep.",
+  "unchanged": [
+    "Judge instructions",
+    "response grammar",
+    "model/profile settings",
+    "contracts",
+    "permissions",
+    "generation semantics"
+  ],
+  "measurements": [
+    {
+      "issued_request_id": "compactm2af2bacfamz11a-amazon-1:3:af9f5408bf4105366214b062796cecb83b527a96f3b9510947d65335f032adef:904bd040067bc6971de2bc338584fd7caae846046bff1d37b94135a32aa8eb00",
+      "reconstruction": "Exact retained request with selection-guidance prefix only replaced; not issued.",
+      "before_complete_bytes": 12519,
+      "after_complete_bytes": 12565,
+      "schema_bytes": 4529,
+      "schema_unchanged": true,
+      "remaining_original_context_unchanged": true,
+      "before_estimated_input_tokens": 4429,
+      "after_estimated_input_tokens": 4445,
+      "provider_calls": 0
+    },
+    {
+      "issued_request_id": "compactmed004934code11a-code-1:7:ad96d8eb52bc1b3e138ed27c37d6af020ce8dfad21748d367e461529cb688b6a:73dae094c11104076bee64e4b1e22dcc49351149984c5d316a04ffb7ad53ced0",
+      "reconstruction": "Exact retained request with selection-guidance prefix only replaced; not issued.",
+      "before_complete_bytes": 14295,
+      "after_complete_bytes": 14341,
+      "schema_bytes": 4742,
+      "schema_unchanged": true,
+      "remaining_original_context_unchanged": true,
+      "before_estimated_input_tokens": 5021,
+      "after_estimated_input_tokens": 5037,
+      "provider_calls": 0
+    }
+  ],
+  "reconstruction_limit": "Retained request plus guidance-prefix replacement only, not a newly issued request or recovery mapping.",
+  "regressions": {
+    "passed": 168,
+    "warnings_as_errors": true,
+    "focused_counts_overlap_other_suites": true
+  },
+  "live_benefit": "unverified"
+}

@@ -1,0 +1,37 @@
+{
+  "kind": "source_postimage_owning_validation",
+  "version": 1,
+  "source_postimages_match_commit": "a84fc50d1d7ba3313139c71c676bdf169b5b5f0b",
+  "observed_at_utc": "2026-11-04T12:04:31.750559+00:00",
+  "command": "dotnet test tests/GnOuGo.Flow.Planning.Tests -warnaserror",
+  "trx_sha256": "63142ff06d6ff611a53e611cd009ccb7eb57edfad7372e73c8030a404b72fdc8",
+  "counts": {
+    "total": "2656",
+    "executed": "2656",
+    "passed": "2656",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "focused_cases_passed": 3,
+  "focused_cases_overlap_owning_total": true,
+  "initial_generic_reproduction_failed": 3,
+  "initial_red_trx_sha256": "668319b29a0cb3d97f0a46f51879d741e2dcba2856e81d075a55d544ff435b5d",
+  "postimages": {
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.BusinessSelection.cs": "5b0818ee777518d47c4cfb4acb7803e9c4ec97b59c0d15596ad0d7ec2b49730a",
+    "tests/GnOuGo.Flow.Planning.Tests/BusinessSelectionRecoveryContextTests.cs": "fbdda2f741f60a813ef1fe879cb2567109c131c083a13698befeabd0cb4f812a",
+    "docs/incremental-taskplan-construction.md": "f7420bf96552b39dc66dc4ea013bd8d3b1c50127718837ef41b75066ed12c1d9",
+    ".agents/skills/gnougo-planning/SKILL.md": "9b4a8cb7812ccf4a918e18837f7bed0afe1a0db8e43596c889fc170decd6dcb0"
+  },
+  "limit": "The owning suite ran before commit creation on matching committed source postimages. Exact-commit solution/publication validation runs separately."
+}

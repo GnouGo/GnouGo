@@ -1,0 +1,257 @@
+{
+  "version": 1,
+  "source": "61d9f0fb90d2d321645cbff412697bfb967a3b48",
+  "campaign": "schema-portability-20261019-incremental",
+  "cohort": "compacta61d9f0fb",
+  "business_acceptance_complete": false,
+  "paired_comparison_started": false,
+  "snapshot": "Review PR requested clarification during interface extraction after four receipted calls; no discovery, draft, checkpoint, artifact or runtime execution.",
+  "freeze": {
+    "captured_at": "2026-10-23T03:23:01.388713+00:00",
+    "model": "gpt-5.5-2026-04-24",
+    "phase_policy": {
+      "version": 1,
+      "navigation": {
+        "targetInputTokens": 3000,
+        "maxInputTokens": 12000,
+        "reasoning": "medium",
+        "outputTokens": 16384
+      },
+      "draft": {
+        "targetInputTokens": 8000,
+        "maxInputTokens": 16000,
+        "reasoning": "medium",
+        "outputTokens": 16384
+      },
+      "review": {
+        "targetInputTokens": 4000,
+        "maxInputTokens": 8000,
+        "reasoning": "medium",
+        "outputTokens": 4096
+      }
+    },
+    "max_model_calls": 64,
+    "max_repairs": 4,
+    "construction_preset": "ordinary",
+    "max_total_tokens": 15000000,
+    "max_elapsed_ms": 18000000,
+    "construction_version": 2,
+    "presentation_version": 3,
+    "benchmark_binary_sha256": "a84e17823d221ed8ed6ad9321a64a832e3937f1e8f6a483d054260f9e3b51a19",
+    "configuration_hash": "e4b187879e34ce4b48999e72941caa81a3fd02a5b0bbc1cf9a8f67ab15bbd078",
+    "metadata_hash": "f37630df13544d2e2d11910560424f2224aeb414d63b3cb924e458e7b742237f",
+    "mcp_manifest_sha256": "5b2c4135da538375b4eb952c21aec11208a85aefc51ca1885227b9b2c9578d11",
+    "mcp_files_verified": 568,
+    "profile": "draft-output-16384",
+    "profile_change": {
+      "from_cohort": "compacta2e5b3a0d",
+      "settings_unchanged": true,
+      "source_change": "Fresh-v3 provider decision overview exposes up to eight compact choices while canonical evidence pages remain exact; scoped Judge guidance preserves accepted public root exports and distinguishes nested local exports. No change to contracts, permissions, model or allowances."
+    }
+  },
+  "run": {
+    "run_key": "run:compacta61d9f0fb-code-1",
+    "run_hash": "1e6460583fa37c4fb465bca531bafb070bb775cfedee8b2c0951c432435b7cd7",
+    "session_status": "clarification",
+    "session_phase": "construction_intent",
+    "calls": 4,
+    "corrections": 0,
+    "checkpoints": 0,
+    "construction_complete": false,
+    "artifact_hash": null,
+    "diagnostic_codes": [],
+    "execution_started": false,
+    "execution_status": "not_started",
+    "oracle_passed": null,
+    "oracle_version": "code-business-v2",
+    "planning_ms": 104808,
+    "runtime_ms": null,
+    "planning_latency_from_completed_call_stages_ms": "99157.0954",
+    "totals": {
+      "request_identities": 4,
+      "http_attempts": 4,
+      "receipts": 4,
+      "unknown_attempts": 0,
+      "empty_completed_responses": 0,
+      "known_input_tokens": 5462,
+      "known_output_tokens": 8108,
+      "known_reasoning_tokens": 6143,
+      "reasoning_measured_calls": 4,
+      "known_cost_eur": "0.2414547077197679607318161535",
+      "unknown_usage_reservation_eur": 0,
+      "cost_upper_bound_eur": "0.2414547077197679607318161535"
+    }
+  },
+  "measurements": {
+    "complete_request_bytes": {
+      "count": 4,
+      "p50": 6745.0,
+      "p95": 10406,
+      "maximum": 10406,
+      "total": 26909
+    },
+    "estimated_input_tokens": {
+      "count": 4,
+      "p50": 2504.5,
+      "p95": 3725,
+      "maximum": 3725,
+      "total": 9995
+    },
+    "phases": {
+      "construction_intent": {
+        "constructed_requests": 4,
+        "admitted_requests": 4,
+        "rejected_before_dispatch": 0,
+        "complete_request_bytes": {
+          "count": 4,
+          "p50": 6745,
+          "p95": 10406,
+          "maximum": 10406,
+          "total": 26909
+        },
+        "estimated_input_tokens": {
+          "count": 4,
+          "p50": "2504.5",
+          "p95": 3725,
+          "maximum": 3725,
+          "total": 9995
+        },
+        "component_sizes": {
+          "diagnostics": {
+            "serialized_bytes": 104,
+            "estimated_tokens": 36
+          },
+          "envelope": {
+            "serialized_bytes": 1572,
+            "estimated_tokens": 1550
+          },
+          "instructions": {
+            "serialized_bytes": 4232,
+            "estimated_tokens": 1412
+          },
+          "intent": {
+            "serialized_bytes": 8580,
+            "estimated_tokens": 2861
+          },
+          "response_schema": {
+            "serialized_bytes": 12188,
+            "estimated_tokens": 4063
+          },
+          "evidence": {
+            "serialized_bytes": 46,
+            "estimated_tokens": 16
+          },
+          "interfaces": {
+            "serialized_bytes": 187,
+            "estimated_tokens": 63
+          }
+        },
+        "components_reconcile": true,
+        "within_input_limits": true
+      }
+    },
+    "components_reconcile": true,
+    "all_within_input_limits": true
+  },
+  "business_outcome": {
+    "runtime_oracle_assessed": false,
+    "accepted_business_obligations": null,
+    "calls_per_accepted_business_obligation": null,
+    "reason": "No accepted artifact or runtime execution; a clarification is not useful business completion."
+  },
+  "finding": {
+    "request_id": "compacta61d9f0fb-code-1:4:589c80d5e1e51ff84628143a8ba1c3283831d5a2174ca97edb57f73a0d44ce11",
+    "record_hashes": {
+      "requests": "4561bb4904eb556228cf7ff6ce72a864806d8a9af21e91999b4aad3eb1b8429f",
+      "http-attempts": "6cc1d87dc0c829202d2d0961cfa391780c2028f3a0284e93bc09327dfda48ba4",
+      "receipts": "bc7fa96509952be86cfe7c9c01b7e3c84a1212c560d5a10b46c916ea14464a6b",
+      "failures": null,
+      "closures": null
+    },
+    "evidence": "The exact extraction request contained both complete original pages, declared caller inputs and previously extracted feedback output. The model treated required local report contents as a new public return interface and asked for its schema. No missing original context was demonstrated.",
+    "response": "Retain the clarification and receipts. Clarify the generic distinction between artifact obligations and returned values in the existing v3 extraction instruction; do not inject evaluation-time answers or claim that instruction wording alone proves convergence."
+  },
+  "interpretation": [
+    "All four calls completed with HTTP200 receipts. No empty completed response, correction, admission rejection or new uncertainty occurred.",
+    "Provider overview and Judge fixes were not reached by this run. Their live effect remains unverified.",
+    "Model, medium reasoning, input targets/ceilings and output reservations were unchanged. Reasoning is included in provider output; component estimates are not billed usage.",
+    "Original requests and receipts remain encrypted. Only safe metrics and evidence hashes are indexed here. Collections and Amazon were not dispatched in this cohort."
+  ],
+  "campaign_snapshot": {
+    "reserved_requests": 1333,
+    "completed_receipts": 1320,
+    "receiptless_requests": 13,
+    "permanent_closures": 13,
+    "unclosed_request_ids": [],
+    "transport_accounting": {
+      "calls": 1333,
+      "session_calls": 0,
+      "known_input_tokens": 2478646,
+      "known_output_tokens": 1146806,
+      "known_cost_eur": "41.598430003077566940055015516",
+      "reserved_input_tokens": 109173,
+      "reserved_output_tokens": 172032,
+      "reserved_cost_eur": "5.0713809650759797387363369764",
+      "cost_upper_bound_eur": "46.669810968153546678791352492",
+      "unknown_attempts": 12
+    },
+    "cost_ceiling_eur": "240.0301038327063045424449473",
+    "available_allowance_eur": "193.360292864552757863653594808",
+    "audit_evidence_hash": "1535835c37f7c9b6fc1f3de17d62ec5b7687bccb034c5d50f987b723c1fa1fb6",
+    "lost_historical_exposure_retained_eur": "159.96989616729369545755505266",
+    "cumulative_spending_reservation_upper_bound_including_lost_history_eur": "206.639707135447242136346405152",
+    "no_reservation_released": true
+  },
+  "validation": {
+    "focused_discovery_passed": 131,
+    "focused_judge_passed": 60,
+    "full_planning_passed": 2520,
+    "warnings_as_errors": true,
+    "exact_benchmark_build": "passed",
+    "exact_planning_pack": "passed",
+    "exact_native_aot_smoke": "passed",
+    "ci": {
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/39894470316",
+      "status_at_snapshot": "in_progress"
+    },
+    "full_solution": "Separate 0b44557 retry remains active; no current-revision full-solution pass claimed."
+  },
+  "evidence_index": [
+    {
+      "role": "freeze",
+      "file": "compacta61d9f0fb/freeze.json",
+      "bytes": 5516,
+      "sha256": "bdb662589b45a3fbb9e0480364243968709f5658c2961dab82232a8470ba0a25"
+    },
+    {
+      "role": "metrics",
+      "file": "compacta61d9f0fb/code-safe-metrics.json",
+      "bytes": 16094,
+      "sha256": "9982d970887eea41daf937ee10e084e4bffc5c9af4892a9f3ba2ba9e560970e2"
+    },
+    {
+      "role": "audit",
+      "file": "compacta61d9f0fb/campaign-after-code-audit.json",
+      "bytes": 3730,
+      "sha256": "eb854a21b8b23fc51f4f0952098c3263f338681f52d8c7d1dbe7beb0dad6bb4f"
+    },
+    {
+      "role": "readiness",
+      "file": "compacta61d9f0fb/provider-readiness.jsonl",
+      "bytes": 4800,
+      "sha256": "ccdad76cb0079bfc1057a563b89d46236327f8435c6ac631dd917d9fac52781f"
+    },
+    {
+      "role": "combined_validation",
+      "file": "/private/tmp/gnougo-provider-overview-validation/validation-safe.json",
+      "bytes": 4140,
+      "sha256": "8890dbfd1cec0ebe81d537402883875b1490e0e77f3c736ddf599adee5bdf39f"
+    },
+    {
+      "role": "publication",
+      "file": "/private/tmp/gnougo-61d9f0f-validation.f96aviri/publication-safe.json",
+      "bytes": 2911,
+      "sha256": "6aa3b0f89aff61ec36462e74f066a214f9ce28c77c37931d460637abfcf9786d"
+    }
+  ]
+}

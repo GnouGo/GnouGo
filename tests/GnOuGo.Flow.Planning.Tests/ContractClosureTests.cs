@@ -160,12 +160,11 @@ public sealed class ContractClosureTests
         var runtime = new TestRuntime(); var catalog = await runtime.DiscoverAsync(new(), PlannerFixture.Ct);
         catalog.Capabilities.Add(new() { Id = "consume", StepType = "mcp.call", Server = "test", Method = "consume", Kind = "registered", InputSchema = ObjectSchema(("payload", Shape())), OutputSchema = ObjectSchema(), EffectKind = "read" });
         var plan = new TaskPlan { Root = new() { Tasks = [new() { Id = "consume", Operation = "consume", Objective = "Consume required data" }] } };
-        runtime.Proposal = new() { Plan = plan, Requirements = new() { Summary = "Consume required data", Inputs = [], Outcomes = [new("result", "Consume required data")] } };
-        var state = PlannerFixture.Session(); state.Catalog = catalog; state.Request.MaxReplanAttempts = 0;
-        var result = await PlannerFixture.RunAsync(runtime, state);
-        Assert.Equal(PlanningStatus.Stopped, result.Status); Assert.Null(result.Yaml);
-        Assert.Contains(result.Diagnostics, d => d.Code == "CONTRACT_UNSATISFIED" && d.Location == "/tasks/consume/inputs/payload");
-        Assert.Single(runtime.Calls); Assert.Equal(0, result.ReplanAttempts);
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog);
+        Assert.Null(compiled.Graph);
+        Assert.Contains(compiled.Diagnostics, d => d.Code == "TASK_INPUT_REQUIRED" && d.Location == "/tasks/consume/inputs/payload");
+        Assert.Empty(runtime.Calls);
+
     }
 
     [Fact]

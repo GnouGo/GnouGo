@@ -1,0 +1,38 @@
+{
+  "production_source": "11eac1ad2cd3fa14605b553a9db53887d38d2c0d",
+  "comparison_source": "2d09aaee916a88caf39e4cf1df674d407c161a2d",
+  "all_files": 62,
+  "added_lines": 797,
+  "removed_lines": 2318,
+  "production_csharp_added": 192,
+  "production_csharp_removed": 471,
+  "removed_types": [
+    "PlanningConstructionInterfaceExtraction",
+    "PlanningConstructionInterfaceDisposition"
+  ],
+  "removed_state_fields": [
+    "InterfaceExtractions",
+    "InterfaceKind"
+  ],
+  "removed_paths": [
+    "ClassifyConstructionIntentAsync",
+    "ExtractConstructionInterfacesAsync",
+    "ResolveConstructionInterfacesAsync",
+    "ClassificationSchema",
+    "InterfaceSchema",
+    "ResolvableInterfaceSchema",
+    "ReadInterfaceDispositions",
+    "InterfaceOriginalPages",
+    "InterfaceEvidenceDirectory"
+  ],
+  "retired_exclusive_test_files": [
+    "CompactIntentResolutionTests.cs",
+    "CompactInterfaceCoverageTests.cs"
+  ],
+  "replacement": "One atomic clause-and-interface intent response, measured source paging and exact existing evidence retrieval. The indexing fixture is rewritten around retained semantic, recovery and validation obligations.",
+  "retained": "OriginalPageLength still serves optional navigation and original contract descriptions; it no longer fixes authoritative intent sources to 1 KB.",
+  "internal_format": 11,
+  "compatibility_adapter_added": false,
+  "new_execution_engine": false,
+  "full_pr_net_reduction_claimed": false
+}

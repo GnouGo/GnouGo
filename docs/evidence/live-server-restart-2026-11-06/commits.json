@@ -1,0 +1,82 @@
+[
+  {
+    "commit": "2073734ca3f473efe5adc10ae1c19633af171587",
+    "subject": "feat(benchmark): register current deployment settings and probe through Agent.Server"
+  },
+  {
+    "commit": "8a2b5bc63e8703bcbdb49b2d67c70b2a74fffb0b",
+    "subject": "feat(benchmark): enforce the retained campaign ceiling on live Server planning"
+  },
+  {
+    "commit": "bf0562befd8394f788414328f346c2de9306648f",
+    "subject": "fix(benchmark): use captured Server duration and retain external reservation headroom"
+  },
+  {
+    "commit": "949287fa4e39a622201463f73a7b7f6c13ebed65",
+    "subject": "feat(benchmark): inspect retained Server calls and execute exactly reviewed native artifacts"
+  },
+  {
+    "commit": "a5a9ad87b9f0a5d5970c31420f2a3aac0bf5b1be",
+    "subject": "fix(benchmark): resume exact unexecuted artifact reviews without inference"
+  },
+  {
+    "commit": "873db7e2970363dcc94644f263c1807006ec3c28",
+    "subject": "feat(benchmark): reuse real MCP execution and existing scenario oracles from Server runs"
+  },
+  {
+    "commit": "e1829efb83fc8f3aa72e5047d98083fe70e7cee0",
+    "subject": "feat(benchmark): diagnose actual Server MCP launches without inference"
+  },
+  {
+    "commit": "23a0a94115f5eaccdd5433866815d04ec38bd58a",
+    "subject": "fix(benchmark): stage bundled MCP apphosts for the actual Server entrypoint"
+  },
+  {
+    "commit": "5b86d91720e4848f2321922bd9ed94a7711a58ea",
+    "subject": "test(benchmark): capture a fresh navigation-only output allocation trial"
+  },
+  {
+    "commit": "40d386d7aa03dc5a34cb676d8ad93736fd787167",
+    "subject": "fix(flow): preserve exact financial admission and durable settlement totals"
+  },
+  {
+    "commit": "e0e3605daa8ea2dff4cd2840319f480a1b7ad303",
+    "subject": "test(benchmark): capture a fresh bounded complex drafting allocation"
+  },
+  {
+    "commit": "a12378c8cdf2213275690f9c8133d81facfcfef9",
+    "subject": "fix(planning): issue evidence choices that satisfy reader preconditions"
+  },
+  {
+    "commit": "d2569b8b8623585393b44766b873ef0670a4d581",
+    "subject": "fix(planning): keep prerequisite guidance within strict input targets"
+  },
+  {
+    "commit": "3c4828b14004d6125bdc1c56f1e953563d81aa8d",
+    "subject": "fix(planning): retain compact guidance for strict navigation budgets"
+  },
+  {
+    "commit": "a3021a7a3490efa84396b4793105c37749744440",
+    "subject": "fix(benchmark): retain cancelled tool-free generation without releasing funds"
+  },
+  {
+    "commit": "5025274a33f8f8b2392ac9ba9b674cf164ce6775",
+    "subject": "fix(benchmark): validate retained Server elapsed authority during retention"
+  },
+  {
+    "commit": "edbc23fa948ca5252daac78e35cf68f5809f9421",
+    "subject": "fix(benchmark): preserve exact diagnostic authority across Server journals"
+  },
+  {
+    "commit": "e01f173087a4d746c6c6c11d807fd3d17ea00932",
+    "subject": "fix(tests): use staged Playwright assets for Release browser fixtures"
+  },
+  {
+    "commit": "e75ea667020b5330838440c1312834192117a452",
+    "subject": "fix(benchmark): include retained external reservations in fresh probes"
+  },
+  {
+    "commit": "19f670e6d846872e3d9ec98e0ad7e5ddd8cc9dfa",
+    "subject": "fix(benchmark): preserve unfunded confirmed retries with exact financial evidence"
+  }
+]

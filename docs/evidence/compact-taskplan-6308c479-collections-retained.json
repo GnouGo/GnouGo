@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "source": "6308c479f607a08b173729489ac4f48e197b21ba",
+  "cohort": "compactr6308c479fcolscope",
+  "campaign": "schema-portability-20261019-incremental",
+  "snapshot": "Exact user-authorized permanent retention applied; append-only follow-up to the unchanged pending diagnostic.",
+  "original_pending_archive": {
+    "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/candidate-6308c479f/collections-pending/compact-taskplan-6308c479-collections-pending.json",
+    "sha256": "9c3d7a21906aea724f606313b25662b831d2b897df38fbfcbd65daf7a3caefc2",
+    "bytes": 13001
+  },
+  "run_collection": "planning-evaluation-runs",
+  "run_key": "6308c479f607a08b173729489ac4f48e197b21ba:fixture:cohort:compactr6308c479fcolscope:collections:1",
+  "session_id": "ff2ea5dd9232b49ddfeb32eb273ac98cd1f03e0ee547308194ede13be991d155",
+  "request_id": "ff2ea5dd9232b49ddfeb32eb273ac98cd1f03e0ee547308194ede13be991d155:2:a383136ae2755c3de3f3702170315a0d926e1136f91e79b89c1d4de7bbaa982e",
+  "evidence_sha256": "3f76285fdd85241b829aa92eb402715f8782d66c1ed3cd7693119f019230c406",
+  "retention_kind": "exhausted-planning-retries",
+  "authorization": {
+    "basis": "User explicitly authorized this exact request/run/evidence and full permanent reservation.",
+    "operator": "codex-isolated-test-review:root+live_acceptance_review",
+    "authorization_sha256": "7216bb8d2bf5d28b1d6129eee128d790f821f5995e6f5e40b176df281eb06f18",
+    "retained_at_utc": "2026-10-24T05:47:25.0531900+00:00",
+    "exact_text_and_command": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr6308c479fcolscope/retention-apply-command-safe.json",
+      "sha256": "dbe7ef8332f69f1a8de65f98e82181891fde35ee72560cc139e33a5a4a9d9af4",
+      "bytes": 1982
+    }
+  },
+  "result": {
+    "outcome": "inconclusive",
+    "permanent_closure_applied": true,
+    "readback_matches_application": true,
+    "reservation_retained": true,
+    "full_request_reservation_eur": "1.8617402945113788487282463186",
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "original_run_request_journal_failure_receipt_hashes_unchanged": true,
+    "all_usage_counts_and_accounting_unchanged": true,
+    "provider_or_runtime_calls_during_operation": 0,
+    "receipt_or_success_manufactured": false,
+    "main_clean_unchanged": true
+  },
+  "original_failure_classification": "HTTP500 followed by response-less recorded Transport. No verified timeout, provider termination, empty completion or output-exhaustion claim. The captured zero-uncertain-retry policy stopped after2of3maximum attempts; original failure and all reservations remain intact.",
+  "accounting_after_retention": {
+    "physical_attempts": 2309,
+    "reserved_request_identities": 2305,
+    "completed_receipts": 2282,
+    "receiptless_request_identities": 23,
+    "permanently_closed_identities": 23,
+    "unclosed_identities": 0,
+    "unknown_physical_attempts": 26,
+    "known_cost_eur": "93.40269149348363565937674686",
+    "reserved_cost_eur": "15.198721438079103344269581065",
+    "upper_bound_eur": "108.60141293156273900364632792",
+    "ceiling_eur": "240.0301038327063045424449473",
+    "available_eur": "131.42869090114356553879861938",
+    "separately_retained_prior_exposure_eur": "159.96989616729369545755505266",
+    "cumulative_prior_plus_current_upper_eur": "268.57130909885643446120138058",
+    "audit_evidence_sha256": "f42fa943a58813f9c101e24459dfc1565ccbac14acab68aab79a8381f84c4267",
+    "audit_upper_minus_high_precision_component_sum_eur": "-5E-27",
+    "rounding_note": "Original CLR-decimal ledger totals are authoritative. Decimal80 reconciliation preserves and discloses the -5E-27 difference from separately summed original components; no balance or reservation is rewritten."
+  },
+  "safe_sources": [
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr6308c479fcolscope/retention-reinspection-before-apply.json",
+      "sha256": "a6d45d4a4149282c554292ff1db1d1fe61cb5dfd0f34e135fcce2ec67d5364af",
+      "bytes": 1938
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr6308c479fcolscope/retention-apply.json",
+      "sha256": "0326b8ff88ba2110ccc5ab52387d15aa800fb94e885821a2656ae9d4de575150",
+      "bytes": 3113
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr6308c479fcolscope/retention-readback.json",
+      "sha256": "5c1adac9a95af4d0b6b7254b7f7e5f0f208b4e8c0913701cc161b33179a27da8",
+      "bytes": 3228
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr6308c479fcolscope/campaign-after-retention.json",
+      "sha256": "73330bd5421b0d6e89030271625f208fd1276fe128ef37a5dbf2437ee27602ca",
+      "bytes": 6099
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr6308c479fcolscope/retention-verification-safe.json",
+      "sha256": "17d5c8e94161fa3fcdc13b37246db9776f56f300298f61f48267230c23255cef",
+      "bytes": 2781
+    }
+  ],
+  "independent_peer_review": {
+    "path": "/private/tmp/gnougo-630-retention-peer-iz7tipu6/independent-review-safe.json",
+    "sha256": "36e7285907776c18280fd0b2a0f65fa2794b788d92eb226364160b88c0e6607f",
+    "bytes": 1989
+  },
+  "limitations": [
+    "The pending diagnostic remains immutable and describes its own pre-authorization snapshot.",
+    "Retention establishes permanent non-replay and preserved accounting, not business acceptance or provider completion.",
+    "Any fresh diagnostic uses a new identity and ordinary captured-policy/financial admission; no dispatch is performed by this archive.",
+    "Only safe metadata and hashes are copied; original payloads remain encrypted."
+  ]
+}

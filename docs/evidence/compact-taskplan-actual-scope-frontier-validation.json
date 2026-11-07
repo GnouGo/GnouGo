@@ -1,0 +1,50 @@
+{
+  "control_public_production_source": "ed00493430cddc5a2359834b2cf7dc395495bc95",
+  "control_run": "compactmed004934code11a-code-1",
+  "observed_call": 51,
+  "observed_scope_cursor": 1,
+  "original_open_scope_order": [
+    "/tasks/step_1/body",
+    "/tasks/step_2/body",
+    "/tasks/step_3/body",
+    "/tasks/step_4/body",
+    "/tasks/step_5/body",
+    "/tasks/step_6/body",
+    "/root"
+  ],
+  "actual_boundary_depths": {
+    "/root": 0,
+    "/tasks/step_1/body": 1,
+    "/tasks/step_2/body": 2,
+    "/tasks/step_4/body": 3,
+    "/tasks/step_5/body": 3,
+    "/tasks/step_6/body": 3,
+    "/tasks/step_3/body": 2
+  },
+  "observed_displayed_scopes": [
+    "/tasks/step_2/body"
+  ],
+  "corrected_order_for_a_prospective_acceptance": [
+    "/tasks/step_4/body",
+    "/tasks/step_5/body",
+    "/tasks/step_6/body",
+    "/tasks/step_2/body",
+    "/tasks/step_3/body",
+    "/tasks/step_1/body",
+    "/root"
+  ],
+  "change": "Use existing scope-parent ownership and isolated group boundaries instead of slash counts in flat canonical task addresses; use the same depth for reviewed boundary ordering.",
+  "recovery": "Existing issued pages and requests are unchanged. The new order is assigned only after an actual accepted construction change or rollback.",
+  "regression": {
+    "name": "NewNestedScopeSurvivesTargetFittingBeforeShallowerLongerAddresses",
+    "before": "Fails: shallow branch /tasks/b_shallow/branches/0 displaces nested /tasks/z_child/body.",
+    "after": "Nested boundary survives target fitting; isolated group boundary stays reachable without changing capture isolation.",
+    "full_planning_passed": 2332,
+    "failures": 0,
+    "warnings_as_errors": true,
+    "log_sha256": "1f8b767a4c019718ce28829f2f61db11181b4319fbd55e5aad48da27ec74f807"
+  },
+  "source_evidence_sha256": "92244eef81cdcde57c702135c4fd4bbc501237df849a6b796dedf1da65ff5122",
+  "live_savings_claimed": false,
+  "runtime_benefit": "unverified"
+}

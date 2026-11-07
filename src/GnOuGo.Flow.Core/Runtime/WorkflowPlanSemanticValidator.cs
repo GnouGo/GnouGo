@@ -112,7 +112,6 @@ public static class WorkflowPlanSemanticValidator
             var allSteps = workflow.Steps.Concat(workflow.Finally).ToList();
             var allStepIds = CollectStepIds(allSteps).ToHashSet(StringComparer.Ordinal);
             var knownEmptyStringReferences = CollectKnownEmptySetStringReferences(allSteps);
-            var knownContracts = new Dictionary<string, JsonNode?>(StringComparer.Ordinal);
             var symbols = WorkflowSymbolTable.Create(workflowName, workflow.Inputs, allStepIds);
             ValidateFunctionJsDoc(workflow.Functions, workflowName, errors);
             var allowedFunctionNames = BuildAllowedFunctionNames(workflow.Functions, globalFunctionNames);
@@ -123,7 +122,6 @@ public static class WorkflowPlanSemanticValidator
                 workflowName,
                 document.Workflows,
                 workflow.Inputs,
-                knownContracts,
                 symbols,
                 allStepIds,
                 allowedFunctionNames,
@@ -142,7 +140,7 @@ public static class WorkflowPlanSemanticValidator
             foreach (var finalizer in workflow.Finally)
             {
                 var proven = WorkflowResultAvailability.GuardHolds(finalizer.If, guaranteed);
-                ValidateStep(finalizer, workflowName, document.Workflows, workflow.Inputs, knownContracts, symbols, allStepIds,
+                ValidateStep(finalizer, workflowName, document.Workflows, workflow.Inputs, symbols, allStepIds,
                     allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors, proven);
                 if ((proven || string.IsNullOrWhiteSpace(finalizer.If)) && !(finalizer.OnError?.Cases.Any(c => c.Action == "continue") ?? false) &&
                     symbols.TryGetStepOutput(finalizer.Id, out var output) && HasObjectEnvelope(finalizer, output)) guaranteed.Add(finalizer.Id);
@@ -156,7 +154,6 @@ public static class WorkflowPlanSemanticValidator
                         workflowName,
                         $"outputs.{outputName}",
                         workflow.Inputs,
-                        knownContracts,
                         symbols,
                         allStepIds,
                         allowedFunctionNames,
@@ -868,7 +865,6 @@ public static class WorkflowPlanSemanticValidator
         string workflowName,
         IReadOnlyDictionary<string, WorkflowDef> workflows,
         IReadOnlyDictionary<string, InputDef>? workflowInputs,
-        Dictionary<string, JsonNode?> knownContracts,
         WorkflowSymbolTable symbols,
         HashSet<string> allStepIds,
         HashSet<string> allowedFunctionNames,
@@ -879,7 +875,7 @@ public static class WorkflowPlanSemanticValidator
         List<WorkflowSemanticValidationError> errors)
     {
         foreach (var step in steps)
-            ValidateStep(step, workflowName, workflows, workflowInputs, knownContracts, symbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
+            ValidateStep(step, workflowName, workflows, workflowInputs, symbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
     }
 
     private static void ValidateStep(
@@ -887,7 +883,6 @@ public static class WorkflowPlanSemanticValidator
         string workflowName,
         IReadOnlyDictionary<string, WorkflowDef> workflows,
         IReadOnlyDictionary<string, InputDef>? workflowInputs,
-        Dictionary<string, JsonNode?> knownContracts,
         WorkflowSymbolTable symbols,
         HashSet<string> allStepIds,
         HashSet<string> allowedFunctionNames,
@@ -958,9 +953,8 @@ public static class WorkflowPlanSemanticValidator
             var branchSnapshots = new List<FlowTypeDescriptor>();
             foreach (var branch in step.Branches)
             {
-                var branchKnown = CloneContracts(knownContracts);
                 var branchSymbols = symbols.Clone();
-                ValidateStepList(branch.Steps, workflowName, workflows, workflowInputs, branchKnown, branchSymbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
+                ValidateStepList(branch.Steps, workflowName, workflows, workflowInputs, branchSymbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
                 branchSnapshots.Add(BuildStepSnapshotOutputType(branchSymbols));
             }
 
@@ -989,18 +983,16 @@ public static class WorkflowPlanSemanticValidator
 
                     // Only one switch branch runs at runtime, so branch-local step outputs are not
                     // guaranteed mappings after the switch. Validate each branch independently.
-                    var caseKnown = CloneContracts(knownContracts);
                     var caseSymbols = symbols.Clone();
-                    ValidateStepList(@case.Steps, workflowName, workflows, workflowInputs, caseKnown, caseSymbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
+                    ValidateStepList(@case.Steps, workflowName, workflows, workflowInputs, caseSymbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
                     branchSnapshots.Add(BuildStepSnapshotOutputType(caseSymbols));
                 }
             }
 
             if (step.Default is { Count: > 0 })
             {
-                var defaultKnown = CloneContracts(knownContracts);
                 var defaultSymbols = symbols.Clone();
-                ValidateStepList(step.Default, workflowName, workflows, workflowInputs, defaultKnown, defaultSymbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
+                ValidateStepList(step.Default, workflowName, workflows, workflowInputs, defaultSymbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
                 branchSnapshots.Add(BuildStepSnapshotOutputType(defaultSymbols));
             }
 
@@ -1012,10 +1004,9 @@ public static class WorkflowPlanSemanticValidator
             {
                 // Loop bodies may execute zero times, so their inner step outputs are not guaranteed
                 // mappings after the loop. References inside the loop are still validated in order.
-                var loopKnown = CloneContracts(knownContracts);
                 var loopSymbols = symbols.Clone();
                 AddLoopScopedDataVariables(step, loopSymbols, symbols);
-                ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, loopKnown, loopSymbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
+                ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, loopSymbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
                 resolvedStepOutputType = BuildLoopOutputType(loopSymbols);
             }
         }
@@ -1026,14 +1017,13 @@ public static class WorkflowPlanSemanticValidator
                 var beforeStepIds = symbols.StepOutputs.Keys.ToHashSet(StringComparer.Ordinal);
                 if (stepIsConditional)
                 {
-                    var conditionalKnown = CloneContracts(knownContracts);
                     var conditionalSymbols = symbols.Clone();
-                    ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, conditionalKnown, conditionalSymbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
+                    ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, conditionalSymbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
                     resolvedStepOutputType = BuildSequenceOutputType(conditionalSymbols, beforeStepIds);
                 }
                 else
                 {
-                    ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, knownContracts, symbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
+                    ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, symbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
                     resolvedStepOutputType = BuildSequenceOutputType(symbols, beforeStepIds);
                 }
             }
@@ -1044,13 +1034,12 @@ public static class WorkflowPlanSemanticValidator
             {
                 if (stepIsConditional)
                 {
-                    var conditionalKnown = CloneContracts(knownContracts);
                     var conditionalSymbols = symbols.Clone();
-                    ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, conditionalKnown, conditionalSymbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
+                    ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, conditionalSymbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
                 }
                 else
                 {
-                    ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, knownContracts, symbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
+                    ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, symbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
                 }
             }
         }
@@ -1063,8 +1052,6 @@ public static class WorkflowPlanSemanticValidator
                 symbols,
                 mcpContracts,
                 stepContracts);
-            var outputSchema = FlowTypeDescriptorConverter.ToRuntimeJsonSchema(outputType);
-            knownContracts[step.Id] = outputSchema;
             symbols.SetStepOutput(step.Id, outputType);
             // Only executor-enforced contracts establish a finite selector domain.
             // Projections and validation enforce their output schema before publication;
@@ -1475,20 +1462,11 @@ public static class WorkflowPlanSemanticValidator
                 && string.Equals(name, "object", StringComparison.Ordinal));
     }
 
-    private static Dictionary<string, JsonNode?> CloneContracts(Dictionary<string, JsonNode?> source)
-    {
-        var clone = new Dictionary<string, JsonNode?>(StringComparer.Ordinal);
-        foreach (var (key, value) in source)
-            clone[key] = value?.DeepClone();
-        return clone;
-    }
-
     private static void ValidateOutputDef(
         OutputDef outputDef,
         string workflowName,
         string field,
         IReadOnlyDictionary<string, InputDef>? workflowInputs,
-        Dictionary<string, JsonNode?> knownContracts,
         WorkflowSymbolTable symbols,
         HashSet<string> allStepIds,
         HashSet<string> allowedFunctionNames,
@@ -1510,14 +1488,14 @@ public static class WorkflowPlanSemanticValidator
         if (outputDef.Properties != null)
         {
             foreach (var (propertyName, propertyDef) in outputDef.Properties)
-                ValidateOutputDef(propertyDef, workflowName, $"{field}.properties.{propertyName}", workflowInputs, knownContracts, symbols, allStepIds, allowedFunctionNames, errors);
+                ValidateOutputDef(propertyDef, workflowName, $"{field}.properties.{propertyName}", workflowInputs, symbols, allStepIds, allowedFunctionNames, errors);
         }
 
         if (outputDef.Items != null)
-            ValidateOutputDef(outputDef.Items, workflowName, $"{field}.items", workflowInputs, knownContracts, symbols, allStepIds, allowedFunctionNames, errors);
+            ValidateOutputDef(outputDef.Items, workflowName, $"{field}.items", workflowInputs, symbols, allStepIds, allowedFunctionNames, errors);
 
         if (outputDef.AdditionalProperties != null)
-            ValidateOutputDef(outputDef.AdditionalProperties, workflowName, $"{field}.additional_properties", workflowInputs, knownContracts, symbols, allStepIds, allowedFunctionNames, errors);
+            ValidateOutputDef(outputDef.AdditionalProperties, workflowName, $"{field}.additional_properties", workflowInputs, symbols, allStepIds, allowedFunctionNames, errors);
     }
 
     private static bool TryNormalizeExactDataReference(JsonNode? value, out string reference)

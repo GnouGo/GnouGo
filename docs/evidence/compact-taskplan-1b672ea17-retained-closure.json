@@ -1,0 +1,91 @@
+{
+  "schema": "benchmark-retained-closure-supplement-v1",
+  "created_at": "2026-10-24T15:57:08.199735+00:00",
+  "kind": "authorized_permanent_request_and_run_closure",
+  "original_source": "1b672ea17f1f172ca6e7eed1ef47043837c8f491",
+  "operator_source": "47c08b428fab7915b9faa658993c20e9fb96dcc0",
+  "campaign": "schema-portability-20261019-incremental",
+  "run": "1b672ea17f1f172ca6e7eed1ef47043837c8f491:fixture:cohort:compactr1b672ea17colv5:collections:1",
+  "session_id": "a6306aa42f9124df0548c9e53bfd0997a714434a8e1568ffab3ef38bd8466fff",
+  "request_id": "a6306aa42f9124df0548c9e53bfd0997a714434a8e1568ffab3ef38bd8466fff:2:d18eed1e152c45e2ae83372d7e011f264eab0b83adde9fc903d22aa4ef24f487",
+  "retention_kind": "exhausted-planning-retries",
+  "evidence_hash": "2b0f4149b790f9b66100b6333f192d1b66c1fc41d530f68b17dc8103d1de1a41",
+  "authorization_hash": "1db081be0854593800c39ed37fce7c43dd6a9645c0d656303e16ea58e3331e3c",
+  "closure_hash": "a1a7c3839d396ca9c1e2c9a4a09bee7e546b3bcf75c6684a7392324ed74a0201",
+  "retained_at": "2026-10-24T15:50:48.9325290+00:00",
+  "application_verified": true,
+  "readback_already_retained": true,
+  "original_evidence_equal": true,
+  "full_request_reservation_retained_eur": "0.9308701472556894243641231593",
+  "outcome": "inconclusive",
+  "request_replay_forbidden": true,
+  "run_continuation_forbidden": true,
+  "receipt_created": false,
+  "funds_released": false,
+  "original_diagnosis": "Transport failure without an HTTP response or completion receipt; provider termination, timeout and empty response are not established.",
+  "historical_pending_archive_preserved": true,
+  "pre_dispatch_campaign_snapshot": {
+    "audit_context": "Frozen 47 Amazon readiness before its fresh dispatch, not a current running balance",
+    "accounting": {
+      "calls": 2695,
+      "session_calls": 0,
+      "known_input_tokens": 7093202,
+      "known_output_tokens": 2951289,
+      "known_cost_eur": "110.50273165412620594050124487",
+      "reserved_input_tokens": 441291,
+      "reserved_output_tokens": 811008,
+      "reserved_cost_eur": "23.661180161863128333113847016",
+      "cost_upper_bound_eur": "134.16391181598933427361509189",
+      "unknown_attempts": 35
+    },
+    "cost_ceiling_eur": "240.0301038327063045424449473",
+    "available_eur": "105.86619201671697026882985541",
+    "receiptless_requests": 25,
+    "permanently_closed_receiptless_requests": 25,
+    "unresolved_requests": 0,
+    "all_campaign_accounting_unchanged": true,
+    "session_calls_note": "The inspection is scoped to the failed session (2); readiness is campaign-scoped (0). All other accounting fields are identical.",
+    "arithmetic_note": {
+      "precision": 80,
+      "recorded_upper_minus_exact_known_plus_reserved_eur": "4E-27",
+      "interpretation": "Retains the recorded CLR decimal aggregate; the existing 4E-27 rounding difference did not change during closure."
+    }
+  },
+  "sources": {
+    "inspection": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr1b672ea17colv5/authorized-retention-20261024/inspection.json",
+      "sha256": "f0738afc088beaa5cb0f9d822ad1d13732ff1900a6bfffbd731073c64009d3f9",
+      "bytes": 1936
+    },
+    "application": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr1b672ea17colv5/authorized-retention-20261024/application.json",
+      "sha256": "12f06b422f08627ad3afa748af74e7f4663766f9d8032101cd4e2419616946f6",
+      "bytes": 3009
+    },
+    "readback": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr1b672ea17colv5/authorized-retention-20261024/readback.json",
+      "sha256": "b8a28216152400699a3304f8e94e854d15d860cf9ee2e6d16e3764f403183542",
+      "bytes": 3124
+    },
+    "verification-safe": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr1b672ea17colv5/authorized-retention-20261024/verification-safe.json",
+      "sha256": "139b1141a2393edcbbcc864ddf047670b13b6f80e26599dea0a013308355b089",
+      "bytes": 1457
+    },
+    "pre_dispatch_readiness": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr47c08b428amz12v5/provider-readiness.jsonl",
+      "sha256": "87f62205fde9341ce4857a755bd532b714e538b366de88105ee19f11e98c44b3",
+      "bytes": 7640
+    },
+    "pending_archive": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr1b672ea17colv5/pending-safe-archive/compact-taskplan-1b672ea17-collections-pending.json",
+      "sha256": "bb8ad8e53791e8cbf399721258e542bb4d290e0a03cf4c2d55d32374c9036ce8",
+      "bytes": 16082
+    }
+  },
+  "limits": [
+    "Fresh independent diagnostics still require ordinary source, financial and runtime admission.",
+    "This supplement records the already applied authorized operation; it neither calls the operator nor authorizes further effects.",
+    "No encrypted store, raw model payload, model call or runtime execution was accessed for this verification."
+  ]
+}

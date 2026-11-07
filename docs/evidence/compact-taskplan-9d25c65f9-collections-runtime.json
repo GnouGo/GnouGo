@@ -1,0 +1,137 @@
+{
+  "approval_origin": "delegated_test",
+  "artifact": {
+    "alias": "copy_ordered_doubled_result",
+    "external_effects": 0,
+    "local_value_alias_count": 1,
+    "max_concurrency": 100,
+    "max_items": 100,
+    "parallel_foreach_count": 1,
+    "reusable_groups": 1,
+    "runtime_inference": 0,
+    "tasks_recursive": 4
+  },
+  "artifact_sha256": "7000ccab019553a3459f3f2ee7e8807e5aaa68a15c9530de8c6c27d5c13dd6b8",
+  "business_outcome": {
+    "complete_units": 1,
+    "count_boundary": "Two frozen variants validate one artifact/run and one prospectively defined complete outcome. Generic approval checkboxes, tasks and alias are not extra business units.",
+    "definition_sha256": "d328d4a2b7aa36061af69bbaa271e092e89e469ead63943f8f4938234b9f19a1",
+    "legacy_approval_obligation_count": 3,
+    "logical_calls_per_complete_unit": 30,
+    "physical_attempts_per_complete_unit": 30,
+    "qualifying_final_source_runs": 1,
+    "required_final_source_runs": 6,
+    "unit_id": "collections_complete_ordered_doubling_v1",
+    "variant_count": 2
+  },
+  "case": "collections",
+  "cohort": "compactr9d25c65f9colhighv6",
+  "correction_summary": [
+    "Abandoned a redundant tentative per-item call reselection; no duplicate was accepted.",
+    "Corrected an explicit complete claim lacking root closure; result binding preserved."
+  ],
+  "evidence_sha256": {
+    "business-unit-definitions.json": "d328d4a2b7aa36061af69bbaa271e092e89e469ead63943f8f4938234b9f19a1",
+    "collections-artifact-inspection-safe.json": "05fd6f5ca3dfeaff7a28e9cbb7cbc52a4a16ae104421fb7613f1982ad968397c",
+    "collections-execution-command-safe.json": "e8c4701dfa1558c02ba0d6fd030bfebf5ab861190de650f7fe818edfa0736dbd",
+    "collections-execution-exit.json": "06f3474253f5c0b53dad9feffdf370675665545fb7c5b7d3075c6e2f929d0fef",
+    "collections-execution.jsonl": "926ee7f62f24f4d836390517282d7fd52c2e7a80393e6a36d0f8c05b37ccff49",
+    "collections-planning.jsonl": "41d433fa6e8b6efaf62b884caffe2378876e67b401fa1822d1e3b8e813d5e262",
+    "collections-review-metadata-safe.json": "a8e29ddf757fa1e03252d4c6bb585a71102f1850731d18441a801b3aaa3987c4",
+    "freeze.json": "52a22daa3a85e14a988da29ea27d2027b8ae11e36d08a7ca26be5c3dff88183b",
+    "post-execution-metrics-safe.json": "5995a112f021675680b7e4a8f5a43250fc7221d719b0561567440626ab332caa",
+    "terminal-metrics-safe.json": "9be12871380a6cb54ed257a27724f247ab178c6dca144ca31247993a2d3b694f"
+  },
+  "expected_results": {
+    "alternate": {
+      "result": [
+        6,
+        6,
+        -4
+      ],
+      "values": [
+        3,
+        3,
+        -2
+      ]
+    },
+    "nominal": {
+      "result": [
+        2,
+        4,
+        8
+      ],
+      "values": [
+        1,
+        2,
+        4
+      ]
+    }
+  },
+  "judge_reports": {
+    "adverse_findings": 0,
+    "empty_findings": 8,
+    "received": 9,
+    "targeted_evidence_requests": 1
+  },
+  "limits": [
+    "Only the two frozen finite input variants are established; arbitrary array sizes and extreme numeric ranges remain unverified.",
+    "The explicit local value alias is potentially redundant but preserves the result and adds no effect.",
+    "No causal source/settings benefit, false-positive finding or avoided correction is inferred.",
+    "This is one qualifying9d25 run; older-source successes are not counted."
+  ],
+  "original_formatting": {
+    "boundary": "Saved row/aggregate/receipt joins and root scanner source binding checked independently. Root alone read canonical content in memory; no raw-text rescan by this reviewer.",
+    "empty": 0,
+    "maximum_run_bytes": 2,
+    "non_json": 0,
+    "nonempty_valid_json": 30,
+    "normalized_response_bytes": 17096,
+    "original_utf8_bytes": 17046,
+    "outside_string_whitespace_bytes": 5,
+    "receipt_joins": 30
+  },
+  "planning": {
+    "accepted_checkpoints": 8,
+    "additional_planning_calls_for_approval_execution": 0,
+    "automatic_corrections": 2,
+    "known_cost_eur": "1.5852387327086122266845158410",
+    "logical_calls": 30,
+    "operator_planning_intervention": false,
+    "physical_attempts": 30,
+    "receipts": 30,
+    "retained_reserve_eur": "0"
+  },
+  "public_artifact_verification_passed": true,
+  "repetition": 1,
+  "reviewed_revision": 30,
+  "runtime_accepted": true,
+  "source": "9d25c65f9a0af17a49fcb67e5bcdb2d664abfb84",
+  "synthetic_artifact_oracle": {
+    "artifact_hash": "7000ccab019553a3459f3f2ee7e8807e5aaa68a15c9530de8c6c27d5c13dd6b8",
+    "findings": [],
+    "passed": true,
+    "version": "synthetic-artifact-v1"
+  },
+  "variants": [
+    {
+      "correct": true,
+      "effects": [],
+      "elapsed_ms": 357.2242,
+      "error": null,
+      "runtime_success": true,
+      "variant": "nominal",
+      "violations": []
+    },
+    {
+      "correct": true,
+      "effects": [],
+      "elapsed_ms": 2.2964,
+      "error": null,
+      "runtime_success": true,
+      "variant": "alternate",
+      "violations": []
+    }
+  ],
+  "version": 1
+}

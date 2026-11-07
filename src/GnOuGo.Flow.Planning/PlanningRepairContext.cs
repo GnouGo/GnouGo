@@ -97,7 +97,8 @@ internal static class PlanningRepairContext
                 if (v.Kind == "input" && v.Source is not null) inputs.Add(v.Source);
                 else if (v.Kind == "choice" && v.Source is not null) choices.Add(v.Source);
         }
-        foreach (var id in selection.Tasks.Order(StringComparer.Ordinal))
+        var presentedTasks = state.Construction is null ? selection.Tasks : selection.EditableTasks.Concat(selection.Tasks.Except(selection.EditableTasks).Order(StringComparer.Ordinal).Take(16)).ToHashSet(StringComparer.Ordinal);
+        foreach (var id in presentedTasks.Order(StringComparer.Ordinal))
         {
             var task = symbols.Tasks[id].Task;
             var node = JsonSerializer.SerializeToNode(task, PlanningJsonContext.Default.PlanTask)!.AsObject();
@@ -125,13 +126,20 @@ internal static class PlanningRepairContext
         foreach (var scope in symbols.Scopes.Where(s => selection.Scopes.Contains(s.Path)).OrderBy(s => s.Path, StringComparer.Ordinal))
         {
             var node = new JsonObject { ["location"] = scope.Path,
-                ["taskOrder"] = new JsonArray(scope.Source.Tasks.Select(t => (JsonNode?)JsonValue.Create(t.Id)).ToArray()),
-                ["alwaysOrder"] = new JsonArray(scope.Source.Always.Select(t => (JsonNode?)JsonValue.Create(t.Id)).ToArray()),
+                ["taskOrder"] = new JsonArray(scope.Source.Tasks.Where(t => state.Construction is null || presentedTasks.Contains(t.Id)).Select(t => (JsonNode?)JsonValue.Create(t.Id)).ToArray()),
+                ["alwaysOrder"] = new JsonArray(scope.Source.Always.Where(t => state.Construction is null || presentedTasks.Contains(t.Id)).Select(t => (JsonNode?)JsonValue.Create(t.Id)).ToArray()),
                 ["outputs"] = PlanningJsonTransport.TaskPlanPart(JsonSerializer.SerializeToNode(scope.Source.Outputs, PlanningJsonContext.Default.ListTaskOutput)) };
             if (scope.Owner?.Kind == "foreach") node["items"] = PlanningJsonTransport.TaskPlanPart(JsonSerializer.SerializeToNode(scope.Owner.Items, PlanningJsonContext.Default.TaskValue));
             // Names of alternative ports are enough to discover an explicit binding;
             // full authoritative contracts accompany the relevant producers above.
-            node["availablePorts"] = new JsonArray(scope.Source.Tasks.Where(t => !selection.Tasks.Contains(t.Id)).Select(t => (JsonNode)new JsonObject
+            var portTasks = scope.Source.Tasks.Where(t => !selection.Tasks.Contains(t.Id));
+            if (state.Construction is not null)
+            {
+                portTasks = portTasks.TakeLast(8);
+                node["taskCount"] = scope.Source.Tasks.Count; node["alwaysCount"] = scope.Source.Always.Count;
+                node["originalEvidence"] = "scope:" + scope.Path; node["directoryEvidence"] = "page:tasks:0";
+            }
+            node["availablePorts"] = new JsonArray(portTasks.Select(t => (JsonNode)new JsonObject
             {
                 ["task"] = t.Id,
                 ["ports"] = new JsonArray(Ports(t, state).Select(p => (JsonNode?)JsonValue.Create(p)).ToArray())
@@ -153,6 +161,7 @@ internal static class PlanningRepairContext
             ["slots"] = new JsonArray(slots.Select(s => (JsonNode)new JsonObject { ["id"] = s.Id, ["location"] = s.Location, ["kind"] = s.Kind,
                 ["actions"] = new JsonArray(s.Actions.Select(a => (JsonNode?)JsonValue.Create(a)).ToArray()) }).ToArray()),
             ["tasks"] = taskNodes, ["scopes"] = scopeNodes,
+            ["contracts"] = PlanningCompactConstruction.RepairContractEvidence(state, selection),
             ["inputs"] = PlanningJsonTransport.TaskPlanPart(JsonSerializer.SerializeToNode(state.Plan.Inputs.Where(i => inputs.Contains(i.Name)).ToList(), PlanningJsonContext.Default.ListTaskInput)),
             ["groups"] = new JsonArray(groups.Select(g => (JsonNode)new JsonObject { ["id"] = g.Id,
                 ["inputs"] = PlanningJsonTransport.TaskPlanPart(JsonSerializer.SerializeToNode(g.Inputs, PlanningJsonContext.Default.ListTaskInput)) }).ToArray()),

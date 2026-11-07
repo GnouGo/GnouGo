@@ -145,8 +145,16 @@ public static class ChatResponseParser
     public static JsonObject? ExtractUsage(JsonElement root)
     {
         if (!root.TryGetProperty("usage", out var usage))
+        {
+            if (root.TryGetProperty("prompt_eval_count", out var input) && input.TryGetInt64(out var inputCount) && inputCount >= 0 &&
+                root.TryGetProperty("eval_count", out var output) && output.TryGetInt64(out var outputCount) && outputCount >= 0)
+                return new JsonObject { ["prompt_tokens"] = inputCount, ["completion_tokens"] = outputCount };
             return null;
+        }
 
-        return JsonNode.Parse(usage.GetRawText()) as JsonObject;
+        var result = JsonNode.Parse(usage.GetRawText()) as JsonObject;
+        if (result is not null && root.TryGetProperty("service_tier", out var tier) && tier.ValueKind == JsonValueKind.String)
+            result["service_tier"] = tier.GetString();
+        return result;
     }
 }

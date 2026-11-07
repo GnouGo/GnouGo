@@ -1,4 +1,4 @@
-﻿
+
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
@@ -46,6 +46,8 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 	public async Task<LLMClientResponse> CallAsync(
 		string model, ModelProviderOptions provider, LLMClientRequest request, CancellationToken ct)
 	{
+		request = LocalLLMProvider.CloneRequest(request);
+		request.ResolvedTransport ??= LLMTransportResolver.ForRequest(model, provider, request);
 		if (request.UseBackgroundMode)
 			return await CallBatchBackgroundAsync(model, provider, request, ct);
 
@@ -72,6 +74,7 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 		{
 			var requestMessage = HttpRequestHelper.CreateJsonPost(url, payload);
 			ApplyHeaders(requestMessage, auth);
+			LLMTransportResolver.Apply(requestMessage, request.ResolvedTransport!, request.DeclaredTransportCapabilities);
 			return requestMessage;
 		}
 

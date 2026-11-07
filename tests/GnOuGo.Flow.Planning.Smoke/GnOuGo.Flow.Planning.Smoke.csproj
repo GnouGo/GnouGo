@@ -16,7 +16,7 @@
   <ItemGroup><ProjectReference Include="../../src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj" /></ItemGroup>
   <Import Project="../../build/GnOuGo.DarwinNativeCrypto.targets" />
   <ItemGroup><ProjectReference Include="../../src/GnOuGo.Flow.Integrations/GnOuGo.Flow.Integrations.csproj" /></ItemGroup>
-  <ItemGroup><Compile Include="../Shared/PlanningCorpus.cs" Link="PlanningCorpus.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../Shared/PlanningCorpus.cs" Link="PlanningCorpus.cs" /><Compile Include="../Shared/CurrentPlanningFixture.cs" Link="CurrentPlanningFixture.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../Shared/PlanningBenchmarkCases.cs" Link="PlanningBenchmarkCases.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../Shared/ProductTransformationFixture.cs" Link="ProductTransformationFixture.cs" /><Compile Include="../Shared/ProductTransformationPlan.cs" Link="ProductTransformationPlan.cs" /></ItemGroup>
 </Project>

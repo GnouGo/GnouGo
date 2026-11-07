@@ -1,0 +1,9 @@
+{
+  "packages-qualified/GnOuGo.Flow.Integrations.1.0.0.nupkg": "b2d27f287fbb4dc74a87303964a2165ed962ecbce0593947304c95b4b77bb055",
+  "packages-qualified/GnOuGo.Flow.Persistence.1.0.0.nupkg": "a5427c6b026e6fce2ac851deeb7e1da7c71977234493409748a79fdbc5e451b9",
+  "packages-qualified/GnOuGo.Flow.Core.1.0.0.nupkg": "04d98fcb2143db54ec6b45b78fb58871088d41c8512f84668cee66b0f2b643a3",
+  "packages-qualified/GnOuGo.Flow.Planning.1.0.0.nupkg": "1c94aeb539edb1b1b5103f7d4908b2fbcc7c710dfb23693311a5e1c4ae45570e",
+  "packages-qualified/GnOuGo.Agent.Shared.1.0.0.nupkg": "71f92be9ee3a2e32743959d08ee8233c8612bb60735aa169a60ea9545ab4c421",
+  "publish-final/planning-aot/GnOuGo.Flow.Planning.Smoke": "7791899e3c2230e6a264f42433466ad997d1957d8a1705ed1bab7acb56bba989",
+  "publish-final/agent-server/GnOuGo.Agent.Server": "bdb3b4a3ae1cbb3a5572aef0eff8ca117f945eb0aea2a82022f8fe5f6e92a4a0"
+}

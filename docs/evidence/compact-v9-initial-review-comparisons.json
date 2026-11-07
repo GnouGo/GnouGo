@@ -1,0 +1,52 @@
+{
+  "kind": "immutable initial v9 comparison failure",
+  "baseline_commit": "d5a4cac23ebe7fa8525ecb8f0299c65b6613d870",
+  "validation_only_snapshot_commit": "8ea125b6af787530e134e3de38b3a19d247ae9ef",
+  "source_manifest_sha256": "1b4e752fed28a13d3319448e5544209559eab5677f5a10a98f2d65f80a110afd",
+  "source_manifest_path": "/var/folders/5j/c3fzgxh96_bgmjhkf57_g5xw0000gp/T/gnougo-v9-validation-rnzy6rf3/source-manifest.json",
+  "validation": {
+    "exit_code": 1,
+    "counts": {
+      "Passed": 9,
+      "Failed": 4
+    },
+    "elapsed_seconds": 32.26385541702621,
+    "source_unchanged": true,
+    "log_sha256": "86624eb7b35bfdc3280b13aafcb25c6652fa420a9a591141a112ae45830ce845"
+  },
+  "comparisons": [
+    {
+      "case": "shifted",
+      "control_calls": 34,
+      "control_judges": 10,
+      "candidate_calls": 41,
+      "candidate_judges": 17,
+      "same_artifact_and_independent_numeric_outputs": true,
+      "verdict": "required reduction failed"
+    },
+    {
+      "case": "mapped",
+      "control_calls": 34,
+      "control_judges": 10,
+      "candidate_calls": 43,
+      "candidate_judges": 19,
+      "same_artifact_and_independent_numeric_outputs": true,
+      "verdict": "required reduction failed"
+    },
+    {
+      "case": "scaled",
+      "runtime_comparison": null,
+      "verdict": "inconclusive review after unavailable or repeated evidence; no savings claim"
+    },
+    {
+      "case": "projected",
+      "control_calls": 51,
+      "control_judges": 21,
+      "candidate_calls": 56,
+      "candidate_judges": 26,
+      "same_artifact_and_independent_numeric_outputs": true,
+      "verdict": "required reduction failed"
+    }
+  ],
+  "scope": "Scripted ordinary planning sessions with identical per-arm settings. Successful numeric comparisons executed both generated artifacts; this is not live business acceptance. Evidence includes initial proposition-producing calls. Subsequent source corrections must be reported separately."
+}

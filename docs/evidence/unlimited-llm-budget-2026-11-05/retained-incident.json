@@ -1,0 +1,50 @@
+{
+  "comparison_status": "unchanged",
+  "before": {
+    "campaign": "schema-portability-20261019-incremental",
+    "reserved_requests": 6938,
+    "completed_receipts": 6874,
+    "uncertain_logical_requests": 64,
+    "retained_inconclusive_requests": 63,
+    "unknown_physical_attempts": 160,
+    "known_cost_eur": "413.98214989055111712576930921",
+    "reserved_cost_eur": "157.57430550399738390479699311",
+    "cost_upper_bound_eur": "571.55645539454850103056630232",
+    "cost_ceiling_eur": "740.0301038327063045424449473",
+    "evidence_hash": "79ca579fe0431c32f7c489b6bd76c6e637d4f32b68a19a76bfd19bfae872f501",
+    "raw_sha256": "749ef80b94b6420b78d9471ad2d175077c8f606976320d9cd14c8e3e951e0fe0"
+  },
+  "after": {
+    "campaign": "schema-portability-20261019-incremental",
+    "reserved_requests": 6938,
+    "completed_receipts": 6874,
+    "uncertain_logical_requests": 64,
+    "retained_inconclusive_requests": 63,
+    "unknown_physical_attempts": 160,
+    "known_cost_eur": "413.98214989055111712576930921",
+    "reserved_cost_eur": "157.57430550399738390479699311",
+    "cost_upper_bound_eur": "571.55645539454850103056630232",
+    "cost_ceiling_eur": "740.0301038327063045424449473",
+    "evidence_hash": "79ca579fe0431c32f7c489b6bd76c6e637d4f32b68a19a76bfd19bfae872f501",
+    "raw_sha256": "749ef80b94b6420b78d9471ad2d175077c8f606976320d9cd14c8e3e951e0fe0"
+  },
+  "read_only_preflight": [
+    {
+      "name": "retained-provider-readiness",
+      "exit_code": -6,
+      "time_utc": "2026-11-05T20:47:13.736188+00:00",
+      "read_only": true,
+      "frozen_binary": "ed9a3a3e; not qualification of new source"
+    },
+    {
+      "name": "retained-incident-final",
+      "exit_code": 0,
+      "time_utc": "2026-11-05T20:47:40.648223+00:00",
+      "read_only": true,
+      "frozen_binary": "ed9a3a3e; not qualification of new source"
+    }
+  ],
+  "preflight_cause": "The selected campaign configuration is missing, changed or does not match this deployment.",
+  "paid_requests": 0,
+  "inspector": "Frozen prior incident binary ed9a3a3e; not qualification of current source."
+}

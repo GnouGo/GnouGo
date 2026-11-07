@@ -1,0 +1,130 @@
+{
+  "source": "6f063c515eb3356020fc80bb5018abc56263677e",
+  "run": "biz6f063c51amz01-amazon-1",
+  "retention_kind": "exhausted-planning-retries",
+  "authorization": "User explicitly answered Authorize this exact permanent retention for this run/request/evidence hash on 2026-10-30.",
+  "evidence_hash": "ed0c7d1660c1ca800a13da3f1f3561b4baaeb9fe1018752b9a551d04fc0c1005",
+  "authorization_hash": "6feacc7762fc17451c874bac2c3980df606040e12bb31ac5d0796c6f658f41e2",
+  "retained_at": "2026-10-30T11:12:39.3572680+00:00",
+  "reservation_eur": "0.9368903260576663971975208839",
+  "idempotent_second_process": true,
+  "original_records_unchanged": 8,
+  "original_record_identities_hashes_and_timestamps": [
+    {
+      "collection": "planning-schema-portability",
+      "key": "run:biz6f063c51amz01-amazon-1",
+      "exists": true,
+      "sha256": "bd18e166ca04b46ac1a774417bd2793c3a5a195911976f563061c1c0846fe161",
+      "created_at": "2026-10-30T11:00:31.324219+00:00",
+      "updated_at": "2026-10-30T11:06:51.018874+00:00"
+    },
+    {
+      "collection": "planning-evaluation-requests",
+      "key": "biz6f063c51amz01-amazon-1:2:5d20a425eda6c6ad92eeb1ba35e3b7ccbd58f42d569f68b2094e4a9e984bb83e:291fd9b7a3b534d73587e5ab980230728ed2df5d18f6b6b67519cd1dde685630",
+      "exists": true,
+      "sha256": "6af68a8491a80820d435ae654b3f2ab4bbb64abb805878fb8ebfd6c42ec62271",
+      "created_at": "2026-10-30T11:01:28.168561+00:00",
+      "updated_at": "2026-10-30T11:01:28.168561+00:00"
+    },
+    {
+      "collection": "planning-evaluation-http-attempts",
+      "key": "biz6f063c51amz01-amazon-1:2:5d20a425eda6c6ad92eeb1ba35e3b7ccbd58f42d569f68b2094e4a9e984bb83e:291fd9b7a3b534d73587e5ab980230728ed2df5d18f6b6b67519cd1dde685630",
+      "exists": true,
+      "sha256": "3ea7313f05c5ab5af1870d486ca9bdd03319606e2877b7e1825b8828257c85a8",
+      "created_at": "2026-10-30T11:01:28.168309+00:00",
+      "updated_at": "2026-10-30T11:06:40.094242+00:00"
+    },
+    {
+      "collection": "planning-evaluation-receipts",
+      "key": "biz6f063c51amz01-amazon-1:2:5d20a425eda6c6ad92eeb1ba35e3b7ccbd58f42d569f68b2094e4a9e984bb83e:291fd9b7a3b534d73587e5ab980230728ed2df5d18f6b6b67519cd1dde685630",
+      "exists": false,
+      "sha256": null,
+      "created_at": null,
+      "updated_at": null
+    },
+    {
+      "collection": "planning-evaluation-failures",
+      "key": "biz6f063c51amz01-amazon-1:2:5d20a425eda6c6ad92eeb1ba35e3b7ccbd58f42d569f68b2094e4a9e984bb83e:291fd9b7a3b534d73587e5ab980230728ed2df5d18f6b6b67519cd1dde685630",
+      "exists": true,
+      "sha256": "4e192a8ac55e8ee2598de4e116387da8053cec3bb41914d9352a68413729b7b0",
+      "created_at": "2026-10-30T11:06:40.097402+00:00",
+      "updated_at": "2026-10-30T11:06:40.097402+00:00"
+    },
+    {
+      "collection": "planning-evaluation-session-policy",
+      "key": "biz6f063c51amz01-amazon-1",
+      "exists": true,
+      "sha256": "0f46ad3fddb3a9f055e209c1e382d871c53332d3677296f02d12e52bf7fa7f73",
+      "created_at": "2026-10-30T11:00:37.287465+00:00",
+      "updated_at": "2026-10-30T11:00:37.287465+00:00"
+    },
+    {
+      "collection": "planning-evaluation-configuration",
+      "key": "http-retry-policy",
+      "exists": true,
+      "sha256": "9e0d21f4a5660a5580b9b075d52f72a6531061651577ba6a520b2c02ff21949b",
+      "created_at": "2026-10-19T08:40:27.184309+00:00",
+      "updated_at": "2026-10-19T08:40:27.184309+00:00"
+    },
+    {
+      "collection": "planning-schema-portability",
+      "key": "biz6f063c51amz01-manifest",
+      "exists": true,
+      "sha256": "33c6310558dc2bce87bd3420c968ffba946d8d2f61aaed7b1f69f98c499d8abd",
+      "created_at": "2026-10-30T11:00:31.184344+00:00",
+      "updated_at": "2026-10-30T11:00:31.184344+00:00"
+    }
+  ],
+  "accounting_unchanged": true,
+  "financial_accounting": {
+    "calls": 6770,
+    "session_calls": 0,
+    "known_input_tokens": 25489803,
+    "known_output_tokens": 10215166,
+    "known_cost_eur": "387.58381853105095334474139785",
+    "reserved_input_tokens": 2481686,
+    "reserved_output_tokens": 4276224,
+    "reserved_cost_eur": "125.68706630952572698966405760",
+    "cost_upper_bound_eur": "513.27088484057668033440545545",
+    "unknown_attempts": 147
+  },
+  "ceiling_eur": "640.0301038327063045424449473",
+  "available_eur": "126.75921899212962420803949185",
+  "permanent_closures": 57,
+  "unresolved_requests": 0,
+  "ledger_hash_after": "0fa8a50c6398fc62903f115e1d0d8c24cb3c7a067a7d014cbc2b0df8cbb1d8d6",
+  "replay_and_continuation_forbidden": true,
+  "guard_proof": [
+    {
+      "session_id": "biz6f063c51amz01-amazon-1",
+      "rejected": true,
+      "exception_type": "InvalidOperationException",
+      "message": "This planning run is permanently retained as inconclusive and cannot be continued or executed.",
+      "provider_constructed": false,
+      "model_calls": 0,
+      "store_writes": 0,
+      "guard": "RequireRunNotRetainedAsync"
+    },
+    {
+      "session_id": "biz6f063c51amz01-amazon-1-execution",
+      "rejected": true,
+      "exception_type": "InvalidOperationException",
+      "message": "This planning run is permanently retained as inconclusive and cannot be continued or executed.",
+      "provider_constructed": false,
+      "model_calls": 0,
+      "store_writes": 0,
+      "guard": "RequireRunNotRetainedAsync"
+    },
+    {
+      "session_id": "biz6f063c51amz01-amazon-1-copilot",
+      "rejected": true,
+      "exception_type": "InvalidOperationException",
+      "message": "This planning run is permanently retained as inconclusive and cannot be continued or executed.",
+      "provider_constructed": false,
+      "model_calls": 0,
+      "store_writes": 0,
+      "guard": "RequireRunNotRetainedAsync"
+    }
+  ],
+  "provider_calls_in_retention": 0
+}

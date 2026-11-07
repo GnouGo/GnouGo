@@ -1,3 +1,4 @@
+using GnOuGo.Flow.Core.Expressions;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
@@ -6,7 +7,7 @@ using GnOuGo.Flow.Core.Runtime.Executors;
 namespace GnOuGo.Flow.Planning.Capabilities;
 
 /// <summary>Lazy source discovery. Only resolved contracts are authorized for graph binding.</summary>
-public sealed class CapabilityDiscovery(WorkflowEngine engine) : ICapabilityCatalog
+public sealed class CapabilityDiscovery(WorkflowEngine engine) : ICapabilityCatalog, ICapabilitySnapshotCatalog
 {
     private readonly Dictionary<string, List<PlanningCapability>> _cache = new(StringComparer.Ordinal);
     internal static Task<PlanningCatalog> DiscoverAsync(WorkflowEngine engine, PlanningRequest request, CancellationToken ct)
@@ -25,7 +26,7 @@ public sealed class CapabilityDiscovery(WorkflowEngine engine) : ICapabilityCata
                 var capability = new PlanningCapability { Id = Identity("runtime", "registered", type), Kind = "registered", StepType = type,
                     Description = contract.InputSchema["description"]?.ToString() ?? "Registered typed operation",
                     InputSchema = contract.InputSchema.DeepClone().AsObject(), OutputSchema = contract.OutputSchema.DeepClone().AsObject(), EffectKind = effect };
-                capability.Version = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(capability, PlanningJsonContext.Default.PlanningCapability));
+                capability.Version = CapabilityContractIdentity.Version(capability);
                 catalog.Capabilities.Add(capability);
             }
         }
@@ -45,42 +46,91 @@ public sealed class CapabilityDiscovery(WorkflowEngine engine) : ICapabilityCata
         try
         {
             var capabilities = await ReadSourceAsync(sourceId, ct);
-            var summaries = capabilities.Select(c => new CapabilitySummary(c.Id, sourceId,
-                c.Method ?? c.Id, c.Description, c.StepType, c.EffectKind, c.Version, c.Composition, PlanningCapabilityArguments.Editable(c), c.ArtifactContract)).ToArray();
-            if (producedArtifactKind is not null)
-            {
-                ArgumentException.ThrowIfNullOrWhiteSpace(producedArtifactKind);
-                summaries = summaries.Where(c => c.ArtifactContract?.Produces.Any(p => p.Kind == producedArtifactKind) == true).ToArray();
-            }
-            // Null queries retain the ordering and numeric cursors of already-issued requests.
-            var ordered = query is null ? summaries : CapabilityRelevance.Rank(summaries, query);
-            var identity = new[] { sourceId, CapabilityRelevance.Query(query ?? "") }.AsEnumerable();
-            if (producedArtifactKind is not null) identity = identity.Append(producedArtifactKind);
-            var prefix = query is null && producedArtifactKind is null ? "" : "rank:" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(
-                identity.Concat(capabilities.Select(c => c.Id + ":" + c.Version)).ToArray(),
-                PlanningJsonContext.Default.StringArray)) + ":";
-            var offsetText = cursor is null ? "0" : cursor.StartsWith(prefix, StringComparison.Ordinal) ? cursor[prefix.Length..] : "invalid";
-            if (!int.TryParse(offsetText, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var offset))
-                throw new ArgumentException("The discovery cursor does not match this query and metadata snapshot.");
-            if (offset > summaries.Length) throw new ArgumentException("Discovery cursor is outside this source.");
-            var pageSize = query is null && producedArtifactKind is null ? 24 : 8;
-            return new(sourceId, cursor, ordered.Skip(offset).Take(pageSize).ToList(),
-                offset + pageSize < summaries.Length ? prefix + (offset + pageSize).ToString(System.Globalization.CultureInfo.InvariantCulture) : null, Query: query, ProducedArtifactKind: producedArtifactKind);
+            return ReadPage(new(sourceId, ConfigurationFingerprint(sourceId), capabilities), cursor, query, producedArtifactKind);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex) when (ex is not ArgumentException)
-        { return new(sourceId, cursor, [], null, "The source could not be discovered. Its capabilities remain unavailable.", query, producedArtifactKind); }
+        {
+            var failure = ProviderFailure(ex, "invalid_contract");
+            return new(sourceId, cursor, [], null, failure.Message, query, producedArtifactKind) { FailureCategory = failure.Category };
+        }
+    }
+
+    public async Task<CapabilitySourceSnapshot> CaptureAsync(string sourceId, CancellationToken ct)
+    {
+        if (!engine.AgentTaskRunners.Any(r => RunnerSource(r.Key) == sourceId) &&
+            !(engine.McpClientFactory?.ServerMetadata.Any(s => SourceId(s.Name) == sourceId) ?? false))
+            throw new PlanningConflictException("The selected metadata source is not owned by this runtime.");
+        try
+        {
+            var entries = await ReadSourceAsync(sourceId, ct);
+            var snapshot = new CapabilitySourceSnapshot(sourceId, ConfigurationFingerprint(sourceId), entries);
+            return JsonSerializer.Deserialize(JsonSerializer.Serialize(snapshot, CapabilitySnapshotJsonContext.Default.CapabilitySourceSnapshot),
+                CapabilitySnapshotJsonContext.Default.CapabilitySourceSnapshot)!;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (PlanningConflictException) { throw; }
+        catch (WorkflowRuntimeException) { throw; }
+        catch (Exception ex) when (ex is not CapabilityDiscoveryException)
+        { throw ProviderFailure(ex, "invalid_contract"); }
+    }
+
+    private string ConfigurationFingerprint(string sourceId)
+    {
+        var source = engine.McpClientFactory?.ServerMetadata.SingleOrDefault(s => SourceId(s.Name) == sourceId);
+        return source is not null && engine.McpClientFactory is IMcpSourceConfigurationFingerprint fingerprints
+            ? fingerprints.SourceConfigurationFingerprint(source.Name)
+            : PlanningGraphCompiler.Fingerprint(sourceId + "\n" + (source?.Description ?? "runner"));
+    }
+
+    public CapabilityPage ReadPage(CapabilitySourceSnapshot snapshot, string? cursor, string? query, string? producedArtifactKind = null)
+    {
+        var sourceId = snapshot.SourceId;
+        var capabilities = snapshot.Capabilities;
+        var summaries = capabilities.Select(c => new CapabilitySummary(c.Id, sourceId,
+            c.Method ?? c.Id, c.Description, c.StepType, c.EffectKind, c.Version, c.Composition, PlanningCapabilityArguments.Editable(c), c.ArtifactContract)).ToArray();
+        if (producedArtifactKind is not null)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(producedArtifactKind);
+            summaries = summaries.Where(c => c.ArtifactContract?.Produces.Any(p => p.Kind == producedArtifactKind) == true).ToArray();
+        }
+        // Null queries retain the ordering and numeric cursors of already-issued requests.
+        var ordered = query is null ? summaries : CapabilityRelevance.Rank(summaries, query);
+        var identity = new[] { sourceId, CapabilityRelevance.Query(query ?? "") }.AsEnumerable();
+        if (producedArtifactKind is not null) identity = identity.Append(producedArtifactKind);
+        var prefix = query is null && producedArtifactKind is null ? "" : "rank:" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(
+            identity.Concat(capabilities.Select(c => c.Id + ":" + c.Version)).ToArray(),
+            PlanningJsonContext.Default.StringArray)) + ":";
+        var offsetText = cursor is null ? "0" : cursor.StartsWith(prefix, StringComparison.Ordinal) ? cursor[prefix.Length..] : "invalid";
+        if (!int.TryParse(offsetText, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var offset))
+            throw new ArgumentException("The discovery cursor does not match this query and metadata snapshot.");
+        if (offset > summaries.Length) throw new ArgumentException("Discovery cursor is outside this source.");
+        var pageSize = query is null && producedArtifactKind is null ? 24 : 8;
+        return new(sourceId, cursor, ordered.Skip(offset).Take(pageSize).ToList(),
+            offset + pageSize < summaries.Length ? prefix + (offset + pageSize).ToString(System.Globalization.CultureInfo.InvariantCulture) : null, Query: query, ProducedArtifactKind: producedArtifactKind);
     }
 
     public async Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct)
     {
-        var entries = await ReadSourceAsync(summary.SourceId, ct);
-        var capability = entries.SingleOrDefault(c => c.Id == summary.Id && c.Version == summary.Version)
-            ?? throw new PlanningConflictException("The selected capability changed. Rediscover and review it.");
+        ct.ThrowIfCancellationRequested();
+        if (!engine.AgentTaskRunners.Any(r => RunnerSource(r.Key) == summary.SourceId) &&
+            !(engine.McpClientFactory?.ServerMetadata.Any(s => SourceId(s.Name) == summary.SourceId) ?? false))
+            throw new PlanningConflictException("The selected capability source was removed from this runtime.", "catalog_changed");
+        List<PlanningCapability> entries;
+        try { entries = await ReadSourceAsync(summary.SourceId, ct); }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (PlanningConflictException) { throw; }
+        catch (WorkflowRuntimeException) { throw; }
+        catch (Exception ex) { throw ProviderFailure(ex, "invalid_contract"); }
+        var capability = entries.SingleOrDefault(c => c.Id == summary.Id &&
+            (c.Version == summary.Version || CapabilityContractIdentity.LegacyVersion(c) == summary.Version))
+            ?? throw new PlanningConflictException("The selected capability changed. Rediscover and review it.", "catalog_changed");
         if (PlanningContractValidation.ValidateSchema(capability.InputSchema).Count > 0 ||
             capability.OutputSchema.Count > 0 && PlanningContractValidation.ValidateSchema(capability.OutputSchema).Count > 0)
-            throw new PlanningConflictException("The selected capability has an invalid declared schema.");
-        return JsonSerializer.Deserialize(JsonSerializer.Serialize(capability, PlanningJsonContext.Default.PlanningCapability), PlanningJsonContext.Default.PlanningCapability)!;
+            throw new PlanningConflictException("The selected capability has an invalid declared schema.", "invalid_contract");
+        var resolved = JsonSerializer.Deserialize(JsonSerializer.Serialize(capability, PlanningJsonContext.Default.PlanningCapability), PlanningJsonContext.Default.PlanningCapability)!;
+        resolved.Version = summary.Version; // Exact legacy verification retains the issued version.
+        return resolved;
     }
 
     private async Task<List<PlanningCapability>> ReadSourceAsync(string id, CancellationToken ct)
@@ -92,7 +142,7 @@ public sealed class CapabilityDiscovery(WorkflowEngine engine) : ICapabilityCata
         {
             var declared = await runner.DescribeAsync(ct);
             if (string.IsNullOrWhiteSpace(declared.Description) || PlanningContractValidation.ValidateSchema(declared.InputSchema).Count > 0)
-                throw new InvalidOperationException("The task runner declares an invalid contract.");
+                throw new CapabilityDiscoveryException("invalid_contract", "The task runner declares an invalid contract.");
             capabilities.Add(new() { Id = Identity(id, "agent", selectedRunner.Key), Method = selectedRunner.Key, Kind = "agent", StepType = "agent.run", EffectKind = "execute",
                 Description = declared.Description, InputSchema = declared.InputSchema.DeepClone().AsObject(),
                 OutputSchema = new AgentRunExecutor().Contract.OutputSchema.DeepClone().AsObject(), FixedInput = new() { ["runner"] = selectedRunner.Key } });
@@ -118,11 +168,21 @@ public sealed class CapabilityDiscovery(WorkflowEngine engine) : ICapabilityCata
                         ["required"] = new JsonArray((prompt.Arguments ?? []).Where(a => a.Required).Select(a => (JsonNode?)JsonValue.Create(a.Name)).ToArray()) } });
         }
         foreach (var capability in capabilities)
-            capability.Version = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(capability, PlanningJsonContext.Default.PlanningCapability));
+            capability.Version = CapabilityContractIdentity.Version(capability);
         return _cache[id] = capabilities.OrderBy(c => c.Id, StringComparer.Ordinal).ToList();
     }
 
     internal static string RunnerSource(string name) => "runner_" + PlanningGraphCompiler.Fingerprint(name)[..24];
+    internal static CapabilityDiscoveryException ProviderFailure(Exception ex, string argumentCategory = "catalog_changed") =>
+        ex as CapabilityDiscoveryException ?? new(ex switch
+        {
+            OperationCanceledException or TimeoutException => "timeout",
+            UnauthorizedAccessException or System.Security.SecurityException => "access_denied",
+            HttpRequestException { StatusCode: System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden } => "access_denied",
+            ArgumentException => argumentCategory,
+            JsonException => "invalid_contract",
+            _ => "transport_unavailable"
+        }, "The source metadata is unavailable; incomplete inspection establishes no capability absence.");
     internal static string SourceId(string name) => "source_" + PlanningGraphCompiler.Fingerprint(name)[..24];
     internal static string Identity(string server, string kind, string method) => "cap_" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(new[] { server, kind, method }, PlanningJsonContext.Default.StringArray))[..24];
     internal static PlanningCapability Tool(string server, McpToolInfo tool)
@@ -137,7 +197,7 @@ public sealed class CapabilityDiscovery(WorkflowEngine engine) : ICapabilityCata
         };
         if (tool.Meta?["gnougo"]?["result"]?["detect_errors"] is { } detection)
         {
-            if (detection is not JsonValue scalar || !scalar.TryGetValue<bool>(out var enabled)) throw new InvalidOperationException("Declared result error detection must be boolean.");
+            if (detection is not JsonValue scalar || !scalar.TryGetValue<bool>(out var enabled)) throw new CapabilityDiscoveryException("invalid_contract", "Declared result error detection must be boolean.");
             capability.FixedInput["error_policy"] = new JsonObject { ["detect_result_errors"] = enabled };
         }
         return capability;

@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "source": "232a4f229261be3f0c736ec089156d3b875ad956",
+  "scope": "Separately timestamped public post-Code campaign audit; not a run-cost reconstruction.",
+  "captured_at_utc": "2026-10-25T05:38:49.095449+00:00",
+  "safe_sources": [
+    {
+      "path": "/private/tmp/gnougo-232a-terminal-audit-0nbkoywa/audit-safe.json",
+      "sha256": "becf17760da342929885e6260c6161544306521d86602ada303e13ed9a2e8f32",
+      "bytes": 868
+    },
+    {
+      "path": "/private/tmp/gnougo-232a-terminal-audit-0nbkoywa/provider-readiness.jsonl",
+      "sha256": "510dfde0147e5b25760f234c78908e96c7cedf90b5f7f32ab8e3839bbb3a4a26",
+      "bytes": 8531
+    }
+  ],
+  "accounting": {
+    "physical_attempts": 3325,
+    "audit_session_calls": 0,
+    "known_cost_eur": "142.90613638415744199583368565",
+    "retained_reservation_eur": "43.222737502336131456719380257",
+    "recorded_upper_bound_eur": "186.12887388649357345255306591",
+    "frozen_ceiling_eur": "240.0301038327063045424449473",
+    "available_eur": "53.90122994621273108989188139",
+    "retained_unknown_usage_attempts": 57,
+    "receiptless_identities": 29,
+    "permanently_closed_receiptless_identities": 29,
+    "unresolved_receiptless_identities": 0,
+    "recorded_upper_minus_exact_known_plus_reserve_eur": "3E-27"
+  },
+  "qualification": "Decimal precision80 is used to verify the recorded ledger. The +3E-27 difference between recorded upper and the exact sum of its displayed operands is retained, not corrected or described as a new charge. Readiness made zero model calls.",
+  "lost_ledger_exposure": "The historical lost-ledger exposure remains separately retained outside this frozen campaign allowance; this audit neither clears it nor recomputes it.",
+  "limits": [
+    "All historical reservations and closures remain unchanged. Received complete calls in these two new runs require no receiptless closure.",
+    "This is the stated timestamp only, not a promise of a future balance or dispatch approval. No store/operator/provider invocation by this builder."
+  ]
+}

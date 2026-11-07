@@ -20,6 +20,7 @@ public sealed class SecureWorkflowRuntimeFactory
     private readonly ILocalLLMRuntime? _localRuntime;
     private readonly LlmTraceCapture? _capture;
     private readonly IReadOnlyDictionary<string, string> _copilotRunners;
+    private readonly LlmDefaultsResolver? _defaults;
 
     internal bool UsesLiveMcpConfiguration => _mcpClientFactoryOverride is null;
 
@@ -33,7 +34,8 @@ public sealed class SecureWorkflowRuntimeFactory
         IHumanInputProvider? humanInputProvider = null,
         ILocalLLMRuntime? localRuntime = null,
         LlmTraceCapture? capture = null,
-        IReadOnlyDictionary<string, string>? copilotRunners = null)
+        IReadOnlyDictionary<string, string>? copilotRunners = null,
+        LlmDefaultsResolver? defaults = null)
     {
         _optionsStore = optionsStore;
         _keyVaultStore = keyVaultStore;
@@ -45,11 +47,14 @@ public sealed class SecureWorkflowRuntimeFactory
         _localRuntime = localRuntime;
         _capture = capture;
         _copilotRunners = copilotRunners ?? new Dictionary<string, string>();
+        _defaults = defaults;
     }
 
-    internal async Task<SecureWorkflowRuntimeSession> CreateAsync(CancellationToken ct)
+    internal async Task<SecureWorkflowRuntimeSession> CreateAsync(CancellationToken ct, GnOuGo.Flow.Core.Planning.PlanningRequest? planning = null)
     {
-        var options = await _keyVaultStore.BuildEffectiveOptionsAsync(_optionsStore.Current, ct);
+        var options = _defaults is null ? await _keyVaultStore.BuildEffectiveOptionsAsync(_optionsStore.Current, ct)
+            : await _defaults.ResolveAsync(ct);
+        options = GnOuGo.Flow.Integrations.Planning.CapturedPlanningModel.Restore(options, planning);
         var sslLogger = _loggerFactory.CreateLogger("GnOuGo.AI.Core.SSL");
         var http = LLMHttpClientFactory.Create(options.DangerousAcceptAnyServerCertificate, LLMHttpClientDefaults.MinimumTimeout, sslLogger);
         IMcpClientFactory mcpFactory = _mcpClientFactoryOverride ?? (options.McpServers.Count > 0
@@ -66,7 +71,8 @@ public sealed class SecureWorkflowRuntimeFactory
         return new SecureWorkflowRuntimeSession(
             llmClient,
             mcpFactory,
-            _llmCapabilityResolver,
+            planning?.Options[GnOuGo.Flow.Integrations.Planning.CapturedPlanningModel.OptionName] is not null
+                ? GnOuGo.Flow.Integrations.Planning.CapturedPlanningModel.Capabilities(options) : _llmCapabilityResolver,
             options,
             http) { CopilotRunners = _copilotRunners };
     }

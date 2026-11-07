@@ -25,8 +25,8 @@ public sealed class DynamicMappingCompilationTests
         Assert.DoesNotContain("adaptive_each", new PlanningGraphCompiler().Compile(historical.Graph!, catalog));
         Assert.DoesNotContain("adaptive_each", JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan));
         var session = new PlanningSession { Plan = plan, Graph = current.Graph, Request = request, Catalog = catalog };
-        Assert.DoesNotContain("two-attempt allowance", PlanningSchemas.FullProposal(session, compact: false).ToJsonString());
-        Assert.Contains("two-attempt allowance", PlanningSchemas.FullProposal(new() { Catalog = catalog }, compact: false).ToJsonString());
+        Assert.DoesNotContain("two-attempt allowance", PlanningSchemas.TaskPlanGrammar(session).ToJsonString());
+        Assert.Contains("two-attempt allowance", PlanningSchemas.TaskPlanGrammar(new() { Catalog = catalog }).ToJsonString());
         Assert.Contains(PlanningReviewFormatter.Operations(session), v => v.Description.Contains("per-item inference", StringComparison.Ordinal));
     }
 
@@ -36,7 +36,7 @@ public sealed class DynamicMappingCompilationTests
     [InlineData("nullable_array")]
     public void IndependentGenerationSchemaRejectsInvalidResultShapes(string variant)
     {
-        var root = PlanningSchemas.FullProposal(new() { Catalog = new() }, compact: false);
+        var root = PlanningSchemas.TaskPlanGrammar(new() { Catalog = new() });
         var schema = PlanningSchemas.Ref("task"); schema["$defs"] = root["$defs"]!.DeepClone();
         var task = JsonNode.Parse("""
             {"id":"extract","kind":"transform","objective":"Extract one value per observation","dependsOn":[],"requires":null,

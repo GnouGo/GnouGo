@@ -72,7 +72,7 @@ public sealed class AuthoredCompositionCompatibilityTests
         async Task<bool> Run()
         {
             var compiled = new TaskPlanCompiler().Compile(plan, catalog, PlannerFixture.Session().Request);
-            Assert.Empty(compiled.Diagnostics); // No new implication checker.
+            Assert.Empty(compiled.Diagnostics);
             var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog, "assertions",
                 descriptions: true, fuseBindings: true, consumerBindings: true, directProjections: true, nativeMappings: true,
                 readableMappings: true, leanMappings: true, compactProjections: true, inlineConsumers: true, directValues: true,
@@ -81,7 +81,7 @@ public sealed class AuthoredCompositionCompatibilityTests
             if (!result.Success) Assert.Equal("INPUT_VALIDATION", result.Error!.Code);
             return result.Success;
         }
-        Assert.False(await Run());
+        Assert.Contains(new TaskPlanCompiler().Compile(plan, catalog, PlannerFixture.Session().Request).Diagnostics, diagnostic => diagnostic.Code == "TASK_GUARD_CONTRADICTION");
         var original = plan.Root.Tasks;
         plan.Root.Tasks = [new() { Id = "route", Kind = "conditional", Objective = "Route optional work explicitly", Condition = Present(),
             Body = new() { Tasks = [original[0]] }, Otherwise = new() { Tasks = [original[1]] } }];

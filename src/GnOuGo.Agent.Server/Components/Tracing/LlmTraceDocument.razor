@@ -1,18 +1,22 @@
 @using GnOuGo.Agent.Server.Telemetry
+@using GnOuGo.KeyVault.Core.Services
+@implements IDisposable
 @inject IJSRuntime JS
 <section class="llm-document">
     <h4>@Title — @Status</h4>
     @if (Bytes is { } size) { <p>@size.ToString("N0") UTF-8 bytes (retained logical document)</p> }
-    @if (Text is not null)
+    @if (Document is not null || Text is not null)
     {
         <div class="llm-document__controls">
-            <button type="button" @onclick="() => _formatted = !_formatted">@(_formatted ? "Formatted" : "Raw")</button>
-            <button type="button" @onclick="CopyAsync">Copy @Title.ToLowerInvariant()</button>
+            <button type="button" @onclick="CopyAsync">Copy current page</button>
             <input aria-label="Search retained content" placeholder="Search retained content" @bind="_search" @bind:event="oninput" />
-            @if (_search.Length > 0) { <span>@Matches match(es)</span> }
-            <span role="status">@_copyStatus</span>
+            <button type="button" disabled="@(_search.Length == 0 || _busy)" @onclick="FindNextAsync">Find next match</button>
+            @if (ExportHref is not null) { <a href="@ExportHref" download>Export complete redacted JSON</a> }
         </div>
-        @TraceDebugValueRenderer.RenderValue(Text, _formatted)
+        <p role="status">@_message Characters @_offset–@_next of @(Document?.Characters ?? Text?.Length ?? 0).</p>
+        <button type="button" disabled="@(_back.Count == 0 || _busy)" @onclick="PreviousAsync">Previous content page</button>
+        <button type="button" disabled="@(_next >= (Document?.Characters ?? Text?.Length ?? 0) || _busy)" @onclick="NextAsync">Next content page</button>
+        <pre style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:30rem;overflow:auto">@_page</pre>
     }
 </section>
 @code {
@@ -20,12 +24,69 @@
     [Parameter] public string Status { get; set; } = "unavailable";
     [Parameter] public string? Text { get; set; }
     [Parameter] public int? Bytes { get; set; }
-    private bool _formatted = true;
-    private string _search = "", _copyStatus = "";
-    private int Matches => string.IsNullOrEmpty(_search) || Text is null ? 0 : (Text.Length - Text.Replace(_search, "", StringComparison.OrdinalIgnoreCase).Length) / _search.Length;
+    [Parameter] public LlmDocumentReference? Document { get; set; }
+    [Parameter] public Func<int, int, string?, CancellationToken, Task<KeyVaultRecordRange>>? ReadPage { get; set; }
+    [Parameter] public Func<string, int, CancellationToken, Task<LlmDocumentSearch>>? Search { get; set; }
+    [Parameter] public string? ExportHref { get; set; }
+    private const int PageSize = 32768;
+    private int _offset, _next, _searchOffset;
+    private readonly Stack<int> _back = new();
+    private string? _identity, _page;
+    private string _search = "", _lastSearch = "", _message = "";
+    private bool _busy;
+    private CancellationTokenSource _lifetime = new();
+    protected override async Task OnParametersSetAsync()
+    {
+        var identity = Document is null ? Text : Document.Id + ":" + Document.Version;
+        if (identity == _identity) return;
+        _identity = identity; _back.Clear(); _offset = _next = _searchOffset = 0;
+        await LoadAsync(0);
+    }
+    private async Task LoadAsync(int offset)
+    {
+        _busy = true;
+        try
+        {
+            if (Document is not null && ReadPage is not null)
+            {
+                var page = await ReadPage(offset, PageSize, Document.Version, _lifetime.Token);
+                _page = page.Text; _offset = page.Offset; _next = page.NextOffset;
+            }
+            else { _offset = Math.Min(offset, Text?.Length ?? 0); _next = Math.Min(_offset + PageSize, Text?.Length ?? 0); _page = Text?[_offset.._next]; }
+            _message = "";
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        catch (KeyVaultRecordVersionException) { _page = null; _message = "Document changed. Reload this exchange to continue with a consistent version."; }
+        catch (Exception) { _page = null; _message = "Protected content page is unavailable."; }
+        finally { _busy = false; }
+    }
+    private async Task NextAsync() { _back.Push(_offset); await LoadAsync(_next); }
+    private async Task PreviousAsync() { if (_back.TryPop(out var offset)) await LoadAsync(offset); }
+    private async Task FindNextAsync()
+    {
+        if (_lastSearch != _search) { _lastSearch = _search; _searchOffset = 0; }
+        try
+        {
+            if (Search is not null)
+            {
+                var result = await Search(_search, _searchOffset, _lifetime.Token);
+                _searchOffset = result.Match is { } match ? match + _search.Length : result.NextOffset;
+                if (result.Match is { } found) { _back.Push(_offset); await LoadAsync(found); }
+                else _message = result.Complete ? "No further matches." : "Search continues on demand; select Find next match again.";
+            }
+            else if (Text is not null)
+            {
+                var found = Text.IndexOf(_search, Math.Min(_searchOffset, Text.Length), StringComparison.OrdinalIgnoreCase);
+                if (found >= 0) { _searchOffset = found + _search.Length; _back.Push(_offset); await LoadAsync(found); }
+                else _message = "No further matches.";
+            }
+        }
+        catch (Exception) { _message = "Search unavailable or document version changed."; }
+    }
     private async Task CopyAsync()
     {
-        try { await JS.InvokeVoidAsync("navigator.clipboard.writeText", Text); _copyStatus = "Copied"; }
-        catch (JSException) { _copyStatus = "Clipboard unavailable; select the retained text to copy."; }
+        try { await JS.InvokeVoidAsync("navigator.clipboard.writeText", _page); _message = "Current page copied."; }
+        catch (JSException) { _message = "Clipboard unavailable; select the displayed text to copy."; }
     }
+    public void Dispose() { _lifetime.Cancel(); _lifetime.Dispose(); }
 }

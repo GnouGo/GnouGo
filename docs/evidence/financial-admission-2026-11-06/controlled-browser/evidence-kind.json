@@ -1,0 +1,18 @@
+{
+  "kind": "actual Agent.Server host with controlled HTTP provider",
+  "paidProviderResponse": false,
+  "sourceRevision": "9faa818cebc43154c6a6a4f7198687216491cf7b",
+  "logicalCalls": 5,
+  "physicalHttpAttempts": 6,
+  "retry": "one HTTP 500 before a success; its own hold retained",
+  "state": "final review, no approval/execution",
+  "assertions": [
+    "protected session finance read",
+    "unauthorized 403",
+    "wrong session owner/workflow 404",
+    "antiforgery enforced",
+    "policy capture unchanged after preference edit",
+    "reload and host restart"
+  ],
+  "screenshot": "session-finances.png"
+}

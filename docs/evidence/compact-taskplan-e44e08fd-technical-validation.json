@@ -1,0 +1,173 @@
+{
+  "production_source": "e44e08fd04a4f50b3bc89824d3bc3821def7f864",
+  "business_acceptance": false,
+  "overlapping_test_counts_not_summed": true,
+  "planning": {
+    "exit_code": 0,
+    "counts": {
+      "Passed": 3699
+    },
+    "elapsed_seconds": 364.9412797089899,
+    "source_unchanged": true,
+    "log_sha256": "703055e2c663c196ae11e0785638681346117d510d14a104be2a68df10017676",
+    "execution_base": "ba1a77f04e2ee14ef7660f0df6580a56eea43ffd",
+    "verified_production_test_build_postimages": 1973,
+    "source_manifest_sha256": "5e18be1ebea40061f6a31607d3626df1536d841d06783dd167aa468fa9557211",
+    "command_sha256": "871fd22b7dadbcb1cb6947a20dbf677904dd2260d2276d0fadfab968dc9f60bd"
+  },
+  "host": {
+    "exit_code": 0,
+    "counts": {
+      "Passed": 789
+    },
+    "elapsed_seconds": 146.10387391701806,
+    "source_unchanged": true,
+    "log_sha256": "fae89870cbffa07dc65a96bd8dc83ab435d0f9aafb89a28cd1c11d52f86392cd",
+    "execution_base": "e44e08fd04a4f50b3bc89824d3bc3821def7f864",
+    "verified_production_test_build_postimages": 1973,
+    "source_manifest_sha256": "1c058ff4fdeee2fd61c7af1e1891e4d3e9572907391a74318e032265ed740a0f",
+    "command_sha256": "9b3f57d105223353ea80baa4a225c06846b1a1bf3a5ce82666e1b60e9c3e1f72"
+  },
+  "publication": {
+    "source": "e44e08fd04a4f50b3bc89824d3bc3821def7f864",
+    "exact_source_blobs_and_modes": 4769,
+    "source_manifest_sha256": "3fc0bd30021a8b913fccd8d4c32fc0b0cabdd4fd173c9851a89dd724a2714a03",
+    "all_stages_passed": true,
+    "stages": [
+      {
+        "stage": "managed-publish",
+        "log_sha256": "4a1f152d18c552ec12ffc2a23f9415dab30b5e43fda4cb93cdcbafb80aaaedb2",
+        "elapsed_seconds": 30.325
+      },
+      {
+        "stage": "managed-smoke",
+        "log_sha256": "2c9c49966a627c7c0b9bd70ae28be452cdd3fe93c269c3f972f6be92ccdb629a",
+        "elapsed_seconds": 3.346
+      },
+      {
+        "stage": "native-publish",
+        "log_sha256": "3bf33fb0ad78f04c25bd595fc633a04d0263de9fc48d45732190487b31171155",
+        "elapsed_seconds": 37.069
+      },
+      {
+        "stage": "native-smoke",
+        "log_sha256": "3fa38761318308beba38b427501eda939f72a30b9a569b5e7b3102c88d45cd9b",
+        "elapsed_seconds": 6.87
+      },
+      {
+        "stage": "pack-planning",
+        "log_sha256": "b24c993e51b233f078813ab09942ba33cc2479c107a265192fdca6e15c8379cc",
+        "elapsed_seconds": 1.31
+      },
+      {
+        "stage": "pack-integrations",
+        "log_sha256": "4a82ab03a80afc26497cf8fa8c997637e0de6833a4b01f54ddc4ad6762248b58",
+        "elapsed_seconds": 1.815
+      },
+      {
+        "stage": "pack-core",
+        "log_sha256": "e1f987a8c90f3fbfe40d8b536786067766422d627f84aa4999f24fc1ce8ecac5",
+        "elapsed_seconds": 0.868
+      },
+      {
+        "stage": "pack-copilot",
+        "log_sha256": "f47467753da0a330dd493ca911624cd60c619bc4659c8ee5de1034200f276b37",
+        "elapsed_seconds": 1.884
+      },
+      {
+        "stage": "pack-persistence",
+        "log_sha256": "e7d49b6d2862fab8b85a9eaaae845bbed63a47a27806b50535927c748b690a69",
+        "elapsed_seconds": 2.432
+      },
+      {
+        "stage": "pack-ai-core",
+        "log_sha256": "99114ba17189edec49664afae495de8221711094081486849b7d978c1cf47613",
+        "elapsed_seconds": 0.893
+      },
+      {
+        "stage": "server-publish",
+        "log_sha256": "40255e5bfbd13dd3e7de22d4b7e771fb82b0c36dc89cbda5f8b73e1ceac838c3",
+        "elapsed_seconds": 111.901
+      },
+      {
+        "stage": "server-encrypted-storage-smoke",
+        "log_sha256": "7e3ebcc6e52949e24cd53cf518d48371066902ffe33e70d05446cfa36641fdf5",
+        "elapsed_seconds": 2.246
+      }
+    ],
+    "verified_output_files": 213,
+    "independent_package_builds": [
+      {
+        "file": "GnOuGo.Flow.Planning.1.0.0.nupkg",
+        "sha256": "547c2c8cde3b654deee6312c7470375fad04d5a52f5e14a1eba423640cd6d09e",
+        "repository_commit": "e44e08fd04a4f50b3bc89824d3bc3821def7f864"
+      },
+      {
+        "file": "GnOuGo.Flow.Integrations.1.0.0.nupkg",
+        "sha256": "9cace23f1e157a63d83fbdc41b5160a398dcd844bd63e3b17881803276b4ac96",
+        "repository_commit": "e44e08fd04a4f50b3bc89824d3bc3821def7f864"
+      },
+      {
+        "file": "GnOuGo.Flow.Core.1.0.0.nupkg",
+        "sha256": "d588a26c6b9a46fb1f045c53bf831ca323605d1ae5372c019a307679c8a59124",
+        "repository_commit": "e44e08fd04a4f50b3bc89824d3bc3821def7f864"
+      },
+      {
+        "file": "GnOuGo.AI.Core.1.0.0.nupkg",
+        "sha256": "c6f692ce1ccb0abff9018e8685f02152074286c82bac6c5358ca425958fa6a55",
+        "repository_commit": "e44e08fd04a4f50b3bc89824d3bc3821def7f864"
+      },
+      {
+        "file": "GnOuGo.Flow.Copilot.1.0.0.nupkg",
+        "sha256": "96456e505ef462e1502e979002c5bb33ed4b227dc8a078b77dc30c12d82619c5",
+        "repository_commit": "e44e08fd04a4f50b3bc89824d3bc3821def7f864"
+      },
+      {
+        "file": "GnOuGo.Flow.Persistence.1.0.0.nupkg",
+        "sha256": "369ffc0ad50bb4da335eb3f49f30c5fdd34e12a679a4078161659d702ca30814",
+        "repository_commit": "e44e08fd04a4f50b3bc89824d3bc3821def7f864"
+      }
+    ],
+    "managed_and_native_aot_smoke": true,
+    "fresh11_and_historical_2_to_10": true,
+    "exact_pending_recovery_and_mock_runtime": true,
+    "published_encryption_and_tenant_isolation": true,
+    "planning_calls": 0,
+    "business_acceptance": false,
+    "limitation": "Server packaging excludes existing ClientApp and bundled-tool staging; this validates publication and synthetic encrypted persistence, not business workflows."
+  },
+  "publication_qualification_sha256": "e7918ed49b3feb1e52429c41cf07909d4e37e8bb8b55f43026bf38dc8be55911",
+  "retained_private_publication_failure": {
+    "kind": "Harness SourceRevisionId substitution error caught by independent package verification",
+    "expected": "e44e08fd04a4f50b3bc89824d3bc3821def7f864",
+    "incorrect_package_revision": "e44e08fd8bfe769283ba25e6af6bd40585c6a258",
+    "source_snapshot_sha256": "3fc0bd30021a8b913fccd8d4c32fc0b0cabdd4fd173c9851a89dd724a2714a03",
+    "corrected_by": "Fresh private publication with exact full revision; 12 independently reverified stages and six package tags. No bad package deployed.",
+    "production_or_model_settings_changed": false
+  },
+  "isolated_benchmark_build": {
+    "manifest_sha256": "6e2d9fc9291f56581f57e0e6fb3167587bc64e57d76dd246591fb7dee5967acc",
+    "runtime_files": 435,
+    "mcp_pins": 568,
+    "model_calls": 0
+  },
+  "environmental_pin_guard": {
+    "manifest_restored_files": [
+      {
+        "path": "src/GnOuGo.GithubCopilot.Mcp/bin/Debug/net10.0/runtimes/osx-arm64/native/libcopilot_runtime.dylib",
+        "sha256": "f14b974c47d10d2ff207f6b3e72fb7a33ba207809d91873ad640a81b0f25139c",
+        "bytes": 75019696
+      },
+      {
+        "path": "src/GnOuGo.GithubCopilot.Mcp/bin/Debug/net10.0/runtimes/osx-arm64/native/runtime.node",
+        "sha256": "f14b974c47d10d2ff207f6b3e72fb7a33ba207809d91873ad640a81b0f25139c",
+        "bytes": 75019696
+      }
+    ],
+    "restoration_evidence_sha256": "85118f4e8221d0a04ed4468b10f24941d87d5d20efeb68a793b600091fb0b749",
+    "existing_files_changed": 0,
+    "all_pins_reverified": 568,
+    "cause": "Unknown; freeze stopped before dispatch. Exact frozen bytes restored without rebuilding or changing permissions."
+  },
+  "final_source_full_solution": "Pending; prior a6bd5978 observer remains attributed to that source."
+}

@@ -1,0 +1,8 @@
+{
+  "evidence": "controlled assets; actual Agent.Server; no inference",
+  "scenario": "normal",
+  "startupFailureVisible": false,
+  "interactive": true,
+  "reload": true,
+  "errors": []
+}

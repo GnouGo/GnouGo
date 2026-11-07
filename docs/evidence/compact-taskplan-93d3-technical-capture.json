@@ -1,0 +1,188 @@
+{
+  "version": 1,
+  "source": "93d3e1c2747e029f0136d4391ba8480151092ac4",
+  "captured_utc": "2026-10-26T23:37:25.749672+00:00",
+  "full_private_record_sha256": "edd81c74656c3b077c382f4a378347fd2275bd8abdb2d3ae1b25f15ef8f8dbc7",
+  "owning_planning": {
+    "passed": 3555,
+    "failed": 0,
+    "skipped": 0,
+    "warning_as_error": true,
+    "actual_exact_committed_source": true,
+    "result_sha256": "8015198644f59c7a8028a1ee3ad5766f6ac0b1a1a9fba62b7b3ad12355e6b6fa",
+    "log_sha256": "358ed6a2c864e3413fd1327682f31b009e2e90107d53a89b01bbaf303b0ab602",
+    "source_equality_sha256": "1ad677931a36c5c2d5ed3ed43ba3bc8b2b78399f69a3b9dcc93513c3b2adc7bf"
+  },
+  "focused": {
+    "passed": 97,
+    "failed": 0,
+    "skipped": 0,
+    "included_in_owning_total": true,
+    "qualification_sha256": "05f28116d485c2ede065dd55a0b9dd7e0944673480f33c05824dde2f9013656e",
+    "attribution": "Stable working v9 snapshot on d5; exact technical file hashes match committed93d. The two reporting differences are listed below.",
+    "reporting_differences": [
+      {
+        "path": "docs/evidence/compact-taskplan-convergence.md",
+        "executed_sha256": "2a14d07d1ffb10719d9370aa88cd3c005aa0efe5430015c97bd17a0b5c8c4ea7",
+        "committed_sha256": "3af6c552c231e6476c5d563999d8efcf9a1d07f0e1104c11059dfd52f88daddd"
+      },
+      {
+        "path": "docs/evidence/compact-v9-mechanism-qualification.json",
+        "executed_sha256": null,
+        "committed_sha256": "561ff9c1868d0a9ce55ed6835b178e7de9a4d4ce4b0fd069b6edb572951175b6"
+      }
+    ]
+  },
+  "publication": {
+    "fresh_stages": [
+      {
+        "name": "managed-publish",
+        "exit_code": 0,
+        "log_sha256": "7c5c219331c7b121d28dc17530471f9b65ee3a11856ac17a448ba4cb89abca80"
+      },
+      {
+        "name": "managed-smoke",
+        "exit_code": 0,
+        "log_sha256": "be05d482646441cf2400a6a4b0aae61088efdfb1bf7e845a50142c0397640015"
+      },
+      {
+        "name": "native-publish",
+        "exit_code": 0,
+        "log_sha256": "8c03b13005720ac93e75f7e6025ea06af27beef153237dcea62b673f831b52de"
+      },
+      {
+        "name": "native-smoke",
+        "exit_code": 0,
+        "log_sha256": "9380dca10ec72ddd3d80846270403f6af3155faac03778a5a72389a71f51989f"
+      },
+      {
+        "name": "pack-planning",
+        "exit_code": 0,
+        "log_sha256": "3a7a2f0d90849e357525ede3b0a4a768b09946ce73765af79506cc03c1f3b709"
+      },
+      {
+        "name": "pack-integrations",
+        "exit_code": 0,
+        "log_sha256": "e2414e88b8957dadb67b159d76cc83e3fc246456a2c0e860d93409ba62b889a0"
+      },
+      {
+        "name": "server-publish",
+        "exit_code": 0,
+        "log_sha256": "fb24f54cd1d34bad3921a87cc89924f814e6904104fae1fbcb357e26783175d7"
+      },
+      {
+        "name": "server-encrypted-storage-smoke",
+        "exit_code": 0,
+        "log_sha256": "7e3ebcc6e52949e24cd53cf518d48371066902ffe33e70d05446cfa36641fdf5"
+      }
+    ],
+    "qualified_versions": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "reused_packages": [
+      "GnOuGo.Flow.Core",
+      "GnOuGo.Flow.Copilot",
+      "GnOuGo.Flow.Persistence",
+      "GnOuGo.AI.Core"
+    ],
+    "recursive_input_count": 229,
+    "qualification_sha256": "f30c3aa3602682a9576efa2edc206ee658259c79ca0194467cf97d9cde0e39fc",
+    "source_binding_sha256": "d905f53f4ec2c31e4a04b95cdbf50ac8c3641f45df3cf8c70226d28cf2af02d7",
+    "reuse_proof_sha256": "807a627fe930ae9903f0577d78bf075402f177729652678ab2a532ac592b74bb",
+    "attribution": "Fresh stages ran the captured stable uncommitted v9 overlay. Two later docs/evidence files differ from93d3; every production/test/build input and mode is exact. Prior4 package executions retain pre-fix snapshot and d5 base stamps; only their recursive input equality is reused. No full solution pass or business acceptance claimed.",
+    "encrypted_storage": "Published encrypted-storage smoke used its explicitly supplied private synthetic database, with both operational roots and network denied; no production-store test."
+  },
+  "ci_at_capture": {
+    "completed": [
+      {
+        "workflow": "ProxyCopilot standalone validation",
+        "run_id": 40417350010,
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/40417350010",
+        "head": "93d3e1c2747e029f0136d4391ba8480151092ac4",
+        "conclusion": "success",
+        "jobs": [
+          {
+            "name": "standalone",
+            "conclusion": "success"
+          }
+        ],
+        "raw_sha256": "536ed132999347deb41a22d2e14bc4544cc4422781b124f87f0cdc74d020ccb9"
+      },
+      {
+        "workflow": "Build ProxyCopilot Native AOT",
+        "run_id": 40417349985,
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/40417349985",
+        "head": "93d3e1c2747e029f0136d4391ba8480151092ac4",
+        "conclusion": "success",
+        "jobs": [
+          {
+            "name": "ProxyCopilot AOT (linux-x64)",
+            "conclusion": "success"
+          },
+          {
+            "name": "ProxyCopilot AOT (win-x64)",
+            "conclusion": "success"
+          },
+          {
+            "name": "ProxyCopilot AOT (osx-arm64)",
+            "conclusion": "success"
+          },
+          {
+            "name": "ProxyCopilot AOT (win-arm64)",
+            "conclusion": "success"
+          },
+          {
+            "name": "ProxyCopilot AOT (osx-x64)",
+            "conclusion": "success"
+          },
+          {
+            "name": "ProxyCopilot AOT (linux-arm64)",
+            "conclusion": "success"
+          }
+        ],
+        "raw_sha256": "06629ad98be757c3c76df46df34d881bc6b48dfa7561a2461775f8c56c5e086e"
+      }
+    ],
+    "pending": [
+      {
+        "workflow": "Deterministic planner validation",
+        "run_id": 40417350021,
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/40417350021",
+        "status": "in_progress",
+        "conclusion": "",
+        "raw_sha256": "acffe9093669f688b47a74fcac7ab81e08df91ccc1abb85cc27837c5cb1bb122"
+      }
+    ],
+    "status_evidence_sha256": "2775cfba02d3c8a7c09ecf7f683ef49c0d21bc7cb1902c579f62f25b1a1baf3b"
+  },
+  "full_solution_at_capture": {
+    "status": "pending; original Cmd test failure remains in its original completed TRX",
+    "whole_suite_pass": false,
+    "original_failure": {
+      "test": "GnOuGo.Cmd.Mcp.Tests.McpProtocolNegotiationTests.AllowlistedCommandsCannotReadTheMcpTransport",
+      "configured_timeout_ms": 5000,
+      "reported_duration_ms": 8094.236,
+      "stdout": "stdin closed",
+      "trx_sha256": "ecc878176f38fa9559d63f28bcebb7c6d2f6a911fba937a230e321fb172c1309",
+      "cause": "not established"
+    },
+    "separate_unchanged_targeted_check": {
+      "passed": 1,
+      "log_sha256": "6d8a7cadc2d61fabe116c7dc169ea4ab6d6c98465e5020a0a11ea4b93864b70e",
+      "attribution": "Existing --no-build/--no-restore check on the same compiled93d snapshot; deadline, permissions and test unchanged. Nonadditive and does not turn the original full run into a pass."
+    }
+  },
+  "limitations": [
+    "Focused97 is included in owning3555; do not add their counts. Publication stage counts are not test counts.",
+    "Publication8 executed the stable precommit snapshot with d5 stamps, then source-qualified93d; four packs retain their earlier executions and exact recursive input reuse.",
+    "Original failures and skipped checks remain preserved. Full-solution and planner CI terminal outcomes are pending, not successful.",
+    "This technical record establishes no live business acceptance, production execution permission, or qualified artifact approval receipt. Two fresh successes per scenario and18 comparisons remain separate business gates."
+  ]
+}

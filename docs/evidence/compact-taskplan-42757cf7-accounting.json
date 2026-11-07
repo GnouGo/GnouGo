@@ -1,0 +1,27 @@
+{
+  "source": "42757cf7661f48a6b7e8acc3f07ab6c15e523b38",
+  "campaign": "schema-portability-20261019-incremental",
+  "capture_file_completed_utc": "2026-10-26T12:45:39.030300+00:00",
+  "timestamp_basis": "Retained readiness output file modification time; no server-generated audit timestamp was present.",
+  "ready": true,
+  "ceiling_eur": "440.0301038327063045424449473",
+  "known_cost_eur": "205.44381152918198461073774641",
+  "retained_unknown_usage_eur": "60.698980251109000711516345897",
+  "upper_bound_eur": "266.14279178029098532225409231",
+  "available_eur": "173.88731205241531922019085499",
+  "retained_lost_ledger_exposure_eur": "159.96989616729369545755505266",
+  "combined_authorized_ceiling_eur": "600",
+  "combined_spending_reservation_upper_bound_eur": "426.11268794758468077980914497",
+  "physical_attempts": 4365,
+  "unknown_usage_attempts": 76,
+  "receiptless_requests": 31,
+  "permanently_closed_receiptless_requests": 31,
+  "unresolved_requests": 0,
+  "source_evidence_hash": "11299087120c31f980220b76a2c1c27db567a642654f442c8c32c4e9236d936b",
+  "evidence": {
+    "name": "post-experiments-readiness.jsonl",
+    "sha256": "92f3eaf9d7fb1d0c94cd2fd9d3d041fac613e092479818ef2071cc146bd513c8"
+  },
+  "limitation": "Dated post-experiment observation, not a future balance. Closing uncertain requests releases no reservation and grants no replay or execution authority. Original ledger values are retained exactly.",
+  "available_eur_basis": "Derived from exact retained ceiling minus upper bound with Decimal precision80."
+}

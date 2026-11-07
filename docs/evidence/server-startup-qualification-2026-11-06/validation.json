@@ -1,0 +1,763 @@
+{
+  "implementation_source": "c73009ba",
+  "initial_qualification_source": "84a9e271",
+  "note": "Full solution run was built at 84a9e271. Later changes affect only benchmark exception/retention diagnostics and are qualified separately; no production source changed after 84a9e271.",
+  "solution_sha256": "3b3d9b39a7f330a4e05d8269ca399477fe9fc3f4f955a005ae3ad3c11e8d95dd",
+  "steps": [
+    {
+      "name": "solution-build",
+      "original_log_sha256": "5ef69fe75e1510f414829d11713df0384b401ebe27a8565554ca9082c24b15d4",
+      "public_log": "logs/solution-build.log.gz",
+      "public_sha256": "f1ee89f5bb6221a876eb4c9252d568740be5bd9dae794a455f5a46c6e6a2316b"
+    },
+    {
+      "name": "frontend-production",
+      "original_log_sha256": "e4010206d58770ff6561559394fa47df335009b31a03f17ffdb70f0937c89d69",
+      "public_log": "logs/frontend-production.log.gz",
+      "public_sha256": "6100f7c6621809a6948f17dd7bd54ad505d623db7cf168cf886f88811fbd7978"
+    },
+    {
+      "name": "focused-server",
+      "original_log_sha256": "b4c15c0f91ee32a90bb1fa0000d20c8cd4d7fb846c04ad507addbe5dea055a75",
+      "public_log": "logs/focused-server.log.gz",
+      "public_sha256": "2e7e51ad48a4ce9d59b4435c8aed656716ed1edbe2ae9db84904faa75581c3e4"
+    },
+    {
+      "name": "focused-planner",
+      "original_log_sha256": "4d3a6349a01c92c0587a1b317049cea65b7d0ceb4cc1a4d898992cbaf9f31737",
+      "public_log": "logs/focused-planner.log.gz",
+      "public_sha256": "225aa472625c2554b5d5f928f23f0ad736c08319c138d2d4c65db2768049ed95"
+    },
+    {
+      "name": "focused-retention",
+      "original_log_sha256": "3582ab961b2fe7153b38d7346226b3d045dc699f87013a9a9bf73fd482cf6ad2",
+      "public_log": "logs/focused-retention.log.gz",
+      "public_sha256": "0114153c30cce1e0ce1f0f60b84ea447a11cd4a42fa97b71df2278e70af5c886"
+    }
+  ],
+  "focused_test_runs": [
+    {
+      "trx": "artifacts/server-startup/after/startup-config.trx",
+      "sha256": "2e91224c945f35080ffc1b612dfb55bf19654026321821f666bd7f4c8dd33ca2",
+      "times": {
+        "creation": "2026-11-06T22:34:22.6315000+01:00",
+        "queuing": "2026-11-06T22:34:22.6315010+01:00",
+        "start": "2026-11-06T22:34:18.3106060+01:00",
+        "finish": "2026-11-06T22:34:44.9752880+01:00"
+      },
+      "counters": {
+        "total": "147",
+        "executed": "147",
+        "passed": "140",
+        "failed": "7",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "status": "superseded exploratory result; not an accepted qualification total"
+    },
+    {
+      "trx": "artifacts/server-startup/after/startup-config-inspection.trx",
+      "sha256": "6b0145ca08451355b87866545fd341d37e0733437c0e40cc98134edd0a3d5eb6",
+      "times": {
+        "creation": "2026-11-06T22:36:06.2860820+01:00",
+        "queuing": "2026-11-06T22:36:06.2860820+01:00",
+        "start": "2026-11-06T22:36:03.0498790+01:00",
+        "finish": "2026-11-06T22:36:23.7099230+01:00"
+      },
+      "counters": {
+        "total": "155",
+        "executed": "155",
+        "passed": "155",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "status": "superseded exploratory result; not an accepted qualification total"
+    },
+    {
+      "trx": "artifacts/server-startup/after/measurements-final.trx",
+      "sha256": "230f6db005c6b0152ae1faf2c36f02bf17b608ba18609fde87aced782ebbed8b",
+      "times": {
+        "creation": "2026-11-06T22:38:26.4211720+01:00",
+        "queuing": "2026-11-06T22:38:26.4211720+01:00",
+        "start": "2026-11-06T22:38:24.8705630+01:00",
+        "finish": "2026-11-06T22:38:26.4777500+01:00"
+      },
+      "counters": {
+        "total": "57",
+        "executed": "57",
+        "passed": "57",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "status": "focused validation; overlapping counts, do not add"
+    },
+    {
+      "trx": "artifacts/server-startup/after/measurements.trx",
+      "sha256": "c3dcb03ff261fa8133ab91beaa68124b00a837b761424799666b42a8d37622f3",
+      "times": {
+        "creation": "2026-11-06T22:38:05.7045010+01:00",
+        "queuing": "2026-11-06T22:38:05.7045010+01:00",
+        "start": "2026-11-06T22:38:04.1809680+01:00",
+        "finish": "2026-11-06T22:38:05.7566390+01:00"
+      },
+      "counters": {
+        "total": "57",
+        "executed": "57",
+        "passed": "57",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "status": "superseded exploratory result; not an accepted qualification total"
+    },
+    {
+      "trx": "artifacts/server-startup/after/startup-config-inspection-final.trx",
+      "sha256": "1d51d01a86645e279485b56478490ba44340daa05e74869895852a52c1607bcd",
+      "times": {
+        "creation": "2026-11-06T22:37:26.2088510+01:00",
+        "queuing": "2026-11-06T22:37:26.2088510+01:00",
+        "start": "2026-11-06T22:37:22.9887510+01:00",
+        "finish": "2026-11-06T22:37:42.1256250+01:00"
+      },
+      "counters": {
+        "total": "155",
+        "executed": "155",
+        "passed": "155",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "status": "focused validation; overlapping counts, do not add"
+    },
+    {
+      "trx": "artifacts/server-startup/after/retention-after.trx",
+      "sha256": "934ecd8739ff2bf76b6a7ef7dbbfce20c24a322d79b640c36753f38246a65f67",
+      "times": {
+        "creation": "2026-11-06T22:45:26.9260250+01:00",
+        "queuing": "2026-11-06T22:45:26.9260250+01:00",
+        "start": "2026-11-06T22:45:25.6918530+01:00",
+        "finish": "2026-11-06T22:45:48.5729500+01:00"
+      },
+      "counters": {
+        "total": "307",
+        "executed": "307",
+        "passed": "306",
+        "failed": "1",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "status": "superseded exploratory result; not an accepted qualification total"
+    },
+    {
+      "trx": "artifacts/server-startup/after/retention-final.trx",
+      "sha256": "b559debdb30f903c77a2ae092c837a196ccf47b23c901cc771fdb32843ab1794",
+      "times": {
+        "creation": "2026-11-06T22:46:19.7571290+01:00",
+        "queuing": "2026-11-06T22:46:19.7571290+01:00",
+        "start": "2026-11-06T22:46:18.4744630+01:00",
+        "finish": "2026-11-06T22:46:40.8245520+01:00"
+      },
+      "counters": {
+        "total": "307",
+        "executed": "307",
+        "passed": "307",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "status": "focused validation; overlapping counts, do not add"
+    }
+  ],
+  "publication_steps": [
+    {
+      "name": "planning-pack",
+      "command": [
+        "dotnet",
+        "pack",
+        "src/GnOuGo.Flow.Planning",
+        "-c",
+        "Release",
+        "--no-build",
+        "--no-restore",
+        "-warnaserror",
+        "-o",
+        "<source-root>/artifacts/server-startup/published/packages",
+        "--verbosity",
+        "quiet"
+      ],
+      "source": "c73009ba0241a7b2dfa6867ce27c0553d38c67c1",
+      "started_utc": "2026-11-06T21:48:02.507106+00:00",
+      "finished_utc": "2026-11-06T21:48:03.170518+00:00",
+      "exit_code": 0,
+      "log": "<source-root>/artifacts/server-startup/published/planning-pack.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "cli-native",
+      "command": [
+        "dotnet",
+        "publish",
+        "src/GnOuGo.Flow.Cli",
+        "-c",
+        "Release",
+        "-m:1",
+        "-p:SkipClientBuild=true",
+        "-p:SkipModelMetadataGeneration=true",
+        "--verbosity",
+        "quiet",
+        "-r",
+        "osx-arm64",
+        "--self-contained",
+        "true",
+        "-p:TreatWarningsAsErrors=true",
+        "-p:PublishTrimmed=true",
+        "-p:PublishAot=true",
+        "-o",
+        "<source-root>/artifacts/server-startup/published/cli"
+      ],
+      "source": "c73009ba0241a7b2dfa6867ce27c0553d38c67c1",
+      "started_utc": "2026-11-06T21:48:03.171946+00:00",
+      "finished_utc": "2026-11-06T21:49:04.713406+00:00",
+      "exit_code": 0,
+      "log": "<source-root>/artifacts/server-startup/published/cli-native.log",
+      "log_sha256": "2e8cd8ad38f3e0aa988bc37bed40e515a4e2edb9e9d11373260e0506ac6bcb9b"
+    },
+    {
+      "name": "cli-diagnostic-audit",
+      "command": [
+        "python3",
+        "<source-root>/docs/evidence/discovery-convergence-2026-11-06/publish-audit.py",
+        "<source-root>/artifacts/server-startup/published/cli-native.log"
+      ],
+      "source": "c73009ba0241a7b2dfa6867ce27c0553d38c67c1",
+      "started_utc": "2026-11-06T21:49:04.714249+00:00",
+      "finished_utc": "2026-11-06T21:49:04.827686+00:00",
+      "exit_code": 0,
+      "log": "<source-root>/artifacts/server-startup/published/cli-diagnostic-audit.log",
+      "log_sha256": "95ec4976e208db3a659cb59ad1fddc811d514609fc40d480516ed78b63fd0145"
+    },
+    {
+      "name": "cli-storage",
+      "command": [
+        "python3",
+        "scripts/verify-flow-v9-published.py",
+        "--cli",
+        "<source-root>/artifacts/server-startup/published/cli/GnOuGo.Flow.Cli",
+        "--data-directory",
+        "<source-root>/artifacts/server-startup/published/cli-storage"
+      ],
+      "source": "c73009ba0241a7b2dfa6867ce27c0553d38c67c1",
+      "started_utc": "2026-11-06T21:49:04.863477+00:00",
+      "finished_utc": "2026-11-06T21:49:06.737408+00:00",
+      "exit_code": 0,
+      "log": "<source-root>/artifacts/server-startup/published/cli-storage.log",
+      "log_sha256": "2ef9297dbc6842fd3256f9fa24f3ac5b883d6d22a06ebfbd1a70bf6500aa13b6"
+    },
+    {
+      "name": "server-publish",
+      "command": [
+        "dotnet",
+        "publish",
+        "src/GnOuGo.Agent.Server",
+        "-c",
+        "Release",
+        "-m:1",
+        "-p:SkipClientBuild=true",
+        "-p:SkipModelMetadataGeneration=true",
+        "--verbosity",
+        "quiet",
+        "-r",
+        "osx-arm64",
+        "--self-contained",
+        "true",
+        "-warnaserror",
+        "-p:PublishTrimmed=true",
+        "-p:PublishAot=false",
+        "-o",
+        "<source-root>/artifacts/server-startup/published/server"
+      ],
+      "source": "c73009ba0241a7b2dfa6867ce27c0553d38c67c1",
+      "started_utc": "2026-11-06T21:49:06.738215+00:00",
+      "finished_utc": "2026-11-06T21:52:18.182638+00:00",
+      "exit_code": 0,
+      "log": "<source-root>/artifacts/server-startup/published/server-publish.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "server-storage",
+      "command": [
+        "<source-root>/artifacts/server-startup/published/server/GnOuGo.Agent.Server",
+        "--planning-persistence-smoke",
+        "<source-root>/artifacts/server-startup/published/server-storage"
+      ],
+      "source": "c73009ba0241a7b2dfa6867ce27c0553d38c67c1",
+      "started_utc": "2026-11-06T21:52:18.184156+00:00",
+      "finished_utc": "2026-11-06T21:52:20.780660+00:00",
+      "exit_code": 0,
+      "log": "<source-root>/artifacts/server-startup/published/server-storage.log",
+      "log_sha256": "0268a9c0ae5df08cde06a1818fae2b53cf86df674fc19dc0cfc070d58ffd6563"
+    }
+  ],
+  "limitations": [
+    "Funded structured-output probe and Amazon generation unachieved: fresh financial refusal before physical dispatch.",
+    "No real-provider exchange screenshot exists; browser screenshots are controlled no-inference evidence.",
+    "ClientApp declares no standalone test/lint/type-check scripts; production build and actual-host browser checks run.",
+    "Windows checks and full PowerShell publish matrix unavailable on this macOS host (pwsh not installed).",
+    "Server uses existing managed Release partial trimming; no whole-Server Native AOT result claimed.",
+    "Full solution test run interrupted during Agent.Server.Tests; ten completed assemblies passed 2,432 tests with seven Windows-only skips, but the run has no final result. Final-source focused Server/planner/integration results are separate."
+  ],
+  "final_focused": {
+    "source": "c73009ba",
+    "trx_sha256": "e51c46b4e6dbd75453f0e1891dc97db71a891b7730caf58769f371fb3daea925",
+    "counters": {
+      "total": "307",
+      "executed": "307",
+      "passed": "307",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-11-06T22:55:54.1519690+01:00",
+      "queuing": "2026-11-06T22:55:54.1519690+01:00",
+      "start": "2026-11-06T22:55:52.5928540+01:00",
+      "finish": "2026-11-06T22:56:14.8569070+01:00"
+    },
+    "command": [
+      "dotnet",
+      "test",
+      "tests/GnOuGo.Agent.Server.Tests",
+      "-c",
+      "Release",
+      "--no-restore",
+      "-m:1",
+      "-warnaserror",
+      "-p:SkipClientBuild=true",
+      "-p:SkipModelMetadataGeneration=true",
+      "--filter",
+      "FullyQualifiedName~BenchmarkPermanentRetentionTests|FullyQualifiedName~BenchmarkCampaignTests|FullyQualifiedName~FrontendStartupBrowserTests|FullyQualifiedName~LlmInspectorDocumentsTests"
+    ],
+    "log_sha256": "517450f3b82f19c0aac815bbfa33e0f07d9da583c7c512578b84054d1432ecfa",
+    "head_unchanged": true
+  },
+  "final_solution_build": {
+    "source": "c73009ba",
+    "command": [
+      "dotnet",
+      "build",
+      "GnOuGo.Agent.sln",
+      "-c",
+      "Release",
+      "-m:1",
+      "-warnaserror",
+      "-p:SkipClientBuild=true",
+      "-p:SkipModelMetadataGeneration=true",
+      "--verbosity",
+      "quiet"
+    ],
+    "cwd": "<source-root>/artifacts/continuity-live-e673a51e",
+    "result": "passed",
+    "warnings": 0,
+    "errors": 0,
+    "log_sha256": "28d145ec416b1a923e2fda93b34909211f0c2e9374b0cc9e0d15f8ae5530bdb4",
+    "solution_sha256": "b1fa81a7bc64cfa1fbcab86c408bb37569e0cb66960d5b4f5657b80434220c86",
+    "benchmark_build": "Separate warning-free Release build; final source c73009ba."
+  },
+  "toolchain": {
+    "dotnet": "10.0.403",
+    "node": "v22.20.0",
+    "pnpm": "10.14.0",
+    "architecture": "arm64"
+  },
+  "user_staged_files_preserved": {
+    "GnOuGo.Agent.sln": {
+      "index_blob": "5e02e6b6",
+      "sha256": "3b3d9b39a7f330a4e05d8269ca399477fe9fc3f4f955a005ae3ad3c11e8d95dd"
+    },
+    ".vscode/settings.json": {
+      "index_blob": "294c8f1a"
+    }
+  },
+  "final_source_suites": [
+    {
+      "name": "planner-c730",
+      "source": "c73009ba",
+      "trx_sha256": "8a69ff8d8c5b689900568cd004ae0c7e554c8d79f24cd7bdf97d70dba54f32ec",
+      "times": {
+        "creation": "2026-11-06T23:00:00.1329230+01:00",
+        "queuing": "2026-11-06T23:00:00.1329230+01:00",
+        "start": "2026-11-06T22:59:58.0154660+01:00",
+        "finish": "2026-11-06T23:02:22.1982900+01:00"
+      },
+      "counters": {
+        "total": "2763",
+        "executed": "2763",
+        "passed": "2763",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "outcomes": {
+        "Passed": 2763,
+        "Failed": 0,
+        "NotExecuted": 0
+      }
+    },
+    {
+      "name": "integrations-c730",
+      "source": "c73009ba",
+      "trx_sha256": "6db3bb7841aa6acdbeb1aecc323dab53dcb5154ca853b7c01b5a8635ee95f4ea",
+      "times": {
+        "creation": "2026-11-06T22:59:59.2398210+01:00",
+        "queuing": "2026-11-06T22:59:59.2398210+01:00",
+        "start": "2026-11-06T22:59:58.0154450+01:00",
+        "finish": "2026-11-06T23:00:01.3774220+01:00"
+      },
+      "counters": {
+        "total": "116",
+        "executed": "116",
+        "passed": "116",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "outcomes": {
+        "Passed": 116,
+        "Failed": 0,
+        "NotExecuted": 0
+      }
+    },
+    {
+      "name": "c730-focused-final",
+      "source": "c73009ba",
+      "trx_sha256": "e51c46b4e6dbd75453f0e1891dc97db71a891b7730caf58769f371fb3daea925",
+      "times": {
+        "creation": "2026-11-06T22:55:54.1519690+01:00",
+        "queuing": "2026-11-06T22:55:54.1519690+01:00",
+        "start": "2026-11-06T22:55:52.5928540+01:00",
+        "finish": "2026-11-06T22:56:14.8569070+01:00"
+      },
+      "counters": {
+        "total": "307",
+        "executed": "307",
+        "passed": "307",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "outcomes": {
+        "Passed": 307,
+        "Failed": 0,
+        "NotExecuted": 0
+      }
+    }
+  ],
+  "publications": [
+    {
+      "name": "planning-pack",
+      "public_log": "logs/planning-pack.log.gz"
+    },
+    {
+      "name": "cli-native",
+      "public_log": "logs/cli-native.log.gz"
+    },
+    {
+      "name": "cli-diagnostic-audit",
+      "public_log": "logs/cli-diagnostic-audit.log.gz"
+    },
+    {
+      "name": "cli-storage",
+      "public_log": "logs/cli-storage.log.gz"
+    },
+    {
+      "name": "server-publish",
+      "public_log": "logs/server-publish.log.gz"
+    },
+    {
+      "name": "server-storage",
+      "public_log": "logs/server-storage.log.gz"
+    }
+  ],
+  "asset_sha256": {
+    "app.js": "7b246406c1428ea2e52f8aea6b0d4d8baad35438cf499130c4fd376e2cbd2244",
+    "app.css": "9a8628c131e4c7614810619ea3ddee25c599ebae9de727ca3806d72d7c42eafe"
+  },
+  "isolation_assets_match_main_production_build": true,
+  "full_solution_tests": {
+    "source": "84a9e271",
+    "status": "interrupted_before_completion",
+    "final_exit_code": null,
+    "note": "The previous turn was interrupted. No test process remains; the log ends during Agent.Server.Tests without its final TRX. This is not a full-solution pass.",
+    "completed_assemblies": 10,
+    "completed_outcomes": {
+      "Passed": 2432,
+      "NotExecuted": 7
+    },
+    "completed_runs": [
+      {
+        "trx": "artifacts/server-startup/solution/qualification_net10.0_20261106223929.trx",
+        "sha256": "6edb0ef7b936d7bc3ff8c98dad8ea0442fc6430096fec24da44d673031048e75",
+        "times": {
+          "creation": "2026-11-06T22:39:28.1351220+01:00",
+          "queuing": "2026-11-06T22:39:28.1351220+01:00",
+          "start": "2026-11-06T22:39:22.9907010+01:00",
+          "finish": "2026-11-06T22:39:29.6971510+01:00"
+        },
+        "outcomes": {
+          "Passed": 89
+        }
+      },
+      {
+        "trx": "artifacts/server-startup/solution/qualification_net10.0_20261106223932.trx",
+        "sha256": "b8086545f926e915efb0fd15b0ac55001cad069a6a708c6ab6c12555b5cd38fa",
+        "times": {
+          "creation": "2026-11-06T22:39:31.8199140+01:00",
+          "queuing": "2026-11-06T22:39:31.8199140+01:00",
+          "start": "2026-11-06T22:39:30.7173870+01:00",
+          "finish": "2026-11-06T22:39:32.5150770+01:00"
+        },
+        "outcomes": {
+          "Passed": 52
+        }
+      },
+      {
+        "trx": "artifacts/server-startup/solution/qualification_net10.0_20261106223936.trx",
+        "sha256": "6d52504b63024d656c412daffa1a734f21bdc3d72114bd34754ce0894510e8d2",
+        "times": {
+          "creation": "2026-11-06T22:39:34.4607890+01:00",
+          "queuing": "2026-11-06T22:39:34.4607890+01:00",
+          "start": "2026-11-06T22:39:32.7067180+01:00",
+          "finish": "2026-11-06T22:39:36.8571520+01:00"
+        },
+        "outcomes": {
+          "Passed": 19
+        }
+      },
+      {
+        "trx": "artifacts/server-startup/solution/qualification_net10.0_20261106223941.trx",
+        "sha256": "7822bc17dab405bdb267b785e6d48fa4a7068d31722c3ff8524c9f071034dba8",
+        "times": {
+          "creation": "2026-11-06T22:39:39.3301280+01:00",
+          "queuing": "2026-11-06T22:39:39.3301280+01:00",
+          "start": "2026-11-06T22:39:37.3964920+01:00",
+          "finish": "2026-11-06T22:39:41.2543630+01:00"
+        },
+        "outcomes": {
+          "Passed": 1521
+        }
+      },
+      {
+        "trx": "artifacts/server-startup/solution/qualification_net10.0_20261106223944.trx",
+        "sha256": "5958b880ea4b03f783d37b5cfe96e539c4fa5940149bbb1239bb2c1ec81efe5a",
+        "times": {
+          "creation": "2026-11-06T22:39:42.7398540+01:00",
+          "queuing": "2026-11-06T22:39:42.7398540+01:00",
+          "start": "2026-11-06T22:39:41.5033950+01:00",
+          "finish": "2026-11-06T22:39:44.2127750+01:00"
+        },
+        "outcomes": {
+          "Passed": 116
+        }
+      },
+      {
+        "trx": "artifacts/server-startup/solution/qualification_net10.0_20261106223947.trx",
+        "sha256": "f0981d904fa669e7c945887a63fd59d8c3bf86ff58cc4798c88444d2246b6ac1",
+        "times": {
+          "creation": "2026-11-06T22:39:45.5451950+01:00",
+          "queuing": "2026-11-06T22:39:45.5451950+01:00",
+          "start": "2026-11-06T22:39:44.4467390+01:00",
+          "finish": "2026-11-06T22:39:47.1457550+01:00"
+        },
+        "outcomes": {
+          "Passed": 283
+        }
+      },
+      {
+        "trx": "artifacts/server-startup/solution/qualification_net10.0_20261106223948.trx",
+        "sha256": "b6c40d5f51fabecff22c96093d1d086965ecffdc5dd29010b405cb22177d5e0c",
+        "times": {
+          "creation": "2026-11-06T22:39:48.3607400+01:00",
+          "queuing": "2026-11-06T22:39:48.3607400+01:00",
+          "start": "2026-11-06T22:39:47.2923860+01:00",
+          "finish": "2026-11-06T22:39:48.3706020+01:00"
+        },
+        "outcomes": {
+          "Passed": 14
+        }
+      },
+      {
+        "trx": "artifacts/server-startup/solution/qualification_net10.0_20261106223951.trx",
+        "sha256": "d6e3028303c4d70c7781e422ff632ef3560c9218ba274bbfca575455a475ac4b",
+        "times": {
+          "creation": "2026-11-06T22:39:49.6140440+01:00",
+          "queuing": "2026-11-06T22:39:49.6140440+01:00",
+          "start": "2026-11-06T22:39:48.5260120+01:00",
+          "finish": "2026-11-06T22:39:51.5041560+01:00"
+        },
+        "outcomes": {
+          "Passed": 103
+        }
+      },
+      {
+        "trx": "artifacts/server-startup/solution/qualification_net10.0_20261106224010.trx",
+        "sha256": "6472a255608dfb5db9fe987e6574863068417c2729bd3108b4a0d00cb9d4fc79",
+        "times": {
+          "creation": "2026-11-06T22:39:52.7171990+01:00",
+          "queuing": "2026-11-06T22:39:52.7171990+01:00",
+          "start": "2026-11-06T22:39:51.6628150+01:00",
+          "finish": "2026-11-06T22:40:10.2117620+01:00"
+        },
+        "outcomes": {
+          "Passed": 93,
+          "NotExecuted": 7
+        }
+      },
+      {
+        "trx": "artifacts/server-startup/solution/qualification_net10.0_20261106224026.trx",
+        "sha256": "d161332d82813e4f30340f7c76f1148162e16c6bb333d3a1e839a69f3704cbdd",
+        "times": {
+          "creation": "2026-11-06T22:40:11.4270040+01:00",
+          "queuing": "2026-11-06T22:40:11.4270040+01:00",
+          "start": "2026-11-06T22:40:10.3639590+01:00",
+          "finish": "2026-11-06T22:40:26.3458320+01:00"
+        },
+        "outcomes": {
+          "Passed": 142
+        }
+      }
+    ],
+    "command": [
+      "dotnet",
+      "test",
+      "GnOuGo.Agent.sln",
+      "-c",
+      "Release",
+      "--no-build",
+      "--no-restore",
+      "-m:1",
+      "-warnaserror",
+      "-p:SkipClientBuild=true",
+      "-p:SkipModelMetadataGeneration=true",
+      "--logger",
+      "trx;LogFilePrefix=qualification",
+      "--results-directory",
+      "artifacts/server-startup/solution",
+      "--verbosity",
+      "quiet"
+    ],
+    "log_sha256": "f163586175529aa2ee2f433db8bd3d4b54b7fe70710f25c2e1488628ca62de7f",
+    "public_log": "logs/solution-tests-interrupted.log.gz"
+  }
+}

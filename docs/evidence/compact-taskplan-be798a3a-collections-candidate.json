@@ -1,0 +1,186 @@
+{
+  "source": "be798a3a81aea8281d5477085e141875e2f4fd1e",
+  "presentation_version": 10,
+  "cohort": "compactrbe798a3a8colhighv10a",
+  "case": "collections",
+  "role": "v10 candidate; received terminal failure, no runtime acceptance",
+  "model": "gpt-5.5-2026-04-24",
+  "command_sha256": "8327584c032b22ee3a44e422fd2cd7a80d4504d1c2a332a1ce2beeeeed3dc0b1",
+  "benchmark_binary_sha256": "a19cdce9f6a52942d9de2ff341f4a65c5ccb9bfaf61ce1957ddde42d2b69b415",
+  "build_record_sha256": "552e0a02592c94b416a7681d71ed9e064c21fdd12d4032c5ba86a609e2b0c37f",
+  "observation_utc": "2026-10-27T14:12:33.065455+00:00",
+  "session_id": "97b7da931636fb33c13591596eb1d97ac8beae67f082c33c77c4a195596e7cf3",
+  "revision": 40,
+  "status": "stopped",
+  "planning": {
+    "logical_planning_calls": 39,
+    "physical_attempts": 39,
+    "repairs": 1,
+    "known_input_tokens": 133149,
+    "known_output_tokens": 81860,
+    "known_cost_eur": "2.7858500669344042838018741634",
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0,
+    "usage_complete": true,
+    "usage_bounded": true,
+    "receipts": 39,
+    "known_reasoning_tokens": 73107,
+    "unknown_attempts": 0,
+    "constructed_requests": 42,
+    "prepared_only": 0,
+    "prospective_input_rejections": 3
+  },
+  "response_anomalies": {
+    "received_responses": 39,
+    "empty_received_texts": 0,
+    "valid_original_json_responses": 39,
+    "outside_string_whitespace_bytes": 22,
+    "maximum_outside_string_whitespace_run_bytes": 6,
+    "provider_finish_reason_counts": {
+      "stop": 39
+    },
+    "received_output_exhaustion_markers": 0,
+    "ordinary_completion_status_available": 0,
+    "input_rejected_before_dispatch": 3,
+    "host_false_string_length_rejections": 1,
+    "q38_unicode_characters": 256,
+    "q38_utf16_code_units": 257,
+    "q38_issued_maxLength": 256,
+    "http_outcome_codes": null,
+    "availability_limit": "No missing receipt or unknown-usage attempt. Ordinary completion_status and per-attempt HTTP status codes are not exposed by this projection; provider finish reasons are reported independently."
+  },
+  "accepted_state": {
+    "checkpoints": 9,
+    "closed_requirement_ids": [
+      "req_0",
+      "req_1"
+    ],
+    "tasks": 4,
+    "groups": 1,
+    "root_outputs": 1,
+    "root_scope_closed": false,
+    "unaccepted_host_prepared_root_closure": true,
+    "producer_structure": "Closed double_item group multiplies each numeric item by 2; parallel foreach calls it, exports ordered doubled values, followed by a local value copy step_8 and accepted public export.",
+    "demonstrated_unnecessary_copy": "step_8.result is exactly step_5.doubled with dependsOn step_5; it adds no computation/effect. No generic duplicate-operation finding or ban.",
+    "business_completion_accepted": false
+  },
+  "review_observations": {
+    "received_judge_calls": 18,
+    "retained_received_clean_reports": 10,
+    "retained_proposition_occurrences": 42,
+    "propositions_by_kind": {
+      "completion": 5,
+      "global": 9,
+      "interaction": 10,
+      "local_behavior": 18
+    },
+    "acknowledgments": {
+      "broad": 42
+    },
+    "retained_manifests": 13,
+    "recorded_reuse_events": 0,
+    "recorded_transition_rows": 1,
+    "interpretation": "Retained received request/proposition pairs and journal rows only. Candidate manifests and the unaccepted prepared closure confer no completion or saved-call credit.",
+    "recorded_transition_outcomes": {
+      "prepared_closure": 1
+    },
+    "accepted_applied_transitions": 0,
+    "prepared_transition": {
+      "location": "unaccepted candidate",
+      "scope": "/root",
+      "requirement_ids": [
+        "req_0",
+        "req_1"
+      ],
+      "basis_checkpoints": [
+        1,
+        9
+      ],
+      "outcome": "prepared_closure",
+      "meaning": "Host prepared a reviewed-obligation root closure; its mandatory review did not complete and it was not accepted."
+    }
+  },
+  "corrections": {
+    "charged": 1,
+    "received_selection": 18,
+    "code": "CONSTRUCTION_STEP_INPUT_INVALID",
+    "defect": "Treating the numeric foreach item as an object with field item.",
+    "corrected_selection": 19,
+    "effective_change": "Use the current item directly for the reusable group input.",
+    "accepted_after_draft_and_review": true,
+    "evidence_admission_failures_charged_as_repair": false,
+    "report_followup": 39,
+    "false_schema_rejection_trigger": 38
+  },
+  "terminal": {
+    "code": "CONSTRUCTION_REVIEW_INCONCLUSIVE",
+    "cause_assessment": {
+      "classification": "JSON Schema character-count validation mismatch",
+      "request": 38,
+      "uncertainty_sha256": "1159ca11b91d728b300259068a62753e5cffa6e2ec5325e77c4c3fe878c3c83f",
+      "unicode_characters": 256,
+      "utf16_code_units": 257,
+      "schema_maxLength": 256,
+      "only_report_repair_diagnostic": "PLANNING_RESPONSE_INVALID at /uncertainty: must contain at most 256 characters",
+      "call_path": [
+        "src/GnOuGo.Flow.Planning/PlanningModelCalls.cs:158",
+        "src/GnOuGo.Flow.Core/Planning/PlanningContractValidation.cs:25",
+        "src/GnOuGo.Flow.Core/Runtime/JsonSchemaInstanceValidator.cs:316"
+      ],
+      "existing_count": "text.Length",
+      "normative_source": "https://json-schema.org/draft/2020-12/json-schema-validation#section-6.3.1",
+      "official_supplementary_character_test": "https://raw.githubusercontent.com/json-schema-org/JSON-Schema-Test-Suite/main/tests/draft2020-12/maxLength.json",
+      "effect": "The 256-character uncertainty field received a false length rejection, sending the report into the single follow-up. q39 followed its no-new-evidence instruction and returned inconclusive.",
+      "counterfactual_limit": "Only the uncertainty field and sole reported length diagnostic were verified. Complete report revalidation, successful evidence admission and business convergence are not established."
+    },
+    "window_evidence_limits": {
+      "q31_requested5_followup_estimate": 10900,
+      "q32_single_task5_q33_admitted_estimate": 7723,
+      "q34_requested4_followup_estimate": 10093,
+      "q35_single_root_q36_admitted_estimate": 7802,
+      "q36_requested4_followup_estimate": 10277,
+      "q37_single_task5_q38_admitted_estimate": 6793,
+      "q38_final_window_originals": [
+        "requirement:req_0"
+      ],
+      "q38_requests_missing_body_and_other_originals": true,
+      "windowing_assessment": "Evidence growth repartitioned whole original clauses. q38 accurately lacked req_1 text and the foreach body export in its current window. Other mandatory windows remained unreviewed. Direct accepted root binding/input and immediate copy producer were present; this was not missing implementation.",
+      "duplicate_evidence": "q37 task:step_5 repeated executable header fields already supplied inside scope:/root; q36 also requested step_8 already present in interfaces/root. Body and early group/checkpoint provenance were distinct.",
+      "remaining_limit": "Whether window-scoped completion guidance alone would avoid further retrieval cannot be established from this stopped run."
+    },
+    "artifact_available": false,
+    "execution_attempted": false,
+    "runtime_outcome": null,
+    "independently_satisfied_business_obligations": 0,
+    "candidate_acceptance_gate_credit": 0
+  },
+  "measurements": {
+    "file": "compact-taskplan-be798a3a-collections-measurements.json",
+    "sha256": "13eaae268c3ec6ec29d41a40214c12f23063566c782c04b66f89fe82488a2ca1",
+    "bytes": 6833
+  },
+  "descriptive_control_comparison": {
+    "control_source": "65db90d9bc745d00580bdcb40fa62fe29b893a62",
+    "control_outcome_sha256": "4a7db411cfbd10fb3a696ca9261885c17aa35cd496db2aad9bb23e82ba6c249b",
+    "control_logical_physical": [
+      28,
+      30
+    ],
+    "candidate_logical_physical": [
+      39,
+      39
+    ],
+    "control_runtime_passed_both_variants": true,
+    "candidate_runtime_available": false,
+    "control_known_cost_eur": "1.5626863007585899152164212407",
+    "control_unknown_reserved_cost_eur": "1.8617402945113788487282463186",
+    "causal_or_total_cost_savings_claim": false,
+    "limit": "Different terminal states and control unknown usage prevent a successful matched-business comparison or total-cost savings conclusion."
+  },
+  "limitations": [
+    "No artifact, approval or runtime execution. Accepted requirements/checkpoints are not independently completed business units.",
+    "The generic character-count defect is demonstrated; a future fix must be tested on a new source and does not establish convergence.",
+    "All raw requests/receipts stayed in RAM. Source/schema/settings and original run were unchanged. No campaign balance was read by this projection."
+  ]
+}

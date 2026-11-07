@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "captured_utc": "2026-10-27T07:08:05.604360+00:00",
+  "supersedes_pending_status_only": {
+    "earlier_pending_projection_sha256": "3de1608f4fb00d77db23d780d08a57ae45f7952fdbda0a6366e72d44ce0ec892",
+    "earlier_evidence_preserved_unchanged": true
+  },
+  "campaign": "schema-portability-20261019-incremental",
+  "source": "d5a4cac23ebe7fa8525ecb8f0299c65b6613d870",
+  "cohort": "compactrd5a4cac23colhighv8p9a",
+  "run_key": "d5a4cac23ebe7fa8525ecb8f0299c65b6613d870:fixture:cohort:compactrd5a4cac23colhighv8p9a:collections:1",
+  "request_id": "da4c5c4245d7949b5a5ac8e5316b10dc0d6e99e5f96f473a4d740532c1fc71a3:2:d3ed365e9a5c98a7df5646eaf00996ff3b87c2df59baf0c3b18bd09465954b90",
+  "evidence_hash": "5a568b8462e4e93d36aa8cb32bb500d8b104b6b56076f17e4f90d48ac79d215b",
+  "authorized_retention": {
+    "applied": true,
+    "retained_at": "2026-10-27T07:02:35.3908150+00:00",
+    "exact_user_reply": "Authorize exact abandonment and fresh tests",
+    "authorization_hash": "90eddcf1fb03ba27c3e01e0df8cead9adfed32f96feb4447cf79b7a5cd38c941",
+    "outcome_remains": "inconclusive",
+    "all_original_records_retained": true,
+    "reservation_retained_eur": "1.8617402945113788487282463186",
+    "funds_released_eur": "0",
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "idempotent_restart_application_bytes_equal": true,
+    "reinspection_application_restart_evidence_equal": true,
+    "accounting_before_after_equal": true,
+    "restart_inspection_already_retained": true,
+    "closure_record_hash": "7c181d0a248272a5c018f748de409dc717e54887c8d2553c8e2ce40ed6c3bc35"
+  },
+  "dated_pre_candidate_readiness": {
+    "candidate_source": "93d3e1c2747e029f0136d4391ba8480151092ac4",
+    "candidate_cohort": "compactr93d3e1c27colhighv9p9a",
+    "candidate_freeze_sha256": "d2fa875f6c852c7d310b62857daa9bd304fc02e0380f10ffc89465471fff143d",
+    "closed_receiptless_requests": 35,
+    "unresolved_requests": 0,
+    "unresolved_count_basis": "Root supplied the completed post-closure readiness result. Saved freezer stdout separately corroborates 35 closed identities, allowance, zero calls and lease release; it does not emit an unresolved-count field.",
+    "ceiling_eur": "440.0301038327063045424449473",
+    "known_cost_eur": "232.18581956131049866696264599",
+    "reserved_cost_eur": "72.782679492519085495095105380",
+    "upper_eur": "304.96849905382958416205775137",
+    "available_eur": "135.06160477887672038038719593",
+    "available_basis": "Exact ceiling minus unchanged retained accounting upper bound; equals saved freezer output.",
+    "model_calls_at_freeze": 0,
+    "dispatch_started_at_freeze": false,
+    "campaign_lease_released_at_freeze": true,
+    "scope": "Readiness before the subsequent candidate dispatch; not a current or future balance. No candidate outcome is inferred."
+  },
+  "evidence": {
+    "summary_sha256": "e838c250db93a6e034aa30eb91392a984203ff9949adfe3769b58d736f5da563",
+    "reinspection_sha256": "825f29ed9a838f7039ed7e33d6a843668a11abf6e7ec5f478a701049bf55acea",
+    "application_sha256": "210f4ea66364ab81eab4ba3dbf74c937904fab94f8e7931d4b492008665807f5",
+    "restart_idempotent_application_sha256": "210f4ea66364ab81eab4ba3dbf74c937904fab94f8e7931d4b492008665807f5",
+    "restart_inspection_sha256": "10782d61e58932825772f658484bcc71888fc03ec757c47f09f8cdc1e1eb8152",
+    "saved_freezer_stdout_sha256": "dacd4fa739cdc5650a8cde34cd7d34da809129acc54d06697978f56cf4289040"
+  },
+  "limitations": [
+    "Offline projection of already completed authorized operator actions; no reviewer operator, ledger, active-cohort or provider invocation.",
+    "No lost receipt or usage was reconstructed; no reservation was released. The historical control remains inconclusive.",
+    "Candidate planning is a separate fresh identity; this addendum grants no artifact approval or runtime acceptance."
+  ]
+}

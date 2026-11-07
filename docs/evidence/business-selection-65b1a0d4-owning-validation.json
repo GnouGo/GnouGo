@@ -1,0 +1,41 @@
+{
+  "kind": "source_postimage_owning_validation",
+  "version": 1,
+  "source_postimages_match_commit": "65b1a0d457b43f403bcc0d058f7bc1506af3e2f5",
+  "observed_at_utc": "2026-11-04T13:06:03.424136+00:00",
+  "command": "dotnet test tests/GnOuGo.Flow.Planning.Tests -m:1 -warnaserror",
+  "trx_sha256": "1021474cef9307a5388f6dce569657e76e4ba6a85cf84f09f1f5940cfdc5cbf2",
+  "counts": {
+    "total": "2662",
+    "executed": "2662",
+    "passed": "2662",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "focused_cases_passed": 7,
+  "new_cases": 6,
+  "focused_cases_overlap_owning_total": true,
+  "initial_generic_reproduction_failed": 2,
+  "initial_red_trx_sha256": "906a68d57d8e97c87d9485dfe9fadabdaa9d104db166c2f5927c25ec6ac2b63a",
+  "postimages": {
+    ".agents/skills/gnougo-planning/SKILL.md": "cdb6ec08da1e1641e1c2510244eb0df6a5be8bb8ca1e4d2904493ee6b1f8c982",
+    "docs/incremental-taskplan-construction.md": "7e8182a1dedf155f3f0b020bc5cea4bd7e24dedff81246da9bdc20dc22329aea",
+    "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.BusinessBlocks.cs": "f79ec43f5d6326de12fafa3dfb183d89548040a633870733c33af199991ae450",
+    "src/GnOuGo.Flow.Planning/PlanningRepairPatch.cs": "50e567b440a39061b456c8820c694f425edf459b7f39f1740e64e04ea6410a5b",
+    "src/GnOuGo.Flow.Planning/TaskPlanRevisions.cs": "f84f732d4e220862b3407462fdc85acf8b1daac6063f2e4b64031f64beffc3d9",
+    "tests/GnOuGo.Flow.Planning.Tests/BusinessSelectionArchitectureTests.cs": "41cbb76026a558b3464f11f9107f5d6b8ff7319a9a0f04adc67c67dba635abf2",
+    "tests/GnOuGo.Flow.Planning.Tests/GlobalReviewedInstructionRepairTests.cs": "51a2077c5a990b6367466efa9d2a63a0019daa904fdcbc99dc4e510a8f2928c7"
+  },
+  "limit": "The owning suite ran before commit creation on matching committed postimages. Exact-commit solution/publication checks run separately; no live correction success is claimed."
+}

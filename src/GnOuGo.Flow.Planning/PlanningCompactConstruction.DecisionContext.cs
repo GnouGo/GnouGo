@@ -1,0 +1,520 @@
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
+
+namespace GnOuGo.Flow.Planning;
+
+internal static partial class PlanningCompactConstruction
+{
+    internal static LLMRequest Request(PlanningSession state, string instructions, JsonObject context, JsonObject schema, string purpose)
+    {
+        if (purpose is not (ImplementationPurpose or DiscoveryPurpose or PlanningConstruction.DraftPurpose or "replan"))
+            return Request(instructions, context, schema, purpose);
+        // Original applicability is derived before packing, independently of
+        // whether the unrelated originals would happen to fit this request.
+        AddOriginalDecisionContext(state, context);
+        var displayed = CompactAcceptedProgressContext(purpose == ImplementationPurpose
+            ? SelectionProducerPageContext(state, context, schema) : context);
+        // A diagnostic token target cannot remove useful context or force an
+        // evidence round trip. Exact duplicate metadata can still share a view.
+        if (PlanningTokenThresholds.OptimizationAdvisory(state.Request))
+            return Render(purpose == SelectPurpose ? displayed : CompactSelectedProducerContractMetadata(displayed));
+        var request = Render(displayed);
+        var target = PlanningConstructionPhasePolicies.Resolve(state.Request, purpose).TargetInputTokens;
+        if (ModelRequestAdmission.EstimateTokens(PlanningModelCalls.PrepareRequest(state, purpose, request.Prompt,
+                request.StructuredOutputSchema!.AsObject(), state.Construction!.Limits.DraftOutputTokens)) > target)
+        {
+            displayed = displayed.DeepClone().AsObject();
+            CompactAuthoringNavigation(displayed, compactCheckpoints: purpose is PlanningConstruction.DraftPurpose or "replan");
+        }
+        if (purpose == ImplementationPurpose) return FitSelectionNavigation(state, instructions, displayed);
+        if (purpose is DiscoveryPurpose or PlanningConstruction.DraftPurpose or "replan")
+            return FitDraftNavigation(state, instructions, CompactSelectedProducerContractMetadata(displayed), schema, purpose);
+        return Render(displayed);
+
+        LLMRequest Render(JsonObject page)
+        {
+            var response = purpose == ImplementationPurpose
+                ? ImplementationSchema(state, page) : schema.DeepClone().AsObject();
+            if (response["properties"] is JsonObject properties && properties.ContainsKey("evidenceRequests"))
+            {
+                if (purpose == ImplementationPurpose) ConstrainSelectionEvidence(state, page, response);
+                else if (purpose == DiscoveryPurpose) ConstrainDiscoveryEvidence(state, page, response);
+                else ConstrainDraftEvidence(state, page, response);
+            }
+            return Request(instructions, page, response, purpose);
+        }
+    }
+
+    internal static JsonObject CompactSelectedProducerContractMetadata(JsonObject context)
+    {
+        // Only the same original contract can share presentation metadata. Task
+        // arguments remain local; shared closures retain their original coordinates.
+        var operations = context["operations"] as JsonArray ?? [];
+        var interfaces = context["interfaces"] as JsonArray ?? [];
+        JsonObject? displayed = null;
+        var anchors = operations.Select((contract, index) => (Contract: contract as JsonObject,
+            Pointer: "/operations/" + index.ToString(System.Globalization.CultureInfo.InvariantCulture), Selected: true)).ToList();
+        for (var row = 0; row < interfaces.Count; row++)
+        {
+            var producers = interfaces[row]?["producers"] as JsonArray ?? [];
+            for (var producer = 0; producer < producers.Count; producer++)
+            {
+                if (producers[producer]?["contract"] is not JsonObject contract || contract["sharedContractMetadata"] is not null) continue;
+                JsonObject? best = null;
+                var bytes = Encoding.UTF8.GetByteCount(contract.ToJsonString());
+                foreach (var anchor in anchors)
+                {
+                    if (anchor.Contract is not { } original || new[] { "id", "version", "hash" }.Any(key =>
+                            contract[key] is not JsonValue value || !value.TryGetValue<string>(out var identity) ||
+                            string.IsNullOrEmpty(identity) || !JsonNode.DeepEquals(contract[key], original[key]))) continue;
+                    var fields = (anchor.Selected ? new[] { "description", "outputs", "artifacts" } :
+                            contract.Select(field => field.Key).Except(["id", "version", "hash", "sharedContractMetadata"], StringComparer.Ordinal))
+                        .Where(key => contract[key] is { } field &&
+                            string.Equals(field.ToJsonString(), original[key]?.ToJsonString(), StringComparison.Ordinal)).ToArray();
+                    if (fields.Length == 0) continue;
+                    var compact = contract.DeepClone().AsObject();
+                    foreach (var field in fields) compact.Remove(field);
+                    compact["sharedContractMetadata"] = new JsonObject
+                    {
+                        ["detailsPointer"] = anchor.Pointer,
+                        ["fields"] = new JsonArray(fields.Select(field => (JsonNode)JsonValue.Create(field)!).ToArray())
+                    };
+                    var proposed = Encoding.UTF8.GetByteCount(compact.ToJsonString());
+                    if (proposed >= bytes) continue;
+                    best = compact; bytes = proposed;
+                }
+                if (best is not null)
+                {
+                    displayed ??= context.DeepClone().AsObject();
+                    displayed["interfaces"]![row]!["producers"]![producer]!["contract"] = best;
+                }
+                // Earlier original views are acyclic anchors. Their arguments
+                // stay with their own producer; distinct closures never merge.
+                anchors.Add((contract, $"/interfaces/{row}/producers/{producer}/contract", false));
+            }
+        }
+        foreach (var (operation, index) in operations.Select((operation, index) => (operation, index)))
+        {
+            if (operation is not JsonObject selected) continue;
+            var compact = selected.DeepClone().AsObject();
+            CompactProducerSchemaMetadata(compact, shareConstraints: true);
+            if (Encoding.UTF8.GetByteCount(compact.ToJsonString()) >= Encoding.UTF8.GetByteCount(selected.ToJsonString())) continue;
+            displayed ??= context.DeepClone().AsObject();
+            displayed["operations"]![index] = compact;
+        }
+        return displayed ?? context;
+    }
+
+    private static LLMRequest FitDraftNavigation(PlanningSession state, string instructions, JsonObject initial, JsonObject schema, string purpose)
+    {
+        var page = initial.DeepClone().AsObject();
+        var request = Render(page);
+        var phase = PlanningConstructionPhasePolicies.Resolve(state.Request, purpose);
+        var limit = phase.MaxInputTokens;
+        var reviewHeadroom = RequiredReviewCalls(state);
+        var measurement = Measure(request);
+        while (measurement.EstimatedInputTokens > phase.TargetInputTokens)
+        {
+            (string Identity, JsonObject Page, LLMRequest Request, PlanningRequestMeasurement Measurement)? best = null;
+            foreach (var directory in new[] { "describedOperations", "companionOperations" })
+                foreach (var (row, index) in (page[directory]?["items"] as JsonArray ?? []).Select((row, index) => (row, index)))
+                {
+                    if (row is not JsonObject entry || entry["description"] is null || entry["id"]?.ToString() is not { } id ||
+                        entry["version"]?.ToString() is not { } version ||
+                        entry["descriptionEvidence"]?.ToString() != "description:" + ContractIdentity(id, version) + ":0" ||
+                        State(state).CurrentStep!.OperationIds.Contains(id, StringComparer.Ordinal)) continue;
+                    var probe = page.DeepClone().AsObject();
+                    var trimmed = probe[directory]!["items"]![index]!.AsObject();
+                    trimmed.Remove("description"); trimmed.Remove("descriptionComplete"); trimmed["descriptionOmitted"] = true;
+                    Consider(directory + ":" + id + "@" + version, probe);
+                }
+            var operations = page["operations"] as JsonArray ?? [];
+            var locations = new List<(JsonObject Contract, int Operation, int Row, int Producer)>();
+            for (var index = 0; index < operations.Count; index++)
+                if (operations[index] is JsonObject operation) locations.Add((operation, index, -1, -1));
+            var interfaces = page["interfaces"] as JsonArray ?? [];
+            for (var row = 0; row < interfaces.Count; row++)
+            {
+                var producers = interfaces[row]?["producers"] as JsonArray ?? [];
+                for (var producer = 0; producer < producers.Count; producer++)
+                    if (producers[producer]?["contract"] is JsonObject contract) locations.Add((contract, -1, row, producer));
+            }
+            foreach (var location in locations)
+            {
+                var operation = location.Contract;
+                if (operation["outputs"] is not JsonArray { Count: > 0 } outputs || !SameContract(operation, operation)) continue;
+                var related = locations.Where(other => SameContract(other.Contract, operation)).ToArray();
+                // A producer can inherit its directory from this selected
+                // operation. Page that one anchor while retaining every port
+                // consumed through any view of the same exact contract.
+                if (location.Operation >= 0 && locations.Any(other =>
+                        other.Contract["sharedContractMetadata"]?["detailsPointer"]?.ToString() == "/operations/" +
+                            location.Operation.ToString(System.Globalization.CultureInfo.InvariantCulture) &&
+                        other.Contract["sharedContractMetadata"]?["fields"] is JsonArray fields &&
+                        fields.Any(field => field?.ToString() == "outputs") && !SameContract(other.Contract, operation))) continue;
+                var identity = ContractIdentity(operation["id"]!.ToString(), operation["version"]!.ToString());
+                var selected = related.SelectMany(other => (other.Contract["selectedOutputs"] as JsonArray ?? []).OfType<JsonObject>())
+                    .Select(view => "schema:" + identity + ":" + view["pointer"]).ToHashSet(StringComparer.Ordinal);
+                var original = CompletePortDirectory(TaskOperations.Describe(ExactContract(state,
+                    operation["id"]!.ToString(), operation["version"]!.ToString())).Outputs, identity, "/output");
+                if (outputs.Any(row => !original.Any(port => JsonNode.DeepEquals(port, row)))) continue;
+                var retained = outputs.Where((row, position) => operation["outputsOmitted"] is null && outputs.Count > ContractDirectoryPageSize
+                    ? position < ContractDirectoryPageSize || selected.Contains(row?["schema"]?.ToString() ?? "") : true).ToList();
+                if (retained.Count == outputs.Count)
+                {
+                    var optional = retained.FindLastIndex(row => !selected.Contains(row?["schema"]?.ToString() ?? ""));
+                    if (optional < 0) continue;
+                    retained.RemoveAt(optional);
+                }
+                var omitted = Enumerable.Range(0, original.Count).First(position =>
+                    retained.All(row => !JsonNode.DeepEquals(row, original[position])));
+                var probe = page.DeepClone().AsObject();
+                var target = location.Operation >= 0 ? probe["operations"]![location.Operation]! :
+                    probe["interfaces"]![location.Row]!["producers"]![location.Producer]!["contract"]!;
+                target["outputs"] = new JsonArray(retained.Select(row => row!.DeepClone()).ToArray());
+                target["outputCount"] = original.Count;
+                target["outputsOmitted"] = original.Count - retained.Count;
+                target["nextPorts"] = "port-page:" + identity + ":/output:" + omitted.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                identity += $":{location.Operation}:{location.Row}:{location.Producer}";
+                Consider(identity, probe);
+            }
+            void Consider(string identity, JsonObject probe)
+            {
+                var proposed = Render(probe);
+                var measured = Measure(proposed);
+                if (measured.CompleteRequestBytes >= measurement.CompleteRequestBytes || best is { } prior &&
+                    (measured.CompleteRequestBytes > prior.Measurement.CompleteRequestBytes || measured.CompleteRequestBytes == prior.Measurement.CompleteRequestBytes &&
+                        string.CompareOrdinal(identity, prior.Identity) >= 0)) return;
+                best = (identity, probe, proposed, measured);
+            }
+            if (best is not { } chosen) break;
+            page = chosen.Page; request = chosen.Request; measurement = chosen.Measurement;
+        }
+        // Remaining mandatory evidence is never clipped. Ordinary admission
+        // rejects it without changing saved evidence, cursors or settings.
+        return request;
+
+        LLMRequest Render(JsonObject displayed)
+        {
+            var response = schema.DeepClone().AsObject();
+            if (purpose == DiscoveryPurpose) ConstrainDiscoveryEvidence(state, displayed, response);
+            else ConstrainDraftEvidence(state, displayed, response);
+            return Request(instructions, displayed, response, purpose);
+        }
+        PlanningRequestMeasurement Measure(LLMRequest candidate) => PlanningRequestMeasurements.Measure(PlanningModelCalls.PrepareRequest(state, purpose,
+            candidate.Prompt, candidate.StructuredOutputSchema!.AsObject(), state.Construction!.Limits.DraftOutputTokens,
+            requiredReviewCalls: reviewHeadroom), purpose, limit);
+        static bool SameContract(JsonObject left, JsonObject right) => new[] { "id", "version", "hash" }.All(key =>
+            left[key] is JsonValue value && value.TryGetValue<string>(out var identity) && !string.IsNullOrEmpty(identity) &&
+            JsonNode.DeepEquals(left[key], right[key]));
+    }
+
+    private static LLMRequest FitSelectionNavigation(PlanningSession state, string instructions, JsonObject initial)
+    {
+        // The same request-local page supplies context and response choices.
+        // Explicit evidence and authoritative originals are never candidates for
+        // this presentation reduction; only bounded navigation descriptions are.
+        var page = initial.DeepClone().AsObject();
+        var request = Render(page);
+        var phase = PlanningConstructionPhasePolicies.Resolve(state.Request, ImplementationPurpose);
+        var limit = phase.MaxInputTokens;
+        var reviewHeadroom = RequiredReviewCalls(state);
+        var measurement = Measure(request);
+        while (measurement.EstimatedInputTokens > phase.TargetInputTokens)
+        {
+            (string Identity, JsonObject Page, LLMRequest Request, PlanningRequestMeasurement Measurement)? best = null;
+            // A boundary's purpose is needed to choose work inside it. Keep its
+            // bounded objective with every offered scope rather than fitting it
+            // away and making the model rediscover the accepted business action.
+            foreach (var (directory, rows) in new[] {
+                ("interfaces", page["interfaces"] as JsonArray), ("knownOperations", page["knownOperations"]?["items"] as JsonArray) })
+                for (var index = 0; index < (rows?.Count ?? 0); index++)
+                {
+                    var row = rows![index]!;
+                    var field = directory == "knownOperations" ? "description" : "objective";
+                    if (row[field] is not JsonValue || row["evidence"] is null && row[field + "Evidence"] is null) continue;
+                    var identity = directory + ":" + (row["path"] ?? row["task"] ?? row["id"] ?? row["evidence"]) + ":" + field;
+                    var probe = page.DeepClone().AsObject();
+                    var target = directory == "knownOperations" ? probe[directory]!["items"]![index]! : probe[directory]![index]!;
+                    target.AsObject().Remove(field);
+                    target.AsObject().Remove(field == "description" ? "descriptionComplete" : ObjectiveTextCompleteField(state));
+                    target[field + "Omitted"] = true;
+                    Consider(identity, probe);
+                }
+            if (page["scopes"] is JsonArray scopes)
+            {
+                var required = (State(state).SuspendedSteps ?? []).Where(Active).Select(item => item.Consumer.Scope)
+                    .Append(State(state).ReplacementScope).Append(State(state).CurrentStep?.Scope).OfType<string>().ToHashSet(StringComparer.Ordinal);
+                // Keep the page anchor and every retained consumer/repair boundary.
+                // Optional rows remain reachable from the exact first omission.
+                var last = scopes.Count - 1;
+                if (last > 0 && scopes[last]?["path"]?.ToString() is { } path && !required.Contains(path))
+                {
+                    var offset = state.Construction!.OpenScopes.IndexOf(path);
+                    if (offset >= 0)
+                    {
+                        var probe = page.DeepClone().AsObject(); probe["scopes"]!.AsArray().RemoveAt(last);
+                        var prior = page["nextScopes"]?.ToString();
+                        if (prior?.StartsWith("page:scopes:", StringComparison.Ordinal) == true && int.TryParse(prior.AsSpan("page:scopes:".Length), out var previous)) offset = Math.Min(offset, previous);
+                        probe["nextScopes"] = "page:scopes:" + offset.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                        Consider("scopes:" + path + ":row", probe);
+                    }
+                }
+            }
+            void Consider(string identity, JsonObject probe)
+            {
+                var proposed = Render(probe); var measured = Measure(proposed); var size = measured.CompleteRequestBytes;
+                if (size >= measurement.CompleteRequestBytes || best is { } prior && (size > prior.Measurement.CompleteRequestBytes || size == prior.Measurement.CompleteRequestBytes &&
+                        string.CompareOrdinal(identity, prior.Identity) >= 0)) return;
+                best = (identity, probe, proposed, measured);
+            }
+            if (best is not { } selected) break;
+            page = selected.Page; request = selected.Request; measurement = selected.Measurement;
+        }
+        // Ordinary admission records any still-oversized mandatory core. No
+        // cursor/evidence mutation or extra semantic call is introduced here.
+        return request;
+
+        LLMRequest Render(JsonObject displayed) => Request(instructions, displayed, ImplementationSchema(state, displayed), ImplementationPurpose);
+        PlanningRequestMeasurement Measure(LLMRequest candidate) => PlanningRequestMeasurements.Measure(PlanningModelCalls.PrepareRequest(state, ImplementationPurpose,
+            candidate.Prompt, candidate.StructuredOutputSchema!.AsObject(), requiredReviewCalls: reviewHeadroom), ImplementationPurpose, limit);
+    }
+
+    internal static JsonObject CompactAcceptedProgressContext(JsonObject context)
+    {
+        var first = new Dictionary<string, string>(StringComparer.Ordinal);
+        JsonObject? displayed = null;
+        var requirements = context["requirements"] as JsonArray ?? [];
+        for (var requirement = 0; requirement < requirements.Count; requirement++)
+        {
+            var items = requirements[requirement]?["acceptedProgress"]?["items"] as JsonArray ?? [];
+            for (var item = 0; item < items.Count; item++)
+            {
+                if (items[item] is not JsonObject row || row["sequence"] is null || row["evidence"] is null || row["detailsPointer"] is not null) continue;
+                var exact = PlanningJsonTransport.Prompt(row);
+                var pointer = $"/requirements/{requirement}/acceptedProgress/items/{item}";
+                if (first.TryAdd(exact, pointer)) continue;
+                var reference = new JsonObject
+                {
+                    ["sequence"] = row["sequence"]!.DeepClone(), ["evidence"] = row["evidence"]!.DeepClone(),
+                    ["detailsPointer"] = first[exact]
+                };
+                if (Encoding.UTF8.GetByteCount(PlanningJsonTransport.Prompt(reference)) >= Encoding.UTF8.GetByteCount(exact)) continue;
+                displayed ??= context.DeepClone().AsObject();
+                displayed["requirements"]![requirement]!["acceptedProgress"]!["items"]![item] = reference;
+            }
+        }
+        return displayed ?? context;
+    }
+
+    internal static JsonArray OriginalRequirementRows(PlanningSession state, IEnumerable<string>? requirementIds = null)
+    {
+        var rows = RequirementNodes(state, requirementIds ?? state.Requirements!.Outcomes.Select(requirement => requirement.Id));
+        var accepted = state.Plan is not null ? new TaskPlanSymbols(state.Plan) : null;
+        foreach (var row in rows.OfType<JsonObject>())
+        {
+            if (accepted is not null) row["acceptedProgress"] = AcceptedRequirementProgress(state, accepted, row["id"]!.ToString());
+            var sources = row["sources"]!.AsArray().OfType<JsonObject>().ToArray();
+            var originals = sources.Select(source => State(state).Sources.Single(value => value.Id == source["id"]!.ToString())).ToArray();
+            // Indexed requirements already contain the exact concatenated clause,
+            // including its continuations. Do not repeat that text in normal rows.
+            // A differently worded retained requirement still needs its originals.
+            if (string.Concat(originals.Select(source => source.Text)) == row["original"]!.ToString()) continue;
+            for (var index = 0; index < sources.Length; index++) sources[index]["text"] = originals[index].Text;
+        }
+        return rows;
+    }
+
+    private static JsonObject AcceptedRequirementProgress(PlanningSession state, TaskPlanSymbols accepted, string requirementId)
+    {
+        var construction = state.Construction!;
+        var requirement = construction.Requirements.Single(item => item.Id == requirementId);
+        var checkpoints = construction.Checkpoints.Select((checkpoint, index) => (checkpoint, index)).Where(item =>
+            requirement.Checkpoints.Contains(item.checkpoint.Sequence) && item.checkpoint.RequirementIds.Contains(requirementId, StringComparer.Ordinal)).ToArray();
+        return new()
+        {
+            // Associations describe accepted contributions, never fulfillment or
+            // execution. Only applicable business review closes the requirement.
+            ["basis"] = "accepted_checkpoint_associations_not_fulfillment", ["checkpointCount"] = checkpoints.Length,
+            ["completionClaimPendingReview"] = requirement.Status != "closed" && RequirementCompletionClaimed(state, requirementId),
+            ["directory"] = checkpoints.Length > 4 ? "page:checkpoints:0" : null,
+            ["items"] = new JsonArray(checkpoints.TakeLast(4).Select(item =>
+            {
+                var checkpoint = item.checkpoint;
+                var tasks = checkpoint.TaskIds.Where(id => !checkpoint.InvalidatedTaskIds.Contains(id, StringComparer.Ordinal) && accepted.Tasks.ContainsKey(id))
+                    .Distinct(StringComparer.Ordinal).ToArray();
+                var scope = accepted.Scopes.SingleOrDefault(scope => scope.Path == checkpoint.Step?.Scope ||
+                    checkpoint.Step is null && scope.Path == checkpoint.Fragment["scope"]?.ToString());
+                var exports = scope is null ? [] : (checkpoint.Fragment["outputs"] as JsonArray ?? []).OfType<JsonObject>()
+                    .Where(output => scope.Source.Outputs.Any(binding => JsonNode.DeepEquals(output,
+                        PlanningConstruction.Node(binding, PlanningJsonContext.Default.TaskOutput)))).ToArray();
+                return (JsonNode)new JsonObject
+                {
+                    ["sequence"] = checkpoint.Sequence, ["evidence"] = "page:checkpoints:" + item.index,
+                    ["scope"] = scope?.Path, ["scopeOpen"] = scope is null ? null : JsonValue.Create(construction.OpenScopes.Contains(scope.Path, StringComparer.Ordinal)),
+                    ["taskCount"] = tasks.Length, ["tasks"] = new JsonArray(tasks.Take(4).Select(id =>
+                    {
+                        var site = accepted.Tasks[id];
+                        var entry = TaskNavigation(state, site.Task, site.Scope.Path);
+                        var open = accepted.Scopes.Count(boundary => boundary.Owner?.Id == id && construction.OpenScopes.Contains(boundary.Path, StringComparer.Ordinal));
+                        // A call's result directory comes from the accepted group,
+                        // never a currently proposed group's tentative exports.
+                        var ports = (site.Task.Kind == "call"
+                            ? state.Plan!.Groups.Where(group => group.Id == site.Task.Group &&
+                                !construction.OpenScopes.Contains("/groups/" + group.Id + "/body", StringComparer.Ordinal))
+                                .SelectMany(group => group.Body.Outputs.Select(output => output.Name))
+                            : PlanningRepairContext.Ports(site.Task, state)).ToArray();
+                        entry["evidence"] = "task:" + id;
+                        entry["openResultScopeCount"] = open;
+                        entry["portCount"] = ports.Length;
+                        entry["ports"] = new JsonArray(ports.Take(8).Select(port => (JsonNode?)JsonValue.Create(port)).ToArray());
+                        entry["nextPorts"] = ports.Length > 8 ? TaskPortsAddress(id, ports, 8) : null;
+                        return (JsonNode)TrimNavigation(entry);
+                    }).ToArray()),
+                    ["outputCount"] = exports.Length,
+                    ["outputs"] = new JsonArray(exports.Take(4).Select(output => (JsonNode)new JsonObject
+                    {
+                        ["name"] = output["name"]!.DeepClone(), ["scope"] = scope!.Path,
+                        ["evidence"] = ScopeInterfaceAddress(scope.Path, false, ScopeInterfaceVersion(state.Plan!, construction.OpenScopes, scope.Path), 0)
+                    }).ToArray())
+                };
+            }).ToArray())
+        };
+    }
+
+    internal static JsonArray OriginalGlobalRows(PlanningSession state) => Sources(state, State(state).GlobalSourceIds);
+
+    internal static void AddDecisionContext(PlanningSession state, JsonObject context, bool discovery = false)
+    {
+        AddOriginalDecisionContext(state, context);
+        if (state.Plan is null) return;
+        if (context["interfaces"] is not JsonArray)
+            context["interfaces"] = State(state).CurrentStep is { } step
+                ? ImportedInterfaces(state, step) : InterfaceDirectory(state, null, State(state).InterfaceOffset);
+        var rows = context["interfaces"]!.AsArray().OfType<JsonObject>().ToArray();
+        var accepted = new TaskPlanSymbols(state.Plan);
+        var bindings = rows.SelectMany(ProducerReferences).ToArray();
+        var supplied = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var row in rows)
+        {
+            var ids = ProducerReferences(row).Select(value => value.Source!);
+            var producers = new JsonArray();
+            foreach (var id in ids.Distinct(StringComparer.Ordinal))
+            {
+                if (!accepted.Tasks.TryGetValue(id, out var site) || !supplied.Add(id)) continue;
+                var producer = new JsonObject
+                {
+                    ["id"] = id, ["scope"] = site.Scope.Path, ["phase"] = accepted.Phase(id),
+                    ["evidence"] = "task:" + id, ["task"] = PlanningConstruction.TaskNode(site.Task)
+                };
+                if (site.Task.Kind == "operation" && site.Task.Operation is { } operation)
+                {
+                    var capability = ExactContract(state, operation);
+                    var contract = TaskOperations.Describe(capability);
+                    var identity = ContractIdentity(contract.Id, contract.Version);
+                    var selected = bindings.Where(binding => binding.Source == id).Select(binding => binding.Port)
+                        .Distinct(StringComparer.Ordinal).Select(port => port is null ? "/output" :
+                            PortPointer("/output", contract.Outputs.Single(output => output.Name == port).Path)).ToArray();
+                    producer["contract"] = new JsonObject
+                    {
+                        ["id"] = contract.Id, ["version"] = contract.Version, ["hash"] = ContractHash(capability),
+                        ["description"] = contract.Description, ["effect"] = capability.EffectKind,
+                        ["descriptionEvidence"] = "description:" + identity + ":0",
+                        ["selectedInputs"] = new JsonArray(contract.Inputs.Where(port => site.Task.Inputs.Any(input => input.Name == port.Name))
+                            .Select(port => (JsonNode)ExactSchemaView(capability, PortPointer("/input", port.Path))).ToArray()),
+                        ["outputs"] = CompletePortDirectory(contract.Outputs, identity, "/output"),
+                        ["inputDirectory"] = "schema-page:" + identity + ":/input:0",
+                        ["outputDirectory"] = "port-page:" + identity + ":/output:0",
+                        ["selectedOutputs"] = new JsonArray(selected.Select(pointer => (JsonNode)(discovery
+                            ? new JsonObject { ["pointer"] = pointer, ["schemaEvidence"] = "schema:" + identity + ":" + pointer }
+                            : ExactSchemaView(capability, pointer))).ToArray()),
+                        ["artifacts"] = TaskOperations.ArtifactPorts(capability)
+                    };
+                    CompactProducerSchemaMetadata(producer["contract"]!.AsObject(), true);
+                    if (discovery)
+                    {
+                        // These are provisional navigation bindings, not actual
+                        // consumers. Keep resolved interfaces, exact arguments,
+                        // input constraints and normative prose; original output
+                        // closures remain retrievable through every port's links.
+                        var view = producer["contract"]!.AsObject();
+                        view["selectedOutputSchemasOmitted"] = selected.Length > 0;
+                        foreach (var port in contract.Outputs)
+                            if (port.Schema["description"] is { } description)
+                                view["outputs"]!.AsArray().Single(row => row!["name"]!.ToString() == port.Name)!["description"] = description.DeepClone();
+                    }
+                    // The mandatory producer view already carries these exact port
+                    // identities. Keep the task's navigation links and provenance,
+                    // but do not repeat an identical directory in a second row.
+                    if (context["taskEvidence"]?["items"] is JsonArray navigation)
+                        foreach (var entry in navigation.OfType<JsonObject>())
+                            if (entry["task"]?.ToString() == id && entry["scope"]?.ToString() == site.Scope.Path &&
+                                entry["phase"]?.ToString() == accepted.Phase(id) && entry["operation"]?.ToString() == contract.Id &&
+                                entry["operationVersion"]?.ToString() == contract.Version &&
+                                entry["contractHash"]?.ToString() == producer["contract"]!["hash"]!.ToString() &&
+                                entry["outputs"] is JsonArray ports && JsonNode.DeepEquals(ports, producer["contract"]!["outputs"]))
+                                entry.Remove("outputs");
+                }
+                else if (site.Task.Kind == "call" && state.Plan.Groups.SingleOrDefault(group => group.Id == site.Task.Group) is { } group)
+                {
+                    // Preserve the declared group input/export boundary, including
+                    // its exact value expressions, rather than implying capture.
+                    producer["group"] = PlanningConstruction.Node(group, PlanningJsonContext.Default.TaskGroup);
+                }
+                producers.Add((JsonNode)producer);
+            }
+            if (producers.Count > 0) row["producers"] = producers;
+        }
+    }
+
+    internal static void CompactProducerSchemaMetadata(JsonObject contract, bool shareConstraints = false)
+    {
+        var views = new[] { "selectedInputs", "selectedOutputs" }.SelectMany(name =>
+            (contract[name] as JsonArray ?? []).OfType<JsonObject>()).Where(view => view["schema"] is not null).ToArray();
+        var identity = new[] { "id", "version", "hash" };
+        if (views.Length == 0 || identity.Any(key => contract[key] is not JsonValue value ||
+                !value.TryGetValue<string>(out var text) || string.IsNullOrEmpty(text)) ||
+            views.Any(view => identity.Any(key => !JsonNode.DeepEquals(view[key], contract[key])))) return;
+        if (shareConstraints)
+            foreach (var direction in new[] { "selectedInputs", "selectedOutputs" })
+            {
+                var selected = (contract[direction] as JsonArray ?? []).OfType<JsonObject>().ToArray();
+                if (selected.Length < 2 || selected.Any(view => view["schema"] is null)) continue;
+                var sharedName = direction + "SharedSchemaMetadata";
+                if (contract[sharedName] is not null) continue;
+                var shared = new JsonObject();
+                foreach (var key in new[] { "ancestors", "referenceClosure" })
+                    if (selected[0][key] is { } original && selected.All(view =>
+                        string.Equals(view[key]?.ToJsonString(), original.ToJsonString(), StringComparison.Ordinal)))
+                        shared[key] = original.DeepClone();
+                // Direction-specific inheritance applies only to these embedded
+                // views. Original coordinates, schemas and retrieval stay exact.
+                var size = System.Text.Encoding.UTF8.GetByteCount(shared.ToJsonString());
+                if (shared.Count > 0 && selected.Length * (size - 1) > size + sharedName.Length + 4)
+                {
+                    contract[sharedName] = shared;
+                    foreach (var view in selected)
+                        foreach (var key in shared.Select(item => item.Key)) view.Remove(key);
+                }
+            }
+        // These views are embedded under this exact contract. Their schema paths,
+        // coupled ancestor constraints and reference closures remain unchanged.
+        if (views[0]["view"] is JsonValue description && description.TryGetValue<string>(out _) &&
+            views.All(view => JsonNode.DeepEquals(view["view"], description)) &&
+            (contract["selectedSchemaView"] is null || JsonNode.DeepEquals(contract["selectedSchemaView"], description)))
+        {
+            contract["selectedSchemaView"] = description.DeepClone();
+            foreach (var view in views) view.Remove("view");
+        }
+        foreach (var view in views)
+            foreach (var key in identity) view.Remove(key);
+    }
+
+    private static IEnumerable<TaskValue> ProducerReferences(JsonObject row) =>
+        (row["binding"] ?? row["value"])?.Deserialize(PlanningJsonContext.Default.TaskValue) is { } value
+            ? TaskPlanCompiler.Values(value).Where(item => item.Kind is "output" or "present" && item.Source is not null)
+            : [];
+}

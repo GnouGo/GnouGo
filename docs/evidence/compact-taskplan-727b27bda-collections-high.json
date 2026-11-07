@@ -1,0 +1,309 @@
+{
+  "version": 1,
+  "source": "727b27bda2e599842e7ebf29eb9461285f463204",
+  "case": "collections",
+  "cohort": "compactr727b27bdacolhighv5",
+  "prepared_utc": "2026-10-25T04:51:19.120126+00:00",
+  "status": "Planning terminal FinalReview; artifact approval and runtime outcomes are outside this captured snapshot.",
+  "safe_sources": [
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdacolhighv5/freeze.json",
+      "sha256": "4487a3943ea8d4f547892b0b5195cc5643c86bcd5867e29efa24f53bf4920cbb",
+      "bytes": 16392
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdacolhighv5/collections-terminal-safe-metrics.json",
+      "sha256": "bfa7114109d4e95cd4b53ccd3f0595c7b9272ee1ec7a0df7bc379dda6e22745a",
+      "bytes": 130697
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdacolhighv5/collections-exit.json",
+      "sha256": "f17b30dceedf7a06e1f622c95daeec4c2dcee034f4dc5c94e4c8e1f726e8fbcf",
+      "bytes": 67
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdacolhighv5/collections-planning.jsonl",
+      "sha256": "63c914a87d5184425dc49b4014df3a8a2b372f46fdbf18428c1ccc252aec6b29",
+      "bytes": 56538
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdacolhighv5/phase-policy.json",
+      "sha256": "d17e80cbdfa498120730b61bd28cf14c1f98660e9f4b34ca6f504b89e63f68be",
+      "bytes": 412
+    }
+  ],
+  "freeze": {
+    "model": "gpt-5.5-2026-04-24",
+    "benchmark_binary_sha256": "d804186f44c9776c927abd6dfcbd2680d430de1444f7dd63ea09f7a9a3c77dc0",
+    "presentation_version": 5,
+    "phase_policy": {
+      "version": 1,
+      "navigation": {
+        "targetInputTokens": 3000,
+        "maxInputTokens": 12000,
+        "reasoning": "medium",
+        "outputTokens": 32768
+      },
+      "draft": {
+        "targetInputTokens": 8000,
+        "maxInputTokens": 18000,
+        "reasoning": "high",
+        "outputTokens": 16384
+      },
+      "review": {
+        "targetInputTokens": 4000,
+        "maxInputTokens": 8000,
+        "reasoning": "high",
+        "outputTokens": 8192
+      }
+    },
+    "transport_policy": {
+      "version": 1,
+      "maxAttempts": 3,
+      "maxUncertainRetries": 0,
+      "attemptTimeoutMilliseconds": 600000,
+      "baseDelayMilliseconds": 1000,
+      "maxDelayMilliseconds": 30000,
+      "maxTotalDelayMilliseconds": 60000
+    }
+  },
+  "outcome": {
+    "session_status": "final_review",
+    "phase": "review",
+    "diagnostics": [],
+    "termination_reason": null,
+    "logical_requests": 29,
+    "physical_attempts": 29,
+    "receipts": 29,
+    "corrections": 3,
+    "checkpoints": 8,
+    "construction_complete": true,
+    "execution_started": false,
+    "runtime_ms": null,
+    "planning_ms": 834270,
+    "total_elapsed_ms": 834272,
+    "finished_at": "2026-10-25T04:48:21.786652+00:00",
+    "artifact_projection": {
+      "safe_metrics_artifact_hash": null,
+      "safe_metrics_oracle_passed": false,
+      "public_terminal_artifact_oracle": {
+        "version": "synthetic-artifact-v1",
+        "artifact_hash": "8b71f6655fd9690919cbc8d89846f77a5fe8f7b96c6f3eedd0cc6a3c51fad3ee",
+        "passed": true,
+        "findings": []
+      },
+      "qualification": "The ordinary safe metrics projection reports null artifact identity/false oracle while the original public terminal reports its static artifact oracle and exact hash. These fields are preserved separately; neither authorizes or demonstrates runtime/business success."
+    }
+  },
+  "usage_and_cost": {
+    "tokens": {
+      "input": 64394,
+      "output": 31223,
+      "reasoning_within_output": 25749,
+      "visible_output_derived": 5474,
+      "reasoning_measured_calls": 29
+    },
+    "known_cost_eur": "1.1233020972780008924587237840",
+    "unknown_usage_reservation_eur": 0,
+    "cost_upper_bound_eur": "1.1233020972780008924587237840",
+    "receiptless_requests": 0,
+    "unknown_usage_attempts": 0,
+    "all_recorded_http_statuses": 200,
+    "exact_money_source": "Original public terminal JSONL and safe metrics parsed with Decimal precision 80; both unchanged and equal.",
+    "planning_latency_from_completed_call_stages_ms": "775454.8439",
+    "per_phase_decimal_elapsed_sum_minus_terminal_aggregate_ms": {
+      "construction_intent": "0.0000",
+      "construction_select": "0.0000",
+      "construction_draft": "0.0000",
+      "construction_local_judge": "0.0000",
+      "replan": "0.0000"
+    }
+  },
+  "requests": {
+    "constructed": 29,
+    "admitted": 29,
+    "prepared_only": 0,
+    "rejected_before_dispatch": 0,
+    "all_components_reconcile": true,
+    "all_within_input_limits": true,
+    "complete_request_bytes_total": 361947,
+    "estimated_input_tokens_total": 128083,
+    "component_estimate_minus_complete_estimate": 87,
+    "component_estimates_not_billing": true,
+    "normalized_response_bytes": 18179,
+    "empty_completed_responses": 0,
+    "original_response_formatting": "Unmeasured here; normalized response bytes do not establish raw JSON formatting or whitespace."
+  },
+  "phase_statistics": {
+    "construction_intent": {
+      "calls": 2,
+      "physical_attempts": 2,
+      "request_bytes": {
+        "count": 2,
+        "p50": "5502",
+        "p95": "8566",
+        "max": "8566"
+      },
+      "estimated_input_tokens": {
+        "count": 2,
+        "p50": "2090.5",
+        "p95": "3112",
+        "max": "3112"
+      },
+      "logical_elapsed_ms": {
+        "count": 2,
+        "p50": "22427.2151",
+        "p95": "26470.1654",
+        "max": "26470.1654"
+      },
+      "input_tokens": 1982,
+      "output_tokens": 1693,
+      "reasoning_tokens": 917,
+      "known_cost_eur": "0.0541722445336903168228469433",
+      "retained_reservation_eur": 0
+    },
+    "construction_select": {
+      "calls": 10,
+      "physical_attempts": 10,
+      "request_bytes": {
+        "count": 10,
+        "p50": "10674.5",
+        "p95": "11967",
+        "max": "11967"
+      },
+      "estimated_input_tokens": {
+        "count": 10,
+        "p50": "3814.5",
+        "p95": "4245",
+        "max": "4245"
+      },
+      "logical_elapsed_ms": {
+        "count": 10,
+        "p50": "20087.46225",
+        "p95": "31215.5986",
+        "max": "31215.5986"
+      },
+      "input_tokens": 20130,
+      "output_tokens": 8127,
+      "reasoning_tokens": 5964,
+      "known_cost_eur": "0.3074163319946452476572958501",
+      "retained_reservation_eur": 0
+    },
+    "construction_draft": {
+      "calls": 8,
+      "physical_attempts": 8,
+      "request_bytes": {
+        "count": 8,
+        "p50": "17037.5",
+        "p95": "17352",
+        "max": "17352"
+      },
+      "estimated_input_tokens": {
+        "count": 8,
+        "p50": "5935.5",
+        "p95": "6040",
+        "max": "6040"
+      },
+      "logical_elapsed_ms": {
+        "count": 8,
+        "p50": "24462.8480",
+        "p95": "96935.8719",
+        "max": "96935.8719"
+      },
+      "input_tokens": 23154,
+      "output_tokens": 8100,
+      "reasoning_tokens": 6511,
+      "known_cost_eur": "0.3201874163319946452476572958",
+      "retained_reservation_eur": 0
+    },
+    "construction_local_judge": {
+      "calls": 8,
+      "physical_attempts": 8,
+      "request_bytes": {
+        "count": 8,
+        "p50": "12664.5",
+        "p95": "14084",
+        "max": "14084"
+      },
+      "estimated_input_tokens": {
+        "count": 8,
+        "p50": "4478",
+        "p95": "4951",
+        "max": "4951"
+      },
+      "logical_elapsed_ms": {
+        "count": 8,
+        "p50": "22770.79115",
+        "p95": "72849.0747",
+        "max": "72849.0747"
+      },
+      "input_tokens": 16040,
+      "output_tokens": 12026,
+      "reasoning_tokens": 11334,
+      "known_cost_eur": "0.3935564480142793395805443998",
+      "retained_reservation_eur": 0
+    },
+    "replan": {
+      "calls": 1,
+      "physical_attempts": 1,
+      "request_bytes": {
+        "count": 1,
+        "p50": "17265",
+        "p95": "17265",
+        "max": "17265"
+      },
+      "estimated_input_tokens": {
+        "count": 1,
+        "p50": "6011",
+        "p95": "6011",
+        "max": "6011"
+      },
+      "logical_elapsed_ms": {
+        "count": 1,
+        "p50": "25852.9872",
+        "p95": "25852.9872",
+        "max": "25852.9872"
+      },
+      "input_tokens": 3088,
+      "output_tokens": 1277,
+      "reasoning_tokens": 1023,
+      "known_cost_eur": "0.0479696564033913431503792950",
+      "retained_reservation_eur": 0
+    }
+  },
+  "quantile_method": "p50 is the sorted median (mean of middle pair); p95 is nearest rank ceil(0.95*n). Latencies cover recorded logical-call intervals.",
+  "recorded_failure_history": [
+    {
+      "calls": 15,
+      "repairs": 0,
+      "code": "CONSTRUCTION_STEP_INVALID",
+      "location": "/step/inputTaskIds",
+      "category": "invalid_intent",
+      "classification_status": "provisional"
+    },
+    {
+      "calls": 19,
+      "repairs": 1,
+      "code": "CONSTRUCTION_STEP_INPUT_INVALID",
+      "location": "/step/inputs/0",
+      "category": "invalid_intent",
+      "classification_status": "provisional"
+    },
+    {
+      "calls": 27,
+      "repairs": 2,
+      "code": "CONSTRUCTION_INCOMPLETE",
+      "location": "/",
+      "category": "invalid_intent",
+      "classification_status": "provisional"
+    }
+  ],
+  "failure_history_qualification": "Public codes, locations and counters are retained; their provisional category is not an independent semantic classification or correction-cause verdict.",
+  "postrun_campaign_accounting": null,
+  "limitations": [
+    "All 29 requests have one received HTTP200 attempt and nonempty parsed response. No new unknown-usage reservation or receiptless uncertainty is observed.",
+    "FinalReview, eight checkpoints and the static artifact oracle do not demonstrate approval, runtime correctness or a satisfied independent business denominator.",
+    "Original response formatting and a postrun campaign audit are not measured in this snapshot.",
+    "No store, reader, readiness, lease, model, runtime, build, main or cohort mutation was performed; new private files only."
+  ]
+}

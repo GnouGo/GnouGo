@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 
@@ -68,6 +69,67 @@ internal static class LiveCodeEvidence
         run["observed_commands"] = commands; run["verified_checks"] = checks;
         run["required_checks_verified"] = checks.All(p => p.Value!.GetValue<bool>());
         return checks;
+    }
+
+    // Compare the actual local report with independent terminal completions.
+    // Optional provenance claims must be truthful; no new report fields beyond
+    // the requested commands and exit codes are imposed.
+    internal static JsonObject VerifyReport(JsonObject run, JsonNode? review, string repository, string reportPath)
+    {
+        var findings = new List<string>();
+        var actual = Commands(run, repository).OfType<JsonObject>().ToList();
+        var unmatched = actual.ToList();
+        if (review is not JsonObject report || report["commands"] is not JsonArray reported || reported.Count == 0)
+            findings.Add("review_command_proofs_missing");
+        else
+        {
+            foreach (var entry in reported)
+            {
+                if (entry is not JsonObject command || Text(command["command"]) is not { Length: > 0 } text ||
+                    !ExitCode(command["exitCode"] ?? command["exit_code"], out var exit) ||
+                    command["exitCode"] is not null && command["exit_code"] is not null &&
+                    (!ExitCode(command["exit_code"], out var other) || exit != other))
+                { findings.Add("review_command_proof_malformed"); continue; }
+                var match = unmatched.FindIndex(observed => observed["command"]!.ToString() == text &&
+                    ExitCode(observed["exit_code"], out var code) && code == exit &&
+                    MatchesOptional(command, "toolCallId", observed["tool_call_id"]?.ToString()) &&
+                    MatchesOptional(command, "tool_call_id", observed["tool_call_id"]?.ToString()) &&
+                    MatchesOptional(command, "output", observed["output"]?.ToString()) &&
+                    MatchesOptional(command, "cwd", repository) && MatchesOptional(command, "workingDirectory", repository));
+                if (match < 0) findings.Add("review_command_proof_not_observed");
+                else unmatched.RemoveAt(match);
+            }
+            if (unmatched.Count != 0) findings.Add("review_observed_commands_omitted");
+            if (!MatchesOptional(report, "head", run["checkout_head"]?.ToString()) ||
+                !MatchesOptional(report, "base", run["checkout_base"]?.ToString()) ||
+                !MatchesOptional(report, "pullRequestUrl", run["inputs"]?["pullRequestUrl"]?.ToString()))
+                findings.Add("review_provenance_claim_not_observed");
+        }
+        var events = run["events"]!.AsArray().OfType<JsonObject>().ToArray();
+        var clones = events.Where(e => e["tool"]?.ToString() == "git_clone").ToArray();
+        var relative = run["workspace_relative"]?.ToString();
+        if (clones.Length != 1 || clones[0]["error"]?.GetValue<bool>() != false ||
+            clones[0]["result"]?["success"]?.GetValue<bool>() != true ||
+            clones[0]["arguments"]?["branch"]?.ToString() != LiveWorkflowEvaluation.Head ||
+            clones[0]["arguments"]?["remoteUrl"]?.ToString() is not ("https://github.com/AxaFrance/SmartGuide" or "https://github.com/AxaFrance/SmartGuide.git") ||
+            clones[0]["arguments"]?["targetDirectory"]?.ToString() is not { } target ||
+            target != repository && target != relative + "/repository")
+            findings.Add("single_pinned_clone_not_observed");
+        if (!events.Any(e => e["tool"]?.ToString() == "document_write" && e["error"]?.GetValue<bool>() == false &&
+            e["result"]?["success"]?.GetValue<bool>() == true && e["result"]?["filePath"]?.ToString() == reportPath))
+            findings.Add("review_writer_receipt_missing");
+        return new JsonObject { ["version"] = LiveWorkflowOracles.CodeBusinessVersion, ["passed"] = findings.Count == 0,
+            ["observed_command_count"] = actual.Count,
+            ["findings"] = new JsonArray(findings.Distinct().Select(f => (JsonNode)JsonValue.Create(f)).ToArray()) };
+
+        static bool MatchesOptional(JsonObject value, string key, string? expected)
+            => !value.ContainsKey(key) || Text(value[key]) is { } text && text == expected;
+        static string? Text(JsonNode? value) => value is JsonValue text && text.TryGetValue<string>(out var result) ? result : null;
+        static bool ExitCode(JsonNode? value, out long result)
+        {
+            result = 0;
+            return value is JsonValue && long.TryParse(value.ToJsonString(), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out result);
+        }
     }
 
     private static async Task<string?> Git(string directory, params string[] arguments)

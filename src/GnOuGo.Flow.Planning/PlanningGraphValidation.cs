@@ -307,7 +307,7 @@ public static class PlanningGraphValidation
 
             void CheckValue(PlanningValue value, string location)
             {
-                if (value.Kind is "predicate" or "arithmetic" or "json" or "flatten" or "lookup")
+                if (value.Kind is "predicate" or "arithmetic" or "string_operation" or "json" or "flatten" or "lookup")
                     try { _ = ValueSchema(value, new(StringComparer.Ordinal)); }
                     catch (InvalidOperationException ex) { errors.Add(new("COMPUTATION_CONTRACT_INVALID", location, ex.Message)); }
                 if (value.Kind == "workflow" && !graph.Workflows.Any(w => w.Key == value.Source))
@@ -336,7 +336,7 @@ public static class PlanningGraphValidation
             JsonObject? ValueSchema(PlanningValue value, HashSet<string> visiting)
             {
                 if (value.Kind is "projection" or "dynamic_mapping") return null; // Checked only as a complete set input, below.
-                if (value.Kind is "predicate" or "arithmetic" or "json" or "flatten" or "lookup") return PlanningValues.ComputationContract(value, operand => ValueSchema(operand, visiting));
+                if (value.Kind is "predicate" or "arithmetic" or "string_operation" or "json" or "flatten" or "lookup") return PlanningValues.ComputationContract(value, operand => ValueSchema(operand, visiting));
                 if (value.Kind == "present")
                 {
                     if (value.Source is null || !byKey.ContainsKey(value.Source) || value.Path.Count != 0 || value.ResultChannel is not null ||
@@ -500,7 +500,9 @@ public static class PlanningGraphValidation
                     "null" => new JsonObject { ["type"] = "null" },
                     "object" => ObjectSchema(value.Members.Where(m => m.Value.Kind != PlanningValues.Omitted).Select(m => (m.Name, ValueSchema(m.Value, visiting) ?? new JsonObject())), closed: true),
                     "array" when value.Items.Count == 0 => new JsonObject { ["type"] = "array", ["maxItems"] = 0, ["const"] = new JsonArray() },
-                    "array" => new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["anyOf"] = new JsonArray(value.Items.Select(v => (JsonNode?)(ValueSchema(v, visiting) ?? new JsonObject())).ToArray()) } },
+                    // A projected field can still belong to its producer's schema.
+                    // The inferred union owns copies, including repeated references.
+                    "array" => new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["anyOf"] = new JsonArray(value.Items.Select(v => (ValueSchema(v, visiting) ?? new JsonObject()).DeepClone()).ToArray()) } },
                     _ => null
                 };
                 if (inferred is not null && IsLiteral(value)) inferred["const"] = Literal(value);

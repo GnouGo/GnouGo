@@ -1,0 +1,145 @@
+{
+  "version": 1,
+  "status": "source_bound_partial_acceptance_then_discovery_admission_and_repeat_stop",
+  "source": "4d486d1ac63aafb7893086437164cfd9f23dc26d",
+  "cohort": "compactr4d486d1accode20v6jh8",
+  "accepted_structure": {
+    "sequences": 1,
+    "operations": 1,
+    "operation_kind": "git_clone",
+    "required_head_and_directory_explicit": true,
+    "duplicate_clone_present": false,
+    "completion_claimed": false,
+    "assessment": "The sequence and single clone are accepted partial work. Root and sequence body remain open; cleanup, repository checks, Copilot review, local report and public feedback are unfinished. No whole-workflow artifact or runtime exists, and no accepted business defect is independently established."
+  },
+  "completed_scoped_reviews": [
+    {
+      "call": 9,
+      "review_coverage": [
+        "local"
+      ],
+      "source_windows": 1,
+      "requirements": 13,
+      "globals": 3,
+      "closure_claims": false,
+      "plan_completion_claimed": false,
+      "open_scope_count": 2,
+      "output_tokens": 588,
+      "assessment": "Clean local report for the open sequence."
+    },
+    {
+      "call": 17,
+      "review_coverage": [
+        "local"
+      ],
+      "source_windows": 1,
+      "requirements": 13,
+      "globals": 3,
+      "closure_claims": false,
+      "plan_completion_claimed": false,
+      "open_scope_count": 2,
+      "output_tokens": 2617,
+      "assessment": "Clean local report for the single clone with exact required branch and directory."
+    }
+  ],
+  "terminal_findings": [
+    {
+      "calls": [
+        23,
+        24,
+        25
+      ],
+      "classification": "complete_followup_capacity_then_repeated_rejected_action",
+      "assessment": "Call 23 requested three offered description pages; its prospective follow-up exceeded the 16k discovery ceiling. Call 24 narrowed to one offered description, whose complete follow-up still exceeded 16k. Call 25 repeated that exact singleton response after the second diagnostic. Rejected probe evidence was not committed; an offered address does not guarantee complete-request admission. The repeated-action guard stopped the unchanged attempt.",
+      "rejected_followups": [
+        {
+          "bytes": 48598,
+          "estimated_input_tokens": 16456,
+          "input_limit": 16000,
+          "dispatched": false
+        },
+        {
+          "bytes": 47299,
+          "estimated_input_tokens": 16023,
+          "input_limit": 16000,
+          "dispatched": false
+        }
+      ]
+    },
+    {
+      "classification": "no_demonstrated_redundant_whole_core_or_missing_route",
+      "assessment": "Two imported clone ports share one producer contract, with 14 distinct output directory rows, three bound-input schema closures and two selected-output closures. Three retained command-description pages are consecutive and nonoverlapping, totaling 5,114 characters. Required-sibling schema and identity metadata repeat under the existing exact-view convention; no semantics-preserving deletion or new host context defect is demonstrated."
+    }
+  ],
+  "settings_attribution": "This fresh arm retains high Judge reasoning and changes only Judge output capacity 4,096→8,192 relative to jh1. Its two Judge outputs 588/2,617 both remain below 4,096; no output-ceiling benefit, avoided defect or causal explanation is demonstrated. No completed review workflow or runtime success is inferred.",
+  "source_files": [
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.CompactConstruction.cs",
+      "sha256": "04a9e4dc5158c3cb87b06ad332c707dab9fb217fb2a8cdb70f0c3d8576b8ef67",
+      "commit": "4d486d1ac63aafb7893086437164cfd9f23dc26d"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Navigation.cs",
+      "sha256": "1fd36225306eb75db342b968b6ced3c9f00777d42ecb186f11ba543738acf0dd",
+      "commit": "4d486d1ac63aafb7893086437164cfd9f23dc26d"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.DecisionContext.cs",
+      "sha256": "f52c2bf0ab793c7b973f1e6ad042ea8c3be64040ff496b6c9b8dfd19a7904b24",
+      "commit": "4d486d1ac63aafb7893086437164cfd9f23dc26d"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningConstruction.Evidence.cs",
+      "sha256": "f62d3401d10be6b7f3e4b25ff45d1bd7704bbcda705b7394e1cdda8cb0785baf",
+      "commit": "4d486d1ac63aafb7893086437164cfd9f23dc26d"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.Construction.cs",
+      "sha256": "c496731d77532948799299c9e70d717d6a5a00af33573f788387af88feb8c4eb",
+      "commit": "4d486d1ac63aafb7893086437164cfd9f23dc26d"
+    }
+  ],
+  "private_evidence_references": [
+    {
+      "file": "source-assessment-safe.json",
+      "sha256": "0b2117ee4359a53a915976d93809cbd939a1d1b49f6ebd3337d0e5dfc4810e9e",
+      "bytes": 15881
+    },
+    {
+      "file": "independent-review-safe.json",
+      "sha256": "d412430d2d77960de1a59b4d13f2b6825c7f23ad52a11810d2b48201bce21ba8",
+      "bytes": 2233
+    },
+    {
+      "file": "code-state-witness-safe.json",
+      "sha256": "0717ddb68d8cd67780fbc76a68eb577c0cebde5e283e2806f3d784741050addf",
+      "bytes": 23605
+    },
+    {
+      "file": "code-received-decisions-safe.json",
+      "sha256": "d612d8df96064cd8c0a07713c688b4465feaf47665a9da396ddf4f2f23aa5ccf",
+      "bytes": 43429
+    },
+    {
+      "file": "code-terminal-exact-metrics.json",
+      "sha256": "7302cb159e9ff90eea3d5d02a9fd25e6652db96f3078db0e6ec47136d7676bd5",
+      "bytes": 111570
+    },
+    {
+      "file": "code-review-and-discovery-witness-v2-safe.json",
+      "sha256": "773f2eaace3468ad13ff497af7cfed68b671c014568c5deae5757e2463cb8ae9",
+      "bytes": 348250
+    },
+    {
+      "file": "freeze.json",
+      "sha256": "1c203e2bfaa1855a85f731114bb2468a281664a91b10eadc59e5fb314b530f9e",
+      "bytes": 15916
+    }
+  ],
+  "limitations": [
+    "Exact issued contexts, record joins, task arguments and canonical identities remain in the pinned private evidence; no raw prompt, response or task body is copied here.",
+    "Checkpoint report bodies were not separately exported; issued coverage/reports, accepted structure and source guards support these bounded findings.",
+    "No new full-envelope measurement, future admission guarantee, business benefit, current campaign balance or runtime claim.",
+    "No store, provider, reader, build, test, main-source or report mutation."
+  ]
+}

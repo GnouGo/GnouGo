@@ -10,7 +10,7 @@ using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Agent.Server.Tests;
 
-public sealed class RecordedArtifactPrerequisiteTests(ITestOutputHelper output)
+public sealed class RecordedArtifactPrerequisiteTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     private const string Location = "/tasks/copilot-review/inputs/filesJson";
@@ -29,60 +29,6 @@ public sealed class RecordedArtifactPrerequisiteTests(ITestOutputHelper output)
             await RecordedPlanCompilation.RetiredAsync(pending, replay);
         }
         Assert.Empty(replay.Requests);
-    }
-
-    [Fact]
-    public async Task ExplicitRevisedProposalDiscoversPrerequisiteReachesReviewAndRecompilesForApproval()
-    {
-        var replay = new Replay();
-        var retained = replay.Recording["responses"]![3]!;
-        var state = replay.State(retained["pendingSession"]!); var old = state.PendingCall!.Request;
-        // Separately labelled offline proposal, never a restart or edit of the saved session.
-        state.IntentVersion = 2; if (state.Requirements is not null) state.Requirements.Inputs ??= state.Plan?.Inputs ?? []; state.PendingCall = null; state.ModelCalls--; state.Request.SessionId = "synthetic-explicit-prerequisite-revision";
-        if (state.Usage is not null) state.Usage = state.Usage with { Calls = state.ModelCalls };
-        foreach (var page in state.Discovery.Pages.ToArray())
-        {
-            var enriched = page.Capabilities.Select(c => c with { ArtifactContract = replay.Contracts.FirstOrDefault(x => x.Id == c.Id && x.Version == c.Version)?.ArtifactContract }).ToList();
-            state.Discovery.Pages[state.Discovery.Pages.IndexOf(page)] = page with { Capabilities = enriched };
-        }
-        // This fresh synthetic revision explicitly inspects the consumer. Unadmitted
-        // directory entries no longer cause unrelated prerequisite searches.
-        var consumer = state.Discovery.Pages.SelectMany(p => p.Capabilities).First(c => c.Id == replay.Contracts.Single(c => c.Method == "copilot_review").Id);
-        state.Discovery.Inspections = [new(consumer.SourceId, null, OperationIds: [consumer.Operation!.Id])];
-        replay.Proposal = replay.Corrected(); state.Requirements!.Inputs = replay.Proposal.Inputs;
-        // This is a new proposal, not a mutation of the retained recording.
-        foreach (var task in TaskPlanRevisions.Tasks(replay.Proposal).Where(t => t.Kind == "transform" && t.Mode is null)) task.Mode = "interpret";
-        RecordedPlanCompilation.InspectSelected(state, replay.Proposal);
-        state.Request.Generation.MaxInputTokensPerRequest = 96000;
-        RecordedPlanCompilation.RefreshNativeContracts(state);
-        var before = Snapshot(state);
-        var result = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, replay, Ct);
-        Assert.True(result.Status == PlanningStatus.FinalReview, string.Join("; ", result.Diagnostics.Select(d => d.Code + ": " + d.Message)));
-        Assert.Equal(4, result.ModelCalls); Assert.Equal(0, result.ReplanAttempts); Assert.Equal(before, Snapshot(state));
-        Assert.Null(result.ApprovedHash); Assert.Empty(result.Diagnostics); Assert.NotNull(result.Yaml);
-        Assert.Equal(8, result.Request.MaxModelCalls); Assert.Equal(2, result.Request.MaxReplanAttempts);
-        Assert.Equal(96000, result.Request.Generation.MaxInputTokensPerRequest); Assert.Equal(32768, result.Request.Generation.MaxOutputTokens);
-        Assert.Equal(JsonSerializer.Serialize(replay.Proposal, PlanningJsonContext.Default.TaskPlan), JsonSerializer.Serialize(result.Plan, PlanningJsonContext.Default.TaskPlan));
-        PlanningArtifactApproval.Verify(result);
-        var recovered = JsonSerializer.Deserialize(Snapshot(result), PlanningJsonContext.Default.PlanningSession)!;
-        PlanningArtifactApproval.Verify(recovered); Assert.Equal(result.ComputeArtifactHash(), recovered.ComputeArtifactHash());
-        var hash = recovered.ComputeArtifactHash(); recovered.Catalog!.Capabilities.Single(c => c.Id == replay.Producer.Id).ArtifactContract = null;
-        Assert.NotEqual(hash, recovered.ComputeArtifactHash()); Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(recovered));
-        var request = Assert.Single(replay.Requests);
-        Assert.Contains(replay.Producer.Id, request.StructuredOutputSchema!.ToJsonString());
-        Assert.Contains(result.Discovery.Resolved, c => c.Id == replay.Producer.Id);
-        Assert.InRange(Estimate(request), 1, 96000);
-        Assert.InRange(replay.FilterReads, 1, state.Discovery.Pages.Select(p => p.SourceId).Distinct().Count());
-        Assert.DoesNotContain(result.Discovery.Pages, p => p.ProducedArtifactKind is not null && p.Capabilities.Any(c => c.ArtifactContract?.Produces.All(a => a.Kind != p.ProducedArtifactKind) == true));
-        output.WriteLine($"Original proposal: prompt bytes={Bytes(old.Prompt)}, schema bytes={Bytes(old.StructuredOutputSchema!.ToJsonString())}, estimated input={Estimate(old)}. Explicit revised proposal: bytes={Bytes(request.Prompt)}, schema bytes={Bytes(request.StructuredOutputSchema!.ToJsonString())}, estimated input={Estimate(request)}, metadata pages={replay.FilterReads}, resolutions={replay.Resolutions}, scripted new calls=1, cumulative calls=4, repairs=0. Historical calls=6, repairs=2. No live reliability claim.");
-        // Pending request recovery uses the original enriched receipts and schema, not another metadata pass.
-        var resumedRuntime = new Replay { Proposal = replay.Proposal };
-        var pending = replay.Pending!;
-        var resumed = await new HybridWorkflowPlanner().AdvanceAsync(pending, new() { ExpectedRevision = pending.Revision }, resumedRuntime, Ct);
-        Assert.Equal(PlanningStatus.FinalReview, resumed.Status); Assert.Equal(4, resumed.ModelCalls); Assert.Equal(0, resumed.ReplanAttempts);
-        Assert.Equal(request.ClientRequestId, Assert.Single(resumedRuntime.Requests).ClientRequestId);
-        Assert.Equal(request.Prompt, resumedRuntime.Requests[0].Prompt); Assert.Equal(0, resumedRuntime.FilterReads);
-        PlanningArtifactApproval.Verify(resumed);
     }
 
     [Fact]
@@ -178,7 +124,6 @@ public sealed class RecordedArtifactPrerequisiteTests(ITestOutputHelper output)
         internal readonly PlanningCapability Producer = Read("declared-producer").Deserialize(PlanningJsonContext.Default.PlanningCapability)!;
         internal JsonObject? Expected;
         internal string? SanitizedReplayPrompt = null;
-        internal TaskPlan? Proposal;
         internal PlanningSession? Pending;
         internal readonly List<LLMRequest> Requests = [];
         internal int FilterReads, Resolutions;
@@ -227,19 +172,8 @@ public sealed class RecordedArtifactPrerequisiteTests(ITestOutputHelper output)
         }
         public Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct)
         { Resolutions++; return Task.FromResult(Contracts.Single(c => c.Id == summary.Id && c.Version == summary.Version)); }
-        public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
-        {
-            Requests.Add(request);
-            if (Expected is not null)
-            {
-                var issued = Expected["pendingSession"]!["pendingCall"]!;
-                Assert.Equal(issued["id"]!.ToString(), request.ClientRequestId); Assert.Equal(SanitizedReplayPrompt ?? issued["request"]!["prompt"]!.ToString(), request.Prompt);
-                Assert.True(JsonNode.DeepEquals(issued["request"]!["structuredOutputSchema"], request.StructuredOutputSchema));
-                return Task.FromResult(Expected["response"]!.Deserialize(PlanningJsonContext.Default.LLMResponse)!);
-            }
-            var json = JsonSerializer.SerializeToNode(new PlanningProposal { Plan = Proposal }, PlanningJsonContext.Default.PlanningProposal)!;
-            return Task.FromResult(new LLMResponse { Json = PlanningCorpus.Transport(json, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) });
-        }
+        public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct) =>
+            throw new InvalidOperationException("Retired planning recordings are read-only fixtures and cannot dispatch.");
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => actual.ValidateAsync(request, ct);
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => throw new InvalidOperationException("No external approval");
         public Task CheckpointAsync(PlanningSession session, CancellationToken ct)

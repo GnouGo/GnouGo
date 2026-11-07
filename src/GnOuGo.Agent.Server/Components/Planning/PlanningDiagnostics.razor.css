@@ -1,0 +1,14 @@
+.planning-diagnostics { margin-block: 1.5rem; overflow-wrap: anywhere; }
+.planning-timeline { padding-left: 1.5rem; border-left: 3px solid #63799a; }
+.planning-timeline li { padding: .65rem; margin-block: .6rem; border: 1px solid #8795ab; border-radius: .4rem; }
+.planning-timeline small { display: block; }
+.phase-state { font-weight: 600; margin-inline: .7rem; }
+.phase-active { background: #1765a019; }
+.phase-correction, .planning-warnings { border-left: 4px solid #b47a00; background: #d49b1714; }
+.phase-blocked { border-left: 4px solid #bc3838 !important; }
+.phase-succeeded { border-left: 4px solid #32814e !important; }
+.planning-call { border: 1px solid #8795ab; padding: .8rem; margin-block: .7rem; border-radius: .4rem; }
+.planning-call button, .planning-call a { margin-right: 1rem; }
+.http-attempt { padding-left: .75rem; border-left: 3px solid #8795ab; margin-block: 1rem; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 30rem; overflow: auto; }
+@media (max-width: 600px) { .planning-timeline { padding-left: .8rem; } .planning-call { padding: .5rem; } }

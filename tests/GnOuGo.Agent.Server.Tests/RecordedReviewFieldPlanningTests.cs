@@ -12,11 +12,11 @@ public sealed class RecordedReviewFieldPlanningTests
     private static JsonObject Recording(string name) => JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "ReviewPlanning", name + ".json")))!.AsObject();
 
     [Fact]
-    public async Task RetainedResponsesReproduceReferenceFailureRejectedRepairAndAllFiveTypeErrors()
+    public async Task StaticRecordedPlanRetainsAllFiveContractTypeErrors()
     {
         var runtime = new Replay(historical: true);
         var state = await runtime.Run();
-        Assert.Equal(PlanningStatus.Generating, state.Status);
+        Assert.NotEqual(PlanningStatus.FinalReview, state.Status);
         Assert.Null(state.Graph); Assert.Null(state.Yaml); Assert.Null(state.ApprovedHash);
         Assert.Equal(0, runtime.Calls); Assert.Empty(runtime.RequestIds);
         Assert.Equal(5, state.Diagnostics.Count(d => d.Code == "TASK_INPUT_TYPE"));
@@ -30,7 +30,7 @@ public sealed class RecordedReviewFieldPlanningTests
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join("; ", state.Diagnostics.Select(d => d.Code + "@" + d.Location + ": " + d.Message)));
         Assert.Empty(state.Diagnostics); Assert.NotNull(state.Graph); Assert.NotNull(state.Yaml);
         Assert.Equal(0, runtime.Calls); Assert.Equal(0, state.ReplanAttempts); Assert.Null(state.ApprovedHash);
-        PlanningArtifactApproval.Verify(state);
+        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(state));
     }
 
     internal sealed class Replay : IPlanningRuntime, ICapabilityCatalog

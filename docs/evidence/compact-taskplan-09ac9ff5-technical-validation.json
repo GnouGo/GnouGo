@@ -1,0 +1,44 @@
+{
+  "production_source": "09ac9ff58fed9a772d4c6bd063f2bb7f8876a753",
+  "planning_suite": {
+    "exit_code": 0,
+    "counts": {
+      "Passed": 3681
+    },
+    "elapsed_seconds": 365.58653187495656,
+    "source_unchanged": true,
+    "log_sha256": "b640d6fe719cc7af7160fc1124ceaa0ef8112e107fbd3663034a1167dcd20743"
+  },
+  "planning_source_manifest_sha256": "0e411c42bc9a8eb99b7df8f03853867c0afcc583fb1f9b3cb918c29faff047a7",
+  "production_files_verified_against_current_tree": true,
+  "previous_acc10c07_full_planning": {
+    "exit_code": 1,
+    "counts": {
+      "Passed": 3680,
+      "Failed": 1
+    },
+    "elapsed_seconds": 352.4903821669868,
+    "source_unchanged": true,
+    "log_sha256": "f9da59f85be1baf8b55bdfdf5b984fc071acc4c65605c4cf6ac806870d407e1b"
+  },
+  "previous_failure": "Null catalog in the ordinary admission fixture; corrected before any acc10c07 paid dispatch. Original failing full-run log retained.",
+  "overlap": "Focused runs and Planning cases repeated within the full solution are not summed into independent totals.",
+  "full_solution": "still running, separately attributed",
+  "business_acceptance": false,
+  "publication": {
+    "source": "09ac9ff58fed9a772d4c6bd063f2bb7f8876a753",
+    "exact_source_blobs_and_modes": 4744,
+    "source_manifest_sha256": "aa1e7cef0fa1945fde35fd4e7a61fc528a0b14eea24b159ac7361fe60e7349e4",
+    "all_stages_passed": true,
+    "verified_output_files": 213,
+    "managed_and_native_aot_smoke": true,
+    "fresh11_and_historical_2_to_10": true,
+    "exact_pending_recovery_and_mock_runtime": true,
+    "published_encryption_and_tenant_isolation": true,
+    "limitation": "Server packaging excludes existing ClientApp and bundled-tool staging; this validates publication and synthetic encrypted persistence, not business workflows.",
+    "stages_passed": 12,
+    "independent_packages": 6,
+    "qualification_sha256": "2f2b296c9f44808110a2cf75aa158385862320e532b9ac101b75f5ae3d375dc9",
+    "verification_script_sha256": "9b05b0784d299c1329fec5458d16c12fc7550d1cfb1f471abd9123797d1764e9"
+  }
+}

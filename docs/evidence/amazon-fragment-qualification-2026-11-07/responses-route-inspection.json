@@ -1,0 +1,22 @@
+{
+  "configuredBackgroundProtocol": "ChatCompletions",
+  "modelDispatches": 0,
+  "sameGatewayPrefix": true,
+  "http": [
+    {
+      "method": "OPTIONS",
+      "status": 400,
+      "body": "Invalid Preflight Request",
+      "endpointSha256": "254a5b8f8e1cc5ff0587dafdfb6db0b186ecbfe608398d935051b02c924bca8e",
+      "elapsedMilliseconds": 271
+    },
+    {
+      "method": "GET",
+      "status": 404,
+      "body": "{\"code\":\"NotFound\",\"message\":\"The requested resource was not found\",\"details\":[]}",
+      "endpointSha256": "c037c19e17fcfea36bf2313cd4cbc8419d5a6649a884089e8fdcc9cda8e20480",
+      "elapsedMilliseconds": 195
+    }
+  ],
+  "conclusion": "Background creation and retrieval are unverified. The read-only responses route returned a generic resource-not-found envelope, not a retrievable job. The configured background policy selects Chat Completions. No background generation or route fallback was attempted."
+}

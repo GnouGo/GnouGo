@@ -1,0 +1,139 @@
+{
+  "version": 1,
+  "source": "686c2964d2437cbe1ab6b27e8b6ae673824fc873",
+  "cohort": "compactr686c2964dcolhighv6",
+  "case": "collections",
+  "verdict": "The final duplicate is a received model proposal despite displayed accepted work. No new missing-context or compiler defect is demonstrated by this bounded evidence; no production change is recommended from it.",
+  "private_evidence": {
+    "assessment": {
+      "name": "source-assessment-safe.json",
+      "sha256": "0007a67d8bd5e92ab8118bc8703a320a9997dc8258afa0705f8c32ff246cb33a",
+      "bytes": 8524
+    },
+    "independent_peer": {
+      "name": "independent-review-safe.json",
+      "sha256": "2af891759f7d086ebb2e81c0dbbec4d3b43288b0e9dcd5113617c59a10c268e1",
+      "bytes": 5449
+    },
+    "safe_inputs": [
+      {
+        "role": "witness",
+        "name": "collections-duplicate-call-witness-safe.json",
+        "sha256": "dd89bac2c640fe796f898b2d6542a305982846536332e10fba9d9874e3f03724",
+        "bytes": 45701
+      },
+      {
+        "role": "metrics",
+        "name": "collections-terminal-exact-metrics.json",
+        "sha256": "64a86e9ce903fbdee55ab6124096a888f5ef51e06d7ddbb0aef2968f1ee6af4f",
+        "bytes": 117469
+      },
+      {
+        "role": "freeze",
+        "name": "freeze.json",
+        "sha256": "6f717a888b700e81fa90415101d02164e22990efa7228437a21b7f76bd1f1569",
+        "bytes": 7209
+      },
+      {
+        "role": "numeric",
+        "name": "collections-terminal-numeric-safe.json",
+        "sha256": "3ef5b0c1559d1d1fd4c500cc3806b2ae0e0b93279a350403703f8ade9a5a25ac",
+        "bytes": 16543
+      },
+      {
+        "role": "formatting",
+        "name": "collections-original-formatting-safe.json",
+        "sha256": "db257757af7d414588979377699b81bb1e3b18fe6257daa5891f666d50915166",
+        "bytes": 22795
+      }
+    ],
+    "issued_input_source_supplement": {
+      "name": "collections-input-source-witness-safe.json",
+      "sha256": "9086269211661b6dc8db4da912dde10da50dc79251d5d460ae929576bb28b924",
+      "bytes": 13238
+    }
+  },
+  "source_pins": [
+    {
+      "path": "tests/Shared/PlanningBenchmarkCases.cs",
+      "sha256": "a25de6fc75d94a06c5dc8fce96d04eb09ba4132caec76f35e7f644912433f998",
+      "git_blob": "8fe6e6c8c4e63c6413176c5cc5e5d65cca1b136f",
+      "basis": "18: exact Collections input and obligations"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs",
+      "sha256": "d60fe4ae28d7a2b442b00e56e7200aa74650dfd1e998935b5a11b84e429080a9",
+      "git_blob": "9b657b8e5d753f7c52eb494594f820e2a6b173b8",
+      "basis": "43-44: reuse accepted bindings; 686-728: displayed interfaces; 787-827: exact typed import validation"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Navigation.cs",
+      "sha256": "1fd36225306eb75db342b968b6ced3c9f00777d42ecb186f11ba543738acf0dd",
+      "git_blob": "648488fb92a09ccff26a15dfb31b99fd34133c14",
+      "basis": "188-198: exact task scope/kind/group navigation"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/TaskPlanCompiler.Validation.cs",
+      "sha256": "3e9678a44c0c8fbfc7f7f61efaab0ca4be060ad85956b30c26d71226c92308d3",
+      "git_blob": "4247fec7d6d91114a19c432d16fc66bf4d13966b",
+      "basis": "17-40: global identity uniqueness"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.CompactConstruction.cs",
+      "sha256": "04a9e4dc5158c3cb87b06ad332c707dab9fb217fb2a8cdb70f0c3d8576b8ef67",
+      "git_blob": "4398e427104d32c7e5d6a39c1f3f8f3c8e23bac7",
+      "basis": "84-90: bounded correction stop"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningModelCalls.cs",
+      "sha256": "50ce2f032b19d106aeedbcd9d16319d7a4037598202bcac42d0b88e346db1656",
+      "git_blob": "27804ec8ac73c11b1c95a33abee6bab3aca63b46",
+      "basis": "15: remaining correction count"
+    }
+  ],
+  "outcome": {
+    "artifact": false,
+    "runtime_executed": false,
+    "verified_fulfilled_business_obligations": null,
+    "calls_per_fulfilled_obligation": null
+  },
+  "limitations": [
+    "Bounded saved witness analysis; omitted original reports and text cannot be inferred.",
+    "Partial clean reviews do not establish complete business fulfillment. No causal efficacy, avoided-correction, reliability or current campaign-balance claim.",
+    "All received logical calls have receipts. Failed physical-attempt usage stays reserved separately. No public artifact or runtime result exists for this run."
+  ],
+  "findings": [
+    {
+      "requests": [
+        25,
+        26,
+        27,
+        28
+      ],
+      "assessment": "A current-item call is accepted after a clean partial review. Selection27 sees its exact ID, scope, closed group and output port, yet draft28 repeats the prior extension under the new baseHash. Compiler identity rejection is supported; missing producer context is not demonstrated."
+    },
+    {
+      "requests": [
+        3,
+        4
+      ],
+      "assessment": "The separate issued selection witness confirms kind=input/source=input:values, where input:values is an evidence address and values is the caller declaration. The free-string source branch permits the spelling; the exact loader rejects it and the correction uses values. A narrowly scoped input-name enumeration remains a proposed change, not an implemented or validated benefit."
+    },
+    {
+      "requests": [
+        15,
+        18
+      ],
+      "assessment": "An earlier duplicate identity is renamed, then a retained review diagnostic identifies redundant same-scope doubling. Correction exports the existing value and closes the group. The omitted original adverse report and accepted arithmetic body prevent a complete independent false-positive audit."
+    },
+    {
+      "requests": [
+        23,
+        24
+      ],
+      "assessment": "The model selects a field from a numeric foreach item, then corrects it to the item itself. This is a supported binding correction."
+    }
+  ],
+  "remaining_work": "Root and foreach body remain open with no public result binding. Renaming and adding another identical call would not satisfy the remaining aggregation/export work.",
+  "recommendation": "Retain the failed control. Any reasoning or capacity experiment must be separately frozen with only its stated policy change; this record demonstrates neither a production fix nor future business success."
+}

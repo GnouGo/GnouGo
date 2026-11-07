@@ -30,7 +30,7 @@ public sealed class RecordedArtifactPlanningTests
         var plan = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "ArtifactPlanning", "synthetic-corrected.json")))!["proposal"]!["plan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
         var state = await RecordedPlanCompilation.CompileAsync(runtime.Recording, plan);
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics.Select(d => d.Message)));
-        Assert.Empty(runtime.Identities); Assert.Null(state.ApprovedHash); PlanningArtifactApproval.Verify(state);
+        Assert.Empty(runtime.Identities); Assert.Null(state.ApprovedHash); Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(state));
         foreach (var id in new[] { "fetch_pull_request_ref", "checkout_pull_request" })
             Assert.Equal("projectRootRelative", state.Plan!.Root.Tasks.Single(t => t.Id == id).Inputs.Single(i => i.Name == "projectRoot").Value.Port);
         state.Plan!.Root.Tasks.Single(t => t.Id == "fetch_pull_request_ref").Inputs.Single(i => i.Name == "projectRoot").Value.Port = "repositoryRoot";

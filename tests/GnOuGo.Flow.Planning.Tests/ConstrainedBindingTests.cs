@@ -206,11 +206,13 @@ public sealed class ConstrainedBindingTests
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(null, TaskPlanCompiler.TypeSchema(type)));
         var state = PlannerFixture.Session(); state.Requirements = PlannerFixture.Requirements();
         state.Catalog = Retained().Catalog;
-        var response = PlanningSchemas.Proposal(state);
+        var response = PlanningSchemas.TaskPlanGrammar(state);
         Assert.Empty(PlanningContractValidation.ValidateSchema(response, strict: true));
-        var wire = TestRuntime.Response(new() { StructuredOutputSchema = response }, new() { Plan = Repair(Retained().Plan) }).Json!;
+        var sample = new TaskPlan { Root = new() { Tasks = [new() { Id = "make_github_feedback", Kind = "transform", Mode = "interpret", Objective = "Classify the observed feedback", Inputs = [new("evidence", PlanningCorpus.String("observed"))],
+            ResultType = new() { Kind = "object", Fields = [new() { Name = "event", Type = new() { Kind = "string", Enum = ["APPROVE", "REQUEST_CHANGES"] } }] } }] } };
+        var wire = PlanningCorpus.Transport(JsonSerializer.SerializeToNode(sample, PlanningJsonContext.Default.TaskPlan), response, response)!;
         Assert.Empty(PlanningContractValidation.ValidateInstance(wire, response));
-        var restored = wire.Deserialize(PlanningJsonContext.Default.PlanningProposal)!.Plan!;
+        var restored = wire.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
         Assert.Equal(new[] { "APPROVE", "REQUEST_CHANGES" }, restored.Root.Tasks.Single(t => t.Id == "make_github_feedback").ResultType!.Fields.Single(f => f.Name == "event").Type.Enum);
     }
 
@@ -221,13 +223,13 @@ public sealed class ConstrainedBindingTests
         var graph = new TaskPlanCompiler().Compile(plan, catalog).Graph!;
         var state = PlannerFixture.Session(); state.Plan = plan; state.Catalog = catalog; state.Graph = graph;
         state.Requirements = PlannerFixture.Requirements(); state.Requirements.Inputs = plan.Inputs; state.Yaml = new PlanningGraphCompiler().Compile(graph, catalog, state.Request.Name);
-        PlanningArtifactApproval.Verify(state);
-        var hash = PlanningArtifactApproval.Hash(state);
+        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(state)); // A compiler fixture has no business review receipt.
+        var hash = state.ComputeArtifactHash();
         plan.Root.Tasks.Single(t => t.Id == "make_github_feedback").ResultType!.Fields.Single(f => f.Name == "event").Type.Enum = ["APPROVE"];
-        Assert.NotEqual(hash, PlanningArtifactApproval.Hash(state));
+        Assert.NotEqual(hash, state.ComputeArtifactHash());
         Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(state));
         state.Plan = Repair(baseline); state.Plan.Root.Always[0].Inputs.Single(i => i.Name == "parametersJson").Value.Items[0].Members.Add(new("other", new() { Kind = "string", Text = "added" }));
-        Assert.NotEqual(hash, PlanningArtifactApproval.Hash(state));
+        Assert.NotEqual(hash, state.ComputeArtifactHash());
         Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(state));
     }
 

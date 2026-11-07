@@ -1,0 +1,71 @@
+{
+  "kind": "offline_exact_resume_regression_red_green",
+  "fixture": "tests/GnOuGo.Flow.Planning.Tests/CompactSuspendedConsumerTests.cs",
+  "fixture_sha256": "c34c056f75307c97255d6c1faf0290069aa4a0e00c3f3533d59af5cfd25a0528",
+  "control": {
+    "public_source": "d99cb6c75e1660538522d51f03b10a585a0bc981",
+    "production_dlls": {
+      "GnOuGo.Flow.Core": "7bcd2e307fce5fa3b72719624433b260c6e73e163156cdc1f6b66f5095c20fc4",
+      "GnOuGo.Flow.Planning": "6c51a19b1313d218c707f0198e91175a173c3d51f5406105dead7fb7fc713997"
+    },
+    "outcome": {
+      "total": 18,
+      "passed": 16,
+      "failed": 2,
+      "skipped": 0,
+      "failures": [
+        {
+          "name": "GnOuGo.Flow.Planning.Tests.CompactSuspendedConsumerTests.PendingReviewDoesNotRelaxExplicitResumeGuards(invalid: \\\"nullable\\\")",
+          "message": "Assert.Contains() Failure: Filter not matched in collection\nCollection: [PlanningDiagnostic { Code = CONSTRUCTION_CONTINUATION_INVALID, Location = /resumeStep/producerCheckpoint, Message = The owning checkpoint must retain this producer's current accepted content and completed boundary., Required = True, ValidationStage = , Rule = , Prerequisite =  }]"
+        },
+        {
+          "name": "GnOuGo.Flow.Planning.Tests.CompactSuspendedConsumerTests.ExplicitResumeComposesPendingAcceptedWorkBeforeMandatoryBusinessReviews",
+          "message": "Assert.Empty() Failure: Collection was not empty\nCollection: [PlanningDiagnostic { Code = CONSTRUCTION_CONTINUATION_INVALID, Location = /resumeStep/producerCheckpoint, Message = The owning checkpoint must retain this producer's current accepted content and completed boundary., Required = True, ValidationStage = , Rule = , Prerequisite =  }]"
+        }
+      ]
+    },
+    "warnings": 0,
+    "errors": 0,
+    "log_sha256": "cb5975582afad3a366347d98104a55a24313d565bdf51417d1fcd9a2e9ca59c4",
+    "xml_sha256": "8e8d7606f7533eb7a9b93d56628550d95cbb33010a89142e64f8c4559a72396c"
+  },
+  "candidate": {
+    "qualification": "uncommitted source-only correction; not a live cohort",
+    "production_change": "Remove the duplicated ReviewedCheckpoint requirement from technical CheckpointProducerCurrent; automatic resumption retains its independently checked review authority.",
+    "source_file": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Continuations.cs",
+    "source_file_sha256": "e0591fea3b47c3407db470294a9b9ea6ad88dfe5829cd18fa7f11aea81db214f",
+    "production_dlls": {
+      "GnOuGo.Flow.Core": "50b64403d14ce150284c93457cc42c56b22bcec8bd318974162ab54b0959ec67",
+      "GnOuGo.Flow.Planning": "0cf7b9e64da772494732a05444d607e44124ad724b21bda19c6965573af2706a"
+    },
+    "outcome": {
+      "total": 18,
+      "passed": 18,
+      "failed": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    "warnings": 0,
+    "errors": 0,
+    "log_sha256": "29910b37bfea553d745735132de1fea25e921fbc24484aae88fde2a3ec77d3cb",
+    "xml_sha256": "41e00781519bec7015219ee229df93f56f3b3031a2f99487feeca7e7d8d44f77"
+  },
+  "verified_behavior": [
+    "Fresh source indexing, interface extraction, selection, typed suspension, drafting and technical acceptance create every checkpoint normally.",
+    "The exact prerequisite checkpoint is businessReviewPending with no Reviews; automatic resumption and artifact approval remain unavailable.",
+    "An explicit semantic selection uses its current owning checkpoint and exact binding, then survives exact issued-request recovery without a second correction charge or duplicate transition.",
+    "The composed child block requires one local review and final artifact requires one global review; the resulting deterministic workflow returns14.",
+    "Wrong owning checkpoint, changed executable producer, changed exact retained original source and nullable binding are rejected without state mutation.",
+    "Existing automatic reviewed-association, review invalidation, upstream/binding/source changes, bounded prerequisite chain and exact review recovery cases remain passing."
+  ],
+  "retained_prior_results": [
+    "Initial immutable-d99 reproduction16/18 pass with the same precise two gate failures.",
+    "Initial candidate broad slice83/84 pass; its source counterexample mutated an unrelated original row. Only the fixture was corrected to mutate the exact retained SourceVersions key.",
+    "VSTest loopback denial and private project-restore/entrypoint development error logs retained; neither is counted as planner failure."
+  ],
+  "runner": "xUnit v3 in-process using ordinary production planner/runtime; no VSTest TCP listener",
+  "paid_calls": 0,
+  "operational_reads": 0,
+  "production_edits_by_this_agent": 0,
+  "live_benefit": "unproven"
+}

@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 namespace GnOuGo.Agent.Shared;
-public sealed record PlanningStartDto(string Name, string Prompt, bool ReviseExisting = false, string Mode = "interactive", bool BusinessJudge = false);
+public sealed record PlanningStartDto(string Name, string Prompt, bool ReviseExisting = false, string Mode = "interactive",
+    string? ConstructionPreset = null, string? ThresholdMode = null);
 public sealed record PlanningGenerationDto(string Reasoning = "medium", int MaxInputTokensPerRequest = 32_000, int MaxOutputTokens = 32_768);
 public sealed record PlanningCommandDto(string Kind, long ExpectedRevision, string? ArtifactHash = null, string? Text = null, JsonObject? Selections = null, PlanningGenerationDto? Generation = null, string? Mode = null,
     IReadOnlyList<PlanningAnswerDto>? Answers = null, string? RequestId = null)
@@ -11,11 +12,16 @@ public sealed record PlanningCommandDto(string Kind, long ExpectedRevision, stri
     public bool? PreserveRequirements { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<string>? EditablePaths { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningDiscoveryRecoveryDto? DiscoveryRecovery { get; init; }
 }
+public sealed record PlanningDiscoveryRecoveryDto(string FailureId, string Resolution);
+public sealed record PlanningDiscoveryFailureDto(string Id, string SourceId, string? FocusId, string Category, string Message);
 public sealed record PlanningQuestionDto(string Id, string Question, IReadOnlyList<PlanningAlternativeDto> Alternatives, string? Recommended);
 public sealed record PlanningAnswerDto(string QuestionId, string? AlternativeId = null, string? Text = null);
 public sealed record PlanningValidationDto(string Code, string Location, string Message, bool Required)
 {
+    public JsonObject? BudgetFailure { get; init; }
     public string? ValidationStage { get; init; }
     public string? Rule { get; init; }
     public PlanningPrerequisiteContextDto? Prerequisite { get; init; }
@@ -30,15 +36,36 @@ public sealed record PlanningSessionDto(string Id, string Name, long Revision, s
     IReadOnlyList<PlanningChoiceDto> Choices, int Calls, int ReplanAttempts, long InputTokens, long OutputTokens,
     decimal EstimatedCost, string Currency, double ActiveMilliseconds, double HumanWaitMilliseconds, string Phase, string Mode = "interactive", bool WorkflowSession = false)
 {
-    public int SchemaVersion { get; init; } = 10;
+    public int SchemaVersion { get; init; } = 11;
+    public string ThresholdMode { get; init; } = "strict";
+    public JsonObject? EffectivePolicy { get; init; }
+    public bool CostEstimateAvailable { get; init; }
+    public string? CostUnavailableReason { get; init; }
+    public bool CanStartWithCurrentSettings { get; init; }
+    public bool CanRecoverDiscovery { get; init; }
+    public bool CanResumeDiscovery { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningDiscoveryRecoveryDto? PendingDiscoveryRecovery { get; init; }
+    public IReadOnlyList<PlanningDiscoveryFailureDto> DiscoveryFailures { get; init; } = [];
+    public JsonObject? OverallProgress { get; init; }
+    public IReadOnlyList<PlanningInspectionEventDto> Events { get; init; } = [];
+    public IReadOnlyList<PlanningThresholdWarningDto> ThresholdWarnings { get; init; } = [];
     public IReadOnlyList<string> RevisionScope { get; init; } = [];
     public IReadOnlyList<string> DiscoveryLimitations { get; init; } = [];
     public JsonObject? TaskPlan { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? RequestText { get; init; }
-    public bool BusinessJudge { get; init; }
     public IReadOnlyList<PlanningQuestionDto> Questions { get; init; } = [];
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public PlanningRequestInspectionDto? RequestInspection { get; init; }
 }
 public sealed record PlanningRequestInspectionDto(string State, string? RequestId, bool CancellationRequested = false);
+public sealed record PlanningInspectionEventDto(long Sequence, DateTimeOffset TimestampUtc, string Phase, string State, string Reason,
+    string? RequestId, string? BlockId, string? StepId, int? Checkpoint, string? Objective)
+{
+    public long PhaseOccurrence { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public JsonObject? Discovery { get; init; }
+}
+public sealed record PlanningThresholdWarningDto(string Kind, long Current, long Threshold, string Origin, string Stage,
+    string? RequestId, string? BlockId, string Consequence = "Continues; mandatory controls remain enforced.");

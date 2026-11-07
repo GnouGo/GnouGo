@@ -1,0 +1,54 @@
+[
+  {
+    "test": "GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission",
+    "reason": "Set PLAYWRIGHT_MODULE_PATH to run the isolated deterministic browser smoke."
+  },
+  {
+    "test": "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: False, executeTests: True)",
+    "reason": "Set GNOU_GO_LIVE_COPILOT_EDIT=1 to run the local real-model fixture."
+  },
+  {
+    "test": "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: True, executeTests: False)",
+    "reason": "Set GNOU_GO_LIVE_COPILOT_EDIT=1 to run the local real-model fixture."
+  },
+  {
+    "test": "GnOuGo.GithubCopilot.E2E.Tests.LivePullRequestReviewTests.ConfiguredOpenAiProvider_CanReviewExactDiffWithoutPublishing",
+    "reason": "Set GNOU_GO_LIVE_PR_REVIEW_E2E=1 to create the disposable live GitHub fixture."
+  },
+  {
+    "test": "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: True, executeTests: True)",
+    "reason": "Set GNOU_GO_LIVE_COPILOT_EDIT=1 to run the local real-model fixture."
+  },
+  {
+    "test": "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: False, bounded: False, executeTests: True)",
+    "reason": "Set GNOU_GO_LIVE_COPILOT_EDIT=1 to run the local real-model fixture."
+  },
+  {
+    "test": "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 3)",
+    "reason": "Requires native Windows PowerShell."
+  },
+  {
+    "test": "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: True)",
+    "reason": "Requires native Windows PowerShell."
+  },
+  {
+    "test": "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: \"param([string]$text = 'parameter default'); [Conso\"···, expected: \"parameter default\", exitCode: 3)",
+    "reason": "Requires native Windows PowerShell."
+  },
+  {
+    "test": "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 0)",
+    "reason": "Requires native Windows PowerShell."
+  },
+  {
+    "test": "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: False)",
+    "reason": "Requires native Windows PowerShell."
+  },
+  {
+    "test": "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: \"using namespace System\\n[Console]::WriteLine('names\"···, expected: \"namespace declaration\", exitCode: 0)",
+    "reason": "Requires native Windows PowerShell."
+  },
+  {
+    "test": "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.DefaultLaunchUsesOnlyTheSelectedShellsBuiltInModulePath",
+    "reason": "Requires native Windows PowerShell."
+  }
+]

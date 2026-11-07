@@ -1,0 +1,218 @@
+[
+  {
+    "evidence_hash": "a0d8283ecdbe148880d00d699361bd265a76c704fd60a9f738761418eca36e49",
+    "run": "run:g615656ccddamz32a-amazon-1",
+    "unchanged_original_hashes": {
+      "request_hash": true,
+      "http_journal_hash": true,
+      "failure_hash": true
+    },
+    "all_original_records_last_written_before_retention": true,
+    "original_records": [
+      {
+        "collection": "planning-schema-portability",
+        "key": "run:g615656ccddamz32a-amazon-1",
+        "exists": true,
+        "sha256": "930e22b3c11b784ddf18092e2c2ddf052ed20bf34d6b12f1d745287c8feb5ade",
+        "created_at": "2026-11-04T19:27:03.492502+00:00",
+        "updated_at": "2026-11-04T19:49:48.360974+00:00"
+      },
+      {
+        "collection": "planning-evaluation-requests",
+        "key": "g615656ccddamz32a-amazon-1:9:54d078626aa95900b40be6bbea68ce2850fb60430f820f836fb8d88b34e10a37:3fdce3ddf6a2c098bdcb3b71bf57e0d8917d9c83ddfd54ab5e9db68ea38a2047",
+        "exists": true,
+        "sha256": "687c431192b1bae0cc999e5c25965c84f5371817479b42151b7611851d18b73e",
+        "created_at": "2026-11-04T19:33:56.061001+00:00",
+        "updated_at": "2026-11-04T19:33:56.061001+00:00"
+      },
+      {
+        "collection": "planning-evaluation-http-attempts",
+        "key": "g615656ccddamz32a-amazon-1:9:54d078626aa95900b40be6bbea68ce2850fb60430f820f836fb8d88b34e10a37:3fdce3ddf6a2c098bdcb3b71bf57e0d8917d9c83ddfd54ab5e9db68ea38a2047",
+        "exists": true,
+        "sha256": "1154d6decbfd08b50413170a7225a0a05f5436c9b5a40eb77ac696b1e7de4349",
+        "created_at": "2026-11-04T19:33:56.060441+00:00",
+        "updated_at": "2026-11-04T19:49:35.815864+00:00"
+      },
+      {
+        "collection": "planning-evaluation-receipts",
+        "key": "g615656ccddamz32a-amazon-1:9:54d078626aa95900b40be6bbea68ce2850fb60430f820f836fb8d88b34e10a37:3fdce3ddf6a2c098bdcb3b71bf57e0d8917d9c83ddfd54ab5e9db68ea38a2047",
+        "exists": false,
+        "sha256": null,
+        "created_at": null,
+        "updated_at": null
+      },
+      {
+        "collection": "planning-evaluation-failures",
+        "key": "g615656ccddamz32a-amazon-1:9:54d078626aa95900b40be6bbea68ce2850fb60430f820f836fb8d88b34e10a37:3fdce3ddf6a2c098bdcb3b71bf57e0d8917d9c83ddfd54ab5e9db68ea38a2047",
+        "exists": true,
+        "sha256": "8c8c2befdabe4ac0c56689d7464619554ce9c00b7a746ad128bb27251b665352",
+        "created_at": "2026-11-04T19:49:35.817662+00:00",
+        "updated_at": "2026-11-04T19:49:35.817662+00:00"
+      },
+      {
+        "collection": "planning-evaluation-session-policy",
+        "key": "g615656ccddamz32a-amazon-1",
+        "exists": true,
+        "sha256": "29b9a18a6bcbc048adad6cbb405b4489f5a8069636b8fe7f4a70addc8c9b047c",
+        "created_at": "2026-11-04T19:27:11.604906+00:00",
+        "updated_at": "2026-11-04T19:27:11.604906+00:00"
+      },
+      {
+        "collection": "planning-evaluation-configuration",
+        "key": "http-retry-policy",
+        "exists": true,
+        "sha256": "9e0d21f4a5660a5580b9b075d52f72a6531061651577ba6a520b2c02ff21949b",
+        "created_at": "2026-10-19T08:40:27.184309+00:00",
+        "updated_at": "2026-10-19T08:40:27.184309+00:00"
+      },
+      {
+        "collection": "planning-schema-portability",
+        "key": "g615656ccddamz32a-manifest",
+        "exists": true,
+        "sha256": "b87a6e8b74fa98111b36ef0bdc897a2c551aba057693561423af87c101424a98",
+        "created_at": "2026-11-04T19:27:03.267469+00:00",
+        "updated_at": "2026-11-04T19:27:03.267469+00:00"
+      }
+    ],
+    "hash_note": "Record API hashes original serialized bytes. Retention run_hash hashes its parsed/inspected JSON snapshot; these are different representations, not a before/after byte comparison."
+  },
+  {
+    "evidence_hash": "c90799889b15dfd6c29cf81a4c81d792461168ddac78f37eb1eed20bfaffcb3a",
+    "run": "serverlive-20261106-reviewpr-01",
+    "unchanged_original_hashes": {
+      "request_hash": true,
+      "http_journal_hash": true,
+      "failure_hash": true
+    },
+    "all_original_records_last_written_before_retention": true,
+    "original_records": [
+      {
+        "collection": "planning-evaluation-runs",
+        "key": "serverlive-20261106-reviewpr-01",
+        "exists": true,
+        "sha256": "607640d7fd927b4036d3984bdc167e4d0c6032e142d85a4067d46c0e16ab2be4",
+        "created_at": "2026-11-06T04:48:04.454901+00:00",
+        "updated_at": "2026-11-06T05:12:11.386577+00:00"
+      },
+      {
+        "collection": "planning-evaluation-requests",
+        "key": "7d11bcf6a17d4fa687902b141cd7c7b7:43:b438a28794c050a60e3d3e2760cbb58d425c5191d088dd89ae5ec9fcb93952db:2b23e4410a5d3484bb07de6a3c3542843811af7fa30b25de40123ac2d914e46a",
+        "exists": true,
+        "sha256": "d15c2776d6aad56c7cdf07248db13061a4d91163707910769b536491b5f5350e",
+        "created_at": "2026-11-06T05:11:47.478317+00:00",
+        "updated_at": "2026-11-06T05:11:47.478317+00:00"
+      },
+      {
+        "collection": "planning-evaluation-http-attempts",
+        "key": "7d11bcf6a17d4fa687902b141cd7c7b7:43:b438a28794c050a60e3d3e2760cbb58d425c5191d088dd89ae5ec9fcb93952db:2b23e4410a5d3484bb07de6a3c3542843811af7fa30b25de40123ac2d914e46a",
+        "exists": true,
+        "sha256": "f242805587f373d60522e091c53f3838bfb345ca32d57e4660e587f8fd11551f",
+        "created_at": "2026-11-06T05:11:47.477943+00:00",
+        "updated_at": "2026-11-06T05:12:00.698272+00:00"
+      },
+      {
+        "collection": "planning-evaluation-receipts",
+        "key": "7d11bcf6a17d4fa687902b141cd7c7b7:43:b438a28794c050a60e3d3e2760cbb58d425c5191d088dd89ae5ec9fcb93952db:2b23e4410a5d3484bb07de6a3c3542843811af7fa30b25de40123ac2d914e46a",
+        "exists": false,
+        "sha256": null,
+        "created_at": null,
+        "updated_at": null
+      },
+      {
+        "collection": "planning-evaluation-failures",
+        "key": "7d11bcf6a17d4fa687902b141cd7c7b7:43:b438a28794c050a60e3d3e2760cbb58d425c5191d088dd89ae5ec9fcb93952db:2b23e4410a5d3484bb07de6a3c3542843811af7fa30b25de40123ac2d914e46a",
+        "exists": true,
+        "sha256": "832ec4635daa899d05584cdfbace41fc2acb6f4539dcb12b7845603eae0b24ba",
+        "created_at": "2026-11-06T05:12:00.964854+00:00",
+        "updated_at": "2026-11-06T05:12:00.964854+00:00"
+      },
+      {
+        "collection": "planning-evaluation-session-policy",
+        "key": "7d11bcf6a17d4fa687902b141cd7c7b7",
+        "exists": true,
+        "sha256": "9ab4e3ca19986a0b93655d7aa33df79f38b8ef07e4feade9f0f47db5f3884490",
+        "created_at": "2026-11-06T04:48:11.905656+00:00",
+        "updated_at": "2026-11-06T04:48:11.905656+00:00"
+      },
+      {
+        "collection": "planning-evaluation-configuration",
+        "key": "http-retry-policy",
+        "exists": true,
+        "sha256": "9e0d21f4a5660a5580b9b075d52f72a6531061651577ba6a520b2c02ff21949b",
+        "created_at": "2026-10-19T08:40:27.184309+00:00",
+        "updated_at": "2026-10-19T08:40:27.184309+00:00"
+      }
+    ],
+    "hash_note": "Record API hashes original serialized bytes. Retention run_hash hashes its parsed/inspected JSON snapshot; these are different representations, not a before/after byte comparison.",
+    "exact_raw_records_equal_pre_retention_audit": true
+  },
+  {
+    "evidence_hash": "9e35b703320083468dfc32a6e892b5d493f9b31e388acd78c3761821a935a4ac",
+    "run": "serverlive-20261106-reviewpr-02",
+    "unchanged_original_hashes": {
+      "request_hash": true,
+      "http_journal_hash": true,
+      "failure_hash": true
+    },
+    "all_original_records_last_written_before_retention": true,
+    "original_records": [
+      {
+        "collection": "planning-evaluation-runs",
+        "key": "serverlive-20261106-reviewpr-02",
+        "exists": true,
+        "sha256": "502f4ba28958aed6a0cd5081cf28ce7933f96d603f05607840852ea1ab476172",
+        "created_at": "2026-11-06T05:50:28.772285+00:00",
+        "updated_at": "2026-11-06T06:30:05.60672+00:00"
+      },
+      {
+        "collection": "planning-evaluation-requests",
+        "key": "2b32920c7d9e47bab3be23ccf116a9e8:47:720a3a972660acf022a37045967148cf99f2c3566616d8ef85d4d147349cd809:de0f0d3ad3ea405fd258df9476ebdc9659656339a9d36322dcd3de05b3bf6092",
+        "exists": true,
+        "sha256": "d00b12f44f4fdcd514e1428e7b22fc8e3e6d4354ffb1b17d02de00b53f6b2d10",
+        "created_at": "2026-11-06T06:24:25.036177+00:00",
+        "updated_at": "2026-11-06T06:24:25.036177+00:00"
+      },
+      {
+        "collection": "planning-evaluation-http-attempts",
+        "key": "2b32920c7d9e47bab3be23ccf116a9e8:47:720a3a972660acf022a37045967148cf99f2c3566616d8ef85d4d147349cd809:de0f0d3ad3ea405fd258df9476ebdc9659656339a9d36322dcd3de05b3bf6092",
+        "exists": true,
+        "sha256": "4590b8a8dca18d310a5a9dd5088e6bda60c1ef0d070ac7f0ec097235ca04b909",
+        "created_at": "2026-11-06T06:24:25.035237+00:00",
+        "updated_at": "2026-11-06T06:29:39.122402+00:00"
+      },
+      {
+        "collection": "planning-evaluation-receipts",
+        "key": "2b32920c7d9e47bab3be23ccf116a9e8:47:720a3a972660acf022a37045967148cf99f2c3566616d8ef85d4d147349cd809:de0f0d3ad3ea405fd258df9476ebdc9659656339a9d36322dcd3de05b3bf6092",
+        "exists": false,
+        "sha256": null,
+        "created_at": null,
+        "updated_at": null
+      },
+      {
+        "collection": "planning-evaluation-failures",
+        "key": "2b32920c7d9e47bab3be23ccf116a9e8:47:720a3a972660acf022a37045967148cf99f2c3566616d8ef85d4d147349cd809:de0f0d3ad3ea405fd258df9476ebdc9659656339a9d36322dcd3de05b3bf6092",
+        "exists": true,
+        "sha256": "1cee45976f7e28cbdb7fb884b657368909a19b7bc91d66bf2ced7b4c7cdbc5b4",
+        "created_at": "2026-11-06T06:29:52.659204+00:00",
+        "updated_at": "2026-11-06T06:29:52.659204+00:00"
+      },
+      {
+        "collection": "planning-evaluation-session-policy",
+        "key": "2b32920c7d9e47bab3be23ccf116a9e8",
+        "exists": true,
+        "sha256": "9ab4e3ca19986a0b93655d7aa33df79f38b8ef07e4feade9f0f47db5f3884490",
+        "created_at": "2026-11-06T05:50:37.094341+00:00",
+        "updated_at": "2026-11-06T05:50:37.094341+00:00"
+      },
+      {
+        "collection": "planning-evaluation-configuration",
+        "key": "http-retry-policy",
+        "exists": true,
+        "sha256": "9e0d21f4a5660a5580b9b075d52f72a6531061651577ba6a520b2c02ff21949b",
+        "created_at": "2026-10-19T08:40:27.184309+00:00",
+        "updated_at": "2026-10-19T08:40:27.184309+00:00"
+      }
+    ],
+    "hash_note": "Record API hashes original serialized bytes. Retention run_hash hashes its parsed/inspected JSON snapshot; these are different representations, not a before/after byte comparison."
+  }
+]

@@ -1,0 +1,375 @@
+{
+  "status": "retained_technical_evidence_at_capture",
+  "source": "88f338bf3b93f96d67b7ce7385c2b6f446a91865",
+  "captured_utc": "2026-10-26T18:16:22.450518+00:00",
+  "source_binding": {
+    "tracked_files": 4664,
+    "complete_sha256_map": "committed_map",
+    "bytes_and_executable_modes": "source_binding",
+    "attribution": "Original tests ran on private snapshots before commit binding; final source equality is qualified separately. Original execution records are unchanged."
+  },
+  "planning": {
+    "distinct_cases_with_successful_evidence": 3435,
+    "warnings_as_errors": true,
+    "original_full": {
+      "passed": 3430,
+      "failed": 4,
+      "skipped": 0
+    },
+    "targeted_corrections": [
+      {
+        "passed": 116,
+        "overlap": 116,
+        "new_distinct": 0
+      },
+      {
+        "passed": 69,
+        "overlap": 68,
+        "new_distinct": 1
+      }
+    ],
+    "remaining_failures_in_composed_evidence": 0,
+    "initial_failure_cause": "Four fresh-version fixture expectations still expected7 instead of8.",
+    "production_deltas_qualified_after_initial_full": [
+      "Reviewed closure witness predicate/provenance",
+      "Inherited Core review headroom accepts presentation8"
+    ],
+    "boundary": "Composed successful evidence across snapshots, not one full-suite execution on final88."
+  },
+  "host": {
+    "distinct_cases_with_successful_evidence": 706,
+    "warnings_as_errors": true,
+    "initial": {
+      "passed": 705,
+      "failed": 1,
+      "skipped": 0
+    },
+    "recheck": {
+      "passed": 1,
+      "overlap": 1,
+      "new_distinct": 0,
+      "no_build": true,
+      "same_output_files": 1270
+    },
+    "preserved_failures": [
+      "Earlier zero-test artifacts-path layout failure; corrected to existing private bin/obj staging.",
+      "One missing-Git-metadata fixture failure; exact commit metadata bound after byte/mode verification, then passed without rebuilding."
+    ],
+    "scope": [
+      "CompactConstructionHostTests",
+      "BenchmarkCampaignTests",
+      "BenchmarkPermanentRetentionTests",
+      "BenchmarkAdmissionTests",
+      "PlanningHttpJournalTests"
+    ],
+    "boundary": "Five focused host classes, not the full Server suite or solution. Includes fresh8 encrypted restoration and6/7/8 captured headroom/receipt recovery."
+  },
+  "same_request_compaction": {
+    "supporting_focused_cases": 226,
+    "focused_cases_not_added_to_planning_total": true,
+    "bytes_before": 56735,
+    "bytes_after": 53765,
+    "bytes_saved": 2970,
+    "estimated_tokens_before": 19168,
+    "estimated_tokens_after": 18178,
+    "estimated_tokens_saved": 990,
+    "request_hash_before": "6c74ff401c006f4fbff622d8d1582706442227d532b355794493f8ebd6482c05",
+    "request_hash_after": "c110cbd92c08527d0c52a7f3efd5e566d7a25bc23571b42c8efb79618d289e5e",
+    "unchanged_schema_hash": "098e0cd9b4d030724a634d93e6f968053fe80605a7de74cd0e5b563f3afdd3be",
+    "reconstructed_embedded_views": 11,
+    "unchanged_navigation_addresses": 30,
+    "direction_groups": 2,
+    "byte_exact_metadata_restoration": true,
+    "context_inverse_equal": true,
+    "claims_settings_contract_identities_unchanged": true,
+    "standalone_schema_retrieval_unchanged": true,
+    "original_control_reproduction": {
+      "request_hash": "3615369acd6ba58aefe15edc6f67cef1855c50d3821a2b265e74243831098bdb",
+      "bytes": 62208,
+      "estimated_tokens": 20992
+    },
+    "retained_input_sha256": "dfe2d277f001662b07659f66459a1fce2e5731aba733b359362a5f4c34516d0d",
+    "measurement_attribution": "Compiled v8 helper on exact retained v6 context. Two terminal diagnostics removed only on clone, gated by original request reproduction; canonical state unchanged. Fresh8 callsite is separately covered by focused tests.",
+    "preserved_focus_failures": "Initial fixture compile errors;223/2 permission-fixture result;two diagnostic fixture failures. Fixed only fixture setup before226/226 WAE pass.",
+    "boundary": "Measured same-request presentation reduction, not fresh-session fit, fewer model calls or causal efficacy."
+  },
+  "source_file_sha256": {
+    "src/GnOuGo.Flow.Planning/PlanningConstruction.Evidence.cs": "21489e0d52caef27a9ef5c4a702e1baf78cd3b0ac3a8b1b76fe088ed8272ddbf",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.DecisionContext.cs": "212057be1a88e78f4c22667aca0fe0cb423c9af752aac6ae33d21860d40f31ae",
+    "tests/GnOuGo.Flow.Planning.Tests/SimplifiedConstructionEvidenceTests.cs": "d736249749ec811e6bce40b04e057c2b69d58a74abcf5660527766feea7b158c",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactContractEvidenceFlowTests.cs": "948eeaa246b177b61577bad66ac962bdf9f834c0c14d79f458f2693957433749"
+  },
+  "references": {
+    "planning": {
+      "path": "/private/tmp/gnougo-v8-evidence-validation-s50fpqwd/owning-final-qualified-v2-safe.json",
+      "sha256": "e7ce6f8c529f268cd69b675dbf06306a98eb09e0f8f9a3356ed2104e21a9349d"
+    },
+    "planning_peer": {
+      "path": "/private/tmp/gnougo-v8-evidence-validation-s50fpqwd/independent-owning-final-composite-review-safe.json",
+      "sha256": "c6cebdb59178d9d52ae741e878db4e08c335a170779a7254019d1aa2321d7ce5"
+    },
+    "host": {
+      "path": "/private/tmp/gnougo-v8-evidence-validation-s50fpqwd/host-qualified-safe.json",
+      "sha256": "79b539c2313a159505cef4a8f1854486225481f2665b940e99a891ef85ce59ac"
+    },
+    "host_peer": {
+      "path": "/private/tmp/gnougo-v8-evidence-validation-s50fpqwd/independent-host-source-result-review-safe.json",
+      "sha256": "78f24a00c653d3c148acef9ca362148e64134e9432bd32aa816cdea70f55b1d1"
+    },
+    "source_binding": {
+      "path": "/private/tmp/gnougo-v8-evidence-validation-s50fpqwd/committed-source-binding-safe.json",
+      "sha256": "ccbf41818f8cbaba657308f836344395f03a1338d93b79ab6dbf12699a3aa092"
+    },
+    "committed_map": {
+      "path": "/private/tmp/gnougo-v8-candidate-build-k94_v9je/source-manifest.json",
+      "sha256": "59a3703725036cd8fb9cfc47f2d19243c69afd8b240cd979051a0a342a48dd3d"
+    },
+    "evidence_focus": {
+      "path": "/private/tmp/gnougo-v8-evidence-validation-s50fpqwd/qualification-safe.json",
+      "sha256": "c8fc3398f9ce1c3cc1b474501bea604432beded5ded726f56d14c29a7648a29f"
+    },
+    "evidence_peer": {
+      "path": "/private/tmp/gnougo-v8-evidence-validation-s50fpqwd/independent-source-result-review-safe.json",
+      "sha256": "8194fe35d389aaeb1cadddbc61cde8e45360b598d0e637b3eeb99a564477b3d4"
+    },
+    "measurement": {
+      "path": "/private/tmp/gnougo-v8-evidence-validation-s50fpqwd/measurement/result-safe.json",
+      "sha256": "1244ba37c8f6cf90dfb3a6b68045cd062ad1cc273bdf15757c0543f22e50affc"
+    }
+  },
+  "limitations": [
+    "No new validation, CI polling, provider calls or operational-store access produced this record.",
+    "No business success, convergence, avoided correction, cross-fragment review skipping or model-quality claim.",
+    "Full-solution and final-revision CI were still running at this capture; their terminal outcomes require separate source-bound evidence. Publication executed the named smoke-fixture overlay; original failures remain retained."
+  ],
+  "projection_sources_sha256": {
+    "technical": "44ff3b67088615a02d1da02eed26699b0a345abc1898c4cfed48d2cc0bffc7c5",
+    "publication_storage": "4b9e9032c1448c2c96d2fca8edd0fb55d754e37c195a9a675d6ead634f916fa3"
+  },
+  "publication_storage": {
+    "source": "88f338bf3b93f96d67b7ce7385c2b6f446a91865",
+    "execution_source_kind": "exact88_plus_single_smoke_fixture_overlay",
+    "source_file_count": 4664,
+    "source_manifest_sha256": "e2f65ada7ae69a1dbbd30e1fdaec9408904979b58ad2b21bbc4275e26427bfdd",
+    "all_original_git_blobs_and_modes_verified": true,
+    "overlay": {
+      "path": "tests/GnOuGo.Flow.Planning.Smoke/CompactConstructionSmoke.cs",
+      "before_sha256": "5eca79b158f1b988917b027c3422b0c4618de89fbc0fb68676b55a80386c1cd6",
+      "after_sha256": "4b2f133a0b97df57b109f033e9013b5b6a52422a67b58a8f7f169c023917483f",
+      "patch_sha256": "b0885bb900ea078c1ba39d38a22d3fc6d3e6eaa2e9bcae55427417bfae3681e3"
+    },
+    "all_stages_passed": true,
+    "builds_warnings_as_errors": true,
+    "stages": [
+      {
+        "stage": "managed-publish",
+        "exit_code": 0,
+        "started_utc": "2026-10-26T18:19:46.601886+00:00",
+        "finished_utc": "2026-10-26T18:20:12.175594+00:00",
+        "elapsed_seconds": 25.574,
+        "log_sha256": "f138f7b6b207c004bbc93746072c8173c2a330ad4d95af4df7436f24170ad591",
+        "build_warnings_as_errors": true
+      },
+      {
+        "stage": "managed-smoke",
+        "exit_code": 0,
+        "started_utc": "2026-10-26T18:20:12.290385+00:00",
+        "finished_utc": "2026-10-26T18:20:15.274490+00:00",
+        "elapsed_seconds": 2.984,
+        "log_sha256": "9299744be47d65278c64bd950940a0ff7652e753c624a30dc6261d76764fcdb1",
+        "build_warnings_as_errors": null
+      },
+      {
+        "stage": "native-publish",
+        "exit_code": 0,
+        "started_utc": "2026-10-26T18:20:15.413926+00:00",
+        "finished_utc": "2026-10-26T18:20:50.186768+00:00",
+        "elapsed_seconds": 34.773,
+        "log_sha256": "d078a803b8986c573a405d67bdf380018c9805519530d124a163865d96f5f946",
+        "build_warnings_as_errors": true
+      },
+      {
+        "stage": "native-smoke",
+        "exit_code": 0,
+        "started_utc": "2026-10-26T18:20:50.359246+00:00",
+        "finished_utc": "2026-10-26T18:20:57.209297+00:00",
+        "elapsed_seconds": 6.85,
+        "log_sha256": "5ca4a8cc725798c690d69c2f925fb4761fbec5aa956b1c4c7c010c319fa0f5e2",
+        "build_warnings_as_errors": null
+      },
+      {
+        "stage": "pack-planning",
+        "exit_code": 0,
+        "started_utc": "2026-10-26T18:20:57.340670+00:00",
+        "finished_utc": "2026-10-26T18:20:58.477095+00:00",
+        "elapsed_seconds": 1.136,
+        "log_sha256": "d3eecac81de5ba1907d81abd84a21eb3f0591ef539b6f943e4300c0b2a7bb56c",
+        "build_warnings_as_errors": true
+      },
+      {
+        "stage": "pack-integrations",
+        "exit_code": 0,
+        "started_utc": "2026-10-26T18:20:58.624879+00:00",
+        "finished_utc": "2026-10-26T18:21:00.304749+00:00",
+        "elapsed_seconds": 1.68,
+        "log_sha256": "a23568643af41bf994045a2ba65d6ba7f279385c1786a0c48b50af69b7102485",
+        "build_warnings_as_errors": true
+      },
+      {
+        "stage": "pack-core",
+        "exit_code": 0,
+        "started_utc": "2026-10-26T18:21:00.426063+00:00",
+        "finished_utc": "2026-10-26T18:21:01.238795+00:00",
+        "elapsed_seconds": 0.813,
+        "log_sha256": "1c0e076709afa787ae2da2fe4042812352fa36d81424920833bfb6bfbd67a7e8",
+        "build_warnings_as_errors": true
+      },
+      {
+        "stage": "pack-copilot",
+        "exit_code": 0,
+        "started_utc": "2026-10-26T18:21:01.357544+00:00",
+        "finished_utc": "2026-10-26T18:21:03.123371+00:00",
+        "elapsed_seconds": 1.766,
+        "log_sha256": "0a1f7aa823d223e640f26334a23efe8c9aa74fbd04b22dd5f72011c61caa32ba",
+        "build_warnings_as_errors": true
+      },
+      {
+        "stage": "pack-persistence",
+        "exit_code": 0,
+        "started_utc": "2026-10-26T18:21:03.237814+00:00",
+        "finished_utc": "2026-10-26T18:21:05.550539+00:00",
+        "elapsed_seconds": 2.313,
+        "log_sha256": "3c1b693489f69f0f81cd39647993feeb82b1ab5e57a8855bbbb7332d81972698",
+        "build_warnings_as_errors": true
+      },
+      {
+        "stage": "pack-ai-core",
+        "exit_code": 0,
+        "started_utc": "2026-10-26T18:21:05.661953+00:00",
+        "finished_utc": "2026-10-26T18:21:06.522762+00:00",
+        "elapsed_seconds": 0.861,
+        "log_sha256": "07ddc9868055939aee054fbc9e4889c454615fcbe144da7d62465360892e5133",
+        "build_warnings_as_errors": true
+      },
+      {
+        "stage": "server-publish",
+        "exit_code": 0,
+        "started_utc": "2026-10-26T18:21:15.561836+00:00",
+        "finished_utc": "2026-10-26T18:23:04.453470+00:00",
+        "elapsed_seconds": 108.891,
+        "log_sha256": "af91f51f2079c273083e7ae42944a46d48da4876af59a1a0a825619d056480e2",
+        "build_warnings_as_errors": true
+      },
+      {
+        "stage": "server-encrypted-storage-smoke",
+        "exit_code": 0,
+        "started_utc": "2026-10-26T18:23:04.633541+00:00",
+        "finished_utc": "2026-10-26T18:23:07.003955+00:00",
+        "elapsed_seconds": 2.37,
+        "log_sha256": "7e3ebcc6e52949e24cd53cf518d48371066902ffe33e70d05446cfa36641fdf5",
+        "build_warnings_as_errors": null
+      }
+    ],
+    "records": {
+      "publication": {
+        "terminal_sha256": "fb6d6a8cfa87d8c5f56e54cddebf9551d52305862e39df892231beda92620f4c",
+        "outputs_manifest_sha256": "e45e0adef98e0d1877d11c51121d3cd86709d1ecd27fa9e5fb4fceca8951b211",
+        "output_file_count": 98,
+        "commands_sha256": "ebd460b6d262392d3cebe7e79890c0f9f5cade8fc58b407001b70990042a2243",
+        "runner_sha256": "3a32a89d7d229b57374c354fe86c76ca89e6b11436cd3e042334c811560d79ba",
+        "build_profile_sha256": "1e08225407f8b331294598052846da51f9b92b155db8b52ec35f65776f5c1c35",
+        "run_profile_sha256": "c0b1886e3e41197b3959c4bd6ba25aa47e009d39013fb9411d874e72cd82ee60"
+      },
+      "storage": {
+        "terminal_sha256": "d519d9e20338c750998677f7a1320002d604f6adc8ffbbbf89aa2389c034f7f4",
+        "outputs_manifest_sha256": "5e1d2c2aad1483aa92019e88a0ebd3becf6c88f6a611ef0ce259bca2f69ab805",
+        "output_file_count": 115,
+        "commands_sha256": "80ea1c300d3aec30857682a6f7ae2449460e3aa9295d4298064e4468626589fa",
+        "runner_sha256": "dde20f283960152683cdb3dd525bff1cc3354175b1b3b5579dd3ab2c0119fe05",
+        "build_profile_sha256": "1e08225407f8b331294598052846da51f9b92b155db8b52ec35f65776f5c1c35",
+        "run_profile_sha256": "c0b1886e3e41197b3959c4bd6ba25aa47e009d39013fb9411d874e72cd82ee60"
+      }
+    },
+    "artifacts": [
+      {
+        "stage_family": "publication",
+        "path": "managed/GnOuGo.Flow.Planning.Smoke.dll",
+        "bytes": 182272,
+        "sha256": "0c26be8e03f4e7de03289f37fa334826ee4a01d0bd6695a886392110256cebb8"
+      },
+      {
+        "stage_family": "publication",
+        "path": "native/GnOuGo.Flow.Planning.Smoke",
+        "bytes": 34691704,
+        "sha256": "93891e1ffff4880c0d06fb1c729bbf6d709dd1c28cafc5e64635670d5c98370a"
+      },
+      {
+        "stage_family": "publication",
+        "path": "packages/GnOuGo.AI.Core/GnOuGo.AI.Core.1.0.0.nupkg",
+        "bytes": 125697,
+        "sha256": "e653424fed7fe08bc0ccecba2eed9479ff73dc53b0dbd88ad5849f42709b4240"
+      },
+      {
+        "stage_family": "publication",
+        "path": "packages/GnOuGo.Flow.Copilot/GnOuGo.Flow.Copilot.1.0.0.nupkg",
+        "bytes": 11127,
+        "sha256": "8626248db88ff266a8fd17b110bea9bc7f97a0ed1e365d649f6b44a6f7c7f838"
+      },
+      {
+        "stage_family": "publication",
+        "path": "packages/GnOuGo.Flow.Core/GnOuGo.Flow.Core.1.0.0.nupkg",
+        "bytes": 744251,
+        "sha256": "d220e6f4e2e2cd7f4b442c0d2912c7a74a3f8e20f309f224eb1556a1e5d274e1"
+      },
+      {
+        "stage_family": "publication",
+        "path": "packages/GnOuGo.Flow.Persistence/GnOuGo.Flow.Persistence.1.0.0.nupkg",
+        "bytes": 50312,
+        "sha256": "28cf64592fa2336147b896a84bbb66186b342ac00fe49ef69890175122cc27b3"
+      },
+      {
+        "stage_family": "publication",
+        "path": "packages/Integrations/GnOuGo.Flow.Integrations.1.0.0.nupkg",
+        "bytes": 60999,
+        "sha256": "28eb6d04a2ba4c59c182e30813f9eaa7914c99f40410f65568b24a60593435f3"
+      },
+      {
+        "stage_family": "publication",
+        "path": "packages/Planning/GnOuGo.Flow.Planning.1.0.0.nupkg",
+        "bytes": 697738,
+        "sha256": "53de777676798294cbfb7e12840596b16e6358d828d64db07e72c8bb7d1222de"
+      },
+      {
+        "stage_family": "storage",
+        "path": "server/GnOuGo.Agent.Server",
+        "bytes": 71553908,
+        "sha256": "e6c0948fbb0d63d8c75749c21f10fe2aa54171d740a36416f5ca12937f2fbf45"
+      }
+    ],
+    "source_unchanged_during_execution": true,
+    "original_execution": {
+      "source": "88f338bf3b93f96d67b7ce7385c2b6f446a91865",
+      "execution_source_kind": "exact_committed_source",
+      "terminal_sha256": "ebbff4e8013abf3c2bc23f65dcbed1771d39e60d38d3f530657499f6efb1ad77",
+      "stages": [
+        {
+          "stage": "managed-publish",
+          "exit_code": 0,
+          "elapsed_seconds": 25.59,
+          "log_sha256": "bfceeaf059b4c4b34e183f350a5c00a24c8de0c847cc7eab66a042ba7522ed1a"
+        },
+        {
+          "stage": "managed-smoke",
+          "exit_code": -6,
+          "elapsed_seconds": 0.728,
+          "log_sha256": "67a4a205f7c184e68280e17b399eb24b6643984a3ee106e053ab54b137258784"
+        }
+      ],
+      "failure": "Existing smoke fixture still treated presentation 7 as fresh although request capture already selected presentation 8. Managed smoke stopped after historical versions 2\u20136; native, package and storage stages were not started in that execution."
+    },
+    "qualification_boundary": "Twelve terminal stages passed on exact 88 plus the sole named smoke fixture overlay, not a clean committed-88 publication pass. The earlier failed run remains retained. Source production bytes, frozen live runtime, model settings and operational stores were not changed. A successor commit requires an explicit source-byte binding before attribution. This record does not establish a full-solution test pass or business acceptance.",
+    "confinement": "HOME unchanged; private TMPDIR and CLI paths; both operational workspace roots read/write denied and main writes denied. Restore/build network allowed; published smoke network denied. Persistence smoke uses only its explicit private synthetic encrypted-storage path.",
+    "projection_check_note": "The initial projection check classified every dotnet invocation as a build, including the managed smoke execution. The check was corrected to require -warnaserror for publish/pack only. No result or source was changed and no stage was rerun.",
+    "business_acceptance_claimed": false
+  }
+}

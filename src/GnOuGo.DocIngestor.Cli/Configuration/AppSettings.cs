@@ -1,4 +1,4 @@
-﻿﻿﻿﻿namespace DocIngestor.Cli.Configuration;
+﻿﻿﻿namespace DocIngestor.Cli.Configuration;
 
 /// <summary>
 /// Configuration racine de DocIngestor.
@@ -76,6 +76,7 @@ public class RerankerConfig
 /// </summary>
 public class OpenAiConfig
 {
+    public GnOuGo.AI.Core.ModelProviderOptions? GenerationTransport { get; set; }
     public string EndpointUrl { get; set; } = "https://api.openai.com/v1";
     public string? ApiKey { get; set; }
     public string? Issuer { get; set; }
@@ -89,6 +90,7 @@ public class OpenAiConfig
 /// </summary>
 public class OllamaConfig
 {
+    public GnOuGo.AI.Core.ModelProviderOptions? GenerationTransport { get; set; }
     public bool Enabled { get; set; }
     public string BaseUrl { get; set; } = "http://localhost:11434";
     public string EmbeddingModel { get; set; } = "nomic-embed-text";

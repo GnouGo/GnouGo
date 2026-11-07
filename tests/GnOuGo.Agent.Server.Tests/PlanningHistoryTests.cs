@@ -132,14 +132,13 @@ public sealed class PlanningHistoryTests
         json["schemaVersion"] = 8;
         json["groundedPlan"] = new JsonObject { ["operations"] = new JsonArray(new JsonObject { ["kind"] = "obsolete", ["resultType"] = new JsonObject { ["type"] = "string" } }) };
         var key = state.Request.SessionId;
-        var collection = "flow-planning-sessions-v10";
+        var collection = "flow-planning-sessions-v11";
         if (!workflow)
         {
             Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
             await using var db = fixture.CreateDbContext();
             key = (await db.Sessions.SingleAsync(s => s.SessionId == "legacy" && s.TenantId == "planning-tests", Ct)).PayloadKey;
-            await fixture.Records.DeleteAsync(EfPlanningSessionStore.Collection, state.Request.TenantId, key, "test", Ct);
-            collection = "agent-planning-sessions-v9";
+            collection = EfPlanningSessionStore.Collection;
         }
         return await fixture.Records.UpsertAsync(collection, state.Request.TenantId, key, json.ToJsonString(), "test", Ct);
     }

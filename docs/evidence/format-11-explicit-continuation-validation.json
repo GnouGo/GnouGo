@@ -1,0 +1,230 @@
+{
+  "kind": "explicit_resume_of_pending_accepted_producer_validation",
+  "created_utc": "2026-10-29T02:10:35.323009+00:00",
+  "parent_head": "d99cb6c75e1660538522d51f03b10a585a0bc981",
+  "tested_commit": null,
+  "source_attribution": "Exact frozen tracked working-tree postimages; no future committed source identity is asserted.",
+  "source_manifest_final_sha256": "6ea94f37d95de2602a85d10afe561cd0b39e3fc930d7bdd6055077a34d46520b",
+  "source_file_count": 4773,
+  "frozen_source_files_changed_after_full_planning_and_host": [],
+  "owning_production_file": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Continuations.cs",
+  "owning_production_file_sha256": "e0591fea3b47c3407db470294a9b9ea6ad88dfe5829cd18fa7f11aea81db214f",
+  "owning_fixture": "tests/GnOuGo.Flow.Planning.Tests/CompactSuspendedConsumerTests.cs",
+  "owning_fixture_sha256": "c34c056f75307c97255d6c1faf0290069aa4a0e00c3f3533d59af5cfd25a0528",
+  "main_code_test_files_compared": 1873,
+  "main_code_test_postimage_mismatches": [],
+  "evidence_only_documentation_changes_after_capture": {
+    "captured_doc_files_changed_in_main": [
+      "docs/evidence/compact-taskplan-convergence.md"
+    ],
+    "additional_public_safe_evidence_json_files": "Root appended three evidence JSON files after capture; these do not change production or fixtures and are not attributed to this unit snapshot."
+  },
+  "full_planning_2325": {
+    "terminal": {
+      "exitCode": 0,
+      "seconds": 179.81565474998206,
+      "source_unchanged": true
+    },
+    "total": 2325,
+    "passed": 2325,
+    "failed": 0,
+    "skipped_results": 0,
+    "compiler_diagnostic_count": 0,
+    "trx_sha256": "96b8e2bed9596647b9bc111cfa1a50c7857d6db62b168497f2d069af526dca55",
+    "log_sha256": "83766be711c2238ca26fb3bf3e73c450b7ee254cc6e09d913a50a54592f060a0",
+    "command_sha256": "ff1bd73b682f901769582abebb32a1c456ef42dd60ed80003065dad3f3e4d230",
+    "failures": []
+  },
+  "affected_host_161": {
+    "terminal": {
+      "exit_code": 0,
+      "seconds": 76.50352304102853,
+      "source_manifest_sha256": "6ea94f37d95de2602a85d10afe561cd0b39e3fc930d7bdd6055077a34d46520b",
+      "changed_source_files": [],
+      "log_sha256": "32d42bd2b9d8ba563ed5e3373b4dbadc810d7652c2c76a1fd8b49430c0cacd02"
+    },
+    "total": 161,
+    "passed": 161,
+    "failed": 0,
+    "skipped_results": 0,
+    "compiler_diagnostic_count": 0,
+    "trx_sha256": "393f865afdef0d84e0a4106c5a6caa7fc5fcfe9c0c427b2b836ffbb8cb9f2f27",
+    "log_sha256": "32d42bd2b9d8ba563ed5e3373b4dbadc810d7652c2c76a1fd8b49430c0cacd02",
+    "command_sha256": "184bfdf4d87bf445ccf870f9c328ca997ea1da8bc53a73e49021614a34a31e23",
+    "failures": []
+  },
+  "exact_resume_red_green": {
+    "safe_proof_sha256": "a9a31e993598e449b116bb7853da3e3cd0c3f8b1356f632c59152184ff588720",
+    "control": {
+      "public_source": "d99cb6c75e1660538522d51f03b10a585a0bc981",
+      "production_dlls": {
+        "GnOuGo.Flow.Core": "7bcd2e307fce5fa3b72719624433b260c6e73e163156cdc1f6b66f5095c20fc4",
+        "GnOuGo.Flow.Planning": "6c51a19b1313d218c707f0198e91175a173c3d51f5406105dead7fb7fc713997"
+      },
+      "outcome": {
+        "total": 18,
+        "passed": 16,
+        "failed": 2,
+        "skipped": 0,
+        "failures": [
+          {
+            "name": "GnOuGo.Flow.Planning.Tests.CompactSuspendedConsumerTests.PendingReviewDoesNotRelaxExplicitResumeGuards(invalid: \\\"nullable\\\")",
+            "message": "Assert.Contains() Failure: Filter not matched in collection\nCollection: [PlanningDiagnostic { Code = CONSTRUCTION_CONTINUATION_INVALID, Location = /resumeStep/producerCheckpoint, Message = The owning checkpoint must retain this producer's current accepted content and completed boundary., Required = True, ValidationStage = , Rule = , Prerequisite =  }]"
+          },
+          {
+            "name": "GnOuGo.Flow.Planning.Tests.CompactSuspendedConsumerTests.ExplicitResumeComposesPendingAcceptedWorkBeforeMandatoryBusinessReviews",
+            "message": "Assert.Empty() Failure: Collection was not empty\nCollection: [PlanningDiagnostic { Code = CONSTRUCTION_CONTINUATION_INVALID, Location = /resumeStep/producerCheckpoint, Message = The owning checkpoint must retain this producer's current accepted content and completed boundary., Required = True, ValidationStage = , Rule = , Prerequisite =  }]"
+          }
+        ]
+      },
+      "warnings": 0,
+      "errors": 0,
+      "log_sha256": "cb5975582afad3a366347d98104a55a24313d565bdf51417d1fcd9a2e9ca59c4",
+      "xml_sha256": "8e8d7606f7533eb7a9b93d56628550d95cbb33010a89142e64f8c4559a72396c"
+    },
+    "candidate": {
+      "qualification": "uncommitted source-only correction; not a live cohort",
+      "production_change": "Remove the duplicated ReviewedCheckpoint requirement from technical CheckpointProducerCurrent; automatic resumption retains its independently checked review authority.",
+      "source_file": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Continuations.cs",
+      "source_file_sha256": "e0591fea3b47c3407db470294a9b9ea6ad88dfe5829cd18fa7f11aea81db214f",
+      "production_dlls": {
+        "GnOuGo.Flow.Core": "50b64403d14ce150284c93457cc42c56b22bcec8bd318974162ab54b0959ec67",
+        "GnOuGo.Flow.Planning": "0cf7b9e64da772494732a05444d607e44124ad724b21bda19c6965573af2706a"
+      },
+      "outcome": {
+        "total": 18,
+        "passed": 18,
+        "failed": 0,
+        "skipped": 0,
+        "failures": []
+      },
+      "warnings": 0,
+      "errors": 0,
+      "log_sha256": "29910b37bfea553d745735132de1fea25e921fbc24484aae88fde2a3ec77d3cb",
+      "xml_sha256": "41e00781519bec7015219ee229df93f56f3b3031a2f99487feeca7e7d8d44f77"
+    },
+    "verified_behavior": [
+      "Fresh source indexing, interface extraction, selection, typed suspension, drafting and technical acceptance create every checkpoint normally.",
+      "The exact prerequisite checkpoint is businessReviewPending with no Reviews; automatic resumption and artifact approval remain unavailable.",
+      "An explicit semantic selection uses its current owning checkpoint and exact binding, then survives exact issued-request recovery without a second correction charge or duplicate transition.",
+      "The composed child block requires one local review and final artifact requires one global review; the resulting deterministic workflow returns14.",
+      "Wrong owning checkpoint, changed executable producer, changed exact retained original source and nullable binding are rejected without state mutation.",
+      "Existing automatic reviewed-association, review invalidation, upstream/binding/source changes, bounded prerequisite chain and exact review recovery cases remain passing."
+    ],
+    "retained_prior_results": [
+      "Initial immutable-d99 reproduction16/18 pass with the same precise two gate failures.",
+      "Initial candidate broad slice83/84 pass; its source counterexample mutated an unrelated original row. Only the fixture was corrected to mutate the exact retained SourceVersions key.",
+      "VSTest loopback denial and private project-restore/entrypoint development error logs retained; neither is counted as planner failure."
+    ]
+  },
+  "resume_cases_included_in_full_planning": [
+    {
+      "test": "GnOuGo.Flow.Planning.Tests.CompactSuspendedConsumerTests.InvalidExplicitBindingLeavesAcceptedStateUntouched(invalid: \"future\")",
+      "outcome": "Passed"
+    },
+    {
+      "test": "GnOuGo.Flow.Planning.Tests.CompactSuspendedConsumerTests.ChangingTheAssociationInvalidatesReviewWithoutChangingExecutableBytes",
+      "outcome": "Passed"
+    },
+    {
+      "test": "GnOuGo.Flow.Planning.Tests.CompactSuspendedConsumerTests.PendingReviewDoesNotRelaxExplicitResumeGuards(invalid: \"ownership\")",
+      "outcome": "Passed"
+    },
+    {
+      "test": "GnOuGo.Flow.Planning.Tests.CompactSuspendedConsumerTests.PendingReviewDoesNotRelaxExplicitResumeGuards(invalid: \"source\")",
+      "outcome": "Passed"
+    },
+    {
+      "test": "GnOuGo.Flow.Planning.Tests.CompactSuspendedConsumerTests.PendingReviewDoesNotRelaxExplicitResumeGuards(invalid: \"nullable\")",
+      "outcome": "Passed"
+    },
+    {
+      "test": "GnOuGo.Flow.Planning.Tests.CompactSuspendedConsumerTests.ExplicitResumeComposesPendingAcceptedWorkBeforeMandatoryBusinessReviews",
+      "outcome": "Passed"
+    },
+    {
+      "test": "GnOuGo.Flow.Planning.Tests.CompactSuspendedConsumerTests.InvalidExplicitBindingLeavesAcceptedStateUntouched(invalid: \"type\")",
+      "outcome": "Passed"
+    },
+    {
+      "test": "GnOuGo.Flow.Planning.Tests.CompactSuspendedConsumerTests.InvalidExplicitBindingLeavesAcceptedStateUntouched(invalid: \"checkpoint\")",
+      "outcome": "Passed"
+    },
+    {
+      "test": "GnOuGo.Flow.Planning.Tests.CompactSuspendedConsumerTests.ChangedAuthorityCannotAutomaticallyResumeAConsumer(change: \"review\")",
+      "outcome": "Passed"
+    },
+    {
+      "test": "GnOuGo.Flow.Planning.Tests.CompactSuspendedConsumerTests.ChangedAuthorityCannotAutomaticallyResumeAConsumer(change: \"binding\")",
+      "outcome": "Passed"
+    },
+    {
+      "test": "GnOuGo.Flow.Planning.Tests.CompactSuspendedConsumerTests.ChangedAuthorityCannotAutomaticallyResumeAConsumer(change: \"source\")",
+      "outcome": "Passed"
+    },
+    {
+      "test": "GnOuGo.Flow.Planning.Tests.CompactSuspendedConsumerTests.ExactReviewedAssociationResumesOnceWithoutSemanticSelection",
+      "outcome": "Passed"
+    },
+    {
+      "test": "GnOuGo.Flow.Planning.Tests.CompactSuspendedConsumerTests.ChangedAuthorityCannotAutomaticallyResumeAConsumer(change: \"invalidated\")",
+      "outcome": "Passed"
+    },
+    {
+      "test": "GnOuGo.Flow.Planning.Tests.CompactSuspendedConsumerTests.FourTypedPrerequisitesBoundTheRetainedChain",
+      "outcome": "Passed"
+    },
+    {
+      "test": "GnOuGo.Flow.Planning.Tests.CompactSuspendedConsumerTests.ReceivedReviewRecoveryPreservesExactRequestAndAccounting",
+      "outcome": "Passed"
+    },
+    {
+      "test": "GnOuGo.Flow.Planning.Tests.CompactSuspendedConsumerTests.PendingReviewDoesNotRelaxExplicitResumeGuards(invalid: \"producer\")",
+      "outcome": "Passed"
+    },
+    {
+      "test": "GnOuGo.Flow.Planning.Tests.CompactSuspendedConsumerTests.ChangedAuthorityCannotAutomaticallyResumeAConsumer(change: \"upstream\")",
+      "outcome": "Passed"
+    },
+    {
+      "test": "GnOuGo.Flow.Planning.Tests.CompactSuspendedConsumerTests.ChangedAuthorityCannotAutomaticallyResumeAConsumer(change: \"producer\")",
+      "outcome": "Passed"
+    }
+  ],
+  "retained_initial_broad_slice": {
+    "result": {
+      "terminal": {
+        "exitCode": 1,
+        "seconds": 23.927579000010155
+      },
+      "total": 84,
+      "passed": 83,
+      "failed": 1,
+      "skipped_results": 0,
+      "compiler_diagnostic_count": 0,
+      "trx_sha256": "ad89bf5d14d383bdcb0ab0cd19c8e80ee1e7b5c0262b3ba14b59451d76e85359",
+      "log_sha256": "50e94af4e4860a24128742159478b8f3a9fcd02573655050f459521be562cf29",
+      "command_sha256": "8c32faa6a7e957af12d7a6c13e0082f54e609d48785810f5fc99d04e3f2a15c6",
+      "failures": [
+        {
+          "test": "GnOuGo.Flow.Planning.Tests.CompactSuspendedConsumerTests.PendingReviewDoesNotRelaxExplicitResumeGuards(invalid: \"source\")",
+          "outcome": "Failed",
+          "message": "Assert.Throws() Failure: No exception was thrown\nExpected: typeof(GnOuGo.Flow.Planning.PlanningResponseException)"
+        }
+      ]
+    },
+    "source_manifest_initial_sha256": "29933fd9236e10bcab27179a3eab024745669cbb5d603a46ba9152bf0688be43",
+    "explanation": "Initial83/84 contains one fixture source-index error: it mutated an unrelated original clause instead of the consumer retained SourceVersions key. Only the fixture was corrected; initial log/TRX remain preserved. Final full Planning and B18/18 use the corrected exact clause."
+  },
+  "binaries": {
+    "src/GnOuGo.Flow.Planning/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll": "0cf7b9e64da772494732a05444d607e44124ad724b21bda19c6965573af2706a",
+    "tests/GnOuGo.Flow.Planning.Tests/bin/Debug/net10.0/GnOuGo.Flow.Planning.Tests.dll": "0020aae81a1cf1e08cc9c5bf480ac8414bc079f7008d8bfa54a2c28aa22ffca7",
+    "tests/GnOuGo.Agent.Server.Tests/bin/Debug/net10.0/GnOuGo.Agent.Server.Tests.dll": "ef7fc94be3fdb98f395f36bc8cd1652805ea16ffd4974b761d36a9c5e0e6bd47"
+  },
+  "counting": "The18case resume proof and initial focused slice overlap the2325 full Planning suite. They are retained history, not additional pass totals. Host161 is a separate affected host slice.",
+  "paid_calls": 0,
+  "operational_workspaces_accessed": false,
+  "existing_d99_fullsolution_or_live_cohorts_mutated": false,
+  "duplicate_fullsolution_started": false,
+  "live_convergence_benefit": "unproven for this correction"
+}

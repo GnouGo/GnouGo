@@ -1,0 +1,409 @@
+{
+  "kind": "independent_static_semantic_and_instruction_assessment",
+  "created_at_utc": "2026-10-25T01:09:25.385632+00:00",
+  "source": "ba86cf8746bb7964e901f71678cb79bd0002b2f5",
+  "cohort": "compactrba86cf874colv5",
+  "run_hash": "8c6f8429c2f22b229f22feb888eb73fa5f77f6885371cad9a036a0cb9bb8dd9b",
+  "freeze_sha256": "69671a8515302a5000ac2278367a1e5a5ac9ac138580fe912aaa5255856d4ba4",
+  "scope": "Read-only exported bounded originals and exact public source. No store, model, build, test, execution or approval invocation.",
+  "safe_input_pins": [
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrba86cf874colv5/collections-terminal-state-witness.json",
+      "sha256": "eb738f2c5e7ee09cdc81857601487f4ef5e34d7ec92c6392a0b90034ed38fdab"
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrba86cf874colv5/collections-closure-requests-witness.json",
+      "sha256": "77b7e647fc8c7ee07d1e6d7d95feb1fd07d69bb834872e42b3c4432618831a09"
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrba86cf874colv5/collections-terminal-safe-metrics.json",
+      "sha256": "28b0426257e56c442569979854831a4bf08420b9d3226eefa7bfde28bd5765b1"
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrba86cf874colv5/collections-selection-corrections-witness.json",
+      "sha256": "425dc877ef06ee0608d863566e4b13fdb3cb770df573d2cb46fe9d7c3acaaecd"
+    }
+  ],
+  "request_joins": [
+    {
+      "number": 3,
+      "request_id": "e284003016826577d513b0e1eff7bab1e301f503202cce77305db7c0dab08421:3:fec668b7dae36ecf76c0e8fd19b24be8f93106e96132488ed447489030450fb9",
+      "phase": "construction_select",
+      "record_hashes": {
+        "requests": "4e54ac6c9853e66bc53fbeef0237eede5f3513b335599b48c71118e5e70177fe",
+        "http-attempts": "40f2501b4648bbaeb3b68f40b3cfcc1825162dc9c2ce4ed5522eb071ecd6b685",
+        "receipts": "4952f80899be63660e6ae1c98079cecef2dc897f52ff7efd99e7d1f44d7ca27b",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_sha256": "9d301b110f67479f7d506cdb96dd6053dcff66629d77a6914e3d8029bf9bbcb8",
+      "original_text_bytes": 839
+    },
+    {
+      "number": 4,
+      "request_id": "e284003016826577d513b0e1eff7bab1e301f503202cce77305db7c0dab08421:4:9b885e1d0a752a08e1ab38157a51df90b00ea9ce4f3387f329c99d05bb52e8fb",
+      "phase": "construction_select",
+      "record_hashes": {
+        "requests": "9b5dfffadae65adc2bd25a59f1989e61aed02f177299f7f96493fb6a9bad49b5",
+        "http-attempts": "6886e008a6b1483f6dec481718347ee3a0073e43e92f6ca7ad081caba384a200",
+        "receipts": "ec632c6aa30cde7c6daa64f23766c086306ca612a029e9c8a30d6079b88d5080",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_sha256": "e0d0e36a5cccecf625744b1939720d563cceab1b6012d8c3b89fea605d13dffa",
+      "original_text_bytes": 684
+    },
+    {
+      "number": 16,
+      "request_id": "e284003016826577d513b0e1eff7bab1e301f503202cce77305db7c0dab08421:16:217230e48dd2a3da480b18352e73136b1f45adf1e6eb2fd3ad32edb9a816fbce",
+      "phase": "construction_select",
+      "record_hashes": {
+        "requests": "9a2e8fb81e30cd1047abc5eb68741f6f14811197943e39c08e9b80b94e7d7293",
+        "http-attempts": "22a5cba43959be0d7fce5dbd8fec998e44040abb0d06ab7d9e92ac59e1c48475",
+        "receipts": "846a788c33461ad7d397d1aac9c60bb6116de669da7c7bbb80705fd490623b3a",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_sha256": "6520ae81ae5a68aecd73307ac4a609b14c65f98b7f2210dde128438aa447615f",
+      "original_text_bytes": 875
+    },
+    {
+      "number": 17,
+      "request_id": "e284003016826577d513b0e1eff7bab1e301f503202cce77305db7c0dab08421:17:2f23ab7ac295166a6c57e547af5accbc14a209e9cba9f68c310a3845f3103ae2",
+      "phase": "construction_select",
+      "record_hashes": {
+        "requests": "2c4f8203e431d24ca56a10081f5b2f76bb29f9bd6099ac48b3758347b126b265",
+        "http-attempts": "7ffd2709bd6fb6128f4dfea1faa9c845788511244c94d3728e991b12f9cb57d4",
+        "receipts": "4ab6bf70ddd7a5d06f7681dae7d8bbf74428ba31abe3ff617e8902222c0b1663",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_sha256": "0248151c6f33b2cd5eb22c8ddb1adfb2c5426dd0744c963d38a62dfb6c509171",
+      "original_text_bytes": 630
+    },
+    {
+      "number": 21,
+      "request_id": "e284003016826577d513b0e1eff7bab1e301f503202cce77305db7c0dab08421:21:4abff0cbbccf64d7d9d8544cabed00d61c9211c7f172090e522d7c3eb3df4975",
+      "phase": "construction_draft",
+      "record_hashes": {
+        "requests": "8281fc833031f1de254ebbcbdc57d9a7f2a051cafb126d60f2abc1fd5d572315",
+        "http-attempts": "84b8ed5400d85b37beb00368740a3c41bb736ccd1d396d9da4833e72c8ead709",
+        "receipts": "58cdb9517c3fd99a477664b217b0469002cd92fea3d43058a68454ac391ee602",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_sha256": "122104967290fb49e7cf25ad1836156e990513999691ee44f2473ad78eab76b5",
+      "original_text_bytes": 783
+    },
+    {
+      "number": 22,
+      "request_id": "e284003016826577d513b0e1eff7bab1e301f503202cce77305db7c0dab08421:22:b8313937c15024d39651922b352eecc75fe22e4b005259818b609df2e8e475a0",
+      "phase": "construction_local_judge",
+      "record_hashes": {
+        "requests": "fcf28dbfc9b759eaacabc4ae90fd9134dc9653eb50ba32a5fbe9b0639e331d69",
+        "http-attempts": "063d64b0df682461faca46ac37c20cf0774a582d55ac2ab2309bd06535651760",
+        "receipts": "2684e26fbaecef7f2e754b02b0bbabc9bf021376882d327489e0b86e9519e67a",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_sha256": "f10bcf108efae342556684fa23aac342f2d9937bad88edf1124ac06672e7790a",
+      "original_text_bytes": 367
+    },
+    {
+      "number": 23,
+      "request_id": "e284003016826577d513b0e1eff7bab1e301f503202cce77305db7c0dab08421:23:6f99ba2e71565e0656c6da64e369ecf6698836df329d80666fdc077df7165bd1",
+      "phase": "construction_local_judge",
+      "record_hashes": {
+        "requests": "4cc9f176335c4bcc6c7ab721371865cee8cbfb276da126d6bc3479f4c43808ec",
+        "http-attempts": "8aee3afaf8a4d183abf74e272027e8f8cbb7c8e1e79cc71fb878a7b3fc4f18e4",
+        "receipts": "63edf0703e76705562b40f91e7e883ad23b752ad4389a34ba8a97a4832050aea",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_sha256": "b26589ad04abba7fe4e9e725d9ccaf2e487633441b8079f41f3c3609f47962ba",
+      "original_text_bytes": 301
+    },
+    {
+      "number": 24,
+      "request_id": "e284003016826577d513b0e1eff7bab1e301f503202cce77305db7c0dab08421:24:1eed7bf8afb2df5de5b0f331aa3dc359740a46aaa923d628a1894ead71f3a766",
+      "phase": "construction_select",
+      "record_hashes": {
+        "requests": "cccfec84099e4988b1813c515a35cbb91ef489a8268465f1ab5375be1a7dd432",
+        "http-attempts": "ce2bbab212fdce2bc00441e8dcbfe37176b528a767e3b29e763110c219e5beb9",
+        "receipts": "b6feacfd745a637910c9b2b359912901b2ea003ae58c0540877cf3ea9af3050f",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_sha256": "bcec7404fc2d729f9b439b8656d606a3aa66ca9c71ea3a7aa6650939e073994a",
+      "original_text_bytes": 1024
+    },
+    {
+      "number": 25,
+      "request_id": "e284003016826577d513b0e1eff7bab1e301f503202cce77305db7c0dab08421:25:e658cdc957002c5b0917a256c80e27d72ad401c3da40afe1e231b1134af1962d",
+      "phase": "construction_draft",
+      "record_hashes": {
+        "requests": "4c5cb83cf3e463ac3f29fa89f168cd98a82c40e897d90234b017823ae82187dd",
+        "http-attempts": "4d6061ec8af9b718a3d787eecc3ede90d45a6b6e5058a70096c781f594098af9",
+        "receipts": "8bdc0699c93785820dd72dfd1ce69afb3be2e7d364745a2b8a45e446c33f0334",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_sha256": "3526e2e4efb615f82b65ac8383c8eed66d0e2f66779b8113707a4f01eb381db4",
+      "original_text_bytes": 444
+    },
+    {
+      "number": 26,
+      "request_id": "e284003016826577d513b0e1eff7bab1e301f503202cce77305db7c0dab08421:26:9a69f44f6c0c2416c72b4a8500b0928cbd6149891f687f270e927eab6ef37a9d",
+      "phase": "construction_local_judge",
+      "record_hashes": {
+        "requests": "94ae513ed1848cddf53b4bf86110fcfad1c30123e79a6d025921d27936b7e66b",
+        "http-attempts": "31488eb6fd3cd7117064bf53455a8c8ea632d2b587050a028ad4aff4f83272c2",
+        "receipts": "825d8d4898c8a60524bb14fcc80b20ba6984f65a8b46608a72c2cabe60556cc4",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_sha256": "9060bcd903e1cd7924fb3176492cf90718d48f6c259478b88020b546aeef3a93",
+      "original_text_bytes": 1169
+    },
+    {
+      "number": 27,
+      "request_id": "e284003016826577d513b0e1eff7bab1e301f503202cce77305db7c0dab08421:27:589eb9fc15c23f13708e02d72b572f29cf60346894dc95584e821936807c4bd0",
+      "phase": "replan",
+      "record_hashes": {
+        "requests": "b9f8c52d7754baf082c7b04be3c6e76bd173480c8b519e851429fec15b473cdf",
+        "http-attempts": "80d1d0bf2708cc9893e3a418fb1343523a2b6d12a6adc74db043f7da422c1656",
+        "receipts": "33822c6f893ed3ddc7a990e06dce1425c02a9e57dbcbc60d4ac5d2af23c9b8da",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_sha256": "3526e2e4efb615f82b65ac8383c8eed66d0e2f66779b8113707a4f01eb381db4",
+      "original_text_bytes": 444
+    }
+  ],
+  "source_pins": [
+    {
+      "path": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Planning/PlanningConstruction.Requests.cs",
+      "source_relative_path": "src/GnOuGo.Flow.Planning/PlanningConstruction.Requests.cs",
+      "sha256": "e33c28b8efa4c71feff8e865271795c6c3c12a963effad7d0419fcdec960d677",
+      "lines": [
+        9,
+        10,
+        19,
+        28
+      ]
+    },
+    {
+      "path": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs",
+      "source_relative_path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs",
+      "sha256": "2d5ada971a3ea538461150dbba37416c144011c7caf4c0678337629e8acc1c71",
+      "lines": [
+        57,
+        160,
+        183,
+        809,
+        824,
+        827,
+        210,
+        212,
+        834,
+        837,
+        687,
+        713
+      ]
+    },
+    {
+      "path": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Schemas.cs",
+      "source_relative_path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Schemas.cs",
+      "sha256": "c03c577b904de1de6966233e098257ff91461679a0b75c3e40566ca6c29c7b49",
+      "lines": [
+        11,
+        27,
+        63,
+        72,
+        76,
+        220
+      ]
+    },
+    {
+      "path": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Validation.cs",
+      "source_relative_path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Validation.cs",
+      "sha256": "1d0eec0ce75727547683aa6951b50d3e44f20a97290566197f4dfbc5a28702df",
+      "lines": [
+        16,
+        29,
+        57,
+        149,
+        168
+      ]
+    },
+    {
+      "path": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.Construction.cs",
+      "source_relative_path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.Construction.cs",
+      "sha256": "c13db244ed80a6e2a7e62da75bd02b25a439ff3641b9e57aa6373a243b7dff86",
+      "lines": [
+        173,
+        179,
+        190,
+        212,
+        272,
+        304,
+        309,
+        319
+      ]
+    },
+    {
+      "path": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Planning/PlanningModelCalls.cs",
+      "source_relative_path": "src/GnOuGo.Flow.Planning/PlanningModelCalls.cs",
+      "sha256": "9c202200b9758d22817b86d77ea908ab01184ae55b448d72e4ca9a2c92053258",
+      "lines": [
+        148,
+        149
+      ]
+    },
+    {
+      "path": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Intent.cs",
+      "source_relative_path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Intent.cs",
+      "sha256": "6f249c5466be9cdebfa98ded9625a166ba12b2fb3a7de66f02a19aadc9ccd2bd",
+      "lines": [
+        211,
+        254
+      ]
+    },
+    {
+      "path": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Planning/PlanningCompactConstruction.ScopeInterfaces.cs",
+      "source_relative_path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.ScopeInterfaces.cs",
+      "sha256": "7c77e0cdc179b51df27bd966fb78f49de55e47f6c2fa8e3a4f09ce383517ef44",
+      "lines": [
+        61,
+        69
+      ]
+    },
+    {
+      "path": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Planning/PlanningClarifications.cs",
+      "source_relative_path": "src/GnOuGo.Flow.Planning/PlanningClarifications.cs",
+      "sha256": "8c35e1c7e4532384c78464b49546979a79564d3fb1a6ccb3ef8008437926ba75",
+      "lines": [
+        138,
+        147,
+        149
+      ]
+    },
+    {
+      "path": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Flow.Planning.Tests/CompactRequirementClosureReselectionTests.cs",
+      "source_relative_path": "tests/GnOuGo.Flow.Planning.Tests/CompactRequirementClosureReselectionTests.cs",
+      "sha256": "0702e1e0282c7e7b4eda25d96275808d6be4e13825bf39c271dffb74c31a6831",
+      "lines": [
+        69,
+        93,
+        130,
+        143,
+        163
+      ]
+    },
+    {
+      "path": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Planning/TaskPlanCompiler.cs",
+      "source_relative_path": "src/GnOuGo.Flow.Planning/TaskPlanCompiler.cs",
+      "sha256": "8bad618fc065498d04dc4354ac262298fe489eaf591d8815f6f8b6f8c7ac7236",
+      "lines": [
+        644,
+        649,
+        652,
+        705
+      ]
+    }
+  ],
+  "observed_terminal": {
+    "logical_calls": 27,
+    "corrections": 3,
+    "checkpoints": 6,
+    "artifact_present": false,
+    "runtime_executed": false,
+    "diagnostics": [
+      "CONSTRUCTION_BUSINESS_REVIEW",
+      "REPLAN_NO_PROGRESS"
+    ],
+    "correction_classification_scope": "The three charged correction episodes are supported by retained3/4,16/17 and26/27 requests; other unsupplied intent/discovery content is not assessed."
+  },
+  "findings": [
+    {
+      "id": "navigation_addresses_as_task_presence_sources",
+      "classification": "confirmed_invalid_bindings_with_underexplained_source_syntax_not_proven_presentation_cause",
+      "basis": [
+        "Request3 uses present/source=input:values. Its descriptor already separates input=values from evidence=input:values. Request4 receives the missing-task diagnostic and uses kind=input/source=values.",
+        "Request16 uses present/source=group:double_numeric_item and present/source=task:compute_doubled_numeric_item. Descriptors separately identify the bare group/task identities and their evidence addresses. Request17 changes to a valid foreach opening with the caller values input.",
+        "The issued selection import grammar combines kinds input,choice,present with a bounded free-text source; it does not explain present means an existing task completion reference. Host ValidateSelection derives output/present task IDs and rejects identities absent from TaskPlanSymbols.",
+        "The compiler resolves present as a task-result completion reference subject to visibility. A reusable group is not an executed task, and its internal task is not directly caller-scoped."
+      ],
+      "assessment": "These are genuine model binding errors; descriptors do not explicitly instruct use of evidence addresses as values. The generic source field is under-explained, but this alone does not establish causality or a required schema rewrite. The received diagnostic led to a valid next action in each episode.",
+      "non_actions": [
+        "No automatic stripping of input:/group:/task: prefixes.",
+        "No loosening of task identity or scope checks.",
+        "No generic group/input presence alias or scenario heuristic."
+      ]
+    },
+    {
+      "id": "premature_public_result_closure",
+      "classification": "supported_static_business_defect",
+      "basis": [
+        "Request24 explicitly selected req_2 closure and public result while its context showed the root result not_bound and zero root exports.",
+        "Requests25/27 only close the foreach body. The accepted and tentative root exports remain empty.",
+        "Request26 has exact req_2 original, its required numeric-array declaration, child scalar export and explicit req_2 closure claim; the Judge correctly distinguishes local export from public return.",
+        "Scalar body result is valid foreach input to ordered aggregation; it is not itself a type error. Neither finite maxItems100 nor maxConcurrency100 is diagnosed here."
+      ],
+      "qualification": "The missing root binding is independently confirmed by exact state and selection24. Judge26 lacks a complete root export snapshot; one remaining open scope alone would not prove absence of a public binding in every plan. No runtime outcome is established."
+    },
+    {
+      "id": "repeated_rejected_action",
+      "classification": "confirmed_model_non_progress",
+      "basis": [
+        "Requests25 and27 have identical parsed response objects and identical original receipt text SHA2563526e2e4efb615f82b65ac8383c8eed66d0e2f66779b8113707a4f01eb381db4.",
+        "Request27 retains the adverse finding and exact original req_2, offers structured abandon/suspend reselection and evidence/clarification actions, and explicitly explains premature-claim withdrawal.",
+        "PlanningModelCalls.cs148\u2013149 stops an exact repeated replan response; no new candidate or runtime approval follows."
+      ],
+      "qualification": "This establishes repetition despite an available legal alternative, not the reason the model repeated it."
+    },
+    {
+      "id": "repair_tail_ambiguity",
+      "classification": "confirmed_wording_mismatch_with_issued_action_set_causality_unproven",
+      "basis": [
+        "The main phase guidance and schema offer reselectStep for a premature completion claim plus evidence/clarifications.",
+        "The repair-only final sentence says Correct only the retained tentative extension, which is narrower if interpreted as restricting the action rather than the scope of an extension edit.",
+        "The host routes reselectStep before extension application and preserves original scope/requirement identities while allowing selected completion claims to change."
+      ],
+      "minimal_optional_wording_experiment": "For fresh v5 only, condition the existing tail on returning an extension: When returning a corrected extension, preserve its target scope and original requirement identities; the accepted TaskPlan is immutable. Retain the existing one-action/reselection guidance rather than adding another paragraph.",
+      "compatibility_boundary": "Preserve historical future guidance and exact already-issued pending v5 requests. Existing actual reselection/claims_changed/recovery fixtures prove action availability, not model efficacy."
+    },
+    {
+      "id": "deterministically_available_output_fact",
+      "classification": "confirmed_structured_necessary_condition_not_automatic_business_completion",
+      "basis": [
+        "Retained versioned interface disposition explicitly associates clause2 with output result; requirementSources associates req_2 with that same source.",
+        "The accepted required declaration is number[] and accepted/tentative root.outputs is empty.",
+        "An extension fixed to the foreach-body scope cannot add a root export. Current validators check selected ID/name membership, and complete-plan public output checks run only when complete=true."
+      ],
+      "boundary": "The host could surface this exact necessary binding fact, or evaluate a separately reviewed narrow claim guard using existing verified source/output mappings. Do not infer associations from prose, prohibit all child requirement closures, conflate local numeric exports with public array types, or treat root binding presence as business completion. No code change is proposed as proven convergence improvement."
+    }
+  ],
+  "available_existing_route": "Use offered structured abandon reselection, retaining original scope/requirement IDs while clearing premature closeRequirementIds/outputNames; close the body without global completion, then select a root export/closure. Existing coverage exercises changed claims with unchanged plan bytes and saved-request recovery. This is an available route, not a replay recommendation.",
+  "limitations": [
+    "No causal attribution to repair wording or preceding source change.",
+    "No business acceptance, runtime success, avoided-correction count, or paired efficacy conclusion.",
+    "defectProgress.changed in repair27 compares the prior tentative closed-scope view with current accepted open-scope view; it is advisory and does not show a repaired candidate. Exact repeated-response rejection remains decisive."
+  ],
+  "version": 2,
+  "prior_assessment": {
+    "path": "/private/tmp/gnougo-ba86-collections-source-assessment-9qw2c50h/source-assessment-safe.json",
+    "sha256": "9ea8482d5eafdf9390426ae9c41d3aed9116629c999cf8de615d92d64fe9d610",
+    "unchanged": true
+  },
+  "guard_false_positive_review": [
+    "Use only current, complete per-disposition direct SourceId to explicit RequirementSources membership, plus the accepted Required=true declaration; shared extraction membership is not a requirement association.",
+    "Do not use disposition.Evidence.Keys to infer obligation ownership: corroborating original pages or global context may span other requirements. That broader existing join is presentation evidence, not authority for a blocking guard.",
+    "Do not block on optional outputs. Require exact retained source versions; stale/incomplete/ambiguous/unmapped lineage must remain unknown, never inferred from names or prefixes.",
+    "For split/continued clauses, follow the exact retained membership after source merging; do not infer ownership from a common page or lexical prefix.",
+    "Inspect candidate root exports for root-scoped drafts, which can add the binding. An accepted-plan-only filter must not prevent this legal completion. A nested fixed scope cannot create a missing root export.",
+    "A required root binding is a necessary condition only: presence cannot prove type compatibility, actual provenance, conditional availability, completeness or business meaning. Keep compiler and Judge checks.",
+    "Keep child closure legal when no associated public-output completion is claimed, and preserve explicit claim withdrawal/reselection. Do not infer every unclosed scope or scalar child output is an error.",
+    "Any fresh-only filter/validation experiment needs independent boundary coverage and preserved historical issued behavior; this assessment does not authorize implementation or claim efficacy."
+  ]
+}

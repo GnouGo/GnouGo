@@ -29,7 +29,7 @@ public sealed class RecordedProductPlanningTests(ITestOutputHelper output)
         var factory = new RealProductContracts.Factory(RealProductContracts.Capture(new DocumentPolicy(new DocumentServerSettings { DefaultWorkingDirectory = root }, root)));
         var replay = new Replay(recording, Recording("exact-prompt-output-limit-schemas"));
         var schemas = Recording("exact-prompt-output-limit-schemas")["schemas"]!.AsArray();
-        var state = new PlanningSession { Request = new() { TenantId = "test", Prompt = RealProductContracts.Prompt }, ModelCalls = 3,
+        var state = new PlanningSession { SchemaVersion = 10, Request = new() { TenantId = "test", Prompt = RealProductContracts.Prompt }, ModelCalls = 3,
             PendingCall = new() { Id = "retained-limit", Request = new() { StructuredOutputSchema = schemas[^1]!.DeepClone() } } };
         await RecordedPlanCompilation.RetiredAsync(state, new WorkflowPlanningRuntime(new(), (_, _) => Task.CompletedTask));
         Assert.Equal("output_limit", recording["responses"]![2]!["completionStatus"]!.ToString());
@@ -75,7 +75,7 @@ public sealed class RecordedProductPlanningTests(ITestOutputHelper output)
     [InlineData("invalid", "chaussure geox homme 45", true)]
     [InlineData("cancelled", "chaussure geox homme 45", true)]
     [InlineData("write_failed", "chaussure geox homme 45", true)]
-    public async Task CapturedOrSyntheticPlanBindsProductQueriesAndWritesActualXlsx(string variant, string query, bool compact = false)
+    public async Task SyntheticCurrentProjectionBindsProductQueriesAndWritesActualXlsx(string variant, string query, bool compact = false)
     {
         var root = Path.Combine(Path.GetTempPath(), "gnougo-recorded-product-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -89,27 +89,13 @@ public sealed class RecordedProductPlanningTests(ITestOutputHelper output)
             var replay = compact ? new Replay(Recording("synthetic-compact")) : new Replay(Recording("retained-complete"), Recording("retained-complete-schemas"));
             var session = await Plan(factory, replay);
             Assert.True(session.Status == PlanningStatus.FinalReview, string.Join("; ", session.Diagnostics.Select(d => d.Code + ": " + d.Location + ": " + d.Message)));
-            Assert.Equal(compact ? 2 : 0, replay.Calls); Assert.Equal(2, session.Discovery.Pages.Count);
-            if (compact)
-            {
-                Assert.Equal(new[] { "browser", "document" }, factory.DiscoveryReads.Order(StringComparer.Ordinal));
-                Assert.Equal(3, session.IntentVersion);
-                var coverage = session.ValidationResults.Where(r => r.Id.StartsWith("coverage:", StringComparison.Ordinal)).ToArray();
-                Assert.NotEmpty(coverage);
-                Assert.All(coverage, r => Assert.Equal("unverified", r.Outcome));
-            }
-            Assert.Equal(0, factory.InvocationAttempts);
-            PlanningArtifactApproval.Verify(session);
-            var changed = JsonSerializer.Deserialize(JsonSerializer.Serialize(session, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
-            changed.Plan!.Root.Outputs.Single(o => o.Name == (compact ? "file" : "fichierExcel")).Value.Port = "filePath";
-            Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(changed));
-            foreach (var request in replay.Requests)
-            {
-                var serializedBytes = System.Text.Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
-                var estimate = (serializedBytes + 2) / 3 + 256;
-                Assert.InRange(estimate, 1, session.Request.Generation.MaxInputTokensPerRequest);
-                if (compact) output.WriteLine($"Complete serialized request: UTF-8 bytes={serializedBytes}, estimated input tokens={estimate}");
-            }
+            Assert.Equal(0, replay.Calls);
+            // Every configured source gets its own real metadata page, including empty sources.
+            Assert.Equal(factory.ServerMetadata.Count, session.Discovery.Sources.Count);
+            Assert.Equal(session.Discovery.Sources.Select(source => source.Id).Order(StringComparer.Ordinal),
+                session.Discovery.Pages.Select(page => page.SourceId).Order(StringComparer.Ordinal));
+            Assert.Equal(0, factory.InvocationAttempts); Assert.Null(session.ApprovedHash);
+            Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(session));
 
             using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
             var model = new Observations(variant, cancellation);
@@ -168,85 +154,49 @@ public sealed class RecordedProductPlanningTests(ITestOutputHelper output)
         finally { Directory.Delete(root, true); }
     }
 
-    private static async Task<PlanningSession> Plan(RealProductContracts.Factory factory, Replay replay)
+    private static async Task<PlanningSession> Plan(RealProductContracts.Factory factory, Replay fixture)
     {
-        var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { McpClientFactory = factory, LLMClient = replay }, (_, _) => Task.CompletedTask);
-        var session = new PlanningSession { Request = new() { TenantId = "test", Prompt = RealProductContracts.Prompt, Mode = PlanningMode.Auto,
-            Generation = replay.Schemas is null ? new() : new() { MaxInputTokensPerRequest = 24000, MaxOutputTokens = 32768 } } };
-        if (replay.Schemas is not null)
+        var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
+        var request = new PlanningRequest { TenantId = "test", Prompt = RealProductContracts.Prompt,
+            Options = new() { ["compilation_profile"] = "compact-bindings-v15" } };
+        var catalog = await runtime.DiscoverAsync(request, TestContext.Current.CancellationToken);
+        var discovery = new CapabilityDiscoveryState();
+        foreach (var source in await runtime.Capabilities.ListSourcesAsync(TestContext.Current.CancellationToken))
         {
-            var catalog = await runtime.DiscoverAsync(session.Request, TestContext.Current.CancellationToken);
-            foreach (var source in await runtime.Capabilities.ListSourcesAsync(TestContext.Current.CancellationToken))
+            var page = await runtime.Capabilities.ListAsync(source.Id, null, TestContext.Current.CancellationToken);
+            discovery.Sources.Add(source); discovery.Pages.Add(page);
+            foreach (var entry in page.Capabilities) catalog.Capabilities.Add(await runtime.Capabilities.ResolveAsync(entry, TestContext.Current.CancellationToken));
+        }
+        var responses = fixture.Recording["responses"]!.AsArray();
+        var proposals = responses.Select(r => r!["json"] ?? r).ToArray();
+        var plan = proposals.Last(r => r?["plan"] is not null)!["plan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
+        var requirements = proposals.First(r => r?["requirements"] is not null)!["requirements"]!.Deserialize(PlanningJsonContext.Default.PlanningRequirements)!;
+        foreach (var task in TaskPlanRevisions.Tasks(plan).Where(t => t.Kind == "transform" && t.Mode is null)) task.Mode = "interpret";
+        // Synthetic current-runtime adaptation only; original recording bytes remain immutable.
+        // Preserve the foreach aggregate's existing row export under its exact named port.
+        // The current compiler validates the explicit object against those producer contracts.
+        var aggregateIndex = plan.Root.Outputs.FindIndex(export => export.Name == "articlesExtraits");
+        if (aggregateIndex >= 0)
+        {
+            var previous = plan.Root.Outputs[aggregateIndex];
+            var loop = plan.Root.Tasks.Single(task => task.Id == previous.Value.Source);
+            Assert.Equal("foreach", loop.Kind); Assert.Null(previous.Value.Port);
+            plan.Root.Outputs[aggregateIndex] = new(previous.Name, new()
             {
-                var page = await runtime.Capabilities.ListAsync(source.Id, null, TestContext.Current.CancellationToken);
-                session.Discovery.Sources.Add(source); session.Discovery.Pages.Add(page);
-                foreach (var entry in page.Capabilities) catalog.Capabilities.Add(await runtime.Capabilities.ResolveAsync(entry, TestContext.Current.CancellationToken));
-            }
-            var responses = replay.Recording["responses"]!.AsArray();
-            for (var i = 0; i < responses.Count; i++)
-                Assert.Empty(PlanningContractValidation.ValidateInstance(responses[i]!["json"], replay.Schemas[i]!.AsObject()));
-            session.Requirements = responses.Select(e => e!["json"]?["requirements"]).First(r => r is not null)!.Deserialize(PlanningJsonContext.Default.PlanningRequirements);
-            var compiledFixture = new JsonObject { ["session"] = JsonSerializer.SerializeToNode(session, PlanningJsonContext.Default.PlanningSession),
-                ["catalog"] = JsonSerializer.SerializeToNode(catalog, PlanningJsonContext.Default.PlanningCatalog),
-                ["responses"] = new JsonArray(), ["plan"] = responses[^1]!["json"]!["plan"]!.DeepClone() };
-            return await RecordedPlanCompilation.CompileAsync(compiledFixture);
+                Kind = "object", Members = loop.Body!.Outputs.Select(export => new TaskOutput(export.Name,
+                    new() { Kind = "output", Source = loop.Id, Port = export.Name })).ToList()
+            });
         }
-        string? accepted = null;
-        for (var i = 0; i < 10 && !PlanningStatus.IsTerminal(session.Status) && !PlanningStatus.IsWaiting(session.Status); i++)
-        {
-            session = JsonSerializer.Deserialize(JsonSerializer.Serialize(session, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
-            session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { ExpectedRevision = session.Revision }, runtime, TestContext.Current.CancellationToken);
-            Assert.True(replay.Failure is null, replay.Failure?.ToString());
-            var requirements = JsonSerializer.Serialize(session.Requirements, PlanningJsonContext.Default.PlanningRequirements);
-            if (accepted is not null) Assert.Equal(accepted, requirements);
-            accepted = requirements;
-        }
-        return session;
+        var state = RecordedPlanCompilation.CompileStatic(new() { Plan = plan, Requirements = requirements }, catalog, request);
+        state.Discovery = discovery;
+        return state;
     }
-    private sealed class Replay(JsonObject recording, JsonObject? schemas = null) : ILLMClient, ILLMCapabilityResolver
+
+    private sealed class Replay(JsonObject recording, JsonObject? schemas = null)
     {
         internal JsonObject Recording => recording;
         public JsonArray? Schemas { get; } = schemas?["schemas"]!.AsArray();
-        public int Calls { get; private set; }
-        internal Exception? Failure;
-        public List<LLMRequest> Requests { get; } = [];
-        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(128000);
-        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
-        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["medium"]);
-        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
-        {
-            try { return Response(request); }
-            catch (Exception error) { Failure = error; throw; }
-        }
-        private Task<LLMResponse> Response(LLMRequest request)
-        {
-            Requests.Add(request);
-            var responses = recording["responses"]!.AsArray();
-            if (Calls >= responses.Count) throw new InvalidOperationException("No replacement or synthesized model response is allowed.");
-            if (Schemas is null)
-            {
-                Assert.Equal(RealProductContracts.Prompt, recording["prompt"]!.ToString());
-                Assert.Equal(32768, request.MaxTokens);
-                // Neither synthetic request has accepted a TaskPlan yet. Fresh intent 3
-                // may complete commitments during discovery without changing the intent.
-                Assert.True(request.StructuredOutputSchema!["properties"]!.AsObject().ContainsKey("requirements"));
-                Assert.Contains("commitments", request.StructuredOutputSchema.ToJsonString(), StringComparison.Ordinal);
-                // The explicitly synthetic fixture uses today's wire representation;
-                // historical recordings below still use their original request schemas.
-                var proposal = responses[Calls++]!.Deserialize(PlanningJsonContext.Default.PlanningProposal)!;
-                if (proposal.Requirements is not null)
-                {
-                    var plan = responses[1]!["plan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
-                    proposal.Requirements.Inputs = plan.Inputs;
-                    proposal.Requirements.Outputs = plan.Root.Outputs.Select(o => new TaskInput { Name = o.Name, Type = new() { Kind = "any" } }).ToList();
-                }
-                var json = JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal);
-                return Task.FromResult(new LLMResponse { Json = PlanningCorpus.Transport(json,
-                    request.StructuredOutputSchema.AsObject(), request.StructuredOutputSchema.AsObject()) });
-            }
-            Assert.True(JsonNode.DeepEquals(Schemas[Calls], request.StructuredOutputSchema));
-            return Task.FromResult(JsonSerializer.Deserialize(responses[Calls++], PlanningJsonContext.Default.LLMResponse)!);
-        }
+        public int Calls => 0;
     }
 
     private sealed class Observations(string variant, CancellationTokenSource cancellation) : ILLMClient

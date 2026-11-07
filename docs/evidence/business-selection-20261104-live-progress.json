@@ -1,0 +1,82 @@
+{
+  "kind": "fresh_source_bound_live_progress",
+  "version": 1,
+  "observed_at_utc": "2026-11-04T09:49:42.573912Z",
+  "campaign": "schema-portability-20261019-incremental",
+  "production_source": "1d6632c5ad4bf6e3aa9a6cd150f3776d640129de",
+  "harness_source": "1d6632c5ad4bf6e3aa9a6cd150f3776d640129de",
+  "cohort": "biz1d6632c5amz02",
+  "run": "biz1d6632c5amz02-amazon-1",
+  "status": "generating",
+  "revision": 6,
+  "logical_calls": 7,
+  "completed_usage_receipts": 6,
+  "completed_calls_by_phase": {
+    "construction_intent": 1,
+    "construction_select": 1,
+    "construction_implementation": 1,
+    "construction_discovery": 3
+  },
+  "physical_attempts_for_completed_calls": 6,
+  "known_input_tokens": 14944,
+  "known_output_tokens": 12110,
+  "known_reasoning_tokens_included_in_output": 10532,
+  "known_cost_of_completed_calls_eur": "0.3918239556310940155648984703",
+  "pending_request_id": "biz1d6632c5amz02-amazon-1:7:d090b893dd48a1e8e8fe3c0f7fff4f2748b3f8e3e0af05ce6cca53bf3cbc46fe:063a50edf5c72af29153e0088c55d1e57b05073dbc956f91c5f3ef2082bb5af4",
+  "pending_phase": "construction_draft",
+  "corrections": 0,
+  "accepted_checkpoints": 0,
+  "business_blocks": 1,
+  "threshold_warnings": [
+    {
+      "kind": "prerequisites",
+      "current": 5,
+      "threshold": 4,
+      "basis": "captured_optimization_target",
+      "stage": "implementation",
+      "sessionId": "biz1d6632c5amz02-amazon-1",
+      "blockId": "block_1",
+      "checkpoint": 0
+    }
+  ],
+  "artifact": null,
+  "execution_started": false,
+  "independent_oracle_passed": false,
+  "qualification_passed": 0,
+  "qualification_required": 6,
+  "frozen_snapshot_sha256": "4f73b2d5763feb03f7cd9a7d1ad5cf61c1d91ef856e8f1fcce5c0d79c0915734",
+  "preflight": {
+    "observed_at_utc": "2026-11-04T09:40:06.452141+00:00",
+    "source": "1d6632c5ad4bf6e3aa9a6cd150f3776d640129de",
+    "cohort": "biz1d6632c5amz02",
+    "run": "biz1d6632c5amz02-amazon-1",
+    "fresh_identity_unused": true,
+    "provider": "OpenAi",
+    "model": "gpt-5.5-2026-04-24",
+    "profile_sha256": "3e9495d2877fed6d3ddbd9a10b1817842a145bf3a66b7c563d79037d6e215e1c",
+    "captured_profile_hash": "5452b870c2561bcde1b6aa483b7b44edb2ea230851221e8fa8eb096f897113a6",
+    "optimization_threshold_policy": "diagnostic-v1",
+    "exact_admission_passed": true,
+    "ledger_unchanged_during_check": true,
+    "ledger": {
+      "ceiling_eur": "740.0301038327063045424449473",
+      "known_cost_eur": "396.03699826697119047758968677",
+      "reserved_cost_eur": "126.62395663558339338686157849",
+      "cost_upper_bound_eur": "522.66095490255458386445126526",
+      "available_eur": "217.36914893015172067799368204",
+      "physical_calls": 6849,
+      "unknown_attempts": 148,
+      "closures": 62,
+      "unresolved": [],
+      "evidence_hash": "dd7d5f4bd2395f48fb2ceed7ae2a6b2e62c407b46a4af3dbb48f08e3c5f33ae6"
+    },
+    "four_phase_headroom_eur": "20.617228732444762501118167993",
+    "configured_authentication_health_established": false
+  },
+  "limitations": [
+    "This is an in-progress observation, not a completed outcome.",
+    "Completed-call usage excludes the pending physical attempt and cannot establish its eventual cost.",
+    "Configuration readiness and received generation do not establish complete workflow correctness."
+  ],
+  "proof_generated_at_utc": "2026-11-04T09:50:37.252594+00:00"
+}

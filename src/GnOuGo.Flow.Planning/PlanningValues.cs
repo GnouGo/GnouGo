@@ -79,6 +79,15 @@ internal static class PlanningValues
             // does not constrain the selected list, which may repeat identities.
             return new() { ["type"] = "array", ["items"] = record.DeepClone() };
         }
+        if (value.Kind == "string_operation")
+        {
+            if (value.Text is not ("concat" or "uri_component") ||
+                (value.Text == "concat" ? value.Items.Count is < 2 or > 16 : value.Items.Count != 1))
+                throw new InvalidOperationException("String operations require concat with two to sixteen operands or uri_component with one operand.");
+            if (value.Items.Any(operand => resolve(operand) is not { } schema || !PlanningContractCompatibility.Fits(schema, new() { ["type"] = "string" })))
+                throw new InvalidOperationException("String operations require established, nonnullable string operands.");
+            return new() { ["type"] = "string" };
+        }
         if (value.Kind == "arithmetic")
         {
             _ = ArithmeticOperator(value.Text);

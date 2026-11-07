@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "source": "afc8861e4931fb94acde255d0a8eb0ebe12dd6ac",
+  "cohort": "compactrafc8861e4colv5",
+  "recorded_at_utc": "2026-10-24T21:18:05.214184+00:00",
+  "scope": "Safe-file verification of an already authorized and applied exact permanent closure. No store/operator/provider/runtime invocation by this supplement builder.",
+  "safe_sources": {
+    "pending_archive": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrafc8861e4colv5/pending-safe-archive/compact-taskplan-afc8861e4-collections-pending.json",
+      "sha256": "569fdb87eb3e89eac86900d93a91f7546be2fc88d9f95e561839c8c0204b7905"
+    },
+    "inspection": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrafc8861e4colv5/authorized-retention-20261024/inspection.json",
+      "sha256": "ac4f36c5ef26487661455abae079ecc79d15072397e3d8bdbec855e042f78d34"
+    },
+    "application": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrafc8861e4colv5/authorized-retention-20261024/application.json",
+      "sha256": "c47d64c0cfa2796fb69a3d28093869c56b5d282188ea15597caf117160a246d3"
+    },
+    "readback": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrafc8861e4colv5/authorized-retention-20261024/readback.json",
+      "sha256": "fc73a59550436da3466bba841a76a0effab540770af61f85a9cd419839fbb4ae"
+    },
+    "application_command": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrafc8861e4colv5/authorized-retention-20261024/application-command-safe.json",
+      "sha256": "a45c9158302244ebd11b8921e2e7314c3779919babc4b186f397c8fb8327f2d5"
+    },
+    "user_authorization": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrafc8861e4colv5/authorized-retention-20261024/user-authorization-safe.json",
+      "sha256": "ebbff03eb246a5fd9e76f7430dd3a2d23b697e6c0dc84417334d04f03ff66a75"
+    },
+    "prior_campaign_audit": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrafc8861e4colv5/post-run-readiness.jsonl",
+      "sha256": "fca877ffbcb0d769efd6f139681f60b4ca908f685452dddfd4ebdee58dfc3976"
+    },
+    "postclosure_campaign_audit": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrafc8861e4amz20v5/provider-readiness.jsonl",
+      "sha256": "e89f1047ae57dc1ed90fa505ec8394ab548d24b7a537b8beb2d8345e3e0e0eef"
+    },
+    "postclosure_freeze": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrafc8861e4amz20v5/freeze.json",
+      "sha256": "5acc4223751f64232275d635037616a2e4a6d3dc85dc7952f551043bbef7af77"
+    }
+  },
+  "historical_snapshot": {
+    "pending_archive_sha256": "569fdb87eb3e89eac86900d93a91f7546be2fc88d9f95e561839c8c0204b7905",
+    "preserved_unchanged": true,
+    "meaning": "The earlier pending authorization snapshot is historical; this separate supplement records the subsequent exact application and readback."
+  },
+  "exact_closure": {
+    "campaign": "schema-portability-20261019-incremental",
+    "tenant": "benchmark",
+    "run_collection": "planning-evaluation-runs",
+    "run_key": "afc8861e4931fb94acde255d0a8eb0ebe12dd6ac:fixture:cohort:compactrafc8861e4colv5:collections:1",
+    "session_id": "dd4bfd1a02e7e6dc8c12ec85fc925fe738fd68bcdfaa691e4d4b0895b8250cc3",
+    "revision": 2,
+    "request_id": "dd4bfd1a02e7e6dc8c12ec85fc925fe738fd68bcdfaa691e4d4b0895b8250cc3:2:6542379cbdf1b225411aedd80ea53fb73bd54c5c37fe2f5c190f030fcaef9754",
+    "phase": "construction_intent",
+    "source": "afc8861e4931fb94acde255d0a8eb0ebe12dd6ac",
+    "run_hash": "84ef7b24578234e10053681c284cb7af9eaef1c310965810fefb4f7457e342fd",
+    "request_hash": "e67e7b6f6bf4d6667726733a829121c5bf423dbc0d893d73202aee66b2594ecb",
+    "http_journal_hash": "c4200c613dd0488de31bc36ed3452dfa00776597632bd366a8a999e2e308f9b2",
+    "failure_hash": "8c8c2befdabe4ac0c56689d7464619554ce9c00b7a746ad128bb27251b665352",
+    "effective_transport_policy_hash": "52613cf8738768f87db2238519e87640aad0e22b5ec0cb4ac7ed8381631a70be",
+    "transport_policy_evidence": "captured_effective_request_policy",
+    "retention_kind": "exhausted-planning-retries"
+  },
+  "authorization_and_readback": {
+    "question_id": "call_4adeba79ede445dcb98493234bf38b11",
+    "answer": "Authorize exact abandonment and fresh Amazon / Review PR",
+    "operator": "codex:user-authorized-exact-retention",
+    "authorization_sha256": "53c10b629cb94c18d96ec9a75ce2584ea8b7d1da333232025165d77143e8d9c3",
+    "authorization_hash_basis": "SHA256 of the exact serialized operator+authorization object, not authorization text alone.",
+    "evidence_sha256": "a6136b94122a1117895695de3cebe23538b463b1b7d7a30b66602410ef4d25f9",
+    "closure_sha256": "fe917877ece3675dd19f6c3ef7edffb2bb32c756a81061dfa449c7bded3d6ecc",
+    "closure_hash_basis": "SHA256 of exact serialized retained closure (application JSON without trailing newline).",
+    "retained_at": "2026-10-24T21:14:44.0165890+00:00",
+    "application_exit_code": 0,
+    "already_retained_readback": true,
+    "outcome": "inconclusive",
+    "reason": "operator_retained_uncertain_planning",
+    "reservation_retained": true,
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true
+  },
+  "preserved_request_measurements": {
+    "attempts": 3,
+    "http_statuses": [
+      500,
+      500,
+      null
+    ],
+    "final_recorded_failure": "Transport",
+    "receipt_present": false,
+    "reservation_per_attempt_eur": "0.9308701472556894243641231593",
+    "all_three_retained_eur": "2.7926104417670682730923694779",
+    "new_receipt_or_usage_created": false,
+    "original_evidence_unchanged": true,
+    "accounting_before_application_and_readback_unchanged": true
+  },
+  "postclosure_pre_amazon_snapshot": {
+    "cohort": "compactrafc8861e4amz20v5",
+    "captured_at": "2026-10-24T21:15:21.616544+00:00",
+    "audit_evidence_sha256": "8af24e24f86c2644b668775538d6ace84e800e155ca233491b3bea5631db7acf",
+    "audit_file_sha256": "e89f1047ae57dc1ed90fa505ec8394ab548d24b7a537b8beb2d8345e3e0e0eef",
+    "calls": 2857,
+    "known_input_tokens": 7743392,
+    "known_output_tokens": 3186744,
+    "known_cost_eur": "119.70808640646891009043431045",
+    "reserved_input_tokens": 540222,
+    "reserved_output_tokens": 1024000,
+    "reserved_cost_eur": "29.805236386762726726688144204",
+    "recorded_cost_upper_bound_eur": "149.51332279323163681712245465",
+    "cost_ceiling_eur": "240.0301038327063045424449473",
+    "available_eur": "90.51678103947466772532249265",
+    "unknown_physical_attempts": 42,
+    "receiptless_requests": 28,
+    "permanently_closed_requests_before": 27,
+    "permanently_closed_requests_after": 28,
+    "unresolved_requests_before": 1,
+    "unresolved_requests_after": 0,
+    "only_added_closure_is_exact_request": true,
+    "model_calls_by_readiness": 0,
+    "known_reserved_upper_available_unchanged": true,
+    "recorded_upper_minus_decimal80_known_and_reserved_eur": "-4E-27"
+  },
+  "limitations": [
+    "Unknown usage remains unknown; permanent closure creates no receipt, measured usage, provider termination, refund or released reservation. The final response-less Transport record does not establish timeout or empty output.",
+    "The session-scoped retention evidence reports session_calls=4; the campaign-wide readiness reports session_calls=0. All common campaign accounting fields are equal.",
+    "Recorded campaign upper is preserved exactly; its Decimal80 component sum differs by -4E-27. Availability uses that recorded upper.",
+    "This pre-Amazon snapshot does not describe subsequent live spending or acceptance. Fresh diagnostics remain subject to normal admission; closure is neither artifact approval nor execution authorization."
+  ]
+}

@@ -112,16 +112,16 @@ public sealed class ConditionalEntryGuardTests
     }
 
     [Fact]
-    public async Task CorrectProposalReachesReviewInOneCallWithRuntimeGuardsUnchanged()
+    public async Task ValidGuardPlanCompilesWithoutInventingAConditionalEntryProof()
     {
-        var (engine, catalog, _) = await Environment(); var plan = Plan(); var state = State(plan, catalog);
+        var (_, catalog, _) = await Environment(); var plan = Plan();
         var before = JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan);
-        var runtime = new TestRuntime(engine) { Proposal = new() { Plan = plan, Requirements = state.Requirements } };
-        state.Plan = null; state.Diagnostics.Clear(); state.RevisionScope.Clear();
-        var reviewed = await PlannerFixture.RunAsync(runtime, state);
-        Assert.Equal(PlanningStatus.FinalReview, reviewed.Status); Assert.Single(runtime.Calls); Assert.Equal(0, reviewed.ReplanAttempts);
-        Assert.Equal(before, JsonSerializer.Serialize(reviewed.Plan, PlanningJsonContext.Default.TaskPlan));
-        Assert.Contains("Required condition:", reviewed.Yaml!);
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog);
+        Assert.Empty(compiled.Diagnostics);
+        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog);
+        Assert.Contains("Required condition:", JsonSerializer.Serialize(compiled.Graph, PlanningJsonContext.Default.PlanningGraph));
+        Assert.StartsWith("version:", yaml, StringComparison.Ordinal);
+        Assert.Equal(before, JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan));
     }
 
     [Fact]
@@ -132,22 +132,6 @@ public sealed class ConditionalEntryGuardTests
         Assert.Contains(TaskPlanRevisions.Validate(state.Plan, copy, state.RevisionScope, catalog), d => d.Location == "/tasks/act/requires");
         catalog.Policy.DeniedCapabilityIds.Add("act");
         Assert.Contains(new TaskPlanCompiler().Compile(Plan(corrected: true), catalog).Diagnostics, d => d.Code == "TASK_OPERATION_DENIED");
-    }
-
-    [Fact]
-    public async Task RetiredGuardRepairRequiresRevisionWithoutRedispatch()
-    {
-        var (_, catalog, _) = await Environment(); var state = State(Plan(), catalog);
-        state.Diagnostics = [new("TASK_CONDITIONAL_REQUIREMENT", "/tasks/route/condition", "Retained legacy proof diagnostic")];
-        state.PendingCall = new() { Id = "issued", Purpose = "replan", Request = new() { Prompt = "original", Model = "test", StructuredOutputSchema = new JsonObject { ["type"] = "object" } } };
-        state.ModelCalls = 2; state.ReplanAttempts = 1;
-        var saved = JsonSerializer.Serialize(state.PendingCall, PlanningJsonContext.Default.PlanningModelCall);
-        var runtime = new TestRuntime(); var restored = PlannerFixture.Clone(state);
-        var stopped = await new HybridWorkflowPlanner().AdvanceAsync(restored, new() { ExpectedRevision = restored.Revision }, runtime, PlannerFixture.Ct);
-        Assert.Equal(PlanningStatus.Stopped, stopped.Status); Assert.Empty(runtime.Calls);
-        Assert.Equal(2, stopped.ModelCalls); Assert.Equal(1, stopped.ReplanAttempts);
-        Assert.Equal(saved, JsonSerializer.Serialize(stopped.PendingCall, PlanningJsonContext.Default.PlanningModelCall));
-        Assert.Contains(stopped.Diagnostics, d => d.Code == "PLANNING_REVISION_REQUIRED");
     }
 
     private static async Task<RunResult> Execute(WorkflowEngine engine, PlanningCatalog catalog, TaskPlan plan, string? reference, string? action, bool authorized)

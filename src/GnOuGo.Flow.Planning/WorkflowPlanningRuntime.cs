@@ -9,33 +9,58 @@ using GnOuGo.Flow.Planning.Capabilities;
 namespace GnOuGo.Flow.Planning;
 
 /// <summary>Provider-neutral catalog, model, runtime validation, and checkpoint effects.</summary>
-public sealed class WorkflowPlanningRuntime : IPlanningRuntime
+public sealed class WorkflowPlanningRuntime : IPlanningRuntime, IPlanningConstructionAdmission
 {
     private readonly WorkflowEngine _engine;
     public ICapabilityCatalog Capabilities { get; }
+    public IPlanningCapabilitySnapshotJournal? CapabilitySnapshots { get; }
+    private readonly Func<PlanningSession, CancellationToken, Task>? _discoveryRecoveryGuard;
     private readonly StepExecutionContext _context;
     private readonly ILLMClient? _model;
     private readonly Func<PlanningSession, CancellationToken, Task> _checkpoint;
+    private readonly ILLMCapabilityResolver? _capturedCapabilities;
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _advisoryRequests = new(StringComparer.Ordinal);
     public WorkflowPlanningRuntime(WorkflowEngine engine, Func<PlanningSession, CancellationToken, Task> checkpoint, ICapabilityCatalog? capabilities = null)
+        : this(engine, checkpoint, capabilities, null) { }
+    public WorkflowPlanningRuntime(WorkflowEngine engine, Func<PlanningSession, CancellationToken, Task> checkpoint, ICapabilityCatalog? capabilities,
+        IPlanningCapabilitySnapshotJournal? capabilitySnapshots, Func<PlanningSession, CancellationToken, Task>? discoveryRecoveryGuard = null)
     {
-        _engine = engine; Capabilities = capabilities ?? new CapabilityDiscovery(engine); _checkpoint = checkpoint;
+        _engine = engine; Capabilities = capabilities ?? new CapabilityDiscovery(engine); _checkpoint = checkpoint; CapabilitySnapshots = capabilitySnapshots;
+        _discoveryRecoveryGuard = discoveryRecoveryGuard;
         _context = new() { Engine = engine, Step = new() { Source = new() { Id = "planning", Type = "workflow.plan" } },
             Data = new(), Limits = engine.Limits, LLMUsageBudget = engine.LLMUsageBudget };
     }
-    public WorkflowPlanningRuntime(StepExecutionContext context, ILLMClient model, Func<PlanningSession, CancellationToken, Task> checkpoint)
-    { _context = context; _engine = context.Engine; Capabilities = new CapabilityDiscovery(context.Engine); _model = model; _checkpoint = checkpoint; }
+    public WorkflowPlanningRuntime(StepExecutionContext context, ILLMClient model, Func<PlanningSession, CancellationToken, Task> checkpoint, ILLMCapabilityResolver? capturedCapabilities = null)
+        : this(context, model, checkpoint, capturedCapabilities, null) { }
+    public WorkflowPlanningRuntime(StepExecutionContext context, ILLMClient model, Func<PlanningSession, CancellationToken, Task> checkpoint, ILLMCapabilityResolver? capturedCapabilities,
+        IPlanningCapabilitySnapshotJournal? capabilitySnapshots)
+    { _context = context; _engine = context.Engine; Capabilities = new CapabilityDiscovery(context.Engine); _model = model; _checkpoint = checkpoint; _capturedCapabilities = capturedCapabilities; CapabilitySnapshots = capabilitySnapshots; }
     public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => CapabilityDiscovery.DiscoverAsync(_engine, request, ct);
-    internal Task AdmitAsync(LLMRequest request, int inputLimit, string purpose, CancellationToken ct) =>
-        ModelRequestAdmission.ValidateAsync(request, _engine.LLMCapabilities ?? _model as ILLMCapabilityResolver ??
-            _engine.LLMClient as ILLMCapabilityResolver, inputLimit, purpose, ct);
+    internal async Task AdmitAsync(LLMRequest request, int inputLimit, string purpose, CancellationToken ct, bool advisoryTokens = false)
+    {
+        await ModelRequestAdmission.ValidateAsync(request, _capturedCapabilities ?? _engine.LLMCapabilities ?? _model as ILLMCapabilityResolver ??
+            _engine.LLMClient as ILLMCapabilityResolver, inputLimit, purpose, ct, advisoryTokens);
+        if (advisoryTokens && request.ClientRequestId is { } id) _advisoryRequests.TryAdd(id, 0);
+    }
+    public Task AdmitConstructionAsync(LLMRequest request, int inputTokenCeiling, IReadOnlyList<int> outputTokenCeilings, CancellationToken ct)
+    {
+        if ((_model ?? _engine.LLMClient) is IPlanningConstructionAdmission journal)
+            return journal.AdmitConstructionAsync(request, inputTokenCeiling, outputTokenCeilings, ct);
+        return _context.LLMUsageBudget?.EnsureAllowanceAsync(request, _engine.ModelUsageCostEstimator,
+            inputTokenCeiling, outputTokenCeilings, "workflow.plan.construction", ct) ?? Task.CompletedTask;
+    }
     public async Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
     {
         var client = _model ?? _engine.LLMClient ?? throw new InvalidOperationException("No planning model configured.");
+        var advisory = request.ClientRequestId is { } id && _advisoryRequests.TryRemove(id, out _);
         if (client is not IModelAdmissionOwner)
-            await ModelRequestAdmission.ValidateAsync(request, _engine.LLMCapabilities ?? client as ILLMCapabilityResolver, int.MaxValue, purpose, ct);
+            await ModelRequestAdmission.ValidateAsync(request, _capturedCapabilities ?? _engine.LLMCapabilities ?? client as ILLMCapabilityResolver, int.MaxValue, purpose, ct,
+                advisory);
         return await _context.CallLLMAsync(client, request, "workflow.plan." + purpose, ct);
     }
     public Task CheckpointAsync(PlanningSession session, CancellationToken ct) => _checkpoint(session, ct);
+    public Task VerifyDiscoveryRecoveryAsync(PlanningSession session, CancellationToken ct) => _discoveryRecoveryGuard?.Invoke(session, ct)
+        ?? throw new PlanningConflictException("This runtime has no host authorization for discovery recovery.");
 
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct)
     {
@@ -87,6 +112,8 @@ public sealed class WorkflowPlanningRuntime : IPlanningRuntime
                     capability.Kind == "registered" ? "runtime" : capability.Kind == "agent" ? CapabilityDiscovery.RunnerSource(capability.Method!) : CapabilityDiscovery.SourceId(capability.Server!),
                     capability.Method ?? capability.Id, capability.Description, capability.StepType, capability.EffectKind, capability.Version);
                 var resolved = capability.Kind == "registered" ? current.Capabilities.Single(c => c.Id == capability.Id) : await fresh.ResolveAsync(summary, ct);
+                if (capability.Kind == "registered" && CapabilityContractIdentity.LegacyVersion(resolved) == capability.Version)
+                    resolved.Version = capability.Version;
                 if (!JsonNode.DeepEquals(JsonSerializer.SerializeToNode(capability, PlanningJsonContext.Default.PlanningCapability),
                     JsonSerializer.SerializeToNode(resolved, PlanningJsonContext.Default.PlanningCapability)))
                     findings.Add(new("CATALOG_CHANGED", capability.Id, "A selected capability changed; regenerate and approve the workflow."));
@@ -94,6 +121,13 @@ public sealed class WorkflowPlanningRuntime : IPlanningRuntime
                 catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
                 catch (Exception ex) when (ex is PlanningConflictException or ArgumentException)
                 { findings.Add(new("CATALOG_CHANGED", capability.Id, "A selected capability changed or was removed. Regenerate and approve the workflow.")); }
+                catch (CapabilityDiscoveryException ex)
+                {
+                    var category = ex.Category is "catalog_changed" or "invalid_contract" or "access_denied" or "timeout" or "cursor_incompatible"
+                        ? ex.Category : "transport_unavailable";
+                    findings.Add(new(category is "catalog_changed" or "invalid_contract" ? "CATALOG_CHANGED" : "CATALOG_UNAVAILABLE",
+                        capability.Id, "The selected capability could not be verified (" + category + ").", Rule: category));
+                }
                 catch (Exception) { findings.Add(new("CATALOG_UNAVAILABLE", capability.Id, "The selected capability could not be verified.")); }
             }
             return findings;

@@ -80,7 +80,7 @@ public static class PlanningReviewFormatter
         "boolean" => value.Boolean == true ? "true" : "false",
         "null" => "null", "string" => "\"" + value.Text + "\"",
         "predicate" => value.Predicate + "(" + string.Join(", ", value.Items.Select(Describe)) + ")",
-        "arithmetic" => value.Text + "(" + string.Join(", ", value.Items.Select(Describe)) + ")",
+        "arithmetic" or "string_operation" => value.Text + "(" + string.Join(", ", value.Items.Select(Describe)) + ")",
         "number" => value.Number?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "invalid number",
         _ => value.Kind
     };

@@ -99,6 +99,9 @@ public sealed partial class TaskPlanCompiler
     private bool _indexedProjections;
     private bool _fusedBindings;
     private bool _preciseDeclarations;
+    private bool _advisoryOptimization;
+    private HashSet<string>? _constructionUnavailable;
+    private bool _constructionAllowsUnboundChoices;
     private string _location = "/tasks";
 
     public TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, bool compactBindings = false)
@@ -108,11 +111,14 @@ public sealed partial class TaskPlanCompiler
         => Compile(plan, catalog, UsesCompactBindings(request), UsesNormalExports(request), request.Options["mapping_profile"]?.ToString() == AdaptiveMappingProfile,
             request.Options["compilation_profile"]?.ToString() is "compact-bindings-v3" or "compact-bindings-v4" or "compact-bindings-v5" or "compact-bindings-v6" or "compact-bindings-v7" or "compact-bindings-v8" or "compact-bindings-v9" or "compact-bindings-v10" or "compact-bindings-v11" or "compact-bindings-v12" or "compact-bindings-v13" or "compact-bindings-v14" or CompactProfile, UsesFusedBindings(request),
             request.Options["planning_validation_profile"]?.ToString() == AssertionValidationProfile,
-            request.Options["planning_diagnostics_version"]?.ToString() == "1");
+            request.Options["planning_diagnostics_version"]?.ToString() == "1", PlanningTokenThresholds.OptimizationAdvisory(request));
 
-    internal TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, bool compactBindings, bool normalExports, bool adaptiveMappings = false, bool indexedProjections = false, bool fusedBindings = false, bool validateAssertions = false, bool preciseDeclarations = false)
+    internal TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, bool compactBindings, bool normalExports, bool adaptiveMappings = false, bool indexedProjections = false, bool fusedBindings = false, bool validateAssertions = false, bool preciseDeclarations = false, bool advisoryOptimization = false)
     {
+        _advisoryOptimization = advisoryOptimization;
         _preciseDeclarations = preciseDeclarations;
+        _constructionUnavailable = null;
+        _constructionAllowsUnboundChoices = false;
         _fusedBindings = fusedBindings;
         _indexedProjections = indexedProjections;
         _adaptiveMappings = adaptiveMappings;
@@ -137,12 +143,17 @@ public sealed partial class TaskPlanCompiler
         catch (InvalidTask error) { return new(null, [error.Diagnostic with { Code = "TASK_COMPILER_VALIDATION", Message = error.Diagnostic.Code + ": " + error.Message }], new Dictionary<string, string>(_sources)); }
     }
 
-    public static JsonObject TypeSchema(TaskType type)
+    public static JsonObject TypeSchema(TaskType type) => TypeSchema(type, advisoryOptimization: false);
+
+    internal static JsonObject TypeSchema(TaskType type, PlanningRequest request) =>
+        TypeSchema(type, PlanningTokenThresholds.OptimizationAdvisory(request));
+
+    private static JsonObject TypeSchema(TaskType type, bool advisoryOptimization)
     {
         if ((type.MinItems is not null || type.MaxItems is not null) && type.Kind != "array" ||
             type.MinItems < 0 || type.MaxItems < 0 || type.MinItems > type.MaxItems)
             throw new ArgumentException("Array cardinality requires nonnegative bounds with minItems <= maxItems.");
-        if (!ValidEnum(type)) throw new ArgumentException("A string enum requires 1–256 distinct non-null strings; declare nullability separately.");
+        if (!ValidEnum(type, advisoryOptimization)) throw new ArgumentException(EnumDeclarationError(advisoryOptimization));
         if (type.Kind is not ("string" or "number" or "integer" or "boolean" or "object" or "array" or "any"))
             throw new ArgumentException("Unknown business type.");
         if (type.Kind == "any") return new();
@@ -154,14 +165,14 @@ public sealed partial class TaskPlanCompiler
         }
         if (type.Kind == "array")
         {
-            schema["items"] = TypeSchema(type.Items ?? throw new ArgumentException("Array items require a business type."));
+            schema["items"] = TypeSchema(type.Items ?? throw new ArgumentException("Array items require a business type."), advisoryOptimization);
             if (type.MinItems is { } min) schema["minItems"] = min;
             if (type.MaxItems is { } max) schema["maxItems"] = max;
         }
         if (type.Kind == "object")
         {
             if (type.Fields.Select(f => f.Name).Distinct(StringComparer.Ordinal).Count() != type.Fields.Count) throw new ArgumentException("Duplicate business fields.");
-            schema["properties"] = new JsonObject(type.Fields.Select(f => new KeyValuePair<string, JsonNode?>(f.Name, TypeSchema(f.Type))));
+            schema["properties"] = new JsonObject(type.Fields.Select(f => new KeyValuePair<string, JsonNode?>(f.Name, TypeSchema(f.Type, advisoryOptimization))));
             schema["required"] = new JsonArray(type.Fields.Where(f => f.Required).Select(f => (JsonNode?)JsonValue.Create(f.Name)).ToArray());
             schema["additionalProperties"] = false;
         }
@@ -642,6 +653,8 @@ public sealed partial class TaskPlanCompiler
         if (value.Kind == "output" && value.Source is not null && !scope.Tasks.ContainsKey(value.Source) &&
             _symbols.Values.TryGetValue(_location, out var site) && _symbols.ExportedReference(site.Scope, value) is { } exported)
             value = exported;
+        if (value.Kind is "output" or "present" && value.Source is { } unfinished && _constructionUnavailable?.Contains(unfinished) == true)
+            Fail("TASK_SCOPE_OPEN", "Task '" + unfinished + "' has unfinished scopes. Close its construction boundary before consuming its outputs or completion.");
         // Presence reads the whole task result, which preflight withholds after an invalid export.
         var referenceKind = value.Kind == "present" ? "output" : value.Kind;
         var referencePort = value.Kind == "present" ? "" : value.Port ?? "";
@@ -702,12 +715,13 @@ public sealed partial class TaskPlanCompiler
                 if (scope.Parent is null) Fail("TASK_PRESENCE_SCOPE", "Presence requires a preceding task in this scope or a lexical ancestor. A scope export exposes data, not the inner task's completion." + _symbols.ReferenceContext(_location, value.Source));
                 break;
             case "arithmetic": return Arithmetic(value, scope);
+            case "string_operation": return StringOperation(value, scope);
             case "predicate": return Predicate(value, scope);
             case "json": return EncodeJson(value, scope);
             case "flatten": return Flatten(value, scope);
             case "lookup": return Lookup(value, scope);
             case "field": return SelectField(value, scope, consume);
-            default: Fail("TASK_VALUE_INVALID", "Values allow literals, business references, declared fields, JSON encoding, typed arithmetic and predicates only."); break;
+            default: Fail("TASK_VALUE_INVALID", "Values allow literals, business references, declared fields, JSON encoding, typed string operations, arithmetic and predicates only."); break;
         }
         if (value.Kind == "output" && scope.FailurePath && value.Source is not null)
             return CaptureFailureOutput(value, scope, consume);
@@ -767,6 +781,17 @@ public sealed partial class TaskPlanCompiler
             scope.Target.Add(node); _sources[key] = _location;
         }
         return Output(key, "set", ["value"], value.Schema) with { TypeLocation = value.TypeLocation };
+    }
+
+    private Bound StringOperation(TaskValue value, Scope scope)
+    {
+        if (value.Source is not null || value.Port is not null || value.Predicate is not null || value.Number is not null ||
+            value.Boolean is not null || value.Members.Count != 0)
+            Fail("TASK_STRING_OPERATION_INVALID", "String operation contains unsupported fields.");
+        var operands = value.Items.Select(item => Value(item, scope)).ToArray();
+        var computation = new PlanningValue { Kind = "string_operation", Text = value.Text, Items = operands.Select(operand => operand.Value).ToList() };
+        try { return new(computation, PlanningValues.ComputationContract(computation, operand => operands.First(item => ReferenceEquals(item.Value, operand)).Schema)); }
+        catch (InvalidOperationException error) { Fail("TASK_STRING_OPERATION_INVALID", error.Message); throw; }
     }
 
     private Bound Arithmetic(TaskValue value, Scope scope)
@@ -905,7 +930,7 @@ public sealed partial class TaskPlanCompiler
     private static string ValueIdentity(PlanningValue value) => JsonSerializer.Serialize(value, PlanningJsonContext.Default.PlanningValue);
     private static bool Literal(TaskValue value) => value.Kind is "null" or "string" or "number" or "boolean" || value.Kind == "object" && value.Members.All(m => Literal(m.Value)) || value.Kind == "array" && value.Items.All(Literal);
     private void RequireBoolean(Bound value) { if (value.Schema["type"]?.ToString() != "boolean") Fail("TASK_CONDITION_TYPE", "Conditions require a boolean business value."); }
-    private JsonObject Schema(TaskType type) { try { return TypeSchema(type); } catch (ArgumentException ex) { Fail("TASK_TYPE_INVALID", ex.Message); return null!; } }
+    private JsonObject Schema(TaskType type) { try { return TypeSchema(type, _advisoryOptimization); } catch (ArgumentException ex) { Fail("TASK_TYPE_INVALID", ex.Message); return null!; } }
     private void Unique(IEnumerable<string> names)
     {
         var list = names.ToArray();

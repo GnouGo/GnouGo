@@ -6,7 +6,7 @@ namespace GnOuGo.KeyVault.Core.Services;
 /// <summary>
 /// Native AOT-friendly encrypted record store backed by the shared KeyVault database.
 /// </summary>
-public sealed class KeyVaultRecordStore : IKeyVaultRecordStore
+public sealed partial class KeyVaultRecordStore : IKeyVaultRecordStore, IKeyVaultRecordReader
 {
     private const string DefaultTenantName = "__default__";
     private const string DefaultAuthor = "GnOuGo.KeyVault.Core";
@@ -92,7 +92,9 @@ public sealed class KeyVaultRecordStore : IKeyVaultRecordStore
         {
             await using var connection = await OpenAsync(ct);
             var (_, privateKeyPem) = await EnsureDefaultKeyPairAsync(connection, ct);
+            await using var snapshot = connection.BeginTransaction(deferred: true);
             await using var command = connection.CreateCommand();
+            command.Transaction = snapshot;
             command.CommandText = """
                 SELECT EncryptedValue, CreatedAtTicks, UpdatedAtTicks
                 FROM KeyVaultRecords
@@ -112,8 +114,10 @@ public sealed class KeyVaultRecordStore : IKeyVaultRecordStore
             var updatedAtTicks = reader.GetInt64(2);
             await reader.DisposeAsync();
 
-            var value = CryptoService.Decrypt(encryptedValue, privateKeyPem);
+            var payload = await ReadEncryptedPayloadAsync(connection, collection, tenantId, key, encryptedValue, ct, snapshot);
+            await snapshot.CommitAsync(ct);
             await WriteAuditAsync(connection, collection, tenantId, key, "GetRecord", author, null, ct);
+            var value = DecryptPayload(payload, privateKeyPem);
             return ToValue(collection, tenantId, key, value, createdAtTicks, updatedAtTicks);
         }
         finally
@@ -135,10 +139,23 @@ public sealed class KeyVaultRecordStore : IKeyVaultRecordStore
         {
             await using var connection = await OpenAsync(ct);
             var (publicKeyPem, _) = await EnsureDefaultKeyPairAsync(connection, ct);
-            var encryptedValue = CryptoService.Encrypt(value, publicKeyPem);
+            var paged = value.Length > PayloadChunkCharacters;
+            var encryptedValue = CryptoService.Encrypt(paged ? PayloadHeader(value, collection, tenantId, key) : value, publicKeyPem);
+            var id = await ReadRecordIdAsync(connection, collection, tenantId, key, ct) ?? Guid.CreateVersion7().ToString();
+            // RSA/AES work happens before acquiring SQLite's write reservation. The
+            // actual identity is checked inside the transaction before publishing.
+            var payload = PreparePayload(id, collection, tenantId, key, paged ? value : null, publicKeyPem, ct);
             var nowTicks = DateTimeOffset.UtcNow.UtcTicks;
 
             await using var transaction = connection.BeginTransaction();
+            await using (var clock = connection.CreateCommand())
+            {
+                clock.Transaction = transaction;
+                clock.CommandText = "SELECT COALESCE(MAX(UpdatedAtTicks),0) FROM KeyVaultRecords WHERE Collection=$collection AND TenantId=$tenant;";
+                clock.Parameters.AddWithValue("$collection", collection);
+                clock.Parameters.AddWithValue("$tenant", tenantId);
+                nowTicks = Math.Max(nowTicks, (long)(await clock.ExecuteScalarAsync(ct) ?? 0L) + 1);
+            }
             await using (var command = connection.CreateCommand())
             {
                 command.Transaction = transaction;
@@ -152,7 +169,7 @@ public sealed class KeyVaultRecordStore : IKeyVaultRecordStore
                         UpdatedAtTicks = excluded.UpdatedAtTicks,
                         UpdatedBy = excluded.UpdatedBy;
                     """;
-                command.Parameters.AddWithValue("$id", Guid.CreateVersion7().ToString());
+                command.Parameters.AddWithValue("$id", id);
                 command.Parameters.AddWithValue("$collection", collection);
                 command.Parameters.AddWithValue("$tenantId", tenantId);
                 command.Parameters.AddWithValue("$recordKey", key);
@@ -164,6 +181,7 @@ public sealed class KeyVaultRecordStore : IKeyVaultRecordStore
             }
 
             var timestamps = await ReadTimestampsAsync(connection, transaction, collection, tenantId, key, ct);
+            await WritePayloadAsync(connection, transaction, collection, tenantId, key, payload, ct);
             await WriteAuditAsync(
                 connection,
                 transaction,
@@ -195,7 +213,9 @@ public sealed class KeyVaultRecordStore : IKeyVaultRecordStore
         {
             await using var connection = await OpenAsync(ct);
             var (_, privateKeyPem) = await EnsureDefaultKeyPairAsync(connection, ct);
+            await using var snapshot = connection.BeginTransaction(deferred: true);
             await using var command = connection.CreateCommand();
+            command.Transaction = snapshot;
             command.CommandText = """
                 SELECT RecordKey, EncryptedValue, CreatedAtTicks, UpdatedAtTicks
                 FROM KeyVaultRecords
@@ -218,15 +238,10 @@ public sealed class KeyVaultRecordStore : IKeyVaultRecordStore
                 }
             }
 
-            var records = encryptedRecords
-                .Select(record => ToValue(
-                    collection,
-                    tenantId,
-                    record.Key,
-                    CryptoService.Decrypt(record.EncryptedValue, privateKeyPem),
-                    record.CreatedAtTicks,
-                    record.UpdatedAtTicks))
-                .ToArray();
+            var payloads = new List<EncryptedPayload>();
+            foreach (var record in encryptedRecords)
+                payloads.Add(await ReadEncryptedPayloadAsync(connection, collection, tenantId, record.Key, record.EncryptedValue, ct, snapshot));
+            await snapshot.CommitAsync(ct);
             await WriteAuditAsync(
                 connection,
                 collection,
@@ -234,8 +249,10 @@ public sealed class KeyVaultRecordStore : IKeyVaultRecordStore
                 recordKey: null,
                 "ListRecords",
                 author,
-                $"Returned {records.Length} record(s)",
+                $"Returned {encryptedRecords.Count} record(s)",
                 ct);
+            var records = encryptedRecords.Select((record, index) => ToValue(collection, tenantId, record.Key,
+                DecryptPayload(payloads[index], privateKeyPem), record.CreatedAtTicks, record.UpdatedAtTicks)).ToList();
             return records;
         }
         finally
@@ -303,22 +320,29 @@ public sealed class KeyVaultRecordStore : IKeyVaultRecordStore
             DataSource = _databasePath,
             Mode = SqliteOpenMode.ReadWriteCreate,
             Cache = SqliteCacheMode.Shared,
-            DefaultTimeout = 5
+            DefaultTimeout = 1
         }.ToString());
-        await connection.OpenAsync(ct);
-
-        await using (var pragma = connection.CreateCommand())
+        try
         {
-            pragma.CommandText = "PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON;";
-            await pragma.ExecuteNonQueryAsync(ct);
-        }
+            await connection.OpenAsync(ct);
+            await using (var pragma = connection.CreateCommand())
+            {
+                pragma.CommandText = "PRAGMA busy_timeout=100; PRAGMA foreign_keys=ON;";
+                await pragma.ExecuteNonQueryAsync(ct);
+            }
 
-        if (!_initialized)
-        {
-            await EnsureSchemaAsync(connection, ct);
-            _initialized = true;
+            if (!_initialized)
+            {
+                await EnsureSchemaAsync(connection, ct);
+                _initialized = true;
+            }
+            return connection;
         }
-        return connection;
+        catch
+        {
+            await connection.DisposeAsync();
+            throw;
+        }
     }
 
     private static async Task EnsureSchemaAsync(SqliteConnection connection, CancellationToken ct)
@@ -390,6 +414,19 @@ public sealed class KeyVaultRecordStore : IKeyVaultRecordStore
                 ON KeyVaultRecords (Collection, TenantId, RecordKey);
             CREATE INDEX IF NOT EXISTS IX_KeyVaultRecords_TenantId_UpdatedAtTicks
                 ON KeyVaultRecords (TenantId, UpdatedAtTicks);
+            CREATE INDEX IF NOT EXISTS IX_KeyVaultRecords_Collection_TenantId_UpdatedAtTicks_Key
+                ON KeyVaultRecords (Collection, TenantId, UpdatedAtTicks, RecordKey);
+
+            CREATE TABLE IF NOT EXISTS KeyVaultRecordPayloads (
+                RecordId TEXT PRIMARY KEY REFERENCES KeyVaultRecords(Id) ON DELETE CASCADE,
+                Version TEXT NOT NULL, Characters INTEGER NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS KeyVaultRecordChunks (
+                RecordId TEXT NOT NULL REFERENCES KeyVaultRecords(Id) ON DELETE CASCADE,
+                Version TEXT NOT NULL, Part INTEGER NOT NULL, Offset INTEGER NOT NULL,
+                Characters INTEGER NOT NULL, EncryptedValue TEXT NOT NULL,
+                PRIMARY KEY (RecordId, Part)
+            );
 
             CREATE TABLE IF NOT EXISTS KeyVaultRecordAuditEntries (
                 Id TEXT NOT NULL CONSTRAINT PK_KeyVaultRecordAuditEntries PRIMARY KEY,
@@ -538,7 +575,7 @@ public sealed class KeyVaultRecordStore : IKeyVaultRecordStore
     {
         try
         {
-            return await action();
+            return await RetryContentionAsync(action, ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -546,9 +583,27 @@ public sealed class KeyVaultRecordStore : IKeyVaultRecordStore
         }
         catch (Exception ex) when (IsAccessFailure(ex))
         {
-            throw new KeyVaultAccessException($"KeyVault could not {operation}.", ex);
+            throw new KeyVaultAccessException($"KeyVault could not {operation}.", ex, ex is SqliteException { SqliteErrorCode: 5 or 6 });
         }
     }
+
+    private static async Task<T> RetryContentionAsync<T>(Func<Task<T>> action, CancellationToken ct)
+    {
+        // Each failed attempt disposes its transaction/connection before yielding.
+        // Never retry crypto, ownership/version, permission or integrity failures.
+        for (var attempt = 0; ; attempt++)
+        {
+            ct.ThrowIfCancellationRequested();
+            try { return await action(); }
+            catch (Exception ex) when (attempt < 4 &&
+                (ex is SqliteException { SqliteErrorCode: 5 or 6 } || ex is PublicationConflictException))
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(50 * (1 << attempt)), ct);
+            }
+        }
+    }
+
+    private sealed class PublicationConflictException : InvalidOperationException;
 
     private static bool IsAccessFailure(Exception exception)
         => exception is IOException

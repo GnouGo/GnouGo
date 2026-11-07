@@ -1,0 +1,11 @@
+{
+  "originalPublicRecordValuesUnchanged": true,
+  "recordCount": 9,
+  "beforeAndAfterSha256": "29684d8d91f0dca6e7f4623e6fc7601255ffe4b7553ed6c259f5f477863a420d",
+  "accountingExactlyUnchanged": true,
+  "retentionEvidenceHash": "b03322da0283377945ddab40ea460c0b82d6c3c3468ada70660a2902abe32b39",
+  "reservationEur": "7.297671294223018360949395432",
+  "reservationRetained": true,
+  "replayForbidden": true,
+  "runContinuationForbidden": true
+}

@@ -1,0 +1,128 @@
+{
+  "version": 1,
+  "recorded_at_utc": "2026-10-24T09:50:17.035860+00:00",
+  "validated_parent": "c7f7629fe2ecb9a688fa71ec35bf3e60b3e1a889",
+  "source_file_sha256": {
+    ".agents/skills/gnougo-planning/SKILL.md": "fbdfd958892b100e348084c47f1d084bd1c2ff29c1a077242a95f0caa2b099ff",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Closure.cs": "07ea257ab3b218ead2bea61936721f2f2d5c2f52020af83720fcf3aba860199b",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Schemas.cs": "1006543b174dde8e2e1ae20d2314cf6e34161f04571f4b7d378bbd5094b19580",
+    "src/GnOuGo.Flow.Planning/PlanningConstruction.DefectProgress.cs": "76ad9d7013a0514122d23b0014570cd76ff49be30a0bd075f9e2eec4ebe5aa1b",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactAcceptedClosureTests.cs": "67700aa7d9fd8240c70b715db3f91be9a62522d3f9656d943b45e0184c2375f9",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactConvergentJudgeTests.cs": "1eedf6004df7c558fbb7cbfed3a4edacf095dc7f768ef3e903337ac708c3c187",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactLoopCapacityPresentationTests.cs": "2eb88d041effd72b55a9bacd320bfafe06f6c6e0484226a9e7b82356a469fff1",
+    "tests/GnOuGo.Flow.Planning.Tests/ConstructionDefectProgressTests.cs": "c2b8c9f89b8a9d57458c5b4caba35c4951448994baaefedec670089373093ba5"
+  },
+  "focused_results": {
+    "host_closure_identity": {
+      "before_failed": 1,
+      "after_passed": 80,
+      "after_failed": 0
+    },
+    "review_capacity_applicability": {
+      "passed": 64,
+      "failed": 0
+    },
+    "accepted_defect_evidence": {
+      "before_failed": 1,
+      "after_passed": 91,
+      "after_failed": 0
+    }
+  },
+  "evidence": [
+    {
+      "change": "host_closure_identity",
+      "evidence": {
+        "file": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/host-closure-identity-c7f7629f/validation-safe.json",
+        "sha256": "6d6fac9af51870466b77e7a53339430026863df8c3b719e1a210b2e65794e98c"
+      }
+    },
+    {
+      "change": "review_capacity_applicability",
+      "evidence": {
+        "file": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/judge-capacity-c7f7629f/validation-safe.json",
+        "sha256": "17b35d94aa4f65cfd6513b9c12b2c6aa375f55a3a9dabb105aa618d1c6de97af"
+      }
+    },
+    {
+      "change": "accepted_defect_evidence",
+      "evidence": {
+        "file": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/accepted-defect-evidence-c7f7629f/validation-rollup-safe.json",
+        "sha256": "09f5501a1b7028713eb58cf68333a7e586cec6b28d466bb7cdbb0466e21de71f"
+      },
+      "copy": {
+        "file": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/accepted-defect-evidence-c7f7629f/copy-safe.json",
+        "sha256": "f7b5aca4d5c4787cec5f3b27c4fe7bbdda789e77534618bfd3a18ec23f6ca854"
+      }
+    }
+  ],
+  "combined_validation": {
+    "evidence": {
+      "file": "/private/tmp/gnougo-combined-convergence-validation.nrqlysai/validation-combined-safe.json",
+      "sha256": "72f991a0598aa258771f9d1de264732efb74bd3c7aee9f79cf5631fc0a958c06"
+    },
+    "passed": 2924,
+    "failed": 0,
+    "skipped": 0,
+    "source_unchanged": true,
+    "main_source_matches_snapshot": true,
+    "source_file_count": 1986,
+    "commands": [
+      {
+        "name": "planning",
+        "command": [
+          "dotnet",
+          "test",
+          "tests/GnOuGo.Flow.Planning.Tests/GnOuGo.Flow.Planning.Tests.csproj",
+          "-m:1",
+          "-warnaserror",
+          "-p:SkipModelMetadataGeneration=true",
+          "--logger",
+          "trx;LogFileName=planning.trx",
+          "--results-directory",
+          "/private/tmp/gnougo-combined-convergence-validation.nrqlysai"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 253.83,
+        "log": "/private/tmp/gnougo-combined-convergence-validation.nrqlysai/planning.log",
+        "log_sha256": "ec585b77d8a0c8d0b5537f69b7f3de0e08f6d51097bebb36883d6582ece85dfc",
+        "trx": "/private/tmp/gnougo-combined-convergence-validation.nrqlysai/planning.trx",
+        "trx_sha256": "ef03be2d0a41be8ac1541fd2424f2130536b024549271a70e9476b1190ad16d6",
+        "passed": 2862,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "hosts",
+        "command": [
+          "dotnet",
+          "test",
+          "tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj",
+          "-m:1",
+          "-warnaserror",
+          "-p:SkipModelMetadataGeneration=true",
+          "--filter",
+          "FullyQualifiedName~DelegatedTestReviewTests|FullyQualifiedName~PlanningPersistenceTests|FullyQualifiedName~CompactConstructionHostTests|FullyQualifiedName~PlanningTraceUiTests.ReviewShowsOriginalRequestAndAssertionsWithoutAcknowledgingOrExecutingContent|FullyQualifiedName~PlanningTraceUiTests.Approval",
+          "--logger",
+          "trx;LogFileName=hosts.trx",
+          "--results-directory",
+          "/private/tmp/gnougo-combined-convergence-validation.nrqlysai"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 61.485,
+        "log": "/private/tmp/gnougo-combined-convergence-validation.nrqlysai/hosts.log",
+        "log_sha256": "47fc34d7c86b4566404c3ad9025f4e423a20df4093c3f34c3333ca724428beed",
+        "trx": "/private/tmp/gnougo-combined-convergence-validation.nrqlysai/hosts.trx",
+        "trx_sha256": "effc45ab340638e0fa9878951cb3309cd7f9207850d13096eaa67a2a93127296",
+        "passed": 62,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  "interpretation": [
+    "Focused filters overlap and must not be added as distinct tests.",
+    "The automatic-closure approval failure and missing exact accepted-task support are reproduced against the original production code.",
+    "Capacity applicability is a generic presentation correction; explicit required-count conflicts remain blocking and no finding is automatically dismissed.",
+    "All three preserve historical requests and accounting. No live success or causal explanation of reasoning exhaustion is claimed."
+  ]
+}

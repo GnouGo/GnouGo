@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
+using GnOuGo.Flow.Core.Planning;
 
 namespace GnOuGo.Flow.Core.Runtime.Executors;
 
@@ -65,10 +66,12 @@ public sealed class AgentRunExecutor : IStepExecutor
             await ctx.RecordExternalObservationAsync(observation, CancellationToken.None);
         else await ctx.RecordExternalCompletionAsync(observation, CancellationToken.None);
         return await ValidateResultAsync(context, result, ctx.Engine.AgentTaskVerifier, ct,
-            verified => ctx.RecordExternalCompletionAsync(JsonSerializer.SerializeToNode(verified, AgentTaskJsonContext.Default.AgentTaskResult), CancellationToken.None));
+            verified => ctx.RecordExternalCompletionAsync(JsonSerializer.SerializeToNode(verified, AgentTaskJsonContext.Default.AgentTaskResult), CancellationToken.None),
+            advisoryTokenThresholds: ctx.LLMUsageBudget?.AdvisoryTokenThresholds == true);
     }
 
-    internal static async Task<JsonNode?> ValidateResultAsync(AgentTaskContext context, AgentTaskResult result, IAgentTaskVerifier verifier, CancellationToken ct, Func<AgentTaskResult, Task>? persistVerified = null)
+    internal static async Task<JsonNode?> ValidateResultAsync(AgentTaskContext context, AgentTaskResult result, IAgentTaskVerifier verifier, CancellationToken ct, Func<AgentTaskResult, Task>? persistVerified = null,
+        bool advisoryTokenThresholds = false)
     {
         var task = context.Task;
         if (result.Status == "completed" && result.Failure is not null)
@@ -83,9 +86,11 @@ public sealed class AgentRunExecutor : IStepExecutor
                 { ["cause"] = JsonSerializer.SerializeToNode(cause, WorkflowRunJsonContext.Default.WorkflowError) } : null);
         if (result.Status != "completed")
             throw Failure("AGENT_TASK_FAILED", "The agent did not complete the approved task.");
+        if (advisoryTokenThresholds && result.Usage.TotalTokens > task.Budget.MaxTotalTokens)
+            PlanningTokenThresholds.Warn("agent.run", "total_tokens", result.Usage.TotalTokens, task.Budget.MaxTotalTokens);
         if (result.Usage.ModelCalls < 0 || result.Usage.TotalTokens < 0 || !double.IsFinite(result.Usage.ElapsedMilliseconds) ||
             result.Usage.ElapsedMilliseconds < 0 || result.Usage.ModelCalls > task.Budget.MaxModelCalls ||
-            result.Usage.TotalTokens > task.Budget.MaxTotalTokens || result.Usage.ElapsedMilliseconds > task.Budget.MaxElapsedMilliseconds)
+            result.Usage.TotalTokens > task.Budget.MaxTotalTokens && !advisoryTokenThresholds || result.Usage.ElapsedMilliseconds > task.Budget.MaxElapsedMilliseconds)
             throw Failure("AGENT_BUDGET_EXCEEDED", "Observed agent usage violates the approved budget.");
         if (JsonSchemaContractValidator.ValidateInstance(result.Output, task.OutputSchema).Count > 0)
             throw Failure("AGENT_OUTPUT_INVALID", "The agent result does not satisfy its approved output contract.");

@@ -1,0 +1,52 @@
+{
+  "currency": "EUR",
+  "initialCodeDefault": "50",
+  "firstRecordedUserTotalAuthorization": "400",
+  "retainedLostLedgerUpperBound": "159.96989616729369545755505266",
+  "freshCampaignAllowance": "240.0301038327063045424449473",
+  "subsequentAuthorizedIncrements": [
+    "200",
+    "100",
+    "100",
+    "100"
+  ],
+  "totalAuthorizationIncludingLostLedger": "900",
+  "effectiveCurrentCampaignCeiling": "740.0301038327063045424449473",
+  "retainedLostLedgerEvidence": "The authorization says the previous encrypted ledger was lost with no backup. Its retained prior upper bound reduces the fresh allowance; it is not added again to the new campaign exposure. Missing receipts are not reconstructed.",
+  "authorizationHistory": [
+    {
+      "previousCeilingEur": 50,
+      "ceilingEur": "240.0301038327063045424449473",
+      "authorizedAtUtc": "2026-10-19T08:39:51.7505920+00:00",
+      "authorizationHash": "0d6c8c90a01108d3297675a6b36152dd9204349aa52c5eca23adca243b0ffb77"
+    },
+    {
+      "previousCeilingEur": "240.0301038327063045424449473",
+      "ceilingEur": "440.0301038327063045424449473",
+      "authorizedAtUtc": "2026-10-25T11:08:48.1254490+00:00",
+      "authorizationHash": "65c92ab74ef297bc45a3da69d9301d4841c9ee61c0fcbf4f8877bdc830b4b5d9"
+    },
+    {
+      "previousCeilingEur": "440.0301038327063045424449473",
+      "ceilingEur": "540.0301038327063045424449473",
+      "authorizedAtUtc": "2026-10-27T12:20:07.1756420+00:00",
+      "authorizationHash": "2363ab91f9d7ed5db6df842aeb49e1e90b21fe9904a3d65daa5959553f32046f"
+    },
+    {
+      "previousCeilingEur": "540.0301038327063045424449473",
+      "ceilingEur": "640.0301038327063045424449473",
+      "authorizedAtUtc": "2026-10-29T07:38:11.5091250+00:00",
+      "authorizationHash": "16f9985034ae25f5fc01bea1ed929317a6eaead966b53bfca267bfc30e7b1945"
+    },
+    {
+      "previousCeilingEur": "640.0301038327063045424449473",
+      "ceilingEur": "740.0301038327063045424449473",
+      "authorizedAtUtc": "2026-10-30T14:01:44.6897060+00:00",
+      "authorizationHash": "fcd03cd7ede1e1a3ccc900b94df3c9de2f6d82a48a3a85889e74e085f1427109"
+    }
+  ],
+  "authorizationAuditSha256": "50abf61e55924b8e073979742a36c2fe7357733b6f8a09a5210576877c9af033",
+  "exactOriginalSubtractionEur": "240.03010383270630454244494734",
+  "storedAllowanceBelowExactSubtractionEur": "4E-26",
+  "decimalRepresentabilityNote": "The recorded fresh allowance is slightly below the exact subtraction. No upward spending adjustment was made."
+}

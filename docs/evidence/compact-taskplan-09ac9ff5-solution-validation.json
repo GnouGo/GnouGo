@@ -1,0 +1,23 @@
+{
+  "exit_code": 0,
+  "counts": {
+    "Passed": 9015,
+    "NotExecuted": 13
+  },
+  "elapsed_seconds": 5466.22267066699,
+  "source_unchanged": true,
+  "log_sha256": "9b14367d37c3154b7746d056bf7440f708344b21c5a7ef2b96f714082199dbb8",
+  "production_source": "09ac9ff58fed9a772d4c6bd063f2bb7f8876a753",
+  "source_manifest_sha256": "7e7a4d1e9b159386d15e2f4af3fdc908fb2bba2c29c81d2d00b495468f72cf50",
+  "owning_command": [
+    "dotnet",
+    "test",
+    "GnOuGo.Agent.sln",
+    "-m:1",
+    "-warnaserror"
+  ],
+  "isolated": true,
+  "current_production_and_test_postimages_match": true,
+  "overlap": "The 3681 Planning cases and focused subsets are included, not added to this total.",
+  "business_gate": "1/6 after the independently accepted Collections run; no Amazon/Review PR runtime success inferred."
+}

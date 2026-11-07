@@ -2,12 +2,51 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
 using Xunit;
 
 namespace GnOuGo.Flow.Tests.Runtime;
 
 public sealed partial class DynamicMappingCollectionTests
 {
+    [Theory]
+    [InlineData(12000, 96000, false)]
+    [InlineData(96000, 12000, false)]
+    [InlineData(12000, 96000, true)]
+    [InlineData(96000, 12000, true)]
+    public async Task TrustedAdvisoryRuntimeKeepsWholeExamplesAndDispatchesPastEstimatedThresholds(int hostLimit, int modelLimit, bool durable)
+    {
+        var model = new Model("item.label") { Allowance = modelLimit };
+        var engine = AdaptiveEngine(model); engine.Limits.MaxMappingInputTokens = hostLimit;
+        var journal = new InMemoryWorkflowRunStore();
+        if (durable) { engine.RunStore = journal; engine.Limits.RunId = "trusted-advisory"; }
+        engine.LLMUsageBudget = new LLMUsageBudgetScope(true, new() { MaxCalls = 1, MaxTotalTokens = 1 });
+        var input = new JsonArray(new JsonObject { ["label"] = "first", ["text"] = new string('x', 24000) },
+            new JsonObject { ["label"] = "second", ["text"] = new string('x', 24000) });
+        var result = await AdaptiveRun(engine, input);
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.True(JsonNode.DeepEquals(new JsonArray("first", "second"), Result(result)));
+        var request = Assert.Single(model.Requests);
+        Assert.True(ModelRequestAdmission.EstimateTokens(request) > 12000 ||
+            Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)) + 4096 > 12000);
+        var data = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
+        Assert.NotEmpty(data["examples"]!.AsArray());
+        foreach (var example in data["examples"]!.AsArray())
+            Assert.True(JsonNode.DeepEquals(input[example!["index"]!.GetValue<int>()], example["item"]));
+        var usage = durable ? (await journal.ReadAsync("tenant", "trusted-advisory", Ct))!.ModelUsage! : engine.LLMUsageBudget.Snapshot;
+        Assert.Equal(1, usage.Calls);
+        Assert.True(usage.TotalTokens > 1);
+        Assert.True(engine.LLMUsageBudget.AdvisoryTokenThresholds);
+        Assert.Contains(usage.Warnings!, warning => warning.Stage == "mapping.dynamic" && warning.Kind == "estimated_input_bound" &&
+            warning.Current > warning.Threshold && warning.RequestId == request.ClientRequestId);
+        Assert.Contains(usage.Warnings!, warning => warning.Kind == "total_tokens" && warning.Current > 1 && warning.RequestId == request.ClientRequestId);
+        var saved = JsonSerializer.Serialize(usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
+        Assert.DoesNotContain(new string('x', 30), saved, StringComparison.Ordinal);
+        var restored = new LLMUsageBudgetScope(true, engine.LLMUsageBudget.Limits,
+            JsonSerializer.Deserialize(saved, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
+        Assert.Equal(saved, JsonSerializer.Serialize(restored.Snapshot, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
+    }
+
     [Theory]
     [InlineData(12000, 96000, "host")]
     [InlineData(96000, 12000, "model")]

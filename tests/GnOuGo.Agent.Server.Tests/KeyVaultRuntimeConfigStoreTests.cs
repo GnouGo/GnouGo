@@ -123,6 +123,9 @@ public sealed class KeyVaultRuntimeConfigStoreTests
                         RequestPolicy = new LLMProviderRequestPolicyOptions
                         {
                             BackgroundProtocol = LLMBackgroundProtocolMode.ChatCompletions,
+                            BillingServiceTier = "fast",
+                            BillingRegionalProcessing = true,
+                            BillingCacheRetention = "12h",
                             UnspecifiedOutputTokens = LLMUnspecifiedOutputTokensMode.Configured,
                             DefaultMaxOutputTokens = 4_096,
                             MaxOutputTokensCap = 8_192
@@ -157,7 +160,11 @@ public sealed class KeyVaultRuntimeConfigStoreTests
             Assert.Equal("https://api.openai.com/v1", providerConfig.Url);
             Assert.Equal("top-secret", providerConfig.ApiKey);
             Assert.Equal("gpt-4.1", effective.DefaultModel);
+            Assert.Equal("gpt-4.1", await store.GetConfiguredModelAsync("OPENAI", CancellationToken.None));
             Assert.Equal(LLMBackgroundProtocolMode.ChatCompletions, providerConfig.RequestPolicy.BackgroundProtocol);
+            Assert.Equal("fast", providerConfig.RequestPolicy.BillingServiceTier);
+            Assert.True(providerConfig.RequestPolicy.BillingRegionalProcessing);
+            Assert.Equal("12h", providerConfig.RequestPolicy.BillingCacheRetention);
             Assert.Equal(4_096, providerConfig.RequestPolicy.DefaultMaxOutputTokens);
             Assert.Equal(2, providerConfig.RetryPolicy.MaxAttempts);
             Assert.Equal(0, providerConfig.RetryPolicy.MaxUncertainRetries);

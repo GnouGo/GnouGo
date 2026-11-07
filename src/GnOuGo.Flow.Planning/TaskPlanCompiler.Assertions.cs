@@ -109,7 +109,7 @@ public sealed partial class TaskPlanCompiler
                 var group = _plan.Groups.SingleOrDefault(g => ReferenceEquals(g.Body, scope.Source));
                 var input = (group?.Inputs ?? _plan.Inputs).Single(i => i.Name == value.Source);
                 var path = (group is null ? "" : "/groups/" + group.Id) + "/inputs/" + value.Source;
-                return (scope.Path + "/input/" + Part(value.Source), path + " " + TypeSchema(input.Type).ToJsonString());
+                return (scope.Path + "/input/" + Part(value.Source), path + " " + TypeSchema(input.Type, _advisoryOptimization).ToJsonString());
             }
             if (value.Kind == "output" && value.Source is { } id)
             {

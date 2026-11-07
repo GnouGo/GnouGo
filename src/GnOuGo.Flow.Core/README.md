@@ -1,5 +1,22 @@
 # GnOuGo.Flow — YAML Workflow DSL Engine
 
+Hosts can attach `LLMUsageBudgetScope.CreateTrackingOnly(...)` to record usage,
+tariff estimates and uncertain reservations without application consumption ceilings.
+This explicit scope is distinct from ordinary `LLMUsageBudgetLimits`, which still
+requires positive finite limits. Finite child/workflow limits remain mandatory.
+New durable runs capture the selected policy; historical runs never inherit current
+host defaults. Unavailable pricing/FX is marked explicitly and does not mean zero cost.
+Physical provider capacity, request timeouts, retries, cancellation and execution
+resources remain bounded. Agent.Server/Desktop expose the protected shared setting
+described in [application consumption](../../docs/diagnostic-planning.md#application-llm-consumption).
+
+Monetary admission compares exact scaled decimal amounts. Cumulative estimates
+round upward only when the exact aggregate exceeds decimal precision; settlement
+never rounds below its immutable receipt charges. Restore validates journal totals
+independently of entry order. Individual historical charges, reservations and
+captured tariffs are unchanged; an inconsistent historical snapshot is not repaired
+or repriced automatically.
+
 Execution storage uses `IWorkflowRunStore` (schema 9). Hosts inject the separately publishable `GnOuGo.Flow.Persistence`; Core remains independent of persistence libraries. A run records invocation paths, inputs, control decisions, receipts, usage, pending human answers and finalization. `ResumeAsync(tenantId, runId, expectedRevision, workflow, ct)` follows the same execution path as a new run. An external operation with an unknown outcome requires reconciliation and prevents cleanup. Custom executors default to external effects; declare `StepRecovery.ReplaySafe` only when restarting the executor cannot repeat an external effect.
 
 
@@ -29,7 +46,7 @@ Write YAML workflows that orchestrate LLMs, MCP servers, templates, loops, human
 Core owns `PlanningSession`, reviewable requirements, `TaskPlan`, `PlanningGraph`, typed contracts and provider-neutral planning interfaces. It references no other GnOuGo project. Hosts inject the separately publishable Planning implementation and Integrations persistence boundary.
 
 
-The flow is requirements → progressive discovery → semantic TaskPlan → deterministic compilation → PlanningGraph → YAML → validation → scoped TaskPlan repair → approval. Bounded task revisions preserve unaffected generated stages. Planning format 10 records TaskPlan intent and choices; execution journal schema 9 is unchanged. Generated glue uses literals, references, simple conditions and registered typed primitives. Explicit semantic `transform` tasks declare typed business results and lower to fixed prompt assembly plus strict structured inference; `value` tasks only copy or assemble values. Authored YAML retains its expression language. Runtime confirmation for protected effects is separate from final artifact approval. See [workflow planning](../../docs/workflow-planning-v9.md).
+The flow is requirements → progressive discovery → semantic TaskPlan → deterministic compilation → PlanningGraph → YAML → validation → scoped TaskPlan repair → approval. Bounded task revisions preserve unaffected generated stages. Internal planning format 11 records TaskPlan intent and choices; execution journal schema 9 is unchanged. Generated glue uses literals, references, simple conditions and registered typed primitives. Explicit semantic `transform` tasks declare typed business results and lower to fixed prompt assembly plus strict structured inference; `value` tasks only copy or assemble values. Authored YAML retains its expression language. Runtime confirmation for protected effects is separate from final artifact approval. See [workflow planning](../../docs/workflow-planning-v9.md).
 
 Workflow ports can carry an authoritative `schema` object when shorthand types cannot express a catalog contract. JSON Schema constraints and defaults survive parsing, contract export and runtime input/output validation. Planning derives these ports; the model does not reproduce their schemas.
 
@@ -1301,7 +1318,7 @@ Before each selected workflow runs, `workflow.route` emits a `gnougo-flow.step.t
 
 ### Checked mapping and runtime extraction
 
-Typed bindings compile to checked `set` expressions at final lowering. Insufficiently typed observations use the compiler-owned `mapping.dynamic` step with a restricted source-grounded Jint expression, immutable target schema and validated tenant cache. Historical bindings retain at most two model attempts. Fresh adaptive independent bindings specialize only unresolved items under an explicitly configured finite cumulative runtime budget; all items and the complete result still validate before publication. Business plans contain neither scripts nor mapping executors.
+Typed bindings compile to checked `set` expressions at final lowering. Insufficiently typed observations use the compiler-owned `mapping.dynamic` step with a restricted source-grounded Jint expression, immutable target schema and validated tenant cache. Historical bindings retain at most two model attempts. Fresh adaptive independent bindings specialize only unresolved items under an explicit finite or tracking-only application usage scope; all items and the complete result still validate before publication. Business plans contain neither scripts nor mapping executors.
 
 `value.project` and its public C# executor are retired. See [runtime mappings and migration](../../docs/runtime-mappings.md) for checked `set` examples, approval, default ownership, sandbox restrictions and encrypted recovery. Saved artifacts are never rewritten automatically.
 
@@ -1320,27 +1337,32 @@ Runs the injected hybrid planner through progressive capability discovery, seman
       reasoning: medium
       max_input_tokens: 32000
       max_output_tokens: 32768
-    business_judge: false
     max_replan_attempts: 4
     llm_budget:
-      max_calls: 12
+      max_calls: 64
       max_total_tokens: 15000000
       max_elapsed_ms: 18000000
       unverifiable: fail
 ```
 
-These are the fresh planning defaults. Explicit `generator`, `max_replan_attempts`
-and `llm_budget.max_calls` values override them; financial, elapsed-time and cumulative
-token allowances are unchanged. Resume uses the saved definition, including historical
-omissions, and rejects explicitly changed settings rather than silently migrating the
-session. Sparse historical request JSON retains eight calls, two repairs and
-12,000 input / 8,192 output tokens.
+These are the fresh planning defaults. Explicit generation settings and stricter
+host or deployment limits prevail; financial, elapsed-time and cumulative token
+allowances remain enforced. Captured phase settings distinguish presentation targets
+from complete-request hard ceilings. Current-format recovery uses exact saved requests,
+receipts and cumulative accounting. Older planning sessions are rejected unchanged.
 
-`business_judge: true` opts a new session into an independent advisory review using the
-same model before FinalReview. It shares the existing journal and allowances and grants
-no permissions or new repair scope. Findings without existing explicit revision authority
-require revision; skipped or inconclusive review is never success. Deterministic validation,
-explicit requirement acknowledgments and artifact approval remain authoritative.
+Fresh sessions capture a source-generated `planning_transport_policy` before dispatch.
+It permits at most three journaled attempts after confirmed transient HTTP responses,
+with no uncertain replay. Tool-free synchronous requests reserve each physical attempt
+and mandatory-review headroom before dispatch. Failed attempts without verified usage
+retain their reservations.
+
+Business review is mandatory. Incremental technical checkpoints can await review of a
+coherent business block; every completed workflow receives global review before artifact
+approval. A small completed workflow can use one global review and no local reviews.
+The short verdict is `ok`, `needs_change` or `needs_context`; missing evidence cannot
+silently approve work or authorize a repair. Artifact approval and runtime confirmations
+remain separate execution authorities. There is no optional Judge-disable setting.
 
 New planning and mapping requests require declared model support for Structured Output,
 configured settings and an input allowance after output reservation. The full serialized
@@ -1348,7 +1370,7 @@ request must fit the smaller configured/model limit; unknown necessary metadata 
 before dispatch. Token estimates and independent-extraction byte bounds are labelled
 separately. Recovery reuses completed receipts and preserves issued requests.
 
-Interactive planning presents typed `PlanningChoice` alternatives with a recommendation through `IPlanningInteraction`; Auto selects validated recommendations without another model call. Choices cannot expand execution permissions or budgets. Runtime `human.input` and final approval remain separate. Planning format 10 rejects earlier saved approvals with instructions to regenerate and approve; old encrypted records are untouched and execution journals remain schema 9.
+Interactive planning presents typed `PlanningChoice` alternatives with a recommendation through `IPlanningInteraction`; Auto selects validated recommendations without another model call. Choices cannot expand execution permissions or budgets. Runtime `human.input` and final approval remain separate. Internal planning format 11 rejects older sessions unchanged; callers must generate a fresh session and approve its artifact; old encrypted records are untouched and execution journals remain schema 9.
 
 Results include status, session ID and revision. Approved results also include artifact hash and YAML obtained from trusted storage. Without a human provider, planning pauses for the host to collect review or clarification. [Architecture and persistence](../../docs/workflow-planning-v9.md).
 
@@ -1751,3 +1773,7 @@ Agent budget stops retain safe admission diagnostics and execution observations.
 ## Numeric execution
 
 Ordinary calculations use JavaScript `Number` (binary64) through expressions and `set`; nonfinite expression results fail before publication. `NumericTransformExecutor`, `number.add`, `number.multiply` and `number.default` are removed, including their public C# API. Saved uses fail preflight and require explicit revision and approval. Exact business arithmetic belongs to the MCP producer. The optional `type: number, format: decimal` annotation enables validated MCP boundary conversion; see [numeric compilation](../../docs/numeric-compilation.md).
+
+### Optional discovery snapshots
+
+`ICapabilitySnapshotCatalog` and `IPlanningCapabilitySnapshotJournal` are provider-neutral optional contracts. Existing catalog implementations and runtime constructors remain supported. Snapshots and references grant no binding, execution or recovery authority. Default runtime recovery authorization rejects commands; a trusted owner must supply its guard.

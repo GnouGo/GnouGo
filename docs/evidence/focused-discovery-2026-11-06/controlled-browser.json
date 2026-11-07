@@ -1,0 +1,19 @@
+{
+  "evidence": "controlled-provider",
+  "session": "afee634c11f345a0b286ba4fc59f80d7",
+  "protectedRecovery": true,
+  "crossSessionRejected": true,
+  "metadataWarning": true,
+  "reload": true,
+  "sharedInspector": true,
+  "cancellation": true,
+  "modelCallsDuringRecovery": 0,
+  "finiteAdmissionPreserved": true,
+  "errors": [],
+  "source": "168805e7e70d2e977875112580160237c15c37cd",
+  "fixtures": "Seeded completed model history; unavailable metadata adapter; no inference client calls.",
+  "screenshots": {
+    "controlled-metadata-warning-recovery.png": "566d608b1f8ca16589dcf810e753d8a26293356aa5a30678eb4e8dc1bcf1a5f4",
+    "controlled-shared-inspector-no-invented-calls.png": "26dee62036e18ab85059c997d2707403b2f7c35b67e506541d7948e7cf8891b0"
+  }
+}

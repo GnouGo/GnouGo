@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "base_source": "1b749a129079e87153ea9da17a79c20fe3289a1e",
+  "captured_at": "2026-10-23T20:29:29.317228+00:00",
+  "scope": "Focused pre-live checks. Counts overlap; do not sum them or substitute them for final full-solution/CI or runtime business acceptance.",
+  "runs": [
+    {
+      "manifest": "/private/tmp/gnougo-confirmed-http-validation/validation-safe.json",
+      "sha256": "581a9672a6c9213ff3b07a03ff2d63d59cfc143c433a1d1f7e20fb3852af2ba3",
+      "scope": "AI/Core transport and compatibility",
+      "passed": {
+        "ai_full": 251,
+        "planning_compatibility": 37
+      },
+      "warnings_as_errors": true,
+      "final_compiler_diagnostics": 0
+    },
+    {
+      "manifest": "/private/tmp/gnougo-discovery-owner-validation.u5jrslio/validation-safe.json",
+      "sha256": "95e009379505e563e2951f082a89c05fc18ca6092ce2ee044bafae9c14069b73",
+      "scope": "Scoped discovery navigation",
+      "passed": {
+        "planning_focused": 191
+      },
+      "warnings_as_errors": true,
+      "final_compiler_diagnostics": 0
+    },
+    {
+      "manifest": "/private/tmp/gnougo-journaled-budget-validation.h7cfyha5/validation-safe.json",
+      "sha256": "c502aae95531e9023b799b9e467250bb299ef6cd7ff4b9acf9736f8de8ccbbaf",
+      "scope": "Core journaled accounting",
+      "passed": {
+        "runtime_budget": 36
+      },
+      "warnings_as_errors": true,
+      "final_compiler_diagnostics": 0
+    },
+    {
+      "manifest": "/private/tmp/gnougo-benchmark-retry-1b-validation/validation-safe.json",
+      "sha256": "40072d0ff5b4351d0b71f0849ce41f7f2cc9bf751951cbd56074998d154ddb80",
+      "scope": "Benchmark transport and deadline",
+      "passed": {
+        "benchmark_focused": 561,
+        "measurement_configuration": 108
+      },
+      "warnings_as_errors": true,
+      "final_compiler_diagnostics": 0
+    },
+    {
+      "manifest": "/private/tmp/gnougo-production-http-host-validation/validation-safe.json",
+      "sha256": "123c504a24d1c7585852ba1aa326f009de8efe21766b8a94077c3e86465b510b",
+      "scope": "Final production host recovery",
+      "passed": {
+        "ai_focused": 73,
+        "server_focused": 37,
+        "integrations_full": 109
+      },
+      "warnings_as_errors": true,
+      "final_compiler_diagnostics": 0
+    },
+    {
+      "manifest": "/private/tmp/gnougo-benchmark-retry-1b-validation/physical-report-safe.json",
+      "sha256": "179060a3a0c09bbe8b2699087d025fac1cb9c009f63025506e90b40be0c9e503",
+      "scope": "Physical-attempt aggregate reporting",
+      "passed": {
+        "measurement_focused": 50
+      },
+      "warnings_as_errors": true,
+      "final_compiler_diagnostics": 0
+    }
+  ],
+  "retained_failures": "Each manifest retains initial fixture, compilation, persistence-boundary and deadline-normalization failures; final runs passed after corrections.",
+  "production_review": "Independent review covered exact saved-success recovery, inherited budget restoration, admission before retry intent, uncertainty, review headroom and single accounting ownership.",
+  "business_acceptance": false
+}

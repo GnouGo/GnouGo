@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "base_source": "e0959e3dfbb5aa58d30d71f761b782abd0791943",
+  "change": "Recover exact benchmark completions before fresh dispatch admission; retain historical wrappers and runtime limits.",
+  "focused": {
+    "passed": 185,
+    "failed": 0,
+    "warnings_as_errors": true,
+    "benchmark_build_passed": true,
+    "manifest_sha256": "107bfa6351af0e54ca859b8c8c164522ba0d96dd68bff73bc4edb302c473aea2",
+    "patch_sha256": "be24dd7f7f8238336a97944988c46afd4099c33377bb7c8f9e3d49eabd7f1bcc",
+    "independent_review": "clear"
+  },
+  "publication_on_exact_base": {
+    "stages_passed": 12,
+    "stages_failed": 0,
+    "warnings_as_errors": true,
+    "manifest_sha256": "0a446d03fb14388dca386399aa81465161e28aa924a5ccdc78f590116a2d8a79"
+  },
+  "limitations": [
+    "Focused tests and publication do not establish business success.",
+    "Full solution and final-revision CI are tracked separately.",
+    "Raw HTTP-only external recovery operator still requires its existing committed model receipt; no new recovery protocol was added."
+  ],
+  "retained_failure": "Initial nullable compiler error retained in validation manifest; corrected before final passing run.",
+  "existing_closure_reselection_regressions": {
+    "source": "e0959e3dfbb5aa58d30d71f761b782abd0791943",
+    "passed": 3,
+    "failed": 0,
+    "warnings_as_errors": true,
+    "manifest_sha256": "adeb208dec838ea5d1cc215e2c0c94a4a36eb41e79704e514d356b4351913aa5",
+    "scope": "Existing historical-presentation recovery mechanism; no prompt change and no model-efficacy claim."
+  }
+}

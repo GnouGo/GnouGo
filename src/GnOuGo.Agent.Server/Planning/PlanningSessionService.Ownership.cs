@@ -10,10 +10,13 @@ public sealed partial class PlanningSessionService
 {
     private const string Cancellations = "agent-planning-cancellations-v1";
 
-    private async Task<PlanningSession> RequestCancellationAsync(string id, PlanningCommand command, CancellationToken ct)
+    /// <summary>An explicit Stop action targets this session's current owner even when the UI polling revision is stale.</summary>
+    public Task<PlanningSession> StopAsync(string id, CancellationToken ct) => RequestCancellationAsync(id, new() { Kind = "cancel" }, ct, stopCurrent: true);
+
+    private async Task<PlanningSession> RequestCancellationAsync(string id, PlanningCommand command, CancellationToken ct, bool stopCurrent = false)
     {
         var current = await store.LoadAsync(Tenant, id, ct) ?? throw new KeyNotFoundException("Planning session not found.");
-        if (current.Revision != command.ExpectedRevision) throw new PlanningConflictException("The session changed; reload its current revision.");
+        if (!stopCurrent && current.Revision != command.ExpectedRevision) throw new PlanningConflictException("The session changed; reload its current revision.");
         if (current.Status is PlanningStatus.Saved or PlanningStatus.Saving or PlanningStatus.Cancelled)
             throw new PlanningConflictException("This planning session is closed.");
         var request = new JsonObject { ["revision"] = current.Revision, ["requestId"] = current.PendingCall?.Id };
@@ -44,8 +47,11 @@ public sealed partial class PlanningSessionService
             using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(250));
             do
             {
-                var state = await store.LoadAsync(Tenant, id, ct);
-                if (state is not null && await IsCancellationRequestedAsync(state, ct))
+                // The lease owns one monotonic session. Its tiny cancellation marker
+                // is sufficient to interrupt; revision/status validation remains in
+                // the owner before applying the cancellation checkpoint.
+                var request = await records.GetAsync(Cancellations, Tenant, id, EfPlanningSessionStore.Author, ct);
+                if (request is not null)
                 {
                     await interrupt.CancelAsync();
                     return;
@@ -53,6 +59,11 @@ public sealed partial class PlanningSessionService
             } while (await timer.WaitForNextTickAsync(ct));
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            logger.LogError("Planning cancellation surveillance for {SessionId} is unavailable after {ErrorType}; suspending its owner with durable evidence retained.", id, ex.GetType().Name);
+            await interrupt.CancelAsync();
+        }
     }
 
     internal async Task<PlanningRequestInspectionDto?> InspectRequestAsync(PlanningSession state, CancellationToken ct)
@@ -69,10 +80,16 @@ public sealed partial class PlanningSessionService
 
     internal async Task<PlanningSessionDto> ToDtoAsync(PlanningSession state, CancellationToken ct)
     {
-        var dto = PlanningEndpoints.ToDto(state) with { RequestInspection = await InspectRequestAsync(state, ct) };
+        var discovery = await CanRecoverDiscoveryAsync(state, ct);
+        var pendingRecovery = state.Construction?.Compact?.CurrentStep?.PendingDiscovery?.Recovery;
+        var dto = PlanningEndpoints.ToDto(state) with { CanRecoverDiscovery = discovery && (state.Status != PlanningStatus.DiscoveryRecovery || pendingRecovery is not null),
+            CanResumeDiscovery = discovery && state.Status == PlanningStatus.DiscoveryRecovery && state.Construction?.Compact?.CurrentStep?.PendingDiscovery is null,
+            PendingDiscoveryRecovery = pendingRecovery is null ? null : new(pendingRecovery.FailureId, pendingRecovery.Resolution), RequestInspection = await InspectRequestAsync(state, ct),
+            CanStartWithCurrentSettings = await CanStartWithCurrentSettingsAsync(state, ct) };
         var saved = await records.GetAsync(PlanningBudgetSink.Collection, Tenant, state.Request.SessionId, EfPlanningSessionStore.Author, ct);
         var usage = saved is null ? null : JsonSerializer.Deserialize(saved.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
         return usage is null ? dto : dto with { InputTokens = usage.InputTokens, OutputTokens = usage.OutputTokens,
-            EstimatedCost = usage.EstimatedCost, Currency = usage.EstimatedCostCurrency };
+            EstimatedCost = usage.EstimatedCost, Currency = usage.EstimatedCostCurrency,
+            CostEstimateAvailable = usage.CostEstimateAvailable, CostUnavailableReason = usage.CostUnavailableReason };
     }
 }

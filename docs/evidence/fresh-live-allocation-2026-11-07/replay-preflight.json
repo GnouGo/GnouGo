@@ -1,0 +1,15 @@
+{
+  "sourceRevision": "c0fc6866",
+  "command": "server-live-plan",
+  "run": "fresh400-amazon-20261107-02",
+  "case": "amazon",
+  "exitCode": 134,
+  "code": "LLM_BUDGET_UNVERIFIABLE",
+  "reason": "campaign_uncertain_request_requires_recovery",
+  "dispatchStatus": "not_started",
+  "hostStateDirectoryCreated": false,
+  "newSessionCreated": false,
+  "newReservationsCreated": false,
+  "evidence": "replay-preflight.log.gz",
+  "note": "Refusal before host/session creation; the original request 9 and its application reservation are unchanged. This is not a second paid Amazon trial."
+}

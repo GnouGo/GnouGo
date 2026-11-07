@@ -2,6 +2,17 @@
 
 Photino desktop shell hosting GnOuGo.Agent.Server and its workflow designer. The embedded server uses the same KeyVault-backed model configuration and deterministic typed planner as the standalone server.
 
+New plans and executions default to **Unlimited — usage and costs tracked**, independent
+of development/production environment. Change the shared protected setting through
+**Application LLM budget** in the Designer or `/settings/llm-budget`. A saved operator
+preference overrides `ApplicationLlmBudget:Mode`; Limited uses the configured ceilings.
+Existing sessions keep their original policy. Provider charges/quotas and explicit
+workflow/resource limits still apply. See [budget and recovery rules](../../docs/diagnostic-planning.md#application-llm-consumption).
+
+The embedded window receives the same single-use operator bootstrap as standalone
+Server, exchanges its fragment for a protected cookie and returns to chat. Optional
+external browser fallback uses a fresh link. Authority tokens never enter boot logs.
+
 ```sh
 dotnet build src/GnOuGo.Agent.Desktop -m:1 -warnaserror
 dotnet run --project src/GnOuGo.Agent.Desktop --no-build

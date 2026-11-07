@@ -11,7 +11,7 @@ public sealed class CompactWireDefaultsTests
     public async Task OmittedRepresentationConstantsRetainCompilationAndApprovalMaterial()
     {
         var state = PlannerFixture.Session(); state.Requirements = PlannerFixture.Requirements();
-        var schema = PlanningSchemas.Proposal(state);
+        var schema = PlanningSchemas.TaskPlanGrammar(state);
         var json = JsonNode.Parse("""
             {"discoveryRequests":null,"clarifications":null,"plan":{"inputs":[{"name":"text","type":{"kind":"string"}}],"groups":[],"choices":[],
             "root":{"tasks":[{"id":"interpret","kind":"transform","mode":"interpret","objective":"Interpret the supplied text","dependsOn":[],"requires":null,
@@ -20,8 +20,7 @@ public sealed class CompactWireDefaultsTests
             "always":[],"outputs":[{"name":"items","value":{"kind":"output","source":"interpret","port":"items"}}]}}}
             """)!;
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
-        Assert.Empty(PlanningContractValidation.ValidateInstance(json, schema));
-        Assert.True(JsonNode.DeepEquals(json, PlanningCorpus.Transport(json, schema, schema)));
+        Assert.Empty(PlanningContractValidation.ValidateInstance(json["plan"], schema));
         var plan = json["plan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
         Assert.True(plan.Inputs[0].Required); Assert.Null(plan.Inputs[0].Default); Assert.False(plan.Inputs[0].Type.Nullable);
         var clone = JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.TaskPlan)!.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
@@ -42,7 +41,7 @@ public sealed class CompactWireDefaultsTests
     [Fact]
     public void OptionalObjectFieldsAndWorkflowInputsKeepDifferentDefaultRules()
     {
-        var schema = PlanningSchemas.FullProposal(PlannerFixture.Session(), compact: false);
+        var schema = PlanningSchemas.TaskPlanGrammar(PlannerFixture.Session());
         var input = JsonNode.Parse("""{"name":"value","type":{"kind":"string","nullable":true},"required":false}""")!;
         IReadOnlyList<string> Errors(string type) { var contract = PlanningSchemas.Ref(type); contract["$defs"] = schema["$defs"]!.DeepClone(); return PlanningContractValidation.ValidateInstance(input, contract); }
         Assert.Empty(Errors("field")); Assert.NotEmpty(Errors("input"));
@@ -111,9 +110,9 @@ public sealed class CompactWireDefaultsTests
         var after = compact.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
         Assert.Equal(before, JsonSerializer.Serialize(after, PlanningJsonContext.Default.TaskPlan));
         var state = PlannerFixture.Session(); state.Catalog = catalog;
-        var schema = PlanningSchemas.FullProposal(state, compact: false);
-        var wire = TestRuntime.Response(new() { StructuredOutputSchema = schema }, new() { Plan = plan, Requirements = PlannerFixture.Requirements() }).Json!;
+        var schema = PlanningSchemas.TaskPlanGrammar(state);
+        var wire = PlanningCorpus.Transport(compact, schema, schema)!;
         Assert.Empty(PlanningContractValidation.ValidateInstance(wire, schema));
-        Assert.Equal(before, JsonSerializer.Serialize(wire["plan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan));
+        Assert.Equal(before, JsonSerializer.Serialize(compact.Deserialize(PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan));
     }
 }

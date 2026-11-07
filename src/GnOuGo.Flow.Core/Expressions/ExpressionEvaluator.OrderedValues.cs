@@ -68,7 +68,7 @@ public sealed partial class ExpressionEvaluator
     private JsonNode? EvaluateOrderedValues(string program, JsonNode? context, JsonObject contracts,
         JintSandbox.MappingAllowance? allowance, Action<string, string, string?>? observeCheck)
     {
-        if (program.Length > 65536) throw new WorkflowRuntimeException(ErrorCodes.EvalError, "Invalid compiled binding sequence.");
+        if (program.Length > MaxCheckedProgramLength) throw new WorkflowRuntimeException(ErrorCodes.EvalError, "Invalid compiled binding sequence.");
         var syntax = new Acornima.Parser().ParseExpression(program);
         var checks = OrderedValueChecks(syntax, contracts);
         var body = (BlockStatement)((ArrowFunctionExpression)((CallExpression)syntax).Callee).Body;

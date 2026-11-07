@@ -29,7 +29,8 @@ public sealed partial class PlanningSessionService(
     IOptions<WorkflowPlanningBudgetSettings> budgetSettings,
     IOptions<TypedWorkflowPlanningSettings> settings,
     IOptions<OpenTelemetrySettings> telemetrySettings,
-    ILogger<PlanningSessionService> logger) : BackgroundService
+    ILogger<PlanningSessionService> logger,
+    PlanningHostPolicy? hostPolicy = null, IEnumerable<IPlanningDiscoveryRecoveryGuard>? discoveryRecoveryGuards = null) : BackgroundService
 {
     private readonly Channel<string> _queue = Channel.CreateUnbounded<string>();
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new(StringComparer.Ordinal);
@@ -54,7 +55,7 @@ public sealed partial class PlanningSessionService(
     }
 
     // Workflow-owned sessions are inspection-only here. Their original runtime owns all commands.
-    private const string WorkflowSessions = "flow-planning-sessions-v10";
+    private const string WorkflowSessions = "flow-planning-sessions-v11";
     public async Task<PlanningSession?> GetWorkflowSessionAsync(string id, CancellationToken ct)
     {
         return (await InspectAsync(id, true, ct))?.RequireSession();
@@ -67,7 +68,7 @@ public sealed partial class PlanningSessionService(
     internal async Task<IReadOnlyList<PlanningSessionListEntry>> ListHistoryAsync(CancellationToken ct)
     {
         var designer = await EfPlanningSessionStore.InspectAllAsync(contexts, records, Tenant, ct);
-        var chat = (await records.ListAsync(WorkflowSessions, Tenant, EfPlanningSessionStore.Author, ct)).Concat(await records.ListAsync("flow-planning-sessions-v9", Tenant, EfPlanningSessionStore.Author, ct)).DistinctBy(r => r.Key);
+        var chat = await records.ListAsync(WorkflowSessions, Tenant, EfPlanningSessionStore.Author, ct);
         return designer.Concat(chat.Select(ReadWorkflowSession)).Select(s => s.Entry).OrderByDescending(s => s.UpdatedAtUtc).ToArray();
     }
 
@@ -75,8 +76,7 @@ public sealed partial class PlanningSessionService(
     {
         if (workflow)
         {
-            var record = await records.GetAsync(WorkflowSessions, Tenant, id, EfPlanningSessionStore.Author, ct)
-                ?? await records.GetAsync("flow-planning-sessions-v9", Tenant, id, EfPlanningSessionStore.Author, ct);
+            var record = await records.GetAsync(WorkflowSessions, Tenant, id, EfPlanningSessionStore.Author, ct);
             return record is null ? null : ReadWorkflowSession(record);
         }
         await using var db = await contexts.CreateDbContextAsync(ct);
@@ -90,17 +90,18 @@ public sealed partial class PlanningSessionService(
 
     internal bool AutomaticCorrectionEnabled => settings.Value.AutomaticCorrectionEnabled;
 
-    public Task<PlanningSession> StartAsync(string name, string prompt, bool reviseExisting, CancellationToken ct, JsonObject? failureEvidence = null, string mode = PlanningMode.Interactive, bool businessJudge = false)
-        => StartCoreAsync(name, prompt, reviseExisting, ct, failureEvidence, mode, null, null, businessJudge);
+    public Task<PlanningSession> StartAsync(string name, string prompt, bool reviseExisting, CancellationToken ct, JsonObject? failureEvidence = null, string mode = PlanningMode.Interactive, string? constructionPreset = null, string thresholdMode = "strict", PlanningDiagnosticGrant? diagnosticGrant = null)
+        => StartCoreAsync(name, prompt, reviseExisting, ct, failureEvidence, mode, null, null, constructionPreset, thresholdMode, diagnosticGrant);
 
     internal Task<PlanningSession> StartFailureRevisionAsync(string name, string prompt, string runId, string artifactHash,
         JsonObject evidence, string mode, CancellationToken ct)
         => StartCoreAsync(name, prompt, true, ct, evidence, mode, runId, artifactHash);
 
     private async Task<PlanningSession> StartCoreAsync(string name, string prompt, bool reviseExisting, CancellationToken ct,
-        JsonObject? failureEvidence, string mode, string? runId, string? artifactHash, bool businessJudge = false)
+        JsonObject? failureEvidence, string mode, string? runId, string? artifactHash, string? constructionPreset = null, string thresholdMode = "strict", PlanningDiagnosticGrant? diagnosticGrant = null)
     {
         PlanningMode.Validate(mode);
+        var preset = settings.Value.ResolvePreset(constructionPreset);
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(prompt);
         name = name.Trim();
@@ -121,12 +122,18 @@ public sealed partial class PlanningSessionService(
         var original = response?["agent"]?["workflow"]?.GetValue<string>();
         if (automaticId is not null && (original is null || PlanningGraphCompiler.Fingerprint(original) != artifactHash))
             throw new InvalidOperationException("The saved workflow changed after the failed execution. Review its current revision explicitly.");
-        var options = CreateOptions(provider, model);
-        if (businessJudge) options["business_judge"] = true;
+        var savedSource = original is null ? null : (await store.ListAsync(Tenant, ct))
+            .Where(s => s.Plan is not null && s.Yaml == original && s.SavedAgentId == response!["agent"]!["id"]!.ToString())
+            .OrderByDescending(s => s.UpdatedAtUtc).FirstOrDefault();
+        if (failureEvidence is not null && constructionPreset is null && savedSource is not null)
+            preset = CapturedPreset(savedSource);
+        var options = CreateOptions(provider, model, preset);
         if (reviseExisting)
             options["host_save"] = new JsonObject { ["agent_id"] = response!["agent"]!["id"]!.DeepClone(), ["original_hash"] = PlanningGraphCompiler.Fingerprint(original!) };
         var state = new PlanningSession
         {
+            Construction = new() { Limits = new() { PhasePolicy = settings.Value.PhasePolicy,
+                DraftOutputTokens = settings.Value.DraftOutputTokens, ReviewOutputTokens = settings.Value.ReviewOutputTokens } },
             Request = new PlanningRequest
             {
                 Mode = mode,
@@ -135,9 +142,9 @@ public sealed partial class PlanningSessionService(
                 Prompt = prompt.Trim(),
                 FailureEvidence = failureEvidence?.DeepClone().AsObject(),
                 Options = options,
-                Policy = AgentPlanningPolicy.Create(),
-                MaxModelCalls = settings.Value.MaxModelCalls,
-                MaxReplanAttempts = settings.Value.MaxReplanAttempts,
+                Policy = CreatePolicy(preset),
+                MaxModelCalls = settings.Value.Calls(preset),
+                MaxReplanAttempts = settings.Value.Corrections(preset),
                 Generation = new() { Reasoning = settings.Value.Reasoning, MaxInputTokensPerRequest = settings.Value.MaxInputTokensPerRequest, MaxOutputTokens = settings.Value.MaxOutputTokens }
             },
             UpdatedAtUtc = DateTimeOffset.UtcNow
@@ -149,8 +156,7 @@ public sealed partial class PlanningSessionService(
         }
         if (original is not null)
         {
-            var saved = (await store.ListAsync(Tenant, ct)).Where(s => s.Plan is not null && s.Yaml == original && s.SavedAgentId == response!["agent"]!["id"]!.ToString())
-                .OrderByDescending(s => s.UpdatedAtUtc).FirstOrDefault();
+            var saved = savedSource;
             state.Request.Baseline = saved?.Plan;
             if (failureEvidence is not null && saved?.Requirements is not null)
             {
@@ -158,7 +164,6 @@ public sealed partial class PlanningSessionService(
                 state.Request.Policy = saved.Request.Policy;
                 state.Catalog = saved.Catalog;
                 state.Discovery = saved.Discovery;
-                state.IntentVersion = saved.IntentVersion;
             }
             if (saved is null) state.Request.RevisionContext = "No saved TaskPlan exists. Regenerate from the newly stated requirements and require renewed approval; the original authored workflow remains unchanged.";
             if (automaticId is not null && (saved?.Plan is null || saved.Requirements is null))
@@ -167,7 +172,9 @@ public sealed partial class PlanningSessionService(
                 state.PendingQuestions = [new("preserve_authored_intent", "Describe the intended behavior and outputs to preserve when revising this authored workflow. The original will remain unchanged.", [], null)];
             }
         }
-        PlanningGenerationPolicy.Validate(state.Request.Generation);
+        if (hostPolicy is not null) await hostPolicy.CaptureAsync(state, runtime.Options, thresholdMode, diagnosticGrant, ct, applicationOwnsLimits: true);
+        else if (thresholdMode != "strict") throw new UnauthorizedAccessException("This host has no diagnostic authority.");
+        PlanningGenerationPolicy.Validate(state.Request.Generation, PlanningTokenThresholds.OptimizationAdvisory(state.Request));
         PlanningSessionCreation.Capture(state);
         if (!await store.TrySaveAsync(state, expectedRevision: null, ct))
         {
@@ -178,8 +185,10 @@ public sealed partial class PlanningSessionService(
         return state;
     }
 
-    public async Task<PlanningSession> SubmitAsync(string id, PlanningCommand command, CancellationToken ct)
+    public async Task<PlanningSession> SubmitAsync(string id, PlanningCommand command, CancellationToken ct, PlanningDiagnosticGrant? operatorGrant = null)
     {
+        if (command.Kind is "recover_discovery" or "resume_discovery" && operatorGrant is null)
+            throw new UnauthorizedAccessException("Discovery recovery requires authenticated local operator access.");
         if (command.Kind == "cancel") return await RequestCancellationAsync(id, command, ct);
         var gate = _locks.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(ct);
@@ -191,7 +200,12 @@ public sealed partial class PlanningSessionService(
             var current = await store.LoadAsync(Tenant, id, ct) ?? throw new KeyNotFoundException("Planning session not found.");
             if (current.Revision != command.ExpectedRevision) throw new PlanningConflictException("The session changed; reload its current revision.");
             if (await IsCancellationRequestedAsync(current, ct)) throw new PlanningConflictException("Cancellation is pending for this revision.");
-            result = command.Kind == "save" ? await SaveAsync(current, command, ct) : await AdvanceAsync(current, command, ct);
+            if (command.Kind is "recover_discovery" or "resume_discovery")
+            {
+                await RequireDiscoveryRecoverySafeAsync(current, ct);
+                result = await RecoverDiscoveryAsync(current, command, ct);
+            }
+            else result = command.Kind == "save" ? await SaveAsync(current, command, ct) : await AdvanceAsync(current, command, ct);
         }
         finally { gate.Release(); }
         if (!PlanningStatus.IsWaiting(result.Status) && !PlanningStatus.IsTerminal(result.Status))
@@ -215,8 +229,7 @@ public sealed partial class PlanningSessionService(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         if (!settings.Value.BackgroundProcessingEnabled) return;
-        foreach (var state in await store.ListAsync(Tenant, stoppingToken))
-            if ((!PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status)) || await IsCancellationRequestedAsync(state, stoppingToken)) _queue.Writer.TryWrite(state.Request.SessionId);
+        await QueueRecoveryAsync(stoppingToken);
         var recovery = RecoverAsync(stoppingToken);
         try
         {
@@ -234,13 +247,66 @@ public sealed partial class PlanningSessionService(
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
         try
         {
-            while (await timer.WaitForNextTickAsync(ct))
-                foreach (var state in await store.ListAsync(Tenant, ct))
-                    if ((!PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status)) || await IsCancellationRequestedAsync(state, ct)) _queue.Writer.TryWrite(state.Request.SessionId);
+            while (await timer.WaitForNextTickAsync(ct)) await QueueRecoveryAsync(ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
     }
+
+    private async Task QueueRecoveryAsync(CancellationToken ct)
+    {
+        try
+        {
+            // Select index coordinates first; never decrypt the tenant's historical
+            // sessions just to wake active owners or deliver cancellation markers.
+            await using var db = await contexts.CreateDbContextAsync(ct);
+            string? after = null;
+            while (true)
+            {
+                var ids = await db.Sessions.AsNoTracking().Where(s => s.TenantId == Tenant &&
+                    s.Status != PlanningStatus.Clarification && s.Status != PlanningStatus.FinalReview && s.Status != PlanningStatus.DiscoveryRecovery &&
+                    s.Status != PlanningStatus.Approved && s.Status != PlanningStatus.Saved && s.Status != PlanningStatus.Stopped &&
+                    s.Status != PlanningStatus.Failed && s.Status != PlanningStatus.Cancelled &&
+                    (after == null || string.Compare(s.SessionId, after) > 0))
+                    .OrderBy(s => s.SessionId).Select(s => s.SessionId).Take(100).ToListAsync(ct);
+                foreach (var id in ids) _queue.Writer.TryWrite(id);
+                if (ids.Count < 100) break;
+                after = ids[^1];
+            }
+            if (records is IKeyVaultRecordReader reader)
+            {
+                KeyVaultRecordCursor? cursor = null;
+                while (true)
+                {
+                    var page = await reader.QueryMetadataAsync(Cancellations, Tenant, "", EfPlanningSessionStore.Author, cursor, ct: ct);
+                    foreach (var marker in page.Records)
+                        if (await db.Sessions.AsNoTracking().AnyAsync(s => s.TenantId == Tenant && s.SessionId == marker.Key &&
+                            s.Status != PlanningStatus.Cancelled && s.Status != PlanningStatus.Saved, ct)) _queue.Writer.TryWrite(marker.Key);
+                    if (!page.HasMore) break;
+                    cursor = page.Next ?? throw new InvalidOperationException("Missing cancellation metadata cursor.");
+                }
+            }
+            else
+                foreach (var marker in await records.ListAsync(Cancellations, Tenant, EfPlanningSessionStore.Author, ct)) _queue.Writer.TryWrite(marker.Key);
+        }
+        catch (Exception ex) when (IsStorageFailure(ex))
+        {
+            logger.LogError("Planning recovery is suspended after {ErrorType}; the next recovery tick will retry retained work.", ex.GetType().Name);
+        }
+    }
+
     private async Task RunAsync(string id, CancellationToken stoppingToken)
+    {
+        try { await RunOwnedAsync(id, stoppingToken); }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { }
+        catch (Exception ex) when (IsStorageFailure(ex))
+        {
+            logger.LogError("Planning session {SessionId} is suspended after {ErrorType}; requests, receipts, reservations and cancellation markers are retained for recovery.", id, ex.GetType().Name);
+        }
+    }
+
+    private static bool IsStorageFailure(Exception ex) => ex is KeyVaultAccessException or System.Data.Common.DbException or DbUpdateException;
+
+    private async Task RunOwnedAsync(string id, CancellationToken stoppingToken)
     {
         var ownerGate = _locks.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
         await ownerGate.WaitAsync(stoppingToken);
@@ -299,7 +365,7 @@ public sealed partial class PlanningSessionService(
             }
         }
         catch (PlanningConflictException) { logger.LogInformation("Planning session {SessionId} changed in another worker.", id); }
-        catch (Exception ex)
+        catch (Exception ex) when (!IsStorageFailure(ex))
         {
             logger.LogError("Planning session {SessionId} stopped after {ErrorType}.", id, ex.GetType().Name);
             var state = await store.LoadAsync(Tenant, id, CancellationToken.None);
@@ -321,6 +387,8 @@ public sealed partial class PlanningSessionService(
 
     private async Task<PlanningSession> AdvanceAsync(PlanningSession current, PlanningCommand command, CancellationToken ct)
     {
+        if (hostPolicy is not null) await hostPolicy.VerifyAsync(current, ct);
+        else PlanningTokenThresholds.RejectReserved(current.Request.Options);
         using var activity = Activities.StartActivity("planning.advance", ActivityKind.Internal, default(ActivityContext),
             tags: new ActivityTagsCollection { ["tenant.id"] = Tenant, ["gnougo.planning.session_id"] = current.Request.SessionId });
         var clock = Stopwatch.StartNew();
@@ -332,37 +400,44 @@ public sealed partial class PlanningSessionService(
 
         if (command.Kind is "cancel" or "revise" or "configure_generation" or "answer" or "configure_mode")
         {
-            if (command.Kind == "revise" && current.RequiresPlanningRevision && current.PendingCall is { } legacy)
-            {
-                await using var db = await contexts.CreateDbContextAsync(ct);
-                if (!await db.Calls.AnyAsync(c => c.TenantId == Tenant && c.SessionId == current.Request.SessionId &&
-                    c.RequestHash == legacy.Id && c.PayloadKey == current.Request.SessionId + ":" + legacy.Id, ct))
-                    throw new PlanningConflictException("The original reservation is unavailable. Reconcile it before revising.");
-                // Work on a clone: a rejected revision must not partially settle the session.
-                current = JsonSerializer.SerializeToNode(current, PlanningJsonContext.Default.PlanningSession)!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
-                await PlanningModelRecovery.ResumeAsync(current, records, legacy.Id, ct);
-            }
             var recordedUsage = await records.GetAsync(PlanningBudgetSink.Collection, Tenant, current.Request.SessionId, EfPlanningSessionStore.Author, ct);
             if (recordedUsage is not null) current.Usage = JsonSerializer.Deserialize(recordedUsage.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
             var result = await planner.AdvanceAsync(current, command, new WorkflowPlanningRuntime(new WorkflowEngine(), (_, _) => Task.CompletedTask), ct);
             if (!await store.TrySaveAsync(result, current.Revision, ct)) throw new PlanningConflictException("A newer revision was saved.");
             return result;
         }
-        await using var runtime = await runtimeFactory.CreateAsync(ct);
+        await using var runtime = await runtimeFactory.CreateAsync(ct, current.Request);
         var receipt = await records.GetAsync(PlanningBudgetSink.Collection, Tenant, current.Request.SessionId, EfPlanningSessionStore.Author, ct);
         var initial = receipt is null ? current.Usage : JsonSerializer.Deserialize(receipt.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
         var configured = PlanningBudgetOptions.Parse(current.Request.Options);
         var limits = new LLMUsageBudgetLimits
         {
-            MaxCalls = Math.Min(configured?.MaxCalls ?? settings.Value.MaxModelCalls, settings.Value.MaxModelCalls),
-            MaxTotalTokens = Math.Min(configured?.MaxTotalTokens ?? settings.Value.MaxTotalTokens, settings.Value.MaxTotalTokens),
+            MaxCalls = EffectiveModelCalls(current, configured, settings.Value),
+            MaxTotalTokens = current.Request.Options[PlanningHostPolicy.CaptureOption] is not null
+                ? configured?.MaxTotalTokens : Math.Min(configured?.MaxTotalTokens ?? settings.Value.MaxTotalTokens, settings.Value.MaxTotalTokens),
             MaxEstimatedCost = configured?.MaxEstimatedCost ?? new MonetaryAmount(budgetSettings.Value.Amount, budgetSettings.Value.Currency)
         };
         var estimator = new ModelMetadataUsageCostEstimator(runtime.Options);
+        var budget = PlanningApplicationBudget.TrackingOnly(current.Request)
+            ? LLMUsageBudgetScope.CreatePlanningTrackingOnly(current.Request, initial, sink: new PlanningBudgetSink(records, Tenant, current.Request.SessionId),
+                exchangeRateProvider: exchangeRates)
+            : new LLMUsageBudgetScope(PlanningTokenThresholds.Advisory(current.Request), limits, initial,
+            sink: new PlanningBudgetSink(records, Tenant, current.Request.SessionId), exchangeRateProvider: exchangeRates,
+            advisoryOptimization: PlanningTokenThresholds.OptimizationAdvisory(current.Request)) { PolicyOrigin = "captured_application_planning_limits", AdvisoryFinancialForecasts = PlanningApplicationBudget.AdvisoryFinancialForecasts(current.Request) };
+        var journal = new PlanningModelJournal(runtime.LlmClient, contexts, records, Tenant, current.Request.SessionId, budget, estimator, current.Request.Generation, runtime.LlmCapabilityResolver, current.Request,
+            PlanningDispatchDeadline.Resolve(current.Request, current.ActiveMilliseconds), requireCapturedMetadata: hostPolicy is not null, observer: hostPolicy?.Observer);
+        if (current.PendingCall is { } retained)
+        {
+            await journal.RecoverSavedResponseAsync(retained.Request, ct);
+            current.Usage = budget.Snapshot;
+            if (await records.GetAsync(PlanningModelJournal.Collection, Tenant, current.Request.SessionId + ":" + retained.Id, EfPlanningSessionStore.Author, ct) is { } recovered && recovered.UpdatedAt > current.UpdatedAtUtc)
+            {
+                current.ActiveMilliseconds += (recovered.UpdatedAt - current.UpdatedAtUtc).TotalMilliseconds;
+                current.UpdatedAtUtc = recovered.UpdatedAt;
+            }
+        }
         if (command.Kind is "retry_model" or "resume_response")
         {
-            if (current.RequiresPlanningRevision && command.Kind == "retry_model")
-                throw new PlanningConflictException("PLANNING_REVISION_REQUIRED: The old request cannot be dispatched. Settle its receipt or reconcile unknown completion, then explicitly revise.");
             var previousRevision = current.Revision;
             if (command.Kind == "resume_response")
             {
@@ -378,11 +453,9 @@ public sealed partial class PlanningSessionService(
             if (!await store.TrySaveAsync(current, previousRevision, ct)) throw new PlanningConflictException("A newer recovery revision was saved.");
             return current;
         }
-        var budget = new LLMUsageBudgetScope(limits, initial, sink: new PlanningBudgetSink(records, Tenant, current.Request.SessionId), exchangeRateProvider: exchangeRates);
-        var journal = new PlanningModelJournal(runtime.LlmClient, contexts, records, Tenant, current.Request.SessionId, budget, estimator, current.Request.Generation, runtime.LlmCapabilityResolver);
         var engine = new WorkflowEngine
         {
-            PlanningPolicy = AgentPlanningPolicy.Create(),
+            PlanningPolicy = current.Request.Options[PlanningHostPolicy.CaptureOption] is not null ? current.Request.Policy : CreatePolicy(CapturedPreset(current)),
             LLMClient = journal, McpClientFactory = runtime.McpClientFactory, LLMCapabilities = runtime.LlmCapabilityResolver,
             ModelUsageCostEstimator = estimator, ExchangeRateProvider = exchangeRates,
             LlmDefaults = new() { Provider = runtime.Options.DefaultProvider, Model = runtime.Options.DefaultModel },
@@ -398,7 +471,7 @@ public sealed partial class PlanningSessionService(
             state.UpdatedAtUtc = DateTimeOffset.UtcNow;
             if (!await store.TrySaveAsync(state, revision, token)) throw new PlanningConflictException("A newer planning revision was saved.");
             revision = state.Revision;
-        });
+        }, capabilities: null, capabilitySnapshots: new GnOuGo.Flow.Integrations.Planning.PlanningCapabilitySnapshotJournal(records));
         var updated = await planner.AdvanceAsync(current, command, adapter, ct);
         activity?.SetTag("gnougo.planning.status", updated.Status);
         activity?.SetTag("gnougo.planning.calls", updated.ModelCalls);
@@ -417,7 +490,7 @@ public sealed partial class PlanningSessionService(
             throw new PlanningConflictException("Saving requires approval of this exact validated artifact.");
         PlanningArtifactApproval.Verify(state);
         await using var runtime = await runtimeFactory.CreateAsync(ct);
-        var validation = new WorkflowPlanningRuntime(runtime.ConfigureAgentRunners(new WorkflowEngine { McpClientFactory = runtime.McpClientFactory, PlanningPolicy = AgentPlanningPolicy.Create() }), (_, _) => Task.CompletedTask);
+        var validation = new WorkflowPlanningRuntime(runtime.ConfigureAgentRunners(new WorkflowEngine { McpClientFactory = runtime.McpClientFactory, PlanningPolicy = state.Request.Options[PlanningHostPolicy.CaptureOption] is not null ? state.Request.Policy : CreatePolicy(CapturedPreset(state)) }), (_, _) => Task.CompletedTask);
         var errors = await validation.ValidateCatalogAsync(state.Catalog!, ct);
         if (errors.Count == 0) errors = await validation.ValidateAsync(new(state.Yaml!, state.Request, state.Catalog!, PlanningGraphCompiler.CapabilityBindings(state.Graph!)), ct);
         if (errors.Count != 0)
@@ -470,12 +543,35 @@ public sealed partial class PlanningSessionService(
         return state;
     }
 
-    private JsonObject CreateOptions(string provider, string model) => new()
+    internal static int EffectiveModelCalls(PlanningSession state, LLMUsageBudgetLimits? configured, TypedWorkflowPlanningSettings host)
+        => state.Request.Options[PlanningHostPolicy.CaptureOption] is not null
+            ? Math.Min(state.Request.MaxModelCalls, configured?.MaxCalls ?? state.Request.MaxModelCalls)
+            : Math.Min(state.Request.MaxModelCalls, Math.Min(configured?.MaxCalls ?? state.Request.MaxModelCalls,
+            host.Calls(CapturedPreset(state))));
+
+    private static string CapturedPreset(PlanningSession state)
+        => state.Construction is null ? PlanningConstructionPresets.Ordinary
+            : PlanningConstructionPresets.Validate(state.Request.Options["construction_preset"]?.GetValue<string>() ?? PlanningConstructionPresets.Ordinary);
+
+    private PlanningPolicy CreatePolicy(string preset)
+    {
+        var policy = AgentPlanningPolicy.Create();
+        if (preset == PlanningConstructionPresets.Large)
+        {
+            policy.MaxStepsTotal = settings.Value.LargeMaxStepsTotal;
+            policy.MaxStepsPerWorkflow = settings.Value.LargeMaxStepsPerWorkflow;
+            policy.MaxWorkflows = settings.Value.LargeMaxWorkflows;
+        }
+        return policy;
+    }
+
+    private JsonObject CreateOptions(string provider, string model, string preset) => new()
     {
         ["generator"] = new JsonObject { ["provider"] = provider, ["model"] = model },
+        ["construction_preset"] = preset,
         ["automatic_correction"] = settings.Value.AutomaticCorrectionEnabled,
         ["clarification_policy"] = 1,
-        ["llm_budget"] = new JsonObject { ["max_calls"] = settings.Value.MaxModelCalls, ["max_total_tokens"] = settings.Value.MaxTotalTokens,
+        ["llm_budget"] = new JsonObject { ["max_calls"] = settings.Value.Calls(preset), ["max_total_tokens"] = settings.Value.MaxTotalTokens,
             ["max_elapsed_ms"] = settings.Value.MaxActiveMilliseconds,
             ["max_estimated_cost"] = new JsonObject { ["amount"] = budgetSettings.Value.Amount, ["currency"] = budgetSettings.Value.Currency } }
     };

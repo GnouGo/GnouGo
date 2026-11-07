@@ -1,0 +1,13 @@
+{
+  "requestId": "fragment-generation-compact-20261107-01:probe:10cf512f08164ebcbcf79fc415573270:6cf31d1b2d2b8f9d2b25a070f561e70cf02e6c7d7c7b53d777c15968db0afc6f",
+  "physicalAttemptId": "fragment-generation-compact-20261107-01:probe:10cf512f08164ebcbcf79fc415573270:6cf31d1b2d2b8f9d2b25a070f561e70cf02e6c7d7c7b53d777c15968db0afc6f:4480ac17e57443bc9592512624960d10",
+  "httpStatus": 200,
+  "responseBodyComplete": true,
+  "startedUtc": "2026-11-07T10:21:20.927099+00:00",
+  "completedUtc": "2026-11-07T10:21:38.097008+00:00",
+  "durationSeconds": 17.169909,
+  "actualWireBodyChangesOnlyPromptPresentation": true,
+  "responseSchemaAndReasoningAndAllocationUnchanged": true,
+  "originalContextExactlyReconstructible": true,
+  "maxAttempts": 1
+}

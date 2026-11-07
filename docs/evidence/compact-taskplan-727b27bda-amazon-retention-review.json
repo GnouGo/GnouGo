@@ -1,0 +1,115 @@
+{
+  "version": 1,
+  "reviewed_utc": "2026-10-25T04:01:03.825621+00:00",
+  "reviewer": "reasoning_readiness",
+  "verdict": "clear",
+  "source": "727b27bda2e599842e7ebf29eb9461285f463204",
+  "request_id": "compactr727b27bdaamz20v5-amazon-1:10:d5cf081dbbf46150561248db907029a81b89976611a4e42a8f86825b6596a0ec",
+  "authorization_basis": "Parent-confirmed user answer, retained verbatim with exact tool-call identity in the pinned safe authorization record; no separate conversation export was consulted.",
+  "evidence_hash": "8bf88cd46f538f0fe43ddac8d6490c56fba96cc22e65f05bc6566cb2f077a737",
+  "authorization_hash": "6946283c230af6222da39e2e7aa9cc1c6cc972900c11ab7e0b041dae7951e375",
+  "closure_hash": "3b992840ff746b8ca0c2980d7afbb4e7a6c666a9bb7bbd2e1ab7828d0698e90f",
+  "retained_at": "2026-10-25T03:57:06.8746730+00:00",
+  "checks": {
+    "original_and_authorized_reinspection_byte_equal": true,
+    "application_and_idempotence_byte_equal": true,
+    "postinspection_exact_closure_plus_two_readback_fields": true,
+    "raw_evidence_authorization_and_closure_hashes_recomputed": true,
+    "original_request_journal_failure_run_hashes_match_metrics": true,
+    "accounting_exactly_unchanged": true,
+    "stderr_files_empty": 5,
+    "pending_archive_unchanged": true
+  },
+  "reservations_eur": {
+    "request10": "0.9690182954038375725122713075",
+    "separate_received_request2_failed500": "0.9308701472556894243641231593",
+    "run_total": "1.8998884426595269968763944668"
+  },
+  "accounting_snapshot": {
+    "calls": 3185,
+    "session_calls": 11,
+    "known_input_tokens": 8861640,
+    "known_output_tokens": 3613243,
+    "known_cost_eur": "136.11701991829398818057264149",
+    "reserved_input_tokens": 762877,
+    "reserved_output_tokens": 1449984,
+    "reserved_cost_eur": "42.203982482255810171578818008",
+    "cost_upper_bound_eur": "178.32100240054979835215145950",
+    "unknown_attempts": 56
+  },
+  "input_files": [
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdaamz20v5/amazon-retention-authorization-safe.json",
+      "sha256": "b531a6dfbfb4fd251075bce9b881507a5255786cbcc5767209bcb8637deb7889",
+      "bytes": 1083
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdaamz20v5/amazon-retention-inspection.jsonl",
+      "sha256": "0657392aa717de61fb90e05e13b3607f0bdda04a86c37f9bf634a25aeb5f0c52",
+      "bytes": 1829
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdaamz20v5/amazon-retention-inspection.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdaamz20v5/amazon-retention-authorized-reinspection.jsonl",
+      "sha256": "0657392aa717de61fb90e05e13b3607f0bdda04a86c37f9bf634a25aeb5f0c52",
+      "bytes": 1829
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdaamz20v5/amazon-retention-authorized-reinspection.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdaamz20v5/amazon-retention-application.jsonl",
+      "sha256": "4156508ae4c135aab37b67febcb22e827c3d04e39ac47e81852fc315b3560685",
+      "bytes": 2770
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdaamz20v5/amazon-retention-application.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdaamz20v5/amazon-retention-idempotence.jsonl",
+      "sha256": "4156508ae4c135aab37b67febcb22e827c3d04e39ac47e81852fc315b3560685",
+      "bytes": 2770
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdaamz20v5/amazon-retention-idempotence.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdaamz20v5/amazon-retention-post-inspection.jsonl",
+      "sha256": "ff6350011a02d29af66b3273b2c5c563f4e8d6f67c02500649d9922ef08d62ab",
+      "bytes": 2885
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdaamz20v5/amazon-retention-post-inspection.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdaamz20v5/amazon-terminal-safe-metrics.json",
+      "sha256": "b2fb7a05c1df5d1ef1e096a22ba52ca2c59df67622ecc86135304664aa06df8b"
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v5-validation-20261024/candidate-727b27bda/amazon-terminal/numeric/compact-taskplan-727b27bda-amazon-pending.json",
+      "sha256": "639209cd63b1e4a47a23099fcef6ee730b9482075f25e7c9a76a87c77591f263"
+    },
+    {
+      "path": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.Retention.cs",
+      "sha256": "e907de26ada10e7d6b18df20d284fb99f381659a47aca19043a20c885d8b0fa0"
+    }
+  ],
+  "qualifications": [
+    "Verification uses only existing safe files and exact committed source; no operator, store, reader, provider, runtime or build was invoked.",
+    "Permanent closure is inconclusive and forbids this request replay and run continuation; it does not settle unknown usage or grant fresh-run admission.",
+    "Accounting is the retained closure snapshot, not a new post-Code or current-balance claim. The original pending archive is unchanged.",
+    "Initial abbreviated operator filenames were corrected to the existing amazon-retention-* names before verification; no input file changed."
+  ]
+}

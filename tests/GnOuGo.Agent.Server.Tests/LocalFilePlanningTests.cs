@@ -13,7 +13,7 @@ public sealed class LocalFilePlanningTests
     [InlineData("files_read")]
     [InlineData("files_copy")]
     [InlineData("files_loop_cleanup")]
-    public async Task AuthoredFirstProposalExecutesEveryExistingLocalFileVariant(string name)
+    public async Task StaticTaskPlanExecutesEveryExistingLocalFileVariantWithoutPlanningInference(string name)
     {
         var ct = TestContext.Current.CancellationToken;
         var root = Directory.CreateTempSubdirectory("gnougo-file-plan-").FullName;
@@ -58,16 +58,13 @@ public sealed class LocalFilePlanningTests
                     Otherwise = new() { Outputs = [new("result", new() { Kind = "array", Items = [] })] } }],
                 Outputs = [new("result", Output("route", "result"))], Always = [Command("cleanup", "delete_directory", new TaskOutput("path", Text("workflows/batch")))] };
         }
-        var proposal = new PlanningProposal { Plan = plan, Requirements = new() { Summary = LocalExecutionCases.Prompt(name), Inputs = plan.Inputs,
-            Outcomes = [new("outcome", LocalExecutionCases.Prompt(name))], Outputs = [new() { Name = "result", Type = new() { Kind = "any" } }] } };
-        var runtime = new LocalProductOutcomeExecutionTests.ProposalRuntime(actual, proposal);
-        var planner = new HybridWorkflowPlanner();
-        var state = await planner.AdvanceAsync(new() { Catalog = catalog, Request = new() { TenantId = "fixture", Prompt = LocalExecutionCases.Prompt(name),
-            Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } }, new(), runtime, ct);
-        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics));
-        Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts); Assert.Empty(files.Calls);
-        state = await planner.AdvanceAsync(state, new() { Kind = "approve", ExpectedRevision = state.Revision, ArtifactHash = state.ComputeArtifactHash(), ReviewedRequirementIds = ["outcome"] }, runtime, ct);
-        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));
+        var compilation = new TaskPlanCompiler().Compile(plan, catalog);
+        Assert.Empty(compilation.Diagnostics);
+        Assert.NotNull(compilation.Graph);
+        PlanningConfirmationGuards.Apply(compilation.Graph, catalog);
+        var yaml = new PlanningGraphCompiler().Compile(compilation.Graph, catalog);
+        Assert.Empty(files.Calls);
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
         foreach (var variant in LocalExecutionCases.Variants(name))
         {
             var inputs = files.Prepare(name, variant);

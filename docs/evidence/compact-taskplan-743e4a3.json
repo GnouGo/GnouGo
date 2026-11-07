@@ -1,0 +1,291 @@
+{
+  "kind": "safe_compact_construction_uncertain_diagnostic",
+  "version": 1,
+  "source": "743e4a3728a83540638b8dbdaf28f4b1ffed959e",
+  "campaign": "schema-portability-20261019-incremental",
+  "run": "compactd743e4a3-amazon-1",
+  "frozen_manifest_sha256": "e77396a871a889935c3e4f28768393a49f3a667ae14d8205d9eadb0b2555e0ca",
+  "phase_policy_hash": "999bb96a9b97d44c88843e607e8697e3d1169d0ae266549c56ef67daaa9739fd",
+  "retained_run_read_sha256": "15f507b88067b092ab8e435b072128dcc63631d9167157fdd04632bd90cc7486",
+  "status": "stopped",
+  "phase": "construction_intent",
+  "pending_request_id": "compactd743e4a3-amazon-1:2:d59476d40a580128279e94e9f7b35fde2221916176f8ad56a4d5afbea6237e6a",
+  "diagnostics": [
+    {
+      "code": "MODEL_DISPATCH_UNVERIFIABLE",
+      "location": "/"
+    }
+  ],
+  "calls": 2,
+  "known_receipts": 1,
+  "corrections": 0,
+  "checkpoints": 0,
+  "planning_ms": 316174,
+  "usage_complete": false,
+  "known_input_tokens": 507,
+  "known_output_tokens": 803,
+  "known_reasoning_tokens": 512,
+  "known_cost_eur": "0.0236603572380698480405225273",
+  "reserved_cost_eur": "0.4723362658846529814271749755",
+  "known_empty_receipts": 0,
+  "new_unknown_attempts": 1,
+  "rejected_before_dispatch": 0,
+  "prepared_only_requests": 0,
+  "measurements": [
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "compactd743e4a3-amazon-1:1:27d7df449e15eb79b7f974f735c3badf5688c79c9c71024e55d563810a7395f1",
+      "requestHash": "9c721e7320040eb86aaf879d384c8c47e9ba8f34842b556412cd1ae08aaf63cb",
+      "schemaHash": "6acb3cdcddc4e731db76d485e30647a99fdbb7594bb79743140cad56d1dfc568",
+      "phase": "construction_intent",
+      "admission": "admitted",
+      "inputLimit": 8000,
+      "completeRequestBytes": 2969,
+      "estimatedInputTokens": 1246,
+      "components": [
+        {
+          "component": "diagnostics",
+          "serializedBytes": 26,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 392,
+          "estimatedTokens": 387
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 882,
+          "estimatedTokens": 294
+        },
+        {
+          "component": "intent",
+          "serializedBytes": 1057,
+          "estimatedTokens": 353
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 612,
+          "estimatedTokens": 204
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "compactd743e4a3-amazon-1:2:d59476d40a580128279e94e9f7b35fde2221916176f8ad56a4d5afbea6237e6a",
+      "requestHash": "7322cc371ce0484efa3d71e4bdc6555dd914be53250ba0f56d5719fea1fedfbf",
+      "schemaHash": "88c180600999660611d8f9ccb256bd9c924456bdead7e7d319626b9b60a95859",
+      "phase": "construction_intent",
+      "admission": "admitted",
+      "inputLimit": 8000,
+      "completeRequestBytes": 5176,
+      "estimatedInputTokens": 1982,
+      "components": [
+        {
+          "component": "diagnostics",
+          "serializedBytes": 26,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 393,
+          "estimatedTokens": 387
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 623,
+          "estimatedTokens": 208
+        },
+        {
+          "component": "intent",
+          "serializedBytes": 724,
+          "estimatedTokens": 242
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 59,
+          "estimatedTokens": 20
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 3351,
+          "estimatedTokens": 1117
+        }
+      ],
+      "contracts": []
+    }
+  ],
+  "known_receipt_metrics": [
+    {
+      "request_id": "compactd743e4a3-amazon-1:1:27d7df449e15eb79b7f974f735c3badf5688c79c9c71024e55d563810a7395f1",
+      "phase": "construction_intent",
+      "elapsed_ms": "10560.4414",
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "input_tokens": 507,
+      "output_tokens": 803,
+      "reasoning_tokens": 512,
+      "known_cost_eur": "0.0236603572380698480405225273",
+      "content_bytes": 1260,
+      "completion_status": null
+    }
+  ],
+  "unknown_request_metrics": [
+    {
+      "request_id": "compactd743e4a3-amazon-1:2:d59476d40a580128279e94e9f7b35fde2221916176f8ad56a4d5afbea6237e6a",
+      "phase": "construction_intent",
+      "elapsed_ms": "303001.6265",
+      "transport_attempts": 1,
+      "uncertain_attempts": 1,
+      "receipt_present": false,
+      "usage_complete": false,
+      "input_tokens": null,
+      "output_tokens": null,
+      "reasoning_tokens": null,
+      "reserved_input_tokens": 8000,
+      "reserved_output_tokens": 16384,
+      "reserved_cost_eur": "0.4723362658846529814271749755"
+    }
+  ],
+  "phase_metrics": {
+    "construction_intent": {
+      "constructed_requests": 2,
+      "complete_request_bytes": {
+        "count": 2,
+        "p50": 4072.5,
+        "p95": 5176,
+        "max": 5176
+      },
+      "estimated_input_tokens": {
+        "count": 2,
+        "p50": 1614.0,
+        "p95": 1982,
+        "max": 1982
+      },
+      "complete_request_bytes_sum": 8145,
+      "component_bytes_reconcile": true,
+      "components": {
+        "diagnostics": {
+          "serialized_bytes_sum": 52,
+          "serialized_bytes": {
+            "count": 2,
+            "p50": 26.0,
+            "p95": 26,
+            "max": 26
+          },
+          "conservative_token_estimate_sum": 18
+        },
+        "envelope": {
+          "serialized_bytes_sum": 785,
+          "serialized_bytes": {
+            "count": 2,
+            "p50": 392.5,
+            "p95": 393,
+            "max": 393
+          },
+          "conservative_token_estimate_sum": 774
+        },
+        "instructions": {
+          "serialized_bytes_sum": 1505,
+          "serialized_bytes": {
+            "count": 2,
+            "p50": 752.5,
+            "p95": 882,
+            "max": 882
+          },
+          "conservative_token_estimate_sum": 502
+        },
+        "intent": {
+          "serialized_bytes_sum": 1781,
+          "serialized_bytes": {
+            "count": 2,
+            "p50": 890.5,
+            "p95": 1057,
+            "max": 1057
+          },
+          "conservative_token_estimate_sum": 595
+        },
+        "interfaces": {
+          "serialized_bytes_sum": 59,
+          "serialized_bytes": {
+            "count": 1,
+            "p50": 59,
+            "p95": 59,
+            "max": 59
+          },
+          "conservative_token_estimate_sum": 20
+        },
+        "response_schema": {
+          "serialized_bytes_sum": 3963,
+          "serialized_bytes": {
+            "count": 2,
+            "p50": 1981.5,
+            "p95": 3351,
+            "max": 3351
+          },
+          "conservative_token_estimate_sum": 1321
+        }
+      }
+    }
+  },
+  "failure_evidence": {
+    "verification": "Existing read-only single-http-500 operator inspection accepted the exact retained request; no apply.",
+    "http_status": 500,
+    "failure_kind": "ServiceUnavailable",
+    "attempt_count": 1,
+    "attempt_failure": null,
+    "recognized_error_only_body": true,
+    "receipt_present": false,
+    "journal_usage_present": false,
+    "evidence_hash": "3df33dffd8ea3c5a66a1196c2ce7ba5a588c87249e989f434199a72540c72633",
+    "http_journal_hash": "cbfb75127f0351c28baa1ccd1dca3623ba136912895c1ff1b9f118941812ee96",
+    "failure_hash": "1baaa57ea5534d0dfdfc1721efddcfde2aa3b4db0297dc609ab36410ff48ce8a",
+    "authorization_or_application_claimed": false
+  },
+  "unused_runs": [
+    {
+      "run": "743e4a3728a83540638b8dbdaf28f4b1ffed959e:fixture:cohort:compactd743e4a3:collections:1",
+      "status": "not_started",
+      "exact_absence_verified": true
+    },
+    {
+      "run": "compactd743e4a3-code-1",
+      "status": "not_started",
+      "exact_absence_verified": true
+    }
+  ],
+  "execution_started": false,
+  "business_success": null,
+  "campaign_balance": {
+    "request_identities": 890,
+    "completed_receipts": 882,
+    "known_cost_eur": "24.798067182084777392695281258",
+    "reserved_cost_eur": "2.8214565004887585532746823068",
+    "upper_eur": "27.619523682573535945969963565",
+    "ceiling_eur": "240.0301038327063045424449473",
+    "remaining_eur": "212.410580150132768596474983735",
+    "unknown_attempts": 7,
+    "permanently_retained_receiptless": 7,
+    "unclosed_receiptless": 1,
+    "evidence_hash": "8413b920abb0028e5178b4cd9650ea83551ccc2d347b1c9a4c9babe88bc002f2"
+  },
+  "logs": {
+    "live-compactd743e4a3-amazon-1.log": {
+      "sha256": "4662313851841d5010460e1afdf12bda602a26a57141e080d8a5b04695f612a3",
+      "bytes": 466
+    },
+    "live-compactd743e4a3-amazon-1-planning.log": {
+      "sha256": "750f7993cc6c26577d12c760bb0e2f7de9eda8508fc6ac0eda36f46a2b61d5f3",
+      "bytes": 6952
+    }
+  },
+  "cli_setup_failure": "The original unsuffixed log records argument parsing failure before store/model admission; root verified exact run absence before the separate -planning attempt. It is not counted as an LLM request or receipt.",
+  "limitations": [
+    "No prompts, provider bodies, headers, contracts, structured responses or artifacts are emitted.",
+    "Missing usage remains unknown; reserved token/cost ceilings are not billed provider usage.",
+    "Collections and Review PR were not started; no business acceptance or paired comparison is claimed."
+  ]
+}

@@ -1,0 +1,128 @@
+{
+  "schema": "pr120_frozen_business_diagnostic_v1",
+  "captured_date_utc": "2026-10-28",
+  "public_production_source": "e880124edb8a6e217eec392aceb5298d0fa6b2ac",
+  "private_execution_source": "560a073e0ef36f7456f267c28f02ff4303634c9c",
+  "cohort": "compactle880124eamz11a",
+  "scenario": "Amazon",
+  "model": "gpt-5.5-2026-04-24",
+  "phase_policy": {
+    "version": 1,
+    "navigation": {
+      "targetInputTokens": 3000,
+      "maxInputTokens": 12000,
+      "reasoning": "high",
+      "outputTokens": 32768
+    },
+    "draft": {
+      "targetInputTokens": 8000,
+      "maxInputTokens": 22000,
+      "reasoning": "medium",
+      "outputTokens": 16384
+    },
+    "review": {
+      "targetInputTokens": 4000,
+      "maxInputTokens": 20000,
+      "reasoning": "medium",
+      "outputTokens": 16384
+    }
+  },
+  "phase_policy_sha256": "3e9495d2877fed6d3ddbd9a10b1817842a145bf3a66b7c563d79037d6e215e1c",
+  "mcp_manifest_sha256": "5b2c4135da538375b4eb952c21aec11208a85aefc51ca1885227b9b2c9578d11",
+  "mcp_files": 568,
+  "result": {
+    "generation": "stopped_on_persistent_business_omission",
+    "artifact": false,
+    "runtime": "not_started",
+    "business_success": false,
+    "qualifying_run": false,
+    "independently_satisfied_business_obligations": 0,
+    "calls_per_success": null
+  },
+  "metrics": {
+    "logical_requests": 20,
+    "physical_attempts": 20,
+    "received_responses": 20,
+    "calls_by_phase": {
+      "construction_intent": 2,
+      "construction_select": 4,
+      "construction_discovery": 8,
+      "construction_draft": 3,
+      "construction_global_judge": 2,
+      "replan": 1
+    },
+    "global_judges": 2,
+    "local_judges": 0,
+    "charged_corrections": 0,
+    "actual_patches": 0,
+    "context_reinterpretations": 1,
+    "operator_interventions": 0,
+    "provider_input_tokens": 53366,
+    "provider_output_tokens": 30839,
+    "reasoning_tokens_included_in_output": 27742,
+    "provider_total_tokens": 84205,
+    "planning_ms": 894411,
+    "runner_wall_seconds": "915.7430563750677",
+    "known_cost_eur": "1.0638107987505577867023650157",
+    "new_unknown_reservation_eur": "0",
+    "new_unknown_attempts": 0,
+    "target_warnings": 15,
+    "prepared_requests": 24,
+    "admitted_requests": 20,
+    "over_maximum_rejections": 0,
+    "maximum_complete_judge_bytes": 12832,
+    "provider_whitespace_metrics": null
+  },
+  "demonstrated_trajectory": [
+    {
+      "step": "premature_requirement_claim",
+      "evidence": "The first semantic selection proposed closing req_0 through req_3 for the whole objective. Its draft contained only an empty reusable-group declaration. Checkpoint1 nevertheless recorded those requirements closed, with businessReviewPending=true and no Judge receipt."
+    },
+    {
+      "step": "closed_state_hides_remaining_work",
+      "evidence": "The remaining semantic selections handled cleanup. The accepted plan retained an empty group, no root business task or group invocation, and one browser-close operation in root.always."
+    },
+    {
+      "step": "host_finalization",
+      "evidence": "After a requirement-only cleanup closure, the host prepared root completion from the closed requirement statuses. Response17 itself did not claim workflow completion."
+    },
+    {
+      "step": "business_review_blocks",
+      "evidence": "Global Judges18 and20 both returned needs_change for absent search, product traversal/extraction and workbook creation. Actual accepted scopes and operation contracts support those omissions."
+    },
+    {
+      "step": "no_repair",
+      "evidence": "Replan19 requested context with patch:null. Judge20 retained the same adverse result. Candidate, claims, sources, contracts and common business facts were unchanged; only prior-report/reconsideration fields were added."
+    }
+  ],
+  "safeguards": {
+    "required_query_string_no_default_retained": true,
+    "workbook_not_invented_as_public_return": true,
+    "business_findings_remained_blocking": true,
+    "all_usage_receipts_present": true,
+    "provider_incident_observed": false,
+    "prior_reservations_preserved": true,
+    "supplement_reapplied": false,
+    "runtime_effects": false
+  },
+  "qualification": {
+    "successful_runs_on_e880": 1,
+    "required": 6,
+    "successful_scenario": "Collections once, both variants",
+    "amazon_successes": 0,
+    "review_pr_successes": 0,
+    "complete": false
+  },
+  "evidence_sha256": {
+    "exact_terminal_run": "c836650f98037a937765228169376dfc99025844aa0c3f1bdc696e4d4b92a740",
+    "terminal_inspection": "6ca220a093d750927646b21ac3b7c78ab7eb0e5671aab82c7834d92156d10236",
+    "phase_and_component_reduction": "ac3bad3aa5fa6000392dfa4c11d4760f6fe41eeee01357ba54e68f187276c676",
+    "issued_request_audit_metadata": "d10f959d63f9981407b4594361797e618ff1bd2af80cc6b3c966c4317bd1fddd"
+  },
+  "limitations": [
+    "This is failure evidence, not a corrected result, an avoided correction or an efficiency success.",
+    "The early requirement status transition and later review/repair authority require correction and fresh validation; no fix is claimed here.",
+    "Provider text whitespace and finish reasons are not available in this reduction; compact JSON bytes are not used as a substitute.",
+    "The historical reference is not a matched causal experiment. No cost-reduction claim is made."
+  ]
+}

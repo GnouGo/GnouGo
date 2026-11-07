@@ -17,7 +17,19 @@ public sealed record CapabilitySummary(string Id, string SourceId, string Name, 
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] McpArtifactContract? ArtifactContract = null);
 public sealed record CapabilityPage(string SourceId, string? Cursor, List<CapabilitySummary> Capabilities,
     string? NextCursor, string? UnavailableReason = null, string? Query = null,
-    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? ProducedArtifactKind = null);
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? ProducedArtifactKind = null)
+{
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? FocusId { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? SnapshotVersion { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? FailureId { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? ActionId { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? FailureCategory { get; init; }
+}
 
 public sealed class CapabilityDiscoveryState
 {
@@ -31,6 +43,12 @@ public sealed class CapabilityDiscoveryState
     /// <summary>Failed optional exact resolutions. Explicit inspection may retry; another version is independent.</summary>
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public List<CapabilityResolutionFailure>? ResolutionFailures { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<CapabilityDiscoveryFailure>? Failures { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? SupersededFailures { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, string>? ActiveSourceActions { get; set; }
     /// <summary>Per-source contract inspection selections, not execution authorization.</summary>
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public List<PlanningDiscoveryRequest>? Inspections { get; set; }
@@ -82,31 +100,6 @@ public sealed record PlanningCommitment(string Operation)
 /// <summary>Exact declared operation port and accepted public output name, not inferred by type similarity.</summary>
 public sealed record PlanningCommittedResult(string Port, string Output);
 
-/// <summary>Review annotations referencing the TaskPlan, never another executable representation.</summary>
-public sealed record PlanningOutcomeBinding(string OutcomeId, List<string> TaskIds, List<string> Outputs)
-{
-    /// <summary>Accepted public inputs supporting a data-only outcome; never external execution evidence.</summary>
-    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? Inputs { get; init; }
-    /// <summary>Existing TaskPlan foreach identity for an accepted each_item outcome; never executable structure.</summary>
-    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    public string? ForEachTaskId { get; init; }
-}
-
-/// <summary>A bounded discovery request or complete semantic task proposal; the host validates exclusivity.</summary>
-public sealed class PlanningProposal
-{
-    /// <summary>Issued once; omitted after the host accepts the requirements.</summary>
-    public PlanningRequirements? Requirements { get; set; }
-    public List<PlanningDiscoveryRequest>? DiscoveryRequests { get; set; }
-    public TaskPlan? Plan { get; set; }
-    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    public List<PlanningOutcomeBinding>? OutcomeBindings { get; set; }
-    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    public List<PlanningQuestion>? Clarifications { get; set; }
-    public string Explanation { get; set; } = "";
-}
-
 /// <summary>Intent clarification, never executable values or permission grants.</summary>
 public sealed record PlanningQuestion(string Id, string Question, List<PlanningQuestionAlternative> Alternatives, string? Recommended);
 public sealed record PlanningQuestionAlternative(string Id, string Description);
@@ -115,7 +108,13 @@ public sealed record PlanningAnswerBatch(long Revision, List<PlanningQuestion> Q
 
 public sealed record PlanningDiscoveryRequest(string SourceId, string? Cursor = null, string? Query = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] List<string>? OperationIds = null,
-    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? ProducedArtifactKind = null);
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? ProducedArtifactKind = null)
+{
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? FocusId { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Justification { get; init; }
+}
 
 public static class PlanningPhase
 {

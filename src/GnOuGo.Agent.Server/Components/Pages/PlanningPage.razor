@@ -5,14 +5,15 @@
 @using GnOuGo.Flow.Core.Planning
 @using GnOuGo.Flow.Planning
 @using System.Text.Json.Nodes
+@inject IServiceProvider Services
 @inject PlanningSessionService Planning
 @inject NavigationManager Navigation
 @inject IJSRuntime Js
 @implements IAsyncDisposable
 
 <PageTitle>Workflow designer</PageTitle>
-<main id="planningReview" class="container py-4" style="max-width:1100px;margin:auto;padding:1.5rem">
-    <a href="/">← Back to chat</a> · <a href="/runs">Workflow executions</a>
+<main id="planningReview" data-interactive="@(_interactiveReady ? "true" : "false")" class="container py-4" style="max-width:1100px;margin:auto;padding:1.5rem">
+    <a href="/">← Back to chat</a> · <a href="/runs">Workflow executions</a> · <a href="/settings/llm-budget">Application LLM budget</a>
     <h1>Workflow designer</h1>
     @if (_error is not null) { <p role="alert" class="text-danger">@_error</p> }
     @if (_commandError is not null) { <p role="alert" class="text-danger">@_commandError</p> }
@@ -31,13 +32,26 @@
     else if (_state is null)
     {
         <p>Describe the workflow you need. Review its steps and validation results before approving it.</p>
+        <p id="application-budget-summary">@(Services.GetRequiredService<GnOuGo.Agent.Server.Configuration.ApplicationLlmBudgetPolicy>().Mode == "unlimited" ? "Unlimited — usage and costs tracked" : "Limited — configured application ceilings")</p>
         <form @onsubmit="StartAsync" @onsubmit:preventDefault>
             <label for="plan-mode">Planning mode</label><select id="plan-mode" @bind="_mode"><option value="interactive">Interactive</option><option value="auto">Auto</option></select>
+            @if (_diagnosticAvailable)
+            {
+                <label for="plan-thresholds">Threshold policy</label><select id="plan-thresholds" @bind="_thresholdMode"><option value="strict">Strict</option><option value="diagnostic">Diagnostic — thresholds are warnings</option></select>
+                <p>Diagnostic output allocations use verified model/deployment capacity. The captured application budget policy applies; execution requires approval.</p>
+            }
+            else { <PlanningDebugHelp /> }
             <label for="plan-name">Agent name</label><input id="plan-name" class="form-control" @bind="_name" required />
             <label for="plan-prompt">What should this agent do?</label><textarea id="plan-prompt" class="form-control" rows="7" @bind="_prompt" required></textarea>
             <label><input type="checkbox" @bind="_reviseExisting" /> Revise an existing agent with this name</label>
-            <label><input type="checkbox" @bind="_businessJudge" /> Include an independent business review using this session's model allowance</label>
-            <button class="btn btn-primary" type="submit" disabled="@_busy">Create plan</button>
+            <label for="plan-capacity">Planning capacity</label>
+            <select id="plan-capacity" @bind="_constructionPreset">
+                <option value="">Host default</option>
+                <option value="ordinary">Ordinary</option>
+                <option value="large">Large workflow</option>
+            </select>
+            <p>Each draft includes an independent review. Capacity limits are fixed when the session starts.</p>
+            <button class="btn btn-primary" type="submit" disabled="@(_busy || !_interactiveReady)">Create plan</button>
         </form>
         <ul>@foreach (var entry in _sessions)
         {
@@ -55,19 +69,72 @@
             <button type="button" @onclick="() => OpenTraces(_state.Request.SessionId, IsWorkflowSession)">Traces</button>
         </p>
         @if (IsWorkflowSession) { <p>This session is read-only here. Continue approvals and execution in the originating chat workflow.</p> }
-        <p aria-live="polite"><strong>@Phase(_state.Status)</strong> · @CurrentPhase · Revision @_state.Revision</p>
-        <p>@CallsUsed / @CallCeiling model calls · @_state.ReplanAttempts replans · @TimeSpan.FromMilliseconds(_state.ActiveMilliseconds).ToString(@"hh\:mm\:ss") active</p>
+        <p aria-live="polite"><strong>@Phase(_state.Status)</strong> · @GnOuGo.Agent.Server.Telemetry.LlmInspectionLabels.Phase(CurrentPhase) · Revision @_state.Revision</p>
+        <p>@_state.ModelCalls model calls (logical planning) · @CallsUsed charged/reserved model attempts · @(PlanningApplicationBudget.TrackingOnly(_state.Request) ? "Unlimited — usage and costs tracked" : $"Limited — {CallCeiling} calls ({(PlanningTokenThresholds.OptimizationAdvisory(_state.Request) ? "advisory" : "mandatory")})") · @_state.ReplanAttempts replans · @TimeSpan.FromMilliseconds(_state.ActiveMilliseconds).ToString(@"hh\:mm\:ss") active</p>
+        @if (_state.Construction is { } construction)
+        {
+            <p role="status">@construction.Checkpoints.Count accepted drafts · @construction.OpenScopes.Count open scopes
+                @if (construction.Candidate is not null) { <span> · Current draft awaiting validation and review</span> }
+            </p>
+        }
         @if (_state.Status == PlanningStatus.Stopped && IsCallBudgetExhausted)
         {
             <p>The session model-call allowance is exhausted. Input/output token limits do not extend this cumulative budget.
                 <a href="/planning">Start a new planning session</a>. Existing requests and accounting are retained.</p>
         }
-        @if (_inspectionDto is { } inspected) { <p>Estimated cost @inspected.EstimatedCost.ToString("0.00") @inspected.Currency</p> }
-        else if (_state.Usage is { } usage) { <p>Estimated cost @usage.EstimatedCost.ToString("0.00") @usage.EstimatedCostCurrency</p> }
+        @if (_inspectionDto is { } inspected) { <p>Estimated cost (including retained reservations): @(inspected.CostEstimateAvailable ? $"{inspected.EstimatedCost:0.00} {inspected.Currency}" : $"unavailable ({inspected.CostUnavailableReason})")</p> }
+        else if (_state.Usage is { } usage) { <p>Estimated cost: @(usage.CostEstimateAvailable ? $"{usage.EstimatedCost:0.00} {usage.EstimatedCostCurrency}" : $"unavailable ({usage.CostUnavailableReason})")</p> }
+        @if (_operatorAvailable)
+        {
+            <button type="button" id="inspect-session-finances" @onclick="InspectFinancesAsync">Inspect session finances</button>
+            @if (_financial is { } finance)
+            {
+                <section aria-label="Session financial accounting">
+                    <p>Source: @finance["source"] · Forecast policy: @finance["forecastMode"]</p>
+                    <dl><dt>Measured usage × captured tariff (estimate)</dt><dd>@finance["measuredUsageTariffEstimate"] @finance["currency"]</dd>
+                        <dt>Unresolved request reservations</dt><dd>@finance["uncertainReservations"] @finance["currency"]</dd>
+                        <dt>Original estimates for completed, unpriced usage</dt><dd>@finance["unpricedCompletedNominalReservations"] @finance["currency"]</dd>
+                        <dt>Tracked local exposure</dt><dd>@finance["trackedExposure"] @finance["currency"]</dd>
+                        <dt>Captured allowance</dt><dd>@(finance["allowance"]?.ToString() ?? "unavailable") @finance["allowanceCurrency"]</dd></dl>
+                    <p>Provider-invoiced cost and globally available funding are unavailable in this local snapshot.</p>
+                    @if (finance["historyComplete"]?.GetValue<bool>() != true) { <p role="alert">Financial history incomplete: @finance["unavailableReason"]. Unknown funds are not available for admission.</p> }
+                    @foreach (var warning in finance["forecastWarnings"]?.AsArray() ?? [])
+                    { <p role="status">Future-call forecast exceeds the allowance. The current request reservation remains enforced. @warning?["details"]</p> }
+                </section>
+            }
+        }
+        @if (!IsWorkflowSession && _operatorAvailable && _inspectionDto?.CanStartWithCurrentSettings == true)
+        {
+            <p>No dispatch or reservation was found. The original session will be preserved.</p>
+            <button id="start-with-current-settings" disabled="@_busy" @onclick="StartWithCurrentSettingsAsync">Start new plan with current settings</button>
+        }
+        @if (!IsWorkflowSession && _operatorAvailable && _inspectionDto?.CanRecoverDiscovery == true)
+        {
+            <section aria-label="Discovery recovery">
+                <p>Accepted work and all accounting remain retained. These actions inspect metadata only; they do not call the model or execute the workflow.</p>
+                @if (_inspectionDto.PendingDiscoveryRecovery is { } retainedRecovery)
+                {
+                    <p>A metadata recovery was interrupted. Continue its retained action and snapshot before resuming planning.</p>
+                    <button disabled="@_busy" @onclick='() => SubmitAsync("recover_discovery", discoveryRecovery: new(retainedRecovery.FailureId, retainedRecovery.Resolution))'>Continue retained metadata recovery</button>
+                }
+                else foreach (var failure in _inspectionDto.DiscoveryFailures)
+                {
+                    <p><code>@failure.SourceId</code> · @failure.Category — @failure.Message</p>
+                    <button disabled="@_busy" @onclick='() => SubmitAsync("recover_discovery", discoveryRecovery: new(failure.Id, "continue_available"))'>Continue with available sources</button>
+                    <button disabled="@_busy" @onclick='() => SubmitAsync("recover_discovery", discoveryRecovery: new(failure.Id, "refresh_source"))'>Refresh source metadata</button>
+                }
+            </section>
+        }
+        @if (!IsWorkflowSession && _operatorAvailable && _inspectionDto?.CanResumeDiscovery == true)
+        {
+            <p role="status">Discovery recovery retained. Resume uses the session’s original settings and ordinary financial admission.</p>
+            <button disabled="@_busy" @onclick='() => SubmitAsync("resume_discovery")'>Resume planning after discovery recovery</button>
+        }
         @if (_requestInspection?.CancellationRequested == true)
         { <p role="status">Cancellation requested. Waiting for the owner to stop; completed responses and accounting will be retained.</p> }
         else if (_requestInspection?.State == "active" && _state.Status != PlanningStatus.Stopped)
         { <p role="status">A worker owns this planning request. Its completion will be recorded before further planning.</p> }
+        <PlanningDiagnostics Session="PlanningEndpoints.ToDto(_state)" Workflow="IsWorkflowSession" InspectRequest="InspectRequest" />
         <p>@_state.Requirements?.Summary</p>
         <PlannerDiscovery @key="(_state.Request.SessionId, IsWorkflowSession)" Session="_state" Workflow="IsWorkflowSession" />
         @if (_state.Graph is { } graph)
@@ -75,7 +142,7 @@
             <MarkdownContent Content="@("```mermaid\n" + PlanningReviewFormatter.Diagram(graph) + "\n```")" />
 
         }
-        @if (!IsWorkflowSession && !_state.RequiresPlanningRevision && _state.Status == PlanningStatus.Clarification)
+        @if (!IsWorkflowSession && _state.Status == PlanningStatus.Clarification)
         {
             <PlannerChoiceCard Choices="PlanningEndpoints.ToDto(_state).Choices" Questions="PlanningEndpoints.ToDto(_state).Questions"
                 DecisionKey="@_state.Request.SessionId" Busy="_busy" Select='selections => SubmitAsync("choose", selections: selections)'
@@ -88,6 +155,13 @@
             <h3>Findings</h3><ul>@foreach (var diagnostic in _state.Diagnostics.DistinctBy(d => (d.Code, d.Location, d.Message)))
             {
                 <li><strong>@diagnostic.Code</strong>: @diagnostic.Message <small>@diagnostic.Location</small>
+                    @if (diagnostic.BudgetFailure is { } failure)
+                    {
+                        <dl><dt>Scope / origin</dt><dd>@(failure.Scope ?? "unavailable") / @(failure.Origin ?? "unavailable")</dd>
+                            <dt>Allowance / required reservation</dt><dd>@(failure.Allowance?.ToString() ?? "unavailable") / @(failure.RequiredReservation?.ToString() ?? "unavailable") @(failure.LimitKind is "estimated_cost" or "estimated_cost_usd" or "reserved_cost" ? failure.Currency ?? "currency unavailable" : failure.LimitKind ?? "unit unavailable")</dd>
+                            <dt>Dispatch</dt><dd>@(failure.DispatchStatus ?? "unavailable")</dd></dl>
+                    }
+                    else if (diagnostic.Code.StartsWith("LLM_BUDGET_", StringComparison.Ordinal)) { <p>Historical budget failure details are unavailable.</p> }
                     @if (diagnostic.Prerequisite is { } prerequisite)
                     {
                         <p>@prerequisite.Description</p>
@@ -104,11 +178,7 @@
             <p>Static or simulated validation does not establish external execution success.</p>
         }
         @if (_state.Yaml is { } yaml) { <details open><summary>Workflow YAML</summary><pre><code>@yaml</code></pre></details> }
-        @if (_state.RequiresPlanningRevision && _state.Status is not (PlanningStatus.Saved or PlanningStatus.Approved or PlanningStatus.Saving or PlanningStatus.Cancelled))
-        {
-            <p role="status">This session uses a retired planning contract. Enter an explicit revision to continue with business tasks. Its saved responses, artifacts and usage remain retained; a new artifact requires approval.</p>
-        }
-        @if (!IsWorkflowSession && !_state.RequiresPlanningRevision && _state.Status == PlanningStatus.FinalReview)
+        @if (!IsWorkflowSession && _state.Status == PlanningStatus.FinalReview)
         {
             <section aria-label="Approve reviewed workflow">
                 <p id="approval-review-status" role="status" aria-live="polite">
@@ -142,15 +212,12 @@
             }
             else if (_requestInspection?.State == "receipt_available")
             {
-                <p>@(_state.RequiresPlanningRevision ? "Validate the saved response and restore its accounting before revising. Its old proposal will not be applied or dispatched again." : "A saved response is available. Resume will consume it under its original schema without another call reservation. Further planning may require subsequent calls.")</p>
-                <button class="btn btn-secondary" disabled="@_busy" @onclick='() => SubmitAsync("resume_response")'>@(_state.RequiresPlanningRevision ? "Settle saved response" : "Resume from saved response")</button>
+                <p>A saved response is available. Resume consumes the exact issued request and response without another dispatch.</p>
+                <button class="btn btn-secondary" disabled="@_busy" @onclick='() => SubmitAsync("resume_response")'>Resume from saved response</button>
             }
             else
             {
-                @if (_state.RequiresPlanningRevision)
-                { <p>The retired request cannot be retried. Unknown completion requires reconciliation; its reservation is retained.</p> }
-                else
-                { <p>The previous request has no confirmed result. Retrying retains its call count and conservatively reserves unknown usage.</p><button class="btn btn-secondary" disabled="@_busy" @onclick='() => SubmitAsync("retry_model")'>Retry with retained usage</button> }
+                <p>The construction request has uncertain completion. Reconcile its original receipt before continuing. Its identity and accounting are retained.</p>
             }
         }
         @if (!IsWorkflowSession && _state.Status is not (PlanningStatus.Saved or PlanningStatus.Saving or PlanningStatus.Cancelled))
@@ -183,11 +250,11 @@
             }
             <button class="btn btn-secondary" disabled="@(_busy || IsCallBudgetExhausted || string.IsNullOrWhiteSpace(_revision))" @onclick='() => SubmitAsync("revise", _revision)'>Revise workflow</button>
             <button class="btn btn-outline-secondary" disabled="@_busy" @onclick='() => SubmitAsync("cancel")'>Cancel planning</button>
-            @if (!_state.RequiresPlanningRevision && (PlanningStatus.IsWaiting(_state.Status) || _state.Status == PlanningStatus.Stopped))
+            @if ((PlanningStatus.IsWaiting(_state.Status) || _state.Status == PlanningStatus.Stopped))
             {
                 <label>Planning mode<select @bind="_mode"><option value="interactive">Interactive</option><option value="auto">Auto</option></select></label>
                 <button disabled="@_busy" @onclick='() => SubmitAsync("configure_mode", mode: _mode)'>Apply planning mode</button>
-                <details open="@IsInputBudgetStop"><summary>Generation settings</summary>
+                <details id="planning-generation-settings" open="@IsInputBudgetStop"><summary>Generation settings</summary>
                     <label>Reasoning<select class="form-select" @bind="_reasoning"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
                     <label>Input token limit<input type="number" @bind="_inputLimit" /></label>
                     <label>Output token limit<input type="number" @bind="_outputLimit" /></label>
@@ -197,7 +264,7 @@
         }
     }
 </main>
-<TraceSidebar PlanningSessionId="@_traceSessionId" WorkflowSession="_traceWorkflow" IsOpen="_tracesOpen" OnClose="CloseTraces" />
+<TraceSidebar PlanningSessionId="@_traceSessionId" WorkflowSession="_traceWorkflow" SelectedRequestId="@_traceRequestId" IsOpen="_tracesOpen" OnClose="CloseTraces" />
 @code {
     [Parameter] public string? SessionId { get; set; }
     [SupplyParameterFromQuery(Name = "source")] public string? Source { get; set; }
@@ -210,7 +277,7 @@
     private IEnumerable<PlanningRequirement> MissingRequirements => (_state?.Requirements?.Outcomes ?? [])
         .Where(requirement => !_reviewedRequirements.Contains(requirement.Id, StringComparer.Ordinal));
     private int ReviewedRequirementCount => (_state?.Requirements?.Outcomes.Count ?? 0) - MissingRequirements.Count();
-    private bool CanApprove => !_busy && !IsWorkflowSession && _state is { RequiresPlanningRevision: false, Status: PlanningStatus.FinalReview,
+    private bool CanApprove => !_busy && !IsWorkflowSession && _state is { Status: PlanningStatus.FinalReview,
         Requirements.Outcomes.Count: > 0 } && !MissingRequirements.Any() &&
         !_state.Diagnostics.Any(d => d.Required) && !_state.ValidationResults.Any(r => r.Id.StartsWith("coverage:", StringComparison.Ordinal) && r.Outcome == "violation");
     private readonly HashSet<string> _revisionPaths = new(StringComparer.Ordinal);
@@ -218,14 +285,30 @@
         .Where(d => d.Code == "REVISION_REQUIRED" && !string.IsNullOrWhiteSpace(d.Location) && d.Location != "/")
         .GroupBy(d => d.Location, StringComparer.Ordinal);
     private bool CanTargetRevision => !_busy && !IsWorkflowSession && !IsCallBudgetExhausted &&
-        _state is { IntentVersion: 2 or 3, RequiresPlanningRevision: false, Plan: not null, Catalog: not null,
+        _state is { Plan: not null, Catalog: not null,
             Requirements: not null, PendingCall: null, PendingQuestions: null,
             Status: PlanningStatus.Stopped or PlanningStatus.FinalReview or PlanningStatus.Approved } &&
         _requestInspection?.State != "active";
     private int CallCeiling => _state is null ? 0 : Math.Min(_state.Request.MaxModelCalls,
         PlanningBudgetOptions.Parse(_state.Request.Options)?.MaxCalls ?? _state.Request.MaxModelCalls);
+    private JsonObject? _financial;
+    private async Task InspectFinancesAsync()
+    {
+        if (_state is null || !_operatorAvailable) return;
+        var id = _state.Request.SessionId; var workflow = IsWorkflowSession; var version = _viewVersion;
+        try
+        {
+            var report = await Services.GetRequiredService<PlanningInspectionService>().FinancialAsync(id, workflow, _lifetime.Token);
+            if (version == _viewVersion && _state?.Request.SessionId == id && IsWorkflowSession == workflow) _financial = report;
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        catch (Exception)
+        {
+            if (version == _viewVersion) { _financial = null; _commandError = "Protected session financial accounting is unavailable; no available funds are inferred."; }
+        }
+    }
     private long CallsUsed => _state is null ? 0 : Math.Max(_state.ModelCalls, _state.Usage?.Calls ?? 0);
-    private bool IsCallBudgetExhausted => _state is not null && CallsUsed >= CallCeiling;
+    private bool IsCallBudgetExhausted => _state is not null && !PlanningApplicationBudget.TrackingOnly(_state.Request) && !PlanningTokenThresholds.OptimizationAdvisory(_state.Request) && CallsUsed >= CallCeiling;
     private string? CurrentPhase => IsCallBudgetExhausted && _state is { Plan: null, Phase: PlanningPhase.Replanning }
         ? PlanningPhase.Tasks : _state?.Phase;
     private bool IsInputBudgetStop => _state is { Status: PlanningStatus.Stopped, PendingCall: null }
@@ -236,15 +319,23 @@
     private Task? _polling;
     private string _name = "", _prompt = "", _revision = "", _reasoning = "medium";
     private string _mode = PlanningMode.Interactive;
+    private string _constructionPreset = "";
+    private string _thresholdMode = "strict";
+    private bool _diagnosticAvailable;
+    private bool _operatorAvailable;
+    private bool _interactiveReady;
     private int _inputLimit, _outputLimit;
     private string? _error;
     private string? _commandError;
-    private bool _busy, _reviseExisting, _businessJudge, _loading, _tracesOpen, _traceWorkflow;
-    private string? _traceSessionId;
+    private bool _busy, _reviseExisting, _loading, _tracesOpen, _traceWorkflow;
+    private string? _traceSessionId, _traceRequestId;
     private long _viewVersion;
     private long _renderedRevision = -1;
     protected override async Task OnParametersSetAsync()
     {
+        _operatorAvailable = Services.GetService<LocalOperatorAccess>() is { } access && await access.CanInspectAsync();
+        _diagnosticAvailable = Services.GetService<Microsoft.Extensions.Options.IOptions<GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings>>()?.Value.DiagnosticEnabled == true && _operatorAvailable;
+        _thresholdMode = Services.GetService<Microsoft.Extensions.Options.IOptions<GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings>>()?.Value.ResolveThresholdMode(null, _diagnosticAvailable) ?? "strict";
         _viewVersion++;
         CloseTraces(); _traceSessionId = null;
         _state = null; _reviewedRequirements = []; _revisionPaths.Clear(); _entry = null; _renderedRevision = -1; _error = null; _commandError = null;
@@ -256,6 +347,7 @@
     }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender) { _interactiveReady = true; StateHasChanged(); }
         if (_state is null || _renderedRevision == _state.Revision) return;
         try { await Js.InvokeVoidAsync("GnOuGo.Agent.markdown.enhance", "planningReview"); _renderedRevision = _state.Revision; }
         catch (JSDisconnectedException) { }
@@ -277,20 +369,23 @@
             else
             {
                 var inspection = await Planning.InspectAsync(id, workflow, _lifetime.Token);
+                var financial = _financial is not null && _operatorAvailable && inspection?.Session is not null
+                    ? await Services.GetRequiredService<PlanningInspectionService>().FinancialAsync(id, workflow, _lifetime.Token) : null;
                 var dto = !workflow && inspection?.Session is { } inspected ? await Planning.ToDtoAsync(inspected, _lifetime.Token) : null;
                 if (version == _viewVersion)
                 {
                     if (_state?.Request.SessionId != inspection?.Session?.Request.SessionId ||
                         _state?.Revision != inspection?.Session?.Revision || _state?.ComputeArtifactHash() != inspection?.Session?.ComputeArtifactHash())
                     { _reviewedRequirements = []; _revisionPaths.Clear(); }
-                    _inspectionDto = dto; _requestInspection = dto?.RequestInspection; _state = inspection?.Session; _entry = inspection?.Entry; _error = null;
+                    _financial = financial; _inspectionDto = dto; _requestInspection = dto?.RequestInspection; _state = inspection?.Session; _entry = inspection?.Entry; _error = null;
                 }
             }
         }
         finally { if (version == _viewVersion) _loading = false; }
     }
     private static string SessionUrl(string id, bool workflow) => "/planning/" + Uri.EscapeDataString(id) + (workflow ? "?source=workflow" : "");
-    private void OpenTraces(string id, bool workflow) { _traceSessionId = id; _traceWorkflow = workflow; _tracesOpen = true; }
+    private void OpenTraces(string id, bool workflow) { _traceRequestId = null; _traceSessionId = id; _traceWorkflow = workflow; _tracesOpen = true; }
+    private void InspectRequest(string requestId) { OpenTraces(_state!.Request.SessionId, IsWorkflowSession); _traceRequestId = requestId; }
     private void CloseTraces() => _tracesOpen = false;
     private async Task PollAsync()
     {
@@ -305,8 +400,22 @@
     private async Task StartAsync()
     {
         _busy = true; _error = null;
-        try { var state = await Planning.StartAsync(_name, _prompt, _reviseExisting, _lifetime.Token, mode: _mode, businessJudge: _businessJudge); Navigation.NavigateTo("/planning/" + state.Request.SessionId); }
+        try { var state = await Planning.StartAsync(_name, _prompt, _reviseExisting, _lifetime.Token, mode: _mode, constructionPreset: string.IsNullOrEmpty(_constructionPreset) ? null : _constructionPreset, thresholdMode: _thresholdMode,
+            diagnosticGrant: _thresholdMode == "diagnostic" ? await Services.GetRequiredService<LocalOperatorAccess>().GrantAsync() : null); Navigation.NavigateTo("/planning/" + state.Request.SessionId); }
         catch (Exception ex) { _error = ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task StartWithCurrentSettingsAsync()
+    {
+        if (_state is null) return;
+        _busy = true;
+        try
+        {
+            var created = await Planning.StartWithCurrentSettingsAsync(_state.Request.SessionId, Services.GetRequiredService<LocalOperatorAccess>(), _lifetime.Token);
+            Navigation.NavigateTo("/planning/" + created.Request.SessionId);
+        }
+        catch (Exception ex) { _commandError = ex.Message; }
         finally { _busy = false; }
     }
     private static string RevisionLocationLabel(string path) => path.Split('/') is ["", "tasks", var task, ..] ? "Task " + task : "Binding";
@@ -317,14 +426,14 @@
     }
     private Task ReviseSelectedAsync() => CanTargetRevision && _revisionPaths.Count > 0 && !string.IsNullOrWhiteSpace(_revision)
         ? SubmitAsync("revise", _revision, editablePaths: _revisionPaths.Order(StringComparer.Ordinal).ToArray()) : Task.CompletedTask;
-    private async Task SubmitAsync(string kind, string? text = null, JsonObject? selections = null, PlanningGenerationOptions? generation = null, string? mode = null, IReadOnlyList<PlanningAnswerDto>? answers = null, IReadOnlyList<string>? editablePaths = null)
+    private async Task SubmitAsync(string kind, string? text = null, JsonObject? selections = null, PlanningGenerationOptions? generation = null, string? mode = null, IReadOnlyList<PlanningAnswerDto>? answers = null, IReadOnlyList<string>? editablePaths = null, PlanningDiscoveryRecovery? discoveryRecovery = null)
     {
         if (_state is null || IsWorkflowSession || _busy) return;
         _busy = true; _error = null; _commandError = null;
-        try { _state = await Planning.SubmitAsync(_state.Request.SessionId, new() { Kind = kind, ExpectedRevision = _state.Revision, RequestId = _requestInspection?.RequestId, ArtifactHash = PlanningArtifactApproval.Hash(_state), Text = text, Selections = selections, Generation = generation, Mode = mode,
-            EditablePaths = editablePaths?.ToList(), PreserveRequirements = editablePaths is null ? null : true,
+        try { _state = kind == "cancel" ? await Planning.StopAsync(_state.Request.SessionId, _lifetime.Token) : await Planning.SubmitAsync(_state.Request.SessionId, new() { Kind = kind, ExpectedRevision = _state.Revision, RequestId = _requestInspection?.RequestId, ArtifactHash = PlanningArtifactApproval.Hash(_state), Text = text, Selections = selections, Generation = generation, Mode = mode,
+            DiscoveryRecovery = discoveryRecovery, EditablePaths = editablePaths?.ToList(), PreserveRequirements = editablePaths is null ? null : true,
             ReviewedRequirementIds = kind == "approve" ? _reviewedRequirements.ToList() : null,
-            Answers = answers?.Select(a => new PlanningAnswer(a.QuestionId, a.AlternativeId, a.Text)).ToList() }, _lifetime.Token); _reviewedRequirements = []; _revisionPaths.Clear(); }
+            Answers = answers?.Select(a => new PlanningAnswer(a.QuestionId, a.AlternativeId, a.Text)).ToList() }, _lifetime.Token, kind is "recover_discovery" or "resume_discovery" ? await Services.GetRequiredService<LocalOperatorAccess>().GrantAsync() : null); _reviewedRequirements = []; _revisionPaths.Clear(); }
         catch (Exception ex) { _commandError = ex.Message; await RefreshAsync(); }
         finally { _busy = false; }
     }
@@ -333,7 +442,7 @@
     private static string Phase(string status) => status switch
     {
         PlanningStatus.Created => "Discovering capabilities", PlanningStatus.Generating => "Building and validating workflow",
-        PlanningStatus.Clarification => "Clarify the intended workflow", PlanningStatus.FinalReview => "Ready for your review",
+        PlanningStatus.DiscoveryRecovery => "Discovery recovery", PlanningStatus.Clarification => "Clarify the intended workflow", PlanningStatus.FinalReview => "Ready for your review",
         PlanningStatus.Approved => "Approved", PlanningStatus.Saving => "Saving", PlanningStatus.Saved => "Saved",
         PlanningStatus.Stopped or PlanningStatus.Failed => "Planning stopped", PlanningStatus.Cancelled => "Cancelled", _ => status
     };

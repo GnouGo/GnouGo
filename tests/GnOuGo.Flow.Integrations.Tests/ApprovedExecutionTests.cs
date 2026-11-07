@@ -12,19 +12,20 @@ namespace GnOuGo.Flow.Integrations.Tests;
 public sealed class ApprovedExecutionTests
 {
     [Theory]
-    [InlineData(false, "interactive")]
-    [InlineData(true, "interactive")]
-    [InlineData(false, "auto")]
-    [InlineData(true, "auto")]
-    public async Task PlanExecuteAndRestartUseStoredApprovalWithoutAnotherModelCall(bool businessDecision, string mode)
+    [InlineData("interactive")]
+    [InlineData("auto")]
+    public async Task PlanExecuteAndRestartUseStoredApprovalWithoutAnotherModelCall(string mode)
     {
         var directory = Path.Combine(Path.GetTempPath(), "gnougo-approved-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         try
         {
-            var model = new Model { BusinessDecision = businessDecision }; var human = new Human(); var decisions = new Decisions();
+            var calls = 0; var phases = new List<string>();
+            var model = new CurrentPlanningFixture.LiteralModel(onRequest: request =>
+            { calls++; phases.Add(request.StructuredOutputSchema!["title"]!.GetValue<string>()); });
+            var human = new Human();
             var factory = new WorkflowPlanningRuntimeFactory(new KeyVaultRecordStore(Path.Combine(directory, "vault.db")), Path.Combine(directory, "leases"));
-            var engine = new WorkflowEngine { WorkflowPlanner = new HybridWorkflowPlanner(), PlanningRuntimeFactory = factory, LLMClient = model, HumanInputProvider = human, PlanningInteraction = decisions, DefaultPlanningMode = mode,
+            var engine = new WorkflowEngine { WorkflowPlanner = new HybridWorkflowPlanner(), PlanningRuntimeFactory = factory, LLMClient = model, HumanInputProvider = human, DefaultPlanningMode = mode,
                 Limits = new() { RunId = "stable-run", TenantId = "one" } };
             var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse("""
                 version: 1
@@ -34,7 +35,7 @@ public sealed class ApprovedExecutionTests
                       - id: plan
                         type: workflow.plan
                         input:
-                          raw_prompt: Return 42
+                          raw_prompt: Return the required public numeric result named result with value 42.
                           generator: { model: test }
                       - id: execute
                         type: workflow.execute
@@ -42,44 +43,19 @@ public sealed class ApprovedExecutionTests
                     outputs:
                       result: { type: number, expr: '${data.steps.execute.outputs.result}' }
                 """));
+            var firstCalls = 0;
             for (var i = 0; i < 2; i++)
             {
                 var result = await engine.ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], new JsonObject(), TestContext.Current.CancellationToken);
                 Assert.True(result.Success, result.Error?.Message); Assert.Equal("42", result.Outputs!["result"]!.ToJsonString());
+                if (i == 0) firstCalls = calls;
+                else Assert.Equal(firstCalls, calls);
             }
-            Assert.Equal(1, model.Calls); Assert.Equal(1, human.Reviews); Assert.Equal(businessDecision && mode == "interactive" ? 1 : 0, decisions.Questions);
+            Assert.Equal(5, calls); Assert.Equal(1, human.Reviews);
+            Assert.Equal(["construction_intent", "construction_select", "construction_implementation", "construction_draft", "construction_global_judge"], phases);
             await Assert.ThrowsAsync<PlanningConflictException>(() => factory.ReadApprovedYamlAsync(new() { Engine = engine, Limits = new() { TenantId = "other" }, Step = new(), Data = new() }, "unknown", "forged", TestContext.Current.CancellationToken));
         }
         finally { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); Directory.Delete(directory, true); }
-    }
-    private sealed class Model : ILLMClient, ILLMCapabilityResolver
-    {
-        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(128000);
-        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
-        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["medium"]);
-
-        internal int Calls;
-        internal bool BusinessDecision;
-        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
-        {
-            Calls++;
-            var proposal = new PlanningProposal { Requirements = PlanningCorpus.Requirements("local"), Plan = PlanningCorpus.LiteralResult() };
-            if (BusinessDecision && Calls == 1)
-            {
-                proposal.Plan.Choices = [new() { Id = "style", Question = "Which presentation?", Recommended = "brief", Alternatives = [new("brief", "Brief", PlanningCorpus.String("brief")), new("detailed", "Detailed", PlanningCorpus.String("detailed"))] }];
-                proposal.Plan.Root.Outputs.Add(new("style", PlanningCorpus.Business("choice", "style")));
-            }
-            var response = new LLMResponse { Json = PlanningCorpus.Transport(System.Text.Json.JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal), request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
-            response.Usage = new JsonObject { ["total_tokens"] = 15 }; return Task.FromResult(response);
-        }
-
-    }
-    private sealed class Decisions : IPlanningInteraction
-    {
-        internal int Questions;
-        public Task<PlanningCommand> RequestAsync(PlanningSession session, CancellationToken ct)
-        { Questions++; return Task.FromResult(new PlanningCommand { Kind = "choose", ExpectedRevision = session.Revision, Selections = new() { ["style"] = "brief" } }); }
-        public Task CheckpointedAsync(PlanningSession session, CancellationToken ct) => Task.CompletedTask;
     }
     private sealed class Human : IHumanInputProvider
     {

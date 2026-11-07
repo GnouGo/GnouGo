@@ -117,22 +117,22 @@ public sealed class TaskPlanSafetyTests
     [InlineData("recommendation")]
     [InlineData("type")]
     [InlineData("multiple_slots")]
-    public async Task InvalidBusinessChoicesFailClosed(string invalid)
+    public void InvalidBusinessChoicesFailClosed(string invalid)
     {
-        var runtime = new TestRuntime { Proposal = new() { Requirements = PlannerFixture.Requirements(), Plan = PlanningCorpus.Decision() } };
-        if (invalid == "recommendation") runtime.Proposal.Plan.Choices[0].Recommended = "unissued";
-        if (invalid == "type") runtime.Proposal.Plan.Choices[0].Alternatives[0].Value.Kind = "number";
-        if (invalid == "multiple_slots") runtime.Proposal.Plan.Root.Outputs.Add(new("again", PlanningCorpus.Business("choice", "tone")));
-        var session = PlannerFixture.Session(); session.Request.Mode = PlanningMode.Auto;
-        var result = await PlannerFixture.RunAsync(runtime, session);
-        Assert.Equal(PlanningStatus.Stopped, result.Status); Assert.Null(result.Yaml); Assert.Null(result.ApprovedHash);
+        var plan = PlanningCorpus.Decision();
+        if (invalid == "recommendation") plan.Choices[0].Recommended = "unissued";
+        if (invalid == "type") plan.Choices[0].Alternatives[0].Value.Kind = "number";
+        if (invalid == "multiple_slots") plan.Root.Outputs.Add(new("again", PlanningCorpus.Business("choice", "tone")));
+        var result = new TaskPlanCompiler().Compile(plan, new());
+        Assert.Null(result.Graph);
+        Assert.Contains(result.Diagnostics, d => d.Code.StartsWith("CHOICE_", StringComparison.Ordinal) || d.Code == "TASK_LITERAL_INVALID");
     }
     [Fact]
     public async Task ApprovalRecompilesIntentAndDetectsCatalogMappingChanges()
     {
-        var runtime = new TestRuntime(); var state = await PlannerFixture.RunAsync(runtime);
+        var state = await CurrentPlanningFixture.LiteralAsync("approval-tamper", null, null, PlannerFixture.Ct);
         PlanningArtifactApproval.Verify(state); var hash = state.ComputeArtifactHash();
-        state.Plan!.Root.Tasks[0].Outputs[0].Value.Text = "Changed";
+        state.Plan!.Root.Tasks[0].Outputs[0].Value.Number = 99;
         Assert.NotEqual(hash, state.ComputeArtifactHash()); Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(state));
     }
     private static async Task<(PlanningCatalog Catalog, TaskPlan Plan)> Fixture()

@@ -1,4 +1,4 @@
-﻿
+
 using System.Text.Json.Nodes;
 
 using Microsoft.Extensions.Logging;
@@ -15,10 +15,13 @@ public sealed class LLMModelMetadataResolver
     private readonly IReadOnlyDictionary<string, string> _fileAliases;
     private readonly IReadOnlyDictionary<string, LLMModelMetadata> _inlineOverrides;
     private readonly bool _fileLoadFailed;
+    private readonly IReadOnlyDictionary<string, LLMModelMetadata>? _captured;
 
     public LLMModelMetadataResolver(LLMOptions? options = null)
     {
         options ??= new LLMOptions();
+        _captured = options.CapturedModelMetadata;
+        if (_captured is not null) { _fileModels = new Dictionary<string, LLMModelMetadata>(); _fileAliases = new Dictionary<string, string>(); _inlineOverrides = _fileModels; return; }
         (_fileModels, _fileAliases) = ModelMetadataCatalog.LoadFiles(options.ModelMetadataFiles, out _fileLoadFailed);
         _inlineOverrides = options.ModelOverrides ?? new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
     }
@@ -41,6 +44,7 @@ public sealed class LLMModelMetadataResolver
     /// <summary>Exact producer/configuration metadata, without fuzzy or heuristic limits.</summary>
     public LLMModelMetadata? ResolveDeclaredMetadata(string? providerType, string model)
     {
+        if (_captured is not null) return Captured(providerType, model);
         if (_fileLoadFailed)
             throw new InvalidOperationException("Configured model metadata could not be read completely.");
         providerType = ModelMetadataCatalog.NormalizeProviderType(providerType);
@@ -61,6 +65,7 @@ public sealed class LLMModelMetadataResolver
     /// </summary>
     public LLMModelMetadataResolution ResolveWithDetails(string? providerType, string model)
     {
+        if (_captured is not null) return new(Captured(providerType, model), LLMModelMetadataMatchKind.Exact, providerType, model, 1d);
         providerType = ModelMetadataCatalog.NormalizeProviderType(providerType);
         if (string.IsNullOrWhiteSpace(providerType)
             && ModelMetadataCatalog.TrySplitProviderQualifiedKey(model, out var providerFromModel, out _))
@@ -153,6 +158,10 @@ public sealed class LLMModelMetadataResolver
             matchKind,
             isRecognized ? ModelMetadataCatalog.StripVendorPrefix(canonicalModel ?? metadata.Id) : null);
     }
+
+    private LLMModelMetadata Captured(string? provider, string model) =>
+        _captured!.TryGetValue(ModelMetadataCatalog.ModelIdentityKey(provider, model), out var value)
+            ? ModelMetadataCatalog.Clone(value) : throw new InvalidOperationException("The captured model metadata does not authorize this provider/model pair.");
 
     private static bool MatchesDeclaredProvider(string key, LLMModelMetadata metadata, string? providerType)
     {
@@ -541,8 +550,31 @@ public static partial class ModelMetadataCatalog
         var input = inputTokens ?? 0;
         var output = outputTokens ?? 0;
 
-        return input / 1_000_000m * (pricing.InputPer1MTokens ?? 0m)
-             + output / 1_000_000m * (pricing.OutputPer1MTokens ?? 0m);
+        return EstimateUsageCost(pricing, input, output);
+    }
+
+    /// <summary>Reasoning is a subset of output, never added again. Cache tokens are a subset of input.</summary>
+    public static decimal EstimateUsageCost(ModelPricingMetadata pricing, long input, long output, long cachedInput = 0,
+        string serviceTier = "standard", bool regional = false, long cacheWriteInput = 0, bool cacheWrite12h = false)
+    {
+        if (input < 0 || output < 0 || cachedInput < 0 || cacheWriteInput < 0 || cachedInput > input - cacheWriteInput) throw new ArgumentOutOfRangeException(nameof(input));
+        var longContext = pricing.LongContextThresholdTokens is { } threshold && input > threshold;
+        var inputFactor = longContext ? pricing.LongContextInputMultiplier ?? 1m : 1m;
+        var outputFactor = longContext ? pricing.LongContextOutputMultiplier ?? 1m : 1m;
+        var tier = serviceTier switch
+        {
+            "standard" or "default" or "auto" => 1m,
+            "fast" or "priority" => pricing.FastMultiplier ?? throw new InvalidOperationException("Fast pricing is undocumented."),
+            "flex" or "batch" => pricing.FlexBatchMultiplier ?? throw new InvalidOperationException("Flex/Batch pricing is undocumented."),
+            "ultrafast" => pricing.UltrafastMultiplier ?? throw new InvalidOperationException("Ultrafast pricing is undocumented."),
+            _ => throw new ArgumentException("Unknown pricing tier.", nameof(serviceTier))
+        };
+        var region = regional ? pricing.RegionalMultiplier ?? throw new InvalidOperationException("Regional pricing is undocumented.") : 1m;
+        var writePrice = cacheWrite12h ? pricing.CacheWrite12hInputPer1MTokens : pricing.CacheWriteInputPer1MTokens;
+        if (cacheWriteInput > 0 && writePrice is null) throw new InvalidOperationException("Cache-write pricing is undocumented.");
+        return (((input - cachedInput - cacheWriteInput) * (pricing.InputPer1MTokens ?? 0m) + cachedInput *
+            (pricing.CachedInputPer1MTokens ?? pricing.InputPer1MTokens ?? 0m) + cacheWriteInput * (writePrice ?? 0m)) * inputFactor +
+            output * (pricing.OutputPer1MTokens ?? 0m) * outputFactor) * tier * region / 1_000_000m;
     }
 
     public static IReadOnlyList<string> GetMissingRequiredMetadataFields(
@@ -771,6 +803,7 @@ public static partial class ModelMetadataCatalog
             || m.StartsWith("o3", StringComparison.OrdinalIgnoreCase)
             || m.StartsWith("o4", StringComparison.OrdinalIgnoreCase)
             || m.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase)
+            || m.StartsWith("gpt-6", StringComparison.OrdinalIgnoreCase)
             || m.Contains("reasoner", StringComparison.OrdinalIgnoreCase);
 
         if (isOpenAiCompatible)
@@ -806,6 +839,8 @@ public static partial class ModelMetadataCatalog
 
     internal static void MergeInto(LLMModelMetadata target, LLMModelMetadata source, string? fallbackId = null)
     {
+        target.VerifiedAt = source.VerifiedAt ?? target.VerifiedAt;
+        if (source.SourceUrls is not null) target.SourceUrls = [.. source.SourceUrls];
         if (!string.IsNullOrWhiteSpace(source.Id)) target.Id = source.Id;
         else if (string.IsNullOrWhiteSpace(target.Id) && !string.IsNullOrWhiteSpace(fallbackId)) target.Id = fallbackId;
         if (!string.IsNullOrWhiteSpace(source.ProviderType)) target.ProviderType = NormalizeProviderType(source.ProviderType) ?? source.ProviderType;
@@ -823,6 +858,14 @@ public static partial class ModelMetadataCatalog
             target.Pricing.OutputPer1MTokens = source.Pricing.OutputPer1MTokens ?? target.Pricing.OutputPer1MTokens;
             target.Pricing.CachedInputPer1MTokens = source.Pricing.CachedInputPer1MTokens ?? target.Pricing.CachedInputPer1MTokens;
             target.Pricing.CacheWriteInputPer1MTokens = source.Pricing.CacheWriteInputPer1MTokens ?? target.Pricing.CacheWriteInputPer1MTokens;
+            target.Pricing.CacheWrite12hInputPer1MTokens = source.Pricing.CacheWrite12hInputPer1MTokens ?? target.Pricing.CacheWrite12hInputPer1MTokens;
+            target.Pricing.LongContextThresholdTokens = source.Pricing.LongContextThresholdTokens ?? target.Pricing.LongContextThresholdTokens;
+            target.Pricing.LongContextInputMultiplier = source.Pricing.LongContextInputMultiplier ?? target.Pricing.LongContextInputMultiplier;
+            target.Pricing.LongContextOutputMultiplier = source.Pricing.LongContextOutputMultiplier ?? target.Pricing.LongContextOutputMultiplier;
+            target.Pricing.FastMultiplier = source.Pricing.FastMultiplier ?? target.Pricing.FastMultiplier;
+            target.Pricing.FlexBatchMultiplier = source.Pricing.FlexBatchMultiplier ?? target.Pricing.FlexBatchMultiplier;
+            target.Pricing.UltrafastMultiplier = source.Pricing.UltrafastMultiplier ?? target.Pricing.UltrafastMultiplier;
+            target.Pricing.RegionalMultiplier = source.Pricing.RegionalMultiplier ?? target.Pricing.RegionalMultiplier;
             target.Pricing.ReasoningOutputPer1MTokens = source.Pricing.ReasoningOutputPer1MTokens ?? target.Pricing.ReasoningOutputPer1MTokens;
         }
 
@@ -843,6 +886,11 @@ public static partial class ModelMetadataCatalog
                 target.Capabilities.UnsupportedRequestParameters = [.. source.Capabilities.UnsupportedRequestParameters];
         }
 
+        if (source.Capabilities?.SupportsResponses is { } valueSupportsResponses) target.Capabilities.SupportsResponses = valueSupportsResponses;
+        if (source.Capabilities?.SupportsChatCompletions is { } valueSupportsChatCompletions) target.Capabilities.SupportsChatCompletions = valueSupportsChatCompletions;
+        if (source.Capabilities?.SupportsStreaming is { } valueSupportsStreaming) target.Capabilities.SupportsStreaming = valueSupportsStreaming;
+        if (source.Capabilities?.ChatToolsReasoningEfforts is { } valueChatToolsReasoningEfforts) target.Capabilities.ChatToolsReasoningEfforts = [.. valueChatToolsReasoningEfforts];
+        if (source.Capabilities?.TemperatureReasoningEfforts is { } temperatureEfforts) target.Capabilities.TemperatureReasoningEfforts = [.. temperatureEfforts];
         foreach (var kv in source.Aliases)
             target.Aliases[kv.Key] = kv.Value;
         foreach (var kv in source.Extra)
@@ -853,6 +901,7 @@ public static partial class ModelMetadataCatalog
     {
         var clone = new LLMModelMetadata
         {
+            VerifiedAt = source.VerifiedAt, SourceUrls = source.SourceUrls is null ? null : [.. source.SourceUrls],
             Id = source.Id,
             ProviderType = source.ProviderType,
             DisplayName = source.DisplayName,
@@ -867,10 +916,23 @@ public static partial class ModelMetadataCatalog
                 OutputPer1MTokens = source.Pricing.OutputPer1MTokens,
                 CachedInputPer1MTokens = source.Pricing.CachedInputPer1MTokens,
                 CacheWriteInputPer1MTokens = source.Pricing.CacheWriteInputPer1MTokens,
+                CacheWrite12hInputPer1MTokens = source.Pricing.CacheWrite12hInputPer1MTokens,
+                LongContextThresholdTokens = source.Pricing.LongContextThresholdTokens,
+                LongContextInputMultiplier = source.Pricing.LongContextInputMultiplier,
+                LongContextOutputMultiplier = source.Pricing.LongContextOutputMultiplier,
+                FastMultiplier = source.Pricing.FastMultiplier,
+                FlexBatchMultiplier = source.Pricing.FlexBatchMultiplier,
+                UltrafastMultiplier = source.Pricing.UltrafastMultiplier,
+                RegionalMultiplier = source.Pricing.RegionalMultiplier,
                 ReasoningOutputPer1MTokens = source.Pricing.ReasoningOutputPer1MTokens
             },
             Capabilities = source.Capabilities == null ? new ModelCapabilityMetadata() : new ModelCapabilityMetadata
             {
+                TemperatureReasoningEfforts = source.Capabilities.TemperatureReasoningEfforts is { } t ? [.. t] : null,
+                SupportsResponses = source.Capabilities.SupportsResponses,
+                SupportsChatCompletions = source.Capabilities.SupportsChatCompletions,
+                SupportsStreaming = source.Capabilities.SupportsStreaming,
+                ChatToolsReasoningEfforts = source.Capabilities.ChatToolsReasoningEfforts is { } valuesChatToolsReasoningEfforts ? [.. valuesChatToolsReasoningEfforts] : null,
                 SupportsTemperature = source.Capabilities.SupportsTemperature,
                 SupportsReasoningEffort = source.Capabilities.SupportsReasoningEffort,
                 SupportsStructuredOutput = source.Capabilities.SupportsStructuredOutput,
@@ -889,6 +951,9 @@ public static partial class ModelMetadataCatalog
             clone.Extra[kv.Key] = kv.Value;
         return clone;
     }
+
+    /// <summary>The exact provider/model identity used by captured metadata; no alias or fuzzy lookup.</summary>
+    public static string ModelIdentityKey(string? providerType, string model) => NormalizeProviderType(providerType) + "/" + StripVendorPrefix(model);
 
     internal static string StripVendorPrefix(string model)
     {
@@ -947,6 +1012,8 @@ public static partial class ModelMetadataCatalog
         var idFromKey = TrySplitProviderQualifiedKey(id, out var providerFromKey, out var splitModel) ? splitModel : id;
         var metadata = new LLMModelMetadata { Id = GetString(obj, "id") ?? idFromKey };
         metadata.ProviderType = NormalizeProviderType(GetString(obj, "providerType")) ?? (string.IsNullOrWhiteSpace(providerFromKey) ? null : providerFromKey);
+        metadata.VerifiedAt = GetString(obj, "verifiedAt");
+        metadata.SourceUrls = GetStringArray(obj, "sourceUrls");
         metadata.DisplayName = GetString(obj, "displayName");
         metadata.OwnedBy = GetString(obj, "ownedBy");
         metadata.ContextWindowTokens = GetInt(obj, "contextWindowTokens");
@@ -962,6 +1029,14 @@ public static partial class ModelMetadataCatalog
                 OutputPer1MTokens = GetDecimal(pricing, "outputPer1MTokens"),
                 CachedInputPer1MTokens = GetDecimal(pricing, "cachedInputPer1MTokens"),
                 CacheWriteInputPer1MTokens = GetDecimal(pricing, "cacheWriteInputPer1MTokens"),
+                CacheWrite12hInputPer1MTokens = GetDecimal(pricing, "cacheWrite12hInputPer1MTokens"),
+                LongContextThresholdTokens = GetInt(pricing, "longContextThresholdTokens"),
+                LongContextInputMultiplier = GetDecimal(pricing, "longContextInputMultiplier"),
+                LongContextOutputMultiplier = GetDecimal(pricing, "longContextOutputMultiplier"),
+                FastMultiplier = GetDecimal(pricing, "fastMultiplier"),
+                FlexBatchMultiplier = GetDecimal(pricing, "flexBatchMultiplier"),
+                UltrafastMultiplier = GetDecimal(pricing, "ultrafastMultiplier"),
+                RegionalMultiplier = GetDecimal(pricing, "regionalMultiplier"),
                 ReasoningOutputPer1MTokens = GetDecimal(pricing, "reasoningOutputPer1MTokens")
             };
         }
@@ -970,6 +1045,11 @@ public static partial class ModelMetadataCatalog
         {
             metadata.Capabilities = new ModelCapabilityMetadata
             {
+                TemperatureReasoningEfforts = GetStringArray(capabilities, "temperatureReasoningEfforts"),
+                SupportsResponses = GetBool(capabilities, "supportsResponses"),
+                SupportsChatCompletions = GetBool(capabilities, "supportsChatCompletions"),
+                SupportsStreaming = GetBool(capabilities, "supportsStreaming"),
+                ChatToolsReasoningEfforts = GetStringArray(capabilities, "chatToolsReasoningEfforts"),
                 SupportsTemperature = GetBool(capabilities, "supportsTemperature"),
                 SupportsReasoningEffort = GetBool(capabilities, "supportsReasoningEffort"),
                 SupportsStructuredOutput = GetBool(capabilities, "supportsStructuredOutput"),

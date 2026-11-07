@@ -1,0 +1,33 @@
+{
+  "source_revision": "e880124edb8a6e217eec392aceb5298d0fa6b2ac",
+  "source_manifest_sha256": "e02614e638f2866e90cfa300c5965b117701cc657aa95a15cdfd431378136a39",
+  "tracked_file_count": 4762,
+  "changed_tracked_files_after_full_solution": [],
+  "otlp_input_count": 9,
+  "changed_otlp_inputs": [],
+  "changed_runtime_pins": [],
+  "publication_all_10_stages_passed": true,
+  "publication_warning_count": 0,
+  "publication_summary_sha256": "8bb2b8fd59e026bd34403ca7e3174f58bdfa4f6a6e01fcd473b45977ce03689f",
+  "solution_exit_code": 0,
+  "solution_elapsed_seconds": 4476.033,
+  "solution_completed_assemblies": 33,
+  "solution_passed": 7166,
+  "solution_failed": 0,
+  "solution_declared_skipped": 12,
+  "solution_skip_reasons": {
+    "Requires native Windows PowerShell.": 7,
+    "Set GNOU_GO_LIVE_COPILOT_EDIT=1 to run the local real-model fixture.": 4,
+    "Set GNOU_GO_LIVE_PR_REVIEW_E2E=1 to create the disposable live GitHub fixture.": 1
+  },
+  "solution_compiler_diagnostic_count": 0,
+  "solution_summary_sha256": "8ad599696710cb7c195ba1b0f6799c620ebe08d22349cabe5493ff9d74a78ffc",
+  "solution_terminal_sha256": "8516d31e2fd4110c69179adae9ba22c306d345471b07771f30c0e72c0e5c0c28",
+  "old2634_source_binary_proof_unchanged": true,
+  "old2634_preserved_file_count": 37859,
+  "old2634_proof_sha256": "ff418297b1aef299f42868b0d2b80bbbff269448784462f0f781cb8c2a94c8e5",
+  "paid_calls": 0,
+  "operational_workspaces_accessed": false,
+  "business_qualification_claimed": false,
+  "scope_note": "Exact e880 full solution and independent publication proofs only. New pending-completion correction is not covered. Focused tests are not added to the full-run count."
+}

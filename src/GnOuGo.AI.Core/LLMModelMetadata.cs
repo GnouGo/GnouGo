@@ -1,4 +1,4 @@
-﻿namespace GnOuGo.AI.Core;
+namespace GnOuGo.AI.Core;
 
 /// <summary>
 /// Pricing metadata for a model, expressed per one million tokens.
@@ -10,6 +10,14 @@ public sealed class ModelPricingMetadata
     public decimal? OutputPer1MTokens { get; set; }
     public decimal? CachedInputPer1MTokens { get; set; }
     public decimal? CacheWriteInputPer1MTokens { get; set; }
+    public decimal? CacheWrite12hInputPer1MTokens { get; set; }
+    public int? LongContextThresholdTokens { get; set; }
+    public decimal? LongContextInputMultiplier { get; set; }
+    public decimal? LongContextOutputMultiplier { get; set; }
+    public decimal? FastMultiplier { get; set; }
+    public decimal? FlexBatchMultiplier { get; set; }
+    public decimal? UltrafastMultiplier { get; set; }
+    public decimal? RegionalMultiplier { get; set; }
     public decimal? ReasoningOutputPer1MTokens { get; set; }
 }
 
@@ -26,6 +34,11 @@ public sealed class ModelCapabilityMetadata
     public bool? SupportsJsonMode { get; set; }
     public bool? SupportsVision { get; set; }
     public bool? SupportsAudio { get; set; }
+    public bool? SupportsResponses { get; set; }
+    public bool? SupportsChatCompletions { get; set; }
+    public bool? SupportsStreaming { get; set; }
+    public List<string>? TemperatureReasoningEfforts { get; set; }
+    public List<string>? ChatToolsReasoningEfforts { get; set; }
     public bool? SupportsEmbeddings { get; set; }
     public List<string>? SupportedReasoningEfforts { get; set; }
     public List<string>? UnsupportedRequestParameters { get; set; }
@@ -37,6 +50,8 @@ public sealed class ModelCapabilityMetadata
 /// </summary>
 public sealed class LLMModelMetadata
 {
+    public string? VerifiedAt { get; set; }
+    public List<string>? SourceUrls { get; set; }
     public string Id { get; set; } = "";
     public string? ProviderType { get; set; }
     public string? DisplayName { get; set; }

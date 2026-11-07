@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net;
-using System.Net.Sockets;
+using Microsoft.AspNetCore.Http;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -24,7 +24,7 @@ public sealed class BrowserEmptyObservationTests
     public async Task BlankDocumentReloadsOnceAndPublishesOnlyNewGeneration(bool remainsEmpty)
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var site = new Site((_, count) => new(200, count == 1 || remainsEmpty ? Blank : Populated));
+        await using var site = await Site.CreateAsync((_, count) => new(200, count == 1 || remainsEmpty ? Blank : Populated));
         await using var host = Host();
         using var activity = new Activity("empty-acquisition").Start();
         var result = await Tools(host).GetContentAsync(url: site.Url, format: "observation_complete", timeoutMs: 5000, cancellationToken: ct);
@@ -78,7 +78,7 @@ public sealed class BrowserEmptyObservationTests
     public async Task EmptySelectedRegionOrNonTextContentDoesNotReload(string content)
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var site = new Site((_, _) => new(200, "<html><body>" + content + "</body></html>"));
+        await using var site = await Site.CreateAsync((_, _) => new(200, "<html><body>" + content + "</body></html>"));
         await using var host = Host();
         var result = await Tools(host).GetContentAsync(url: site.Url, selector: "main", format: "observation_complete", cancellationToken: ct);
         Assert.True(result.Success, result.ErrorMessage); Assert.Empty(result.ObservationSnapshot!.Pages);
@@ -94,7 +94,7 @@ public sealed class BrowserEmptyObservationTests
     public async Task BlankHttpFailureIsPreservedWithoutReload(int status)
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var site = new Site((_, _) => new(status, Blank));
+        await using var site = await Site.CreateAsync((_, _) => new(status, Blank));
         await using var host = Host();
         var result = await Tools(host).GetContentAsync(url: site.Url, format: "observation_complete", cancellationToken: ct);
         Assert.Equal("OBSERVATION_EMPTY", result.ErrorCode); Assert.Equal(status, result.StatusCode);
@@ -108,7 +108,7 @@ public sealed class BrowserEmptyObservationTests
     public async Task IntentionalNoContentDoesNotReload(int status)
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var site = new Site((request, _) => request.Url!.AbsolutePath == "/warm" ? new(200, Populated) : new(status, ""));
+        await using var site = await Site.CreateAsync((request, _) => request.Path.Value == "/warm" ? new(200, Populated) : new(status, ""));
         await using var host = Host();
         await Tools(host).GetContentAsync(url: site.Url + "warm", format: "html", cancellationToken: ct);
         var result = await Tools(host).GetContentAsync(url: site.Url, format: "observation_complete", timeoutMs: 1000, cancellationToken: ct);
@@ -125,7 +125,7 @@ public sealed class BrowserEmptyObservationTests
     {
         var ct = TestContext.Current.CancellationToken;
         var html = interact ? "<html><body><button onclick=\"document.body.replaceChildren()\">Clear</button></body></html>" : Blank;
-        await using var site = new Site((_, _) => new(200, html));
+        await using var site = await Site.CreateAsync((_, _) => new(200, html));
         await using var host = Host();
         await Tools(host).GetContentAsync(url: site.Url, format: "html", cancellationToken: ct);
         if (interact) await host.ClickAsync("button", "load", 1000, ct);
@@ -139,7 +139,7 @@ public sealed class BrowserEmptyObservationTests
     public async Task RedirectThenReloadRetainsOnlyFinalDocumentStatusAndIdentity()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var site = new Site((request, count) => request.Url!.AbsolutePath == "/"
+        await using var site = await Site.CreateAsync((request, count) => request.Path.Value == "/"
             ? new(302, "", "/destination") : new(count == 1 ? 200 : 202, count == 1 ? Blank : Populated));
         await using var host = Host();
         var result = await Tools(host).GetContentAsync(url: site.Url, format: "observation_complete", cancellationToken: ct);
@@ -157,7 +157,7 @@ public sealed class BrowserEmptyObservationTests
     {
         var ct = TestContext.Current.CancellationToken;
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        await using var site = new Site((_, _) => new(200, Blank));
+        await using var site = await Site.CreateAsync((_, _) => new(200, Blank));
         var captures = 0;
         await using var host = new PlaywrightBrowserHost(Options.Create(new BrowserServerSettings { AllowedHosts = ["127.0.0.1"] }), NullLogger<PlaywrightBrowserHost>.Instance)
         {
@@ -181,7 +181,7 @@ public sealed class BrowserEmptyObservationTests
     public async Task SubmittedDocumentIsNotReloadRequestedEvenInsideAnExplicitAcquisition()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var site = new Site((request, _) => new(200, request.HttpMethod == "POST" ? Blank :
+        await using var site = await Site.CreateAsync((request, _) => new(200, request.Method == "POST" ? Blank :
             "<html><body><form method='post'><button>Submit</button></form></body></html>"));
         var submitted = false;
         await using var host = new PlaywrightBrowserHost(Options.Create(new BrowserServerSettings { AllowedHosts = ["127.0.0.1"] }), NullLogger<PlaywrightBrowserHost>.Instance)
@@ -206,7 +206,7 @@ public sealed class BrowserEmptyObservationTests
     public async Task EmptyRecoverySharesTheThreeAttemptCeilingWithNavigationInvalidation()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var site = new Site((request, _) => new(200, request.Url!.AbsolutePath == "/blank" ? Blank : Populated));
+        await using var site = await Site.CreateAsync((request, _) => new(200, request.Path.Value == "/blank" ? Blank : Populated));
         var captures = 0;
         await using var host = new PlaywrightBrowserHost(Options.Create(new BrowserServerSettings { AllowedHosts = ["127.0.0.1"] }), NullLogger<PlaywrightBrowserHost>.Instance)
         {
@@ -226,7 +226,7 @@ public sealed class BrowserEmptyObservationTests
     public async Task UnknownSameDocumentNavigationCannotBorrowAnEarlierGetResponse()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var site = new Site((_, _) => new(200, Blank));
+        await using var site = await Site.CreateAsync((_, _) => new(200, Blank));
         await using var host = Host();
         await Tools(host).GetContentAsync(url: site.Url, format: "html", cancellationToken: ct);
         var result = await Tools(host).GetContentAsync(url: site.Url + "#state", format: "observation_complete", cancellationToken: ct);
@@ -240,7 +240,7 @@ public sealed class BrowserEmptyObservationTests
     public async Task FailedReloadPreservesOriginalEvidenceAndDoesNotRetryAgain()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var site = new Site((_, _) => new(200, Blank));
+        await using var site = await Site.CreateAsync((_, _) => new(200, Blank));
         await using var host = new PlaywrightBrowserHost(Options.Create(new BrowserServerSettings { AllowedHosts = ["127.0.0.1"] }), NullLogger<PlaywrightBrowserHost>.Instance)
         {
             ObservationCheckpoint = async (page, phase, token) =>
@@ -260,11 +260,14 @@ public sealed class BrowserEmptyObservationTests
     {
         var ct = TestContext.Current.CancellationToken;
         using var cancelled = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        await using var site = new Site((_, _) => new(200, Blank));
+        await using var site = await Site.CreateAsync((_, _) => new(200, Blank));
         await using var host = new PlaywrightBrowserHost(Options.Create(new BrowserServerSettings { AllowedHosts = ["127.0.0.1"] }), NullLogger<PlaywrightBrowserHost>.Instance)
         {
             ObservationCheckpoint = (_, _, token) => { cancelled.Cancel(); token.ThrowIfCancellationRequested(); return Task.CompletedTask; }
         };
+        // Keep cold browser startup outside the acquisition whose cancellation is under test.
+        await host.GetContentAsync(site.Url + "warmup", "load", null, null, "html", null, false, ct);
+        site.Calls.Clear();
         var error = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => host.GetContentAsync(site.Url, "load", 5000, null,
             "observation_complete", null, false, cancelled.Token));
         var result = BrowserToolFailure.Content(site.Url, null, "observation_complete", error);
@@ -285,34 +288,24 @@ public sealed class BrowserEmptyObservationTests
     private sealed record Response(int Status, string Html, string? Redirect = null);
     private sealed class Site : IAsyncDisposable
     {
-        private readonly HttpListener _listener = new();
-        private readonly Task _serving;
-        public string Url { get; }
+        private LoopbackTestServer _server = null!;
+        public string Url => _server.Origin + "/";
         public ConcurrentQueue<(string Path, string Method)> Calls { get; } = new();
-        public Site(Func<HttpListenerRequest, int, Response> response)
+        public static async Task<Site> CreateAsync(Func<HttpRequest, int, Response> response)
         {
-            var probe = new TcpListener(IPAddress.Loopback, 0); probe.Start();
-            var port = ((IPEndPoint)probe.LocalEndpoint).Port; probe.Stop();
-            Url = "http://127.0.0.1:" + port + "/";
-            _listener.Prefixes.Add(Url); _listener.Start();
-            _serving = Task.Run(async () =>
+            var site = new Site();
+            site._server = await LoopbackTestServer.StartAsync(async context =>
             {
-                while (_listener.IsListening)
-                {
-                    HttpListenerContext context;
-                    try { context = await _listener.GetContextAsync(); }
-                    catch (Exception ex) when (ex is HttpListenerException or ObjectDisposedException) { break; }
-                    var path = context.Request.Url!.AbsolutePath;
-                    Calls.Enqueue((path, context.Request.HttpMethod));
-                    var result = response(context.Request, Calls.Count(c => c.Path == path));
-                    context.Response.StatusCode = result.Status;
-                    context.Response.ContentType = "text/html; charset=utf-8";
-                    if (result.Redirect is not null) context.Response.RedirectLocation = result.Redirect;
-                    await context.Response.OutputStream.WriteAsync(Encoding.UTF8.GetBytes(result.Html));
-                    context.Response.Close();
-                }
-            });
+                var path = context.Request.Path.Value ?? "/";
+                site.Calls.Enqueue((path, context.Request.Method));
+                var result = response(context.Request, site.Calls.Count(c => c.Path == path));
+                context.Response.StatusCode = result.Status;
+                context.Response.ContentType = "text/html; charset=utf-8";
+                if (result.Redirect is not null) context.Response.Headers.Location = result.Redirect;
+                await context.Response.WriteAsync(result.Html, context.RequestAborted);
+            }, TestContext.Current.CancellationToken);
+            return site;
         }
-        public async ValueTask DisposeAsync() { _listener.Close(); await _serving; }
+        public ValueTask DisposeAsync() => _server.DisposeAsync();
     }
 }

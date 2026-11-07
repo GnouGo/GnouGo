@@ -1,0 +1,234 @@
+{
+  "schema_version": 1,
+  "assessment": "saved e0 Code control terminal and authorized permanent retention; no operational access",
+  "created_at_utc": "2026-10-26T16:16:16.092035+00:00",
+  "source": "e0c057b15e3c14a8bb160e8bf5ed49ebcd0b7b8b",
+  "cohort": "compactre0c057b15code20nhv6p7a",
+  "session_id": "compactre0c057b15code20nhv6p7a-code-1",
+  "presentation_version": 6,
+  "freeze_sha256": "9e183b87f249ec3a4d3e829cebe2aabd6e3adf3a0323aba7014745370921d727",
+  "terminal_manifest_hash": "eb3210937b7acf16048bd1078d880aa3a32772d7aa405927652579c25af787bb",
+  "terminal": {
+    "status": "stopped",
+    "diagnostic_codes": [
+      "MODEL_DISPATCH_UNVERIFIABLE"
+    ],
+    "planning_ms": 778079,
+    "logical_requests": 4,
+    "physical_attempts": 5,
+    "retained_response_metrics": 3,
+    "uncompleted_logical_requests_at_stop": 1,
+    "unknown_usage_attempts": 2,
+    "automatic_corrections": 0,
+    "discovery_reads": 0,
+    "review_revisions": 0,
+    "judge_requests": 0,
+    "first_proposal_call": null,
+    "artifact_available": false,
+    "execution_status": "not_started",
+    "verified_business_units": 0,
+    "calls_per_verified_business_unit": null
+  },
+  "planning_accounting": {
+    "logical_calls": 4,
+    "physical_attempts": 5,
+    "known_input_tokens": 1508,
+    "known_output_tokens": 8165,
+    "known_cost_eur": "0.2253369031682284694332887104",
+    "unknown_attempts": 2,
+    "reserved_input_tokens": 36000,
+    "reserved_output_tokens": 65536,
+    "reserved_cost_eur": "1.9152878179384203480589022758",
+    "known_plus_reserved_upper_bound_eur": "2.1406247211066488174921909862"
+  },
+  "phase_metrics": {
+    "construction_intent": {
+      "input_tokens": null,
+      "output_tokens": null,
+      "known_input_tokens": 1508,
+      "known_output_tokens": 8165,
+      "estimated_cost_eur": null,
+      "known_cost_eur": "0.2253369031682284694332887104",
+      "usage_complete": false,
+      "usage_bounded": false,
+      "reserved_input_tokens": 36000,
+      "reserved_output_tokens": 65536,
+      "reserved_cost_eur": "1.9152878179384203480589022758",
+      "logical_calls": 4,
+      "elapsed_ms": "757820.4591",
+      "physical_attempts": 5,
+      "known_reasoning_tokens": 7383,
+      "reasoning_metric_count": 3,
+      "received_content_bytes": 2815,
+      "received_empty_content_count": 0,
+      "request_size_metrics": {
+        "prepared_requests": 4,
+        "requests": 4,
+        "rejected_before_dispatch": 0,
+        "peak_complete_request_bytes": 11411,
+        "peak_estimated_input_tokens": 4060,
+        "peak_admitted_request_bytes": 11411,
+        "peak_admitted_input_tokens": 4060,
+        "p50_estimated_input_tokens": "1280.5",
+        "p95_estimated_input_tokens": 4060,
+        "within_captured_limits": true,
+        "admitted_within_captured_limits": true,
+        "components": {
+          "diagnostics": {
+            "serialized_bytes": 104,
+            "estimated_tokens": 36
+          },
+          "envelope": {
+            "serialized_bytes": 1720,
+            "estimated_tokens": 1598
+          },
+          "instructions": {
+            "serialized_bytes": 4131,
+            "estimated_tokens": 1377
+          },
+          "intent": {
+            "serialized_bytes": 6828,
+            "estimated_tokens": 2278
+          },
+          "response_schema": {
+            "serialized_bytes": 7238,
+            "estimated_tokens": 2413
+          },
+          "evidence": {
+            "serialized_bytes": 23,
+            "estimated_tokens": 8
+          },
+          "interfaces": {
+            "serialized_bytes": 59,
+            "estimated_tokens": 20
+          }
+        }
+      }
+    }
+  },
+  "request_identities": [
+    {
+      "requestId": "compactre0c057b15code20nhv6p7a-code-1:1:82d45aed0a60cf788c40c2c4bacd6a0f41450be98bfd55b3c2d8da89072e36ed",
+      "requestHash": "a1681ab49e71bb8493eae485f9d0d30cadad645487ffb3d281b909562fce7dd8",
+      "schemaHash": "6acb3cdcddc4e731db76d485e30647a99fdbb7594bb79743140cad56d1dfc568",
+      "phase": "construction_intent",
+      "admission": "admitted",
+      "inputLimit": 18000,
+      "completeRequestBytes": 3054,
+      "estimatedInputTokens": 1274
+    },
+    {
+      "requestId": "compactre0c057b15code20nhv6p7a-code-1:2:30432a1a27e229d8d3a86aacdfd8cba0728414c765ec768707d366ccd796df2d",
+      "requestHash": "5894640c9a8939ca40b9e75eecf2bb6b83580316fc82021fab2db4650cd923a2",
+      "schemaHash": "5c083c9abf651036fdc54f833099b6041b4269af9c3274d11094c55ccb62860e",
+      "phase": "construction_intent",
+      "admission": "admitted",
+      "inputLimit": 18000,
+      "completeRequestBytes": 3093,
+      "estimatedInputTokens": 1287
+    },
+    {
+      "requestId": "compactre0c057b15code20nhv6p7a-code-1:3:9e1c22064989ad2937b8f7ad2a3e804477b6142f3b9d02e77a865caa89a70aca",
+      "requestHash": "8847c6fe5f3beeb90f6ad9ca8f5b90ddee6416f6c84d706a991145b1a06e305c",
+      "schemaHash": "a14316a68ffac6f9845c1532f674297d9f1664dc50cf32fddce1561d1299ef06",
+      "phase": "construction_intent",
+      "admission": "admitted",
+      "inputLimit": 18000,
+      "completeRequestBytes": 2545,
+      "estimatedInputTokens": 1105
+    },
+    {
+      "requestId": "compactre0c057b15code20nhv6p7a-code-1:4:de06146e7b70e6a4b6ba7eff6cfcae540f43ebeafd4754b4fb1359adc7cfd520",
+      "requestHash": "bfb87f6663ed76c0193ffafd7e2240b3d9e123a5c5eee0518776300593fcbc1e",
+      "schemaHash": "bc7cccba30656e3e8189f46a5ef949d1b0fc62d17c85ffc5d10e068569b0d03a",
+      "phase": "construction_intent",
+      "admission": "admitted",
+      "inputLimit": 18000,
+      "completeRequestBytes": 11411,
+      "estimatedInputTokens": 4060
+    }
+  ],
+  "retention": {
+    "evidence_hash": "1be685c395e27f6c07351aa5cbe6bbb429f78fe530c6990ba1ec3d29fbbc701e",
+    "request_id": "compactre0c057b15code20nhv6p7a-code-1:4:de06146e7b70e6a4b6ba7eff6cfcae540f43ebeafd4754b4fb1359adc7cfd520",
+    "request_hash": "bfb87f6663ed76c0193ffafd7e2240b3d9e123a5c5eee0518776300593fcbc1e",
+    "retention_kind": "exhausted-planning-retries",
+    "outcome": "inconclusive",
+    "authorization_hash": "0a3ffe5e299fde64328be43acb634199b5e36ccb489af8896a666e9d593d6b0c",
+    "retained_at": "2026-10-26T16:07:02.5839200+00:00",
+    "existing_closure_hash": "531cb15b5d98331021d1b6fc4ab744bdeccaccc5d8351dc45842aeac38e129a4",
+    "reservation_retained": true,
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "new_process_readback_already_retained": true,
+    "evidence_and_accounting_equal_inspection_apply_restart": true,
+    "interpretation": "Authorized retention closes the one unresolved logical request operationally; it does not create a receipt, confirm unknown usage, release its reservation or turn the inconclusive run into success."
+  },
+  "dated_campaign_snapshot": {
+    "accounting": {
+      "calls": 4456,
+      "session_calls": 0,
+      "known_input_tokens": 14319744,
+      "known_output_tokens": 5528518,
+      "known_cost_eur": "211.75179903475985163438790263",
+      "reserved_input_tokens": 1150327,
+      "reserved_output_tokens": 2170880,
+      "reserved_cost_eur": "63.233995869136666931953650672",
+      "cost_upper_bound_eur": "274.98579490389651856634155330",
+      "unknown_attempts": 79
+    },
+    "ceiling_eur": "440.0301038327063045424449473",
+    "available_eur": "165.04430892880978597610339400",
+    "scope": "Saved terminal/retention snapshot, not subsequent campaign readiness. The pre-apply inspection had 32 uncertain and 31 retained IDs; its sole set difference is the exact request subsequently retained and confirmed by restart readback.",
+    "known_plus_reserve_rounding_delta_eur": "2E-27"
+  },
+  "evidence_availability": {
+    "provider_http_statuses": null,
+    "per_physical_attempt_details": null,
+    "raw_response_json_validity": null,
+    "raw_outside_string_whitespace": null,
+    "completion_status_values": "null for all three retained response metrics; not inferred as an output-limit or successful finish status",
+    "uncompleted_request_output_or_reasoning": null,
+    "original_model_response_text_included": false,
+    "precision": "Money parsed from original JSON with Decimal precision80; estimates and billed/known usage remain separate."
+  },
+  "comparison_boundary": [
+    "Only construction_intent was reached; this run provides no selection, discovery, draft, Judge or runtime comparison.",
+    "The three known whole-call response metrics can be compared descriptively with genuinely corresponding intent work only after matching source clauses, issued context and frozen policy.",
+    "Transport failure and permanently retained unknown usage are separate from model semantic correctness, output exhaustion, formatting or coordinator progression.",
+    "No Judge instruction/profile change, container-review defect, business benefit or causal performance conclusion is supported by this stopped control."
+  ],
+  "checker_note": "Initial local authorization check incorrectly hashed authorization text alone and stopped before any write. The saved source hashes the compact operator+authorization object; corrected exact-object hash matches. No input changed.",
+  "inputs": [
+    {
+      "label": "terminal_result",
+      "sha256": "8327fa7f55bb8ff00ec97e79f97ea51e1cfed523c33d79c9ade4eb5c51a12303"
+    },
+    {
+      "label": "freeze_result",
+      "sha256": "dc669565ba34c647c6d7dbc52e1a910605c711ab9942f2a2629f64c8dc4bd1d2"
+    },
+    {
+      "label": "retention_inspection",
+      "sha256": "8e41a02eb0f3d0e9ca1aeaa725b30926f348166eb88189c265782adbf671ecde"
+    },
+    {
+      "label": "retention_apply",
+      "sha256": "dc7161b0f75931885b1332334a3f8d9f1d24aa5fb49354ebab35b01c4cce019c"
+    },
+    {
+      "label": "retention_restart_readback",
+      "sha256": "bf2e394bb1ab390b44e29859520db4e5c5d24d98a8ec297f985c0c059e8c958c"
+    },
+    {
+      "label": "pre_retention_campaign_inspection",
+      "sha256": "029c725be8e6b89b3981faa9cfbe73b3fc6525ba827a29f6c15aef1c19217326"
+    },
+    {
+      "label": "retention_apply_command",
+      "sha256": "28b0cc96553d1663ab6b3a852aaee33852a4fefd0a7fe77f6e237576c7593347"
+    }
+  ],
+  "source_summary_sha256": "58012bfbb108dbdddcc7f5f4414ac2ef49076059ba2af89fb94b9f9372ed1153",
+  "public_projection": "All source summary values retained; only private/operational input file paths removed. Labeled evidence hashes remain."
+}

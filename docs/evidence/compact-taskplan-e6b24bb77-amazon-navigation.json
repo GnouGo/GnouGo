@@ -1,0 +1,565 @@
+{
+  "source": "e6b24bb77380828f04447d7cc2fff2cf3e4354e2",
+  "cohort": "compactre6b24bb77amz20v5",
+  "freeze_sha256": "48442894aa2f0c0574f854d13f8da358efc5a35d5d96861f2405b97747d5b8e7",
+  "run_hash": "33ffd62790ccd21db5b283a22f788801ce962d197e805ec66f295e3937dce6d3",
+  "read_at_utc": "2026-10-24T19:05:16.294421+00:00",
+  "metrics_sha256": "ebe952c27717968d6dc63023a16c7fd0fa427fd99f9430d4196908fe4c8b7deb",
+  "canonical_task_identities": [
+    {
+      "id": "step_2",
+      "kind": "sequence",
+      "sha256": "a03f9816197c722dc2d6021c2b0f71156d8c513190df3036b6712cf49f988a57"
+    },
+    {
+      "id": "step_3",
+      "kind": "operation",
+      "sha256": "c2c2a4aaa68d13571341464a6530d0a6f838efe0bec672363f3512cbcb2490a4"
+    },
+    {
+      "id": "step_5",
+      "kind": "transform",
+      "sha256": "48f23e4961c82b364747d75cdc907023da1b86a4ac38cba402e54bfe9925d45c"
+    },
+    {
+      "id": "step_6",
+      "kind": "operation",
+      "sha256": "3a2591f3786a57240fc85a69a73b5f78968928fd8ca77c49244738eb477dce5f"
+    }
+  ],
+  "continuations": [
+    {
+      "id": "continuation_0",
+      "parentId": null,
+      "status": "completed",
+      "suspendedAtCheckpoint": 3,
+      "lastPrerequisiteCheckpoint": 4,
+      "consumer": {
+        "id": "step_4",
+        "scope": "/tasks/step_2/body",
+        "kind": "operation",
+        "requirementIds": [
+          "req_0",
+          "req_3"
+        ],
+        "inputTaskIds": [
+          "step_3"
+        ],
+        "dependencyTaskIds": [
+          "step_3"
+        ],
+        "operationIds": [
+          "cap_490d9e16075cbdca5954ec27"
+        ]
+      },
+      "expectedType": {
+        "kind": "string",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "evidenceAddresses": [
+        "requirement:req_0",
+        "source:request:0:clause:0",
+        "schema:cap_490d9e16075cbdca5954ec27@488b645a02d1be76897665e0d6adbff90939b989ecd519ad81fce24430f3f835:/input/properties/url"
+      ]
+    },
+    {
+      "id": "continuation_1",
+      "parentId": null,
+      "status": "waiting",
+      "suspendedAtCheckpoint": 5,
+      "lastPrerequisiteCheckpoint": 5,
+      "consumer": {
+        "id": "step_7",
+        "scope": "/tasks/step_2/body",
+        "kind": "foreach",
+        "requirementIds": [
+          "req_0"
+        ],
+        "inputTaskIds": [
+          "step_6"
+        ],
+        "dependencyTaskIds": [
+          "step_6"
+        ],
+        "operationIds": []
+      },
+      "expectedType": {
+        "kind": "array",
+        "nullable": false,
+        "minItems": 0,
+        "maxItems": 3,
+        "items": {
+          "kind": "object",
+          "nullable": false,
+          "items": null,
+          "fields": [
+            {
+              "name": "ordinal",
+              "type": {
+                "kind": "integer",
+                "nullable": false,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "observedName",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "productPageUrl",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "productLinkSelector",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "navigationUnavailableReason",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            }
+          ]
+        },
+        "fields": []
+      },
+      "evidenceAddresses": [
+        "requirement:req_0",
+        "source:request:0:clause:0",
+        "source:request:0:clause:4",
+        "source:request:0:clause:5"
+      ]
+    }
+  ],
+  "requests": [
+    {
+      "sequence": 18,
+      "request_id": "compactre6b24bb77amz20v5-amazon-1:18:8ba8ba43c866bb5e7808206719e468c86073b89e650e7e5f6760075b726be61c",
+      "phase": "construction_discovery",
+      "record_hashes": {
+        "requests": "f118106c152c50a9189f16c50374f78ce1ec11cd03e0f5a868acbe60681f8cab",
+        "http-attempts": "03cc4d2d1de9478fcea1f5f4fba0aa46b353965121baa2b0e5897eb4e3cceccd",
+        "receipts": "e335a12c6f39f772e29079de519fa84fbc91ecd60463f1458803e5336062acbb",
+        "failures": null,
+        "closures": null
+      },
+      "context_keys": [
+        "step",
+        "requirements",
+        "globalConstraints",
+        "providerRequests",
+        "directoryEvidence",
+        "scopeOwner"
+      ],
+      "response_actions": [
+        "discoveryRequests"
+      ],
+      "discoveryRequests": [
+        {
+          "sourceId": "source_258c29d9064381a5dd37bf0c",
+          "cursor": null,
+          "query": null,
+          "operationIds": null
+        }
+      ]
+    },
+    {
+      "sequence": 19,
+      "request_id": "compactre6b24bb77amz20v5-amazon-1:19:9c506da2892d6046e05579780441e901a046efc1595519533a88462ac01f02e9",
+      "phase": "construction_discovery",
+      "record_hashes": {
+        "requests": "dc4b9edb0590ba3ac2eed70eb5f08699d766bab3a046850c0c6859dfba20e6e4",
+        "http-attempts": "368202f02782ecf0412eedd04571d4c3274f178025d8bdbb6e4a72ba737b67b4",
+        "receipts": "9d5ced69c725c6f6758e5f86d0d92992e414209665be03f6c1a9c3869c69781a",
+        "failures": null,
+        "closures": null
+      },
+      "context_keys": [
+        "step",
+        "requirements",
+        "globalConstraints",
+        "descriptors",
+        "providerRequests",
+        "directoryEvidence",
+        "scopeOwner"
+      ],
+      "response_actions": [
+        "evidenceRequests"
+      ],
+      "evidenceRequests": [
+        "description:cap_490d9e16075cbdca5954ec27@488b645a02d1be76897665e0d6adbff90939b989ecd519ad81fce24430f3f835:0",
+        "source-description:source_258c29d9064381a5dd37bf0c@d28e8c0242df9fdee93d4287a050fc175ceb07440b1a42929c6a59dccbc05335:0",
+        "page:provider-requests:d6b4b3d120a02cf4b960e8789c20f1abe7b4ec2a952c0f4cf0cf6513ea792d78:0"
+      ]
+    },
+    {
+      "sequence": 20,
+      "request_id": "compactre6b24bb77amz20v5-amazon-1:20:fd4d412b5efd51f595fabe39016ebdcacf403abe2ff2e495eebeae08770995f0",
+      "phase": "construction_discovery",
+      "record_hashes": {
+        "requests": "9411bfc1a8535d5255932dedf9d77419d72d02de63361f59c754857dc0d8e7b1",
+        "http-attempts": "60d8e910aefe179e280620f1a633a047184d2c0d15ca4138e11a17ab7baa9f51",
+        "receipts": "3de337181f7744ea6c86822ef66211e6df8ece57022152ca0878879cad49db6f",
+        "failures": null,
+        "closures": null
+      },
+      "context_keys": [
+        "step",
+        "requirements",
+        "globalConstraints",
+        "descriptors",
+        "directoryEvidence",
+        "evidence",
+        "describedOperations",
+        "scopeOwner"
+      ],
+      "response_actions": [
+        "evidenceRequests"
+      ],
+      "evidenceRequests": [
+        "description:cap_490d9e16075cbdca5954ec27@488b645a02d1be76897665e0d6adbff90939b989ecd519ad81fce24430f3f835:2048"
+      ]
+    },
+    {
+      "sequence": 21,
+      "request_id": "compactre6b24bb77amz20v5-amazon-1:21:0e441626b870d63652581862bc83dd018b3bfa7ea84e550d25647f37d5a47658",
+      "phase": "construction_discovery",
+      "record_hashes": {
+        "requests": "0571cd6897f2c73702d60218f47614a0e42b5aff784ee4c06bfbdf81e62dcb48",
+        "http-attempts": "d7c71615be4863e30d26c464611e62a2410599b6b0bc35172a40af7b72d7238f",
+        "receipts": "8b71efcdf330317a227046e89299841624177881f56d6588e453c348f0ee8a98",
+        "failures": null,
+        "closures": null
+      },
+      "context_keys": [
+        "step",
+        "requirements",
+        "globalConstraints",
+        "descriptors",
+        "directoryEvidence",
+        "evidence",
+        "describedOperations",
+        "scopeOwner"
+      ],
+      "response_actions": [
+        "binding"
+      ]
+    },
+    {
+      "sequence": 23,
+      "request_id": "compactre6b24bb77amz20v5-amazon-1:23:d086eb0d24f40fd29942f792012b0c668241e8303b8f33cc406552db95075545",
+      "phase": "construction_draft",
+      "record_hashes": {
+        "requests": "2620373df29d50c3f0719bb653a077a15b0cb30521198e56c941f7d434890531",
+        "http-attempts": "ebac451113798783ec5863404a81f9fe5e9e5496799e5f7326e1367882611862",
+        "receipts": "91758e4318ab7efd63fa6ad6f0ec2c7663e5a32e4e9f7690fb1067323f1f9d13",
+        "failures": null,
+        "closures": null
+      },
+      "context_keys": [
+        "baseHash",
+        "candidateHash",
+        "step",
+        "requirements",
+        "commitments",
+        "globalConstraints",
+        "instructions",
+        "interfaces",
+        "operations",
+        "evidence",
+        "draft",
+        "diagnostics",
+        "rebuild",
+        "reviewScope",
+        "companionOperations",
+        "taskEvidence",
+        "scopeEvidence",
+        "interfacesDirectory"
+      ],
+      "response_actions": [
+        "reselectStep"
+      ],
+      "reselectStep": {
+        "disposition": "suspend",
+        "prerequisite_evidence": [
+          "requirement:req_0",
+          "source:request:0:clause:0",
+          "schema:cap_490d9e16075cbdca5954ec27@488b645a02d1be76897665e0d6adbff90939b989ecd519ad81fce24430f3f835:/input/properties/url"
+        ]
+      }
+    },
+    {
+      "sequence": 28,
+      "request_id": "compactre6b24bb77amz20v5-amazon-1:28:1de4d532e4e49f52d12286c3f4d7de8941e40f8165202aef0843f48cb0ba53cb",
+      "phase": "construction_select",
+      "record_hashes": {
+        "requests": "3bfa07f5b429bb16670492092d1270891fdcc50bbe224207e60952a217bad318",
+        "http-attempts": "c0c2299a256a1d761e1548bf591dff399a96f9303b8568ed9aa088960927f177",
+        "receipts": "d846166db93dc47c471e28aa57157b63144b01ded99b000fc25f25a6b12a8c9e",
+        "failures": null,
+        "closures": null
+      },
+      "context_keys": [
+        "requirements",
+        "requirementCount",
+        "requirementsDirectory",
+        "globalConstraints",
+        "frontierCount",
+        "scopes",
+        "interfaces",
+        "publicOutputs",
+        "evidence",
+        "completionOnly",
+        "continuation"
+      ],
+      "response_actions": [
+        "resumeStep"
+      ],
+      "resumeStep": {
+        "continuationId": "continuation_0",
+        "producerCheckpoint": 4,
+        "binding": {
+          "kind": "output",
+          "source": "step_5",
+          "port": "amazonSearchResultsUrl"
+        }
+      }
+    },
+    {
+      "sequence": 32,
+      "request_id": "compactre6b24bb77amz20v5-amazon-1:32:a3d954e4204760efe53531a059ac228606ae629706cbc9c62d747ae7ad7b7d68",
+      "phase": "construction_discovery",
+      "record_hashes": {
+        "requests": "11e8b2f05d4ebb93d46ba4dbca8498f5118d9cf3e437ac6cc7130275df1766ce",
+        "http-attempts": "c8a37973541158114c62843ebfdc04dd6b817bf44a82c6d1ee497746a683bc0f",
+        "receipts": "748123ca1ec1f71467b0900478174a148d511c8e4ec99b55936b93425d7d1b4f",
+        "failures": null,
+        "closures": null
+      },
+      "context_keys": [
+        "step",
+        "requirements",
+        "globalConstraints",
+        "providerRequests",
+        "directoryEvidence",
+        "scopeOwner"
+      ],
+      "response_actions": [
+        "discoveryRequests"
+      ],
+      "discoveryRequests": [
+        {
+          "sourceId": "source_258c29d9064381a5dd37bf0c",
+          "cursor": null,
+          "query": null,
+          "operationIds": null
+        }
+      ]
+    },
+    {
+      "sequence": 33,
+      "request_id": "compactre6b24bb77amz20v5-amazon-1:33:b7a7dd348dc3c5d5265c2b4d315aed91ddc16e0e426abb2a10fda528a5373b5e",
+      "phase": "construction_discovery",
+      "record_hashes": {
+        "requests": "0e0a979b520e2c474b41aa15794553a4d04580f764b5e139910f42077086bcd9",
+        "http-attempts": "44acfe2e57a58831217ed1f58c216dbad021bb33a13a03ff569aa6ed2bed27a9",
+        "receipts": "a3b1ae1f10ed2cd972c87c4cfbdf7c26abb1fb09a756ea14583dcacf97132fcb",
+        "failures": null,
+        "closures": null
+      },
+      "context_keys": [
+        "step",
+        "requirements",
+        "globalConstraints",
+        "descriptors",
+        "providerRequests",
+        "directoryEvidence",
+        "scopeOwner"
+      ],
+      "response_actions": [
+        "evidenceRequests"
+      ],
+      "evidenceRequests": [
+        "description:cap_490d9e16075cbdca5954ec27@488b645a02d1be76897665e0d6adbff90939b989ecd519ad81fce24430f3f835:0"
+      ]
+    },
+    {
+      "sequence": 34,
+      "request_id": "compactre6b24bb77amz20v5-amazon-1:34:a98497ecf7f3cec9fe369ac996f03c3eea42d2b1d9e268a4ee63fee9afaac6a3",
+      "phase": "construction_discovery",
+      "record_hashes": {
+        "requests": "da06f67e38d7b88460b87e9ba2b6dd4747701b1654aeed32e6b4d3eda97bdcb3",
+        "http-attempts": "a0d5a41bb48cb13675fd8035877365f00e0c2514dc9a127b6056d390f296dac0",
+        "receipts": "71437f8b6bd4b7f1df4bc14c919817a207e296c8180133ea579d808f29de0201",
+        "failures": null,
+        "closures": null
+      },
+      "context_keys": [
+        "step",
+        "requirements",
+        "globalConstraints",
+        "descriptors",
+        "providerRequests",
+        "directoryEvidence",
+        "evidence",
+        "describedOperations",
+        "scopeOwner"
+      ],
+      "response_actions": [
+        "evidenceRequests"
+      ],
+      "evidenceRequests": [
+        "description:cap_490d9e16075cbdca5954ec27@488b645a02d1be76897665e0d6adbff90939b989ecd519ad81fce24430f3f835:2048"
+      ]
+    },
+    {
+      "sequence": 35,
+      "request_id": "compactre6b24bb77amz20v5-amazon-1:35:8218994d96d67afcf85faf21e9dd4b14c8aa574fde5417aa3b8d57697040cd7d",
+      "phase": "construction_discovery",
+      "record_hashes": {
+        "requests": "c15106db133e7929f838f2b494d9a96a9ef1b06f3d037ff7e0a4d9433ecb4d42",
+        "http-attempts": "c0613993ad0a4039ada9d5c3d1e8ed43d351537eecc3c671aed71cd2fbfde276",
+        "receipts": "97ed257100a6dbfcc72f8053436c6d7ed6b5366a442446d60c863b74fb4a5110",
+        "failures": null,
+        "closures": null
+      },
+      "context_keys": [
+        "step",
+        "requirements",
+        "globalConstraints",
+        "descriptors",
+        "providerRequests",
+        "directoryEvidence",
+        "evidence",
+        "describedOperations",
+        "scopeOwner"
+      ],
+      "response_actions": [
+        "binding"
+      ]
+    },
+    {
+      "sequence": 36,
+      "request_id": "compactre6b24bb77amz20v5-amazon-1:36:744e7409ed99b3fbe87bd10698fe54741a5562c46a6442b579d80dcc406300b6",
+      "phase": "construction_draft",
+      "record_hashes": {
+        "requests": "b1eee0015e2f39db5747b7fec35e27a82d2a6155bb5c1815e597bd6cc0c2ad3f",
+        "http-attempts": "fefec9d10a2ea057095a83574985ca7af648e9d885859da0a2d8cd8c3ea82a7e",
+        "receipts": "db62e0fa42640d13b510c8569dd20df556d71da4f4dbd4ee0ccd9236fde7c1c8",
+        "failures": null,
+        "closures": null
+      },
+      "context_keys": [
+        "baseHash",
+        "candidateHash",
+        "step",
+        "requirements",
+        "commitments",
+        "globalConstraints",
+        "instructions",
+        "interfaces",
+        "operations",
+        "evidence",
+        "draft",
+        "diagnostics",
+        "rebuild",
+        "reviewScope",
+        "taskEvidence",
+        "scopeEvidence"
+      ],
+      "response_actions": [
+        "reselectStep"
+      ],
+      "reselectStep": {
+        "disposition": "suspend",
+        "prerequisite_evidence": [
+          "requirement:req_0",
+          "source:request:0:clause:0",
+          "source:request:0:clause:4",
+          "source:request:0:clause:5"
+        ]
+      }
+    },
+    {
+      "sequence": 37,
+      "request_id": "compactre6b24bb77amz20v5-amazon-1:37:02efffedd0efbfedac2b6f220e11b1b98688d9b7f019ee0009af16cda6f99d76",
+      "phase": "construction_select",
+      "record_hashes": {
+        "requests": "7c8197cde2af70137bb7761f638d05126e7e15cb4783d1036f6112684bce93d9",
+        "http-attempts": "f6998b6e53204674d7b87119e3f6cf2ef65be20f8e17566e8244b4378b971158",
+        "receipts": "131a79c7e20f9cecc82263d61c3c061b1cca012cddfbd371ef3043a44ecbd059",
+        "failures": null,
+        "closures": null
+      },
+      "context_keys": [
+        "requirements",
+        "requirementCount",
+        "requirementsDirectory",
+        "globalConstraints",
+        "frontierCount",
+        "scopes",
+        "interfaces",
+        "publicOutputs",
+        "evidence",
+        "reselection",
+        "completionOnly",
+        "continuation"
+      ],
+      "response_actions": [
+        "step"
+      ]
+    }
+  ],
+  "claims": {
+    "artifact_created": false,
+    "runtime_executed": false,
+    "independent_business_success": false,
+    "judge_triggered_corrections": 0,
+    "interpretation": "Two explicit prerequisite suspensions. The first resumed at the exact accepted checkpoint and binding; the second remains waiting. Cached provider navigation is a presentation opportunity, not measured savings."
+  },
+  "accepted_consumer": {
+    "task": "step_6",
+    "operation": "cap_490d9e16075cbdca5954ec27",
+    "argument": "url",
+    "binding": {
+      "kind": "output",
+      "source": "step_5",
+      "port": "amazonSearchResultsUrl"
+    },
+    "dependsOn": [
+      "step_3"
+    ],
+    "canonical_sha256": "3a2591f3786a57240fc85a69a73b5f78968928fd8ca77c49244738eb477dce5f"
+  }
+}

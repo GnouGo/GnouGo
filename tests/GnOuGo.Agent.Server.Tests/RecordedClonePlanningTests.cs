@@ -63,7 +63,7 @@ public sealed class RecordedClonePlanningTests
         Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(original));
         var corrected = await new Replay(current, corrected: true).Run();
         Assert.True(corrected.Status == PlanningStatus.FinalReview, string.Join("; ", corrected.Diagnostics.Select(d => d.Code + ": " + d.Message)));
-        PlanningArtifactApproval.Verify(corrected);
+        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(corrected));
         Assert.Equal(0, corrected.ModelCalls); Assert.Equal(0, corrected.ReplanAttempts);
         var tasks = corrected.Plan!.Root.Tasks.Concat(corrected.Plan.Root.Always).ToArray();
         Assert.DoesNotContain(tasks.Single(t => t.Id == "parse_pr").ResultType!.Fields, f => f.Name == "targetDirectory");

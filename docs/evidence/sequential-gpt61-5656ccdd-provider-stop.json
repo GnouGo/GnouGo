@@ -1,0 +1,253 @@
+{
+  "version": 1,
+  "recorded_at_utc": "2026-11-04T19:52:12.678189+00:00",
+  "production_source": "5656ccdd7fe7c625e42680d41bedff71690ecca8",
+  "harness_source": "5656ccdd7fe7c625e42680d41bedff71690ecca8",
+  "validation_test_source": "de37711ffd5b9175982286a83cf1e8931ec79e85",
+  "production_harness_oracle_profile_trees_unchanged_by_test_followup": true,
+  "run": "g615656ccddamz32a-amazon-1",
+  "scenario": "amazon",
+  "campaign": "schema-portability-20261019-incremental",
+  "campaign_configuration": "9bcafa16e4cfa77599bd5757901d11c41a9578f9efc36600b90589a81c50d9dd",
+  "model_requested": "gpt-6.1-sol-2026-09-29",
+  "model_in_known_physical_receipt": "gpt-6.1-sol-2026-09-29",
+  "model_metadata_sha256": "d561ae7d28d9ffddf457937a878dbbe4ca4f70e0116a89b81842bdbb16da21e1",
+  "phase_policy_sha256": "1ae308efc238e137e12e98db45e533b7d270abaa680650f9946aa31c32d20e4c",
+  "generation": "stopped",
+  "diagnostic": "MODEL_DISPATCH_UNVERIFIABLE",
+  "first_candidate": null,
+  "accepted_checkpoints": 0,
+  "global_review": "not_started",
+  "approval": "not_requested",
+  "execution": "not_started",
+  "independent_oracle": "not_started",
+  "qualification_success": false,
+  "logical_calls": 9,
+  "physical_attempts": 11,
+  "planner_corrections": 0,
+  "transport_retries": 2,
+  "repeated_strategy_stop": false,
+  "invalid_empty_business_selections": 0,
+  "manual_plan_changes": 0,
+  "planning_duration_ms": 1352327,
+  "launcher_duration_seconds": "1390.194",
+  "known_input_tokens": 27315,
+  "known_output_tokens": 4211,
+  "known_reasoning_tokens_included_in_output": 2538,
+  "known_cost_eur": "1.4110653904642633509258430987",
+  "cost_basis": "Provider-reported usage, captured deployment prices and captured EUR exchange quotes; not an independently audited provider invoice.",
+  "unknown_physical_attempts": 3,
+  "reserved_input_tokens": 229479,
+  "reserved_output_tokens": 98304,
+  "reserved_cost_eur": "21.986841399051793541461669202",
+  "complete_judge_requests": [],
+  "maximum_complete_host_request_bytes": 76493,
+  "complete_host_request_sizes": [
+    {
+      "phase": "construction_intent",
+      "bytes": 7070,
+      "estimated_input_tokens": 2613
+    },
+    {
+      "phase": "construction_select",
+      "bytes": 5573,
+      "estimated_input_tokens": 2114
+    },
+    {
+      "phase": "construction_implementation",
+      "bytes": 12371,
+      "estimated_input_tokens": 4380
+    },
+    {
+      "phase": "construction_discovery",
+      "bytes": 11704,
+      "estimated_input_tokens": 4158
+    },
+    {
+      "phase": "construction_discovery",
+      "bytes": 17341,
+      "estimated_input_tokens": 6037
+    },
+    {
+      "phase": "construction_discovery",
+      "bytes": 17745,
+      "estimated_input_tokens": 6171
+    },
+    {
+      "phase": "construction_discovery",
+      "bytes": 24024,
+      "estimated_input_tokens": 8264
+    },
+    {
+      "phase": "construction_draft",
+      "bytes": 46876,
+      "estimated_input_tokens": 15882
+    },
+    {
+      "phase": "construction_draft",
+      "bytes": 76493,
+      "estimated_input_tokens": 25754
+    }
+  ],
+  "phase_usage": {
+    "construction_intent": {
+      "input_tokens": 1214,
+      "output_tokens": 700,
+      "known_input_tokens": 1214,
+      "known_output_tokens": 700,
+      "estimated_cost_eur": "0.1452902764111280078719026747",
+      "known_cost_eur": "0.1452902764111280078719026747",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 1,
+      "elapsed_ms": "45225.1997",
+      "physical_attempts": 1
+    },
+    "construction_select": {
+      "input_tokens": 893,
+      "output_tokens": 943,
+      "known_input_tokens": 893,
+      "known_output_tokens": 943,
+      "estimated_cost_eur": "0.1758028446193756149923964576",
+      "known_cost_eur": "0.1758028446193756149923964576",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 1,
+      "elapsed_ms": "54340.816",
+      "physical_attempts": 1
+    },
+    "construction_implementation": {
+      "input_tokens": 2359,
+      "output_tokens": 879,
+      "known_input_tokens": 2359,
+      "known_output_tokens": 879,
+      "estimated_cost_eur": "0.2048394310761248770015207085",
+      "known_cost_eur": "0.2048394310761248770015207085",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 1,
+      "elapsed_ms": "46436.4299",
+      "physical_attempts": 1
+    },
+    "construction_discovery": {
+      "input_tokens": 13559,
+      "output_tokens": 1489,
+      "known_input_tokens": 13559,
+      "known_output_tokens": 1489,
+      "estimated_cost_eur": "0.6036228642991323016369979426",
+      "known_cost_eur": "0.6036228642991323016369979426",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 4,
+      "elapsed_ms": "150887.4626",
+      "physical_attempts": 4
+    },
+    "construction_draft": {
+      "input_tokens": null,
+      "output_tokens": null,
+      "known_input_tokens": 9290,
+      "known_output_tokens": 200,
+      "estimated_cost_eur": null,
+      "known_cost_eur": "0.2815099740585025494230253153",
+      "usage_complete": false,
+      "usage_bounded": false,
+      "reserved_input_tokens": 229479,
+      "reserved_output_tokens": 98304,
+      "reserved_cost_eur": "21.986841399051793541461669202",
+      "logical_calls": 2,
+      "elapsed_ms": "982477.2705999999",
+      "physical_attempts": 4
+    }
+  },
+  "failure_attribution": {
+    "component": "configured inference gateway/backend transport",
+    "confirmed_http_failures": [
+      {
+        "status": 500,
+        "error_code": "ESG120",
+        "message": "Routing failed",
+        "detail": "Backend not available, no answer from backend."
+      },
+      {
+        "status": 500,
+        "error_code": "ESG120",
+        "message": "Routing failed",
+        "detail": "Backend not available, no answer from backend."
+      }
+    ],
+    "last_physical_attempt": {
+      "http_status": null,
+      "failure": "transport"
+    },
+    "captured_retry_policy": {
+      "MaxAttempts": 3,
+      "MaxUncertainRetries": 0,
+      "AttemptTimeoutMilliseconds": 600000,
+      "BaseDelayMilliseconds": 1000,
+      "MaxDelayMilliseconds": 30000,
+      "MaxTotalDelayMilliseconds": 60000
+    },
+    "retries_exhausted": true,
+    "response_usage_unconfirmed": true,
+    "launcher_preflight_passed": true,
+    "production_or_model_quality_failure_inferred": false,
+    "fallback_or_silent_parameter_change": false,
+    "manual_retry_or_replay": false
+  },
+  "campaign_after": {
+    "known_cost_eur": "413.98214989055111712576930921",
+    "reserved_cost_eur": "157.57430550399738390479699311",
+    "available_eur": "168.47364843815780351187864498",
+    "ceiling_eur": "740.0301038327063045424449473",
+    "physical_attempts": 7035,
+    "unknown_physical_attempts": 160,
+    "historical_permanent_closures": 63,
+    "unresolved_requests": 1,
+    "new_unresolved_request": "g615656ccddamz32a-amazon-1:9:54d078626aa95900b40be6bbea68ce2850fb60430f820f836fb8d88b34e10a37:3fdce3ddf6a2c098bdcb3b71bf57e0d8917d9c83ddfd54ab5e9db68ea38a2047",
+    "reservations_released": false,
+    "ceiling_increased": false
+  },
+  "qualification": {
+    "amazon": {
+      "consecutive_successes": 0,
+      "required": 2
+    },
+    "review_pr": {
+      "consecutive_successes": 0,
+      "required": 2,
+      "not_started_reason": "Provider and unreconciled-request replay barrier."
+    },
+    "collections": {
+      "consecutive_successes": 0,
+      "required": 2,
+      "both_runtime_variants_required": true,
+      "not_started_reason": "Provider and unreconciled-request replay barrier."
+    }
+  },
+  "private_evidence_sha256": {
+    "terminal_run": "d2a9451a51f2b07b9716d9ae54fdb013ed3db795d0fd787565caacae391136e3",
+    "http_journal": "0d2e72bbb3fabbe2ba07443922b389e74f96930c281c08750a2a15bbfb819e66",
+    "known_physical_receipt": "2d8a28ebbde448daf5e4e21ca83b4d45476bb444fff8a8765f04b18409d4f8d3",
+    "financial_snapshot": "749ef80b94b6420b78d9471ad2d175077c8f606976320d9cd14c8e3e951e0fe0",
+    "launcher_log": "d3bcc990e1be3ffd5b7830ecf6097fb32f01d4dfbdde5c1b5748e0ab0c945626"
+  },
+  "limits": [
+    "Paid work stops at the provider/replay barrier despite available funds. The failed request is neither replayed nor permanently closed by this work.",
+    "No business convergence, execution or oracle success exists.",
+    "The first 1f engine-defect attempt remains separate, counted evidence.",
+    "Production, live harness, model configuration, profiles and historical reservations are preserved.",
+    "Historical GPT-5.5 comparisons cannot isolate code improvements from the model switch."
+  ]
+}

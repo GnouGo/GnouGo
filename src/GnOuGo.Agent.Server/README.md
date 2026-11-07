@@ -6,7 +6,7 @@ Diagrams explicitly retain the existing Dagre layout, classic look, and custom
 theme. The lazy ELK engine is an upstream prebuilt module with a separate 1,500 kB
 bundle limit; all other Agent chunks retain an enforced 700 kB limit.
 
-Workflow planning uses `Requirements → progressive capability discovery → LLM TaskPlan → deterministic compiler → PlanningGraph → YAML → validation → approval`; see [the planning architecture](../../docs/workflow-planning-v9.md). The planning page offers **Retry with retained usage** after an uncertain model dispatch. This explicit action preserves the failed call, conservatively accounts for missing usage, and reserves a new call within existing session limits. A stored completion is reused instead. Restart never silently redispatches an uncertain request. Workflow approval and generic runtime effect confirmation remain separate.
+Workflow planning uses `Requirements → progressive capability discovery → LLM TaskPlan → deterministic compiler → PlanningGraph → YAML → validation → approval`; see [the planning architecture](../../docs/workflow-planning-v9.md). Stored completions are reused with their exact accounting. An uncertain construction request requires reconciliation of its original receipt; refresh and restart never redispatch it. Missing historical metadata remains unavailable and cannot be replaced with current prices. Workflow approval and generic runtime effect confirmation remain separate.
 
 Workflow Designer keeps incompatible saved sessions visible as **Unavailable**, with their origin, identity and existing traces. Other sessions remain usable. These entries cannot be resumed, approved or executed; start a new plan instead. Encrypted historical payloads and uncertain reservations remain unchanged, and startup recovery skips records that cannot satisfy the current strict session format.
 
@@ -20,11 +20,26 @@ This solution contains:
 
 ### Typed workflow designer
 
-Open `/planning` to create or revise a workflow. `/gnougo add`, reprompt and failure improvement open this durable designer. It displays progress, TaskPlan tasks and choices, compiled graph, findings, usage and final review. Approving and saving requires the current revision and artifact hash. Runtime write confirmation remains a separate gate.
+Normal local startup opens an authenticated operator window at `/planning`. New operator plans default to diagnostic warnings; Strict remains selectable and available without an operator cookie. See [diagnostic planning](../../docs/diagnostic-planning.md) for host authorization, advisory/mandatory limits, effective model precedence and retained exchanges. The `Diagnostic` profile remains an alias. Open Traces → Pipeline / LLM calls to inspect encrypted, redacted inputs and outputs. `/gnougo add`, reprompt and failure improvement open this durable designer. It displays progress, TaskPlan tasks and choices, compiled graph, findings, usage and final review. Approving and saving requires the current revision and artifact hash. Runtime write confirmation remains a separate gate.
+
+The browser starts Blazor only after the versioned Vite module has registered its
+Markdown helpers and the UI stylesheet has loaded. Missing assets leave a visible
+startup error. Build them with `pnpm --dir src/GnOuGo.Agent.Server/ClientApp run build`
+from the repository root, then reload. A delayed module delays the circuit rather
+than racing its first render. Ordinary planning API access does not depend on a
+browser. The live qualification harness additionally verifies asset delivery,
+helper registration and an interactive circuit before creating a session.
+
 
 At final review, **Approve this revision and save** stays disabled until you explicitly check every business requirement. The text beside it shows how many requirements you have reviewed, lists the remaining descriptions, and links to their checkboxes. Checking requirements does not submit approval. The separate button approves the displayed revision and artifact, then saves it; saving does not execute the workflow. Polling preserves acknowledgments for the same artifact. Navigation, a changed revision/artifact or a reload requires fresh review. The server still rejects incomplete or stale approval, and **Save approved workflow** remains available after an interrupted save.
 
 New planning sessions review accepted business requirements alongside the TaskPlan; compilation does not prove business completeness or execution success. Unfinished legacy sessions require an explicit revision. Designer can settle a saved response under its original schema and restore accounting without applying the old proposal; unknown completion still requires reconciliation. Already-approved artifacts retain approval. See [planner simplification and rollout](../../docs/planner-simplification.md).
+
+The host distinguishes requested public results from file effects and internal tool
+results. Global business review receives both the declared public interface and actual
+root bindings; materialization and truthful success/failure remain separate obligations.
+This clarification applies to new captures only. Historical policy, findings and
+accepted interfaces are never rewritten to remove an output or grant a new one.
 
 The planning list includes **Designer** sessions and **Chat** sessions created by `workflow.plan`, including failed and stopped attempts. Select **Traces** in the list or session header to open the shared trace and log panel. Each recorded execution keeps its own trace identifier; use the timestamped selector when a session has several traces. The panel refreshes while open and stops refreshing when closed or when navigating to another session.
 
@@ -38,19 +53,29 @@ Selected locations clear when the session, revision or artifact changes. Failed 
 
 Trace lookup requires an exact planning-session attribute and the current tenant. It combines local capture with the embedded collector's retained records, so persisted traces remain inspectable after restart. Missing or expired telemetry is shown explicitly; lookup is bounded to 500 collector candidates and reports when that limit is reached. Trace availability is independent of model receipt retention. Trace usage totals cover recorded attributes only and are not a complete billing ledger; absent telemetry does not establish zero provider usage or cost. Designer planning activities are captured locally even when OTLP export is disabled.
 
-`TypedWorkflowPlanning` configures `MaxReplanAttempts` (4), `MaxModelCalls` (12), `Reasoning` (`medium`), request token ceilings (32,000 input / 32,768 output), cumulative token/active-time limits and `DatabasePath`. These defaults apply to new Designer sessions, including the Desktop host, and match new standalone Flow and authored `workflow.plan` sessions. Explicit configuration overrides take precedence. Existing sessions retain saved definitions and generation settings; absent historical fields retain eight calls, two repairs and 12,000 input / 8,192 output tokens. Designer shows saved effective settings, without a separate UI default. Two host sessions may progress concurrently; workflow runtime parallelism remains independent.
+`TypedWorkflowPlanning` configures `MaxReplanAttempts` (4), `MaxModelCalls` (64), `Reasoning` (`medium`), a general input ceiling (32,000) and general output ceiling (32,768, further bounded by construction phase reservations), cumulative token/active-time limits and `DatabasePath`. Fresh sessions capture input targets of 3,000 for navigation, 8,000 for drafts and 4,000 for business reviews, with default hard ceilings of 6,000/16,000/8,000. Tighter configured limits prevail. Targets do not trigger extra model calls. These defaults apply to new Designer sessions, including the Desktop host, and match new standalone Flow and authored `workflow.plan` sessions. Explicit configuration overrides take precedence. Active-format sessions retain exact saved definitions and generation settings. Retired planning sessions cannot be resumed or upgraded. Designer shows saved effective settings, without a separate UI default. Two host sessions may progress concurrently; workflow runtime parallelism remains independent.
 
-**Independent business review** is an unchecked creation option, disabled by default.
-The optional start-API `businessJudge` property captures `business_judge` in the new
-session; historical sessions without it remain disabled. The Judge uses the same model
-in a separate call after deterministic validation and choices, before FinalReview.
-Its grounded observations appear separately from deterministic coverage and do not
-preselect requirement acknowledgments. No-findings reports remain unverified; skipped
-or unusable evaluation is shown as not evaluated or inconclusive. Findings cannot
-expand correction authority: existing explicitly authorized slots can use targeted
-correction; other findings require explicit revision. Calls, corrections and recovery
-share the existing cumulative allowances, encrypted journal and receipts. The UI shows
-the captured effective option; enabling review does not authorize execution.
+Fresh construction captures `DraftOutputTokens` (8,192) and `ReviewOutputTokens`
+(2,048), both bounded by the general output ceiling. Admission before selection
+and discovery includes unavoidable downstream generation/reviews in the remaining
+call, token and monetary allowances.
+
+New sessions use [incremental construction](../../docs/incremental-taskplan-construction.md).
+Coherent business fragments receive local review after deterministic validation;
+mechanical exports and closures do not create model calls. Completed workflows
+receive global business review, coalesced with local review when the same request
+covers both. There is no setting or API property that disables required review.
+Review never authorizes execution.
+
+Choose `constructionPreset: "large"` in the start API or the Designer capacity
+selector for 384 calls, 64 cumulative corrections and a larger captured graph policy.
+`TypedWorkflowPlanning.ConstructionPreset` selects the host creation default;
+`LargeMaxModelCalls`, `LargeMaxReplanAttempts`, `LargeMaxStepsTotal`,
+`LargeMaxStepsPerWorkflow` and `LargeMaxWorkflows` configure that explicit preset.
+Ordinary remains the default. Both presets retain the host financial, token and
+active-time ceilings. New host-authorized sessions recover their verified captured policy, model metadata,
+tariffs and transport settings without substituting current defaults. Historical
+sessions retain their original recovery rules and accounting.
 
 Every new planning request is admitted against declared Structured Output support,
 reasoning settings and model input capacity after reserving the unchanged output limit.
@@ -58,15 +83,15 @@ The effective input ceiling is the smaller of configuration and verified model c
 Missing indispensable metadata or incompatible settings stop before dispatch, without
 switching models, clamping output or truncating required data. Safe diagnostics retain
 stage, measurement unit, limit and measured input; a per-request input refusal is
-separate from cumulative exhaustion. Existing financial, cumulative-token and active-time
-ceilings remain unchanged.
+separate from cumulative exhaustion. Financial ceilings remain mandatory. Diagnostic cumulative-token and active-time
+targets warn through the same captured policy; finite per-request network deadlines remain mandatory.
 
 `TypedWorkflowPlanning.AutomaticCorrectionEnabled` defaults to `true` for new
 Agent.Server sessions. Its value is captured in session options; omission in a
 historical session retains historical behavior. Set it to `false` to keep manual
 revision offers. It never restarts an old stopped session.
 
-Before approval, diagnosed defects use existing repair slots first. Protected
+For historical generation, diagnosed defects use existing repair slots first. Protected
 declarations use a separately scoped implementation revision; unresolved or
 structural defects use at most one complete proposal regeneration. All actions
 consume the same `MaxReplanAttempts`, model calls, tokens and active time. The
@@ -97,7 +122,7 @@ Existing planning spans expose the correction action and outcome without payload
 
 `LLM_BUDGET_EXCEEDED` with a model-call message means the cumulative call ceiling has been reached, not a per-request token limit. Designer shows **calls used / ceiling**; increasing input/output tokens cannot resume that session. The UI disables ineffective settings/revision actions and the server rejects them without changing the saved revision. Identical findings are shown once, while historical records remain intact. Create a new session after deploying the fix. With automatic correction enabled, initial discovery reserves one proposal, one repair when available, and one clarification until answers are recorded (nine discovery calls before clarification at the default twelve-call/four-correction limits). Answering releases the clarification reserve without adding calls; repeated questions can still exhaust the allowance. Sessions without this policy retain their prior allocation, and pending requests retain their issued schemas. Optional detailed contracts use at most 90% of the saved input allowance; insufficient capabilities stop explicitly without approving a workflow.
 
-Planning-format-10 session payloads, model reservations/receipts and budgets use encrypted KeyVault records and tenant-scoped EF Core/SQLite indexes; execution journals remain schema 9. The database default is `.GnOuGo/data/gnougo-planning-v9.db`; existing databases are untouched. Restart preserves TaskPlans, derived artifacts and cumulative budgets. Completed calls replay without another charge; uncertain dispatches stop. Saving reconciles an already committed identical artifact.
+Planning-format-11 session payloads, model reservations/receipts and budgets use encrypted KeyVault records and tenant-scoped EF Core/SQLite indexes; execution journals remain schema 9. The database default is `.GnOuGo/data/gnougo-planning-v9.db`; existing databases are untouched. Restart preserves TaskPlans, derived artifacts and cumulative budgets. Completed calls replay without another charge; uncertain dispatches stop. Saving reconciles an already committed identical artifact.
 
 See [the planning architecture](../../docs/workflow-planning-v9.md) for public contracts, policy boundaries, diagnostics and validation commands.
 
@@ -708,9 +733,12 @@ request identity or reset its accounting.
 A provider's completion-token limit can include reasoning tokens as well as returned JSON.
 An `output_limit` receipt with empty text can therefore reflect exhausted reasoning allowance,
 not an oversized plan. Check the stored usage and original request ceiling. New
-Designer and Flow sessions use 32768 output tokens by default, with explicit
-overrides authoritative. Existing configurations may retain lower reservations. Historical live runs used both allowances; report the actual saved limit when comparing them. An agreed change to that setting applies to a new request, preserves medium
-reasoning and the call/replanning budgets, and does not change earlier reservations or receipts.
+Designer and Flow construction sessions reserve 8,192 output tokens for drafts and
+corrections and 2,048 for Judges, bounded by the general generation ceiling.
+Historical configurations may retain different reservations; report the actual
+saved limit when comparing them. Construction cannot increase captured allowances
+on continuation. A different creation configuration requires a new session and
+never changes earlier reservations or receipts.
 The planner never raises the ceiling or retries a truncated response automatically.
 
 Transport retries are owned by [AI.Core](../GnOuGo.AI.Core/README.md#http-resilience).
@@ -718,8 +746,14 @@ The optional `retryPolicy` object in a KeyVault provider configuration controls 
 `maxUncertainRetries` and `attemptTimeoutMilliseconds`, plus bounded backoff settings.
 Omitting it preserves the base policy. Providing it replaces that policy, with defaults for
 unspecified fields. Malformed settings fail validation; `Retry-After` cannot be disabled.
-Uncertain generation recovery requires a host accounting journal. The live planning benchmark
-supplies it; ordinary planning journals retain their single-attempt safety boundary.
+Fresh planning sessions capture a separate confirmed-response policy with at most
+three journaled physical attempts. Both production planning hosts and the benchmark
+reserve each attempt before dispatch, including mandatory review headroom. Failed
+attempts without verified usage retain their reservations even after later success.
+Only fully saved transient HTTP responses authorize retries; missing outcomes,
+timeouts without a response and invalid model outputs do not. Historical sessions
+retain their original single-attempt boundary and request bytes. Runtime effects
+and local fallback are excluded from this planning policy.
 
 ### Runtime execution budgets
 
@@ -805,6 +839,8 @@ The Save confirmation and `/llm list` show the selection. Saving preserves unrel
 stores the selection encrypted in KeyVault, and applies it to new calls immediately. The existing
 post-save credential check uses the selected protocol; reserved planning calls and receipts stay unchanged.
 
+The same provider wizard exposes **Generation transport** (`Auto`, `Streaming`, `NonStreaming`) and native protocol support declarations for custom routes. Model review offers an exact deployment override. New planning sessions freeze the effective selection; historical captures retain non-streaming behavior. The common LLM inspector shows captured transport, terminal proof and usage availability. See [native streaming configuration, completion and recovery](../../docs/native-provider-streaming.md) and the [source-bound qualification](../../docs/evidence/native-streaming-2026-11-07/README.md). Streaming does not change the selected generation protocol or endpoint.
+
 ### Inspectable model calls
 
 The shared `appsettings.json` enables `TraceDebug:Enabled=true` for retained content. Open
@@ -827,7 +863,7 @@ Semantic preflight runs inside the deterministic compiler before lowering. It co
 
 A correction that needs a new conditional or cleanup task uses the existing explicit structural revision rather than extending diagnostic binding slots. If cleanup adds an accepted requirement, review that sole addition through the requirement-changing revision path; preserve all previous interfaces, operations and destinations. Discover and inspect any newly needed capability before proposing it. See the [offline Designer composition correction](../../docs/evidence/designer-composition-2026-10-13/README.md) for paired TaskPlans, compiled v15 YAML and exact workbook/recovery checks. The evidence does not apply a revision to its retained session or authorize execution.
 
-Planning format 10 stores TaskPlans, choices, derived artifacts and call receipts encrypted with tenant ownership. Old planning records remain untouched and cannot transfer approvals. Recovery preserves request identities and budgets; it does not replay surrounding workflow execution or blindly repeat uncertain effects. New-session cumulative defaults are twelve model calls and four corrections. Historical sessions keep their captured limits and sparse historical fallbacks.
+Planning format 11 stores TaskPlans, choices, derived artifacts and call receipts encrypted with tenant ownership. Old planning records remain untouched and cannot transfer approvals. Recovery preserves request identities and budgets; it does not replay surrounding workflow execution or blindly repeat uncertain effects. New sessions and executions default to **Unlimited — usage and costs tracked**. The protected operator can save Limited/Unlimited at `/settings/llm-budget`; the encrypted preference overrides `ApplicationLlmBudget:Mode`. Limited uses the existing configured planning/execution ceilings. Diagnostic planning targets remain advisory, and explicit workflow limits remain mandatory. New captures never change old charges, reservations or policies. See [activation, accounting and mandatory controls](../../docs/diagnostic-planning.md#application-llm-consumption). Only the active internal format is readable. Previous encrypted records and accounting archives remain unchanged; they confer no continuation or approval authority.
 
 The former `answer_decision`, free-text decisions, scope-consent cards, binding batches and computation-inference details are removed. Historical reports describe those old APIs and must not be used as current integration instructions. See [architecture and migration](../../docs/workflow-planning-v9.md) and the [planning skill](../../.agents/skills/gnougo-planning/SKILL.md).
 
@@ -853,3 +889,57 @@ New sessions capture intent version 3 while keeping compiler v15. Optional requi
 Confirmed violations block approval. Individual requirement checkboxes may explicitly acknowledge unverified aspects; they remain unverified after approval, separately from `human_reviewed`. No checkbox is preselected, polling does not submit, and a changed artifact clears acknowledgments. Approval recomputes coverage instead of trusting displayed labels. Saving still does not execute the workflow.
 
 With the existing automatic-correction policy, disconnected exports use bounded scoped repair. Missing committed operations may use the existing structural fallback with captured exact-contract authority; unrelated additions, weakened checks and changed independent work are rejected. Existing sessions, pending requests, receipts and approved workflows retain their captured behavior. No stopped session is automatically reopened. See [coverage and offline evidence](../../docs/evidence/business-commitments-2026-10-16/README.md).
+
+### Discovery recovery
+
+Planning cancellation surveillance reads only its small encrypted cancellation
+marker, without loading the full session on each tick. Recovery selects bounded
+active index coordinates and cancellation metadata before loading work. Exhausted
+KeyVault contention suspends the affected owner and retains requests, receipts,
+reservations and cancellation markers; it does not terminate the host or rewrite
+the session as failed. Periodic recovery and cold restart use the same owner lease
+and exact journals, so a missing outcome never grants another dispatch.
+
+The protected local operator window offers metadata-only recovery for eligible blocked Designer sessions, followed by explicit planning resume under captured admission. Exploratory source failures remain visible without blocking healthy alternatives. See [focused discovery and recovery](../../docs/focused-capability-discovery.md). Existing sessions are not automatically resumed or repriced.
+
+
+### Experimental financial forecasting
+
+At `/settings/llm-budget`, an authenticated local operator can select **Limited**
+and **Experimental — warn for future reviews**. HTTP setting changes require the
+existing operator cookie and antiforgery token. Saved preferences apply to new
+sessions only and override host defaults. With no saved preference, configure
+`ApplicationLlmBudget:FinancialForecastMode=experimental_warning` (default `strict`).
+
+This opt-in warns when the combined forecast for an unissued request and future
+reviews exceeds the allowance, provided the current physical request still fits.
+It does not soften current reservations, actual-cost settlement, explicit workflow
+limits, unresolved exposure, missing pricing/FX, request timeouts or replay barriers.
+Mandatory reviews remain necessary before approval and can stop later if unfunded.
+Input reservation estimates for new experimental calls use the serialized envelope
+and configured phase target, separately from physical model capacity and output
+allocations. Existing captures keep their previous reservation calculation.
+
+| Check | Strict financial forecasting | Experimental financial forecasting |
+| --- | --- | --- |
+| Unissued future-call/review forecast exceeds allowance | Refuse | Warn if current request fits |
+| Current request plus tracked exposure exceeds allowance | Refuse | Refuse |
+| Actual settlement exceeds its bound or allowance | Record and refuse further consumption | Record and refuse further consumption |
+| Unpriced history, missing FX or unverified external liability | Unavailable funding; refuse | Unavailable funding; refuse |
+| Explicit workflow financial limit | Enforce | Enforce |
+
+This setting does not change diagnostic optimization warnings, physical model
+limits, cancellation, request timeouts or network retry bounds. A budget's reserved
+attempt count is not an observed HTTP-send count; use the shared inspector's
+transport evidence to establish dispatch.
+
+On a planning session, **Inspect session finances** shows the existing encrypted
+budget's categories. The protected `GET /api/planning/{id}/financial` returns the
+same read-only projection (`workflow=true` for an owned chat planning session).
+Measured tokens and captured-tariff estimates are not provider invoices. Unpriced
+completed usage and unresolved holds remain visible; the projection cannot establish
+global available funding. It does not scan tenant history or release money.
+
+The [financial qualification report](../../docs/evidence/financial-admission-2026-11-06/README.md)
+explains the retained campaign ceiling, provisional external holds, duplicate checks
+and the fresh pre-dispatch refusal separately from controlled-provider validation.

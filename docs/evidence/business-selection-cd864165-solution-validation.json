@@ -1,0 +1,388 @@
+{
+  "source_commit": "cd8641651acb36b39584287e5990c304561e7339",
+  "passed": true,
+  "dotnet_exit_code": 0,
+  "started_utc": "2026-11-04T10:17:25.291881+00:00",
+  "ended_utc": "2026-11-04T11:41:55.504992+00:00",
+  "elapsed_seconds": 5069.924619625001,
+  "test_outcomes": {
+    "Passed": 7627,
+    "NotExecuted": 13
+  },
+  "test_total": 7640,
+  "source_unchanged": true,
+  "changed_tracked_paths": [],
+  "kind": "source_bound_full_solution_validation",
+  "source_tree": "5557b4fb7a1ad1369dddc81eccb984951e550534",
+  "command": [
+    "dotnet",
+    "test",
+    "GnOuGo.Agent.sln",
+    "-m:1",
+    "-warnaserror",
+    "-p:SkipModelMetadataGeneration=true",
+    "--logger",
+    "trx;LogFilePrefix=full-solution",
+    "--results-directory",
+    "<isolated-results>"
+  ],
+  "expected_assemblies": 33,
+  "observed_assemblies": 33,
+  "missing_assemblies": [],
+  "unexpected_assemblies": [],
+  "duplicate_assemblies": [],
+  "compiler_diagnostic_count": 0,
+  "source_status_clean_before": true,
+  "source_status_clean_after": true,
+  "assemblies": [
+    {
+      "assemblies": [
+        "GnOuGo.DocIngestor.Tests"
+      ],
+      "outcomes": {
+        "Passed": 89
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.Diff.Tests"
+      ],
+      "outcomes": {
+        "Passed": 52
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.KeyVault.Core.Tests"
+      ],
+      "outcomes": {
+        "Passed": 12
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.Flow.Tests"
+      ],
+      "outcomes": {
+        "Passed": 1512
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.Flow.Integrations.Tests"
+      ],
+      "outcomes": {
+        "Passed": 104
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.AI.Core.Tests"
+      ],
+      "outcomes": {
+        "Passed": 269
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.AI.Local.Tests"
+      ],
+      "outcomes": {
+        "Passed": 14
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.Agent.Mcp.Tests"
+      ],
+      "outcomes": {
+        "Passed": 103
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.Cmd.Mcp.Tests"
+      ],
+      "outcomes": {
+        "Passed": 93,
+        "NotExecuted": 7
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.Browser.Mcp.Tests"
+      ],
+      "outcomes": {
+        "Passed": 142
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.Agent.Server.Tests"
+      ],
+      "outcomes": {
+        "Passed": 1497,
+        "NotExecuted": 1
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.Document.Mcp.Tests"
+      ],
+      "outcomes": {
+        "Passed": 73
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.KeyVault.Mcp.Tests"
+      ],
+      "outcomes": {
+        "Passed": 9
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.Files.Server.Tests"
+      ],
+      "outcomes": {
+        "Passed": 10
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.DocIngestor.Mcp.Tests"
+      ],
+      "outcomes": {
+        "Passed": 7
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.OtlpCollector.Server.Tests"
+      ],
+      "outcomes": {
+        "Passed": 7
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.GithubCopilot.Mcp.Tests"
+      ],
+      "outcomes": {
+        "Passed": 243
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.GithubCopilot.Core.Tests"
+      ],
+      "outcomes": {
+        "Passed": 173
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.GithubCopilot.E2E.Tests"
+      ],
+      "outcomes": {
+        "Passed": 7,
+        "NotExecuted": 5
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.Observability.Core.Tests"
+      ],
+      "outcomes": {
+        "Passed": 3
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.Git.Mcp.Tests"
+      ],
+      "outcomes": {
+        "Passed": 84
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.Workspace.Tests"
+      ],
+      "outcomes": {
+        "Passed": 30
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.Mcp.Core.Tests"
+      ],
+      "outcomes": {
+        "Passed": 49
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.Flow.Mermaid.Tests"
+      ],
+      "outcomes": {
+        "Passed": 12
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.Assets.Bears.Tests"
+      ],
+      "outcomes": {
+        "Passed": 91
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.Assets.Animation.Tests"
+      ],
+      "outcomes": {
+        "Passed": 42
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.Assets.Animation.Server.Tests"
+      ],
+      "outcomes": {
+        "Passed": 13
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.Assets.Bears.Server.Tests"
+      ],
+      "outcomes": {
+        "Passed": 28
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.Flow.Planning.Tests"
+      ],
+      "outcomes": {
+        "Passed": 2645
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.ProxyCopilot.Server.Tests"
+      ],
+      "outcomes": {
+        "Passed": 177
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.Auth.Core.Tests"
+      ],
+      "outcomes": {
+        "Passed": 8
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.Flow.Persistence.Tests"
+      ],
+      "outcomes": {
+        "Passed": 24
+      },
+      "count_matches": true
+    },
+    {
+      "assemblies": [
+        "GnOuGo.Flow.Copilot.Tests"
+      ],
+      "outcomes": {
+        "Passed": 5
+      },
+      "count_matches": true
+    }
+  ],
+  "capture_sha256": {
+    "source-before.json": "7668d605e7904c87a2b861c9c16a46deac200a36c9affd68fc244622aeb9d573",
+    "source-after.json": "7668d605e7904c87a2b861c9c16a46deac200a36c9affd68fc244622aeb9d573",
+    "run.json": "0df5f0de10a0924d7f453b6624084eefe6e43a251ed526f83deae46667d3fe74",
+    "results.json": "7c861c4a4b487c8c3200f39908cdd2dcde4597663b6b3abf3e9ec6a6c4b1dcf9",
+    "summary.json": "7e068e634dc9cdd66bab867bfb98e637512bb5934446472b394316329c4da9f8",
+    "verification-report.json": "bef81339cc408d49f8a9722bfc573fd5b2fc5d168ea0a1c05017fa800704ccd7",
+    "sdk-version.txt": "00922204861c9366b1259b84337ee228d58ec876604bb149e82c077108ce3be2",
+    "full-solution.log": "0918efc93cd6d27a25e2712b6cb0c27a7d7fae64a2a3c864959a6f145390e4f6"
+  },
+  "trx_sha256": {
+    "trx/full-solution_net10.0_20261104111747.trx": "4b0ae1380235e9f8cc68c7639f9e4af456dac1567092ebbbb940359db9cd7df9",
+    "trx/full-solution_net10.0_20261104111750.trx": "6e33ce3c7e83a17fa719daba62487981eb357d9ef88305424e31fb44f7c2e170",
+    "trx/full-solution_net10.0_20261104111753.trx": "cc582ee81ed1a4d51ed0e22ffcf5a10a68e6c4ccfc9acdada611d137bb37d9d2",
+    "trx/full-solution_net10.0_20261104111808.trx": "1d2ce1ec8132243b99b18006db84fedac04e1d72698175b8ef875345cbbc47cc",
+    "trx/full-solution_net10.0_20261104111821.trx": "d6bca96731edb64dbe62ebd6dffceb1e21beecf1b14a2ffb203fbb38130fe4b6",
+    "trx/full-solution_net10.0_20261104111825.trx": "8755def559bef0d92f8a948aece835c21aec9540c47be26861c751a6238f2e4f",
+    "trx/full-solution_net10.0_20261104111827.trx": "8aac8197ecb2122d2ae99b253d7c436ec15e69d87fcca6ee61af9f0856652fe1",
+    "trx/full-solution_net10.0_20261104111832.trx": "2797d622dd17089426e141c191c7a3a97bf056980107914df4ddadc5dd654a4b",
+    "trx/full-solution_net10.0_20261104111853.trx": "e1a9183f6bc48b3f7e09c0b8a395b085aee60a5b1dfd71d057fa8f3c356e1dbd",
+    "trx/full-solution_net10.0_20261104111925.trx": "b974ffa7414da4462ce8835cb8c128da2ae7546ea9fca33f49459ecf1bf50b2b",
+    "trx/full-solution_net10.0_20261104123641.trx": "ed00e2dabf620bb624a47edcad933b6b70da8df33065791a6d41fae9df03cec1",
+    "trx/full-solution_net10.0_20261104123649.trx": "c94031cb526904e89ac1fe10eceb521c64c8acc7ca41830b0952e84177401555",
+    "trx/full-solution_net10.0_20261104123652.trx": "eb9ada595c34fba7f72b8e6af0917f5debf7fe143264e99b66708c90c28f3307",
+    "trx/full-solution_net10.0_20261104123654.trx": "ab22c9198706e07c2d93572c6ea3140f26d819ee80005e673efda20b197a3906",
+    "trx/full-solution_net10.0_20261104123656.trx": "12e3992b09f946b3794af8d4810c5fc3a46187cd2d5c43009d43c74745d898f9",
+    "trx/full-solution_net10.0_20261104123658.trx": "435633203cd42c5f2389699a3bdf04728ebf223842f6416a8290df3a46395b4d",
+    "trx/full-solution_net10.0_20261104123744.trx": "3b27fd2f6ec2c60702076c9c6e544fcf9dc6245cc1fb1531772cf533dd6df2e7",
+    "trx/full-solution_net10.0_20261104123746.trx": "909446afdaf8b8e4505c495928236ef7d6457e16b62cbe59f80ccf37754feb74",
+    "trx/full-solution_net10.0_20261104123748.trx": "57c6dea3e38d37af07305614f0c8067d2c4e65f5735579bdde39b2bf508dfccc",
+    "trx/full-solution_net10.0_20261104123749.trx": "61b930fa1e417f2ed112ba427670999a172cf4d9bebf6ab9a102fbbe483d65ec",
+    "trx/full-solution_net10.0_20261104123757.trx": "9d452037f1b2d344693a7df45948c6e4951de6f5ac245388db51d31c52650591",
+    "trx/full-solution_net10.0_20261104123758.trx": "0b85f09f523e58365ce0a67d1c6f7b28786d179d929b88a96f0b4ed28206fa36",
+    "trx/full-solution_net10.0_20261104123759.trx": "187fded185848fe9ba53d8dde44485ae540ab84aaab89294d7d3a189f3fcea10",
+    "trx/full-solution_net10.0_20261104123801.trx": "057c088675313101a96492dab79df351f52c24dae985c884f554500ac7b88064",
+    "trx/full-solution_net10.0_20261104123812.trx": "e511be1bdc8eed8b11e3537d37c290055408698949ff6e2a9e31f33fda390a73",
+    "trx/full-solution_net10.0_20261104123813.trx": "141725cb2c1ca6815e98672906f9d750b8d4298a3cbc292785f94e27b783dd7d",
+    "trx/full-solution_net10.0_20261104123820.trx": "a5f909af8b5abfbc1a6528f756bef4a2a2f6062e0e0418b5182f7b88b377aabc",
+    "trx/full-solution_net10.0_20261104123822.trx": "a466c45505bfceafe098c227eb5176071dd2267351382c8528fdcf01f11af553",
+    "trx/full-solution_net10.0_20261104124131.trx": "dffe168ddb11d68a3898d6bbbc31623dc5d7dcb7ac01edf16cbc6944e4c7dd32",
+    "trx/full-solution_net10.0_20261104124144.trx": "f434770f4eaeb3b725192dd6e1c6a36cc98c588657dde1539c33afdfa219b9f7",
+    "trx/full-solution_net10.0_20261104124145.trx": "2e1fc01c1f595ae50ec4139277ce7d590ca6166e3869d9384127840e989e9a4e",
+    "trx/full-solution_net10.0_20261104124154.trx": "f295bd6144a3e509ed63dc9062fce38552fe544503bc0c2eee4df8af7efb9707",
+    "trx/full-solution_net10.0_20261104124155.trx": "88e761f425dacd1d27378b32bcfd82c576fe2b1f195b212d8e2d0e2bf12fe3f4"
+  },
+  "limitations": [
+    "This exact-source technical result does not establish live business qualification.",
+    "The later f5789246 and b613426e corrections retain separate validation runs and are not covered by this source result."
+  ]
+}

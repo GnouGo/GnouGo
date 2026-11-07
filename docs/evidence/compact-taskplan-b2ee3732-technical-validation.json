@@ -1,0 +1,125 @@
+{
+  "production_source": "b2ee37324194c67516959898b4eaeaa2fdc5a15e",
+  "planning": {
+    "exit_code": 0,
+    "counts": {
+      "Passed": 3703
+    },
+    "elapsed_seconds": 350.3152330830344,
+    "source_unchanged": true,
+    "log_sha256": "59cc18ee9fca5dda89be8053140259b150a9511733cc2e9ce06c28f3891b0424"
+  },
+  "planning_source_manifest_sha256": "159bd7b7aeeebced0b2c28972edb487367d2296cd31cac1a48d01f2badd93633",
+  "focused_tests_overlap_full_planning": true,
+  "publication": {
+    "source": "b2ee37324194c67516959898b4eaeaa2fdc5a15e",
+    "exact_source_blobs_and_modes": 4776,
+    "source_manifest_sha256": "230a1f59a9f0e7ea239846740c02c9aa2b56e594d3b1c8d9907ca3f1d4c93232",
+    "all_stages_passed": true,
+    "stages": [
+      {
+        "stage": "managed-publish",
+        "log_sha256": "ad606849243a091a2a3c5cb8a2c5de69546df79840cc2e440aa76195064a9c86",
+        "elapsed_seconds": 29.714
+      },
+      {
+        "stage": "managed-smoke",
+        "log_sha256": "2c9c49966a627c7c0b9bd70ae28be452cdd3fe93c269c3f972f6be92ccdb629a",
+        "elapsed_seconds": 3.695
+      },
+      {
+        "stage": "native-publish",
+        "log_sha256": "5f6e2ee1d46625336c2f744e64dc7569ea3e4623260156baf621ec35ec19586e",
+        "elapsed_seconds": 43.163
+      },
+      {
+        "stage": "native-smoke",
+        "log_sha256": "3fa38761318308beba38b427501eda939f72a30b9a569b5e7b3102c88d45cd9b",
+        "elapsed_seconds": 7.229
+      },
+      {
+        "stage": "pack-planning",
+        "log_sha256": "7650fa2a33efb0a61ae26fc18a55ab66720e9eee33bc150fb23fba7a74d5f669",
+        "elapsed_seconds": 1.242
+      },
+      {
+        "stage": "pack-integrations",
+        "log_sha256": "498a2028cc0eae9c70132445daa607d6bfe155a982c867bc61b3ae43fdc2b103",
+        "elapsed_seconds": 1.9
+      },
+      {
+        "stage": "pack-core",
+        "log_sha256": "0525700a738bfe817c2de50e05ceda124d60c2b43684cbe92587872468b4386e",
+        "elapsed_seconds": 1.094
+      },
+      {
+        "stage": "pack-copilot",
+        "log_sha256": "9bdfa28c37ff252f4f4056a8e615ee5872475dcd982e795530b4cb0436453700",
+        "elapsed_seconds": 2.085
+      },
+      {
+        "stage": "pack-persistence",
+        "log_sha256": "f6c3bef2bf9c751146478899c58657f72c43e5060e345207ccb73870f3fc8c71",
+        "elapsed_seconds": 2.737
+      },
+      {
+        "stage": "pack-ai-core",
+        "log_sha256": "85d45db1c51afcdc4236612b651cf08ef22253414c01d4d820941c69f836f2a0",
+        "elapsed_seconds": 1.043
+      },
+      {
+        "stage": "server-publish",
+        "log_sha256": "f5bb438324f48697fd346132fb81efd57129279df336511f66a4e4bde36b252a",
+        "elapsed_seconds": 131.087
+      },
+      {
+        "stage": "server-encrypted-storage-smoke",
+        "log_sha256": "7e3ebcc6e52949e24cd53cf518d48371066902ffe33e70d05446cfa36641fdf5",
+        "elapsed_seconds": 2.364
+      }
+    ],
+    "verified_output_files": 213,
+    "independent_package_builds": [
+      {
+        "file": "GnOuGo.Flow.Planning.1.0.0.nupkg",
+        "sha256": "721cc0e62dee67fdd753c51961dc5bf45932b44c9a4a0b27158cf2a7707c08c5",
+        "repository_commit": "b2ee37324194c67516959898b4eaeaa2fdc5a15e"
+      },
+      {
+        "file": "GnOuGo.Flow.Integrations.1.0.0.nupkg",
+        "sha256": "a17cb07622fab27aebf1d196260c1d9bbadaa904e753f0390adfd310adcce537",
+        "repository_commit": "b2ee37324194c67516959898b4eaeaa2fdc5a15e"
+      },
+      {
+        "file": "GnOuGo.Flow.Core.1.0.0.nupkg",
+        "sha256": "ae8e4cd8514192f77e48f1ace7f5b73c0e1425057d7e08ea72d55d444a033f04",
+        "repository_commit": "b2ee37324194c67516959898b4eaeaa2fdc5a15e"
+      },
+      {
+        "file": "GnOuGo.AI.Core.1.0.0.nupkg",
+        "sha256": "424aed8e02f0520a9c517716a8717f99e1697b88af011929af1fdbc66ee336d3",
+        "repository_commit": "b2ee37324194c67516959898b4eaeaa2fdc5a15e"
+      },
+      {
+        "file": "GnOuGo.Flow.Copilot.1.0.0.nupkg",
+        "sha256": "45fc943ddf4fcaff0fc5057296286864300a78962b30cc957897c9daf1f317c6",
+        "repository_commit": "b2ee37324194c67516959898b4eaeaa2fdc5a15e"
+      },
+      {
+        "file": "GnOuGo.Flow.Persistence.1.0.0.nupkg",
+        "sha256": "76622af6e012c3953b96fffe6da97fa215d586a091421e062f72bee94212a66c",
+        "repository_commit": "b2ee37324194c67516959898b4eaeaa2fdc5a15e"
+      }
+    ],
+    "managed_and_native_aot_smoke": true,
+    "fresh11_and_historical_2_to_10": true,
+    "exact_pending_recovery_and_mock_runtime": true,
+    "published_encryption_and_tenant_isolation": true,
+    "planning_calls": 0,
+    "business_acceptance": false,
+    "limitation": "Server packaging excludes existing ClientApp and bundled-tool staging; this validates publication and synthetic encrypted persistence, not business workflows."
+  },
+  "publication_qualification_sha256": "38dceb4bdbe5ec4035a09f326d15457f943c5291fc897af1ae1be0adfcc9a33e",
+  "full_solution": "Running on exact b2ee3732 snapshot; not included in this pass.",
+  "business_acceptance": false
+}

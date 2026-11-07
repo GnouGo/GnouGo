@@ -1,0 +1,326 @@
+{
+  "version": 1,
+  "source": "08c5229fc65f2dedb8e8caf8c7d2627591a0473b",
+  "case": "amazon",
+  "cohort": "compactr08c5229fcamz20v5",
+  "prepared_utc": "2026-10-24T23:43:55.081381+00:00",
+  "scope": "Immutable measured terminal failure. Semantic assessment is separate; no artifact, approval or runtime acceptance.",
+  "safe_sources": [
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr08c5229fcamz20v5/freeze.json",
+      "sha256": "b26245f7b8df47b9be5eb8da2ef01fc40b254409c487e11eea747186bc51be2b",
+      "bytes": 15750
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr08c5229fcamz20v5/amazon-terminal-safe-metrics.json",
+      "sha256": "ff68c4256957ef2f3cd81e82b77f29ec3fcb07a69e6e59aefb74c453a21e3148",
+      "bytes": 211178
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr08c5229fcamz20v5/amazon-exit.json",
+      "sha256": "ae9ebff259c063fd446cbd812003f905e57a7d12e4249b8059435a5aa2d7472b",
+      "bytes": 67
+    },
+    {
+      "path": "/private/tmp/gnougo-08c-amazon-terminal-summary/summary-safe.json",
+      "sha256": "8f29e7d6fb05bde19a3f21f3dbadbe04fbc8d056499a2f22b3099f6698faf099",
+      "bytes": 9954
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr08c5229fccode20v5/freeze.json",
+      "sha256": "0464f03b35365bd2da765a3b316afc2fc9ac266543b495ddae02be6ad9566a04",
+      "bytes": 19483
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr08c5229fccode20v5/provider-readiness.jsonl",
+      "sha256": "fc9f247f037f3882c330e2faeda32908ddc5402abf6f8d0e47da556c49de0f29",
+      "bytes": 8323
+    }
+  ],
+  "outcome": {
+    "status": "stopped",
+    "phase": "construction_select",
+    "diagnostics": [
+      "CONSTRUCTION_STEP_INPUT_INVALID",
+      "CONSTRUCTION_CORRECTION_ALLOWANCE"
+    ],
+    "termination_reason": null,
+    "corrections": 4,
+    "checkpoints": 6,
+    "construction_complete": false,
+    "artifact_hash": null,
+    "execution_status": "not_started",
+    "execution_started": false,
+    "oracle_passed": null,
+    "planning_ms": 2619593
+  },
+  "process_exit": {
+    "exit_code": 0,
+    "finished_at": "2026-10-24T23:36:09.588915+00:00"
+  },
+  "process_exit_qualification": "A successful harness process exit does not establish planner or business success.",
+  "requests": {
+    "constructed_identities": 52,
+    "logical_dispatched": 48,
+    "physical_attempts": 51,
+    "receipts": 48,
+    "prepared_only": 4,
+    "prepared_only_identity_numbers": [
+      16,
+      24,
+      30,
+      37
+    ],
+    "prepared_only_phase": "construction_draft",
+    "admission_counts": {
+      "admitted": 48,
+      "prepared": 4
+    },
+    "receiptless_dispatched_requests": 0,
+    "rejected_before_dispatch": 0,
+    "complete_request_bytes_total": 997063,
+    "all_components_reconcile": true,
+    "all_requests_within_input_limits": true,
+    "independent_component_rounding_delta_tokens": 146
+  },
+  "usage_and_cost": {
+    "input_tokens": 177735,
+    "output_tokens": 88460,
+    "reasoning_tokens_within_output": 78327,
+    "visible_output_tokens_derived": 10133,
+    "empty_completed_responses": 0,
+    "known_cost_eur": "3.1615127175368139223560910309",
+    "retained_failed_attempt_reservation_eur": "2.0496296296296296296296296297",
+    "cost_upper_bound_eur": "5.2111423471664435519857206606",
+    "unknown_usage_attempts": 3,
+    "failed_http_attempts": [
+      {
+        "identity_number": 2,
+        "statuses": [
+          500,
+          200
+        ],
+        "reservation_eur": "0.9308701472556894243641231593"
+      },
+      {
+        "identity_number": 43,
+        "statuses": [
+          500,
+          500,
+          200
+        ],
+        "reservation_eur": "1.1187594823739402052655064704"
+      }
+    ],
+    "money_arithmetic": "Exact lexical metrics parsed with Decimal precision80; no rounding of monetary sums.",
+    "logical_call_interval_total_ms": "2491873.9320"
+  },
+  "phase_statistics": {
+    "construction_intent": {
+      "constructed": 2,
+      "dispatched_receipted": 2,
+      "physical_attempts": 3,
+      "prepared_only": 0,
+      "request_bytes_p50_p95_max": [
+        "6064.0",
+        9117,
+        9117
+      ],
+      "estimated_input_tokens_p50_p95_max": [
+        "2277.5",
+        3295,
+        3295
+      ],
+      "logical_interval_ms_p50_p95_max": [
+        "194439.00115",
+        "332698.7555",
+        "332698.7555"
+      ],
+      "input_tokens": 2231,
+      "output_tokens": 6471,
+      "reasoning_tokens_in_output": 5626,
+      "known_cost_eur": "0.1832083891120035698348951361",
+      "retained_failed_attempt_reservation_eur": "0.9308701472556894243641231593"
+    },
+    "construction_select": {
+      "constructed": 11,
+      "dispatched_receipted": 11,
+      "physical_attempts": 11,
+      "prepared_only": 0,
+      "request_bytes_p50_p95_max": [
+        13888,
+        16747,
+        16747
+      ],
+      "estimated_input_tokens_p50_p95_max": [
+        4886,
+        5839,
+        5839
+      ],
+      "logical_interval_ms_p50_p95_max": [
+        "43185.8764",
+        "117174.0745",
+        "117174.0745"
+      ],
+      "input_tokens": 31527,
+      "output_tokens": 48314,
+      "reasoning_tokens_in_output": 45496,
+      "known_cost_eur": "1.4342302543507362784471218207",
+      "retained_failed_attempt_reservation_eur": "0"
+    },
+    "construction_draft": {
+      "constructed": 15,
+      "dispatched_receipted": 11,
+      "physical_attempts": 13,
+      "prepared_only": 4,
+      "request_bytes_p50_p95_max": [
+        27053,
+        46559,
+        46559
+      ],
+      "estimated_input_tokens_p50_p95_max": [
+        9274,
+        15776,
+        15776
+      ],
+      "logical_interval_ms_p50_p95_max": [
+        "20982.7982",
+        "639045.0473",
+        "639045.0473"
+      ],
+      "input_tokens": 64609,
+      "output_tokens": 15951,
+      "reasoning_tokens_in_output": 12342,
+      "known_cost_eur": "0.7153726015171798304328424811",
+      "retained_failed_attempt_reservation_eur": "1.1187594823739402052655064704"
+    },
+    "construction_local_judge": {
+      "constructed": 7,
+      "dispatched_receipted": 7,
+      "physical_attempts": 7,
+      "prepared_only": 0,
+      "request_bytes_p50_p95_max": [
+        17792,
+        25409,
+        25409
+      ],
+      "estimated_input_tokens_p50_p95_max": [
+        6187,
+        8726,
+        8726
+      ],
+      "logical_interval_ms_p50_p95_max": [
+        "20082.9446",
+        "32943.6295",
+        "32943.6295"
+      ],
+      "input_tokens": 23011,
+      "output_tokens": 5500,
+      "reasoning_tokens_in_output": 4595,
+      "known_cost_eur": "0.2499375278893351182507809014",
+      "retained_failed_attempt_reservation_eur": "0"
+    },
+    "construction_discovery": {
+      "constructed": 16,
+      "dispatched_receipted": 16,
+      "physical_attempts": 16,
+      "prepared_only": 0,
+      "request_bytes_p50_p95_max": [
+        "16563.0",
+        20303,
+        20303
+      ],
+      "estimated_input_tokens_p50_p95_max": [
+        "5777.5",
+        7024,
+        7024
+      ],
+      "logical_interval_ms_p50_p95_max": [
+        "19504.52225",
+        "35811.6032",
+        "35811.6032"
+      ],
+      "input_tokens": 49641,
+      "output_tokens": 11218,
+      "reasoning_tokens_in_output": 9827,
+      "known_cost_eur": "0.5218607764390896921017402945",
+      "retained_failed_attempt_reservation_eur": "0"
+    },
+    "replan": {
+      "constructed": 1,
+      "dispatched_receipted": 1,
+      "physical_attempts": 1,
+      "prepared_only": 0,
+      "request_bytes_p50_p95_max": [
+        35045,
+        35045,
+        35045
+      ],
+      "estimated_input_tokens_p50_p95_max": [
+        11938,
+        11938,
+        11938
+      ],
+      "logical_interval_ms_p50_p95_max": [
+        "20556.6464",
+        "20556.6464",
+        "20556.6464"
+      ],
+      "input_tokens": 6716,
+      "output_tokens": 1006,
+      "reasoning_tokens_in_output": 441,
+      "known_cost_eur": "0.0569031682284694332887103971",
+      "retained_failed_attempt_reservation_eur": "0"
+    }
+  },
+  "statistical_population": "Request-size quantiles include all constructed requests, explicitly including four prepared-only drafts. Provider-token/cost and logical-interval statistics include only48 receipted requests; confirmed-error retries remain inside their logical interval. p95 uses nearest rank. No physical-wall-clock or provider-only latency claim.",
+  "profile": {
+    "version": 1,
+    "navigation": {
+      "targetInputTokens": 3000,
+      "maxInputTokens": 12000,
+      "reasoning": "high",
+      "outputTokens": 32768
+    },
+    "draft": {
+      "targetInputTokens": 8000,
+      "maxInputTokens": 20000,
+      "reasoning": "medium",
+      "outputTokens": 16384
+    },
+    "review": {
+      "targetInputTokens": 4000,
+      "maxInputTokens": 12000,
+      "reasoning": "medium",
+      "outputTokens": 8192
+    }
+  },
+  "post_amazon_pre_code_accounting": {
+    "capture_timestamp": "2026-10-24T23:37:44.965520+00:00",
+    "timestamp_basis": "Next Code freeze capture; the public readiness JSONL itself does not include a timestamp.",
+    "physical_attempts": 3026,
+    "readiness_session_calls": 0,
+    "known_cost_eur": "129.09250853944525993425403376",
+    "reserved_cost_eur": "33.716606310903735205046020151",
+    "recorded_upper_bound_eur": "162.80911485034899513930005391",
+    "ceiling_eur": "240.0301038327063045424449473",
+    "available_eur": "77.22098898235730940314489339",
+    "unknown_physical_attempts": 47,
+    "receiptless_identities": 28,
+    "closed_identities": 28,
+    "unresolved_identities": 0,
+    "recorded_upper_minus_decimal80_components_eur": "-1E-27",
+    "qualification": "Exact aggregate retained, not recomputed from separately rounded run totals. Prior lost-ledger exposure remains separate. Timestamped allowance is not a future balance."
+  },
+  "semantic_assessment": "Retained separately from these measurements; no false-positive, correction-cause, avoided-correction, source-change benefit or full-business-success claim is made here.",
+  "original_response_formatting": "Not measured by this safe metric projection; normalized response bytes are not original text or outside-string whitespace.",
+  "limitations": [
+    "Numeric safe-file summary only; semantic findings and correction causes remain unassessed pending independent source assessment.",
+    "Four prepared identities have zero attempts, null record/usage fields and no receipts; they are not failed dispatched requests or receiptless uncertainty.",
+    "Three confirmed failedHTTP500 attempts retain reserves although their logical requests later received200. No reservation refund or release.",
+    "Reasoning is included in output tokens; estimated component tokens are not provider billing.",
+    "No artifact or execution. Checkpoints and an oracle version do not establish business acceptance.",
+    "Root supplied the completed safe pre-Code audit; no readiness/operator API invoked here.",
+    "No original prompt/response export, store, reader, lease, model, runtime, build or tracked-source mutation."
+  ]
+}

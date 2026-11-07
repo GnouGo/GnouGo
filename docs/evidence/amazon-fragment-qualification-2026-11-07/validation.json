@@ -1,0 +1,139 @@
+{
+  "focusedSelections": [
+    {
+      "selection": "planning-tests",
+      "source": "d7d3e4b86cbdd25a4ba930343f934e419ad51d53",
+      "counters": {
+        "total": "2771",
+        "executed": "2771",
+        "passed": "2771",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "log": "planning-tests.log.gz",
+      "trx": "_a115vcCX1PXQ575D_2026-11-07_11_14_15_net10.0.trx",
+      "compilerDiagnosticLines": []
+    },
+    {
+      "selection": "server-final",
+      "source": "d7d3e4b86cbdd25a4ba930343f934e419ad51d53",
+      "counters": {
+        "total": "328",
+        "executed": "328",
+        "passed": "328",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "log": "server-final.log.gz",
+      "trx": "_a115vcCX1PXQ575D_2026-11-07_11_18_39_net10.0.trx",
+      "compilerDiagnosticLines": []
+    },
+    {
+      "selection": "delegated-discovery-tests",
+      "source": "10370a0e070952306748508684ad22cb73a62205",
+      "counters": {
+        "total": "331",
+        "executed": "331",
+        "passed": "331",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "log": "delegated-discovery-tests.log.gz",
+      "trx": "_a115vcCX1PXQ575D_2026-11-07_11_36_24_net10.0.trx",
+      "compilerDiagnosticLines": []
+    },
+    {
+      "selection": "delegated-authority-tests",
+      "source": "10370a0e070952306748508684ad22cb73a62205",
+      "counters": {
+        "total": "58",
+        "executed": "58",
+        "passed": "58",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "log": "delegated-authority-tests.log.gz",
+      "trx": "_a115vcCX1PXQ575D_2026-11-07_11_38_24_net10.0.trx",
+      "compilerDiagnosticLines": []
+    }
+  ],
+  "countsOverlap": true,
+  "fullSolution": {
+    "source": "d7d3e4b86cbdd25a4ba930343f934e419ad51d53",
+    "status": "passed",
+    "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror -p:SkipModelMetadataGeneration=true -p:SkipClientBuild=true --logger trx --results-directory ../amazon-fragment-qualification-20261107/full-tests",
+    "exitCode": 0,
+    "sourceUnchanged": true,
+    "completedAssemblies": 33,
+    "passed": 8029,
+    "skipped": 13,
+    "failed": 0,
+    "compilerDiagnostics": [],
+    "log": "full-solution.log.gz",
+    "reports": "full-solution-results.tar.gz",
+    "summary": "full-test-summary.json"
+  },
+  "unchangedAuthorityAndOracleHashes": {
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs": "0d8051d1a9d21b0697e55e25c347b17997eda636180a6cdb5c0652a344a9858c",
+    "tests/GnOuGo.Agent.Planning.Benchmark/DelegatedTestReview.cs": "ed144a4b76cd93f25d03e2aac7a01b113a57ea7001670f189f4e8d2dfa43db58",
+    "tests/Shared/PlanningBenchmarkCases.cs": "9268601bdbbedd987804eb1ee2efd6d6cb4c49e5e9d67a89321bfde2cd06e184"
+  },
+  "releaseChecks": [
+    {
+      "check": "source-bound benchmark and MCP Release build",
+      "source": "10370a0e070952306748508684ad22cb73a62205",
+      "log": "live-authority-source-build.log.gz",
+      "status": "passed"
+    },
+    {
+      "check": "Flow.Planning Release pack",
+      "source": "d7d3e4b86cbdd25a4ba930343f934e419ad51d53",
+      "log": "planning-pack.log.gz",
+      "status": "passed"
+    }
+  ]
+}

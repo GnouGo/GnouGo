@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "validated_parent": "361bb7139ee9e12acb699e97c88c667252587187",
+  "change": "Recognize host-retained combined scoped review coverage during artifact approval for presentation5; preserve historical separate review requirements.",
+  "source_unchanged_during_validation": true,
+  "changed_file_sha256": {
+    ".agents/skills/gnougo-planning/SKILL.md": "5eae0b6ca46653457867ee3b7f84354589131eb686828b1c014edc596658e7ff",
+    "src/GnOuGo.Flow.Planning/PlanningArtifactApproval.cs": "cd61693b298024542f8d28eb270fab6783e9b6ebb5c5d8046fd26ddf85add4f9",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactConvergentJudgeTests.cs": "04a646e0ec07db50e32e80fb71c0d903cf5459cf632b90c426cadb419acd5614"
+  },
+  "validation_manifest": {
+    "file": "/private/tmp/gnougo-combined-approval-validation.zorqk2vn/validation-combined-safe.json",
+    "sha256": "1e0ad6a7bb5609723e85631ecd71611def7e3e75cf93b784817b71e0db6531be"
+  },
+  "tests": [
+    {
+      "name": "planning",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/GnOuGo.Flow.Planning.Tests/GnOuGo.Flow.Planning.Tests.csproj",
+        "-m:1",
+        "-warnaserror",
+        "-p:SkipModelMetadataGeneration=true",
+        "--logger",
+        "trx;LogFileName=planning.trx",
+        "--results-directory",
+        "/private/tmp/gnougo-combined-approval-validation.zorqk2vn"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 246.711,
+      "log": "/private/tmp/gnougo-combined-approval-validation.zorqk2vn/planning.log",
+      "log_sha256": "ed409dfff1259e33645542cab30f9d41e80cd6fc41e8cfaa2bed3e2257e600d1",
+      "trx": "/private/tmp/gnougo-combined-approval-validation.zorqk2vn/planning.trx",
+      "trx_sha256": "735a6847bf98e3dcca87dccc2c5fee6a0d7f9888aade837ccf313b047a50ee27",
+      "passed": 2840,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "hosts",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj",
+        "-m:1",
+        "-warnaserror",
+        "-p:SkipModelMetadataGeneration=true",
+        "--filter",
+        "FullyQualifiedName~DelegatedTestReviewTests|FullyQualifiedName~PlanningPersistenceTests|FullyQualifiedName~CompactConstructionHostTests|FullyQualifiedName~PlanningTraceUiTests.ReviewShowsOriginalRequestAndAssertionsWithoutAcknowledgingOrExecutingContent|FullyQualifiedName~PlanningTraceUiTests.Approval",
+        "--logger",
+        "trx;LogFileName=hosts.trx",
+        "--results-directory",
+        "/private/tmp/gnougo-combined-approval-validation.zorqk2vn"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 20.871,
+      "log": "/private/tmp/gnougo-combined-approval-validation.zorqk2vn/hosts.log",
+      "log_sha256": "aabf7aac9c6f2a987e98910ff5e399013ecd9eebc698a5946b1bd854a00d7e65",
+      "trx": "/private/tmp/gnougo-combined-approval-validation.zorqk2vn/hosts.trx",
+      "trx_sha256": "a36e1aa4376da7146efb1fe1e75fff19d7edc237d3ba3208a2aab1fa7e52bdfb",
+      "passed": 62,
+      "failed": 0,
+      "skipped": 0
+    }
+  ],
+  "passed": 2902,
+  "failed": 0,
+  "skipped": 0,
+  "compiler_diagnostics": [],
+  "coverage": [
+    "Completed coordinator paths for presentation2\u20135 reach artifact verification without changing serialized state.",
+    "Fresh combined intermediate coverage binds checkpoint candidate and baseline, requirement-closure claims and the raw/normalized completed findings report.",
+    "Narrow, missing, stale or altered coverage, findings, uncertainty, claims and identities are rejected; historical metadata cannot gain combined authority.",
+    "Existing delegated/human approval, persistence and host boundaries remain checked."
+  ],
+  "limitations": [
+    "This does not authorize the earlier361 artifact or claim current-source runtime success. Fresh frozen diagnostics remain required.",
+    "An initial new-test run exposed incomplete original-source mapping in the shared synthetic fixture, including historical versions; the fixture was corrected to use its exact original clause. No production source-coverage guard was weakened.",
+    "The isolated361 full-solution/publication checks cover the prior source, not this correction. Final complete validation and paired live acceptance remain separate."
+  ]
+}

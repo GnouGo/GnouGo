@@ -1,0 +1,70 @@
+{
+  "sourceRevision": "202048374d4d070f7f2f4c623eceac35a66b9997",
+  "tests": [
+    {
+      "suite": "focused campaign",
+      "passed": 151,
+      "failed": 0,
+      "skipped": 0,
+      "evidence": "fresh-allocation.trx.gz"
+    },
+    {
+      "suite": "wider Server admission/settings/defaults (includes focused campaign tests)",
+      "passed": 189,
+      "failed": 0,
+      "skipped": 0,
+      "evidence": "fresh-funding-admission.trx.gz"
+    },
+    {
+      "suite": "encrypted KeyVault Core",
+      "passed": 19,
+      "failed": 0,
+      "skipped": 0,
+      "evidence": "storage.trx.gz"
+    }
+  ],
+  "builds": {
+    "cleanBenchmarkRelease": "zero warnings/errors",
+    "solutionRelease": "zero warnings/errors",
+    "frontendProduction": "passed"
+  },
+  "baseline": {
+    "sourceRevision": "77dfe36774f54ed09eb03b3bb16a1c3adc854b85",
+    "passed": 7982,
+    "failed": 0,
+    "skipped": 13,
+    "note": "Previous full production-source qualification; not relabelled as a new harness run."
+  },
+  "retainedUserStaging": [
+    "GnOuGo.Agent.sln",
+    ".vscode/settings.json"
+  ],
+  "additionalCorrections": [
+    {
+      "sourceRevision": "729ca723",
+      "regressions": {
+        "passed": 193,
+        "failed": 0,
+        "skipped": 0
+      },
+      "evidence": "targeted-admission-final.trx.gz",
+      "expectedBeforeFixFailure": {
+        "failed": 1,
+        "passed": 0,
+        "evidence": "targeted-admission-before.trx.gz"
+      },
+      "note": "The red regression demonstrates tenant-wide hydration, not a deterministic reproduction of every SQLite lock schedule."
+    },
+    {
+      "sourceRevision": "c0fc6866",
+      "regressions": {
+        "passed": 194,
+        "failed": 0,
+        "skipped": 0
+      },
+      "evidence": "fresh-run-preflight.trx.gz",
+      "build": "full solution and independent Release harness: zero warnings/errors",
+      "paidContinuation": "not performed; fresh replay preflight refused before session creation"
+    }
+  ]
+}

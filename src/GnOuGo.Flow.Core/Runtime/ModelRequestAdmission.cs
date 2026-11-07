@@ -15,7 +15,7 @@ internal static class ModelRequestAdmission
     internal static long EstimateTokens(LLMRequest request) =>
         ((long)Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)) + 2) / 3 + 256;
 
-    internal static async Task ValidateAsync(LLMRequest request, ILLMCapabilityResolver? resolver, int hostLimit, string stage, CancellationToken ct)
+    internal static async Task ValidateAsync(LLMRequest request, ILLMCapabilityResolver? resolver, int hostLimit, string stage, CancellationToken ct, bool advisoryTokens = false)
     {
         ct.ThrowIfCancellationRequested();
         if (resolver is null) throw Unverifiable("Declared model capabilities are unavailable.");
@@ -34,9 +34,12 @@ internal static class ModelRequestAdmission
         if (request.MaxTokens is not > 0) throw Unverifiable("A positive output reservation is required.");
         var allowance = await resolver.InputTokenAllowanceAsync(request.Provider, request.Model, request.MaxTokens.Value, ct);
         if (allowance is null) throw Unverifiable("The input allowance after reserving the configured output is unverifiable or incompatible.");
+        if (allowance <= 0) throw Incompatible("The configured output reservation leaves no declared input capacity.");
         var limit = Math.Min(hostLimit, allowance.Value);
         var current = EstimateTokens(request);
-        if (current > limit)
+        if (current > limit && advisoryTokens)
+            PlanningTokenThresholds.Warn(stage, "estimated_input_tokens", current, limit);
+        if (current > limit && !advisoryTokens)
             throw new WorkflowRuntimeException(ErrorCodes.LlmBudgetExceeded,
                 $"The complete serialized {stage} request is estimated at {current} tokens; its effective input limit is {limit} tokens. Dispatch did not start; cumulative budgets were not increased.",
                 details: Details("request_input_allowance", limit, current));

@@ -681,15 +681,16 @@ public sealed class GnOuGoAgentWebHostTests
     [Fact]
     public void ResolveDatabasePath_WhenUsingAgentDefaultTelemetryPath_UsesDefaultWorkingDirectoryGnOuGoDataDirectory()
     {
+        var baseDirectory = Path.GetTempPath();
         var expected = Path.Combine(
-            GnOuGoWorkspace.ResolveDefaultWorkingDirectory(),
+            GnOuGoWorkspace.ResolveDefaultWorkingDirectorySafe(contentRootPath: baseDirectory),
             ".GnOuGo",
             "data",
             "gnougo-telemetry.db");
 
         var actual = OtlpCollectorHostingExtensions.ResolveDatabasePath(
             ".GnOuGo/data/gnougo-telemetry.db",
-            AppContext.BaseDirectory);
+            baseDirectory);
 
         Assert.Equal(expected, actual);
     }

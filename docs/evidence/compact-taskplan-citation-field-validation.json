@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "base_revision": "6308c479f607a08b173729489ac4f48e197b21ba",
+  "change": "Move the existing two citation sentences from fresh verified Judge instructions to evidence.description; no structural schema, validator, DTO, correction authority or historical request changes.",
+  "evidence_directory": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/judge-citation-field-guidance-630",
+  "patch_sha256": "1a1ad68d762d65e7ad749a9e913dad80407e6e3f58a37a5022bf20c4976f6b74",
+  "validation_sha256": "50cb3f3f2be0d6dc6b18b424b729cac289876e3231b2d8e02597e5f45f798e54",
+  "schema_comparison_sha256": "8e2395ba0d7aa3817ef6588e6a8894d5282022d045f177b6b23657d0e503afc3",
+  "independent_review_sha256": "03780564001f24051667ef69fd49c89bda4c733ab663d3d7f090abeec947344f",
+  "copy_manifest_sha256": "e7bc1c3cf3221101e1ea09210db01d27bc85a5e1837cf94b891137a23f66c65f",
+  "source_files": {
+    ".agents/skills/gnougo-planning/SKILL.md": "3c9bf83171f22071ab34b2a31d799cba07ea4d68171b84ffa750e752ad76003b",
+    "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.ConstructionReview.cs": "2a4ac65cdacdd538a5789a5b74e7ff36eba6448aeae791bf139a37caa3e1eb2e",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactVerifiedJudgeTests.cs": "0fc86ad7031ffd23564c0b77620dd76d8df0fe9eb669b83c7c03f448e6a487c0"
+  },
+  "validation": {
+    "passed": 59,
+    "failed": 0,
+    "warnings_as_errors": true,
+    "compiler_diagnostics": [],
+    "filter": "FullyQualifiedName~CompactVerifiedJudgeTests",
+    "projected_schema_annotation_retained": true,
+    "revision_3_schema_bytes_unchanged": true,
+    "verified_structural_grammar_unchanged": true,
+    "pending_minimum_1_and_2_citation_request_bytes_unchanged": true,
+    "unsupported_navigation_and_operation_citations_remain_inconclusive": true
+  },
+  "limitations": [
+    "Validation covers the exact patch over6308c479; no new-source full-solution or live acceptance claim.",
+    "Annotations guide model behavior probabilistically; the existing grounding validator remains authoritative.",
+    "No matched avoided-correction or causal convergence claim."
+  ]
+}

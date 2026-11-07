@@ -1,0 +1,459 @@
+{
+  "version": 1,
+  "source": "727b27bda2e599842e7ebf29eb9461285f463204",
+  "cohort": "compactr727b27bdaamz20v5",
+  "case": "amazon",
+  "recorded_at_utc": "2026-10-25T02:47:36.727152+00:00",
+  "scope": "Pending-authorization snapshot of one stopped diagnostic; no permanent closure applied in this evidence.",
+  "safe_sources": [
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdaamz20v5/freeze.json",
+      "sha256": "0fcae2e539c088f2542cf16ac41d6598639cf054e147964aa03074aea9e24b45",
+      "bytes": 16952
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdaamz20v5/amazon-terminal-safe-metrics.json",
+      "sha256": "b2fb7a05c1df5d1ef1e096a22ba52ca2c59df67622ecc86135304664aa06df8b",
+      "bytes": 46418
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdaamz20v5/amazon-planning.jsonl",
+      "sha256": "a1bdc4471870d688bd648e86584711e9467bee32e1b760228ba714f588278711",
+      "bytes": 25772
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdaamz20v5/amazon-exit.json",
+      "sha256": "39598c46f1daacb3d701be545abfd9e0cef98231b5cf9a1b3a1f2925fa92ae17",
+      "bytes": 67
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdaamz20v5/amazon-retention-inspection.jsonl",
+      "sha256": "0657392aa717de61fb90e05e13b3607f0bdda04a86c37f9bf634a25aeb5f0c52",
+      "bytes": 1829
+    },
+    {
+      "path": "/var/folders/5j/c3fzgxh96_bgmjhkf57_g5xw0000gp/T/gnougo-727b-amazon-terminal-audit-cu0ugdo2/audit-safe.json",
+      "sha256": "b21f9a341b6fcca3796b71521842f0429b9b3524e16079525461e5eabe8c3826",
+      "bytes": 978
+    },
+    {
+      "path": "/var/folders/5j/c3fzgxh96_bgmjhkf57_g5xw0000gp/T/gnougo-727b-amazon-terminal-audit-cu0ugdo2/provider-readiness.jsonl",
+      "sha256": "2c6fc38412f71013a0b7f4fed9b9132fe74ab307a77df1ccac8e66d2865a117f",
+      "bytes": 8427
+    }
+  ],
+  "frozen_configuration": {
+    "model": "gpt-5.5-2026-04-24",
+    "presentation_version": 5,
+    "benchmark_binary_sha256": "d804186f44c9776c927abd6dfcbd2680d430de1444f7dd63ea09f7a9a3c77dc0",
+    "phase_policy": {
+      "version": 1,
+      "navigation": {
+        "targetInputTokens": 3000,
+        "maxInputTokens": 12000,
+        "reasoning": "high",
+        "outputTokens": 32768
+      },
+      "draft": {
+        "targetInputTokens": 8000,
+        "maxInputTokens": 20000,
+        "reasoning": "medium",
+        "outputTokens": 16384
+      },
+      "review": {
+        "targetInputTokens": 4000,
+        "maxInputTokens": 12000,
+        "reasoning": "medium",
+        "outputTokens": 8192
+      }
+    },
+    "max_physical_attempts": 64,
+    "max_repairs": 4,
+    "transport_policy": {
+      "version": 1,
+      "maxAttempts": 3,
+      "maxUncertainRetries": 0,
+      "attemptTimeoutMilliseconds": 600000,
+      "baseDelayMilliseconds": 1000,
+      "maxDelayMilliseconds": 30000,
+      "maxTotalDelayMilliseconds": 60000
+    },
+    "mcp_files_verified_at_freeze": 568,
+    "profile_note": "The exact frozen Amazon profile is preserved; this archive makes no profile-benefit claim."
+  },
+  "outcome": {
+    "status": "stopped",
+    "phase": "construction_discovery",
+    "diagnostic_codes": [
+      "MODEL_DISPATCH_UNVERIFIABLE"
+    ],
+    "logical_calls": 10,
+    "physical_attempts": 11,
+    "receipts": 9,
+    "checkpoints": 1,
+    "corrections": 0,
+    "constructed_requests": 10,
+    "prepared_only_requests": 0,
+    "rejected_before_dispatch": 0,
+    "receiptless_dispatched_requests": 1,
+    "unknown_usage_attempts": 2,
+    "empty_completed_responses": 0,
+    "artifact_present": false,
+    "approval_present": false,
+    "execution_started": false,
+    "runtime_result": null,
+    "correction_semantics": "No correction charged; semantic interpretation remains separate from these aggregate measurements.",
+    "exit_code": 0,
+    "terminal_at_utc": "2026-10-25T02:43:43.670863+00:00",
+    "exit_interpretation": "CLI exit zero does not establish artifact or runtime success."
+  },
+  "pending_exact_retention": {
+    "authorization_status": "pending at this snapshot",
+    "applied": false,
+    "inspection_file_sha256": "0657392aa717de61fb90e05e13b3607f0bdda04a86c37f9bf634a25aeb5f0c52",
+    "inspection_evidence_hash": "8bf88cd46f538f0fe43ddac8d6490c56fba96cc22e65f05bc6566cb2f077a737",
+    "run_collection": "planning-schema-portability",
+    "run_key": "run:compactr727b27bdaamz20v5-amazon-1",
+    "session_id": "compactr727b27bdaamz20v5-amazon-1",
+    "revision": 10,
+    "request_id": "compactr727b27bdaamz20v5-amazon-1:10:d5cf081dbbf46150561248db907029a81b89976611a4e42a8f86825b6596a0ec",
+    "phase": "construction_discovery",
+    "request_sha256": "89c0af843ec78e945a4c5ed69ddc7f142aafb8a6fa692ba51048d2551675dd13",
+    "journal_sha256": "b415741b522ff5e0da0c4dfadc72ca13ea4a1dadc57c9630be35cec8b3fc742f",
+    "failure_sha256": "4e192a8ac55e8ee2598de4e116387da8053cec3bb41914d9352a68413729b7b0",
+    "effective_transport_policy_sha256": "70ddd512ebdb3bd6e6064a5f18a088afa5e9db9f222bdf4a458d2d74c33ae974",
+    "inspection_kind": "exhausted-planning-retries",
+    "inspection_outcome": "inconclusive",
+    "failure_kind": "Transport",
+    "http_status": null,
+    "receipt_present": false,
+    "physical_attempts_for_request": 1,
+    "retained_reservation_eur": "0.9690182954038375725122713075",
+    "logical_interval_ms": "312234.1279",
+    "interpretation": "Existing inspection binds this exact request and captured transport policy for the explicit retention operator. Its outcome/replay-forbidden/continuation-forbidden flags describe that operator result, not proof that authorization or permanent closure has occurred. No response, completion, token usage, timeout cause or model behavior is inferred; uncertainty must not be replayed."
+  },
+  "earlier_received_failure": {
+    "request_id": "compactr727b27bdaamz20v5-amazon-1:2:f6c59dc85c5b56f1e6f19d4cd71476827d76b427d4f7406d7c827fe614880da1",
+    "http_statuses": [
+      500,
+      200
+    ],
+    "receipt_sha256": "f4fd4ce739bd7c7a82507a321ef02544e2caed1a3e8391378e2feb6cd9f331b1",
+    "journal_sha256": "a7894e53fea4f1ac7aec80d1792adb9f6c54604e04ab54b58859d37ab37894e2",
+    "retained_failed_attempt_reservation_eur": "0.9308701472556894243641231593",
+    "interpretation": "A confirmed HTTP 500 was followed by a journaled successful response. The failed attempt retains unknown usage and its full reservation; the later receipt does not refund it."
+  },
+  "usage_and_finance": {
+    "known_tokens": {
+      "input": 21582,
+      "output": 23022,
+      "reasoning": 21074,
+      "visible_output_derived": 1948
+    },
+    "known_cost_eur": "0.7126907630522088353413654618",
+    "retained_reservations_eur": "1.8998884426595269968763944668",
+    "cost_upper_bound_eur": "2.6125792057117358322177599286",
+    "reserved_input_tokens": 32549,
+    "reserved_output_tokens": 65536,
+    "receiptless_request_reserved_input_tokens": 20549,
+    "receiptless_request_reserved_output_tokens": 32768,
+    "money_precision": "Decimal precision 80; exact safe metrics, terminal phase and run totals reconcile without altering source files.",
+    "interpretation": "Provider tokens cover received responses only. Reasoning is part of output tokens. Financial reserved token bounds are not billed usage or the request input-admission estimate. The pending discovery stage reports usage_bounded=false; reservations remain retained and no actual unknown usage is asserted."
+  },
+  "phase_measurements": {
+    "construction_intent": {
+      "constructed_requests": 2,
+      "admitted_logical_calls": 2,
+      "physical_attempts": 3,
+      "receipts": 2,
+      "prepared_only_requests": 0,
+      "rejected_before_dispatch": 0,
+      "complete_request_bytes": {
+        "count": 2,
+        "p50": "6198",
+        "p95": "9385",
+        "maximum": "9385",
+        "total": "12396"
+      },
+      "estimated_input_tokens": {
+        "count": 2,
+        "p50": "2322.5",
+        "p95": "3385",
+        "maximum": "3385",
+        "total": "4645"
+      },
+      "component_bytes": {
+        "diagnostics": 52,
+        "envelope": 854,
+        "evidence": 23,
+        "instructions": 2367,
+        "intent": 3225,
+        "interfaces": 59,
+        "response_schema": 5816
+      },
+      "all_requests_within_captured_input_limit": true,
+      "known_input_tokens": 2319,
+      "known_output_tokens": 6932,
+      "known_reasoning_tokens": 6147,
+      "known_cost_eur": "0.1959437751004016064257028112",
+      "retained_reservations_eur": "0.9308701472556894243641231593",
+      "usage_complete": false,
+      "usage_bounded_reported": true,
+      "logical_call_elapsed_ms": {
+        "count": 2,
+        "p50": "199693.2907",
+        "p95": "345073.4826",
+        "maximum": "345073.4826",
+        "total": "399386.5814"
+      }
+    },
+    "construction_select": {
+      "constructed_requests": 2,
+      "admitted_logical_calls": 2,
+      "physical_attempts": 2,
+      "receipts": 2,
+      "prepared_only_requests": 0,
+      "rejected_before_dispatch": 0,
+      "complete_request_bytes": {
+        "count": 2,
+        "p50": "10962",
+        "p95": "11656",
+        "maximum": "11656",
+        "total": "21924"
+      },
+      "estimated_input_tokens": {
+        "count": 2,
+        "p50": "3910.5",
+        "p95": "4142",
+        "maximum": "4142",
+        "total": "7821"
+      },
+      "component_bytes": {
+        "construction_context": 2192,
+        "envelope": 862,
+        "instructions": 6024,
+        "interfaces": 366,
+        "requirements": 4636,
+        "response_schema": 7844
+      },
+      "all_requests_within_captured_input_limit": true,
+      "known_input_tokens": 4551,
+      "known_output_tokens": 9219,
+      "known_reasoning_tokens": 8702,
+      "known_cost_eur": "0.2671352074966532797858099063",
+      "retained_reservations_eur": "0",
+      "usage_complete": true,
+      "usage_bounded_reported": true,
+      "logical_call_elapsed_ms": {
+        "count": 2,
+        "p50": "62251.2899",
+        "p95": "98335.4647",
+        "maximum": "98335.4647",
+        "total": "124502.5798"
+      }
+    },
+    "construction_draft": {
+      "constructed_requests": 1,
+      "admitted_logical_calls": 1,
+      "physical_attempts": 1,
+      "receipts": 1,
+      "prepared_only_requests": 0,
+      "rejected_before_dispatch": 0,
+      "complete_request_bytes": {
+        "count": 1,
+        "p50": "17286",
+        "p95": "17286",
+        "maximum": "17286",
+        "total": "17286"
+      },
+      "estimated_input_tokens": {
+        "count": 1,
+        "p50": "6018",
+        "p95": "6018",
+        "maximum": "6018",
+        "total": "6018"
+      },
+      "component_bytes": {
+        "construction_context": 1181,
+        "diagnostics": 26,
+        "envelope": 439,
+        "evidence": 25,
+        "fragment": 22,
+        "instructions": 1273,
+        "interfaces": 339,
+        "mcp_contracts": 25,
+        "objective": 394,
+        "requirements": 2318,
+        "response_schema": 11244
+      },
+      "all_requests_within_captured_input_limit": true,
+      "known_input_tokens": 3323,
+      "known_output_tokens": 516,
+      "known_reasoning_tokens": 261,
+      "known_cost_eur": "0.0286434627398482820169567158",
+      "retained_reservations_eur": "0",
+      "usage_complete": true,
+      "usage_bounded_reported": true,
+      "logical_call_elapsed_ms": {
+        "count": 1,
+        "p50": "18235.6803",
+        "p95": "18235.6803",
+        "maximum": "18235.6803",
+        "total": "18235.6803"
+      }
+    },
+    "construction_local_judge": {
+      "constructed_requests": 1,
+      "admitted_logical_calls": 1,
+      "physical_attempts": 1,
+      "receipts": 1,
+      "prepared_only_requests": 0,
+      "rejected_before_dispatch": 0,
+      "complete_request_bytes": {
+        "count": 1,
+        "p50": "12521",
+        "p95": "12521",
+        "maximum": "12521",
+        "total": "12521"
+      },
+      "estimated_input_tokens": {
+        "count": 1,
+        "p50": "4430",
+        "p95": "4430",
+        "maximum": "4430",
+        "total": "4430"
+      },
+      "component_bytes": {
+        "construction_context": 1627,
+        "diagnostics": 26,
+        "envelope": 442,
+        "evidence": 25,
+        "fragment": 903,
+        "instructions": 4227,
+        "interfaces": 25,
+        "mcp_contracts": 25,
+        "objective": 394,
+        "requirements": 2318,
+        "response_schema": 2509
+      },
+      "all_requests_within_captured_input_limit": true,
+      "known_input_tokens": 2215,
+      "known_output_tokens": 416,
+      "known_reasoning_tokens": 340,
+      "known_cost_eur": "0.0210218652387327086122266845",
+      "retained_reservations_eur": "0",
+      "usage_complete": true,
+      "usage_bounded_reported": true,
+      "logical_call_elapsed_ms": {
+        "count": 1,
+        "p50": "18620.6201",
+        "p95": "18620.6201",
+        "maximum": "18620.6201",
+        "total": "18620.6201"
+      }
+    },
+    "construction_discovery": {
+      "constructed_requests": 4,
+      "admitted_logical_calls": 4,
+      "physical_attempts": 4,
+      "receipts": 3,
+      "prepared_only_requests": 0,
+      "rejected_before_dispatch": 0,
+      "complete_request_bytes": {
+        "count": 4,
+        "p50": "17211",
+        "p95": "20549",
+        "maximum": "20549",
+        "total": "65420"
+      },
+      "estimated_input_tokens": {
+        "count": 4,
+        "p50": "5993",
+        "p95": "7106",
+        "maximum": "7106",
+        "total": "22831"
+      },
+      "component_bytes": {
+        "construction_context": 5076,
+        "envelope": 1724,
+        "evidence": 7024,
+        "instructions": 8968,
+        "mcp_descriptors": 7813,
+        "objective": 1252,
+        "requirements": 7532,
+        "response_schema": 26031
+      },
+      "all_requests_within_captured_input_limit": true,
+      "known_input_tokens": 9174,
+      "known_output_tokens": 5939,
+      "known_reasoning_tokens": 5624,
+      "known_cost_eur": "0.1999464524765729585006693440",
+      "retained_reservations_eur": "0.9690182954038375725122713075",
+      "usage_complete": false,
+      "usage_bounded_reported": false,
+      "logical_call_elapsed_ms": {
+        "count": 4,
+        "p50": "46062.1803",
+        "p95": "312234.1279",
+        "maximum": "312234.1279",
+        "total": "419757.4242"
+      }
+    }
+  },
+  "measurement_totals": {
+    "complete_request_bytes": 129547,
+    "component_estimate_rounding_difference": 26,
+    "components_reconcile": true,
+    "all_requests_within_captured_limits": true,
+    "planning_ms": 1012078,
+    "received_call_intervals_ms": "668268.7579",
+    "all_dispatched_call_intervals_ms": "980502.8858",
+    "received_response_content_bytes": 5960,
+    "per_phase_interval_sum_minus_recorded_aggregate_ms": {
+      "construction_intent": "3E-11",
+      "construction_select": "1E-11",
+      "construction_draft": "0.0000",
+      "construction_local_judge": "0.0000",
+      "construction_discovery": "0.0000"
+    },
+    "original_response_formatting_measured": false,
+    "interpretation": "p50 uses the median and p95 nearest rank. Complete request statistics include prepared-only identities. Component token estimates round independently and are not billing. Logical intervals include retries/accounting and are not provider-only latency. No response bytes are inferred for request 10; received content byte counts are not original whitespace measurements."
+  },
+  "prepared_only_request_ids": [],
+  "postrun_audit_snapshot": {
+    "captured_at_utc": "2026-10-25T02:46:24.689959+00:00",
+    "available_eur": "61.70910143215650619029348780",
+    "ceiling_eur": "240.0301038327063045424449473",
+    "physical_attempts": 3185,
+    "known_cost_eur": "136.11701991829398818057264149",
+    "retained_reservations_eur": "42.203982482255810171578818008",
+    "recorded_upper_bound_eur": "178.32100240054979835215145950",
+    "recorded_upper_minus_exact_known_plus_reserved_eur": "2E-27",
+    "unknown_usage_attempts": 56,
+    "receiptless_identities": 29,
+    "closed_receiptless_identities": 28,
+    "unresolved_receiptless_identities": 1,
+    "unresolved_request_id": "compactr727b27bdaamz20v5-amazon-1:10:d5cf081dbbf46150561248db907029a81b89976611a4e42a8f86825b6596a0ec",
+    "model_calls": 0,
+    "raw_file_sha256": "2c6fc38412f71013a0b7f4fed9b9132fe74ab307a77df1ccac8e66d2865a117f",
+    "interpretation": "Root-owned zero-call audit snapshot while exact authorization is pending. No closure or refund is inferred; prior lost-ledger exposure remains separate from this campaign ceiling."
+  },
+  "terminal_campaign_accounting": {
+    "physical_attempts": 3185,
+    "known_cost_eur": "136.11701991829398818057264149",
+    "retained_reservations_eur": "42.203982482255810171578818008",
+    "cost_upper_bound_eur": "178.32100240054979835215145950",
+    "unknown_usage_attempts": 56,
+    "terminal_summary_session_calls": 0,
+    "exact_inspection_session_calls": 11,
+    "decimal_crosscheck_known_plus_reserved_minus_upper_eur": "-2E-27",
+    "interpretation": "Terminal summary and exact inspection match all cumulative fields; session_calls differ by projection scope. The recorded upper is 2E-27 EUR above exact known+reserved. This is the pending snapshot, not applied closure or a later readiness audit; the later root-owned audit is recorded separately."
+  },
+  "limitations": [
+    "The one local Judge receipt reports zero findings in the safe shape summary; this alone establishes neither semantic truth nor artifact approval. No full workflow executed.",
+    "Original response formatting is unmeasured. The absent final response is not classified as empty, exhausted, successful or semantically invalid.",
+    "No semantic causal assessment, avoided-correction claim, convergence claim or cross-source reliability inference is made. Original response formatting and missing-response content remain unmeasured.",
+    "The existing uncertain request remains pending exact authorization. No retention operation, reader, campaign store, provider, runtime, approval or main-source mutation was performed for this archive.",
+    "Exact-source technical validation and later diagnostics are separate from this live observation."
+  ]
+}

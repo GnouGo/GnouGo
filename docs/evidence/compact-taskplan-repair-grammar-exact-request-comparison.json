@@ -1,0 +1,21 @@
+{
+  "original_source": "9c1d930341ac9d4b13b54a5368491ed8de1cd170",
+  "candidate_source": "8d9a936e5a50bcd588bd38edd442ab470838fbfe",
+  "kind": "prospective_reconstruction_from_exact_encrypted_terminal_state",
+  "issued_old_request_changed": false,
+  "new_request_dispatched": false,
+  "old_complete_bytes": 65845,
+  "new_complete_bytes": 67518,
+  "old_schema_bytes": 12765,
+  "new_schema_bytes": 11810,
+  "old_estimated_tokens": 22205,
+  "new_estimated_tokens": 22762,
+  "old_newline_fixed_choice": true,
+  "new_newline_fixed_choice": false,
+  "paid_calls": 0,
+  "complete_byte_delta": 1673,
+  "schema_byte_delta": -955,
+  "interpretation": "The redundant fixed multiline choice is removed and the schema shrinks. The complete prospective request grows; no complete-prompt efficiency or live convergence benefit is claimed.",
+  "original_contracts_and_edit_authority_preserved": true,
+  "harness_sha256": "c7765d1d570e32d80f7e4ffc2ee11f5a6bec39a204fcfb8b3736ff76945328c6"
+}

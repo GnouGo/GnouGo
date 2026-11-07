@@ -1,0 +1,56 @@
+{
+  "kind": "source_bound_live_draft_progress",
+  "version": 1,
+  "captured_at_utc": "2026-11-04T11:17:20.049942+00:00",
+  "production_source": "f5789246ff4325e128bae14e985e08572c5bd9f1",
+  "harness_source": "f5789246ff4325e128bae14e985e08572c5bd9f1",
+  "cohort": "bizf5789246amz01",
+  "run": "bizf5789246amz01-amazon-1",
+  "status": "generating",
+  "revision": 6,
+  "logical_calls": 7,
+  "pending_phase": "construction_draft",
+  "pending_request_id": "bizf5789246amz01-amazon-1:7:08dbbbd9192d3c2c86922426628024cb1081162f8ce37d8e4bf2e8c476aaf040:a38f35e97a1709c60769d533aee96e4a897cc034c294383c6fbd1fc11f025ad8",
+  "received_usage_receipts": 6,
+  "corrections": 0,
+  "accepted_checkpoints": 0,
+  "artifact_hash": null,
+  "execution_started": false,
+  "independent_oracle_passed": false,
+  "binary_sha256": {
+    "benchmark": "78f0ed481f61794b2cae08773aabb801d14245ebf8a1bd5303a299fa65025b5a",
+    "browser_mcp": "dbd014a4e816a4741509851c76ce18be003e8429b56b3616d36a2fd3393398e6",
+    "document_mcp": "26044bca9682740ebc9eea3f3dff3d7835e97492dde8849b23558c6b17add382"
+  },
+  "captured_profile_hash": "5452b870c2561bcde1b6aa483b7b44edb2ea230851221e8fa8eb096f897113a6",
+  "phase_policy_file_sha256": "3e9495d2877fed6d3ddbd9a10b1817842a145bf3a66b7c563d79037d6e215e1c",
+  "optimization_threshold_policy": "diagnostic-v1",
+  "threshold_warnings": [
+    {
+      "kind": "prerequisites",
+      "current": 5,
+      "threshold": 4,
+      "basis": "captured_optimization_target",
+      "stage": "implementation",
+      "sessionId": "bizf5789246amz01-amazon-1",
+      "blockId": "block_1",
+      "checkpoint": 0
+    }
+  ],
+  "snapshot_sha256": "21b37e3a0bb65ec7f275958d5b18e77daf8c21e6bb6c2ff157662670e279881b",
+  "qualification": {
+    "passed": 0,
+    "required": 6
+  },
+  "physical_attempts_for_completed_calls": 6,
+  "unknown_attempts_for_completed_calls": 0,
+  "known_input_tokens_for_completed_calls": 15923,
+  "known_output_tokens_for_completed_calls": 10598,
+  "reasoning_tokens_already_in_output": 9006,
+  "known_cost_eur_for_completed_calls": "0.3556266213435906610609177923",
+  "limitations": [
+    "The pending draft is not a completed provider outcome.",
+    "Completed-call usage excludes the pending physical attempt; no final cost or available campaign balance is inferred.",
+    "No accepted checkpoint, artifact, execution or oracle success exists at this observation."
+  ]
+}

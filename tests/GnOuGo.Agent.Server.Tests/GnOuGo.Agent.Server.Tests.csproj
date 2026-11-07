@@ -43,6 +43,11 @@
   <Import Project="..\..\build\GnOuGo.BundledMcpTools.targets" />
 
   <ItemGroup><Compile Include="../GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.cs" Link="BenchmarkCampaign.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../../src/GnOuGo.Agent.Desktop/DesktopOperatorLauncher.cs" Link="DesktopOperatorLauncher.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.Retention.cs" Link="BenchmarkCampaign.Retention.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.ServerRetention.cs" Link="BenchmarkCampaign.ServerRetention.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.Funding.cs" Link="BenchmarkCampaign.Funding.cs" /><Compile Include="../GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.Streaming.cs" Link="BenchmarkCampaign.Streaming.cs" /><Compile Include="../GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.ProbeRetention.cs" Link="BenchmarkCampaign.ProbeRetention.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../GnOuGo.Agent.Planning.Benchmark/SyntheticArtifactOracle.cs" Link="SyntheticArtifactOracle.cs" /></ItemGroup>
   <ItemGroup><None Include="../GnOuGo.Flow.Planning.Tests/Fixtures/SchemaPortability/retained-schema-rejection.json" Link="Fixtures/SchemaPortability/retained-schema-rejection.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
   <ItemGroup><Compile Include="../GnOuGo.Agent.Planning.Benchmark/BenchmarkHttpJournal.cs" Link="BenchmarkHttpJournal.cs" /></ItemGroup>
   <ItemGroup>
@@ -53,10 +58,14 @@
   <ItemGroup>
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveCampaignEvidence.cs" Link="LiveCampaignEvidence.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs" Link="LiveWorkflowEvaluation.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/DelegatedTestReview.cs" Link="DelegatedTestReview.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveExecutionReadiness.cs" Link="LiveExecutionReadiness.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs" Link="LiveWorkflowOracles.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveCodeEvidence.cs" Link="LiveCodeEvidence.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/SchemaPortabilityCampaign.cs" Link="SchemaPortabilityCampaign.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/ServerLiveDiagnostics.cs" Link="ServerLiveDiagnostics.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/ServerLiveArtifactValidation.cs" Link="ServerLiveArtifactValidation.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/ServerLiveFundingEvidence.cs" Link="ServerLiveFundingEvidence.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/MappingLiveEvaluation.cs" Link="MappingLiveEvaluation.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/CampaignInferenceProxy.cs" Link="CampaignInferenceProxy.cs" />
   </ItemGroup>
@@ -66,6 +75,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="../Shared/PlanningCorpus.cs" Link="PlanningCorpus.cs" />
+    <Compile Include="../Shared/CurrentPlanningFixture.cs" Link="CurrentPlanningFixture.cs" />
     <Compile Include="../Shared/PlanningBenchmarkCases.cs" Link="PlanningBenchmarkCases.cs" />
     <Compile Include="../Shared/PlanningBenchmarkMeasurements.cs" Link="PlanningBenchmarkMeasurements.cs" />
   </ItemGroup>

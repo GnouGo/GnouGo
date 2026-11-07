@@ -1,0 +1,24 @@
+{
+  "productionSource": "70ad476dfeef9cb9996ec6c54c918fc63caf59bc",
+  "artifactRecoveryHarnessSource": "c31bc5f9",
+  "mobileGuardHarnessSource": "e3f12da7",
+  "additionalRemoteUncertaintyRegressionSource": "3da116b9",
+  "countsOverlap": true,
+  "results": [
+    {
+      "selection": "mobile-guard-final-tests",
+      "outcomes": {
+        "Passed": 87
+      }
+    },
+    {
+      "selection": "artifact-revalidation-qualified-tests",
+      "outcomes": {
+        "Passed": 74
+      }
+    }
+  ],
+  "buildWarnings": 0,
+  "buildErrors": 0,
+  "oracleSourceChanged": false
+}

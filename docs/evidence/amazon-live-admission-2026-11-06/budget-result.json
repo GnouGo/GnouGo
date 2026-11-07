@@ -1,0 +1,52 @@
+{
+  "campaign_ceiling_eur": "740.0301038327063045424449473",
+  "campaign_exposure_eur": "698.00453661827155318192155264",
+  "available_before_external_costs_eur": "42.02556721443475136052339466",
+  "request_and_mandatory_review_reservation_eur": "57.72967170587709097414795606",
+  "shortfall_even_without_external_hold_eur": "15.70410449144233961362456140",
+  "external_provisional_hold_eur": "731.9247059871703492516037064",
+  "required_exposure_with_hold_eur": "1487.6589143113189934076732151",
+  "allowance_eur": "740.0301038327063045424449473",
+  "budget_refusal": {
+    "scope": "campaign_llm_budget",
+    "origin": "captured_campaign_ceiling",
+    "limitKind": "estimated_cost",
+    "allowance": "740.0301038327063045424449473",
+    "requiredReservation": "1487.6589143113189934076732151",
+    "currency": "EUR",
+    "dispatchStatus": "not_started"
+  },
+  "before": {
+    "calls": 7190,
+    "session_calls": 0,
+    "known_input_tokens": 28637874,
+    "known_output_tokens": 10909439,
+    "known_cost_eur": "475.28093332377412455040481684",
+    "reserved_input_tokens": 5287130,
+    "reserved_output_tokens": 4718592,
+    "reserved_cost_eur": "222.7236032944974286315167358",
+    "cost_upper_bound_eur": "698.00453661827155318192155264",
+    "unknown_attempts": 162
+  },
+  "after": {
+    "calls": 7190,
+    "session_calls": 0,
+    "known_input_tokens": 28637874,
+    "known_output_tokens": 10909439,
+    "known_cost_eur": "475.28093332377412455040481684",
+    "reserved_input_tokens": 5287130,
+    "reserved_output_tokens": 4718592,
+    "reserved_cost_eur": "222.7236032944974286315167358",
+    "cost_upper_bound_eur": "698.00453661827155318192155264",
+    "unknown_attempts": 162
+  },
+  "accounting_unchanged": true,
+  "ledger_hash_before": "64c899ff47c8d00eef176f1296edfe4a92ab3d9922de575a0ffdc462e586ef58",
+  "ledger_hash_after": "5c26546126785f20a3f5264e4f35487ca09b96231d5bad9aacea5bc947a511c5",
+  "hash_note": "Fresh run/request/failure reports alter the evidence hash while financial totals remain unchanged.",
+  "provider_http_attempts": 0,
+  "test_outcome": "blocked_before_dispatch",
+  "execution_status": "not_started",
+  "verified_available_global_budget_eur": null,
+  "new_application_reservation_retained_eur": "1.9655709807433945364979847738"
+}

@@ -1,0 +1,102 @@
+{
+  "source_revision": "26340bf59dcc76a5c78683dc68b69d859dfd5115",
+  "source_manifest_sha256": "558c8c57636c4621c3b9f2fdeb868e179df4c4ec990d69fe3cb5e948e58ae503",
+  "publication": {
+    "summary_file": "publication-summary-safe.json",
+    "summary_sha256": "81f7d390380324a523e545b49ef805a1d8b4315321d89f86dec4dd88923c281c",
+    "stages_passed": 10,
+    "compiler_warnings": 0
+  },
+  "full_solution": {
+    "summary_file": "solution-summary-safe.json",
+    "summary_sha256": "72e0b0a2ac857ceb89c57c32878046e0b16a62c76c69fc57713b03d714c0c581",
+    "exit_code": 1,
+    "elapsed_seconds": 4860.787,
+    "assemblies": 33,
+    "passed": 7110,
+    "failed": 3,
+    "declared_skips": 12,
+    "compiler_diagnostics": 0,
+    "source_changed": [],
+    "log_sha256": "79662a1f3caf0e143bba81ef392a9057bfd470bce4c6c38e5994590997ef1163"
+  },
+  "failure_classes": [
+    {
+      "test": "StaticCorrectedBindingsProduceIndependentlyVerifiedLocalWorkbook(requirements,repeated)",
+      "classification": "missing_discovered_capability_in_static_fixture_setup",
+      "location": "LocalProductOutcomeExecutionTests.V10Composition.cs:176",
+      "exact_assertions_not_relaxed": true
+    },
+    {
+      "test": "StaticCorrectedBindingsProduceIndependentlyVerifiedLocalWorkbook(initial_followup,complete)",
+      "classification": "explicit_runtime_elapsed_budget_exceeded",
+      "current_ms": "130982.878",
+      "limit_ms": 120000,
+      "dispatch_status": "not_started",
+      "location": "LocalProductOutcomeExecutionTests.V10Execution.cs:95"
+    },
+    {
+      "test": "PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission",
+      "classification": "external_runtime_pin_disappeared_during_run",
+      "error": "ERR_MODULE_NOT_FOUND",
+      "pinned_start_sha256": "a0f5715ea22354f922791a9c53dc012d5d5c067ff9cc4cd35ffb7cd272071a9f"
+    }
+  ],
+  "old_evidence_integrity": {
+    "checked_regular_files": 37230,
+    "checked_symlinks": 743,
+    "all_unchanged": true,
+    "unexpected_new_paths": []
+  },
+  "paid_calls": 0,
+  "operational_workspaces_accessed": false,
+  "business_qualification_claimed": false,
+  "focused_tests_not_added_again": true,
+  "scope": "Technical evidence for26340bf5 only; not final-source or business acceptance.",
+  "separate_reproductions": {
+    "source_revision": "26340bf59dcc76a5c78683dc68b69d859dfd5115",
+    "unchanged_binaries": true,
+    "assertions_and_two_minute_runtime_limit_unchanged": true,
+    "cases_passed": 3,
+    "does_not_replace_failed_full_run": true,
+    "catalog_and_deadline": {
+      "passed": 2,
+      "elapsed_seconds": 50.302,
+      "log_sha256": "3cc58aecb168beca4d4949a345a14dcd28eed731c83f84a25e4005fb66bf3b61"
+    },
+    "browser": {
+      "passed": 1,
+      "elapsed_seconds": 16.001,
+      "log_sha256": "6fc56152736169363d5f7473ead28e3c98e0265576b5bb6224b2139bc4f19141",
+      "only_change": "Replacement path to byte-identical Playwright1.63.0 module after original external directory disappeared.",
+      "module_sha256": "a0f5715ea22354f922791a9c53dc012d5d5c067ff9cc4cd35ffb7cd272071a9f"
+    },
+    "limits": "The isolated catalog and deadline cases passed without a guard change. The underlying transient catalog failure is not independently captured; do not claim a deterministic production fix."
+  },
+  "ci": {
+    "source_revision": "26340bf59dcc76a5c78683dc68b69d859dfd5115",
+    "all_applicable_workflows": "success",
+    "runs": [
+      {
+        "id": 40755916585,
+        "workflow": "Deterministic planner validation",
+        "conclusion": "success",
+        "updated_at": "2026-10-28T21:45:25Z"
+      },
+      {
+        "id": 40755916723,
+        "workflow": "ProxyCopilot standalone validation",
+        "conclusion": "success",
+        "updated_at": "2026-10-28T19:39:46Z"
+      },
+      {
+        "id": 40755916720,
+        "workflow": "Build ProxyCopilot Native AOT",
+        "conclusion": "success",
+        "updated_at": "2026-10-28T19:44:27Z"
+      }
+    ],
+    "rerun_by_this_observer": false,
+    "later_source_qualification": false
+  }
+}

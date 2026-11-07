@@ -1,0 +1,427 @@
+{
+  "version": 1,
+  "source": "686c2964d2437cbe1ab6b27e8b6ae673824fc873",
+  "case": "code",
+  "cohort": "compactr686c2964dcode20v6",
+  "profile": {
+    "model": "gpt-5.5-2026-04-24",
+    "benchmark_binary_sha256": "8ccc02b37fa0c8c250345ac93885a19e3522003b2471366880cda98f65695ecc",
+    "phase_policy": {
+      "version": 1,
+      "navigation": {
+        "reasoning": "medium",
+        "targetInputTokens": 3000,
+        "maxInputTokens": 16000,
+        "outputTokens": 32768
+      },
+      "draft": {
+        "reasoning": "medium",
+        "targetInputTokens": 8000,
+        "maxInputTokens": 20000,
+        "outputTokens": 16384
+      },
+      "review": {
+        "reasoning": "medium",
+        "targetInputTokens": 4000,
+        "maxInputTokens": 12000,
+        "outputTokens": 4096
+      }
+    }
+  },
+  "outcome": {
+    "session_status": "stopped",
+    "session_phase": "construction_local_judge",
+    "diagnostic_codes": [
+      "CONSTRUCTION_REVIEW_INCONCLUSIVE"
+    ],
+    "termination_reason": null,
+    "corrections": 1,
+    "checkpoints": 2,
+    "construction_complete": false,
+    "artifact_hash": null,
+    "execution_started": false,
+    "execution_success": false,
+    "execution_status": "not_started",
+    "oracle_passed": null,
+    "planning_ms": 794577,
+    "elapsed_ms": null,
+    "runtime_ms": null,
+    "logical_dispatched": 19,
+    "physical_attempts": 20,
+    "receipts": 19
+  },
+  "public_terminal_outcome": {
+    "status": "stopped",
+    "execution_success": false,
+    "execution_status": "not_started",
+    "calls": 19
+  },
+  "requests": {
+    "identities_measured": 21,
+    "prepared_but_undispatched": 1,
+    "measured_admission_rejections": 1,
+    "receiptless_dispatched": 0,
+    "provider_http_status_counts": {
+      "200": 19,
+      "500": 1
+    },
+    "provider_failure_kind_counts": {},
+    "prepared_identities": [
+      {
+        "request_id": "compactr686c2964dcode20v6-code-1:17:b2080fc30c506e734ab2001d58072a41dc04c83956281bbb14fa5a56b47a27aa",
+        "phase": "construction_draft",
+        "admission": "prepared",
+        "request_bytes": 39388,
+        "estimated_input_tokens": 13386,
+        "input_limit": 20000,
+        "http_attempts": 0,
+        "receipt_present": false,
+        "statuses": [],
+        "retained_reservation_eur": 0,
+        "record_hashes": {
+          "requests": null,
+          "http-attempts": null,
+          "receipts": null,
+          "failures": null,
+          "closures": null
+        }
+      }
+    ],
+    "rejected_identities": [
+      {
+        "request_id": "compactr686c2964dcode20v6-code-1:20:a1f2ae236523fab77c2f7c0338897e000470b93f619f95b3c9abe62d48994357",
+        "phase": "construction_local_judge",
+        "admission": "rejected_before_dispatch",
+        "request_bytes": 37081,
+        "estimated_input_tokens": 12617,
+        "input_limit": 12000,
+        "http_attempts": 0,
+        "receipt_present": false,
+        "statuses": [],
+        "retained_reservation_eur": 0,
+        "record_hashes": {
+          "requests": null,
+          "http-attempts": null,
+          "receipts": null,
+          "failures": null,
+          "closures": null
+        }
+      }
+    ],
+    "receiptless_identities": [],
+    "receipted_requests_with_unknown_usage_reservation": [
+      {
+        "request_id": "compactr686c2964dcode20v6-code-1:6:63c48265d205200b911298849898652dd76acb7932f19c0836dfd4242e2e48ad",
+        "phase": "construction_intent",
+        "admission": "admitted",
+        "request_bytes": 11188,
+        "estimated_input_tokens": 3986,
+        "input_limit": 16000,
+        "http_attempts": 2,
+        "receipt_present": true,
+        "statuses": [
+          500,
+          200
+        ],
+        "retained_reservation_eur": "0.9487193217313699241410084784",
+        "record_hashes": {
+          "requests": "081dcfd2c9e8f0def4578440f6004a0db838e1551d9fcc2a030e8f805158555e",
+          "http-attempts": "c2336ed7c40aa93997a95c27aa91b23d94ae7ae5c00d9a62898557c1e977519d",
+          "receipts": "59f5dfb672c7f78df3a3feeb103b6172573dfa2c9a53f2a806ecbab0f6cd4d05",
+          "failures": null,
+          "closures": null
+        }
+      }
+    ],
+    "all_components_reconcile": true,
+    "admitted_requests_within_input_limits": true,
+    "complete_request_bytes_total": 438318,
+    "all_constructed_request_bytes": {
+      "count": 21,
+      "p50": "19163",
+      "p95": "39557",
+      "max": "41955"
+    },
+    "estimated_input_tokens_total": 151489,
+    "all_constructed_estimated_input_tokens": {
+      "count": 21,
+      "p50": "6644",
+      "p95": "13442",
+      "max": "14241"
+    },
+    "component_estimate_minus_complete_estimate": 52,
+    "normalized_response_bytes": "16048",
+    "empty_completed_response_projections": 0,
+    "receipted_logical_elapsed_ms": {
+      "count": 19,
+      "p50": "20680.61",
+      "p95": "325496.5992",
+      "max": "325496.5992"
+    }
+  },
+  "usage_and_cost": {
+    "input_tokens": 82817,
+    "output_tokens": 16325,
+    "reasoning_tokens_within_output": 11393,
+    "reasoning_measured_calls": 19,
+    "visible_output_tokens_derived_where_reasoning_measured": "4932",
+    "known_cost_eur": "0.8066354306113342257920571174",
+    "retained_reservation_eur": "0.9487193217313699241410084784",
+    "run_cost_upper_bound_eur": "1.7553547523427041499330655958",
+    "unknown_usage_attempts": 1,
+    "receiptless_dispatched_requests": 0,
+    "completed_logical_intervals_ms": "736342.7056",
+    "phase_completed_interval_sum_minus_terminal_aggregate_ms": {
+      "construction_intent": "0.0000",
+      "construction_select": "0.0000",
+      "construction_draft": "0.0000",
+      "construction_local_judge": "0.0000",
+      "construction_discovery": "0.0000"
+    },
+    "exact_money_source": "Original exact safe metrics and public terminal JSONL parsed with Decimal precision 80; original bytes retained."
+  },
+  "phase_statistics": {
+    "construction_intent": {
+      "constructed": 6,
+      "dispatched": 6,
+      "receipts": 6,
+      "receiptless_dispatched": 0,
+      "physical_attempts": "7",
+      "prepared_only": 0,
+      "rejected_before_dispatch": 0,
+      "request_bytes": {
+        "count": 6,
+        "p50": "7134",
+        "p95": "11632",
+        "max": "11632"
+      },
+      "estimated_input_tokens": {
+        "count": 6,
+        "p50": "2634.5",
+        "p95": "4134",
+        "max": "4134"
+      },
+      "receipted_logical_elapsed_ms": {
+        "count": 6,
+        "p50": "22693.37805",
+        "p95": "325496.5992",
+        "max": "325496.5992"
+      },
+      "input_tokens": "8626",
+      "output_tokens": "6105",
+      "reasoning_tokens_within_output": "3625",
+      "known_cost_eur": "0.2019455600178491744756804997",
+      "retained_reservation_eur": "0.9487193217313699241410084784"
+    },
+    "construction_select": {
+      "constructed": 3,
+      "dispatched": 3,
+      "receipts": 3,
+      "receiptless_dispatched": 0,
+      "physical_attempts": "3",
+      "prepared_only": 0,
+      "rejected_before_dispatch": 0,
+      "request_bytes": {
+        "count": 3,
+        "p50": "17303",
+        "p95": "17364",
+        "max": "17364"
+      },
+      "estimated_input_tokens": {
+        "count": 3,
+        "p50": "6024",
+        "p95": "6044",
+        "max": "6044"
+      },
+      "receipted_logical_elapsed_ms": {
+        "count": 3,
+        "p50": "32311.212",
+        "p95": "32880.7445",
+        "max": "32880.7445"
+      },
+      "input_tokens": "11128",
+      "output_tokens": "5088",
+      "reasoning_tokens_within_output": "4096",
+      "known_cost_eur": "0.1858813029897367246764837127",
+      "retained_reservation_eur": "0"
+    },
+    "construction_draft": {
+      "constructed": 5,
+      "dispatched": 4,
+      "receipts": 4,
+      "receiptless_dispatched": 0,
+      "physical_attempts": "4",
+      "prepared_only": 1,
+      "rejected_before_dispatch": 0,
+      "request_bytes": {
+        "count": 5,
+        "p50": "39388",
+        "p95": "41955",
+        "max": "41955"
+      },
+      "estimated_input_tokens": {
+        "count": 5,
+        "p50": "13386",
+        "p95": "14241",
+        "max": "14241"
+      },
+      "receipted_logical_elapsed_ms": {
+        "count": 4,
+        "p50": "20898.389",
+        "p95": "23977.8755",
+        "max": "23977.8755"
+      },
+      "input_tokens": "29576",
+      "output_tokens": "2575",
+      "reasoning_tokens_within_output": "1605",
+      "known_cost_eur": "0.2009192324854975457385095939",
+      "retained_reservation_eur": "0"
+    },
+    "construction_local_judge": {
+      "constructed": 4,
+      "dispatched": 3,
+      "receipts": 3,
+      "receiptless_dispatched": 0,
+      "physical_attempts": "3",
+      "prepared_only": 0,
+      "rejected_before_dispatch": 1,
+      "request_bytes": {
+        "count": 4,
+        "p50": "28044",
+        "p95": "37081",
+        "max": "37081"
+      },
+      "estimated_input_tokens": {
+        "count": 4,
+        "p50": "9604.5",
+        "p95": "12617",
+        "max": "12617"
+      },
+      "receipted_logical_elapsed_ms": {
+        "count": 3,
+        "p50": "20355.0259",
+        "p95": "21148.8306",
+        "max": "21148.8306"
+      },
+      "input_tokens": "17076",
+      "output_tokens": "1460",
+      "reasoning_tokens_within_output": "1222",
+      "known_cost_eur": "0.1152878179384203480589022759",
+      "retained_reservation_eur": "0"
+    },
+    "construction_discovery": {
+      "constructed": 3,
+      "dispatched": 3,
+      "receipts": 3,
+      "receiptless_dispatched": 0,
+      "physical_attempts": "3",
+      "prepared_only": 0,
+      "rejected_before_dispatch": 0,
+      "request_bytes": {
+        "count": 3,
+        "p50": "25174",
+        "p95": "26337",
+        "max": "26337"
+      },
+      "estimated_input_tokens": {
+        "count": 3,
+        "p50": "8648",
+        "p95": "9035",
+        "max": "9035"
+      },
+      "receipted_logical_elapsed_ms": {
+        "count": 3,
+        "p50": "16664.4914",
+        "p95": "19991.7716",
+        "max": "19991.7716"
+      },
+      "input_tokens": "16411",
+      "output_tokens": "1097",
+      "reasoning_tokens_within_output": "845",
+      "known_cost_eur": "0.1026015171798304328424810352",
+      "retained_reservation_eur": "0"
+    }
+  },
+  "statistical_population": "All constructed requests, including prepared-only/rejected, for byte/token quantiles; received logical intervals for latency. Median p50, nearest-rank ceil(.95*n) p95. Empty populations have count0/null quantiles.",
+  "verified_fulfilled_business_obligations": null,
+  "calls_per_fulfilled_obligation": null,
+  "postrun_campaign_accounting": null,
+  "limitations": [
+    "Numeric projections do not establish business fulfillment, source defects, causal effects or a campaign balance. No verified fulfillment ratio is derived here.",
+    "Reasoning is included in output, not additional usage. Component estimates are not billing.",
+    "Prepared/rejected identities are not uncertain dispatched requests; received failed-attempt usage reserves are not receiptless uncertainty.",
+    "Ordinary artifact/execution null projections do not prove absence or failure; reported runtime results remain separately labeled and require independent artifact/oracle evidence.",
+    "No original-text formatting claim is derived from normalized JSON bytes. No reader/store/provider/runtime action by this reducer.",
+    "Public-safe projection contains no prompts, original response text or task bodies. Formatting counts are observations, not a latency or failure-cause finding."
+  ],
+  "prepared_utc": "2026-10-25T14:35:05.218801+00:00",
+  "safe_sources": {
+    "freeze": {
+      "name": "freeze.json",
+      "sha256": "2f34bd17005016a66a9072f68e337f82eba9960723fc7e10e0d787cb7edaaea4",
+      "bytes": 11799
+    },
+    "metrics": {
+      "name": "code-terminal-exact-metrics.json",
+      "sha256": "eee480d6659a32c42751cf6f950f5f71d67aae637c5be08eb08d82e64d36210d",
+      "bytes": 85663
+    },
+    "terminal": {
+      "name": "code-planning.jsonl",
+      "sha256": "e11b76b80d77799de9f9c2036f82b001f174adfa04e1cf3d0a22376c066f483a",
+      "bytes": 45114
+    },
+    "exit": {
+      "name": "code-exit.json",
+      "sha256": "6da983886c61967311c3c0b14062a9eec5f6ac85d0bc49ca664ad897600a0ad2",
+      "bytes": 67
+    }
+  },
+  "process_exit": {
+    "exit_code": 0,
+    "finished_at": "2026-10-25T14:33:57.894623+00:00"
+  },
+  "reducer": {
+    "name": "reduce-numeric.py",
+    "sha256": "85106c2d1130f0d8d88d6f7fc6630767df39fce7f5c98d4ad3657da22f3e697a",
+    "bytes": 16915
+  },
+  "evidence_provenance": {
+    "private_numeric": {
+      "name": "code-terminal-numeric-safe.json",
+      "sha256": "8a5eb8089d94cf241e2646b62fa8ba24611c70111b68ce5acc0c48e1beb9dafa",
+      "bytes": 17538
+    },
+    "numeric_peer": {
+      "name": "code-independent-review-safe.json",
+      "sha256": "d7e2887470f9603d44d9d23598b593e48487c7e1a40bfad6abf2a06ae2b02dd3",
+      "bytes": 4731
+    },
+    "formatting": {
+      "name": "code-original-formatting-safe.json",
+      "sha256": "a2796aab46da6123f05cf8f61fed94a533fa9d8092850a167a7d438799a71b09",
+      "bytes": 15612
+    },
+    "semantic_assessment": {
+      "name": "source-assessment-safe.json",
+      "sha256": "1d46ca2d8276518906c0ef519dba3647a56cc51c7927cb8fa90771b304cb0742",
+      "bytes": 11157
+    },
+    "semantic_peer": {
+      "name": "independent-review-safe.json",
+      "sha256": "694ecb9c0558a0db49d34af42bfc5f793f70281cc5df219553a0985c4f95f9cc",
+      "bytes": 5732
+    },
+    "projection": "Numeric outcomes, exact decimal costs, request aggregates, phase quantiles and provider totals are unchanged. Per-phase component maps remain in the hash-pinned private numeric archive; absolute private reference paths are replaced by basenames."
+  },
+  "original_formatting": {
+    "receipt_count": 19,
+    "nonempty_valid_json_texts": 19,
+    "empty_original_texts": 0,
+    "nonempty_non_json_texts": 0,
+    "original_utf8_bytes": 15705,
+    "outside_string_whitespace_bytes_in_valid_json": 28,
+    "maximum_outside_string_whitespace_run_bytes_in_valid_json": 5,
+    "normalized_response_bytes": 16048
+  }
+}

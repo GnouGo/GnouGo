@@ -27,6 +27,9 @@ public sealed class WorkflowRun
     public JsonNode? Inputs { get; set; }
     public ExecutionLimits Limits { get; set; } = new();
     public LLMUsageBudgetLimits? ModelBudget { get; set; }
+    public string? ApplicationLlmBudgetMode { get; set; }
+    public string? ApplicationLlmBudgetOrigin { get; set; }
+    public int? ApplicationLlmBudgetVersion { get; set; }
     public LLMUsageBudgetSnapshot? ModelUsage { get; set; }
     public int StepsStarted { get; set; }
     public int FinalizationStepsStarted { get; set; }
@@ -161,6 +164,12 @@ public static class WorkflowRunStorage
         if (run.SchemaVersion != 9) throw new WorkflowRunConflictException(IncompatibleMessage);
         if (run.TenantId != tenantId || run.RunId != runId || run.Limits.TenantId != tenantId || run.Limits.RunId != runId)
             throw new WorkflowRunConflictException("Execution journal ownership is invalid.");
+        if (run.ApplicationLlmBudgetMode is null && (run.ApplicationLlmBudgetVersion is not null || run.ApplicationLlmBudgetOrigin is not null))
+            throw new WorkflowRunConflictException("The captured application LLM budget policy is incomplete.");
+        if (run.ApplicationLlmBudgetMode is { } mode && (run.ApplicationLlmBudgetVersion != 1 || run.ModelUsage is null ||
+            mode is not ("limited" or "unlimited") || string.IsNullOrWhiteSpace(run.ApplicationLlmBudgetOrigin) ||
+            mode == "unlimited" && run.ModelBudget is not null || mode == "limited" && run.ModelBudget is null))
+            throw new WorkflowRunConflictException("The captured application LLM budget policy is invalid.");
     }
 
     public static WorkflowRun Clone(WorkflowRun run) => Read(JsonSerializer.Serialize(run, WorkflowRunJsonContext.Default.WorkflowRun), run.TenantId, run.RunId);

@@ -1,0 +1,96 @@
+{
+  "archive_version": 1,
+  "source": "131801d4ba0087f70d9a7d864b4ab8e31c603f50",
+  "campaign": "schema-portability-20261019-incremental",
+  "cohort": "compacta131801d4bhigh",
+  "record_kind": "authorized_permanent_retention_followup",
+  "retained_at": "2026-10-23T14:37:01.0556640+00:00",
+  "status": "permanently retained inconclusive; replay and run continuation forbidden",
+  "prior_pending_archive": {
+    "path": "docs/evidence/compact-taskplan-131801d4-collections-high-pending.json",
+    "sha256": "88bb3685faa7b57a5dac937c954df151022378e5adc4ee8af4a4c09bfd92d39b",
+    "unchanged": true,
+    "interpretation": "The prior pending-authorization snapshot remains immutable. This separate record documents the later authorized closure; it does not reclassify the original failure."
+  },
+  "closure": {
+    "bindings": {
+      "version": 1,
+      "campaign": "schema-portability-20261019-incremental",
+      "tenant": "benchmark",
+      "run_collection": "planning-evaluation-runs",
+      "run_key": "131801d4ba0087f70d9a7d864b4ab8e31c603f50:fixture:cohort:compacta131801d4bhigh:collections:1",
+      "session_id": "3155add585f553c011d8fa43226c374fffaa869dcaba7890ab7b2dac53c00af9",
+      "revision": 2,
+      "request_id": "3155add585f553c011d8fa43226c374fffaa869dcaba7890ab7b2dac53c00af9:2:e3f0b62889cdf0933f17910af849d9077a70c5cacc141f44c46bc3f2ae5a7471",
+      "phase": "construction_intent",
+      "source": "131801d4ba0087f70d9a7d864b4ab8e31c603f50",
+      "run_hash": "a55c2dafde4b3913860b3a67730a4bc9ac8a0bca26cfd239bdabe82933af1745",
+      "request_hash": "1628b82f74c8a7327b8b36cb1cbe237d789cfee170d0b05899050a2d785b6a3a",
+      "http_journal_hash": "73dc70cde335c2ee5e20b56671c633ef65e5a014714a0a0d05ba607df54e6653",
+      "failure_hash": "1baaa57ea5534d0dfdfc1721efddcfde2aa3b4db0297dc609ab36410ff48ce8a",
+      "session_policy_hash": "59907ebfc3b8a31db5c31d8ad7d9bbcf554e4ba1bde657db61e0c9a27dc0000d",
+      "campaign_retry_policy_hash": "9e0d21f4a5660a5580b9b075d52f72a6531061651577ba6a520b2c02ff21949b",
+      "financial_admission_hash": "e12258db489a2729d5baa65e3f895f8ea311d8737b0b4ee300dae79f19e106b8",
+      "effective_transport_policy_hash": "9913de69890c790dc1acb06a6c49e1515493390f0a632d441b9e33afb564e6b1",
+      "transport_policy_evidence": "captured_effective_request_policy",
+      "retention_kind": "single-http-500"
+    },
+    "evidence_hash": "8ecf7f1f482ac55f002a858a9f80451bdb52424c3cb13af8f17f7e583e146aca",
+    "authorization_hash": "e80d023542937d8cc05bbc5c19ba00155be0b72afbc4dab39bd96fb1f1368db0",
+    "operator": "codex-user-authorized",
+    "authorization": "User explicitly authorized this exact permanent abandonment and fresh tests; full authorization text remains in the hashed safe apply/readback records.",
+    "closure_hash": "16873072fdc7a137be4ebd6c93ee106de88fd128310a1a7cbb9fe598a2dd4dbf",
+    "readback_already_retained": true,
+    "outcome": "inconclusive",
+    "reservation_retained": true,
+    "unknown_usage_reservation_eur": "0.9308701472556894243641231593",
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "original_records_preserved": true,
+    "receipt_manufactured": false,
+    "provider_termination_claimed": false
+  },
+  "campaign_snapshot": {
+    "reserved_requests": 1687,
+    "completed_receipts": 1667,
+    "receiptless_identities": 20,
+    "permanently_closed_identities": 20,
+    "pending_uncertain_identities": 0,
+    "unknown_transport_attempts": 19,
+    "campaign_ceiling_eur": "240.0301038327063045424449473",
+    "known_cost_eur": "58.064980650110141683473132434",
+    "unknown_usage_reservation_eur": "9.011211397918460773988456566",
+    "cost_upper_bound_eur": "67.076192048028602457461589000",
+    "available_allowance_eur": "172.953911784677702084983358300",
+    "evidence_hash": "1af10c53695d6308325a56e773cf1f7cf794a3cd2bda58110bb8440843f2b94d",
+    "interpretation": "Post-retention snapshot, before subsequent fresh dispatches. No reservation released, no budget increase, no usage reclassification."
+  },
+  "independent_verification": {
+    "apply_matches_readback": true,
+    "authorization_evidence_and_closure_hashes_recomputed": true,
+    "prior_inspection_bindings_match": true,
+    "all_twenty_uncertain_identities_closed": true,
+    "accounting_unchanged_from_pending_snapshot": true,
+    "decimal_precision": 80,
+    "input_scope": "Only the three named safe files and the prior tracked pending archive; no encrypted-store or provider access."
+  },
+  "business_limitations": [
+    "The run remains incomplete: no finalized artifact, Judge or runtime execution.",
+    "No empty-response or reasoning-exhaustion classification is possible for the receiptless HTTP 500 request.",
+    "This closure supplies no high-Judge performance evidence and no business acceptance. Fresh independent runs still require normal admission."
+  ],
+  "safe_evidence_index": {
+    "retention-apply.json": {
+      "sha256": "cf56142535eb012fbe505d554e4f3cd32185a313f57cef0226d012170db08cf1",
+      "bytes": 2816
+    },
+    "retention-readback.json": {
+      "sha256": "bbe7b7f4c8faffa7055a54998ae09301609fca72fced930d215d241df76f3f7b",
+      "bytes": 2931
+    },
+    "campaign-after-retention.json": {
+      "sha256": "625355b00868224da0d739221de2f7f405d18077e7047e6399dd0d760593f3ff",
+      "bytes": 5363
+    }
+  }
+}

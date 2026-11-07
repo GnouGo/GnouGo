@@ -1,0 +1,34 @@
+{
+  "base": "be6a651531f05b33eab2e9a88d4e3143df5fd808",
+  "exit_code": 0,
+  "counts": {},
+  "elapsed_seconds": 29.396198458969593,
+  "source_unchanged": true,
+  "log_sha256": "d1c4a1d5806a5f84c96c22a2d278e79312fb75ff50f1a5d318b74d16c0179f8a",
+  "versions": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+  ],
+  "fresh": 11,
+  "retained": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+  ],
+  "source_manifest_sha256": "c0217d291d81658ecab168d60c39140917aba39271362c948891d84b615bf1a5",
+  "scope": "Managed Release smoke; exact intent/index/selection/draft/review receipt recovery, accounting and independently executed mocked-runtime output. Native AOT pending; no live convergence claim."
+}
