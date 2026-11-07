@@ -62,6 +62,7 @@ internal static partial class PlanningModelCalls
         if (PlanningTransportPolicies.Read(state.Request) is not null)
             request.RequiredReviewCalls = Math.Max(0, (requiredReviewCalls ?? PlanningCompactConstruction.RequiredReviewCalls(state)) -
                     (purpose is PlanningConstruction.LocalPurpose or PlanningConstruction.GlobalPurpose ? 1 : 0));
+        request.Prompt = PlanningPromptPresentation.ShareDuplicateContractSchemas(request.Prompt);
         evidenceAddresses = PrepareEvidenceAddresses(state, request);
         if (request.StructuredOutputSchema?["$defs"] is JsonObject)
             request.StructuredOutputSchema = PlanningSchemas.Compact(request.StructuredOutputSchema.AsObject(), preserveDescriptions: true);

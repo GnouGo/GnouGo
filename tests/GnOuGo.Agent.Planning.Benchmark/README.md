@@ -210,6 +210,11 @@ physical attempt, ordinary campaign admission, durable request/response accounti
 the common trace capture and a report of actual serialized HTTP parameters. It never
 continues or resets its source request. Received schema validity, executable extension,
 accepted checkpoint and business approval remain separate facts.
+`--probe-share-schema-evidence` applies the same generic prompt presentation used by
+new planner requests to an independent copy of the source prompt. It shares only
+byte-identical schema branches for the same operation id/version/hash and original
+pointer, keeps ancestor constraints/reference closures and the response schema,
+and reports before/after bytes. The retained source request is never rewritten.
 
 `--probe-check-responses` performs OPTIONS and a nonexistent-response GET under the
 same gateway/deployment prefix. It does not create a response, switch protocols or

@@ -453,8 +453,11 @@ public sealed class CompactContractEvidenceFlowTests
                 }
                 Assert.Equal(2, drafts);
                 Assert.Equal("target", Assert.Single(view["editableInputs"]!.AsArray())!["name"]!.ToString());
+                var originalEvidence = context["evidence"]!["schema:read@v1:/input/properties/target"]!;
+                var presentedSchema = originalEvidence["schema"] ?? PlanningSchemaReferences.Read(context,
+                    originalEvidence["schemaPresentedAt"]!.GetValue<string>());
                 Assert.True(JsonNode.DeepEquals(state.Discovery.Resolved[0].InputSchema["properties"]!["target"],
-                    context["evidence"]!["schema:read@v1:/input/properties/target"]!["schema"]));
+                    presentedSchema));
                 Assert.InRange(view["outputs"]!.AsArray().Count, 0, view["outputCount"]!.GetValue<int>());
                 Assert.Equal("port-page:read@v1:/output:0", view["outputDirectory"]!.ToString());
                 return Wire(request, DraftAction(context, task: new() { Id = "read_exact", Kind = "operation",

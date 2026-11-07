@@ -131,6 +131,15 @@ internal static class ServerLiveDiagnostics
                 SchemaPortabilityCampaign.Option(args, "--probe-reasoning") ?? "medium",
                 SchemaPortabilityCampaign.Option(args, "--probe-output-tokens") is { } allocation
                     ? int.Parse(allocation, System.Globalization.CultureInfo.InvariantCulture) : original?.MaxTokens ?? 1024);
+            if (args.Contains("--probe-share-schema-evidence", StringComparer.Ordinal))
+            {
+                var before = request.Prompt;
+                request.Prompt = PlanningPromptPresentation.ShareDuplicateContractSchemas(before);
+                request.ClientRequestId = null;
+                request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+                report["schema_evidence_compaction"] = new JsonObject { ["original_prompt_bytes"] = System.Text.Encoding.UTF8.GetByteCount(before),
+                    ["compacted_prompt_bytes"] = System.Text.Encoding.UTF8.GetByteCount(request.Prompt), ["response_schema_unchanged"] = true };
+            }
             report["request_id"] = request.ClientRequestId; report["requested_output_tokens"] = request.MaxTokens;
             if (args.Contains("--probe-check-responses", StringComparer.Ordinal))
                 report["responses_route_inspection"] = await model.InspectResponsesRouteAsync(run, context.RequestAborted);

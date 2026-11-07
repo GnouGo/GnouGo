@@ -17,6 +17,15 @@ Internal planning format **11** has one active protocol. Retired sessions and ap
 are rejected without migration; original encrypted records remain unchanged. TaskPlan
 and execution journal schema 9 are separate from this storage rupture.
 
+Fresh issued prompts share repeated contract schema branches already visible for
+the exact same operation id/version/hash and original schema pointer. An evidence
+row's `schemaPresentedAt` points within that same context to a byte-identical schema;
+its original identity, pointer, ancestor constraints and reference closure remain.
+Requirements, diagnostics, response grammar and executable contracts are unchanged.
+This is a presentation link with no binding or execution authority. Preparation
+measures and binds the final shared presentation before dispatch; saved pending
+requests, maps and receipts recover exactly without applying new compaction.
+
 Business-only selection captures immutable objectives, original obligations, information
 needs, expected results, existing-result dependencies and success criteria. Its request
 and response contain no implementation kinds, scopes, MCP identifiers or typed bindings.
