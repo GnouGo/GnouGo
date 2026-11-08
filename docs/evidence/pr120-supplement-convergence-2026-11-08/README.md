@@ -176,3 +176,36 @@ uses this equivalent presentation after alias assignment and before final identi
 measurement and admission. Pending calls retain exact historical bytes. All
 **2823 planning tests pass**, including semantic-equivalence negatives, untouched
 literal/example/extension data, scoped repair and issued-request recovery.
+
+
+[Code05 and Amazon04](code05-amazon04-and-cancelled-retry.json) used the same
+frozen source `0f3028a2` and Navigation 4096 / Draft 32768 / Review 8192 profile.
+Code05 had 29 completed calls, no accepted contribution and another output-limit
+whitespace failure; all usage is known (EUR 7.8955217196596506941334527537).
+Equivalent array ordering did not eliminate this failure. Amazon04 reached Draft
+at call 8, then its ninth call lost one native stream and generated a partial
+draft followed by repeated whitespace on the independently admitted retry. The
+protected operator stop succeeded with zero additional provider dispatches. No
+artifact was accepted, approved or executed. Both full reservations remain; exact
+permanent retention forbids request replay and cancelled-session continuation.
+
+The cancellation revealed a missing benchmark retention case: an already
+journaled independent generation before the cancelled native stream. Its new
+regression failed before the correction; all 215 retention tests pass afterward,
+including rejection of received completions, changed retry authority and
+overlapping or missing timestamps. The correction creates no retry authority and
+changes no historical charge, partial or hold.
+
+A separate protected probe added only 717 UTF-8 bytes explaining that binding
+materializes the exact selected contract before drafting. Actual HTTP comparison
+confirms every other field and the original final JSON context were identical.
+It returned valid JSON but selected the same description reread as the original
+call; no improvement to accepted contribution is demonstrated. This guide remains
+diagnostic-only. The first separate-worktree readiness attempt dispatched no
+inference; its assets were built before the fresh probe identity.
+
+After Amazon04, before subsequent trials, the ledger retained 29 unknown attempts
+and all historical holds. Available allocation was EUR
+300.5721988356471115091804719795 after the separate external reservation. The
+additional EUR 400 authorization still appears exactly once. These results do not
+establish an upstream root cause or the exact bcc0434f business-review boundary.
