@@ -6,6 +6,18 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed partial class CompactDiscoveryProtocolTests
 {
     [Fact]
+    public async Task DiscoveryKeepsNativeJsonSerializationVisibleBeforeSelectingAWriter()
+    {
+        var (state, _) = await Ready(); AddOperations(state, 1);
+        state.Construction!.Compact!.CurrentStep!.Kind = null;
+        var request = DiscoveryFollowup(state);
+        Assert.Contains("value json_encode serializes supplied runtime values as JSON text without an encoder MCP", request.Prompt, StringComparison.Ordinal);
+        Assert.Empty(state.Construction.Compact.CurrentStep.OperationIds);
+        Assert.False(state.Construction.Compact.CurrentStep.DiscoveryComplete);
+        Assert.Null(state.Construction.Candidate);
+    }
+
+    [Fact]
     public async Task DiscoveryOffersExactContractsWithoutAnExecutableBinding()
     {
         var (state, _) = await Ready();
