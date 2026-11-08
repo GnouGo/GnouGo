@@ -42,6 +42,12 @@ internal static partial class PlanningCompactConstruction
         extension.CompleteBlock == true && extension.ContinueInScope is null &&
         BusinessBlockCheckpoints(state).Any(checkpoint => checkpoint.TaskIds.Count > 0);
 
+    private static bool CanClaimCurrentBlockCompletion(PlanningSession state) =>
+        State(state).CurrentStep is { BlockId: { } block } step &&
+        CurrentBlock(state) is { CompletionCheckpoint: null } current && current.Id == block &&
+        step.CloseRequirementIds.Count == 0 && step.BaseHash == PlanningConstruction.Hash(state.Plan) &&
+        CanFinishContinuedBlock(state, new() { CompleteBlock = true });
+
     internal static List<string> CandidateCompletionClaims(PlanningSession state) =>
         CandidateCompletesBlock(state) || state.Construction!.Candidate?.AuthorizedPaths is not null
             ? State(state).CurrentStep!.CloseRequirementIds : [];

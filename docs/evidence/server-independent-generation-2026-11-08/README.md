@@ -296,3 +296,43 @@ recovery. The interrupted `0e10ea8e` solution run is not a final-source pass.
 
 The focused Server probe/discovery/retention selection also passed **219 tests**,
 with zero failures or compiler warnings.
+
+## Business-block completion omitted from discovery
+
+The real code run on `f87bbdbe` reached a favorable local review at call 30 and six
+technically accepted checkpoints, then repeated metadata reads while trying to
+finish its second business block. [Measured progress, cost and request components](code04-progress-and-cost.json)
+keep that reviewed contribution distinct from global review and execution, which
+were never reached. The optional schema presenter was verified inactive on actual
+calls 5 and 10: the frozen 6000-token navigation input hint was too small for its
+expanded request. This run therefore does not verify that presenter or establish
+its causal effect.
+
+The [read-only comparison on the exact retained state](code04-business-completion-comparison.json)
+finds the concrete progression defect. Discovery did not offer `close` when the
+current block had accepted work but neither an original requirement nor the root
+scope could yet close. The lower-level candidate rules already permit a reviewed
+business-completion claim without new tasks. Removing the single new local-close
+branch from the corrected schema leaves every other schema field identical. The
+TaskPlan hash, cancelled status, pending call and original snapshot stay unchanged;
+this diagnosis dispatches nothing and applies no candidate or persistent change.
+
+The generic fix exposes that existing claim only for the current, unreviewed owned
+block with accepted, non-invalidated contributions and a current baseline. Its
+explicit empty-scope selection prepares an identical-plan candidate without a
+drafting echo, then runs ordinary validation and business review. Root scope,
+original completion claims, global review, approval and execution remain separate.
+The regression fails on the original source and passes after correction, including
+wrong owner, unrelated/empty/invalidated work, stale state and repeated completion.
+Broader validation: **633 focused planning tests and 222 focused Server tests
+passed**, with zero failures or compiler warnings.
+
+The owned diagnostic was stopped at call 100 after proving the missing choice.
+Its last native request was cancelled after headers/partial bytes; all originals
+and its whole reservation remain. The cancelled run cannot continue. The campaign
+has only **EUR 3.3773757277205553067622013295** available after all holds. A fresh
+standard 32k-output code trial cannot be admitted; even the last code request's
+conservative input reservation is substantial. No funds were added or released.
+A separately captured, lower-output native correctness check is the remaining
+funded live hypothesis. It cannot establish Amazon or code qualification. The
+interrupted `f87bbdbe` solution run is not a final-source pass.

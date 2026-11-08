@@ -60,7 +60,7 @@ internal static partial class PlanningCompactConstruction
             state.Construction!.Candidate is not null || state.EditablePaths is not null || state.Diagnostics.Any(item => item.Required)) return null;
         var construction = state.Construction!;
         var compact = State(state);
-        if (compact.CurrentStep?.BlockId is not null) return null;
+        if (compact.CurrentStep?.BlockId is not null) return PrepareSelectedBusinessBlockClosure(state);
         if (compact.CurrentStep is not { Kind: "close", DiscoveryComplete: true, CloseScopes: not null } step ||
             step.BaseHash != PlanningConstruction.Hash(state.Plan) || compact.ReplacementScope is not null ||
             compact.ResumingStepId is not null || step.ContinuationBinding is not null ||
@@ -97,6 +97,33 @@ internal static partial class PlanningCompactConstruction
             ["baseline"] = step.BaseHash, ["scope"] = step.Scope,
             ["requirements"] = new JsonArray(step.RequirementIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
             ["checkpoint"] = construction.Checkpoints.LastOrDefault()?.Sequence
+        });
+        return probe;
+    }
+
+    private static PlanningSession? PrepareSelectedBusinessBlockClosure(PlanningSession state)
+    {
+        var construction = state.Construction!; var compact = State(state);
+        if (compact.CurrentStep is not { Kind: "close", DiscoveryComplete: true, CloseScopes.Count: 0 } step ||
+            !CanClaimCurrentBlockCompletion(state) || step.CloseRequirementIds.Count > 0 || step.OutputNames.Count > 0 ||
+            compact.ReplacementScope is not null || compact.ResumingStepId is not null || step.ContinuationBinding is not null ||
+            compact.PendingCommitments.Any(item => item.Value.Count > 0) || construction.RebuildTasks.Count > 0)
+            return null;
+        ValidateSelectedCloseScopes(state, step);
+        var probe = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession),
+            PlanningJsonContext.Default.PlanningSession)!;
+        probe.Construction!.Candidate = PlanningConstruction.Apply(probe, new()
+        {
+            Scope = step.Scope, RequirementIds = step.RequirementIds.ToList(), CompleteBlock = true
+        });
+        if (probe.Construction.Candidate.Hash != step.BaseHash) return null;
+        probe.Construction.Candidate.Reviews.Add(new JsonObject
+        {
+            ["purpose"] = "construction_transition", ["outcome"] = "selected_business_block_completion",
+            ["reason"] = "The explicit block-completion claim preserves accepted work and requires ordinary business review. No workflow scope or original requirement is closed.",
+            ["baseline"] = step.BaseHash, ["scope"] = step.Scope, ["block"] = step.BlockId,
+            ["requirements"] = new JsonArray(step.RequirementIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+            ["checkpoint"] = BusinessBlockCheckpoints(state).Last().Sequence
         });
         return probe;
     }

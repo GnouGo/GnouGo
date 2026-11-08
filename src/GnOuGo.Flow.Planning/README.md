@@ -233,6 +233,14 @@ presentation. If it does not fit, the original context stays intact; presentatio
 cannot cause pagination or evict source evidence. The same schema, reference
 closures, strict provider setting and host validation remain authoritative.
 
+After an owned business block has accepted a contribution, discovery can offer
+an explicit completion claim even when no workflow scope or original requirement
+can close. A selected empty-scope claim prepares an unchanged-plan candidate
+through ordinary application, without a drafting echo. It still requires normal
+technical validation and business review of the block's accepted behavior. Other
+blocks, invalidated/empty contributions, stale baselines and already completed
+blocks grant no such choice; global review and artifact approval stay separate.
+
 ## Ordinary arithmetic and decimal boundaries
 
 TaskPlan `arithmetic` values describe closed formulas using `text` (`add`, `subtract`, `multiply`, `divide`, `remainder`, `negate`) and `items`. Operand contracts must be numeric and nonnullable. The compiler retains structured values through contract closure, then emits JavaScript into existing checked `set` steps. There is no numeric executor or runtime inference. Exact business arithmetic is an MCP responsibility; explicitly declared decimal fields are converted automatically at the MCP boundary. See [migration and validation](../../docs/numeric-compilation.md).

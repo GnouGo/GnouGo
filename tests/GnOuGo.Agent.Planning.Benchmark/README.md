@@ -732,6 +732,12 @@ when its complete request fits the captured presentation allowance. The independ
 schema probe remains an explicit one-factor experiment and never applies its
 response to a retained planning session.
 
+`Profiles/server-small-native.json` lowers fresh navigation/draft output allocations
+to 4096 tokens and review output to 2048 for the existing small native cases. It
+preserves input settings and reasoning levels, changes no historical capture or
+funding, and still rejects truncated output. Use it as a separately captured
+correctness check; it is not a comparable-profile business convergence result.
+
 The exhausted-planning retention path can also recognize historical progress-write
 cancellation that masked provider failure metadata. The exception label alone grants
 no authority: the exact version-2 capture and every owner journal must prove elapsed
