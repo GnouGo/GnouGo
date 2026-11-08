@@ -383,6 +383,46 @@ public sealed class HttpRecoveryTests
         Assert.Equal("timeout", journal.State!.Attempts[0].Failure); Assert.Null(journal.State.Attempts[0].Status);
         Assert.Equal("complete", await response.Content.ReadAsStringAsync(Ct));
     }
+    [Fact]
+    public async Task IndependentGenerationTotalDurationBoundsBodyConsumptionAndCannotRestartAnUncertainAttempt()
+    {
+        var journal = new Journal(); var calls = 0;
+        using var http = new HttpClient(new Handler((_, _) =>
+        {
+            calls++;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new PartialStream()) });
+        }));
+        var policy = ConfirmedPolicy(); policy.MaxUncertainRetries = 1;
+        for (var restart = 0; restart < 2; restart++)
+        {
+            using var scope = new LLMHttpRetryContext("bounded-generation", journal, policy, 50).Activate();
+            await Assert.ThrowsAsync<TimeoutException>(() => Send(http, post: true));
+        }
+        var attempt = Assert.Single(journal.State!.Attempts);
+        Assert.Equal(1, calls); Assert.Equal("timeout", attempt.Failure);
+        Assert.Equal("{\"partial\":", attempt.PartialBody);
+        Assert.True(attempt.DeadlineAtUtc - attempt.StartedAtUtc <= TimeSpan.FromMilliseconds(50));
+        Assert.Equal("blocked; captured generation duration exhausted", attempt.RetryDecision);
+    }
+
+    [Fact]
+    public async Task IndependentGenerationDoesNotShortenRetryAfterToFitItsTotalDuration()
+    {
+        var calls = 0;
+        using var http = new HttpClient(new Handler((_, _) =>
+        {
+            calls++; var response = new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
+            response.Headers.TryAddWithoutValidation("Retry-After", "2");
+            return Task.FromResult(response);
+        }));
+        var journal = new Journal(); var policy = ConfirmedPolicy(); policy.MaxUncertainRetries = 1;
+        using var scope = new LLMHttpRetryContext("retry-after", journal, policy, 1000).Activate();
+        using var result = await Send(http, post: true);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, result.StatusCode);
+        Assert.Equal(1, calls); Assert.True(HttpRequestHelper.GetRetryMetadata(result)!.RetryExhausted);
+        Assert.Equal("blocked; captured generation duration exhausted", journal.State!.Attempts.Single().RetryDecision);
+    }
+
     private sealed class WaitingContent : HttpContent
     {
         internal bool Disposed;

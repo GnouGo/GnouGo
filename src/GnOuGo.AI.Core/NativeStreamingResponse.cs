@@ -143,11 +143,12 @@ internal static class NativeStreamingResponse
             }
             if (chunk["usage"] is JsonObject usage)
             {
+                attempt.UsageKnown = KnownUsage(usage, "prompt_tokens", "completion_tokens");
                 if (choices.Count > 0 && choices.Values.All(c => c["finish_reason"] is not null)) result["usage"] = usage.DeepClone();
                 else result["stream_provisional_usage"] = usage.DeepClone();
             }
         }
-        if (!done || choices.Count == 0 || choices.Values.Any(c => c["finish_reason"] is null)) throw Invalid("Chat stream ended without complete choices and [DONE].");
+        if (!done || choices.Count == 0 || choices.Values.Any(c => c["finish_reason"] is null)) throw new IOException("Chat stream ended without complete choices and [DONE].");
         fragments.Flush();
         foreach (var (index, choice) in choices)
         {
@@ -191,7 +192,7 @@ internal static class NativeStreamingResponse
                 }
             }
         }
-        throw Invalid("Responses stream ended without a terminal response event.");
+        throw new IOException("Responses stream ended without a terminal response event.");
     }
 
     private static async Task<JsonObject> MessagesAsync(Stream stream, LLMHttpAttempt attempt, Func<Task> checkpoint, CancellationToken ct)
@@ -272,7 +273,7 @@ internal static class NativeStreamingResponse
             }
             if (stopped) break;
         }
-        if (message is null || !stopped || !ended || active.Count > 0) throw Invalid("Anthropic stream ended before message_stop and its final stop reason.");
+        if (message is null || !stopped || !ended || active.Count > 0) throw new IOException("Anthropic stream ended before message_stop and its final stop reason.");
         fragments.Flush();
         message["content"] = new JsonArray(blocks.Values.Select(b => (JsonNode?)b).ToArray());
         attempt.TerminationStatus = Text(message["stop_reason"]);
@@ -303,6 +304,6 @@ internal static class NativeStreamingResponse
             attempt.UsageKnown = KnownUsage(chunk, "prompt_eval_count", "eval_count");
             return chunk;
         }
-        throw Invalid("Ollama stream ended before done:true.");
+        throw new IOException("Ollama stream ended before done:true.");
     }
 }

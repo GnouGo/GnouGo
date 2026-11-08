@@ -720,7 +720,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             var effective = new JsonObject { ["version"] = 2, ["disable_transport_retries"] = request.DisableTransportRetries,
                 ["allow_http_recovery"] = true, ["planning_transport_policy"] = state.Request.Options[PlanningTransportPolicies.OptionName]!.DeepClone(),
                 ["effective_retry_policy"] = JsonSerializer.SerializeToNode(new LLMProviderRetryPolicyOptions {
-                    MaxAttempts = request.DisableTransportRetries ? 1 : transport.MaxAttempts, MaxUncertainRetries = 0,
+                    MaxAttempts = request.DisableTransportRetries ? 1 : transport.MaxAttempts, MaxUncertainRetries = transport.MaxUncertainRetries,
                     AttemptTimeoutMilliseconds = transport.AttemptTimeoutMilliseconds, BaseDelayMilliseconds = transport.BaseDelayMilliseconds,
                     MaxDelayMilliseconds = transport.MaxDelayMilliseconds, MaxTotalDelayMilliseconds = transport.MaxTotalDelayMilliseconds }),
                 ["deadline_utc"] = (_time.GetUtcNow() + elapsed).ToString("O"),

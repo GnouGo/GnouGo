@@ -1,10 +1,11 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Flow.Core.Planning;
 
-/// <summary>Captured, host-journaled retries of confirmed transient generation responses.</summary>
+/// <summary>Captured, host-journaled retries; version 2 explicitly bounds independent tool-free generation.</summary>
 public sealed class PlanningTransportPolicy
 {
     public int Version { get; set; } = 1;
@@ -14,6 +15,8 @@ public sealed class PlanningTransportPolicy
     public int BaseDelayMilliseconds { get; set; } = 1_000;
     public int MaxDelayMilliseconds { get; set; } = 30_000;
     public int MaxTotalDelayMilliseconds { get; set; } = 60_000;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? IndependentGenerationMaxElapsedMilliseconds { get; set; }
 }
 
 /// <summary>Captured host policy for safe physical-attempt admission and recovery.</summary>
@@ -37,10 +40,13 @@ public static class PlanningTransportPolicies
 
     public static void Validate(PlanningTransportPolicy policy)
     {
-        if (policy.Version != 1 || policy.MaxAttempts is < 1 or > 3 || policy.MaxUncertainRetries != 0 ||
+        var independent = policy.Version == 2 && policy.MaxUncertainRetries is >= 1 and <= 2 &&
+            policy.MaxUncertainRetries < policy.MaxAttempts && policy.IndependentGenerationMaxElapsedMilliseconds is > 0 and <= 3_660_000;
+        if (!(policy.Version == 1 && policy.MaxUncertainRetries == 0 && policy.IndependentGenerationMaxElapsedMilliseconds is null || independent) ||
+            policy.MaxAttempts is < 1 or > 3 ||
             policy.AttemptTimeoutMilliseconds <= 0 || policy.BaseDelayMilliseconds <= 0 ||
             policy.MaxDelayMilliseconds < policy.BaseDelayMilliseconds || policy.MaxTotalDelayMilliseconds < 0)
-            throw new PlanningConflictException("Unsupported or invalid confirmed-response planning transport policy.");
+            throw new PlanningConflictException("Unsupported or invalid captured planning transport policy.");
     }
 
     /// <summary>Called only at fresh creation; never fills absent settings on a restored session.</summary>

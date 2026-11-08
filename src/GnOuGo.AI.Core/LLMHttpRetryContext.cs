@@ -91,7 +91,9 @@ public sealed class LLMHttpAttempt
 /// <summary>Opt-in for one side-effect-free, synchronous generation HTTP operation.
 /// The journal must reserve conservative usage before accepting a new attempt.
 /// No context means POSTs are not retried. GETs need no usage reservation.
-/// A policy override permits only confirmed transient responses, never uncertain replay.</summary>
+/// A policy override permits confirmed transient responses. An explicit independent-generation
+/// duration additionally permits bounded fresh attempts after observed transport loss. Its
+/// host must establish tool-free generation and retain every uncertain reservation.</summary>
 public sealed class LLMHttpRetryContext
 {
     private static readonly AsyncLocal<LLMHttpRetryContext?> Ambient = new();
@@ -99,19 +101,27 @@ public sealed class LLMHttpRetryContext
     internal string RequestId { get; }
     internal ILLMHttpRetryJournal Journal { get; }
     internal LLMProviderRetryPolicyOptions? PolicyOverride { get; }
+    internal int? IndependentGenerationMaxElapsedMilliseconds { get; }
     private ExceptionDispatchInfo? _journalFailure;
 
-    public LLMHttpRetryContext(string requestId, ILLMHttpRetryJournal journal, LLMProviderRetryPolicyOptions? policyOverride = null)
+    public LLMHttpRetryContext(string requestId, ILLMHttpRetryJournal journal, LLMProviderRetryPolicyOptions? policyOverride = null,
+        int? independentGenerationMaxElapsedMilliseconds = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(journal);
-        if (policyOverride is not null && (policyOverride.MaxAttempts is < 1 or > 3 || policyOverride.MaxUncertainRetries != 0 ||
+        if (independentGenerationMaxElapsedMilliseconds is not null &&
+            (independentGenerationMaxElapsedMilliseconds is not (> 0 and <= 3_660_000) || policyOverride is null ||
+             policyOverride.MaxUncertainRetries is < 1 or > 2 || policyOverride.MaxUncertainRetries >= policyOverride.MaxAttempts))
+            throw new ArgumentException("Independent tool-free generation requires an explicit bounded policy.", nameof(independentGenerationMaxElapsedMilliseconds));
+        if (policyOverride is not null && (policyOverride.MaxAttempts is < 1 or > 3 ||
+            independentGenerationMaxElapsedMilliseconds is null && policyOverride.MaxUncertainRetries != 0 ||
             policyOverride.AttemptTimeoutMilliseconds <= 0 || policyOverride.BaseDelayMilliseconds <= 0 ||
             policyOverride.MaxDelayMilliseconds < policyOverride.BaseDelayMilliseconds || policyOverride.MaxTotalDelayMilliseconds < 0))
             throw new ArgumentException("A confirmed-response policy requires at most three attempts and no uncertain retries.", nameof(policyOverride));
         RequestId = requestId;
         Journal = journal;
         PolicyOverride = policyOverride?.Clone();
+        IndependentGenerationMaxElapsedMilliseconds = independentGenerationMaxElapsedMilliseconds;
     }
     internal async Task<LLMHttpRetryState?> LoadAsync(CancellationToken ct)
     {
@@ -141,7 +151,8 @@ public sealed class LLMHttpRetryContext
     {
         ArgumentNullException.ThrowIfNull(journal);
         var owner = Ambient.Value ?? throw new InvalidOperationException("An active host HTTP journal is required.");
-        Ambient.Value = new(owner.RequestId, new RequiredJournal(owner.Journal, journal), owner.PolicyOverride);
+        Ambient.Value = new(owner.RequestId, new RequiredJournal(owner.Journal, journal), owner.PolicyOverride,
+            owner.IndependentGenerationMaxElapsedMilliseconds);
         return new Scope(owner);
     }
 

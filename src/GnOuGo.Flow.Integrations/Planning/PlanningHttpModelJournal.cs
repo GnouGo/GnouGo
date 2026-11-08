@@ -79,11 +79,11 @@ public sealed class PlanningHttpModelJournal(
         var policy = Policy;
         using var context = new LLMHttpRetryContext(Key, this, new LLMProviderRetryPolicyOptions
         {
-            MaxAttempts = policy.MaxAttempts, MaxUncertainRetries = 0,
+            MaxAttempts = policy.MaxAttempts, MaxUncertainRetries = policy.MaxUncertainRetries,
             AttemptTimeoutMilliseconds = policy.AttemptTimeoutMilliseconds,
             BaseDelayMilliseconds = policy.BaseDelayMilliseconds, MaxDelayMilliseconds = policy.MaxDelayMilliseconds,
             MaxTotalDelayMilliseconds = policy.MaxTotalDelayMilliseconds
-        }).Activate();
+        }, policy.IndependentGenerationMaxElapsedMilliseconds).Activate();
         var response = await client.CallAsync(request, deadline.Token);
         using var flush = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         record = await ReadAsync(flush.Token) ?? throw Conflict();
@@ -140,7 +140,12 @@ public sealed class PlanningHttpModelJournal(
             ct.ThrowIfCancellationRequested();
             if (DateTimeOffset.UtcNow >= record["deadline_utc"]!.GetValue<DateTimeOffset>()) throw Exhausted();
             if (state.Attempts[^1] is not { Status: null, Failure: null, Body: null } ||
-                oldCount > 0 && previous!.Attempts[^1].Status is null) throw Unknown();
+                oldCount > 0 && previous!.Attempts[^1].Status is null &&
+                !(Policy.Version == 2 && previous.Attempts[^1] is {
+                    RetryDecision: "abandoned; independent tool-free generation retry", CompletedAtUtc: not null,
+                    Failure: "transport" or "timeout", Body: null, AssembledBody: null,
+                    ProtocolComplete: not true, UsageKnown: not true, StreamFailure: null, ProviderErrorCode: null } &&
+                  previous.Attempts.Count(a => a.Status is null) <= Policy.MaxUncertainRetries)) throw Unknown();
             // Reject ordinary allowance exhaustion before recording a new attempt.
             // The first attempt was admitted and reserved by CallAsync already.
             if (state.Attempts.Count > record["reserved_attempts"]!.GetValue<int>())

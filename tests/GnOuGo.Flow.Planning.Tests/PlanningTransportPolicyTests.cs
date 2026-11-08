@@ -76,6 +76,30 @@ public sealed class PlanningTransportPolicyTests
     }
 
     private static PlanningSession Fresh() { var state = new PlanningSession(); PlanningSessionCreation.Capture(state); return state; }
+    [Fact]
+    public void IndependentPolicyIsExplicitImmutableAndRequiresToolFreeSynchronousRequests()
+    {
+        var state = new PlanningSession();
+        PlanningTransportPolicies.Capture(state.Request, new() { Version = 2, MaxUncertainRetries = 1,
+            IndependentGenerationMaxElapsedMilliseconds = 1_260_000 });
+        PlanningSessionCreation.Capture(state);
+        var request = Prepare(state, "construction_intent");
+        var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
+        Assert.Equal(1, PlanningTransportPolicies.Read(restored.Request)!.MaxUncertainRetries);
+        Assert.Equal(1_260_000, PlanningTransportPolicies.Read(restored.Request)!.IndependentGenerationMaxElapsedMilliseconds);
+        Assert.Throws<PlanningConflictException>(() => PlanningTransportPolicies.Capture(restored.Request, new()));
+        request.UseBackgroundMode = true;
+        Assert.Throws<PlanningConflictException>(() => PlanningTransportPolicies.ValidateIssued(request, restored.Request));
+        request.UseBackgroundMode = false; request.Tools = [new() { Name = "external_effect" }];
+        Assert.Throws<PlanningConflictException>(() => PlanningTransportPolicies.ValidateIssued(request, restored.Request));
+    }
+
+    [Theory]
+    [InlineData(1, 1, 100)] [InlineData(2, 0, 100)] [InlineData(2, 3, 100)]
+    [InlineData(2, 1, 0)] [InlineData(2, 1, 3_660_001)]
+    public void InvalidIndependentPoliciesDoNotGainAuthority(int version, int uncertain, int elapsed)
+        => Assert.Throws<PlanningConflictException>(() => PlanningTransportPolicies.Validate(new() {
+            Version = version, MaxUncertainRetries = uncertain, IndependentGenerationMaxElapsedMilliseconds = elapsed }));
     private static JsonObject Schema() => PlanningSchemas.Object(("value", PlanningSchemas.String()));
     private static LLMRequest Prepare(PlanningSession state, string phase) => PlanningModelCalls.PrepareRequest(state, phase, "bounded", Schema());
 }

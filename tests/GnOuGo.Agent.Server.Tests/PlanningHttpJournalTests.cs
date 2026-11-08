@@ -22,6 +22,32 @@ public sealed class PlanningHttpJournalTests
     [Theory]
     [InlineData(false, false)] [InlineData(true, false)]
     [InlineData(false, true)] [InlineData(true, true)]
+    public async Task CapturedIndependentGenerationPreservesUnknownHoldAndColdRecoverySettlesOnlyOnce(bool workflow, bool streaming)
+    {
+        await using var host = await Host.CreateAsync(workflow, streaming ? [200, 200] : [0, 200], streaming: streaming, independent: true);
+        if (streaming) host.Handler.BeforeSend = count => { host.Handler.NativeBody = NativeBody(count == 1); return Task.CompletedTask; };
+        await host.OpenAsync(); var request = host.Issue();
+        var response = await host.CallAsync(request);
+        Assert.Equal("secret result", response.Json!["value"]!.ToString());
+        var usage = await host.UsageAsync();
+        Assert.Equal(2, usage.Calls);
+        Assert.Single(usage.JournaledAttempts!.Values, a => a.VerifiedUsage is null);
+        Assert.Single(usage.JournaledAttempts.Values, a => a.VerifiedUsage is not null);
+        var before = Serialize(usage); var journal = await host.TransportAsync(request);
+        Assert.Equal("abandoned; independent tool-free generation retry", journal["transport"]!["Attempts"]![0]!["RetryDecision"]!.ToString());
+        Assert.Null(journal["transport"]!["Attempts"]![0]!["Status"]);
+        if (streaming) Assert.NotNull(journal["transport"]!["Attempts"]![0]!["PartialBodyBase64"]);
+        var exact = journal.ToJsonString();
+        await host.OpenAsync();
+        Assert.Equal(Serialize(response), Serialize(await host.CallAsync(request)));
+        Assert.Equal(before, Serialize(await host.UsageAsync()));
+        Assert.Equal(exact, (await host.TransportAsync(request)).ToJsonString());
+        Assert.Equal(2, host.Handler.Bodies.Count);
+    }
+
+    [Theory]
+    [InlineData(false, false)] [InlineData(true, false)]
+    [InlineData(false, true)] [InlineData(true, true)]
     public async Task NativeStreamingTerminalIsRequiredForSettlementAndColdReceiptRecovery(bool workflow, bool truncated)
     {
         await using var host = await Host.CreateAsync(workflow, [200], streaming: true);
@@ -319,7 +345,7 @@ public sealed class PlanningHttpJournalTests
         private string BudgetCollection => _workflow ? "flow-planning-budgets-v11" : PlanningBudgetSink.Collection;
         internal string HttpCollection => _workflow ? "flow-planning-model-http-v11" : PlanningModelJournal.HttpCollection;
 
-        private Host(PlanningPersistenceTests.StoreFixture fixture, bool workflow, int[] statuses, LLMUsageBudgetScope? parent, bool streaming)
+        private Host(PlanningPersistenceTests.StoreFixture fixture, bool workflow, int[] statuses, LLMUsageBudgetScope? parent, bool streaming, bool independent)
         {
             Fixture = fixture; Records = new(fixture.Records); _workflow = workflow; _parent = parent;
             Handler = new(statuses); _http = new(Handler);
@@ -346,11 +372,13 @@ public sealed class PlanningHttpJournalTests
                 Options = new() { ["llm_budget"] = new JsonObject { ["max_calls"] = 8, ["max_estimated_cost"] = new JsonObject { ["amount"] = 100m, ["currency"] = "USD" } },
                     ["construction_limits"] = JsonSerializer.SerializeToNode(new PlanningConstructionOptions { PhasePolicy = policy }, PlanningJsonContext.Default.PlanningConstructionOptions) }
             } };
-            PlanningTransportPolicies.Capture(_initial.Request, new() { BaseDelayMilliseconds = 1, MaxDelayMilliseconds = 1, MaxTotalDelayMilliseconds = 10 });
+            PlanningTransportPolicies.Capture(_initial.Request, new() { Version = independent ? 2 : 1, MaxUncertainRetries = independent ? 1 : 0,
+                IndependentGenerationMaxElapsedMilliseconds = independent ? 10_000 : null,
+                BaseDelayMilliseconds = 1, MaxDelayMilliseconds = 1, MaxTotalDelayMilliseconds = 10 });
         }
 
-        internal static async Task<Host> CreateAsync(bool workflow, int[] statuses, LLMUsageBudgetScope? parent = null, bool streaming = false) =>
-            new(await PlanningPersistenceTests.StoreFixture.CreateAsync(), workflow, statuses, parent, streaming);
+        internal static async Task<Host> CreateAsync(bool workflow, int[] statuses, LLMUsageBudgetScope? parent = null, bool streaming = false, bool independent = false) =>
+            new(await PlanningPersistenceTests.StoreFixture.CreateAsync(), workflow, statuses, parent, streaming, independent);
 
         internal async Task OpenAsync()
         {

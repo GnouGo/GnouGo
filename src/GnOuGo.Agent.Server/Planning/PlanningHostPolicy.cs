@@ -90,6 +90,8 @@ public sealed class PlanningHostPolicy(IKeyVaultRecordStore records, IOptions<Ty
                 ["restriction"] = cap < modelMaximum ? "configured_deployment_output_cap" : "documented_model_output_capacity"
             };
         }
+        if (settings.Value.TransportPolicy is { } transport)
+            PlanningTransportPolicies.Capture(state.Request, transport);
         PlanningSessionCreation.Capture(state, creation);
         state.Request.Options["agent_generation_at_creation"] = JsonSerializer.SerializeToNode(state.Request.Generation, PlanningJsonContext.Default.PlanningGenerationOptions);
         state.Request.Options[CaptureOption] = new JsonObject { ["version"] = 1, ["thresholdMode"] = thresholdMode };
@@ -128,6 +130,8 @@ public sealed class PlanningHostPolicy(IKeyVaultRecordStore records, IOptions<Ty
         // their exact signed shape; new captures still bind the complete policy.
         if (options.ContainsKey(PlanningApplicationBudget.OptionName))
             capture[PlanningApplicationBudget.OptionName] = options[PlanningApplicationBudget.OptionName]?.DeepClone();
+        if (PlanningTransportPolicies.Read(request)?.Version == 2)
+            capture[PlanningTransportPolicies.OptionName] = options[PlanningTransportPolicies.OptionName]!.DeepClone();
         return capture;
     }
 }

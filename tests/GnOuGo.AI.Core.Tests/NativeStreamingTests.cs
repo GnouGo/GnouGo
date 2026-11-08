@@ -537,6 +537,85 @@ public sealed class NativeStreamingTests
         ModelTransportOverrides = new() { ["deployment"] = new() { StreamingSupport = new() {
             [LLMTransportResolver.ChatCompletions] = true, [LLMTransportResolver.Messages] = true, [LLMTransportResolver.OllamaChat] = true, [LLMTransportResolver.Responses] = true } } }
     };
+    [Theory]
+    [InlineData("openai")] [InlineData("copilot")] [InlineData("anthropic")] [InlineData("ollama")]
+    public async Task CapturedIndependentGenerationRetainsPartialAttemptAndAppliesOnlyFreshCompletion(string type)
+    {
+        var journal = new Journal(); var financial = new Journal(); var calls = 0;
+        using var http = NewHttp(new Handler(_ => Task.FromResult(Response(type,
+            ++calls == 1 ? Fixture(type, "truncated") : Fixture(type)))));
+        using (IndependentContext(journal))
+        using (LLMHttpRetryContext.RequireAdditionalJournal(financial))
+        {
+            Assert.Equal("{\"value\":\"café\"}", (await Client(http, type).CallAsync(Request(), Ct)).Text);
+            Assert.Equal(2, calls);
+            Assert.Equal(JsonSerializer.Serialize(journal.State), JsonSerializer.Serialize(financial.State));
+        }
+        var old = journal.State!.Attempts[0];
+        Assert.Equal("abandoned; independent tool-free generation retry", old.RetryDecision);
+        Assert.NotNull(old.PartialBodyBase64); Assert.Null(old.Body); Assert.Null(old.AssembledBody); Assert.Null(old.Status);
+        Assert.True(journal.State.Attempts[1].ProtocolComplete);
+        Assert.NotEqual(old.Id, journal.State.Attempts[1].Id);
+        var snapshot = JsonSerializer.Serialize(journal.State);
+        using (IndependentContext(journal))
+            Assert.Equal("{\"value\":\"café\"}", (await Client(http, type).CallAsync(Request(), Ct)).Text);
+        Assert.Equal(snapshot, JsonSerializer.Serialize(journal.State)); Assert.Equal(2, calls);
+    }
+
+    [Theory]
+    [InlineData("truncated", 2)] [InlineData("malformed", 1)] [InlineData("error", 1)]
+    public async Task IndependentGenerationIsBoundedAndDoesNotRetryProtocolOrProviderErrors(string failure, int expected)
+    {
+        var journal = new Journal();
+        using var http = NewHttp(new Handler(_ => Task.FromResult(Response("openai", Fixture("openai", failure)))));
+        using (IndependentContext(journal))
+            await Assert.ThrowsAnyAsync<Exception>(() => Client(http, "openai").CallAsync(Request(), Ct));
+        Assert.Equal(expected, httpCalls(http));
+        var snapshot = JsonSerializer.Serialize(journal.State);
+        using (IndependentContext(journal))
+            await Assert.ThrowsAnyAsync<Exception>(() => Client(http, "openai").CallAsync(Request(), Ct));
+        Assert.Equal(expected, httpCalls(http)); Assert.Equal(snapshot, JsonSerializer.Serialize(journal.State));
+    }
+
+    [Fact]
+    public async Task IndependentGenerationNeverFollowsCancellationOrReusesAnUnfinishedOwner()
+    {
+        var journal = new Journal();
+        using var cancel = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        using var http = NewHttp(new Handler(_ => Task.FromResult(Response("openai",
+            new FragmentStream(Encoding.UTF8.GetBytes(Fixture("openai", "truncated")), waitAtEnd: true)))));
+        using (IndependentContext(journal))
+        {
+            var call = Client(http, "openai").CallAsync(Request(), cancel.Token);
+            await journal.FirstPartial.Task.WaitAsync(TimeSpan.FromSeconds(5), Ct);
+            cancel.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => call);
+        }
+        using (IndependentContext(journal))
+            await Assert.ThrowsAnyAsync<Exception>(() => Client(http, "openai").CallAsync(Request(), Ct));
+        Assert.Equal(1, httpCalls(http)); Assert.Equal("cancelled", Assert.Single(journal.State!.Attempts).Failure);
+    }
+
+    private static IDisposable IndependentContext(Journal journal) => new LLMHttpRetryContext("request", journal,
+        new() { MaxAttempts = 3, MaxUncertainRetries = 1, BaseDelayMilliseconds = 1, MaxDelayMilliseconds = 1 }, 10_000).Activate();
+
+    [Theory]
+    [InlineData("length")] [InlineData("usage_without_terminal")]
+    public async Task IndependentPolicyDoesNotRegenerateReceivedExhaustionOrUsage(string outcome)
+    {
+        var body = Fixture("openai");
+        body = outcome == "length" ? body.Replace("\"finish_reason\":\"stop\"", "\"finish_reason\":\"length\"", StringComparison.Ordinal)
+            : body.Replace("data: [DONE]\n\n", "", StringComparison.Ordinal);
+        var journal = new Journal();
+        using var http = NewHttp(new Handler(_ => Task.FromResult(Response("openai", body))));
+        using (IndependentContext(journal))
+        {
+            if (outcome == "length")
+                Assert.Equal("length", (await Client(http, "openai").CallAsync(Request(), Ct)).Raw!["choices"]![0]!["finish_reason"]!.ToString());
+            else await Assert.ThrowsAnyAsync<Exception>(() => Client(http, "openai").CallAsync(Request(), Ct));
+        }
+        Assert.Equal(1, httpCalls(http)); Assert.True(journal.State!.Attempts.Single().UsageKnown);
+    }
     private static RoutingLLMClient Client(HttpClient http, string type) => new(http, Options(Provider(type)));
     private static IDisposable Context(Journal journal) => new LLMHttpRetryContext("request", journal, new() { MaxAttempts = 3, MaxUncertainRetries = 0, BaseDelayMilliseconds = 1, MaxDelayMilliseconds = 1 }).Activate();
     private static HttpResponseMessage Response(string type, string text) => Response(type, new FragmentStream(Encoding.UTF8.GetBytes(text)));

@@ -474,7 +474,7 @@ internal sealed partial class BenchmarkCampaign
             state.PendingCall!.Request.UseBackgroundMode || !PlanningTransportPolicies.ReviewHeadroomValid(state.PendingCall.Request, state.Request) ||
             effective["disable_transport_retries"]?.GetValue<bool>() != state.PendingCall.Request.DisableTransportRetries ||
             retry?["MaxAttempts"]?.GetValue<int>() != (state.PendingCall.Request.DisableTransportRetries ? 1 : captured.MaxAttempts) ||
-            retry["MaxUncertainRetries"]?.GetValue<int>() != 0 ||
+            retry["MaxUncertainRetries"]?.GetValue<int>() != captured.MaxUncertainRetries ||
             retry["AttemptTimeoutMilliseconds"]?.GetValue<int>() != captured.AttemptTimeoutMilliseconds ||
             retry["BaseDelayMilliseconds"]?.GetValue<int>() != captured.BaseDelayMilliseconds ||
             retry["MaxDelayMilliseconds"]?.GetValue<int>() != captured.MaxDelayMilliseconds ||
@@ -512,8 +512,18 @@ internal sealed partial class BenchmarkCampaign
         {
             var attempt = attempts[i]!;
             if (attempt["Status"] is null)
+            {
+                if (i < attempts.Count - 1 && captured.Version == 2 &&
+                    attempts.Take(i + 1).Count(a => a?["Status"] is null) <= captured.MaxUncertainRetries &&
+                    attempt["RetryDecision"]?.ToString() == "abandoned; independent tool-free generation retry" &&
+                    attempt["StartedAtUtc"] is not null && attempt["CompletedAtUtc"] is not null &&
+                    attempt["Failure"]?.ToString() is "timeout" or "transport" &&
+                    attempt["Body"] is null && attempt["AssembledBody"] is null && attempt["ProtocolComplete"]?.GetValue<bool>() != true &&
+                    attempt["UsageKnown"]?.GetValue<bool>() != true && attempt["StreamFailure"] is null && attempt["ProviderErrorCode"] is null)
+                    continue;
                 return i == attempts.Count - 1 && attempt["Body"] is null && attempt["Failure"]?.ToString() is "timeout" or "transport" &&
                     failure["status_code"] is null && failure["kind"]?.ToString() is "Timeout" or "Transport";
+            }
             // A fully received nonretryable request rejection also exhausts the
             // captured policy. Retention preserves its unknown exposure; it never retries it.
             if (attempt["Status"]!.GetValue<int>() == 400)

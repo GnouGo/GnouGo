@@ -73,6 +73,23 @@ internal static class ServerLiveDiagnostics
         model.AdvisoryFinancialForecasts = financialForecastMode == "experimental_warning";
         hostArgs = hostArgs.Append("--ApplicationLlmBudget:FinancialForecastMode=" + financialForecastMode).ToArray();
         var phaseFile = SchemaPortabilityCampaign.Option(args, "--server-phase-policy");
+        var transportFile = SchemaPortabilityCampaign.Option(args, "--server-transport-policy");
+        if (transportFile is not null)
+        {
+            var transport = JsonSerializer.Deserialize(await File.ReadAllTextAsync(transportFile), PlanningJsonContext.Default.PlanningTransportPolicy)
+                ?? throw new ArgumentException("Missing transport policy.");
+            PlanningTransportPolicies.Validate(transport);
+            hostArgs = hostArgs.Concat(new[] {
+                $"--TypedWorkflowPlanning:TransportPolicy:Version={transport.Version}",
+                $"--TypedWorkflowPlanning:TransportPolicy:MaxAttempts={transport.MaxAttempts}",
+                $"--TypedWorkflowPlanning:TransportPolicy:MaxUncertainRetries={transport.MaxUncertainRetries}",
+                $"--TypedWorkflowPlanning:TransportPolicy:AttemptTimeoutMilliseconds={transport.AttemptTimeoutMilliseconds}",
+                $"--TypedWorkflowPlanning:TransportPolicy:BaseDelayMilliseconds={transport.BaseDelayMilliseconds}",
+                $"--TypedWorkflowPlanning:TransportPolicy:MaxDelayMilliseconds={transport.MaxDelayMilliseconds}",
+                $"--TypedWorkflowPlanning:TransportPolicy:MaxTotalDelayMilliseconds={transport.MaxTotalDelayMilliseconds}" }).ToArray();
+            if (transport.IndependentGenerationMaxElapsedMilliseconds is { } total)
+                hostArgs = hostArgs.Append($"--TypedWorkflowPlanning:TransportPolicy:IndependentGenerationMaxElapsedMilliseconds={total}").ToArray();
+        }
         if (phaseFile is not null)
         {
             var phases = JsonSerializer.Deserialize(await File.ReadAllTextAsync(phaseFile), PlanningJsonContext.Default.PlanningConstructionPhasePolicy)

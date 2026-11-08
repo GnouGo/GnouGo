@@ -26,6 +26,7 @@ public sealed class TypedWorkflowPlanningSettings
     public int DraftOutputTokens { get; set; } = 8_192;
     public int ReviewOutputTokens { get; set; } = 2_048;
     public PlanningConstructionPhasePolicy? PhasePolicy { get; set; }
+    public PlanningTransportPolicy? TransportPolicy { get; set; }
     public string DatabasePath { get; set; } = ".GnOuGo/data/gnougo-planning-v9.db";
 
     public string ResolvePreset(string? requested = null) => PlanningConstructionPresets.Validate(requested ?? ConstructionPreset);
@@ -51,5 +52,6 @@ public sealed class TypedWorkflowPlanningSettings
             throw new InvalidOperationException("Invalid typed workflow planning configuration.");
         PlanningGenerationPolicy.Validate(new() { Reasoning = Reasoning, MaxInputTokensPerRequest = MaxInputTokensPerRequest, MaxOutputTokens = MaxOutputTokens });
         if (PhasePolicy is not null) PlanningConstructionPhasePolicies.Validate(PhasePolicy);
+        if (TransportPolicy is not null) PlanningTransportPolicies.Validate(TransportPolicy);
     }
 }

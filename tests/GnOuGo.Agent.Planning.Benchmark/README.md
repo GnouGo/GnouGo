@@ -98,6 +98,17 @@ disconnects, invalid model output and output exhaustion do not retry automatical
 All failed-attempt reservations remain unknown usage until independently verified;
 a later successful attempt does not release them.
 
+The explicit `--server-transport-policy Profiles/server-independent-generation.json`
+profile captures version 2 for a fresh actual Server session: three physical
+attempts total, at most one independent attempt after observed tool-free transport
+loss, unchanged 600-second attempt deadlines/backoff, and a hard 1,260,000 ms total
+generation duration. The default and historical captures remain confirmed-only.
+The one AI.Core retry owner retains earlier stream bytes and every uncertain hold;
+only the final complete response can contribute to the TaskPlan. Cancellation,
+permanent errors, invalid protocol, recoverable usage/completions and interrupted
+ownership cannot authorize another send. Terminal incidents still use exact
+preview/apply retention, which preserves all attempts and forbids the old run.
+
 Ordinary sessions preserve physical-call, correction and time targets as guards.
 Captured API allocations and financial guards remain explicit.
 The trusted campaign builder may capture `--advisory-token-thresholds` before fresh

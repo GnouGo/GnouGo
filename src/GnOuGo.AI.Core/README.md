@@ -134,6 +134,20 @@ encrypted evidence and retained unknown-usage reservations; a later success does
 prove earlier attempts were free. Existing contexts without the captured policy retain
 their original recovery policy.
 
+An explicit `independentGenerationMaxElapsedMilliseconds` on the context opts a
+trusted host into independent, tool-free generation after an observed transport
+loss or incomplete stream. It requires a captured policy with at most three total
+attempts and one or two uncertain retries, plus a total duration of at most 61
+minutes. The planner's version-2 policy captures these values before dispatch.
+AI.Core remains the only retry owner: it uses the existing backoff, jitter and
+`Retry-After`, reserves a fresh identity before each send, and starts a fresh
+response assembly. Earlier partial bytes and unknown-usage reservations remain.
+Saved completions recover first; Responses background receipt retrieval retains its
+existing precedence. A loaded unresolved attempt cannot trigger independent
+generation after a restart. Cancellation, permanent errors, malformed protocol,
+received final usage and incomplete/model-rejected outputs require their existing
+recovery path. Only a complete final response reaches the caller.
+
 `RoutingLLMClient` exposes provider failures through the redacted
 `LLMProviderException` contract. `LLMProviderFailureKind` distinguishes transport,
 timeout, ordinary rate limiting, service unavailability, authentication,

@@ -191,6 +191,13 @@ public static class HttpRequestHelper
         var fingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(template.Method + "\n" + template.RequestUri + "\n" + payload)));
         var state = context is null ? new LLMHttpRetryState { Fingerprint = fingerprint }
             : await context.LoadAsync(ct).ConfigureAwait(false) ?? new LLMHttpRetryState { Fingerprint = fingerprint };
+        var independentLimit = context?.IndependentGenerationMaxElapsedMilliseconds;
+        var independentClock = System.Diagnostics.Stopwatch.StartNew();
+        var independentDeadline = independentLimit is { } total
+            ? (state.Attempts.FirstOrDefault()?.StartedAtUtc ?? utcNow()) + TimeSpan.FromMilliseconds(total) : (DateTimeOffset?)null;
+        TimeSpan IndependentRemaining() => independentDeadline is { } due
+            ? TimeSpan.FromMilliseconds(Math.Min((due - utcNow()).TotalMilliseconds,
+                independentLimit!.Value - independentClock.Elapsed.TotalMilliseconds)) : TimeSpan.MaxValue;
         if (state.Attempts.Count == 0 && state.Fingerprint.Length == 0) state.Fingerprint = fingerprint;
         if (state.Fingerprint != fingerprint)
         {
@@ -230,11 +237,21 @@ public static class HttpRequestHelper
                 if (backgroundStreaming && previous.ProviderResponseId is not null && previous.ProtocolComplete != true && previous.Failure != "cancelled" &&
                     (originalFailure is null || previous.Failure != "timeout"))
                     await RecoverBackgroundResponseAsync(http, template, previous, retryPolicy, () => SaveAsync(CancellationToken.None), delayAsync, utcNow, originalFailure is null, ct).ConfigureAwait(false);
-                if (previous.Failure == "cancelled") throw new OperationCanceledException("The reserved attempt was cancelled; it cannot be retried.", ct);
+                if (previous.Failure == "cancelled" || previous.RetryDecision == "cancelled; no retry")
+                    throw new OperationCanceledException("The reserved attempt was cancelled; it cannot be retried.", ct);
+                // Only a failure observed by this invocation can authorize independent
+                // generation. A crash, a loaded unresolved attempt or received usage
+                // still requires exact receipt recovery/reconciliation. Each new send
+                // gets its own reserved identity and entirely fresh response assembly.
+                var independent = independentLimit is not null && template.Method == HttpMethod.Post && originalFailure is not null &&
+                    previous.CompletedAtUtc is not null && previous.Failure is "transport" or "timeout" &&
+                    previous.Status is null && previous.ObservedStatus is null or >= 200 and < 300 &&
+                    previous.Body is null && previous.AssembledBody is null && previous.ProtocolComplete != true && previous.UsageKnown != true &&
+                    previous.StreamFailure is null && previous.ProviderErrorCode is null;
                 if (confirmedOnly && previous.Status is not null && (previous.Body is null || previous.Failure is not null))
                     throw new InvalidOperationException("A confirmed HTTP response requires a complete durably recorded body and outcome.");
                 if (streaming && previous.ObservedStatus is >= 200 and < 300 &&
-                    (previous.ProtocolComplete != true || previous.AssembledBody is null))
+                    (previous.ProtocolComplete != true || previous.AssembledBody is null) && !independent)
                 {
                     var incomplete = new HttpRequestException("The native stream is incomplete; exact receipt recovery is required before independent generation.", originalFailure);
                     incomplete.Data[ExceptionRetryMetadataKey] = new LLMHttpRetryMetadata(state.Attempts.Count, false, null,
@@ -248,17 +265,22 @@ public static class HttpRequestHelper
                 var retryable = response is not null
                     ? safeToRepeat && (confirmedOnly ? ConfirmedTransient(response.StatusCode, classification!, retryAfter)
                         : IsRetryableStatus(response.StatusCode) && classification!.Kind is not (LLMProviderFailureKind.QuotaOrBilling or LLMProviderFailureKind.Authentication or LLMProviderFailureKind.Authorization))
-                    : !streaming && !confirmedOnly && safeToRepeat && previous.Failure is null or "transport" or "timeout";
+                    : independent || !streaming && !confirmedOnly && safeToRepeat && previous.Failure is null or "transport" or "timeout";
                 var exhausted = state.Attempts.Count >= retryPolicy.MaxAttempts || uncertain &&
                     state.Attempts.Count(a => a.Status is null) > retryPolicy.MaxUncertainRetries;
                 var delay = !retryable || exhausted || response?.IsSuccessStatusCode == true ? TimeSpan.Zero : previous.NotBefore is { } due ? due - utcNow() : retryAfter ?? CalculateJitterDelay(retryPolicy, state.Attempts.Count, jitter);
                 if (delay < TimeSpan.Zero) delay = TimeSpan.Zero;
                 exhausted |= delay.TotalMilliseconds > retryPolicy.MaxTotalDelayMilliseconds ||
                     previous.NotBefore is null && state.DelayMilliseconds + delay.TotalMilliseconds > retryPolicy.MaxTotalDelayMilliseconds;
+                var durationExhausted = independentLimit is not null && IndependentRemaining() <= delay;
+                exhausted |= durationExhausted;
                 var metadata = new LLMHttpRetryMetadata(state.Attempts.Count, retryable && exhausted, ToMilliseconds(retryAfter),
                     classification?.Kind ?? (previous.Failure == "permanent" ? LLMProviderFailureKind.Unknown : previous.Failure == "timeout" ? LLMProviderFailureKind.Timeout : LLMProviderFailureKind.Transport), classification?.SafeProviderCode);
-                var decision = response?.IsSuccessStatusCode == true ? "completed; no retry" : uncertain && confirmedOnly ? "blocked; uncertain outcome" :
-                    !retryable ? "blocked; nonretryable outcome" : exhausted ? "blocked; captured retry allowance exhausted" : "retry; captured transient-response policy";
+                var decision = response?.IsSuccessStatusCode == true ? "completed; no retry" :
+                    durationExhausted ? "blocked; captured generation duration exhausted" :
+                    uncertain && confirmedOnly && !independent ? "blocked; uncertain outcome" :
+                    !retryable ? "blocked; nonretryable outcome" : exhausted ? "blocked; captured retry allowance exhausted" :
+                    independent ? "abandoned; independent tool-free generation retry" : "retry; captured transient-response policy";
                 if (previous.RetryDecision != decision)
                 { previous.RetryDecision = decision; await SaveAsync(ct).ConfigureAwait(false); }
                 if (response is not null && (response.IsSuccessStatusCode || !retryable || exhausted))
@@ -288,7 +310,8 @@ public static class HttpRequestHelper
                 try { await delayAsync(delay, ct).ConfigureAwait(false); }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested)
                 {
-                    previous.Failure = "cancelled";
+                    if (!independent) previous.Failure = "cancelled";
+                    previous.RetryDecision = "cancelled; no retry";
                     await SaveAsync(CancellationToken.None).ConfigureAwait(false);
                     throw;
                 }
@@ -296,8 +319,15 @@ public static class HttpRequestHelper
 
             ct.ThrowIfCancellationRequested();
             var started = utcNow();
+            var attemptAllowance = EffectiveAttemptTimeout(http, retryPolicy);
+            if (independentLimit is not null)
+            {
+                var remaining = IndependentRemaining();
+                if (remaining <= TimeSpan.Zero) throw new TimeoutException("The captured independent-generation duration is exhausted.");
+                if (remaining < attemptAllowance) attemptAllowance = remaining;
+            }
             var attempt = new LLMHttpAttempt { Id = (context?.RequestId ?? "http") + ":" + Guid.NewGuid().ToString("N"), StartedAtUtc = started,
-                DeadlineAtUtc = started + EffectiveAttemptTimeout(http, retryPolicy) };
+                DeadlineAtUtc = started + attemptAllowance };
             state.Attempts.Add(attempt);
             // Hosts reserve possible usage atomically with this identity before dispatch.
             await SaveAsync(ct).ConfigureAwait(false);
@@ -366,6 +396,7 @@ public static class HttpRequestHelper
             catch (Exception ex) when (streaming && ex is IOException or InvalidDataException or JsonException)
             {
                 originalFailure = ex;
+                if (ex is InvalidDataException or JsonException) attempt.StreamFailure = "invalid_protocol";
                 attempt.Failure = ct.IsCancellationRequested ? "cancelled" : "transport";
             }
             catch (HttpRequestException ex)

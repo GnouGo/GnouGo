@@ -17,6 +17,24 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class DiagnosticPlanningTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    [Fact]
+    public async Task IndependentGenerationPolicyIsBoundToEncryptedHostAuthorityAndSurvivesChangedDefaults()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var settings = new TypedWorkflowPlanningSettings { TransportPolicy = new() { Version = 2, MaxUncertainRetries = 1,
+            IndependentGenerationMaxElapsedMilliseconds = 1_260_000 } };
+        var policy = new PlanningHostPolicy(fixture.Records, Options.Create(settings));
+        var state = new PlanningSession { Request = new() { TenantId = "planning-tests", Options = new() {
+            ["generator"] = new JsonObject { ["provider"] = "openai", ["model"] = "gpt-6-luna" } } } };
+        await policy.CaptureAsync(state, ModelOptions(), "strict", null, Ct);
+        var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
+        settings.TransportPolicy = null;
+        await policy.VerifyAsync(restored, Ct);
+        Assert.Equal(1, PlanningTransportPolicies.Read(restored.Request)!.MaxUncertainRetries);
+        restored.Request.Options[PlanningTransportPolicies.OptionName]!["independentGenerationMaxElapsedMilliseconds"] = 1_260_001;
+        await Assert.ThrowsAsync<PlanningConflictException>(() => policy.VerifyAsync(restored, Ct));
+    }
     [Theory]
     [InlineData("output", "strict")]
     [InlineData("output", "diagnostic")]

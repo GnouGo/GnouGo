@@ -755,6 +755,14 @@ timeouts without a response and invalid model outputs do not. Historical session
 retain their original single-attempt boundary and request bytes. Runtime effects
 and local fallback are excluded from this planning policy.
 
+For new sessions, an explicit host `TypedWorkflowPlanning:TransportPolicy` may
+select version 2 with `maxUncertainRetries` and
+`independentGenerationMaxElapsedMilliseconds`. The encrypted host capture binds
+the exact policy. This permits bounded independent attempts for synchronous,
+tool-free planning after transport loss, using the same journals and financial
+admission. It does not permit resending an abandoned attempt or a request whose
+outcome became uncertain across restart. Existing sessions retain their capture.
+
 ### Runtime execution budgets
 
 `Flow:Execution:MaxMappingInputTokens` configures the existing per-request ceiling
