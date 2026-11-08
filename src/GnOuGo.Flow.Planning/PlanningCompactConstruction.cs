@@ -33,7 +33,7 @@ internal static partial class PlanningCompactConstruction
 
     internal static string DiscoveryGuidance(PlanningSession state) => (PlanningDiscoveryFocus.Enabled(state)
         ? "Select an issued focus for the immediate objective or retained prerequisite and justify each source from its description. Prefer suitable inspected contracts; stop once sufficient. Exploratory failures prove no capability absence and require alternatives, not invented results. " : "") + $"""
-        Resolve this cursor within its scope and retained business obligations. Inspect original descriptions/constraints and exact continuations; incomplete inspection proves no absence.
+        Resolve the current implementation cursor within its selected scope and retained business obligations. Inspect original descriptions/constraints and exact continuations; incomplete inspection proves no absence.
         Return one action with others null: binding, discoveryRequests, evidenceRequests, reselectStep or clarifications. binding selects the anchor, inspected operationIds and optional closed groupId. Draft connected helpers later. closeScopes:[] closes no scope, [scope] the offered boundary; other actions use null.
         {ContainerBoundaryGuidance} value json_encode serializes supplied runtime values as JSON text without an encoder MCP. transform extract preserves observations; eligible interpret derives typed data from supplied inputs through the runtime LLM. Neither invents external facts nor performs external actions. {SelectedExpectationsSemantics}
         The host verifies exact contracts before drafting. Never invent setup, handles, results or permissions. Runtime data needs executable prerequisites; clarify only missing business facts. Bind caller inputs at runtime.
