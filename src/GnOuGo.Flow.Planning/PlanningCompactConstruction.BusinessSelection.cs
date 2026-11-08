@@ -212,8 +212,8 @@ internal static partial class PlanningCompactConstruction
             ("dependencies", results.Length == 0 ? EmptyArray() : PlanningSchemas.Array(dependency)),
             ("successCriteria", PlanningSchemas.Array(BusinessText(state, 1024), 1)));
         var addresses = State(state).Sources.Where(source => source.Indexed).Select(source => "source:" + source.Id)
-            .Concat(ProgressEvidence(state, context).Where(address => state.Construction!.Evidence?.ContainsKey(address) != true)
-                .Order(StringComparer.Ordinal)).Distinct(StringComparer.Ordinal).ToArray();
+            .Concat(ProgressEvidence(state, context).Order(StringComparer.Ordinal))
+            .Where(address => state.Construction!.Evidence?.ContainsKey(address) != true).Distinct(StringComparer.Ordinal).ToArray();
         var actions = new JsonArray();
         if (requirements.Length > 0)
             actions.Add((JsonNode)PlanningSchemas.Object(("kind", PlanningSchemas.Enum("block")), ("block", block)));

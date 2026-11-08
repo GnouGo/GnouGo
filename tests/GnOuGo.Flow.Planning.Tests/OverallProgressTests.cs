@@ -8,6 +8,26 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class OverallProgressTests
 {
     [Fact]
+    public async Task BusinessSelectionKeepsLoadedOriginalEvidenceWithoutOfferingTheSameReadAgain()
+    {
+        var (state, runtime) = await BusinessSelectionCoverageContextTests.PreparedGroup();
+        var source = state.Construction!.Compact!.Sources[0];
+        var address = "source:" + source.Id;
+        var remaining = "source:" + state.Construction.Compact.Sources[1].Id;
+        Assert.Contains('"' + address + '"', PlanningCompactConstruction.SelectionRequest(state).StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
+        var baseline = PlanningConstruction.Hash(state.Plan); var calls = runtime.Calls.Count;
+        PlanningConstruction.LoadEvidence(state, [address], followup: PlanningCompactConstruction.SelectionRequest,
+            purpose: PlanningCompactConstruction.SelectPurpose);
+        var restored = PlannerFixture.Clone(state);
+        var request = PlanningCompactConstruction.SelectionRequest(restored);
+        Assert.DoesNotContain('"' + address + '"', request.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
+        Assert.Contains('"' + remaining + '"', request.StructuredOutputSchema.ToJsonString(), StringComparison.Ordinal);
+        var context = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
+        Assert.Equal(source.Text, context["evidence"]![address]!["text"]!.ToString());
+        Assert.Equal(baseline, PlanningConstruction.Hash(restored.Plan)); Assert.Equal(calls, runtime.Calls.Count);
+    }
+
+    [Fact]
     public async Task BothSelectionsSharePureGlobalFactsWithoutCopyingOriginalText()
     {
         var (state, runtime) = await BusinessSelectionCoverageContextTests.PreparedGroup();

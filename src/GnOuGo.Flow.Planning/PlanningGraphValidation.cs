@@ -438,7 +438,9 @@ public static class PlanningGraphValidation
                         else if (producer.Type == "workflow.call")
                         {
                             var target = graph.Workflows.FirstOrDefault(w => w.Key == Member(producer.Input, "ref")?.Source);
-                            schema = target is null ? null : ObjectSchema(target.Outputs.Select(o => (o.Name, PlanningGraphCompiler.ToJsonSchema(o.Schema, catalog))));
+                            // A workflow call returns exactly its declared exports. Keep
+                            // those members closed while preserving each original child contract.
+                            schema = target is null ? null : ObjectSchema(target.Outputs.Select(o => (o.Name, PlanningGraphCompiler.ToJsonSchema(o.Schema, catalog))), closed: target.Outputs.Count > 0);
                         }
                         else if (producer.Type is "set" or "mapping.dynamic") schema = producer.OutputSchema is not null ? PlanningGraphCompiler.ToJsonSchema(producer.OutputSchema, catalog) : ValueSchema(producer.Input, visiting);
                         else if (producer.Type == "template.render")

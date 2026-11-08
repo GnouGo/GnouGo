@@ -572,7 +572,7 @@ internal sealed partial class BenchmarkCampaign
             retry["BaseDelayMilliseconds"]?.GetValue<int>() != captured.BaseDelayMilliseconds ||
             retry["MaxDelayMilliseconds"]?.GetValue<int>() != captured.MaxDelayMilliseconds ||
             retry["MaxTotalDelayMilliseconds"]?.GetValue<int>() != captured.MaxTotalDelayMilliseconds ||
-            retry["MaxUncertainRetries"]?.GetValue<int>() != 0 || attempts.Count > retry["MaxAttempts"]!.GetValue<int>() ||
+            retry["MaxUncertainRetries"]?.GetValue<int>() != captured.MaxUncertainRetries || attempts.Count > retry["MaxAttempts"]!.GetValue<int>() ||
             attempts.Select(a => a?["Id"]?.ToString()).Distinct(StringComparer.Ordinal).Count() != attempts.Count ||
             attempts.Any(a => a?["Id"]?.ToString() is not { Length: > 0 } id || !id.StartsWith(state.PendingCall.Id + ":", StringComparison.Ordinal)) ||
             !(allowEmptyTransport && attempts.Count == 0 && journal["transport"]?["Fingerprint"]?.ToString() == "" &&

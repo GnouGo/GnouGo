@@ -7,6 +7,32 @@ public sealed partial class BenchmarkPermanentRetentionTests
 {
     private const string CancelledRun = "server-cancelled-run";
 
+    [Fact]
+    public async Task CancelledIndependentPolicyRetainsItsExactCaptureAndNeverResumesTheCancelledRequest()
+    {
+        var records = new Records(); var campaign = await SeedCancelledServerAsync(records);
+        var run = (await campaign.LoadAsync("planning-evaluation-runs", CancelledRun, Ct))!;
+        var capture = run["session"]!["request"]!["options"]!["planning_transport_policy"]!;
+        capture["version"] = 2; capture["maxUncertainRetries"] = 1; capture["independentGenerationMaxElapsedMilliseconds"] = 1_260_000;
+        var policy = (await campaign.LoadAsync("planning-evaluation-session-policy", Session, Ct))!;
+        policy["planning_transport_policy"] = capture.DeepClone();
+        await campaign.SaveAsync("planning-evaluation-session-policy", Session, policy, Ct);
+        await campaign.SaveAsync("planning-evaluation-runs", CancelledRun, run, Ct);
+        var journal = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct))!;
+        var transport = journal["effective_transport_policy"]!;
+        transport["planning_transport_policy"] = capture.DeepClone(); transport["effective_retry_policy"]!["MaxUncertainRetries"] = 1;
+        journal["effective_transport_policy_hash"] = GnOuGo.Flow.Planning.PlanningGraphCompiler.Fingerprint(transport.ToJsonString());
+        var attempt = journal["transport"]!["Attempts"]![0]!;
+        attempt["Failure"] = "cancelled"; attempt["RetryDecision"] = "cancelled; no retry"; attempt["ResponseBodyComplete"] = false;
+        await campaign.SaveAsync(BenchmarkHttpJournal.Collection, RequestId, journal, Ct);
+        var original = records.Snapshot(excludeClosures: true);
+        var preview = await campaign.InspectPermanentRetentionAsync("planning-evaluation-runs", CancelledRun, RequestId, Ct, BenchmarkCampaign.CancelledPlanningRetention);
+        await campaign.ApplyPermanentRetentionAsync("planning-evaluation-runs", CancelledRun, RequestId, preview["evidence_hash"]!.ToString(), Operator, Authorization, Ct,
+            BenchmarkCampaign.CancelledPlanningRetention);
+        Assert.Equal(original, records.Snapshot(excludeClosures: true));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.RequireRunNotRetainedAsync(Session, Ct));
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
