@@ -9,6 +9,12 @@ public sealed partial class BenchmarkPermanentRetentionTests
 {
     [Theory]
     [InlineData(null)] [InlineData("marker")] [InlineData("usage")] [InlineData("completion")]
+    [InlineData("masked-timeout")]
+    [InlineData("masked-timeout-not-due")]
+    [InlineData("masked-timeout-cancelled")]
+    [InlineData("masked-timeout-usage")]
+    [InlineData("masked-timeout-marker")]
+    [InlineData("masked-timeout-storage-failure")]
     public async Task IndependentGenerationRetentionBindsBothUnknownAttemptsWithoutReleasingEitherHold(string? tamper)
     {
         var records = new Records(); var campaign = await SeedCapturedRetriesAsync(records, 2, true);
@@ -32,11 +38,30 @@ public sealed partial class BenchmarkPermanentRetentionTests
         if (tamper == "marker") first["RetryDecision"] = "blocked; uncertain outcome";
         if (tamper == "usage") first["UsageKnown"] = true;
         if (tamper == "completion") first["AssembledBody"] = "received completion";
+        if (tamper?.StartsWith("masked-timeout", StringComparison.Ordinal) == true)
+        {
+            await campaign.SaveAsync("planning-evaluation-failures", RequestId, new()
+            { ["stage"] = "dispatch", ["exception_type"] = tamper == "masked-timeout-storage-failure" ? "IOException" : "OperationCanceledException" }, Ct);
+            var attempts = journal["transport"]!["Attempts"]!.AsArray();
+            for (var index = 0; index < attempts.Count; index++)
+            {
+                var attempt = attempts[index]!; var started = DateTimeOffset.UtcNow.AddMinutes(-30 + index * 10);
+                var deadline = started.AddMilliseconds(capture["attemptTimeoutMilliseconds"]!.GetValue<int>());
+                attempt["StartedAtUtc"] = started; attempt["DeadlineAtUtc"] = deadline; attempt["CompletedAtUtc"] = deadline.AddMilliseconds(1);
+                attempt["Status"] = null; attempt["Body"] = null; attempt["Failure"] = "timeout";
+                attempt["RetryDecision"] = index == attempts.Count - 1 ? "blocked; captured retry allowance exhausted" : "abandoned; independent tool-free generation retry";
+            }
+            var last = attempts[^1]!;
+            if (tamper == "masked-timeout-not-due") last["CompletedAtUtc"] = last["StartedAtUtc"]!.DeepClone();
+            if (tamper == "masked-timeout-cancelled") last["Failure"] = "cancelled";
+            if (tamper == "masked-timeout-usage") last["UsageKnown"] = true;
+            if (tamper == "masked-timeout-marker") last["RetryDecision"] = "blocked; uncertain outcome";
+        }
         await campaign.SaveAsync(BenchmarkHttpJournal.Collection, RequestId, journal, Ct);
         var original = records.Snapshot(excludeClosures: true);
         var accounting = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
         Assert.Equal(2m, accounting["reserved_cost_eur"]!.GetValue<decimal>());
-        if (tamper is not null)
+        if (tamper is not (null or "masked-timeout"))
             await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.InspectPermanentRetentionAsync(
                 SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, Ct, BenchmarkCampaign.ExhaustedPlanningRetriesRetention));
         else

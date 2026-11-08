@@ -126,14 +126,21 @@ public sealed class LLMHttpRetryContext
     internal async Task<LLMHttpRetryState?> LoadAsync(CancellationToken ct)
     {
         try { return await Journal.LoadAsync(ct).ConfigureAwait(false); }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception error) { _journalFailure = ExceptionDispatchInfo.Capture(error); throw; }
     }
     internal async Task SaveAsync(LLMHttpRetryState state, CancellationToken ct)
     {
         try { await Journal.SaveAsync(state, ct).ConfigureAwait(false); }
+        // An attempt deadline may interrupt a progress write. The transport
+        // owner must durably save its final outcome with a noncancelled token
+        // before recovery or another attempt. Do not retain this cancellation
+        // as a later storage failure after that final save has succeeded.
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception error) { _journalFailure = ExceptionDispatchInfo.Capture(error); throw; }
     }
     // A storage/admission failure belongs to the host, not to provider retry classification.
+    internal void ThrowIfJournalFailed() => Volatile.Read(ref _journalFailure)?.Throw();
     internal void RethrowJournalFailure() => Interlocked.Exchange(ref _journalFailure, null)?.Throw();
     public IDisposable Activate()
     {

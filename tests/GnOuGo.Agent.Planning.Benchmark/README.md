@@ -713,6 +713,13 @@ The protected independent provider probe accepts `--probe-structured-strict true
 
 `--probe-present-response-schema` keeps the provider schema and strictness unchanged and presents the exact response schema in the prompt, before the original final context object. This isolates schema visibility without weakening required/null/type fields or changing a retained request; the independent identity and complete physical request accounting include the added text. It remains a probe-only factor and cannot apply a generated contribution.
 
+The exhausted-planning retention path can also recognize historical progress-write
+cancellation that masked provider failure metadata. The exception label alone grants
+no authority: the exact version-2 capture and every owner journal must prove elapsed
+attempt deadlines, terminal timeout/exhaustion decisions, independent earlier
+abandonment and no received completion/usage. Keep the original failure, partials
+and all reservations; retention still forbids the old request's replay/continuation.
+
 
 ### Streaming transport amendments and independent-probe incidents
 

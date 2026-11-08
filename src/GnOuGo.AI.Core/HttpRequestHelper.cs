@@ -247,6 +247,7 @@ public static class HttpRequestHelper
                     previous.CompletedAtUtc is not null && previous.Failure is "transport" or "timeout" &&
                     previous.Status is null && previous.ObservedStatus is null or >= 200 and < 300 &&
                     previous.Body is null && previous.AssembledBody is null && previous.ProtocolComplete != true && previous.UsageKnown != true &&
+                    previous.TerminationStatus is null or "stop" or "end_turn" or "stop_sequence" &&
                     previous.StreamFailure is null && previous.ProviderErrorCode is null;
                 if (confirmedOnly && previous.Status is not null && (previous.Body is null || previous.Failure is not null))
                     throw new InvalidOperationException("A confirmed HTTP response requires a complete durably recorded body and outcome.");
@@ -435,6 +436,7 @@ public static class HttpRequestHelper
             }
             // A persistence failure is not a transport failure and must never trigger a resend.
             await SaveAsync(CancellationToken.None).ConfigureAwait(false);
+            context?.ThrowIfJournalFailed();
             ct.ThrowIfCancellationRequested();
         }
 

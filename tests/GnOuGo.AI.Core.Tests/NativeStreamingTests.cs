@@ -618,8 +618,86 @@ public sealed class NativeStreamingTests
         Assert.True(attempts[1].ProtocolComplete);
     }
 
+    [Fact]
+    public async Task TimedOutProgressWritesDoNotReplaceExhaustedProviderFailureWithStaleCancellation()
+    {
+        var journal = new TimedOutProgressJournal();
+        using var http = NewHttp(new Handler(_ => Task.FromResult(Response("openai", Fixture("openai", "truncated")))));
+        using var context = new LLMHttpRetryContext("request", journal,
+            new() { MaxAttempts = 3, MaxUncertainRetries = 1, AttemptTimeoutMilliseconds = 100,
+                BaseDelayMilliseconds = 1, MaxDelayMilliseconds = 1 }, 5_000).Activate();
+        var failure = await Assert.ThrowsAsync<LLMProviderException>(() => Client(http, "openai").CallAsync(Request(), Ct));
+        Assert.Equal(LLMProviderFailureKind.Timeout, failure.Kind);
+        Assert.True(failure.RetryExhausted);
+        Assert.Equal(2, failure.AttemptCount);
+        Assert.Equal(2, httpCalls(http));
+        Assert.All(journal.Inner.State!.Attempts, a => { Assert.Equal("timeout", a.Failure); Assert.NotNull(a.PartialBodyBase64); });
+        Assert.Equal("blocked; captured retry allowance exhausted", journal.Inner.State.Attempts[^1].RetryDecision);
+    }
+
+    private sealed class TimedOutProgressJournal : ILLMHttpRetryJournal
+    {
+        internal Journal Inner { get; } = new();
+        public Task<LLMHttpRetryState?> LoadAsync(CancellationToken ct) => Inner.LoadAsync(ct);
+        public async Task SaveAsync(LLMHttpRetryState state, CancellationToken ct)
+        {
+            if (state.Attempts.LastOrDefault() is { Failure: null, PartialBodyBase64: not null } && ct.CanBeCanceled)
+                await Task.Delay(Timeout.InfiniteTimeSpan, ct);
+            await Inner.SaveAsync(state, ct);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task GenuineProgressStorageFailureNeverAuthorizesIndependentGeneration(bool unrelatedCancellation)
+    {
+        var expected = unrelatedCancellation ? (Exception)new OperationCanceledException("Storage cancelled without the supplied token.") : new IOException("Storage failed.");
+        var journal = new FailedProgressJournal(expected);
+        using var http = NewHttp(new Handler(_ => Task.FromResult(Response("openai", Fixture("openai", "truncated")))));
+        using var context = new LLMHttpRetryContext("request", journal,
+            new() { MaxAttempts = 3, MaxUncertainRetries = 1, BaseDelayMilliseconds = 1, MaxDelayMilliseconds = 1 }, 5_000).Activate();
+        var actual = await Record.ExceptionAsync(() => Client(http, "openai").CallAsync(Request(), Ct));
+        Assert.Same(expected, actual);
+        Assert.Equal(1, httpCalls(http));
+        Assert.NotNull(Assert.Single(journal.Inner.State!.Attempts).PartialBodyBase64);
+    }
+
+    private sealed class FailedProgressJournal(Exception failure) : ILLMHttpRetryJournal
+    {
+        internal Journal Inner { get; } = new();
+        public Task<LLMHttpRetryState?> LoadAsync(CancellationToken ct) => Inner.LoadAsync(ct);
+        public Task SaveAsync(LLMHttpRetryState state, CancellationToken ct)
+        {
+            if (state.Attempts.LastOrDefault() is { Failure: null, PartialBodyBase64: not null } && ct.CanBeCanceled) throw failure;
+            return Inner.SaveAsync(state, ct);
+        }
+    }
+
     private static IDisposable IndependentContext(Journal journal) => new LLMHttpRetryContext("request", journal,
         new() { MaxAttempts = 3, MaxUncertainRetries = 1, BaseDelayMilliseconds = 1, MaxDelayMilliseconds = 1 }, 10_000).Activate();
+
+    [Theory]
+    [InlineData("openai", false)] [InlineData("copilot", false)] [InlineData("anthropic", false)]
+    [InlineData("anthropic", true)]
+    public async Task ObservedExhaustionOrFinalUsageCannotRegenerateWhenTheLastProtocolMarkerIsLost(string type, bool finalUsage)
+    {
+        var body = Fixture(type, finalUsage ? null : "no-usage");
+        body = type == "anthropic"
+            ? body.Replace(Event(new { type = "message_stop" }), "", StringComparison.Ordinal)
+            : body.Replace("data: [DONE]\n\n", "", StringComparison.Ordinal);
+        if (!finalUsage) body = type == "anthropic"
+            ? body.Replace("\"stop_reason\":\"end_turn\"", "\"stop_reason\":\"max_tokens\"", StringComparison.Ordinal)
+            : body.Replace("\"finish_reason\":\"stop\"", "\"finish_reason\":\"length\"", StringComparison.Ordinal);
+        var journal = new Journal();
+        using var http = NewHttp(new Handler(_ => Task.FromResult(Response(type, body))));
+        using (IndependentContext(journal))
+            await Assert.ThrowsAsync<LLMProviderException>(() => Client(http, type).CallAsync(Request(), Ct));
+        Assert.Equal(1, httpCalls(http));
+        var attempt = Assert.Single(journal.State!.Attempts);
+        Assert.Equal(finalUsage ? "end_turn" : type == "anthropic" ? "max_tokens" : "length", attempt.TerminationStatus);
+        Assert.Equal(finalUsage, attempt.UsageKnown == true);
+        Assert.NotEqual(true, attempt.ProtocolComplete);
+    }
 
     [Theory]
     [InlineData("length")] [InlineData("usage_without_terminal")]

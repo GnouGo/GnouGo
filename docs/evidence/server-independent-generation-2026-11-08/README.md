@@ -130,3 +130,36 @@ allocation, after all HTTP holds and the separate retained external hold. Global
 funding remains unavailable. The solution run on `44c12c3c` was interrupted when
 this newly reproduced runtime defect required a source change; no complete suite
 pass is claimed for that intermediate state.
+
+## Live bounded retry and a masked timeout
+
+The final-source Server `local` check on `94a6078b` stopped before an accepted
+contribution. Its [actual 6,142-byte request and two partial streams](local01-bounded-retry-and-whitespace.json)
+show a short JSON prefix followed by prolonged whitespace, with strict provider
+JSON Schema already enabled. Both captured 600-second deadlines expired. The
+existing owner admitted exactly one separately reserved independent attempt, with
+a fresh identity and no mixed response. No complete result or rescue is claimed.
+
+The original planner diagnostic falsely reported session elapsed-budget exhaustion.
+A cancelled progress write had remained in the HTTP context's storage-failure slot,
+then masked the later terminal provider timeout. The same focused regression fails
+against the earlier binary and passes after excluding supplied-token cancellation
+from that slot. A genuine storage failure remains terminal before another send.
+Additional native regressions preserve observed output-exhaustion/final-usage
+barriers even if the protocol's last marker is lost. **377 AI.Core tests passed**;
+**192 focused journal/retention tests passed**. The exact original failure records
+are never rewritten; terminal owner evidence may establish eligibility for the
+existing permanent-retention operation while keeping both complete holds.
+
+A stronger generic 1.5-million-character alias fixture reproduces the nested memory
+failure with the earlier evaluator and passes with the fix:
+[before](synthetic-alias-before.json), [after](synthetic-alias-after.json).
+The unchanged 50 MB ceiling rejects the earlier 54,005,388-byte materialization;
+the fixed evaluator completes at 36,004,740 bytes. This is deterministic resource
+evidence, not a live outcome or speed claim.
+
+The [audit after the bounded live call](financial-after-local01.json) retains
+EUR 97.282463054187192118226601 in HTTP holds and the separate original external
+hold. Available funds in the same allocation are EUR 167.1193640841916703985669496.
+The intermediate shared suite on `94a6078b` was stopped for the newly reproduced
+generic defect; final shared validation remains required on stabilized source.

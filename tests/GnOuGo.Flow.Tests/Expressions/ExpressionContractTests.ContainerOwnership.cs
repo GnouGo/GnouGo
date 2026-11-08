@@ -11,7 +11,7 @@ public sealed partial class ExpressionContractTests
     public void ContainerAliasProjectionDoesNotRepeatedlyMaterializeFreshParents()
     {
         const string program = "(result => Object.fromEntries(Object.entries(result).map(entry => entry[0] === 'physical' ? ['logical', entry[1]] : entry)))(data.steps.result)";
-        var payload = new JsonObject { ["text"] = new string('x', 1_300_000), ["exact"] = JsonNode.Parse("[9007199254740993.00,null,1.23000000000000000000001]") };
+        var payload = new JsonObject { ["text"] = new string('x', 1_500_000), ["exact"] = JsonNode.Parse("[9007199254740993.00,null,1.23000000000000000000001]") };
         var context = new JsonObject { ["steps"] = new JsonObject { ["result"] = new JsonObject {
             ["physical"] = payload, ["untouched"] = payload.DeepClone() } } };
         var before = context.ToJsonString();
@@ -25,7 +25,7 @@ public sealed partial class ExpressionContractTests
         Assert.InRange(allowance.Snapshot()["materialized_bytes"]!.GetValue<long>(), 1, 50_000_000);
         result["logical"]!["text"] = "changed";
         Assert.Equal(before, context.ToJsonString());
-        Assert.Equal(1_300_000, result["untouched"]!["text"]!.GetValue<string>().Length);
+        Assert.Equal(1_500_000, result["untouched"]!["text"]!.GetValue<string>().Length);
     }
 
     [Fact]

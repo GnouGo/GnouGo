@@ -462,6 +462,7 @@ internal sealed partial class BenchmarkCampaign
         var captured = PlanningTransportPolicies.Read(state.Request);
         var effective = journal["effective_transport_policy"] as JsonObject;
         var retry = effective?["effective_retry_policy"];
+        var timedOutProgressCancellation = HasExhaustedTimeoutEvidence(captured, attempts, failure);
         if (state.Diagnostics.Any(d => d.Code == "MODEL_REQUEST_REJECTED") &&
             (failure?["kind"]?.ToString() != "InvalidRequest" || failure["status_code"]?.GetValue<int>() != 400 ||
              attempts.LastOrDefault()?["Status"]?.GetValue<int>() != 400)) return false;
@@ -480,7 +481,7 @@ internal sealed partial class BenchmarkCampaign
             retry["MaxDelayMilliseconds"]?.GetValue<int>() != captured.MaxDelayMilliseconds ||
             retry["MaxTotalDelayMilliseconds"]?.GetValue<int>() != captured.MaxTotalDelayMilliseconds ||
             attempts.Count > retry["MaxAttempts"]!.GetValue<int>() ||
-            failure?["stage"]?.ToString() != "dispatch" || !unstarted && !unfundedRetry && failure["attempt_count"]?.GetValue<int>() != attempts.Count ||
+            failure?["stage"]?.ToString() != "dispatch" || !unstarted && !unfundedRetry && !timedOutProgressCancellation && failure["attempt_count"]?.GetValue<int>() != attempts.Count ||
             attempts.Select(a => a?["Id"]?.ToString()).Distinct(StringComparer.Ordinal).Count() != attempts.Count ||
             attempts.Any(a => a?["Id"]?.ToString() is not { Length: > 0 } id || !id.StartsWith(state.PendingCall.Id + ":", StringComparison.Ordinal))) return false;
         if (unstarted)
@@ -522,7 +523,7 @@ internal sealed partial class BenchmarkCampaign
                     attempt["UsageKnown"]?.GetValue<bool>() != true && attempt["StreamFailure"] is null && attempt["ProviderErrorCode"] is null)
                     continue;
                 return i == attempts.Count - 1 && attempt["Body"] is null && attempt["Failure"]?.ToString() is "timeout" or "transport" &&
-                    failure["status_code"] is null && failure["kind"]?.ToString() is "Timeout" or "Transport";
+                    (timedOutProgressCancellation || failure["status_code"] is null && failure["kind"]?.ToString() is "Timeout" or "Transport");
             }
             // A fully received nonretryable request rejection also exhausts the
             // captured policy. Retention preserves its unknown exposure; it never retries it.
@@ -536,6 +537,37 @@ internal sealed partial class BenchmarkCampaign
         return unfundedRetry || failure["retry_exhausted"]?.GetValue<bool>() == true && failure["retryable"]?.GetValue<bool>() == true &&
             failure["status_code"]?.GetValue<int>() == attempts[^1]!["Status"]!.GetValue<int>() &&
             failure["kind"]?.ToString() is "RateLimited" or "ServiceUnavailable" or "Timeout";
+    }
+
+    // A historical cancelled progress write could mask the final provider timeout.
+    // Its exception label alone proves nothing. The exact captured owner journal
+    // must independently prove bounded terminal timeouts, no received completion,
+    // and exhaustion. Keep the original exception and every hold unchanged.
+    private static bool HasExhaustedTimeoutEvidence(PlanningTransportPolicy? policy, JsonArray attempts, JsonObject? failure)
+    {
+        if (policy is not { Version: 2, MaxUncertainRetries: > 0 } || attempts.Count < 2 ||
+            attempts.Count > policy.MaxAttempts || attempts.Count <= policy.MaxUncertainRetries ||
+            failure?["exception_type"]?.ToString() is not ("OperationCanceledException" or "TaskCanceledException") ||
+            new[] { "kind", "status_code", "safe_provider_code", "retryable", "attempt_count", "retry_exhausted", "retry_after_ms" }
+                .Any(key => failure[key] is not null)) return false;
+        for (var index = 0; index < attempts.Count; index++)
+        {
+            var attempt = attempts[index];
+            if (attempt is null || attempt["Failure"]?.ToString() != "timeout" ||
+                attempt["Status"] is not null || attempt["Body"] is not null || attempt["AssembledBody"] is not null ||
+                attempt["ProtocolComplete"]?.GetValue<bool>() == true || attempt["UsageKnown"]?.GetValue<bool>() == true ||
+                attempt["StreamFailure"] is not null || attempt["ProviderErrorCode"] is not null ||
+                attempt["ObservedStatus"]?.GetValue<int>() is not (null or >= 200 and < 300) ||
+                attempt["StartedAtUtc"] is null || attempt["DeadlineAtUtc"] is null || attempt["CompletedAtUtc"] is null)
+                return false;
+            var started = attempt["StartedAtUtc"]!.GetValue<DateTimeOffset>();
+            var deadline = attempt["DeadlineAtUtc"]!.GetValue<DateTimeOffset>();
+            if (deadline <= started || deadline - started > TimeSpan.FromMilliseconds(policy.AttemptTimeoutMilliseconds) ||
+                attempt["CompletedAtUtc"]!.GetValue<DateTimeOffset>() < deadline ||
+                attempt["RetryDecision"]?.ToString() != (index == attempts.Count - 1
+                    ? "blocked; captured retry allowance exhausted" : "abandoned; independent tool-free generation retry")) return false;
+        }
+        return attempts.Take(attempts.Count - 1).Any(a => a?["PartialBodyBase64"] is not null);
     }
 
     private static bool MatchesUnstartedFinancialRefusal(PlanningSession state, JsonObject journal, JsonObject failure, decimal? ceiling)

@@ -129,6 +129,7 @@ internal static class NativeStreamingResponse
                     // Azure asynchronous filtering can supply a later content_filter finish after generated text.
                     if (choice["finish_reason"] is not null && Text(finish) != "content_filter") throw Invalid("Duplicate chat finish reason.");
                     choice["finish_reason"] = finish.DeepClone();
+                    if (attempt.TerminationStatus is null or "stop") attempt.TerminationStatus = Text(finish);
                 }
                 if (item["logprobs"] is JsonObject logprobs)
                 {
@@ -267,6 +268,8 @@ internal static class NativeStreamingResponse
                         Merge(message["usage"]!.AsObject(), updates);
                     }
                     ended |= message["stop_reason"] is not null;
+                    attempt.TerminationStatus = Text(message["stop_reason"]);
+                    attempt.UsageKnown = ended && KnownUsage(message["usage"], "input_tokens", "output_tokens");
                     break;
                 case "message_stop": stopped = true; break;
                 default: break; // Future non-content events cannot waive the required terminal state.

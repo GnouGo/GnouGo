@@ -152,6 +152,12 @@ EOF before an SSE event boundary is a transport interruption; complete malformed
 JSON frames remain protocol failures. Partial frames are retained and never
 contribute to the next attempt's response.
 
+A deadline-cancelled progress write remains cancellation, followed by the transport
+owner's mandatory durable final save. It cannot become a stale storage exception
+that masks a later attempt's timeout. Genuine storage/admission failures stop the
+retry owner before another send. Observed output exhaustion and final usage also
+block independent generation when the last protocol marker is missing.
+
 `RoutingLLMClient` exposes provider failures through the redacted
 `LLMProviderException` contract. `LLMProviderFailureKind` distinguishes transport,
 timeout, ordinary rate limiting, service unavailability, authentication,
