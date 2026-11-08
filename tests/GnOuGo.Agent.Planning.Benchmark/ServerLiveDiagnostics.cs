@@ -176,7 +176,7 @@ internal static class ServerLiveDiagnostics
                 (await campaign.LoadAsync("planning-evaluation-requests", sourceRequest, context.RequestAborted))?.Deserialize(PlanningJsonContext.Default.LLMRequest)
                 ?? throw new ArgumentException("The exact owned source request is unavailable.");
             var request = IndependentProbe(original, model.Provider, model.Model, run, nonce,
-                SchemaPortabilityCampaign.Option(args, "--probe-reasoning") ?? "medium",
+                SchemaPortabilityCampaign.Option(args, "--probe-reasoning"),
                 SchemaPortabilityCampaign.Option(args, "--probe-output-tokens") is { } allocation
                     ? int.Parse(allocation, System.Globalization.CultureInfo.InvariantCulture) : original?.MaxTokens ?? 1024,
                 SchemaPortabilityCampaign.Option(args, "--probe-structured-strict") is { } strict ? bool.Parse(strict) : null);
@@ -552,10 +552,11 @@ internal static class ServerLiveDiagnostics
         finally { await app.StopAsync(); }
     }
 
-    internal static LLMRequest IndependentProbe(LLMRequest? original, string provider, string model, string run, string nonce, string reasoning, int outputTokens,
+    internal static LLMRequest IndependentProbe(LLMRequest? original, string provider, string model, string run, string nonce, string? reasoning, int outputTokens,
         bool? structuredStrict = null)
     {
-        if (outputTokens <= 0 || string.IsNullOrWhiteSpace(reasoning)) throw new ArgumentException("An explicit positive allocation and reasoning effort are required.");
+        if (outputTokens <= 0 || reasoning is not null && string.IsNullOrWhiteSpace(reasoning))
+            throw new ArgumentException("A positive output allocation and a valid optional reasoning override are required.");
         if (original is not null && (original.Provider != provider || original.Model != model || original.Tools is { Count: > 0 } ||
             original.UseBackgroundMode || original.StructuredOutputSchema is null))
             throw new ArgumentException("Only exact same-deployment tool-free foreground structured generation can seed an independent probe.");
@@ -566,7 +567,8 @@ internal static class ServerLiveDiagnostics
                     ["nonce"] = new JsonObject { ["type"] = "string", ["const"] = nonce } }, ["required"] = new JsonArray("ok", "nonce") } }
             : JsonSerializer.Deserialize(JsonSerializer.Serialize(original, PlanningJsonContext.Default.LLMRequest), PlanningJsonContext.Default.LLMRequest)!;
         request.ClientRequestId = null;
-        request.Reasoning = reasoning; request.MaxTokens = outputTokens; request.RequireOutputTokenLimit = true;
+        request.Reasoning = reasoning ?? (original is null ? "medium" : original.Reasoning);
+        request.MaxTokens = outputTokens; request.RequireOutputTokenLimit = true;
         if (structuredStrict is { } strict) request.StructuredOutputStrict = strict;
         request.DisableTransportRetries = true; request.RequiredReviewCalls = null;
         request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));

@@ -8,6 +8,22 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class IndependentProviderProbeTests
 {
+    [Theory]
+    [InlineData("low")]
+    [InlineData(null)]
+    public void SourceReasoningIsPreservedUnlessExplicitlyOverridden(string? reasoning)
+    {
+        var original = new LLMRequest { Provider = "p", Model = "m", Reasoning = reasoning, MaxTokens = 32768,
+            Prompt = "Preserve the exact source parameters.", StructuredOutputSchema = new JsonObject { ["type"] = "object" } };
+        var before = JsonSerializer.Serialize(original, PlanningJsonContext.Default.LLMRequest);
+        var preserved = ServerLiveDiagnostics.IndependentProbe(original, "p", "m", "copy", "one", null, 32768);
+        Assert.Equal(reasoning, preserved.Reasoning);
+        var changed = ServerLiveDiagnostics.IndependentProbe(original, "p", "m", "override", "two", "medium", 32768);
+        Assert.Equal("medium", changed.Reasoning);
+        Assert.Equal(before, JsonSerializer.Serialize(original, PlanningJsonContext.Default.LLMRequest));
+        Assert.NotEqual(preserved.ClientRequestId, changed.ClientRequestId);
+    }
+
     [Fact]
     public void DependencyPresentationChangesOnlyPromptAndIndependentIdentity()
     {
