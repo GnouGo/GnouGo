@@ -14,23 +14,27 @@ public sealed partial class BenchmarkPermanentRetentionTests
 {
     private const string InterruptedServerRun = "interrupted-server-run";
 
-    [Fact]
-    public async Task InterruptedServerRetentionKeepsUncertaintyAndTheWholeHoldAcrossColdRestart()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task UnjournaledServerRetentionKeepsUncertaintyAndTheWholeHoldAcrossColdRestart(bool cancelled)
     {
         var workspace = Path.Combine(Path.GetTempPath(), "GnOuGo.ServerRetention", Guid.NewGuid().ToString("N"));
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(Path.Combine(workspace, ".GnOuGo/data/live-server", InterruptedServerRun));
         var campaign = await SeedInterruptedServerAsync(fixture);
+        var retentionKind = cancelled ? BenchmarkCampaign.CancelledPlanningRetention : Interrupted;
+        if (cancelled) await MarkUnjournaledServerCancelledAsync(campaign, fixture);
         var budgetBefore = await fixture.Records.GetAsync("agent-planning-budgets-v11", "benchmark", Session, "test", Ct);
         var accountingBefore = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
-        var proposal = await campaign.InspectPermanentRetentionAsync("planning-evaluation-runs", InterruptedServerRun, RequestId, Ct, Interrupted, workspace);
+        var proposal = await campaign.InspectPermanentRetentionAsync("planning-evaluation-runs", InterruptedServerRun, RequestId, Ct, retentionKind, workspace);
         var closure = await campaign.ApplyPermanentRetentionAsync("planning-evaluation-runs", InterruptedServerRun, RequestId,
-            proposal["evidence_hash"]!.ToString(), Operator, Authorization, Ct, Interrupted, workspace);
+            proposal["evidence_hash"]!.ToString(), Operator, Authorization, Ct, retentionKind, workspace);
         Assert.Equal("unknown", closure["evidence"]!["dispatch_certainty"]!.ToString());
         Assert.Equal(.95m, closure["evidence"]!["retained_application_reservation_eur"]!.GetValue<decimal>());
         Assert.Equal("inconclusive", closure["outcome"]!.ToString());
         var cold = new BenchmarkCampaign(new KeyVaultRecordStore(Path.Combine(fixture.Root, "vault.db")), "retention");
         await cold.ApplyPermanentRetentionAsync("planning-evaluation-runs", InterruptedServerRun, RequestId,
-            proposal["evidence_hash"]!.ToString(), Operator, Authorization, Ct, Interrupted, workspace);
+            proposal["evidence_hash"]!.ToString(), Operator, Authorization, Ct, retentionKind, workspace);
         Assert.False(await cold.HasUncertainRequestAsync(Ct));
         await Assert.ThrowsAsync<InvalidOperationException>(() => cold.RequireRunNotRetainedAsync(Session, Ct));
         await cold.RequireRunNotRetainedAsync("independent-session", Ct);
@@ -71,6 +75,46 @@ public sealed partial class BenchmarkPermanentRetentionTests
         Assert.Empty((await understated.LoadAsync(Ct))!.Attempts);
         await fixture.DisposeAsync();
         Directory.Delete(workspace, true);
+    }
+
+    [Theory]
+    [InlineData("active_status")]
+    [InlineData("missing_cancelled_result")]
+    [InlineData("changed_budget")]
+    public async Task CancelledUnjournaledServerRetentionRequiresBothCancelledStateAndExactHold(string defect)
+    {
+        var workspace = Path.Combine(Path.GetTempPath(), "GnOuGo.ServerRetention", Guid.NewGuid().ToString("N"));
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(Path.Combine(workspace, ".GnOuGo/data/live-server", InterruptedServerRun));
+        var campaign = await SeedInterruptedServerAsync(fixture);
+        await MarkUnjournaledServerCancelledAsync(campaign, fixture);
+        if (defect == "active_status")
+        {
+            var state = (await fixture.Store.LoadAsync("benchmark", Session, Ct))!;
+            state.Status = PlanningStatus.Generating; state.Revision++;
+            Assert.True(await fixture.Store.TrySaveAsync(state, state.Revision - 1, Ct));
+        }
+        else if (defect == "missing_cancelled_result")
+        {
+            var run = (await campaign.LoadAsync("planning-evaluation-runs", InterruptedServerRun, Ct))!;
+            run["result"]!["status"] = PlanningStatus.Generating;
+            await campaign.SaveAsync("planning-evaluation-runs", InterruptedServerRun, run, Ct);
+        }
+        else await fixture.Records.UpsertAsync("agent-planning-budgets-v11", "benchmark", Session, "{}", "test", Ct);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.InspectPermanentRetentionAsync("planning-evaluation-runs",
+            InterruptedServerRun, RequestId, Ct, BenchmarkCampaign.CancelledPlanningRetention, workspace));
+        Assert.Null(await campaign.LoadAsync("planning-evaluation-closures", RequestId, Ct));
+        await fixture.DisposeAsync();
+        Directory.Delete(workspace, true);
+    }
+
+    private static async Task MarkUnjournaledServerCancelledAsync(BenchmarkCampaign campaign, PlanningPersistenceTests.StoreFixture fixture)
+    {
+        var state = (await fixture.Store.LoadAsync("benchmark", Session, Ct))!;
+        state.Status = PlanningStatus.Cancelled; state.Revision++;
+        Assert.True(await fixture.Store.TrySaveAsync(state, state.Revision - 1, Ct));
+        var run = (await campaign.LoadAsync("planning-evaluation-runs", InterruptedServerRun, Ct))!;
+        run["result"]!["status"] = PlanningStatus.Cancelled;
+        await campaign.SaveAsync("planning-evaluation-runs", InterruptedServerRun, run, Ct);
     }
 
     private sealed class RetainedHoldRuntimeHandler : HttpMessageHandler

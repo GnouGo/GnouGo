@@ -108,10 +108,12 @@ internal sealed partial class BenchmarkCampaign
         if (retentionKind is not (InterruptedProcessRetention or ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention or CancelledPlanningRetention))
             throw new InvalidOperationException("New closures require the active captured-transport retention mode; historical closures remain immutable.");
         var run = await LoadAsync(collection, runKey, ct) ?? throw new InvalidOperationException("No retained planning run.");
-        if (retentionKind == InterruptedProcessRetention && run["host"]?.ToString() == "GnOuGo.Agent.Server")
+        var cancelledUnjournaled = retentionKind == CancelledPlanningRetention &&
+            (await LoadAsync(BenchmarkHttpJournal.Collection, requestId, ct))?["transport"]?["Attempts"] is JsonArray { Count: 0 };
+        if ((retentionKind == InterruptedProcessRetention || cancelledUnjournaled) && run["host"]?.ToString() == "GnOuGo.Agent.Server")
         {
             await using var scope = await OpenInterruptedServerAsync(run, collection, runKey, workspace, ct);
-            return await InspectInterruptedServerAsync(run, collection, runKey, requestId, scope, ct);
+            return await InspectInterruptedServerAsync(run, collection, runKey, requestId, scope, ct, cancelledUnjournaled);
         }
         var state = ReadCurrentSession(run["session"]);
         var pending = state.PendingCall;
@@ -333,11 +335,13 @@ internal sealed partial class BenchmarkCampaign
                 throw new InvalidOperationException("The existing closure is immutable and does not match this authorization.");
             return existing;
         }
-        var serverRun = retentionKind == InterruptedProcessRetention ? await LoadAsync(collection, runKey, ct) : null;
+        var cancelledUnjournaled = retentionKind == CancelledPlanningRetention &&
+            (await LoadAsync(BenchmarkHttpJournal.Collection, requestId, ct))?["transport"]?["Attempts"] is JsonArray { Count: 0 };
+        var serverRun = retentionKind == InterruptedProcessRetention || cancelledUnjournaled ? await LoadAsync(collection, runKey, ct) : null;
         await using var serverScope = serverRun?["host"]?.ToString() == "GnOuGo.Agent.Server"
             ? await OpenInterruptedServerAsync(serverRun, collection, runKey, workspace, ct) : null;
         var inspected = serverScope is null ? await InspectPermanentRetentionAsync(collection, runKey, requestId, ct, retentionKind)
-            : await InspectInterruptedServerAsync(serverRun!, collection, runKey, requestId, serverScope, ct);
+            : await InspectInterruptedServerAsync(serverRun!, collection, runKey, requestId, serverScope, ct, cancelledUnjournaled);
         if (inspected["evidence_hash"]?.ToString() != expectedEvidenceHash)
             throw new InvalidOperationException("Retention evidence changed; inspect and review the exact current evidence.");
         var closure = inspected.DeepClone().AsObject();
@@ -360,6 +364,8 @@ internal sealed partial class BenchmarkCampaign
                  evidence["source_evidence"]?.ToString() != "server_session_and_frozen_configuration" ||
                  evidence["configuration_hash"]?.ToString() is not { Length: 64 } cancelledConfiguration || !cancelledConfiguration.All(Uri.IsHexDigit) ||
                  evidence["failure_hash"]?.ToString() is not { Length: 64 } cancelledFailure || !cancelledFailure.All(Uri.IsHexDigit)) ||
+            evidence["retention_kind"]?.ToString() == CancelledPlanningRetention && evidence.ContainsKey("retained_application_reservation_eur") &&
+                (!ValidInterruptedServerEvidence(evidence) || !JsonNode.DeepEquals(evidence["failure_hash"], evidence["cancellation_failure_hash"])) ||
             evidence["retention_kind"]?.ToString() == UnstartedPlanningRetention && evidence["outcome_evidence"]?.ToString() != "no_reserved_physical_attempt" ||
             evidence["retention_kind"]?.ToString() == InterruptedProcessRetention &&
                 (evidence.ContainsKey("failure_hash") || evidence["outcome_evidence"]?.ToString() != "reserved_attempt_without_persisted_outcome" ||

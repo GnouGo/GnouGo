@@ -34,12 +34,14 @@ internal sealed partial class BenchmarkCampaign
     }
 
     private async Task<JsonObject> InspectInterruptedServerAsync(JsonObject run, string collection, string runKey, string requestId,
-        ServerRetentionScope scope, CancellationToken ct)
+        ServerRetentionScope scope, CancellationToken ct, bool cancelled = false)
     {
         var state = await scope.Store.LoadAsync("benchmark", scope.Session, ct) ?? throw new InvalidOperationException("No exact Server session.");
         var pending = state.PendingCall;
         if (state.SchemaVersion != 11 || state.Request.TenantId != "benchmark" || state.Request.SessionId != scope.Session ||
-            state.Status != PlanningStatus.Generating || state.Construction is null || pending is null || pending.Id != requestId ||
+            state.Status != (cancelled ? PlanningStatus.Cancelled : PlanningStatus.Generating) ||
+            cancelled && run["result"]?["status"]?.ToString() != PlanningStatus.Cancelled ||
+            state.Construction is null || pending is null || pending.Id != requestId ||
             pending.Request.ClientRequestId != requestId || !requestId.StartsWith(scope.Session + ":", StringComparison.Ordinal) ||
             pending.Purpose is not ("construction_intent" or "construction_select" or "construction_implementation" or "construction_discovery" or
                 "construction_draft" or "construction_local_judge" or "construction_global_judge" or "replan") ||
@@ -121,13 +123,14 @@ internal sealed partial class BenchmarkCampaign
             ["session_id"] = scope.Session, ["revision"] = state.Revision, ["request_id"] = requestId, ["phase"] = pending.Purpose, ["source"] = source,
             ["run_hash"] = Hash(run), ["request_hash"] = Hash(request), ["http_journal_hash"] = Hash(journal),
             ["session_policy_hash"] = Hash(policy), ["campaign_retry_policy_hash"] = Hash(retry), ["configuration_hash"] = Hash(configuration),
-            ["retention_kind"] = InterruptedProcessRetention, ["source_evidence"] = "server_session_and_frozen_configuration",
-            ["outcome_evidence"] = "reserved_attempt_without_persisted_outcome", ["dispatch_certainty"] = "unknown",
+            ["retention_kind"] = cancelled ? CancelledPlanningRetention : InterruptedProcessRetention, ["source_evidence"] = "server_session_and_frozen_configuration",
+            ["outcome_evidence"] = cancelled ? "cancelled_reserved_attempt_without_persisted_outcome" : "reserved_attempt_without_persisted_outcome", ["dispatch_certainty"] = "unknown",
             ["server_session_hash"] = Hash(JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession)!.AsObject()),
             ["server_http_hash"] = Hash(serverHttp), ["server_budget_hash"] = Hash(budget), ["cancellation_failure_hash"] = Hash(failure),
             ["retained_application_reservation_eur"] = applicationHold["reservedEstimatedCost"]!.DeepClone(),
             ["application_reservation_in_campaign_http"] = false, ["accounting"] = await BenchmarkHttpJournal.AccountingAsync(this, requestId, ct: ct)
         };
+        if (cancelled) evidence["failure_hash"] = Hash(failure);
         return new() { ["evidence"] = evidence, ["evidence_hash"] = Hash(evidence), ["outcome"] = "inconclusive",
             ["reservation_retained"] = true, ["request_replay_forbidden"] = true, ["run_continuation_forbidden"] = true };
     }
@@ -146,7 +149,8 @@ internal sealed partial class BenchmarkCampaign
             var closure = JsonNode.Parse(row.Value)!.AsObject();
             var evidence = closure["evidence"] as JsonObject;
             if (closure["reason"]?.ToString() != PermanentRetentionReason || evidence?["source_evidence"]?.ToString() != "server_session_and_frozen_configuration" ||
-                evidence["retention_kind"]?.ToString() != InterruptedProcessRetention) continue;
+                evidence["retention_kind"]?.ToString() is not (InterruptedProcessRetention or CancelledPlanningRetention) ||
+                evidence["retention_kind"]?.ToString() == CancelledPlanningRetention && !evidence.ContainsKey("retained_application_reservation_eur")) continue;
             ValidatePermanentClosure(closure, row.Key[(Id.Length + 1)..]);
             var budget = await Records.GetAsync("agent-planning-budgets-v11", "benchmark", evidence["session_id"]!.ToString(), Author, ct);
             if (budget is null || Hash(JsonNode.Parse(budget.Value)!.AsObject()) != evidence["server_budget_hash"]!.ToString())
