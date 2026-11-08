@@ -49,6 +49,14 @@ public static class PlanningPromptPresentation
         return contextOffset < 0 ? prompt + guidance : prompt.Insert(contextOffset, guidance);
     }
 
+    /// <summary>Explain the existing explicit reusable-group dependency for a composed control fragment.</summary>
+    public static string PresentGroupCompositionGuidance(string prompt)
+    {
+        const string guidance = "\nWhen a control fragment must invoke an already closed reusable group, select both the control kind and that existing group's groupId. groupId selects a callable dependency; it neither declares a new group nor executes it. A control selected with groupId:null has no selected reusable-call dependency. Inspect and reuse the existing group's exact interface, and bind each call's values in its own scope. Available local controls and group calls require no external tool discovery.\n";
+        var contextOffset = prompt.LastIndexOf("\n{", StringComparison.Ordinal);
+        return contextOffset < 0 ? prompt + guidance : prompt.Insert(contextOffset, guidance);
+    }
+
     /// <summary>Request compact JSON syntax without selecting any business value or branch.</summary>
     public static string PresentCompactJsonGuidance(string prompt)
     {

@@ -272,6 +272,19 @@ internal static class ServerLiveDiagnostics
                 report["contract_materialization_guidance"] = new JsonObject { ["active"] = request.Prompt != before,
                     ["schema_unchanged"] = true, ["added_utf8_bytes"] = System.Text.Encoding.UTF8.GetByteCount(request.Prompt) - System.Text.Encoding.UTF8.GetByteCount(before) };
             }
+            if (args.Contains("--probe-group-composition-guidance", StringComparer.Ordinal))
+            {
+                if (args.Any(option => option is "--probe-present-response-schema" or "--probe-intent-declaration-fields" or
+                    "--probe-business-dependency-fields" or "--probe-discovery-response-fields" or "--probe-share-schema-evidence" or
+                    "--probe-delivery-channel-guidance" or "--probe-compact-json-guidance" or "--probe-specific-array-branches" or "--probe-materialization-guidance"))
+                    throw new ArgumentException("Choose one representation factor for this probe.");
+                var before = request.Prompt;
+                request.Prompt = PlanningPromptPresentation.PresentGroupCompositionGuidance(before);
+                request.ClientRequestId = null;
+                request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+                report["group_composition_guidance"] = new JsonObject { ["active"] = request.Prompt != before,
+                    ["schema_unchanged"] = true, ["added_utf8_bytes"] = System.Text.Encoding.UTF8.GetByteCount(request.Prompt) - System.Text.Encoding.UTF8.GetByteCount(before) };
+            }
             report["request_id"] = request.ClientRequestId; report["requested_output_tokens"] = request.MaxTokens;
             if (args.Contains("--probe-check-responses", StringComparer.Ordinal))
                 report["responses_route_inspection"] = await model.InspectResponsesRouteAsync(run, context.RequestAborted);
