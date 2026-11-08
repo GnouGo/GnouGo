@@ -148,6 +148,21 @@ public sealed partial class PlaywrightBrowserHost
         if (_navigationFailure is { } failure) { _navigationFailure = null; throw failure; }
     }
 
+    private static BrowserNavigationEvidence? CommittedNavigationEvidence(IRequest? request, string finalUrl,
+        IReadOnlyDictionary<IRequest, BrowserNavigationHop> responses)
+    {
+        if (request is null || request.Url != finalUrl) return null;
+        var hops = new List<BrowserNavigationHop>();
+        var visited = new HashSet<IRequest>();
+        for (var current = request; current is not null; current = current.RedirectedFrom)
+        {
+            if (hops.Count > MaximumRedirects || !visited.Add(current) || !responses.TryGetValue(current, out var hop)) return null;
+            hops.Add(hop);
+        }
+        hops.Reverse();
+        return new(hops[0].Url, finalUrl, hops, true);
+    }
+
     private BrowserNavigationEvidence? NavigationEvidenceFor(IPage page) =>
         _lastNavigationEvidence?.FinalUrl == page.Url ? _lastNavigationEvidence : null;
 }

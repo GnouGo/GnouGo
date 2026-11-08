@@ -131,6 +131,7 @@ public sealed class BrowserEmptyObservationTests
         if (interact) await host.ClickAsync("button", "load", 1000, ct);
         var result = await Tools(host).GetContentAsync(format: "observation_complete", cancellationToken: ct);
         Assert.Equal("OBSERVATION_EMPTY", result.ErrorCode); Assert.Null(result.StatusCode);
+        Assert.Null(result.NavigationEvidence);
         Assert.False(Assert.Single(result.Acquisition!.Recoveries!).ReloadRequested);
         Assert.Single(site.Calls, c => c.Path == "/");
     }
@@ -145,6 +146,10 @@ public sealed class BrowserEmptyObservationTests
         var result = await Tools(host).GetContentAsync(url: site.Url, format: "observation_complete", cancellationToken: ct);
         Assert.True(result.Success, result.ErrorMessage); Assert.Equal(202, result.StatusCode);
         Assert.Equal(site.Url + "destination", result.Url); Assert.Equal("Recovered", result.Title);
+        var navigation = Assert.IsType<BrowserNavigationEvidence>(result.NavigationEvidence);
+        Assert.True(navigation.Complete); Assert.Equal(result.Url, navigation.RequestedUrl);
+        Assert.Equal(result.Url, navigation.FinalUrl);
+        Assert.Equal(202, Assert.Single(navigation.Hops).StatusCode);
         Assert.Equal(200, Assert.Single(result.Acquisition!.Recoveries!).Navigation.StatusCode);
         Assert.NotEqual(result.Acquisition.Recoveries![0].Navigation.Generation, result.Acquisition.Navigation!.Generation);
         Assert.Single(site.Calls, c => c.Path == "/"); Assert.Equal(2, site.Calls.Count(c => c.Path == "/destination"));
@@ -231,6 +236,7 @@ public sealed class BrowserEmptyObservationTests
         await Tools(host).GetContentAsync(url: site.Url, format: "html", cancellationToken: ct);
         var result = await Tools(host).GetContentAsync(url: site.Url + "#state", format: "observation_complete", cancellationToken: ct);
         Assert.Equal("OBSERVATION_EMPTY", result.ErrorCode); Assert.Null(result.StatusCode);
+        Assert.Null(result.NavigationEvidence);
         Assert.Null(result.Acquisition!.Navigation!.Method); Assert.Null(result.Acquisition.LastResponse);
         Assert.False(Assert.Single(result.Acquisition.Recoveries!).ReloadRequested);
         Assert.Single(site.Calls, c => c.Path == "/");

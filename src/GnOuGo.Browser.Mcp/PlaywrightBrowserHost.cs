@@ -693,10 +693,27 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
         page.SetDefaultTimeout(_settings.DefaultTimeoutMs);
         page.SetDefaultNavigationTimeout(_settings.NavigationTimeoutMs);
         page.Dialog += async (_, dialog) => await dialog.DismissAsync();
+        var responses = new Dictionary<IRequest, BrowserNavigationHop>();
+        page.Response += (_, response) =>
+        {
+            var request = response.Request;
+            if (page != _page || !request.IsNavigationRequest || request.Frame != page.MainFrame) return;
+            lock (_observationLock)
+            {
+                // Bound document-response provenance independently of observation page size.
+                if (responses.Count >= MaximumRedirects + 2) responses.Clear();
+                response.Headers.TryGetValue("location", out var location);
+                responses[request] = new(request.Url, request.Method, response.Status, location);
+            }
+        };
         page.Request += (_, request) =>
         {
             if (page == _page && request.IsNavigationRequest && request.Frame == page.MainFrame)
-                lock (_observationLock) _pendingMainNavigation = request;
+                lock (_observationLock)
+                {
+                    _pendingMainNavigation = request;
+                    _lastNavigationEvidence = null;
+                }
         };
         page.FrameNavigated += (_, frame) =>
         {
@@ -705,7 +722,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
                 {
                     _committedMainNavigation = _pendingMainNavigation?.Url == frame.Url ? _pendingMainNavigation : null;
                     _pendingMainNavigation = null;
-                    _lastNavigationEvidence = null;
+                    _lastNavigationEvidence = CommittedNavigationEvidence(_committedMainNavigation, frame.Url, responses);
                     InvalidateObservation("navigation");
                 }
         };
@@ -1124,9 +1141,11 @@ internal sealed class NavigationObservation : IDisposable
     private bool _closed;
     private long _version;
     private long _navigationVersion;
+    private IRequest? _pendingNavigation;
 
     // Deterministic test checkpoint in the former check/subscribe race window.
     internal Func<Task>? ReadinessCheckpoint { get; init; }
+    internal Func<Task>? ReadinessEvaluationCheckpoint { get; init; }
 
     public NavigationObservation(IPage page)
     {
@@ -1141,6 +1160,8 @@ internal sealed class NavigationObservation : IDisposable
             return;
 
         _page.FrameNavigated += OnFrameNavigated;
+        _page.Request += OnRequest;
+        _page.RequestFailed += OnRequestFailed;
         _page.DOMContentLoaded += OnDomContentLoaded;
         _page.Load += OnLoad;
         _page.Close += OnClosed;
@@ -1178,12 +1199,25 @@ internal sealed class NavigationObservation : IDisposable
                 }
 
                 if (ReadinessCheckpoint is { } checkpoint) await checkpoint().WaitAsync(deadline.Token);
+                bool pending;
+                lock (_sync)
+                {
+                    pending = _pendingNavigation is not null;
+                    if (pending) changed = _changed.Task;
+                    else if (navigationVersion != _navigationVersion) continue;
+                }
+                // A dispatched main-document navigation can destroy the old context
+                // before FrameNavigated. Do not accept the previous document's ready
+                // state, or evaluate its disappearing context while the commit waits.
+                if (pending) { await changed.WaitAsync(deadline.Token); continue; }
                 // Subscribe before checking. Events wake this loop even if they arrive while
                 // evaluating; navigation invalidates the result before it can be accepted.
                 // Timing also covers an already-loaded document and same-document navigation.
                 // "interactive" alone precedes DOMContentLoaded and is not sufficient.
                 bool ready;
-                try { ready = await _page.EvaluateAsync<bool>("""
+                try {
+                    if (ReadinessEvaluationCheckpoint is { } evaluate) await evaluate().WaitAsync(deadline.Token);
+                    ready = await _page.EvaluateAsync<bool>("""
                     ([load, observed]) => {
                         const entry = performance.getEntriesByType('navigation')[0];
                         return load
@@ -1219,6 +1253,8 @@ internal sealed class NavigationObservation : IDisposable
             return;
 
         _page.FrameNavigated -= OnFrameNavigated;
+        _page.Request -= OnRequest;
+        _page.RequestFailed -= OnRequestFailed;
         _page.DOMContentLoaded -= OnDomContentLoaded;
         _page.Load -= OnLoad;
         _page.Close -= OnClosed;
@@ -1232,10 +1268,28 @@ internal sealed class NavigationObservation : IDisposable
         lock (_sync)
         {
             _triggered = true;
+            _pendingNavigation = null;
             _navigationVersion++;
             _domReady = _loadReady = false;
             SignalChanged();
         }
+    }
+
+    private void OnRequest(object? sender, IRequest request)
+    {
+        if (!request.IsNavigationRequest || request.Frame != _page.MainFrame) return;
+        lock (_sync)
+        {
+            _pendingNavigation = request;
+            _navigationVersion++;
+            SignalChanged();
+        }
+    }
+
+    private void OnRequestFailed(object? sender, IRequest request)
+    {
+        lock (_sync)
+            if (_pendingNavigation == request) { _pendingNavigation = null; SignalChanged(); }
     }
 
     private void OnDomContentLoaded(object? sender, IPage page)

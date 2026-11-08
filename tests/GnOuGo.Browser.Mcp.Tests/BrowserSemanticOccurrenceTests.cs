@@ -8,6 +8,27 @@ namespace GnOuGo.Browser.Mcp.Tests;
 
 public sealed class BrowserSemanticOccurrenceTests
 {
+    [Theory]
+    [InlineData("gzip")]
+    [InlineData("br")]
+    public async Task NavigationPreservesCompressedResponseContent(string encoding)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var site = await LoopbackTestServer.StartAsync(async context =>
+        {
+            context.Response.ContentType = "text/html";
+            context.Response.Headers.ContentEncoding = encoding;
+            await using Stream compressor = encoding == "gzip"
+                ? new System.IO.Compression.GZipStream(context.Response.Body, System.IO.Compression.CompressionLevel.Fastest, leaveOpen: true)
+                : new System.IO.Compression.BrotliStream(context.Response.Body, System.IO.Compression.CompressionLevel.Fastest, leaveOpen: true);
+            await compressor.WriteAsync(Encoding.UTF8.GetBytes("<html><body>Observed compressed document</body></html>"), ct);
+        }, ct);
+        await using var host = new PlaywrightBrowserHost(Options.Create(new BrowserServerSettings
+            { AllowedHosts = ["127.0.0.1"] }), NullLogger<PlaywrightBrowserHost>.Instance);
+        var result = await host.GetContentAsync(site.Origin, "domcontentloaded", 10000, null, "text", null, false, ct);
+        Assert.Equal("Observed compressed document", result.Content);
+    }
+
     [Fact]
     public async Task EscapedQueryRemainsEscapedAtTheInternalNavigationBoundary()
     {

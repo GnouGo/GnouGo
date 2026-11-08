@@ -12,6 +12,45 @@ public sealed class BrowserLifecycleTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
+    public async Task ADispatchedMainNavigationCannotReuseThePreviousDocumentsReadiness()
+    {
+        var arrived = Signal(); var release = Signal();
+        await using var server = await LoopbackTestServer.StartAsync(async context =>
+        {
+            if (context.Request.Path == "/next") { arrived.TrySetResult(); await release.Task.WaitAsync(Ct); }
+            context.Response.ContentType = "text/html";
+            await context.Response.WriteAsync("<html><head><title>" + (context.Request.Path == "/next" ? "Next" : "Previous") + "</title></head><body>Observed document</body></html>", Ct);
+        }, Ct);
+        using var playwright = await Playwright.CreateAsync();
+        await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+        var page = await browser.NewPageAsync();
+        await page.GotoAsync(server.Origin);
+        var first = true;
+        Task<IResponse?>? navigating = null;
+        using var observation = new NavigationObservation(page)
+        {
+            ReadinessCheckpoint = async () =>
+            {
+                if (!first) return; first = false;
+                navigating = page.GotoAsync(server.Origin + "/next");
+                await arrived.Task.WaitAsync(TimeSpan.FromSeconds(5), Ct);
+            },
+            ReadinessEvaluationCheckpoint = () => !release.Task.IsCompleted
+                ? throw new PlaywrightException("Execution context was destroyed before the new document committed.") : Task.CompletedTask
+        };
+        observation.Start();
+        try
+        {
+            var waiting = observation.WaitForLoadStateAsync(LoadState.DOMContentLoaded, 5000, Ct);
+            await arrived.Task.WaitAsync(TimeSpan.FromSeconds(5), Ct);
+            Assert.NotSame(waiting, await Task.WhenAny(waiting, Task.Delay(200, Ct)));
+            release.TrySetResult(); await waiting; await navigating!;
+            Assert.Equal("Next", await page.TitleAsync());
+        }
+        finally { release.TrySetResult(); }
+    }
+
+    [Fact]
     public async Task MainDocumentReadinessDoesNotWaitForUnfinishedChildDocument()
     {
         await using var site = await Site.CreateAsync(LoadState.DOMContentLoaded);

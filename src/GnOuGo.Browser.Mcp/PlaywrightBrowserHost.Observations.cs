@@ -42,6 +42,8 @@ public sealed record BrowserSnapshotAcquisition(int Attempts, IReadOnlyList<Brow
     public long? ElapsedMilliseconds { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyDictionary<string, long>? TimingsMilliseconds { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? FailureCategory { get; init; }
 }
 internal sealed class BrowserObservationException(string code, string message, BrowserSnapshotAcquisition acquisition) : InvalidOperationException(message)
 {
@@ -412,9 +414,14 @@ public sealed partial class PlaywrightBrowserHost
             ex.Data[nameof(BrowserSnapshotAcquisition)] = Acquisition();
             throw;
         }
-        catch (PlaywrightException)
+        catch (PlaywrightException error)
         {
-            throw new BrowserObservationException("BROWSER_ERROR", "The Browser could not complete snapshot acquisition.", Acquisition());
+            var category = error.Message.Contains("Execution context was destroyed", StringComparison.Ordinal) ? "document_context_destroyed"
+                : error.Message.Contains("interrupted by another navigation", StringComparison.Ordinal) ? "navigation_interrupted"
+                : error.Message.Contains("closed", StringComparison.OrdinalIgnoreCase) ? "target_closed"
+                : System.Text.RegularExpressions.Regex.Match(error.Message, @"net::ERR_[A-Z_]+", System.Text.RegularExpressions.RegexOptions.CultureInvariant,
+                    TimeSpan.FromMilliseconds(100)) is { Success: true } network ? network.Value : "playwright_error";
+            throw new BrowserObservationException("BROWSER_ERROR", "The Browser could not complete snapshot acquisition.", Acquisition() with { FailureCategory = category });
         }
         catch (BrowserNavigationException ex)
         {
