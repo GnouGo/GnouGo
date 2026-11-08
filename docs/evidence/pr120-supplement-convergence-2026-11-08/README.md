@@ -209,3 +209,36 @@ and all historical holds. Available allocation was EUR
 300.5721988356471115091804719795 after the separate external reservation. The
 additional EUR 400 authorization still appears exactly once. These results do not
 establish an upstream root cause or the exact bcc0434f business-review boundary.
+
+
+[Two consecutive Native runs](native-frozen-pair.json) qualify the unchanged
+numeric scenario on frozen `0f3028a2` and the same profiles. Each used five
+planning calls, accepted executable behavior at call 4, received favorable global
+review, then passed artifact-bound delegated approval, actual execution and the
+unchanged independent oracle (`result = 42`). Planning cost estimates were EUR
+0.3841827138378862516793551276 and EUR 0.3799641737572772055530676219. The evidence
+includes captured invocation time and cost through each first acceptance. No
+external calls or uncertain holds were added. These results precede the next
+presentation change and do not prove the accepted-block review boundary.
+
+[Compact-JSON exact-request probes](compact-json-exact-probes.json) changed only
+system-message content (+166 UTF-8 bytes), preserving the complete original JSON
+context, strict schema, reasoning, allocation and all other actual HTTP fields.
+Code's formerly incomplete request returned valid JSON using 94 output tokens;
+Amazon's returned a valid draft extension using 1047 output tokens. Both took one
+physical attempt and applied no candidate or business effect. This supports a
+fresh workflow trial, not causality or a completed business outcome. Syntax
+guidance is scoped to fresh Discovery and Draft; pending requests retain their
+exact bytes and Strict admission may omit optional guidance without displacing
+original context or changing the existing ceiling. Unrelated phases retain their
+existing presentation. Contract-materialization guidance remains diagnostic-only.
+
+
+The full solution on clean frozen `0f3028a2` completed with **8,380 passed and
+12 platform/opt-in skips across 33 assemblies**, with no test failure and warnings
+as errors. Frontend production assets were built before browser tests; the
+clarification browser case was enabled through the actual Playwright module. The
+actual Native AOT smoke and Browser Release publish passed on that source. These
+results precede the latest syntax/retention changes; final validation remains
+required on the resulting source. All **2828 planning tests** pass with the
+scoped compact-JSON change and diagnostic materialization helper.
