@@ -93,7 +93,9 @@ public sealed partial class PlaywrightBrowserHost
         }
         catch (Exception error) when (error is BrowserNavigationException or PlaywrightException or TimeoutException or OperationCanceledException)
         {
-            if (ReferenceEquals(_navigationRead, read))
+            // A denied child-frame navigation must stay denied without replacing
+            // the main document's independent acquisition outcome.
+            if (ReferenceEquals(_navigationRead, read) && request.Frame == (read?.Page ?? _page)?.MainFrame)
                 _navigationFailure = error as BrowserNavigationException ?? new("NAVIGATION_FAILED",
                     "Browser navigation did not complete; no final destination is established.", read?.Evidence() ?? new(request.Url, null, [], false));
             try { await route.AbortAsync("aborted"); }

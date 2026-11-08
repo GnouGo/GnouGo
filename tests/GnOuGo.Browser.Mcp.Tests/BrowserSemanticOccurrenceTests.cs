@@ -31,6 +31,27 @@ public sealed class BrowserSemanticOccurrenceTests
     }
 
     [Fact]
+    public async Task DeniedChildFrameCannotContactItsDestinationOrInvalidateMainDocumentEvidence()
+    {
+        var ct = TestContext.Current.CancellationToken; var forbidden = 0;
+        await using var site = await LoopbackTestServer.StartAsync(async context =>
+        {
+            if (context.Request.Path == "/forbidden") { Interlocked.Increment(ref forbidden); return; }
+            context.Response.ContentType = "text/html";
+            await context.Response.WriteAsync("<html><body><p>Observed main document</p><iframe src='/forbidden'></iframe></body></html>", ct);
+        }, ct);
+        await using var host = new PlaywrightBrowserHost(Options.Create(new BrowserServerSettings
+        {
+            AllowedHosts = ["127.0.0.1"],
+            AllowedNavigationUrlPatterns = [System.Text.RegularExpressions.Regex.Escape(site.Origin) + "/"]
+        }), NullLogger<PlaywrightBrowserHost>.Instance);
+        var result = await host.GetContentAsync(site.Origin, "load", 10000, null, "observation_complete", null, false, ct);
+        Assert.True(result.Success); Assert.Equal(0, forbidden);
+        Assert.True(result.NavigationEvidence!.Complete);
+        Assert.Equal(site.Origin + "/", Assert.Single(result.NavigationEvidence.Hops).Url);
+    }
+
+    [Fact]
     public async Task RedirectedDocumentMayChangeItsHistoryAddressBeforeNavigationReturns()
     {
         var ct = TestContext.Current.CancellationToken;
