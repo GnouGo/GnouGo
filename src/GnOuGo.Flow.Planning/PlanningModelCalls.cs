@@ -79,16 +79,30 @@ internal static partial class PlanningModelCalls
             !PlanningCompactConstruction.CompletionOnly(state);
         if (groupComposition)
             request.Prompt = PlanningPromptPresentation.PresentGroupCompositionGuidance(request.Prompt);
+        var materialization = purpose == PlanningCompactConstruction.DiscoveryPurpose &&
+            state.Construction?.Compact is not null &&
+            state.Construction.Evidence?.Any(item => item.Key.StartsWith("description:", StringComparison.Ordinal) && item.Value is JsonObject) == true &&
+            !PlanningCompactConstruction.CompletionOnly(state);
+        if (materialization)
+            request.Prompt = PlanningPromptPresentation.PresentContractMaterializationGuidance(request.Prompt);
         if (purpose == PlanningCompactConstruction.DiscoveryPurpose)
             request.Prompt = PlanningPromptPresentation.PresentDiscoveryResponseFields(request.Prompt, request.StructuredOutputSchema!);
         var compactJson = purpose is PlanningCompactConstruction.DiscoveryPurpose or PlanningConstruction.DraftPurpose;
         if (compactJson) request.Prompt = PlanningPromptPresentation.PresentCompactJsonGuidance(request.Prompt);
+        if (purpose == PlanningConstruction.DraftPurpose)
+        {
+            var beforeInputGuidance = request.Prompt;
+            request.Prompt = PlanningPromptPresentation.PresentInferenceInputGuidance(request.Prompt);
+            if (!PlanningTokenThresholds.OptimizationAdvisory(state.Request) &&
+                ModelRequestAdmission.EstimateTokens(request) > PlanningConstructionPhasePolicies.Resolve(state.Request, purpose).TargetInputTokens)
+                request.Prompt = beforeInputGuidance;
+        }
         // Bind the evidence basis after fresh field presentation; issued recovery
         // keeps its exact captured prompt/schema instead of preparing another one.
         var hash = IssuedIdentityHash(request, null);
         request.ClientRequestId = state.Request.SessionId + ":" + (state.ModelCalls + 1) + ":" +
             (evidenceAddresses is null ? "" : evidenceAddresses.MapHash + ":") + hash;
-        if ((compactJson || groupComposition) && !PlanningTokenThresholds.OptimizationAdvisory(state.Request) &&
+        if ((compactJson || groupComposition || materialization) && !PlanningTokenThresholds.OptimizationAdvisory(state.Request) &&
             ModelRequestAdmission.EstimateTokens(request) > PlanningConstructionPhasePolicies.Resolve(state.Request, purpose).MaxInputTokens)
         {
             // Optional guidance never displaces mandatory context or makes an

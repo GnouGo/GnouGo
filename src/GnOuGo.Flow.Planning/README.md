@@ -160,6 +160,16 @@ encode those alternatives as `{single: id}` and `{batch: [ids]}`. The issued sch
 keeps the exact IDs and cardinalities. Validate that wire response before converting
 it to canonical evidence arrays and resolving aliases. The encoding marker participates
 in the request identity; historical issued array requests and raw receipts stay exact.
+After an operation description has been inspected, fresh discovery also explains
+that a tentative operation binding asks the host to retrieve its exact contract
+before drafting. Selection needs no invented parameter values and claims neither
+execution nor business completion. Optional guidance yields to the existing Strict
+input ceiling; captured requests are never rebuilt with newer guidance.
+Fresh drafting offers compact guidance to bind only necessary structured fields
+to inference while retaining full original observations at their producer. In Strict
+mode this optional text yields to the phase input target; diagnostic policy retains
+it with ordinary threshold warnings. Neither path removes mandatory context or
+weakens physical capacity, permissions or semantic validation.
 Validate the raw response under its issued schema before resolving canonical addresses;
 preserve raw receipts and use canonical identities for repeat/progress checks. Recovery
 cannot rebuild a missing map. TaskPlan references and original contracts are unchanged.

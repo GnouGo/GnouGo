@@ -60,6 +60,14 @@ public static class PlanningPromptPresentation
         return contextOffset < 0 ? prompt + guidance : prompt.Insert(contextOffset, guidance);
     }
 
+    /// <summary>Guide consumers to reuse typed evidence without duplicating full observations.</summary>
+    internal static string PresentInferenceInputGuidance(string prompt)
+    {
+        var guidance = "\n" + PlanningCompactConstruction.TransformInputSemantics + "\n";
+        var contextOffset = prompt.LastIndexOf("\n{", StringComparison.Ordinal);
+        return contextOffset < 0 ? prompt + guidance : prompt.Insert(contextOffset, guidance);
+    }
+
     /// <summary>Request compact JSON syntax without selecting any business value or branch.</summary>
     public static string PresentCompactJsonGuidance(string prompt)
     {
