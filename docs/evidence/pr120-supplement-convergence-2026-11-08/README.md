@@ -157,3 +157,22 @@ Draft stays 32768/low and Review stays 8192/medium. Every requirement and oracle
 remains unchanged. Browser's published field descriptions now explain nearest
 groups, outer semantic items, heading association and history versus HTTP identity
 without assigning business meaning to records.
+
+
+The [smaller-allocation workflow and equivalent-order probes](code04-and-equivalent-array-order.json)
+show the distinction between bounding waste and useful progress. Code04 returned
+a complete receipt at call 10 with `length`: only 59 non-whitespace characters
+were produced before repeated whitespace filled the 4096-token allocation.
+Nothing was accepted or executed. All ten calls have known usage; no new uncertain
+reservation was created. Increasing allocation is not authorized by this result.
+
+Two subsequent independent probes retained that exact prompt, original context,
+reasoning, 4096-token allocation, strictness and every schema constraint. The only
+wire difference was permutation of `evidenceRequests.anyOf`, placing the existing
+one-element alternative before the unbounded alternative. Both returned valid
+JSON in one attempt (94 and 86 output tokens). This does not establish a provider
+root cause or causal convergence. The generic fresh-Discovery preparation now
+uses this equivalent presentation after alias assignment and before final identity,
+measurement and admission. Pending calls retain exact historical bytes. All
+**2823 planning tests pass**, including semantic-equivalence negatives, untouched
+literal/example/extension data, scoped repair and issued-request recovery.

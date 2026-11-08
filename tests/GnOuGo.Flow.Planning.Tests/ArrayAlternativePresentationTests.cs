@@ -6,6 +6,25 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class ArrayAlternativePresentationTests
 {
     [Fact]
+    public async Task FreshDiscoveryUsesEquivalentOrderingBeforeBindingItsRequestIdentity()
+    {
+        var (state, _) = await BusinessReviewProtocolTests.Ready();
+        var schema = JsonNode.Parse("""
+            {"type":"object","properties":{"evidenceRequests":{"anyOf":[
+              {"type":"array","items":{"type":"string","enum":["e_10"]},"minItems":1},
+              {"type":"array","items":{"type":"string","enum":["e_1"]},"minItems":1,"maxItems":1},
+              {"type":"null"}]}},"required":["evidenceRequests"],"additionalProperties":false}
+            """)!.AsObject();
+        var before = schema.ToJsonString();
+        var prepared = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.DiscoveryPurpose, "Choose a permitted action.\n{}", schema);
+        Assert.Equal(1, prepared.StructuredOutputSchema!["properties"]!["evidenceRequests"]!["anyOf"]![0]!["maxItems"]!.GetValue<int>());
+        Assert.NotNull(prepared.ClientRequestId);
+        Assert.Equal(before, schema.ToJsonString());
+        var draft = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.DraftPurpose, "Choose a permitted action.\n{}", schema);
+        Assert.Null(draft.StructuredOutputSchema!["properties"]!["evidenceRequests"]!["anyOf"]![0]!["maxItems"]);
+    }
+
+    [Fact]
     public void LiteralAndAnnotationObjectsAreNotReinterpretedAsSchemas()
     {
         var literal = JsonNode.Parse("""{"anyOf":[{"type":"array"},{"type":"array","maxItems":1},{"type":"null"}]}""")!;

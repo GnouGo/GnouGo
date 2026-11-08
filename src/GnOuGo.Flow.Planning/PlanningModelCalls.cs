@@ -66,6 +66,8 @@ internal static partial class PlanningModelCalls
         evidenceAddresses = PrepareEvidenceAddresses(state, request);
         if (request.StructuredOutputSchema?["$defs"] is JsonObject)
             request.StructuredOutputSchema = PlanningSchemas.Compact(request.StructuredOutputSchema.AsObject(), preserveDescriptions: true);
+        if (purpose == PlanningCompactConstruction.DiscoveryPurpose)
+            request.StructuredOutputSchema = PlanningPromptPresentation.OrderBoundedArrayAlternativesFirst(request.StructuredOutputSchema!);
         if (purpose == PlanningCompactConstruction.IntentPurpose)
             request.Prompt = PlanningPromptPresentation.PresentIntentDeclarationFields(request.Prompt);
         if (purpose == PlanningCompactConstruction.SelectPurpose)
