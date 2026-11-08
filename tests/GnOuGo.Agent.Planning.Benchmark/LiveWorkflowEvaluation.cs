@@ -64,7 +64,7 @@ internal static class LiveWorkflowEvaluation
                 preset != frozenSettings.Options["construction_preset"]?.ToString())
                 throw new PlanningConflictException("The captured construction preset cannot change during continuation.");
         }
-        var runtimeBuilds = CaptureMcpBuilds(Configuration(model.McpServers, scenario, "preflight-only"), sourceRevision);
+        var runtimeBuilds = CaptureMcpBuilds(Configuration(model.McpServers, scenario, null), sourceRevision);
         var manifest = label.StartsWith(cohort + "-", StringComparison.Ordinal)
             ? await LiveCampaignEvidence.PinAsync(campaign, sourceRevision, model.Provider, model.Model, model.ConfigurationFingerprint, cohort, productLimit,
                 !continuing || frozenSettings.Options.ContainsKey("construction_preset") || retained?["manifest"]?["planning_configuration"] is not null || args.Any(a => a.StartsWith("--max-", StringComparison.Ordinal))
@@ -318,7 +318,7 @@ internal static class LiveWorkflowEvaluation
         return new HybridWorkflowPlanner().AdvanceAsync(session, command, runtime, ct);
     }
 
-    internal static Dictionary<string, McpServerOptions> Configuration(IReadOnlyDictionary<string, McpServerOptions> configured, string scenario, string inferenceEndpoint, string buildConfiguration = "Debug", string? sourceRoot = null)
+    internal static Dictionary<string, McpServerOptions> Configuration(IReadOnlyDictionary<string, McpServerOptions> configured, string scenario, string? inferenceEndpoint, string buildConfiguration = "Debug", string? sourceRoot = null)
     {
         var names = scenario == "amazon" ? new[] { "Browser", "Document" } : ["Git", "Cmd", "GithubCopilot", "Document"];
         var result = new Dictionary<string, McpServerOptions>(StringComparer.Ordinal);
@@ -334,7 +334,10 @@ internal static class LiveWorkflowEvaluation
             // This disposable evaluation must exercise the workflow's cleanup.
             // Override only the spawned browser's debug setting, not saved host policy.
             if (name == "Browser") clone.EnvironmentVariables["Browser__KeepBrowserOpen"] = "false";
-            if (name == "GithubCopilot") clone.EnvironmentVariables["Code__Copilot__InferenceProxyEndpoint"] = inferenceEndpoint;
+            // Only execution has a real campaign inference proxy. Metadata discovery
+            // preserves configured settings; a placeholder URL prevents MCP startup.
+            if (name == "GithubCopilot" && inferenceEndpoint is not null)
+                clone.EnvironmentVariables["Code__Copilot__InferenceProxyEndpoint"] = inferenceEndpoint;
             result.Add(key, clone);
         }
         return result;

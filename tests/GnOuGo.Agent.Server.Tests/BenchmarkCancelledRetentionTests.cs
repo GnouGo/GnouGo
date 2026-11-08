@@ -7,6 +7,99 @@ public sealed partial class BenchmarkPermanentRetentionTests
 {
     private const string CancelledRun = "server-cancelled-run";
 
+    [Theory]
+    [InlineData("ChatCompletions", "text/event-stream; charset=utf-8")]
+    [InlineData("Responses", "text/event-stream")]
+    [InlineData("Messages", "text/event-stream")]
+    [InlineData("OllamaChat", "application/x-ndjson")]
+    public async Task CancelledNativePartialRetentionPreservesAllBytesAndHoldsAcrossRestart(string protocol, string contentType)
+    {
+        var records = new Records(); var campaign = await SeedCancelledNativePartialAsync(records, protocol, contentType);
+        var original = records.Snapshot(excludeClosures: true);
+        var accounting = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
+        var proposal = await campaign.InspectPermanentRetentionAsync("planning-evaluation-runs", CancelledRun, RequestId, Ct,
+            BenchmarkCampaign.CancelledPlanningRetention);
+        await campaign.ApplyPermanentRetentionAsync("planning-evaluation-runs", CancelledRun, RequestId,
+            proposal["evidence_hash"]!.ToString(), Operator, Authorization, Ct, BenchmarkCampaign.CancelledPlanningRetention);
+        var restarted = new BenchmarkCampaign(records, "retention");
+        Assert.Equal(original, records.Snapshot(excludeClosures: true));
+        Assert.True(JsonNode.DeepEquals(accounting, await BenchmarkHttpJournal.AccountingAsync(restarted, ct: Ct)));
+        Assert.Equal(1m, accounting["reserved_cost_eur"]!.GetValue<decimal>());
+        Assert.Null(await restarted.LoadAsync("planning-evaluation-receipts", RequestId, Ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.RequireRunNotRetainedAsync(Session, Ct));
+        await restarted.RequireRunNotRetainedAsync("independent-fresh-session", Ct);
+    }
+
+    [Theory]
+    [InlineData("complete")]
+    [InlineData("usage")]
+    [InlineData("assembled")]
+    [InlineData("body_complete")]
+    [InlineData("termination")]
+    [InlineData("provider_error")]
+    [InlineData("stream_failure")]
+    [InlineData("non_streaming")]
+    [InlineData("wrong_mode")]
+    [InlineData("wrong_protocol")]
+    [InlineData("wrong_media")]
+    [InlineData("http_failure")]
+    [InlineData("unmatched_cancellation")]
+    [InlineData("transport_failure")]
+    [InlineData("invalid_bytes")]
+    [InlineData("empty_bytes")]
+    [InlineData("missing_started")]
+    [InlineData("missing_completed")]
+    [InlineData("negative_elapsed")]
+    public async Task CancelledNativeRetentionRejectsCompletionOrUnprovedTransport(string defect)
+    {
+        var records = new Records(); var campaign = await SeedCancelledNativePartialAsync(records, "ChatCompletions", "text/event-stream");
+        var journal = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct))!;
+        var attempt = journal["transport"]!["Attempts"]![0]!;
+        var transport = journal["transport"]!["Transport"]!;
+        switch (defect)
+        {
+            case "complete": attempt["ProtocolComplete"] = true; break;
+            case "usage": attempt["UsageKnown"] = true; break;
+            case "assembled": attempt["AssembledBody"] = "{}"; break;
+            case "body_complete": attempt["ResponseBodyComplete"] = true; break;
+            case "termination": attempt["TerminationStatus"] = "stop"; break;
+            case "provider_error": attempt["ProviderErrorCode"] = "error"; break;
+            case "stream_failure": attempt["StreamFailure"] = "failure"; break;
+            case "non_streaming": transport["IsStreaming"] = false; break;
+            case "wrong_mode": transport["EffectiveMode"] = "NonStreaming"; break;
+            case "wrong_protocol": transport["Protocol"] = "Unknown"; break;
+            case "wrong_media": attempt["ContentType"] = "application/json"; break;
+            case "http_failure": attempt["ObservedStatus"] = 500; break;
+            case "unmatched_cancellation": attempt["RetryDecision"] = "other"; break;
+            case "transport_failure": attempt["Failure"] = "transport"; break;
+            case "invalid_bytes": attempt["PartialBodyBase64"] = "invalid!"; break;
+            case "empty_bytes": attempt["PartialBodyBase64"] = ""; break;
+            case "missing_started": attempt["StartedAtUtc"] = null; break;
+            case "missing_completed": attempt["CompletedAtUtc"] = null; break;
+            case "negative_elapsed": attempt["CompletedAtUtc"] = DateTimeOffset.UtcNow.AddMinutes(-10); break;
+        }
+        await campaign.SaveAsync(BenchmarkHttpJournal.Collection, RequestId, journal, Ct);
+        var original = records.Snapshot();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.InspectPermanentRetentionAsync("planning-evaluation-runs", CancelledRun,
+            RequestId, Ct, BenchmarkCampaign.CancelledPlanningRetention));
+        Assert.Equal(original, records.Snapshot());
+    }
+
+    private static async Task<BenchmarkCampaign> SeedCancelledNativePartialAsync(Records records, string protocol, string contentType)
+    {
+        var campaign = await SeedCancelledServerAsync(records);
+        var journal = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct))!;
+        journal["transport"]!["Transport"] = new JsonObject
+        { ["RequestedMode"] = "Streaming", ["EffectiveMode"] = "Streaming", ["IsStreaming"] = true, ["Protocol"] = protocol };
+        var attempt = journal["transport"]!["Attempts"]![0]!;
+        attempt["Failure"] = "cancelled"; attempt["RetryDecision"] = "cancelled; no retry"; attempt["ResponseBodyComplete"] = false;
+        attempt["ObservedStatus"] = 200; attempt["ContentType"] = contentType;
+        attempt["PartialBodyBase64"] = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("data: {\"partial\":true}\n\n"));
+        attempt["StartedAtUtc"] = DateTimeOffset.UtcNow.AddSeconds(-10); attempt["CompletedAtUtc"] = DateTimeOffset.UtcNow;
+        await campaign.SaveAsync(BenchmarkHttpJournal.Collection, RequestId, journal, Ct);
+        return campaign;
+    }
+
     [Fact]
     public async Task CancelledIndependentPolicyRetainsItsExactCaptureAndNeverResumesTheCancelledRequest()
     {

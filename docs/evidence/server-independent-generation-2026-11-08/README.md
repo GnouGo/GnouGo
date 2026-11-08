@@ -194,3 +194,30 @@ under `body`. This is additional source evidence, not a business-oracle pass or 
 complete independently established occurrence/redirect proof. The delegated guard
 and original oracle remain unchanged. Supporting a different qualification proof
 requires a separately reviewed scope; no sponsored result or ambiguity is ignored.
+
+## Code discovery startup and cancelled native evidence
+
+The real `code` trial on `21a3d7c6` first encountered an unavailable code MCP.
+The benchmark launcher had overwritten its inference-proxy setting with the
+literal `discovery-only`; the actual server rejects that non-absolute URI during
+startup. A real isolated process reproduces exit 134 with that single override
+and advertises 46 original tools without it, without model dispatch or tool
+execution. [The retained run boundary](code01-discovery-boundary.json) records
+76 logical calls, 77 physical attempts and seven accepted checkpoints. No global
+review, approval or execution occurred. The earlier snapshot at call 43 had no
+accepted checkpoints; that intermediate count is not the final result.
+
+The scoped harness correction preserves configured settings during metadata
+discovery and supplies the real campaign proxy only during execution. It changes
+no production proxy validation or operation permissions. A regression launches
+the actual isolated MCP, verifies its contracts and checks configuration cloning.
+
+No idle metadata-recovery boundary appeared during a bounded observation. The
+owned diagnostic was stopped; its final cancellation followed native 2xx SSE
+headers and incomplete bytes. Existing cancelled-request retention now recognizes
+that exact native evidence, while rejecting complete results/usage, provider or
+stream failures, mismatched modes/media, missing timestamps and malformed bytes.
+Every original record and full uncertain hold remain, and the cancelled session
+cannot replay or continue. Focused Server validation: **210 passed**, zero failures
+or compiler warnings. The prior solution run was interrupted for this new fix;
+it is not reported as a completed final-source pass.

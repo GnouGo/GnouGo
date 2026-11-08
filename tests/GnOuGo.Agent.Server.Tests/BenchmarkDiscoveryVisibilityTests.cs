@@ -1,14 +1,60 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Copilot;
 using GnOuGo.Flow.Planning;
+using GnOuGo.Flow.Integrations;
 
 namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class BenchmarkDiscoveryVisibilityTests
 {
+    [Fact]
+    public async Task MetadataConfigurationStartsActualCopilotWithoutAnExecutionProxyPlaceholder()
+    {
+        var root = Directory.CreateTempSubdirectory("benchmark-discovery-").FullName;
+        try
+        {
+            var sourceRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../.."));
+            var build = new DirectoryInfo(AppContext.BaseDirectory).Parent!.Name;
+            var configured = new Dictionary<string, McpServerOptions>(StringComparer.Ordinal);
+            foreach (var name in new[] { "Git", "Cmd", "GithubCopilot", "Document" })
+                configured.Add("GnOuGo." + name + ".Mcp", new()
+                {
+                    Type = "stdio", Command = "original-command", Args = ["original-argument"],
+                    EnvironmentVariables = new()
+                    {
+                        ["Code__DefaultWorkingDirectory"] = root, ["Code__AllowedWorkingRoots__0"] = root,
+                        ["KeyVault__DatabasePath"] = Path.Combine(root, "isolated.db")
+                    }
+                });
+            const string server = "GnOuGo.GithubCopilot.Mcp";
+            var original = JsonSerializer.Serialize(configured);
+            var discovery = LiveWorkflowEvaluation.Configuration(configured, "code", null, build, sourceRoot);
+            Assert.False(discovery[server].EnvironmentVariables!.ContainsKey("Code__Copilot__InferenceProxyEndpoint"));
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+            deadline.CancelAfter(TimeSpan.FromSeconds(45));
+            await using var factory = new ConfiguredMcpClientFactory(new() { [server] = discovery[server] });
+            await using var session = await factory.GetClientAsync(server, deadline.Token);
+            var tools = await session.ListToolsAsync(deadline.Token);
+            Assert.Contains(tools, tool => tool.Name == "code_agent_edit");
+            Assert.Contains(tools, tool => tool.Name == "code_project_summary");
+            Assert.Equal(original, JsonSerializer.Serialize(configured));
+
+            const string actualProxy = "http://127.0.0.1:12345/inference";
+            configured[server].EnvironmentVariables!["Code__Copilot__InferenceProxyEndpoint"] = actualProxy;
+            Assert.Equal(actualProxy, LiveWorkflowEvaluation.Configuration(configured, "code", null, build, sourceRoot)
+                [server].EnvironmentVariables!["Code__Copilot__InferenceProxyEndpoint"]);
+            const string executionProxy = "http://127.0.0.1:23456/inference";
+            Assert.Equal(executionProxy, LiveWorkflowEvaluation.Configuration(configured, "code", executionProxy, build, sourceRoot)
+                [server].EnvironmentVariables!["Code__Copilot__InferenceProxyEndpoint"]);
+            Assert.Equal(actualProxy, configured[server].EnvironmentVariables!["Code__Copilot__InferenceProxyEndpoint"]);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
     [Theory]
     [InlineData("amazon", "GnOuGo.Browser.Mcp", "browser_get_content", "browser_click")]
     [InlineData("amazon", "GnOuGo.Document.Mcp", "document_write", "document_delete")]

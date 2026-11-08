@@ -110,7 +110,7 @@ internal static class ServerLiveDiagnostics
                     IMcpClientFactory? discovery = null;
                     if (delegatedScenario is not null)
                     {
-                        var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, delegatedScenario, "discovery-only", "Release");
+                        var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, delegatedScenario, null, "Release");
                         var policyHash = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(typeof(DelegatedTestReviewAuthority).Assembly.Location)));
                         discovery = new DelegatedPlanningDiscovery(new ConfiguredMcpClientFactory(configurations, defaultLlmProvider: model.Provider, defaultLlmModel: model.Model), delegatedScenario, policyHash,
                             async ct =>

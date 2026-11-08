@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.AI.Core;
@@ -615,9 +616,38 @@ internal sealed partial class BenchmarkCampaign
             if (attempts[index]?["Status"]?.GetValue<int>() is not (429 or 500 or 502 or 503 or 504) ||
                 attempts[index]?["Failure"] is not null || !IsRetainedErrorOnlyBody(attempts[index]?["Body"]?.ToString())) return false;
         var last = attempts[^1]!;
-        return new[] { "Status", "Body", "PartialBody", "ContentType", "RetryAfter", "NotBefore" }.All(key => last[key] is null) &&
+        if (new[] { "Status", "Body", "PartialBody", "AssembledBody", "RetryAfter", "NotBefore", "StreamFailure", "ProviderErrorCode", "TerminationStatus" }
+                .Any(key => last[key] is not null) || last["ProtocolComplete"]?.GetValue<bool>() == true || last["UsageKnown"]?.GetValue<bool>() == true)
+            return false;
+        if (last["ContentType"] is not null || last["PartialBodyBase64"] is not null || last["ObservedStatus"] is not null)
+            return allowCancelledAttempt && MatchesCancelledNativePartial(journal, last);
+        return
             (last["Failure"] is null || allowCancelledAttempt && last["Failure"]?.ToString() == "cancelled" &&
                 last["RetryDecision"]?.ToString() == "cancelled; no retry" && last["ResponseBodyComplete"]?.GetValue<bool>() == false);
+    }
+
+    private static bool MatchesCancelledNativePartial(JsonObject journal, JsonNode attempt)
+    {
+        // Headers and incomplete native bytes are evidence to preserve, never a
+        // completion, receipt or retry grant. All owner/cancellation checks still apply.
+        var transport = journal["transport"]?["Transport"];
+        if (attempt["Failure"]?.ToString() != "cancelled" || attempt["RetryDecision"]?.ToString() != "cancelled; no retry" ||
+            attempt["ResponseBodyComplete"]?.GetValue<bool>() != false || attempt["ObservedStatus"]?.GetValue<int>() is not (>= 200 and < 300) ||
+            attempt["StartedAtUtc"] is null || attempt["CompletedAtUtc"] is null ||
+            attempt["CompletedAtUtc"]!.GetValue<DateTimeOffset>() < attempt["StartedAtUtc"]!.GetValue<DateTimeOffset>() ||
+            attempt["PartialBodyBase64"]?.ToString() is not { Length: > 0 } partial ||
+            transport?["IsStreaming"]?.GetValue<bool>() != true || transport["EffectiveMode"]?.ToString() != "Streaming" ||
+            !MediaTypeHeaderValue.TryParse(attempt["ContentType"]?.ToString(), out var contentType)) return false;
+        var media = contentType.MediaType?.ToLowerInvariant();
+        if (transport["Protocol"]?.ToString() switch
+            {
+                "OllamaChat" => media is not ("application/x-ndjson" or "application/ndjson"),
+                LLMTransportResolver.ChatCompletions or LLMTransportResolver.Responses or LLMTransportResolver.Messages => media != "text/event-stream",
+                _ => true
+            }) return false;
+        // Validate the retained byte encoding without interpreting partial model output.
+        try { return Convert.FromBase64String(partial).Length > 0; }
+        catch (FormatException) { return false; }
     }
 
     private static bool IsRetainedErrorOnlyBody(string? body)
