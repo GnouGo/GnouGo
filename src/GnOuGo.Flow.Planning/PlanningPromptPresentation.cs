@@ -6,6 +6,9 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Presents response fields and shares identical contracts without changing their authority.</summary>
 public static class PlanningPromptPresentation
 {
+    /// <summary>Present a singleton evidence view as an object without changing the selectable evidence or batch bounds.</summary>
+    public static JsonNode PresentEvidenceSelectionObjects(JsonNode schema) => PlanningEvidenceSelectionWire.Project(schema);
+
     /// <summary>Present narrower array alternatives first without changing any allowed instance.</summary>
     public static JsonNode OrderBoundedArrayAlternativesFirst(JsonNode schema)
     {
