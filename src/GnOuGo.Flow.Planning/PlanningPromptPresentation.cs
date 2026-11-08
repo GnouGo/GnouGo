@@ -6,6 +6,14 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Presents response fields and shares identical contracts without changing their authority.</summary>
 public static class PlanningPromptPresentation
 {
+    /// <summary>Request compact JSON syntax without selecting any business value or branch.</summary>
+    public static string PresentCompactJsonGuidance(string prompt)
+    {
+        const string guidance = "\nEmit compact JSON without formatting whitespace outside strings. Close each array and object as soon as its selected contents are complete; do not pad the response.\n";
+        var contextOffset = prompt.LastIndexOf("\n{", StringComparison.Ordinal);
+        return contextOffset < 0 ? prompt + guidance : prompt.Insert(contextOffset, guidance);
+    }
+
     /// <summary>Keep the original delivery channel distinct from an additional caller-return contract.</summary>
     public static string PresentDeliveryChannelGuidance(string prompt)
     {
