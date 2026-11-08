@@ -6,6 +6,41 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Presents response fields and shares identical contracts without changing their authority.</summary>
 public static class PlanningPromptPresentation
 {
+    /// <summary>Present narrower array alternatives first without changing any allowed instance.</summary>
+    public static JsonNode OrderBoundedArrayAlternativesFirst(JsonNode schema)
+    {
+        var result = schema.DeepClone();
+        Visit(result);
+        return result;
+
+        static string? TypeOf(JsonNode? node) => node is JsonObject schemaObject &&
+            schemaObject["type"] is JsonValue type && type.TryGetValue<string>(out var name) ? name : null;
+        static void Visit(JsonNode? node)
+        {
+            if (node is not JsonObject valueObject) return;
+            // Traverse schema positions only. Constants, enum values, defaults,
+            // examples and extension data are not schemas and must stay exact.
+            foreach (var keyword in new[] { "$defs", "definitions", "properties", "patternProperties", "dependentSchemas", "dependencies" })
+                if (valueObject[keyword] is JsonObject dictionary)
+                    foreach (var entry in dictionary) Visit(entry.Value);
+            foreach (var keyword in new[] { "allOf", "anyOf", "oneOf", "prefixItems" })
+                if (valueObject[keyword] is JsonArray children)
+                    foreach (var child in children) Visit(child);
+            foreach (var keyword in new[] { "items", "additionalItems", "additionalProperties", "contains", "propertyNames", "not", "if", "then", "else", "unevaluatedItems", "unevaluatedProperties", "contentSchema" })
+                if (valueObject[keyword] is JsonArray legacyItems)
+                    foreach (var item in legacyItems) Visit(item);
+                else Visit(valueObject[keyword]);
+            if (valueObject["anyOf"] is not JsonArray alternatives ||
+                alternatives.Count(a => TypeOf(a) == "array") < 2 ||
+                alternatives.Any(a => TypeOf(a) is not ("array" or "null"))) return;
+            var ordered = alternatives.Select((alternative, index) => (alternative, index))
+                .OrderBy(pair => TypeOf(pair.alternative) == "null" ? 2 :
+                    pair.alternative?["maxItems"] is JsonValue maximum && maximum.TryGetValue<int>(out _) ? 0 : 1)
+                .ThenBy(pair => pair.index).Select(pair => pair.alternative!.DeepClone()).ToArray();
+            valueObject["anyOf"] = new JsonArray(ordered);
+        }
+    }
+
     /// <summary>Request compact JSON syntax without selecting any business value or branch.</summary>
     public static string PresentCompactJsonGuidance(string prompt)
     {
