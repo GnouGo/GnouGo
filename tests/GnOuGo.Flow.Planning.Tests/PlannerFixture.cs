@@ -77,8 +77,15 @@ internal sealed class TestRuntime : IPlanningRuntime, IPlanningConstructionAdmis
             TestContext.Current.TestOutputHelper?.WriteLine(error.ToString());
             throw;
         }
-        if (EncodeCanonicalEvidence && response.Json is not null && request.ClientRequestId is { } id && _evidenceAddresses.TryGetValue(id, out var addresses))
-            response.Json = WireEvidence(response.Json, addresses);
+        if (EncodeCanonicalEvidence && response.Json is not null)
+        {
+            var canonical = response.Json;
+            if (request.StructuredOutputSchema is { } schema && PlanningEvidenceSelectionWire.Issued(schema) && canonical["evidenceRequests"] is JsonObject)
+                canonical = PlanningEvidenceSelectionWire.CanonicalResponse(canonical, schema);
+            if (request.ClientRequestId is { } id && _evidenceAddresses.TryGetValue(id, out var addresses))
+                canonical = WireEvidence(canonical, addresses);
+            response.Json = request.StructuredOutputSchema is null ? canonical : PlanningEvidenceSelectionWire.WireResponse(canonical, request.StructuredOutputSchema);
+        }
         return Task.FromResult(response);
     }
     internal static JsonNode WireEvidence(JsonNode response, PlanningEvidenceAddresses? addresses)

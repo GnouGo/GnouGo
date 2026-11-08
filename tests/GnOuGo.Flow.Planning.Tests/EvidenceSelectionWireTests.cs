@@ -1,10 +1,50 @@
 using System.Text.Json.Nodes;
+using System.Text.Json;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class EvidenceSelectionWireTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task IssuedDiscoveryEncodingRecoversExactlyAndValidatesBeforeCanonicalization(bool invalid)
+    {
+        var state = PlannerFixture.Session();
+        var schema = JsonNode.Parse(Schema().ToJsonString().Replace("view_a", "group:worker", StringComparison.Ordinal)
+            .Replace("view_b", "group:other", StringComparison.Ordinal).Replace("ordinary_a", "requirement:req_0", StringComparison.Ordinal)
+            .Replace("ordinary_b", "requirement:req_1", StringComparison.Ordinal))!.AsObject();
+        var interrupted = new TestRuntime { Checkpointed = _ => throw new OperationCanceledException() };
+        await Assert.ThrowsAsync<OperationCanceledException>(() => PlanningModelCalls.CallAsync(state, interrupted,
+            PlanningCompactConstruction.DiscoveryPurpose, "Read an offered source.\n{}", schema, PlannerFixture.Ct));
+        Assert.Empty(interrupted.Calls);
+        state = PlannerFixture.Clone(state);
+        var pending = state.PendingCall!;
+        var issued = JsonSerializer.Serialize(pending.Request, PlanningJsonContext.Default.LLMRequest);
+        Assert.True(PlanningEvidenceSelectionWire.Issued(pending.Request.StructuredOutputSchema!));
+        var canonical = PlanningModelCalls.CanonicalEvidenceRequest(pending);
+        Assert.False(PlanningEvidenceSelectionWire.Issued(canonical.StructuredOutputSchema!));
+        Assert.Contains("group:worker", canonical.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
+        var id = invalid ? "unknown" : pending.EvidenceAddresses!.Addresses.Single(p => p.Value == "group:worker").Key;
+        var raw = new JsonObject { ["evidenceRequests"] = new JsonObject { ["single"] = id } };
+        var before = raw.ToJsonString();
+        var runtime = new TestRuntime { EncodeCanonicalEvidence = false, Respond = (request, _) =>
+        {
+            Assert.Equal(issued, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+            return new() { Json = raw };
+        } };
+        var call = () => PlanningModelCalls.CallAsync(state, runtime, PlanningCompactConstruction.DiscoveryPurpose,
+            "New context must not replace an issued request.", new JsonObject(), PlannerFixture.Ct);
+        if (invalid) await Assert.ThrowsAsync<PlanningResponseException>(call);
+        else Assert.Equal("group:worker", (await call())["evidenceRequests"]![0]!.ToString());
+        Assert.Equal(before, raw.ToJsonString());
+        Assert.Single(runtime.Calls);
+        Assert.Equal(1, state.ModelCalls);
+        Assert.Null(state.PendingCall);
+    }
+
     private static JsonObject Schema() => JsonNode.Parse("""
         {"type":"object","properties":{"evidenceRequests":{"anyOf":[
           {"type":"array","items":{"type":"string","enum":["view_a","view_b"]},"minItems":1,"maxItems":1},

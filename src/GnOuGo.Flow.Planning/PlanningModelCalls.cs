@@ -67,7 +67,8 @@ internal static partial class PlanningModelCalls
         if (request.StructuredOutputSchema?["$defs"] is JsonObject)
             request.StructuredOutputSchema = PlanningSchemas.Compact(request.StructuredOutputSchema.AsObject(), preserveDescriptions: true);
         if (purpose == PlanningCompactConstruction.DiscoveryPurpose)
-            request.StructuredOutputSchema = PlanningPromptPresentation.OrderBoundedArrayAlternativesFirst(request.StructuredOutputSchema!);
+            request.StructuredOutputSchema = PlanningEvidenceSelectionWire.Project(
+                PlanningPromptPresentation.OrderBoundedArrayAlternativesFirst(request.StructuredOutputSchema!));
         if (purpose == PlanningCompactConstruction.IntentPurpose)
             request.Prompt = PlanningPromptPresentation.PresentIntentDeclarationFields(request.Prompt);
         if (purpose == PlanningCompactConstruction.SelectPurpose)
@@ -282,7 +283,7 @@ internal static partial class PlanningModelCalls
             PlanningInspection.Record(state, purpose, "correction", "Response rejected by the exact issued schema.", call.Id);
             PlanningProgress.AssessAttempt(state, purpose == "replan" ? PlanningConstruction.DraftPurpose : purpose,
                 json, call.Id, prefix: "invalid:", issuedSchema: CanonicalEvidenceRequest(call).StructuredOutputSchema,
-                strategyResponse: InvalidResponseStrategy(json, call.EvidenceAddresses), exactIssuedSchema: call.Request.StructuredOutputSchema);
+                strategyResponse: InvalidResponseStrategy(json, call.EvidenceAddresses, call.Request.StructuredOutputSchema!), exactIssuedSchema: call.Request.StructuredOutputSchema);
             throw new PlanningResponseException(findings.Select(f => new PlanningDiagnostic("PLANNING_RESPONSE_INVALID",
                 f.InstancePointer, f.Message, ValidationStage: purpose)).ToList())
             {
@@ -292,7 +293,7 @@ internal static partial class PlanningModelCalls
         }
         state.RejectedProposalHash = null;
         PlanningInspection.Record(state, purpose, "succeeded", "Response satisfies the issued schema; semantic validation and business review remain separate.", call.Id);
-        var normalized = NormalizeEvidenceResponse(json, call.EvidenceAddresses);
+        var normalized = NormalizeEvidenceResponse(PlanningEvidenceSelectionWire.CanonicalResponse(json, call.Request.StructuredOutputSchema!), call.EvidenceAddresses);
         return normalized;
     }
 

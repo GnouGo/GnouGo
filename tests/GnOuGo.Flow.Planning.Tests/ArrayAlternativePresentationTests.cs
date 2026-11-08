@@ -17,7 +17,7 @@ public sealed class ArrayAlternativePresentationTests
             """)!.AsObject();
         var before = schema.ToJsonString();
         var prepared = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.DiscoveryPurpose, "Choose a permitted action.\n{}", schema);
-        Assert.Equal(1, prepared.StructuredOutputSchema!["properties"]!["evidenceRequests"]!["anyOf"]![0]!["maxItems"]!.GetValue<int>());
+        Assert.Equal(1, PlanningEvidenceSelectionWire.CanonicalSchema(prepared.StructuredOutputSchema!)["properties"]!["evidenceRequests"]!["anyOf"]![0]!["maxItems"]!.GetValue<int>());
         Assert.NotNull(prepared.ClientRequestId);
         Assert.Equal(before, schema.ToJsonString());
         var draft = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.DraftPurpose, "Choose a permitted action.\n{}", schema);

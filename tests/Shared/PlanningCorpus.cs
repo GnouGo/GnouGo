@@ -88,6 +88,9 @@ public static class PlanningCorpus
     /// <summary>Projects fixture DTOs to the exact strict transport schema. Never used in production.</summary>
     public static JsonNode? Transport(JsonNode? value, JsonObject schema, JsonObject root)
     {
+        var evidenceObjects = ReferenceEquals(schema, root) && GnOuGo.Flow.Planning.PlanningEvidenceSelectionWire.Issued(root);
+        if (evidenceObjects && value is JsonObject)
+            value = GnOuGo.Flow.Planning.PlanningEvidenceSelectionWire.WireResponse(value, root);
         if (schema["$ref"] is { } reference) return Transport(value, root["$defs"]![reference.ToString().Split('/')[^1]]!.AsObject(), root);
         if (schema["anyOf"] is JsonArray alternatives)
         {
@@ -97,7 +100,8 @@ public static class PlanningCorpus
         }
         if (value is null) return null;
         if (schema["properties"] is JsonObject properties)
-            return new JsonObject(properties.Select(p => new KeyValuePair<string, JsonNode?>(p.Key, Transport(value[p.Key], p.Value!.AsObject(), root))));
+            return new JsonObject(properties.Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
+                evidenceObjects && p.Key == "evidenceRequests" ? value[p.Key]?.DeepClone() : Transport(value[p.Key], p.Value!.AsObject(), root))));
         if (schema["items"] is JsonObject item && value is JsonArray array) return new JsonArray(array.Select(v => Transport(v, item, root)).ToArray());
         return value.DeepClone();
     }

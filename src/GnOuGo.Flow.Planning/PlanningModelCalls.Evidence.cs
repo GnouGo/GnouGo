@@ -367,9 +367,13 @@ internal static partial class PlanningModelCalls
 
     // This projection is only repetition evidence. It never validates a rejected
     // response or supplies a value to planning: unknown/malformed IDs stay intact.
-    private static JsonNode InvalidResponseStrategy(JsonNode response, PlanningEvidenceAddresses? mapping)
+    private static JsonNode InvalidResponseStrategy(JsonNode response, PlanningEvidenceAddresses? mapping, JsonNode issuedSchema)
     {
         var projected = response.DeepClone();
+        // Diagnostic canonicalization grants no acceptance: exact wire validation
+        // has already rejected this response. Retain malformed selectors as-is.
+        try { projected = PlanningEvidenceSelectionWire.CanonicalResponse(projected, issuedSchema); }
+        catch (PlanningConflictException) { }
         if (mapping is null) return projected;
         Visit(projected);
         if (projected is JsonObject root && root["action"]?["block"] is JsonObject block && block["dependencies"] is JsonArray dependencies)
@@ -444,6 +448,8 @@ internal static partial class PlanningModelCalls
     {
         ValidateEvidenceAddresses(call);
         var request = JsonSerializer.Deserialize(JsonSerializer.Serialize(call.Request, PlanningJsonContext.Default.LLMRequest), PlanningJsonContext.Default.LLMRequest)!;
+        if (request.StructuredOutputSchema is not null)
+            request.StructuredOutputSchema = PlanningEvidenceSelectionWire.CanonicalSchema(request.StructuredOutputSchema);
         if (call.EvidenceAddresses is not { } mapping) return request;
         string Resolve(string value) => mapping.Addresses.GetValueOrDefault(value, value);
         var (prefix, context) = PromptContext(request.Prompt);
