@@ -75,12 +75,14 @@ internal static partial class PlanningModelCalls
         var compactPrompt = request.Prompt;
         if (purpose == PlanningCompactConstruction.DiscoveryPurpose)
             request.Prompt = PlanningPromptPresentation.PresentDiscoveryResponseFields(request.Prompt, request.StructuredOutputSchema!);
+        var compactJson = purpose is PlanningCompactConstruction.DiscoveryPurpose or PlanningConstruction.DraftPurpose;
+        if (compactJson) request.Prompt = PlanningPromptPresentation.PresentCompactJsonGuidance(request.Prompt);
         // Bind the evidence basis after fresh field presentation; issued recovery
         // keeps its exact captured prompt/schema instead of preparing another one.
         var hash = IssuedIdentityHash(request, null);
         request.ClientRequestId = state.Request.SessionId + ":" + (state.ModelCalls + 1) + ":" +
             (evidenceAddresses is null ? "" : evidenceAddresses.MapHash + ":") + hash;
-        if (purpose == PlanningCompactConstruction.DiscoveryPurpose && !PlanningTokenThresholds.OptimizationAdvisory(state.Request) &&
+        if (compactJson && !PlanningTokenThresholds.OptimizationAdvisory(state.Request) &&
             ModelRequestAdmission.EstimateTokens(request) > PlanningConstructionPhasePolicies.Resolve(state.Request, purpose).MaxInputTokens)
         {
             // Optional guidance never displaces mandatory context or makes an
