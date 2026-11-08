@@ -155,6 +155,11 @@ be consumed through the same container. Fabricated values, unrelated producers a
 unused extra exports are rejected; technical repair does not establish business meaning.
 
 Issued calls store an encrypted request-bound short-ID map for evidence navigation.
+Fresh discovery requests with separate singleton-view and ordinary-batch choices
+encode those alternatives as `{single: id}` and `{batch: [ids]}`. The issued schema
+keeps the exact IDs and cardinalities. Validate that wire response before converting
+it to canonical evidence arrays and resolving aliases. The encoding marker participates
+in the request identity; historical issued array requests and raw receipts stay exact.
 Validate the raw response under its issued schema before resolving canonical addresses;
 preserve raw receipts and use canonical identities for repeat/progress checks. Recovery
 cannot rebuild a missing map. TaskPlan references and original contracts are unchanged.

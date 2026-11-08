@@ -248,6 +248,14 @@ and single HTTP attempt, forbids a receipt or known usage, and fingerprints the
 evidence. Repeating the closure is idempotent. All reservations remain held; the
 request and any started workflow remain forbidden to replay.
 
+Execution inference checks declared provider input capacity before reserving or
+sending a fresh HTTP attempt, including the SDK proxy. Diagnostic token warnings
+apply only to host targets; provider capacity remains hard. Exact completed receipt
+recovery precedes this check and does not require fresh capability metadata.
+For the explicitly approved Amazon observed-redirect policy, fresh Server planning
+receives its existing literal-link, redirect and browser-lifetime restrictions.
+The original business clauses and the v4/v5 oracles remain unchanged.
+
 Fresh Amazon/Code Server qualifications discover tools through the existing
 `ObservedMcp` scenario filter used by delegated execution. Source-bound Release
 tools and their contracts stay exact; operations outside the existing delegated

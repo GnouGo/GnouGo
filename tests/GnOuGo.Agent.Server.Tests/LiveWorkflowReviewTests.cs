@@ -9,6 +9,17 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class LiveWorkflowReviewTests
 {
+    [Fact]
+    public void StrictObservedRedirectPromptExposesCapturedAuthorityAndPreservesOriginalBusinessClauses()
+    {
+        const string relative = "workflows/campaign/fresh";
+        var original = LiveWorkflowEvaluation.AmazonEvaluationPrompt(relative, 3);
+        var strict = LiveWorkflowEvaluation.AmazonEvaluationPrompt(relative, 3, AmazonObservedRedirectPolicy.Id);
+        Assert.Equal(original + "\n" + AmazonObservedRedirectPolicy.PlanningFacts, strict);
+        Assert.DoesNotContain(AmazonObservedRedirectPolicy.Id, original, StringComparison.Ordinal);
+        Assert.Throws<InvalidOperationException>(() => LiveWorkflowEvaluation.AmazonEvaluationPrompt(relative, 3, "unapproved"));
+    }
+
     [Theory]
     [InlineData("--business-judge")]
     [InlineData("--no-business-judge")]

@@ -474,7 +474,7 @@ internal static class ServerLiveDiagnostics
                 var relative = "workflows/" + campaign.Id + "/" + run;
                 var prompt = scenario switch { "local" => PlanningBenchmarkCases.Prompt("local"),
                     "collections" => PlanningBenchmarkCases.Prompt("collections"),
-                    "amazon" => LiveWorkflowEvaluation.AmazonEvaluationPrompt(relative, 3),
+                    "amazon" => LiveWorkflowEvaluation.AmazonEvaluationPrompt(relative, 3, browserObservationPolicy),
                     "code" => LiveWorkflowEvaluation.CodeEvaluationPrompt(relative), _ => throw new ArgumentException("Unknown live scenario.") };
                 report["scenario"] = scenario;
                 report["workspace_relative"] = relative;
