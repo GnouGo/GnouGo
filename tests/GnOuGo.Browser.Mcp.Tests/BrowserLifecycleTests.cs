@@ -32,8 +32,12 @@ public sealed class BrowserLifecycleTests
             ReadinessCheckpoint = async () =>
             {
                 if (!first) return; first = false;
+                var dispatched = page.WaitForRequestAsync(request => request.IsNavigationRequest &&
+                    request.Frame == page.MainFrame && request.Url == server.Origin + "/next", new() { Timeout = 5000 });
                 navigating = page.GotoAsync(server.Origin + "/next");
-                await arrived.Task.WaitAsync(TimeSpan.FromSeconds(5), Ct);
+                // The server can receive bytes before Playwright delivers Request.
+                // Establish both independent facts before exercising the pending window.
+                await Task.WhenAll(arrived.Task.WaitAsync(TimeSpan.FromSeconds(5), Ct), dispatched);
             },
             ReadinessEvaluationCheckpoint = () => !release.Task.IsCompleted
                 ? throw new PlaywrightException("Execution context was destroyed before the new document committed.") : Task.CompletedTask
