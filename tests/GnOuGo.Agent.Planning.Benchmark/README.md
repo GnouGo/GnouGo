@@ -226,6 +226,9 @@ A default exception attempt count does not establish a generation dispatch.
 `--probe-reasoning <declared-effort> --probe-output-tokens <positive-bound>` for the
 small nonce/schema availability check. `--probe-source-request <owned-request-id>`
 copies the exact retained prompt and schema into a fresh nonce/run identity;
+`--probe-evidence-selection-objects` changes only the navigation evidence selector
+to an equivalent singleton/batch object encoding. It retains the selectable IDs
+and array bounds and never applies the response to a plan.
 `--probe-require-extension` requires a generated extension rather than an evidence-only
 answer. It applies no candidate and executes no business tool. Every probe has one
 physical attempt, ordinary campaign admission, durable request/response accounting,
@@ -237,6 +240,13 @@ new planner requests to an independent copy of the source prompt. It shares only
 byte-identical schema branches for the same operation id/version/hash and original
 pointer, keeps ancestor constraints/reference closures and the response schema,
 and reports before/after bytes. The retained source request is never rewritten.
+
+`--schema-portability retain-context-rejection --request-id <exact-id>` closes an
+owned tool-free inference only after a complete, non-retryable HTTP 400 with
+`context_length_exceeded` for `messages`. It requires the original request, failure
+and single HTTP attempt, forbids a receipt or known usage, and fingerprints the
+evidence. Repeating the closure is idempotent. All reservations remain held; the
+request and any started workflow remain forbidden to replay.
 
 Fresh Amazon/Code Server qualifications discover tools through the existing
 `ObservedMcp` scenario filter used by delegated execution. Source-bound Release

@@ -321,10 +321,11 @@ internal static class SchemaPortabilityCampaign
                 proposed.CampaignConfiguration(), proposed.ConfigurationFingerprint, ready["declared_metadata_hash"]!.ToString(), CancellationToken.None);
             Console.WriteLine(grant.ToJsonString()); return;
         }
-        if (phase == "retain-schema-rejection")
+        if (phase is "retain-schema-rejection" or "retain-context-rejection")
         {
             var requestId = Option(args, "--request-id") ?? throw new ArgumentException("Supply the exact --request-id.");
-            await campaign.RetainSchemaRejectionAsync(requestId, CancellationToken.None);
+            if (phase == "retain-schema-rejection") await campaign.RetainSchemaRejectionAsync(requestId, CancellationToken.None);
+            else await campaign.RetainContextRejectionAsync(requestId, CancellationToken.None);
             Console.WriteLine((await campaign.LoadAsync("planning-evaluation-closures", requestId))!.ToJsonString());
             return;
         }
