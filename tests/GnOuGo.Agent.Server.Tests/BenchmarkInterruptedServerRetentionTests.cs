@@ -47,7 +47,8 @@ public sealed partial class BenchmarkPermanentRetentionTests
         using var handler = new RetainedHoldRuntimeHandler();
         using var http = new HttpClient(handler);
         var options = new LLMOptions { DefaultProvider = "fixture", DefaultModel = "pinned",
-            Models = { ["fixture"] = new() { Type = "openai", Url = "https://example.invalid/v1" } } };
+            Models = { ["fixture"] = new() { Type = "openai", Url = "https://example.invalid/v1" } },
+            ModelOverrides = { ["openai/pinned"] = new() { MaxInputTokens = 96000, MaxOutputTokens = 32768, ContextWindowTokens = 128768 } } };
         using (var model = new KeyVaultBenchmarkModel(cold, options, new RoutingLLMClientAdapter(new RoutingLLMClient(http, options)),
             new RetainedHoldRates(), new RetainedHoldPrice(), http: http) { AdvisoryFinancialForecasts = true, RetainedExternalReservationsEur = .95m })
         {
