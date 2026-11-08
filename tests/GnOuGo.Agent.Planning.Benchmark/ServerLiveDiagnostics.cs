@@ -299,6 +299,20 @@ internal static class ServerLiveDiagnostics
                 report["evidence_selection_object_encoding"] = new JsonObject { ["active"] = !JsonNode.DeepEquals(before, request.StructuredOutputSchema),
                     ["canonical_choices_and_bounds_preserved"] = true, ["prompt_unchanged"] = true };
             }
+            if (args.Contains("--probe-runtime-prerequisite-guidance", StringComparer.Ordinal))
+            {
+                if (args.Any(option => option is "--probe-present-response-schema" or "--probe-intent-declaration-fields" or
+                    "--probe-business-dependency-fields" or "--probe-discovery-response-fields" or "--probe-share-schema-evidence" or
+                    "--probe-delivery-channel-guidance" or "--probe-compact-json-guidance" or "--probe-specific-array-branches" or
+                    "--probe-materialization-guidance" or "--probe-group-composition-guidance" or "--probe-evidence-selection-objects"))
+                    throw new ArgumentException("Choose one presentation factor for this probe.");
+                var before = request.Prompt;
+                request.Prompt = PlanningPromptPresentation.PresentRuntimePrerequisiteGuidance(before);
+                request.ClientRequestId = null;
+                request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+                report["runtime_prerequisite_guidance"] = new JsonObject { ["active"] = request.Prompt != before,
+                    ["schema_unchanged"] = true, ["added_utf8_bytes"] = System.Text.Encoding.UTF8.GetByteCount(request.Prompt) - System.Text.Encoding.UTF8.GetByteCount(before) };
+            }
             report["request_id"] = request.ClientRequestId; report["requested_output_tokens"] = request.MaxTokens;
             if (args.Contains("--probe-check-responses", StringComparer.Ordinal))
                 report["responses_route_inspection"] = await model.InspectResponsesRouteAsync(run, context.RequestAborted);

@@ -6,6 +6,14 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Presents response fields and shares identical contracts without changing their authority.</summary>
 public static class PlanningPromptPresentation
 {
+    /// <summary>Distinguish contract acquisition from a typed runtime-data prerequisite.</summary>
+    public static string PresentRuntimePrerequisiteGuidance(string prompt)
+    {
+        const string guidance = "\nOperation contracts, capability descriptions and catalogue availability are planning evidence, not missing runtime values. Keep their discovery in the offered evidence/reselection path. Do not suspend a consumer merely to emit that metadata as a value or transform task. Use suspend only when an executable producer must supply runtime data needed by the retained consumer. If a selected operation lacks another required operation or its cleanup contract, use reselectStep with disposition:abandon, then discover/select the connected operations together. This preserves the business block and accepted work; no side effect executes during planning.\n";
+        var contextOffset = prompt.LastIndexOf("\n{", StringComparison.Ordinal);
+        return contextOffset < 0 ? prompt + guidance : prompt.Insert(contextOffset, guidance);
+    }
+
     /// <summary>Present a singleton evidence view as an object without changing the selectable evidence or batch bounds.</summary>
     public static JsonNode PresentEvidenceSelectionObjects(JsonNode schema) => PlanningEvidenceSelectionWire.Project(schema);
 
