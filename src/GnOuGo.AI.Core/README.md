@@ -148,6 +148,10 @@ generation after a restart. Cancellation, permanent errors, malformed protocol,
 received final usage and incomplete/model-rejected outputs require their existing
 recovery path. Only a complete final response reaches the caller.
 
+EOF before an SSE event boundary is a transport interruption; complete malformed
+JSON frames remain protocol failures. Partial frames are retained and never
+contribute to the next attempt's response.
+
 `RoutingLLMClient` exposes provider failures through the redacted
 `LLMProviderException` contract. `LLMProviderFailureKind` distinguishes transport,
 timeout, ordinary rate limiting, service unavailability, authentication,

@@ -24,6 +24,20 @@ public sealed class NativeFramingTests
         });
     }
     [Fact]
+    public async Task MissingEventBoundaryIsTransportEofWhileCompleteMalformedJsonIsInvalidProtocol()
+    {
+        using var truncated = new MemoryStream(Encoding.UTF8.GetBytes("data: {\"value\":\"cut"));
+        await Assert.ThrowsAsync<EndOfStreamException>(async () =>
+        {
+            await foreach (var _ in SseParser.ReadDataAsync(truncated, TestContext.Current.CancellationToken)) { }
+        });
+        using var malformed = new MemoryStream(Encoding.UTF8.GetBytes("data: {\"value\":\"cut\n\n"));
+        await Assert.ThrowsAnyAsync<System.Text.Json.JsonException>(async () =>
+        {
+            await foreach (var evt in SseParser.ReadEventsAsync(malformed, TestContext.Current.CancellationToken)) evt.Dispose();
+        });
+    }
+    [Fact]
     public async Task FramesAreBoundedBeforeUnboundedAllocation()
     {
         using var input = new MemoryStream(Encoding.UTF8.GetBytes("data: " + new string('x', SseParser.MaxFrameCharacters) + "\n\n"));

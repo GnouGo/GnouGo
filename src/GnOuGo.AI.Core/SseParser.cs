@@ -48,7 +48,7 @@ public static class SseParser
                 data.Append(value.Span).Append('\n');
             }
         }
-        if (data.Length > 0) throw new InvalidDataException("Native SSE ended inside an event.");
+        if (data.Length > 0) throw new EndOfStreamException("Native SSE ended inside an event.");
     }
 
     /// <summary>Compatibility JSON reader. Malformed JSON is an error, never silently discarded.</summary>

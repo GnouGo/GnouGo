@@ -596,6 +596,28 @@ public sealed class NativeStreamingTests
         Assert.Equal(1, httpCalls(http)); Assert.Equal("cancelled", Assert.Single(journal.State!.Attempts).Failure);
     }
 
+    [Theory]
+    [InlineData("openai")]
+    [InlineData("copilot")]
+    [InlineData("anthropic")]
+    public async Task CapturedIndependentGenerationCanReplaceAnUnterminatedSseFrame(string type)
+    {
+        var journal = new Journal();
+        var calls = 0;
+        using var http = NewHttp(new Handler(_ => Task.FromResult(Response(type,
+            ++calls == 1 ? "data: {\"unfinished\":" : Fixture(type)))));
+        using (IndependentContext(journal))
+            Assert.Equal("café", (await Client(http, type).CallAsync(Request(structured: true), Ct)).Json!["value"]!.GetValue<string>());
+        Assert.Equal(2, calls);
+        var attempts = journal.State!.Attempts;
+        Assert.Equal(2, attempts.Count);
+        Assert.Equal("abandoned; independent tool-free generation retry", attempts[0].RetryDecision);
+        Assert.NotNull(attempts[0].PartialBodyBase64);
+        Assert.Null(attempts[0].AssembledBody);
+        Assert.NotEqual(true, attempts[0].UsageKnown);
+        Assert.True(attempts[1].ProtocolComplete);
+    }
+
     private static IDisposable IndependentContext(Journal journal) => new LLMHttpRetryContext("request", journal,
         new() { MaxAttempts = 3, MaxUncertainRetries = 1, BaseDelayMilliseconds = 1, MaxDelayMilliseconds = 1 }, 10_000).Activate();
 
