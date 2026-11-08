@@ -31,6 +31,27 @@ public sealed class BrowserSemanticOccurrenceTests
     }
 
     [Fact]
+    public async Task RedirectedDocumentMayChangeItsHistoryAddressBeforeNavigationReturns()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var site = await LoopbackTestServer.StartAsync(async context =>
+        {
+            if (context.Request.Path == "/start") { context.Response.Redirect("/final"); return; }
+            context.Response.ContentType = "text/html";
+            await context.Response.WriteAsync("<html><body><script>history.replaceState(null, '', '/final?canonical=1')</script>Observed document</body></html>", ct);
+        }, ct);
+        await using var host = new PlaywrightBrowserHost(Options.Create(new BrowserServerSettings
+            { AllowedHosts = ["127.0.0.1"] }), NullLogger<PlaywrightBrowserHost>.Instance);
+        var result = await host.GetContentAsync(site.Origin + "/start", "domcontentloaded", 10000, null, "observation_complete", null, false, ct);
+        Assert.True(result.Success);
+        var evidence = Assert.IsType<BrowserNavigationEvidence>(result.NavigationEvidence);
+        Assert.Equal(site.Origin + "/final", evidence.FinalUrl);
+        Assert.Equal(site.Origin + "/final?canonical=1", evidence.DocumentUrl);
+        Assert.Equal(result.Url, evidence.DocumentUrl);
+        Assert.Equal(new[] {302, 200}, evidence.Hops.Select(hop => hop.StatusCode));
+    }
+
+    [Fact]
     public async Task HistoryAddressChangesPreserveTheActualHttpResponseWithoutInventingARedirect()
     {
         var ct = TestContext.Current.CancellationToken;

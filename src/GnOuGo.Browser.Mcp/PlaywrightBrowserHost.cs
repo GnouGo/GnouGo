@@ -720,7 +720,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
             if (page == _page && frame == page.MainFrame)
                 lock (_observationLock)
                 {
-                    if (_pendingMainNavigation is null && _navigationRead is null && _committedMainNavigation is not null && _lastNavigationEvidence is { } document)
+                    if (_pendingMainNavigation is null && _committedMainNavigation is not null && _lastNavigationEvidence is { } document)
                     {
                         _lastNavigationEvidence = document with { DocumentUrl = frame.Url };
                     }

@@ -128,13 +128,16 @@ public sealed partial class PlaywrightBrowserHost
                 if (read.NextUrl is { } next) { read.CurrentUrl = next; continue; }
                 if (sameDocument && response is null && read.Hops.Count == 0) return null;
                 if (response is null || response.Request.Method != "GET" || read.Hops.Count == 0 ||
-                    response.Url != read.Hops[^1].Url || page.Url != read.CurrentUrl)
+                    response.Url != read.Hops[^1].Url)
                     throw new BrowserNavigationException("NAVIGATION_EVIDENCE_INCOMPLETE", "The final document cannot be bound to this navigation's observed responses.", read.Evidence());
                 lock (_observationLock)
                 {
                     if (_committedMainNavigation != response.Request)
                         throw new BrowserNavigationException("NAVIGATION_EVIDENCE_INCOMPLETE", "The observed response no longer owns the current document.", read.Evidence());
-                    _lastNavigationEvidence = read.Evidence(page.Url);
+                    BrowserNavigationPolicy.ValidateNavigationTarget(page.Url, _settings);
+                    if (page.Url != response.Url && (_lastNavigationEvidence?.FinalUrl != response.Url || _lastNavigationEvidence.DocumentUrl != page.Url))
+                        throw new BrowserNavigationException("NAVIGATION_EVIDENCE_INCOMPLETE", "The document address cannot be bound to its committed response.", read.Evidence());
+                    _lastNavigationEvidence = read.Evidence(response.Url) with { DocumentUrl = page.Url == response.Url ? null : page.Url };
                 }
                 return response;
             }
