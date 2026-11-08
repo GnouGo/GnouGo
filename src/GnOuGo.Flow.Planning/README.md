@@ -219,6 +219,13 @@ Original clauses do not require separate tasks, containers or closing calls. Cur
 intent receipts retain their issued schema and raw response; archived earlier intent
 protocols remain owned by their frozen binaries, without a compatibility adapter.
 
+Business-selection prompts make the existing dependency wire contract explicit:
+each dependency names an offered result through `resultId` and explains it with
+`reason`. No offered result means an empty dependency array. Prose prerequisites
+and global constraints retain their original context rather than becoming result
+dependencies. The compact guide is measured and hashed before dispatch; issued
+requests, response schemas, dependency validation and review authority stay exact.
+
 ## Ordinary arithmetic and decimal boundaries
 
 TaskPlan `arithmetic` values describe closed formulas using `text` (`add`, `subtract`, `multiply`, `divide`, `remainder`, `negate`) and `items`. Operand contracts must be numeric and nonnullable. The compiler retains structured values through contract closure, then emits JavaScript into existing checked `set` steps. There is no numeric executor or runtime inference. Exact business arithmetic is an MCP responsibility; explicitly declared decimal fields are converted automatically at the MCP boundary. See [migration and validation](../../docs/numeric-compilation.md).

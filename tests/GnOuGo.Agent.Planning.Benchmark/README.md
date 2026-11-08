@@ -721,6 +721,12 @@ strictness, source context and other model parameters, with a fresh identity and
 ordinary accounting. Select one presentation factor per probe. Neither presentation
 probe applies a contribution, approves an artifact or establishes execution success.
 
+`--probe-business-dependency-fields` isolates the corresponding compact production
+guide on an exact retained `construction_select` request. Only the prompt and fresh
+identity change; the provider remains strict and the original complete schema and
+source context remain authoritative. It is mutually exclusive with the other
+presentation factors and cannot apply a contribution or execute tools.
+
 The exhausted-planning retention path can also recognize historical progress-write
 cancellation that masked provider failure metadata. The exception label alone grants
 no authority: the exact version-2 capture and every owner journal must prove elapsed

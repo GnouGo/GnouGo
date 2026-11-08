@@ -1,0 +1,103 @@
+{
+  "source": "d010bee653c315c7802a10569e895e1c2310cc89",
+  "run": "convergence-code-20261108-02",
+  "stage": "construction_select",
+  "accepted_contributions": 0,
+  "global_review": false,
+  "approval": false,
+  "execution": false,
+  "request_body_bytes": 12249,
+  "request_body_sha256": "48de431a223f723b31f168cae23359a8e7569c359662eeba9b2a2d4e7ea00f7f",
+  "attempts": [
+    {
+      "Id": "be17a3fb45f34d6e9b44bc1b67042750:3:27a2a675933dd876350954018e76467dbda53591de0864c0c1d6636975b697a6:a4a89c75bc20b66432dbc154254539bb72862c27a76484e30002f48253016141:ef615da9f7f54cb8b47e9677b2a96716",
+      "StartedAtUtc": "2026-11-08T09:58:28.692166+00:00",
+      "DeadlineAtUtc": "2026-11-08T10:08:28.692166+00:00",
+      "CompletedAtUtc": "2026-11-08T10:08:28.695671+00:00",
+      "FirstByteAtUtc": "2026-11-08T09:58:41.36436+00:00",
+      "LastByteAtUtc": "2026-11-08T10:08:27.54488+00:00",
+      "Failure": "timeout",
+      "RetryDecision": "abandoned; independent tool-free generation retry",
+      "ProtocolComplete": null,
+      "UsageKnown": null,
+      "partial_bytes": 8975375
+    },
+    {
+      "Id": "be17a3fb45f34d6e9b44bc1b67042750:3:27a2a675933dd876350954018e76467dbda53591de0864c0c1d6636975b697a6:a4a89c75bc20b66432dbc154254539bb72862c27a76484e30002f48253016141:08edd648f2d1417c8b4ccaaf94d5bab2",
+      "StartedAtUtc": "2026-11-08T10:08:36.868279+00:00",
+      "DeadlineAtUtc": "2026-11-08T10:18:36.868279+00:00",
+      "CompletedAtUtc": "2026-11-08T10:13:50.624184+00:00",
+      "FirstByteAtUtc": "2026-11-08T10:08:49.550957+00:00",
+      "LastByteAtUtc": "2026-11-08T10:08:49.550957+00:00",
+      "Failure": "transport",
+      "RetryDecision": "blocked; captured retry allowance exhausted",
+      "ProtocolComplete": null,
+      "UsageKnown": null,
+      "partial_bytes": 745
+    }
+  ],
+  "comparisons": [
+    {
+      "run": "code-select-decoder-20261108-01",
+      "http_differences": [
+        ".response_format.json_schema.strict"
+      ],
+      "provider_wire_strict": null,
+      "requested_structured_output_strict": false,
+      "schema_equal": true,
+      "context_equal": true,
+      "prompt_bytes": 7927,
+      "schema_valid": false,
+      "started_utc": "2026-11-08T10:15:38.958454+00:00",
+      "finished_utc": "2026-11-08T10:16:04.860516+00:00",
+      "physical_attempts": 1,
+      "usage": {
+        "input_tokens": 2400,
+        "output_tokens": 991,
+        "total_tokens": 3391,
+        "benchmark_cost_eur": "0.2242543663233318405732198836",
+        "reasoning_tokens": 154,
+        "transport_attempts": 1,
+        "uncertain_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "benchmark_usage_bounded": true
+      },
+      "dependency_items": 4,
+      "no_candidate_or_execution": true,
+      "host_diagnostic": "$.action.block.dependencies: must contain at most 0 items"
+    },
+    {
+      "run": "code-select-schema-20261108-01",
+      "http_differences": [
+        ".messages.0.content"
+      ],
+      "provider_wire_strict": true,
+      "requested_structured_output_strict": true,
+      "schema_equal": true,
+      "context_equal": true,
+      "prompt_bytes": 10296,
+      "schema_valid": true,
+      "started_utc": "2026-11-08T10:17:44.655055+00:00",
+      "finished_utc": "2026-11-08T10:18:17.611793+00:00",
+      "physical_attempts": 1,
+      "usage": {
+        "input_tokens": 3041,
+        "output_tokens": 1063,
+        "total_tokens": 4104,
+        "benchmark_cost_eur": "0.2530855351545006717420510524",
+        "reasoning_tokens": 374,
+        "transport_attempts": 1,
+        "uncertain_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "benchmark_usage_bounded": true
+      },
+      "dependency_items": 0,
+      "no_candidate_or_execution": true
+    }
+  ],
+  "conclusion": "Omitting provider strict produced complete but invalid dependencies. Presenting the exact schema in the prompt with strict:true produced a complete schema-valid response. Isolated probes do not establish causality or workflow success."
+}

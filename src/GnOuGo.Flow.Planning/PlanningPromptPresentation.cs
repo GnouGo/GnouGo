@@ -6,6 +6,14 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Presents response fields and shares identical contracts without changing their authority.</summary>
 public static class PlanningPromptPresentation
 {
+    /// <summary>Distinguish result dependencies from prose prerequisites in business selection.</summary>
+    public static string PresentBusinessDependencyFields(string prompt)
+    {
+        const string presentation = "\nBlock dependencies contain only objects with resultId (an availableResults id) and reason. When availableResults is empty, dependencies is []. Keep prerequisites and global constraints out of that array.\n";
+        var contextOffset = prompt.LastIndexOf("\n{", StringComparison.Ordinal);
+        return contextOffset < 0 ? prompt + presentation : prompt.Insert(contextOffset, presentation);
+    }
+
     /// <summary>Make caller-interface wire keys explicit without duplicating the recursive response schema.</summary>
     public static string PresentIntentDeclarationFields(string prompt)
     {

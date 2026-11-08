@@ -193,6 +193,13 @@ internal static class ServerLiveDiagnostics
                 PresentProbeIntentDeclarationFields(request, run, nonce);
                 report["intent_declaration_fields_presented_in_prompt"] = true;
             }
+            if (args.Contains("--probe-business-dependency-fields", StringComparer.Ordinal))
+            {
+                if (args.Contains("--probe-present-response-schema", StringComparer.Ordinal) || args.Contains("--probe-intent-declaration-fields", StringComparer.Ordinal))
+                    throw new ArgumentException("Choose one presentation factor for this probe.");
+                PresentProbeBusinessDependencyFields(request, run, nonce);
+                report["business_dependency_fields_presented_in_prompt"] = true;
+            }
             report["request_id"] = request.ClientRequestId; report["requested_output_tokens"] = request.MaxTokens;
             if (args.Contains("--probe-check-responses", StringComparer.Ordinal))
                 report["responses_route_inspection"] = await model.InspectResponsesRouteAsync(run, context.RequestAborted);
@@ -468,6 +475,15 @@ internal static class ServerLiveDiagnostics
             request.Tools is { Count: > 0 } || request.UseBackgroundMode)
             throw new ArgumentException("An exact tool-free foreground intent request is required.");
         request.Prompt = PlanningPromptPresentation.PresentIntentDeclarationFields(request.Prompt);
+        request.ClientRequestId = null;
+        request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+    }
+    internal static void PresentProbeBusinessDependencyFields(LLMRequest request, string run, string nonce)
+    {
+        if (request.StructuredOutputSchema?["title"]?.ToString() != "construction_select" ||
+            request.Tools is { Count: > 0 } || request.UseBackgroundMode)
+            throw new ArgumentException("An exact tool-free foreground business-selection request is required.");
+        request.Prompt = PlanningPromptPresentation.PresentBusinessDependencyFields(request.Prompt);
         request.ClientRequestId = null;
         request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
     }

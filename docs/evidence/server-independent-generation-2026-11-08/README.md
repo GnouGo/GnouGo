@@ -133,7 +133,7 @@ pass is claimed for that intermediate state.
 
 ## Live bounded retry and a masked timeout
 
-The final-source Server `local` check on `94a6078b` stopped before an accepted
+The Server `local` check on frozen source `94a6078b` stopped before an accepted
 contribution. Its [actual 6,142-byte request and two partial streams](local01-bounded-retry-and-whitespace.json)
 show a short JSON prefix followed by prolonged whitespace, with strict provider
 JSON Schema already enabled. Both captured 600-second deadlines expired. The
@@ -228,3 +228,35 @@ collection runs](successful-server-cases-21a3d7c6.json) retain their exact sourc
 artifact approvals, unchanged oracle versions, measured cost and time through
 accepted review and saved business results. They establish two scenario successes,
 not Amazon qualification or controlled proof of general convergence gains.
+
+## Selection dependency wire visibility
+
+The next code trial on `d010bee6` stopped at logical call 3, before discovery or
+accepted work. Its [exact generation and single-factor comparisons](code02-generation-and-visibility-comparison.json)
+record two physical attempts: a 600-second whitespace timeout after opening the
+empty-only dependency array, then a native transport ending about 301 seconds
+after its last metadata bytes. The existing captured owner admitted precisely one
+independent attempt and stopped at its allowance. No partial result was applied.
+
+The existing protected probe requested `StructuredOutputStrict=false`, omitting
+the HTTP `strict` member on the otherwise identical request. It completed, but
+filled `dependencies` with prose despite its required zero length. Original host
+validation rejected it; normal planning still sends `strict:true`. Another probe
+kept strictness and the complete schema unchanged and presented that exact schema
+in the prompt. It completed with schema-valid empty dependencies. Each probe had
+one physical attempt, no candidate application and no execution. These isolated
+observations motivate a compact field explanation; they do not prove causal or
+general convergence gains.
+
+New selection requests explicitly distinguish `{resultId, reason}` result
+dependencies from prerequisites/global constraints and explain the existing empty
+case. This changes neither the response grammar nor business authority. Preparation
+measures and hashes the guide; historical issued requests recover exactly.
+[Code run 01](code01-retention-applied.json) and
+[code run 02](code02-retention-applied.json) are permanently retained with all
+original bytes/holds and no replay or continuation. No funds were released.
+
+Dependency presentation validation before the compact live probe: **160 focused
+planning tests and 219 focused Server tests passed**, with zero failures or
+compiler warnings. The prior `d010bee6` solution run was interrupted for this
+newly reproduced generation defect; final shared validation remains required.

@@ -25,6 +25,15 @@ public sealed class BusinessSelectionArchitectureTests
             Assert.False(context.ContainsKey(key));
             Assert.False(block.ContainsKey(key));
         }
+        var selected = PlanningCompactConstruction.SelectionRequest(state);
+        var prepared = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.SelectPurpose,
+            selected.Prompt, selected.StructuredOutputSchema!.AsObject());
+        Assert.Contains("resultId (an availableResults id) and reason", prepared.Prompt, StringComparison.Ordinal);
+        Assert.Contains("When availableResults is empty, dependencies is []", prepared.Prompt, StringComparison.Ordinal);
+        var dependencies = prepared.StructuredOutputSchema!["properties"]!["action"]!["anyOf"]![0]!["properties"]!["block"]!["properties"]!["dependencies"]!;
+        Assert.True(JsonNode.DeepEquals(block["dependencies"], dependencies));
+        Assert.Empty(PlanningContractValidation.ValidateInstance(new JsonArray(), dependencies));
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(new JsonArray("An installation prerequisite is prose, not a result dependency."), dependencies));
     }
 
     [Fact]
@@ -211,6 +220,7 @@ public sealed class BusinessSelectionArchitectureTests
         runtime.Respond = (request, purpose) =>
         {
             Assert.Equal(PlanningCompactConstruction.SelectPurpose, purpose);
+            Assert.Contains("Block dependencies contain only objects with resultId", request.Prompt, StringComparison.Ordinal);
             var context = BusinessProjectionDeclarationsTests.Context(request);
             issued = context["availableResults"]![0]!["id"]!.ToString();
             Assert.Equal(issued, context["overallProgress"]!["acceptedResults"]![0]!.ToString());
