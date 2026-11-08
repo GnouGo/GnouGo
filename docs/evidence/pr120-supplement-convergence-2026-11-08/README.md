@@ -33,3 +33,36 @@ The targeted live trial uses a fresh real code-review workflow. Its exact
 unchanged-plan business-review transition must be observed before claiming the
 `bcc0434f` boundary exercised; successful arithmetic is not evidence of it.
 Cancelled historical sessions are retained and cannot resume.
+
+The first targeted trial on `868a2868` stopped at discovery call 14 with no
+accepted contribution. [Its original streams and exact-request comparison](boundary01-and-discovery-guide-comparison.json)
+show two native transport endings about 300 seconds after their last bytes,
+before both captured 600-second deadlines. The existing owner admitted one
+independent attempt, retained both full uncertain holds and stopped at its
+allowance. Exact permanent retention preserves all originals and forbids old
+continuation/replay. This run does **not** exercise the business-review boundary.
+
+An independent protected Server probe changed only HTTP message content, adding
+a **724-byte compact required-field guide**. Every other wire field, strict
+response grammar and original context remained identical. It returned a valid
+response in one physical attempt, 16.35 seconds through its saved report, at
+EUR 0.2479265562024182713837886252 in captured-usage tariff estimates. No candidate
+or business tool was applied. This supports testing field visibility, not a claim
+of causality, an upstream diagnosis or time/cost to an accepted contribution.
+
+Fresh discovery requests use this guide instead of a full prompt copy of the
+grammar. Diagnostic captures retain it even when an advisory input hint is crossed.
+Ordinary Strict hosts omit only optional guidance when the whole request would
+cross their existing maximum; all context, contracts and hard admission stay intact.
+This boundary corrected a newly reproduced strict follow-up regression, without
+raising a limit. **169 focused planning tests passed**, including discovery,
+retained recovery and business-block completion. Final solution validation remains
+required after live work stabilizes.
+
+The generic Browser correction passes **157 component tests**, including controlled
+ARIA/native occurrences with multiple links, duplicate destinations, page order,
+actual final-document/response provenance, cookies, forbidden host/path redirects,
+loops, the physical redirect ceiling and non-replayed POST interactions. The
+component's Release publish also passed. No Amazon permission or oracle was
+changed. See the [separate scope proposal](amazon-scope-proposal.md); it grants no
+authority and cannot be used as a successful Amazon qualification.

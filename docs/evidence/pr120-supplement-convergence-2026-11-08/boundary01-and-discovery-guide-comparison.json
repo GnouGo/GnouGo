@@ -1,0 +1,69 @@
+{
+  "original_run": "boundary-code-20261108-01",
+  "source": "868a2868",
+  "session_id": "e6a607ba8ab44716a2677109667b8ea9",
+  "logical_calls": 14,
+  "physical_attempts": 15,
+  "accepted_checkpoints": 0,
+  "favorable_local_review": false,
+  "global_review": false,
+  "approved": false,
+  "executed": false,
+  "business_boundary_exercised": false,
+  "first_stop": "Native discovery generation lost both incomplete streams; not a proved complexity cause.",
+  "failed_request_id": "e6a607ba8ab44716a2677109667b8ea9:14:a2b65fef30aade1111bfb30217ad26ebbfa1fd3c91919a0e39cd4e41ea8b5667:10949dbdbc33dd003ecc02ffaa2bd6d85ccd80986fa9b89798ec1f3ed14f6244",
+  "attempts": [
+    {
+      "failure": "transport",
+      "observed_status": 200,
+      "started_at": "2026-11-08T15:00:59.900195+00:00",
+      "last_byte_at": "2026-11-08T15:01:10.663385+00:00",
+      "completed_at": "2026-11-08T15:06:10.283469+00:00",
+      "deadline_at": "2026-11-08T15:10:59.900195+00:00",
+      "seconds_after_last_byte_to_transport_end": 299.620084,
+      "partial_utf8_bytes": 2125
+    },
+    {
+      "failure": "transport",
+      "observed_status": 200,
+      "started_at": "2026-11-08T15:06:10.710726+00:00",
+      "last_byte_at": "2026-11-08T15:06:21.305169+00:00",
+      "completed_at": "2026-11-08T15:11:20.547142+00:00",
+      "deadline_at": "2026-11-08T15:16:10.710726+00:00",
+      "seconds_after_last_byte_to_transport_end": 299.241973,
+      "partial_utf8_bytes": 745
+    }
+  ],
+  "retry_owner": "existing captured AI.Core owner; one independent attempt, separate identity/reservation, no assembled response applied",
+  "retention": {
+    "evidence_hash": "087d89a639661842254fdfefa587fdf16fd433215fc11842894319d707a89bc4",
+    "reservation_retained": true,
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "retained_at": "2026-11-08T15:13:26.9083570+00:00"
+  },
+  "comparison": {
+    "run": "boundary-discovery-guide-20261108-01",
+    "source": "d7b92c368133357157d1333100d4b6c2f9f6de69",
+    "only_http_body_difference": ".messages[0].content",
+    "original_strict_response_schema_identical": true,
+    "other_wire_fields_identical": true,
+    "guide_active": true,
+    "prompt_utf8_bytes_added": 724,
+    "wire_utf8_bytes_added": 736,
+    "physical_attempts": 1,
+    "schema_valid": true,
+    "known_usage_tariff_estimate_eur": "0.2479265562024182713837886252",
+    "seconds_to_saved_probe_report": 16.349797,
+    "applies_candidate": false,
+    "executes_business_tools": false,
+    "causality_or_convergence_proved": false
+  },
+  "raw_evidence_sha256": {
+    "boundary-code01-stopped.json": "ed1c03a3b5fc94c4bdfde286a9579850811d60cea62ade0b0eb492343cb6afde",
+    "boundary-code01-http-final.json": "744a588354ba7415e19d6f7587caae2e781a1ae9d25f9929895fc966a40225cf",
+    "boundary-guide01-http.json": "580586b73d5d013746ab08b25ac2c636b4c0bf28b084155fb3b7be11cc752cad",
+    "boundary-guide01-run.json": "be910c087d4012619a762b845fa9a3d26c17fb1d787e4544950ae34882c0e399",
+    "boundary-code01-retention-applied.json": "b2d33a765025021a7c9fa4eeeff071eee6163d949d496eb35a76fee8b628f771"
+  }
+}

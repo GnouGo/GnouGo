@@ -21,6 +21,12 @@ Present only transitions compatible with the selected action. A boundary that th
 
 ## Context and contracts
 
+Use compact discovery field guides derived from the authoritative response schema,
+including required nested action fields. Do not copy the entire recursive grammar
+or issued-value directories into the prompt by default. Preserve the complete
+strict schema and original context; measure and hash fresh guidance before dispatch.
+Recover historical issued requests exactly without adding new presentation.
+
 Business and implementation selection share `overallProgress`, a transient index of
 original expected results, global constraints, accepted contributions, contractual
 result connections and missing public bindings. Reuse existing coverage, reachability

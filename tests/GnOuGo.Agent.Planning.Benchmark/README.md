@@ -685,6 +685,18 @@ reports whether the guide is active and its added UTF-8 bytes, applies no candid
 and executes no business tool. This opt-in comparison alone does not establish
 workflow success, an upstream cause or a causal convergence improvement.
 
+Fresh production discovery requests now use this compact required-field guide
+instead of copying the complete response grammar into the prompt. The full strict
+schema, nested constraints and original context remain authoritative and intact.
+The guide is included before complete-request measurement and identity binding;
+historical issued requests recover their exact original bytes without a new guide.
+Normal financial and physical admission remain mandatory. This visibility no
+longer silently disappears when an optional full-grammar copy exceeds an input hint.
+For an ordinary Strict host, omit only this optional guide if it alone would cross
+the captured complete-request maximum; never evict original context to fit it.
+Diagnostic optimization warnings keep the compact guide active while physical
+model limits and financial admission remain hard.
+
 ### Explicit independent spending allocation
 
 An operator may explicitly authorize **additional, independent new spending**.

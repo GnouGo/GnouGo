@@ -72,24 +72,21 @@ internal static partial class PlanningModelCalls
             request.Prompt = PlanningPromptPresentation.PresentBusinessDependencyFields(request.Prompt);
         var compactPrompt = request.Prompt;
         if (purpose == PlanningCompactConstruction.DiscoveryPurpose)
-            request.Prompt = PlanningPromptPresentation.PresentResponseSchema(compactPrompt, request.StructuredOutputSchema!);
-        // Bind the evidence basis only after optional presentation is selected.
+            request.Prompt = PlanningPromptPresentation.PresentDiscoveryResponseFields(request.Prompt, request.StructuredOutputSchema!);
+        // Bind the evidence basis after fresh field presentation; issued recovery
+        // keeps its exact captured prompt/schema instead of preparing another one.
         var hash = IssuedIdentityHash(request, null);
         request.ClientRequestId = state.Request.SessionId + ":" + (state.ModelCalls + 1) + ":" +
             (evidenceAddresses is null ? "" : evidenceAddresses.MapHash + ":") + hash;
-        if (purpose == PlanningCompactConstruction.DiscoveryPurpose)
+        if (purpose == PlanningCompactConstruction.DiscoveryPurpose && !PlanningTokenThresholds.OptimizationAdvisory(state.Request) &&
+            ModelRequestAdmission.EstimateTokens(request) > PlanningConstructionPhasePolicies.Resolve(state.Request, purpose).MaxInputTokens)
         {
-            var phase = PlanningConstructionPhasePolicies.Resolve(state.Request, purpose);
-            var presentationLimit = PlanningTokenThresholds.OptimizationAdvisory(state.Request) ? phase.MaxInputTokens : phase.TargetInputTokens;
-            // Optional presentation must not evict context or induce another page.
-            // Measure the complete request, including its actual issued identity.
-            if (ModelRequestAdmission.EstimateTokens(request) > presentationLimit)
-            {
-                request.Prompt = compactPrompt;
-                hash = IssuedIdentityHash(request, null);
-                request.ClientRequestId = state.Request.SessionId + ":" + (state.ModelCalls + 1) + ":" +
-                    (evidenceAddresses is null ? "" : evidenceAddresses.MapHash + ":") + hash;
-            }
+            // Optional guidance never displaces mandatory context or makes an
+            // otherwise admissible strict follow-up fail its captured ceiling.
+            request.Prompt = compactPrompt;
+            hash = IssuedIdentityHash(request, null);
+            request.ClientRequestId = state.Request.SessionId + ":" + (state.ModelCalls + 1) + ":" +
+                (evidenceAddresses is null ? "" : evidenceAddresses.MapHash + ":") + hash;
         }
         if (evidenceAddresses is not null)
         {
