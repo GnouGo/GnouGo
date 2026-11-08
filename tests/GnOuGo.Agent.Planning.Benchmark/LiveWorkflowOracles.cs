@@ -7,11 +7,12 @@ using DocumentFormat.OpenXml.Spreadsheet;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
 
-internal static class LiveWorkflowOracles
+internal static partial class LiveWorkflowOracles
 {
     internal const string ObservedProductsVersion = "observed-products-v2";
     internal const string AmazonBusinessVersion3 = "amazon-business-v3";
     internal const string AmazonBusinessVersion = "amazon-business-v4";
+    internal const string AmazonObservedRedirectVersion = "amazon-business-v5";
     internal const string CodeBusinessVersion = "code-business-v2";
     internal static async Task<JsonObject> VerifyAsync(string scenario, string root, JsonObject run, IMcpClientFactory transport,
         Func<Task<McpCallResult>>? hostClosureProbe = null)
@@ -22,8 +23,12 @@ internal static class LiveWorkflowOracles
         var events = run["events"]!.AsArray().OfType<JsonObject>().ToArray();
         if (scenario == "amazon")
         {
-            if (run["oracle_version"]?.ToString() is { } version && version is not ("real-workflows-v1" or ObservedProductsVersion or AmazonBusinessVersion3 or AmazonBusinessVersion))
+            if (run["oracle_version"]?.ToString() is { } version && version is not ("real-workflows-v1" or ObservedProductsVersion or AmazonBusinessVersion3 or AmazonBusinessVersion or AmazonObservedRedirectVersion))
                 throw new InvalidOperationException("Unknown retained execution oracle version.");
+            if (run["oracle_version"]?.ToString() == AmazonObservedRedirectVersion &&
+                (run["browser_observation_policy"]?.ToString() != AmazonObservedRedirectPolicy.Id ||
+                 run["browser_scope_approval"]?.ToString() != AmazonObservedRedirectPolicy.Approval))
+                throw new InvalidOperationException("The new Amazon verifier requires its captured strict scope and approval.");
             var productLimit = run["max_products"]?.GetValue<int>() ?? 3;
             if (productLimit is < 1 or > 10) throw new InvalidOperationException("Invalid retained product bound.");
             var browser = await transport.GetClientAsync("GnOuGo.Browser.Mcp", CancellationToken.None);
@@ -49,15 +54,16 @@ internal static class LiveWorkflowOracles
                     var descriptionIndex = Array.FindIndex(names, n => n == "description");
                     var priceIndex = Array.FindIndex(names, n => n is "prix" or "price");
                     if (nameIndex < 0 || descriptionIndex < 0 || priceIndex < 0) findings.Add("workbook_columns_missing");
-                    else if (run["oracle_version"]?.ToString() is ObservedProductsVersion or AmazonBusinessVersion3 or AmazonBusinessVersion)
+                    else if (run["oracle_version"]?.ToString() is ObservedProductsVersion or AmazonBusinessVersion3 or AmazonBusinessVersion or AmazonObservedRedirectVersion)
                     {
                         var evidence = VerifyObservedProducts(events, rows, productLimit);
                         run["product_evidence"] = evidence;
                         findings.AddRange(evidence["findings"]!.AsArray().Select(f => f!.ToString()));
-                        if (run["oracle_version"]?.ToString() is AmazonBusinessVersion3 or AmazonBusinessVersion)
+                        if (run["oracle_version"]?.ToString() is AmazonBusinessVersion3 or AmazonBusinessVersion or AmazonObservedRedirectVersion)
                         {
-                            var selection = VerifyAmazonSelection(events, productLimit, run["inputs"]?["query"]?.ToString(),
-                                run["oracle_version"]!.ToString());
+                            var selection = run["oracle_version"]?.ToString() == AmazonObservedRedirectVersion
+                                ? VerifyAmazonObservedRedirectSelection(events, productLimit, run["inputs"]?["query"]?.ToString())
+                                : VerifyAmazonSelection(events, productLimit, run["inputs"]?["query"]?.ToString(), run["oracle_version"]!.ToString());
                             run["search_evidence"] = selection;
                             findings.AddRange(selection["findings"]!.AsArray().Select(f => f!.ToString()));
                         }

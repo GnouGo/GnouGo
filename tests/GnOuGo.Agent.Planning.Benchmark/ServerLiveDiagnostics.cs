@@ -40,6 +40,9 @@ internal static class ServerLiveDiagnostics
         var mcpReadiness = args.ElementAtOrDefault(1) == "server-live-mcp-readiness";
         var delegatedScenario = planning && SchemaPortabilityCampaign.Option(args, "--case") is "amazon" or "code"
             ? SchemaPortabilityCampaign.Option(args, "--case") : null;
+        var browserObservationPolicy = args.Contains("--amazon-observed-redirects", StringComparer.Ordinal)
+            ? AmazonObservedRedirectPolicy.Id : null;
+        AmazonObservedRedirectPolicy.Validate(browserObservationPolicy, delegatedScenario ?? "");
         var fundingScope = await campaign.FreshAllocationAsync(CancellationToken.None);
         if (!retained && !mcpReadiness && await campaign.HasUncertainRequestAsync(CancellationToken.None))
             throw BenchmarkCampaign.AdmissionFailure("campaign_uncertain_request_requires_recovery");
@@ -110,8 +113,8 @@ internal static class ServerLiveDiagnostics
                     IMcpClientFactory? discovery = null;
                     if (delegatedScenario is not null)
                     {
-                        var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, delegatedScenario, null, "Release");
-                        var policyHash = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(typeof(DelegatedTestReviewAuthority).Assembly.Location)));
+                        var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, delegatedScenario, null, "Release", browserObservationPolicy: browserObservationPolicy);
+                        var policyHash = DelegatedDiscoveryPolicyHash();
                         discovery = new DelegatedPlanningDiscovery(new ConfiguredMcpClientFactory(configurations, defaultLlmProvider: model.Provider, defaultLlmModel: model.Model), delegatedScenario, policyHash,
                             async ct =>
                             {
@@ -153,6 +156,11 @@ internal static class ServerLiveDiagnostics
             ["configuration_sources"] = model.ConfigurationSources.DeepClone(),
             ["server_model_source"] = app.Services.GetRequiredService<LLMRuntimeOptionsStore>().DefaultModelSource };
         if (fundingScope is not null) report["funding_scope"] = fundingScope.DeepClone();
+        if (browserObservationPolicy is not null)
+        {
+            report["browser_observation_policy"] = browserObservationPolicy;
+            report["browser_scope_approval"] = AmazonObservedRedirectPolicy.Approval;
+        }
         if (phaseFile is not null) report["phase_policy_sha256"] = PlanningGraphCompiler.Fingerprint(await File.ReadAllTextAsync(phaseFile));
         if (delegatedScenario is not null) report["planning_discovery_authority"] = "existing_delegated_tool_allowlist_v1";
         if (!retained) await campaign.SaveAsync("planning-evaluation-runs", run, report);
@@ -409,8 +417,8 @@ internal static class ServerLiveDiagnostics
                 report["max_products"] = 3;
                 if (scenario is "amazon" or "code")
                 {
-                    report["oracle_version"] = scenario == "amazon" ? LiveWorkflowOracles.AmazonBusinessVersion : LiveWorkflowOracles.CodeBusinessVersion;
-                    report["mcp_builds"] = LiveWorkflowEvaluation.CaptureMcpBuilds(LiveWorkflowEvaluation.Configuration(model.McpServers, scenario, "preflight-only", "Release"), report["source"]!.ToString());
+                    report["oracle_version"] = scenario == "amazon" ? browserObservationPolicy is null ? LiveWorkflowOracles.AmazonBusinessVersion : LiveWorkflowOracles.AmazonObservedRedirectVersion : LiveWorkflowOracles.CodeBusinessVersion;
+                    report["mcp_builds"] = LiveWorkflowEvaluation.CaptureMcpBuilds(LiveWorkflowEvaluation.Configuration(model.McpServers, scenario, null, "Release", browserObservationPolicy: browserObservationPolicy), report["source"]!.ToString());
                 }
                 using var started = await client.PostAsJsonAsync("/api/planning", new JsonObject { ["name"] = run, ["prompt"] = prompt,
                     ["mode"] = "auto", ["thresholdMode"] = "diagnostic" });
@@ -554,11 +562,11 @@ internal static class ServerLiveDiagnostics
         current = await store.LoadAsync(current.Request.TenantId, current.Request.SessionId, CancellationToken.None)
             ?? throw new PlanningConflictException("The retained session disappeared.");
         await RequireNotCancelledAsync(app, current, CancellationToken.None);
-        var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, scenario, "metadata-only", "Release", report["working_directory"]!.ToString());
+        var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, scenario, null, "Release", report["working_directory"]!.ToString(), report["browser_observation_policy"]?.ToString());
         if (!JsonNode.DeepEquals(LiveWorkflowEvaluation.CaptureMcpBuilds(configurations, report["source"]!.ToString()), report["mcp_builds"]))
             throw new PlanningConflictException("The original selected tool binaries changed; exact revalidation is forbidden.");
         await using var metadata = new DelegatedPlanningDiscovery(new ConfiguredMcpClientFactory(configurations), scenario,
-            PlanningGraphCompiler.Fingerprint(typeof(DelegatedTestReviewAuthority).Assembly.FullName!));
+            DelegatedDiscoveryPolicyHash());
         var previousRevision = current.Revision;
         var runtime = ServerLiveArtifactValidation.Runtime(metadata, current.Request.Policy, async (state, ct) =>
         {
@@ -605,15 +613,15 @@ internal static class ServerLiveDiagnostics
         var authorization = JsonSerializer.Deserialize(await File.ReadAllTextAsync(Path.Combine(output, "authorization.json")), DelegatedTestJsonContext.Default.DelegatedTestAuthorization)!;
         var document = JsonSerializer.Deserialize(await File.ReadAllTextAsync(Path.Combine(output, "review.json")), DelegatedTestJsonContext.Default.DelegatedTestReviewDocument)!;
         var authority = new DelegatedTestReviewAuthority(authorization, document, campaign.Id, state.Request.SessionId, scenario is "local" or "collections" ? "synthetic" : scenario, workspace, report["source"]!.ToString(),
-            scenario is "amazon" or "code" ? report["workspace_relative"]!.ToString() : null);
+            scenario is "amazon" or "code" ? report["workspace_relative"]!.ToString() : null, report["browser_observation_policy"]?.ToString());
         authority.Validate(state); await authority.PinAsync(campaign, CancellationToken.None);
         var sourceRoot = report["working_directory"]!.ToString();
         var metadataConfigurations = scenario is "amazon" or "code"
-            ? LiveWorkflowEvaluation.Configuration(model.McpServers, scenario, "metadata-only", "Release", sourceRoot) : null;
+            ? LiveWorkflowEvaluation.Configuration(model.McpServers, scenario, null, "Release", sourceRoot, report["browser_observation_policy"]?.ToString()) : null;
         if (metadataConfigurations is not null && !JsonNode.DeepEquals(LiveWorkflowEvaluation.CaptureMcpBuilds(metadataConfigurations, report["source"]!.ToString()), report["mcp_builds"]))
             throw new PlanningConflictException("The frozen selected tools changed before approval.");
         await using var metadata = metadataConfigurations is null ? null : new DelegatedPlanningDiscovery(
-            new ConfiguredMcpClientFactory(metadataConfigurations), scenario, PlanningGraphCompiler.Fingerprint(typeof(DelegatedTestReviewAuthority).Assembly.FullName!));
+            new ConfiguredMcpClientFactory(metadataConfigurations), scenario, DelegatedDiscoveryPolicyHash());
         var previousRevision = state.Revision;
         var runtime = ServerLiveArtifactValidation.Runtime(metadata, state.Request.Policy, async (s, ct) => {
             await RequireNotCancelledAsync(app, s, ct);
@@ -655,7 +663,7 @@ internal static class ServerLiveDiagnostics
         {
             model.CaptureTokenPolicy(state.Request);
             await using var proxy = await CampaignInferenceProxy.StartAsync(model, state.Request.SessionId);
-            var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, scenario, proxy.Endpoint, "Release", sourceRoot);
+            var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, scenario, proxy.Endpoint, "Release", sourceRoot, report["browser_observation_policy"]?.ToString());
             var builds = LiveWorkflowEvaluation.CaptureMcpBuilds(configurations, report["source"]!.ToString());
             if (!JsonNode.DeepEquals(builds, report["mcp_builds"])) throw new PlanningConflictException("The frozen execution tools changed after generation.");
             var human = new DelegatedTestReviewAuthority.Input(campaign, state.Request.SessionId, authority);
@@ -755,6 +763,9 @@ internal static class ServerLiveDiagnostics
             return await capture.CallAsync(request, options.Current, (r, token) => model.CallServerPlanningAsync(r, state, token), ct);
         }
     }
+    internal static string DelegatedDiscoveryPolicyHash() =>
+        Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(typeof(DelegatedTestReviewAuthority).Assembly.Location)));
+
     internal sealed class DelegatedPlanningDiscovery(IMcpClientFactory inner, string scenario, string policyHash,
         Func<CancellationToken, Task<IMcpClientFactory>>? hostLookupFactory = null)
         : IMcpClientFactory, IMcpSourceConfigurationFingerprint, IAsyncDisposable

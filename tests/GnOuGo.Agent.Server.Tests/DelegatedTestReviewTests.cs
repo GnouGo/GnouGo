@@ -27,6 +27,46 @@ public sealed class DelegatedTestReviewTests
         Assert.Throws<PlanningConflictException>(() => Authority(authorization, evidence, receipt).Validate(state));
     }
 
+    [Fact]
+    public async Task StrictRedirectExtensionRequiresExactCompleteObservedSearchAndExpiresAtClose()
+    {
+        var (_, _, original, evidence, receipt) = await Fixture();
+        var authorization = original with { Scenario = "amazon", BrowserObservationPolicy = AmazonObservedRedirectPolicy.Id };
+        var authority = new DelegatedTestReviewAuthority(authorization, new(receipt, evidence), "campaign", "test-run", "amazon",
+            Path.GetTempPath(), "frozen-source", browserObservationPolicy: AmazonObservedRedirectPolicy.Id);
+        var events = AmazonObservedRedirectOracleTests.Events();
+        var entry = events[1]["arguments"]!.DeepClone();
+        void Read(JsonNode args) => authority.RequireTool("GnOuGo.Browser.Mcp", "browser_get_content", args);
+        Assert.Throws<PlanningConflictException>(() => Read(entry));
+        Read(events[0]["arguments"]!);
+        authority.ObserveTool("GnOuGo.Browser.Mcp", "browser_get_content", events[0]["arguments"], new() { Content = events[0]["result"]!.DeepClone() });
+        Read(entry);
+        authority.ObserveTool("GnOuGo.Browser.Mcp", "browser_get_content", entry, new() { Content = events[1]["result"]!.DeepClone() });
+        Read(entry); // Visiting a product does not erase the earlier complete search evidence.
+        var invented = entry.DeepClone(); invented["url"] = entry["url"] + "&invented=1";
+        Assert.Throws<PlanningConflictException>(() => Read(invented));
+        authority.RequireTool("GnOuGo.Browser.Mcp", "browser_close", new JsonObject());
+        Assert.Throws<PlanningConflictException>(() => Read(entry));
+        var truncated = events[0]["result"]!.DeepClone(); truncated["observationSnapshot"]!["captureTruncated"] = true;
+        authority.ObserveTool("GnOuGo.Browser.Mcp", "browser_get_content", events[0]["arguments"], new() { Content = truncated });
+        Assert.Throws<PlanningConflictException>(() => Read(entry));
+    }
+
+    [Theory]
+    [InlineData("https://www.amazon.fr/sspa/click?observed=1", true)]
+    [InlineData("https://amazon.fr/product-title/dp/B000000001/ref=search?x=1", true)]
+    [InlineData("https://www.amazon.fr:8443/sspa/click?x=1", false)]
+    [InlineData("https://user@www.amazon.fr/sspa/click?x=1", false)]
+    [InlineData("https://www.amazon.fr/slredirect?x=1", false)]
+    [InlineData("https://www.amazon.fr/ap/signin", false)]
+    [InlineData("https://www.amazon.fr/gp/aw/d/B000000001/orders", false)]
+    [InlineData("https://www.amazon.fr/gp/aw/d/B000000001?observed=1", true)]
+    [InlineData("http://www.amazon.fr/sspa/click?x=1", false)]
+    [InlineData("https://www.amazon.fr.example.org/sspa/click?x=1", false)]
+    [InlineData("https://www.amazon.fr/sspa/click?x=1#fragment", false)]
+    public void StrictRoutePolicyRetainsHostSchemePortAndExplicitRouteLimits(string url, bool allowed)
+        => Assert.Equal(allowed, AmazonObservedRedirectPolicy.Allows(url));
+
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Theory]

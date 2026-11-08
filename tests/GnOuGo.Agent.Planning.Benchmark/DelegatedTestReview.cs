@@ -10,7 +10,8 @@ using GnOuGo.Planning.Examples;
 // Test-host authority only. Neither planner responses nor Judge findings can create a review.
 internal sealed record DelegatedTestAuthorization(string Id, string UserAuthorization, string Reviewer,
     string Campaign, string Run, string Scenario, string WorkspaceRoot, string SourceRevision,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? WorkspaceRelativePath = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? WorkspaceRelativePath = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? BrowserObservationPolicy = null);
 internal sealed record DelegatedRequirementReview(string Id, string RequirementHash, List<string> Obligations, string Assessment,
     string UnverifiedAspects = "Business completeness and successful execution remain unverified.");
 internal sealed record DelegatedTaskReview(string Id, string TaskHash, string Evidence, string Assessment);
@@ -25,7 +26,7 @@ internal sealed record DelegatedTestReviewDocument(PlanningApprovalReview Receip
 internal partial class DelegatedTestJsonContext : JsonSerializerContext;
 
 internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization authorization,
-    DelegatedTestReviewDocument document, string campaign, string run, string scenario, string root, string source, string? authorizedRelativePath = null)
+    DelegatedTestReviewDocument document, string campaign, string run, string scenario, string root, string source, string? authorizedRelativePath = null, string? browserObservationPolicy = null)
 {
     private string? _confirmationPrompt;
     private string? _confirmationStep;
@@ -34,6 +35,8 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
     private readonly Dictionary<string, string> _browserCursors = new(StringComparer.Ordinal);
     private string? _browserUrl;
     private string? _browserSnapshot;
+    private readonly HashSet<string> _observedRedirects = new(StringComparer.Ordinal);
+    private readonly List<JsonObject> _searchReads = [];
     private bool _proofReadValidated;
 
     internal IDisposable BeginCall(McpCallExecutionContext context)
@@ -68,6 +71,10 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
     internal void Validate(PlanningSession state)
     {
         _proofReadValidated = false;
+        _observedRedirects.Clear(); _searchReads.Clear();
+        AmazonObservedRedirectPolicy.Validate(browserObservationPolicy, scenario);
+        if (authorization.BrowserObservationPolicy != browserObservationPolicy)
+            throw new PlanningConflictException("The browser scope differs from the frozen host policy.");
         if (authorization.WorkspaceRelativePath != authorizedRelativePath || authorizedRelativePath is { } relative &&
             (Path.IsPathRooted(relative) || !relative.StartsWith("workflows/" + campaign + "/", StringComparison.Ordinal) ||
              relative.Split('/', '\\').Any(segment => segment is "" or "." or "..")))
@@ -168,13 +175,17 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
         }
         var relative = authorizedRelativePath ?? "workflows/" + campaign + "/" + run;
         if (tool == "document_write") RequirePath(args["filePath"]?.ToString(), relative + (scenario == "amazon" ? "/products.xlsx" : "/review.json"), exact: true);
-        if (tool == "browser_close") ClearBrowser();
+        if (tool == "browser_close") { ClearBrowser(); _observedRedirects.Clear(); _searchReads.Clear(); }
         if (tool == "browser_get_content")
         {
             if (args["url"] is { } url)
             {
-                if (!AmazonUrl(url.ToString()) || args["cursor"] is not null)
+                if (!(browserObservationPolicy == AmazonObservedRedirectPolicy.Id
+                    ? AmazonObservedRedirectPolicy.Allows(url.ToString()) &&
+                        (!AmazonObservedRedirectPolicy.IsEntry(url.ToString()) || _observedRedirects.Contains(url.ToString()))
+                    : AmazonUrl(url.ToString())) || args["cursor"] is not null)
                     throw new PlanningConflictException("Only authorized product/search reads are permitted.");
+                if (browserObservationPolicy is not null && new Uri(url.ToString()).AbsolutePath == "/s") { _observedRedirects.Clear(); _searchReads.Clear(); }
                 ClearBrowser(); // New navigation invalidates every previously issued cursor before transport.
             }
             else
@@ -212,6 +223,7 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
     internal void ObserveTool(string server, string tool, JsonNode? arguments, McpCallResult? result)
     {
         if (server != "GnOuGo.Browser.Mcp" || tool is not ("browser_get_content" or "browser_close")) return;
+        if (tool == "browser_close") { _observedRedirects.Clear(); _searchReads.Clear(); }
         if (tool == "browser_close" || result is null || result.IsError || result.Content?["success"]?.GetValue<bool>() != true)
         { ClearBrowser(); return; }
         var content = result.Content!;
@@ -219,10 +231,18 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
         var snapshot = content["observationManifest"]?["id"]?.ToString() ?? content["observation"]?["id"]?.ToString();
         lock (_browserCursors)
         {
-            if (url is null || !AmazonUrl(url) || content["acquisition"]?["navigation"]?["url"] is { } final && final.ToString() != url ||
+            if (url is null || !(browserObservationPolicy == AmazonObservedRedirectPolicy.Id ? AmazonObservedRedirectPolicy.Allows(url) : AmazonUrl(url)) || content["acquisition"]?["navigation"]?["url"] is { } final && final.ToString() != url ||
                 arguments?["url"] is null && (url != _browserUrl || snapshot != _browserSnapshot))
             { ClearBrowser(); throw new PlanningConflictException("Browser producer evidence left the authorized URL or observation generation."); }
             _browserUrl = url; _browserSnapshot = snapshot;
+            if (browserObservationPolicy == AmazonObservedRedirectPolicy.Id && new Uri(url).AbsolutePath == "/s")
+            {
+                var observation = new JsonObject { ["tool"] = tool, ["error"] = false,
+                    ["arguments"] = arguments?.DeepClone(), ["result"] = content.DeepClone() };
+                if (_searchReads.Count >= 101) throw new PlanningConflictException("Search provenance exceeds the physical observation-page bound.");
+                _searchReads.Add(observation);
+                foreach (var href in LiveWorkflowOracles.CompleteSearchRedirectEntries(_searchReads)) _observedRedirects.Add(href);
+            }
             if (string.IsNullOrWhiteSpace(snapshot)) return;
             if (content["observationManifest"]?["pages"] is JsonArray pages)
                 foreach (var page in pages)

@@ -318,8 +318,9 @@ internal static class LiveWorkflowEvaluation
         return new HybridWorkflowPlanner().AdvanceAsync(session, command, runtime, ct);
     }
 
-    internal static Dictionary<string, McpServerOptions> Configuration(IReadOnlyDictionary<string, McpServerOptions> configured, string scenario, string? inferenceEndpoint, string buildConfiguration = "Debug", string? sourceRoot = null)
+    internal static Dictionary<string, McpServerOptions> Configuration(IReadOnlyDictionary<string, McpServerOptions> configured, string scenario, string? inferenceEndpoint, string buildConfiguration = "Debug", string? sourceRoot = null, string? browserObservationPolicy = null)
     {
+        AmazonObservedRedirectPolicy.Validate(browserObservationPolicy, scenario);
         var names = scenario == "amazon" ? new[] { "Browser", "Document" } : ["Git", "Cmd", "GithubCopilot", "Document"];
         var result = new Dictionary<string, McpServerOptions>(StringComparer.Ordinal);
         foreach (var name in names)
@@ -334,6 +335,17 @@ internal static class LiveWorkflowEvaluation
             // This disposable evaluation must exercise the workflow's cleanup.
             // Override only the spawned browser's debug setting, not saved host policy.
             if (name == "Browser") clone.EnvironmentVariables["Browser__KeepBrowserOpen"] = "false";
+            if (name == "Browser" && browserObservationPolicy == AmazonObservedRedirectPolicy.Id)
+            {
+                // A stricter per-process intersection. Saved KeyVault policy is untouched.
+                // Existing host/route restrictions must not be silently replaced.
+                if (clone.EnvironmentVariables.Keys.Any(k => k.StartsWith("Browser__AllowedHosts", StringComparison.OrdinalIgnoreCase) ||
+                    k.StartsWith("Browser__AllowedNavigationUrlPatterns", StringComparison.OrdinalIgnoreCase)))
+                    throw new InvalidOperationException("Explicit saved Browser navigation restrictions require a reviewed intersection.");
+                clone.EnvironmentVariables["Browser__AllowedHosts__0"] = "www.amazon.fr";
+                clone.EnvironmentVariables["Browser__AllowedHosts__1"] = "amazon.fr";
+                clone.EnvironmentVariables["Browser__AllowedNavigationUrlPatterns__0"] = AmazonObservedRedirectPolicy.UrlPattern;
+            }
             // Only execution has a real campaign inference proxy. Metadata discovery
             // preserves configured settings; a placeholder URL prevents MCP startup.
             if (name == "GithubCopilot" && inferenceEndpoint is not null)

@@ -55,6 +55,26 @@ public sealed class BenchmarkDiscoveryVisibilityTests
         finally { Directory.Delete(root, true); }
     }
 
+    [Fact]
+    public void ExplicitBrowserScopeIsFrozenWithoutMutatingOrReplacingSavedRestrictions()
+    {
+        var sourceRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../.."));
+        var build = new DirectoryInfo(AppContext.BaseDirectory).Parent!.Name;
+        var configured = new[] {"Browser", "Document"}.ToDictionary(name => "GnOuGo." + name + ".Mcp", _ => new McpServerOptions());
+        var original = JsonSerializer.Serialize(configured);
+        var strict = LiveWorkflowEvaluation.Configuration(configured, "amazon", null, build, sourceRoot, AmazonObservedRedirectPolicy.Id);
+        var browser = strict["GnOuGo.Browser.Mcp"].EnvironmentVariables!;
+        Assert.Equal(AmazonObservedRedirectPolicy.UrlPattern, browser["Browser__AllowedNavigationUrlPatterns__0"]);
+        Assert.Equal("www.amazon.fr", browser["Browser__AllowedHosts__0"]);
+        Assert.Equal("amazon.fr", browser["Browser__AllowedHosts__1"]);
+        Assert.Equal(original, JsonSerializer.Serialize(configured));
+        var legacy = LiveWorkflowEvaluation.Configuration(configured, "amazon", null, build, sourceRoot);
+        Assert.False(legacy["GnOuGo.Browser.Mcp"].EnvironmentVariables!.ContainsKey("Browser__AllowedNavigationUrlPatterns__0"));
+        configured["GnOuGo.Browser.Mcp"].EnvironmentVariables = new() { ["Browser__AllowedHosts__0"] = "stricter.example" };
+        Assert.Throws<InvalidOperationException>(() => LiveWorkflowEvaluation.Configuration(configured, "amazon", null, build, sourceRoot, AmazonObservedRedirectPolicy.Id));
+        Assert.Throws<InvalidOperationException>(() => LiveWorkflowEvaluation.Configuration(configured, "amazon", null, build, sourceRoot, "unknown"));
+    }
+
     [Theory]
     [InlineData("amazon", "GnOuGo.Browser.Mcp", "browser_get_content", "browser_click")]
     [InlineData("amazon", "GnOuGo.Document.Mcp", "document_write", "document_delete")]
