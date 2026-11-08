@@ -18,11 +18,16 @@ on:
       - 'tests/GnOuGo.GithubCopilot.Mcp.Tests/**'
       - 'src/GnOuGo.Agent.Server/**'
       - 'src/GnOuGo.Agent.Shared/**'
+      - 'src/GnOuGo.Assets.Animation/Runtime/**'
+      - 'src/GnOuGo.Assets.Bears/Runtime/**'
       - 'tests/GnOuGo.Flow.*/**'
       - 'tests/GnOuGo.Agent.Server.Tests/**'
       - 'tests/GnOuGo.Agent.Planning.Benchmark/**'
       - '.github/workflows/test-flow-planning.yml'
       - 'GnOuGo.Agent.sln'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
       - 'docs/workflow-planning-v9.md'
   workflow_dispatch:
 
@@ -37,7 +42,20 @@ jobs:
       - uses: actions/setup-dotnet@v6.0.0
         with:
           dotnet-version: '10.0.x'
+      - uses: pnpm/action-setup@v6.1.0
+        with:
+          version: 10.14.0
+          run_install: false
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
       - uses: ./.github/actions/ensure-otlp-protos
+      - name: Build Agent.Server frontend before browser tests
+        run: |
+          pnpm install --frozen-lockfile --strict-peer-dependencies
+          pnpm --dir src/GnOuGo.Agent.Server/ClientApp run build
       - name: Prepare local browser execution
         run: |
           dotnet build src/GnOuGo.Browser.Mcp -m:1 -warnaserror
