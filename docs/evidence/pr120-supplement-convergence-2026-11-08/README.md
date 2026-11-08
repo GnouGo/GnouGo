@@ -118,3 +118,26 @@ startup. Metadata approval/revalidation now preserve the actual configured Code
 endpoint rather than injecting a placeholder, and share the initial discovery
 policy digest so an unchanged source is compared consistently; no catalog check
 is waived.
+
+
+The [third Code trial](code03-whitespace-loop.json) stopped at discovery call 15
+without an accepted checkpoint. Its single independent retry generated a short
+JSON prefix followed by tens of thousands of whitespace characters, retaining no
+complete value or usage receipt. This identifies generated-content non-progress;
+new stream bytes alone are not useful progress. The auxiliary protected stop host
+failed before startup on a missing private native dependency; the existing owner
+then stopped at its captured deadline. Both full reservations remain, and the
+existing exact-evidence retention permanently forbids replay/continuation. The
+available campaign balance after all holds is EUR
+335.5778325123152709359605886795; no further supplement was applied.
+
+CI on `395b0cce` separately reproduced a Browser fixture race (server arrival can
+precede delivery of Playwright's request event) and an HTTP restart diagnostic
+that overwrote a fired total-generation deadline when UTC had not advanced.
+The fixture now synchronizes both facts. A deterministic frozen-UTC regression
+failed before the generic deadline-latch correction; **378 AI.Core tests** and
+**20 Browser lifecycle tests** pass afterward. Release packing and the actual
+Native AOT planner smoke pass, including source-generated retention of the fired
+deadline and partial bytes. The strict v5 verifier also rejects unresolved mixed
+primary heading aliases; **28 v5 selection tests** pass. Final full-solution and
+remote CI results remain pending after these changes.
