@@ -11,10 +11,13 @@ namespace GnOuGo.Browser.Mcp;
 public sealed record BrowserObservationRecord(string Kind, string Tag, string Selector, string Group, string Text, string? Href, string? Role)
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [Description("Nearest semantic container's tag, explicit role and snapshot-local index. Nested semantic items may have a different outer occurrence.")]
     public BrowserObservationGroup? GroupContext { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [Description("Outer semantic item below the nearest landmark/dialog, with its DOM selector, tag, role and snapshot-local index. Nested variant links retain this same outer item; distinct items remain distinct even when their destination URLs match. This is DOM provenance, not a business classification.")]
     public BrowserObservationOccurrence? Occurrence { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [Description("DOM selector of an enclosing heading or a heading contained in this link. Preserves its heading association separately from other links in the item.")]
     public string? Heading { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? Reference { get; init; }

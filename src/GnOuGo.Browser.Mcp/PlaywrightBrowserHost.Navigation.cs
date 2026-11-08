@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.ComponentModel;
 using Microsoft.Playwright;
 
 namespace GnOuGo.Browser.Mcp;
@@ -8,6 +9,7 @@ public sealed record BrowserNavigationEvidence(string RequestedUrl, string? Fina
     IReadOnlyList<BrowserNavigationHop> Hops, bool Complete)
 {
     // History changes the document address without creating an HTTP response.
+    [Description("Current document address after a history-only change, when different from the last observed HTTP response URL in FinalUrl. This address is not an additional HTTP hop.")]
     public string? DocumentUrl { get; init; }
 }
 

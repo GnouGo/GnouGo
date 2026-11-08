@@ -141,3 +141,19 @@ Native AOT planner smoke pass, including source-generated retention of the fired
 deadline and partial bytes. The strict v5 verifier also rejects unresolved mixed
 primary heading aliases; **28 v5 selection tests** pass. Final full-solution and
 remote CI results remain pending after these changes.
+
+
+[Two separate exact-request probes](code-discovery-output-allocation.json) isolated
+syntax guidance and output allocation. The syntax-guidance probe changed only
+system-message content and ended without a receipt; its full hold is retained
+and it is permanently non-replayable. The guidance remains diagnostic-only.
+A separate probe changed only `max_completion_tokens` from 32768 to 4096, retaining
+all original prompt bytes, strict schema, context and medium reasoning. It returned
+schema-valid JSON in one physical attempt, 82 output tokens and about 16 seconds,
+for EUR 0.2774294670846394984326018809. No candidate or effect was applied.
+This supports a fresh live trial, not a causal or qualified-convergence claim.
+The new `server-navigation4096-draft32k.json` changes only navigation allocation;
+Draft stays 32768/low and Review stays 8192/medium. Every requirement and oracle
+remains unchanged. Browser's published field descriptions now explain nearest
+groups, outer semantic items, heading association and history versus HTTP identity
+without assigning business meaning to records.
