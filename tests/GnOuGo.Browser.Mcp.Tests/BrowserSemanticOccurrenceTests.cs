@@ -8,6 +8,59 @@ namespace GnOuGo.Browser.Mcp.Tests;
 
 public sealed class BrowserSemanticOccurrenceTests
 {
+    [Fact]
+    public async Task NestedVariantLinksKeepTheirOuterOccurrenceAndPrimaryHeadingAssociation()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var site = await LoopbackTestServer.StartAsync(async context =>
+        {
+            context.Response.ContentType = "text/html";
+            await context.Response.WriteAsync("<html><body><main><div role='listitem' id='card'>" +
+                "<ul><li><a href='/variant'>Variant</a></li></ul>" +
+                "<h2 id='title'><a href='/primary'>Primary</a></h2></div>" +
+                "<div role='listitem' id='second'><h2><a href='/primary'>Repeated occurrence</a></h2></div></main></body></html>", ct);
+        }, ct);
+        await using var host = new PlaywrightBrowserHost(Options.Create(new BrowserServerSettings
+            { AllowedHosts = ["127.0.0.1"] }), NullLogger<PlaywrightBrowserHost>.Instance);
+        var result = await host.GetContentAsync(site.Origin, "domcontentloaded", 10000, null, "observation_complete", null, false, ct);
+        var links = result.ObservationSnapshot!.Pages.SelectMany(page => page.Records).Where(record => record.Kind == "link").ToArray();
+        Assert.Equal(new[] {"#card", "#card", "#second"}, links.Select(link => link.Occurrence!.Selector));
+        Assert.Equal(new[] {0, 0, 1}, links.Select(link => link.Occurrence!.Index));
+        Assert.Null(links[0].Heading); Assert.Equal("#title", links[1].Heading);
+        Assert.NotEqual(links[0].Group, links[1].Group);
+    }
+
+    [Fact]
+    public async Task HistoryAddressChangesPreserveTheActualHttpResponseWithoutInventingARedirect()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var site = await LoopbackTestServer.StartAsync(async context =>
+        {
+            context.Response.ContentType = "text/html";
+            await context.Response.WriteAsync("<html><body>Observed document</body></html>", ct);
+        }, ct);
+        var changed = false;
+        await using var host = new PlaywrightBrowserHost(Options.Create(new BrowserServerSettings
+            { AllowedHosts = ["127.0.0.1"] }), NullLogger<PlaywrightBrowserHost>.Instance)
+        {
+            ObservationCheckpoint = async (page, phase, token) =>
+            {
+                if (phase != "capture" || changed) return;
+                changed = true;
+                await page.EvaluateAsync("history.replaceState(null, '', '/?canonical=1')").WaitAsync(token);
+            }
+        };
+        var initial = site.Origin + "/?original=1";
+        var result = await host.GetContentAsync(initial, "domcontentloaded", 10000, null, "observation_complete", null, false, ct);
+        Assert.True(result.Success);
+        var evidence = Assert.IsType<BrowserNavigationEvidence>(result.NavigationEvidence);
+        Assert.Equal(initial, evidence.RequestedUrl); Assert.Equal(initial, evidence.FinalUrl);
+        Assert.Equal(site.Origin + "/?canonical=1", result.Url);
+        Assert.Equal(result.Url, evidence.DocumentUrl);
+        Assert.Equal(initial, Assert.Single(evidence.Hops).Url);
+        Assert.Null(evidence.Hops[0].Location);
+    }
+
     [Theory]
     [InlineData("gzip")]
     [InlineData("br")]

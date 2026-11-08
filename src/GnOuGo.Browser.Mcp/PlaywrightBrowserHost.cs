@@ -720,9 +720,16 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
             if (page == _page && frame == page.MainFrame)
                 lock (_observationLock)
                 {
-                    _committedMainNavigation = _pendingMainNavigation?.Url == frame.Url ? _pendingMainNavigation : null;
+                    if (_pendingMainNavigation is null && _navigationRead is null && _committedMainNavigation is not null && _lastNavigationEvidence is { } document)
+                    {
+                        _lastNavigationEvidence = document with { DocumentUrl = frame.Url };
+                    }
+                    else
+                    {
+                        _committedMainNavigation = _pendingMainNavigation?.Url == frame.Url ? _pendingMainNavigation : null;
+                        _lastNavigationEvidence = CommittedNavigationEvidence(_committedMainNavigation, frame.Url, responses);
+                    }
                     _pendingMainNavigation = null;
-                    _lastNavigationEvidence = CommittedNavigationEvidence(_committedMainNavigation, frame.Url, responses);
                     InvalidateObservation("navigation");
                 }
         };

@@ -5,7 +5,11 @@ namespace GnOuGo.Browser.Mcp;
 
 public sealed record BrowserNavigationHop(string Url, string Method, int StatusCode, string? Location);
 public sealed record BrowserNavigationEvidence(string RequestedUrl, string? FinalUrl,
-    IReadOnlyList<BrowserNavigationHop> Hops, bool Complete);
+    IReadOnlyList<BrowserNavigationHop> Hops, bool Complete)
+{
+    // History changes the document address without creating an HTTP response.
+    public string? DocumentUrl { get; init; }
+}
 
 internal sealed class BrowserNavigationException(string code, string message, BrowserNavigationEvidence evidence)
     : InvalidOperationException(message)
@@ -164,5 +168,5 @@ public sealed partial class PlaywrightBrowserHost
     }
 
     private BrowserNavigationEvidence? NavigationEvidenceFor(IPage page) =>
-        _lastNavigationEvidence?.FinalUrl == page.Url ? _lastNavigationEvidence : null;
+        (_lastNavigationEvidence?.DocumentUrl ?? _lastNavigationEvidence?.FinalUrl) == page.Url ? _lastNavigationEvidence : null;
 }

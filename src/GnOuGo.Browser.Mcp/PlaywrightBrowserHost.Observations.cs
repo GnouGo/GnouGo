@@ -12,12 +12,17 @@ public sealed record BrowserObservationRecord(string Kind, string Tag, string Se
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public BrowserObservationGroup? GroupContext { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public BrowserObservationOccurrence? Occurrence { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Heading { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? Reference { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<string>? Actions { get; init; }
 }
 public sealed record BrowserObservationGroup(string Tag, string? Role, int Index);
+public sealed record BrowserObservationOccurrence(string Selector, string Tag, string? Role, int Index);
 public sealed record BrowserObservation(string Id, IReadOnlyList<BrowserObservationRecord> Records, string? NextCursor, bool CaptureTruncated);
 public sealed record BrowserObservationPage(string Cursor, int RecordCount);
 public sealed record BrowserObservationManifest(string Id, [property: Description("Frozen page descriptors, at most 100 or the stricter host/response allowance. ManifestTruncated identifies an incomplete list.")] IReadOnlyList<BrowserObservationPage> Pages,
@@ -545,7 +550,7 @@ public sealed partial class PlaywrightBrowserHost
     // A capture has finite traversal/storage limits; incomplete captures remain explicitly incomplete.
     internal static readonly string ObservationScript = """
         (root, snapshotId) => {
-          const records = [], elements = [], states = [], groups = new Map(), actionState = __ACTION_STATE__, owned = 'a[href],button,[role="button"],[role="checkbox"],[role="radio"],[role="switch"],[role="tab"],[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"],[contenteditable="true"],h1,h2,h3,h4,h5,h6,input,select,textarea';
+          const records = [], elements = [], states = [], groups = new Map(), occurrences = new Map(), actionState = __ACTION_STATE__, owned = 'a[href],button,[role="button"],[role="checkbox"],[role="radio"],[role="switch"],[role="tab"],[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"],[contenteditable="true"],h1,h2,h3,h4,h5,h6,input,select,textarea';
           let visited = 0, size = 0, truncated = false;
           const text = s => (s || '').replace(/\s+/g, ' ').trim();
           const documentEmpty = () => {
@@ -601,8 +606,18 @@ public sealed partial class PlaywrightBrowserHost
               if (content || href || kind === 'control') {
                 const group = element.closest('dialog,[role="dialog"],[role="alertdialog"],[aria-modal="true"]') || element.closest('article,li,tr,[role="listitem"],[role="article"],[role="row"]') || element.closest('section,nav,header,main,form,[role="region"],[role="navigation"],[role="main"],[role="form"]') || root;
                 if (!groups.has(group)) groups.set(group, { tag: group.tagName.toLowerCase(), role: group.getAttribute('role'), index: groups.size });
+                const itemSelector = 'article,li,tr,[role="listitem"],[role="article"],[role="row"]';
+                const boundary = element.closest('dialog,[role="dialog"],[role="alertdialog"],section,nav,header,main,form,[role="region"],[role="navigation"],[role="main"],[role="form"]') || root;
+                let occurrence = element.closest(itemSelector);
+                if (occurrence && !boundary.contains(occurrence)) occurrence = null;
+                if (occurrence) {
+                  let parent = occurrence.parentElement?.closest(itemSelector);
+                  while (parent && boundary.contains(parent)) { occurrence = parent; parent = parent.parentElement?.closest(itemSelector); }
+                  if (!occurrences.has(occurrence)) occurrences.set(occurrence, {selector: selector(occurrence), tag: occurrence.tagName.toLowerCase(), role: occurrence.getAttribute('role'), index: occurrences.size});
+                }
+                const heading = element.closest('h1,h2,h3,h4,h5,h6,[role="heading"]') || (kind === 'link' ? element.querySelector('h1,h2,h3,h4,h5,h6,[role="heading"]') : null);
                 const state = actionState(element);
-                const record = { kind, tag, selector: selector(element), group: selector(group), groupContext: groups.get(group), text: content, href, role: element.getAttribute('role'), reference: snapshotId + ':record:' + records.length, actions: state.actions };
+                const record = { kind, tag, selector: selector(element), group: selector(group), groupContext: groups.get(group), occurrence: occurrence ? occurrences.get(occurrence) : null, heading: heading ? selector(heading) : null, text: content, href, role: element.getAttribute('role'), reference: snapshotId + ':record:' + records.length, actions: state.actions };
                 const length = JSON.stringify(record).length;
                 if (records.length >= 10000 || size + length > 2000000) { truncated = true; break; }
                 records.push(record); elements.push(element); states.push(state.signature); size += length;
