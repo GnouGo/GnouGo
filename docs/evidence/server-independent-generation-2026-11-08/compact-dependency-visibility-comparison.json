@@ -1,0 +1,31 @@
+{
+  "source": "0e10ea8ef7ce6d7c8c6074dfeb473822eae6f665",
+  "source_request": "be17a3fb45f34d6e9b44bc1b67042750:3:27a2a675933dd876350954018e76467dbda53591de0864c0c1d6636975b697a6:a4a89c75bc20b66432dbc154254539bb72862c27a76484e30002f48253016141",
+  "run": "code-select-fields-20261108-01",
+  "only_http_prompt_changed": true,
+  "added_prompt_bytes": 205,
+  "schema_equal": true,
+  "wire_strict": true,
+  "schema_valid": true,
+  "dependency_items": 0,
+  "physical_attempts": 1,
+  "seconds_physical_attempt": 24.085209,
+  "seconds_through_probe_report": 26.511506,
+  "usage": {
+    "input_tokens": 2436,
+    "output_tokens": 811,
+    "total_tokens": 3247,
+    "benchmark_cost_eur": "0.1962024182713837886251679355",
+    "reasoning_tokens": 182,
+    "transport_attempts": 1,
+    "uncertain_attempts": 0,
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0,
+    "benchmark_usage_bounded": true
+  },
+  "candidate_applied": false,
+  "approved": false,
+  "executed": false,
+  "business_success_not_established": true
+}

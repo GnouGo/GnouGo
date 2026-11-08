@@ -260,3 +260,39 @@ Dependency presentation validation before the compact live probe: **160 focused
 planning tests and 219 focused Server tests passed**, with zero failures or
 compiler warnings. The prior `d010bee6` solution run was interrupted for this
 newly reproduced generation defect; final shared validation remains required.
+
+## Actual code metadata restored; discovery response presentation
+
+The [compact dependency probe](compact-dependency-visibility-comparison.json)
+changed only the HTTP prompt by 205 bytes. It retained `strict:true`, the complete
+schema and source context, and returned a schema-valid response in one physical
+attempt (24.09 seconds; 26.51 seconds through the saved probe report). No candidate
+was applied. This is not an accepted contribution or causal convergence proof.
+
+The next real code workflow on `0e10ea8e` passed the selection boundary and
+[retrieved four real code capabilities without an unavailable warning](code03-discovery-visibility-comparison.json).
+That verifies the launcher correction in the actual Server planning path. It
+stopped at logical call 10 before accepted executable work: both native discovery
+streams ended about 301 seconds after their last bytes, before their captured
+600-second deadlines. The owner admitted one independent attempt, retained both
+streams/holds and stopped at its allowance. The original request was
+[permanently retained](code03-retention-applied.json), never replayed or continued.
+
+An independent exact-request probe added only prompt presentation of the complete
+response schema. It preserved `strict:true`, the schema and source context and
+returned a schema-valid response in 10.87 seconds through its saved report. This
+is evidence supporting response-contract visibility, not a successful workflow or
+proof of an upstream root cause. The captured streams do not identify which
+provider/gateway hop ended them.
+
+The generic discovery fix presents the exact prepared response grammar only when
+the complete serialized request fits its existing input target. Diagnostic mode
+may use its captured phase maximum for this optional presentation. Otherwise it
+retains the original prompt/context. Schema closures, strictness, evidence mapping,
+request identities, finite admission and exact cold recovery remain checked. It
+adds no inference call or executable authority. **276 focused planning tests
+passed**, including context-preserving rollback, nested constraints and exact
+recovery. The interrupted `0e10ea8e` solution run is not a final-source pass.
+
+The focused Server probe/discovery/retention selection also passed **219 tests**,
+with zero failures or compiler warnings.

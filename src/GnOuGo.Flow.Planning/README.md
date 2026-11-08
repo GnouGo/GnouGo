@@ -226,6 +226,13 @@ and global constraints retain their original context rather than becoming result
 dependencies. The compact guide is measured and hashed before dispatch; issued
 requests, response schemas, dependency validation and review authority stay exact.
 
+Discovery also presents its exact prepared response schema when the complete
+serialized request, including its issued identity, fits the captured input target.
+Diagnostic optimization mode may use its captured phase maximum for this optional
+presentation. If it does not fit, the original context stays intact; presentation
+cannot cause pagination or evict source evidence. The same schema, reference
+closures, strict provider setting and host validation remain authoritative.
+
 ## Ordinary arithmetic and decimal boundaries
 
 TaskPlan `arithmetic` values describe closed formulas using `text` (`add`, `subtract`, `multiply`, `divide`, `remainder`, `negate`) and `items`. Operand contracts must be numeric and nonnullable. The compiler retains structured values through contract closure, then emits JavaScript into existing checked `set` steps. There is no numeric executor or runtime inference. Exact business arithmetic is an MCP responsibility; explicitly declared decimal fields are converted automatically at the MCP boundary. See [migration and validation](../../docs/numeric-compilation.md).

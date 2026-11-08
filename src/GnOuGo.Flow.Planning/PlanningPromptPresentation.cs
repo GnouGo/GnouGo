@@ -6,6 +6,14 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Presents response fields and shares identical contracts without changing their authority.</summary>
 public static class PlanningPromptPresentation
 {
+    /// <summary>Present the exact response grammar without changing the final context object.</summary>
+    public static string PresentResponseSchema(string prompt, JsonNode schema)
+    {
+        var presentation = "\nReturn an object matching this exact JSON response schema. Emit every required key in the selected branch, including null-valued fields. No prose or workflow execution.\n" + schema.ToJsonString();
+        var contextOffset = prompt.LastIndexOf("\n{", StringComparison.Ordinal);
+        return contextOffset < 0 ? prompt + presentation : prompt.Insert(contextOffset, presentation);
+    }
+
     /// <summary>Distinguish result dependencies from prose prerequisites in business selection.</summary>
     public static string PresentBusinessDependencyFields(string prompt)
     {

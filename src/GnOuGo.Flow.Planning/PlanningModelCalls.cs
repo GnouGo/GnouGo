@@ -70,10 +70,32 @@ internal static partial class PlanningModelCalls
             request.Prompt = PlanningPromptPresentation.PresentIntentDeclarationFields(request.Prompt);
         if (purpose == PlanningCompactConstruction.SelectPurpose)
             request.Prompt = PlanningPromptPresentation.PresentBusinessDependencyFields(request.Prompt);
-        var hash = IssuedIdentityHash(request, evidenceAddresses);
+        var compactPrompt = request.Prompt;
+        if (purpose == PlanningCompactConstruction.DiscoveryPurpose)
+            request.Prompt = PlanningPromptPresentation.PresentResponseSchema(compactPrompt, request.StructuredOutputSchema!);
+        // Bind the evidence basis only after optional presentation is selected.
+        var hash = IssuedIdentityHash(request, null);
         request.ClientRequestId = state.Request.SessionId + ":" + (state.ModelCalls + 1) + ":" +
             (evidenceAddresses is null ? "" : evidenceAddresses.MapHash + ":") + hash;
-        if (evidenceAddresses is not null) evidenceAddresses.RequestHash = RequestHash(request);
+        if (purpose == PlanningCompactConstruction.DiscoveryPurpose)
+        {
+            var phase = PlanningConstructionPhasePolicies.Resolve(state.Request, purpose);
+            var presentationLimit = PlanningTokenThresholds.OptimizationAdvisory(state.Request) ? phase.MaxInputTokens : phase.TargetInputTokens;
+            // Optional presentation must not evict context or induce another page.
+            // Measure the complete request, including its actual issued identity.
+            if (ModelRequestAdmission.EstimateTokens(request) > presentationLimit)
+            {
+                request.Prompt = compactPrompt;
+                hash = IssuedIdentityHash(request, null);
+                request.ClientRequestId = state.Request.SessionId + ":" + (state.ModelCalls + 1) + ":" +
+                    (evidenceAddresses is null ? "" : evidenceAddresses.MapHash + ":") + hash;
+            }
+        }
+        if (evidenceAddresses is not null)
+        {
+            _ = IssuedIdentityHash(request, evidenceAddresses);
+            evidenceAddresses.RequestHash = RequestHash(request);
+        }
         return request;
     }
 

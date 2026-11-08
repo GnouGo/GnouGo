@@ -463,9 +463,7 @@ internal static class ServerLiveDiagnostics
     {
         if (request.StructuredOutputSchema is null || request.Tools is { Count: > 0 } || request.UseBackgroundMode)
             throw new ArgumentException("An independent tool-free foreground structured request is required.");
-        var presentation = "\nReturn an object matching this exact JSON response schema. Emit every required key in the selected branch, including null-valued fields. No prose or workflow execution.\n" + request.StructuredOutputSchema.ToJsonString();
-        var contextOffset = request.Prompt.LastIndexOf("\n{", StringComparison.Ordinal);
-        request.Prompt = contextOffset < 0 ? request.Prompt + presentation : request.Prompt.Insert(contextOffset, presentation);
+        request.Prompt = PlanningPromptPresentation.PresentResponseSchema(request.Prompt, request.StructuredOutputSchema);
         request.ClientRequestId = null;
         request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
     }

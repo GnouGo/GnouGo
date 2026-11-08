@@ -727,6 +727,11 @@ identity change; the provider remains strict and the original complete schema an
 source context remain authoritative. It is mutually exclusive with the other
 presentation factors and cannot apply a contribution or execute tools.
 
+The production discovery presenter uses that same exact-schema presentation only
+when its complete request fits the captured presentation allowance. The independent
+schema probe remains an explicit one-factor experiment and never applies its
+response to a retained planning session.
+
 The exhausted-planning retention path can also recognize historical progress-write
 cancellation that masked provider failure metadata. The exception label alone grants
 no authority: the exact version-2 capture and every owner journal must prove elapsed
