@@ -6,6 +6,47 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Presents response fields and shares identical contracts without changing their authority.</summary>
 public static class PlanningPromptPresentation
 {
+    /// <summary>Expose required discovery wire fields without copying the response grammar or its value directories.</summary>
+    public static string PresentDiscoveryResponseFields(string prompt, JsonNode schema)
+    {
+        var forms = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        Visit(schema, "response", 0, new HashSet<string>(StringComparer.Ordinal));
+        var guide = string.Join("; ", forms.Select(pair => pair.Key + ": " + string.Join(" | ", pair.Value)));
+        if (guide.Length == 0) return prompt;
+        var presentation = "\nDiscovery response field guide (required keys per object branch): " + guide +
+            ". Emit the selected branch's required keys, including null-valued fields. Use only this request's issued choices. The complete response schema remains authoritative.\n";
+        var contextOffset = prompt.LastIndexOf("\n{", StringComparison.Ordinal);
+        return contextOffset < 0 ? prompt + presentation : prompt.Insert(contextOffset, presentation);
+
+        void Add(string path, string value)
+        {
+            if (!forms.TryGetValue(path, out var values)) forms.Add(path, values = new(StringComparer.Ordinal));
+            values.Add(value);
+        }
+        void Visit(JsonNode? node, string path, int depth, HashSet<string> references)
+        {
+            if (depth > 2 || node is not JsonObject value) return;
+            if (value["$ref"] is JsonValue reference && reference.TryGetValue<string>(out var pointer))
+            {
+                if (!pointer.StartsWith("#/$defs/", StringComparison.Ordinal) || !references.Add(pointer)) return;
+                var key = Uri.UnescapeDataString(pointer[8..]).Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal);
+                Visit(schema["$defs"]?[key], path, depth, references);
+                references.Remove(pointer);
+                return;
+            }
+            foreach (var keyword in new[] { "anyOf", "oneOf" })
+                if (value[keyword] is JsonArray branches)
+                    foreach (var branch in branches) Visit(branch, path, depth, references);
+            if (value["properties"] is JsonObject properties)
+            {
+                if (value["required"] is JsonArray required)
+                    Add(path, "{" + string.Join(",", required.Select(item => item!.GetValue<string>())) + "}");
+                foreach (var (name, property) in properties) Visit(property, path + "." + name, depth + 1, references);
+            }
+            if (value["items"] is JsonObject items) Visit(items, path + "[]", depth, references);
+        }
+    }
+
     /// <summary>Present the exact response grammar without changing the final context object.</summary>
     public static string PresentResponseSchema(string prompt, JsonNode schema)
     {

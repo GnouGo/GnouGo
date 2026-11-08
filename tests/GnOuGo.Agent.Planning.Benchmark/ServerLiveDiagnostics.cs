@@ -200,6 +200,19 @@ internal static class ServerLiveDiagnostics
                 PresentProbeBusinessDependencyFields(request, run, nonce);
                 report["business_dependency_fields_presented_in_prompt"] = true;
             }
+            if (args.Contains("--probe-discovery-response-fields", StringComparer.Ordinal))
+            {
+                if (args.Contains("--probe-present-response-schema", StringComparer.Ordinal) ||
+                    args.Contains("--probe-intent-declaration-fields", StringComparer.Ordinal) ||
+                    args.Contains("--probe-business-dependency-fields", StringComparer.Ordinal))
+                    throw new ArgumentException("Choose one presentation factor for this probe.");
+                var before = request.Prompt;
+                request.Prompt = PlanningPromptPresentation.PresentDiscoveryResponseFields(before, request.StructuredOutputSchema!);
+                request.ClientRequestId = null;
+                request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+                report["discovery_response_field_guide"] = new JsonObject { ["active"] = request.Prompt != before,
+                    ["added_utf8_bytes"] = System.Text.Encoding.UTF8.GetByteCount(request.Prompt) - System.Text.Encoding.UTF8.GetByteCount(before) };
+            }
             report["request_id"] = request.ClientRequestId; report["requested_output_tokens"] = request.MaxTokens;
             if (args.Contains("--probe-check-responses", StringComparer.Ordinal))
                 report["responses_route_inspection"] = await model.InspectResponsesRouteAsync(run, context.RequestAborted);

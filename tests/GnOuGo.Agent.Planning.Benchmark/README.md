@@ -676,6 +676,15 @@ verified pricing evidence. Experimental dispatch fails with
 zero, drop a hold, change deployment, or raise a ceiling to get a live pass. Capture
 an exact fresh refusal when complete funding cannot be established.
 
+An independent `server-live-probe --probe-source-request <exact-owned-request>
+--probe-discovery-response-fields` changes only prompt presentation: it derives
+a compact list of schema-required object fields, including nested action objects,
+without copying value directories or the recursive grammar. It retains the full
+strict response schema, original context and captured deployment. The probe
+reports whether the guide is active and its added UTF-8 bytes, applies no candidate
+and executes no business tool. This opt-in comparison alone does not establish
+workflow success, an upstream cause or a causal convergence improvement.
+
 ### Explicit independent spending allocation
 
 An operator may explicitly authorize **additional, independent new spending**.
