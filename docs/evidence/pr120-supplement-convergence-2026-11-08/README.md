@@ -268,3 +268,57 @@ is not completion-only selection. The selected group and every call still requir
 exact interface validation. Original context and Strict admission remain intact;
 **12 focused syntax/identity/association tests** pass. Ordinary fresh workflows
 and final full-solution/CI validation remain required after this change.
+
+## Frozen successful cohorts and subsequent contract failures
+
+[Native and Collections qualification](frozen-qualified-native-collections.json)
+records two consecutive fully qualified runs of each on `abe71c6d`, with both
+Collections input variants executed in each run. The proof includes artifact-bound
+delegated review, real execution, independent oracles, and measured time/cost to
+first accepted contribution. These results do not qualify Code or Amazon, and do
+not prove the exact unchanged-plan accepted-block review boundary from `bcc0434f`.
+
+[Code06's exact evidence-selector comparison](code06-object-exact-comparison.json)
+keeps all other HTTP request fields fixed. Both object-selector probes completed
+within the unchanged output allowance; no candidate was applied. Fresh discovery
+uses that equivalent encoding while historical issued requests recover unchanged.
+
+[Amazon05's execution failure](amazon05-context-and-provenance-failure.json)
+retains a globally reviewed, approved workflow that actually searched, visited
+products, wrote its workbook and cleaned up, but failed qualification. Its three
+requested product URLs were absent from all observed search hrefs. The final
+reporting inference also exceeded the provider's physical context capacity.
+Neither fact is an oracle defect. The full uncertain HTTP reservation remains
+held; context rejection does not establish zero billing. Generic physical-capacity
+preflight now remains hard under diagnostic warnings, and fresh drafting guides
+consumers toward necessary structured inputs while retaining complete observations
+at their producers. The separately authorized exact-observed-link extension and
+v5 oracle remain strict; v4 and business requirements are preserved.
+
+[Code07](code07-stop-and-materialization-probe.json),
+[Code08](code08-stop-and-prerequisite-probe.json), and
+[Code09](code09-stop-and-negative-contract-probes.json) preserve protected stops,
+permanent retention and actual controlled probes. Code08's technically accepted
+metadata-echo task is explicitly not useful business progress. Its first guide
+probe changed both guidance and reasoning; the subsequent low-reasoning repeat
+verified a single guidance insertion against identical remaining HTTP fields.
+Code09 selected Git clone and CodeAgent together, but lacked lifecycle dependency
+contracts; prompt-only bundle and identity presentations did not acquire them.
+Those variants remain diagnostic. All three cancelled workflows forbid resumption.
+
+`4a77d503` adds exact metadata inspection before executable binding through the
+existing `discoveryRequests` and durable continuation. It checkpoints each verified
+contract, preserves source snapshot ownership and accepted work, and resumes cold
+without inference or duplicate reads. Unknown, denied, ambiguous and cross-source
+identities are rejected before reads; failed exact contracts retain protected
+metadata recovery. Default navigation stays bounded to displayed or explicitly
+inspected identities. Optional menu presentation yields to Strict input targets;
+the complete offered action schema and original evidence remain available. Draft
+expression details stay in drafting rather than being repeated during discovery.
+
+Validation on `a955474f` completed all 33 solution test assemblies: 8,457 passed,
+12 skipped, zero failures. Its three PR CI workflows passed. On `4a77d503`, the
+200 focused discovery/contract tests, production frontend build, warning-free
+Release benchmark/tool build, Core/Planning packages and actual published Native
+AOT smoke passed. Full-solution validation and fresh live qualification are recorded
+separately when complete; earlier successful cohorts are not final-source proofs.

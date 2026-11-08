@@ -1,0 +1,229 @@
+{
+  "source": "abe71c6d7cd9d62ab6c08211b43cc82d59d8a577",
+  "run": "amazon-qualification-20261108-05",
+  "session_id": "5f3e30cedb704df9ab4d2f0a6bafcf1c",
+  "planning_calls": 45,
+  "corrections": 4,
+  "global_review_and_artifact_approval": true,
+  "execution_correct": false,
+  "artifact_hash": "2e16d137de1f9fcb527df289725b5b3999a06618333638939e4f743540739806",
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "product_visits_do_not_match_rows",
+      "first_product_identity_or_order_mismatch"
+    ]
+  },
+  "search_evidence": {
+    "version": "amazon-business-v5",
+    "passed": false,
+    "expected_product_count": 3,
+    "visited_product_count": 3,
+    "findings": [
+      "first_product_identity_or_order_mismatch"
+    ]
+  },
+  "complete_search_record_count": 1491,
+  "observed_href_count": 619,
+  "product_visits": [
+    {
+      "requested_url_sha256": "ca1b570b2331a94a2eefd384c90cb244bac5ab9f80fced79eb4e2f4c572df1dc",
+      "literal_observed_href": false,
+      "success": true
+    },
+    {
+      "requested_url_sha256": "6cc18414ce322b083c2b87a03af3542be6de8643ac1ac724c4b67d30a35c83a6",
+      "literal_observed_href": false,
+      "success": true
+    },
+    {
+      "requested_url_sha256": "ef293f5d44cce79bc92cdefbf9f600e9b10da2a9b9ce2974490590df97ea16bc",
+      "literal_observed_href": false,
+      "success": true
+    }
+  ],
+  "workbook_written": true,
+  "runtime_inferences": [
+    {
+      "request_id": "5f3e30cedb704df9ab4d2f0a6bafcf1c-execution:1:68853e89e729f1ebb95a987e39c660c033268c3f306a9890ef5a0d1293afc728",
+      "request_utf8_bytes": 2047845,
+      "http_status": 200,
+      "captured_usage": {
+        "input_tokens": 698409,
+        "output_tokens": 1023,
+        "total_tokens": 699432,
+        "benchmark_cost_eur": "18.930953873712494402149574563",
+        "reasoning_tokens": 110,
+        "transport_attempts": 1,
+        "uncertain_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "benchmark_usage_bounded": true
+      },
+      "request_body_sha256": "659bd2b4a59b858ef5bc672bea5caf98690777e831f4301fc952389cd2d4adcd"
+    },
+    {
+      "request_id": "5f3e30cedb704df9ab4d2f0a6bafcf1c-execution:2:94b420cbe71ddbec4faf5ee676797e85c62cafef06fbbc0d0c3be46b43142552",
+      "request_utf8_bytes": 2047563,
+      "http_status": 200,
+      "captured_usage": {
+        "input_tokens": 698470,
+        "output_tokens": 196,
+        "total_tokens": 698666,
+        "benchmark_cost_eur": "18.799265562024182713837886251",
+        "reasoning_tokens": 37,
+        "transport_attempts": 1,
+        "uncertain_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "benchmark_usage_bounded": true
+      },
+      "request_body_sha256": "8d71e6b17b7198430149fb96c046ad23055d5360cf677d06ad7742f5d18fbc14"
+    },
+    {
+      "request_id": "5f3e30cedb704df9ab4d2f0a6bafcf1c-execution:3:146bbe0e192544eba5fc1f2e81e3e78bd816a0ef95635368e13aaf95d1ca4150",
+      "request_utf8_bytes": 628156,
+      "http_status": 200,
+      "captured_usage": {
+        "input_tokens": 185998,
+        "output_tokens": 689,
+        "total_tokens": 186687,
+        "benchmark_cost_eur": "5.1087863860277653381101656963",
+        "reasoning_tokens": 51,
+        "transport_attempts": 1,
+        "uncertain_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "benchmark_usage_bounded": true
+      },
+      "request_body_sha256": "f2e1408200b3343a43ac1878f027ec275f19eabff27b493d66adac5551c732aa"
+    },
+    {
+      "request_id": "5f3e30cedb704df9ab4d2f0a6bafcf1c-execution:4:0b78d2a2aacac52af26af98c1b26877e8d477224ea9ab3ab6b3639851af9f55d",
+      "request_utf8_bytes": 2047534,
+      "http_status": 200,
+      "captured_usage": {
+        "input_tokens": 698462,
+        "output_tokens": 163,
+        "total_tokens": 698625,
+        "benchmark_cost_eur": "18.793730407523510971786833855",
+        "reasoning_tokens": 0,
+        "transport_attempts": 1,
+        "uncertain_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "benchmark_usage_bounded": true
+      },
+      "request_body_sha256": "b4a946ab03188bf3cd79fc722267b0d70e9536be9fded607ed86c6bb8da1248a"
+    },
+    {
+      "request_id": "5f3e30cedb704df9ab4d2f0a6bafcf1c-execution:5:e447769a0266a04249646002f1c543be42c44421d2e96cf721a2434c814e122e",
+      "request_utf8_bytes": 559422,
+      "http_status": 200,
+      "captured_usage": {
+        "input_tokens": 164376,
+        "output_tokens": 730,
+        "total_tokens": 165106,
+        "benchmark_cost_eur": "4.5344200626959247648902821316",
+        "reasoning_tokens": 57,
+        "transport_attempts": 1,
+        "uncertain_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "benchmark_usage_bounded": true
+      },
+      "request_body_sha256": "18331bb7b33da346c46b585e66ad6ec3fb84ff137a2b0e4723a70204652431f6"
+    },
+    {
+      "request_id": "5f3e30cedb704df9ab4d2f0a6bafcf1c-execution:6:5faae368648ee1efa5854959913906768d61c9c0d460cfc2bc0ea6b7b8a75988",
+      "request_utf8_bytes": 2047540,
+      "http_status": 200,
+      "captured_usage": {
+        "input_tokens": 698462,
+        "output_tokens": 207,
+        "total_tokens": 698669,
+        "benchmark_cost_eur": "18.800824003582624272279444693",
+        "reasoning_tokens": 50,
+        "transport_attempts": 1,
+        "uncertain_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "benchmark_usage_bounded": true
+      },
+      "request_body_sha256": "950d63d71606890185d69c2fdbb01f72dc4fead5244097dbad915be710cddf50"
+    },
+    {
+      "request_id": "5f3e30cedb704df9ab4d2f0a6bafcf1c-execution:7:8788b8433b173eeaacceaa7b758047b47ddffb47efc53ecf589c83e2f5e13a35",
+      "request_utf8_bytes": 569253,
+      "http_status": 200,
+      "captured_usage": {
+        "input_tokens": 160985,
+        "output_tokens": 710,
+        "total_tokens": 161695,
+        "benchmark_cost_eur": "4.4400806090461262875055978503",
+        "reasoning_tokens": 44,
+        "transport_attempts": 1,
+        "uncertain_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "benchmark_usage_bounded": true
+      },
+      "request_body_sha256": "a2caa05a62c2ca5f14cccbee3cbbc911d6f50a0580d6fca5933b136d89ee4f02"
+    },
+    {
+      "request_id": "5f3e30cedb704df9ab4d2f0a6bafcf1c-execution:8:e9cddf1c7763d3c7b9a79f0cff4ef770a321364d5bcb7bee82b46367ee58391c",
+      "request_utf8_bytes": 11162,
+      "http_status": 200,
+      "captured_usage": {
+        "input_tokens": 3029,
+        "output_tokens": 1834,
+        "total_tokens": 4863,
+        "benchmark_cost_eur": "0.3770622480967308553515450067",
+        "reasoning_tokens": 0,
+        "transport_attempts": 1,
+        "uncertain_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "benchmark_usage_bounded": true
+      },
+      "request_body_sha256": "b5412ca052859eb104c8fb2a672a0ff1dc7959c3c9cfe8cec8a3933130bed22a"
+    },
+    {
+      "request_id": "5f3e30cedb704df9ab4d2f0a6bafcf1c-execution:9:d00536f4aaa826cdf8092eedc4d670e3fa271f4e6d40eb233a2e0ce2896018e0",
+      "request_utf8_bytes": 3809468,
+      "http_status": 400,
+      "captured_usage": null,
+      "request_body_sha256": "36c039f694b96ff39bee5b59a1a2892b24ebe48e4221dbfc5795b1bd0c5197bd"
+    }
+  ],
+  "context_rejection": {
+    "reason": "provider_context_rejected",
+    "outcome": "failed",
+    "evidence": {
+      "request_id": "5f3e30cedb704df9ab4d2f0a6bafcf1c-execution:9:d00536f4aaa826cdf8092eedc4d670e3fa271f4e6d40eb233a2e0ce2896018e0",
+      "request_hash": "e68f731077c1baaf963901b0121e3812dd78a8b736d56ec9a2efec5050d323b2",
+      "http_journal_hash": "ef1193d65bc211e5f184c8549031d97c5523ea4c9d69996772978d4c8e0cc78f",
+      "failure_hash": "6715dfbf760e7480b3f7dfde487eb9e9d39878e0971ac1f48c0ecd1cdee3a0cc",
+      "verification": "complete_http_400_context_length_exceeded_messages",
+      "reservation_retained": true,
+      "request_replay_forbidden": true,
+      "workflow_execution_replay_forbidden": true
+    },
+    "retained_at": "2026-11-08T20:26:17.1610480+00:00"
+  },
+  "limitations": [
+    "No qualification: actual URLs were absent from observed hrefs, and reporting inference exceeded provider capacity.",
+    "HTTP 400 is not evidence of zero billing. The full reservation remains held.",
+    "No workflow or rejected inference replay is authorized.",
+    "The exact unchanged-plan accepted-block business-review boundary remains unproved."
+  ]
+}
