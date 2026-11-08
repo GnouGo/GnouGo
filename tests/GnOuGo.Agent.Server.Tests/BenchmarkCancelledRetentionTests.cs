@@ -46,6 +46,7 @@ public sealed partial class BenchmarkPermanentRetentionTests
     [InlineData("unmatched_cancellation")]
     [InlineData("transport_failure")]
     [InlineData("invalid_bytes")]
+    [InlineData("mismatched_text")]
     [InlineData("empty_bytes")]
     [InlineData("missing_started")]
     [InlineData("missing_completed")]
@@ -73,6 +74,7 @@ public sealed partial class BenchmarkPermanentRetentionTests
             case "unmatched_cancellation": attempt["RetryDecision"] = "other"; break;
             case "transport_failure": attempt["Failure"] = "transport"; break;
             case "invalid_bytes": attempt["PartialBodyBase64"] = "invalid!"; break;
+            case "mismatched_text": attempt["PartialBody"] = "unrelated text"; break;
             case "empty_bytes": attempt["PartialBodyBase64"] = ""; break;
             case "missing_started": attempt["StartedAtUtc"] = null; break;
             case "missing_completed": attempt["CompletedAtUtc"] = null; break;
@@ -95,6 +97,7 @@ public sealed partial class BenchmarkPermanentRetentionTests
         attempt["Failure"] = "cancelled"; attempt["RetryDecision"] = "cancelled; no retry"; attempt["ResponseBodyComplete"] = false;
         attempt["ObservedStatus"] = 200; attempt["ContentType"] = contentType;
         attempt["PartialBodyBase64"] = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("data: {\"partial\":true}\n\n"));
+        attempt["PartialBody"] = "data: {\"partial\":true}\n\n";
         attempt["StartedAtUtc"] = DateTimeOffset.UtcNow.AddSeconds(-10); attempt["CompletedAtUtc"] = DateTimeOffset.UtcNow;
         await campaign.SaveAsync(BenchmarkHttpJournal.Collection, RequestId, journal, Ct);
         return campaign;

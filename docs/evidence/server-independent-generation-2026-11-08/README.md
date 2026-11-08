@@ -218,6 +218,13 @@ headers and incomplete bytes. Existing cancelled-request retention now recognize
 that exact native evidence, while rejecting complete results/usage, provider or
 stream failures, mismatched modes/media, missing timestamps and malformed bytes.
 Every original record and full uncertain hold remain, and the cancelled session
-cannot replay or continue. Focused Server validation: **210 passed**, zero failures
+cannot replay or continue. Focused Server validation: **211 passed**, zero failures
 or compiler warnings. The prior solution run was interrupted for this new fix;
 it is not reported as a completed final-source pass.
+
+The native partial regression includes the HTTP helper’s exact paired base64/text
+capture; mismatched decoded text rejects retention. The [successful local and
+collection runs](successful-server-cases-21a3d7c6.json) retain their exact source,
+artifact approvals, unchanged oracle versions, measured cost and time through
+accepted review and saved business results. They establish two scenario successes,
+not Amazon qualification or controlled proof of general convergence gains.

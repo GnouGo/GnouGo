@@ -616,10 +616,10 @@ internal sealed partial class BenchmarkCampaign
             if (attempts[index]?["Status"]?.GetValue<int>() is not (429 or 500 or 502 or 503 or 504) ||
                 attempts[index]?["Failure"] is not null || !IsRetainedErrorOnlyBody(attempts[index]?["Body"]?.ToString())) return false;
         var last = attempts[^1]!;
-        if (new[] { "Status", "Body", "PartialBody", "AssembledBody", "RetryAfter", "NotBefore", "StreamFailure", "ProviderErrorCode", "TerminationStatus" }
+        if (new[] { "Status", "Body", "AssembledBody", "RetryAfter", "NotBefore", "StreamFailure", "ProviderErrorCode", "TerminationStatus" }
                 .Any(key => last[key] is not null) || last["ProtocolComplete"]?.GetValue<bool>() == true || last["UsageKnown"]?.GetValue<bool>() == true)
             return false;
-        if (last["ContentType"] is not null || last["PartialBodyBase64"] is not null || last["ObservedStatus"] is not null)
+        if (last["ContentType"] is not null || last["PartialBody"] is not null || last["PartialBodyBase64"] is not null || last["ObservedStatus"] is not null)
             return allowCancelledAttempt && MatchesCancelledNativePartial(journal, last);
         return
             (last["Failure"] is null || allowCancelledAttempt && last["Failure"]?.ToString() == "cancelled" &&
@@ -646,7 +646,12 @@ internal sealed partial class BenchmarkCampaign
                 _ => true
             }) return false;
         // Validate the retained byte encoding without interpreting partial model output.
-        try { return Convert.FromBase64String(partial).Length > 0; }
+        try
+        {
+            var bytes = Convert.FromBase64String(partial);
+            return bytes.Length > 0 && (attempt["PartialBody"] is null ||
+                attempt["PartialBody"]!.ToString() == System.Text.Encoding.UTF8.GetString(bytes));
+        }
         catch (FormatException) { return false; }
     }
 
