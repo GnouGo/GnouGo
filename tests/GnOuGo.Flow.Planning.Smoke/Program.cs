@@ -78,6 +78,20 @@ if (!trackingRestored.IsTrackingOnly || trackingRestored.Snapshot.Calls != 1 || 
     trackingRestored.Snapshot.JournaledAttempts!["aot-uncertain"].VerifiedUsage is not null)
     throw new InvalidOperationException("Tracking-only uncertain accounting failed under Native AOT.");
 Console.WriteLine("tracking-only budget: unavailable pricing and uncertain reservations survive source-generated restore");
+var exhaustedHttp = new GnOuGo.AI.Core.LLMHttpRetryState { Attempts = [new()
+{
+    Id = "native-exhausted-generation", Failure = "timeout", PartialBody = "{partial:",
+    IndependentGenerationDurationExhausted = true,
+    RetryDecision = "blocked; captured generation duration exhausted"
+}] };
+var restoredHttp = JsonSerializer.Deserialize(JsonSerializer.Serialize(exhaustedHttp,
+    GnOuGo.AI.Core.LLMHttpRetryJsonContext.Default.LLMHttpRetryState),
+    GnOuGo.AI.Core.LLMHttpRetryJsonContext.Default.LLMHttpRetryState)!;
+if (restoredHttp.Attempts.Single().IndependentGenerationDurationExhausted != true ||
+    restoredHttp.Attempts.Single().PartialBody != exhaustedHttp.Attempts.Single().PartialBody)
+    throw new InvalidOperationException("Native HTTP journal lost its exhausted generation or partial evidence.");
+Console.WriteLine("HTTP journal: fired generation deadline and retained partial evidence survive native serialization");
+
 await CompactConstructionSmoke.RunAsync();
 
 var committedIntent = new PlanningRequirements { Summary = "Retain contractual obligations", Outcomes =
