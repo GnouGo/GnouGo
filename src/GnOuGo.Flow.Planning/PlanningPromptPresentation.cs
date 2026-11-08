@@ -6,6 +6,33 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Presents response fields and shares identical contracts without changing their authority.</summary>
 public static class PlanningPromptPresentation
 {
+    internal static bool OffersRuntimePrerequisite(JsonNode schema)
+    {
+        return Find(schema["properties"]?["reselectStep"], 0);
+
+        bool Find(JsonNode? node, int depth)
+        {
+            if (depth > 32) return false;
+            node = Resolve(node);
+            if (node is not JsonObject) return false;
+            if (Resolve(node["properties"]?["disposition"]) is JsonObject disposition && disposition["enum"] is JsonArray choices &&
+                choices.Any(choice => choice?.ToString() == "suspend")) return true;
+            return new[] { "anyOf", "oneOf" }.Any(key => node?[key] is JsonArray branches && branches.Any(branch => Find(branch, depth + 1)));
+        }
+
+        JsonNode? Resolve(JsonNode? node)
+        {
+            for (var depth = 0; depth < 32; depth++)
+            {
+                if (node is not JsonObject value || value["$ref"] is null) return node;
+                var reference = value["$ref"]!.ToString();
+                if (!reference.StartsWith("#/", StringComparison.Ordinal)) return null;
+                node = PlanningSchemaReferences.Read(schema, reference[1..]);
+            }
+            return null;
+        }
+    }
+
     /// <summary>Distinguish contract acquisition from a typed runtime-data prerequisite.</summary>
     public static string PresentRuntimePrerequisiteGuidance(string prompt)
     {

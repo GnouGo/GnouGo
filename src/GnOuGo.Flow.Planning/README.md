@@ -170,6 +170,11 @@ to inference while retaining full original observations at their producer. In St
 mode this optional text yields to the phase input target; diagnostic policy retains
 it with ordinary threshold warnings. Neither path removes mandatory context or
 weakens physical capacity, permissions or semantic validation.
+When the issued draft schema offers typed suspension, the same optional presentation
+distinguishes missing runtime data from contracts and catalogue evidence. Missing
+operation or cleanup contracts require the offered discovery/reselection path, rather
+than suspending for a task that echoes metadata. The common validators and business
+review retain authority over the actual selected operations and contributions.
 Validate the raw response under its issued schema before resolving canonical addresses;
 preserve raw receipts and use canonical identities for repeat/progress checks. Recovery
 cannot rebuild a missing map. TaskPlan references and original contracts are unchanged.
