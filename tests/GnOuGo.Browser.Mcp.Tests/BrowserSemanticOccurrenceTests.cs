@@ -8,6 +8,25 @@ namespace GnOuGo.Browser.Mcp.Tests;
 
 public sealed class BrowserSemanticOccurrenceTests
 {
+    [Fact]
+    public async Task EscapedQueryRemainsEscapedAtTheInternalNavigationBoundary()
+    {
+        var ct = TestContext.Current.CancellationToken; var requests = 0;
+        await using var site = await LoopbackTestServer.StartAsync(async context =>
+        {
+            Interlocked.Increment(ref requests); Assert.Equal("hello world", context.Request.Query["q"].ToString());
+            context.Response.ContentType = "text/html";
+            await context.Response.WriteAsync("<html><body>Observed query</body></html>", ct);
+        }, ct);
+        await using var host = new PlaywrightBrowserHost(Options.Create(new BrowserServerSettings
+            { AllowedHosts = ["127.0.0.1"] }), NullLogger<PlaywrightBrowserHost>.Instance);
+        var url = site.Origin + "/?q=hello%20world";
+        var result = await host.GetContentAsync(url, "domcontentloaded", 10000, null, "observation_complete", null, false, ct);
+        Assert.True(result.Success); Assert.Equal(1, requests);
+        Assert.Equal(url, result.NavigationEvidence!.RequestedUrl);
+        Assert.Equal(url, result.NavigationEvidence.FinalUrl);
+    }
+
     [Theory]
     [InlineData("article", "")]
     [InlineData("li", "")]

@@ -82,7 +82,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
                 IResponse? response = null;
                 try
                 {
-                    response = await NavigateReadAsync(page, targetUri.ToString(), ParseWaitUntil(waitUntil),
+                    response = await NavigateReadAsync(page, targetUri.AbsoluteUri, ParseWaitUntil(waitUntil),
                         NormalizeTimeout(timeoutMs, _settings.NavigationTimeoutMs), cancellationToken);
                 }
                 catch (TimeoutException ex) when (string.Equals(waitUntil, "networkidle", StringComparison.OrdinalIgnoreCase))
