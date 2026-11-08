@@ -504,7 +504,6 @@ public sealed partial class CompactDiscoveryProtocolTests
         state.Discovery.Pages.Add(new("alpha", "second", [], null, Query: Objective));
         state.Discovery.Pages.Add(new("alpha", "third", [], null, Query: Objective));
         Assert.False(PlanningCompactConstruction.DiscoveryContext(state)["providerRequests"]!["items"]![0]!["canRequestPage"]!.GetValue<bool>());
-        Assert.Equal("null", PlanningCompactConstruction.DiscoverySchema(state)["properties"]!["discoveryRequests"]!["type"]!.ToString());
     }
 
 
@@ -918,7 +917,6 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Null(provider["available"]);
         Assert.Equal(unavailable ? "The configured provider is unavailable." : null, provider["unavailable"]?.ToString());
         Assert.Equal(unavailable ? 0 : 1, provider["resultCount"]!.GetValue<int>());
-        Assert.Equal("null", PlanningCompactConstruction.DiscoverySchema(state)["properties"]!["discoveryRequests"]!["type"]!.ToString());
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Discover("alpha", null), PlanningCompactConstruction.DiscoverySchema(state)));
         Assert.True(PlanningCompactConstruction.CanReselectDiscovery(state));
         if (!unavailable)

@@ -586,7 +586,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Equal(4, choices["items"]!.AsArray().Count);
         Assert.DoesNotContain(huge, context.ToJsonString(), StringComparison.Ordinal);
         Assert.Equal(huge, state.Discovery.Pages[0].Capabilities[unrelatedIndex].Operation!.Description);
-        var request = Complete(state, PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state),
+        var request = Complete(state, PlanningCompactConstruction.Request(state, PlanningCompactConstruction.DiscoveryGuidance(state),
             context, PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose));
         var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.DiscoveryPurpose).MaxInputTokens;
         var measurement = PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, limit);

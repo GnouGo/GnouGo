@@ -626,7 +626,8 @@ internal static partial class PlanningCompactConstruction
             if (recordSchemaSelection && !producerEvidence)
             {
                 var step = state.Construction!.Compact!.CurrentStep!;
-                if (!step.OperationIds.Contains(operation, StringComparer.Ordinal))
+                if (!step.OperationIds.Contains(operation, StringComparer.Ordinal) &&
+                    !InspectionCandidates(state).Any(c => c.Id == capability.Id && c.Version == capability.Version))
                     PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Select the operation for this substep before requesting its schema branches.");
                 if (!step.SchemaPointers.Contains(address, StringComparer.Ordinal)) step.SchemaPointers.Add(address);
             }
@@ -824,7 +825,7 @@ internal static partial class PlanningCompactConstruction
     }
 
     private static string PortPointer(string root, IReadOnlyList<string> path) => root + string.Concat(path.Select(p => "/properties/" + PlanningSchemaReferences.Escape(p)));
-    private static string ContractIdentity(string operation, string version) => Uri.EscapeDataString(operation) + "@" + Uri.EscapeDataString(version);
+    internal static string ContractIdentity(string operation, string version) => Uri.EscapeDataString(operation) + "@" + Uri.EscapeDataString(version);
     private static string ContractHash(PlanningCapability capability) => PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(capability, PlanningJsonContext.Default.PlanningCapability));
     private static string DecodePointerPart(string value) => value.Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal);
 }

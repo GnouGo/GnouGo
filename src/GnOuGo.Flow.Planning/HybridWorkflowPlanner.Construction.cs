@@ -545,9 +545,10 @@ public sealed partial class HybridWorkflowPlanner
                 PlanningConstruction.Fail("DISCOVERY_SCOPE_INVALID", "/discoveryRequests", "Justify each issued source against its selected focus.");
             if (PlanningDiscoveryFocus.Failure(state, request.SourceId, query, request.FocusId) is not null)
                 PlanningConstruction.Fail("DISCOVERY_SCOPE_INVALID", "/discoveryRequests", "This failed source requires explicit operator refresh.");
-            if (request.OperationIds is not null || request.Query is not null || request.ProducedArtifactKind is not null ||
+            if (request.Query is not null || request.ProducedArtifactKind is not null ||
                 !state.Discovery.Sources.Any(source => source.Id == request.SourceId))
                 PlanningConstruction.Fail("DISCOVERY_SCOPE_INVALID", "/discoveryRequests", "Select an issued source/cursor pair for this exact business action.");
+            if (request.OperationIds is not null) ValidateContractInspection(state, request);
             if (request.Cursor is not null && !state.Discovery.Pages.Any(page => page.SourceId == request.SourceId &&
                     page.NextCursor == request.Cursor && page.Query == query && page.ProducedArtifactKind is null))
                 PlanningConstruction.Fail("CURSOR_UNKNOWN", "/discoveryRequests", "A continuation must come from a retained page for this same provider and business action.");
@@ -559,10 +560,20 @@ public sealed partial class HybridWorkflowPlanner
             Pending = requests.Select(request => request with { Query = PlanningDiscoveryFocus.Query(state, request.FocusId) }).ToList()
         };
         if (step.PendingDiscovery.Id is { } actionId)
-            foreach (var request in step.PendingDiscovery.Pending.Where(r => r.Cursor is null))
+            foreach (var request in step.PendingDiscovery.Pending.Where(r => r.Cursor is null && r.OperationIds is null))
                 (state.Discovery.ActiveSourceActions ??= new(StringComparer.Ordinal))[PlanningDiscoveryFocus.SourceKey(request.SourceId, request.Query!, request.FocusId)] = actionId;
         state.Diagnostics.RemoveAll(d => d.Location.StartsWith("/discoveryRequests", StringComparison.Ordinal) &&
             d.Code is "DISCOVERY_SCOPE_INVALID" or "SOURCE_UNKNOWN" or "CURSOR_UNKNOWN" or "DISCOVERY_BATCH_INVALID" or "DISCOVERY_NO_PROGRESS");
+    }
+
+    private static CapabilitySummary[] ValidateContractInspection(PlanningSession state, PlanningDiscoveryRequest request)
+    {
+        var candidates = PlanningCompactConstruction.InspectionCandidates(state, request.SourceId);
+        if (request.Cursor is not null || request.OperationIds is not { Count: > 0 } ids ||
+            ids.Distinct(StringComparer.Ordinal).Count() != ids.Count ||
+            ids.Any(id => candidates.Count(c => c.Operation!.Id == id) != 1))
+            PlanningConstruction.Fail("DISCOVERY_SCOPE_INVALID", "/discoveryRequests", "Inspect exact unambiguous operation identities from this owned source; inspection selects no executable binding.");
+        return candidates;
     }
 
     internal static async Task ContinueConstructionDiscoveryAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
@@ -584,10 +595,38 @@ public sealed partial class HybridWorkflowPlanner
                     "This selected provider action reached its captured 1024-page target. Its received pages and exact remaining cursor are retained.");
             var request = action.Pending[0];
             var identity = JsonSerializer.Serialize(new List<PlanningDiscoveryRequest> { request }, PlanningJsonContext.Default.ListPlanningDiscoveryRequest);
-            if (request.Query != PlanningDiscoveryFocus.Query(state, request.FocusId) || request.OperationIds is not null || request.ProducedArtifactKind is not null ||
+            if (request.Query != PlanningDiscoveryFocus.Query(state, request.FocusId) || request.ProducedArtifactKind is not null ||
                 !action.Requests.Any(original => original.SourceId == request.SourceId) ||
                 !state.Discovery.Sources.Any(source => source.Id == request.SourceId) || action.Visited.Contains(identity, StringComparer.Ordinal))
                 throw new WorkflowRuntimeException("DISCOVERY_NO_PROGRESS", "The retained provider continuation is invalid or cyclic.");
+            if (request.OperationIds is { } operations)
+            {
+                if (!action.Requests.Any(original => original.SourceId == request.SourceId && original.FocusId == request.FocusId &&
+                    original.OperationIds is not null && original.OperationIds.SequenceEqual(operations, StringComparer.Ordinal)))
+                    throw new PlanningConflictException("The retained inspection lost its exact selected operation identities.");
+                var candidates = ValidateContractInspection(state, request);
+                foreach (var operation in operations)
+                {
+                    var summary = candidates.Single(c => c.Operation!.Id == operation);
+                    var address = "contract:" + PlanningCompactConstruction.ContractIdentity(operation, summary.Version);
+                    if (state.Construction!.Evidence?.TryGetPropertyValue(address, out var retained) == true)
+                    {
+                        if (!JsonNode.DeepEquals(retained, PlanningCompactConstruction.LoadContractEvidence(state, address, recordSchemaSelection: false)))
+                            throw new PlanningConflictException("The retained inspection no longer matches its exact contract evidence.");
+                        continue;
+                    }
+                    if (action.RemainingReads == 0) return;
+                    await PlanningDiscoveryContext.ResolveAsync(state, runtime, summary, ct);
+                    action.RemainingReads--;
+                    (state.Construction!.Evidence ??= new())[address] = PlanningCompactConstruction.LoadContractEvidence(state, address, recordSchemaSelection: false);
+                    var read = PlanningConstruction.EvidenceBatchFingerprint(state, [address]);
+                    if (!state.Construction.EvidenceRequests.Contains(read, StringComparer.Ordinal)) state.Construction.EvidenceRequests.Add(read);
+                    await runtime.CheckpointAsync(state, ct);
+                }
+                action.Visited.Add(identity); action.Pending.RemoveAt(0);
+                await runtime.CheckpointAsync(state, ct);
+                continue;
+            }
             if (request.Cursor is not null && !PlanningDiscoveryFocus.Pages(state, request.SourceId, request.Query!, request.FocusId).Any(page =>
                     page.NextCursor == request.Cursor))
                 throw new PlanningConflictException("The retained provider cursor lost its exact original page.");

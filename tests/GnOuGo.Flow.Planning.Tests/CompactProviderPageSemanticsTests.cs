@@ -51,7 +51,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         }
         var address = PlanningCompactConstruction.ProviderRequestAddress(state, 0);
         state.Construction!.Evidence = new() { [address] = page };
-        Assert.Equal("null", PlanningCompactConstruction.DiscoverySchema(state)["properties"]!["discoveryRequests"]!["type"]!.ToString());
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Discover("alpha", null), PlanningCompactConstruction.DiscoverySchema(state)));
         PlanningCompactConstruction.RemoveStaleDiscoveryDirectories(state);
         Assert.False(state.Construction.Evidence.ContainsKey(address));
         Assert.Single(state.Discovery.Pages[0].Capabilities);

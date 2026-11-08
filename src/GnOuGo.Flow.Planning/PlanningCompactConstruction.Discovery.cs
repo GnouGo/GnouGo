@@ -379,6 +379,39 @@ internal static partial class PlanningCompactConstruction
             step.CloseRequirementIds.Any(id => CanClaimRequirementCompletion(state, id)) || CanClaimCurrentBlockCompletion(state);
     }
 
+    // Metadata acquisition deliberately precedes executable binding. The same
+    // visible/versioned directory and policy filters govern both paths.
+    internal static CapabilitySummary[] InspectionCandidates(PlanningSession state, string? source = null) =>
+        State(state).CurrentStep is { DiscoveryComplete: false }
+            ? DescriptorCandidates(state, PlanningDiscoveryFocus.VisiblePages(state))
+                .Where(c => c.Operation!.Version == c.Version && (source is null || c.SourceId == source) &&
+                    state.Discovery.Sources.Any(s => s.Id == c.SourceId)).ToArray()
+            : [];
+
+    private static JsonArray ContractInspectionOptions(PlanningSession state)
+    {
+        var focus = PlanningDiscoveryFocus.Enabled(state) ? PlanningDiscoveryFocus.Choices(state)[0].Id : null;
+        var visible = ContractDescriptorPage(state)["items"]!.AsArray().OfType<JsonObject>()
+            .Concat((DescribedOperationChoices(state)?["items"] as JsonArray ?? []).OfType<JsonObject>())
+            .Select(c => c["id"]!.ToString()).ToHashSet(StringComparer.Ordinal);
+        foreach (var (address, page) in state.Construction!.Evidence ?? [])
+        {
+            if (address.StartsWith("description:", StringComparison.Ordinal) && page is JsonObject described && described["id"] is { } id) visible.Add(id.ToString());
+            if (address.StartsWith("page:operations:", StringComparison.Ordinal) && page is JsonObject directory && directory["items"] is JsonArray items)
+                foreach (var item in items.OfType<JsonObject>())
+                    if (item["id"] is { } operationId) visible.Add(operationId.ToString());
+        }
+        return new JsonArray(InspectionCandidates(state)
+            .Where(c => visible.Contains(c.Operation!.Id) &&
+                state.Construction!.Evidence?.ContainsKey("contract:" + ContractIdentity(c.Operation!.Id, c.Version)) != true &&
+                PlanningDiscoveryFocus.Failure(state, c.SourceId, PlanningDiscoveryFocus.Query(state, focus), focus) is null)
+            .GroupBy(c => c.SourceId).Select(group => (JsonNode)new JsonObject
+            {
+                ["sourceId"] = group.Key, ["focusId"] = focus,
+                ["operationIds"] = new JsonArray(group.Select(c => (JsonNode)JsonValue.Create(c.Operation!.Id)!).ToArray())
+            }).ToArray());
+    }
+
     private static JsonObject CompactDiscoverySchema(PlanningSession state)
     {
         var requests = PresentedProviderRequests(state)?["items"]?.AsArray() ?? [];
@@ -401,6 +434,21 @@ internal static partial class PlanningCompactConstruction
             if (PlanningDiscoveryFocus.Enabled(state))
             {
                 branch["properties"]!["focusId"] = PlanningSchemas.Enum(group.Key.Focus!);
+                branch["properties"]!["justification"] = Text(state, 256);
+                branch["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("focusId"));
+                branch["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("justification"));
+            }
+            alternatives.Add((JsonNode)branch);
+        }
+        foreach (var option in ContractInspectionOptions(state))
+        {
+            var branch = PlanningSchemas.Object(("sourceId", PlanningSchemas.Enum(option!["sourceId"]!.ToString())),
+                ("cursor", PlanningSchemas.Type("null")), ("query", PlanningSchemas.Type("null")),
+                ("operationIds", PlanningSchemas.Array(PlanningSchemas.Enum(option["operationIds"]!.AsArray()
+                    .Select(c => c!.ToString()).ToArray()), 1, null)));
+            if (PlanningDiscoveryFocus.Enabled(state))
+            {
+                branch["properties"]!["focusId"] = PlanningSchemas.Enum(option["focusId"]!.ToString());
                 branch["properties"]!["justification"] = Text(state, 256);
                 branch["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("focusId"));
                 branch["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("justification"));

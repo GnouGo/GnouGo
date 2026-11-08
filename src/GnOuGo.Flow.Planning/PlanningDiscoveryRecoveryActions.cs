@@ -78,7 +78,7 @@ public static class PlanningDiscoveryRecoveryActions
                     ActionHash = HybridWorkflowPlanner.DiscoveryActionHash(step, requests),
                     Pending = requests.Select(r => r with { Query = PlanningDiscoveryFocus.Query(state, r.FocusId) }).ToList()
                 };
-                foreach (var request in step.PendingDiscovery.Pending)
+                foreach (var request in step.PendingDiscovery.Pending.Where(r => r.OperationIds is null))
                     (state.Discovery.ActiveSourceActions ??= new(StringComparer.Ordinal))[PlanningDiscoveryFocus.SourceKey(request.SourceId, request.Query!, request.FocusId)] = step.PendingDiscovery.Id;
                 if (selection.Resolution == "refresh_source")
                     state.Discovery.ActiveSourceActions![PlanningDiscoveryFocus.SourceKey(failure.SourceId, failure.Query, failure.FocusId)] = step.PendingDiscovery.Id;

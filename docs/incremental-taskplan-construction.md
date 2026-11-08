@@ -196,6 +196,16 @@ accepting a checkpoint and selecting a different objective. Provider results rem
 bound to their own query; cached metadata does not establish query completeness,
 resolve a contract or authorize execution.
 Discover unknown capabilities for that action before fixing its implementation.
+During that implementation's discovery, `contractInspection` offers exact owned
+operation identities from displayed or explicitly inspected metadata. A
+`discoveryRequests` item with `cursor:null`, `query:null` and those `operationIds`
+resolves their original contracts without selecting a task kind or executable
+binding. The existing durable metadata continuation checkpoints each verified
+contract and finishes a retained batch without another model call. Interrupted
+reads reuse exact retained evidence; source snapshots and accepted work remain
+unchanged. Required-contract failures use protected metadata recovery. Source
+exploration still uses `operationIds:null`; historical issued requests retain
+their exact schema and bytes. Contract inspection grants no execution authority.
 Discovery includes the actual owning control or reusable group's isolated interface
 and retained opening intent, as drafting does. An open declaration remains unreviewed
 navigation; its exports are not consumable results and root inputs gain no group access.

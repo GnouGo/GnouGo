@@ -33,11 +33,11 @@ internal static partial class PlanningCompactConstruction
 
     internal static string DiscoveryGuidance(PlanningSession state) => (PlanningDiscoveryFocus.Enabled(state)
         ? "Select an issued focus for the immediate objective or retained prerequisite and justify each source from its description. Prefer suitable inspected contracts; stop once sufficient. Exploratory failures prove no capability absence and require alternatives, not invented results. " : "") + $"""
-        Resolve the current implementation cursor within its selected scope and retained business obligations. Inspect original descriptions/constraints and exact continuations; incomplete inspection proves no absence. Stop once suitable.
-        Return one action with others null: binding, discoveryRequests, evidenceRequests, reselectStep or clarifications. binding selects the anchor, inspected operationIds and optional closed groupId. Value/transform helpers share the fragment. closeScopes:[] closes no scope, [scope] the offered boundary; other actions use null.
-        {ContainerBoundaryGuidance} {ValueSemantics} {TransformSemantics} {SelectedExpectationsSemantics}
-        The host resolves and admits exact contracts before drafting. Never invent setup, handles, results or permissions. Missing runtime data needs executable prerequisite work; only missing business facts need clarification. Caller inputs bind at runtime.
-        discoveryRequests uses issued source/cursor with query:null; the host follows exact continuations. evidenceRequests may also select an offered earlier description. {EvidenceBatchGuidance(state)} Use supplied evidence; metadata grants no execution authority.
+        Resolve this cursor within its scope and retained business obligations. Inspect original descriptions/constraints and exact continuations; incomplete inspection proves no absence.
+        Return one action with others null: binding, discoveryRequests, evidenceRequests, reselectStep or clarifications. binding selects the anchor, inspected operationIds and optional closed groupId. Draft connected helpers later. closeScopes:[] closes no scope, [scope] the offered boundary; other actions use null.
+        {ContainerBoundaryGuidance} {TransformSemantics} {SelectedExpectationsSemantics}
+        The host verifies exact contracts before drafting. Never invent setup, handles, results or permissions. Runtime data needs executable prerequisites; clarify only missing business facts. Bind caller inputs at runtime.
+        discoveryRequests uses source/cursor, query:null and operationIds:null; offered operationIds with cursor:null inspect contracts without binding. The host follows exact continuations. evidenceRequests may also select an offered earlier description. {EvidenceBatchGuidance(state)} Use supplied evidence; metadata grants no execution authority.
         """ + (CanClaimCurrentBlockCompletion(state)
             ? "\nA close binding with closeScopes:[] claims completion of this business block's accepted contributions for ordinary review. It adds no work and closes no workflow scope or original requirement. When accepted contributions fulfill the fixed goal and criteria, select this review claim; do not add a report or helper solely to obtain review. Ordinary review can reject a premature claim."
             : "");
@@ -724,6 +724,7 @@ internal static partial class PlanningCompactConstruction
             ["sources"] = null,
             ["descriptors"] = descriptors,
             ["providerRequests"] = ProviderEvidencePage(state) is null ? providerPage : null,
+            ["contractInspection"] = ContractInspectionOptions(state),
             ["directoryEvidence"] = new JsonObject { ["sources"] = SourceDirectoryContinuation(state),
                 ["operations"] = OperationDirectoryContinuation(state, descriptors), ["providers"] = ProviderDirectoryContinuation(state) },
             ["evidence"] = evidence?.DeepClone(),

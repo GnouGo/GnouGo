@@ -175,8 +175,8 @@ public sealed partial class CompactDiscoveryProtocolTests
         var schema = PlanningCompactConstruction.DiscoverySchema(state);
         var request = DiscoveryFollowup(state);
         Assert.Empty(PlanningContractValidation.ValidateInstance(Wire(request, Discover("gamma", null)).Json!, schema));
-        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Wire(request, Discover("beta", null)).Json!, schema));
-        Assert.Equal(description, PlanningContractValidation.ValidateInstance(Wire(request, Discover("delta", null)).Json!, schema).Count > 0);
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Discover("beta", null), schema));
+        Assert.Equal(description, PlanningContractValidation.ValidateInstance(Discover("delta", null), schema).Count > 0);
         Assert.Equal(state.Construction!.Evidence?.Count ?? 0, context["evidence"]?.AsObject().Count ?? 0);
         foreach (var (key, value) in state.Construction.Evidence ?? new JsonObject())
         {

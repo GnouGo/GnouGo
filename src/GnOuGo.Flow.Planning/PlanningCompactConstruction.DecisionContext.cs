@@ -119,6 +119,13 @@ internal static partial class PlanningCompactConstruction
         while (measurement.EstimatedInputTokens > phase.TargetInputTokens)
         {
             (string Identity, JsonObject Page, LLMRequest Request, PlanningRequestMeasurement Measurement)? best = null;
+            if (page.ContainsKey("contractInspection"))
+            {
+                // The exact same source/operation choices remain in the strict
+                // schema beside their existing descriptor identities.
+                var probe = page.DeepClone().AsObject(); probe.Remove("contractInspection");
+                Consider("contractInspection", probe);
+            }
             foreach (var directory in new[] { "describedOperations", "companionOperations" })
                 foreach (var (row, index) in (page[directory]?["items"] as JsonArray ?? []).Select((row, index) => (row, index)))
                 {
