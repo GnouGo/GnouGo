@@ -71,7 +71,7 @@ public static class PlanningDiscoveryRecoveryActions
             step.PendingDiscovery = null;
             if (remaining.Count > 0)
             {
-                var requests = remaining.DistinctBy(r => (r.SourceId, r.FocusId)).ToList();
+                var requests = remaining.DistinctBy(r => (r.SourceId, r.FocusId, Operations: HybridWorkflowPlanner.DiscoveryOperationSet(r))).ToList();
                 step.PendingDiscovery = new()
                 {
                     Id = Guid.NewGuid().ToString("N"), Requests = requests, Recovery = selection,

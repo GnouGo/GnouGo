@@ -14,6 +14,22 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Empty(PlanningContractValidation.ValidateInstance(action, PlanningCompactConstruction.DiscoverySchema(state)));
     }
 
+    [Fact]
+    public async Task SeparateContractReadsFromTheSameSourceAreOneLegalMetadataBatch()
+    {
+        var (state, runtime) = await Ready(); AddOperations(state, 2);
+        var catalog = new InspectionCatalog(); runtime.Capabilities = catalog;
+        var response = Inspect("alpha", "operation_0");
+        response["discoveryRequests"]!.AsArray().Add(Inspect("alpha", "operation_1")["discoveryRequests"]![0]!.DeepClone());
+        runtime.Respond = (request, _) => Wire(request, response);
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(2, catalog.Reads.Count);
+        Assert.Empty(state.Construction!.Compact!.CurrentStep!.OperationIds);
+        Assert.False(state.Construction.Compact.CurrentStep.DiscoveryComplete);
+        Assert.Null(state.Construction.Candidate);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

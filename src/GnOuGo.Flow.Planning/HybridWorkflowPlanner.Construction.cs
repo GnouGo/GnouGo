@@ -514,7 +514,9 @@ public sealed partial class HybridWorkflowPlanner
 
     private static async Task ConstructionDiscoveryAsync(PlanningSession state, IPlanningRuntime runtime, List<PlanningDiscoveryRequest> requests, CancellationToken ct, PlanningCorrectionAttempt? correction = null)
     {
-        if (requests.Count < 1 || !PlanningTokenThresholds.OptimizationAdvisory(state.Request) && requests.Count > 4 || requests.Select(r => (r.SourceId, r.Cursor, r.FocusId)).Distinct().Count() != requests.Count)
+        if (requests.Count < 1 || !PlanningTokenThresholds.OptimizationAdvisory(state.Request) && requests.Count > 4 || requests.GroupBy(r => (r.SourceId, r.Cursor, r.FocusId)).Any(group => group.Count() > 1 &&
+                (group.Any(r => r.OperationIds is null) || group.SelectMany(r => r.OperationIds!).Distinct(StringComparer.Ordinal).Count() !=
+                    group.Sum(r => r.OperationIds!.Count))))
             PlanningConstruction.Fail("DISCOVERY_BATCH_INVALID", "/discoveryRequests", "Request distinct metadata reads within the captured discovery policy.");
         if (PlanningTokenThresholds.OptimizationAdvisory(state.Request) && requests.Count > 2)
             PlanningOptimizationThresholds.Record(state, "discovery", "provider_requests", requests.Count, 2);
@@ -527,6 +529,9 @@ public sealed partial class HybridWorkflowPlanner
             return;
         }
     }
+
+    internal static string DiscoveryOperationSet(PlanningDiscoveryRequest request) =>
+        new JsonArray((request.OperationIds ?? []).Order(StringComparer.Ordinal).Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()).ToJsonString();
 
     internal static string DiscoveryActionHash(PlanningConstructionStep step, IEnumerable<PlanningDiscoveryRequest> requests) =>
         PlanningGraphCompiler.Fingerprint(step.Id + "\n" + step.BaseHash + "\n" + step.Objective + "\n" +
