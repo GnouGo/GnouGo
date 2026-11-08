@@ -199,6 +199,17 @@ The leased operator recognizes an identical entry idempotently and rejects a
 conflicting authorization; it never derives another increase from the current ceiling.
 See the [recorded operation](../../docs/evidence/compact-taskplan-20261029-supplement.json).
 
+An existing independent allocation may receive an explicitly authorized supplement
+through `--schema-portability extend-budget --from-eur <fixed-old-ceiling>
+--to-eur <fixed-new-ceiling> --authorization <stable-one-use-reference>`.
+Inspect the existing history first. The campaign lease and exact reference make
+an identical repeat idempotent; a conflicting reference or ceiling is rejected.
+Admission verifies a continuous authorization history rooted in the unchanged
+original allocation. `allowance_eur` still identifies the original grant;
+`current_authorized_ceiling_eur` reports its ceiling after verified supplements
+and sets the budget of new Server sessions. Existing captures, charges, holds,
+configuration bindings and predecessor liabilities are not changed or reset.
+
 Read-only readiness and accounting:
 
 ```sh

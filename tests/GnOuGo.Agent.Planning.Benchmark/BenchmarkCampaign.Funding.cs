@@ -56,9 +56,7 @@ internal sealed partial class BenchmarkCampaign
                 ["history"] = new JsonArray(new JsonObject { ["previous_ceiling_eur"] = 0m, ["previous_code_default_eur"] = 50m,
                     ["ceiling_eur"] = amount, ["authorization"] = reference, ["authorized_at"] = scope["created_at_utc"]!.DeepClone(),
                     ["kind"] = "independent_new_spend", ["initial_new_consumption_eur"] = 0m }) }, ct);
-        else if (spending["ceiling_eur"]?.GetValue<decimal>() != amount || spending["history"] is not JsonArray { Count: 1 } history ||
-            history[0]?["authorization"]?.ToString() != reference || history[0]?["kind"]?.ToString() != "independent_new_spend")
-            throw new PlanningConflictException("The fresh allocation's spending authorization changed.");
+        else _ = AuthorizedAllocationCeiling(spending, amount, reference);
         var registered = await RegisterConfigurationAsync(configuration, hostHash, metadataHash,
             material["configuration_hash"]!.ToString(), reference + ":configuration", true, ct, captureCurrentSettings: true);
         scope["configuration_id"] = registered["configuration_id"]!.DeepClone(); scope["status"] = "active";
@@ -75,8 +73,11 @@ internal sealed partial class BenchmarkCampaign
         var binding = await records.GetAsync(FundingCollection, "benchmark", GrantKey(reference), Author, ct);
         if (scope["status"]?.ToString() != "active" || material["kind"]?.ToString() != "independent_new_spend" || material["campaign"]?.ToString() != Id ||
             binding is null || !JsonNode.DeepEquals(JsonNode.Parse(binding.Value), material) ||
-            material["allowance_eur"]?.GetValue<decimal>() is not > 0 || await CostCeilingAsync(ct) != material["allowance_eur"]!.GetValue<decimal>())
+            material["allowance_eur"]?.GetValue<decimal>() is not > 0)
             throw AdmissionFailure("funding_scope_incomplete_or_changed");
+        var spending = await LoadAsync(FundingCollection, "spending-authorization", ct)
+            ?? throw AdmissionFailure("funding_scope_spending_authorization");
+        var ceiling = AuthorizedAllocationCeiling(spending, material["allowance_eur"]!.GetValue<decimal>(), reference);
         var identity = scope["configuration_id"]?.ToString() ?? throw AdmissionFailure("funding_scope_configuration");
         var captured = await LoadAsync(FundingCollection, "configuration:" + identity, ct);
         if (captured?["configuration"] is not JsonObject configuration ||
@@ -87,8 +88,35 @@ internal sealed partial class BenchmarkCampaign
         if (ConfigurationId is not null && ConfigurationId != identity)
             await VerifyFundedConfigurationChainAsync(ConfigurationId, identity, ct);
         return new() { ["kind"] = "independent_new_spend", ["campaign"] = Id, ["allowance_eur"] = material["allowance_eur"]!.DeepClone(),
+            ["current_authorized_ceiling_eur"] = ceiling,
             ["authorization_reference"] = reference, ["configuration_id"] = identity,
             ["previous_campaign"] = material["previous_campaign"]!.DeepClone(), ["previous_ceiling_eur"] = scope["previous_ceiling_eur"]!.DeepClone(),
             ["historical_liabilities_unreconciled"] = true, ["initial_new_consumption_eur"] = 0m, ["globally_available_funding"] = null };
+    }
+
+    // The original grant stays immutable. Later authority comes only from the existing
+    // leased supplement ledger, with a continuous chain and one entry per authorization.
+    private static decimal AuthorizedAllocationCeiling(JsonObject spending, decimal initialAllowance, string originalReference)
+    {
+        if (spending["history"] is not JsonArray { Count: > 0 } history)
+            throw AdmissionFailure("funding_scope_authorization_history");
+        var references = new HashSet<string>(StringComparer.Ordinal);
+        var ceiling = 0m;
+        for (var index = 0; index < history.Count; index++)
+        {
+            var entry = history[index] as JsonObject;
+            var reference = entry?["authorization"]?.ToString();
+            var next = entry?["ceiling_eur"]?.GetValue<decimal>();
+            if (string.IsNullOrWhiteSpace(reference) || !references.Add(reference) ||
+                entry?["previous_ceiling_eur"]?.GetValue<decimal>() != ceiling || next is null || next <= ceiling ||
+                string.IsNullOrWhiteSpace(entry?["authorized_at"]?.ToString()) ||
+                (index == 0 ? next != initialAllowance || reference != originalReference || entry?["kind"]?.ToString() != "independent_new_spend"
+                    : entry?["accounting_before"] is not JsonObject || entry["kind"] is not null))
+                throw AdmissionFailure("funding_scope_authorization_history");
+            ceiling = next.Value;
+        }
+        if (spending["ceiling_eur"]?.GetValue<decimal>() != ceiling)
+            throw AdmissionFailure("funding_scope_authorization_ceiling");
+        return ceiling;
     }
 }

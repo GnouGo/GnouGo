@@ -67,7 +67,7 @@ internal static class ServerLiveDiagnostics
         };
         if (fundingScope is not null)
             hostArgs = hostArgs.Concat(new[] { "--WorkflowPlanningBudget:Currency=EUR",
-                "--WorkflowPlanningBudget:Amount=" + fundingScope["allowance_eur"]!.GetValue<decimal>().ToString("G29", System.Globalization.CultureInfo.InvariantCulture) }).ToArray();
+                "--WorkflowPlanningBudget:Amount=" + fundingScope["current_authorized_ceiling_eur"]!.GetValue<decimal>().ToString("G29", System.Globalization.CultureInfo.InvariantCulture) }).ToArray();
         var financialForecastMode = SchemaPortabilityCampaign.Option(args, "--financial-forecast-mode") ?? "strict";
         if (financialForecastMode is not ("strict" or "experimental_warning")) throw new ArgumentException("Invalid financial forecast mode.");
         model.AdvisoryFinancialForecasts = financialForecastMode == "experimental_warning";

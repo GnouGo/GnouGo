@@ -258,6 +258,72 @@ public sealed class BenchmarkCampaignTests
             "distinct-reference", config, new string('a',64), new string('b',64), Ct));
     }
 
+    [Fact]
+    public async Task ExistingAllocationAcceptsOneAuthorizedSupplementWithoutResettingGrantOrLiabilities()
+    {
+        var records = new Records(); var previous = new BenchmarkCampaign(records, "previous");
+        var campaign = new BenchmarkCampaign(records, "supplemented");
+        var config = new JsonObject { ["model"] = "model" };
+        await previous.PinAsync(config, Ct); await campaign.PinAsync(config, Ct);
+        Task<JsonObject> OriginalGrant(BenchmarkCampaign owner) => owner.AuthorizeFreshAllocationAsync(previous.Id, 400,
+            "original-grant", config, new string('a', 64), new string('b', 64), Ct);
+        await OriginalGrant(campaign);
+        var grant = (await campaign.LoadAsync("planning-evaluation-configuration", "independent-funding-scope", Ct))!.ToJsonString();
+        var old = new BenchmarkHttpJournal(campaign, "retained:1:hash", 10, 10, 5m);
+        await old.PrepareAsync(Ct); await old.SaveAsync(new() { Attempts = [new() { Id = "uncertain" }] }, Ct);
+        var before = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, "retained:1:hash", Ct))!.ToJsonString();
+        var accounting = (await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct)).ToJsonString();
+        var extension = await campaign.ExtendBudgetAsync(400, 800, "one-supplement", Ct);
+        var restarted = new BenchmarkCampaign(records, campaign.Id);
+        Assert.Equal(extension.ToJsonString(), (await restarted.ExtendBudgetAsync(400, 800, "one-supplement", Ct)).ToJsonString());
+        var authority = (await restarted.FreshAllocationAsync(Ct))!;
+        Assert.Equal(400m, authority["allowance_eur"]!.GetValue<decimal>());
+        Assert.Equal(800m, authority["current_authorized_ceiling_eur"]!.GetValue<decimal>());
+        await OriginalGrant(restarted); // Re-reading either authorization does not credit or reset anything.
+        Assert.Equal(2, (await restarted.LoadAsync("planning-evaluation-configuration", "spending-authorization", Ct))!["history"]!.AsArray().Count);
+        Assert.Equal(grant, (await restarted.LoadAsync("planning-evaluation-configuration", "independent-funding-scope", Ct))!.ToJsonString());
+        Assert.Equal(before, (await restarted.LoadAsync(BenchmarkHttpJournal.Collection, "retained:1:hash", Ct))!.ToJsonString());
+        Assert.Equal(accounting, (await BenchmarkHttpJournal.AccountingAsync(restarted, ct: Ct)).ToJsonString());
+        var next = new BenchmarkHttpJournal(restarted, "new:1:hash", 10, 10, 500m);
+        await next.PrepareAsync(Ct); await next.SaveAsync(new() { Attempts = [new() { Id = "new-attempt" }] }, Ct);
+        var over = new BenchmarkHttpJournal(restarted, "over:1:hash", 10, 10, 296m);
+        await over.PrepareAsync(Ct);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => over.SaveAsync(new() { Attempts = [new() { Id = "over-attempt" }] }, Ct));
+        Assert.Equal(505m, (await BenchmarkHttpJournal.AccountingAsync(restarted, ct: Ct))["reserved_cost_eur"]!.GetValue<decimal>());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.ExtendBudgetAsync(800, 1200, "one-supplement", Ct));
+    }
+
+    [Theory]
+    [InlineData("gap")]
+    [InlineData("duplicate")]
+    [InlineData("decrease")]
+    [InlineData("missing-accounting")]
+    [InlineData("grant")]
+    public async Task SupplementAdmissionRejectsBrokenAuthorizationChainsWithoutAnotherAttempt(string defect)
+    {
+        var records = new Records(); var previous = new BenchmarkCampaign(records, "previous");
+        var campaign = new BenchmarkCampaign(records, "supplemented");
+        var config = new JsonObject { ["model"] = "model" };
+        await previous.PinAsync(config, Ct); await campaign.PinAsync(config, Ct);
+        await campaign.AuthorizeFreshAllocationAsync(previous.Id, 400, "original-grant", config, new string('a', 64), new string('b', 64), Ct);
+        var spending = await campaign.ExtendBudgetAsync(400, 800, "one-supplement", Ct);
+        var history = spending["history"]!.AsArray();
+        switch (defect)
+        {
+            case "gap": history[1]!["previous_ceiling_eur"] = 399; break;
+            case "duplicate": history[1]!["authorization"] = "original-grant"; break;
+            case "decrease": history[1]!["ceiling_eur"] = 399; spending["ceiling_eur"] = 399; break;
+            case "missing-accounting": history[1]!.AsObject().Remove("accounting_before"); break;
+            case "grant": history[0]!["ceiling_eur"] = 401; history[1]!["previous_ceiling_eur"] = 401; break;
+        }
+        await campaign.SaveAsync("planning-evaluation-configuration", "spending-authorization", spending, Ct);
+        var journal = new BenchmarkHttpJournal(new BenchmarkCampaign(records, campaign.Id), "next:1:hash", 10, 10, 1m);
+        await journal.PrepareAsync(Ct);
+        await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() =>
+            journal.SaveAsync(new() { Attempts = [new() { Id = "forbidden" }] }, Ct));
+        Assert.Empty((await journal.LoadAsync(Ct))!.Attempts);
+    }
+
     [Theory]
     [InlineData("pending")]
     [InlineData("binding")]
@@ -271,7 +337,12 @@ public sealed class BenchmarkCampaignTests
         var scope = (await campaign.LoadAsync("planning-evaluation-configuration", "independent-funding-scope", Ct))!;
         if (defect == "pending") scope["status"] = "pending";
         if (defect == "binding") scope["material"]!["authorization_reference"] = "substituted";
-        if (defect == "ceiling") await campaign.ExtendBudgetAsync(25, 26, "different-extension", Ct);
+        if (defect == "ceiling")
+        {
+            var spending = (await campaign.LoadAsync("planning-evaluation-configuration", "spending-authorization", Ct))!;
+            spending["ceiling_eur"] = 26;
+            await campaign.SaveAsync("planning-evaluation-configuration", "spending-authorization", spending, Ct);
+        }
         if (defect == "configuration") scope["configuration_id"] = "missing";
         await campaign.SaveAsync("planning-evaluation-configuration", "independent-funding-scope", scope, Ct);
         var error = await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => campaign.FreshAllocationAsync(Ct));
