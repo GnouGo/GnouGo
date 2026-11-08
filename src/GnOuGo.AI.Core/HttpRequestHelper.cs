@@ -273,7 +273,8 @@ public static class HttpRequestHelper
                 if (delay < TimeSpan.Zero) delay = TimeSpan.Zero;
                 exhausted |= delay.TotalMilliseconds > retryPolicy.MaxTotalDelayMilliseconds ||
                     previous.NotBefore is null && state.DelayMilliseconds + delay.TotalMilliseconds > retryPolicy.MaxTotalDelayMilliseconds;
-                var durationExhausted = independentLimit is not null && IndependentRemaining() <= delay;
+                var durationExhausted = independentLimit is not null &&
+                    (previous.IndependentGenerationDurationExhausted == true || IndependentRemaining() <= delay);
                 exhausted |= durationExhausted;
                 var metadata = new LLMHttpRetryMetadata(state.Attempts.Count, retryable && exhausted, ToMilliseconds(retryAfter),
                     classification?.Kind ?? (previous.Failure == "permanent" ? LLMProviderFailureKind.Unknown : previous.Failure == "timeout" ? LLMProviderFailureKind.Timeout : LLMProviderFailureKind.Transport), classification?.SafeProviderCode);
@@ -321,11 +322,12 @@ public static class HttpRequestHelper
             ct.ThrowIfCancellationRequested();
             var started = utcNow();
             var attemptAllowance = EffectiveAttemptTimeout(http, retryPolicy);
+            var generationLimitedAttempt = false;
             if (independentLimit is not null)
             {
                 var remaining = IndependentRemaining();
                 if (remaining <= TimeSpan.Zero) throw new TimeoutException("The captured independent-generation duration is exhausted.");
-                if (remaining < attemptAllowance) attemptAllowance = remaining;
+                if (remaining <= attemptAllowance) { attemptAllowance = remaining; generationLimitedAttempt = true; }
             }
             var attempt = new LLMHttpAttempt { Id = (context?.RequestId ?? "http") + ":" + Guid.NewGuid().ToString("N"), StartedAtUtc = started,
                 DeadlineAtUtc = started + attemptAllowance };
@@ -392,6 +394,10 @@ public static class HttpRequestHelper
             {
                 originalFailure = ex;
                 attempt.Failure = ct.IsCancellationRequested ? "cancelled" : "timeout";
+                // Preserve the fired captured timer across journal restoration even
+                // when the UTC clock still reports time before its deadline.
+                if (!ct.IsCancellationRequested && timeout.IsCancellationRequested && generationLimitedAttempt)
+                    attempt.IndependentGenerationDurationExhausted = true;
             }
             catch (TimeoutException ex) { originalFailure = ex; attempt.Failure = ct.IsCancellationRequested ? "cancelled" : "timeout"; }
             catch (Exception ex) when (streaming && ex is IOException or InvalidDataException or JsonException)

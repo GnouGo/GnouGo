@@ -406,6 +406,28 @@ public sealed class HttpRecoveryTests
     }
 
     [Fact]
+    public async Task FiredGenerationDeadlineRemainsExhaustedAfterJournalRestartWhenUtcHasNotAdvanced()
+    {
+        var journal = new Journal(); var calls = 0; var capturedUtc = DateTimeOffset.UtcNow;
+        using var http = new HttpClient(new Handler((_, _) =>
+        {
+            calls++;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new PartialStream()) });
+        }));
+        var policy = ConfirmedPolicy(); policy.MaxUncertainRetries = 1;
+        for (var restart = 0; restart < 2; restart++)
+        {
+            using var scope = new LLMHttpRetryContext("fired-generation", journal, policy, 50).Activate();
+            await Assert.ThrowsAsync<TimeoutException>(() => Send(http, post: true, utcNow: () => capturedUtc));
+        }
+        var attempt = Assert.Single(journal.State!.Attempts);
+        Assert.Equal(1, calls); Assert.Equal("timeout", attempt.Failure);
+        Assert.Equal("{\"partial\":", attempt.PartialBody);
+        Assert.Equal("blocked; captured generation duration exhausted", attempt.RetryDecision);
+        Assert.True(attempt.IndependentGenerationDurationExhausted);
+    }
+
+    [Fact]
     public async Task IndependentGenerationDoesNotShortenRetryAfterToFitItsTotalDuration()
     {
         var calls = 0;
@@ -471,11 +493,11 @@ public sealed class HttpRecoveryTests
         public override void SetLength(long value) => throw new NotSupportedException();
         public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
-    private static Task<HttpResponseMessage> Send(HttpClient http, bool post = false, LLMProviderRetryPolicyOptions? policy = null, CancellationToken? ct = null)
+    private static Task<HttpResponseMessage> Send(HttpClient http, bool post = false, LLMProviderRetryPolicyOptions? policy = null, CancellationToken? ct = null, Func<DateTimeOffset>? utcNow = null)
         => HttpRequestHelper.SendWithTransientRetryAsync(http,
             () => post ? HttpRequestHelper.CreateJsonPost("https://provider.example/generate", "{}"u8.ToArray()) : HttpRequestHelper.CreateGet("https://provider.example/models"),
             HttpCompletionOption.ResponseHeadersRead, NullLogger.Instance, "test", policy ?? new(),
-            (_, _) => Task.CompletedTask, upper => upper / 2, () => DateTimeOffset.UtcNow, ct ?? Ct);
+            (_, _) => Task.CompletedTask, upper => upper / 2, utcNow ?? (() => DateTimeOffset.UtcNow), ct ?? Ct);
     private sealed class Handler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> action) : HttpMessageHandler
     { protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) => action(request, ct); }
     private sealed class Journal : ILLMHttpRetryJournal

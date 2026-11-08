@@ -142,6 +142,10 @@ minutes. The planner's version-2 policy captures these values before dispatch.
 AI.Core remains the only retry owner: it uses the existing backoff, jitter and
 `Retry-After`, reserves a fresh identity before each send, and starts a fresh
 response assembly. Earlier partial bytes and unknown-usage reservations remain.
+A fired timer whose allowance was limited by the captured total generation duration
+is retained as `IndependentGenerationDurationExhausted` on its attempt. Restoring
+the journal cannot replace that exhausted outcome with apparent remaining UTC
+time or restart generation; a shorter per-attempt timeout grants no such marker.
 Saved completions recover first; Responses background receipt retrieval retains its
 existing precedence. A loaded unresolved attempt cannot trigger independent
 generation after a restart. Cancellation, permanent errors, malformed protocol,
