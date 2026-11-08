@@ -329,10 +329,76 @@ passed**, with zero failures or compiler warnings.
 
 The owned diagnostic was stopped at call 100 after proving the missing choice.
 Its last native request was cancelled after headers/partial bytes; all originals
-and its whole reservation remain. The cancelled run cannot continue. The campaign
-has only **EUR 3.3773757277205553067622013295** available after all holds. A fresh
+and its whole reservation remain. The cancelled run cannot continue. At that point
+the campaign had **EUR 3.3773757277205553067622013295** available after all holds. A fresh
 standard 32k-output code trial cannot be admitted; even the last code request's
 conservative input reservation is substantial. No funds were added or released.
-A separately captured, lower-output native correctness check is the remaining
-funded live hypothesis. It cannot establish Amazon or code qualification. The
+A separately captured, lower-output native correctness check was the remaining
+funded live hypothesis at that point. It cannot establish Amazon or code qualification. The
 interrupted `f87bbdbe` solution run is not a final-source pass.
+
+## Final frozen-source validation and live result
+
+Production and harness source remained frozen at
+`bcc0434f494590a97771a35a735aa28fcd216e86` throughout the final solution run.
+[The completed validation record](validation-bcc0434f.json) reports **8,289 passed,
+13 skipped, zero failures or compiler warnings, all 33 test assemblies**, exit 0.
+The thirteen skips comprise seven native Windows PowerShell cases on macOS,
+five opt-in live Copilot/GitHub cases and one opt-in isolated browser smoke.
+The separate earlier-source browser smoke passed once; it is not relabeled as
+final-source validation. The warning-free Release build and all seven final-source
+package/publish/smoke checks passed, including Planning Native AOT execution and
+the trimmed published Server's encrypted-storage smoke. No earlier interrupted
+solution run is counted as complete. The following evidence-only commit changes
+neither the tested source nor its attribution.
+
+The final [real Server native workflow](native-final-success-bcc0434f.json) used
+that same source and a newly captured `server-small-native.json` phase profile.
+It completed in **seven logical calls and seven physical attempts**: local review
+at call 5, favorable global review at call 7, exact delegated artifact approval,
+real deterministic execution returning `result: 42`, and the unchanged independent
+`native-result42-v1` oracle passing. No generated plan or model response was edited.
+Known usage at captured tariffs totals **EUR 0.4410120913569189431258396775**.
+Local review took 59.23 seconds; global review took 79.42 seconds. Publication of
+the saved passing oracle took at most 239.85 seconds from first dispatch, including
+the authorized artifact-review wait. The report's planning-finish timestamp is
+not treated as execution completion.
+
+This final profile retains the existing input limits and reasoning settings but
+uses 4,096 output tokens for navigation/drafting and 2,048 for review. Truncation
+still fails. It is a correctness check under a different captured profile, not
+a controlled performance comparison or Amazon/code qualification. The earlier
+native and Collections execution successes remain attributed to `21a3d7c6` and
+their original profile, with both Collections variants passing their unchanged
+independent oracle.
+
+Amazon remains **0/2 consecutive qualified successes**. Its latest actual run
+reached global review, approval and execution, but failed before the first product
+read on the observed sponsored redirect route; the original independent oracle
+also rejects unestablished product occurrences/redirect identities. The configured
+Browser can access Amazon. A future qualification needs complete, independently
+checkable card-occurrence and redirect/final-product identity evidence accepted by
+the existing delegated routes and oracle. Sponsored results, URL identities,
+permission guards and the verifier were not weakened or bypassed.
+
+Code reached a favorable local business review and six accepted checkpoints on
+`f87bbdbe`; it never reached global review, approval or execution. The missing
+business-block completion choice is corrected and covered by generic regressions
+on the final source. The small native success does not verify full code convergence.
+Its [cancelled final request was permanently retained](code04-retention-applied.json)
+with all original partials, accepted work and its whole uncertain reservation;
+neither that request nor that cancelled run can replay or continue.
+
+The [final campaign ledger](financial-final.json) contains **601 physical HTTP
+attempts**, EUR **246.33783251231527093596059311** in known-usage tariff estimates,
+EUR **148.30422749664128974473802064** in uncertain HTTP reservations across
+22 unknown attempts, and the separate retained external reservation of EUR
+**2.4215763546798029556650246305**. Within the unchanged EUR 400 allocation,
+**EUR 2.9363636363636363636363616195 remains after every hold**. These are not
+provider invoices; global funding and predecessor-liability reconciliation remain
+unavailable. No funding was added, accounting reset or reservation released.
+The last full code request alone reserved EUR 11.186278549037169726824899238,
+which exceeds the remaining allowance. Another identical native trial supplies
+no new hypothesis, and an identical Amazon trial cannot resolve its proven
+evidence boundary. No further paid dispatch was made. Full code live verification
+and the two-success Amazon target remain unmet. PR #120 remains Draft and unmerged.

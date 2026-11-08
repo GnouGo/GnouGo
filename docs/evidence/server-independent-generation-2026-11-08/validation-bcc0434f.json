@@ -1,0 +1,512 @@
+{
+  "source": "bcc0434f494590a97771a35a735aa28fcd216e86",
+  "source_frozen_for_entire_run": true,
+  "subsequent_commit_scope": "Evidence documentation only; these results remain attributed to the source above.",
+  "release_build": {
+    "exit_code": 0,
+    "warnings": 0,
+    "errors": 0,
+    "seconds": 30.4,
+    "log_sha256": "af834695515c6c6d830939d8ff55c3a259bfb4299788f0ab8514f1f0fccb47ca"
+  },
+  "full_solution": {
+    "command": [
+      "dotnet",
+      "test",
+      "GnOuGo.Agent.sln",
+      "-m:1",
+      "-warnaserror",
+      "-p:SkipModelMetadataGeneration=true",
+      "--logger",
+      "console;verbosity=detailed",
+      "--logger",
+      "trx;LogFilePrefix=stable-bcc0434f",
+      "--results-directory",
+      "artifacts/live-convergence-20261108/test-results-bcc0434f",
+      "--blame-hang-timeout",
+      "10m",
+      "--blame-hang-dump-type",
+      "none"
+    ],
+    "exit_code": 0,
+    "assemblies": 33,
+    "total": 8302,
+    "passed": 8289,
+    "failed": 0,
+    "skipped": 13,
+    "started": "2026-11-08T13:02:42.7205290+01:00",
+    "finished": "2026-11-08T13:46:44.9497820+01:00",
+    "compiler_warnings_or_errors": 0,
+    "log_sha256": "f73fcc684f6c40eb9afcf1584c0910961946ef6e83a5562cc9944bec4f1952fe",
+    "skip_reasons": {
+      "requires_native_windows_powershell": 7,
+      "opt_in_live_copilot_or_github": 5,
+      "opt_in_isolated_browser": 1
+    },
+    "per_assembly": [
+      {
+        "assemblies": [
+          "gnougo.docingestor.tests.dll"
+        ],
+        "total": 97,
+        "passed": 97,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "bddf83e48259987029bdb9a39d1f574d22044d1d5b73f4088d14f6485d6afdaa"
+      },
+      {
+        "assemblies": [
+          "gnougo.diff.tests.dll"
+        ],
+        "total": 52,
+        "passed": 52,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "1480721670f29ae02e4e025c70c20d1384d77eff09592de3efefa25aa78e71bc"
+      },
+      {
+        "assemblies": [
+          "gnougo.keyvault.core.tests.dll"
+        ],
+        "total": 23,
+        "passed": 23,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "67e23eb0d0c2df2f0be635a8f5bbd561f114ab4a6209ae6342aedd1d9c894aed"
+      },
+      {
+        "assemblies": [
+          "gnougo.flow.tests.dll"
+        ],
+        "total": 1533,
+        "passed": 1533,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "35d3db059ef7faf72b37f226afd7772d3b3f9501dc42b56a1ba4d1f9f540f587"
+      },
+      {
+        "assemblies": [
+          "gnougo.flow.integrations.tests.dll"
+        ],
+        "total": 121,
+        "passed": 121,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "dcd1ff35b85244569d2cfa23efe09806ffcecbbedd9f69459293b1170a806f5e"
+      },
+      {
+        "assemblies": [
+          "gnougo.ai.core.tests.dll"
+        ],
+        "total": 377,
+        "passed": 377,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "e5c9fc0d45a5a2100f9db0fd269ab8f9fbc34fb1f015dd3cf356f7c1d1592cb9"
+      },
+      {
+        "assemblies": [
+          "gnougo.ai.local.tests.dll"
+        ],
+        "total": 19,
+        "passed": 19,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "f6ac7e755f8a9229115e513d84c0be32a8caad1352bb89f1eabd197cf16f4052"
+      },
+      {
+        "assemblies": [
+          "gnougo.agent.mcp.tests.dll"
+        ],
+        "total": 103,
+        "passed": 103,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "33f20a0ba9bb82839aa504b74baef9ab260df2276bc1a02ddb2cb05679ecd260"
+      },
+      {
+        "assemblies": [
+          "gnougo.cmd.mcp.tests.dll"
+        ],
+        "total": 100,
+        "passed": 93,
+        "failed": 0,
+        "skipped": 7,
+        "trx_sha256": "c40d485ccee9ff2a96c6cc0a0812aa5dfa1bcf0c84ee7058e07b980ade45e640"
+      },
+      {
+        "assemblies": [
+          "gnougo.browser.mcp.tests.dll"
+        ],
+        "total": 142,
+        "passed": 142,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "b8093ec3d7c872045f87118fa1b3201075f5488dc3795fad79c0c20f0b59f159"
+      },
+      {
+        "assemblies": [
+          "gnougo.agent.server.tests.dll"
+        ],
+        "total": 1829,
+        "passed": 1828,
+        "failed": 0,
+        "skipped": 1,
+        "trx_sha256": "d9844210291d2d44d968db63af14cbef17899d857aa05e1c9a05215982b5c13f"
+      },
+      {
+        "assemblies": [
+          "gnougo.document.mcp.tests.dll"
+        ],
+        "total": 73,
+        "passed": 73,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "8f3c9d850dddd21ad87d3660b3f80e50d1965d56eb55a6aa4d7f568ee0518ad0"
+      },
+      {
+        "assemblies": [
+          "gnougo.keyvault.mcp.tests.dll"
+        ],
+        "total": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "339bd2469b38a4c1e3ead1a4677bc1f403935fa37d0f04bb739464d031dc3813"
+      },
+      {
+        "assemblies": [
+          "gnougo.files.server.tests.dll"
+        ],
+        "total": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "7b21d476dc5aa30d73766c684307f0226180d00151b71293568e462efe59037e"
+      },
+      {
+        "assemblies": [
+          "gnougo.docingestor.mcp.tests.dll"
+        ],
+        "total": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "38a2b361bd1037167e636e0b387c526abbe38cd44c81f136264f5f920f146a9e"
+      },
+      {
+        "assemblies": [
+          "gnougo.otlpcollector.server.tests.dll"
+        ],
+        "total": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "3c1fe488062040e12e9d754a17015a572428e0b6de173659c8d9b45fd693d4d0"
+      },
+      {
+        "assemblies": [
+          "gnougo.githubcopilot.mcp.tests.dll"
+        ],
+        "total": 243,
+        "passed": 243,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "8cebb176f2e74001fb6c5e2fe1382292c2e4fb4e26cca29f313fefe9b25998e5"
+      },
+      {
+        "assemblies": [
+          "gnougo.githubcopilot.core.tests.dll"
+        ],
+        "total": 173,
+        "passed": 173,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "97462f51ce38a900617f59c1bb31c58ff1207ba12acda499cf7a9999d3900a0f"
+      },
+      {
+        "assemblies": [
+          "gnougo.githubcopilot.e2e.tests.dll"
+        ],
+        "total": 12,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 5,
+        "trx_sha256": "d606030d2aa39d032dfd5b8b3b7a2007faf172bca822c2ac809f40fee10b3020"
+      },
+      {
+        "assemblies": [
+          "gnougo.observability.core.tests.dll"
+        ],
+        "total": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "622119a3f6d26a14c1b154db975a5e48441ac082f583c5aeb2bd728c436db050"
+      },
+      {
+        "assemblies": [
+          "gnougo.git.mcp.tests.dll"
+        ],
+        "total": 84,
+        "passed": 84,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "c8c7761b8af6cc8575a2d06b501e894ccf8fe6a371dac5db02be336705e8aca0"
+      },
+      {
+        "assemblies": [
+          "gnougo.workspace.tests.dll"
+        ],
+        "total": 30,
+        "passed": 30,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "606f25989d67596406c23b773496057a68808978cd7fc0d42a52c3234b75c17f"
+      },
+      {
+        "assemblies": [
+          "gnougo.mcp.core.tests.dll"
+        ],
+        "total": 49,
+        "passed": 49,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "65469394a9c3c7b135c2ed5bf950260b4b5871eaf77a28431ddb25eac6c50197"
+      },
+      {
+        "assemblies": [
+          "gnougo.flow.mermaid.tests.dll"
+        ],
+        "total": 12,
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "b84605b66d915e0a1d45b379abbfd0659ebca56338b6b885682a57382c5f63c0"
+      },
+      {
+        "assemblies": [
+          "gnougo.assets.bears.tests.dll"
+        ],
+        "total": 91,
+        "passed": 91,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "7c2da7d7782e1d362c55554bef1ed0a5908d0b92109356101b0b88acd8aa8690"
+      },
+      {
+        "assemblies": [
+          "gnougo.assets.animation.tests.dll"
+        ],
+        "total": 42,
+        "passed": 42,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "0cdc1b57352bdb2efe765e4702e334ebe2957b910221a865de758080e3eddcf7"
+      },
+      {
+        "assemblies": [
+          "gnougo.assets.animation.server.tests.dll"
+        ],
+        "total": 13,
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "26610e47015e86bc0968284e767dc69fd7a17043910bc63e106a6d96445dd165"
+      },
+      {
+        "assemblies": [
+          "gnougo.assets.bears.server.tests.dll"
+        ],
+        "total": 28,
+        "passed": 28,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "c084475247aff9da9aba78e9252051162bc2775a58cbf3432a52dd0fdfe222c9"
+      },
+      {
+        "assemblies": [
+          "gnougo.flow.planning.tests.dll"
+        ],
+        "total": 2804,
+        "passed": 2804,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "39578dbdc2cfc7523c4b330130b0c9d9eec23385f867946952b1dc57d42d957b"
+      },
+      {
+        "assemblies": [
+          "gnougo.proxycopilot.server.tests.dll"
+        ],
+        "total": 177,
+        "passed": 177,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "759ef514f757db78abb17252c921910580a0972be7a3abb3a07d8387ac5e64e0"
+      },
+      {
+        "assemblies": [
+          "gnougo.auth.core.tests.dll"
+        ],
+        "total": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "aed04e86890400bb46921f6730872c4fc7a55a1e3b87bfce05b767d097ea22bb"
+      },
+      {
+        "assemblies": [
+          "gnougo.flow.persistence.tests.dll"
+        ],
+        "total": 26,
+        "passed": 26,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "97786b11b14db88107ff3a5a4d0610c153655b31519c23f9f8fdace63578ac3b"
+      },
+      {
+        "assemblies": [
+          "gnougo.flow.copilot.tests.dll"
+        ],
+        "total": 5,
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0,
+        "trx_sha256": "3a0efa1d4b12e2818577fa40b5de5fd1001d35efaf4780b2cb6aa923a1d98535"
+      }
+    ]
+  },
+  "publication_checks": [
+    {
+      "check": "pack-GnOuGo.AI.Core-bcc0434f",
+      "command": [
+        "dotnet",
+        "pack",
+        "src/GnOuGo.AI.Core",
+        "-c",
+        "Release",
+        "--no-build",
+        "-warnaserror",
+        "-o",
+        "artifacts/live-convergence-20261108/packages-bcc0434f"
+      ],
+      "exit_code": 0,
+      "seconds": 3.2640758749912493,
+      "log_sha256": "7a0218f03923ec055de33e61b9b7a302430a7aa5a41b7b6b808a8997a59f19f1"
+    },
+    {
+      "check": "pack-GnOuGo.Flow.Core-bcc0434f",
+      "command": [
+        "dotnet",
+        "pack",
+        "src/GnOuGo.Flow.Core",
+        "-c",
+        "Release",
+        "--no-build",
+        "-warnaserror",
+        "-o",
+        "artifacts/live-convergence-20261108/packages-bcc0434f"
+      ],
+      "exit_code": 0,
+      "seconds": 0.7333973330096342,
+      "log_sha256": "c17628326962a7d4ca7558e4077d129fe2ebae7524e667011b8bc5fa36cf9d26"
+    },
+    {
+      "check": "pack-GnOuGo.Flow.Planning-bcc0434f",
+      "command": [
+        "dotnet",
+        "pack",
+        "src/GnOuGo.Flow.Planning",
+        "-c",
+        "Release",
+        "--no-build",
+        "-warnaserror",
+        "-o",
+        "artifacts/live-convergence-20261108/packages-bcc0434f"
+      ],
+      "exit_code": 0,
+      "seconds": 0.6717458750063088,
+      "log_sha256": "93561f805557a1e09c506814cbd1bd43f575725c51e9cf277e69efc36e1845cd"
+    },
+    {
+      "check": "native-planning-publish-bcc0434f",
+      "command": [
+        "dotnet",
+        "publish",
+        "tests/GnOuGo.Flow.Planning.Smoke",
+        "-c",
+        "Release",
+        "-r",
+        "osx-arm64",
+        "-m:1",
+        "-warnaserror",
+        "-o",
+        "artifacts/live-convergence-20261108/native-planning-bcc0434f"
+      ],
+      "exit_code": 0,
+      "seconds": 44.31595804099925,
+      "log_sha256": "647610e1e53155fe37ac7bf22ea105fdc573c79bca16af329938447da759571d"
+    },
+    {
+      "check": "native-planning-smoke-bcc0434f",
+      "command": [
+        "artifacts/live-convergence-20261108/native-planning-bcc0434f/GnOuGo.Flow.Planning.Smoke"
+      ],
+      "exit_code": 0,
+      "seconds": 1.450486291985726,
+      "log_sha256": "c329794b4a60bcc9157ef6480c38f3a392f8d31fd567845e8e585637b97a2b30"
+    },
+    {
+      "check": "server-trimmed-publish-bcc0434f",
+      "command": [
+        "dotnet",
+        "publish",
+        "src/GnOuGo.Agent.Server",
+        "-c",
+        "Release",
+        "-r",
+        "osx-arm64",
+        "--self-contained",
+        "true",
+        "-m:1",
+        "-warnaserror",
+        "-p:PublishTrimmed=true",
+        "-p:PublishAot=false",
+        "-p:PublishSingleFile=true",
+        "-p:SkipClientBuild=true",
+        "-p:SkipModelMetadataGeneration=true",
+        "-p:SkipBundledServerTools=true",
+        "-o",
+        "artifacts/live-convergence-20261108/server-published-bcc0434f"
+      ],
+      "exit_code": 0,
+      "seconds": 44.13034416700248,
+      "log_sha256": "010585675498aefe0f1425bb383620857353f8342cf46665f22999ac64edc265"
+    },
+    {
+      "check": "published-encrypted-storage-bcc0434f",
+      "command": [
+        "artifacts/live-convergence-20261108/server-published-bcc0434f/GnOuGo.Agent.Server",
+        "--planning-persistence-smoke",
+        "artifacts/live-convergence-20261108/published-storage-data-bcc0434f"
+      ],
+      "exit_code": 0,
+      "seconds": 2.354890292015625,
+      "log_sha256": "0268a9c0ae5df08cde06a1818fae2b53cf86df674fc19dc0cfc070d58ffd6563"
+    }
+  ],
+  "publication_checks_passed": 7,
+  "additional_browser_smoke": {
+    "source": "21a3d7c6",
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "log_sha256": "ad38048bb1967e1478866f1440bb38fb228576fed5b7e93c020b603505400dd2",
+    "limitation": "Separate earlier-source run; not relabeled as final-source validation. UI unchanged since this run."
+  },
+  "limitations": [
+    "The thirteen explicit skips are not passing tests.",
+    "Earlier interrupted solution runs are not completed passes.",
+    "Packaging, Native AOT and encrypted-storage smoke checks are local; no package upload, deployment, release or PR merge occurred."
+  ]
+}
