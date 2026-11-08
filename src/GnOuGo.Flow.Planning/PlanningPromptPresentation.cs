@@ -3,9 +3,17 @@ using System.Text.Json.Nodes;
 
 namespace GnOuGo.Flow.Planning;
 
-/// <summary>Shares identical contract presentations inside one issued prompt without changing contract authority.</summary>
+/// <summary>Presents response fields and shares identical contracts without changing their authority.</summary>
 public static class PlanningPromptPresentation
 {
+    /// <summary>Make caller-interface wire keys explicit without duplicating the recursive response schema.</summary>
+    public static string PresentIntentDeclarationFields(string prompt)
+    {
+        const string presentation = "\nEach input includes the keys name, type, required, default; each public output includes name, type, required. Each type includes kind and nullable. String types also include enum; arrays include items, minItems, maxItems; objects include fields. Literal defaults include kind and the matching text, number, boolean, items or members field; members include name and value. Each clarification includes id, question, alternatives, recommended; alternatives include id and description.\n";
+        var contextOffset = prompt.LastIndexOf("\n{", StringComparison.Ordinal);
+        return contextOffset < 0 ? prompt + presentation : prompt.Insert(contextOffset, presentation);
+    }
+
     /// <summary>
     /// Replaces a repeated evidence schema with a pointer to its byte-identical schema
     /// already presented for the same operation identity, version and original hash.

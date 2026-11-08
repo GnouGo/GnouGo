@@ -1,0 +1,11 @@
+{
+  "evidence_hash": "0d59b268ab46c30b3abbf35eb1262a4cccf87b7e957a116c5517d2b34777dc7f",
+  "outcome": "inconclusive",
+  "reservation_retained": true,
+  "request_replay_forbidden": true,
+  "run_continuation_forbidden": true,
+  "reason": "operator_retained_uncertain_planning",
+  "operator": "Codex",
+  "authorization_hash": "e116e08d192aa8ad3dd49f052d5fa996d599b9738b41d576be5c013c54706391",
+  "retained_at": "2026-11-08T08:51:50.9456310+00:00"
+}

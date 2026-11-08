@@ -713,6 +713,12 @@ The protected independent provider probe accepts `--probe-structured-strict true
 
 `--probe-present-response-schema` keeps the provider schema and strictness unchanged and presents the exact response schema in the prompt, before the original final context object. This isolates schema visibility without weakening required/null/type fields or changing a retained request; the independent identity and complete physical request accounting include the added text. It remains a probe-only factor and cannot apply a generated contribution.
 
+`--probe-intent-declaration-fields` isolates the compact production field guide on
+an exact retained `construction_intent` request. It preserves the original schema,
+strictness, source context and other model parameters, with a fresh identity and
+ordinary accounting. Select one presentation factor per probe. Neither presentation
+probe applies a contribution, approves an artifact or establishes execution success.
+
 The exhausted-planning retention path can also recognize historical progress-write
 cancellation that masked provider failure metadata. The exception label alone grants
 no authority: the exact version-2 capture and every owner journal must prove elapsed

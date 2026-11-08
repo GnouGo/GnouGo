@@ -86,6 +86,7 @@ public sealed class CompactIntentIndexingTests
     [InlineData("default")]
     [InlineData("type")]
     [InlineData("two_actions")]
+    [InlineData("output_required")]
     public async Task InvalidCombinedIndexCannotPartiallyAcceptCoverageOrAnOtherwiseValidInput(string failure)
     {
         var runtime = new TestRuntime { Respond = (request, _) =>
@@ -96,6 +97,7 @@ public sealed class CompactIntentIndexingTests
             if (failure == "type") response["clauses"]![0]!["outputs"]![0]!["type"]!["kind"] = "missing";
             if (failure == "two_actions") response["clarifications"] = new JsonArray(new JsonObject
                 { ["id"] = "missing", ["question"] = "Which target?", ["alternatives"] = new JsonArray(), ["recommended"] = null });
+            if (failure == "output_required") response["clauses"]![0]!["outputs"]![0]!.AsObject().Remove("required");
             return Wire(request, response);
         } };
         var state = await Advance(Fresh(), runtime);
@@ -118,6 +120,10 @@ public sealed class CompactIntentIndexingTests
         var pending = PlannerFixture.Clone(runtime.Checkpoints.Last(checkpoint => checkpoint.PendingCall is not null));
         pending.Status = PlanningStatus.Generating;
         var exact = JsonSerializer.Serialize(pending.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
+        var instructions = pending.PendingCall.Request.Prompt[..pending.PendingCall.Request.Prompt.LastIndexOf("\n{", StringComparison.Ordinal)];
+        foreach (var field in new[] { "name", "type", "required", "default", "kind", "nullable", "enum", "items", "minItems", "maxItems", "fields", "text", "number", "boolean", "members", "value", "id", "question", "alternatives", "recommended", "description" })
+            Assert.Matches(@"\b" + field + @"\b", instructions);
+        Assert.EndsWith("\n" + Context(pending.PendingCall.Request).ToJsonString(), pending.PendingCall.Request.Prompt, StringComparison.Ordinal);
         var calls = pending.ModelCalls;
         var receipt = Wire(pending.PendingCall.Request, Index(pending.PendingCall.Request));
         var physical = 0;

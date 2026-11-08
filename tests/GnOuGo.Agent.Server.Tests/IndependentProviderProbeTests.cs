@@ -9,6 +9,26 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class IndependentProviderProbeTests
 {
     [Fact]
+    public void IntentFieldPresentationChangesOnlyPromptAndIndependentIdentity()
+    {
+        var original = new LLMRequest { Provider = "p", Model = "m", Prompt = "Original intent instructions.\n{\"sources\":[{\"text\":\"Return a numeric result.\"}]}",
+            StructuredOutputStrict = true, StructuredOutputSchema = JsonNode.Parse("""{"title":"construction_intent","type":"object","properties":{"value":{"type":"number"}},"required":["value"],"additionalProperties":false}""") };
+        var request = ServerLiveDiagnostics.IndependentProbe(original, "p", "m", "fields", "nonce", "medium", 32768);
+        var before = JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!;
+        ServerLiveDiagnostics.PresentProbeIntentDeclarationFields(request, "fields", "nonce");
+        Assert.Equal(PlanningPromptPresentation.PresentIntentDeclarationFields(original.Prompt), request.Prompt);
+        Assert.NotEqual(before["clientRequestId"]!.ToString(), request.ClientRequestId);
+        Assert.EndsWith("\n{\"sources\":[{\"text\":\"Return a numeric result.\"}]}", request.Prompt, StringComparison.Ordinal);
+        var after = JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!;
+        after["clientRequestId"] = before["clientRequestId"]!.DeepClone(); after["prompt"] = before["prompt"]!.DeepClone();
+        Assert.True(JsonNode.DeepEquals(before, after));
+        request.UseBackgroundMode = true;
+        Assert.Throws<ArgumentException>(() => ServerLiveDiagnostics.PresentProbeIntentDeclarationFields(request, "fields", "nonce"));
+        request.UseBackgroundMode = false; request.StructuredOutputSchema!["title"] = "another_phase";
+        Assert.Throws<ArgumentException>(() => ServerLiveDiagnostics.PresentProbeIntentDeclarationFields(request, "fields", "nonce"));
+    }
+
+    [Fact]
     public void VisibleResponseContractChangesOnlyTheIndependentPromptAndIdentity()
     {
         var request = ServerLiveDiagnostics.IndependentProbe(null, "p", "m", "visibility", "nonce", "low", 32768);

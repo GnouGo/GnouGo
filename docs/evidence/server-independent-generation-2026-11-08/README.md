@@ -163,3 +163,34 @@ EUR 97.282463054187192118226601 in HTTP holds and the separate original external
 hold. Available funds in the same allocation are EUR 167.1193640841916703985669496.
 The intermediate shared suite on `94a6078b` was stopped for the newly reproduced
 generic defect; final shared validation remains required on stabilized source.
+
+## Controlled visibility probe and compact field guidance
+
+The [full-schema visibility comparison](local01-full-schema-visibility-comparison.json)
+on `95aca234` keeps actual HTTP equal except the prompt. The real provider returned
+complete, schema-valid numeric output declarations in **8.58 seconds**, one physical
+call and EUR **0.0782445141065830721003134796** measured-usage tariff estimate.
+The output includes the previously missing `required` field. This independent
+probe applied no contribution and granted no approval/execution. A single successful
+sample cannot establish causality or savings against unknown earlier usage.
+
+Copying the complete recursive schema into normal intent prompts adds avoidable
+source-paging pressure. The production change instead makes required declaration,
+type-branch, default and clarification wire keys explicit in a compact field guide.
+The complete response schema, strictness and local checks stay unchanged. Ordinary
+complete-request measurement covers those new bytes before the identity is issued.
+Exact issued recovery and rejection of an omitted public-output `required` field
+are covered; **27 focused intent/paging/recovery tests passed**. A separate exact
+changed-factor live probe remains required for the compact production guide.
+
+The [local retry incident was permanently retained](local01-retention-applied.json)
+through the standing authority, with both complete holds and every original record.
+The old request/run cannot replay or continue.
+
+A [read-only check through the actual configured Browser MCP](amazon-configured-aria-evidence.json)
+returned a complete 1,585-record snapshot with no inference. Its bounded HTML
+confirms ARIA list-item elements while current records group main product links
+under `body`. This is additional source evidence, not a business-oracle pass or a
+complete independently established occurrence/redirect proof. The delegated guard
+and original oracle remain unchanged. Supporting a different qualification proof
+requires a separately reviewed scope; no sponsored result or ambiguity is ignored.

@@ -6,6 +6,13 @@ business effects or authorize production permissions.
 
 ## Planning and review
 
+Fresh intent requests explicitly name the required wire fields for caller inputs,
+public outputs, type branches, defaults and clarifications. The compact field guide
+precedes the unchanged original context. The full provider response schema, local
+validation and reference closure remain unchanged. Complete preparation measures
+this presentation and binds it to the issued identity; pending historical requests
+recover their original bytes. Other phases retain their existing presentation.
+
 Implementation-selection evidence choices share the reader's accepted-producer,
 scope and version checks. Unselected operation contracts remain available through
 the selected implementation's discovery phase. Contract/schema inspection is

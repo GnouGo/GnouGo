@@ -66,6 +66,8 @@ internal static partial class PlanningModelCalls
         evidenceAddresses = PrepareEvidenceAddresses(state, request);
         if (request.StructuredOutputSchema?["$defs"] is JsonObject)
             request.StructuredOutputSchema = PlanningSchemas.Compact(request.StructuredOutputSchema.AsObject(), preserveDescriptions: true);
+        if (purpose == PlanningCompactConstruction.IntentPurpose)
+            request.Prompt = PlanningPromptPresentation.PresentIntentDeclarationFields(request.Prompt);
         var hash = IssuedIdentityHash(request, evidenceAddresses);
         request.ClientRequestId = state.Request.SessionId + ":" + (state.ModelCalls + 1) + ":" +
             (evidenceAddresses is null ? "" : evidenceAddresses.MapHash + ":") + hash;
