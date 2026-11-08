@@ -84,3 +84,49 @@ journal/retention selection passed **202 tests**, including the new version-2
 cancellation capture. The earlier full-solution run on `8ab8fd1d` was deliberately
 interrupted after the next live defect required a production change; it is not
 reported as a completed solution pass.
+
+## Approved artifact reached real execution
+
+Run `convergence-amazon-20261108-03`, frozen source `44c12c3c`, reached technical
+validation, favorable global review, exact delegated artifact approval and real
+execution. Its 47 planning calls cost EUR 13.93786833855799373040752352 in
+measured-usage tariff estimates. One runtime interpretation cost EUR
+16.11549484997760859829825347. These are separate physical calls, not invoices.
+The complete search and cleanup succeeded. The first product read was rejected
+before transport: its exact observed URL used `/sspa/click`, outside the delegated
+read routes. No workbook was produced. The unchanged oracle failed; the planning
+report's `passed` flag must not be read as execution qualification. See the
+[execution boundary](amazon03-execution-boundary.json).
+
+The read-only [original oracle check](amazon03-original-oracle-boundary.json)
+also establishes unsupported redirect identities and ambiguous product occurrences
+in the retained complete search. Those findings do not depend on generated rows.
+The same denied URL appears exactly in the original observation. Neither the
+permission routes nor the independent oracle were broadened. Another identical
+paid trial would not resolve that demonstrated evidence boundary. Qualification
+requires independently established result-occurrence and redirect/final-product
+identity evidence; suppressing sponsored results, changing the query or relaxing
+the verifier would not establish the original result.
+
+Real failure reporting also exposed repeated JSON materialization in a closed
+compiler expression. An offline comparison keeps its exact expression, data and
+limits: [before](amazon03-mapping-before.json),
+[after](amazon03-mapping-after.json). The original exceeds the nested 50 MB limit;
+adopting fresh detached containers once completes at 37,421,560 materialized bytes.
+Borrowed/reused values still copy independently; all original limits remain.
+This is a targeted expression comparison, not an executed-workflow success or a
+claim of lower live latency/cost. Flow component validation: **1,533 passed**.
+
+SSE EOF within an unfinished event now has transport classification, allowing only
+the existing captured independent-generation policy. Complete malformed frames,
+cancellation and loaded uncertainty retain their barriers. Native framing and
+three provider-path regressions pass; AI.Core component validation: **370 passed**.
+
+The cancelled run-02 request was [immutably retained](amazon02-retention-applied.json)
+with its entire hold. Run 03 has execution markers and is not eligible for
+generation retention/replay. The [post-execution financial audit](financial-after-amazon03.json)
+leaves EUR 178.0363546798029556650246298 available within the unchanged EUR 400
+allocation, after all HTTP holds and the separate retained external hold. Global
+funding remains unavailable. The solution run on `44c12c3c` was interrupted when
+this newly reproduced runtime defect required a source change; no complete suite
+pass is claimed for that intermediate state.

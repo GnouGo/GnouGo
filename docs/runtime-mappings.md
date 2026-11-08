@@ -4,6 +4,13 @@
 
 No mapping executor in TaskPlan: typed → JavaScript compiled at final lowering; insufficiently typed → DynamicMappingExecutor at runtime.
 
+Closed compiler expressions adopt a freshly assembled, detached JSON container once
+instead of cloning it again at each enclosing array/object. Borrowed observations
+and repeated aliases still receive independent, charged copies. The existing
+materialization, allocation, statement, time and assembled-output depth limits
+remain enforced. Output wire bytes are measured separately from actual container
+materialization; moving an existing container does not allocate another copy.
+
 Business transforms optionally declare `mode: extract` or `mode: interpret`. Omission retains historical interpretation semantics and serialization. Extraction supplies inputs, an objective and a closed result type. It contains no script, runtime executor name or cache setting. A typed HTML string does not declare the fields within the page. Explicit interpretation remains available for synthesis and costs runtime inference.
 
 Contract closure checks structured bindings before final lowering. Known incompatible contracts, missing dependencies, invalid scope and missing artifact provenance remain errors. Compiler-owned projection bindings lower to checked `set` expressions and output-schema validation. An unconstrained typed value may receive a deterministic consumer-constraint guard (for example a string pattern or collection bound); invalid literals, finite domains and contradictory declared constraints still fail compilation. This never asks the model to enumerate possible runtime observations. An opaque source bound to an authoritative consumer, or an explicit extract transform, may instead defer its shape check to a `mapping.dynamic` runtime binding. Artifact review identifies runtime inference and its applicable shared allowance. Historical bindings permit at most two attempts; fresh adaptive independent bindings require a finite cumulative runtime budget before execution. Final approval and host policy still apply.

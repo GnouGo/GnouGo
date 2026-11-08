@@ -98,13 +98,14 @@ public sealed partial class ExpressionEvaluator
         if (!Supported(syntax, initialBindings is null ? new(StringComparer.Ordinal) { "source" } : new(initialBindings.Keys, StringComparer.Ordinal))) return false;
         var watch = System.Diagnostics.Stopwatch.StartNew();
         long bytes = 0; var count = 0;
+        var freshContainers = new HashSet<JsonNode>(ReferenceEqualityComparer.Instance);
         void Check()
         {
             allowance?.Check();
             if (++count > Math.Min(_maxStatements, 10000) || watch.Elapsed > TimeSpan.FromMilliseconds(Math.Min(_timeout.TotalMilliseconds, 5000)))
                 throw JintSandbox.Unsatisfied("Collection selection exceeded its execution allowance.");
         }
-        void Charge(JsonNode? value, int depth = 0)
+        void Charge(JsonNode? value, int depth = 0, bool descend = true)
         {
             var size = 128 + (value is JsonValue scalar && scalar.TryGetValue<string>(out var text) ? (long)text.Length * 4 : 0);
             bytes += size;
@@ -122,8 +123,8 @@ public sealed partial class ExpressionEvaluator
                     throw JintSandbox.Unsatisfied("Collection selection exceeded its execution allowance.");
             }
             if (depth > 64 || bytes > Math.Min(_memoryLimitBytes, 50000000)) throw JintSandbox.Unsatisfied("Selected data exceeds its nesting or memory allowance.");
-            if (value is JsonArray array) foreach (var item in array) Charge(item, depth + 1);
-            if (value is JsonObject obj) foreach (var field in obj) Charge(field.Value, depth + 1);
+            if (descend && value is JsonArray array) foreach (var item in array) Charge(item, depth + 1);
+            if (descend && value is JsonObject obj) foreach (var field in obj) Charge(field.Value, depth + 1);
         }
         JsonNode? Select(JsonNode? item, string[][] selections)
         {
@@ -143,8 +144,17 @@ public sealed partial class ExpressionEvaluator
         }
         JsonNode? Copy(JsonNode? value)
         {
+            // Closed expressions cannot mutate their bindings. A detached, newly
+            // assembled container can therefore be adopted once. Borrowed values
+            // and subsequent aliases still require an independently charged copy.
+            if (readable && value is { Parent: null } && freshContainers.Remove(value)) return value;
             if (readable) Charge(value);
             return value?.DeepClone();
+        }
+        T Fresh<T>(T value) where T : JsonNode
+        {
+            if (readable) { Charge(value, descend: false); freshContainers.Add(value); }
+            return value;
         }
         JsonNode? Call(ArrowFunctionExpression arrow, IReadOnlyList<JsonNode?> arguments, Dictionary<string, JsonNode?> bindings)
         {
@@ -230,16 +240,16 @@ public sealed partial class ExpressionEvaluator
                     if (container is JsonArray memberArray && key == "length") return JsonValue.Create(memberArray.Count);
                     return Select(container, [[key]]);
                 case ObjectExpression obj:
-                    return new JsonObject(obj.Properties.Cast<Property>().Select(p => new KeyValuePair<string, JsonNode?>(Key(p)!, Copy(EvaluateSelection(p.Value, bindings)))));
+                    return Fresh(new JsonObject(obj.Properties.Cast<Property>().Select(p => new KeyValuePair<string, JsonNode?>(Key(p)!, Copy(EvaluateSelection(p.Value, bindings))))));
                 case ArrayExpression array:
-                    return new JsonArray(array.Elements.Select(v => Copy(EvaluateSelection(v!, bindings))).ToArray());
+                    return Fresh(new JsonArray(array.Elements.Select(v => Copy(EvaluateSelection(v!, bindings))).ToArray()));
                 case CallExpression { Callee: MemberExpression { Property: Identifier { Name: "select" } } } call:
                     var selections = ((ArrayExpression)call.Arguments[1]).Elements.Cast<ArrayExpression>()
                         .Select(p => p.Elements.Cast<StringLiteral>().Select(v => v.Value).ToArray()).ToArray();
                     var sourceValue = EvaluateSelection(call.Arguments[0], bindings);
                     if (!((BooleanLiteral)call.Arguments[2]).Value) return Select(sourceValue, selections);
                     if (sourceValue is not JsonArray items) throw JintSandbox.Unsatisfied("Per-item selection requires an observed array.");
-                    return new JsonArray(items.Select(item => Copy(Select(item, selections))).ToArray());
+                    return Fresh(new JsonArray(items.Select(item => Copy(Select(item, selections))).ToArray()));
                 case CallExpression { Callee: ArrowFunctionExpression calledArrow } call:
                     return Call(calledArrow, call.Arguments.Select(a => EvaluateSelection(a, bindings)).ToArray(), bindings);
                 case CallExpression { Callee: Identifier { Name: "json" } } call:
@@ -257,10 +267,10 @@ public sealed partial class ExpressionEvaluator
                     return JsonValue.Create(EvaluateSelection(call.Arguments[0], bindings) is JsonArray);
                 case CallExpression { Callee: MemberExpression { Object: Identifier { Name: "Object" }, Property: Identifier { Name: "entries" } } } call:
                     if (EvaluateSelection(call.Arguments[0], bindings) is not JsonObject record) throw JintSandbox.Unsatisfied("Container projection requires an object.");
-                    return new JsonArray(record.Select(p => (JsonNode)new JsonArray(JsonValue.Create(p.Key), Copy(p.Value))).ToArray());
+                    return Fresh(new JsonArray(record.Select(p => (JsonNode)Fresh(new JsonArray(Copy(JsonValue.Create(p.Key)), Copy(p.Value)))).ToArray()));
                 case CallExpression { Callee: MemberExpression { Object: Identifier { Name: "Object" }, Property: Identifier { Name: "fromEntries" } } } call:
                     if (EvaluateSelection(call.Arguments[0], bindings) is not JsonArray entries) throw JintSandbox.Unsatisfied("Container assembly requires entry pairs.");
-                    var assembled = new JsonObject();
+                    var assembled = Fresh(new JsonObject());
                     foreach (var entry in entries)
                     {
                         Check();
@@ -288,7 +298,7 @@ public sealed partial class ExpressionEvaluator
                         throw JintSandbox.Unsatisfied("Collection projection requires an observed array.");
                     var arrow = (ArrowFunctionExpression)call.Arguments[0]; var parameter = ((Identifier)arrow.Params[0]).Name;
                     var local = new Dictionary<string, JsonNode?>(bindings, StringComparer.Ordinal);
-                    var result = new JsonArray();
+                    var result = Fresh(new JsonArray());
                     for (var index = 0; index < collection.Count; index++)
                     {
                         local[parameter] = collection[index];
@@ -348,10 +358,25 @@ public sealed partial class ExpressionEvaluator
             }
         }
         result = EvaluateSelection(syntax, initialBindings ?? new(StringComparer.Ordinal) { ["source"] = source });
-        var beforeOutput = bytes;
-        Charge(result);
-        if (readable && allowance is not null) allowance.OutputBytes += bytes - beforeOutput;
-        result = result?.DeepClone();
+        // Moving fresh parents avoids redundant materialization, not output
+        // accounting or the final depth check over the assembled result.
+        void CheckOutput(JsonNode? value, int depth = 0)
+        {
+            if (depth > 64) throw allowance?.Exhausted("nesting") ?? JintSandbox.Unsatisfied("Mapping result nesting exceeded its limit.");
+            allowance?.Check();
+            if (allowance is not null) allowance.NestingDepth = Math.Max(allowance.NestingDepth, depth);
+            if (watch.Elapsed > TimeSpan.FromMilliseconds(Math.Min(_timeout.TotalMilliseconds, 5000)))
+                throw JintSandbox.Unsatisfied("Collection selection exceeded its execution allowance.");
+            if (value is JsonArray array) foreach (var item in array) CheckOutput(item, depth + 1);
+            if (value is JsonObject obj) foreach (var field in obj) CheckOutput(field.Value, depth + 1);
+        }
+        if (readable)
+        {
+            result = Copy(result);
+            CheckOutput(result);
+            if (allowance is not null) allowance.OutputBytes += JintSandbox.JsonBytes(result);
+        }
+        else { Charge(result); result = result?.DeepClone(); }
         return true;
     }
 
