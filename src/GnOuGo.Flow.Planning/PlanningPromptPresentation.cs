@@ -41,6 +41,14 @@ public static class PlanningPromptPresentation
         }
     }
 
+    /// <summary>Explain the existing transition from inspected operation descriptions to exact contract retrieval.</summary>
+    public static string PresentContractMaterializationGuidance(string prompt)
+    {
+        const string guidance = "\nUse an operation's inspected description to decide whether its interface is suitable to inspect for the immediate work. A binding that names the discovered operationId asks the coordinator to retrieve its exact owned contract before drafting; selection does not assert known parameter values, successful execution or business completion. Source exploration lists operation descriptions; repeating that exploration does not retrieve the selected operation's input/output schema. When a description supports the immediate work, select that candidate binding so its exact constraints and dependencies become available, then draft or reselect against the actual contract. Reuse descriptions and evidence already loaded.\n";
+        var contextOffset = prompt.LastIndexOf("\n{", StringComparison.Ordinal);
+        return contextOffset < 0 ? prompt + guidance : prompt.Insert(contextOffset, guidance);
+    }
+
     /// <summary>Request compact JSON syntax without selecting any business value or branch.</summary>
     public static string PresentCompactJsonGuidance(string prompt)
     {
