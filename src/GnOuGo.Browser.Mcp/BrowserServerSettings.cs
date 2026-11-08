@@ -19,4 +19,5 @@ public sealed class BrowserServerSettings
     public int HoldOpenMs { get; set; }
     public bool KeepBrowserOpen { get; set; }
     public List<string> AllowedHosts { get; set; } = [];
+    public List<string> AllowedNavigationUrlPatterns { get; set; } = [];
 }

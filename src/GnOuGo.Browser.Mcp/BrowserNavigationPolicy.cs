@@ -29,6 +29,12 @@ public static class BrowserNavigationPolicy
                 $"Host '{uri.Host}' is not allowed by the current browser policy.");
         }
 
+        if (settings.AllowedNavigationUrlPatterns.Count > 0 && !settings.AllowedNavigationUrlPatterns.Any(pattern =>
+            System.Text.RegularExpressions.Regex.IsMatch(uri.AbsoluteUri, "\\A(?:" + pattern + ")\\z",
+                System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.NonBacktracking,
+                TimeSpan.FromSeconds(1))))
+            throw new InvalidOperationException("The URL is outside the configured navigation routes.");
+
         return uri;
     }
 

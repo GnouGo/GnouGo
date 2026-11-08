@@ -82,11 +82,8 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
                 IResponse? response = null;
                 try
                 {
-                    response = await page.GotoAsync(targetUri.ToString(), new PageGotoOptions
-                    {
-                        Timeout = NormalizeTimeout(timeoutMs, _settings.NavigationTimeoutMs),
-                        WaitUntil = ParseWaitUntil(waitUntil)
-                    });
+                    response = await NavigateReadAsync(page, targetUri.ToString(), ParseWaitUntil(waitUntil),
+                        NormalizeTimeout(timeoutMs, _settings.NavigationTimeoutMs), cancellationToken);
                 }
                 catch (TimeoutException ex) when (string.Equals(waitUntil, "networkidle", StringComparison.OrdinalIgnoreCase))
                 {
@@ -112,7 +109,8 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
             var locatorResolution = await ResolveContentLocatorAsync(page, selector, selectorTimeout);
             var locator = locatorResolution.Locator;
             if (contentFormat is "observation" or "observation_pages")
-                return await CaptureObservationAsync(page, locator, locatorResolution, selector, statusCode, maxCharacters, maxRecords, cancellationToken, contentFormat == "observation_pages");
+                return (await CaptureObservationAsync(page, locator, locatorResolution, selector, statusCode, maxCharacters, maxRecords, cancellationToken, contentFormat == "observation_pages"))
+                    with { NavigationEvidence = NavigationEvidenceFor(page) };
             var rawContent = contentFormat switch
             {
                 "html" => await locator.EvaluateAsync<string>("element => element.outerHTML"),
@@ -137,7 +135,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
                 Format: contentFormat,
                 Content: content,
                 Truncated: truncated,
-                MaxCharacters: limit);
+                MaxCharacters: limit) { NavigationEvidence = NavigationEvidenceFor(page) };
         }
         finally
         {
@@ -203,6 +201,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
                 beforeUrl,
                 page.Url);
 
+            ThrowNavigationFailure();
             return new BrowserActionResult(
                 Action: "click",
                 Url: page.Url,
@@ -282,6 +281,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
                     page.Url);
             }
 
+            ThrowNavigationFailure();
             return new BrowserActionResult(
                 Action: "fill",
                 Url: page.Url,
@@ -334,6 +334,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
                 beforeUrl,
                 page.Url);
 
+            ThrowNavigationFailure();
             return new BrowserActionResult(
                 Action: "click_text",
                 Url: page.Url,
@@ -407,6 +408,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
                 beforeUrl,
                 page.Url);
 
+            ThrowNavigationFailure();
             return new BrowserKeyActionResult(
                 Action: "press",
                 Url: page.Url,
@@ -459,6 +461,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
                 ? await locator!.SelectOptionAsync(new[] { normalizedValue }, new LocatorSelectOptionOptions { Timeout = timeout })
                 : await observed.SelectOptionAsync(new[] { normalizedValue }, new ElementHandleSelectOptionOptions { Timeout = timeout });
 
+            ThrowNavigationFailure();
             return new BrowserSelectResult(
                 Url: page.Url,
                 Title: await page.TitleAsync(),
@@ -634,8 +637,10 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
             AcceptDownloads = false,
             IgnoreHTTPSErrors = false,
             UserAgent = string.IsNullOrWhiteSpace(_settings.UserAgent) ? null : _settings.UserAgent,
-            ViewportSize = new ViewportSize { Width = 1440, Height = 900 }
+            ViewportSize = new ViewportSize { Width = 1440, Height = 900 },
+            ServiceWorkers = ServiceWorkerPolicy.Block
         });
+        await _context.RouteAsync("**/*", GuardNavigationAsync);
 
         _context.SetDefaultTimeout(_settings.DefaultTimeoutMs);
         _context.SetDefaultNavigationTimeout(_settings.NavigationTimeoutMs);
@@ -688,7 +693,22 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
         page.SetDefaultTimeout(_settings.DefaultTimeoutMs);
         page.SetDefaultNavigationTimeout(_settings.NavigationTimeoutMs);
         page.Dialog += async (_, dialog) => await dialog.DismissAsync();
-        page.FrameNavigated += (_, frame) => { if (page == _page && frame == page.MainFrame) InvalidateObservation("navigation"); };
+        page.Request += (_, request) =>
+        {
+            if (page == _page && request.IsNavigationRequest && request.Frame == page.MainFrame)
+                lock (_observationLock) _pendingMainNavigation = request;
+        };
+        page.FrameNavigated += (_, frame) =>
+        {
+            if (page == _page && frame == page.MainFrame)
+                lock (_observationLock)
+                {
+                    _committedMainNavigation = _pendingMainNavigation?.Url == frame.Url ? _pendingMainNavigation : null;
+                    _pendingMainNavigation = null;
+                    _lastNavigationEvidence = null;
+                    InvalidateObservation("navigation");
+                }
+        };
         page.Close += (_, _) => { if (page == _page) InvalidateObservation("closure"); };
     }
 
@@ -996,6 +1016,8 @@ public sealed record BrowserContentResult(
     public BrowserObservationSnapshot? ObservationSnapshot { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public BrowserSnapshotAcquisition? Acquisition { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public BrowserNavigationEvidence? NavigationEvidence { get; init; }
 }
 
 internal sealed record LocatorResolution(ILocator? Locator, string? FailureReason);

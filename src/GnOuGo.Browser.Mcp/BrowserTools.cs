@@ -243,7 +243,9 @@ internal static class BrowserToolFailure
             MaxCharacters: 0,
             Success: false,
             ErrorCode: code,
-            ErrorMessage: message) { Acquisition = acquisition };
+            ErrorMessage: message) { Acquisition = acquisition,
+                NavigationEvidence = (exception as BrowserNavigationException)?.Evidence
+                    ?? exception.Data[nameof(BrowserNavigationEvidence)] as BrowserNavigationEvidence };
     }
 
     public static BrowserActionResult Action(string action, string selector, Exception exception, string? reference = null, string? requestedAction = null)
@@ -331,7 +333,7 @@ internal static class BrowserToolFailure
     }
 
     private static (string Code, string Message) Describe(Exception exception)
-        => (Classify(exception), exception is BrowserObservationException or BrowserActionReferenceException ? exception.Message : exception is OperationCanceledException
+        => (Classify(exception), exception is BrowserObservationException or BrowserActionReferenceException or BrowserNavigationException ? exception.Message : exception is OperationCanceledException
             ? "The operation was cancelled by the client."
             : $"{exception.GetType().Name}: {exception.Message}");
 
@@ -339,6 +341,7 @@ internal static class BrowserToolFailure
         => exception switch
         {
             BrowserObservationException observation => observation.Code,
+            BrowserNavigationException navigation => navigation.Code,
             BrowserActionReferenceException action => action.Code,
             OperationCanceledException => "CANCELLED",
             TimeoutException => "TIMEOUT",

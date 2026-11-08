@@ -86,6 +86,7 @@ Very short MCP client examples:
 - `Browser:BrowserName`: `chromium`, `firefox`, `webkit`
 - `Browser:Channel`: specific channel (`msedge`, `chrome`, etc.)
 - `Browser:AllowedHosts`: optional allowlist of allowed hosts (`example.com`, `*.example.com`)
+- `Browser:AllowedNavigationUrlPatterns`: optional full-URL regular expressions, combined with the host allowlist; each explicit read and redirect destination must match one pattern. These are trusted host settings, never model-authored permission grants.
 - `Browser:DefaultTimeoutMs` / `NavigationTimeoutMs`: Playwright timeouts
 - `Browser:MaxContentCharacters`: max size returned by `browser_get_content`
 - `Browser:SlowMoMs`: slows down each Playwright action for visual debugging
@@ -184,6 +185,35 @@ Example MCP configuration in `LLMOptions`:
 - `KeepBrowserOpen=true` is a local debug mode; do not leave it enabled in normal automated runs.
 
 ### Compact observations
+
+Semantic repeated containers retain their observed tag, explicit ARIA role and
+snapshot-local first-occurrence index in each record's `groupContext`. Native
+`article`, `li`, `tr` and ARIA `listitem`, `article`, `row` containers take precedence
+over broad regions; visible dialog ownership remains first. Repeated links inside
+one occurrence remain associated, while distinct occurrences with identical URLs
+remain distinct. DOM order, original resolved hrefs, exact selectors and existing
+snapshot-bound record references are preserved. These facts do not identify a
+business product or establish that a link's eventual destination was visited.
+
+Explicit content reads return `navigationEvidence` only for a response bound to
+the actual committed main document. It records the requested URL, actual final
+URL and ordered observed HTTP response hops, including raw Location headers.
+Each GET is sent once without transport retries or automatic redirects. The host
+checks a resolved observed redirect destination before contacting it and starts
+the next browser navigation under the same deadline. Loops and more than twenty
+redirects stop before sending the next request; failures retain partial hops and
+never claim a final destination. Same-document changes cannot borrow an earlier
+response. An eligible wholly empty-document reload remains a distinct acquisition
+attempt with its own response identity and the existing shared bounds.
+
+This uses Playwright's existing request transport because its
+[routing callback does not intercept every automatic redirect](https://playwright.dev/dotnet/docs/network#redirects).
+Service workers are blocked so they cannot evade this interception. With a host
+navigation policy, other navigations are checked too; an interaction's redirect
+stops and requires an explicit content read rather than replaying that interaction.
+Subresource reads remain ordinary browser requests. No scenario-specific route,
+business interpretation, destination rewrite or permission expansion is introduced.
+External delegated route guards still apply before any Browser dispatch.
 
 Use `browser_get_content(format: "observation_complete")` when every page is
 needed before interpreting or acting. `observationSnapshot` contains `id`, ordered

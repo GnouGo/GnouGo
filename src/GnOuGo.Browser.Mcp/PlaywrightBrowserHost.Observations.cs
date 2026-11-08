@@ -10,11 +10,14 @@ namespace GnOuGo.Browser.Mcp;
 
 public sealed record BrowserObservationRecord(string Kind, string Tag, string Selector, string Group, string Text, string? Href, string? Role)
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public BrowserObservationGroup? GroupContext { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? Reference { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<string>? Actions { get; init; }
 }
+public sealed record BrowserObservationGroup(string Tag, string? Role, int Index);
 public sealed record BrowserObservation(string Id, IReadOnlyList<BrowserObservationRecord> Records, string? NextCursor, bool CaptureTruncated);
 public sealed record BrowserObservationPage(string Cursor, int RecordCount);
 public sealed record BrowserObservationManifest(string Id, [property: Description("Frozen page descriptors, at most 100 or the stricter host/response allowance. ManifestTruncated identifies an incomplete list.")] IReadOnlyList<BrowserObservationPage> Pages,
@@ -271,8 +274,7 @@ public sealed partial class PlaywrightBrowserHost
             {
                 InvalidateObservation("navigation");
                 SetPhase("navigation");
-                initialResponse = await page.GotoAsync(target.ToString(), new PageGotoOptions
-                    { WaitUntil = ParseWaitUntil(waitUntil), Timeout = Remaining() }).WaitAsync(token);
+                initialResponse = await NavigateReadAsync(page, target.ToString(), ParseWaitUntil(waitUntil), Remaining(), token).WaitAsync(token);
             }
             // Navigation invalidation and one eligible empty-document reload share
             // the original deadline and three captures. No interaction is replayed.
@@ -332,7 +334,7 @@ public sealed partial class PlaywrightBrowserHost
                         reloaded = true;
                         BrowserNavigationPolicy.ValidateNavigationTarget(page.Url, _settings);
                         SetPhase("reload");
-                        await page.ReloadAsync(new PageReloadOptions { WaitUntil = ParseWaitUntil(waitUntil), Timeout = Remaining() }).WaitAsync(token);
+                        await NavigateReadAsync(page, page.Url, ParseWaitUntil(waitUntil), Remaining(), token).WaitAsync(token);
                         continue;
                     }
                     var pages = snapshot.Pages.Select(p => p.Observation! with { NextCursor = null }).ToArray();
@@ -341,7 +343,7 @@ public sealed partial class PlaywrightBrowserHost
                     {
                         Format = "observation_complete", ObservationManifest = null, Truncated = false,
                         ObservationSnapshot = new(snapshot.Id, pages, manifest.RecordCount, false, false),
-                        Acquisition = Acquisition()
+                        Acquisition = Acquisition(), NavigationEvidence = NavigationEvidenceFor(page)
                     };
                     var aggregateLimit = checked(ObservationLimit(characters) * Math.Min(_settings.MaxObservationPages, 100));
                     if (ObservationCheckpoint is { } publishing) await publishing(page, "publish", token).WaitAsync(token);
@@ -413,6 +415,11 @@ public sealed partial class PlaywrightBrowserHost
         catch (PlaywrightException)
         {
             throw new BrowserObservationException("BROWSER_ERROR", "The Browser could not complete snapshot acquisition.", Acquisition());
+        }
+        catch (BrowserNavigationException ex)
+        {
+            ex.Data[nameof(BrowserSnapshotAcquisition)] = Acquisition();
+            throw;
         }
         catch (InvalidOperationException ex) when (ex is not BrowserObservationException)
         {
@@ -531,7 +538,7 @@ public sealed partial class PlaywrightBrowserHost
     // A capture has finite traversal/storage limits; incomplete captures remain explicitly incomplete.
     internal static readonly string ObservationScript = """
         (root, snapshotId) => {
-          const records = [], elements = [], states = [], actionState = __ACTION_STATE__, owned = 'a[href],button,[role="button"],[role="checkbox"],[role="radio"],[role="switch"],[role="tab"],[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"],[contenteditable="true"],h1,h2,h3,h4,h5,h6,input,select,textarea';
+          const records = [], elements = [], states = [], groups = new Map(), actionState = __ACTION_STATE__, owned = 'a[href],button,[role="button"],[role="checkbox"],[role="radio"],[role="switch"],[role="tab"],[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"],[contenteditable="true"],h1,h2,h3,h4,h5,h6,input,select,textarea';
           let visited = 0, size = 0, truncated = false;
           const text = s => (s || '').replace(/\s+/g, ' ').trim();
           const documentEmpty = () => {
@@ -585,9 +592,10 @@ public sealed partial class PlaywrightBrowserHost
                 kind === 'text' ? text([...element.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join(' ')) : text(element.innerText);
               const href = kind === 'link' ? element.href : null;
               if (content || href || kind === 'control') {
-                const group = element.closest('dialog,[role="dialog"],[role="alertdialog"],[aria-modal="true"]') || element.closest('article,li,section,tr,nav,header,main,form') || root;
+                const group = element.closest('dialog,[role="dialog"],[role="alertdialog"],[aria-modal="true"]') || element.closest('article,li,tr,[role="listitem"],[role="article"],[role="row"]') || element.closest('section,nav,header,main,form,[role="region"],[role="navigation"],[role="main"],[role="form"]') || root;
+                if (!groups.has(group)) groups.set(group, { tag: group.tagName.toLowerCase(), role: group.getAttribute('role'), index: groups.size });
                 const state = actionState(element);
-                const record = { kind, tag, selector: selector(element), group: selector(group), text: content, href, role: element.getAttribute('role'), reference: snapshotId + ':record:' + records.length, actions: state.actions };
+                const record = { kind, tag, selector: selector(element), group: selector(group), groupContext: groups.get(group), text: content, href, role: element.getAttribute('role'), reference: snapshotId + ':record:' + records.length, actions: state.actions };
                 const length = JSON.stringify(record).length;
                 if (records.length >= 10000 || size + length > 2000000) { truncated = true; break; }
                 records.push(record); elements.push(element); states.push(state.signature); size += length;
