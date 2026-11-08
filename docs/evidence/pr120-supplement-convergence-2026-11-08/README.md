@@ -64,5 +64,57 @@ ARIA/native occurrences with multiple links, duplicate destinations, page order,
 actual final-document/response provenance, cookies, forbidden host/path redirects,
 loops, the physical redirect ceiling and non-replayed POST interactions. The
 component's Release publish also passed. No Amazon permission or oracle was
-changed. See the [separate scope proposal](amazon-scope-proposal.md); it grants no
-authority and cannot be used as a successful Amazon qualification.
+changed at that stage. The [separate scope record](amazon-scope-proposal.md)
+now records the subsequent explicit user authorization. That authorization alone
+cannot be used as a successful Amazon qualification.
+
+
+## Subsequent Code and Browser evidence
+
+The [second Code workflow and exact delivery probe](code02-and-delivery-probe.json)
+record 60 completed physical attempts, eight accepted checkpoints and three
+favorable local business reviews. The first technical contribution was accepted
+at call 18; local reviews completed at calls 25, 34 and 55. The last local milestone
+cost EUR 31.6640662785490371697268248983 through 55 calls. The original requirements
+remained open for final closure. Global review requested an extra caller return
+although the originals prescribe file delivery, and the sealed interface could
+not grant that new declaration. The run stopped with an explicit technical
+authority question, without approval or execution. No exact unchanged-plan empty
+business-completion claim was selected, so the bcc0434f route is still unproved
+live. Distinct interface/task pages at calls 42–49 were new bounded evidence;
+there was no identical-strategy repeat to justify cancelling that useful work.
+
+The compact Discovery guide was actually present in HTTP calls 5–11. A separate
+probe of the exact retained global-review request changed only system-message
+content; all other wire fields, context and strict schema were identical. It
+returned `ok` in one physical attempt for EUR 0.6594088669950738916256157635.
+This is supporting diagnostic evidence, not an applied candidate or a qualified
+workflow. Generic delivery-channel guidance now preserves specifically requested
+caller returns while distinguishing file delivery; 60 focused planning tests pass.
+A fresh workflow is required after these production changes rather than bypassing
+the retained execution source/tool guards.
+
+[Subsequent Browser qualification](browser-and-strict-amazon-scope.json) records
+165 passing component tests and actual complete Amazon observations, including an
+exact observed sponsored link with real 302→200 responses. Controlled regressions
+cover pending navigation, escaped queries, history versus HTTP identity, nested
+variant associations and denied child frames. No inference was used for these
+reads, and the browser closed afterward. The separately authorized strict scope
+and v5 verifier retain v4 history and every workbook/field/cleanup requirement.
+
+The [later CI run](https://github.com/GnouGo/GnouGo/actions/runs/42495265576)
+built the frontend successfully, then failed local workbook cases on the escaped
+query boundary (`%20` became whitespace internally). The generic URI correction
+was independently reproduced and checked in Browser tests; the affected V15
+workbook baseline passes locally afterward. Both ProxyCopilot validation jobs
+passed. A final remote run and final full solution validation remain required.
+
+
+The strict-scope/verifier and host regressions pass **176 tests** without warnings,
+including unchanged v4 tests, exact observed-entry authorization, expiration,
+forbidden routes/hosts/ports, missing or inconsistent references, order, redirects,
+aliases, query, scope, completeness, exact workbook fields and read-only metadata
+startup. Metadata approval/revalidation now preserve the actual configured Code
+endpoint rather than injecting a placeholder, and share the initial discovery
+policy digest so an unchanged source is compared consistently; no catalog check
+is waived.

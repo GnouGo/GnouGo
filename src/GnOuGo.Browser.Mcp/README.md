@@ -194,6 +194,7 @@ one occurrence remain associated, while distinct occurrences with identical URLs
 remain distinct. DOM order, original resolved hrefs, exact selectors and existing
 snapshot-bound record references are preserved. These facts do not identify a
 business product or establish that a link's eventual destination was visited.
+Each record also exposes its outer semantic `occurrence` (selector, tag, role and snapshot-local index), bounded by the nearest landmark/dialog. This retains the relationship between nested variant links and their containing item. `heading` identifies an enclosing or linked heading selector when present. Neither field assigns business meaning to that item.
 
 Explicit content reads return `navigationEvidence` only for a response bound to
 the actual committed main document. It records the requested URL, actual final
@@ -202,8 +203,7 @@ Each GET is sent once without transport retries or automatic redirects. The host
 checks a resolved observed redirect destination before contacting it and starts
 the next browser navigation under the same deadline. Loops and more than twenty
 redirects stop before sending the next request; failures retain partial hops and
-never claim a final destination. Same-document changes cannot borrow an earlier
-response. An eligible wholly empty-document reload remains a distinct acquisition
+never claim a final destination. A history-only address change retains the same document's actual response chain and reports the changed address separately as `documentUrl`; it never invents an HTTP redirect. A new explicit fragment-only navigation cannot borrow an earlier response. An eligible wholly empty-document reload remains a distinct acquisition
 attempt with its own response identity and the existing shared bounds.
 
 This uses Playwright's existing request transport because its
@@ -213,7 +213,7 @@ navigation policy, other navigations are checked too; an interaction's redirect
 stops and requires an explicit content read rather than replaying that interaction.
 Subresource reads remain ordinary browser requests. No scenario-specific route,
 business interpretation, destination rewrite or permission expansion is introduced.
-External delegated route guards still apply before any Browser dispatch.
+Denied child-frame navigations remain blocked before contact and do not replace the main document's acquisition outcome. External delegated route guards still apply before any Browser dispatch.
 
 Use `browser_get_content(format: "observation_complete")` when every page is
 needed before interpreting or acting. `observationSnapshot` contains `id`, ordered

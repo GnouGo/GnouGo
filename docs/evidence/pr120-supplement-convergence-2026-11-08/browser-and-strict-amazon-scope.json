@@ -1,0 +1,47 @@
+{
+  "scope_authorization": {
+    "user_answer": "Authorize this strict extension",
+    "policy": "amazon-observed-redirects-v1",
+    "approval_reference": "user-strict-amazon-extension-20261108",
+    "verifier": "amazon-business-v5",
+    "v4_unchanged": true
+  },
+  "browser_source_revision": "3423b02c",
+  "component_tests_passed": 165,
+  "red_then_green_regressions": [
+    "escaped query retained at internal navigation boundary",
+    "pending dispatched main navigation cannot reuse old document readiness",
+    "denied child frame stays blocked without replacing main document result"
+  ],
+  "additional_regressions": [
+    "compressed gzip/brotli responses",
+    "history-only document URL separate from observed HTTP response",
+    "inline history change before redirected navigation returns",
+    "nested variants retain outer result occurrence and heading association"
+  ],
+  "actual_configured_browser_read": {
+    "provider_inference_calls": 0,
+    "complete_search_records": 1531,
+    "complete_search": true,
+    "exact_observed_entry_used": true,
+    "source_snapshot_bound_reference": true,
+    "ordered_actual_http_statuses": [
+      302,
+      200
+    ],
+    "complete_product_records": 585,
+    "navigation_proof_complete": true,
+    "history_address_separate": true,
+    "all_http_hosts": [
+      "www.amazon.fr"
+    ],
+    "browser_closed_in_finally": true,
+    "limitations": "Read-only producer qualification only. It neither selects all first three products nor writes a workbook, approves a plan or qualifies the full business workflow."
+  },
+  "private_evidence_sha256": {
+    "amazon10-child-frame-isolation.observation.json": "8f333e0676afc6ebc78990a9b48466fd2221ff9a4893dfc9b51e5c446302458f",
+    "amazon10-child-frame-isolation.redirect.json": "3230b29138a8d92f0496c46509925922c68e7b971988403de477bcb4a19bf1b1",
+    "browser-child-frame-before.log": "965e00d41251b507ffcee90e6b607657963244edfa72b80e6872e41a75595c15",
+    "browser-child-frame-policy.log": "0d12c2fc0993802c9792e1fd42797941286a9eded25ee51a7ed3738d27058e91"
+  }
+}
