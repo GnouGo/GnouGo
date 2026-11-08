@@ -206,6 +206,12 @@ reads reuse exact retained evidence; source snapshots and accepted work remain
 unchanged. Required-contract failures use protected metadata recovery. Source
 exploration still uses `operationIds:null`; historical issued requests retain
 their exact schema and bytes. Contract inspection grants no execution authority.
+Disjoint contract reads from one source are distinct metadata actions; overlapping
+reads and duplicate source exploration remain invalid. A replacement cursor for
+the same block, scope and accepted baseline reuses verified contract/schema evidence
+from its existing rejection journal. Other scopes, blocks, baselines, denied or
+changed versions and corrupt evidence gain no such reuse. This avoids rereading
+unchanged metadata after abandoning an unsuitable tentative binding.
 Discovery includes the actual owning control or reusable group's isolated interface
 and retained opening intent, as drafting does. An open declaration remains unreviewed
 navigation; its exports are not consumable results and root inputs gain no group access.

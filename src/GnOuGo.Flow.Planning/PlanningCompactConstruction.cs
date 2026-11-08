@@ -1087,6 +1087,28 @@ internal static partial class PlanningCompactConstruction
         var retained = new JsonObject();
         foreach (var item in construction.Evidence ?? [])
             if (addresses.Contains(item.Key)) retained[item.Key] = item.Value?.DeepClone();
+        // An abandoned tentative binding does not invalidate exact metadata
+        // already read for this unchanged responsibility. Restore only current,
+        // verified originals from the existing rejection journal, after a new
+        // implementation cursor has selected the same block/scope/baseline.
+        if (State(state).CurrentStep is { } replacement && ReselectionContext(state) is not null &&
+            State(state).RejectedSteps.LastOrDefault()?["evidence"] is JsonObject inspected)
+        {
+            var identities = InspectionCandidates(state).Select(c => ContractIdentity(c.Operation!.Id, c.Version)).ToHashSet(StringComparer.Ordinal);
+            foreach (var (address, original) in inspected)
+            {
+                var parts = address.Split(':');
+                if (parts.Length < 2 || parts[0] is not ("contract" or "schema" or "schema-page" or "port-page" or "description") ||
+                    !identities.Contains(parts[1])) continue;
+                JsonNode? current;
+                try { current = LoadContractEvidence(state, address, recordSchemaSelection: false); }
+                catch (PlanningResponseException) { continue; }
+                if (current is null || !JsonNode.DeepEquals(original, current)) continue;
+                retained[address] = current;
+                if (parts[0] == "schema" && !replacement.SchemaPointers.Contains(address, StringComparer.Ordinal))
+                    replacement.SchemaPointers.Add(address);
+            }
+        }
         construction.Evidence = retained.Count > 0 ? retained : null;
         if (!preserveConsumedHistory) construction.EvidenceRequests.Clear();
         foreach (var address in retained.Select(item => item.Key))

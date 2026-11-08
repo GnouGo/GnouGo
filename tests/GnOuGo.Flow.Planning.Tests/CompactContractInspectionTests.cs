@@ -185,6 +185,43 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Null(state.Construction.Candidate); Assert.Empty(state.Construction.Checkpoints);
     }
 
+    [Theory]
+    [InlineData("same", true)]
+    [InlineData("scope", false)]
+    [InlineData("block", false)]
+    [InlineData("plan", false)]
+    [InlineData("version", false)]
+    [InlineData("policy", false)]
+    [InlineData("corrupt", false)]
+    public async Task ReselectionReusesVerifiedContractEvidenceOnlyForTheSameResponsibility(string change, bool restore)
+    {
+        var (state, runtime) = await Ready(); AddOperations(state, 1);
+        runtime.Capabilities = new InspectionCatalog();
+        runtime.Respond = (request, _) => Wire(request, Inspect("alpha", "operation_0"));
+        state = await Advance(state, runtime);
+        var original = state.Construction!.Evidence!.DeepClone();
+        var previous = state.Construction.Compact!.CurrentStep!;
+        state.Diagnostics = [new("CONSTRUCTION_RESELECTION_REQUIRED", "/step", "A lifecycle companion is missing.")];
+        PlanningCompactConstruction.Reselect(state, "The selected interface needs its lifecycle companions.");
+        state.Construction.Compact.CurrentStep = new()
+        {
+            Id = "replacement", BlockId = previous.BlockId, BaseHash = previous.BaseHash,
+            Scope = previous.Scope, Kind = null, Objective = previous.Objective, RequirementIds = previous.RequirementIds.ToList()
+        };
+        if (change == "scope") state.Construction.Compact.CurrentStep.Scope = "/other";
+        if (change == "block") state.Construction.Compact.CurrentStep.BlockId = "another";
+        if (change == "plan") state.Plan!.Root.Tasks[0].Objective = "Changed accepted baseline";
+        if (change == "policy") state.Catalog!.Policy.DeniedCapabilityIds.Add("operation_0");
+        if (change == "version") state.Discovery.Pages[0].Capabilities[0] = state.Discovery.Pages[0].Capabilities[0] with { Version = "changed" };
+        if (change == "corrupt") state.Construction.Compact.RejectedSteps[^1]["evidence"]!.AsObject().First().Value!["inputSchema"] = new JsonObject { ["type"] = "string" };
+        PlanningCompactConstruction.RetainPrerequisiteEvidence(state);
+        Assert.Equal(restore, state.Construction.Evidence is { Count: > 0 });
+        if (restore) Assert.True(JsonNode.DeepEquals(original, state.Construction.Evidence));
+        Assert.Empty(state.Construction.Compact.CurrentStep.OperationIds);
+        Assert.False(state.Construction.Compact.CurrentStep.DiscoveryComplete);
+        Assert.Null(state.Construction.Candidate); Assert.Empty(state.Construction.Checkpoints);
+    }
+
     private sealed class InspectionCatalog : ICapabilityCatalog
     {
         internal readonly List<string> Reads = [];
