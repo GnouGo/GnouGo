@@ -1,0 +1,67 @@
+{
+  "run": "collections-qualification-20261108-01",
+  "frozen_source": "0f3028a2291a0e3cb3164f9a977a1dfc22e11b56",
+  "logical_calls": 26,
+  "physical_attempts": 25,
+  "accepted_checkpoints": 1,
+  "favorable_global_review_or_approval_or_execution": false,
+  "qualification_passed": false,
+  "first_cause": "Repeated structural selections omitted the explicitly supported groupId association; the resulting draft correctly excluded unselected reusable calls. Subsequent reselections and rereads did not resolve that association.",
+  "schema_already_offered_control_plus_group_selection": true,
+  "protected_stop_succeeded": true,
+  "permanent_retention_evidence_hash": "1195bc8d164706378cfff27008963ed374deada8ad2ed25d71989acebc7283f0",
+  "request_and_cancelled_session_replay_forbidden": true,
+  "last_call_http_attempts": 0,
+  "last_call_application_reservation_eur": "1.2505418719211822660098522167",
+  "application_hold_already_in_http_ledger": false,
+  "total_separate_external_reservations_eur": "3.6721182266009852216748768472",
+  "all_known_usage_and_original_hold_records_preserved": true,
+  "known_usage_tariff_estimate_eur": "3.5008777429467084639498432599",
+  "retention_regression": {
+    "failed_before": true,
+    "tests_passed_after": 219,
+    "cold_restart_preserves_hold_and_forbids_replay": true,
+    "missing_cancelled_mode_result_or_hold_rejected": true
+  },
+  "independent_group_selection_probe": {
+    "run": "collections-group-binding-20261108-01",
+    "only_factor": "481 UTF-8 bytes of system-message guidance explaining the existing explicit groupId association for composed controls",
+    "original_json_context_schema_reasoning_output_and_all_other_wire_fields_exact": true,
+    "actual_wire_comparison_passed": true,
+    "schema_valid": true,
+    "physical_attempts": 1,
+    "response": {
+      "baseHash": "e59ad5aed46bbe8bffe5fd0eb98a27b6431709db322777c3852b4a265dad8b4f",
+      "step": {
+        "scope": "/root",
+        "kind": "foreach",
+        "inputs": [
+          {
+            "kind": "input",
+            "source": "values"
+          }
+        ],
+        "groupId": "double_element",
+        "dependencyTaskIds": [],
+        "closeRequirementIds": [],
+        "outputNames": [
+          "result"
+        ],
+        "prerequisites": null,
+        "operationIds": [],
+        "closeScopes": null
+      },
+      "evidenceRequests": null,
+      "clarifications": null
+    },
+    "cost_eur": "0.1274697716077026421854008061",
+    "candidate_applied": false,
+    "business_effects": false
+  },
+  "generic_change": "Offer the association guide in fresh Implementation/Discovery when an existing closed group is available and selection is not completion-only. Keep exact interface checks, explicit group selection, pending bytes and Strict admission unchanged.",
+  "limitations": [
+    "The probe is not an accepted contribution or a qualified workflow, and does not establish causal convergence.",
+    "No valid action was removed from or added to the schema to obtain this result.",
+    "The bcc0434f unchanged-plan business-review boundary remains unproved live."
+  ]
+}

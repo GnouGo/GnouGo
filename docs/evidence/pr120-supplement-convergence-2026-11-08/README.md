@@ -242,3 +242,29 @@ actual Native AOT smoke and Browser Release publish passed on that source. These
 results precede the latest syntax/retention changes; final validation remains
 required on the resulting source. All **2828 planning tests** pass with the
 scoped compact-JSON change and diagnostic materialization helper.
+
+
+[Collections01 and its exact group-selection probe](collections01-and-group-selection-probe.json)
+expose a separate semantic loop: four control reselections omitted the already
+offered closed group's `groupId`, so drafting correctly excluded unselected calls.
+One earlier reusable-group contribution was accepted; the remaining work did not
+converge. The protected stop cancelled this experiment at logical call 26. Its 25
+physical calls have known usage; the pending call had no physical HTTP attempt
+but retained a Server application reservation of EUR
+1.2505418719211822660098522167. Exact Server/ledger/cancellation evidence now
+supports permanent retention for that race, with the full separate hold intact
+and both replay and continuation forbidden. The new regression failed before
+correction; all **219 retention tests** pass, including cold restart, exact-hold
+checks and rejection of active state or a missing cancelled result. Separate
+external reservations are now EUR 3.6721182266009852216748768472, counted once.
+
+The independent probe changed only system-message content (+481 UTF-8 bytes).
+The original schema, final JSON context, medium reasoning, 4096 output allocation
+and all other actual HTTP fields were identical. It selected the available
+`foreach` plus `double_element` group association in one schema-valid attempt,
+without applying a candidate or executing anything. Generic fresh selection now
+presents that association when an existing closed group is available and this
+is not completion-only selection. The selected group and every call still require
+exact interface validation. Original context and Strict admission remain intact;
+**12 focused syntax/identity/association tests** pass. Ordinary fresh workflows
+and final full-solution/CI validation remain required after this change.

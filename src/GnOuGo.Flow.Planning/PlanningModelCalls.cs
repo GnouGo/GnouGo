@@ -73,6 +73,11 @@ internal static partial class PlanningModelCalls
         if (purpose == PlanningCompactConstruction.SelectPurpose)
             request.Prompt = PlanningPromptPresentation.PresentBusinessDependencyFields(request.Prompt);
         var compactPrompt = request.Prompt;
+        var groupComposition = purpose is PlanningCompactConstruction.ImplementationPurpose or PlanningCompactConstruction.DiscoveryPurpose &&
+            state.Plan?.Groups.Any(group => !state.Construction!.OpenScopes.Contains("/groups/" + group.Id + "/body", StringComparer.Ordinal)) == true &&
+            !PlanningCompactConstruction.CompletionOnly(state);
+        if (groupComposition)
+            request.Prompt = PlanningPromptPresentation.PresentGroupCompositionGuidance(request.Prompt);
         if (purpose == PlanningCompactConstruction.DiscoveryPurpose)
             request.Prompt = PlanningPromptPresentation.PresentDiscoveryResponseFields(request.Prompt, request.StructuredOutputSchema!);
         var compactJson = purpose is PlanningCompactConstruction.DiscoveryPurpose or PlanningConstruction.DraftPurpose;
@@ -82,7 +87,7 @@ internal static partial class PlanningModelCalls
         var hash = IssuedIdentityHash(request, null);
         request.ClientRequestId = state.Request.SessionId + ":" + (state.ModelCalls + 1) + ":" +
             (evidenceAddresses is null ? "" : evidenceAddresses.MapHash + ":") + hash;
-        if (compactJson && !PlanningTokenThresholds.OptimizationAdvisory(state.Request) &&
+        if ((compactJson || groupComposition) && !PlanningTokenThresholds.OptimizationAdvisory(state.Request) &&
             ModelRequestAdmission.EstimateTokens(request) > PlanningConstructionPhasePolicies.Resolve(state.Request, purpose).MaxInputTokens)
         {
             // Optional guidance never displaces mandatory context or makes an
