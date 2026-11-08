@@ -53,7 +53,8 @@ public sealed partial class HybridWorkflowPlanner
                 ["current"] = concern["current"]?["value"]?.DeepClone()
             }).ToArray());
         var purpose = global ? PlanningConstruction.GlobalPurpose : PlanningConstruction.LocalPurpose;
-        return (context, PlanningCompactConstruction.Request(BusinessReviewInstructions, context, ConstructionReviewSchema(context, PlanningTokenThresholds.OptimizationAdvisory(state.Request)), purpose));
+        var instructions = global ? PlanningPromptPresentation.PresentDeliveryChannelGuidance(BusinessReviewInstructions) : BusinessReviewInstructions;
+        return (context, PlanningCompactConstruction.Request(instructions, context, ConstructionReviewSchema(context, PlanningTokenThresholds.OptimizationAdvisory(state.Request)), purpose));
     }
 
     private static async Task ReviewConstructionAsync(PlanningSession state, IPlanningRuntime runtime, bool global, CancellationToken ct)
