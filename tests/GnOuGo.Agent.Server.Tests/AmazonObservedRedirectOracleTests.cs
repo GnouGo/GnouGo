@@ -37,6 +37,7 @@ public sealed class AmazonObservedRedirectOracleTests
     [InlineData("inconsistent_context", "search_occurrence_context_inconsistent")]
     [InlineData("reused_index", "search_occurrence_order_inconsistent")]
     [InlineData("ambiguous_heading_alias", "search_product_aliases_unverified")]
+    [InlineData("mixed_unresolved_heading_alias", "search_product_aliases_unverified")]
     [InlineData("wrong_query", "search_query_does_not_match_input")]
     [InlineData("truncated", "requested_search_not_observed")]
     [InlineData("narrow_selector", "search_observation_scope_not_independently_complete")]
@@ -66,6 +67,7 @@ public sealed class AmazonObservedRedirectOracleTests
             case "inconsistent_context": search[1]!["occurrence"]!["tag"] = "article"; break;
             case "reused_index": search[2]!["occurrence"]!["index"] = 0; break;
             case "ambiguous_heading_alias": search[1]!["href"] = Sponsored + "&other=1"; break;
+            case "mixed_unresolved_heading_alias": search[1]!["href"] = First; break;
             case "wrong_query": events[0]["arguments"]!["url"] = Search + "&k=other"; break;
             case "truncated": events[0]["result"]!["observationSnapshot"]!["captureTruncated"] = true; break;
             case "narrow_selector": events[0]["arguments"]!["selector"] = "#products"; break;

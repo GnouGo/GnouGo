@@ -54,7 +54,8 @@ internal static partial class LiveWorkflowOracles
                 if (primary.Length == 0) primary = group.ToArray();
                 var identities = primary.Select(r => ObservedProductIdentity(r["href"]!.ToString())).Where(id => id is not null).Distinct(StringComparer.Ordinal).ToArray();
                 var urls = primary.Select(r => r["href"]!.ToString()).Distinct(StringComparer.Ordinal).ToArray();
-                if (identities.Length > 1 || identities.Length == 0 && urls.Length != 1)
+                if (identities.Length > 1 || identities.Length == 0 && urls.Length != 1 ||
+                    identities.Length > 0 && primary.Any(r => AmazonObservedRedirectPolicy.IsSourceEntry(r["href"]!.ToString())))
                     findings.Add("search_product_aliases_unverified");
                 // Distinct source occurrences stay distinct even when their ASINs match.
                 expected.Add((identities.FirstOrDefault(), urls));
