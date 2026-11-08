@@ -50,6 +50,7 @@ internal static class SchemaPortabilityCampaign
                     ["previousCeilingEur"] = entry?["previous_ceiling_eur"]?.DeepClone(), ["ceilingEur"] = entry?["ceiling_eur"]?.DeepClone(),
                     ["authorizedAtUtc"] = entry?["authorized_at"]?.DeepClone(), ["authorizationHash"] = PlanningGraphCompiler.Fingerprint(entry?["authorization"]?.ToString() ?? "") }).ToArray()),
                 ["accounting"] = await BenchmarkHttpJournal.AccountingAsync(campaign, includeSessions: true),
+                ["retainedApplicationReservationsEur"] = await campaign.RetainedApplicationReservationsAsync(CancellationToken.None),
                 ["globallyAvailableFunding"] = null, ["fundingLimitation"] = "External session pricing and lost historical ledger evidence are not established by this campaign-only read.",
                 ["modelDispatches"] = 0, ["historicalChanges"] = false }.ToJsonString()); return;
         }

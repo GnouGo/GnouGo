@@ -39,6 +39,7 @@ public sealed partial class BenchmarkPermanentRetentionTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => cold.RequireRunNotRetainedAsync(Session, Ct));
         await cold.RequireRunNotRetainedAsync("independent-session", Ct);
         await cold.RequireRetainedApplicationHoldsAsync(.95m, Ct, requireComplete: true);
+        Assert.Equal(.95m, await cold.RetainedApplicationReservationsAsync(Ct));
         await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => cold.RequireRetainedApplicationHoldsAsync(.949m, Ct));
         await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => cold.RequireRetainedApplicationHoldsAsync(1m, Ct, requireComplete: true));
         Assert.True(JsonNode.DeepEquals(accountingBefore, await BenchmarkHttpJournal.AccountingAsync(cold, ct: Ct)));

@@ -255,6 +255,10 @@ recovery precedes this check and does not require fresh capability metadata.
 For the explicitly approved Amazon observed-redirect policy, fresh Server planning
 receives its existing literal-link, redirect and browser-lifetime restrictions.
 The original business clauses and the v4/v5 oracles remain unchanged.
+The read-only `financial-audit` also reports `retainedApplicationReservationsEur`
+using admission's verified, ordered conservative decimal sum. Use this exact
+value for separately retained application holds; it grants no funding and releases
+no reservation. HTTP holds remain in their existing accounting total.
 
 Fresh Amazon/Code Server qualifications discover tools through the existing
 `ObservedMcp` scenario filter used by delegated execution. Source-bound Release

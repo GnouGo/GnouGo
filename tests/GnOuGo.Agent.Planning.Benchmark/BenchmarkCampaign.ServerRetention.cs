@@ -143,6 +143,14 @@ internal sealed partial class BenchmarkCampaign
 
     internal async Task RequireRetainedApplicationHoldsAsync(decimal supplied, CancellationToken ct, bool requireComplete = false)
     {
+        var retained = await RetainedApplicationReservationsAsync(ct);
+        if (supplied < retained) throw AdmissionFailure("retained_application_hold_understated");
+        if (requireComplete && supplied != retained) throw AdmissionFailure("external_financial_history_incomplete");
+    }
+
+    // Share the exact verified, ordered conservative sum with read-only audits.
+    internal async Task<decimal> RetainedApplicationReservationsAsync(CancellationToken ct)
+    {
         decimal retained = 0;
         foreach (var row in await OwnedRecordsAsync("planning-evaluation-closures", ct))
         {
@@ -157,7 +165,6 @@ internal sealed partial class BenchmarkCampaign
                 throw AdmissionFailure("retained_application_hold_evidence_changed");
             retained = LLMUsageBudgetScope.SumCostConservatively(retained, evidence["retained_application_reservation_eur"]!.GetValue<decimal>());
         }
-        if (supplied < retained) throw AdmissionFailure("retained_application_hold_understated");
-        if (requireComplete && supplied != retained) throw AdmissionFailure("external_financial_history_incomplete");
+        return retained;
     }
 }
