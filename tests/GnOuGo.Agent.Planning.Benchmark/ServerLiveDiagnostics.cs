@@ -213,6 +213,18 @@ internal static class ServerLiveDiagnostics
                 report["discovery_response_field_guide"] = new JsonObject { ["active"] = request.Prompt != before,
                     ["added_utf8_bytes"] = System.Text.Encoding.UTF8.GetByteCount(request.Prompt) - System.Text.Encoding.UTF8.GetByteCount(before) };
             }
+            if (args.Contains("--probe-delivery-channel-guidance", StringComparer.Ordinal))
+            {
+                if (args.Any(option => option is "--probe-present-response-schema" or "--probe-intent-declaration-fields" or
+                    "--probe-business-dependency-fields" or "--probe-discovery-response-fields" or "--probe-share-schema-evidence"))
+                    throw new ArgumentException("Choose one presentation factor for this probe.");
+                var before = request.Prompt;
+                request.Prompt = PlanningPromptPresentation.PresentDeliveryChannelGuidance(before);
+                request.ClientRequestId = null;
+                request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+                report["delivery_channel_guidance"] = new JsonObject { ["active"] = request.Prompt != before,
+                    ["added_utf8_bytes"] = System.Text.Encoding.UTF8.GetByteCount(request.Prompt) - System.Text.Encoding.UTF8.GetByteCount(before) };
+            }
             report["request_id"] = request.ClientRequestId; report["requested_output_tokens"] = request.MaxTokens;
             if (args.Contains("--probe-check-responses", StringComparer.Ordinal))
                 report["responses_route_inspection"] = await model.InspectResponsesRouteAsync(run, context.RequestAborted);

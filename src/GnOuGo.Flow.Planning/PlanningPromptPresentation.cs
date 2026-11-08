@@ -6,6 +6,14 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Presents response fields and shares identical contracts without changing their authority.</summary>
 public static class PlanningPromptPresentation
 {
+    /// <summary>Keep the original delivery channel distinct from an additional caller-return contract.</summary>
+    public static string PresentDeliveryChannelGuidance(string prompt)
+    {
+        const string guidance = "\nFor a missing-result concern, establish the delivery channel required by the original obligation: a file, a caller return, or both. Terms such as result, report or feedback alone do not establish an additional caller-return contract when the originals prescribe delivery in a file. A specifically requested caller return remains mandatory even if the same value is saved to a file. Assess each requested channel and its actual provenance independently.\n";
+        var contextOffset = prompt.LastIndexOf("\n{", StringComparison.Ordinal);
+        return contextOffset < 0 ? prompt + guidance : prompt.Insert(contextOffset, guidance);
+    }
+
     /// <summary>Expose required discovery wire fields without copying the response grammar or its value directories.</summary>
     public static string PresentDiscoveryResponseFields(string prompt, JsonNode schema)
     {
