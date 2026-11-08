@@ -652,6 +652,8 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             if (capturedTransport is not null && !(last?["Status"]?.GetValue<int>() is >= 200 and < 300 &&
                 last["Body"] is not null && last["Failure"] is null))
                 await ModelRequestAdmission.ValidateAsync(request, this, phaseInputLimit, "planning", token, advisoryTokens);
+            if (execution)
+                await ModelRequestAdmission.ValidateAsync(dispatched, this, int.MaxValue, "execution", token);
             var input = Math.Max(phaseInputLimit, Encoding.UTF8.GetByteCount(json));
             var output = dispatched.MaxTokens ?? 32_768;
             // Match the retained planning estimator, including the issued envelope rather than only its prompt.
@@ -855,8 +857,11 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                 transportPolicy!["timeout_ms"] = (long)_http.Timeout.TotalMilliseconds;
                 transportPolicy["wire_fingerprint"] = wireFingerprint;
             }
-            var response = await _campaign.CallAsync(request, async token => journal = await PrepareAdmissionAsync(id, input, output.Value, null, token,
-                effectiveTransportPolicy: transportPolicy), async token =>
+            var response = await _campaign.CallAsync(request, async token =>
+            {
+                await ModelRequestAdmission.ValidateAsync(request, this, int.MaxValue, "sdk_proxy", token);
+                journal = await PrepareAdmissionAsync(id, input, output.Value, null, token, effectiveTransportPolicy: transportPolicy);
+            }, async token =>
             {
                 var state = await journal!.LoadAsync(token) ?? new();
                 if (state.Attempts.Count == 0)

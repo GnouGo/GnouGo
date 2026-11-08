@@ -570,7 +570,7 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
         catch (Exception ex)
         {
             StopReason ??= stage == "preflight" ? "preflight_failed" : "uncertain_dispatch";
-            var admission = ex is WorkflowRuntimeException { Code: ErrorCodes.LlmBudgetUnverifiable, Details: JsonObject d }
+            var admission = ex is WorkflowRuntimeException { Code: ErrorCodes.LlmBudgetUnverifiable or ErrorCodes.LlmBudgetExceeded or "MODEL_REQUEST_INCOMPATIBLE", Details: JsonObject d }
                 && d["dispatch_status"]?.ToString() == "not_started";
             // A prior attempt or an issued legacy request cannot acquire a new zero-dispatch classification.
             var verified = admission && stage == "preflight" && reserved is null &&
@@ -585,7 +585,8 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
             { "No currency quote." => "currency_quote_unavailable", "No model price metadata." => "model_price_unavailable", _ => "preflight_failed" };
             if (verified)
             {
-                details["reason"] = ((WorkflowRuntimeException)ex).Details!["reason"]!.DeepClone();
+                var admissionDetails = ((WorkflowRuntimeException)ex).Details!;
+                details["reason"] = (admissionDetails["reason"] ?? admissionDetails["classification"])?.DeepClone() ?? JsonValue.Create("request_admission");
                 details["dispatch_status"] = "not_started";
                 details["request_hash"] = requestHash;
             }

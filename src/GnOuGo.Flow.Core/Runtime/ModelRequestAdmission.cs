@@ -35,14 +35,16 @@ internal static class ModelRequestAdmission
         var allowance = await resolver.InputTokenAllowanceAsync(request.Provider, request.Model, request.MaxTokens.Value, ct);
         if (allowance is null) throw Unverifiable("The input allowance after reserving the configured output is unverifiable or incompatible.");
         if (allowance <= 0) throw Incompatible("The configured output reservation leaves no declared input capacity.");
-        var limit = Math.Min(hostLimit, allowance.Value);
+        // Diagnostic policy can soften a host optimization target, never the
+        // provider's declared physical capacity after reserving output.
+        var limit = advisoryTokens ? allowance.Value : Math.Min(hostLimit, allowance.Value);
         var current = EstimateTokens(request);
-        if (current > limit && advisoryTokens)
-            PlanningTokenThresholds.Warn(stage, "estimated_input_tokens", current, limit);
-        if (current > limit && !advisoryTokens)
+        if (current > limit)
             throw new WorkflowRuntimeException(ErrorCodes.LlmBudgetExceeded,
                 $"The complete serialized {stage} request is estimated at {current} tokens; its effective input limit is {limit} tokens. Dispatch did not start; cumulative budgets were not increased.",
                 details: Details("request_input_allowance", limit, current));
+        if (current > hostLimit && advisoryTokens)
+            PlanningTokenThresholds.Warn(stage, "estimated_input_tokens", current, hostLimit);
 
         WorkflowRuntimeException Unverifiable(string reason) => new(ErrorCodes.LlmBudgetUnverifiable,
             reason + " Dispatch did not start; no settings were changed.", details: Details("model_capabilities", null, null));

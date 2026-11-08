@@ -17,6 +17,23 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class BenchmarkAdmissionTests
 {
     [Fact]
+    public async Task DiagnosticExecutionCannotExceedProviderCapacityOrReserveHttpAttempt()
+    {
+        using var fixture = new Fixture(); var provider = new Provider(fixture.Campaign);
+        using var model = fixture.Model(new Rates(fixture.Time), provider);
+        model.CaptureTokenPolicy(new PlanningRequest { Options = new JsonObject { [PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1" } });
+        const string id = "physical-execution:one";
+        var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => model.CallExecutionAsync(new()
+            { ClientRequestId = id, Prompt = new string('x', 300000), MaxTokens = 8192 }, Ct));
+        Assert.Equal("LLM_BUDGET_EXCEEDED", error.Code);
+        Assert.Equal("not_started", error.Details!["dispatch_status"]!.ToString());
+        Assert.Equal(0, provider.Calls);
+        Assert.Null(await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct));
+        Assert.Equal(0L, (await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct))["calls"]!.GetValue<long>());
+        Assert.False(await fixture.Campaign.HasUncertainRequestAsync(Ct));
+    }
+
+    [Fact]
     public async Task FreshDiagnosticProfileSurvivesDispatchAndRestartBeyondSessionTargets()
     {
         using var fixture = new Fixture();
@@ -710,6 +727,7 @@ public sealed class BenchmarkAdmissionTests
     private static LLMOptions RuntimeOptions()
     {
         var options = Options(); options.Models["fixture"].Url = "https://example.invalid/v1";
+        options.ModelOverrides["openai/pinned"] = new() { MaxInputTokens = 96000, MaxOutputTokens = 32768, ContextWindowTokens = 128768 };
         options.Models["fixture"].RetryPolicy = new() { MaxAttempts = 4, MaxUncertainRetries = 1, BaseDelayMilliseconds = 1 };
         return options;
     }
