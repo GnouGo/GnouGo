@@ -613,8 +613,16 @@ internal sealed partial class BenchmarkCampaign
               journal["transport"]?["Fingerprint"]?.ToString() is { Length: 64 } fingerprint && fingerprint.All(Uri.IsHexDigit))) return false;
         if (attempts.Count == 0) return allowEmptyTransport;
         for (var index = 0; index < attempts.Count - 1; index++)
+        {
+            // Cancellation after an already journaled independent generation
+            // must retain every unknown attempt. This grants no new retry and
+            // does not reinterpret a partial response as a completion.
+            if (allowCancelledAttempt && captured.Version == 2 &&
+                attempts.Take(index + 1).Count(a => a?["Status"] is null) <= captured.MaxUncertainRetries &&
+                MatchesAbandonedBeforeCancellation(attempts[index]!, attempts[index + 1]!)) continue;
             if (attempts[index]?["Status"]?.GetValue<int>() is not (429 or 500 or 502 or 503 or 504) ||
                 attempts[index]?["Failure"] is not null || !IsRetainedErrorOnlyBody(attempts[index]?["Body"]?.ToString())) return false;
+        }
         var last = attempts[^1]!;
         if (new[] { "Status", "Body", "AssembledBody", "RetryAfter", "NotBefore", "StreamFailure", "ProviderErrorCode", "TerminationStatus" }
                 .Any(key => last[key] is not null) || last["ProtocolComplete"]?.GetValue<bool>() == true || last["UsageKnown"]?.GetValue<bool>() == true)
@@ -625,6 +633,17 @@ internal sealed partial class BenchmarkCampaign
             (last["Failure"] is null || allowCancelledAttempt && last["Failure"]?.ToString() == "cancelled" &&
                 last["RetryDecision"]?.ToString() == "cancelled; no retry" && last["ResponseBodyComplete"]?.GetValue<bool>() == false);
     }
+
+    private static bool MatchesAbandonedBeforeCancellation(JsonNode attempt, JsonNode next)
+        => attempt["Status"] is null && attempt["Body"] is null && attempt["AssembledBody"] is null &&
+            attempt["ProtocolComplete"]?.GetValue<bool>() != true && attempt["UsageKnown"]?.GetValue<bool>() != true &&
+            attempt["ResponseBodyComplete"]?.GetValue<bool>() == false &&
+            attempt["StreamFailure"] is null && attempt["ProviderErrorCode"] is null && attempt["TerminationStatus"] is null &&
+            attempt["Failure"]?.ToString() is "timeout" or "transport" &&
+            attempt["RetryDecision"]?.ToString() == "abandoned; independent tool-free generation retry" &&
+            attempt["StartedAtUtc"]?.GetValue<DateTimeOffset>() is { } started &&
+            attempt["CompletedAtUtc"]?.GetValue<DateTimeOffset>() is { } completed && completed >= started &&
+            next["StartedAtUtc"]?.GetValue<DateTimeOffset>() is { } nextStarted && nextStarted >= completed;
 
     private static bool MatchesCancelledNativePartial(JsonObject journal, JsonNode attempt)
     {
