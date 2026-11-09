@@ -784,10 +784,9 @@ and drafting. This discourages formatting-only output exhaustion without increas
 captured allocations or changing response choices. Optional strict-input fallback and
 exact historical request recovery remain in force; incomplete output accepts no fragment.
 
-An interface-page read preserves the already issued producer page before advancing
-its navigation cursor. Other members of the same evidence batch and their exact
-description continuations therefore retain the original read-only access. The host
-projection creates no requested-read fingerprint, operation selection or binding
-authority. Existing version, permission and scope checks still apply; a rejected
-batch retains no page, cursor, schema choice or successful-read marker. The complete
-prospective follow-up, including retained pages, must pass ordinary admission.
+Evidence batches check accepted-producer access against the immutable state from
+before that batch, including exact automatic description continuations. Advancing
+a navigation cursor cannot hide another selected original in the same batch. No
+extra page, requested-read marker, operation selection or binding is retained.
+Exact contracts and permission checks still apply; rejected batches leave state
+unchanged, and complete prospective follow-ups require ordinary admission.

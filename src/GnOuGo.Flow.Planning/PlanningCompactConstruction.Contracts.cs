@@ -617,7 +617,7 @@ internal static partial class PlanningCompactConstruction
             .Where(e => e.Schema["$ref"] is JsonValue).Select(e => e.Schema["$ref"]!.ToString());
     }
 
-    internal static JsonNode? LoadContractEvidence(PlanningSession state, string address, bool recordSchemaSelection = true)
+    internal static JsonNode? LoadContractEvidence(PlanningSession state, string address, bool recordSchemaSelection = true, PlanningSession? producerBasis = null)
     {
         var separator = address.IndexOf(':');
         if (separator < 0) return null;
@@ -640,13 +640,15 @@ internal static partial class PlanningCompactConstruction
             if (!int.TryParse(tail, NumberStyles.None, CultureInfo.InvariantCulture, out var offset) || offset < 0)
                 PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Use the issued description address with its nonnegative integer offset.");
             if (recordSchemaSelection && State(state).CurrentStep is null &&
-                !CanInspectProducerContractEvidence(state, ExactContract(state, operation, version), kind, tail))
+                !CanInspectProducerContractEvidence(producerBasis ?? state, ExactContract(state, operation, version), kind, tail))
                 PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Inspect only an accessible accepted producer before selecting a business step.");
             return OperationDescription(state, operation, version, identity, offset);
         }
         var capability = ExactContract(state, operation, version);
+        // Cursor changes within a batch do not change the access originally
+        // offered to that batch. Exact contract and permission checks stay live.
         var producerEvidence = recordSchemaSelection && state.Construction!.Compact!.CurrentStep?.OperationIds.Contains(operation, StringComparer.Ordinal) != true &&
-            CanInspectProducerContractEvidence(state, capability, kind, tail);
+            CanInspectProducerContractEvidence(producerBasis ?? state, capability, kind, tail);
         if (recordSchemaSelection && state.Construction!.Compact!.CurrentStep is null && !producerEvidence)
             PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Select a business step before inspecting its capability contracts.");
         if (kind == "contract" && tail.Length == 0) return ContractView(state, capability, useCandidate: false);

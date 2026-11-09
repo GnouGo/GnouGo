@@ -1700,7 +1700,7 @@ public sealed class CompactAcceptedTaskNavigationTests
                 state.Construction.Evidence!["description:allocate@v1:" + offset]!["text"]!.ToString())));
         else Assert.Equal("string", state.Construction.Evidence![schemaAddress]!["schema"]!["type"]!.ToString());
         Assert.NotNull(state.Construction.Evidence![pageAddress]);
-        Assert.NotNull(state.Construction.Evidence["page:interfaces:0"]);
+        Assert.False(state.Construction.Evidence.ContainsKey("page:interfaces:0"));
         Assert.DoesNotContain(PlanningConstruction.EvidenceBatchFingerprint(state, ["page:interfaces:0"]), state.Construction.EvidenceRequests);
         Assert.Null(state.Construction.Compact.CurrentStep);
         Assert.Empty(state.Construction.Compact.PendingCommitments);

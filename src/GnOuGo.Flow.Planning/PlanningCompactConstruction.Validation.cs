@@ -271,21 +271,21 @@ internal static partial class PlanningCompactConstruction
             compact.Sources.Where(s => s.Kind == "global").All(s => compact.GlobalSourceIds.Contains(s.Id, StringComparer.Ordinal));
     }
 
-    internal static bool LoadEvidence(PlanningSession state, string address, out JsonNode? value, JsonNode? issuedSchema = null)
+    internal static bool LoadEvidence(PlanningSession state, string address, out JsonNode? value, JsonNode? issuedSchema = null, PlanningSession? producerBasis = null)
     {
         var compact = State(state); value = null;
         if (LoadProviderRequestEvidence(state, address, out value)) return true;
         if (LoadScopeInterfaceEvidence(state, address, out value)) return true;
         if (LoadTaskNavigationEvidence(state, address, out value)) return true;
         if (address.StartsWith("source-description:", StringComparison.Ordinal))
-        { value = LoadContractEvidence(state, address); return true; }
+        { value = LoadContractEvidence(state, address, producerBasis: producerBasis); return true; }
         if (address.StartsWith("schema:", StringComparison.Ordinal) || address.StartsWith("schema-page:", StringComparison.Ordinal) || address.StartsWith("port-page:", StringComparison.Ordinal) ||
             address.StartsWith("description:", StringComparison.Ordinal) || address.StartsWith("contract:", StringComparison.Ordinal))
         {
             if (compact.CurrentStep is null && (!address.StartsWith("schema:", StringComparison.Ordinal) && !address.StartsWith("schema-page:", StringComparison.Ordinal) &&
                 !address.StartsWith("port-page:", StringComparison.Ordinal) && !address.StartsWith("description:", StringComparison.Ordinal)))
                 PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Select a business step before inspecting its capability contracts.");
-            value = LoadContractEvidence(state, address); return true;
+            value = LoadContractEvidence(state, address, producerBasis: producerBasis); return true;
         }
         if (address.StartsWith("source:", StringComparison.Ordinal))
         {

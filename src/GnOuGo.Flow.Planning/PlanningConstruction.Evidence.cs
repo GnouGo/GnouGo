@@ -44,7 +44,7 @@ internal static partial class PlanningConstruction
                     .Select(address => PlanningCompactConstruction.DescriptionReadKey(probe, issuedDiscoverySchema,
                         new JsonObject { ["evidenceRequests"] = new JsonArray(address) })).OfType<string>().ToArray()
                 : [];
-            LoadEvidenceCore(probe, requests, descriptionReadKey, issuedDiscoverySchema);
+            LoadEvidenceCore(probe, requests, descriptionReadKey, issuedDiscoverySchema, producerBasis: state);
             foreach (var key in descriptionKeys)
                 if (!probe.Construction!.EvidenceRequests.Contains(key, StringComparer.Ordinal)) probe.Construction.EvidenceRequests.Add(key);
             ClearResolvedEvidenceDiagnostics(probe);
@@ -91,7 +91,7 @@ internal static partial class PlanningConstruction
                     _ = PlanningCompactConstruction.OriginalDescriptionContinuation(probe, next);
                 continue;
             }
-            LoadEvidenceCore(expanded, [next], readKey, issuedSchema);
+            LoadEvidenceCore(expanded, [next], readKey, issuedSchema, producerBasis: state);
             _ = PlanningCompactConstruction.OriginalDescriptionContinuation(expanded, next);
             try { AdmitEvidenceFollowup(state, followup(expanded), purpose!); }
             catch (PlanningResponseException error) when (error.Diagnostics.Count > 0 && error.Diagnostics.All(diagnostic =>
@@ -165,7 +165,7 @@ internal static partial class PlanningConstruction
         PlanningGraphCompiler.Fingerprint(Hash(state.Plan) + ":" + state.Construction!.Candidate?.Hash + ":" +
             string.Join('\n', requests.Order(StringComparer.Ordinal)));
 
-    private static void LoadEvidenceCore(PlanningSession state, List<string> requests, string? descriptionReadKey = null, JsonNode? issuedSchema = null)
+    private static void LoadEvidenceCore(PlanningSession state, List<string> requests, string? descriptionReadKey = null, JsonNode? issuedSchema = null, PlanningSession? producerBasis = null)
     {
         var construction = state.Construction!;
         if (requests.Count < 1 || PlanningOptimizationThresholds.Exceeded(state, "evidence", "evidence_requests", requests.Count, 8) || requests.Distinct(StringComparer.Ordinal).Count() != requests.Count)
@@ -190,29 +190,13 @@ internal static partial class PlanningConstruction
         // Explicitly requested originals remain available for this decision.
         // Admission checks the whole union on the clone before it is accepted.
         var result = construction.Evidence is { } retained ? retained.DeepClone().AsObject() : new JsonObject();
-        if (construction.Compact is { CurrentStep: null } compact &&
-            requests.Any(address => address.StartsWith("page:interfaces:", StringComparison.Ordinal)))
-        {
-            // The issued page is still the authority for other members of this
-            // batch, and for exact continuations of their requested originals.
-            // Retain that host projection before navigation advances its cursor.
-            // This is not a model-requested read or new producer/binding access.
-            var address = "page:interfaces:" + compact.InterfaceOffset.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            if (!result.ContainsKey(address))
-            {
-                var page = PlanningCompactConstruction.InterfaceDirectory(state, null, compact.InterfaceOffset);
-                construction.Evidence ??= new JsonObject();
-                construction.Evidence[address] = page.DeepClone();
-                result[address] = page;
-            }
-        }
         foreach (var request in requests)
         {
             var split = request.IndexOf(':');
             if (split <= 0 || request.Length > 2048 && !PlanningTokenThresholds.OptimizationAdvisory(state.Request)) Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Use a declared evidence identity.");
             var kind = request[..split]; var id = request[(split + 1)..];
             JsonNode? value = null;
-            if (PlanningCompactConstruction.LoadEvidence(state, request, out value, issuedSchema))
+            if (PlanningCompactConstruction.LoadEvidence(state, request, out value, issuedSchema, producerBasis))
             {
                 if (value is null) Fail("CONSTRUCTION_EVIDENCE_UNKNOWN", "/evidenceRequests", "The exact requested evidence is unavailable: " + request);
                 result[request] = value;
