@@ -63,7 +63,7 @@ public sealed partial class DiagnosticPlanningBrowserTests
                 mcpClientFactoryOverride: new FakeMcpClientFactory(PlanningSessionLifecycleTests.AgentCatalog()), defaults: sp.GetRequiredService<LlmDefaultsResolver>()));
         }
         var url = "http://127.0.0.1:0";
-        await using var app = GnOuGoAgentWebHost.Build(args, url, Path.Combine(root, "src/GnOuGo.Agent.Server"), false, Configure);
+        await using var app = TelemetryTestHostArgs.Build(args, url, Path.Combine(root, "src/GnOuGo.Agent.Server"), false, Configure);
         Assert.Equal("unlimited", app.Services.GetRequiredService<ApplicationLlmBudgetPolicy>().Mode);
         Assert.True(app.Services.GetRequiredService<ILLMUsageBudgetScopeFactory>().CreateScope()!.IsTrackingOnly);
         await app.StartAsync(ct); var token = browser.Address!.Fragment[1..];
@@ -84,7 +84,7 @@ public sealed partial class DiagnosticPlanningBrowserTests
         Assert.Equal(PlanningStatus.FinalReview, completed.Status); Assert.True(completed.ModelCalls > 1); Assert.True(completed.Usage!.CostEstimateAvailable);
         var before = physical; await app.StopAsync(ct);
         // Persisted preference takes precedence even over an explicitly different host default.
-        await using var reopened = GnOuGoAgentWebHost.Build([.. args, "--ApplicationLlmBudget:Mode=limited"], "http://127.0.0.1:0", Path.Combine(root, "src/GnOuGo.Agent.Server"), false, Configure);
+        await using var reopened = TelemetryTestHostArgs.Build([.. args, "--ApplicationLlmBudget:Mode=limited"], "http://127.0.0.1:0", Path.Combine(root, "src/GnOuGo.Agent.Server"), false, Configure);
         await reopened.StartAsync(ct); Assert.Equal("unlimited", reopened.Services.GetRequiredService<ApplicationLlmBudgetPolicy>().Mode);
         var restored = (await reopened.Services.GetRequiredService<PlanningSessionService>().GetAsync(completed.Request.SessionId, ct))!;
         Assert.Equal(completed.Usage, restored.Usage, new UsageComparer()); Assert.Equal(before, physical);

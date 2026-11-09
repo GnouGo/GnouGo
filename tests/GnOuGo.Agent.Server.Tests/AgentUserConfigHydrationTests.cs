@@ -21,7 +21,7 @@ public sealed class AgentUserConfigHydrationTests
             }), TestContext.Current.CancellationToken);
 
         var contentRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "GnOuGo.Agent.Server"));
-        var app = GnOuGoAgentWebHost.Build(
+        var app = TelemetryTestHostArgs.Build(
             TelemetryTestHostArgs.Create(
                 $"--Agent:DatabasePath={dbPath}",
                 "--LLM:DefaultProvider=OpenAi",

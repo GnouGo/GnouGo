@@ -1,0 +1,40 @@
+{
+  "observed_ci_source": "12a3bdb68f6c882c6c8142bde31b52bacf1c60a9",
+  "run_id": 42659154259,
+  "job_id": 129305678685,
+  "conclusion": "failure",
+  "first_actual_failure": "GnOuGoAgentWebHostTests.ChatConversationsApi_ReturnsExistingMcpStoreConversationsWithoutLlm: collector port 41645 was already in use at host startup.",
+  "cause": "The fixture selected collector ports with temporary TcpListeners and closed them before Kestrel startup, allowing another host to claim a selected port.",
+  "generic_fix": "All callers of the shared telemetry host arguments now build through a test-only helper that binds loopback port-zero sockets once and hands those same bound sockets to Kestrel. Container disposal closes sockets that were never handed off.",
+  "production_collector_contract_changed": false,
+  "production_code_changed": false,
+  "controlled_red": {
+    "passed": 0,
+    "failed": 1,
+    "failure": "The competing binder acquired a selected collector port before app.StartAsync; Assert.Throws observed no exception."
+  },
+  "focused_green": {
+    "passed": 14,
+    "failed": 0
+  },
+  "affected_green": {
+    "passed": 61,
+    "failed": 0,
+    "includes": [
+      "Socket ownership until Kestrel startup",
+      "Socket release when a host is disposed before startup",
+      "Original failing chat history test",
+      "Runtime and planning budgets",
+      "User configuration hydration",
+      "Cold host and separate-process discovery restart"
+    ]
+  },
+  "private_evidence_sha256": {
+    "resume200-ci-current.json": "48119dbea9fdc8c7f107c2df9505257d8812c9d988a0715c4e229ed3ba7632f8",
+    "resume200-ci-failed.log": "d76e50e05219f3a3e3eda35d129833a3680ab0cf96b4aabf2732d8548f148c3d",
+    "resume200-port-ownership-red.log": "e8faa346b3bfbedfc8602ebda64cd3e634525c45c65a6b5b410b6cc4a6837113",
+    "resume200-port-ownership-green.log": "7d7858f325587ea9673e173104721ee27b00d79893c108bd02b28e88656da357",
+    "resume200-port-ownership-affected.log": "83b33b0da3fcf9ac33b69a45913d525ef4a1f667c861299beb56607480825209"
+  },
+  "limitation": "This retains the failed historical CI result. A new CI run is required for the corrected source; local passes are not a remote CI pass."
+}

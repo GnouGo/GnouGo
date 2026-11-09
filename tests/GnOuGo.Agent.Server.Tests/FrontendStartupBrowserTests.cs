@@ -31,7 +31,7 @@ public sealed class FrontendStartupBrowserTests
         var options = DiagnosticPlanningTests.ModelOptions();
         var args = TelemetryTestHostArgs.Create("--TypedWorkflowPlanning:BackgroundProcessingEnabled=false", "--OtlpCollector:Enabled=false",
             "--ApplicationLlmBudget:Mode=limited", "--Logging:LogLevel:Default=Warning");
-        await using var app = GnOuGoAgentWebHost.Build(args, "http://127.0.0.1:0", Path.Combine(root.FullName, "src/GnOuGo.Agent.Server"), false, services =>
+        await using var app = TelemetryTestHostArgs.Build(args, "http://127.0.0.1:0", Path.Combine(root.FullName, "src/GnOuGo.Agent.Server"), false, services =>
         {
             services.AddSingleton<IKeyVaultRuntimeConfigStore>(new FakeKeyVaultRuntimeConfigStore().WithEffectiveOptions(options));
             services.AddSingleton<IExchangeRateProvider>(new TestExchangeRateProvider());

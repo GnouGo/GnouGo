@@ -58,7 +58,7 @@ public sealed partial class DiscoveryRestartHostTests
             "--TypedWorkflowPlanning:DatabasePath=" + Path.Combine(directory, "planning.db"));
         var source = new Source { Unavailable = phase == "continue" }; var model = new NeverInference();
         var options = DiagnosticPlanningTests.ModelOptions();
-        await using var app = GnOuGoAgentWebHost.Build(args, "http://127.0.0.1:0", Path.Combine(root, "src/GnOuGo.Agent.Server"), false, services =>
+        await using var app = TelemetryTestHostArgs.Build(args, "http://127.0.0.1:0", Path.Combine(root, "src/GnOuGo.Agent.Server"), false, services =>
         {
             services.AddSingleton<IKeyVaultRuntimeConfigStore>(new FakeKeyVaultRuntimeConfigStore().WithEffectiveOptions(options));
             services.AddSingleton<IExchangeRateProvider>(new TestExchangeRateProvider());

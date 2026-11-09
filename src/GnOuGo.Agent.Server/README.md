@@ -711,6 +711,12 @@ Example:
 dotnet test "C:\github\GnouGo\tests\GnOuGo.Agent.Server.Tests\GnOuGo.Agent.Server.Tests.csproj"
 ```
 
+Host fixtures use `TelemetryTestHostArgs.Build` with their isolated arguments. It binds
+both collector sockets to loopback port zero and transfers those same sockets to
+Kestrel, retaining ownership until startup or disposal. Selecting and releasing a
+port before host startup races with other hosts. The primary app also uses port zero;
+production collector configuration and listener validation are unchanged.
+
 Discovery and validation failures appear as located diagnostics in the durable session. Revise the semantic plan to rebuild against current capabilities. Catalog revalidation requires no model call. Cumulative usage survives retries and restart.
 
 ### Provider HTTP retries

@@ -460,7 +460,7 @@ internal sealed class BudgetHost(WebApplication app, IWorkflowRunStore store, st
         try
         {
             // Missing-policy regressions use an isolated content root, not the shipped defaults.
-            var app = GnOuGoAgentWebHost.Build(args, urls: "http://127.0.0.1:0", contentRoot: withoutAppSettings ? directory : Path.GetFullPath(Path.Combine(
+            var app = TelemetryTestHostArgs.Build(args, urls: "http://127.0.0.1:0", contentRoot: withoutAppSettings ? directory : Path.GetFullPath(Path.Combine(
                 AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "GnOuGo.Agent.Server")), enableHttpsRedirection: false,
                 configureServices: services =>
                 {

@@ -94,7 +94,7 @@ public sealed partial class DiagnosticPlanningBrowserTests
                 mcpClientFactoryOverride: new FakeMcpClientFactory(PlanningSessionLifecycleTests.AgentCatalog()),
                 capture: sp.GetRequiredService<GnOuGo.Agent.Server.Telemetry.LlmTraceCapture>(), defaults: sp.GetRequiredService<LlmDefaultsResolver>()));
         }
-        await using var app = GnOuGoAgentWebHost.Build(args, url, Path.Combine(root, "src/GnOuGo.Agent.Server"), false, Configure);
+        await using var app = TelemetryTestHostArgs.Build(args, url, Path.Combine(root, "src/GnOuGo.Agent.Server"), false, Configure);
         Assert.Equal(options.DefaultModel, app.Services.GetRequiredService<LLMRuntimeOptionsStore>().Current.DefaultModel);
         await app.StartAsync(ct);
         url = GnOuGoAgentWebHost.ResolvePublishedEndpoints(app).AppBaseAddress!.TrimEnd('/');
@@ -152,7 +152,7 @@ public sealed partial class DiagnosticPlanningBrowserTests
         await app.StopAsync(ct);
         var reopenedUrl = "http://127.0.0.1:0";
         // Keep the original journals/accounting, but deliberately omit telemetry to exercise truthful fallback.
-        await using var reopened = GnOuGoAgentWebHost.Build([.. args, "--Database:Path=" + Path.Combine(output, "empty-restart-telemetry-" + Guid.NewGuid().ToString("N") + ".db")], reopenedUrl, Path.Combine(root, "src/GnOuGo.Agent.Server"), false, Configure);
+        await using var reopened = TelemetryTestHostArgs.Build([.. args, "--Database:Path=" + Path.Combine(output, "empty-restart-telemetry-" + Guid.NewGuid().ToString("N") + ".db")], reopenedUrl, Path.Combine(root, "src/GnOuGo.Agent.Server"), false, Configure);
         await reopened.StartAsync(ct);
         reopenedUrl = GnOuGoAgentWebHost.ResolvePublishedEndpoints(reopened).AppBaseAddress!.TrimEnd('/');
         Assert.Equal(options.DefaultModel, reopened.Services.GetRequiredService<LLMRuntimeOptionsStore>().Current.DefaultModel);

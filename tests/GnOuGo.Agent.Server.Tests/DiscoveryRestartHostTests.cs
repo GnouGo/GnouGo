@@ -39,7 +39,7 @@ public sealed partial class DiscoveryRestartHostTests
                 mcpClientFactoryOverride: source, llmClientOverride: model, defaults: sp.GetRequiredService<LlmDefaultsResolver>()));
         }
         PlanningSession state; CapabilitySnapshotReference reference; string cursor; var first = new Source();
-        await using (var app = GnOuGoAgentWebHost.Build(args, "http://127.0.0.1:0", Path.Combine(root, "src/GnOuGo.Agent.Server"), false, sp => Configure(sp, first)))
+        await using (var app = TelemetryTestHostArgs.Build(args, "http://127.0.0.1:0", Path.Combine(root, "src/GnOuGo.Agent.Server"), false, sp => Configure(sp, first)))
         {
             await app.StartAsync(ct);
             var service = app.Services.GetRequiredService<PlanningSessionService>();
@@ -67,7 +67,7 @@ public sealed partial class DiscoveryRestartHostTests
         if (variation == "semantic") replacement.Tools[0].OutputSchema!["type"] = "integer";
         if (variation == "json_order") replacement.Tools[0].InputSchema = JsonNode.Parse("{ \"properties\": {}, \"type\": \"object\" }");
         // A new host, service provider, runtime factory and source instance share only durable storage.
-        await using (var app = GnOuGoAgentWebHost.Build(args, "http://127.0.0.1:0", Path.Combine(root, "src/GnOuGo.Agent.Server"), false, sp => Configure(sp, replacement)))
+        await using (var app = TelemetryTestHostArgs.Build(args, "http://127.0.0.1:0", Path.Combine(root, "src/GnOuGo.Agent.Server"), false, sp => Configure(sp, replacement)))
         {
             await app.StartAsync(ct);
             var store = app.Services.GetRequiredService<IPlanningSessionStore>();

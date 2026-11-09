@@ -38,7 +38,7 @@ public sealed partial class DiagnosticPlanningBrowserTests
                 sp.GetRequiredService<IKeyVaultRuntimeConfigStore>(), sp.GetRequiredService<ILoggerFactory>(),
                 mcpClientFactoryOverride: new UnavailableMetadata(), llmClientOverride: model, defaults: sp.GetRequiredService<LlmDefaultsResolver>()));
         }
-        await using var app = GnOuGoAgentWebHost.Build(args, "http://127.0.0.1:0", Path.Combine(root, "src/GnOuGo.Agent.Server"), false, Configure);
+        await using var app = TelemetryTestHostArgs.Build(args, "http://127.0.0.1:0", Path.Combine(root, "src/GnOuGo.Agent.Server"), false, Configure);
         var resumeReleasePath = "/testing/release-resume-" + Guid.NewGuid().ToString("N");
         app.MapPost(resumeReleasePath, async () =>
         {
