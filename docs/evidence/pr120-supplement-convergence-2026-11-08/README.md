@@ -1,5 +1,12 @@
 # Existing-campaign supplement and targeted convergence
 
+The latest published functional source is `794163d1`. The [Amazon11 closure defect](amazon11-shared-schema-reference-closure.json) came from a root-relative MCP schema reference reused by the new Browser provenance field. Producer projection and scope exports now retain that closure; protected inspection exposes exact technical blockers. The exact unchanged Amazon11 artifact has zero diagnostics in read-only assessment with the fix. Its historical run stopped before global review or execution and remains unqualified.
+
+The [fresh SDK probe](sdk-provider-default-actual-rejection.json) still received HTTP400 with 17 function tools and no reasoning field in the actual wire body. No command ran; terminal receipt reload and cleanup passed. Code needs a compatible provider configuration before another complete planning run is useful. The closed audit before Amazon12 leaves EUR 141.155306762203313927451851988 within the unchanged EUR1,200 ceiling, retaining all earlier holds. This is a closed-run balance, not an active-run forecast or provider invoice. Amazon12 is in progress. Full current-source validation completed with one recovery-browser fixture failure; its controlled correction is under separate validation.
+
+[Full validation of `28762a01`](validation-28762a01.json) passed 8,588 tests with 12 existing skips and zero failures across all 33 assemblies. Frontend, Release tools, Core/Planning packages and published AOT smoke passed. Primary CI on [63114921](ci-63114921-success.json) and [2ea23c51](ci-2ea23c51-success.json) completed successfully. [The current-source full run](validation-794163d1-failed.json) remains failed: 8,602 passed, 12 existing skips and one discovery-recovery browser failure. [The controlled fixture correction](discovery-recovery-fixture-command-completion.json) passes eight related browser tests and requires a fresh final full run.
+
+
 The [Code18 run](code18-global-review-and-sdk-rejection.json) reached global review,
 artifact-bound delegated approval and real isolated execution on source 402ca81c.
 Execution failed before any command observations: the provider rejected SDK Chat

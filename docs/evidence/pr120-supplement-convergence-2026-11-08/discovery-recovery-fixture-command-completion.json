@@ -1,0 +1,46 @@
+{
+  "trigger_source": "794163d1fcb39673b368a5a0640384b3126de5e8",
+  "historical_failure": {
+    "test": "ActualHostRecoversDiscoveryWithoutInferenceAndPreservesProtectedInspectionAndFiniteAdmission",
+    "observed_status": 409,
+    "expected_status": 200,
+    "exact_response_body": "unavailable; not inferred"
+  },
+  "controlled_reproduction": {
+    "fixture": "Pause the first persisted generating state while the real resume command still owns its session.",
+    "old_script_result": "Its separate advance request is premature and times out while queued behind the held command. This is not claimed as the historical HTTP409 reason.",
+    "original_failed_snapshot_preserved": true
+  },
+  "correction": {
+    "fixture_only": true,
+    "controlled_release": "A random test-only route releases the persisted owner; it is absent from production hosts.",
+    "synchronization": "Wait for the UI resume action to finish before reading the revision for the next command.",
+    "keeps": [
+      "strict HTTP200 assertion",
+      "stale and cross-session HTTP409 checks",
+      "anonymous HTTP403",
+      "antiforgery checks",
+      "encrypted history and unchanged TaskPlan",
+      "no model dispatch during recovery",
+      "finite admission",
+      "cancellation checks"
+    ],
+    "no_conflict_retry_or_production_guard_change": true
+  },
+  "validation": {
+    "controlled_green_passed": 1,
+    "related_browser_passed": 8,
+    "failed": 0,
+    "skipped": 0,
+    "script_node_syntax_check": true,
+    "next_complete_source_validation": "required after source freeze; the failed794163d1 run is never relabelled"
+  },
+  "private_evidence_sha256": {
+    "post-reference-validation-failed.json": "1d8864b1b13098b9e26c9fb8690af95b067c916106cd9cfa9546ed50fc4959d1",
+    "discovery-resume-owned-race-red.log": "cb028d25b5f2aa472d6a3d72af0c0163fa53cb56fcf67e841e633f83d4a8c288",
+    "discovery-resume-owned-race-green.log": "c758c8e8f2a8534a802b7dce01061ce4a64fb1844c06f5b47beed5d671d1f468",
+    "discovery-resume-owned-race-green-exit.json": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01",
+    "discovery-resume-browser-focused.log": "2b7a7d4af049d5eba7af3a5f02357891b9fece0c9be92a09b1dc978aec33b224",
+    "discovery-resume-browser-focused-exit.json": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01"
+  }
+}

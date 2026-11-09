@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 const { chromium, request } = await import(process.env.PLAYWRIGHT_MODULE_PATH);
 let input = ''; for await (const chunk of process.stdin) input += chunk;
-const { url, launch, session, otherSession, output } = JSON.parse(input);
+const { url, launch, session, otherSession, output, resumeReleasePath } = JSON.parse(input);
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ viewport: { width: 1440, height: 1080 } });
@@ -52,10 +52,15 @@ try {
   await page.getByRole('button', { name: 'Resume planning after discovery recovery', exact: true }).click();
   await page.waitForFunction(async ({ url, session }) =>
     (await (await fetch(`${url}/api/planning/${session}`)).json()).status === 'generating', { url, session });
+  // A persisted intermediate checkpoint does not mean the UI command returned.
+  // Release the fixture's owner, then observe completed UI recovery before taking
+  // the revision for a separate command. No stale command is retried.
+  assert.equal((await page.request.post(`${url}${resumeReleasePath}`)).status(), 204);
+  await page.getByRole('button', { name: 'Resume planning after discovery recovery', exact: true }).waitFor({ state: 'hidden' });
   recovered = await (await page.request.get(`${url}/api/planning/${session}`)).json();
   const continued = await page.request.post(`${url}/api/planning/${session}/commands`, { headers,
     data: { kind: 'advance', expectedRevision: recovered.revision } });
-  assert.equal(continued.status(), 200);
+  assert.equal(continued.status(), 200, await continued.text());
   const stopped = await continued.json();
   assert.equal(stopped.status, 'stopped');
   assert.ok(stopped.diagnostics.some(d => ['LLM_BUDGET_EXCEEDED', 'CONSTRUCTION_REVIEW_ALLOWANCE'].includes(d.code)), JSON.stringify(stopped.diagnostics.map(d => ({ code: d.code, message: d.message }))));

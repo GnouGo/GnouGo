@@ -1,0 +1,24 @@
+{
+  "source": "794163d1fcb39673b368a5a0640384b3126de5e8",
+  "passed": 8602,
+  "skipped": 12,
+  "failed": 1,
+  "assemblies": 33,
+  "status": "failed",
+  "failure": "Discovery recovery browser fixture advance received HTTP409. Exact historical response body unavailable; the fixture did not wait for UI resume completion.",
+  "tests_not_relabelled_by_followup": true,
+  "fixture_cases": 216,
+  "fixture_shards_all_exit_zero": true,
+  "remainder_exit_code": 1,
+  "frontend_release_packs_published_aot": "all exit zero",
+  "private_log_sha256": {
+    "post-reference-full-remainder.log": "bfa3e73d87d1e346391b9a068b64fea4993ac0e1afb3f036b3b692ce79b933ba",
+    "post-reference-fixture-shard1.log": "9134f7c6048f471fa1ed63cf1f1d4b3d11dcd03a7d8b20a1a5e46e37049953e6",
+    "post-reference-fixture-shard2.log": "67816f8e07a26d63497c18291839e457b175e8203a13cb2accf315119285a7e4",
+    "post-reference-fixture-shard3.log": "9fca0f57a0d7782f2f1c23d8442095d0c27e40563125dd507b59e0cec5e18c03",
+    "post-reference-fixture-shard4.log": "82ee3233d4a73ba64c5ec726f355955f856e9c9a96757b7b7d8a9af9788b8713"
+  },
+  "complete_disjoint_partition_verified": true,
+  "frozen_binaries_unchanged": true,
+  "followup": "A controlled persisted-but-owned resume reproduces premature command dispatch. The fixture now waits for UI completion before taking the revision; this does not establish the exact historical HTTP409 exception."
+}
