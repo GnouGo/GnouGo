@@ -104,6 +104,88 @@ public sealed class BrowserSemanticOccurrenceTests
     }
 
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task CurrentDocumentResponseSurvivesHistoryQueryEncodingAndObservedSameUrlReplacement(bool reload, bool redirect)
+    {
+        var ct = TestContext.Current.CancellationToken; var requests = 0;
+        await using var site = await LoopbackTestServer.StartAsync(async context =>
+        {
+            if (context.Request.Path == "/start") { context.Response.Redirect("/search?q=hello%20world"); return; }
+            if (context.Request.Path != "/search") { context.Response.StatusCode = 204; return; }
+            Interlocked.Increment(ref requests);
+            Assert.Equal("hello world", context.Request.Query["q"].ToString());
+            context.Response.ContentType = "text/html";
+            await context.Response.WriteAsync("<html><head><title>Observed query</title></head><body><main><p>Current product</p></main></body></html>", ct);
+        }, ct);
+        var changed = false;
+        await using var host = new PlaywrightBrowserHost(Options.Create(new BrowserServerSettings
+            { AllowedHosts = ["127.0.0.1"] }), NullLogger<PlaywrightBrowserHost>.Instance)
+        {
+            NavigationReadCheckpoint = async (page, token) =>
+            {
+                if (changed) return;
+                changed = true;
+                if (reload) await page.ReloadAsync(new() { WaitUntil = Microsoft.Playwright.WaitUntilState.DOMContentLoaded }).WaitAsync(token);
+                await page.EvaluateAsync("history.replaceState(null, '', '/search?' + new URLSearchParams(location.search))").WaitAsync(token);
+            }
+        };
+        var initial = site.Origin + "/search?q=hello%20world";
+        var requested = redirect ? site.Origin + "/start" : initial;
+        var result = await host.GetContentAsync(requested, "domcontentloaded", 10000, null, "observation_complete", null, false, ct);
+        Assert.True(result.Success); Assert.Equal(reload ? 2 : 1, requests);
+        Assert.Equal(200, result.StatusCode);
+        Assert.Equal("GET", result.Acquisition!.Navigation!.Method); Assert.Equal(200, result.Acquisition.Navigation.StatusCode);
+        Assert.Equal(requested, result.NavigationEvidence!.RequestedUrl); Assert.Equal(initial, result.NavigationEvidence.FinalUrl);
+        Assert.Equal(site.Origin + "/search?q=hello+world", result.NavigationEvidence.DocumentUrl);
+        Assert.Equal(redirect ? new[] {302, 200} : new[] {200}, result.NavigationEvidence.Hops.Select(hop => hop.StatusCode));
+        Assert.Equal(initial, result.NavigationEvidence.Hops[^1].Url);
+        Assert.Null(result.NavigationEvidence.Hops[^1].Location);
+        Assert.Equal(reload ? 1 : 0, result.NavigationEvidence.SupersededResponses?.Count ?? 0);
+        if (reload) Assert.Equal(initial, Assert.Single(result.NavigationEvidence.SupersededResponses!).Url);
+        Assert.False(result.ObservationSnapshot!.CaptureTruncated);
+    }
+
+    [Theory]
+    [InlineData("other-get")]
+    [InlineData("post")]
+    public async Task ReplacementCannotBorrowAnEarlierGetForAnotherUrlOrPost(string replacement)
+    {
+        var ct = TestContext.Current.CancellationToken; var get = 0; var post = 0;
+        await using var site = await LoopbackTestServer.StartAsync(async context =>
+        {
+            if (context.Request.Method == "POST") Interlocked.Increment(ref post);
+            else Interlocked.Increment(ref get);
+            context.Response.ContentType = "text/html";
+            await context.Response.WriteAsync(context.Request.Method == "POST"
+                ? "<html><body><p id='posted'>Observed POST</p></body></html>"
+                : "<html><body><form id='submit' method='post' action='/search'></form><p>Observed GET</p></body></html>", ct);
+        }, ct);
+        var changed = false;
+        await using var host = new PlaywrightBrowserHost(Options.Create(new BrowserServerSettings
+            { AllowedHosts = ["127.0.0.1"] }), NullLogger<PlaywrightBrowserHost>.Instance)
+        {
+            NavigationReadCheckpoint = async (page, token) =>
+            {
+                if (changed) return;
+                changed = true;
+                if (replacement == "other-get")
+                    await page.GotoAsync(site.Origin + "/other", new() { WaitUntil = Microsoft.Playwright.WaitUntilState.DOMContentLoaded }).WaitAsync(token);
+                else
+                {
+                    await page.EvaluateAsync("document.getElementById('submit').submit()").WaitAsync(token);
+                    await page.Locator("#posted").WaitForAsync().WaitAsync(token);
+                }
+            }
+        };
+        var error = await Assert.ThrowsAsync<BrowserNavigationException>(() => host.GetContentAsync(
+            site.Origin + "/search", "domcontentloaded", 10000, null, "observation_complete", null, false, ct));
+        Assert.Equal("NAVIGATION_EVIDENCE_INCOMPLETE", error.Code);
+        Assert.Equal(replacement == "post" ? 1 : 2, get); Assert.Equal(replacement == "post" ? 1 : 0, post);
+    }
+
+    [Theory]
     [InlineData("gzip")]
     [InlineData("br")]
     public async Task NavigationPreservesCompressedResponseContent(string encoding)

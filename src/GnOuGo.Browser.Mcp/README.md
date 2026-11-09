@@ -203,7 +203,7 @@ Each GET is sent once without transport retries or automatic redirects. The host
 checks a resolved observed redirect destination before contacting it and starts
 the next browser navigation under the same deadline. Loops and more than twenty
 redirects stop before sending the next request; failures retain partial hops and
-never claim a final destination. A history-only address change retains the same document's actual response chain and reports the changed address separately as `documentUrl`; it never invents an HTTP redirect. A new explicit fragment-only navigation cannot borrow an earlier response. An eligible wholly empty-document reload remains a distinct acquisition
+never claim a final destination. A history-only address change retains the same document's actual method, status and response chain and reports the changed address separately as `documentUrl`; it never invents an HTTP redirect. If the page replaces its document with another guarded GET response for the identical terminal URL during that read, the host verifies the current request's already observed response. Earlier responses appear separately in `supersededResponses`, preserving any real redirect prefix. This metadata lookup dispatches no navigation or interaction; a different URL or POST cannot borrow an earlier response. A new explicit fragment-only navigation cannot borrow an earlier response. An eligible wholly empty-document reload remains a distinct acquisition
 attempt with its own response identity and the existing shared bounds.
 
 This uses Playwright's existing request transport because its

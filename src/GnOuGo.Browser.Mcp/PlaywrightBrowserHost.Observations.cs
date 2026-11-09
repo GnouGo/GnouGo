@@ -244,9 +244,19 @@ public sealed partial class PlaywrightBrowserHost
             if (frame != page!.MainFrame) return;
             lock (_observationLock)
             {
-                committedRequest = pendingRequest?.Url == frame.Url ? pendingRequest : null;
-                navigation = new(_observationGeneration, frame.Url, null, committedRequest?.Method,
-                    committedRequest is null ? null : pendingStatus);
+                if (pendingRequest is null && committedRequest is not null && navigation is not null &&
+                    _committedMainNavigation == committedRequest && NavigationEvidenceFor(page)?.FinalUrl == committedRequest.Url)
+                {
+                    // A verified history-only address change keeps this document's
+                    // actual method/status, independently of its current address.
+                    navigation = navigation with { Generation = _observationGeneration, Url = frame.Url };
+                }
+                else
+                {
+                    committedRequest = pendingRequest?.Url == frame.Url ? pendingRequest : null;
+                    navigation = new(_observationGeneration, frame.Url, null, committedRequest?.Method,
+                        committedRequest is null ? null : pendingStatus);
+                }
                 pendingRequest = null; pendingStatus = null;
             }
         }

@@ -11,6 +11,8 @@ public sealed record BrowserNavigationEvidence(string RequestedUrl, string? Fina
     // History changes the document address without creating an HTTP response.
     [Description("Current document address after a history-only change, when different from the last observed HTTP response URL in FinalUrl. This address is not an additional HTTP hop.")]
     public string? DocumentUrl { get; init; }
+    [Description("Previously observed GET responses for the identical terminal URL, superseded by the current document's verified response. These are not redirect hops.")]
+    public IReadOnlyList<BrowserNavigationHop>? SupersededResponses { get; init; }
 }
 
 internal sealed class BrowserNavigationException(string code, string message, BrowserNavigationEvidence evidence)
@@ -22,6 +24,7 @@ internal sealed class BrowserNavigationException(string code, string message, Br
 
 public sealed partial class PlaywrightBrowserHost
 {
+    internal Func<IPage, CancellationToken, Task>? NavigationReadCheckpoint { get; init; }
     private const int MaximumRedirects = 20;
     private NavigationRead? _navigationRead;
     private BrowserNavigationException? _navigationFailure;
@@ -36,6 +39,7 @@ public sealed partial class PlaywrightBrowserHost
         internal string CurrentUrl { get; set; } = requestedUrl;
         internal string? NextUrl { get; set; }
         internal List<BrowserNavigationHop> Hops { get; } = [];
+        internal Dictionary<IRequest, int> ResponseIndexes { get; } = [];
         internal Stopwatch Timer { get; } = Stopwatch.StartNew();
         internal CancellationToken Cancellation { get; } = cancellation;
         internal float Remaining => Math.Max(1, timeout - (float)Timer.Elapsed.TotalMilliseconds);
@@ -71,7 +75,11 @@ public sealed partial class PlaywrightBrowserHost
             {
                 response.Headers.TryGetValue("location", out var location);
                 var hop = new BrowserNavigationHop(request.Url, request.Method, response.Status, location);
-                if (owned) read!.Hops.Add(hop);
+                if (owned) lock (_observationLock)
+                {
+                    read!.ResponseIndexes[request] = read.Hops.Count;
+                    read.Hops.Add(hop);
+                }
                 if (response.Status is 301 or 302 or 303 or 307 or 308 && location is not null)
                 {
                     var evidence = owned ? read!.Evidence() : new BrowserNavigationEvidence(request.Url, null, [hop], false);
@@ -127,6 +135,7 @@ public sealed partial class PlaywrightBrowserHost
                 IResponse? response = null;
                 try { response = await page.GotoAsync(read.CurrentUrl, new() { WaitUntil = waitUntil, Timeout = read.Remaining }); }
                 catch (PlaywrightException) when (read.NextUrl is not null || _navigationFailure is not null) { }
+                if (response is not null && NavigationReadCheckpoint is { } checkpoint) await checkpoint(page, ct).WaitAsync(ct);
                 ct.ThrowIfCancellationRequested();
                 ThrowNavigationFailure();
                 if (read.NextUrl is { } next) { read.CurrentUrl = next; continue; }
@@ -134,6 +143,7 @@ public sealed partial class PlaywrightBrowserHost
                 if (response is null || response.Request.Method != "GET" || read.Hops.Count == 0 ||
                     response.Url != read.Hops[^1].Url)
                     throw new BrowserNavigationException("NAVIGATION_EVIDENCE_INCOMPLETE", "The final document cannot be bound to this navigation's observed responses.", read.Evidence());
+                response = await CurrentReadResponseAsync(read, response, ct);
                 lock (_observationLock)
                 {
                     if (_committedMainNavigation != response.Request)
@@ -141,7 +151,7 @@ public sealed partial class PlaywrightBrowserHost
                     BrowserNavigationPolicy.ValidateNavigationTarget(page.Url, _settings);
                     if (page.Url != response.Url && (_lastNavigationEvidence?.FinalUrl != response.Url || _lastNavigationEvidence.DocumentUrl != page.Url))
                         throw new BrowserNavigationException("NAVIGATION_EVIDENCE_INCOMPLETE", "The document address cannot be bound to its committed response.", read.Evidence());
-                    _lastNavigationEvidence = read.Evidence(response.Url) with { DocumentUrl = page.Url == response.Url ? null : page.Url };
+                    _lastNavigationEvidence = CurrentReadEvidence(read, response) with { DocumentUrl = page.Url == response.Url ? null : page.Url };
                 }
                 return response;
             }
@@ -152,6 +162,45 @@ public sealed partial class PlaywrightBrowserHost
             throw;
         }
         finally { _navigationRead = null; }
+    }
+
+    private async Task<IResponse> CurrentReadResponseAsync(NavigationRead read, IResponse response, CancellationToken ct)
+    {
+        var terminalUrl = response.Url;
+        // Inspect only responses already observed for this read. No navigation,
+        // interaction or HTTP request is dispatched to recover an earlier response.
+        for (var change = 0; change <= MaximumRedirects; change++)
+        {
+            IRequest current;
+            lock (_observationLock)
+            {
+                if (_committedMainNavigation == response.Request) return response;
+                if (_committedMainNavigation is not { Method: "GET" } owned || _pendingMainNavigation is not null ||
+                    owned.Url != terminalUrl || !read.ResponseIndexes.ContainsKey(owned))
+                    throw new BrowserNavigationException("NAVIGATION_EVIDENCE_INCOMPLETE", "The observed response no longer owns the current document.", read.Evidence());
+                current = owned;
+            }
+            response = await current.ResponseAsync().WaitAsync(TimeSpan.FromMilliseconds(read.Remaining), ct)
+                ?? throw new BrowserNavigationException("NAVIGATION_EVIDENCE_INCOMPLETE", "The current document has no observed response.", read.Evidence());
+            if (response.Request != current || response.Url != terminalUrl)
+                throw new BrowserNavigationException("NAVIGATION_EVIDENCE_INCOMPLETE", "The replacement response does not belong to this read.", read.Evidence());
+        }
+        throw new BrowserNavigationException("NAVIGATION_EVIDENCE_INCOMPLETE", "The current document response did not stabilize within the existing navigation bound.", read.Evidence());
+    }
+
+    private static BrowserNavigationEvidence CurrentReadEvidence(NavigationRead read, IResponse response)
+    {
+        if (!read.ResponseIndexes.TryGetValue(response.Request, out var current) || current != read.Hops.Count - 1 ||
+            read.Hops[current].StatusCode != response.Status)
+            throw new BrowserNavigationException("NAVIGATION_EVIDENCE_INCOMPLETE", "The current document response cannot be matched to this read's observed terminal response.", read.Evidence());
+        var start = current;
+        while (start > 0 && read.Hops[start - 1] is { Method: "GET", Location: null } previous &&
+            previous.Url == response.Url && previous.StatusCode is not (301 or 302 or 303 or 307 or 308)) start--;
+        if (start == current) return read.Evidence(response.Url);
+        return new(read.RequestedUrl, response.Url, read.Hops.Take(start).Append(read.Hops[current]).ToArray(), true)
+        {
+            SupersededResponses = read.Hops.Skip(start).Take(current - start).ToArray()
+        };
     }
 
     private void ThrowNavigationFailure()
