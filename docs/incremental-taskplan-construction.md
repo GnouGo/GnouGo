@@ -485,6 +485,14 @@ Changed versions, changed producers and invalidated work retain ordinary evidenc
 selection. This prevents a known optional operation interface from appearing as
 an empty argument list after reselection.
 
+Fresh implementation, discovery and drafting guidance distinguishes business-block
+review from executable scope closure and resource lifetime. A reusable helper may
+export a resource to later consumers while an appropriate ancestor owns its cleanup;
+declaring the helper does not invoke it. Composed controls select their exact nested
+operation dependencies through the existing issued binding schema. This adds no
+transition or binding authority, preserves explicit lifetime obligations and remains
+optional under strict captured input targets. Historical issued requests stay exact.
+
 A local review assesses actual present behavior and explicit completion claims.
 Legitimate future work in an open scope is not an omission. A finite execution ceiling
 is not an unstated required result cardinality. Requirement closure, scope closure,

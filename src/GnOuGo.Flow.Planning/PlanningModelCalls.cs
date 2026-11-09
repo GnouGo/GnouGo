@@ -109,11 +109,26 @@ internal static partial class PlanningModelCalls
                 ModelRequestAdmission.EstimateTokens(request) > PlanningConstructionPhasePolicies.Resolve(state.Request, purpose).TargetInputTokens)
                 request.Prompt = beforeFailureGuidance;
         }
+        string? beforeLifecycleGuidance = null;
+        if (purpose is PlanningCompactConstruction.ImplementationPurpose or PlanningCompactConstruction.DiscoveryPurpose or PlanningConstruction.DraftPurpose)
+        {
+            beforeLifecycleGuidance = request.Prompt;
+            request.Prompt = PlanningPromptPresentation.PresentLifecycleScopeGuidance(request.Prompt);
+        }
         // Bind the evidence basis after fresh field presentation; issued recovery
         // keeps its exact captured prompt/schema instead of preparing another one.
         var hash = IssuedIdentityHash(request, null);
         request.ClientRequestId = state.Request.SessionId + ":" + (state.ModelCalls + 1) + ":" +
             (evidenceAddresses is null ? "" : evidenceAddresses.MapHash + ":") + hash;
+        if (beforeLifecycleGuidance is not null && !PlanningTokenThresholds.OptimizationAdvisory(state.Request) &&
+            ModelRequestAdmission.EstimateTokens(request) > PlanningConstructionPhasePolicies.Resolve(state.Request, purpose).TargetInputTokens)
+        {
+            // Measure the complete issued identity as well as prompt and schema.
+            request.Prompt = beforeLifecycleGuidance;
+            hash = IssuedIdentityHash(request, null);
+            request.ClientRequestId = state.Request.SessionId + ":" + (state.ModelCalls + 1) + ":" +
+                (evidenceAddresses is null ? "" : evidenceAddresses.MapHash + ":") + hash;
+        }
         if ((compactJson || groupComposition || materialization) && !PlanningTokenThresholds.OptimizationAdvisory(state.Request) &&
             ModelRequestAdmission.EstimateTokens(request) > PlanningConstructionPhasePolicies.Resolve(state.Request, purpose).MaxInputTokens)
         {

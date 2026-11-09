@@ -6,6 +6,15 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Presents response fields and shares identical contracts without changing their authority.</summary>
 public static class PlanningPromptPresentation
 {
+    internal const string LifecycleScopeSemantics = "Business-block review does not execute tasks or close an owning workflow scope. A reusable group declares a body; only a call invokes it. Cleanup belongs to the scope covering the resource's actual consumers, which may be an ancestor of a helper or business block. Reuse appropriate existing ancestor cleanup; do not end a still-needed resource merely to finish a helper or request business review. Where the issued binding schema permits a composed control, select its kind together with exact inspected operationIds for its nested operations; an empty list selects none. Preserve explicit lifetime and cleanup requirements, lexical visibility, available transitions and ordinary validation. This guidance grants no new binding, repair or execution authority.";
+
+    internal static string PresentLifecycleScopeGuidance(string prompt)
+    {
+        var guidance = "\n" + LifecycleScopeSemantics + "\n";
+        var contextOffset = prompt.LastIndexOf("\n{", StringComparison.Ordinal);
+        return contextOffset < 0 ? prompt + guidance : prompt.Insert(contextOffset, guidance);
+    }
+
     internal static string PresentFailureObligationGuidance(string prompt)
     {
         var guidance = "\n" + PlanningPrompt.FailureObligationSemantics + "\n";
