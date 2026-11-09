@@ -1,0 +1,64 @@
+{
+  "source": "6c0fdf07c7518bd04a0ebee63eab6285bc443483",
+  "passed": 8546,
+  "skipped": 12,
+  "failed": 0,
+  "assemblies": 33,
+  "complete_disjoint_partition": true,
+  "inventory_and_actual_counts_equal": true,
+  "frozen_binaries_unchanged": true,
+  "shards": [
+    {
+      "index": 1,
+      "passed": 67
+    },
+    {
+      "index": 2,
+      "passed": 54
+    },
+    {
+      "index": 3,
+      "passed": 52
+    },
+    {
+      "index": 4,
+      "passed": 43
+    }
+  ],
+  "all_process_exit_codes_zero": true,
+  "release_build": {
+    "exit_code": 0,
+    "warnings": 0,
+    "errors": 0
+  },
+  "frontend_build": {
+    "exit_code": 0
+  },
+  "packs": {
+    "Core": "passed",
+    "Planning": "passed"
+  },
+  "native_aot": {
+    "rid": "osx-arm64",
+    "publish_exit_code": 0,
+    "published_binary_run_exit_code": 0,
+    "mocked_inference_not_live_qualification": true
+  },
+  "private_log_sha256": {
+    "post-lifecycle-full-remainder.log": "3446a2f85592b3254d94e95ad2718e8814652f73ed9ba357440edfbbebda4c15",
+    "post-lifecycle-fixture-shard1.log": "b042ed44c497a417d0d88d49f52336bdc091dbecdbbd8914d9d15a85279e3526",
+    "post-lifecycle-fixture-shard2.log": "dcf27ecbb22b3cfad8b9831515a34cd9d84c52fea2f0a2c80bcd41e4ef370a5b",
+    "post-lifecycle-fixture-shard3.log": "6bfad06983ea5e4ff3a4cf5ca504c259290bf88008becb4f7248ad597dfde8d7",
+    "post-lifecycle-fixture-shard4.log": "4608b8527addd56357bb5b3828150378e04c06887e74f8830235c3ce86085a2a",
+    "post-lifecycle-frontend-build.log": "849e8e5b04d2a42ebc5c8cfcce89a9635b5a67305cda810d685c44a82324a4e4",
+    "post-lifecycle-release-build.log": "6676888a0cbf8dfcc0abe4379370a3202a862fdd0ae8a8ebad1a06d6b5f8e3e8",
+    "post-lifecycle-aot-publish.log": "82c6f04867c44ef15c92e330a87408d17bd57ae8ec769a8ddc91738583b4864d",
+    "post-lifecycle-aot-smoke.log": "edc8240b4b899389171ba60244214018f192982c7e6c3e6a4d6f90effe0d8971",
+    "post-lifecycle-core-pack.log": "c501a4fa07c173c84315a950c1f2773397af85099a25df84816f24202e6d8ad3",
+    "post-lifecycle-planning-pack.log": "135733607a05c11ad6fe69e78d0b0ba4293b00d5f42a0fb2bb08595eeb679063"
+  },
+  "limitations": [
+    "Source before implementation syntax guidance; no live end-to-end qualification inferred.",
+    "12 existing platform/opt-in skips."
+  ]
+}

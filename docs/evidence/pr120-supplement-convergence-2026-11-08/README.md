@@ -1,5 +1,13 @@
 # Existing-campaign supplement and targeted convergence
 
+Current EUR 300 continuation: [the audited state after Code16](continuation-300-state.json)
+shows a EUR 1,200 campaign ceiling and EUR 233.72494 available, including all retained
+liabilities. Code and Amazon remain unqualified end to end. The latest complete
+local validation is [8,548 passed on d52e07a0](validation-d52e.json); the subsequent
+batch-cursor correction has 347 focused passes and awaits full validation.
+Earlier funding/validation snapshots below retain their historical scope.
+
+
 The explicit authorization `pr120-supplement-20261108-400-01` increases only
 campaign `pr120-live-20261107-400` from EUR 400 to EUR 800. The existing leased
 `extend-budget` operation was invoked once after checking that this reference
@@ -519,3 +527,99 @@ the short OS lease while an ordinary local command is submitted. Inspection now
 uses the existing local command gate, allowing the command to wait for that read.
 Active workers and cross-coordinator conflicts retain their original lease,
 journal, cancellation and financial protections; no retry or permission is added.
+
+
+The EUR 300 continuation preserved the same strict Amazon extension and v5 oracle.
+[Amazon08](amazon08-first-cause.json) accepted search/cleanup and occurrence selection,
+then passed its ordinary local search-block review at call 14. The next responsibility
+propagated raised failures with required cleanup instead of inventing universal recovery.
+A later cursor nevertheless saw an empty optional argument projection for a previously
+used Browser operation. Exact-version, unchanged accepted-producer input selections
+are now reusable; values and binding authority are not copied. Cancellation also
+exposed an overly narrow one-uncertain-attempt retention predicate. Retention now
+verifies every earlier sibling journal, completed receipt and conservative coverage;
+it preserves all money and forbids old replay. All 595 focused benchmark tests pass.
+
+[Amazon09](amazon09-first-cause.json), on b480b5fa, selected the same isolated
+search group twice despite having the connected contracts. Both drafts rejected
+that strategy because it would close a resource still needed by later consumers.
+The offered schema already contained composed controls. The run was stopped at
+call 22 with 21 known receipts and no accepted checkpoint; it never reached global
+review, approval or execution. Its complete uncertain reservation remains retained.
+The subsequent generic guidance distinguishes business review, group declaration
+and invocation, composed operation selection, and ancestor-owned cleanup. Four
+runtime cases verify success, consumer failure, producer failure and an unused group;
+100 focused checks and all 2,919 planning tests pass. Guidance is optional under
+strict targets, including the complete request identity; historical requests stay exact.
+
+[Intermediate validation on b480b5fa](validation-b480.json) covers the complete
+solution: 8,537 passed, 12 existing skips, zero failures, 33 unique assemblies.
+The 216 slow fixture cases ran once each in four disjoint groups against frozen
+binaries. [The preceding 3f38b833 validation](validation-3f38.json) is retained
+separately. None establishes live end-to-end qualification. After Amazon09's
+permanent retention, the campaign audit showed EUR 268.459319301388266905508279476
+available, with EUR 33.673622928795342588446036724 of separately retained
+application reservations. Global funding and provider invoices remain unavailable.
+
+
+[Code15](code15-first-cause.json), on 6c0fdf07, accepted the pinned clone,
+Copilot qualification and root cleanup at call 15 (about 619 seconds to its receipt,
+EUR 5.4813882669055082848186296462 measured planning tariff). Its ordinary local
+Judge approved the qualification block at call 18 with the root still open and the
+later review/report explicitly pending. The fixed business responsibility remained
+unchanged. At implementation-selection call 22, the provider returned 555 characters
+of incomplete JSON followed by 16,103 formatting-whitespace characters, exhausting
+its unchanged 4,096-token allocation. No fragment was accepted from that response.
+All 22 receipts and charges are known, with no unresolved transport reservation;
+measured planning tariff totals EUR 9.117635467980295566502463056. This is not global
+review, approval or execution. The old run will not be resumed. The generic correction
+applies the existing compact JSON presentation to fresh implementation selection,
+without increasing allocations or changing response choices; 66 focused checks pass.
+Available campaign allocation after the run is EUR 259.341683833407971339005816276.
+
+[Complete local validation on 6c0fdf07](validation-6c0f.json) passed 8,546 tests,
+with 12 existing skips and zero failures across 33 unique assemblies. Every slow
+fixture case ran exactly once against unchanged frozen binaries. The production
+frontend, warning-free Release/staged tools, both independent packages and actual
+published Native AOT smoke passed. This source precedes the implementation syntax
+correction and is not relabeled as its validation. Remote standalone and Native AOT
+CI passed; the planner workflow's external Copilot checksum download returned HTTP
+504. One failed-job rerun was requested on the unchanged commit.
+
+
+[Code16](code16-first-cause.json), on d52e07a0, accepted the pinned clone,
+repository observations, Copilot qualification and declaration inspection. The
+ordinary local Judge returned ok at call 27 after one needs_context response,
+with the root still open. The first contribution arrived at call 19 (about
+756 seconds to its receipt, EUR 7.8240483654276757725033587103 measured planning
+tariff). This is slower and more expensive than Code15's first contribution;
+no convergence improvement is claimed. Its implementation decisions completed
+without the former output-exhaustion incident, but the second block accepted
+no executable work before the protected stop at pending call 37.
+
+Call 30 selected four legal issued evidence IDs. Reading the next interface page
+first moved the cursor and caused the later original-input schema lookup to reject
+its previously visible accepted producer. A controlled regression reproduces that
+order-dependent failure. The correction retains the already issued host producer
+page before cursor advancement, without registering an extra requested read or
+binding authority. Ten new cases cover both batch orders, exact automatic description
+continuations and atomic rejection of denied, stale or missing schemas; all 347
+focused checks pass. Complete validation of this correction remains pending.
+
+All 36 known Code16 receipts remain intact, with measured planning tariff
+EUR 17.0035378414688759516345723241. Its full uncertain application reservation
+EUR 8.613210927004030452306314375 is permanently retained; replay and continuation
+are forbidden. The [dated campaign state](continuation-300-state.json) reports
+EUR 233.724935064935064935064929401 available after all captured campaign charges,
+campaign holds and separately retained application holds. The EUR 300 supplement
+remains registered exactly once. No global review, approval or execution success
+is inferred from the local Judge.
+
+[Complete validation on d52e07a0](validation-d52e.json) passed 8,548 tests,
+with 12 existing skips and zero failures across 33 unique assemblies. Frontend,
+warning-free Release/staged tools, both independent packages and actual published
+Native AOT smoke pass. This validation precedes the batch-cursor correction.
+[Remote CI evidence](ci-external-checksum-504.json) records the repeated official
+Copilot checksum-download HTTP 504, including a single failed-job rerun and an
+independent read-only reproduction. The standalone and Native AOT checks pass;
+planner CI is not reported green. PR #120 remains Draft and unmerged.

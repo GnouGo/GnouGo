@@ -1,0 +1,59 @@
+{
+  "source": "b480b5fa5edf92f7ceb6d824e1f1af9efafc97a5",
+  "passed": 8537,
+  "skipped": 12,
+  "failed": 0,
+  "assemblies": 33,
+  "complete_disjoint_partition": true,
+  "inventory_and_actual_counts_equal": true,
+  "frozen_binaries_unchanged": true,
+  "shards": [
+    {
+      "index": 1,
+      "passed": 67
+    },
+    {
+      "index": 2,
+      "passed": 54
+    },
+    {
+      "index": 3,
+      "passed": 52
+    },
+    {
+      "index": 4,
+      "passed": 43
+    }
+  ],
+  "private_log_sha256": {
+    "post-amazon08-full-remainder.log": "059afc4d786de3ccbfe5bf07faf03f6d34bf292b5d34baf0b220fae11bda56c2",
+    "post-amazon08-fixture-shard1.log": "e6fbc3f236aa8aab4b5a9513da8a9eb68a9f5ddb0b451107175e0b628644112d",
+    "post-amazon08-fixture-shard2.log": "82a27f08ac7fe76f4d8e2f61574cd57110fc83bb0c0d79603339bc4de0934fd5",
+    "post-amazon08-fixture-shard3.log": "ed2d30a35d1c57dab04a68ae6daa04204c513d09f4711ea8afc71d964161423d",
+    "post-amazon08-fixture-shard4.log": "43c6506430d7d07fb0c72480834872cd4a14eca47ea80b03d683bc7eddb56f7a"
+  },
+  "limitations": [
+    "Intermediate source before lifecycle guidance; no live end-to-end qualification inferred.",
+    "12 existing platform/opt-in skips."
+  ],
+  "all_fixture_process_exit_codes_zero": true,
+  "remainder_process_exit_code": 0,
+  "release_build": {
+    "exit_code": 0,
+    "warnings": 0,
+    "errors": 0
+  },
+  "frontend_build": {
+    "exit_code": 0
+  },
+  "packs": {
+    "Core": "passed",
+    "Planning": "passed"
+  },
+  "native_aot": {
+    "rid": "osx-arm64",
+    "publish_exit_code": 0,
+    "published_binary_run_exit_code": 0,
+    "mocked_inference_not_live_qualification": true
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "source": "b480b5fa5edf92f7ceb6d824e1f1af9efafc97a5",
+  "run": "amazon-qualification-20261109-09",
+  "session_id": "5445052040c34aa49c2059650797c452",
+  "known_receipts": 21,
+  "stopped_pending_call": 22,
+  "status": "cancelled_and_permanently_retained",
+  "accepted_checkpoints": 0,
+  "first_cause": "Repeated selection of an isolated search-only reusable group, rejected twice because it would close a resource still needed by later consumers. The issued implementation schema already offered composed controls and connected operation selection.",
+  "schema_missing_valid_transition": false,
+  "fix": "Fresh optional generic guidance distinguishes business review, reusable declaration/invocation, parent cleanup lifetime and composed operation selection. No schema, original obligation, transition, permission or review authority changed.",
+  "regression_before_fix": {
+    "failed": 3,
+    "passed": 6
+  },
+  "focused_after_fix": {
+    "passed": 100,
+    "failed": 0
+  },
+  "retention_evidence_hash": "052c0dc226271a8f1b88c2e1820c5eeb75a7bc6a4ef2201531f631406e9925ab",
+  "measured_planning_tariff_estimate_eur": "5.6680788177339901477832512312",
+  "uncertain_campaign_reservation_eur": "7.363098969995521719659650694",
+  "all_reservations_retained": true,
+  "request_replay_forbidden": true,
+  "run_continuation_forbidden": true,
+  "execution_qualified": false,
+  "available_after_retention_eur": "268.459319301388266905508279476",
+  "private_evidence_sha256": {
+    "amazon09-final.json": "57b0fd14ee7c5ba0a647b41c6f369de30c14158f223842dc5cedb503fc725152",
+    "amazon09-final-receipts.json": "698e98c6b9c834f0ec79509e2bd56d4e5cae38e5ba0e7f7d2815508bcb976b79",
+    "amazon09-call19-request.json": "f946c739693d7e6e44bf8c3bceba3374ca3623af113e0c1ee515f9d8a11cfafc",
+    "amazon09-protected-stop.log": "d6ac5da17b07af487fd4eaca9d3a25663be7fdee4ac28d20cf662826fc2125ea",
+    "amazon09-retention-applied.json": "cc5116b39eaeb9a8e568b39c7b1cb84a1307bc66230403b1ad3c865931741ab6",
+    "amazon09-retained-final-audit.json": "0387055d83a8bbef8102d54bf66c8cdc3d570bc90eee0235dac7dcdac0ad1c64",
+    "amazon09-lifecycle-red.log": "52870c13ae156154e00588f79c69503d565e543d24c817d395737a5d3a1ce497",
+    "amazon09-lifecycle-final-green.log": "7510ebe597b74b4763d3788dbad93e093d8647018f4b4b7b8a0569a14979a346"
+  },
+  "offered_implementation_kind_choices": [
+    "close",
+    "conditional",
+    "field",
+    "foreach",
+    "group",
+    "input",
+    "operation",
+    "parallel",
+    "sequence",
+    "transform",
+    "value"
+  ]
+}
