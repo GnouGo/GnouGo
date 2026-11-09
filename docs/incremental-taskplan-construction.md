@@ -181,6 +181,12 @@ Necessary controls and groups may contain their body, exports and cleanup immedi
 Their nested scopes may combine sequence, conditional, foreach and parallel controls;
 the selected anchor still constrains the top-level fragment, and every descendant
 counts toward the same recursive task allowance.
+Draft guidance follows those reachable nested shapes, including ordered foreach
+collections, nested array exports, matching conditional branches and independent
+parallel exports. New child scopes declare their own output ports; their contracts
+are derived from those declarations rather than retrieved as future accepted interfaces.
+Scalar fragments keep their focused guidance. Existing captures, validation, reviews
+and resource/permission checks are unchanged.
 Newly supplied complete control/group bodies close mechanically before checking
 same-fragment consumers, including intentionally empty optional branches. The host
 records those derived closures without changing the received response. An explicit

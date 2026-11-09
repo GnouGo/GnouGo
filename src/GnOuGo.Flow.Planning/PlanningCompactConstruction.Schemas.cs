@@ -258,6 +258,15 @@ internal static partial class PlanningCompactConstruction
     internal static string DraftSemantics(PlanningSession state, PlanningConstructionStep step)
     {
         var scope = new TaskPlanSymbols(state.Plan ?? new TaskPlan()).Scopes.SingleOrDefault(s => s.Path == step.Scope);
+        var kinds = BusinessFragmentKinds(state);
+        // The issued fragment can compose nested controls even when its selected
+        // anchor is a different control or a reusable group. Its semantics must
+        // cover those reachable shapes, just like its strict grammar does.
+        var nestedControls = SupportsBusinessFragment(step.Kind) &&
+            (kinds.Any(kind => NestedControlKinds.Contains(kind, StringComparer.Ordinal)) ||
+             step.Kind == "group" && !BlockAnchorConstructed(state));
+        var controls = new HashSet<string>(kinds.Where(kind => NestedControlKinds.Contains(kind, StringComparer.Ordinal)), StringComparer.Ordinal);
+        if (nestedControls) controls.UnionWith(NestedControlKinds);
         var hints = new List<string> { ReusableGroupSemantics, SelectedExpectationsSemantics };
         if (SupportsBusinessFragment(step.Kind))
             hints.Add("Build one coherent business block with its related value/transform helpers and selected operations. The captured maxTasksPerDraft is shared by this entire extension. Newly supplied complete control/group bodies close automatically, including empty optional branches; no closeScopes bookkeeping is needed for them. continueInScope retains its exact original or block-owned scope and ancestors when this implementation cursor continues; null finishes only this cursor. completeBlock explicitly claims that the retained business objective, expected results and success criteria are fulfilled across all its accepted fragments. Keep completeBlock false for technical prerequisites, helper computations and incomplete contributions, including a finished technical scope. A completed block cannot retain continueInScope. Evidenced empty prerequisite openings remain open. A continuation does not close original requirements or discharge consumers. Existing boundaries still close explicitly; unfinished containers expose no usable result.");
@@ -266,8 +275,10 @@ internal static partial class PlanningCompactConstruction
             hints.Add("dependsOn names preceding same-scope tasks only; data bindings already imply dependencies and ancestor values use captures. requires is a Boolean assertion: false fails.");
             hints.Add("always contains cleanup on completion or failure; preserve available payloads before nested cleanup. present tests preceding local or lexical-ancestor task completion, not caller inputs or field nullability. For a null guard, compare the exact input, output or field with null.");
         }
-        if (step.Scope != "/root")
+        if (step.Scope != "/root" || nestedControls)
             hints.Add("Later tasks in the same scope can bind ordinary task results directly; no scope export is needed. outputs export values across the enclosing task/group boundary; /root outputs are public results. Outside consumers cannot bind hidden child tasks directly. Open containers expose no consumable results.");
+        if (nestedControls)
+            hints.Add("For newly supplied child scopes, declare their output port names in body.outputs or branch outputs. The compiler derives each enclosing task's output contract from those declarations; a future task has no accepted interface to retrieve before it is declared. A later consumer binds that task's declared output port. Do not invent an implicit collection port or bypass the scope boundary.");
         if (step.Kind == "value") hints.Add(ValueSemantics);
         if (step.Kind == "transform")
             hints.Add("transform resultType is an object of named output ports; output.port selects that field's type, not the whole result object. extract preserves observed facts; interpret uses its objective as the runtime LLM instruction, inputs as data and resultType as the output contract, without a separate expression. Neither executes external effects.");
@@ -277,16 +288,16 @@ internal static partial class PlanningCompactConstruction
                     ? " Project input targets only produce host warnings; actual provider limits still apply."
                     : " The complete follow-up must fit its captured input ceiling.") +
                 " Retrieval expands binding grammar. [] does not mean no arguments are needed.");
-        if (step.Kind == "foreach")
+        if (controls.Contains("foreach"))
         {
             hints.Add("foreach.maxItems is the TOTAL input-item ceiling; excess fails, it never samples or truncates. maxConcurrency limits simultaneous workers, not total items. Neither bound guarantees a nonempty collection.");
             hints.Add("Use a finite supported capacity; the TaskPlan default maxItems=" + new PlanTask().MaxItems.ToString(System.Globalization.CultureInfo.InvariantCulture) + ". Assess conflicts with explicit original bounds; unspecified capacity remains unverified. Runtime ceilings still apply.");
         }
-        if (step.Kind == "foreach" || scope?.Owner?.Kind == "foreach")
+        if (controls.Contains("foreach") || scope?.Owner?.Kind == "foreach")
             hints.Add("Each foreach body output becomes an array on the enclosing task, preserving input order and repetitions; array-valued outputs remain nested. Within the body, item and index refer to the current iteration.");
-        if (step.Kind == "conditional" || scope?.Owner?.Kind == "conditional")
+        if (controls.Contains("conditional") || scope?.Owner?.Kind == "conditional")
             hints.Add("conditional chooses body or otherwise; both alternatives must export matching names, types, nullability and requiredness. Guard nullable values on the consuming path.");
-        if (step.Kind == "parallel" || scope?.Owner?.Kind == "parallel")
+        if (controls.Contains("parallel") || scope?.Owner?.Kind == "parallel")
             hints.Add("Parallel sibling branches are independent and their exported names must be distinct; maxConcurrency limits simultaneous branches.");
         if (step.Kind == "group" || scope is { Parent: null } && step.Scope != "/root")
             hints.Add("A reusable group has isolated named inputs; its body cannot capture caller inputs or tasks. Close its body before selecting a call.");

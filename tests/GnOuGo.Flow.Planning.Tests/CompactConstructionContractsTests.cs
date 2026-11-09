@@ -854,7 +854,7 @@ public sealed class CompactConstructionContractsTests
         Assert.Contains("preserving input order and repetitions", description, StringComparison.Ordinal);
         Assert.Contains("preceding same-scope tasks", description, StringComparison.Ordinal);
         Assert.Contains("ancestor values use captures", description, StringComparison.Ordinal);
-        Assert.DoesNotContain("conditional chooses", description, StringComparison.Ordinal);
+        Assert.Contains("conditional chooses", description, StringComparison.Ordinal); // Nested conditional tasks are part of this issued grammar.
         Assert.Empty(PlanningContractValidation.ValidateSchema(request.StructuredOutputSchema.AsObject(), strict: true));
         Assert.InRange(PlanningRequestMeasurements.Measure(Complete(request), PlanningConstruction.DraftPurpose, 8000).EstimatedInputTokens, 1, 8000);
     }
