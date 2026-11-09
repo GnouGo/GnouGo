@@ -40,9 +40,10 @@ public sealed partial class DiagnosticPlanningBrowserTests
         }
         await using var app = GnOuGoAgentWebHost.Build(args, "http://127.0.0.1:0", Path.Combine(root, "src/GnOuGo.Agent.Server"), false, Configure);
         var resumeReleasePath = "/testing/release-resume-" + Guid.NewGuid().ToString("N");
-        app.MapPost(resumeReleasePath, () =>
+        app.MapPost(resumeReleasePath, async () =>
         {
-            Assert.True(resume.Persisted.Task.IsCompleted);
+            resume.ReleaseRequested.TrySetResult();
+            await resume.Persisted.Task.WaitAsync(ct);
             resume.Release.TrySetResult();
             return Microsoft.AspNetCore.Http.Results.NoContent();
         });
@@ -82,7 +83,7 @@ public sealed partial class DiagnosticPlanningBrowserTests
             otherSession = other.Request.SessionId, output, resumeReleasePath })); process.StandardInput.Close();
         var stdout = process.StandardOutput.ReadToEndAsync(ct); var stderr = process.StandardError.ReadToEndAsync(ct);
         try { await process.WaitForExitAsync(ct).WaitAsync(TimeSpan.FromMinutes(2), ct); }
-        finally { resume.Release.TrySetResult(); if (!process.HasExited) process.Kill(entireProcessTree: true); }
+        finally { resume.ReleaseRequested.TrySetResult(); resume.Release.TrySetResult(); if (!process.HasExited) process.Kill(entireProcessTree: true); }
         var log = await stdout + "\n" + await stderr;
         await File.WriteAllTextAsync(Path.Combine(output, "browser-process.log"), log.Replace(browser.Address.Fragment, "[redacted]", StringComparison.Ordinal), ct);
         Assert.True(process.ExitCode == 0, log); Assert.Equal(0, model.Calls);
@@ -92,6 +93,7 @@ public sealed partial class DiagnosticPlanningBrowserTests
     {
         internal string? SessionId;
         internal int Paused;
+        internal TaskCompletionSource ReleaseRequested { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         internal TaskCompletionSource Persisted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         internal TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
@@ -105,6 +107,8 @@ public sealed partial class DiagnosticPlanningBrowserTests
             if (saved && session.Request.SessionId == pause.SessionId && session.Status == PlanningStatus.Generating &&
                 Interlocked.Exchange(ref pause.Paused, 1) == 0)
             {
+                // The persisted status may be observed before this fixture continuation.
+                await pause.ReleaseRequested.Task.WaitAsync(ct);
                 pause.Persisted.TrySetResult();
                 await pause.Release.Task.WaitAsync(ct);
             }
