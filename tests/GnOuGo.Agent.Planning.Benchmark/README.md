@@ -881,3 +881,10 @@ and a read-only HTTP404 are inconclusive.
 Campaign inspection uses the existing bounded owned metadata reader and exact
 budget key. It preserves the canonical evidence hash and accounting while avoiding
 tenant-wide payload hydration before campaign filtering.
+
+SDK proxy denial records version2 retain fixed precondition reason codes and
+sanitized encrypted route provenance (path, origin hash and pinned-prefix
+comparisons). They omit URI credentials, queries, authorization headers and
+arbitrary exception text. Historical generic denials remain generic; fresh
+diagnostic evidence does not rewrite them or imply a provider attempt. The HTTP
+journal remains authoritative for dispatch, accounting and recovery.

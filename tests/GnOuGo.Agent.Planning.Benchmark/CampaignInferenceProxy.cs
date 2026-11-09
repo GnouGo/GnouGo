@@ -38,7 +38,7 @@ internal sealed class CampaignInferenceProxy(WebApplication app) : IAsyncDisposa
             }
             catch (Exception ex)
             {
-                await model.RetainProxyFailureAsync(run, body, ex);
+                await model.RetainProxyFailureAsync(run, body, ex, context.Request.Headers["X-GnOuGo-Inference-Upstream"].ToString());
                 context.Response.StatusCode = ex is InvalidOperationException ? 400 : 502;
                 await context.Response.WriteAsync("Campaign inference admission or transport failed; encrypted evidence retained.", CancellationToken.None);
             }

@@ -775,6 +775,39 @@ public sealed class BenchmarkAdmissionTests
         }
     }
 
+    [Theory]
+    [InlineData("Inference upstream is outside the pinned provider.", "upstream_outside_pinned_provider")]
+    [InlineData("The SDK endpoint differs from the captured wire API; no provider attempt was started.", "sdk_wire_api_mismatch")]
+    [InlineData("Execution inference requires the pinned model, one completion and fully visible text input.", "pinned_model_or_visible_input")]
+    [InlineData("Private detail do-not-record", "admission_or_transport_failure")]
+    public async Task ProxyDenialPreservesSafeFirstCauseWithoutExceptionText(string message, string reason)
+    {
+        using var fixture = new Fixture(); using var model = fixture.Model(new Rates(fixture.Time));
+        await model.RetainProxyFailureAsync("diagnostic", "{}", new InvalidOperationException(message));
+        var records = await fixture.Campaign.OwnedRecordsAsync("planning-evaluation-execution-admissions", Ct);
+        var payload = JsonNode.Parse(Assert.Single(records).Value)!;
+        Assert.Equal(reason, payload["reason"]!.ToString());
+        Assert.DoesNotContain("do-not-record", payload.ToJsonString(), StringComparison.Ordinal);
+        Assert.Equal(0L, (await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct))["calls"]!.GetValue<long>());
+    }
+
+    [Fact]
+    public async Task ProxyDenialRouteEvidenceOmitsCredentialsAndQueryWithoutReservingInference()
+    {
+        using var fixture = new Fixture(); using var http = new HttpClient(new RuntimeHandler(200));
+        using var model = RuntimeModel(fixture, RuntimeOptions(), http);
+        await model.RetainProxyFailureAsync("diagnostic", "{}", new InvalidOperationException("Inference upstream is outside the pinned provider."),
+            "https://uri-user:do-not-record@example.invalid/alternate/responses?token=do-not-record");
+        var payload = JsonNode.Parse(Assert.Single(await fixture.Campaign.OwnedRecordsAsync("planning-evaluation-execution-admissions", Ct)).Value)!;
+        Assert.Equal("/alternate/responses", payload["upstream_path"]!.ToString());
+        Assert.Equal(64, payload["upstream_origin_sha256"]!.ToString().Length);
+        Assert.False(payload["provider_origin_matches"]!.GetValue<bool>());
+        Assert.DoesNotContain("do-not-record", payload.ToJsonString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("uri-user", payload.ToJsonString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("?token", payload.ToJsonString(), StringComparison.Ordinal);
+        Assert.Equal(0L, (await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct))["calls"]!.GetValue<long>());
+    }
+
     private sealed class ToolReasoningHandler : HttpMessageHandler
     {
         internal int Calls;

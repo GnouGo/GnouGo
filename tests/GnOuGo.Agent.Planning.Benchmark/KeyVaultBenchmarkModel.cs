@@ -946,20 +946,40 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
     // GPT-5 uses o200k_base. Count the full visible JSON envelope with headroom
     // for chat framing; retain the larger byte-based reservation for EUR safety.
     internal static int ExecutionInputEstimate(string body) => checked((int)Math.Ceiling(ExecutionTokenizer.Value.CountTokens(body) * 1.25) + 4096);
-    internal Task RetainProxyFailureAsync(string run, string body, Exception failure)
+    internal Task RetainProxyFailureAsync(string run, string body, Exception failure, string? upstreamText = null)
     {
         // This record is encrypted like the campaign journal. Public reports use
         // only its type, reason and counts, never the retained request contents.
         var reason = (failure as WorkflowRuntimeException)?.Details?["reason"]?.ToString() ?? (failure.Message switch
         {
+            "Inference upstream is outside the pinned provider." => "upstream_outside_pinned_provider",
+            "The SDK endpoint differs from the captured wire API; no provider attempt was started." => "sdk_wire_api_mismatch",
+            "Missing SDK request identity." => "sdk_request_identity_missing",
+            "Execution inference requires the pinned model, one completion and fully visible text input." => "pinned_model_or_visible_input",
+            "Execution inference lacks a bounded output allowance." => "bounded_output_missing",
+            "Unsupported inference protocol." => "unsupported_inference_protocol",
+            "No exact completed SDK inference response is available." => "saved_sdk_response_unavailable",
             "Execution request exceeds the campaign input allowance." => "input_allowance",
             "The campaign or session cannot cover another HTTP attempt." => "spending_or_attempt_allowance",
             "No currency quote." => "currency_quote_unavailable",
             _ => "admission_or_transport_failure"
         });
-        return _campaign.SaveAsync("planning-evaluation-execution-admissions", run + ":" + PlanningGraphCompiler.Fingerprint(body + reason),
-            new() { ["reason"] = reason, ["exception_type"] = failure.GetType().Name,
-                ["json_bytes"] = Encoding.UTF8.GetByteCount(body), ["body"] = body }, CancellationToken.None);
+        var evidence = new JsonObject { ["version"] = 2, ["reason"] = reason, ["exception_type"] = failure.GetType().Name,
+            ["json_bytes"] = Encoding.UTF8.GetByteCount(body), ["body"] = body };
+        if (Uri.TryCreate(upstreamText, UriKind.Absolute, out var upstream) && upstream.Scheme is "https" or "http")
+        {
+            // Encrypted first-cause provenance only. Never retain URI credentials,
+            // query parameters, authorization headers or arbitrary exception text.
+            evidence["upstream_path"] = upstream.AbsolutePath;
+            evidence["upstream_origin_sha256"] = PlanningGraphCompiler.Fingerprint(upstream.GetComponents(UriComponents.SchemeAndServer, UriFormat.UriEscaped));
+            if (Uri.TryCreate(_options.ResolveProvider(Provider)?.Url, UriKind.Absolute, out var configured))
+            {
+                evidence["configured_provider_path"] = configured.AbsolutePath;
+                evidence["provider_origin_matches"] = upstream.GetLeftPart(UriPartial.Authority) == configured.GetLeftPart(UriPartial.Authority);
+                evidence["provider_path_prefix_matches"] = upstream.AbsolutePath.StartsWith(configured.AbsolutePath.TrimEnd('/') + "/", StringComparison.Ordinal);
+            }
+        }
+        return _campaign.SaveAsync("planning-evaluation-execution-admissions", run + ":" + PlanningGraphCompiler.Fingerprint(body + reason), evidence, CancellationToken.None);
     }
     public void Dispose() { _http.Dispose(); _dispatchGate.Dispose(); }
 }

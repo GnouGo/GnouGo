@@ -44,6 +44,15 @@ clarification browser case was executed successfully in a separate exact filtere
 run with the explicit staged Playwright path, counted once as passed. All 216
 slow fixtures ran exactly once; Release/frontend/packs/published AOT smoke passed.
 
+The [first native SDK Responses probe](sdk-responses-local-denial-diagnostics.json)
+constructed a Responses body but failed local preflight before any recorded campaign
+or physical-provider request. No command ran; the durable terminal receipt reloaded
+and cleanup succeeded. The historical denial retained only a generic category, so
+its exact failing guard remains unknown. New denials preserve fixed first-cause
+codes and encrypted path/prefix provenance while omitting URI credentials, queries,
+authorization headers and arbitrary exception text. All 266 focused tests pass.
+No admission check, route authority, reservation or oracle is relaxed.
+
 The explicit authorization `pr120-supplement-20261108-400-01` increases only
 campaign `pr120-live-20261107-400` from EUR 400 to EUR 800. The existing leased
 `extend-budget` operation was invoked once after checking that this reference
