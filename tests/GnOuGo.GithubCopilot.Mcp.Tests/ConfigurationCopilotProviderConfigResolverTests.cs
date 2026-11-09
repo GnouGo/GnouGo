@@ -171,6 +171,30 @@ public sealed class ConfigurationCopilotProviderConfigResolverTests
         Assert.Null(result.Provider.ApiKey);
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("/")]
+    public async Task ResolveAsync_KeepsConfiguredDeploymentPrefixForExplicitResponses(string trailingSlash)
+    {
+        var endpoint = "https://gateway.example/providers/openai/deployments/wire-model" + trailingSlash;
+        using var services = CreateServices(new Dictionary<string, string?>
+        {
+            ["Code:Copilot:Providers:Gateway:type"] = "openai",
+            ["Code:Copilot:Providers:Gateway:url"] = endpoint,
+            ["Code:Copilot:Providers:Gateway:model"] = "known-model",
+            ["Code:Copilot:Providers:Gateway:apiVersion"] = "2025-01-01",
+            ["Code:Copilot:Providers:Gateway:wireApi"] = "responses",
+            ["Code:Copilot:Providers:Gateway:authType"] = "bearer",
+            ["Code:Copilot:Providers:Gateway:bearerToken"] = "gateway-token"
+        });
+        var result = await CreateResolver(services).ResolveAsync("Gateway", "fallback-model", null, TestContext.Current.CancellationToken);
+        Assert.NotNull(result);
+        Assert.Equal(endpoint, result.Provider.BaseUrl);
+        Assert.Equal("responses", result.Provider.WireApi); Assert.Equal("azure", result.Provider.Type);
+        Assert.Equal("known-model", result.Provider.ModelId); Assert.Equal("wire-model", result.Provider.WireModel);
+        Assert.Equal("2025-01-01", result.Provider.Azure!.ApiVersion); Assert.Equal("gateway-token", result.Provider.BearerToken);
+    }
+
     [Fact]
     public async Task ResolveAsync_AcceptsClaudeAliasForAnthropicProvider()
     {

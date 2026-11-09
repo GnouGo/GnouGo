@@ -1,0 +1,40 @@
+{
+  "run": "sdk-responses-20261109-02",
+  "source": "ababa2b963e5e6317d5aa70bb927327bf2bfd3ca",
+  "sdk_wire_api": "responses",
+  "actual_denial": {
+    "reason": "upstream_outside_pinned_provider",
+    "provider_origin_matches": true,
+    "provider_path_prefix_matches": false,
+    "configured_route_shape": "/providers/openai/deployments/<deployment>",
+    "sdk_attempted_route_shape": "/providers/openai/responses"
+  },
+  "physical_provider_attempt_records": 0,
+  "campaign_request_records": 0,
+  "observed_commands": 0,
+  "cleanup": true,
+  "passed": false,
+  "routing_correction": "For explicit native Responses, retain the configured versioned deployment URL. Preserve the existing Chat Azure parent-route mapping, API version, credentials and model identity.",
+  "authority": "The endpoint guard remains strict. No sibling-route fallback or configuration amendment. Actual gateway support remains unverified.",
+  "validation": {
+    "red_failed": 2,
+    "all_copilot_mcp_passed": 247,
+    "failed": 0,
+    "new_cases": 2
+  },
+  "closed_funding": {
+    "ceiling_eur": "1200",
+    "available_eur": "158.449574563367666815942671688",
+    "retained_application_reservations_eur": "44.588114643976712942230183612",
+    "global_funding": "unavailable",
+    "old_holds_preserved": true
+  },
+  "private_evidence_sha256": {
+    "sdk-responses-02-final.json": "b74374a2099ab5ea646a1a541252364505dbedfa59edc2e917a540c1b39bed0e",
+    "sdk-responses-02-admission.json": "4ec7b996726e81387ec4a19f3db367af0fd0d4fd8908b48093d0b881679c8a26",
+    "sdk-responses02-closed-audit.json": "3d8fd1f3e80b8e7694eb27457241714926aa7c17e476e38dac89932b71b56bb2",
+    "sdk-responses-deployment-prefix-red.log": "314e66b11c933fd1a9201baf36d169b961f0c1e0904d7c82963414d6c3f38798",
+    "sdk-responses-deployment-prefix-green.log": "86b23e04f3c0b3aa08310843591ab0e20217938c327e0e4d2d7283a20c110250",
+    "sdk-responses-deployment-prefix-green-exit.json": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01"
+  }
+}
