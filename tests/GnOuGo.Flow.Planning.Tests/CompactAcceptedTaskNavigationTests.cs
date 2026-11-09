@@ -1672,6 +1672,65 @@ public sealed class CompactAcceptedTaskNavigationTests
     }
 
     [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    [InlineData(false, true)]
+    public async Task SelectionBatchKeepsItsIssuedProducerSchemaReadableWhileAdvancingTheInterfacePage(bool pageFirst, bool description)
+    {
+        var state = await ProducerInputState("selection");
+        AuthorAllowance(state, 16000);
+        var capability = state.Catalog!.Capabilities.Single(value => value.Id == "allocate");
+        if (description) capability.Description = new string('d', 4500);
+        foreach (var id in new[] { "second", "third", "fourth", "fifth" }) state.Plan!.Root.Tasks.Add(Value(id));
+        PlanningConstruction.LoadEvidence(state, ["schema-page:allocate@v1:/input:0"]);
+        var schemaAddress = description ? "description:allocate@v1:0" : "schema:allocate@v1:/input/properties/optional_0";
+        const string pageAddress = "page:interfaces:4";
+        List<string> batch = pageFirst ? [pageAddress, schemaAddress] : [schemaAddress, pageAddress];
+        var issued = ProducerInputPresentation(state, "selection");
+        Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(new JsonArray(batch.Select(value => (JsonNode?)JsonValue.Create(value)).ToArray()),
+            issued.StructuredOutputSchema!["properties"]!["evidenceRequests"]!));
+        var plan = PlanningConstruction.Hash(state.Plan);
+        var contract = JsonSerializer.Serialize(state.Catalog!.Capabilities.Single(value => value.Id == "allocate"), PlanningJsonContext.Default.PlanningCapability);
+        PlanningConstruction.LoadEvidence(state, batch, followup: current => ProducerInputRequest(current, "selection"),
+            purpose: PlanningCompactConstruction.ImplementationPurpose);
+        Assert.Equal(4, state.Construction!.Compact!.InterfaceOffset);
+        if (description)
+            Assert.Equal(capability.Description, string.Concat(new[] { 0, 2048, 4096 }.Select(offset =>
+                state.Construction.Evidence!["description:allocate@v1:" + offset]!["text"]!.ToString())));
+        else Assert.Equal("string", state.Construction.Evidence![schemaAddress]!["schema"]!["type"]!.ToString());
+        Assert.NotNull(state.Construction.Evidence![pageAddress]);
+        Assert.NotNull(state.Construction.Evidence["page:interfaces:0"]);
+        Assert.DoesNotContain(PlanningConstruction.EvidenceBatchFingerprint(state, ["page:interfaces:0"]), state.Construction.EvidenceRequests);
+        Assert.Null(state.Construction.Compact.CurrentStep);
+        Assert.Empty(state.Construction.Compact.PendingCommitments);
+        Assert.Equal(plan, PlanningConstruction.Hash(state.Plan));
+        Assert.Equal(contract, JsonSerializer.Serialize(state.Catalog!.Capabilities.Single(value => value.Id == "allocate"), PlanningJsonContext.Default.PlanningCapability));
+        Assert.Equal(0, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+    }
+
+    [Theory]
+    [InlineData(true, "denied")]
+    [InlineData(false, "denied")]
+    [InlineData(true, "stale")]
+    [InlineData(false, "stale")]
+    [InlineData(true, "unknown")]
+    [InlineData(false, "unknown")]
+    public async Task RejectedMixedProducerEvidenceBatchPreservesTheOriginalCursorAndAllState(bool pageFirst, string defect)
+    {
+        var state = await ProducerInputState("selection");
+        foreach (var id in new[] { "second", "third", "fourth", "fifth" }) state.Plan!.Root.Tasks.Add(Value(id));
+        PlanningConstruction.LoadEvidence(state, ["schema-page:allocate@v1:/input:0"]);
+        var address = defect == "stale" ? "schema:allocate@old:/input/properties/optional_0" :
+            defect == "unknown" ? "schema:allocate@v1:/input/properties/missing" : "schema:allocate@v1:/input/properties/optional_0";
+        if (defect == "denied") state.Catalog!.Policy.DeniedCapabilityIds.Add("allocate");
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        Assert.Throws<PlanningResponseException>(() => PlanningConstruction.LoadEvidence(state,
+            pageFirst ? ["page:interfaces:4", address] : [address, "page:interfaces:4"]));
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task ExactProducerOutputCannotBypassAmbiguousAcceptedContractVersions(bool retained)

@@ -190,6 +190,22 @@ internal static partial class PlanningConstruction
         // Explicitly requested originals remain available for this decision.
         // Admission checks the whole union on the clone before it is accepted.
         var result = construction.Evidence is { } retained ? retained.DeepClone().AsObject() : new JsonObject();
+        if (construction.Compact is { CurrentStep: null } compact &&
+            requests.Any(address => address.StartsWith("page:interfaces:", StringComparison.Ordinal)))
+        {
+            // The issued page is still the authority for other members of this
+            // batch, and for exact continuations of their requested originals.
+            // Retain that host projection before navigation advances its cursor.
+            // This is not a model-requested read or new producer/binding access.
+            var address = "page:interfaces:" + compact.InterfaceOffset.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (!result.ContainsKey(address))
+            {
+                var page = PlanningCompactConstruction.InterfaceDirectory(state, null, compact.InterfaceOffset);
+                construction.Evidence ??= new JsonObject();
+                construction.Evidence[address] = page.DeepClone();
+                result[address] = page;
+            }
+        }
         foreach (var request in requests)
         {
             var split = request.IndexOf(':');
