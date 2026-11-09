@@ -22,11 +22,13 @@
     "failed": 0,
     "skipped": 0,
     "new_cases": 5,
-    "sdk_or_amazon_live_qualification_established": false
+    "sdk_or_amazon_live_qualification_established": false,
+    "release_publish_exit_code": 0
   },
   "private_evidence_sha256": {
     "amazon10-document-owner-red.log": "94551a00dc51b525a22e42ac0d9badf2eac59da742943553b7e907b99e70ace0",
     "amazon10-document-owner-browser-final.log": "2f6b37df922029b17fb183821dcf6b8da2e8a815f16e80dc617d8f18cdf97a29",
-    "amazon10-document-owner-browser-final-exit.json": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01"
+    "amazon10-document-owner-browser-final-exit.json": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01",
+    "document-owner-browser-publish.log": "7149b2015b1784927d2099985f251ebe09ebcab49d6e5c1688bb4ad7ab204507"
   }
 }
