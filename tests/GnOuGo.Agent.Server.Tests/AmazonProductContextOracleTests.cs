@@ -78,6 +78,21 @@ public sealed class AmazonProductContextOracleTests
         Assert.True(LiveWorkflowOracles.VerifyAmazonSponsoredHostSelection(AmazonSponsoredHostPolicyTests.Events(), 2, Query)["passed"]!.GetValue<bool>());
     }
 
+    [Theory]
+    [InlineData("https://sponsored-ads.amazon.fr/clk?opaque=unapproved")]
+    [InlineData("https://sponsored-ads.amazon.com/clk/?opaque=unapproved")]
+    [InlineData("https://www.amazon.fr/sspa/not-click?opaque=unapproved")]
+    [InlineData("https://www.amazon.fr/gp/product/short")]
+    public void UnapprovedOrMalformedSourceRoutesRemainFailuresWithProductContext(string url)
+    {
+        var events = Events(); var records = Records(events);
+        records.Add(new JsonObject { ["kind"] = "link", ["href"] = url,
+            ["reference"] = "search:record:" + records.Count, ["ancestorAttributes"] = Context("", 3) });
+        events[0]["result"]!["observationSnapshot"]!["recordCount"] = records.Count;
+        Assert.False(Verify(events)["passed"]!.GetValue<bool>());
+        Assert.Empty(LiveWorkflowOracles.CompleteSearchRedirectEntries([events[0]], AmazonProductContextPolicy.Id));
+    }
+
     [Fact]
     public void NewCaptureUsesTheSameGrantAndRoutesWithExplicitProductContextOptIn()
     {

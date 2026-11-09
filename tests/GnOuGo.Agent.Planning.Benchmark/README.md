@@ -918,3 +918,8 @@ Source authority still expires on close or a new search. Workbook, product field
 cleanup and truthful-result requirements are unchanged. Historical v4/v5/v6
 verifiers remain available under their original policies; this option cannot
 upgrade a retained run or broaden navigation authority.
+
+v7 also retains the earlier source-route checks: unsupported sponsored hosts,
+advertising paths and malformed product routes fail source admission, even when
+they carry otherwise valid ancestor metadata. Observing `/clk?…` does not grant
+the separately approved `/clk/?…` route or permit a trailing-slash substitution.

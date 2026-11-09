@@ -45,21 +45,7 @@ internal static partial class LiveWorkflowOracles
             ValidateSourceRecords(search, findings, policy);
             var candidates = search.Records.OfType<JsonObject>().Where(r => r["href"]?.ToString() is { } href &&
                 (ObservedProductIdentity(href) is not null || AmazonObservedRedirectPolicy.IsSourceEntry(href, policy))).ToArray();
-            foreach (var record in search.Records.OfType<JsonObject>())
-            {
-                if (record["href"]?.ToString() is not { } href) continue;
-                if (!AmazonAddress(href, out var address))
-                {
-                    if (policy == AmazonSponsoredHostPolicy.Id && Uri.TryCreate(href, UriKind.Absolute, out var other) &&
-                        other.Host.StartsWith("sponsored-ads.", StringComparison.Ordinal) && !AmazonSponsoredHostPolicy.IsSourceEntry(href))
-                        findings.Add("search_product_redirect_route_unapproved");
-                    continue;
-                }
-                if ((address.AbsolutePath.Contains("/dp/", StringComparison.Ordinal) || address.AbsolutePath.Contains("/gp/product/", StringComparison.Ordinal)) && ObservedProductIdentity(href) is null)
-                    findings.Add("search_product_identity_unverified");
-                if ((address.AbsolutePath.Contains("sspa", StringComparison.Ordinal) || address.AbsolutePath.Contains("slredirect", StringComparison.Ordinal)) && !AmazonObservedRedirectPolicy.IsSourceEntry(href, policy))
-                    findings.Add("search_product_redirect_route_unapproved");
-            }
+            ValidateObservedProductRoutes(search, findings, policy);
             foreach (var group in candidates.GroupBy(r => r["occurrence"]?["selector"]?.ToString() ?? "", StringComparer.Ordinal))
             {
                 if (group.Key.Length == 0) { findings.Add("search_product_occurrences_ambiguous"); continue; }
@@ -93,6 +79,25 @@ internal static partial class LiveWorkflowOracles
         return new() { ["version"] = version, ["passed"] = findings.Count == 0,
             ["expected_product_count"] = selected.Length, ["visited_product_count"] = visits.Length,
             ["findings"] = new JsonArray(findings.Distinct().Select(f => (JsonNode)JsonValue.Create(f)).ToArray()) };
+    }
+
+    private static void ValidateObservedProductRoutes(Snapshot snapshot, List<string> findings, string policy)
+    {
+        foreach (var record in snapshot.Records.OfType<JsonObject>())
+        {
+            if (record["href"]?.ToString() is not { } href) continue;
+            if (!AmazonAddress(href, out var address))
+            {
+                if (policy is AmazonSponsoredHostPolicy.Id or AmazonProductContextPolicy.Id && Uri.TryCreate(href, UriKind.Absolute, out var other) &&
+                    other.Host.StartsWith("sponsored-ads.", StringComparison.Ordinal) && !AmazonSponsoredHostPolicy.IsSourceEntry(href))
+                    findings.Add("search_product_redirect_route_unapproved");
+                continue;
+            }
+            if ((address.AbsolutePath.Contains("/dp/", StringComparison.Ordinal) || address.AbsolutePath.Contains("/gp/product/", StringComparison.Ordinal)) && ObservedProductIdentity(href) is null)
+                findings.Add("search_product_identity_unverified");
+            if ((address.AbsolutePath.Contains("sspa", StringComparison.Ordinal) || address.AbsolutePath.Contains("slredirect", StringComparison.Ordinal)) && !AmazonObservedRedirectPolicy.IsSourceEntry(href, policy))
+                findings.Add("search_product_redirect_route_unapproved");
+        }
     }
 
     private static string? ObservedProductIdentity(string? value)

@@ -68,6 +68,7 @@ internal static partial class LiveWorkflowOracles
     {
         var id = snapshot.Read["result"]?["observationSnapshot"]?["id"]?.ToString() ??
             snapshot.Read["result"]?["observationManifest"]?["id"]?.ToString() ?? snapshot.Read["result"]?["observation"]?["id"]?.ToString();
+        ValidateObservedProductRoutes(snapshot, findings, AmazonProductContextPolicy.Id);
         var contexts = new Dictionary<int, JsonObject>();
         var candidates = new List<JsonObject>();
         var occurrences = new Dictionary<string, JsonNode>(StringComparer.Ordinal);
