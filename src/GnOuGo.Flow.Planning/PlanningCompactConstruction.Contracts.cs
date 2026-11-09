@@ -261,6 +261,19 @@ internal static partial class PlanningCompactConstruction
         return matches[0];
     }
 
+    private static bool ContractEvidenceCurrent(PlanningSession state, string address, JsonNode? retained)
+    {
+        if (retained?["id"] is not { } id || retained["version"] is not { } version ||
+            address != "contract:" + ContractIdentity(id.ToString(), version.ToString())) return false;
+        // Metadata identity is independent of a current cursor's projected inputs.
+        // Conflicting originals at the same identity cannot validate retained evidence.
+        var hashes = (state.Catalog?.Capabilities ?? []).Concat(state.Discovery.Resolved)
+            .Where(capability => TaskOperations.Describe(capability).Id == id.ToString() && capability.Version == version.ToString())
+            .Select(ContractHash).Distinct(StringComparer.Ordinal).ToArray();
+        return hashes.Length == 1 && retained["hash"]?.ToString() == hashes[0] &&
+            hashes[0] == ContractHash(ExactContract(state, id.ToString(), version.ToString()));
+    }
+
     private static HashSet<string> ImportedProducerIds(JsonArray interfaces) => interfaces.OfType<JsonObject>()
         .Select(item => (item["binding"] ?? item["value"])?.Deserialize(PlanningJsonContext.Default.TaskValue))
         .OfType<TaskValue>().SelectMany(TaskPlanCompiler.Values)

@@ -358,3 +358,8 @@ New discovery actions use issued objective/prerequisite focuses, automatic immut
 Rollback retains original scope exports as rebuild obligations. After their exact producers return, candidate construction restores missing original bindings in their recorded order, preserving surviving exports and validating all references and types normally. This mechanical restoration adds no business action or approval. The immediate draft context retains the original export contract even when every invalidated task has already returned; append-only fragments must not duplicate surviving exports.
 
 Candidate validation, scoped correction and checkpoint acceptance retain only exact contract evidence cited by the current or resumed implementation prerequisite. Candidate-specific task/scope evidence is discarded. This keeps a continued business block valid across partial drafts and cold restoration without fetching contracts again; stale contract contents still fail their existing identity/hash checks.
+
+Suspended consumers validate contract evidence by its canonical operation/version identity,
+original hash and current policy. This metadata check does not need an implementation
+cursor or render its projected input bindings. Missing, changed or conflicting originals
+invalidate the continuation without creating work or granting binding authority.

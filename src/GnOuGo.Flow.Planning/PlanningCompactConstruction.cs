@@ -1058,9 +1058,7 @@ internal static partial class PlanningCompactConstruction
                 {
                     var retained = state.Construction!.Evidence![address];
                     var current = address.StartsWith("contract:", StringComparison.Ordinal)
-                        ? retained?["id"] is { } id && retained["version"] is { } version &&
-                          address == "contract:" + ContractIdentity(id.ToString(), version.ToString()) &&
-                          retained["hash"]?.ToString() == ContractHash(ExactContract(state, id.ToString(), version.ToString()))
+                        ? ContractEvidenceCurrent(state, address, retained)
                         : JsonNode.DeepEquals(retained, LoadContractEvidence(state, address, recordSchemaSelection: false));
                     if (!current) PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/step/prerequisites", "A prerequisite contract reference is stale or unavailable.");
                 }

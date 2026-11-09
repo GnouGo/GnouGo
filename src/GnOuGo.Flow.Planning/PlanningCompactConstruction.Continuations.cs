@@ -421,10 +421,9 @@ internal static partial class PlanningCompactConstruction
                 {
                     var retained = compact.RejectedSteps[item.RejectedStepIndex]["evidence"]?[address];
                     if (retained is null || PlanningGraphCompiler.Fingerprint(retained.ToJsonString()) != hash) return false;
-                    var current = LoadContractEvidence(state, address, recordSchemaSelection: false);
                     if (address.StartsWith("contract:", StringComparison.Ordinal)
-                        ? current?["hash"]?.ToString() != retained["hash"]?.ToString()
-                        : !JsonNode.DeepEquals(retained, current)) return false;
+                        ? !ContractEvidenceCurrent(state, address, retained)
+                        : !JsonNode.DeepEquals(retained, LoadContractEvidence(state, address, recordSchemaSelection: false))) return false;
                 }
             }
         }

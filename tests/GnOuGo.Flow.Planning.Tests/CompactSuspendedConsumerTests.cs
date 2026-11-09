@@ -10,6 +10,54 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class CompactSuspendedConsumerTests
 {
+    [Theory]
+    [InlineData("none")]
+    [InlineData("changed")]
+    [InlineData("missing")]
+    [InlineData("ambiguous")]
+    public async Task SuspendedContractEvidenceUsesExactIdentityWithoutAnImplementationCursor(string defect)
+    {
+        var (state, runtime) = await TentativeProducer();
+        state = await Advance(state, runtime);
+        var construction = state.Construction!;
+        var compact = construction.Compact!;
+        compact.CurrentStep = Consumer(state, "metadata_consumer");
+        var capability = new PlanningCapability
+        {
+            Id = "read", Version = "v1", Kind = "tool", StepType = "mcp.call", Server = "source", Method = "read", EffectKind = "read",
+            InputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject
+                { ["target"] = new JsonObject { ["type"] = "string" }, ["optional"] = new JsonObject { ["type"] = "string" } },
+                ["required"] = new JsonArray("target"), ["additionalProperties"] = false },
+            OutputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false }
+        };
+        state.Discovery.Resolved.Add(capability);
+        const string address = "contract:read@v1";
+        construction.Evidence = new() { [address] = PlanningCompactConstruction.LoadContractEvidence(state, address) };
+        var need = Need("Preserve the inspected original contract while obtaining the numeric prerequisite.");
+        need.Prerequisite!.EvidenceAddresses.Add(address);
+        state.Diagnostics = [new("CONSTRUCTION_TENTATIVE_SELECTION", "/step", need.Reason)];
+        PlanningCompactConstruction.Reselect(state, need);
+        state.Diagnostics.Clear();
+        if (defect == "changed") capability.InputSchema["description"] = "Changed original";
+        if (defect == "missing") state.Discovery.Resolved.Clear();
+        if (defect == "ambiguous")
+        {
+            var conflicting = JsonSerializer.Deserialize(JsonSerializer.Serialize(capability, PlanningJsonContext.Default.PlanningCapability),
+                PlanningJsonContext.Default.PlanningCapability)!;
+            conflicting.InputSchema["description"] = "Conflicting original";
+            state.Discovery.Resolved.Add(conflicting);
+        }
+        state = PlannerFixture.Clone(state);
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var context = PlanningCompactConstruction.ImplementationContext(state);
+        Assert.Equal(defect == "none", context["continuation"]!["canAttemptResume"]!.GetValue<bool>());
+        Assert.NotNull(PlanningCompactConstruction.ImplementationRequest(state));
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        Assert.Null(state.Construction!.Compact!.CurrentStep);
+        Assert.Null(state.Construction.Candidate);
+        Assert.Null(state.ApprovedHash);
+    }
+
     [Fact]
     public async Task PrerequisiteDiscoveryRetainsItsOwnRejectionReasonAndExactIssuedRecovery()
     {
