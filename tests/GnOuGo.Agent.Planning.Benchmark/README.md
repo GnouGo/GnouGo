@@ -954,5 +954,11 @@ A later persistent configuration uses `register-configuration --capture-current-
 --previous-sdk-transport absent` (or `native` when explicitly captured). Restoring
 only that MCP environment leaf must reconstruct the parent's exact host hash;
 configuration, metadata, permissions, tariffs, limits and retry policy remain equal.
+For bundled hosts, the existing editable `inference_transport` field stores
+`LLM--McpServerOverrides--GnOuGo.GithubCopilot.Mcp--Code--Copilot--InferenceTransport`.
+Only this nonsecret selector is also mapped to the MCP environment, so the host's
+immutable fingerprint captures the same value read directly by the MCP. Provider
+credentials and other direct-reader settings stay in KeyVault. An absent secret
+preserves the prior host fingerprint and native transport default.
 Preview/apply and all five selection checks remain mandatory. This creates no money
 and keeps any earlier reasoning/streaming amendment chain and uncertain holds.
