@@ -1,0 +1,47 @@
+{
+  "runs": [
+    {
+      "run": "collections-qualification-20261109-01",
+      "source": "5d05c994bbce13b740753e9233fc1b47a4b8e267",
+      "first_checkpoint": {
+        "sequence": 1,
+        "observed_utc": "2026-11-09T13:09:26.881799+00:00",
+        "request_call": 9,
+        "elapsed_seconds": 338.325342,
+        "task_ids": [
+          "double_value"
+        ],
+        "known_usage_tariff_through_call_eur": "1.1876399462606359158083296014",
+        "uncertain_attempts": 0
+      },
+      "planning_final_review_wall_seconds": 682.326586,
+      "planning_calls": 17,
+      "measurement_count": 17,
+      "complete_serialized_request_measurements": true
+    },
+    {
+      "run": "collections-qualification-20261109-02",
+      "source": "5d05c994bbce13b740753e9233fc1b47a4b8e267",
+      "first_checkpoint": {
+        "sequence": 1,
+        "observed_utc": "2026-11-09T13:20:53.297794+00:00",
+        "request_call": 5,
+        "elapsed_seconds": 189.459597,
+        "task_ids": [
+          "double_value"
+        ],
+        "known_usage_tariff_through_call_eur": "0.6128705776981639050604567847",
+        "uncertain_attempts": 0
+      },
+      "planning_final_review_wall_seconds": 486.620985,
+      "planning_calls": 14,
+      "measurement_count": 14,
+      "complete_serialized_request_measurements": true
+    }
+  ],
+  "limitations": [
+    "Observations from two stochastic generations on the same frozen source and profiles; not a controlled optimization-factor comparison or speedup claim.",
+    "A first accepted contribution is not a completed business responsibility or end-to-end execution.",
+    "Elapsed time uses persisted host timestamps, not inferred provider-only latency. Tariff estimates are not provider invoices."
+  ]
+}
