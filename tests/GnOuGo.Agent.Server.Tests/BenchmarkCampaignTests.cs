@@ -213,6 +213,32 @@ public sealed class BenchmarkCampaignTests
     }
 
     [Fact]
+    public async Task CampaignInspectionRetainsTheCanonicalHashAcrossMixedCollectionsAndCaseSensitiveKeys()
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "current");
+        var names = new[] { "requests", "receipts", "failures", "runs", "summaries", "configuration", "http-attempts", "closures" };
+        foreach (var name in names.Except(["http-attempts"]))
+            foreach (var key in new[] { "z", "A", "a" })
+                await campaign.SaveAsync("planning-evaluation-" + name, key, new() { ["value"] = "quote\"\\\n<>é🚀" }, Ct);
+        await records.UpsertAsync("planning-evaluation-budgets", "benchmark", "current",
+            JsonSerializer.Serialize(new LLMUsageBudgetSnapshot { EstimatedCostCurrency = "EUR" }, PlanningJsonContext.Default.LLMUsageBudgetSnapshot), BenchmarkCampaign.Author, Ct);
+        await records.UpsertAsync("planning-evaluation-runs", "benchmark", "another:private", "malformed unrelated payload", BenchmarkCampaign.Author, Ct);
+        var evidence = new List<KeyVaultRecordValue>();
+        foreach (var name in names) evidence.AddRange(await campaign.OwnedRecordsAsync("planning-evaluation-" + name, Ct));
+        evidence.Add((await records.GetAsync("planning-evaluation-budgets", "benchmark", "current", BenchmarkCampaign.Author, Ct))!);
+        var expected = PlanningGraphCompiler.Fingerprint(string.Join('\n', evidence.OrderBy(r => r.Collection, StringComparer.Ordinal)
+            .ThenBy(r => r.Key, StringComparer.Ordinal).Select(r => new JsonArray(r.Collection, r.Key, r.Value).ToJsonString())));
+        records.ForbidList = true; records.ReadKeys.Clear(); var writes = records.Writes;
+        var actual = await campaign.InspectAsync(Ct);
+        Assert.Equal(expected, actual["evidence_hash"]!.ToString());
+        Assert.Equal(3, actual["reserved_requests"]!.GetValue<int>());
+        Assert.Equal(3, actual["completed_receipts"]!.GetValue<int>());
+        Assert.True(actual["completion_receipts_complete"]!.GetValue<bool>());
+        Assert.Equal(writes, records.Writes);
+        Assert.DoesNotContain("another:private", records.ReadKeys);
+    }
+
+    [Fact]
     public async Task CampaignAdmissionPagesOnlyOwnedRecordsWithoutDecryptingOtherCampaignHistory()
     {
         var records = new Records(); var current = new BenchmarkCampaign(records, "current"); var old = new BenchmarkCampaign(records, "old");

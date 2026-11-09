@@ -890,6 +890,14 @@ Campaign inspection uses the existing bounded owned metadata reader and exact
 budget key. It preserves the canonical evidence hash and accounting while avoiding
 tenant-wide payload hydration before campaign filtering.
 
+Inspection reads and hashes one owned payload at a time rather than retaining the
+whole campaign or joining its serialized evidence into one string. The canonical
+recipe remains ordinal collection/key order, UTF-8 JSON arrays containing the
+collection, key and exact retained value, with one LF between rows and no final
+LF. Bounded encoding preserves the original escaping, Unicode and hash; aggregate
+evidence may exceed the runtime's single-string limit. This read-only change adds
+no admission, replay or accounting authority.
+
 SDK proxy denial records version2 retain fixed precondition reason codes and
 sanitized encrypted route provenance (path, origin hash and pinned-prefix
 comparisons). They omit URI credentials, queries, authorization headers and

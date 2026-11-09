@@ -1,6 +1,9 @@
 using GnOuGo.Planning.Examples;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Encodings.Web;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Core.Expressions;
@@ -371,30 +374,101 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
     }
     internal async Task<JsonObject> InspectAsync(CancellationToken ct = default)
     {
-        var evidence = new List<KeyVaultRecordValue>();
-        foreach (var collection in new[] { "requests", "receipts", "failures", "runs", "summaries", "configuration", "http-attempts", "closures" })
-            evidence.AddRange(await OwnedRecordsAsync("planning-evaluation-" + collection, ct));
+        var keys = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+        using var digest = new EvidenceDigest(ct);
+        LLMUsageBudgetSnapshot? snapshot = null;
+        // The exact budget sorts before the other collections in the legacy hash.
         if (await records.GetAsync("planning-evaluation-budgets", "benchmark", Id, Author, ct) is { } ownedBudget)
         {
             if (ownedBudget.Key != Id || ownedBudget.Collection != "planning-evaluation-budgets" || ownedBudget.TenantId != "benchmark")
                 throw AdmissionFailure("campaign_record_owner_mismatch");
-            evidence.Add(ownedBudget);
+            snapshot = JsonSerializer.Deserialize(ownedBudget.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
+            digest.Append(ownedBudget);
         }
-        var requests = evidence.Where(r => r.Collection == "planning-evaluation-requests").ToArray();
-        var receipts = evidence.Where(r => r.Collection == "planning-evaluation-receipts").ToArray();
-        var missing = requests.Where(r => !receipts.Any(receipt => receipt.Key == r.Key)).ToArray();
-        var budget = evidence.SingleOrDefault(r => r.Collection == "planning-evaluation-budgets");
-        var snapshot = budget is null ? null : JsonSerializer.Deserialize(budget.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
-        return new() { ["campaign"] = Id, ["reserved_requests"] = requests.Length, ["completed_receipts"] = receipts.Length,
-            ["uncertain_requests"] = new JsonArray(missing.Select(r => (JsonNode)JsonValue.Create(r.Key[(Id.Length + 1)..])).ToArray()),
-            ["retained_inconclusive_requests"] = new JsonArray(evidence.Where(r => r.Collection == "planning-evaluation-closures").Select(r => (JsonNode)JsonValue.Create(r.Key[(Id.Length + 1)..])).ToArray()),
+        foreach (var name in new[] { "requests", "receipts", "failures", "runs", "summaries", "configuration", "http-attempts", "closures" }.Order(StringComparer.Ordinal))
+        {
+            var collection = "planning-evaluation-" + name;
+            var ownedKeys = await OwnedKeysAsync(collection, ct);
+            keys[name] = ownedKeys;
+            foreach (var key in ownedKeys.Order(StringComparer.Ordinal))
+            {
+                ct.ThrowIfCancellationRequested();
+                var row = await records.GetAsync(collection, "benchmark", key, Author, ct) ?? throw AdmissionFailure("campaign_record_unavailable");
+                if (row.Key != key || row.Collection != collection || row.TenantId != "benchmark") throw AdmissionFailure("campaign_record_owner_mismatch");
+                digest.Append(row);
+            }
+        }
+        var receipts = keys["receipts"].ToHashSet(StringComparer.Ordinal);
+        var missing = keys["requests"].Where(key => !receipts.Contains(key)).ToArray();
+        return new() { ["campaign"] = Id, ["reserved_requests"] = keys["requests"].Count, ["completed_receipts"] = keys["receipts"].Count,
+            ["uncertain_requests"] = new JsonArray(missing.Select(key => (JsonNode)JsonValue.Create(key[(Id.Length + 1)..])).ToArray()),
+            ["retained_inconclusive_requests"] = new JsonArray(keys["closures"].Select(key => (JsonNode)JsonValue.Create(key[(Id.Length + 1)..])).ToArray()),
             ["transport_accounting"] = await BenchmarkHttpJournal.AccountingAsync(this, ct: ct), ["cost_ceiling_eur"] = await CostCeilingAsync(ct),
-            ["recorded_failures"] = evidence.Count(r => r.Collection == "planning-evaluation-failures"),
+            ["recorded_failures"] = keys["failures"].Count,
             ["known_budget_cost"] = snapshot?.EstimatedCost, ["budget_currency"] = snapshot?.EstimatedCostCurrency,
             ["known_input_tokens"] = snapshot?.InputTokens, ["known_output_tokens"] = snapshot?.OutputTokens,
             ["completion_receipts_complete"] = missing.Length == 0,
-            ["evidence_hash"] = PlanningGraphCompiler.Fingerprint(string.Join('\n', evidence.OrderBy(r => r.Collection, StringComparer.Ordinal).ThenBy(r => r.Key, StringComparer.Ordinal)
-                .Select(r => new JsonArray(r.Collection, r.Key, r.Value).ToJsonString()))) };
+            ["evidence_hash"] = digest.Finish() };
+    }
+
+    // Same UTF-8 JSON-array rows and separating newlines as the retained recipe,
+    // without a joined string, escaped payload copy or campaign-wide payload list.
+    internal sealed class EvidenceDigest(CancellationToken ct = default) : TextWriter
+    {
+        private readonly IncrementalHash _hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        private readonly Encoder _encoder = Encoding.UTF8.GetEncoder();
+        private readonly byte[] _buffer = new byte[8192];
+        private bool _hasRecords;
+        private bool _finished;
+        public override Encoding Encoding => Encoding.UTF8;
+        internal void Append(KeyVaultRecordValue row)
+        {
+            if (_finished) throw new InvalidOperationException("Evidence digest is already complete.");
+            ct.ThrowIfCancellationRequested();
+            if (_hasRecords) Write('\n');
+            _hasRecords = true;
+            Write('['); Field(row.Collection); Write(','); Field(row.Key); Write(','); Field(row.Value); Write(']');
+        }
+        private void Field(string value)
+        {
+            Write('"'); JavaScriptEncoder.Default.Encode(this, value); Write('"');
+        }
+        public override void Write(char value)
+        {
+            Span<char> single = stackalloc char[1] { value };
+            Write(single);
+        }
+        public override void Write(string? value) { if (value is not null) Write(value.AsSpan()); }
+        public override void Write(char[] buffer, int index, int count) => Write(buffer.AsSpan(index, count));
+        public override void Write(ReadOnlySpan<char> value)
+        {
+            if (_finished) throw new InvalidOperationException("Evidence digest is already complete.");
+            while (!value.IsEmpty)
+            {
+                ct.ThrowIfCancellationRequested();
+                _encoder.Convert(value, _buffer, false, out var read, out var written, out _);
+                _hash.AppendData(_buffer.AsSpan(0, written));
+                value = value[read..];
+            }
+        }
+        internal string Finish()
+        {
+            if (_finished) throw new InvalidOperationException("Evidence digest is already complete.");
+            ct.ThrowIfCancellationRequested();
+            bool complete;
+            do
+            {
+                _encoder.Convert(ReadOnlySpan<char>.Empty, _buffer, true, out _, out var written, out complete);
+                _hash.AppendData(_buffer.AsSpan(0, written));
+            } while (!complete);
+            _finished = true;
+            return Convert.ToHexStringLower(_hash.GetHashAndReset());
+        }
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) _hash.Dispose();
+            base.Dispose(disposing);
+        }
     }
     internal static PlanningSession ReadCurrentSession(JsonNode? payload)
     {
