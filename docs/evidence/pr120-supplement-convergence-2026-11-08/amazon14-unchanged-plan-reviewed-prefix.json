@@ -1,0 +1,43 @@
+{
+  "run": "amazon-qualification-20261109-14",
+  "session": "22fd54fb2be64c0e94d80824b3d27d8e",
+  "source": "460a35deb96ffaf4165ffb8acd4a4192c9246ba2",
+  "browser_policy": "amazon-observed-sponsored-host-v2",
+  "first_accepted_call": 11,
+  "first_accepted_task_ids": [
+    "amazon_search",
+    "close_browser",
+    "select_first_products",
+    "validated_selection"
+  ],
+  "ordinary_review_claim_call": 13,
+  "ordinary_local_review_ok_call": 14,
+  "unchanged_plan_hash": "f942d802d50896a4fccdddd0cd33afd74f13351b042a1d5e2087fe7f209f4ad7",
+  "new_tasks_or_always_in_claim": false,
+  "original_requirements_closed_in_claim": [],
+  "complete_workflow_claim": false,
+  "first_accepted_elapsed_seconds": 676.64177,
+  "known_usage_tariff_through_call_eur": {
+    "11": "3.0361397223466188983430362738",
+    "14": "4.1175369458128078817733990144"
+  },
+  "unknown_attempts_through_local_review": 0,
+  "provider_physical_attempts_through_local_review": 14,
+  "local_review": {
+    "decision": {
+      "verdict": "ok",
+      "reason": "Le bloc utilise uniquement query pour rechercher sur Amazon.fr et exige une observation r\u00e9ussie et non tronqu\u00e9e. La transformation conserve au maximum les trois premi\u00e8res occurrences, sponsoris\u00e9es comprises, leurs liens observ\u00e9s et leur provenance, sans substitution ni invention. Une s\u00e9lection non fiable ne peut \u00eatre export\u00e9e. La fermeture est pr\u00e9vue en nettoyage du scope encore ouvert, qui peut accueillir les visites d\u00e9pendantes avant sa sortie. Aucun succ\u00e8s global n\u2019est d\u00e9clar\u00e9 ; les visites et la cr\u00e9ation du classeur restent l\u00e9gitimement \u00e0 r\u00e9aliser."
+    }
+  },
+  "private_evidence_sha256": {
+    "amazon14-current.json": "0ed6eb9a96cd55dc4343c20a87bcc82f6de432dd51e808e32c9cfd864c2700c0",
+    "amazon14-http-current.json": "f3d9f84e76325d0affbd56f2ba8aacadd996d9bc46f05279747c6f0be72c1ccd",
+    "amazon14-local-review14.json": "77286fd2fc9a9a33c90f5701d410dd30a51052bb570b5fb2ce3267baba8a4bbe"
+  },
+  "limitations": [
+    "Reviewed search/selection prefix only; product visits and workbook delivery remain unfinished.",
+    "These stochastic measurements on a new source/scope profile do not establish a controlled optimization speedup.",
+    "No end-to-end Amazon qualification or execution success is inferred."
+  ],
+  "root_open_at_observed_prefix": true
+}

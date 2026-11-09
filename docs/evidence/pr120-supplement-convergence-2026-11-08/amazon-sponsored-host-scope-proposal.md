@@ -1,6 +1,6 @@
 # Proposed observed sponsored-host extension
 
-Status: prepared for explicit user review; not authorized or used for live navigation.
+Status: explicitly authorized on 2026-11-09 by the user reply **“Authorize this exact new-host extension”**. Fresh live qualification may use the captured v2 policy and v6 verifier below. Earlier runs and grants remain unchanged.
 
 Amazon12's complete real search on source `794163d1` contained 1,541 records.
 The model selected a literal `https://sponsored-ads.amazon.fr/clk/?…` product link.
@@ -30,6 +30,4 @@ A separate `amazon-business-v6` verifier requires the new occurrence, source-lin
 and redirect evidence. Existing v4 and v5 verdicts and authority remain unchanged.
 The opt-in is planned as `--amazon-observed-sponsored-host` together with
 `--amazon-scope-approval user-strict-amazon-sponsored-host-extension-20261109`.
-The grant reference will be used only after an explicit user authorization of
-this proposal. It changes neither campaign funding nor saved global provider or
-Browser configuration.
+The granted reference is `user-strict-amazon-sponsored-host-extension-20261109`. It changes neither campaign funding nor saved global provider or Browser configuration.
