@@ -1,0 +1,14 @@
+{
+  "source": "2e6102429d7cbf6420dd9eae89363bb850080c12",
+  "exit_code": 1,
+  "complete_disjoint_coverage": true,
+  "passed": 8555,
+  "skipped": 12,
+  "failed": 3,
+  "assemblies": 33,
+  "failed_fixture": "CompactSelectionObjectiveNavigationTests (3 cases)",
+  "cause": "A host-captured page was mistaken for a requested page, hiding valid unread return navigation.",
+  "not_counted_as_pass": true,
+  "corrected_in_worktree_commit": "74f85ebf",
+  "corrected_planning_passed": 2931
+}

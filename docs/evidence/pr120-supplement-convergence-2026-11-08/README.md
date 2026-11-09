@@ -1,11 +1,13 @@
 # Existing-campaign supplement and targeted convergence
 
-Current EUR 300 continuation: [the audited state after Code16](continuation-300-state.json)
-shows a EUR 1,200 campaign ceiling and EUR 233.72494 available, including all retained
-liabilities. Code and Amazon remain unqualified end to end. The latest complete
-local validation is [8,548 passed on d52e07a0](validation-d52e.json); the subsequent
-batch-cursor correction has 347 focused passes and awaits full validation.
-Earlier funding/validation snapshots below retain their historical scope.
+Current audited state [after Code17](continuation-300-state-after-code17.json):
+EUR 1,200 campaign ceiling, EUR 217.19535 available with every retained liability.
+Code and Amazon remain unqualified end to end. Full validation on 2e610242 found
+three return-navigation regressions; it is [recorded as failed](validation-2e610242-failed.json).
+The [corrected original-basis access](batch-original-basis-correction.json) passes
+all 2,931 planning tests, and the Copilot task clarification passes all 245 MCP tests.
+New full validation remains pending. The latest complete passing local snapshot is
+[8,548 passed on d52e07a0](validation-d52e.json). Earlier snapshots below remain historical.
 
 
 The explicit authorization `pr120-supplement-20261108-400-01` increases only
@@ -623,3 +625,33 @@ Native AOT smoke pass. This validation precedes the batch-cursor correction.
 Copilot checksum-download HTTP 504, including a single failed-job rerun and an
 independent read-only reproduction. The standalone and Native AOT checks pass;
 planner CI is not reported green. PR #120 remains Draft and unmerged.
+
+
+The automatic producer-page snapshot introduced a distinction that the ordinary
+navigation presenter did not preserve: cached metadata was mistaken for a
+model-requested read. Three existing return-navigation tests failed locally and
+in remote CI on 2e610242. All 216 slow fixture cases passed, but the full result
+was 8,555 passed, 12 skipped and three failed, and is not counted as a pass.
+The [replacement correction](batch-original-basis-correction.json) evaluates all
+producer access against the immutable state from before the batch, including
+exact description continuations. It retains only requested evidence, commits
+ordinary cursor changes and leaves rejected state unchanged. No automatic page
+or successful-read marker is stored. The existing three tests remain unchanged;
+369 focused checks and all 2,931 planning tests pass.
+
+[Code17](code17-first-cause.json) repeatedly rejected the compatibility Copilot
+wrapper because contract discovery did not guarantee runtime command availability.
+No executable work was accepted. It was stopped at pending call 31 after 30 known
+receipts (EUR 14.2283027317510076130765785937 measured planning tariff). Its full
+EUR 2.3012807881773399014778325123 application reservation is permanently retained;
+old replay/continuation is forbidden. This is not improved convergence.
+
+The existing wrapper already delegates to Core's bounded coding operation and
+retains observed commands/terminal results, but its metadata and opening prompt
+prescribed editing. They now describe inspection, review, checks or requested
+edits, subject to the actual SDK tools and unchanged permission/sandbox policy.
+Unavailable commands and absent observations remain explicit; session completion
+does not establish successful checks. No tool, permission, allocation or oracle
+was added. Two regressions preserve read-only task text, unchanged files, truthful
+unavailability, the same interactive permission mode and one disposed session.
+All 70 focused and 245 MCP tests pass; no fresh live success is inferred.
