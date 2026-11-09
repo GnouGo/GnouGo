@@ -489,8 +489,25 @@ internal static partial class PlanningCompactConstruction
     {
         var operation = TaskOperations.Describe(capability);
         var prefix = "schema:" + ContractIdentity(operation.Id, operation.Version) + ":";
-        return state.Construction!.Compact!.CurrentStep!.SchemaPointers
+        var selected = state.Construction!.Compact!.CurrentStep!.SchemaPointers
             .Where(p => p.StartsWith(prefix, StringComparison.Ordinal)).Select(p => p[prefix.Length..]).ToHashSet(StringComparer.Ordinal);
+        if (state.Plan is null) return selected;
+        var producers = TaskPlanRevisions.Tasks(state.Plan).Where(task => task.Operation == operation.Id).ToArray();
+        foreach (var checkpoint in state.Construction.Checkpoints.Where(checkpoint => checkpoint.Step is not null))
+        {
+            var previous = checkpoint.Step!.SchemaPointers.Where(pointer => pointer.StartsWith(prefix + "/input", StringComparison.Ordinal))
+                .Select(pointer => pointer[prefix.Length..]).ToArray();
+            if (previous.Length == 0) continue;
+            foreach (var producer in producers.Where(producer => CheckpointProducerCurrent(state, checkpoint, producer.Id)))
+                foreach (var port in operation.Inputs.Where(port => producer.Inputs.Any(input => input.Name == port.Name)))
+                {
+                    var root = PortPointer("/input", port.Path);
+                    foreach (var pointer in previous)
+                        if (pointer == root || pointer.StartsWith(root + "/", StringComparison.Ordinal)) selected.Add(pointer);
+                        else if (root.StartsWith(pointer + "/", StringComparison.Ordinal)) selected.Add(root);
+                }
+        }
+        return selected;
     }
 
     private static JsonObject ProjectCapabilityInput(PlanningSession state, PlanningCapability capability, IReadOnlySet<string> selected, List<string> omitted)

@@ -10,6 +10,35 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CompactConstructionContractsTests
 {
     [Theory]
+    [InlineData("current")]
+    [InlineData("version")]
+    [InlineData("producer")]
+    [InlineData("invalidated")]
+    public void AcceptedExactOptionalInputSelectionsRemainAvailableToLaterCursors(string variant)
+    {
+        var (state, contract) = OptionalCandidate("root", bound: true);
+        PlanningCompactConstruction.LoadContractEvidence(state, "schema:read@v1:/input/properties/value");
+        var step = state.Construction!.Compact!.CurrentStep!;
+        state.Plan = state.Construction.Candidate!.Plan;
+        state.Construction.Candidate = null;
+        var producer = state.Plan.Root.Tasks.Single();
+        var checkpoint = new PlanningConstructionCheckpoint { Sequence = 1, Step = step, TaskIds = [producer.Id],
+            Fragment = new() { ["tasks"] = new JsonArray(PlanningConstruction.Node(producer, PlanningJsonContext.Default.PlanTask)) } };
+        state.Construction.Checkpoints.Add(checkpoint);
+        state.Construction.Compact.CurrentStep = new() { Id = "later", Scope = "/root", Kind = "sequence", OperationIds = ["read", "other"],
+            RequirementIds = ["result"], BaseHash = PlanningConstruction.Hash(state.Plan), Objective = "Use the exact same observation contract in a later composition." };
+        if (variant == "version") contract.Version = "v2";
+        if (variant == "producer") producer.Inputs[0].Value.Text = "B";
+        if (variant == "invalidated") checkpoint.InvalidatedTaskIds.Add(producer.Id);
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var inputs = new JsonArray(new JsonObject { ["name"] = "value", ["value"] = new JsonObject { ["kind"] = "string", ["text"] = "B" } });
+        Assert.Equal(variant == "current", PlanningContractValidation.ValidateInstance(inputs, OperationInputs(state, "read")).Count == 0);
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(inputs, OperationInputs(state, "other")));
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        Assert.Empty(state.Construction.Compact.CurrentStep.SchemaPointers);
+    }
+
+    [Theory]
     [InlineData("root")]
     [InlineData("group")]
     [InlineData("sequence")]

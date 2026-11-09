@@ -477,6 +477,14 @@ yet, ordinary candidate application initializes it from the validated declaratio
 this creates no executable task or approval authority. Issued requests,
 repairs, new bindings and actual generation retain their existing paths.
 
+Later cursors may reuse selected optional input fields from an unchanged accepted
+producer of the exact operation version. Reuse checks the retained producer and
+its dependencies, and includes only fields actually used by that producer. It
+copies neither values nor binding authority and changes no contract or cursor.
+Changed versions, changed producers and invalidated work retain ordinary evidence
+selection. This prevents a known optional operation interface from appearing as
+an empty argument list after reselection.
+
 A local review assesses actual present behavior and explicit completion claims.
 Legitimate future work in an open scope is not an omission. A finite execution ceiling
 is not an unstated required result cardinality. Requirement closure, scope closure,
