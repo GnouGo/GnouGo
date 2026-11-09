@@ -322,3 +322,67 @@ Validation on `a955474f` completed all 33 solution test assemblies: 8,457 passed
 Release benchmark/tool build, Core/Planning packages and actual published Native
 AOT smoke passed. Full-solution validation and fresh live qualification are recorded
 separately when complete; earlier successful cohorts are not final-source proofs.
+
+## Final continuation: retained Code progress and financial admission
+
+[Code10](code10-inspection-progress-and-reselection-failure.json) used the new
+metadata-only action and resolved six contracts, but accepted no business work.
+Its protected stop retained the pending unsent application reservation. The live
+run exposed a legal same-source contract batch rejected as duplicate source reads;
+this is now covered by a failing-then-passing regression. A replacement cursor
+also restores verified contract/schema evidence from its existing rejection
+journal for the same block, scope and accepted baseline. Cross-scope, changed,
+denied and corrupt evidence gain no reuse.
+
+[Code11](code11-composed-binding-and-native-serialization-detour.json) acquired
+seven contracts in its call-6 batch and selected a composed group, but accepted no
+work. It identified the chosen writer's base64 restriction and premature cleanup,
+then searched for an external JSON serializer after resolving document_write.
+Discovery compaction had removed the native json_encode cue. The compact cue is
+restored without changing the response grammar or introducing an encoder MCP.
+This was an observed omission and detour, not a copied-request causal proof.
+
+[Code12](code12-accepted-work-and-financial-boundary.json), on d060e6ca, accepted
+its first executable contribution at call 25, observed after 10m43.477s and
+EUR 9.94506 of measured planning usage. It retained two technically accepted
+checkpoints and received an ordinary local business-review verdict of ok at call
+30 after cleanup context was inspected. The following code-review responsibility
+reused the accepted qualification work. These are planned behaviors, not executed
+observations. The local review followed a changed fragment and does not establish
+the exact bcc0434f unchanged-plan review boundary.
+
+Request 35 stopped before HTTP dispatch: its current physical reservation was
+EUR 7.93435, exceeding the EUR 5.85615 available in the existing campaign.
+The existing unstarted-request retention path binds its exact request, refusal,
+empty HTTP journal, configuration and accounting. Replay and run continuation are
+permanently forbidden; every old charge and reservation remains intact. There is
+no global review, artifact approval, real Code execution or Code oracle success.
+
+[Final campaign accounting](final-campaign-funding-summary.json) records the
+single 400-to-800 EUR supplement, EUR 467.30222 of known usage tariff estimates,
+EUR 310.83681 of unresolved HTTP reservations, EUR 16.00482 of separately retained
+application reservations, and EUR 5.856148678907299596954765142 available. These are
+campaign accounting values, not provider invoices or a global funding statement.
+No further grant, Unlimited mode or release of uncertain funds was used.
+
+The complete business objective remains unfinished: the exact unchanged-plan
+review boundary is unproved; Code and Amazon have no qualified success; the earlier
+Native/Collections pairs are not a requalification of the final source. No new
+Amazon full run was financed after these corrections. Browser fixtures and the
+separately authorized strict redirect extension retain their existing evidence.
+
+The final functional source is f2e31340. The CI cursor-guidance failure was
+reproduced and fixed by restoring the explicit selected-scope wording, retaining
+the original assertions and Strict limits. All 2,890 planning tests passed.
+The full solution completed all 33 assemblies: 8,481 passed, 12 skipped and
+zero failures. The production frontend, warning-free Release benchmark/tools
+build, independent Core/Planning packs, and actual published osx-arm64 Native
+AOT smoke passed. [Final validation](final-validation.json) retains the source
+and hashes of the private logs. The twelve existing skips remain explicit.
+Superseded interrupted full runs are not counted as passes. CI status is checked
+separately; local success does not imply a remote CI conclusion.
+
+[Remote CI snapshot](ci-final-functional-source.json) records both ProxyCopilot
+checks passing on f2e31340. The deterministic planner workflow was still running
+its integration step at the final inspection; no remote pass is inferred from the
+local full-solution success.

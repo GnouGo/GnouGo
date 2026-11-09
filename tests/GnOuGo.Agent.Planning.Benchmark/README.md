@@ -225,7 +225,10 @@ A default exception attempt count does not establish a generation dispatch.
 `server-live-probe` also supports independent diagnostic requests. Use
 `--probe-reasoning <declared-effort> --probe-output-tokens <positive-bound>` for the
 small nonce/schema availability check. `--probe-source-request <owned-request-id>`
-copies the exact retained prompt and schema into a fresh nonce/run identity;
+copies the exact retained prompt and schema into a fresh nonce/run identity.
+Copied probes preserve the source reasoning setting, including its absence, unless
+`--probe-reasoning` explicitly overrides it; nonce probes without a source default
+to medium reasoning. The optional representation flag
 `--probe-evidence-selection-objects` changes only the navigation evidence selector
 to an equivalent singleton/batch object encoding. It retains the selectable IDs
 and array bounds and never applies the response to a plan.
