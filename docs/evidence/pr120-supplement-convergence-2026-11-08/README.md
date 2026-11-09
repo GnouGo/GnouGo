@@ -437,3 +437,16 @@ EUR 19.75462 of separately retained application reservations. No hold was releas
 [Intermediate full validation](intermediate-validation-9f9affa3.json) completed
 33 assemblies on 9f9affa3: 8,501 passed, 12 skipped, zero failures. This is
 historical validation; later source revisions require their own results.
+
+
+The exact unchanged-plan boundary is now proved on frozen 72f17ca7: an ordinary
+local Judge returned ok after the accepted contribution, on the identical plan
+hash, with no new tasks, scope/requirement closure or drafting echo. The root was
+open. The targeted protocol evaluation was stopped after that prefix; it is not
+an executed workflow or end-to-end qualification. Its cancellation exposed a
+Server reservation before the campaign envelope had been created. Paid work was
+blocked while a narrow conservative retention path was implemented. The real
+immutable snapshot passes its preview, and the corrected audit rejects the still
+unretained hold. All 589 benchmark/financial tests pass. Original budgets,
+reservations, permissions, replay controls and the approved route policy remain
+unchanged; the correction creates no request or response evidence.

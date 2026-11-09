@@ -14,6 +14,80 @@ public sealed partial class BenchmarkPermanentRetentionTests
 {
     private const string InterruptedServerRun = "interrupted-server-run";
 
+    [Fact]
+    public async Task CurrentDispatchIsFundedNormallyWhileCancelledHoldCannotBeExcludedFromHistory()
+    {
+        var workspace = Path.Combine(Path.GetTempPath(), "GnOuGo.ServerRetention", Guid.NewGuid().ToString("N"));
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(Path.Combine(workspace, ".GnOuGo/data/live-server", InterruptedServerRun));
+        var campaign = await SeedInterruptedServerAsync(fixture);
+        foreach (var collection in new[] { "planning-evaluation-requests", BenchmarkHttpJournal.Collection, "planning-evaluation-failures" })
+            Assert.True(await fixture.Records.DeleteAsync(collection, "benchmark", "retention:" + RequestId, "test", Ct));
+        var state = (await fixture.Store.LoadAsync("benchmark", Session, Ct))!;
+        await campaign.RequireRetainedApplicationHoldsAsync(0m, Ct, requireComplete: true, activeState: state, activeRequest: state.PendingCall!.Request);
+        await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => campaign.RetainedApplicationReservationsAsync(Ct));
+        await MarkUnjournaledServerCancelledAsync(campaign, fixture);
+        state = (await fixture.Store.LoadAsync("benchmark", Session, Ct))!;
+        await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => campaign.RequireRetainedApplicationHoldsAsync(
+            0m, Ct, requireComplete: true, activeState: state, activeRequest: state.PendingCall!.Request));
+        await fixture.DisposeAsync(); Directory.Delete(workspace, true);
+    }
+
+    [Theory]
+    [InlineData("valid")]
+    [InlineData("campaign_request")]
+    [InlineData("campaign_http")]
+    [InlineData("campaign_failure")]
+    [InlineData("missing_budget")]
+    [InlineData("server_receipt")]
+    [InlineData("server_transport")]
+    [InlineData("active_status")]
+    public async Task CancellationBeforeCampaignEnvelopeRetainsOnlyAnExactServerBackedHold(string variant)
+    {
+        const string kind = "cancelled-before-campaign-envelope";
+        var workspace = Path.Combine(Path.GetTempPath(), "GnOuGo.ServerRetention", Guid.NewGuid().ToString("N"));
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(Path.Combine(workspace, ".GnOuGo/data/live-server", InterruptedServerRun));
+        var campaign = await SeedInterruptedServerAsync(fixture);
+        await MarkUnjournaledServerCancelledAsync(campaign, fixture);
+        foreach (var collection in new[] { "planning-evaluation-requests", BenchmarkHttpJournal.Collection, "planning-evaluation-failures" })
+            Assert.True(await fixture.Records.DeleteAsync(collection, "benchmark", "retention:" + RequestId, "test", Ct));
+        if (variant.StartsWith("campaign_", StringComparison.Ordinal))
+            await campaign.SaveAsync(variant switch { "campaign_request" => "planning-evaluation-requests", "campaign_http" => BenchmarkHttpJournal.Collection,
+                _ => "planning-evaluation-failures" }, RequestId, new(), Ct);
+        if (variant == "missing_budget") Assert.True(await fixture.Records.DeleteAsync("agent-planning-budgets-v11", "benchmark", Session, "test", Ct));
+        if (variant == "server_receipt") await fixture.Records.UpsertAsync("agent-planning-model-receipts-v11", "benchmark", Session + ":" + RequestId, "{}", "test", Ct);
+        if (variant == "server_transport")
+        {
+            var record = (await fixture.Records.GetAsync("agent-planning-model-http-v11", "benchmark", RequestId, "test", Ct))!;
+            var value = JsonNode.Parse(record.Value)!; value["transport"] = new JsonObject();
+            await fixture.Records.UpsertAsync("agent-planning-model-http-v11", "benchmark", RequestId, value.ToJsonString(), "test", Ct);
+        }
+        if (variant == "active_status")
+        {
+            var state = (await fixture.Store.LoadAsync("benchmark", Session, Ct))!; state.Status = PlanningStatus.Generating; state.Revision++;
+            Assert.True(await fixture.Store.TrySaveAsync(state, state.Revision - 1, Ct));
+        }
+        if (variant != "valid")
+            await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.InspectPermanentRetentionAsync("planning-evaluation-runs", InterruptedServerRun, RequestId, Ct, kind, workspace));
+        else
+        {
+            var before = await fixture.Records.GetAsync("agent-planning-budgets-v11", "benchmark", Session, "test", Ct);
+            await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => campaign.RetainedApplicationReservationsAsync(Ct));
+            var proposal = await campaign.InspectPermanentRetentionAsync("planning-evaluation-runs", InterruptedServerRun, RequestId, Ct, kind, workspace);
+            Assert.Equal("unknown", proposal["evidence"]!["dispatch_certainty"]!.ToString());
+            Assert.True(proposal["evidence"]!["campaign_envelope_absent"]!.GetValue<bool>());
+            await campaign.ApplyPermanentRetentionAsync("planning-evaluation-runs", InterruptedServerRun, RequestId, proposal["evidence_hash"]!.ToString(), Operator, Authorization, Ct, kind, workspace);
+            var cold = new BenchmarkCampaign(new KeyVaultRecordStore(Path.Combine(fixture.Root, "vault.db")), "retention");
+            await cold.ApplyPermanentRetentionAsync("planning-evaluation-runs", InterruptedServerRun, RequestId, proposal["evidence_hash"]!.ToString(), Operator, Authorization, Ct, kind, workspace);
+            Assert.Equal(.95m, await cold.RetainedApplicationReservationsAsync(Ct));
+            await cold.RequireRetainedApplicationHoldsAsync(.95m, Ct, requireComplete: true);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => cold.RequireRunNotRetainedAsync(Session, Ct));
+            Assert.Equal(before, await fixture.Records.GetAsync("agent-planning-budgets-v11", "benchmark", Session, "test", Ct));
+            foreach (var collection in new[] { "planning-evaluation-requests", BenchmarkHttpJournal.Collection, "planning-evaluation-failures", "planning-evaluation-receipts" })
+                Assert.Null(await cold.LoadAsync(collection, RequestId, Ct));
+        }
+        await fixture.DisposeAsync(); Directory.Delete(workspace, true);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

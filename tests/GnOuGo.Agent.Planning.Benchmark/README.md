@@ -819,3 +819,22 @@ runtime variants must execute after global review and artifact-bound delegated
 approval. Pure arithmetic success or an ordinary review after changed work is not
 proof of this boundary. This case changes no Code, Amazon or ordinary synthetic
 scenario requirements or oracles.
+
+
+A cancellation can occur after Server reserves its application budget but before
+any campaign request, HTTP envelope or failure record exists. The separate
+`cancelled-before-campaign-envelope` retention kind handles only that state. It
+requires the exact cancelled, tool-free Server session and reserved index entry,
+matching original request and transport-policy envelope, a positive bounded
+application reservation, and immutable campaign deployment. Any partial campaign
+envelope or received response rejects this path. Preview/apply uses the existing
+owned Server lease and exact evidence hash; it creates no request or response and
+releases no reservation. The whole application hold remains external to campaign
+HTTP accounting, and replay and continuation are permanently forbidden.
+
+Read-only audits and new-spending admission reject an unretained Server hold
+without a campaign envelope instead of treating those funds as available. The
+existing campaign-owned session-policy index bounds the metadata reads. The
+Server's exact active issued request remains subject to normal current-request
+physical admission; cancelled history cannot use that exception. Cold audits
+verify every retained Server budget hash and use the existing conservative sum.

@@ -714,7 +714,8 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             if (experimentalForecast) input = Math.Max(PlanningConstructionInputPolicy.EffectiveLimit(state.Request, request),
                 checked(JsonSerializer.SerializeToUtf8Bytes(request, PlanningJsonContext.Default.LLMRequest).Length + 256));
             if (experimentalForecast && RetainedExternalReservationsEur > 0 && !await HasSavedResponseAsync(request, ct))
-                await _campaign.RequireRetainedApplicationHoldsAsync(RetainedExternalReservationsEur, ct, requireComplete: true);
+                await _campaign.RequireRetainedApplicationHoldsAsync(RetainedExternalReservationsEur, ct, requireComplete: true,
+                    activeState: state, activeRequest: request);
             var reviews = request.RequiredReviewCalls ?? 0;
             var reviewOutput = PlanningConstructionPhasePolicies.Resolve(state.Request, "construction_local_judge").OutputTokens;
             var reviewInput = reviews == 0 ? 0 : await InputTokenAllowanceAsync(Provider, Model, reviewOutput, ct)
