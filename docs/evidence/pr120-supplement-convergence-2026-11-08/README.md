@@ -53,6 +53,22 @@ codes and encrypted path/prefix provenance while omitting URI credentials, queri
 authorization headers and arbitrary exception text. All 266 focused tests pass.
 No admission check, route authority, reservation or oracle is relaxed.
 
+[Amazon10's live prefix](amazon10-unchanged-plan-reviewed-prefix.json) demonstrates
+the unchanged-plan business-review boundary on source 2ea23c51. Call 10 accepted six
+task identities; call 12 requested ordinary local review with no new tasks or
+finalizers, preserving the identical plan hash. Call 13 returned `ok`, with the root
+still open and no original requirement closed. Product extraction/workbook work
+remained in progress. The first checkpoint was observed after 814 seconds including
+transport recovery, for EUR 2.510676... measured usage plus the retained EUR 7.059982...
+unknown physical hold. This is progression evidence, not an Amazon qualification
+or a convergence speedup claim.
+
+[Full local validation on 2ea23c51](validation-2ea23c51.json) passed 8,576 tests, with 12
+existing skips, zero failures and 33 assemblies, including all 216 slow fixtures.
+Frontend, Release build, independent packs and published osx-arm64 AOT smoke passed.
+The [primary CI on 402ca81c](ci-402ca81c-success.json) also completed successfully;
+the newer source's CI remains pending.
+
 The explicit authorization `pr120-supplement-20261108-400-01` increases only
 campaign `pr120-live-20261107-400` from EUR 400 to EUR 800. The existing leased
 `extend-budget` operation was invoked once after checking that this reference

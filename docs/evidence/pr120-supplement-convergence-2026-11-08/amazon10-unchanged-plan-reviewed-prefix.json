@@ -1,0 +1,58 @@
+{
+  "run": "amazon-qualification-20261109-10",
+  "session": "ee78598303da4a92858e4cf3d7b18d8b",
+  "source": "2ea23c51fac05474a371c810eebc9b894a7b01f3",
+  "scope": "Real Amazon search/order block; prefix only, not end-to-end qualification.",
+  "first_contribution": {
+    "logical_call": 10,
+    "accepted_task_ids": [
+      "close_browser",
+      "list_products",
+      "require_browser_closed",
+      "search",
+      "search_and_list",
+      "validate_search"
+    ],
+    "plan_hash": "7131855cb7ac16fbda1e036151592337b9759b254df1bad6bcdb690cf46a6ad1",
+    "known_usage_tariff_eur": "2.5106762203313927451858486342",
+    "first_host_event_showing_checkpoint_one_utc": "2026-11-09T10:36:15.633609+00:00",
+    "seconds_to_first_checkpoint_observed": 814.022987,
+    "timing_basis": "Existing Server inspection event reports checkpoint1; includes the independent bounded transport recovery. Not a provider-only latency or speedup claim."
+  },
+  "unchanged_plan_review": {
+    "claim_call": 12,
+    "claim_complete_block": true,
+    "new_tasks": 0,
+    "new_finalizers": 0,
+    "prior_plan_hash": "7131855cb7ac16fbda1e036151592337b9759b254df1bad6bcdb690cf46a6ad1",
+    "reviewed_plan_hash": "7131855cb7ac16fbda1e036151592337b9759b254df1bad6bcdb690cf46a6ad1",
+    "ordinary_local_judge_call": 13,
+    "verdict": "ok",
+    "workflow_root_remains_open": true,
+    "closed_original_requirement_ids": [],
+    "no_operator_plan_edit": true,
+    "known_usage_tariff_through_review_eur": "3.5401074787281683833407971339"
+  },
+  "transport": {
+    "physical_attempts_through_review": 14,
+    "call10_physical_attempts": 2,
+    "unknown_attempts": 1,
+    "unknown_full_hold_eur": "7.0599820868786386027765338109",
+    "single_captured_owner": true,
+    "manual_retry": false
+  },
+  "remaining": [
+    "Product extraction and workbook composition still ongoing at snapshotcall16.",
+    "Global review, delegated approval, real execution and independent v5 oracle remain unobserved."
+  ],
+  "limitations": [
+    "No complete Amazon success or improved convergence time/cost claimed.",
+    "Local business review is independent of runtime evidence and execution authority.",
+    "All original workbook, field, sponsored-result, order, scope and cleanup obligations remain unchanged."
+  ],
+  "private_evidence_sha256": {
+    "amazon10-boundary-prefix-at16.json": "8a2af10c4578ee2cec2d2247173e1a848c315d0a6b1f407dc3f7ba0d0af48165",
+    "amazon10-boundary-receipts-through13.json": "05865f5be301429aaf5b90786841d36fec540222072f6d09762878b3e685992b",
+    "amazon10-boundary-http10.json": "ae4c6ab89355e5d14c7a0fce1035e60f31d5acd8fe6a5f6e581e82a749530a87"
+  }
+}
