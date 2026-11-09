@@ -149,6 +149,11 @@ Policy, input, provider, cancellation, and unexpected tool failures are returned
 `code_agent_edit` is a compatibility wrapper over the same bounded logical operation
 and durable MCP Tasks receipt as `copilot_interactive_one_shot`. Its existing
 `CodeAgentEditResult` contract is preserved, including truthful `toolExecutions`.
+Its metadata and session prompt describe the existing bounded coding task: inspection,
+review, checks or edits as requested. Available SDK tools and the current host
+permission/sandbox policy determine actual execution. Session completion alone does
+not establish that commands ran or checks succeeded; preserve unavailable, denied,
+failed and incomplete observations. Read-only tasks do not require file changes.
 `code_suggest_change` also uses Core, with tool execution disabled. MCP never
 creates SDK clients or sessions. The shared configuration builder preserves provider,
 telemetry, trace, and timeout settings for both legacy and managed tools.
