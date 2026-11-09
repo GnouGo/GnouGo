@@ -105,7 +105,7 @@ internal static partial class PlanningCompactConstruction
     {
         var construction = state.Construction!; var compact = State(state);
         if (compact.CurrentStep is not { Kind: "close", DiscoveryComplete: true, CloseScopes.Count: 0 } step ||
-            !CanClaimCurrentBlockCompletion(state) || step.CloseRequirementIds.Count > 0 || step.OutputNames.Count > 0 ||
+            !CanClaimCurrentBlockCompletion(state) || step.CloseRequirementIds.Count > 0 ||
             compact.ReplacementScope is not null || compact.ResumingStepId is not null || step.ContinuationBinding is not null ||
             compact.PendingCommitments.Any(item => item.Value.Count > 0) || construction.RebuildTasks.Count > 0)
             return null;
@@ -116,6 +116,10 @@ internal static partial class PlanningCompactConstruction
         {
             Scope = step.Scope, RequirementIds = step.RequirementIds.ToList(), CompleteBlock = true
         });
+        // Selecting an existing public output does not change its binding.
+        // Missing or ambiguous bindings still require an ordinary draft.
+        if (step.OutputNames.Any(name => probe.Construction.Candidate.Plan.Root.Outputs.Count(output => output.Name == name) != 1))
+            return null;
         if (probe.Construction.Candidate.Hash != step.BaseHash) return null;
         probe.Construction.Candidate.Reviews.Add(new JsonObject
         {

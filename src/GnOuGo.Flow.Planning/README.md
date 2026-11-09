@@ -257,8 +257,10 @@ After an owned business block has accepted a contribution, discovery can offer
 an explicit completion claim even when no workflow scope or original requirement
 can close. A selected empty-scope claim prepares an unchanged-plan candidate
 through ordinary application, without a drafting echo. It still requires normal
-technical validation and business review of the block's accepted behavior. Other
-blocks, invalidated/empty contributions, stale baselines and already completed
+technical validation and business review of the block's accepted behavior.
+Selected public outputs may retain their existing unique bindings; missing or
+ambiguous bindings still require drafting, and the candidate hash must stay unchanged.
+Other blocks, invalidated/empty contributions, stale baselines and already completed
 blocks grant no such choice; global review and artifact approval stay separate.
 
 ## Ordinary arithmetic and decimal boundaries

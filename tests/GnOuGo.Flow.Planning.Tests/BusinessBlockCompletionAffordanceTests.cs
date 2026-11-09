@@ -6,10 +6,12 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class BusinessBlockCompletionAffordanceTests
 {
-    [Fact]
-    public async Task AcceptedBusinessContributionCanClaimReviewWithoutAddingWorkOrClosingRoot()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AcceptedBusinessContributionCanClaimReviewWithoutAddingWorkOrClosingRoot(bool selectedBoundOutput)
     {
-        var (state, runtime) = await Partial();
+        var (state, runtime) = await Partial(selectedBoundOutput);
         var plan = JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan);
         var block = state.Construction!.Compact!.CurrentBlockId;
         Assert.True(OffersClose(PlanningCompactConstruction.DiscoverySchema(state)));
@@ -79,17 +81,43 @@ public sealed class BusinessBlockCompletionAffordanceTests
         Assert.False(OffersClose(PlanningCompactConstruction.DiscoverySchema(state)));
     }
 
-    private static async Task<(PlanningSession State, TestRuntime Runtime)> Partial()
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("ambiguous")]
+    public async Task PublicOutputSelectionCannotManufactureAnUnchangedBinding(string defect)
+    {
+        var (state, _) = await Partial(selectedBoundOutput: true);
+        var step = state.Construction!.Compact!.CurrentStep!;
+        step.Kind = "close"; step.DiscoveryComplete = true; step.CloseScopes = [];
+        if (defect == "missing") step.OutputNames = ["not_bound"];
+        else state.Plan!.Root.Outputs.Add(new("result", new() { Kind = "number", Number = 123 }));
+        step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        var before = JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan);
+        Assert.Null(PlanningCompactConstruction.PrepareSelectedClosure(state));
+        Assert.Equal(before, JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
+        Assert.Null(state.Construction.Candidate);
+    }
+
+    private static async Task<(PlanningSession State, TestRuntime Runtime)> Partial(bool selectedBoundOutput = false)
     {
         var (state, runtime) = await BusinessReviewProtocolTests.Ready();
         state.Construction!.Candidate!.Extension.CompleteBlock = false;
+        if (selectedBoundOutput)
+        {
+            state.Requirements!.Outputs = [new() { Name = "result", Type = new() { Kind = "number" } }];
+            state.Construction.Compact!.CurrentStep!.OutputNames = ["result"];
+            var extension = state.Construction.Candidate.Extension;
+            extension.Outputs = [new("result", new() { Kind = "output", Source = "compute", Port = "result" })];
+            state.Construction.Candidate = PlanningConstruction.Apply(state, extension);
+        }
         state = await BusinessReviewProtocolTests.Advance(state, runtime);
         Assert.Single(state.Construction!.Checkpoints);
         state.Construction.Compact!.CurrentStep = new()
         {
             Id = "finish_business_block", BlockId = state.Construction.Compact.CurrentBlockId, Scope = "/root",
             BaseHash = PlanningConstruction.Hash(state.Plan), Objective = "Request review of the accepted doubled result.",
-            RequirementIds = ["work"], ExpectedOutputs = ["The accepted doubled result"], CloseRequirementIds = []
+            RequirementIds = ["work"], ExpectedOutputs = ["The accepted doubled result"], CloseRequirementIds = [],
+            OutputNames = selectedBoundOutput ? ["result"] : []
         };
         return (state, runtime);
     }
