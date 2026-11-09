@@ -16,6 +16,20 @@ and the published osx-arm64 AOT smoke passed. This is a disjoint complete soluti
 partition. The earlier [three-regression snapshot](validation-2e610242-failed.json)
 remains failed and historical; the immutable pre-batch producer basis corrected it.
 
+The [disposable SDK prerequisite probe](sdk-provider-compatibility-and-owned-audit.json)
+then tested the provider's suggested `none` setting. It also received HTTP 400:
+the actual deployment rejects `none`, despite its prior recommendation. No command
+ran; the terminal receipt reloaded and cleanup succeeded. Its full EUR 3.900188...
+unknown-usage hold remains. The closed balance before Native01 is EUR
+176.667810120913569189431252288, not an active-run funding forecast.
+
+The bounded campaign-inspection correction preserves canonical hash/accounting
+while avoiding tenant history hydration. The explicit native SDK Responses profile
+checks the actual route before admission and preserves KeyVault precedence,
+permissions and replay barriers. All 261 focused tests pass. Gateway support is
+still unverified; neither the SDK's supported enum nor historical read-only 404
+proves it. The Native qualification is independent of this SDK prerequisite.
+
 The explicit authorization `pr120-supplement-20261108-400-01` increases only
 campaign `pr120-live-20261107-400` from EUR 400 to EUR 800. The existing leased
 `extend-budget` operation was invoked once after checking that this reference

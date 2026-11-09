@@ -865,3 +865,19 @@ It requires source-bound Release MCP builds. Its command and persisted receipt
 checks establish only SDK prerequisites, never a successful code-review scenario.
 HTTP rejections without usage retain the full reservation, and neither changing
 this setting nor receiving an error permits replay of external execution.
+
+`--sdk-wire-api responses` instead selects the SDK's existing native Responses
+format for a fresh Code run or disposable `copilot-probe`. It records the choice,
+keeps the existing medium reasoning and requires the actual intercepted endpoint
+to end in `/responses` below the unchanged pinned provider prefix. A saved
+KeyVault setting retains precedence; if it selects a conflicting route, the proxy
+refuses before reserving or sending a request. There is no automatic protocol
+fallback, hidden-context relaxation or change to planning/background transport.
+Omission preserves the historical SDK provider choice. This option cannot be
+combined with a Chat Completions reasoning override or applied to a retained run.
+Gateway support must be established by actual new evidence; SDK support alone
+and a read-only HTTP404 are inconclusive.
+
+Campaign inspection uses the existing bounded owned metadata reader and exact
+budget key. It preserves the canonical evidence hash and accounting while avoiding
+tenant-wide payload hydration before campaign filtering.

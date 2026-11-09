@@ -825,7 +825,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             ["reserved_output_tokens"] = pending * record["output_ceiling"]!.GetValue<long>(),
             ["reserved_cost_eur"] = pending * record["cost_ceiling_eur"]!.GetValue<decimal>() };
     }
-    internal async Task<(int Status, string ContentType, string Body)> ProxyInferenceAsync(string run, Dictionary<string, string> headers, string body, CancellationToken ct, string? chatToolsReasoningEffort = null)
+    internal async Task<(int Status, string ContentType, string Body)> ProxyInferenceAsync(string run, Dictionary<string, string> headers, string body, CancellationToken ct, string? chatToolsReasoningEffort = null, string? wireApi = null)
     {
         await _dispatchGate.WaitAsync(ct);
         try
@@ -835,6 +835,9 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                 upstream.GetLeftPart(UriPartial.Authority) != endpoint.GetLeftPart(UriPartial.Authority) ||
                 !upstream.AbsolutePath.StartsWith(endpoint.AbsolutePath.TrimEnd('/') + "/", StringComparison.Ordinal))
                 throw new InvalidOperationException("Inference upstream is outside the pinned provider.");
+            CampaignInferenceProxy.ValidateWireApi(wireApi);
+            if (wireApi is not null && !upstream.AbsolutePath.EndsWith(wireApi == "responses" ? "/responses" : "/chat/completions", StringComparison.Ordinal))
+                throw new InvalidOperationException("The SDK endpoint differs from the captured wire API; no provider attempt was started.");
             if (!headers.TryGetValue("X-GnOuGo-Inference-Request", out var sdkId) || string.IsNullOrWhiteSpace(sdkId)) throw new InvalidOperationException("Missing SDK request identity.");
             var payload = PrepareProxyPayload(JsonNode.Parse(body)!.AsObject(), Model, upstream.AbsolutePath, chatToolsReasoningEffort);
             body = payload.ToJsonString(new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });

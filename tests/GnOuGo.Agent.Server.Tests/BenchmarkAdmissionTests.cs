@@ -751,6 +751,30 @@ public sealed class BenchmarkAdmissionTests
         Assert.Equal(journal.ToJsonString(), (await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, RuntimeId(true), Ct))!.ToJsonString());
     }
 
+    [Theory]
+    [InlineData("responses", "/responses", true)]
+    [InlineData("responses", "/chat/completions", false)]
+    [InlineData("completions", "/responses", false)]
+    [InlineData("completions", "/chat/completions", true)]
+    public async Task ExplicitSdkWireApiChecksActualRouteBeforeAnyReservation(string selected, string path, bool allowed)
+    {
+        using var fixture = new Fixture(); using var handler = new RuntimeHandler(200); using var http = new HttpClient(handler);
+        using var model = RuntimeModel(fixture, RuntimeOptions(), http);
+        Task<(int Status, string ContentType, string Body)> Invoke() => model.ProxyInferenceAsync("runtime", new()
+        {
+            ["X-GnOuGo-Inference-Upstream"] = "https://example.invalid/v1" + path,
+            ["X-GnOuGo-Inference-Request"] = "sdk-one"
+        }, """{"model":"pinned","input":"Visible request","max_output_tokens":8192}""", Ct, wireApi: selected);
+        if (allowed) { Assert.Equal(200, (await Invoke()).Status); Assert.Equal(1, handler.Calls); }
+        else
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(Invoke);
+            Assert.Equal(0, handler.Calls);
+            Assert.Null(await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, RuntimeId(true), Ct));
+            Assert.Null(await fixture.Campaign.LoadAsync("planning-evaluation-requests", RuntimeId(true), Ct));
+        }
+    }
+
     private sealed class ToolReasoningHandler : HttpMessageHandler
     {
         internal int Calls;

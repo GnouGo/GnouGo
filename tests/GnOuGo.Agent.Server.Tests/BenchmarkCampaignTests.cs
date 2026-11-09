@@ -195,6 +195,24 @@ public sealed class BenchmarkCampaignTests
     }
 
     [Fact]
+    public async Task CampaignInspectionPagesOwnedEvidenceAndReadsItsExactBudgetOnly()
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "current");
+        for (var i = 0; i < 203; i++) await campaign.SaveAsync("planning-evaluation-requests", $"session:{i}:hash", new(), Ct);
+        await records.UpsertAsync("planning-evaluation-requests", "benchmark", "other:broken", "not JSON", BenchmarkCampaign.Author, Ct);
+        await records.UpsertAsync("planning-evaluation-budgets", "benchmark", "current", JsonSerializer.Serialize(new LLMUsageBudgetSnapshot { EstimatedCostCurrency = "EUR" }, PlanningJsonContext.Default.LLMUsageBudgetSnapshot), BenchmarkCampaign.Author, Ct);
+        await records.UpsertAsync("planning-evaluation-budgets", "benchmark", "other", "not JSON", BenchmarkCampaign.Author, Ct);
+        var expected = await campaign.InspectAsync(Ct);
+        records.ReadKeys.Clear(); records.MetadataQueries = 0; records.ForbidList = true;
+        var actual = await campaign.InspectAsync(Ct);
+        Assert.True(JsonNode.DeepEquals(expected, actual));
+        Assert.Equal(203, actual["reserved_requests"]!.GetValue<int>());
+        Assert.True(records.MetadataQueries >= 3);
+        Assert.DoesNotContain(records.ReadKeys, key => key == "other" || key.StartsWith("other:", StringComparison.Ordinal));
+        Assert.Contains("current", records.ReadKeys);
+    }
+
+    [Fact]
     public async Task CampaignAdmissionPagesOnlyOwnedRecordsWithoutDecryptingOtherCampaignHistory()
     {
         var records = new Records(); var current = new BenchmarkCampaign(records, "current"); var old = new BenchmarkCampaign(records, "old");
@@ -1367,6 +1385,27 @@ public sealed class BenchmarkCampaignTests
     public void InvalidSdkToolReasoningIsRejectedBeforePayloadPreparation(string effort)
         => Assert.Throws<ArgumentException>(() => KeyVaultBenchmarkModel.PrepareProxyPayload(
             new JsonObject { ["model"] = "pinned" }, "pinned", "/v1/chat/completions", effort));
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("completions")]
+    [InlineData("responses")]
+    public void ExplicitSdkWireApiUsesExistingConfigurationWithoutChangingOtherSettings(string? wireApi)
+    {
+        var settings = new McpServerOptions { Type = "stdio", Command = "dotnet", Args = ["tool.dll"],
+            EnvironmentVariables = new() { ["Code__AllowWrites"] = "false", ["Code__Copilot__Providers__other__WireApi"] = "completions" } };
+        var before = JsonSerializer.SerializeToNode(settings)!.AsObject();
+        CampaignInferenceProxy.ConfigureWireApi(settings, "selected", wireApi);
+        if (wireApi is not null)
+        {
+            Assert.Equal(wireApi, settings.EnvironmentVariables!["Code__Copilot__Providers__selected__WireApi"]);
+            settings.EnvironmentVariables.Remove("Code__Copilot__Providers__selected__WireApi");
+        }
+        Assert.True(JsonNode.DeepEquals(before, JsonSerializer.SerializeToNode(settings)));
+        Assert.Throws<ArgumentException>(() => CampaignInferenceProxy.ConfigureWireApi(settings, "selected", "automatic"));
+        Assert.Throws<ArgumentException>(() => CampaignInferenceProxy.ConfigureWireApi(settings, "selected:other", "responses"));
+        Assert.True(JsonNode.DeepEquals(before, JsonSerializer.SerializeToNode(settings)));
+    }
 
     [Theory]
     [InlineData(400, true)]

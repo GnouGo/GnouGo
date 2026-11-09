@@ -372,9 +372,14 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
     internal async Task<JsonObject> InspectAsync(CancellationToken ct = default)
     {
         var evidence = new List<KeyVaultRecordValue>();
-        foreach (var collection in new[] { "requests", "receipts", "failures", "runs", "summaries", "configuration", "budgets", "http-attempts", "closures" })
-            evidence.AddRange((await records.ListAsync("planning-evaluation-" + collection, "benchmark", Author, ct))
-                .Where(r => collection == "budgets" ? r.Key == Id : r.Key.StartsWith(Id + ":", StringComparison.Ordinal)));
+        foreach (var collection in new[] { "requests", "receipts", "failures", "runs", "summaries", "configuration", "http-attempts", "closures" })
+            evidence.AddRange(await OwnedRecordsAsync("planning-evaluation-" + collection, ct));
+        if (await records.GetAsync("planning-evaluation-budgets", "benchmark", Id, Author, ct) is { } ownedBudget)
+        {
+            if (ownedBudget.Key != Id || ownedBudget.Collection != "planning-evaluation-budgets" || ownedBudget.TenantId != "benchmark")
+                throw AdmissionFailure("campaign_record_owner_mismatch");
+            evidence.Add(ownedBudget);
+        }
         var requests = evidence.Where(r => r.Collection == "planning-evaluation-requests").ToArray();
         var receipts = evidence.Where(r => r.Collection == "planning-evaluation-receipts").ToArray();
         var missing = requests.Where(r => !receipts.Any(receipt => receipt.Key == r.Key)).ToArray();

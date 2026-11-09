@@ -47,6 +47,10 @@ internal static class ServerLiveDiagnostics
         KeyVaultBenchmarkModel.ValidateSdkChatToolsReasoningEffort(sdkChatToolsReasoningEffort);
         if (sdkChatToolsReasoningEffort is not null && (retained || delegatedScenario != "code"))
             throw new ArgumentException("SDK tool reasoning can be captured only for a fresh Code plan; retained runs use their original capture.");
+        var sdkWireApi = SchemaPortabilityCampaign.Option(args, "--sdk-wire-api");
+        CampaignInferenceProxy.ValidateWireApi(sdkWireApi);
+        if ((sdkWireApi is not null && (retained || delegatedScenario != "code")) || (sdkWireApi == "responses" && sdkChatToolsReasoningEffort is not null))
+            throw new ArgumentException("Capture the SDK wire API only on a fresh Code plan; Responses uses the existing medium reasoning setting.");
         var fundingScope = await campaign.FreshAllocationAsync(CancellationToken.None);
         if (!retained && !mcpReadiness && await campaign.HasUncertainRequestAsync(CancellationToken.None))
             throw BenchmarkCampaign.AdmissionFailure("campaign_uncertain_request_requires_recovery");
@@ -160,6 +164,7 @@ internal static class ServerLiveDiagnostics
             ["configuration_sources"] = model.ConfigurationSources.DeepClone(),
             ["server_model_source"] = app.Services.GetRequiredService<LLMRuntimeOptionsStore>().DefaultModelSource };
         if (sdkChatToolsReasoningEffort is not null) report["sdk_chat_tools_reasoning_effort"] = sdkChatToolsReasoningEffort;
+        if (sdkWireApi is not null) report["sdk_wire_api"] = sdkWireApi;
         if (fundingScope is not null) report["funding_scope"] = fundingScope.DeepClone();
         if (browserObservationPolicy is not null)
         {
@@ -758,8 +763,9 @@ internal static class ServerLiveDiagnostics
         {
             model.CaptureTokenPolicy(state.Request);
             await using var proxy = await CampaignInferenceProxy.StartAsync(model, state.Request.SessionId,
-                report["sdk_chat_tools_reasoning_effort"]?.GetValue<string>());
+                report["sdk_chat_tools_reasoning_effort"]?.GetValue<string>(), report["sdk_wire_api"]?.GetValue<string>());
             var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, scenario, proxy.Endpoint, "Release", sourceRoot, report["browser_observation_policy"]?.ToString());
+            if (scenario == "code") CampaignInferenceProxy.ConfigureWireApi(configurations["GnOuGo.GithubCopilot.Mcp"], model.Provider, report["sdk_wire_api"]?.GetValue<string>());
             var builds = LiveWorkflowEvaluation.CaptureMcpBuilds(configurations, report["source"]!.ToString());
             if (!JsonNode.DeepEquals(builds, report["mcp_builds"])) throw new PlanningConflictException("The frozen execution tools changed after generation.");
             var human = new DelegatedTestReviewAuthority.Input(campaign, state.Request.SessionId, authority);
@@ -821,7 +827,7 @@ internal static class ServerLiveDiagnostics
             if (i == 0) result.Add(value);
             else if (value.StartsWith("--", StringComparison.Ordinal))
             {
-                safeValue = value is "--schema-portability" or "--run" or "--case" or "--model" or "--campaign-configuration" or "--workspace" or "--campaign" or "--retained-external-reservations-eur" or "--server-phase-policy" or "--financial-forecast-mode" or "--sdk-chat-tools-reasoning";
+                safeValue = value is "--schema-portability" or "--run" or "--case" or "--model" or "--campaign-configuration" or "--workspace" or "--campaign" or "--retained-external-reservations-eur" or "--server-phase-policy" or "--financial-forecast-mode" or "--sdk-chat-tools-reasoning" or "--sdk-wire-api";
                 result.Add(safeValue ? value : "[unrecorded option]");
             }
             else { result.Add(safeValue ? value : "[withheld]"); safeValue = false; }

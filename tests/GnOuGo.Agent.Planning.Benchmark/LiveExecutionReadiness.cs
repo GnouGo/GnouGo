@@ -19,6 +19,9 @@ internal static class LiveExecutionReadiness
         if (label.Length > 80 || !label.All(c => char.IsAsciiLetterOrDigit(c) || c == '-')) throw new ArgumentException("Invalid run identity.");
         var sdkChatToolsReasoningEffort = SchemaPortabilityCampaign.Option(args, "--sdk-chat-tools-reasoning");
         KeyVaultBenchmarkModel.ValidateSdkChatToolsReasoningEffort(sdkChatToolsReasoningEffort);
+        var sdkWireApi = SchemaPortabilityCampaign.Option(args, "--sdk-wire-api");
+        CampaignInferenceProxy.ValidateWireApi(sdkWireApi);
+        if (sdkWireApi == "responses" && sdkChatToolsReasoningEffort is not null) throw new ArgumentException("Responses uses the existing medium reasoning setting.");
         model.RetainedExternalReservationsEur = decimal.Parse(
             SchemaPortabilityCampaign.RequiredOption(args, "--retained-external-reservations-eur"), System.Globalization.CultureInfo.InvariantCulture);
         const string collection = "planning-copilot-probes";
@@ -30,10 +33,12 @@ internal static class LiveExecutionReadiness
             ["provider_hash"] = model.ConfigurationFingerprint, ["readiness"] = await model.ReadinessAsync(CancellationToken.None),
             ["accounting_before"] = await campaign.InspectAsync(), ["events"] = new JsonArray(), ["passed"] = false };
         if (sdkChatToolsReasoningEffort is not null) state["sdk_chat_tools_reasoning_effort"] = sdkChatToolsReasoningEffort;
+        if (sdkWireApi is not null) state["sdk_wire_api"] = sdkWireApi;
         await campaign.SaveAsync(collection, label, state);
         KeyVaultBenchmarkModel.RequireReady(state["readiness"]!.AsObject());
-        await using var proxy = await CampaignInferenceProxy.StartAsync(model, label, sdkChatToolsReasoningEffort);
+        await using var proxy = await CampaignInferenceProxy.StartAsync(model, label, sdkChatToolsReasoningEffort, sdkWireApi);
         var settings = LiveWorkflowEvaluation.Configuration(model.McpServers, "code", proxy.Endpoint, "Release");
+        CampaignInferenceProxy.ConfigureWireApi(settings["GnOuGo.GithubCopilot.Mcp"], model.Provider, sdkWireApi);
         state["mcp_builds"] = LiveWorkflowEvaluation.CaptureMcpBuilds(settings, state["source_sha"]!.ToString());
         var human = new LiveWorkflowEvaluation.ConsoleHuman(campaign, label);
         // Expose only this producer; no Git or publication tools are connected.
