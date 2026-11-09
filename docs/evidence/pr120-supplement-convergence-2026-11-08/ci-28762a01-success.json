@@ -1,0 +1,12 @@
+{
+  "source": "28762a0191634e66c58f817bde73af46477a827d",
+  "workflow": "Deterministic planner validation",
+  "run": 42609187017,
+  "url": "https://github.com/GnouGo/GnouGo/actions/runs/42609187017",
+  "conclusion": "success",
+  "run_attempt": 1,
+  "completed_utc": "2026-11-09T13:04:29Z",
+  "limitations": [
+    "Exact-source historical CI success. Newer functional source requires its own CI."
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "run": "amazon-qualification-20261109-12",
+  "source": "794163d1fcb39673b368a5a0640384b3126de5e8",
+  "session": "02d15e6f8b88488e99503b86c133156d",
+  "scenario": "amazon",
+  "global_review": "ok",
+  "delegated_review_revision": 76,
+  "artifact_hash": "9052c0a1ee319542d0e7bfdfa275ac6b28e73db65db90625ea80785eea5fa535",
+  "browser_observation_policy": "amazon-observed-redirects-v1",
+  "oracle_version": "amazon-business-v5",
+  "execution_success": false,
+  "oracle_passed": false,
+  "first_search": {
+    "success": true,
+    "http_status": 200,
+    "complete_snapshot_pages": 70,
+    "records": 1541,
+    "truncated": false,
+    "actual_get_hops": 1,
+    "superseded_responses": 0
+  },
+  "selection_interpretation": {
+    "physical_attempts": 1,
+    "http_status": 200,
+    "input_tokens": 710643,
+    "output_tokens": 3124,
+    "measured_usage_tariff_eur": "19.598396775638154948499776086"
+  },
+  "first_cause": {
+    "code": "DELEGATED_PERMISSION_DENIED",
+    "host": "sponsored-ads.amazon.fr",
+    "route": "/clk/ with nonempty query",
+    "new_host_contacted": false,
+    "observed_literal_selected": true,
+    "prior_approval_covers_only_amazon_fr_sspa_click": true,
+    "query_target_decoded_or_substituted": false
+  },
+  "cleanup_browser_closed": true,
+  "workbook_created": false,
+  "never_replay_execution": true,
+  "planning": {
+    "logical_calls": 26,
+    "physical_attempts": 27,
+    "known_tariff_eur": "8.210703090013434841021047918",
+    "uncertain_attempts": 1,
+    "full_unknown_hold_eur": "7.1098790864308105687416032242",
+    "sole_captured_retry_owner": true
+  },
+  "closed_audit_before_collections01": {
+    "available_eur": "106.236327810120913569189424488",
+    "retained_application_holds_eur": "44.588114643976712942230183612",
+    "ceiling_eur": "1200"
+  },
+  "private_evidence_sha256": {
+    "amazon12-final-run.json": "91aa2fa43adfd5f34ecf31b6b80774dfbb8eafd2787425a6fdc7599d96fa6ba7",
+    "amazon12-closed-audit.json": "b7c5a5d0444b9a2dbc2bcf23c39977396266590529a44ea72d1444b200fd0b83",
+    "amazon12-global-review.json": "5540b741af5e54977b65414ee6ce51a47c5dfbbb249b5abf5ac6d65e29634129",
+    "amazon12-review-notes.json": "ea4326c0dd5a3a7afe6f16042691073d5279923dd5f36afb18b4eca0ba166c86"
+  },
+  "limitations": [
+    "Amazon end-to-end qualification failed. No workbook success or observed product visit is claimed.",
+    "The new sponsored host is outside the existing approval. Preparing a separate opt-in does not authorize its live use.",
+    "The large source and measured inference cost are observations, not evidence that source volume caused the permission failure.",
+    "Measured-usage tariff estimates and reservations are not provider invoices."
+  ]
+}
