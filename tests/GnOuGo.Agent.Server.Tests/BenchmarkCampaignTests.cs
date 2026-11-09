@@ -14,6 +14,55 @@ public sealed class BenchmarkCampaignTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Theory]
+    [InlineData("none")] [InlineData("permission")] [InlineData("endpoint")]
+    [InlineData("price")] [InlineData("retry")] [InlineData("metadata")] [InlineData("other-server")]
+    public async Task SdkWireAmendmentPreservesFundingAndRejectsUnrelatedChanges(string defect)
+    {
+        var records = new Records(); var old = new BenchmarkCampaign(records, "old"); var campaign = new BenchmarkCampaign(records, "sdk-funded");
+        var options = new LLMOptions { DefaultProvider = "OpenAi", DefaultModel = "model",
+            Models = new() { ["OpenAi"] = new() { Type = "openai", Url = "https://gateway.invalid/v1" } },
+            ModelOverrides = new() { ["openai/model"] = new() { Id = "model", ProviderType = "openai", MaxOutputTokens = 32768,
+                Pricing = new() { Currency = "EUR", InputPer1MTokens = 30, OutputPer1MTokens = 180 },
+                Capabilities = new() { SupportsReasoningEffort = true, SupportedReasoningEfforts = ["medium", "high"] } } } };
+        options.McpServers[BenchmarkCampaign.SdkServer] = new() { Type = "stdio", Command = "dotnet",
+            EnvironmentVariables = new() { ["Code__AllowWrites"] = "false" } };
+        using var original = new KeyVaultBenchmarkModel(campaign, options);
+        var config = original.CampaignConfiguration(); await old.PinAsync(config, Ct); await campaign.PinAsync(config, Ct);
+        string Metadata() => PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(new RoutingLLMClient(options, []).ResolveDeclaredMetadata("OpenAi", "model")));
+        var allocation = await campaign.AuthorizeFreshAllocationAsync("old", 400m, "same-grant", config, original.ConfigurationFingerprint, Metadata(), Ct);
+        var parent = allocation["configuration_id"]!.ToString();
+        var funding = (await campaign.LoadAsync("planning-evaluation-configuration", "independent-funding-scope", Ct))!.ToJsonString();
+        var uncertain = new BenchmarkHttpJournal(campaign, "retained:1", 10, 10, 3m);
+        await uncertain.PrepareAsync(Ct); await uncertain.SaveAsync(new() { Attempts = [new() { Id = "unknown" }] }, Ct);
+        options.McpServers[BenchmarkCampaign.SdkServer].EnvironmentVariables![BenchmarkCampaign.SdkTransportKey] = BenchmarkCampaign.SdkStructuredTransport;
+        if (defect == "permission") options.McpServers[BenchmarkCampaign.SdkServer].EnvironmentVariables!["Code__AllowWrites"] = "true";
+        if (defect == "endpoint") options.Models["OpenAi"].Url = "https://other.invalid/v1";
+        if (defect == "price") options.ModelOverrides["openai/model"].Pricing!.InputPer1MTokens++;
+        if (defect == "retry") options.Models["OpenAi"].RetryPolicy.MaxAttempts++;
+        if (defect == "metadata") options.ModelOverrides["openai/model"].MaxOutputTokens++;
+        if (defect == "other-server") options.McpServers["other"] = new() { Type = "http", Url = "https://unapproved.invalid/mcp" };
+        using var changed = new KeyVaultBenchmarkModel(campaign, options);
+        if (defect != "none")
+        {
+            await Assert.ThrowsAsync<PlanningConflictException>(() => changed.SdkTransportProofAsync(parent, "absent", Ct));
+            return;
+        }
+        var proof = await changed.SdkTransportProofAsync(parent, "absent", Ct);
+        var preview = await campaign.RegisterConfigurationAsync(config, changed.ConfigurationFingerprint, Metadata(),
+            PlanningGraphCompiler.Fingerprint(config.ToJsonString()), "explicit-sdk-wire", false, Ct, captureCurrentSettings: true, sdkTransportProof: proof);
+        var saved = await campaign.RegisterConfigurationAsync(config, changed.ConfigurationFingerprint, Metadata(),
+            PlanningGraphCompiler.Fingerprint(config.ToJsonString()), "explicit-sdk-wire", true, Ct, preview["configuration_id"]!.ToString(),
+            captureCurrentSettings: true, sdkTransportProof: proof);
+        await campaign.SelectConfigurationAsync(saved["configuration_id"]!.ToString(), config, changed.ConfigurationFingerprint, Ct);
+        Assert.Equal(400m, (await campaign.FreshAllocationAsync(Ct))!["allowance_eur"]!.GetValue<decimal>());
+        Assert.Equal(funding, (await campaign.LoadAsync("planning-evaluation-configuration", "independent-funding-scope", Ct))!.ToJsonString());
+        Assert.Equal(3m, (await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct))["reserved_cost_eur"]!.GetValue<decimal>());
+        var forged = proof.DeepClone().AsObject(); forged["environment_key"] = "Code__AllowWrites";
+        await Assert.ThrowsAsync<PlanningConflictException>(() => campaign.RegisterConfigurationAsync(config, changed.ConfigurationFingerprint, Metadata(),
+            PlanningGraphCompiler.Fingerprint(config.ToJsonString()), "forged-sdk-wire", true, Ct, captureCurrentSettings: true, sdkTransportProof: forged));
+    }
+
+    [Theory]
     [InlineData("none")]
     [InlineData("price")]
     [InlineData("endpoint")]
@@ -1386,6 +1435,14 @@ public sealed class BenchmarkCampaignTests
         Assert.Equal("medium", (path.EndsWith("responses", StringComparison.Ordinal) ? prepared["reasoning"]!["effort"] : prepared["reasoning_effort"])!.ToString());
         foreach (var invalid in new[] { "{\"model\":\"other\"}", "{\"model\":\"pinned\",\"n\":2}", "{\"model\":\"pinned\",\"conversation\":\"hidden\"}", "{\"model\":\"pinned\",\"messages\":[{\"type\":\"input_image\"}]}" })
             Assert.Throws<InvalidOperationException>(() => KeyVaultBenchmarkModel.PrepareProxyPayload(JsonNode.Parse(invalid)!.AsObject(), "pinned", path));
+    }
+    [Fact]
+    public void ExplicitStructuredSdkTransportRetainsReasoningAndItsActualStructuredWireBody()
+    {
+        var original = JsonNode.Parse("""{"model":"pinned","messages":[{"role":"system","content":"exact tool declarations"}],"reasoning_effort":"high","max_completion_tokens":8192,"stream":false,"response_format":{"type":"json_schema","json_schema":{"name":"decision","strict":true,"schema":{"type":"object"}}}}""")!.AsObject();
+        var prepared = KeyVaultBenchmarkModel.PrepareProxyPayload(original, "pinned", "/v1/chat/completions", preserveSdkReasoning: true);
+        Assert.True(JsonNode.DeepEquals(original, prepared));
+        Assert.Equal("medium", KeyVaultBenchmarkModel.PrepareProxyPayload(original, "pinned", "/v1/chat/completions")["reasoning_effort"]!.ToString());
     }
     [Theory]
     [InlineData("/v1/chat/completions", true, "none")]

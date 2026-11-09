@@ -933,3 +933,26 @@ v7 also retains the earlier source-route checks: unsupported sponsored hosts,
 advertising paths and malformed product routes fail source admission, even when
 they carry otherwise valid ancestor metadata. Observing `/clk?…` does not grant
 the separately approved `/clk/?…` route or permit a trailing-slash substitution.
+
+
+An explicitly captured MCP `Code__Copilot__InferenceTransport=gnougo-structured-tools-v1`
+uses the generic structured tool adapter without changing the provider or endpoint.
+The campaign journals its actual prepared HTTP body and safe endpoint/authentication
+provenance, and preserves the SDK reasoning setting for that new profile. Historical
+native profiles retain their prior normalization and receipt recovery. Register a
+new immutable capture for changed MCP settings, use a fresh `copilot-probe` identity,
+and require its actual command, output, durable receipt and cleanup oracle before
+starting a new Code qualification. A transport pass alone does not qualify Code or
+Amazon, waive their business criteria, or release any uncertain financial hold.
+
+A diagnostic prerequisite may explicitly capture
+`copilot-probe --sdk-inference-transport gnougo-structured-tools-v1` in its fresh
+probe record before changing deployment settings. It rejects a native-tools request
+under that profile and requires the persisted SDK operation's matching transport.
+A later persistent configuration uses `register-configuration --capture-current-settings
+--sdk-transport-amendment --previous-configuration-id <exact-parent>
+--previous-sdk-transport absent` (or `native` when explicitly captured). Restoring
+only that MCP environment leaf must reconstruct the parent's exact host hash;
+configuration, metadata, permissions, tariffs, limits and retry policy remain equal.
+Preview/apply and all five selection checks remain mandatory. This creates no money
+and keeps any earlier reasoning/streaming amendment chain and uncertain holds.

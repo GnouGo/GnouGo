@@ -155,6 +155,35 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             ["before"] = BenchmarkCampaign.TransportProjection(configuration), ["after"] = BenchmarkCampaign.TransportProjection(CampaignConfiguration()) };
     }
 
+    internal async Task<JsonObject> SdkTransportProofAsync(string previousIdentity, string previousValue, CancellationToken ct)
+    {
+        var previous = await _campaign.LoadAsync("planning-evaluation-configuration", "configuration:" + previousIdentity, ct)
+            ?? throw new PlanningConflictException("The exact prior SDK deployment capture is missing.");
+        if (!JsonNode.DeepEquals(previous["configuration"], CampaignConfiguration()) || previousValue is not ("absent" or "native") ||
+            !_options.McpServers.TryGetValue(BenchmarkCampaign.SdkServer, out var current) ||
+            current.EnvironmentVariables?.Any(p => p.Key.Equals(BenchmarkCampaign.SdkTransportKey, StringComparison.OrdinalIgnoreCase) &&
+                p.Value == BenchmarkCampaign.SdkStructuredTransport) != true)
+            throw new PlanningConflictException("Only the explicit SDK wire adapter can change in this amendment.");
+        var restored = JsonSerializer.Deserialize<LLMOptions>(JsonSerializer.Serialize(_options))!;
+        var server = restored.McpServers[BenchmarkCampaign.SdkServer];
+        var transportKey = server.EnvironmentVariables!.Keys.Single(k => k.Equals(BenchmarkCampaign.SdkTransportKey, StringComparison.OrdinalIgnoreCase));
+        if (previousValue == "absent") server.EnvironmentVariables.Remove(transportKey);
+        else server.EnvironmentVariables[transportKey] = previousValue;
+        var metadata = new RoutingLLMClient(restored, []).ResolveDeclaredMetadata(Provider, Model);
+        string Host() => PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(restored) + JsonSerializer.Serialize(metadata));
+        var oldHost = Host();
+        // An exact hash proves a former null container; it never infers a setting.
+        if (oldHost != previous["host_configuration_hash"]?.ToString() && previousValue == "absent" && server.EnvironmentVariables?.Count == 0)
+        { server.EnvironmentVariables = null; oldHost = Host(); }
+        var metadataHash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(metadata));
+        if (oldHost != previous["host_configuration_hash"]?.ToString() || metadataHash != previous["declared_metadata_hash"]?.ToString())
+            throw new PlanningConflictException("Restoring only the SDK transport does not reconstruct the prior funded host.");
+        return new() { ["previous_configuration_id"] = previousIdentity, ["previous_host_configuration_hash"] = oldHost,
+            ["previous_declared_metadata_hash"] = metadataHash, ["host_configuration_hash"] = ConfigurationFingerprint,
+            ["server"] = BenchmarkCampaign.SdkServer, ["environment_key"] = BenchmarkCampaign.SdkTransportKey,
+            ["before"] = previousValue, ["after"] = BenchmarkCampaign.SdkStructuredTransport };
+    }
+
     public async Task AdmitConstructionAsync(LLMRequest request, int inputTokenCeiling,
         IReadOnlyList<int> outputTokenCeilings, CancellationToken ct)
     {
@@ -825,7 +854,8 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             ["reserved_output_tokens"] = pending * record["output_ceiling"]!.GetValue<long>(),
             ["reserved_cost_eur"] = pending * record["cost_ceiling_eur"]!.GetValue<decimal>() };
     }
-    internal async Task<(int Status, string ContentType, string Body)> ProxyInferenceAsync(string run, Dictionary<string, string> headers, string body, CancellationToken ct, string? chatToolsReasoningEffort = null, string? wireApi = null)
+    internal async Task<(int Status, string ContentType, string Body)> ProxyInferenceAsync(string run, Dictionary<string, string> headers, string body, CancellationToken ct,
+        string? chatToolsReasoningEffort = null, string? wireApi = null, string? inferenceTransport = null)
     {
         await _dispatchGate.WaitAsync(ct);
         try
@@ -839,7 +869,15 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             if (wireApi is not null && !upstream.AbsolutePath.EndsWith(wireApi == "responses" ? "/responses" : "/chat/completions", StringComparison.Ordinal))
                 throw new InvalidOperationException("The SDK endpoint differs from the captured wire API; no provider attempt was started.");
             if (!headers.TryGetValue("X-GnOuGo-Inference-Request", out var sdkId) || string.IsNullOrWhiteSpace(sdkId)) throw new InvalidOperationException("Missing SDK request identity.");
-            var payload = PrepareProxyPayload(JsonNode.Parse(body)!.AsObject(), Model, upstream.AbsolutePath, chatToolsReasoningEffort);
+            if (inferenceTransport is not (null or BenchmarkCampaign.SdkStructuredTransport)) throw new ArgumentException("Invalid explicit SDK inference transport.");
+            var preserveSdkReasoning = inferenceTransport == BenchmarkCampaign.SdkStructuredTransport ||
+                McpServers.TryGetValue(BenchmarkCampaign.SdkServer, out var copilot) &&
+                copilot.EnvironmentVariables?.Any(p => p.Key.Equals(BenchmarkCampaign.SdkTransportKey, StringComparison.OrdinalIgnoreCase) &&
+                    p.Value == BenchmarkCampaign.SdkStructuredTransport) == true;
+            var incoming = JsonNode.Parse(body)!.AsObject();
+            if (preserveSdkReasoning && (!upstream.AbsolutePath.EndsWith("/chat/completions", StringComparison.Ordinal) || incoming["tools"] is JsonArray { Count: > 0 }))
+                throw new InvalidOperationException("The actual SDK request differs from the captured structured transport.");
+            var payload = PrepareProxyPayload(incoming, Model, upstream.AbsolutePath, chatToolsReasoningEffort, preserveSdkReasoning);
             body = payload.ToJsonString(new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
             var output = (payload["max_completion_tokens"] ?? payload["max_tokens"] ?? payload["max_output_tokens"])?.GetValue<int>();
             if (output is null || output <= 0 || output > 32768) throw new InvalidOperationException("Execution inference lacks a bounded output allowance.");
@@ -860,6 +898,13 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             {
                 transportPolicy!["timeout_ms"] = (long)_http.Timeout.TotalMilliseconds;
                 transportPolicy["wire_fingerprint"] = wireFingerprint;
+                if (preserveSdkReasoning)
+                {
+                    transportPolicy["sdk_inference_transport"] = BenchmarkCampaign.SdkStructuredTransport;
+                    transportPolicy["endpoint_sha256"] = PlanningGraphCompiler.Fingerprint(upstream.AbsoluteUri);
+                    transportPolicy["authentication_scheme"] = headers.TryGetValue("Authorization", out var authorization)
+                        ? authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? "Bearer" : "other" : "none";
+                }
             }
             var response = await _campaign.CallAsync(request, async token =>
             {
@@ -870,7 +915,11 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                 var state = await journal!.LoadAsync(token) ?? new();
                 if (state.Attempts.Count == 0)
                 {
-                    state.Fingerprint = wireFingerprint; state.Attempts.Add(new() { Id = id });
+                    state.Fingerprint = wireFingerprint;
+                    state.RequestMethod = "POST";
+                    state.Endpoint = new UriBuilder(upstream) { UserName = "", Password = "", Query = "", Fragment = "" }.Uri.GetLeftPart(UriPartial.Path);
+                    state.RequestBody = body;
+                    state.Attempts.Add(new() { Id = id });
                     await journal.SaveAsync(state, token);
                     using var message = new HttpRequestMessage(HttpMethod.Post, upstream) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
                     foreach (var header in headers)
@@ -907,7 +956,8 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         }
         finally { _dispatchGate.Release(); }
     }
-    internal static JsonObject PrepareProxyPayload(JsonObject original, string model, string path, string? chatToolsReasoningEffort = null)
+    internal static JsonObject PrepareProxyPayload(JsonObject original, string model, string path, string? chatToolsReasoningEffort = null,
+        bool preserveSdkReasoning = false)
     {
         if (original["model"]?.ToString() != model || original["n"] is { } n && n.GetValue<int>() != 1 ||
             original["previous_response_id"] is not null || original["conversation"] is not null || !TextOnly(original))
@@ -924,8 +974,11 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         else
         {
             var toolReasoning = original["tools"] is JsonArray { Count: > 0 } ? chatToolsReasoningEffort : null;
-            if (toolReasoning == "provider-default") result.Remove("reasoning_effort");
-            else result["reasoning_effort"] = toolReasoning ?? "medium";
+            if (!preserveSdkReasoning)
+            {
+                if (toolReasoning == "provider-default") result.Remove("reasoning_effort");
+                else result["reasoning_effort"] = toolReasoning ?? "medium";
+            }
             if (result["stream"]?.GetValue<bool>() == true)
             { result["stream_options"] ??= new JsonObject(); result["stream_options"]!["include_usage"] = true; }
         }

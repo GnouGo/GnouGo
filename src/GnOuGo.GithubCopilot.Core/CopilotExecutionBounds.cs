@@ -116,20 +116,11 @@ public sealed class CopilotExecutionBounds(int maxModelCalls, long maxTotalToken
 
 }
 
-internal sealed class CopilotBoundedInferenceHandler(CopilotExecutionBounds bounds, CopilotInferenceProxyHandler? proxy) : CopilotRequestHandler
+internal sealed class CopilotBoundedInferenceHandler(CopilotExecutionBounds bounds, CopilotInferenceProxyHandler? proxy,
+    CopilotInferenceAdapter? adapter = null) : CopilotRequestHandler
 {
-    private static readonly HttpClient Direct = new(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = Timeout.InfiniteTimeSpan };
-    protected override async Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request, GitHub.Copilot.CopilotRequestContext context)
-    {
-        await bounds.ReserveAsync(request, context.CancellationToken);
-        try
-        {
-            return proxy is null
-                ? await Direct.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, context.CancellationToken)
-                : await proxy.DispatchAsync(request, context);
-        }
-        catch { bounds.RecordTransportFailure(); throw; }
-    }
+    protected override Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request, GitHub.Copilot.CopilotRequestContext context)
+        => CopilotInferenceDispatch.SendAsync(request, context, adapter, proxy, bounds.ReserveAsync, bounds.RecordTransportFailure);
     protected override Task<CopilotWebSocketHandler> OpenWebSocketAsync(GitHub.Copilot.CopilotRequestContext context)
         => Task.FromException<CopilotWebSocketHandler>(new InvalidOperationException("Unmetered WebSocket inference is unavailable for bounded tasks."));
 }

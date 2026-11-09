@@ -81,20 +81,11 @@ public sealed class CopilotInferenceBudget(int maxModelCalls, long maxTotalToken
     }
 }
 
-internal sealed class CopilotLogicalInferenceHandler(CopilotInferenceBudget budget, CopilotInferenceProxyHandler? proxy) : CopilotRequestHandler
+internal sealed class CopilotLogicalInferenceHandler(CopilotInferenceBudget budget, CopilotInferenceProxyHandler? proxy,
+    CopilotInferenceAdapter? adapter = null) : CopilotRequestHandler
 {
-    private static readonly HttpClient Direct = new(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = Timeout.InfiniteTimeSpan };
-    protected override async Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request, GitHub.Copilot.CopilotRequestContext context)
-    {
-        await budget.ReserveAsync(request, context.CancellationToken);
-        try
-        {
-            return proxy is null
-                ? await Direct.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, context.CancellationToken)
-                : await proxy.DispatchAsync(request, context);
-        }
-        catch { budget.RecordTransportFailure(); throw; }
-    }
+    protected override Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request, GitHub.Copilot.CopilotRequestContext context)
+        => CopilotInferenceDispatch.SendAsync(request, context, adapter, proxy, budget.ReserveAsync, budget.RecordTransportFailure);
     protected override Task<CopilotWebSocketHandler> OpenWebSocketAsync(GitHub.Copilot.CopilotRequestContext context)
         => Task.FromException<CopilotWebSocketHandler>(new InvalidOperationException("Unmetered WebSocket inference is unavailable for bounded logical operations."));
 }

@@ -102,7 +102,10 @@ internal static class SchemaPortabilityCampaign
                     ? await proposed.ReasoningCapabilityProofAsync(RequiredOption(args, "--previous-configuration-id"),
                         RequiredOption(args, "--previous-reasoning-efforts").Split(','), CancellationToken.None) : null,
                 streamingTransportProof: args.Contains("--streaming-transport-amendment", StringComparer.Ordinal)
-                    ? await proposed.StreamingTransportProofAsync(RequiredOption(args, "--previous-configuration-id"), CancellationToken.None) : null);
+                    ? await proposed.StreamingTransportProofAsync(RequiredOption(args, "--previous-configuration-id"), CancellationToken.None) : null,
+                sdkTransportProof: args.Contains("--sdk-transport-amendment", StringComparer.Ordinal)
+                    ? await proposed.SdkTransportProofAsync(RequiredOption(args, "--previous-configuration-id"),
+                        RequiredOption(args, "--previous-sdk-transport"), CancellationToken.None) : null);
             // Full deployment configuration stays encrypted in the campaign.
             // The exact hash identifies the preview without logging URL secrets.
             amendment.Remove("material");

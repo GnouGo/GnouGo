@@ -121,3 +121,13 @@ session enforcement probe remains authoritative before inference. This query nev
 changes device settings, authentication or permissions.
 
 Agent budget stops retain safe admission diagnostics and execution observations. Only verified cessation permits a terminal failure and cleanup; unknown outcomes require explicit reconciliation. See [budget stops and recovery](../../docs/agent-budget-interruptions.md).
+
+
+An optional captured `InferenceTransport` identifies a host-registered HTTP adapter.
+Core admits the prepared physical request through the existing inference budget
+before direct or policy-proxy dispatch, and restores the SDK response afterward.
+A received response that fails decoding does not become a transport retry or
+release its reservation. Native configurations omit the new field and keep their
+previous representation. Restore requires the registered adapter for the captured
+identity; it cannot silently substitute native inference. Adapters execute no tools
+and change no filesystem, approval or sandbox rules.

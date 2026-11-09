@@ -385,3 +385,30 @@ conflicting events and unverified cancellation remain reconciliation cases; thei
 SDK identities and evidence are retained. Host ceilings and permission rules are unchanged.
 
 See [deterministic browsing/review and receipt regressions](../../docs/browsing-review-and-copilot-receipts.md).
+
+
+## Structured OpenAi tool transport
+
+For a configured Chat Completions deployment that supports strict JSON schema but
+rejects native function tools, explicitly select
+`Code:Copilot:InferenceTransport=gnougo-structured-tools-v1`. The default is `native`.
+Host MCP environment settings use `Code__Copilot__InferenceTransport`; an explicit
+`Code__Copilot__Provider=OpenAi` continues to resolve the shared KeyVault provider.
+
+This adapter reuses `GnOuGo.AI.Core.ChatRequestBuilder`. It preserves the exact SDK
+endpoint, authentication headers, model, reasoning and conversation. Full original
+tool declarations remain in the model context. A strict JSON decision selects an
+exact declared function and its JSON arguments, or a final assistant message. The
+SDK receives the selected native tool call and retains execution, input validation,
+permissions, sandboxing and task receipts. No business result or tool response is
+supplied by the adapter. Forced/required/disabled tool choice and disabled parallel
+calls remain binding. Unsupported protocols and conflicting output schemas fail
+explicitly.
+
+Upstream inference is one bounded JSON response. A complete decision is validated
+before tool calls are exposed; SDK streaming is restored as ordinary SSE chunks
+with the actual provider usage. Error responses pass through. The existing policy
+proxy retains the original provider response, while logical budgets charge the
+expanded request before sending. Selecting this transport does not authorize any
+new endpoint or tool effect. Capture changed settings in a new immutable campaign
+amendment before a fresh live run; stopped native sessions remain stopped.

@@ -76,7 +76,8 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
     // for fresh runs only; the original pin and financial records are immutable.
     internal async Task<JsonObject> RegisterConfigurationAsync(JsonObject configuration, string hostHash, string metadataHash,
         string expectedPreviousHash, string authorization, bool apply, CancellationToken ct, string? expectedIdentity = null,
-        bool captureCurrentSettings = false, JsonObject? reasoningCapabilityProof = null, JsonObject? streamingTransportProof = null)
+        bool captureCurrentSettings = false, JsonObject? reasoningCapabilityProof = null, JsonObject? streamingTransportProof = null,
+        JsonObject? sdkTransportProof = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(authorization);
         var original = await LoadAsync("planning-evaluation-configuration", "configuration", ct)
@@ -84,10 +85,10 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
         if (PlanningGraphCompiler.Fingerprint(original.ToJsonString()) != expectedPreviousHash ||
             hostHash.Length != 64 || metadataHash.Length != 64 || !hostHash.All(char.IsAsciiHexDigit) || !metadataHash.All(char.IsAsciiHexDigit))
             throw new PlanningConflictException("The amendment must identify the exact previous configuration and inspected host/model metadata.");
-        if (reasoningCapabilityProof is not null && streamingTransportProof is not null)
+        if ((reasoningCapabilityProof is null ? 0 : 1) + (streamingTransportProof is null ? 0 : 1) + (sdkTransportProof is null ? 0 : 1) > 1)
             throw new PlanningConflictException("One immutable amendment must vary one declared factor.");
         var unchanged = configuration.DeepClone();
-        if (streamingTransportProof is not null || reasoningCapabilityProof is not null)
+        if (streamingTransportProof is not null || reasoningCapabilityProof is not null || sdkTransportProof is not null)
         {
             if (original.ContainsKey("model_transport_overrides")) unchanged["model_transport_overrides"] = original["model_transport_overrides"]?.DeepClone();
             else unchanged.AsObject().Remove("model_transport_overrides");
@@ -136,6 +137,16 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
                 throw new PlanningConflictException("A transport amendment must prove only the exact deployment's streaming settings changed; route, prices, limits and retry policy remain captured.");
             material["amendment_scope"] = "streaming_transport_only";
             material["streaming_transport_proof"] = streamingTransportProof.DeepClone();
+        }
+        if (sdkTransportProof is not null)
+        {
+            var parentId = sdkTransportProof["previous_configuration_id"]?.ToString();
+            var parent = parentId is { Length: 64 } ? await LoadAsync("planning-evaluation-configuration", "configuration:" + parentId, ct) : null;
+            if (!captureCurrentSettings || parent is null || !ValidSdkTransportProof(sdkTransportProof, configuration, hostHash, metadataHash, parent) ||
+                !(await CheckConfigurationSelectionAsync(parentId!, configuration, parent["host_configuration_hash"]!.ToString(), ct)).Accepted)
+                throw new PlanningConflictException("The SDK transport amendment must preserve the exact prior funded deployment and metadata.");
+            material["amendment_scope"] = "sdk_transport_only";
+            material["sdk_transport_proof"] = sdkTransportProof.DeepClone();
         }
         var identity = PlanningGraphCompiler.Fingerprint(material.ToJsonString());
         if (expectedIdentity is not null && expectedIdentity != identity)

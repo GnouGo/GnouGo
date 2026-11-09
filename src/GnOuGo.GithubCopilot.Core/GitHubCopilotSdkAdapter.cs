@@ -10,18 +10,27 @@ public sealed class GitHubCopilotSdkClientFactory : ICopilotSdkClientFactory
 {
     private readonly ILoggerFactory _loggerFactory;
     private readonly CopilotRequestHandler? _requestHandler;
+    private readonly Func<CopilotRuntimeConfiguration, CopilotInferenceAdapter?>? _inferenceAdapters;
 
     public GitHubCopilotSdkClientFactory(ILoggerFactory? loggerFactory = null) : this(loggerFactory, null) { }
 
     public GitHubCopilotSdkClientFactory(ILoggerFactory? loggerFactory, CopilotRequestHandler? requestHandler)
+        : this(loggerFactory, requestHandler, null) { }
+
+    public GitHubCopilotSdkClientFactory(ILoggerFactory? loggerFactory, CopilotRequestHandler? requestHandler,
+        Func<CopilotRuntimeConfiguration, CopilotInferenceAdapter?>? inferenceAdapters)
     {
         _loggerFactory = loggerFactory ?? NullLoggerFactory.Instance;
         _requestHandler = requestHandler;
+        _inferenceAdapters = inferenceAdapters;
     }
 
     public ICopilotSdkClient Create(CopilotRuntimeConfiguration configuration)
     {
-        if ((configuration.ExecutionBounds is not null || configuration.LogicalInferenceBudget is not null) && _requestHandler is not null and not CopilotInferenceProxyHandler)
+        var adapter = _inferenceAdapters?.Invoke(configuration);
+        if ((configuration.InferenceTransport is not null) != (adapter is not null))
+            throw new InvalidOperationException("The captured inference transport requires its registered host adapter.");
+        if ((configuration.ExecutionBounds is not null || configuration.LogicalInferenceBudget is not null || adapter is not null) && _requestHandler is not null and not CopilotInferenceProxyHandler)
             throw new InvalidOperationException("The configured inference handler does not support bounded dispatch.");
         var options = new CopilotClientOptions
         {
@@ -29,8 +38,9 @@ public sealed class GitHubCopilotSdkClientFactory : ICopilotSdkClientFactory
             GitHubToken = string.IsNullOrWhiteSpace(configuration.GitHubToken) ? null : configuration.GitHubToken,
             UseLoggedInUser = configuration.UseLoggedInUser,
             Environment = configuration.Environment,
-            RequestHandler = configuration.ExecutionBounds is { } bounds ? new CopilotBoundedInferenceHandler(bounds, _requestHandler as CopilotInferenceProxyHandler)
-                : configuration.LogicalInferenceBudget is { } logical ? new CopilotLogicalInferenceHandler(logical, _requestHandler as CopilotInferenceProxyHandler) : _requestHandler,
+            RequestHandler = configuration.ExecutionBounds is { } bounds ? new CopilotBoundedInferenceHandler(bounds, _requestHandler as CopilotInferenceProxyHandler, adapter)
+                : configuration.LogicalInferenceBudget is { } logical ? new CopilotLogicalInferenceHandler(logical, _requestHandler as CopilotInferenceProxyHandler, adapter)
+                : adapter is not null ? new CopilotAdaptedInferenceHandler(adapter, _requestHandler as CopilotInferenceProxyHandler) : _requestHandler,
             LogLevel = ParseLogLevel(configuration.LogLevel),
             Telemetry = configuration.Telemetry is { } telemetry ? new TelemetryConfig
             {

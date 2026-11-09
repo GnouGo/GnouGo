@@ -20,6 +20,10 @@ internal static class LiveExecutionReadiness
         var sdkChatToolsReasoningEffort = SchemaPortabilityCampaign.Option(args, "--sdk-chat-tools-reasoning");
         KeyVaultBenchmarkModel.ValidateSdkChatToolsReasoningEffort(sdkChatToolsReasoningEffort);
         var sdkWireApi = SchemaPortabilityCampaign.Option(args, "--sdk-wire-api");
+        var sdkInferenceTransport = SchemaPortabilityCampaign.Option(args, "--sdk-inference-transport");
+        if (sdkInferenceTransport is not (null or BenchmarkCampaign.SdkStructuredTransport) ||
+            sdkInferenceTransport is not null && (sdkWireApi == "responses" || sdkChatToolsReasoningEffort is not null))
+            throw new ArgumentException("The structured SDK probe uses its own captured Chat transport and original reasoning.");
         CampaignInferenceProxy.ValidateWireApi(sdkWireApi);
         if (sdkWireApi == "responses" && sdkChatToolsReasoningEffort is not null) throw new ArgumentException("Responses uses the existing medium reasoning setting.");
         model.RetainedExternalReservationsEur = decimal.Parse(
@@ -34,11 +38,17 @@ internal static class LiveExecutionReadiness
             ["accounting_before"] = await campaign.InspectAsync(), ["events"] = new JsonArray(), ["passed"] = false };
         if (sdkChatToolsReasoningEffort is not null) state["sdk_chat_tools_reasoning_effort"] = sdkChatToolsReasoningEffort;
         if (sdkWireApi is not null) state["sdk_wire_api"] = sdkWireApi;
+        if (sdkInferenceTransport is not null) state["sdk_inference_transport"] = sdkInferenceTransport;
         await campaign.SaveAsync(collection, label, state);
         KeyVaultBenchmarkModel.RequireReady(state["readiness"]!.AsObject());
-        await using var proxy = await CampaignInferenceProxy.StartAsync(model, label, sdkChatToolsReasoningEffort, sdkWireApi);
+        await using var proxy = await CampaignInferenceProxy.StartAsync(model, label, sdkChatToolsReasoningEffort, sdkWireApi, sdkInferenceTransport);
         var settings = LiveWorkflowEvaluation.Configuration(model.McpServers, "code", proxy.Endpoint, "Release");
         CampaignInferenceProxy.ConfigureWireApi(settings["GnOuGo.GithubCopilot.Mcp"], model.Provider, sdkWireApi);
+        if (sdkInferenceTransport is not null)
+        {
+            settings[BenchmarkCampaign.SdkServer].EnvironmentVariables ??= new();
+            settings[BenchmarkCampaign.SdkServer].EnvironmentVariables![BenchmarkCampaign.SdkTransportKey] = sdkInferenceTransport;
+        }
         state["mcp_builds"] = LiveWorkflowEvaluation.CaptureMcpBuilds(settings, state["source_sha"]!.ToString());
         var human = new LiveWorkflowEvaluation.ConsoleHuman(campaign, label);
         // Expose only this producer; no Git or publication tools are connected.
@@ -101,7 +111,9 @@ internal static class LiveExecutionReadiness
             var reread = (await restarted.ListAsync("github-copilot.logical-tasks-v1", tenant, "GnOuGo.GithubCopilot.Mcp")).Select(r => JsonNode.Parse(r.Value)).ToArray();
             var retained = durable && reread.Any(r => JsonNode.DeepEquals(r?["task"]?["result"], receipts[0]["task"]?["result"]));
             state["receipt_reloaded"] = retained;
-            state["passed"] = result.Success && verified && retained && exit && commandCount == 1 &&
+            var transportVerified = sdkInferenceTransport is null || receipts.SingleOrDefault()?["operation"]?["inferenceTransport"]?.ToString() == sdkInferenceTransport;
+            state["transport_verified"] = transportVerified;
+            state["passed"] = result.Success && verified && retained && transportVerified && exit && commandCount == 1 &&
                 report?["observed"]?.ToString() == seed && report?["exit_code"]?.GetValue<int>() == 0 && response?["summary"]?.ToString().Contains(seed, StringComparison.Ordinal) == true;
             await campaign.SaveAsync(collection, label, state);
             if (verified && durable) { Directory.Delete(directory, true); state["cleanup"] = !Directory.Exists(directory); }

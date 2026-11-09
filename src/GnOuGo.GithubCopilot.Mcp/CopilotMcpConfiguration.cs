@@ -38,6 +38,7 @@ internal sealed class CopilotMcpConfiguration(CodePolicy policy, IOptions<CodeSe
             Environment: BuildClientEnvironment(settings))
         {
             UseSessionFileSystem = true,
+            InferenceTransport = CopilotStructuredToolAdapter.NormalizeTransport(settings.Copilot.InferenceTransport),
             EnableSandboxBypassGrants = settings.Copilot.EnableSandboxBypassGrants,
             LogLevel = settings.Copilot.LogLevel,
             Telemetry = BuildTelemetryConfig(settings.Copilot.Telemetry)

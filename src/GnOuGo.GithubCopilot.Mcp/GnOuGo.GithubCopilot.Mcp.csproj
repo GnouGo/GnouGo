@@ -39,6 +39,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../GnOuGo.AI.Core/GnOuGo.AI.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.Auth.Core\GnOuGo.Auth.Core.csproj" />
     <ProjectReference Include="../GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.GithubCopilot.Core\GnOuGo.GithubCopilot.Core.csproj" />
