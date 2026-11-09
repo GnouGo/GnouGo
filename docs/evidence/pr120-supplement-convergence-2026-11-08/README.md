@@ -386,3 +386,12 @@ separately; local success does not imply a remote CI conclusion.
 checks passing on f2e31340. The deterministic planner workflow was still running
 its integration step at the final inspection; no remote pass is inferred from the
 local full-solution success.
+
+## Additional continuation authorized 2026-11-09
+
+The user authorized another EUR 100 for the existing campaign.
+[The verified supplement](supplement-100-once.json) raises its ceiling from EUR 800
+to EUR 900 exactly once under `pr120-supplement-20261109-100-01`. Prior accounting
+and all retained reservations are unchanged. The audited available allocation
+after registration is EUR 105.856148678907299596954765142. Old permanently retained
+runs remain forbidden; continuation uses independent fresh sessions.
