@@ -29,5 +29,14 @@
     "Predecessor liabilities remain unreconciled; this campaign-only audit establishes no globally available funding.",
     "No final-source qualified Code/Amazon success or two-success cohort exists.",
     "Older Native/Collections successes retain their original frozen source."
-  ]
+  ],
+  "final_readonly_audit_sha256": "4ad6c9ccbbe8089b91461274209fdb6d2d5b3f0c92903402f0f21e57aca0b44c",
+  "final_readonly_audit_unchanged": true,
+  "headroom_comparison": {
+    "historical_run": "native-qualification-20261108-03",
+    "same_phase_profile": true,
+    "known_draft_physical_reservation_eur": "5.9134796238244514106583072099",
+    "available_allocation_eur": "5.640214957456336766681589158",
+    "comparison_only_no_fresh_request_admission_inferred": true
+  }
 }

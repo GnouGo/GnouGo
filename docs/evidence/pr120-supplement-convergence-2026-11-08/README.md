@@ -473,7 +473,12 @@ failure semantics, original text, schemas and ordinary business review. It
 creates no catch control and chooses no verdict. Strict input targets retain
 their existing limits; optional guidance is omitted when it does not fit.
 Already issued requests remain exact. The correction has not received a fresh
-live qualification.
+live qualification. All 2,906 planning tests pass, including nine new checks for
+fresh guidance, unchanged authority/verdict choices and strict input limits.
+
+[Intermediate a99828b0 validation](intermediate-validation-a99828b0.json) completed
+one unfiltered full-solution invocation: 8,514 passed, 12 skipped, zero failures
+across 33 assemblies. The subsequent guidance correction is validated separately.
 
 [The latest campaign audit](campaign-funding-summary-20261109.json) confirms the
 EUR 100 supplement exactly once and a EUR 900 ceiling. Available allocation is
@@ -482,3 +487,19 @@ retained application holds. These are captured-tariff estimates and conservative
 holds, not provider invoices; global available funding remains unavailable. No
 further long paid qualification was started. Full Code/Amazon convergence and
 the requested final-source consecutive success cohorts remain unproved.
+
+[Complete local validation on 57f6b4f6](full-validation-57f6b4f6.json) passed
+8,523 tests across all 33 assemblies, with 12 existing skips and zero failures.
+The slow workbook fixture ran in four [disjoint method groups](test-partitions-57f6b4f6.json)
+against the same frozen binaries: 216 inventoried cases, each included once.
+The remaining solution invocation excluded only that fixture and passed 8,307
+tests. The superseded partial invocation contributes no results. The production
+frontend, warning-free Release benchmark/staged tools, independent Core/Planning
+packs and actual published osx-arm64 Native AOT smoke also pass. These local
+fixtures do not establish autonomous live qualification.
+
+[Remote CI on that functional source](ci-functional-source-57f6b4f6.json) has both
+ProxyCopilot checks passing. The main planner integration workflow remains in
+progress; its pass is not inferred from the local results. Validation records
+name the functional source independently of subsequent documentation commits.
+PR #120 remains Draft and unmerged.
