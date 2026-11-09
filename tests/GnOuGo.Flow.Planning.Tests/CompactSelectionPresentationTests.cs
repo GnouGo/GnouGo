@@ -229,9 +229,13 @@ public sealed class CompactSelectionPresentationTests(ITestOutputHelper output)
         PlanningCompactConstruction.CompactAuthoringNavigation(compactNavigation);
         var navigationOnly = JsonSerializer.Deserialize(JsonSerializer.Serialize(full, PlanningJsonContext.Default.LLMRequest), PlanningJsonContext.Default.LLMRequest)!;
         navigationOnly.Prompt = full.Prompt[..(full.Prompt.LastIndexOf('\n') + 1)] + PlanningJsonTransport.Prompt(compactNavigation);
-        // Calibrate below already-compacted zero-count metadata, so this still
-        // exercises a producer-description omission at the hard ceiling.
-        state.Request.Generation.MaxInputTokensPerRequest = checked((int)Complete(navigationOnly).EstimatedInputTokens - 25);
+        // Calibrate below the mandatory core, excluding optional failure guidance,
+        // so this still exercises producer-description omission after that guidance
+        // has been dropped. Keep the ordinary admission and original assertions.
+        var navigationCore = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.ImplementationPurpose,
+            navigationOnly.Prompt, navigationOnly.StructuredOutputSchema!.AsObject());
+        navigationCore.Prompt = navigationCore.Prompt.Replace("\n" + PlanningPrompt.FailureObligationSemantics + "\n", "", StringComparison.Ordinal);
+        state.Request.Generation.MaxInputTokensPerRequest = checked((int)ModelRequestAdmission.EstimateTokens(navigationCore) - 25);
         var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
         var fitted = Request();
         var measured = Complete(fitted);

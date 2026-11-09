@@ -439,14 +439,46 @@ EUR 19.75462 of separately retained application reservations. No hold was releas
 historical validation; later source revisions require their own results.
 
 
-The exact unchanged-plan boundary is now proved on frozen 72f17ca7: an ordinary
+The [exact unchanged-plan boundary](unchanged-plan-review-frozen-proof.json) is
+now proved on frozen 72f17ca7: an ordinary
 local Judge returned ok after the accepted contribution, on the identical plan
 hash, with no new tasks, scope/requirement closure or drafting echo. The root was
 open. The targeted protocol evaluation was stopped after that prefix; it is not
 an executed workflow or end-to-end qualification. Its cancellation exposed a
 Server reservation before the campaign envelope had been created. Paid work was
 blocked while a narrow conservative retention path was implemented. The real
-immutable snapshot passes its preview, and the corrected audit rejects the still
-unretained hold. All 589 benchmark/financial tests pass. Original budgets,
+immutable snapshot passed its preview and was permanently retained with its full
+EUR 6.147756381549485 application hold. Before retention, the corrected audit
+rejected the unretained hold; afterward it included the hold in available-funding
+calculations. All 589 benchmark/financial tests pass. Original budgets,
 reservations, permissions, replay controls and the approved route policy remain
 unchanged; the correction creates no request or response evidence.
+
+[Amazon07](amazon07-recovery-prerequisite-loop.json), with source-bound a99828b0
+tools and the unchanged v5 oracle, accepted search/cleanup and product occurrence
+selection. The ordinary local Judge approved that search block at call 14. It
+then sought universal continuation after raised errors and partial-workbook
+delivery, although the originals require truthful errors, missing data and
+cleanup without stating those additional recovery guarantees. Repeated discovery
+accepted no further work. The protected stop permanently retained uncertain call
+50 and its full EUR 4.3041737572772055530676220331 campaign reservation; all 49
+known receipts remain intact. Measured planning tariff was EUR 24.482445141065830721003134806.
+There was no global approval or execution. This run consumed too many calls to
+establish improved convergence or early loop detection.
+
+Fresh generic planning and review guidance now distinguishes successful
+observations with missing data from raised failures and explicitly requested
+recovery. It preserves explicit recovery requirements, existing cleanup and
+failure semantics, original text, schemas and ordinary business review. It
+creates no catch control and chooses no verdict. Strict input targets retain
+their existing limits; optional guidance is omitted when it does not fit.
+Already issued requests remain exact. The correction has not received a fresh
+live qualification.
+
+[The latest campaign audit](campaign-funding-summary-20261109.json) confirms the
+EUR 100 supplement exactly once and a EUR 900 ceiling. Available allocation is
+EUR 5.640214957456336766681589158 after campaign charges/reservations and separately
+retained application holds. These are captured-tariff estimates and conservative
+holds, not provider invoices; global available funding remains unavailable. No
+further long paid qualification was started. Full Code/Amazon convergence and
+the requested final-source consecutive success cohorts remain unproved.

@@ -6,6 +6,13 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Presents response fields and shares identical contracts without changing their authority.</summary>
 public static class PlanningPromptPresentation
 {
+    internal static string PresentFailureObligationGuidance(string prompt)
+    {
+        var guidance = "\n" + PlanningPrompt.FailureObligationSemantics + "\n";
+        var contextOffset = prompt.LastIndexOf("\n{", StringComparison.Ordinal);
+        return contextOffset < 0 ? prompt + guidance : prompt.Insert(contextOffset, guidance);
+    }
+
     internal static bool OffersRuntimePrerequisite(JsonNode schema)
     {
         return Find(schema["properties"]?["reselectStep"], 0);

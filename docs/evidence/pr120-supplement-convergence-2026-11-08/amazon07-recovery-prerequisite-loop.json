@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "source": "a99828b070b9943b63fb27d33d447b1e3f5bb5ac",
+  "run": "amazon-qualification-20261109-07",
+  "session_id": "afc7823ae5fc4408a9f438fb03c65abb",
+  "browser_policy": "amazon-observed-redirects-v1",
+  "oracle_version": "amazon-business-v5",
+  "mcp_build_source_verified": true,
+  "status": "cancelled_and_permanently_retained",
+  "known_receipts": 49,
+  "pending_call": 50,
+  "accepted_checkpoints": [
+    {
+      "sequence": 1,
+      "task_ids": [
+        "amazon_search",
+        "close_amazon_browser"
+      ],
+      "plan_hash": "617a2fd9764d4a3471638326ebbf973bc6ef75551eb9b6b6287ee1332b0aa36c"
+    },
+    {
+      "sequence": 2,
+      "task_ids": [
+        "select_amazon_products"
+      ],
+      "plan_hash": "50ff95b75be9cb97673900dedf0180464330146070deeb461e84196218f49f49"
+    }
+  ],
+  "local_search_review": {
+    "call": 14,
+    "verdict": "ok",
+    "scope": "Search and product occurrence selection only; no product visits or workbook execution."
+  },
+  "measured_planning_tariff_estimate_eur": "24.482445141065830721003134806",
+  "uncertain_call_reservation_eur": "4.3041737572772055530676220331",
+  "first_failure_cause": {
+    "classification": "Model-derived recovery prerequisite exceeds the original failure-reporting and cleanup obligations.",
+    "observed_at_call": 32,
+    "observed_reason": "Le conteneur sequence permet une itération et des gardes, mais les contrôles proposés ne déclarent aucun mécanisme de capture des échecs d’opération. Un échec levé pendant une visite risquerait donc d’interrompre les consultations suivantes et d’empêcher la sauvegarde du relevé partiel ; un échec d’écriture ne pourrait pas être transmis fidèlement par l’interface du livrable. Resélectionner un mécanisme permettant de conserver le résultat ou l’erreur de chaque consultation, de poursuivre dans l’ordre sans remplacement et de sauvegarder une seule fois le relevé, avec gestion explicite de l’échec de sauvegarde et transmission par l’interface déclarée. Découvrir les contrats nécessaires avant de sélectionner ensemble les opérations connectées. Préserver amazon_search, select_amazon_products et close_amazon_browser déjà accepté en always à /root : aucune nouvelle recherche, aucune fermeture avant les visites dépendantes et aucune répétition des producteurs acceptés. Les garanties GET, allowlist et autorité de la recherche sont déjà établies par le contrat hôte ; elles ne constituent pas des prérequis manquants. Aucun succès d’exécution n’est établi.",
+    "subsequent_behavior": "Repeated discovery/suspension for an exception-capture mechanism; no accepted contribution after checkpoint 2.",
+    "interpretation": "The originals require truthful errors, missing data and always cleanup. They do not state universal continuation after a raised failure or a partial workbook after fatal failure. This interpretation is not a runtime or business success verdict.",
+    "correction": "Fresh generic guidance distinguishes successful observations with missing data, raised failures and explicitly requested recovery. Preserve explicit recovery, all originals and ordinary validation/review; never invent a catch mechanism or successful result.",
+    "fresh_live_after_correction": false,
+    "qualification_limitation": "EUR 5.640214957456336766681589158 remains after conservative accounting; no further long paid campaign was launched.",
+    "stop_limitation": "This run still consumed 49 known calls plus the retained unknown call. No improved convergence or earlier loop-stop performance is claimed."
+  },
+  "retention": {
+    "kind": "cancelled-planning-request",
+    "evidence_hash": "18e1db3b905de55a368b22c6876acf1a55300d33151b8b4a48e03dd154d2bced",
+    "reservation_retained": true,
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true
+  },
+  "global_review_passed": false,
+  "artifact_approved": false,
+  "execution_qualified": false,
+  "private_evidence_sha256": {
+    "amazon07-final.json": "13293740bfcc150a173ff528affe4d63570ae2b0b14c375ddd18aee202a8f076",
+    "amazon07-final-receipts.json": "ffee9b8beb2ac74c769ca8e3dba9b7620f3389c6e33cc0a97b14328d2e001b40",
+    "amazon07-protected-stop.log": "d0525a6da3569918a2fdfcaad54c6b9b57f99101e7ec39754dc62c4079fb81e5",
+    "amazon07-retention-applied.json": "1bf4e0681f087cd5a99c5aab494a1252c226adf240aacf5552571712fd9a1180",
+    "amazon07-retained-final-audit.json": "4ad6c9ccbbe8089b91461274209fdb6d2d5b3f0c92903402f0f21e57aca0b44c"
+  }
+}

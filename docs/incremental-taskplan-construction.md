@@ -458,6 +458,17 @@ completed workflow must pass that global review before approval; it covers all o
 obligations, interactions, public results and success/failure cleanup. It absorbs a
 coincident local review. There is no checkpoint-count review interval.
 
+Business selection, implementation, discovery, drafting and both business reviews
+distinguish missing data in a successful observation from a raised operation
+failure. Truthful failure reporting and required `always` cleanup do not themselves
+require catching every exception, continuing subsequent operations or writing a
+partial deliverable. Preserve explicitly requested recovery; an unsupported
+recovery requirement remains a limitation to diagnose. This guidance changes no
+control, MCP error normalization, original clause, retained block criterion or
+review verdict. Fresh guidance is measured and hashed before dispatch, omitted
+when it would exceed a captured strict input target, and retained in diagnostic
+warning mode. Already issued requests retain their exact bytes.
+
 Selected unchanged-plan closure can retain evidence-linked prerequisite notes without
 another model call merely echoing the selected requirement IDs. The notes remain
 attached to the claim, unresolved business meaning stays pending, and ordinary

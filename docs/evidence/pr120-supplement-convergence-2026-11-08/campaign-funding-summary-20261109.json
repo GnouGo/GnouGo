@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "campaign": "pr120-live-20261107-400",
+  "authorized_ceiling_eur": "900",
+  "latest_supplement": {
+    "reference": "pr120-supplement-20261109-100-01",
+    "amount_eur": "100",
+    "old_ceiling_eur": "800",
+    "new_ceiling_eur": "900",
+    "verified_registration_count": 1,
+    "authorization_hash": "21730aebb1fd9d28e5a78605163063faad51cfe0abcfadf5f3a70fe79f17e4ce"
+  },
+  "known_planning_and_execution_tariff_estimate_eur": "552.19225257501119570085087819",
+  "campaign_uncertain_reservations_eur": "316.26515897895208240035826253",
+  "campaign_accounted_upper_bound_eur": "868.4574115539632781012091408",
+  "separately_retained_server_application_reservations_eur": "25.902373488580385132109270042",
+  "available_allocation_eur": "5.640214957456336766681589158",
+  "unknown_campaign_attempts": 34,
+  "global_available_funding": null,
+  "provider_invoice_total": null,
+  "audit_model_dispatches": 0,
+  "audit_historical_changes": false,
+  "audit_sha256": "4ad6c9ccbbe8089b91461274209fdb6d2d5b3f0c92903402f0f21e57aca0b44c",
+  "retained_runs_replayed": false,
+  "funding_reset": false,
+  "unlimited_used": false,
+  "limitations": [
+    "Captured-tariff estimates and conservative reservations are not provider invoices.",
+    "Predecessor liabilities remain unreconciled; this campaign-only audit establishes no globally available funding.",
+    "No final-source qualified Code/Amazon success or two-success cohort exists.",
+    "Older Native/Collections successes retain their original frozen source."
+  ]
+}

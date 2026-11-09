@@ -7,6 +7,8 @@ internal sealed partial class PlanningPrompt
 {
     private const string EvidenceInstructions = "Keep original IDs/exact values, order/repeats, missing/null; invent no results/provenance.";
 
+    internal const string FailureObligationSemantics = "Missing data in a successfully returned observation is distinct from a raised operation failure. Propagate raised failures with required always cleanup. Do not infer mandatory recovery or partial delivery from truthfulness or cleanup alone. Preserve explicitly requested recovery; if unsupported, diagnose it rather than inventing a catch mechanism, successful result or weaker obligation.";
+
     internal const string RepairInstructions = """
         Return only typed edits for the issued slots, a permitted discovery batch, or clarifications. editablePaths identifies an explicitly authorized revision; only those fields may change, including a required condition when expressly selected. The baseline and accepted requirements are host-owned; never regenerate tasks or a plan. Ports required unless false.
         Context is read-only except the issued slots. Preserve objectives, identities, interfaces, ordering, choices and permissions outside them. remove omits a diagnosed binding; null is a value, not omission. remove_owned removes only catalog-owned descendants of that binding.

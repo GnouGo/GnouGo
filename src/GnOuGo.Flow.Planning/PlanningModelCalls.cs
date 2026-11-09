@@ -99,6 +99,16 @@ internal static partial class PlanningModelCalls
                 ModelRequestAdmission.EstimateTokens(request) > PlanningConstructionPhasePolicies.Resolve(state.Request, purpose).TargetInputTokens)
                 request.Prompt = beforeInputGuidance;
         }
+        if (purpose is PlanningCompactConstruction.SelectPurpose or PlanningCompactConstruction.ImplementationPurpose or
+            PlanningCompactConstruction.DiscoveryPurpose or PlanningConstruction.DraftPurpose or
+            PlanningConstruction.LocalPurpose or PlanningConstruction.GlobalPurpose)
+        {
+            var beforeFailureGuidance = request.Prompt;
+            request.Prompt = PlanningPromptPresentation.PresentFailureObligationGuidance(request.Prompt);
+            if (!PlanningTokenThresholds.OptimizationAdvisory(state.Request) &&
+                ModelRequestAdmission.EstimateTokens(request) > PlanningConstructionPhasePolicies.Resolve(state.Request, purpose).TargetInputTokens)
+                request.Prompt = beforeFailureGuidance;
+        }
         // Bind the evidence basis after fresh field presentation; issued recovery
         // keeps its exact captured prompt/schema instead of preparing another one.
         var hash = IssuedIdentityHash(request, null);
