@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "source": "2debe960e2e752f5da6bd541df3af0c0c750c7ca",
+  "run": "amazon-qualification-20261109-06",
+  "session_id": "db06d70c8a0045869310f34cdd29d966",
+  "scenario": "amazon",
+  "oracle_version": "amazon-business-v5",
+  "browser_observation_policy": "amazon-observed-redirects-v1",
+  "model_calls": 22,
+  "known_receipts": 21,
+  "accepted_checkpoints": 0,
+  "reselection_reasons": [
+    "La seule op\u00e9ration s\u00e9lectionn\u00e9e permet l\u2019observation mais ne permet pas d\u2019ex\u00e9cuter la fermeture obligatoire du navigateur, y compris en cas d\u2019\u00e9chec. browser_close est identifi\u00e9 comme compagnon, mais son contrat ex\u00e9cutable et sa s\u00e9lection manquent \u00e0 ce curseur. Abandonner cette s\u00e9lection isol\u00e9e et d\u00e9couvrir/s\u00e9lectionner ensemble les op\u00e9rations d\u2019observation, de visites d\u00e9pendantes conformes \u00e0 amazon-observed-redirects-v1 et de nettoyage, en pr\u00e9servant la recherche vivante jusqu\u2019\u00e0 la fin des visites et toutes les preuves observ\u00e9es.",
+    "Les contrats s\u00e9lectionn\u00e9s couvrent l\u2019acquisition compl\u00e8te et la fermeture, mais pas les visites d\u00e9pendantes avec maintien de l\u2019autorit\u00e9 de la recherche source et v\u00e9rification de chaque redirection selon la politique amazon-observed-redirects-v1. Le texte fourni ne d\u00e9finit pas les routes explicitement autoris\u00e9es ni une interface garantissant ces visites et leurs preuves. Une fermeture attach\u00e9e \u00e0 un bloc de recherche termin\u00e9 expirerait les liens /sspa/click avant leur consultation. D\u00e9couvrir et s\u00e9lectionner ensemble les op\u00e9rations et le conteneur permettant la recherche, la s\u00e9lection des trois premi\u00e8res occurrences sponsoris\u00e9es comprises, les visites d\u00e9pendantes et le nettoyage garanti apr\u00e8s ces visites ou en cas d\u2019\u00e9chec, ainsi que le contrat exact de la politique de routes. Pr\u00e9server les obligations originales ; ne pas ex\u00e9cuter de navigation ni inventer une garantie manquante."
+  ],
+  "cause": "The strict planning facts name the route policy and require hop validation but omit the route allowlist already configured on the spawned Browser and the host enforcement guarantees. The model refuses to invent that missing metadata.",
+  "correction": "Append the unchanged configured route pattern and factual host enforcement/lifetime metadata. Original business clauses, MCP contracts, permissions, route scope and v4/v5 oracles are preserved.",
+  "known_planning_tariff_estimate_eur": "6.1908822212270488132557098073",
+  "last_request_http_attempts": 0,
+  "retention": {
+    "evidence_hash": "4b197e6083280ba2b9923c63688f4c2012d30f7f9e9a05a791d4975de5eb5cc4",
+    "outcome": "inconclusive",
+    "reservation_retained": true,
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "reason": "operator_retained_uncertain_planning",
+    "operator": "Codex local operator",
+    "authorization": "User standing authorization for conservative tool-free incident handling; PR120 continuation 2026-11-09.",
+    "authorization_hash": "55c8ecaecda10e37d61edb5f580717979dc9f5365ecd157d12d082619bace11e",
+    "retained_at": "2026-11-09T01:51:15.4201690+00:00"
+  },
+  "retained_application_reservations_eur": "19.754617107030900134348410212",
+  "available_after_audit_eur": "41.607622033139274518584858588",
+  "global_review_passed": false,
+  "artifact_approved": false,
+  "execution_started": false,
+  "oracle_passed": false,
+  "validation": {
+    "regression_reproduced_missing_configured_pattern": true,
+    "focused_tests_passed": 172
+  },
+  "private_evidence_sha256": {
+    "amazon06-final.json": "d270f419ef2fd85c0051db2adc7932c89e5b8d4d5669621f7c1ec55ed34387b1",
+    "amazon06-final-receipts.json": "d145c380182b92cb767c83b8dcb4f982af93c5cb853ea37d7fc3f6c00f08b118",
+    "amazon06-final-http22.json": "b7b5f967b6a4e487fa98ec9922a3c5ac4dac68da77d5e0540ff1bfaf76bfa10f",
+    "amazon06-retention-applied.json": "a4183388e7e8b15722dd3e3fbf9d3c15ef8778f9ceaf08cf15774d8b537a120e",
+    "amazon06-final-audit.json": "a68ce86b33d70917bad7f343b2413732070fa06b1f77bb6d33aa1f8a7df55611",
+    "amazon-policy-metadata-red.log": "f7405f62270d1a3c3f4a7212823801e73d261de937b2eb74c9efb7289f44a6d5",
+    "amazon-policy-metadata-green.log": "81e4a1f0f3f1ca329de35ee8c078f37dbde468a028f76b187cd41e05eb0aeca9"
+  }
+}

@@ -395,3 +395,45 @@ to EUR 900 exactly once under `pr120-supplement-20261109-100-01`. Prior accounti
 and all retained reservations are unchanged. The audited available allocation
 after registration is EUR 105.856148678907299596954765142. Old permanently retained
 runs remain forbidden; continuation uses independent fresh sessions.
+
+
+The targeted review-boundary evaluation first exposed an already-bound output
+forcing a redundant draft. [The failing run](boundary01-bound-output-first-cause.json)
+and its failing-then-passing regression support the narrow unchanged-binding fix.
+[A later trace](unchanged-plan-review-live-proof.json) observes an ordinary local
+Judge approving unchanged accepted work, with no new task, scope or requirement
+closure and no draft echo. Its build began before the source commit, so this is
+not a frozen-source qualification. The targeted workflow then stopped on an
+inconclusive global request for planning history; it has no execution success.
+Code13 preflight rejected stale MCP build metadata before session creation or
+model dispatch. A clean post-commit rebuild restored source-bound admission.
+
+[Code14](code14-qualification-progress-and-host-failure.json), on 9f9affa3, retained
+seven checkpoints and an ordinary successful local review of repository
+qualification. Its first pinned-clone contribution arrived at call 36, after
+15m54.606s and EUR 17.58645 of measured planning usage. The initial pending-report
+setup is not counted as qualification. Total measured planning tariff was about
+EUR 50.19090, with no global approval or execution. This is slower and more
+expensive than Code12's earlier partial progress; full Code convergence remains
+unproved. After the known call-71 receipt, a suspended consumer's metadata check
+rendered a contract view without a current cursor and caused a null dereference.
+The exact immutable pre-failure snapshot reproduces it offline; the identity/hash
+correction prepares the next request without inference or persistent writes.
+All 182 focused tests and 2,897 planning tests pass with the correction. Code14
+has 71 known receipts and no pending model request; it was not resumed.
+
+[Amazon06](amazon06-missing-policy-metadata.json), on 2debe960, exposed a separate
+benchmark-context omission: the prompt required the approved route policy without
+presenting its configured route set or host enforcement guarantees. It accepted
+no work. The protected stop retained the unsent call-22 application reservation;
+there was no HTTP attempt for that request. Replay and continuation are forbidden.
+The prompt now includes the same route pattern used by the spawned Browser and
+explains its existing enforcement. It grants no new route, operation, runtime fact
+or execution authority. All 172 focused host/oracle/approval tests pass, including
+the reproduced missing-route regression. No expected response or plan was injected.
+The audited available allocation after this retention is EUR 41.60762, with
+EUR 19.75462 of separately retained application reservations. No hold was released.
+
+[Intermediate full validation](intermediate-validation-9f9affa3.json) completed
+33 assemblies on 9f9affa3: 8,501 passed, 12 skipped, zero failures. This is
+historical validation; later source revisions require their own results.

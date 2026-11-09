@@ -67,6 +67,11 @@ public sealed class BenchmarkDiscoveryVisibilityTests
         Assert.Equal(AmazonObservedRedirectPolicy.UrlPattern, browser["Browser__AllowedNavigationUrlPatterns__0"]);
         Assert.Equal("www.amazon.fr", browser["Browser__AllowedHosts__0"]);
         Assert.Equal("amazon.fr", browser["Browser__AllowedHosts__1"]);
+        var allowedRoutes = Assert.IsType<string>(browser["Browser__AllowedNavigationUrlPatterns__0"]);
+        var strictPrompt = LiveWorkflowEvaluation.AmazonEvaluationPrompt("workflows/campaign/fresh", 3, AmazonObservedRedirectPolicy.Id);
+        Assert.Contains(allowedRoutes, strictPrompt, StringComparison.Ordinal);
+        Assert.DoesNotContain(allowedRoutes,
+            LiveWorkflowEvaluation.AmazonEvaluationPrompt("workflows/campaign/fresh", 3), StringComparison.Ordinal);
         Assert.Equal(original, JsonSerializer.Serialize(configured));
         var legacy = LiveWorkflowEvaluation.Configuration(configured, "amazon", null, build, sourceRoot);
         Assert.False(legacy["GnOuGo.Browser.Mcp"].EnvironmentVariables!.ContainsKey("Browser__AllowedNavigationUrlPatterns__0"));

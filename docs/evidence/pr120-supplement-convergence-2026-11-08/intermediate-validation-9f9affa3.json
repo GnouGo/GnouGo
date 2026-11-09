@@ -1,0 +1,10 @@
+{
+  "source": "9f9affa39fbd5dc9e649dd17031efa63e8b4228c",
+  "exit_code": 0,
+  "assemblies": 33,
+  "total_tests": 8513,
+  "passed": 8501,
+  "skipped": 12,
+  "failed": 0,
+  "log_sha256": "c4b6d98e7bce506f8179b83738ae5db7c8d16ec68d0ad24adc9180f9591eebf7"
+}

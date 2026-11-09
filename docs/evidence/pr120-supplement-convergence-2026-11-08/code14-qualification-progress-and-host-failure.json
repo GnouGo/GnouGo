@@ -1,0 +1,162 @@
+{
+  "version": 1,
+  "source": "9f9affa39fbd5dc9e649dd17031efa63e8b4228c",
+  "run": "code-qualification-20261109-14",
+  "session_id": "66fea1e6c9fe49e9b1e2a9a01843d0f7",
+  "scenario": "code",
+  "oracle_version": "code-business-v2",
+  "status": "stopped",
+  "logical_calls": 71,
+  "known_receipt_count": 71,
+  "known_planning_tariff_estimate_eur": "50.1909001343484102104791759952",
+  "accepted_checkpoints": [
+    {
+      "sequence": 1,
+      "task_ids": [
+        "initialize_qualification_evidence",
+        "observe_initialized_evidence",
+        "qualification_context"
+      ],
+      "plan_hash": "e5392bcfb38fd3be62eb933fe9147ef71e5e4c9fe711d94ee068f19ec4127760",
+      "closed_scopes": [],
+      "closed_original_requirements": [],
+      "business_reviews": []
+    },
+    {
+      "sequence": 2,
+      "task_ids": [
+        "cleanup_unique_smartguide_clone",
+        "clone_smartguide_head",
+        "observe_saved_clone_evidence",
+        "save_clone_observation"
+      ],
+      "plan_hash": "cd74726e06d1e9bd5f04b05fb20e61823a4a772c1925eaa47773c828454ede4a",
+      "closed_scopes": [],
+      "closed_original_requirements": [],
+      "business_reviews": []
+    },
+    {
+      "sequence": 3,
+      "task_ids": [
+        "inspect_materialized_clone",
+        "inspect_qualification_repository",
+        "observe_repository_tree",
+        "read_repository_package",
+        "read_repository_readme",
+        "save_repository_declaration_observations",
+        "search_repository_test_declarations",
+        "verify_repository_evidence_save"
+      ],
+      "plan_hash": "38126e81bbb50a98029c198bcae38b8220e932dd5295e83c48b18ef5874537a4",
+      "closed_scopes": [
+        "/tasks/inspect_materialized_clone/body",
+        "/tasks/inspect_materialized_clone/otherwise",
+        "/tasks/inspect_qualification_repository/body"
+      ],
+      "closed_original_requirements": [],
+      "business_reviews": []
+    },
+    {
+      "sequence": 4,
+      "task_ids": [
+        "copilot_qualify_unique_clone",
+        "run_guarded_copilot_qualification"
+      ],
+      "plan_hash": "0b08daa843e50f9361f8a6f3681eb9677f8cebdb321063855b120206fdd32db1",
+      "closed_scopes": [
+        "/tasks/run_guarded_copilot_qualification/body",
+        "/tasks/run_guarded_copilot_qualification/otherwise"
+      ],
+      "closed_original_requirements": [],
+      "business_reviews": []
+    },
+    {
+      "sequence": 5,
+      "task_ids": [
+        "save_copilot_qualification_observations",
+        "verify_copilot_observations_save"
+      ],
+      "plan_hash": "fefbffe1f57f04d8ea892eac2707b45db2e64442ace4579707defb831bd321f9",
+      "closed_scopes": [],
+      "closed_original_requirements": [],
+      "business_reviews": []
+    },
+    {
+      "sequence": 6,
+      "task_ids": [
+        "derive_observed_qualification",
+        "save_structured_qualification",
+        "verify_structured_qualification_save"
+      ],
+      "plan_hash": "591313954b7858c318c9a305ac67cf6678730818fe27d9134a71f6448e5906a5",
+      "closed_scopes": [],
+      "closed_original_requirements": [],
+      "business_reviews": []
+    },
+    {
+      "sequence": 7,
+      "task_ids": [
+        "assess_qualification_save_verification"
+      ],
+      "plan_hash": "4c698def0817fea3652b73ea002417b31a7600bacb164e5b201a6a33bbb09498",
+      "closed_scopes": [],
+      "closed_original_requirements": [],
+      "business_reviews": [
+        {
+          "purpose": "construction_local_judge",
+          "outcome": "ok",
+          "requestId": "66fea1e6c9fe49e9b1e2a9a01843d0f7:63:a5622fed08ee62164c1f3c47ac78c1b8c2e73c2b10ebf9a7e32b487dd1bb8fd5:8c9fee13cfec0d21d36b53f0ab4201e245b711d4d8a4c342a78df1affcbd1a08"
+        }
+      ]
+    }
+  ],
+  "first_report_setup": "Checkpoint 1 initializes a pending report. It is not repository qualification.",
+  "first_substantive_repository_contribution": {
+    "checkpoint": 2,
+    "response_call": 36,
+    "response_completed_utc": "2026-11-09T01:07:47.004049+00:00",
+    "elapsed_to_response_ms": 954605.8,
+    "usage_tariff_through_response_eur": "17.5864487236901030004478280336",
+    "basis": "Pinned clone, exact clone observation persistence, and root always cleanup are accepted planned behavior, not observed execution."
+  },
+  "qualification_block_review": {
+    "checkpoint": 7,
+    "judge_call": 63,
+    "verdict": "ok",
+    "changed_fragment": true,
+    "exact_unchanged_boundary_proved": false
+  },
+  "failure": {
+    "diagnostics": [
+      {
+        "code": "PLANNING_HOST_FAILURE",
+        "location": "/",
+        "message": "Planning could not safely complete this operation.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ],
+    "known_response_call": 71,
+    "cause": "After suspension, continuation metadata validation renders a projected contract view with no current implementation step, dereferencing SelectedSchemaPointers.",
+    "offline_reproduced": true,
+    "fixed_offline_without_inference": true
+  },
+  "global_review_passed": false,
+  "artifact_approved": false,
+  "execution_started": false,
+  "oracle_passed": false,
+  "permanently_retained_request_applied": false,
+  "replay_or_continuation_performed": false,
+  "available_after_audit_eur": "51.548302731751007613076573862",
+  "private_evidence_sha256": {
+    "code14-final.json": "3a9c7dfbb2fbb5fad97ca9ac940aba20ecbaf3e051186771c9458fcd6f53b0b0",
+    "code14-final-receipts.json": "0c3c55c5c157fb064f367f5ab0a7f2d8685d9e27dce02c9d9311a4c9ab5714b2",
+    "code14-http71.json": "b0e4267b5187757eceae4eabd483d29f6ee4f1e22ef73c03a19410e3b29d9495",
+    "code14-host-failure-repro.log": "7ef913e5927051e59910d2a5434058fd7902baf9ea5dcbac244cf933645bb09f",
+    "code14-host-failure-fixed-probe.log": "e7518f95af09767ab3903fa245a47e1ea63b91f10553b1411c5008661bfc182c",
+    "code14-contract-suspension-red.log": "f0580ca73f4924ca2b8f3c358ef0c4ce623bcfe1ea26752291d454c13fb8c0cd",
+    "code14-contract-suspension-green.log": "74bc0248fc16919c4a23d05af59b3969c0fc2cfe2455ef99948e0ca7a9416541",
+    "code14-final-audit.json": "cfeb19fcd4c5bc16bd2b48442a15a9922c08fe136f7efa8b0c8e32ef3e994d34"
+  }
+}
