@@ -838,3 +838,12 @@ existing campaign-owned session-policy index bounds the metadata reads. The
 Server's exact active issued request remains subject to normal current-request
 physical admission; cancelled history cannot use that exception. Cold audits
 verify every retained Server budget hash and use the existing conservative sum.
+
+An interrupted Server session can also retain an earlier uncertain physical attempt
+whose logical request subsequently completed. Permanent retention verifies every
+additional Server hold against its exact owned campaign request, matching Server
+request/receipt, complete logical receipt and still-reserved physical attempt.
+The campaign's existing cost and token ceilings must cover that hold. Canonical
+attempt identities prevent duplicate coverage. The preview hashes those journals;
+missing or settled evidence and uncovered liabilities reject it. The cancelled
+request's full external hold and all earlier campaign reservations remain intact.

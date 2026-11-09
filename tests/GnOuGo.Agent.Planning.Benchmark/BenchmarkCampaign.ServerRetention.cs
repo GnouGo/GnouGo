@@ -4,6 +4,7 @@ using GnOuGo.Agent.Server.Planning;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
+using GnOuGo.Planning.Examples;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
@@ -105,12 +106,13 @@ internal sealed partial class BenchmarkCampaign
             serverHttp["request_hash"]?.ToString() != Hash(request) || !JsonNode.DeepEquals(serverHttp["policy"], state.Request.Options[PlanningTransportPolicies.OptionName]) ||
             serverHttp["reserved_attempts"]?.GetValue<int>() != 1 || serverHttp["input_ceiling"]?.GetValue<int>() != input ||
             serverHttp["output_ceiling"]?.GetValue<int>() != pending.Request.MaxTokens ||
-            budget?["uncertainCalls"]?.GetValue<int>() != 1 || applicationHold?["verifiedUsage"] is not null ||
+            budget?["uncertainCalls"]?.GetValue<int>() is not > 0 || applicationHold?["verifiedUsage"] is not null ||
             applicationHold?["inputTokenCeiling"]?.GetValue<int>() != input || applicationHold["outputTokenCeiling"]?.GetValue<int>() != pending.Request.MaxTokens ||
             applicationHold["reservedEstimatedCost"]?.GetValue<decimal>() is not > 0 || budget["estimatedCostCurrency"]?.ToString() != "EUR" ||
             journal["cost_ceiling_eur"]?.GetValue<decimal>() is not >= 0 ||
             journal["cost_ceiling_eur"]!.GetValue<decimal>() < applicationHold["reservedEstimatedCost"]!.GetValue<decimal>())
             throw new InvalidOperationException("The exact interrupted Server journals, cancellation failure and complete uncertain reservation do not match.");
+        var siblings = await InspectAccountedSiblingReservationsAsync(scope.Session, requestId, budget!, ct);
         await using var db = await scope.Contexts.CreateDbContextAsync(ct);
         var index = await db.Calls.AsNoTracking().SingleOrDefaultAsync(c => c.TenantId == "benchmark" && c.SessionId == scope.Session && c.RequestHash == requestId, ct);
         if (index?.PayloadKey != key || index.Status != "reserved") throw new InvalidOperationException("The exact Server request is not reserved in its owned index.");
@@ -134,6 +136,7 @@ internal sealed partial class BenchmarkCampaign
             ["application_reservation_in_campaign_http"] = false, ["accounting"] = await BenchmarkHttpJournal.AccountingAsync(this, requestId, ct: ct)
         };
         if (cancelled) evidence["failure_hash"] = Hash(failure);
+        if (siblings.Count > 0) evidence["accounted_sibling_reservations"] = siblings;
         return new() { ["evidence"] = evidence, ["evidence_hash"] = Hash(evidence), ["outcome"] = "inconclusive",
             ["reservation_retained"] = true, ["request_replay_forbidden"] = true, ["run_continuation_forbidden"] = true };
     }
@@ -161,10 +164,11 @@ internal sealed partial class BenchmarkCampaign
             !JsonNode.DeepEquals(serverHttp["policy"], state.Request.Options[PlanningTransportPolicies.OptionName]) ||
             serverHttp["reserved_attempts"]?.GetValue<int>() != 1 || serverHttp["input_ceiling"]?.GetValue<int>() != input ||
             serverHttp["output_ceiling"]?.GetValue<int>() != pending.Request.MaxTokens || serverHttp["transport"] is not null ||
-            budget?["uncertainCalls"]?.GetValue<int>() != 1 || budget["estimatedCostCurrency"]?.ToString() != "EUR" ||
+            budget?["uncertainCalls"]?.GetValue<int>() is not > 0 || budget["estimatedCostCurrency"]?.ToString() != "EUR" ||
             hold?["verifiedUsage"] is not null || hold?["inputTokenCeiling"]?.GetValue<int>() != input ||
             hold["outputTokenCeiling"]?.GetValue<int>() != pending.Request.MaxTokens || hold["reservedEstimatedCost"]?.GetValue<decimal>() is not > 0)
             throw new InvalidOperationException("Cancelled pre-campaign retention requires absent campaign records and exact owned Server reservation evidence.");
+        var siblings = await InspectAccountedSiblingReservationsAsync(scope.Session, requestId, budget!, ct);
         await using var db = await scope.Contexts.CreateDbContextAsync(ct);
         var index = await db.Calls.AsNoTracking().SingleOrDefaultAsync(c => c.TenantId == "benchmark" && c.SessionId == scope.Session && c.RequestHash == requestId, ct);
         if (index?.PayloadKey != scope.Session + ":" + requestId || index.Status != "reserved")
@@ -188,8 +192,57 @@ internal sealed partial class BenchmarkCampaign
             ["retained_application_reservation_eur"] = hold["reservedEstimatedCost"]!.DeepClone(), ["application_reservation_in_campaign_http"] = false,
             ["accounting"] = await BenchmarkHttpJournal.AccountingAsync(this, requestId, ct: ct)
         };
+        if (siblings.Count > 0) evidence["accounted_sibling_reservations"] = siblings;
         return new() { ["evidence"] = evidence, ["evidence_hash"] = Hash(evidence), ["outcome"] = "inconclusive",
             ["reservation_retained"] = true, ["request_replay_forbidden"] = true, ["run_continuation_forbidden"] = true };
+    }
+
+    private async Task<JsonArray> InspectAccountedSiblingReservationsAsync(string session, string pendingId, JsonObject budget, CancellationToken ct)
+    {
+        if (budget["journaledAttempts"] is not JsonObject attempts)
+            throw new InvalidOperationException("The Server reservation journal is unavailable.");
+        var unknown = attempts.Where(pair => pair.Value?["verifiedUsage"] is null).ToArray();
+        if (budget["uncertainCalls"]?.GetValue<int>() != unknown.Length ||
+            unknown.Count(pair => pair.Key == pendingId + ":attempt:1") != 1)
+            throw new InvalidOperationException("The complete Server uncertain-attempt count does not match its journal.");
+        var result = new JsonArray();
+        foreach (var (key, hold) in unknown.OrderBy(pair => pair.Key, StringComparer.Ordinal))
+        {
+            if (key == pendingId + ":attempt:1") continue;
+            var marker = key.LastIndexOf(":attempt:", StringComparison.Ordinal);
+            if (marker <= 0 || !int.TryParse(key.AsSpan(marker + 9), out var number) || number < 1 ||
+                key != key[..marker] + ":attempt:" + number.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                throw new InvalidOperationException("An additional Server reservation has no exact attempt identity.");
+            var id = key[..marker];
+            if (id == pendingId || !id.StartsWith(session + ":", StringComparison.Ordinal))
+                throw new InvalidOperationException("An additional reservation belongs to another or still-pending request.");
+            var request = await LoadAsync("planning-evaluation-requests", id, ct);
+            var journal = await LoadAsync(BenchmarkHttpJournal.Collection, id, ct);
+            var receipt = await LoadAsync("planning-evaluation-receipts", id, ct);
+            var serverRequest = await Records.GetAsync("agent-planning-model-requests-v11", "benchmark", session + ":" + id, Author, ct);
+            var serverReceipt = await Records.GetAsync("agent-planning-model-receipts-v11", "benchmark", session + ":" + id, Author, ct);
+            if (request is null || journal is null || receipt is null || hold is not JsonObject reservation ||
+                request["clientRequestId"]?.ToString() != id || request["tools"] is JsonArray { Count: > 0 } ||
+                serverRequest is null || !JsonNode.DeepEquals(request, JsonNode.Parse(serverRequest.Value)) || serverReceipt is null ||
+                journal["transport"]?["Attempts"] is not JsonArray physical || physical.Count < number ||
+                receipt["usage"] is not JsonObject usage || !JsonNode.DeepEquals(usage, journal["usage"]) ||
+                usage["benchmark_cost_eur"]?.GetValue<decimal>() is not >= 0)
+                throw new InvalidOperationException("An additional Server reservation has no exact completed campaign request.");
+            var amount = reservation["reservedEstimatedCost"]?.GetValue<decimal>() ?? throw new InvalidOperationException("Missing application hold.");
+            var heldInput = reservation["inputTokenCeiling"]?.GetValue<long>() ?? throw new InvalidOperationException("Missing input hold.");
+            var heldOutput = reservation["outputTokenCeiling"]?.GetValue<int>() ?? throw new InvalidOperationException("Missing output hold.");
+            var ceiling = journal["cost_ceiling_eur"]?.GetValue<decimal>() ?? throw new InvalidOperationException("Missing campaign hold.");
+            var input = journal["input_ceiling"]?.GetValue<long>() ?? throw new InvalidOperationException("Missing campaign input bound.");
+            var output = journal["output_ceiling"]?.GetValue<int>() ?? throw new InvalidOperationException("Missing campaign output bound.");
+            if (amount <= 0 || heldInput <= 0 || heldOutput <= 0 || ceiling < amount || input < heldInput || output < heldOutput ||
+                !PlanningBenchmarkMeasurements.RequiresHttpUsageReservation(physical[number - 1]?["Status"]?.GetValue<int>(), true,
+                    PlanningBenchmarkMeasurements.RetainsAllHttpFailures(journal)))
+                throw new InvalidOperationException("An additional Server reservation is not fully retained by its exact completed campaign request.");
+            result.Add(new JsonObject { ["application_attempt_id"] = key, ["http_journal_hash"] = Hash(journal),
+                ["request_hash"] = Hash(request), ["receipt_hash"] = Hash(receipt), ["server_receipt_hash"] = Hash(JsonNode.Parse(serverReceipt.Value)!.AsObject()),
+                ["application_reservation_eur"] = amount, ["campaign_attempt_ceiling_eur"] = ceiling });
+        }
+        return result;
     }
 
     private static bool ValidBeforeCampaignServerEvidence(JsonObject evidence)

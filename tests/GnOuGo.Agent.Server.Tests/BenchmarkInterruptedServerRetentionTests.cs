@@ -14,6 +14,60 @@ public sealed partial class BenchmarkPermanentRetentionTests
 {
     private const string InterruptedServerRun = "interrupted-server-run";
 
+    [Theory]
+    [InlineData("valid")]
+    [InlineData("receipt")]
+    [InlineData("server_receipt")]
+    [InlineData("uncovered_hold")]
+    [InlineData("settled_attempt")]
+    [InlineData("count")]
+    [InlineData("owner")]
+    [InlineData("attempt_alias")]
+    public async Task CancelledServerRetentionPreservesEarlierUncertainAttemptsOnlyWithExactCampaignCoverage(string variant)
+    {
+        var workspace = Path.Combine(Path.GetTempPath(), "GnOuGo.ServerRetention", Guid.NewGuid().ToString("N"));
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(Path.Combine(workspace, ".GnOuGo/data/live-server", InterruptedServerRun));
+        var campaign = await SeedInterruptedServerAsync(fixture);
+        await MarkUnjournaledServerCancelledAsync(campaign, fixture);
+        var id = variant == "owner" ? "another-session:earlier" : Session + ":earlier";
+        var request = (await campaign.LoadAsync("planning-evaluation-requests", RequestId, Ct))!.DeepClone().AsObject();
+        request["clientRequestId"] = id;
+        await campaign.SaveAsync("planning-evaluation-requests", id, request, Ct);
+        var prior = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct))!.DeepClone().AsObject();
+        prior["effective_transport_policy"]!["version"] = 2;
+        prior["cost_ceiling_eur"] = .30m;
+        prior["transport"]!["Attempts"] = new JsonArray(new JsonObject { ["Status"] = variant == "settled_attempt" ? 200 : null });
+        var usage = new JsonObject { ["benchmark_cost_eur"] = .1m, ["input_tokens"] = 1, ["output_tokens"] = 1 };
+        prior["usage"] = usage.DeepClone();
+        await campaign.SaveAsync(BenchmarkHttpJournal.Collection, id, prior, Ct);
+        if (variant != "receipt") await campaign.SaveAsync("planning-evaluation-receipts", id, new() { ["usage"] = usage.DeepClone() }, Ct);
+        await fixture.Records.UpsertAsync("agent-planning-model-requests-v11", "benchmark", Session + ":" + id, request.ToJsonString(), "test", Ct);
+        if (variant != "server_receipt") await fixture.Records.UpsertAsync("agent-planning-model-receipts-v11", "benchmark", Session + ":" + id, "{}", "test", Ct);
+        var raw = (await fixture.Records.GetAsync("agent-planning-budgets-v11", "benchmark", Session, "test", Ct))!;
+        var budget = JsonNode.Parse(raw.Value)!.AsObject();
+        budget["uncertainCalls"] = variant == "count" ? 3 : 2;
+        var hold = budget["journaledAttempts"]![RequestId + ":attempt:1"]!.DeepClone();
+        hold["reservedEstimatedCost"] = variant == "uncovered_hold" ? .31m : .25m;
+        budget["journaledAttempts"]![id + (variant == "attempt_alias" ? ":attempt:01" : ":attempt:1")] = hold;
+        await fixture.Records.UpsertAsync("agent-planning-budgets-v11", "benchmark", Session, budget.ToJsonString(), "test", Ct);
+        if (variant != "valid")
+            await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.InspectPermanentRetentionAsync("planning-evaluation-runs", InterruptedServerRun,
+                RequestId, Ct, BenchmarkCampaign.CancelledPlanningRetention, workspace));
+        else
+        {
+            var before = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
+            var proposal = await campaign.InspectPermanentRetentionAsync("planning-evaluation-runs", InterruptedServerRun, RequestId, Ct,
+                BenchmarkCampaign.CancelledPlanningRetention, workspace);
+            Assert.Single(proposal["evidence"]!["accounted_sibling_reservations"]!.AsArray());
+            await campaign.ApplyPermanentRetentionAsync("planning-evaluation-runs", InterruptedServerRun, RequestId, proposal["evidence_hash"]!.ToString(),
+                Operator, Authorization, Ct, BenchmarkCampaign.CancelledPlanningRetention, workspace);
+            Assert.Equal(.95m, await campaign.RetainedApplicationReservationsAsync(Ct));
+            Assert.True(JsonNode.DeepEquals(before, await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct)));
+            Assert.Equal(budget.ToJsonString(), (await fixture.Records.GetAsync("agent-planning-budgets-v11", "benchmark", Session, "test", Ct))!.Value);
+        }
+        await fixture.DisposeAsync(); Directory.Delete(workspace, true);
+    }
+
     [Fact]
     public async Task CurrentDispatchIsFundedNormallyWhileCancelledHoldCannotBeExcludedFromHistory()
     {
