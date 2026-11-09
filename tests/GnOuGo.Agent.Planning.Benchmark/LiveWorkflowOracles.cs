@@ -14,6 +14,7 @@ internal static partial class LiveWorkflowOracles
     internal const string AmazonBusinessVersion = "amazon-business-v4";
     internal const string AmazonObservedRedirectVersion = "amazon-business-v5";
     internal const string AmazonSponsoredHostVersion = "amazon-business-v6";
+    internal const string AmazonProductContextVersion = "amazon-business-v7";
     internal const string CodeBusinessVersion = "code-business-v2";
     internal static async Task<JsonObject> VerifyAsync(string scenario, string root, JsonObject run, IMcpClientFactory transport,
         Func<Task<McpCallResult>>? hostClosureProbe = null)
@@ -24,7 +25,7 @@ internal static partial class LiveWorkflowOracles
         var events = run["events"]!.AsArray().OfType<JsonObject>().ToArray();
         if (scenario == "amazon")
         {
-            if (run["oracle_version"]?.ToString() is { } version && version is not ("real-workflows-v1" or ObservedProductsVersion or AmazonBusinessVersion3 or AmazonBusinessVersion or AmazonObservedRedirectVersion or AmazonSponsoredHostVersion))
+            if (run["oracle_version"]?.ToString() is { } version && version is not ("real-workflows-v1" or ObservedProductsVersion or AmazonBusinessVersion3 or AmazonBusinessVersion or AmazonObservedRedirectVersion or AmazonSponsoredHostVersion or AmazonProductContextVersion))
                 throw new InvalidOperationException("Unknown retained execution oracle version.");
             if (run["oracle_version"]?.ToString() == AmazonObservedRedirectVersion &&
                 (run["browser_observation_policy"]?.ToString() != AmazonObservedRedirectPolicy.Id ||
@@ -34,6 +35,10 @@ internal static partial class LiveWorkflowOracles
                 (run["browser_observation_policy"]?.ToString() != AmazonSponsoredHostPolicy.Id ||
                  run["browser_scope_approval"]?.ToString() != AmazonSponsoredHostPolicy.Approval))
                 throw new InvalidOperationException("The sponsored-host verifier requires its separately captured strict scope and approval.");
+            if (run["oracle_version"]?.ToString() == AmazonProductContextVersion &&
+                (run["browser_observation_policy"]?.ToString() != AmazonProductContextPolicy.Id ||
+                 run["browser_scope_approval"]?.ToString() != AmazonProductContextPolicy.Approval))
+                throw new InvalidOperationException("The product-context verifier requires its captured evidence policy and exact granted scope.");
             var productLimit = run["max_products"]?.GetValue<int>() ?? 3;
             if (productLimit is < 1 or > 10) throw new InvalidOperationException("Invalid retained product bound.");
             var browser = await transport.GetClientAsync("GnOuGo.Browser.Mcp", CancellationToken.None);
@@ -59,14 +64,16 @@ internal static partial class LiveWorkflowOracles
                     var descriptionIndex = Array.FindIndex(names, n => n == "description");
                     var priceIndex = Array.FindIndex(names, n => n is "prix" or "price");
                     if (nameIndex < 0 || descriptionIndex < 0 || priceIndex < 0) findings.Add("workbook_columns_missing");
-                    else if (run["oracle_version"]?.ToString() is ObservedProductsVersion or AmazonBusinessVersion3 or AmazonBusinessVersion or AmazonObservedRedirectVersion or AmazonSponsoredHostVersion)
+                    else if (run["oracle_version"]?.ToString() is ObservedProductsVersion or AmazonBusinessVersion3 or AmazonBusinessVersion or AmazonObservedRedirectVersion or AmazonSponsoredHostVersion or AmazonProductContextVersion)
                     {
                         var evidence = VerifyObservedProducts(events, rows, productLimit);
                         run["product_evidence"] = evidence;
                         findings.AddRange(evidence["findings"]!.AsArray().Select(f => f!.ToString()));
-                        if (run["oracle_version"]?.ToString() is AmazonBusinessVersion3 or AmazonBusinessVersion or AmazonObservedRedirectVersion or AmazonSponsoredHostVersion)
+                        if (run["oracle_version"]?.ToString() is AmazonBusinessVersion3 or AmazonBusinessVersion or AmazonObservedRedirectVersion or AmazonSponsoredHostVersion or AmazonProductContextVersion)
                         {
-                            var selection = run["oracle_version"]?.ToString() == AmazonSponsoredHostVersion
+                            var selection = run["oracle_version"]?.ToString() == AmazonProductContextVersion
+                                ? VerifyAmazonProductContextSelection(events, productLimit, run["inputs"]?["query"]?.ToString())
+                                : run["oracle_version"]?.ToString() == AmazonSponsoredHostVersion
                                 ? VerifyAmazonSponsoredHostSelection(events, productLimit, run["inputs"]?["query"]?.ToString())
                                 : run["oracle_version"]?.ToString() == AmazonObservedRedirectVersion
                                 ? VerifyAmazonObservedRedirectSelection(events, productLimit, run["inputs"]?["query"]?.ToString())

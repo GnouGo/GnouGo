@@ -19,11 +19,16 @@ public sealed record BrowserObservationRecord(string Kind, string Tag, string Se
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [Description("DOM selector of an enclosing heading or a heading contained in this link. Preserves its heading association separately from other links in the item.")]
     public string? Heading { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [Description("Optional host-requested link attributes from the nearest ancestor within the selected root, including the link itself. A null value means no matching ancestor; an empty attribute remains an explicit empty string. Tag, role and snapshot-local index identify the actual source element; repeated values on different elements retain different indexes. This is observed DOM evidence, not a business classification.")]
+    public IReadOnlyDictionary<string, BrowserObservationAncestorAttribute?>? AncestorAttributes { get; init; }
+
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? Reference { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<string>? Actions { get; init; }
 }
+public sealed record BrowserObservationAncestorAttribute(string Value, string Tag, string? Role, int Index);
 public sealed record BrowserObservationGroup(string Tag, string? Role, int Index);
 public sealed record BrowserObservationOccurrence(string Selector, string Tag, string? Role, int Index);
 public sealed record BrowserObservation(string Id, IReadOnlyList<BrowserObservationRecord> Records, string? NextCursor, bool CaptureTruncated);
@@ -152,7 +157,7 @@ public sealed partial class PlaywrightBrowserHost
         {
             if (ObservationCheckpoint is { } capturing) await capturing(page, "capture", ct).WaitAsync(ct);
             EnsureCurrent(stamp);
-            handle = await locator.EvaluateHandleAsync(ObservationScript, stamp.Id).WaitAsync(ct);
+            handle = await locator.EvaluateHandleAsync(ObservationScript, new[] { stamp.Id }.Concat(_observationAncestorAttributes).ToArray()).WaitAsync(ct);
             var json = await handle.EvaluateAsync<string>("capture => capture.json").WaitAsync(ct);
             EnsureCurrent(stamp);
             var capture = JsonSerializer.Deserialize(json, BrowserMcpJsonContext.Default.BrowserObservationCapture)
@@ -562,7 +567,8 @@ public sealed partial class PlaywrightBrowserHost
     // Browser-owned deterministic observation, never a model-generated page script.
     // A capture has finite traversal/storage limits; incomplete captures remain explicitly incomplete.
     internal static readonly string ObservationScript = """
-        (root, snapshotId) => {
+        (root, observation) => {
+          const [snapshotId, ...attributeNames] = observation, attributeContexts = new Map();
           const records = [], elements = [], states = [], groups = new Map(), occurrences = new Map(), actionState = __ACTION_STATE__, owned = 'a[href],button,[role="button"],[role="checkbox"],[role="radio"],[role="switch"],[role="tab"],[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"],[contenteditable="true"],h1,h2,h3,h4,h5,h6,input,select,textarea';
           let visited = 0, size = 0, truncated = false;
           const text = s => (s || '').replace(/\s+/g, ' ').trim();
@@ -631,6 +637,27 @@ public sealed partial class PlaywrightBrowserHost
                 const heading = element.closest('h1,h2,h3,h4,h5,h6,[role="heading"]') || (kind === 'link' ? element.querySelector('h1,h2,h3,h4,h5,h6,[role="heading"]') : null);
                 const state = actionState(element);
                 const record = { kind, tag, selector: selector(element), group: selector(group), groupContext: groups.get(group), occurrence: occurrence ? occurrences.get(occurrence) : null, heading: heading ? selector(heading) : null, text: content, href, role: element.getAttribute('role'), reference: snapshotId + ':record:' + records.length, actions: state.actions };
+                if (kind === 'link' && attributeNames.length) {
+                  const attributes = Object.create(null);
+                  for (const name of attributeNames) {
+                    let ancestor = element, depth = 0;
+                    while (ancestor && root.contains(ancestor) && !ancestor.hasAttribute(name)) {
+                      if (++depth > 64) { truncated = true; break; }
+                      if (ancestor === root) { ancestor = null; break; }
+                      ancestor = ancestor.parentElement;
+                    }
+                    if (truncated) break;
+                    if (!ancestor || !root.contains(ancestor)) attributes[name] = null;
+                    else {
+                      const value = ancestor.getAttribute(name);
+                      if (value.length > 1024) { truncated = true; break; }
+                      if (!attributeContexts.has(ancestor)) attributeContexts.set(ancestor, attributeContexts.size);
+                      attributes[name] = {value, tag: ancestor.tagName.toLowerCase(), role: ancestor.getAttribute('role'), index: attributeContexts.get(ancestor)};
+                    }
+                  }
+                  if (truncated) break;
+                  record.ancestorAttributes = attributes;
+                }
                 const length = JSON.stringify(record).length;
                 if (records.length >= 10000 || size + length > 2000000) { truncated = true; break; }
                 records.push(record); elements.push(element); states.push(state.signature); size += length;

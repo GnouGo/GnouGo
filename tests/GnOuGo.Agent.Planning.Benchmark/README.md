@@ -896,3 +896,25 @@ comparisons). They omit URI credentials, queries, authorization headers and
 arbitrary exception text. Historical generic denials remain generic; fresh
 diagnostic evidence does not rewrite them or imply a provider attempt. The HTTP
 journal remains authoritative for dispatch, accounting and recovery.
+
+
+Fresh Amazon qualifications may capture `--amazon-product-context` together with
+`--amazon-observed-sponsored-host --amazon-scope-approval
+user-strict-amazon-sponsored-host-extension-20261109`. This selects policy
+`amazon-observed-product-context-v3` and oracle `amazon-business-v7`; its routes
+and grant are identical to v2/v6. The isolated Browser host additionally requests
+the generic `ObservationAncestorAttributes` metadata for `data-asin`, preserving
+other saved attribute requests. This is observed DOM evidence, never a URL source.
+
+v7 requires complete source provenance and distinguishes an explicitly empty
+non-product advertising container from a product occurrence. Missing or
+contradictory context fails. Product containers retain DOM order, sponsored
+products and separate occurrences with repeated identifiers. A heading identifies
+the primary link among associated variant links; without that association,
+conflicting identities remain unverified. Each visit must use an exact observed
+literal link and reach the matching observed product identifier through the
+existing approved GET routes. Advertising targets are never decoded or replaced.
+Source authority still expires on close or a new search. Workbook, product fields,
+cleanup and truthful-result requirements are unchanged. Historical v4/v5/v6
+verifiers remain available under their original policies; this option cannot
+upgrade a retained run or broaden navigation authority.

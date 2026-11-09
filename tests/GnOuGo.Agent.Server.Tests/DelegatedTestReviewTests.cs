@@ -30,13 +30,14 @@ public sealed class DelegatedTestReviewTests
     [Theory]
     [InlineData(AmazonObservedRedirectPolicy.Id)]
     [InlineData(AmazonSponsoredHostPolicy.Id)]
+    [InlineData(AmazonProductContextPolicy.Id)]
     public async Task StrictRedirectExtensionRequiresExactCompleteObservedSearchAndExpiresAtClose(string policy)
     {
         var (_, _, original, evidence, receipt) = await Fixture();
         var authorization = original with { Scenario = "amazon", BrowserObservationPolicy = policy };
         var authority = new DelegatedTestReviewAuthority(authorization, new(receipt, evidence), "campaign", "test-run", "amazon",
             Path.GetTempPath(), "frozen-source", browserObservationPolicy: policy);
-        var events = policy == AmazonSponsoredHostPolicy.Id ? AmazonSponsoredHostPolicyTests.Events() : AmazonObservedRedirectOracleTests.Events();
+        var events = policy == AmazonProductContextPolicy.Id ? AmazonProductContextOracleTests.Events() : policy == AmazonSponsoredHostPolicy.Id ? AmazonSponsoredHostPolicyTests.Events() : AmazonObservedRedirectOracleTests.Events();
         var entry = events[1]["arguments"]!.DeepClone();
         void Read(JsonNode args) => authority.RequireTool("GnOuGo.Browser.Mcp", "browser_get_content", args);
         Assert.Throws<PlanningConflictException>(() => Read(entry));
@@ -63,13 +64,15 @@ public sealed class DelegatedTestReviewTests
     [InlineData(AmazonObservedRedirectPolicy.Id, false)]
     [InlineData(AmazonSponsoredHostPolicy.Id, true)]
     [InlineData(AmazonSponsoredHostPolicy.Id, false)]
+    [InlineData(AmazonProductContextPolicy.Id, true)]
+    [InlineData(AmazonProductContextPolicy.Id, false)]
     public async Task RedirectThroughANewSearchExpiresEarlierEntryAuthority(string policy, bool endsAtSearch)
     {
         var (_, _, original, evidence, receipt) = await Fixture();
         var authorization = original with { Scenario = "amazon", BrowserObservationPolicy = policy };
         var authority = new DelegatedTestReviewAuthority(authorization, new(receipt, evidence), "campaign", "test-run", "amazon",
             Path.GetTempPath(), "frozen-source", browserObservationPolicy: policy);
-        var events = policy == AmazonSponsoredHostPolicy.Id ? AmazonSponsoredHostPolicyTests.Events() : AmazonObservedRedirectOracleTests.Events();
+        var events = policy == AmazonProductContextPolicy.Id ? AmazonProductContextOracleTests.Events() : policy == AmazonSponsoredHostPolicy.Id ? AmazonSponsoredHostPolicyTests.Events() : AmazonObservedRedirectOracleTests.Events();
         var entry = events[1]["arguments"]!;
         authority.RequireTool("GnOuGo.Browser.Mcp", "browser_get_content", events[0]["arguments"]);
         authority.ObserveTool("GnOuGo.Browser.Mcp", "browser_get_content", events[0]["arguments"], new() { Content = events[0]["result"]!.DeepClone() });

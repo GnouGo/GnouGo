@@ -31,41 +31,47 @@ internal static class AmazonObservedRedirectPolicy
             throw new InvalidOperationException("Unknown or mismatched captured browser observation policy.");
     }
 
-    internal static bool IsObserved(string? policy) => policy is Id or AmazonSponsoredHostPolicy.Id;
+    internal static bool IsObserved(string? policy) => policy is Id or AmazonSponsoredHostPolicy.Id or AmazonProductContextPolicy.Id;
     internal static bool Allows(string value, string policy) => policy switch
     {
         Id => Allows(value),
         AmazonSponsoredHostPolicy.Id => AmazonSponsoredHostPolicy.Allows(value),
+        AmazonProductContextPolicy.Id => AmazonSponsoredHostPolicy.Allows(value),
         _ => throw new InvalidOperationException("Unknown captured browser observation policy.")
     };
     internal static bool IsEntry(string value, string policy) => policy switch
     {
         Id => IsEntry(value),
         AmazonSponsoredHostPolicy.Id => AmazonSponsoredHostPolicy.IsEntry(value),
+        AmazonProductContextPolicy.Id => AmazonSponsoredHostPolicy.IsEntry(value),
         _ => throw new InvalidOperationException("Unknown captured browser observation policy.")
     };
     internal static bool IsSourceEntry(string value, string policy) => policy switch
     {
         Id => IsSourceEntry(value),
         AmazonSponsoredHostPolicy.Id => AmazonSponsoredHostPolicy.IsSourceEntry(value),
+        AmazonProductContextPolicy.Id => AmazonSponsoredHostPolicy.IsSourceEntry(value),
         _ => throw new InvalidOperationException("Unknown captured browser observation policy.")
     };
     internal static string Facts(string policy) => policy switch
     {
         Id => PlanningFacts,
         AmazonSponsoredHostPolicy.Id => AmazonSponsoredHostPolicy.PlanningFacts,
+        AmazonProductContextPolicy.Id => AmazonProductContextPolicy.PlanningFacts,
         _ => throw new InvalidOperationException("Unknown captured browser observation policy.")
     };
     internal static string ApprovalFor(string policy) => policy switch
     {
         Id => Approval,
         AmazonSponsoredHostPolicy.Id => AmazonSponsoredHostPolicy.Approval,
+        AmazonProductContextPolicy.Id => AmazonProductContextPolicy.Approval,
         _ => throw new InvalidOperationException("Unknown captured browser observation policy.")
     };
     internal static string Pattern(string policy) => policy switch
     {
         Id => UrlPattern,
         AmazonSponsoredHostPolicy.Id => AmazonSponsoredHostPolicy.UrlPattern,
+        AmazonProductContextPolicy.Id => AmazonProductContextPolicy.UrlPattern,
         _ => throw new InvalidOperationException("Unknown captured browser observation policy.")
     };
 
@@ -73,12 +79,13 @@ internal static class AmazonObservedRedirectPolicy
     {
         var original = args.Contains("--amazon-observed-redirects", StringComparer.Ordinal);
         var sponsored = args.Contains("--amazon-observed-sponsored-host", StringComparer.Ordinal);
+        var context = args.Contains("--amazon-product-context", StringComparer.Ordinal);
         var approval = SchemaPortabilityCampaign.Option(args, "--amazon-scope-approval");
-        if (original && sponsored || !sponsored && approval is not null)
+        if (original && sponsored || !sponsored && (approval is not null || context))
             throw new ArgumentException("Select one explicit Amazon observation policy and its matching approval.");
         if (sponsored && approval != AmazonSponsoredHostPolicy.Approval)
             throw new InvalidOperationException("The sponsored-host extension requires its separately authorized scope approval.");
-        var policy = sponsored ? AmazonSponsoredHostPolicy.Id : original ? Id : null;
+        var policy = context ? AmazonProductContextPolicy.Id : sponsored ? AmazonSponsoredHostPolicy.Id : original ? Id : null;
         Validate(policy, scenario);
         return policy;
     }
@@ -99,4 +106,14 @@ internal static class AmazonSponsoredHostPolicy
         new Uri(value) is { Host: "sponsored-ads.amazon.fr", AbsolutePath: "/clk/" });
     internal static bool IsSourceEntry(string value) => Uri.TryCreate(value, UriKind.Absolute, out var uri) &&
         IsEntry(uri.GetComponents(UriComponents.HttpRequestUrl, UriFormat.UriEscaped));
+}
+
+// Same granted routes, with stronger source classification from observed DOM attributes.
+internal static class AmazonProductContextPolicy
+{
+    internal const string Id = "amazon-observed-product-context-v3";
+    internal const string Approval = AmazonSponsoredHostPolicy.Approval;
+    internal const string UrlPattern = AmazonSponsoredHostPolicy.UrlPattern;
+    internal const string ProductAttribute = "data-asin";
+    internal const string PlanningFacts = AmazonSponsoredHostPolicy.PlanningFacts + "\nThe captured product-context policy amazon-observed-product-context-v3 has the same authorized routes and grant. The isolated Browser host additionally records ancestorAttributes[\"data-asin\"] on observed links: the nearest matching DOM ancestor within the selected root, its exact value/tag/role/snapshot-local index, or explicit null when absent. Empty values remain empty. Use this original DOM evidence to distinguish product containers from unrelated brand/navigation advertising; preserve every product occurrence, including sponsored products and repeated identifiers. Source IDs are evidence only, never permission to construct a product URL or decode an advertising target. A selected literal link must come from its actual recorded product context. Retain complete source/navigation evidence; missing or contradictory context remains failure.";
 }

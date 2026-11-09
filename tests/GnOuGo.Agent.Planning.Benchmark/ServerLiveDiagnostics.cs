@@ -507,6 +507,7 @@ internal static class ServerLiveDiagnostics
                 if (scenario is "amazon" or "code")
                 {
                     report["oracle_version"] = scenario == "amazon" ? browserObservationPolicy is null ? LiveWorkflowOracles.AmazonBusinessVersion :
+                        browserObservationPolicy == AmazonProductContextPolicy.Id ? LiveWorkflowOracles.AmazonProductContextVersion :
                         browserObservationPolicy == AmazonSponsoredHostPolicy.Id ? LiveWorkflowOracles.AmazonSponsoredHostVersion : LiveWorkflowOracles.AmazonObservedRedirectVersion : LiveWorkflowOracles.CodeBusinessVersion;
                     report["mcp_builds"] = LiveWorkflowEvaluation.CaptureMcpBuilds(LiveWorkflowEvaluation.Configuration(model.McpServers, scenario, null, "Release", browserObservationPolicy: browserObservationPolicy), report["source"]!.ToString());
                 }

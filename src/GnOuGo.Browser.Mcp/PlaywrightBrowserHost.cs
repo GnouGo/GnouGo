@@ -10,6 +10,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
 {
     private readonly BrowserServerSettings _settings;
     private readonly ILogger<PlaywrightBrowserHost> _logger;
+    private readonly string[] _observationAncestorAttributes;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     private IPlaywright? _playwright;
@@ -24,6 +25,12 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
     {
         _settings = settings.Value;
         _logger = logger;
+        var names = _settings.ObservationAncestorAttributes;
+        if (names is null || names.Count > 8 || names.Any(name => string.IsNullOrEmpty(name) || name.Length > 64 ||
+            !(char.IsAsciiLetter(name[0]) || name[0] is '_' or ':') ||
+            name.Any(c => !(char.IsAsciiLetterOrDigit(c) || c is '_' or ':' or '.' or '-'))))
+            throw new ArgumentException("Observation ancestor attributes require at most eight valid names of at most 64 characters.");
+        _observationAncestorAttributes = names.Select(name => name.ToLowerInvariant()).Distinct(StringComparer.Ordinal).ToArray();
     }
 
     public Task<BrowserContentResult> GetContentAsync(

@@ -340,3 +340,12 @@ References are usable only after their record has been delivered. Navigation, in
 Legacy selector/text calls and existing C# selector entrypoints retain their behavior. No saved workflow is rewritten; refreshed discovery exposes the additive contracts for new review and approval. Observed URLs may still be retained as business data for ordinary navigation; they are not durable DOM action references. References grant no permission and do not establish factual correctness or completeness.
 
 Post-action `domcontentloaded` and `load` waits subscribe before the interaction and recheck the current document's lifecycle state. A fast navigation cannot lose its completion notification between a state check and event registration. Reloads invalidate previously observed readiness; same-document navigation retains the document's established lifecycle. Delayed readiness, cancellation, page closure and genuine timeouts still fail explicitly. The existing timeout is shared by readiness rechecks, and the interaction is never repeated. Explicit `networkidle` continues to require Playwright's network-quiescence condition. This does not alter target identity, `follow`/`activate` compatibility, permissions or snapshot expiration.
+`Browser:ObservationAncestorAttributes` optionally names up to eight DOM attributes
+to retain on observed links. Each entry identifies the nearest matching ancestor
+inside the selected root (including the link), with its exact value, tag, role and
+snapshot-local source index. Missing and empty values stay distinct. Different
+containers retain different indexes even when their attribute values match. No
+attribute is requested by default. Names are bounded to 64 characters; values over
+1,024 characters or ancestry beyond 64 levels mark the capture incomplete. Existing
+record/page/byte limits apply. This metadata records source DOM facts and performs
+no business classification or URL construction.

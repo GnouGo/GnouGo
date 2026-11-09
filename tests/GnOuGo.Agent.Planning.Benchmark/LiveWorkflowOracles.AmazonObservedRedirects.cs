@@ -3,7 +3,7 @@ using System.Text.Json.Nodes;
 internal static partial class LiveWorkflowOracles
 {
     internal static IEnumerable<string> CompleteSearchRedirectEntries(IReadOnlyList<JsonObject> reads, string policy = AmazonObservedRedirectPolicy.Id)
-        => CompleteSnapshots(reads).Where(s => WholeDocumentSearch(s.Read) && ValidNavigationEvidence(s.Read, policy) &&
+        => policy == AmazonProductContextPolicy.Id ? CompleteContextSearchRedirectEntries(reads).Distinct(StringComparer.Ordinal) : CompleteSnapshots(reads).Where(s => WholeDocumentSearch(s.Read) && ValidNavigationEvidence(s.Read, policy) &&
             AmazonObservedRedirectPolicy.Allows(s.Url ?? "", policy) && new Uri(s.Url!).AbsolutePath == "/s" &&
             s.Read["arguments"]?["url"]?.ToString() is { } requested && AmazonObservedRedirectPolicy.Allows(requested, policy) &&
             new Uri(requested).AbsolutePath == "/s" && SearchQuery(new Uri(requested)) == SearchQuery(new Uri(s.Url!)) &&

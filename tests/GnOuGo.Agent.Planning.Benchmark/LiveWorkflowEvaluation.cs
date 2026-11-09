@@ -349,9 +349,20 @@ internal static class LiveWorkflowEvaluation
                     throw new InvalidOperationException("Explicit saved Browser navigation restrictions require a reviewed intersection.");
                 clone.EnvironmentVariables["Browser__AllowedHosts__0"] = "www.amazon.fr";
                 clone.EnvironmentVariables["Browser__AllowedHosts__1"] = "amazon.fr";
-                if (browserObservationPolicy == AmazonSponsoredHostPolicy.Id)
+                if (browserObservationPolicy is AmazonSponsoredHostPolicy.Id or AmazonProductContextPolicy.Id)
                     clone.EnvironmentVariables["Browser__AllowedHosts__2"] = "sponsored-ads.amazon.fr";
                 clone.EnvironmentVariables["Browser__AllowedNavigationUrlPatterns__0"] = AmazonObservedRedirectPolicy.Pattern(browserObservationPolicy!);
+                if (browserObservationPolicy == AmazonProductContextPolicy.Id)
+                {
+                    const string prefix = "Browser__ObservationAncestorAttributes__";
+                    var attributes = clone.EnvironmentVariables.Where(p => p.Key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).ToArray();
+                    if (!attributes.Any(p => string.Equals(p.Value, AmazonProductContextPolicy.ProductAttribute, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        if (attributes.Length >= 8) throw new InvalidOperationException("The source-context attribute exceeds the existing host allowance.");
+                        var index = Enumerable.Range(0, 8).First(i => !attributes.Any(p => string.Equals(p.Key, prefix + i, StringComparison.OrdinalIgnoreCase)));
+                        clone.EnvironmentVariables[prefix + index] = AmazonProductContextPolicy.ProductAttribute;
+                    }
+                }
             }
             // Only execution has a real campaign inference proxy. Metadata discovery
             // preserves configured settings; a placeholder URL prevents MCP startup.

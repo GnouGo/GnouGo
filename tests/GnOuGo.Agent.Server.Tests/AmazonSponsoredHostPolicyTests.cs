@@ -130,6 +130,9 @@ public sealed class AmazonSponsoredHostPolicyTests
     [InlineData("amazon-business-v6", null, null)]
     [InlineData("amazon-business-v6", AmazonObservedRedirectPolicy.Id, AmazonObservedRedirectPolicy.Approval)]
     [InlineData("amazon-business-v6", Policy, AmazonObservedRedirectPolicy.Approval)]
+    [InlineData("amazon-business-v7", Policy, Approval)]
+    [InlineData("amazon-business-v7", AmazonProductContextPolicy.Id, AmazonObservedRedirectPolicy.Approval)]
+    [InlineData("amazon-business-v6", AmazonProductContextPolicy.Id, Approval)]
     [InlineData("amazon-business-v5", Policy, Approval)]
     [InlineData("amazon-business-v5", AmazonObservedRedirectPolicy.Id, Approval)]
     public async Task VerifierRejectsMissingOrMismatchedCapturedAuthorityBeforeAnyTransport(string version, string? policy, string? approval)
