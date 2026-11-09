@@ -1,0 +1,27 @@
+{
+  "starting_head": "1e4f1cb17288410ef1179024e4276a0aba0528f9",
+  "campaign": "pr120-live-20261107-400",
+  "operation": "extend-budget",
+  "authorization": "pr120-supplement-20261109-300-02",
+  "matching_entries_before": 0,
+  "matching_entries_after": 1,
+  "previous_ceiling_eur": "1400",
+  "ceiling_eur": "1700",
+  "previous_history_entries_unchanged": true,
+  "history_entries_after": 6,
+  "accounting_before_after_identical": true,
+  "unknown_attempts": 45,
+  "cost_upper_bound_eur": "1080.3988804299149126735333704",
+  "retained_application_holds_eur": "44.588114643976712942230183612",
+  "available_before_new_live_eur": "575.013004926108374384236445988",
+  "model_dispatches_for_extension": 0,
+  "reset": false,
+  "unlimited": false,
+  "private_evidence_sha256": {
+    "resume300b-funding-before.json": "eaed136d6a8421ccac54674987a33744f7e55a3895b4fe1afb906f635cb7b4bc",
+    "resume300b-funding-after.json": "c96d33f3e7fc0d400d6bb2f7e8427406003883d55f608710eeb3dc51ba914b67",
+    "resume300b-before-audit.json": "9c37675ed5631b2de3c3e8280a7e27b4a77cef25754d808f0ecd3610993c4e73",
+    "resume300b-after-audit.json": "3f6abeaec40cd9f2c8261dbd28aaaa3c5bf98441225e1cda38651652eb52cde8",
+    "resume300b-extend-budget.json": "0d4ea78811bed73284b8fbadefeacd202a4bd09f9d1e1b0d64ed9b067e04d563"
+  }
+}
