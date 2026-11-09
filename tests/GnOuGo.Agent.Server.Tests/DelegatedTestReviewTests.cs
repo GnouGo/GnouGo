@@ -59,6 +59,36 @@ public sealed class DelegatedTestReviewTests
     }
 
     [Theory]
+    [InlineData(AmazonObservedRedirectPolicy.Id, true)]
+    [InlineData(AmazonObservedRedirectPolicy.Id, false)]
+    [InlineData(AmazonSponsoredHostPolicy.Id, true)]
+    [InlineData(AmazonSponsoredHostPolicy.Id, false)]
+    public async Task RedirectThroughANewSearchExpiresEarlierEntryAuthority(string policy, bool endsAtSearch)
+    {
+        var (_, _, original, evidence, receipt) = await Fixture();
+        var authorization = original with { Scenario = "amazon", BrowserObservationPolicy = policy };
+        var authority = new DelegatedTestReviewAuthority(authorization, new(receipt, evidence), "campaign", "test-run", "amazon",
+            Path.GetTempPath(), "frozen-source", browserObservationPolicy: policy);
+        var events = policy == AmazonSponsoredHostPolicy.Id ? AmazonSponsoredHostPolicyTests.Events() : AmazonObservedRedirectOracleTests.Events();
+        var entry = events[1]["arguments"]!;
+        authority.RequireTool("GnOuGo.Browser.Mcp", "browser_get_content", events[0]["arguments"]);
+        authority.ObserveTool("GnOuGo.Browser.Mcp", "browser_get_content", events[0]["arguments"], new() { Content = events[0]["result"]!.DeepClone() });
+        authority.RequireTool("GnOuGo.Browser.Mcp", "browser_get_content", entry);
+        var content = events[1]["result"]!.DeepClone();
+        var search = events[0]["arguments"]!["url"]!.ToString();
+        var final = content["url"]!.ToString();
+        var hops = content["navigationEvidence"]!["hops"]!.AsArray();
+        hops[0]!["location"] = search;
+        hops.Insert(1, new JsonObject { ["url"] = search, ["method"] = "GET", ["statusCode"] = endsAtSearch ? 200 : 302, ["location"] = endsAtSearch ? null : final });
+        if (endsAtSearch)
+        {
+            hops.RemoveAt(2); content["url"] = search; content["navigationEvidence"]!["finalUrl"] = search;
+        }
+        authority.ObserveTool("GnOuGo.Browser.Mcp", "browser_get_content", entry, new() { Content = content });
+        Assert.Throws<PlanningConflictException>(() => authority.RequireTool("GnOuGo.Browser.Mcp", "browser_get_content", entry));
+    }
+
+    [Theory]
     [InlineData("https://www.amazon.fr/sspa/click?observed=1", true)]
     [InlineData("https://amazon.fr/product-title/dp/B000000001/ref=search?x=1", true)]
     [InlineData("https://www.amazon.fr:8443/sspa/click?x=1", false)]

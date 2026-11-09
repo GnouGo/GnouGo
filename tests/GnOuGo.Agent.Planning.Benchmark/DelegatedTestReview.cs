@@ -234,6 +234,15 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
             if (url is null || !(AmazonObservedRedirectPolicy.IsObserved(browserObservationPolicy) ? AmazonObservedRedirectPolicy.Allows(url, browserObservationPolicy!) : AmazonUrl(url)) || content["acquisition"]?["navigation"]?["url"] is { } final && final.ToString() != url ||
                 arguments?["url"] is null && (url != _browserUrl || snapshot != _browserSnapshot))
             { ClearBrowser(); throw new PlanningConflictException("Browser producer evidence left the authorized URL or observation generation."); }
+            // A product navigation may enter another search through a redirect,
+            // even when its final document is a product. It expires the old source
+            // just like an explicit search request; cursor reads add no navigation.
+            if (AmazonObservedRedirectPolicy.IsObserved(browserObservationPolicy) && arguments?["url"] is { } requested &&
+                !Search(requested.ToString()) && (Search(url) || content["navigationEvidence"]?["hops"] is JsonArray hops &&
+                    hops.Any(hop => Search(hop?["url"]?.ToString()))))
+            { _observedRedirects.Clear(); _searchReads.Clear(); }
+            bool Search(string? value) => value is not null && AmazonObservedRedirectPolicy.Allows(value, browserObservationPolicy!) &&
+                new Uri(value).AbsolutePath == "/s";
             _browserUrl = url; _browserSnapshot = snapshot;
             if (AmazonObservedRedirectPolicy.IsObserved(browserObservationPolicy) && new Uri(url).AbsolutePath == "/s")
             {

@@ -15,7 +15,8 @@ The proposed isolated policy `amazon-observed-sponsored-host-v2` adds only:
   observed in the current complete, successful Amazon.fr search.
 - The default HTTPS port, no credentials or fragments, and a nonempty query.
 - The same live Browser/source authority; closing the Browser or starting another
-  search expires it. Unobserved entries remain denied before transport.
+  search, including one entered through an actual redirect hop, expires it.
+  Unobserved entries remain denied before transport.
 - Every actual redirect destination must satisfy this exact new entry route or
   the already approved Amazon.fr search, `/sspa/click`, and product routes.
   Existing redirect bounds and single-GET/no-transport-retry behavior remain.
