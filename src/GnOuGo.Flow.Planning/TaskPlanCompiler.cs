@@ -748,7 +748,8 @@ public sealed partial class TaskPlanCompiler
     private Dictionary<string, Bound> OperationResults(string key, PlanningCapability capability, PlanningValue input)
     {
         JsonObject schema;
-        try { schema = PlanningOperationResults.Resolve(capability.StepType, capability.OutputSchema, PlanningGraphValidation.Member(input, "output_schema")); }
+        try { schema = PlanningSchemaReferences.ExpandLocalReferences(PlanningOperationResults.Resolve(
+            capability.StepType, capability.OutputSchema, PlanningGraphValidation.Member(input, "output_schema"))); }
         catch (ArgumentException ex) { Fail("TASK_INPUT_SCHEMA", ex.Message); return null!; }
         catch (InvalidOperationException ex) { Fail("TASK_COMPILER_VALIDATION", ex.Message); return null!; }
         var whole = Output(key, capability.StepType, [], schema);

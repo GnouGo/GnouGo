@@ -389,6 +389,13 @@ criteria remain complete in `block`, and execution remains explicitly unobserved
 `overallProgress`. No hidden requirement or output becomes an implementation choice
 merely by appearing in the progress index.
 
+Protected progress inspection also exposes the exact required `technicalFindings`
+from that same completion assessment, including code, location, message and producer
+rule. A generic blocked status is not the only operator evidence. This request-local
+inspection dispatches no inference, mutates no plan or journal, and grants no repair,
+completion or execution authority. Technical findings remain outside business-selection
+prompts; the shared business progress view and ordinary validation remain unchanged.
+
 `declaredResults` distinguishes a root declaration from required producer lineage:
 `established`, `disconnected`, `unverified`, or `not_required` when no producer-lineage
 commitment exists. None proves business content or execution. Missing required public

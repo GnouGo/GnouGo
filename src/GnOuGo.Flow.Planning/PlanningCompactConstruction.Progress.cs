@@ -13,6 +13,11 @@ internal static partial class PlanningCompactConstruction
         var view = OverallProgress(state, facts);
         view["acceptedContributions"] = facts.Results.DeepClone();
         view["compositionFindings"] = facts.Findings.DeepClone();
+        view["technicalFindings"] = new JsonArray(facts.TechnicalFindings.Select(finding => (JsonNode)new JsonObject
+        {
+            ["code"] = finding.Code, ["location"] = finding.Location, ["message"] = finding.Message,
+            ["required"] = finding.Required, ["rule"] = finding.Rule
+        }).ToArray());
         return view;
     }
     // Request-local facts only. Reuse the ordinary completion assessment when it
@@ -22,7 +27,8 @@ internal static partial class PlanningCompactConstruction
         internal SelectionFacts(PlanningSession state)
         {
             CompletionIds = FinalReviewRequirementIds(state, out var assessment);
-            TechnicalValidation = assessment is null ? "not_assessed" : assessment.Diagnostics.Any(diagnostic => diagnostic.Required) ? "blocked" : "passed";
+            TechnicalFindings = assessment?.Diagnostics.Where(diagnostic => diagnostic.Required).ToArray() ?? [];
+            TechnicalValidation = assessment is null ? "not_assessed" : TechnicalFindings.Count > 0 ? "blocked" : "passed";
             var bindings = assessment is null && state.Plan is { } plan ? new CommitmentBindings(plan) : null;
             Coverage = assessment?.Coverage ?? PlanningCommitments.Assess(state, bindings);
             var reachable = assessment?.ReachableTaskIds ?? bindings?.ReachableTaskIds ?? new HashSet<string>(StringComparer.Ordinal);
@@ -35,6 +41,7 @@ internal static partial class PlanningCompactConstruction
         internal string[] RequirementIds { get; }
         internal string[] CompletionIds { get; }
         internal string TechnicalValidation { get; }
+        internal IReadOnlyList<PlanningDiagnostic> TechnicalFindings { get; }
         internal JsonArray Results { get; }
         internal JsonArray Findings { get; }
     }

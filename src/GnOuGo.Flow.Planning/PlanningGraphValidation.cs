@@ -587,6 +587,7 @@ public static class PlanningGraphValidation
 
     internal static JsonObject AtPath(JsonObject root, List<string> path, bool projection = false, bool partial = false)
     {
+        root = PlanningSchemaReferences.ExpandLocalReferences(root);
         return Read(root, 0, 0);
         JsonObject Read(JsonObject current, int position, int depth)
         {

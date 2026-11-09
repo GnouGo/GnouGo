@@ -20,6 +20,15 @@ planning evidence; typed suspension prerequisites describe executable work produ
 runtime data. This keeps issued choices usable without admitting invalid fragments
 or changing the business decomposition, judges or execution permissions.
 
+Before projecting or exporting a producer contract, compilation expands its acyclic
+local JSON Schema references against the original root. Original catalogue payloads
+and identities remain unchanged. Referenced constraints, sibling constraints and
+nullability survive generated object, array and scope boundaries. Expansion is bounded
+to 16,384 visited schema nodes and 64 active references; an excessive expansion fails
+explicitly. Recursive, unresolved and external references retain ordinary validation;
+no reference is fetched or discarded. Exact input/output schema selections use the
+same closure while retaining the original capability and schema-pointer authority.
+
 Internal planning format **11** has one active protocol. Retired sessions and approvals
 are rejected without migration; original encrypted records remain unchanged. TaskPlan
 and execution journal schema 9 are separate from this storage rupture.

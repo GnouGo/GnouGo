@@ -8,6 +8,34 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class OverallProgressTests
 {
     [Fact]
+    public async Task BlockedCompletionExposesExactTechnicalFindingsOnlyToInspection()
+    {
+        var (state, runtime) = await BusinessSelectionCoverageContextTests.PreparedGroup();
+        BusinessSelectionCoverageContextTests.AddCall(state, conditional: false);
+        state.Requirements!.Outputs = [new() { Name = "result", Required = true, Type = new() { Kind = "number" } }];
+        state.Requirements.Outcomes[1] = state.Requirements.Outcomes[1] with
+            { Commitments = [new("remote_calculation") { Result = new("result", "result") }] };
+        state.Plan!.Root.Outputs = [new("result", new() { Kind = "output", Source = "invoke", Port = "result" })];
+        state.Plan!.Groups.Single().Body.Outputs.Clear();
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var calls = runtime.Calls.Count;
+        var inspected = PlanningCompactConstruction.InspectOverallProgress(state)!;
+        Assert.Equal("blocked", inspected["technicalValidation"]!.ToString());
+        Assert.NotEmpty(inspected["technicalFindings"]!.AsArray());
+        Assert.All(inspected["technicalFindings"]!.AsArray(), finding =>
+        {
+            Assert.True(finding!["required"]!.GetValue<bool>());
+            Assert.False(string.IsNullOrWhiteSpace(finding["code"]!.ToString()));
+            Assert.False(string.IsNullOrWhiteSpace(finding["location"]!.ToString()));
+            Assert.False(string.IsNullOrWhiteSpace(finding["message"]!.ToString()));
+        });
+        Assert.False(PlanningCompactConstruction.SelectionContext(state).ContainsKey("technicalFindings"));
+        Assert.False(PlanningCompactConstruction.ImplementationContext(state)["overallProgress"]!.AsObject().ContainsKey("technicalFindings"));
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        Assert.Equal(calls, runtime.Calls.Count); Assert.Null(state.ApprovedHash);
+    }
+
+    [Fact]
     public async Task BusinessSelectionKeepsLoadedOriginalEvidenceWithoutOfferingTheSameReadAgain()
     {
         var (state, runtime) = await BusinessSelectionCoverageContextTests.PreparedGroup();
