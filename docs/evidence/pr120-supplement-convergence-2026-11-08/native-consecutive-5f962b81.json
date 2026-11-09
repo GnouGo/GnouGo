@@ -1,0 +1,99 @@
+{
+  "source": "5f962b8104acca3853cc4fc8d505552ccbcc49ec",
+  "same_frozen_source_and_profiles": true,
+  "consecutive_complete_successes": true,
+  "relative_transport_settings_equal": true,
+  "distinct_transport_envelopes": "The only effective-policy difference is each run's absolute deadline; all original envelope hashes are retained unchanged.",
+  "transport_profile_file_sha256": "fb6dccc82b30f1780758d00e0fb4e2351e4342cec7dc9a51ad99e3d24d88d88b",
+  "runs": [
+    {
+      "run": "native-qualification-20261109-03",
+      "session": "cb28f9f6ee9a4216a471bd2c8c50b4fb",
+      "source": "5f962b8104acca3853cc4fc8d505552ccbcc49ec",
+      "provider": "OpenAi",
+      "model": "gpt-6.1-sol-2026-09-29",
+      "campaign_configuration": "140db3a53f380129b11a5395a367bfa4efc2d0898a41a36caee599675e2aab5f",
+      "phase_policy_sha256": "1d21c96b0222808ca16792a66cd27c114290d3c37ed771661fe7442cca73d344",
+      "transport_envelope_hash": "ecdbe58f06e7ac71fd7cc096cd5ac2ff190cd6069d5f96264bc543e3ba7fe8cb",
+      "absolute_run_deadline_utc": "2026-11-09T20:50:42.7234050+00:00",
+      "loaded_assembly_hashes": {
+        "entry": "a8d54ecbff533054bed5a514163a7691badae53df9d58bcfc593f47d4c3b4579",
+        "server": "bde576f863f8d9edc01d74531f4215b140781181e70ac0559374d5ec6a9982fe"
+      },
+      "logical_calls": 5,
+      "physical_attempts": 5,
+      "uncertain_attempts": 0,
+      "measured_usage_tariff_estimate_eur": "0.3763636363636363636363636363",
+      "artifact_hash": "7fe49e7131d5a5415c1162ca600bccfb05fcfd8b3dda8fb35f3a44d6c7d435e5",
+      "review_origin": "delegated_test_reviewed",
+      "execution": {
+        "success": true,
+        "variants": [
+          {
+            "variant": "nominal",
+            "success": true,
+            "outputs": {
+              "result": 42
+            },
+            "oracle_passed": true
+          }
+        ]
+      },
+      "oracle": {
+        "version": "native-result42-v1",
+        "independent": true,
+        "passed": true
+      },
+      "raw_record_sha256": "f1cc553237039d2235d31c9154c6ae5622a8f38a7788afe0fc306a1171d0a27c",
+      "closed_audit_sha256": "837c62e35f778b346eccc530984fafcc52e0ffcc68dd1617ff0f3f2f8ff7cd19"
+    },
+    {
+      "run": "native-qualification-20261109-04",
+      "session": "da3c01471c714a58bdbb4145a3b4a3ce",
+      "source": "5f962b8104acca3853cc4fc8d505552ccbcc49ec",
+      "provider": "OpenAi",
+      "model": "gpt-6.1-sol-2026-09-29",
+      "campaign_configuration": "140db3a53f380129b11a5395a367bfa4efc2d0898a41a36caee599675e2aab5f",
+      "phase_policy_sha256": "1d21c96b0222808ca16792a66cd27c114290d3c37ed771661fe7442cca73d344",
+      "transport_envelope_hash": "33e870a7520b0fd351c1be281d0a302df2111726104f9395704885ea3b380fab",
+      "absolute_run_deadline_utc": "2026-11-09T20:57:46.3168270+00:00",
+      "loaded_assembly_hashes": {
+        "entry": "a8d54ecbff533054bed5a514163a7691badae53df9d58bcfc593f47d4c3b4579",
+        "server": "bde576f863f8d9edc01d74531f4215b140781181e70ac0559374d5ec6a9982fe"
+      },
+      "logical_calls": 7,
+      "physical_attempts": 7,
+      "uncertain_attempts": 0,
+      "measured_usage_tariff_estimate_eur": "0.4878459471562919838781907747",
+      "artifact_hash": "93d8bf95892f795d51a75d50bcbc21cb78740d67f43a446792b43bf4ce2cfff5",
+      "review_origin": "delegated_test_reviewed",
+      "execution": {
+        "success": true,
+        "variants": [
+          {
+            "variant": "nominal",
+            "success": true,
+            "outputs": {
+              "result": 42
+            },
+            "oracle_passed": true
+          }
+        ]
+      },
+      "oracle": {
+        "version": "native-result42-v1",
+        "independent": true,
+        "passed": true
+      },
+      "raw_record_sha256": "ab42edb435179df9a0f4a5169d59630bd0d389ebbaeb2c0f2f2cb0b57da52078",
+      "closed_audit_sha256": "ef2956a1571865d18cf9b06ff03a0e309a788a3986d32a91d55becec2800d7db"
+    }
+  ],
+  "limitations": [
+    "Scenario-specific qualification; independent of the separate business-review-boundary, Amazon and Code cases.",
+    "Call counts and captured-tariff costs are observations, not a controlled optimization-factor comparison or provider invoices."
+  ],
+  "subsequent_production_source_files_unchanged": true,
+  "subsequent_source": "e34f237357d4e65c0c3e9b68465c160b4023531e",
+  "subsequent_delta": "Amazon-only benchmark verifier, planning facts, tests and documentation; production src/ is unchanged."
+}

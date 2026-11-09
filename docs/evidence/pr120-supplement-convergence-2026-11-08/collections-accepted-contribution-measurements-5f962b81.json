@@ -1,0 +1,54 @@
+{
+  "runs": [
+    {
+      "run": "collections-qualification-20261109-03",
+      "source": "5f962b8104acca3853cc4fc8d505552ccbcc49ec",
+      "first_checkpoint": {
+        "sequence": 1,
+        "observed_utc": "2026-11-09T16:08:22.598533+00:00",
+        "request_call": 5,
+        "elapsed_seconds": 233.586901,
+        "task_ids": [
+          "double_value"
+        ],
+        "known_usage_tariff_through_call_eur": "0.5602597402597402597402597402",
+        "http_attempts_through_call": 5,
+        "uncertain_attempts": 0
+      },
+      "planning_calls": 14,
+      "complete_execution_and_oracles_passed": true,
+      "evidence_sha256": {
+        "stabilized-collections03-final-run.json": "0b53a83d97b679605e4a551ce61b2e4c45c569eacd89dd768e4a59709d6fefd4",
+        "stabilized-collections03-http.json": "4d0b3a26f0464c45d69c1535898a371d486ae0964280fdced5292074086ac11d"
+      }
+    },
+    {
+      "run": "collections-qualification-20261109-04",
+      "source": "5f962b8104acca3853cc4fc8d505552ccbcc49ec",
+      "first_checkpoint": {
+        "sequence": 1,
+        "observed_utc": "2026-11-09T16:18:42.869482+00:00",
+        "request_call": 5,
+        "elapsed_seconds": 179.782152,
+        "task_ids": [
+          "double"
+        ],
+        "known_usage_tariff_through_call_eur": "0.6316793551276309896999552172",
+        "http_attempts_through_call": 5,
+        "uncertain_attempts": 0
+      },
+      "planning_calls": 15,
+      "complete_execution_and_oracles_passed": true,
+      "evidence_sha256": {
+        "stabilized-collections04-final-run.json": "2839936ed021c3d7c68d534f147902eddc21718d539169e51641ea5a56fb3de0",
+        "stabilized-collections04-http.json": "047d83445d524a78b83c00014ce9e528014abff4d8823bf9ccfe7cf60c87350a"
+      }
+    }
+  ],
+  "limitations": [
+    "Two stochastic generations on identical frozen source and fixed profiles; no controlled optimization-factor comparison or speedup claim.",
+    "A first accepted executable contribution is separate from business responsibility completion and actual execution.",
+    "Persisted host elapsed times and captured usage tariffs; not provider-only latency or invoices.",
+    "Hashes bind final immutable run exports and completed HTTP journals, not mutable progress snapshots."
+  ]
+}
