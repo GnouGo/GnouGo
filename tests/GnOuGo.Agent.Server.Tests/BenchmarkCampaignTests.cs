@@ -1379,6 +1379,27 @@ public sealed class BenchmarkCampaignTests
     }
 
     [Theory]
+    [InlineData("/v1/chat/completions", 0)]
+    [InlineData("/v1/chat/completions", 1)]
+    [InlineData("/v1/chat/completions", 2)]
+    [InlineData("/v1/responses", 2)]
+    public void ExplicitProviderDefaultOmitsOnlyChatToolReasoning(string path, int tools)
+    {
+        var original = JsonNode.Parse("""{"model":"pinned","messages":[{"role":"user","content":"Inspect repository"}],"max_tokens":8192,"stream":true,"reasoning_effort":"high"}""")!.AsObject();
+        if (tools > 0) original["tools"] = tools == 1 ? new JsonArray() : JsonNode.Parse("""[{"type":"function","function":{"name":"inspect","parameters":{"type":"object"}}}]""");
+        var before = original.ToJsonString();
+        var legacy = KeyVaultBenchmarkModel.PrepareProxyPayload(original, "pinned", path);
+        var selected = KeyVaultBenchmarkModel.PrepareProxyPayload(original, "pinned", path, "provider-default");
+        Assert.Equal(before, original.ToJsonString());
+        if (path.EndsWith("/chat/completions", StringComparison.Ordinal) && tools == 2)
+        {
+            Assert.False(selected.ContainsKey("reasoning_effort"));
+            selected["reasoning_effort"] = "medium";
+        }
+        Assert.True(JsonNode.DeepEquals(legacy, selected));
+    }
+
+    [Theory]
     [InlineData("")]
     [InlineData("auto")]
     [InlineData("none;ignore-policy")]

@@ -866,6 +866,14 @@ checks establish only SDK prerequisites, never a successful code-review scenario
 HTTP rejections without usage retain the full reservation, and neither changing
 this setting nor receiving an error permits replay of external execution.
 
+An explicit `--sdk-chat-tools-reasoning provider-default` omits `reasoning_effort`
+only from Chat Completions requests containing tools. This tests field absence,
+not the rejected string `none`; the provider's effective default remains unverified
+until observed. It preserves the existing endpoint, complete visible input, tools,
+output allowance and physical admission. Text-only Chat and native Responses keep
+their existing medium setting. The choice is captured only for a fresh run, never
+selected as an automatic fallback or applied to a retained execution.
+
 `--sdk-wire-api responses` instead selects the SDK's existing native Responses
 format for a fresh Code run or disposable `copilot-probe`. It records the choice,
 keeps the existing medium reasoning and requires the actual intercepted endpoint

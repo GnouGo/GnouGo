@@ -923,8 +923,9 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         if (responses) { result["reasoning"] ??= new JsonObject(); result["reasoning"]!["effort"] = "medium"; }
         else
         {
-            result["reasoning_effort"] = original["tools"] is JsonArray { Count: > 0 } && chatToolsReasoningEffort is not null
-                ? chatToolsReasoningEffort : "medium";
+            var toolReasoning = original["tools"] is JsonArray { Count: > 0 } ? chatToolsReasoningEffort : null;
+            if (toolReasoning == "provider-default") result.Remove("reasoning_effort");
+            else result["reasoning_effort"] = toolReasoning ?? "medium";
             if (result["stream"]?.GetValue<bool>() == true)
             { result["stream_options"] ??= new JsonObject(); result["stream_options"]!["include_usage"] = true; }
         }
@@ -939,7 +940,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
     }
     internal static void ValidateSdkChatToolsReasoningEffort(string? effort)
     {
-        if (effort is not (null or "none" or "minimal" or "low" or "medium" or "high" or "xhigh" or "max"))
+        if (effort is not (null or "provider-default" or "none" or "minimal" or "low" or "medium" or "high" or "xhigh" or "max"))
             throw new ArgumentException("Invalid explicit SDK Chat Completions tool reasoning effort.");
     }
 
