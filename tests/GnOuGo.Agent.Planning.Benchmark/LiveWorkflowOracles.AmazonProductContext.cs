@@ -93,8 +93,9 @@ internal static partial class LiveWorkflowOracles
             {
                 contexts[at] = context;
             }
-            if (code.Length == 0 && ObservedProductIdentity(href) is null && record["occurrence"] is null && record["heading"] is null)
-                continue; // Explicit non-product ancestor; no product/heading occurrence is silently discarded.
+            if (code.Length == 0 && ObservedProductIdentity(href) is null && record["occurrence"] is null && record["heading"] is null &&
+                (tag == "nav" || context["role"]?.ToString() == "navigation"))
+                continue; // Observed navigation semantics, never an inference from the empty identifier alone.
             if (!ProductCode(code)) { findings.Add("search_product_context_unverified"); continue; }
             if (record["occurrence"] is JsonObject occurrence)
             {

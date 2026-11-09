@@ -907,8 +907,10 @@ the generic `ObservationAncestorAttributes` metadata for `data-asin`, preserving
 other saved attribute requests. This is observed DOM evidence, never a URL source.
 
 v7 requires complete source provenance and distinguishes an explicitly empty
-non-product advertising container from a product occurrence. Missing or
-contradictory context fails. Product containers retain DOM order, sponsored
+non-product navigation container from a product occurrence. An empty identifier
+alone is unverified: exclusion requires an observed `nav` element or `navigation`
+role without a product heading or occurrence. Missing or contradictory context
+fails. Product containers retain DOM order, sponsored
 products and separate occurrences with repeated identifiers. A heading identifies
 the primary link among associated variant links; without that association,
 conflicting identities remain unverified. Each visit must use an exact observed

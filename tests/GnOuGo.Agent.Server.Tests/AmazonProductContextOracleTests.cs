@@ -78,6 +78,28 @@ public sealed class AmazonProductContextOracleTests
         Assert.True(LiveWorkflowOracles.VerifyAmazonSponsoredHostSelection(AmazonSponsoredHostPolicyTests.Events(), 2, Query)["passed"]!.GetValue<bool>());
     }
 
+    [Fact]
+    public void EmptyUnclassifiedSponsoredOccurrenceCannotDisappearFromTheRequiredOrder()
+    {
+        var events = Events(); var records = Records(events);
+        foreach (var record in records.Skip(1).Take(2))
+        {
+            record!["ancestorAttributes"]!["data-asin"]!["value"] = "";
+            record["heading"] = null; record["occurrence"] = null;
+        }
+        events.RemoveAt(1); // Omitting the unknown sponsored product must not qualify the later direct product.
+        Assert.False(Verify(events)["passed"]!.GetValue<bool>());
+        Assert.Empty(LiveWorkflowOracles.CompleteSearchRedirectEntries([events[0]], AmazonProductContextPolicy.Id));
+    }
+
+    [Fact]
+    public void EmptyAttributeWithoutObservedNavigationSemanticsRemainsUnclassified()
+    {
+        var events = Events();
+        Records(events)[0]!["ancestorAttributes"]!["data-asin"]!["tag"] = "div";
+        Assert.False(Verify(events)["passed"]!.GetValue<bool>());
+    }
+
     [Theory]
     [InlineData("https://sponsored-ads.amazon.fr/clk?opaque=unapproved")]
     [InlineData("https://sponsored-ads.amazon.com/clk/?opaque=unapproved")]
@@ -148,6 +170,7 @@ public sealed class AmazonProductContextOracleTests
         for (var i = 0; i < records.Count; i++) records[i]!["ancestorAttributes"] = Context(i < 2 ? "B000000001" : "B000000002", i < 2 ? 1 : 2);
         records.Insert(0, new JsonObject { ["kind"] = "link", ["href"] = "https://sponsored-ads.amazon.fr/clk/?opaque=brand-navigation",
             ["text"] = "About this brand", ["ancestorAttributes"] = Context("", 0) });
+        records[0]!["ancestorAttributes"]!["data-asin"]!["tag"] = "nav";
         for (var i = 0; i < records.Count; i++) records[i]!["reference"] = "search:record:" + i;
         events[0]["result"]!["observationSnapshot"]!["recordCount"] = records.Count;
         return events;
