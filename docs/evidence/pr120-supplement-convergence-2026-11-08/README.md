@@ -503,3 +503,19 @@ ProxyCopilot checks passing. The main planner integration workflow remains in
 progress; its pass is not inferred from the local results. Validation records
 name the functional source independently of subsequent documentation commits.
 PR #120 remains Draft and unmerged.
+
+The next user continuation authorizes another EUR 300 for the same campaign.
+[The verified registration](supplement-300-once.json) raises its ceiling from
+EUR 900 to EUR 1,200 exactly once under `pr120-supplement-20261109-300-01`.
+Prior charges, the authorization history and all reservations remain intact.
+Available allocation immediately after registration is
+EUR 305.640214957456336766681589158; global funding and provider invoices remain
+unavailable. No old permanently retained run is resumed.
+
+The subsequently completed main CI run on ff66905a failed the protected discovery
+recovery browser smoke with HTTP 409 instead of 200 after explicit resume. A
+controlled regression reproduces read-only request/discovery inspection holding
+the short OS lease while an ordinary local command is submitted. Inspection now
+uses the existing local command gate, allowing the command to wait for that read.
+Active workers and cross-coordinator conflicts retain their original lease,
+journal, cancellation and financial protections; no retry or permission is added.

@@ -43,10 +43,16 @@ public sealed partial class PlanningSessionService
     internal async Task<bool> CanRecoverDiscoveryAsync(PlanningSession state, CancellationToken ct)
     {
         if (!PlanningDiscoveryRecoveryActions.Eligible(state)) return false;
-        await using var lease = await PlanningSessionLease.TryAcquireAsync(contexts, Tenant, state.Request.SessionId, ct);
-        if (lease is null) return false;
-        try { await RequireDiscoveryRecoverySafeAsync(state, ct); return true; }
-        catch (PlanningConflictException) { return false; }
+        var gate = _locks.GetOrAdd(state.Request.SessionId, _ => new SemaphoreSlim(1, 1));
+        if (!await gate.WaitAsync(0, ct)) return false;
+        try
+        {
+            await using var lease = await PlanningSessionLease.TryAcquireAsync(contexts, Tenant, state.Request.SessionId, ct);
+            if (lease is null) return false;
+            try { await RequireDiscoveryRecoverySafeAsync(state, ct); return true; }
+            catch (PlanningConflictException) { return false; }
+        }
+        finally { gate.Release(); }
     }
 
     private async Task<PlanningSession> RecoverDiscoveryAsync(PlanningSession current, PlanningCommand command, CancellationToken ct)

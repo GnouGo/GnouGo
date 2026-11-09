@@ -1,5 +1,12 @@
 # Diagnostic planning and local LLM inspection
 
+Read-only request and discovery-recovery inspection shares the coordinator's
+existing local command gate while holding its short session lease. A local
+command waits for that read rather than reporting another worker. Inspection
+itself never waits for the gate: active work is reported immediately and recovery
+controls remain unavailable. The OS lease still rejects an actual competing
+coordinator; tenant, journal, approval and financial checks remain unchanged.
+
 Start the local server normally:
 
 ```sh

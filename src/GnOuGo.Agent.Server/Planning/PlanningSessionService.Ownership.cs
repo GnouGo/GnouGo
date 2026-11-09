@@ -70,12 +70,20 @@ public sealed partial class PlanningSessionService
     {
         if (state.Request.TenantId != Tenant) throw new PlanningConflictException("The session belongs to another tenant.");
         var cancelled = await IsCancellationRequestedAsync(state, ct);
-        await using var lease = await PlanningSessionLease.TryAcquireAsync(contexts, Tenant, state.Request.SessionId, ct);
-        if (lease is null) return new("active", state.PendingCall?.Id, cancelled);
-        if (state.PendingCall is not { } pending) return cancelled ? new("idle", null, true) : null;
-        if (state.Diagnostics.Any(d => d.Code == ErrorCodes.ModelRequestRejected)) return new("provider_rejection", pending.Id, cancelled);
-        var receipt = await records.GetAsync(PlanningModelJournal.Collection, Tenant, state.Request.SessionId + ":" + pending.Id, EfPlanningSessionStore.Author, ct);
-        return new(receipt is null ? "completion_unknown" : "receipt_available", pending.Id, cancelled);
+        // Queue local commands behind this short read instead of making them
+        // mistake our inspection lease for another worker. Never wait on active work.
+        var gate = _locks.GetOrAdd(state.Request.SessionId, _ => new SemaphoreSlim(1, 1));
+        if (!await gate.WaitAsync(0, ct)) return new("active", state.PendingCall?.Id, cancelled);
+        try
+        {
+            await using var lease = await PlanningSessionLease.TryAcquireAsync(contexts, Tenant, state.Request.SessionId, ct);
+            if (lease is null) return new("active", state.PendingCall?.Id, cancelled);
+            if (state.PendingCall is not { } pending) return cancelled ? new("idle", null, true) : null;
+            if (state.Diagnostics.Any(d => d.Code == ErrorCodes.ModelRequestRejected)) return new("provider_rejection", pending.Id, cancelled);
+            var receipt = await records.GetAsync(PlanningModelJournal.Collection, Tenant, state.Request.SessionId + ":" + pending.Id, EfPlanningSessionStore.Author, ct);
+            return new(receipt is null ? "completion_unknown" : "receipt_available", pending.Id, cancelled);
+        }
+        finally { gate.Release(); }
     }
 
     internal async Task<PlanningSessionDto> ToDtoAsync(PlanningSession state, CancellationToken ct)

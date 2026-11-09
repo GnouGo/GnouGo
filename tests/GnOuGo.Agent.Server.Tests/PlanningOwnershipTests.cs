@@ -14,6 +14,65 @@ public sealed class PlanningOwnershipTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReadOnlyInspectionYieldsToLocalCommandsWithoutReportingAnotherWorker(bool discovery)
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var paused = new PausedInspectionRecords(fixture.Records,
+            discovery ? PlanningModelJournal.RequestCollection : PlanningModelJournal.Collection);
+        using var service = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(),
+            PlanningSessionLifecycleTests.AgentCatalog(), settings: new() { BackgroundProcessingEnabled = false }, records: paused);
+        var state = await service.StartAsync("inspection-contention", "Return a value", false, Ct);
+        PlanningSession view;
+        if (discovery)
+        {
+            DiscoveryRecoveryTests.ConfigureBlocked(state);
+            await DiscoveryRecoveryTests.SeedModelHistoryAsync(fixture.Records, fixture, state);
+            var previous = state.Revision++;
+            Assert.True(await fixture.Store.TrySaveAsync(state, previous, Ct));
+            view = state;
+        }
+        else
+        {
+            view = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
+            // Inspection may still display an older pending request; it grants no command authority.
+            view.PendingCall = new() { Id = "previous-request", Purpose = "construction_draft", Request = new() };
+        }
+        Task inspection = discovery ? service.CanRecoverDiscoveryAsync(view, Ct) : service.InspectRequestAsync(view, Ct);
+        await paused.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5), Ct);
+        Assert.Equal("active", (await service.InspectRequestAsync(view, Ct))!.State);
+        Assert.False(await service.CanRecoverDiscoveryAsync(view, Ct));
+        var command = service.SubmitAsync(state.Request.SessionId,
+            new() { Kind = "configure_mode", Mode = PlanningMode.Interactive, ExpectedRevision = state.Revision }, Ct);
+        try
+        {
+            await Task.Delay(100, Ct);
+            Assert.False(command.IsCompleted, "An in-process reader must yield its short lease before the command acquires ownership.");
+        }
+        finally { paused.Release.TrySetResult(); }
+        await inspection;
+        var changed = await command.WaitAsync(TimeSpan.FromSeconds(5), Ct);
+        Assert.Equal(PlanningMode.Interactive, changed.Request.Mode);
+        Assert.Equal(state.ModelCalls, changed.ModelCalls);
+        Assert.Null(changed.PendingCall);
+    }
+
+    private sealed class PausedInspectionRecords(IKeyVaultRecordStore inner, string collection) : IKeyVaultRecordStore
+    {
+        internal readonly TaskCompletionSource Entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal readonly TaskCompletionSource Release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public async Task<KeyVaultRecordValue?> GetAsync(string c, string t, string k, string a, CancellationToken ct = default)
+        {
+            if (c == collection) { Entered.TrySetResult(); await Release.Task.WaitAsync(ct); }
+            return await inner.GetAsync(c, t, k, a, ct);
+        }
+        public Task<KeyVaultRecordValue> UpsertAsync(string c, string t, string k, string v, string a, CancellationToken ct = default) => inner.UpsertAsync(c, t, k, v, a, ct);
+        public Task<IReadOnlyList<KeyVaultRecordValue>> ListAsync(string c, string t, string a, CancellationToken ct = default) => inner.ListAsync(c, t, a, ct);
+        public Task<bool> DeleteAsync(string c, string t, string k, string a, CancellationToken ct = default) => inner.DeleteAsync(c, t, k, a, ct);
+    }
+
     [Fact]
     public async Task CompetingCoordinatorsLeaveAnActiveRequestRunningAndDispatchOnlyOnce()
     {
