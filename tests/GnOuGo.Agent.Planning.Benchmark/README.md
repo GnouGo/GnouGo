@@ -808,3 +808,14 @@ and all reservations; retention still forbids the old request's replay/continuat
 `register-configuration --capture-current-settings --streaming-transport-amendment --previous-configuration-id <exact-parent>` uses the existing immutable preview/apply operation. It reconstructs the parent host by restoring only streaming mode/capability declarations and this exact deployment's transport override. Provider/model/endpoint, tariffs, model limits, retry policy, other deployments and financial settings must remain unchanged. The same finite allocation accepts only a verified, bounded chain of existing reasoning-capability and transport-only amendments back to its original grant. It never changes that grant, campaign ceiling, receipts, costs or uncertain holds.
 
 `retain-uncertain-request --retention-kind provider-probe` covers a completed actual Server probe whose single tool-free foreground generation has no recoverable receipt or protocol completion. The exact run, request, physical journal, failure, frozen configuration, request-body/endpoint hashes and complete reservation must agree. Approved/executed artifacts, planning-owned evidence, received usage/body, changed policy, missing attempts or mismatched ownership reject this administrative path. Preview/apply use the existing closure format and authorization binding: inconclusive, non-replayable, all original records and the full reservation retained. This does not authorize retrying or continuing the old probe.
+
+`server-live-plan --case review-boundary` is a separate targeted planning protocol
+qualification. It requests an independently useful line-price contribution,
+followed by review of that unchanged accepted work while root and original
+requirements remain open, then invoice handling. Its oracle requires an owned
+empty close checkpoint with identical accepted/reviewed plan hashes, a successful
+local Judge, and no drafting echo between selection and review. Both numeric
+runtime variants must execute after global review and artifact-bound delegated
+approval. Pure arithmetic success or an ordinary review after changed work is not
+proof of this boundary. This case changes no Code, Amazon or ordinary synthetic
+scenario requirements or oracles.

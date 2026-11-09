@@ -488,6 +488,7 @@ internal static class ServerLiveDiagnostics
                 var relative = "workflows/" + campaign.Id + "/" + run;
                 var prompt = scenario switch { "local" => PlanningBenchmarkCases.Prompt("local"),
                     "collections" => PlanningBenchmarkCases.Prompt("collections"),
+                    ReviewBoundaryQualification.Scenario => ReviewBoundaryQualification.Prompt,
                     "amazon" => LiveWorkflowEvaluation.AmazonEvaluationPrompt(relative, 3, browserObservationPolicy),
                     "code" => LiveWorkflowEvaluation.CodeEvaluationPrompt(relative), _ => throw new ArgumentException("Unknown live scenario.") };
                 report["scenario"] = scenario;
@@ -514,7 +515,9 @@ internal static class ServerLiveDiagnostics
                         ?? throw new PlanningConflictException("The live Server session disappeared.");
                     if (state.Revision != revision)
                     {
-                        revision = state.Revision; report["session"] = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession);
+                        revision = state.Revision;
+                        if (scenario == ReviewBoundaryQualification.Scenario) report["unchanged_plan_review"] = ReviewBoundaryQualification.Evidence(state);
+                        report["session"] = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession);
                         report["result"] = new JsonObject { ["status"] = state.Status, ["calls"] = state.ModelCalls, ["repairs"] = state.ReplanAttempts,
                             ["execution_status"] = "not_started", ["execution_correct"] = false };
                         await campaign.SaveAsync("planning-evaluation-runs", run, report);
@@ -680,7 +683,7 @@ internal static class ServerLiveDiagnostics
         if (report["execution_started"] is not null) throw new PlanningConflictException("An execution-start marker forbids another execution.");
         if (await campaign.HasUncertainRequestAsync(CancellationToken.None)) throw BenchmarkCampaign.AdmissionFailure("campaign_uncertain_request_requires_recovery");
         var scenario = report["scenario"]!.ToString();
-        if (scenario is not ("local" or "collections" or "amazon" or "code")) throw new PlanningConflictException("Unknown reviewed execution scenario.");
+        if (scenario is not ("local" or "collections" or "amazon" or "code" or ReviewBoundaryQualification.Scenario)) throw new PlanningConflictException("Unknown reviewed execution scenario.");
         var output = Path.Combine(root, "artifacts/live-server-20261106", report["run"]!.ToString());
         Console.WriteLine(new JsonObject { ["awaiting_delegated_review"] = true, ["session_id"] = state.Request.SessionId,
             ["revision"] = state.Revision, ["artifact_hash"] = state.ComputeArtifactHash() }.ToJsonString());
@@ -694,7 +697,7 @@ internal static class ServerLiveDiagnostics
         await RequireNotCancelledAsync(app, state, CancellationToken.None);
         var authorization = JsonSerializer.Deserialize(await File.ReadAllTextAsync(Path.Combine(output, "authorization.json")), DelegatedTestJsonContext.Default.DelegatedTestAuthorization)!;
         var document = JsonSerializer.Deserialize(await File.ReadAllTextAsync(Path.Combine(output, "review.json")), DelegatedTestJsonContext.Default.DelegatedTestReviewDocument)!;
-        var authority = new DelegatedTestReviewAuthority(authorization, document, campaign.Id, state.Request.SessionId, scenario is "local" or "collections" ? "synthetic" : scenario, workspace, report["source"]!.ToString(),
+        var authority = new DelegatedTestReviewAuthority(authorization, document, campaign.Id, state.Request.SessionId, scenario is "local" or "collections" or ReviewBoundaryQualification.Scenario ? "synthetic" : scenario, workspace, report["source"]!.ToString(),
             scenario is "amazon" or "code" ? report["workspace_relative"]!.ToString() : null, report["browser_observation_policy"]?.ToString());
         authority.Validate(state); await authority.PinAsync(campaign, CancellationToken.None);
         var sourceRoot = report["working_directory"]!.ToString();
@@ -721,7 +724,7 @@ internal static class ServerLiveDiagnostics
         await RequireNotCancelledAsync(app, state, CancellationToken.None);
         await lease.DisposeAsync(); // The execution journal owns effects after the approval transition.
         var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));
-        if (scenario is "local" or "collections")
+        if (scenario is "local" or "collections" or ReviewBoundaryQualification.Scenario)
         {
             report["execution_started"] = DateTimeOffset.UtcNow;
             await campaign.SaveAsync("planning-evaluation-runs", report["run"]!.ToString(), report);
@@ -730,16 +733,21 @@ internal static class ServerLiveDiagnostics
             {
                 using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
                 var engine = new WorkflowEngine { HumanInputProvider = new DelegatedTestReviewAuthority.Input(campaign, state.Request.SessionId, authority) };
-                var inputs = scenario == "local" ? new JsonObject() : PlanningBenchmarkCases.Inputs("collections", variant);
+                var inputs = scenario == "local" ? new JsonObject() : scenario == ReviewBoundaryQualification.Scenario
+                    ? ReviewBoundaryQualification.Inputs(variant) : PlanningBenchmarkCases.Inputs("collections", variant);
                 var result = await engine.ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], inputs, cancellation.Token);
                 var correct = scenario == "local" ? NativeOutputOracle(result.Success, result.Outputs) :
+                    scenario == ReviewBoundaryQualification.Scenario ? ReviewBoundaryQualification.Outputs(result.Success, result.Outputs, variant) &&
+                        ReviewBoundaryQualification.Artifact(state.Plan, state.Catalog).Count == 0 :
                     new PlanningBenchmarkCases.Environment("collections", variant).Verify(result) &&
                     SyntheticArtifactOracle.Validate("collections", state.Plan, state.Catalog).Count == 0;
                 variants.Add(new JsonObject { ["variant"] = variant, ["success"] = result.Success, ["outputs"] = result.Outputs?.DeepClone(), ["oracle_passed"] = correct });
             }
-            var passed = variants.All(v => v!["oracle_passed"]!.GetValue<bool>());
+            var boundary = scenario == ReviewBoundaryQualification.Scenario ? ReviewBoundaryQualification.Evidence(state) : null;
+            var passed = variants.All(v => v!["oracle_passed"]!.GetValue<bool>()) && (boundary is null || boundary["observed"]!.GetValue<bool>());
+            if (boundary is not null) report["unchanged_plan_review"] = boundary;
             report["execution"] = new JsonObject { ["success"] = passed, ["variants"] = variants };
-            report["oracle"] = new JsonObject { ["version"] = scenario == "local" ? "native-result42-v1" : "collections-native-variants-v1", ["independent"] = true, ["passed"] = passed };
+            report["oracle"] = new JsonObject { ["version"] = scenario == "local" ? "native-result42-v1" : scenario == ReviewBoundaryQualification.Scenario ? ReviewBoundaryQualification.Version : "collections-native-variants-v1", ["independent"] = true, ["passed"] = passed };
         }
         else
         {
