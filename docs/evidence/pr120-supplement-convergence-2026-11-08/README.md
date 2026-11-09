@@ -30,6 +30,20 @@ permissions and replay barriers. All 261 focused tests pass. Gateway support is
 still unverified; neither the SDK's supported enum nor historical read-only 404
 proves it. The Native qualification is independent of this SDK prerequisite.
 
+[Native01 and Native02](native-consecutive-63114921.json) both completed generation,
+validation, global review, artifact-bound delegated approval, actual execution and
+the unchanged independent `native-result42-v1` oracle on frozen source 63114921
+with identical provider/configuration/phase/transport profiles. Both used seven
+logical/physical calls and have no uncertain attempts. This establishes the
+consecutive Native pair; it does not substitute for the separate business-review
+boundary or other scenario qualifications.
+
+[Full local validation of 63114921](validation-63114921.json) covers 8,568 passed,
+12 existing skips, zero failures and 33 assemblies. The initially unconfigured
+clarification browser case was executed successfully in a separate exact filtered
+run with the explicit staged Playwright path, counted once as passed. All 216
+slow fixtures ran exactly once; Release/frontend/packs/published AOT smoke passed.
+
 The explicit authorization `pr120-supplement-20261108-400-01` increases only
 campaign `pr120-live-20261107-400` from EUR 400 to EUR 800. The existing leased
 `extend-budget` operation was invoked once after checking that this reference
