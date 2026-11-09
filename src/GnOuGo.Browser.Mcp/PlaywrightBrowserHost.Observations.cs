@@ -244,6 +244,11 @@ public sealed partial class PlaywrightBrowserHost
                     navigation = navigation with { StatusCode = response.Status };
             }
         }
+        void Failed(object? sender, IRequest request)
+        {
+            lock (_observationLock)
+                if (pendingRequest == request) { pendingRequest = null; pendingStatus = null; }
+        }
         void Navigated(object? sender, IFrame frame)
         {
             if (frame != page!.MainFrame) return;
@@ -293,6 +298,7 @@ public sealed partial class PlaywrightBrowserHost
             page = target is null ? GetRequiredPage() : await EnsurePageAsync().WaitAsync(token);
             page.Request += Requested;
             page.Response += Responded;
+            page.RequestFailed += Failed;
             page.FrameNavigated += Navigated;
             using var readiness = ObserveMainFrameNavigation(page);
             if (target is not null)
@@ -462,6 +468,7 @@ public sealed partial class PlaywrightBrowserHost
                 page.Request -= Requested;
                 page.Response -= Responded;
                 page.FrameNavigated -= Navigated;
+                page.RequestFailed -= Failed;
             }
         }
     }

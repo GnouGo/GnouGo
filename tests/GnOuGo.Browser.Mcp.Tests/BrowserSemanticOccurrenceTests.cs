@@ -8,6 +8,61 @@ namespace GnOuGo.Browser.Mcp.Tests;
 
 public sealed class BrowserSemanticOccurrenceTests
 {
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task DeniedUncommittedNavigationPreservesOnlyTheCurrentDocumentResponse(bool post, bool changeHistory)
+    {
+        var ct = TestContext.Current.CancellationToken; var forbidden = 0; var attempted = false;
+        await using var site = await LoopbackTestServer.StartAsync(async context =>
+        {
+            if (context.Request.Path == "/forbidden") { Interlocked.Increment(ref forbidden); return; }
+            context.Response.ContentType = "text/html";
+            await context.Response.WriteAsync("<html><head><title>Committed source</title></head><body><main>Observed source document</main></body></html>", ct);
+        }, ct);
+        await using var host = new PlaywrightBrowserHost(Options.Create(new BrowserServerSettings
+        {
+            AllowedHosts = ["127.0.0.1"],
+            AllowedNavigationUrlPatterns = [System.Text.RegularExpressions.Regex.Escape(site.Origin) + @"/(?:\?canonical=1)?"]
+        }), NullLogger<PlaywrightBrowserHost>.Instance)
+        {
+            ObservationCheckpoint = async (page, phase, token) =>
+            {
+                if (phase != "capture" || attempted) return;
+                attempted = true;
+                var failed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                void Failure(object? sender, Microsoft.Playwright.IRequest request)
+                {
+                    if (request.IsNavigationRequest && request.Frame == page.MainFrame && request.Url.EndsWith("/forbidden", StringComparison.Ordinal))
+                        failed.TrySetResult();
+                }
+                page.RequestFailed += Failure;
+                try
+                {
+                    await page.EvaluateAsync(post
+                        ? "() => { const f=document.createElement('form'); f.method='POST'; f.action='/forbidden'; document.body.append(f); f.submit(); }"
+                        : "() => location.assign('/forbidden')").WaitAsync(token);
+                    await failed.Task.WaitAsync(TimeSpan.FromSeconds(5), token);
+                    if (changeHistory) await page.EvaluateAsync("history.replaceState(null, '', '/?canonical=1')").WaitAsync(token);
+                }
+                finally { page.RequestFailed -= Failure; }
+            }
+        };
+        var initial = site.Origin + "/";
+        var result = await host.GetContentAsync(initial, "domcontentloaded", 10000, null, "observation_complete", null, false, ct);
+        Assert.True(result.Success); Assert.True(attempted); Assert.Equal(0, forbidden);
+        var evidence = Assert.IsType<BrowserNavigationEvidence>(result.NavigationEvidence);
+        Assert.True(evidence.Complete); Assert.Equal(initial, evidence.RequestedUrl); Assert.Equal(initial, evidence.FinalUrl);
+        Assert.Equal(changeHistory ? initial + "?canonical=1" : initial, result.Url);
+        Assert.Equal(changeHistory ? result.Url : null, evidence.DocumentUrl);
+        var hop = Assert.Single(evidence.Hops);
+        Assert.Equal(initial, hop.Url); Assert.Equal("GET", hop.Method); Assert.Equal(200, hop.StatusCode);
+        Assert.Null(hop.Location); Assert.False(result.ObservationSnapshot!.CaptureTruncated);
+        Assert.Equal(200, result.StatusCode); Assert.Equal("GET", result.Acquisition!.Navigation!.Method);
+    }
+
     [Fact]
     public async Task NestedVariantLinksKeepTheirOuterOccurrenceAndPrimaryHeadingAssociation()
     {

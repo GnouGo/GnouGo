@@ -719,8 +719,16 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
                 lock (_observationLock)
                 {
                     _pendingMainNavigation = request;
-                    _lastNavigationEvidence = null;
+                    // A request has not replaced the committed document. Keep
+                    // its provenance until a main-frame commit; a denied or
+                    // aborted request must not erase the still-current source.
                 }
+        };
+        page.RequestFailed += (_, request) =>
+        {
+            if (page == _page && request.IsNavigationRequest && request.Frame == page.MainFrame)
+                lock (_observationLock)
+                    if (_pendingMainNavigation == request) _pendingMainNavigation = null;
         };
         page.FrameNavigated += (_, frame) =>
         {

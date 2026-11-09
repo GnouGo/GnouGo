@@ -215,6 +215,13 @@ Subresource reads remain ordinary browser requests. No scenario-specific route,
 business interpretation, destination rewrite or permission expansion is introduced.
 Denied child-frame navigations remain blocked before contact and do not replace the main document's acquisition outcome. External delegated route guards still apply before any Browser dispatch.
 
+A main-frame request does not replace the current document until it commits.
+Denied or aborted requests retain that document's actual response evidence and
+clear only their own pending request. A later history address change remains
+bound to the same committed response. New document commits still replace the
+evidence and invalidate snapshots; explicit reads retain their own independent
+navigation outcome. This grants no authority to contact a denied destination.
+
 Use `browser_get_content(format: "observation_complete")` when every page is
 needed before interpreting or acting. `observationSnapshot` contains `id`, ordered
 `pages` (each with typed `records` and the same `id`), `recordCount`,
