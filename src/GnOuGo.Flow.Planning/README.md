@@ -284,6 +284,14 @@ A task may declare `requires` as a boolean TaskValue. Omission preserves histori
 
 `present` can inspect preceding tasks in the same or a lexically enclosing scope. Nested finalizers capture availability independently and retain an absent payload as omission inside compiler-owned switch envelopes. They never eagerly evaluate an unavailable result. Report observed evidence in `always` and put release operations in its nested `always`, so preservation failure still permits cleanup. Unknown completion continues to block both. Required conditions cannot be weakened by scoped repairs; use an explicit revision and fresh approval.
 
+Fresh implementation/discovery requests also present these same finalization rules
+when their binding schema offers a local control. TaskPlan control kinds, the
+`always` scope list and the `present` value operator have no MCP operation contract
+to discover. The selected scoped draft supplies their authoritative grammar.
+This guidance changes neither selectable bindings nor runtime prerequisites,
+visibility checks, failure propagation or execution authority. Optional guidance
+still yields to strict captured input targets; issued requests recover unchanged.
+
 ### Explicit consumer views and flatten
 
 `flatten` is an additive TaskValue/PlanningValue binding with exactly one operand in `items`. It accepts typed, nonnullable arrays of arrays and concatenates one level in source order. Element nulls, duplicates, deeper arrays and exact references survive; null inner arrays and opaque elements fail. Compiler-owned checked selections enforce source constraints before concatenation and consumer constraints afterward. Extraction result contracts and explicit object/field bindings define closed consumer inputs. Global interpretation still has to fit complete-request admission; flattening a broad result does not compact its fields.

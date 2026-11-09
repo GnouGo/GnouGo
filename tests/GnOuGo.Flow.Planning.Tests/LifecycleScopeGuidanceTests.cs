@@ -10,6 +10,39 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class LifecycleScopeGuidanceTests
 {
     [Theory]
+    [InlineData("construction_implementation", true)]
+    [InlineData("construction_discovery", true)]
+    [InlineData("construction_implementation", false)]
+    [InlineData("construction_discovery", false)]
+    public async Task NativeControlSelectionExplainsLocalFinalizersWithoutInventingAnExternalContract(string purpose, bool controlOffered)
+    {
+        var (state, _) = await BusinessReviewProtocolTests.Ready(advisoryOptimization: true);
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        const string prompt = "Choose only an issued binding.\n{\"original\":\"Keep observed evidence and release the resource on failure.\"}";
+        var schema = JsonNode.Parse("""{"type":"object","properties":{"binding":{"type":"object","properties":{"kind":{"type":"string","enum":["sequence","conditional"]}},"required":["kind"],"additionalProperties":false}},"required":["binding"],"additionalProperties":false}""")!.AsObject();
+        if (!controlOffered) schema["properties"]!["binding"]!["properties"]!["kind"]!["enum"] = new JsonArray("close");
+        if (purpose == "construction_implementation")
+        {
+            schema["properties"]!["step"] = schema["properties"]!["binding"]!.DeepClone();
+            schema["properties"]!.AsObject().Remove("binding");
+            schema["required"]![0] = "step";
+        }
+        var request = PlanningModelCalls.PrepareRequest(state, purpose, prompt, schema);
+        Assert.Equal(controlOffered, request.Prompt.Contains("have no MCP operation contract", StringComparison.Ordinal));
+        if (controlOffered)
+        {
+            Assert.Contains("always is a TaskScope finalization list", request.Prompt, StringComparison.Ordinal);
+            Assert.Contains("present is a TaskValue completion test", request.Prompt, StringComparison.Ordinal);
+            Assert.Contains("preceding local or lexical-ancestor task completion", request.Prompt, StringComparison.Ordinal);
+            Assert.Contains("only when offered by the current binding schema", request.Prompt, StringComparison.Ordinal);
+        }
+        Assert.EndsWith(prompt[prompt.LastIndexOf('\n')..], request.Prompt, StringComparison.Ordinal);
+        Assert.True(JsonNode.DeepEquals(schema["properties"], request.StructuredOutputSchema!["properties"]));
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        Assert.Null(state.PendingCall);
+    }
+
+    [Theory]
     [InlineData("success")]
     [InlineData("consumer_failure")]
     [InlineData("producer_failure")]
@@ -95,7 +128,7 @@ public sealed class LifecycleScopeGuidanceTests
     {
         var (state, _) = await BusinessReviewProtocolTests.Ready();
         var prompt = "Choose from the issued actions.\n{\"original\":\"" + new string('x', 3200) + " Release after all consumers.\"}";
-        var schema = JsonNode.Parse("""{"type":"object","properties":{},"additionalProperties":false}""")!.AsObject();
+        var schema = JsonNode.Parse("""{"type":"object","properties":{"step":{"type":"object","properties":{"kind":{"type":"string","enum":["sequence"]}},"required":["kind"],"additionalProperties":false}},"required":["step"],"additionalProperties":false}""")!.AsObject();
         var initial = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.ImplementationPurpose, prompt, schema);
         var bare = JsonSerializer.Deserialize(JsonSerializer.Serialize(initial, PlanningJsonContext.Default.LLMRequest), PlanningJsonContext.Default.LLMRequest)!;
         bare.Prompt = prompt;

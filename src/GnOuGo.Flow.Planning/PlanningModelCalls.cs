@@ -113,7 +113,8 @@ internal static partial class PlanningModelCalls
         if (purpose is PlanningCompactConstruction.ImplementationPurpose or PlanningCompactConstruction.DiscoveryPurpose or PlanningConstruction.DraftPurpose)
         {
             beforeLifecycleGuidance = request.Prompt;
-            request.Prompt = PlanningPromptPresentation.PresentLifecycleScopeGuidance(request.Prompt);
+            request.Prompt = PlanningPromptPresentation.PresentLifecycleScopeGuidance(request.Prompt,
+                purpose == PlanningConstruction.DraftPurpose ? null : request.StructuredOutputSchema);
         }
         // Bind the evidence basis after fresh field presentation; issued recovery
         // keeps its exact captured prompt/schema instead of preparing another one.

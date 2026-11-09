@@ -8,11 +8,41 @@ public static class PlanningPromptPresentation
 {
     internal const string LifecycleScopeSemantics = "Business-block review does not execute tasks or close an owning workflow scope. A reusable group declares a body; only a call invokes it. Cleanup belongs to the scope covering the resource's actual consumers, which may be an ancestor of a helper or business block. Reuse appropriate existing ancestor cleanup; do not end a still-needed resource merely to finish a helper or request business review. Where the issued binding schema permits a composed control, select its kind together with exact inspected operationIds for its nested operations; an empty list selects none. Preserve explicit lifetime and cleanup requirements, lexical visibility, available transitions and ordinary validation. This guidance grants no new binding, repair or execution authority.";
 
-    internal static string PresentLifecycleScopeGuidance(string prompt)
+    internal const string FinalizationSemantics = "always contains cleanup on completion or failure; preserve available payloads before nested cleanup. present tests preceding local or lexical-ancestor task completion, not caller inputs or field nullability. For a null guard, compare the exact input, output or field with null.";
+
+    internal static string PresentLifecycleScopeGuidance(string prompt, JsonNode? bindingSchema = null)
     {
         var guidance = "\n" + LifecycleScopeSemantics + "\n";
         var contextOffset = prompt.LastIndexOf("\n{", StringComparison.Ordinal);
+        var result = contextOffset < 0 ? prompt + guidance : prompt.Insert(contextOffset, guidance);
+        return bindingSchema is null ? result : PresentNativeControlGuidance(result, bindingSchema);
+    }
+
+    /// <summary>Distinguish offered local control forms from external operation contracts.</summary>
+    public static string PresentNativeControlGuidance(string prompt, JsonNode schema)
+    {
+        if (!Find(schema["properties"]?["binding"], 0) && !Find(schema["properties"]?["step"], 0)) return prompt;
+        var guidance = "\nNative TaskPlan controls have no MCP operation contract. Select a local control only when offered by the current binding schema; its scoped draft supplies the authoritative task/value grammar. always is a TaskScope finalization list, and present is a TaskValue completion test, not an external operation. Do not suspend for a runtime producer of these planning rules. " + FinalizationSemantics + "\n";
+        var contextOffset = prompt.LastIndexOf("\n{", StringComparison.Ordinal);
         return contextOffset < 0 ? prompt + guidance : prompt.Insert(contextOffset, guidance);
+
+        bool Find(JsonNode? node, int depth)
+        {
+            if (depth > 32 || node is not JsonObject value) return false;
+            if (value["$ref"] is JsonValue reference && reference.TryGetValue<string>(out var pointer))
+                return pointer.StartsWith("#/", StringComparison.Ordinal) && Find(PlanningSchemaReferences.Read(schema, pointer[1..]), depth + 1);
+            if (value["properties"]?["kind"] is JsonObject kind && FindKind(kind, depth + 1)) return true;
+            return new[] { "anyOf", "oneOf" }.Any(key => value[key] is JsonArray branches && branches.Any(branch => Find(branch, depth + 1)));
+        }
+
+        bool FindKind(JsonNode? node, int depth)
+        {
+            if (depth > 32 || node is not JsonObject value) return false;
+            if (value["$ref"] is JsonValue reference && reference.TryGetValue<string>(out var pointer))
+                return pointer.StartsWith("#/", StringComparison.Ordinal) && FindKind(PlanningSchemaReferences.Read(schema, pointer[1..]), depth + 1);
+            if (value["enum"] is JsonArray kinds && kinds.Any(kind => kind?.ToString() is "sequence" or "conditional" or "foreach" or "parallel")) return true;
+            return new[] { "anyOf", "oneOf" }.Any(key => value[key] is JsonArray branches && branches.Any(branch => FindKind(branch, depth + 1)));
+        }
     }
 
     internal static string PresentFailureObligationGuidance(string prompt)

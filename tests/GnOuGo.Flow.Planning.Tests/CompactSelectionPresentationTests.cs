@@ -236,6 +236,8 @@ public sealed class CompactSelectionPresentationTests(ITestOutputHelper output)
             navigationOnly.Prompt, navigationOnly.StructuredOutputSchema!.AsObject());
         navigationCore.Prompt = navigationCore.Prompt.Replace("\n" + PlanningPrompt.FailureObligationSemantics + "\n", "", StringComparison.Ordinal);
         navigationCore.Prompt = navigationCore.Prompt.Replace("\n" + PlanningPromptPresentation.LifecycleScopeSemantics + "\n", "", StringComparison.Ordinal);
+        var nativeControls = PlanningPromptPresentation.PresentNativeControlGuidance("", navigationCore.StructuredOutputSchema!);
+        if (nativeControls.Length > 0) navigationCore.Prompt = navigationCore.Prompt.Replace(nativeControls, "", StringComparison.Ordinal);
         navigationCore.Prompt = navigationCore.Prompt.Replace(PlanningPromptPresentation.PresentCompactJsonGuidance(""), "", StringComparison.Ordinal);
         state.Request.Generation.MaxInputTokensPerRequest = checked((int)ModelRequestAdmission.EstimateTokens(navigationCore) - 25);
         var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);

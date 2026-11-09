@@ -1,0 +1,55 @@
+{
+  "basis": "1fab85fe247ad92dc679f33b4c566917c3af6cd6",
+  "run": "code-qualification-20261110-19",
+  "session": "328d805fb8ad43ac8b0c091a2688d120",
+  "kind": "stopped unexecuted planning incident and generic presentation correction",
+  "first_cause": "The model repeatedly sought native TaskPlan sequence/conditional/present/always semantics through external MCP contract discovery, then created unfulfilled metadata prerequisites. Available native bindings and their finalizer rules were not presented together before scoped drafting.",
+  "evidence_request_call": 49,
+  "planning_calls": 66,
+  "accepted_checkpoints": 0,
+  "execution_started": false,
+  "status": "cancelled",
+  "outcome": "inconclusive",
+  "correction": "Reuse the existing finalizer guidance in fresh implementation/discovery only when the issued step/binding grammar offers a local control. Explain that scope always and value present are local grammar forms, not MCP operation contracts. Keep grammar, original context, admission and runtime semantics unchanged.",
+  "regression": {
+    "initial_positive_cases_failed": 2,
+    "focused_checks_passed": 14,
+    "planning_suite_passed": 2952,
+    "planning_suite_failed": 0,
+    "strict_fixture_correction": "Exclude the new optional guidance when calibrating the mandatory core; retain the original token limit and context/schema assertions.",
+    "earlier_full_development_run": {
+      "passed": 2951,
+      "failed": 1,
+      "cause": "Fixture calibration included the newly optional guidance."
+    }
+  },
+  "permanent_retention": {
+    "reservation_retained": true,
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "evidence_hash": "cc79cebf40284da8f61de59b7dfe7eab35af27eb00744f3cac5a3caadc24b4f4",
+    "authorization": "pr120-code19-native-control-loop-retention-20261110-01"
+  },
+  "financial": {
+    "ceiling_eur": "1700",
+    "cost_upper_bound_eur": "1122.7272279444693237796686148",
+    "retained_application_reservations_eur": "59.555978487450312513390730382",
+    "new_retained_application_hold_eur": "14.967863843473599571160546770",
+    "remaining_after_retained_liabilities_eur": "517.716793568080363706940654818",
+    "unknown_http_attempts": 45,
+    "provider_invoice": false
+  },
+  "permissions_changed": false,
+  "oracle_changed": false,
+  "schema_changed": false,
+  "qualification_limit": "This regression and retained incident do not establish a fresh full Code execution or independent business-oracle pass.",
+  "private_evidence_sha256": {
+    "resume300b-code19-request49.json": "6e25a16ed5e18b2d288bb26d094c5fa664afde4c9be84b05963e1917a1236657",
+    "resume300b-code19-stopped.json": "4af62a658a4f28345f8ceb39443adcbfb4eb16fe523ef8c876e920d91973d04e",
+    "resume300b-code19-retention-applied.json": "02f9222030d7cf12bdf256cf335abb23b59e2966136c2daf5164ee03b751fe62",
+    "resume300b-code19-retained-audit.json": "e53bc966f102c39c717c7d0580936bf86cde1a5416f50719cbb8f6b76b0a11d9",
+    "resume300b-native-controls-red.log": "aaba8033e97616da7db3a2757db8d5b40caceef21ab91e1819cd6df42f90c9f3",
+    "resume300b-native-controls-focused02.log": "b74c494ee4cfbbd80676a556ea8b8ef9ebe1f3a7f445ced7382a7365700fed3a",
+    "resume300b-native-controls-planning-green02.log": "e6388c7b178f9cb8077d4b1da7389b37c57ec0ee55de536c1f39bf68cad81c6c"
+  }
+}

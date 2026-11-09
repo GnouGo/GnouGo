@@ -962,3 +962,11 @@ credentials and other direct-reader settings stay in KeyVault. An absent secret
 preserves the prior host fingerprint and native transport default.
 Preview/apply and all five selection checks remain mandatory. This creates no money
 and keeps any earlier reasoning/streaming amendment chain and uncertain holds.
+
+`server-live-probe --probe-native-control-guidance --probe-source-request <owned-id>`
+compares a fresh, tool-free request with the exact retained request's context and
+schema, adding only the local control/finalizer guidance when its binding permits
+one. It records the fresh identity and added bytes and cannot execute, resume or
+approve the source session. Choose only this presentation factor for that probe;
+ordinary campaign admission, financial holds and the independent full workflow
+oracle remain mandatory.
