@@ -2,17 +2,23 @@ using System.Text.Json.Nodes;
 
 internal static partial class LiveWorkflowOracles
 {
-    internal static IEnumerable<string> CompleteSearchRedirectEntries(IReadOnlyList<JsonObject> reads)
-        => CompleteSnapshots(reads).Where(s => WholeDocumentSearch(s.Read) && ValidNavigationEvidence(s.Read) &&
-            AmazonObservedRedirectPolicy.Allows(s.Url ?? "") && new Uri(s.Url!).AbsolutePath == "/s" &&
-            s.Read["arguments"]?["url"]?.ToString() is { } requested && AmazonObservedRedirectPolicy.Allows(requested) &&
+    internal static IEnumerable<string> CompleteSearchRedirectEntries(IReadOnlyList<JsonObject> reads, string policy = AmazonObservedRedirectPolicy.Id)
+        => CompleteSnapshots(reads).Where(s => WholeDocumentSearch(s.Read) && ValidNavigationEvidence(s.Read, policy) &&
+            AmazonObservedRedirectPolicy.Allows(s.Url ?? "", policy) && new Uri(s.Url!).AbsolutePath == "/s" &&
+            s.Read["arguments"]?["url"]?.ToString() is { } requested && AmazonObservedRedirectPolicy.Allows(requested, policy) &&
             new Uri(requested).AbsolutePath == "/s" && SearchQuery(new Uri(requested)) == SearchQuery(new Uri(s.Url!)) &&
             s.Read["result"]?["success"]?.GetValue<bool>() == true)
-            .Where(s => { var findings = new List<string>(); ValidateSourceRecords(s, findings); return findings.Count == 0; })
+            .Where(s => { var findings = new List<string>(); ValidateSourceRecords(s, findings, policy); return findings.Count == 0; })
             .SelectMany(s => s.Records).Select(r => r?["href"]?.ToString())
-            .Where(href => href is not null && AmazonObservedRedirectPolicy.IsEntry(href)).Select(href => href!).Distinct(StringComparer.Ordinal);
+            .Where(href => href is not null && AmazonObservedRedirectPolicy.IsEntry(href, policy)).Select(href => href!).Distinct(StringComparer.Ordinal);
 
     internal static JsonObject VerifyAmazonObservedRedirectSelection(IReadOnlyList<JsonObject> events, int maximum, string? query)
+        => VerifyAmazonObservedSelection(events, maximum, query, AmazonObservedRedirectPolicy.Id, AmazonObservedRedirectVersion);
+
+    internal static JsonObject VerifyAmazonSponsoredHostSelection(IReadOnlyList<JsonObject> events, int maximum, string? query)
+        => VerifyAmazonObservedSelection(events, maximum, query, AmazonSponsoredHostPolicy.Id, AmazonSponsoredHostVersion);
+
+    private static JsonObject VerifyAmazonObservedSelection(IReadOnlyList<JsonObject> events, int maximum, string? query, string policy, string version)
     {
         if (maximum is < 1 or > 10) throw new ArgumentOutOfRangeException(nameof(maximum));
         var findings = new List<string>();
@@ -35,16 +41,23 @@ internal static partial class LiveWorkflowOracles
         if (search is null) findings.Add("requested_search_not_observed");
         else
         {
-            if (!ValidNavigationEvidence(search.Read)) findings.Add("search_navigation_provenance_incomplete");
-            ValidateSourceRecords(search, findings);
+            if (!ValidNavigationEvidence(search.Read, policy)) findings.Add("search_navigation_provenance_incomplete");
+            ValidateSourceRecords(search, findings, policy);
             var candidates = search.Records.OfType<JsonObject>().Where(r => r["href"]?.ToString() is { } href &&
-                (ObservedProductIdentity(href) is not null || AmazonObservedRedirectPolicy.IsSourceEntry(href))).ToArray();
+                (ObservedProductIdentity(href) is not null || AmazonObservedRedirectPolicy.IsSourceEntry(href, policy))).ToArray();
             foreach (var record in search.Records.OfType<JsonObject>())
             {
-                if (record["href"]?.ToString() is not { } href || !AmazonAddress(href, out var address)) continue;
+                if (record["href"]?.ToString() is not { } href) continue;
+                if (!AmazonAddress(href, out var address))
+                {
+                    if (policy == AmazonSponsoredHostPolicy.Id && Uri.TryCreate(href, UriKind.Absolute, out var other) &&
+                        other.Host.StartsWith("sponsored-ads.", StringComparison.Ordinal) && !AmazonSponsoredHostPolicy.IsSourceEntry(href))
+                        findings.Add("search_product_redirect_route_unapproved");
+                    continue;
+                }
                 if ((address.AbsolutePath.Contains("/dp/", StringComparison.Ordinal) || address.AbsolutePath.Contains("/gp/product/", StringComparison.Ordinal)) && ObservedProductIdentity(href) is null)
                     findings.Add("search_product_identity_unverified");
-                if ((address.AbsolutePath.Contains("sspa", StringComparison.Ordinal) || address.AbsolutePath.Contains("slredirect", StringComparison.Ordinal)) && !AmazonObservedRedirectPolicy.IsSourceEntry(href))
+                if ((address.AbsolutePath.Contains("sspa", StringComparison.Ordinal) || address.AbsolutePath.Contains("slredirect", StringComparison.Ordinal)) && !AmazonObservedRedirectPolicy.IsSourceEntry(href, policy))
                     findings.Add("search_product_redirect_route_unapproved");
             }
             foreach (var group in candidates.GroupBy(r => r["occurrence"]?["selector"]?.ToString() ?? "", StringComparer.Ordinal))
@@ -55,7 +68,7 @@ internal static partial class LiveWorkflowOracles
                 var identities = primary.Select(r => ObservedProductIdentity(r["href"]!.ToString())).Where(id => id is not null).Distinct(StringComparer.Ordinal).ToArray();
                 var urls = primary.Select(r => r["href"]!.ToString()).Distinct(StringComparer.Ordinal).ToArray();
                 if (identities.Length > 1 || identities.Length == 0 && urls.Length != 1 ||
-                    identities.Length > 0 && primary.Any(r => AmazonObservedRedirectPolicy.IsSourceEntry(r["href"]!.ToString())))
+                    identities.Length > 0 && primary.Any(r => AmazonObservedRedirectPolicy.IsSourceEntry(r["href"]!.ToString(), policy)))
                     findings.Add("search_product_aliases_unverified");
                 // Distinct source occurrences stay distinct even when their ASINs match.
                 expected.Add((identities.FirstOrDefault(), urls));
@@ -74,10 +87,10 @@ internal static partial class LiveWorkflowOracles
                 !complete.TryGetValue(read, out var snapshot) || ObservedProductIdentity(snapshot.Url) is not { } identity ||
                 product.Identity is { } expectedIdentity && identity != expectedIdentity)
                 findings.Add("first_product_identity_or_order_mismatch");
-            if (!ValidNavigationEvidence(read) || ObservedProductIdentity(read["result"]?["navigationEvidence"]?["finalUrl"]?.ToString()) != ObservedProductIdentity(read["result"]?["url"]?.ToString()))
+            if (!ValidNavigationEvidence(read, policy) || ObservedProductIdentity(read["result"]?["navigationEvidence"]?["finalUrl"]?.ToString()) != ObservedProductIdentity(read["result"]?["url"]?.ToString()))
                 findings.Add("product_navigation_provenance_incomplete");
         }
-        return new() { ["version"] = AmazonObservedRedirectVersion, ["passed"] = findings.Count == 0,
+        return new() { ["version"] = version, ["passed"] = findings.Count == 0,
             ["expected_product_count"] = selected.Length, ["visited_product_count"] = visits.Length,
             ["findings"] = new JsonArray(findings.Distinct().Select(f => (JsonNode)JsonValue.Create(f)).ToArray()) };
     }
@@ -90,7 +103,7 @@ internal static partial class LiveWorkflowOracles
         return parts is ["gp", "aw", "d", var asin] && asin.Length == 10 && asin.All(char.IsAsciiLetterOrDigit) ? asin : null;
     }
 
-    private static void ValidateSourceRecords(Snapshot snapshot, List<string> findings)
+    private static void ValidateSourceRecords(Snapshot snapshot, List<string> findings, string policy = AmazonObservedRedirectPolicy.Id)
     {
         var id = snapshot.Read["result"]?["observationSnapshot"]?["id"]?.ToString() ??
             snapshot.Read["result"]?["observationManifest"]?["id"]?.ToString() ?? snapshot.Read["result"]?["observation"]?["id"]?.ToString();
@@ -103,7 +116,7 @@ internal static partial class LiveWorkflowOracles
                 findings.Add("search_record_provenance_inconsistent");
             if (record?["occurrence"] is not JsonObject occurrence)
             {
-                if (ObservedProductIdentity(record?["href"]?.ToString()) is not null || AmazonObservedRedirectPolicy.IsSourceEntry(record?["href"]?.ToString() ?? ""))
+                if (ObservedProductIdentity(record?["href"]?.ToString()) is not null || AmazonObservedRedirectPolicy.IsSourceEntry(record?["href"]?.ToString() ?? "", policy))
                     findings.Add("search_product_occurrences_ambiguous");
                 continue;
             }
@@ -124,19 +137,19 @@ internal static partial class LiveWorkflowOracles
         }
     }
 
-    internal static bool ValidNavigationEvidence(JsonObject read)
+    internal static bool ValidNavigationEvidence(JsonObject read, string policy = AmazonObservedRedirectPolicy.Id)
     {
         var result = read["result"];
         if (result?["success"]?.GetValue<bool>() != true || result["navigationEvidence"] is not JsonObject evidence ||
             evidence["complete"]?.GetValue<bool>() != true || evidence["requestedUrl"]?.ToString() != read["arguments"]?["url"]?.ToString() ||
             (evidence["documentUrl"] ?? evidence["finalUrl"])?.ToString() != result["url"]?.ToString() ||
-            !AmazonObservedRedirectPolicy.Allows(result["url"]?.ToString() ?? "") ||
+            !AmazonObservedRedirectPolicy.Allows(result["url"]?.ToString() ?? "", policy) ||
             evidence["hops"] is not JsonArray hops || hops.Count is < 1 or > 21) return false;
         var seen = new HashSet<string>(StringComparer.Ordinal); var expected = evidence["requestedUrl"]!.ToString();
         for (var index = 0; index < hops.Count; index++)
         {
             var hop = hops[index]; var url = hop?["url"]?.ToString();
-            if (url is null || url != expected || !AmazonObservedRedirectPolicy.Allows(url) || !seen.Add(url) || hop?["method"]?.ToString() != "GET" ||
+            if (url is null || url != expected || !AmazonObservedRedirectPolicy.Allows(url, policy) || !seen.Add(url) || hop?["method"]?.ToString() != "GET" ||
                 hop["statusCode"] is not JsonValue status || !status.TryGetValue<int>(out var code)) return false;
             if (index == hops.Count - 1)
                 return code is >= 200 and < 300 && hop["location"] is null && evidence["finalUrl"]?.ToString() == url;

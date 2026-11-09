@@ -40,9 +40,7 @@ internal static class ServerLiveDiagnostics
         var mcpReadiness = args.ElementAtOrDefault(1) == "server-live-mcp-readiness";
         var delegatedScenario = planning && SchemaPortabilityCampaign.Option(args, "--case") is "amazon" or "code"
             ? SchemaPortabilityCampaign.Option(args, "--case") : null;
-        var browserObservationPolicy = args.Contains("--amazon-observed-redirects", StringComparer.Ordinal)
-            ? AmazonObservedRedirectPolicy.Id : null;
-        AmazonObservedRedirectPolicy.Validate(browserObservationPolicy, delegatedScenario ?? "");
+        var browserObservationPolicy = AmazonObservedRedirectPolicy.Capture(args, delegatedScenario ?? "");
         var sdkChatToolsReasoningEffort = SchemaPortabilityCampaign.Option(args, "--sdk-chat-tools-reasoning");
         KeyVaultBenchmarkModel.ValidateSdkChatToolsReasoningEffort(sdkChatToolsReasoningEffort);
         if (sdkChatToolsReasoningEffort is not null && (retained || delegatedScenario != "code"))
@@ -169,7 +167,7 @@ internal static class ServerLiveDiagnostics
         if (browserObservationPolicy is not null)
         {
             report["browser_observation_policy"] = browserObservationPolicy;
-            report["browser_scope_approval"] = AmazonObservedRedirectPolicy.Approval;
+            report["browser_scope_approval"] = AmazonObservedRedirectPolicy.ApprovalFor(browserObservationPolicy);
         }
         if (phaseFile is not null) report["phase_policy_sha256"] = PlanningGraphCompiler.Fingerprint(await File.ReadAllTextAsync(phaseFile));
         if (delegatedScenario is not null) report["planning_discovery_authority"] = "existing_delegated_tool_allowlist_v1";
@@ -508,7 +506,8 @@ internal static class ServerLiveDiagnostics
                 report["max_products"] = 3;
                 if (scenario is "amazon" or "code")
                 {
-                    report["oracle_version"] = scenario == "amazon" ? browserObservationPolicy is null ? LiveWorkflowOracles.AmazonBusinessVersion : LiveWorkflowOracles.AmazonObservedRedirectVersion : LiveWorkflowOracles.CodeBusinessVersion;
+                    report["oracle_version"] = scenario == "amazon" ? browserObservationPolicy is null ? LiveWorkflowOracles.AmazonBusinessVersion :
+                        browserObservationPolicy == AmazonSponsoredHostPolicy.Id ? LiveWorkflowOracles.AmazonSponsoredHostVersion : LiveWorkflowOracles.AmazonObservedRedirectVersion : LiveWorkflowOracles.CodeBusinessVersion;
                     report["mcp_builds"] = LiveWorkflowEvaluation.CaptureMcpBuilds(LiveWorkflowEvaluation.Configuration(model.McpServers, scenario, null, "Release", browserObservationPolicy: browserObservationPolicy), report["source"]!.ToString());
                 }
                 using var started = await client.PostAsJsonAsync("/api/planning", new JsonObject { ["name"] = run, ["prompt"] = prompt,
@@ -827,7 +826,7 @@ internal static class ServerLiveDiagnostics
             if (i == 0) result.Add(value);
             else if (value.StartsWith("--", StringComparison.Ordinal))
             {
-                safeValue = value is "--schema-portability" or "--run" or "--case" or "--model" or "--campaign-configuration" or "--workspace" or "--campaign" or "--retained-external-reservations-eur" or "--server-phase-policy" or "--financial-forecast-mode" or "--sdk-chat-tools-reasoning" or "--sdk-wire-api";
+                safeValue = value is "--schema-portability" or "--run" or "--case" or "--model" or "--campaign-configuration" or "--workspace" or "--campaign" or "--retained-external-reservations-eur" or "--server-phase-policy" or "--financial-forecast-mode" or "--sdk-chat-tools-reasoning" or "--sdk-wire-api" or "--amazon-scope-approval";
                 result.Add(safeValue ? value : "[unrecorded option]");
             }
             else { result.Add(safeValue ? value : "[withheld]"); safeValue = false; }

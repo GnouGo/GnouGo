@@ -180,9 +180,9 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
         {
             if (args["url"] is { } url)
             {
-                if (!(browserObservationPolicy == AmazonObservedRedirectPolicy.Id
-                    ? AmazonObservedRedirectPolicy.Allows(url.ToString()) &&
-                        (!AmazonObservedRedirectPolicy.IsEntry(url.ToString()) || _observedRedirects.Contains(url.ToString()))
+                if (!(AmazonObservedRedirectPolicy.IsObserved(browserObservationPolicy)
+                    ? AmazonObservedRedirectPolicy.Allows(url.ToString(), browserObservationPolicy!) &&
+                        (!AmazonObservedRedirectPolicy.IsEntry(url.ToString(), browserObservationPolicy!) || _observedRedirects.Contains(url.ToString()))
                     : AmazonUrl(url.ToString())) || args["cursor"] is not null)
                     throw new PlanningConflictException("Only authorized product/search reads are permitted.");
                 if (browserObservationPolicy is not null && new Uri(url.ToString()).AbsolutePath == "/s") { _observedRedirects.Clear(); _searchReads.Clear(); }
@@ -231,17 +231,17 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
         var snapshot = content["observationManifest"]?["id"]?.ToString() ?? content["observation"]?["id"]?.ToString();
         lock (_browserCursors)
         {
-            if (url is null || !(browserObservationPolicy == AmazonObservedRedirectPolicy.Id ? AmazonObservedRedirectPolicy.Allows(url) : AmazonUrl(url)) || content["acquisition"]?["navigation"]?["url"] is { } final && final.ToString() != url ||
+            if (url is null || !(AmazonObservedRedirectPolicy.IsObserved(browserObservationPolicy) ? AmazonObservedRedirectPolicy.Allows(url, browserObservationPolicy!) : AmazonUrl(url)) || content["acquisition"]?["navigation"]?["url"] is { } final && final.ToString() != url ||
                 arguments?["url"] is null && (url != _browserUrl || snapshot != _browserSnapshot))
             { ClearBrowser(); throw new PlanningConflictException("Browser producer evidence left the authorized URL or observation generation."); }
             _browserUrl = url; _browserSnapshot = snapshot;
-            if (browserObservationPolicy == AmazonObservedRedirectPolicy.Id && new Uri(url).AbsolutePath == "/s")
+            if (AmazonObservedRedirectPolicy.IsObserved(browserObservationPolicy) && new Uri(url).AbsolutePath == "/s")
             {
                 var observation = new JsonObject { ["tool"] = tool, ["error"] = false,
                     ["arguments"] = arguments?.DeepClone(), ["result"] = content.DeepClone() };
                 if (_searchReads.Count >= 101) throw new PlanningConflictException("Search provenance exceeds the physical observation-page bound.");
                 _searchReads.Add(observation);
-                foreach (var href in LiveWorkflowOracles.CompleteSearchRedirectEntries(_searchReads)) _observedRedirects.Add(href);
+                foreach (var href in LiveWorkflowOracles.CompleteSearchRedirectEntries(_searchReads, browserObservationPolicy!)) _observedRedirects.Add(href);
             }
             if (string.IsNullOrWhiteSpace(snapshot)) return;
             if (content["observationManifest"]?["pages"] is JsonArray pages)

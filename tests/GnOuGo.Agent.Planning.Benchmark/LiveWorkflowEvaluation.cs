@@ -30,7 +30,7 @@ internal static class LiveWorkflowEvaluation
         "\nContraintes de cette évaluation autorisée: utilise Amazon.fr, au maximum les " + productLimit +
         " premiers produits; une seule entrée publique nommée query, de type texte (string), obligatoire et sans valeur par défaut. Sauvegarde le classeur à " + relative +
         "/products.xlsx. Ferme le navigateur même en cas d’échec. Les erreurs observées, prix ou données absents restent explicites, jamais inventés. Ne déclare pas de réussite si le travail n’a pas abouti." +
-        (browserObservationPolicy is null ? "" : "\n" + AmazonObservedRedirectPolicy.PlanningFacts);
+        (browserObservationPolicy is null ? "" : "\n" + AmazonObservedRedirectPolicy.Facts(browserObservationPolicy));
     }
 
     internal static string CodeEvaluationPrompt(string relative) => CodePrompt + "\nÉvaluation autorisée: deux entrées publiques nommées pullRequestUrl et reviewText. Cible SmartGuide PR #610, https://github.com/AxaFrance/SmartGuide/pull/610 ; head " + Head + " et base " + Base + ". L’unique git_clone autorisé doit définir explicitement branch=\"" + Head + "\" et targetDirectory=\"" + relative + "/repository\" ; omettre branch ou cloner la branche par défaut avant un checkout n’est pas autorisé. Utilise les toolchains et checks déclarés par ce dépôt. Tous les feedbacks, décisions et commentaires de diff restent LOCAUX: aucune publication GitHub. Sauvegarde les preuves exactes de commandes et leurs codes de sortie dans " + relative + "/review.json, puis nettoie le clone même en cas d’échec. Une capacité absente ou un test échoué reste explicite. Aucune extension de permission/sandbox. Le rapport review.json contient decision (approve ou request_changes), findings (liste), et les commandes/codes de sortie observés. Vérifie explicitement node --version, pnpm --version et python --version avant les checks. Ne présente pas une capacité manquante ou un prérequis indisponible comme un test réussi.";
@@ -340,7 +340,7 @@ internal static class LiveWorkflowEvaluation
             // This disposable evaluation must exercise the workflow's cleanup.
             // Override only the spawned browser's debug setting, not saved host policy.
             if (name == "Browser") clone.EnvironmentVariables["Browser__KeepBrowserOpen"] = "false";
-            if (name == "Browser" && browserObservationPolicy == AmazonObservedRedirectPolicy.Id)
+            if (name == "Browser" && AmazonObservedRedirectPolicy.IsObserved(browserObservationPolicy))
             {
                 // A stricter per-process intersection. Saved KeyVault policy is untouched.
                 // Existing host/route restrictions must not be silently replaced.
@@ -349,7 +349,9 @@ internal static class LiveWorkflowEvaluation
                     throw new InvalidOperationException("Explicit saved Browser navigation restrictions require a reviewed intersection.");
                 clone.EnvironmentVariables["Browser__AllowedHosts__0"] = "www.amazon.fr";
                 clone.EnvironmentVariables["Browser__AllowedHosts__1"] = "amazon.fr";
-                clone.EnvironmentVariables["Browser__AllowedNavigationUrlPatterns__0"] = AmazonObservedRedirectPolicy.UrlPattern;
+                if (browserObservationPolicy == AmazonSponsoredHostPolicy.Id)
+                    clone.EnvironmentVariables["Browser__AllowedHosts__2"] = "sponsored-ads.amazon.fr";
+                clone.EnvironmentVariables["Browser__AllowedNavigationUrlPatterns__0"] = AmazonObservedRedirectPolicy.Pattern(browserObservationPolicy!);
             }
             // Only execution has a real campaign inference proxy. Metadata discovery
             // preserves configured settings; a placeholder URL prevents MCP startup.

@@ -27,7 +27,76 @@ internal static class AmazonObservedRedirectPolicy
 
     internal static void Validate(string? policy, string scenario)
     {
-        if (policy is not null && (policy != Id || scenario != "amazon"))
+        if (policy is not null && (!IsObserved(policy) || scenario != "amazon"))
             throw new InvalidOperationException("Unknown or mismatched captured browser observation policy.");
     }
+
+    internal static bool IsObserved(string? policy) => policy is Id or AmazonSponsoredHostPolicy.Id;
+    internal static bool Allows(string value, string policy) => policy switch
+    {
+        Id => Allows(value),
+        AmazonSponsoredHostPolicy.Id => AmazonSponsoredHostPolicy.Allows(value),
+        _ => throw new InvalidOperationException("Unknown captured browser observation policy.")
+    };
+    internal static bool IsEntry(string value, string policy) => policy switch
+    {
+        Id => IsEntry(value),
+        AmazonSponsoredHostPolicy.Id => AmazonSponsoredHostPolicy.IsEntry(value),
+        _ => throw new InvalidOperationException("Unknown captured browser observation policy.")
+    };
+    internal static bool IsSourceEntry(string value, string policy) => policy switch
+    {
+        Id => IsSourceEntry(value),
+        AmazonSponsoredHostPolicy.Id => AmazonSponsoredHostPolicy.IsSourceEntry(value),
+        _ => throw new InvalidOperationException("Unknown captured browser observation policy.")
+    };
+    internal static string Facts(string policy) => policy switch
+    {
+        Id => PlanningFacts,
+        AmazonSponsoredHostPolicy.Id => AmazonSponsoredHostPolicy.PlanningFacts,
+        _ => throw new InvalidOperationException("Unknown captured browser observation policy.")
+    };
+    internal static string ApprovalFor(string policy) => policy switch
+    {
+        Id => Approval,
+        AmazonSponsoredHostPolicy.Id => AmazonSponsoredHostPolicy.Approval,
+        _ => throw new InvalidOperationException("Unknown captured browser observation policy.")
+    };
+    internal static string Pattern(string policy) => policy switch
+    {
+        Id => UrlPattern,
+        AmazonSponsoredHostPolicy.Id => AmazonSponsoredHostPolicy.UrlPattern,
+        _ => throw new InvalidOperationException("Unknown captured browser observation policy.")
+    };
+
+    internal static string? Capture(string[] args, string scenario)
+    {
+        var original = args.Contains("--amazon-observed-redirects", StringComparer.Ordinal);
+        var sponsored = args.Contains("--amazon-observed-sponsored-host", StringComparer.Ordinal);
+        var approval = SchemaPortabilityCampaign.Option(args, "--amazon-scope-approval");
+        if (original && sponsored || !sponsored && approval is not null)
+            throw new ArgumentException("Select one explicit Amazon observation policy and its matching approval.");
+        if (sponsored && approval != AmazonSponsoredHostPolicy.Approval)
+            throw new InvalidOperationException("The sponsored-host extension requires its separately authorized scope approval.");
+        var policy = sponsored ? AmazonSponsoredHostPolicy.Id : original ? Id : null;
+        Validate(policy, scenario);
+        return policy;
+    }
+}
+
+// Prepared opt-in only. The original v1 policy and approval do not authorize this host.
+internal static class AmazonSponsoredHostPolicy
+{
+    internal const string Id = "amazon-observed-sponsored-host-v2";
+    internal const string Approval = "user-strict-amazon-sponsored-host-extension-20261109";
+    internal const string UrlPattern = "(?:" + AmazonObservedRedirectPolicy.UrlPattern + @"|https://sponsored-ads\.amazon\.fr/clk/\?[^#]+)";
+    internal const string PlanningFacts = "Authorized browser observation policy amazon-observed-sponsored-host-v2: GET only exact literal links observed in the complete successful Amazon.fr search, preserving first product occurrences and sponsored results. The separately approved additional host is sponsored-ads.amazon.fr, only /clk/ with a nonempty query. Original Amazon.fr search, /sspa/click and product routes remain as captured below. Never construct a product URL, decode an advertising r/target parameter into a navigation target, omit sponsored products or substitute later products. Both /sspa/click and sponsored-host entries require exact source-link membership in the same live Browser; another search or browser_close expires that authority. Every actual redirect hop must match the explicit captured full-URL allowlist before contact; retain its observed response and destination evidence. Only HTTPS, default port, no credentials or fragments are permitted. Missing evidence remains failure. The Browser already performs explicit GET acquisition and validates redirects; these are host guarantees, not missing workflow operations, permission to expand the policy, or evidence of successful execution. Observation cursors expire on navigation. Keep the Browser alive until dependent visits finish, then close it even on failure. Captured full-URL allowlist: " + UrlPattern;
+    private static readonly Regex Routes = new(@"\A(?:" + UrlPattern + @")\z", RegexOptions.CultureInvariant | RegexOptions.NonBacktracking, TimeSpan.FromSeconds(1));
+
+    internal static bool Allows(string value) => Uri.TryCreate(value, UriKind.Absolute, out var uri) &&
+        uri.Scheme == "https" && uri.UserInfo.Length == 0 && uri.IsDefaultPort && uri.Fragment.Length == 0 && Routes.IsMatch(value);
+    internal static bool IsEntry(string value) => Allows(value) && (AmazonObservedRedirectPolicy.IsEntry(value) ||
+        new Uri(value) is { Host: "sponsored-ads.amazon.fr", AbsolutePath: "/clk/" });
+    internal static bool IsSourceEntry(string value) => Uri.TryCreate(value, UriKind.Absolute, out var uri) &&
+        IsEntry(uri.GetComponents(UriComponents.HttpRequestUrl, UriFormat.UriEscaped));
 }
