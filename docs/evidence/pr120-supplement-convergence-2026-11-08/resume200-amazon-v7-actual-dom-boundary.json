@@ -1,0 +1,196 @@
+{
+  "kind": "Read-only complete search and actual same-document DOM diagnosis; no paid Amazon workflow relaunch",
+  "verifier": "amazon-business-v7",
+  "authority": "Existing exact GET routes only; /clk/ remains distinct from /clk",
+  "sources": [
+    {
+      "label": "resume200-amazon-source02",
+      "record_count": 1500,
+      "pages": 72,
+      "capture_truncated": false,
+      "manifest_truncated": false,
+      "observed_sponsored_paths": {
+        "/clk/": 40,
+        "/clk": 4
+      },
+      "independent_source_oracle": {
+        "kind": "read-only actual-source inspection; no workflow execution or generation",
+        "selection_evidence": {
+          "version": "amazon-business-v7",
+          "passed": false,
+          "expected_product_count": 3,
+          "visited_product_count": 0,
+          "findings": [
+            "search_product_redirect_route_unapproved",
+            "search_product_context_unverified",
+            "first_product_visits_incomplete"
+          ]
+        },
+        "eligible_observed_redirect_entries": 0,
+        "source_record_count": 1500,
+        "capture_truncated": false
+      },
+      "actual_close": {
+        "close_error": false,
+        "close": {
+          "closed": true,
+          "success": true,
+          "error_code": null,
+          "error_message": null,
+          "ok": true
+        },
+        "probe_error": true,
+        "probe": {
+          "url": "",
+          "title": null,
+          "statusCode": null,
+          "selector": null,
+          "resolvedSelector": "",
+          "fallbackApplied": false,
+          "fallbackReason": null,
+          "format": "html",
+          "content": "",
+          "truncated": false,
+          "maxCharacters": 0,
+          "success": false,
+          "error_code": "INVALID_INPUT",
+          "error_message": "InvalidOperationException: No active page. Call browser_get_content with url first.",
+          "ok": false
+        }
+      }
+    },
+    {
+      "label": "resume200-amazon-source03",
+      "record_count": 1534,
+      "pages": 73,
+      "capture_truncated": false,
+      "manifest_truncated": false,
+      "observed_sponsored_paths": {
+        "/clk/": 41
+      },
+      "independent_source_oracle": {
+        "kind": "read-only actual-source inspection; no workflow execution or generation",
+        "selection_evidence": {
+          "version": "amazon-business-v7",
+          "passed": false,
+          "expected_product_count": 3,
+          "visited_product_count": 0,
+          "findings": [
+            "search_product_context_unverified",
+            "first_product_visits_incomplete"
+          ]
+        },
+        "eligible_observed_redirect_entries": 0,
+        "source_record_count": 1534,
+        "capture_truncated": false
+      },
+      "actual_close": {
+        "close_error": false,
+        "close": {
+          "closed": true,
+          "success": true,
+          "error_code": null,
+          "error_message": null,
+          "ok": true
+        },
+        "probe_error": true,
+        "probe": {
+          "url": "",
+          "title": null,
+          "statusCode": null,
+          "selector": null,
+          "resolvedSelector": "",
+          "fallbackApplied": false,
+          "fallbackReason": null,
+          "format": "html",
+          "content": "",
+          "truncated": false,
+          "maxCharacters": 0,
+          "success": false,
+          "error_code": "INVALID_INPUT",
+          "error_message": "InvalidOperationException: No active page. Call browser_get_content with url first.",
+          "ok": false
+        }
+      }
+    }
+  ],
+  "unclassified_context_dom_checks": [
+    {
+      "source_record": "c843c0a0cd104daa93d72d6548e6439d:record:58",
+      "snapshot_local_context_index": 0,
+      "observed_context": {
+        "value": "",
+        "tag": "div",
+        "role": null,
+        "index": 0
+      },
+      "actual_html_root": {
+        "tag": "div",
+        "data_asin": "",
+        "role": null
+      },
+      "html_success": true,
+      "html_truncated": false,
+      "html_characters": 88366,
+      "nonempty_descendant_product_id_count": 3,
+      "navigation_url_supplied": false
+    },
+    {
+      "source_record": "c843c0a0cd104daa93d72d6548e6439d:record:324",
+      "snapshot_local_context_index": 21,
+      "observed_context": {
+        "value": "",
+        "tag": "div",
+        "role": null,
+        "index": 21
+      },
+      "actual_html_root": {
+        "tag": "div",
+        "data_asin": "",
+        "role": null
+      },
+      "html_success": true,
+      "html_truncated": false,
+      "html_characters": 85037,
+      "nonempty_descendant_product_id_count": 3,
+      "navigation_url_supplied": false
+    },
+    {
+      "source_record": "c843c0a0cd104daa93d72d6548e6439d:record:1220",
+      "snapshot_local_context_index": 79,
+      "observed_context": {
+        "value": "",
+        "tag": "div",
+        "role": null,
+        "index": 79
+      },
+      "actual_html_root": {
+        "tag": "div",
+        "data_asin": "",
+        "role": null
+      },
+      "html_success": true,
+      "html_truncated": false,
+      "html_characters": 65802,
+      "nonempty_descendant_product_id_count": 0,
+      "navigation_url_supplied": false
+    }
+  ],
+  "observation_finding": "The actual nearest data-asin ancestors are ordinary div elements with an empty value and no navigation role, matching the generic Browser observation. Some widgets contain separately identified descendant products; their outer advertising links do not thereby acquire a verified product identity. No generic extraction defect is demonstrated.",
+  "permission_expanded": false,
+  "advertising_targets_decoded_or_substituted": false,
+  "unapproved_advertising_navigation": false,
+  "products_omitted_for_admission": false,
+  "source_context_filter_or_oracle_relaxed": false,
+  "paid_qualification_relaunched": false,
+  "qualification_missing": "All sponsored product occurrences and their ordering must be independently verifiable within the approved exact routes before another Amazon qualification. Search variability does not authorize normalizing /clk to /clk/ or omitting unknown cards.",
+  "private_evidence_sha256": {
+    "resume200-amazon-source02.observation.json": "fc666c705844be7990c365ad62895af3a305317a97b0d3db5b967f05c9a53dd7",
+    "resume200-amazon-source02.oracle.json": "2833040d5624937dfc1f17de89dd1e939cd1a39ac9f757b56c665e657150dea7",
+    "resume200-amazon-source02.close.json": "50888101f7346754a6e98e03123704d577f652f05424bfa881b79694ccfa2b7f",
+    "resume200-amazon-source03.observation.json": "6865373c3638c553e5a51ee05628887d6c10e468c248a64b06e3d4500f11f064",
+    "resume200-amazon-source03.oracle.json": "91cdc22a50287423ea15471555774590839db34f5ce8cb92d6c07a5652903bca",
+    "resume200-amazon-source03.close.json": "50888101f7346754a6e98e03123704d577f652f05424bfa881b79694ccfa2b7f",
+    "resume200-amazon-source03.contexts.json": "961e86f0335f29fce98b91c9c7b2b329ce09f3ea9b067c93e518c3167cf0e60e"
+  }
+}
