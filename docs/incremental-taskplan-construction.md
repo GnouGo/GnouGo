@@ -778,3 +778,8 @@ that finding, including for a legitimate conditional invocation.
 Eligibility probes also isolate ambient threshold observers: advisory diagnostics
 cannot mutate the caller's warning journal during action presentation. Ordinary
 candidate and final validation explicitly publish those same advisory warnings.
+
+Fresh implementation selection uses the same compact JSON syntax guidance as discovery
+and drafting. This discourages formatting-only output exhaustion without increasing
+captured allocations or changing response choices. Optional strict-input fallback and
+exact historical request recovery remain in force; incomplete output accepts no fragment.

@@ -87,7 +87,7 @@ internal static partial class PlanningModelCalls
             request.Prompt = PlanningPromptPresentation.PresentContractMaterializationGuidance(request.Prompt);
         if (purpose == PlanningCompactConstruction.DiscoveryPurpose)
             request.Prompt = PlanningPromptPresentation.PresentDiscoveryResponseFields(request.Prompt, request.StructuredOutputSchema!);
-        var compactJson = purpose is PlanningCompactConstruction.DiscoveryPurpose or PlanningConstruction.DraftPurpose;
+        var compactJson = purpose is PlanningCompactConstruction.ImplementationPurpose or PlanningCompactConstruction.DiscoveryPurpose or PlanningConstruction.DraftPurpose;
         if (compactJson) request.Prompt = PlanningPromptPresentation.PresentCompactJsonGuidance(request.Prompt);
         if (purpose == PlanningConstruction.DraftPurpose)
         {

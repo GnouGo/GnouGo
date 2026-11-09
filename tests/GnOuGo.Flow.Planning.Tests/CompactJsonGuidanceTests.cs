@@ -9,6 +9,7 @@ public sealed class CompactJsonGuidanceTests
 {
     [Theory]
     [InlineData("construction_discovery")]
+    [InlineData("construction_implementation")]
     [InlineData("construction_draft")]
     public void FreshIssuedRequestsIncludeSyntaxGuidanceBeforeIdentityWithoutChangingChoices(string purpose)
     {
@@ -29,6 +30,7 @@ public sealed class CompactJsonGuidanceTests
 
     [Theory]
     [InlineData("construction_draft", "draft")]
+    [InlineData("construction_implementation", "navigation")]
     public void StrictAdmissionOmitsOnlyOptionalSyntaxGuidanceAtTheExistingInputCeiling(string purpose, string phase)
     {
         var state = Session();
