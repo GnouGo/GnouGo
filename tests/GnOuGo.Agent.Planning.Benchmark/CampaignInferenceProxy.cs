@@ -10,8 +10,9 @@ internal sealed class CampaignInferenceProxy(WebApplication app) : IAsyncDisposa
     internal string Endpoint => app.Urls.Single() + "/inference";
     internal bool Ready { get; private set; }
     internal bool ExecutionEnabled { get; set; }
-    internal static async Task<CampaignInferenceProxy> StartAsync(KeyVaultBenchmarkModel model, string run)
+    internal static async Task<CampaignInferenceProxy> StartAsync(KeyVaultBenchmarkModel model, string run, string? chatToolsReasoningEffort = null)
     {
+        KeyVaultBenchmarkModel.ValidateSdkChatToolsReasoningEffort(chatToolsReasoningEffort);
         var builder = WebApplication.CreateBuilder(); builder.Configuration.Sources.Clear(); builder.Logging.ClearProviders();
         builder.WebHost.ConfigureKestrel(o => o.Listen(System.Net.IPAddress.Loopback, 0));
         var app = builder.Build(); var proxy = new CampaignInferenceProxy(app);
@@ -28,7 +29,7 @@ internal sealed class CampaignInferenceProxy(WebApplication app) : IAsyncDisposa
             var body = await reader.ReadToEndAsync(context.RequestAborted);
             try
             {
-                var result = await model.ProxyInferenceAsync(run, context.Request.Headers.ToDictionary(p => p.Key, p => p.Value.ToString(), StringComparer.OrdinalIgnoreCase), body, context.RequestAborted);
+                var result = await model.ProxyInferenceAsync(run, context.Request.Headers.ToDictionary(p => p.Key, p => p.Value.ToString(), StringComparer.OrdinalIgnoreCase), body, context.RequestAborted, chatToolsReasoningEffort);
                 context.Response.StatusCode = result.Status;
                 context.Response.ContentType = result.ContentType;
                 await context.Response.WriteAsync(result.Body, context.RequestAborted);

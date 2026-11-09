@@ -724,6 +724,51 @@ public sealed class BenchmarkAdmissionTests
         }
     }
 
+    [Theory]
+    [InlineData(null, 400)]
+    [InlineData("none", 200)]
+    public async Task CapturedSdkToolReasoningPreservesJournalAndNeverRetriesProviderRejection(string? effort, int expectedStatus)
+    {
+        using var fixture = new Fixture();
+        using var handler = new ToolReasoningHandler(); using var http = new HttpClient(handler);
+        using var model = RuntimeModel(fixture, RuntimeOptions(), http);
+        const string body = """{"model":"pinned","messages":[{"role":"user","content":"Inspect repository"}],"max_tokens":8192,"tools":[{"type":"function","function":{"name":"inspect","parameters":{"type":"object"}}}]}""";
+        Task<(int Status, string ContentType, string Body)> Invoke(string? selected) => model.ProxyInferenceAsync("runtime", new()
+        {
+            ["X-GnOuGo-Inference-Upstream"] = "https://example.invalid/v1/chat/completions",
+            ["X-GnOuGo-Inference-Request"] = "sdk-one"
+        }, body, Ct, selected);
+        var response = await Invoke(effort);
+        Assert.Equal(expectedStatus, response.Status); Assert.Equal(1, handler.Calls);
+        var journal = (await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, RuntimeId(true), Ct))!;
+        Assert.Equal(expectedStatus, Assert.Single(journal["transport"]!["Attempts"]!.AsArray())!["Status"]!.GetValue<int>());
+        var accounting = await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct);
+        Assert.Equal(expectedStatus == 200 ? 0m : .09m, accounting["reserved_cost_eur"]!.GetValue<decimal>());
+        var recovered = await Invoke(effort); // Exact cached HTTP error/success, no provider replay.
+        Assert.Equal(expectedStatus, recovered.Status); Assert.Equal(1, handler.Calls);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Invoke("high"));
+        Assert.Equal(1, handler.Calls);
+        Assert.Equal(journal.ToJsonString(), (await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, RuntimeId(true), Ct))!.ToJsonString());
+    }
+
+    private sealed class ToolReasoningHandler : HttpMessageHandler
+    {
+        internal int Calls;
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            Calls++;
+            var body = JsonNode.Parse(await request.Content!.ReadAsStringAsync(ct))!;
+            var compatible = body["reasoning_effort"]?.ToString() == "none";
+            return new(compatible ? System.Net.HttpStatusCode.OK : System.Net.HttpStatusCode.BadRequest)
+            {
+                Content = new StringContent(compatible
+                    ? """{"choices":[{"message":{"role":"assistant","content":"done"}}],"usage":{"prompt_tokens":10,"completion_tokens":2}}"""
+                    : """{"error":{"type":"invalid_request_error","param":"reasoning_effort","message":"Function tools require reasoning_effort none on this fixture route."}}""",
+                    System.Text.Encoding.UTF8, "application/json")
+            };
+        }
+    }
+
     private static LLMOptions RuntimeOptions()
     {
         var options = Options(); options.Models["fixture"].Url = "https://example.invalid/v1";

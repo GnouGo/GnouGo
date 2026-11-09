@@ -43,6 +43,10 @@ internal static class ServerLiveDiagnostics
         var browserObservationPolicy = args.Contains("--amazon-observed-redirects", StringComparer.Ordinal)
             ? AmazonObservedRedirectPolicy.Id : null;
         AmazonObservedRedirectPolicy.Validate(browserObservationPolicy, delegatedScenario ?? "");
+        var sdkChatToolsReasoningEffort = SchemaPortabilityCampaign.Option(args, "--sdk-chat-tools-reasoning");
+        KeyVaultBenchmarkModel.ValidateSdkChatToolsReasoningEffort(sdkChatToolsReasoningEffort);
+        if (sdkChatToolsReasoningEffort is not null && (retained || delegatedScenario != "code"))
+            throw new ArgumentException("SDK tool reasoning can be captured only for a fresh Code plan; retained runs use their original capture.");
         var fundingScope = await campaign.FreshAllocationAsync(CancellationToken.None);
         if (!retained && !mcpReadiness && await campaign.HasUncertainRequestAsync(CancellationToken.None))
             throw BenchmarkCampaign.AdmissionFailure("campaign_uncertain_request_requires_recovery");
@@ -155,6 +159,7 @@ internal static class ServerLiveDiagnostics
                 ["server"] = AssemblyEvidence(typeof(GnOuGoAgentWebHost).Assembly) },
             ["configuration_sources"] = model.ConfigurationSources.DeepClone(),
             ["server_model_source"] = app.Services.GetRequiredService<LLMRuntimeOptionsStore>().DefaultModelSource };
+        if (sdkChatToolsReasoningEffort is not null) report["sdk_chat_tools_reasoning_effort"] = sdkChatToolsReasoningEffort;
         if (fundingScope is not null) report["funding_scope"] = fundingScope.DeepClone();
         if (browserObservationPolicy is not null)
         {
@@ -752,7 +757,8 @@ internal static class ServerLiveDiagnostics
         else
         {
             model.CaptureTokenPolicy(state.Request);
-            await using var proxy = await CampaignInferenceProxy.StartAsync(model, state.Request.SessionId);
+            await using var proxy = await CampaignInferenceProxy.StartAsync(model, state.Request.SessionId,
+                report["sdk_chat_tools_reasoning_effort"]?.GetValue<string>());
             var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, scenario, proxy.Endpoint, "Release", sourceRoot, report["browser_observation_policy"]?.ToString());
             var builds = LiveWorkflowEvaluation.CaptureMcpBuilds(configurations, report["source"]!.ToString());
             if (!JsonNode.DeepEquals(builds, report["mcp_builds"])) throw new PlanningConflictException("The frozen execution tools changed after generation.");
@@ -815,7 +821,7 @@ internal static class ServerLiveDiagnostics
             if (i == 0) result.Add(value);
             else if (value.StartsWith("--", StringComparison.Ordinal))
             {
-                safeValue = value is "--schema-portability" or "--run" or "--case" or "--model" or "--campaign-configuration" or "--workspace" or "--campaign" or "--retained-external-reservations-eur" or "--server-phase-policy" or "--financial-forecast-mode";
+                safeValue = value is "--schema-portability" or "--run" or "--case" or "--model" or "--campaign-configuration" or "--workspace" or "--campaign" or "--retained-external-reservations-eur" or "--server-phase-policy" or "--financial-forecast-mode" or "--sdk-chat-tools-reasoning";
                 result.Add(safeValue ? value : "[unrecorded option]");
             }
             else { result.Add(safeValue ? value : "[withheld]"); safeValue = false; }

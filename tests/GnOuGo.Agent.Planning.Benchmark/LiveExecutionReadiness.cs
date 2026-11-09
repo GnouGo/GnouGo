@@ -17,6 +17,10 @@ internal static class LiveExecutionReadiness
     {
         var label = SchemaPortabilityCampaign.Option(args, "--run") ?? throw new ArgumentException("Supply a fresh --run.");
         if (label.Length > 80 || !label.All(c => char.IsAsciiLetterOrDigit(c) || c == '-')) throw new ArgumentException("Invalid run identity.");
+        var sdkChatToolsReasoningEffort = SchemaPortabilityCampaign.Option(args, "--sdk-chat-tools-reasoning");
+        KeyVaultBenchmarkModel.ValidateSdkChatToolsReasoningEffort(sdkChatToolsReasoningEffort);
+        model.RetainedExternalReservationsEur = decimal.Parse(
+            SchemaPortabilityCampaign.RequiredOption(args, "--retained-external-reservations-eur"), System.Globalization.CultureInfo.InvariantCulture);
         const string collection = "planning-copilot-probes";
         if (await campaign.LoadAsync(collection, label) is not null) throw new InvalidOperationException("Probe already retained; never replay an external invocation.");
         var directory = Path.Combine(root, "workflows", campaign.Id, label);
@@ -25,10 +29,12 @@ internal static class LiveExecutionReadiness
         var state = new JsonObject { ["source_sha"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD"), ["label"] = label,
             ["provider_hash"] = model.ConfigurationFingerprint, ["readiness"] = await model.ReadinessAsync(CancellationToken.None),
             ["accounting_before"] = await campaign.InspectAsync(), ["events"] = new JsonArray(), ["passed"] = false };
+        if (sdkChatToolsReasoningEffort is not null) state["sdk_chat_tools_reasoning_effort"] = sdkChatToolsReasoningEffort;
         await campaign.SaveAsync(collection, label, state);
         KeyVaultBenchmarkModel.RequireReady(state["readiness"]!.AsObject());
-        await using var proxy = await CampaignInferenceProxy.StartAsync(model, label);
-        var settings = LiveWorkflowEvaluation.Configuration(model.McpServers, "code", proxy.Endpoint);
+        await using var proxy = await CampaignInferenceProxy.StartAsync(model, label, sdkChatToolsReasoningEffort);
+        var settings = LiveWorkflowEvaluation.Configuration(model.McpServers, "code", proxy.Endpoint, "Release");
+        state["mcp_builds"] = LiveWorkflowEvaluation.CaptureMcpBuilds(settings, state["source_sha"]!.ToString());
         var human = new LiveWorkflowEvaluation.ConsoleHuman(campaign, label);
         // Expose only this producer; no Git or publication tools are connected.
         await using var transport = new ConfiguredMcpClientFactory(new Dictionary<string, GnOuGo.AI.Core.McpServerOptions>

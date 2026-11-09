@@ -1,14 +1,20 @@
 # Existing-campaign supplement and targeted convergence
 
-Current audited state [after Code17](continuation-300-state-after-code17.json):
-EUR 1,200 campaign ceiling, EUR 217.19535 available with every retained liability.
-Code and Amazon remain unqualified end to end. Full validation on 2e610242 found
-three return-navigation regressions; it is [recorded as failed](validation-2e610242-failed.json).
-The [corrected original-basis access](batch-original-basis-correction.json) passes
-all 2,931 planning tests, and the Copilot task clarification passes all 245 MCP tests.
-New full validation remains pending. The latest complete passing local snapshot is
-[8,548 passed on d52e07a0](validation-d52e.json). Earlier snapshots below remain historical.
+The [Code18 run](code18-global-review-and-sdk-rejection.json) reached global review,
+artifact-bound delegated approval and real isolated execution on source 402ca81c.
+Execution failed before any command observations: the provider rejected SDK Chat
+Completions function tools with medium reasoning (HTTP 400). Root cleanup succeeded;
+the unchanged oracle rejected the run. No external execution is replayed. The
+closed audit leaves EUR 180.567998208687863860277647288 available under the EUR 1,200
+ceiling, preserving both the unknown planning-attempt hold and the unpriced SDK
+rejection hold. Code and Amazon remain unqualified end to end.
 
+[Complete local validation on 402ca81c](validation-402ca81c.json) passed 8,560 tests,
+with 12 existing skips, zero failures and 33 assemblies, including all 216 slow local
+fixture cases exactly once. Frontend, warning-free Release build, independent packs
+and the published osx-arm64 AOT smoke passed. This is a disjoint complete solution
+partition. The earlier [three-regression snapshot](validation-2e610242-failed.json)
+remains failed and historical; the immutable pre-batch producer basis corrected it.
 
 The explicit authorization `pr120-supplement-20261108-400-01` increases only
 campaign `pr120-live-20261107-400` from EUR 400 to EUR 800. The existing leased

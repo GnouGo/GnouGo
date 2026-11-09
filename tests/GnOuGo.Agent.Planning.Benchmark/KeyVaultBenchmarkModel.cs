@@ -825,7 +825,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             ["reserved_output_tokens"] = pending * record["output_ceiling"]!.GetValue<long>(),
             ["reserved_cost_eur"] = pending * record["cost_ceiling_eur"]!.GetValue<decimal>() };
     }
-    internal async Task<(int Status, string ContentType, string Body)> ProxyInferenceAsync(string run, Dictionary<string, string> headers, string body, CancellationToken ct)
+    internal async Task<(int Status, string ContentType, string Body)> ProxyInferenceAsync(string run, Dictionary<string, string> headers, string body, CancellationToken ct, string? chatToolsReasoningEffort = null)
     {
         await _dispatchGate.WaitAsync(ct);
         try
@@ -836,7 +836,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                 !upstream.AbsolutePath.StartsWith(endpoint.AbsolutePath.TrimEnd('/') + "/", StringComparison.Ordinal))
                 throw new InvalidOperationException("Inference upstream is outside the pinned provider.");
             if (!headers.TryGetValue("X-GnOuGo-Inference-Request", out var sdkId) || string.IsNullOrWhiteSpace(sdkId)) throw new InvalidOperationException("Missing SDK request identity.");
-            var payload = PrepareProxyPayload(JsonNode.Parse(body)!.AsObject(), Model, upstream.AbsolutePath);
+            var payload = PrepareProxyPayload(JsonNode.Parse(body)!.AsObject(), Model, upstream.AbsolutePath, chatToolsReasoningEffort);
             body = payload.ToJsonString(new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
             var output = (payload["max_completion_tokens"] ?? payload["max_tokens"] ?? payload["max_output_tokens"])?.GetValue<int>();
             if (output is null || output <= 0 || output > 32768) throw new InvalidOperationException("Execution inference lacks a bounded output allowance.");
@@ -904,13 +904,14 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         }
         finally { _dispatchGate.Release(); }
     }
-    internal static JsonObject PrepareProxyPayload(JsonObject original, string model, string path)
+    internal static JsonObject PrepareProxyPayload(JsonObject original, string model, string path, string? chatToolsReasoningEffort = null)
     {
         if (original["model"]?.ToString() != model || original["n"] is { } n && n.GetValue<int>() != 1 ||
             original["previous_response_id"] is not null || original["conversation"] is not null || !TextOnly(original))
             throw new InvalidOperationException("Execution inference requires the pinned model, one completion and fully visible text input.");
         var responses = path.EndsWith("/responses", StringComparison.Ordinal);
         if (!responses && !path.EndsWith("/chat/completions", StringComparison.Ordinal)) throw new InvalidOperationException("Unsupported inference protocol.");
+        ValidateSdkChatToolsReasoningEffort(chatToolsReasoningEffort);
         var result = original.DeepClone().AsObject();
         var field = responses ? "max_output_tokens" : "max_completion_tokens";
         var requested = (result[field] ?? result["max_tokens"])?.GetValue<int>() ?? 32768;
@@ -919,7 +920,8 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         if (responses) { result["reasoning"] ??= new JsonObject(); result["reasoning"]!["effort"] = "medium"; }
         else
         {
-            result["reasoning_effort"] = "medium";
+            result["reasoning_effort"] = original["tools"] is JsonArray { Count: > 0 } && chatToolsReasoningEffort is not null
+                ? chatToolsReasoningEffort : "medium";
             if (result["stream"]?.GetValue<bool>() == true)
             { result["stream_options"] ??= new JsonObject(); result["stream_options"]!["include_usage"] = true; }
         }
@@ -932,6 +934,12 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             JsonArray items => items.All(TextOnly), _ => true
         };
     }
+    internal static void ValidateSdkChatToolsReasoningEffort(string? effort)
+    {
+        if (effort is not (null or "none" or "minimal" or "low" or "medium" or "high" or "xhigh" or "max"))
+            throw new ArgumentException("Invalid explicit SDK Chat Completions tool reasoning effort.");
+    }
+
     // GPT-5 uses o200k_base. Count the full visible JSON envelope with headroom
     // for chat framing; retain the larger byte-based reservation for EUR safety.
     internal static int ExecutionInputEstimate(string body) => checked((int)Math.Ceiling(ExecutionTokenizer.Value.CountTokens(body) * 1.25) + 4096);

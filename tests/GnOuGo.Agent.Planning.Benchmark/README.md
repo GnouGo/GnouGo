@@ -847,3 +847,21 @@ The campaign's existing cost and token ceilings must cover that hold. Canonical
 attempt identities prevent duplicate coverage. The preview hashes those journals;
 missing or settled evidence and uncovered liabilities reject it. The cancelled
 request's full external hold and all earlier campaign reservations remain intact.
+
+### Explicit SDK tool reasoning for fresh Server qualification
+
+`server-live-plan --case code --sdk-chat-tools-reasoning none` captures an explicit
+Chat Completions tool-call reasoning setting in the new run. The inference proxy
+applies it only when the SDK request actually contains tools. Text-only calls,
+Responses, planning phase reasoning, model, route, tools, input, output ceilings,
+permissions and retry policy retain their existing behavior. Omitting the option
+preserves the historical `medium` setting. This is a deliberate fresh experiment,
+not an automatic fallback after a provider rejection. Retained execution reads its
+original run capture; it cannot select a new value. The exact normalized wire
+request remains fingerprinted and journaled before dispatch.
+
+The existing disposable `copilot-probe` accepts the same option and records it.
+It requires source-bound Release MCP builds. Its command and persisted receipt
+checks establish only SDK prerequisites, never a successful code-review scenario.
+HTTP rejections without usage retain the full reservation, and neither changing
+this setting nor receiving an error permits replay of external execution.

@@ -1344,6 +1344,31 @@ public sealed class BenchmarkCampaignTests
             Assert.Throws<InvalidOperationException>(() => KeyVaultBenchmarkModel.PrepareProxyPayload(JsonNode.Parse(invalid)!.AsObject(), "pinned", path));
     }
     [Theory]
+    [InlineData("/v1/chat/completions", true, "none")]
+    [InlineData("/v1/chat/completions", false, "medium")]
+    [InlineData("/v1/responses", true, "medium")]
+    public void ExplicitSdkToolReasoningChangesOnlyTheSelectedChatToolField(string path, bool tools, string expected)
+    {
+        var original = JsonNode.Parse("""{"model":"pinned","messages":[{"role":"user","content":"Inspect repository"}],"max_tokens":8192,"reasoning_effort":"high"}""")!.AsObject();
+        if (tools) original["tools"] = JsonNode.Parse("""[{"type":"function","function":{"name":"inspect","parameters":{"type":"object"}}}]""");
+        var before = original.ToJsonString();
+        var legacy = KeyVaultBenchmarkModel.PrepareProxyPayload(original, "pinned", path);
+        var selected = KeyVaultBenchmarkModel.PrepareProxyPayload(original, "pinned", path, "none");
+        Assert.Equal(before, original.ToJsonString());
+        Assert.Equal(expected, (path.EndsWith("responses", StringComparison.Ordinal) ? selected["reasoning"]!["effort"] : selected["reasoning_effort"])!.ToString());
+        if (!path.EndsWith("responses", StringComparison.Ordinal) && tools) selected["reasoning_effort"] = "medium";
+        Assert.True(JsonNode.DeepEquals(legacy, selected));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("auto")]
+    [InlineData("none;ignore-policy")]
+    public void InvalidSdkToolReasoningIsRejectedBeforePayloadPreparation(string effort)
+        => Assert.Throws<ArgumentException>(() => KeyVaultBenchmarkModel.PrepareProxyPayload(
+            new JsonObject { ["model"] = "pinned" }, "pinned", "/v1/chat/completions", effort));
+
+    [Theory]
     [InlineData(400, true)]
     [InlineData(200, false)]
     [InlineData(null, false)]

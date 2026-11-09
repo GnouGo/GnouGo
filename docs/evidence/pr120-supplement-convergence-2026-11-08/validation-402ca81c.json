@@ -1,0 +1,66 @@
+{
+  "source": "402ca81c48c2c2b0877f4684623ff2360b51d82c",
+  "passed": 8560,
+  "skipped": 12,
+  "failed": 0,
+  "assemblies": 33,
+  "complete_disjoint_partition": true,
+  "inventory_and_actual_counts_equal": true,
+  "frozen_binaries_unchanged": true,
+  "shards": [
+    {
+      "index": 1,
+      "passed": 67
+    },
+    {
+      "index": 2,
+      "passed": 54
+    },
+    {
+      "index": 3,
+      "passed": 52
+    },
+    {
+      "index": 4,
+      "passed": 43
+    }
+  ],
+  "all_process_exit_codes_zero": true,
+  "release_build": {
+    "exit_code": 0,
+    "warnings": 0,
+    "errors": 0
+  },
+  "frontend_build": {
+    "exit_code": 0
+  },
+  "packs": {
+    "Core": "passed",
+    "Planning": "passed"
+  },
+  "native_aot": {
+    "rid": "osx-arm64",
+    "publish_exit_code": 0,
+    "published_binary_run_exit_code": 0,
+    "mocked_inference_not_live_qualification": true
+  },
+  "private_log_sha256": {
+    "post-task-full-remainder.log": "2cc7ace43bd39564eefae4135c45e9713f9e72869679f15b7868fb69a149b4ce",
+    "post-task-fixture-shard1.log": "5a7f6171cec29464dd2b8baf7e047610a88309dec610ed73fb4b8f89f65c2e9d",
+    "post-task-fixture-shard2.log": "424341a438062919bb6ce29a7d78f16989b17e7b5fd759a36813862a62d079b8",
+    "post-task-fixture-shard3.log": "69637d120e87255e96662a5dfed29b0426723d3a0d6a385998cf604163f9877f",
+    "post-task-fixture-shard4.log": "49c9ea5c68b2a91835933ab479845539886e8edbf66db62910d0c8f46a53a7a7",
+    "post-task-release-build.log": "60d6485450fd87bb0a45578e9df16a98eb3e0b90a23a43f576d8e1eeb67b50c1",
+    "post-task-server-tests-build.log": "8eacec5f3590a33e77335080a6f3ae8724d3a1e20357ebc8b5f220ed5f04071f",
+    "post-task-frontend-build.log": "a6fa5c09bf8fecffc59304da61453bf57b7db152ea9f6badd93d1ed8d8a47572",
+    "post-task-core-pack.log": "f725f34cc9365847b9ea8b14488a6f01b0222d15905bf4579abe814010c2e8fd",
+    "post-task-planning-pack.log": "1067ee327efa3ae0d89faacfc269e36c026c5d53d9f0e4b60d47e753619c5998",
+    "post-task-aot-publish.log": "07a96d8cd0f242f7d30e5aa970ca63dc52dfa3cec0a7c7312b8f8cd8bcda0d49",
+    "post-task-aot-smoke.log": "edc8240b4b899389171ba60244214018f192982c7e6c3e6a4d6f90effe0d8971"
+  },
+  "limitations": [
+    "12 existing platform/opt-in skips.",
+    "Complete disjoint solution coverage, not a single unfiltered invocation.",
+    "Local fixtures do not establish autonomous live end-to-end qualification."
+  ]
+}
