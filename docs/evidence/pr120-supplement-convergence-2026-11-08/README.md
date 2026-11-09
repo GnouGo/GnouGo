@@ -69,6 +69,15 @@ Frontend, Release build, independent packs and published osx-arm64 AOT smoke pas
 The [primary CI on 402ca81c](ci-402ca81c-success.json) also completed successfully;
 the newer source's CI remains pending.
 
+[Amazon10 completed global review and delegated approval](amazon10-global-review-and-document-boundary.json),
+then failed its initial actual browser GET at document-response ownership validation.
+Two GET200 observations retain the escaped query URL; the current document has a
+plus-encoded query address. No workbook or runtime model call followed. Root
+cleanup closed the browser and the unchanged v5 oracle rejected the execution.
+The precise document/history boundary is under controlled reproduction; no route
+permission or provenance check is bypassed. The closed balance afterward is EUR
+158.449574563367666815942671688, including every earlier and current hold.
+
 The explicit authorization `pr120-supplement-20261108-400-01` increases only
 campaign `pr120-live-20261107-400` from EUR 400 to EUR 800. The existing leased
 `extend-budget` operation was invoked once after checking that this reference
