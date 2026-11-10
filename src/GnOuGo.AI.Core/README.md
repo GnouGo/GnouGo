@@ -400,3 +400,24 @@ dotnet test tests/GnOuGo.AI.Core.Tests/GnOuGo.AI.Core.Tests.csproj
 | `CopilotEndpoints` / `OpenAiEndpoints` / `OllamaEndpoints` | URL helpers |
 
 Native generation transport is configurable as `Auto`, `Streaming` or `NonStreaming`, including exact deployment overrides. See [configuration, protocol completion and recovery](../../docs/native-provider-streaming.md).
+
+`NativeStreamingSocketTests` exercises the existing routing client, HTTP factory,
+native SSE reader and file-journal recovery over a real loopback HTTP/1.1 socket.
+Its controls distinguish HTTP EOF, a peer socket reset, missing `[DONE]` with
+known usage, the captured deadline, and a complete response after a silent gap.
+Every case runs normally in the existing Core test suite. To investigate a
+five-minute idle boundary without calling a provider:
+
+```sh
+GNOU_GO_NATIVE_STREAM_IDLE_SECONDS=310 dotnet test tests/GnOuGo.AI.Core.Tests \
+  -m:1 -warnaserror --filter FullyQualifiedName~NativeStreamingSocketTests \
+  --logger 'trx;LogFileName=native-socket-idle.trx'
+```
+
+Only the complete-response fixture uses the optional 1–450 second interval;
+the production client retains its 600-second deadline and existing five-minute
+connection-pool lifetime. TRX output includes the synthetic journal, observed
+HTTP version and timestamps. This controlled transport reproduction uses no
+KeyVault deployment, campaign funds, model inference, workflow execution or
+old session. A passing result excludes that local idle-cutoff hypothesis under
+the tested conditions; it does not establish delivery through a remote gateway.
