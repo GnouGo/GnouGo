@@ -1,0 +1,46 @@
+{
+  "base_head": "95aafb46a242ebc1f00e13ba2347a84016505512",
+  "run": "representative-read-end-20261111-01",
+  "campaign": "pr120-live-20261107-400",
+  "configuration": "5341dae8fc9343a598475ca873ea5abdd917d6412118f91d028256436766d3c3",
+  "source_request": "04e9a197fd54468cba3d44f84cd0e5e3:32:7f18e79e3266b08c28c355c94e335d9a6f34929ffc8f4d9257a978bb6d6cbf79:d3f25c9b4098f4f45be3ccb6394a9e6e2b19e91a38ab46f8408ce663b1164717",
+  "seed_protocol_complete": true,
+  "seed_termination": "stop",
+  "seed_usage_known": true,
+  "hypothesis": "The unchanged native Chat strict-schema route can deliver a complete representative request; if incomplete, existing read-end metadata distinguishes EOF, network exception and local cancellation. It cannot identify the closing hop.",
+  "physical_attempt_limit": 1,
+  "applies_candidate": false,
+  "executes_business_tools": false,
+  "profile": {
+    "provider": "OpenAi",
+    "model": "gpt-6.1-sol-2026-09-29",
+    "reasoning": "low",
+    "output_tokens": 32768,
+    "strict_schema": true,
+    "streaming": true
+  },
+  "decisions": {
+    "complete": "Require useful schema-valid content, native completion, usage and cold-reloaded receipt; then admit a fresh Code qualification under the same authorized profile. This does not explain historical failures.",
+    "incomplete_eof": "Retain the unresolved reservation, no partial application or repeat; ask route owner to correlate framing/closure.",
+    "network_exception": "Retain reservation; report safe exception and timing, without assigning the closing hop.",
+    "local_cancellation": "Use recorded source/deadline to establish or reject a local cause before any fix.",
+    "output_limit_or_invalid_schema": "Separate protocol delivery from unusable result; no partial application or full Code qualification.",
+    "admission_failure": "No inference; preserve exact refusal and continue independent Amazon analysis."
+  },
+  "financial_basis": {
+    "ceiling_eur": "1700",
+    "known_cost_eur": "777.4010837438423645320197124",
+    "reserved_eur": "399.73042543663233318405732216",
+    "retained_application_eur": "59.555978487450312513390730382",
+    "campaign_remainder_after_retained_holds_eur": "463.312512332074989770532235018",
+    "global_funding_not_established_by_campaign_only_audit": true
+  },
+  "private_evidence_hashes": {
+    "initial-audit.json": "f8456adae1c3abf2f74f22d76430004739527bcfbc83e3eb48f108abb609d4d5",
+    "deployment.json": "6186e3e6606b2f3e8b0a0d95c46af7fd0fa9b1fbf14c25558521f7f060989108",
+    "seed-request.json": "8d2fbbe2242db9abf910ad59af0c83aded3ca1844dfc06d20448586df1a4826c",
+    "seed-receipt.json": "ba64f8cb2652c3c478b4b75418a8489a71b4a008c7a6c7c0a8552b78d2ab842f",
+    "seed-http.json": "adde836fd0abdd86401d5324ad6df51192f534b74387cbe17af824caa46d9268"
+  },
+  "paid_dispatches_at_publication": 0
+}
