@@ -258,11 +258,21 @@ public sealed partial class HybridWorkflowPlanner
             admission.Construction.Requirements = admission.Requirements!.Outcomes.Select(r => new PlanningConstructionRequirement { Id = r.Id }).ToList();
         if (repair && previous is not null && proposal.Extension!.Scope != previous.Extension.Scope)
             PlanningConstruction.Fail("REVISION_SCOPE_CHANGED", "/extension/scope", "Correction cannot move the tentative extension to another scope.");
-        var next = PlanningConstruction.Apply(admission, proposal.Extension!);
-        PlanningCompactConstruction.StageCommitments(admission, proposal.Commitments, next);
-        var extensionFindings = PlanningCompactConstruction.ExtensionFindings(admission, next);
-        if (extensionFindings.Any(finding => !PlanningConstruction.Owns(next, finding.Location)))
-            throw new PlanningResponseException(extensionFindings.ToList());
+        PlanningConstructionCandidate next;
+        try
+        {
+            next = PlanningConstruction.Apply(admission, proposal.Extension!);
+            PlanningCompactConstruction.StageCommitments(admission, proposal.Commitments, next);
+            var extensionFindings = PlanningCompactConstruction.ExtensionFindings(admission, next);
+            if (extensionFindings.Any(finding => !PlanningConstruction.Owns(next, finding.Location)))
+                throw new PlanningResponseException(extensionFindings.ToList());
+        }
+        finally
+        {
+            // Observations survive even a rejected transition; they grant no
+            // authority to publish staged commitments or accept the fragment.
+            foreach (var warning in admission.ThresholdWarnings ?? []) PlanningOptimizationThresholds.Add(state, warning);
+        }
         if (state.Request.Mode == PlanningMode.Auto)
         {
             foreach (var choice in next.Plan.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;

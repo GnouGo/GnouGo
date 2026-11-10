@@ -194,6 +194,28 @@ public sealed class TentativeContinuationRepairTests
         Assert.Equal(commitments, JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession)!["construction"]!["compact"]!["pendingCommitments"]!.ToJsonString());
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task StagedWarningsRemainJournaledWithoutGrantingEnvelopeAuthority(bool rejected)
+    {
+        var (state, runtime) = await Ready(advisory: true);
+        var extension = Extension();
+        extension.CompleteBlock = rejected;
+        extension.Tasks[0].Body!.Tasks.AddRange(Enumerable.Range(0, 6).Select(index => new PlanTask
+        {
+            Id = "additional_" + index, Kind = "value", Objective = "Retain another local value.",
+            Outputs = [new("number", new() { Kind = "number", Number = index })]
+        }));
+        runtime.Respond = (request, _) => Draft(request, extension);
+        state = await Advance(state, runtime);
+        Assert.Contains(state.ThresholdWarnings ?? [], warning => warning.Stage == "fragment" &&
+            warning.Kind == "recursive_tasks" && warning.Current == 10 && warning.Threshold == 8);
+        Assert.Equal(rejected, state.Construction!.Candidate is null);
+        Assert.Single(state.Construction.Checkpoints);
+        Assert.Null(state.ApprovedHash);
+    }
+
     [Fact]
     public async Task RepairedConsumerCannotReferenceAnUnavailableProducerOrUseAStaleBaseline()
     {
@@ -276,9 +298,9 @@ public sealed class TentativeContinuationRepairTests
         Assert.InRange(finding.Message.Length, 1, 1_024);
     }
 
-    private static async Task<(PlanningSession, TestRuntime)> Ready()
+    private static async Task<(PlanningSession, TestRuntime)> Ready(bool advisory = false)
     {
-        var (state, runtime) = await BusinessReviewProtocolTests.Ready();
+        var (state, runtime) = await BusinessReviewProtocolTests.Ready(advisoryOptimization: advisory);
         const string obligation = "Write the header and every prepared row to a table, preserving order, duplicates and nullable cells.";
         state.Request.Prompt = obligation;
         state.Requirements = new()

@@ -288,7 +288,9 @@ probe stay attached to that fragment when their locations belong to its owned wo
 they do not discard the rejected values or force a whole-fragment regeneration.
 Stage commitments and continuation metadata on a clone, then publish the tentative
 transition together. Structural/authority failures leave prior commitments and
-accepted checkpoints unchanged. The existing typed repair slots define permissible
+accepted checkpoints unchanged. Advisory warnings observed on the staging clone
+remain journaled even when its envelope is rejected; they grant no admission or
+repair authority. The existing typed repair slots define permissible
 edits; a finding outside the fragment does not grant edits to accepted producers.
 Invalid compiler results still publish no interfaces. Corrected candidates undergo
 the same continuation, complete technical and business validation before acceptance.
