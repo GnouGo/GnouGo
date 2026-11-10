@@ -32,6 +32,10 @@ internal static class SchemaPortabilityCampaign
     public static async Task RunAsync(string[] args)
     {
         var phase = args.ElementAtOrDefault(1) ?? "inspect";
+        // Prove the response channel before creating a live run or admitting paid work.
+        // Echoing this challenge grants no approval for later external operations.
+        if (ServerLiveDiagnostics.RequiresInteraction(args))
+            await LiveWorkflowEvaluation.RequireConsolePreflightAsync();
         var root = Path.GetFullPath(Option(args, "--workspace") ?? GnOuGoWorkspace.ResolveDefaultWorkingDirectory());
         var records = KeyVaultBenchmarkModel.WorkspaceRecords(root);
         var campaignId = Option(args, "--campaign") ?? throw new ArgumentException("Supply a new --campaign.");

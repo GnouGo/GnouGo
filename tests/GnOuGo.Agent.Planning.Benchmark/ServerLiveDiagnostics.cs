@@ -29,6 +29,10 @@ using Microsoft.EntityFrameworkCore;
 // No credentials or bootstrap links are exported. The campaign lease is held by the caller.
 internal static class ServerLiveDiagnostics
 {
+    internal static bool RequiresInteraction(string[] args)
+        => args.ElementAtOrDefault(1) == "server-live-execute" ||
+            args.ElementAtOrDefault(1) == "server-live-plan" && args.Contains("--await-delegated-review", StringComparer.Ordinal);
+
     internal static async Task RunAsync(string[] args, BenchmarkCampaign campaign, KeyVaultBenchmarkModel model, string workspace)
     {
         var run = SchemaPortabilityCampaign.RequiredOption(args, "--run");

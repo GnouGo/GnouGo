@@ -594,6 +594,13 @@ authorization serialization/hashes. It must stay under this campaign's workspace
 External artifact gates and individual invocation permissions still require the
 existing bounded interactive answers: run execution with a real TTY and respond only
 after inspecting the exact operation and destination. No permission is pregranted.
+`server-live-plan --await-delegated-review` and `server-live-execute` exchange the
+existing non-authorizing interaction challenge before opening the campaign store,
+creating a run, or admitting paid work. A closed stdin fails this preflight. Use a
+real TTY throughout execution; a successful initial echo does not guarantee later
+channel availability. Planning-only, inspection and provider probes do not require
+an execution interaction channel. Losing that channel during an external invocation
+still requires reconciliation; preflight never authorizes replay or cleanup.
 `server-live-mcp-readiness --mcp-server <exact-configured-name> --run <fresh-id>`
 uses the actual Server runtime factory to list tool metadata with background planning
 disabled. It records the configured launch, existence check and redacted exception/

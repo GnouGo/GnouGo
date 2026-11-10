@@ -208,6 +208,20 @@ public sealed class DelegatedTestReviewTests
     }
 
     [Theory]
+    [InlineData("server-live-plan", true, true)]
+    [InlineData("server-live-plan", false, false)]
+    [InlineData("server-live-execute", false, true)]
+    [InlineData("server-live-inspect", true, false)]
+    [InlineData("server-live-revalidate", true, false)]
+    [InlineData("server-live-probe", true, false)]
+    [InlineData("server-live-mcp-readiness", true, false)]
+    public void ServerLiveInteractionIsRequiredBeforePlanningWithExecutionOrExecution(string phase, bool awaitReview, bool expected)
+    {
+        string[] args = awaitReview ? ["--schema-portability", phase, "--await-delegated-review"] : ["--schema-portability", phase];
+        Assert.Equal(expected, ServerLiveDiagnostics.RequiresInteraction(args));
+    }
+
+    [Theory]
     [InlineData("")]
     [InlineData("{\"response\":true}")]
     [InlineData("{\"interaction_preflight\":\"stale\"}")]

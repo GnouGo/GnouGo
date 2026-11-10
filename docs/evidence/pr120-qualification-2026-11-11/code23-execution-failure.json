@@ -1,0 +1,86 @@
+{
+  "run": "code-qualification-20261111-23",
+  "session_id": "d66123a26d774153918479aca533d7d0",
+  "source": "ecdf098ab29a320d7985ae603dbe02739237c39d",
+  "profile_changed": false,
+  "first_checkpoint_evidence": "code23-first-checkpoint.json",
+  "global_review": {
+    "accepted": true,
+    "calls": 42,
+    "native_complete_http_attempts": 42,
+    "elapsed_from_start_seconds": 1688.552343,
+    "summed_http_seconds": 1446.779634,
+    "measured_usage_tariff_estimate_eur": "22.090344827586206896551724151",
+    "artifact_hash": "725650682b3420697a2a204b2df477037a1baa91d05d690add772d7603e68494"
+  },
+  "execution": {
+    "started_utc": "2026-11-10T23:45:01.046316+00:00",
+    "approval_origin": "delegated_test_reviewed",
+    "clone_completed": true,
+    "verified_commands": 0,
+    "success": false,
+    "error": {
+      "Code": "RUN_NEEDS_RECONCILIATION",
+      "Type": "RUN_NEEDS_RECONCILIATION",
+      "Message": "An external invocation has no verified completion receipt. Reconcile it before resuming or running cleanup. [workflow 'main', step 'n_dd9ad95243918f83']",
+      "Retryable": false,
+      "Details": {
+        "invocation_id": "/workflow/main/step/n_dd9ad95243918f83",
+        "failed_workflow": "main",
+        "failed_step_id": "n_dd9ad95243918f83",
+        "failed_step_type": "mcp.call",
+        "execution_phase": "step",
+        "cleanup_blocked": true,
+        "unresolved_invocation_ids": [
+          "/workflow/main/step/n_dd9ad95243918f83"
+        ]
+      }
+    },
+    "first_cause": "The launcher inherited closed stdin. The first permission prompt reached Console.ReadLine EOF. No permission answer was retained.",
+    "sdk_task_id": "cd836a4b013245b990f989fa27f14e55",
+    "sdk_session_id": "1e18c5c3-a460-4220-be98-787206ac8ab1",
+    "sdk_task_status": "cancelled",
+    "sdk_operation_phase": "reconciliation_required",
+    "completion_verified": false,
+    "termination": "cancelled_unverified",
+    "sdk_calls": 1,
+    "sdk_measured_usage_tariff_estimate_eur": "0.3965965069413345275414240931",
+    "replayed": false,
+    "cleanup_blocked": true,
+    "clone_preserved": true
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "repository_not_cleaned_by_workflow",
+      "local_review_missing",
+      "no_independent_command_completion_evidence",
+      "repository_required_checks_not_independently_verified"
+    ]
+  },
+  "financial_audit": {
+    "ceiling_eur": "1700",
+    "known_cost_eur": "800.6315091804746977160770366",
+    "uncertain_reservations_eur": "399.73042543663233318405732216",
+    "retained_application_reservations_eur": "59.555978487450312513390730382",
+    "campaign_remainder_eur": "440.0820868954426565864749108",
+    "unknown_attempts": 47,
+    "global_available_funding": null,
+    "funding_changed": false
+  },
+  "correction": "Reuse the existing non-authorizing interaction challenge before campaign access for Server planning with delegated execution and Server execute. Preserve individual permissions and all replay barriers.",
+  "proof_limits": [
+    "A complete accepted plan is not an executed workflow.",
+    "A cancelled MCP task with reconciliation_required is not verified quiescence.",
+    "The preserved clone must not be deleted and the old invocation must not be replayed without exact reconciliation.",
+    "A fresh independent run remains subject to normal admission and its own isolated workspace."
+  ],
+  "private_artifact_sha256": {
+    "code23-final-run.json": "fc52a92b4f32681b4683157ad9edda15f7050c2bbfa3d87e0fd643dd888f1c94",
+    "code23-final-http.json": "9bd694c09c87d460109c8ce6018cb6c4d09d00cbc665d534cb80ef4bef7cd09f",
+    "code23-final-receipts.json": "de72e2e807c15e2f66746b6959d3f684fb2eb990edc0ca0644e8fb6ae0186caf",
+    "code23-copilot-task.json": "88410b2d40d473189f4c98b8cb58fff232882d7c511c7c2a60ace64ace716eae",
+    "after-code23-audit.json": "28a758a6aa81b05ee3ee14001dd99e1d1109f9f65a4fe0b421430dd6809bae71"
+  }
+}
