@@ -989,3 +989,19 @@ coverage manifest are retained in `server-test-diagnostics`. A cancelled or time
 job is not a pass. This orchestration changes no runtime, live request timeout,
 permission or budget. Run `python3 .github/scripts/test_server_partitions.py` from
 the repository root after preparing the frontend and Chromium as in the workflow.
+
+### Inactive Amazon source-resolution proposal
+
+`amazon-source-resolution-v8-proposal` is an offline evidence verifier, not a
+selectable campaign oracle or navigation policy. It retains every sponsored link
+without a verified source identity and checks ordered, exact source-to-destination
+redirect evidence. The proposed route delta is limited to Amazon.fr
+`/stores/page/{UUID}` destinations. Advertising query hints are never navigation
+targets or classification proof. Even complete resolution evidence does not
+qualify source occurrences, activate v8, or establish business completion.
+
+The [retained-source analysis and exact proposed authorization](../../docs/evidence/pr120-qualification-2026-11-11/amazon-proposal.md)
+map v7 checks to original obligations and document the 17 unresolved links. V3/v7
+remain active. New route contact and a source-only host capture require explicit
+approval; a full Amazon workflow still requires a qualified actual-profile source
+and the independent business oracle.

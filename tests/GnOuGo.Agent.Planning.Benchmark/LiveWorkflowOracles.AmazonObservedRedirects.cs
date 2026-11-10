@@ -143,18 +143,21 @@ internal static partial class LiveWorkflowOracles
     }
 
     internal static bool ValidNavigationEvidence(JsonObject read, string policy = AmazonObservedRedirectPolicy.Id)
+        => ValidNavigationEvidence(read, value => AmazonObservedRedirectPolicy.Allows(value, policy));
+
+    private static bool ValidNavigationEvidence(JsonObject read, Func<string, bool> allows)
     {
         var result = read["result"];
         if (result?["success"]?.GetValue<bool>() != true || result["navigationEvidence"] is not JsonObject evidence ||
             evidence["complete"]?.GetValue<bool>() != true || evidence["requestedUrl"]?.ToString() != read["arguments"]?["url"]?.ToString() ||
             (evidence["documentUrl"] ?? evidence["finalUrl"])?.ToString() != result["url"]?.ToString() ||
-            !AmazonObservedRedirectPolicy.Allows(result["url"]?.ToString() ?? "", policy) ||
+            !allows(result["url"]?.ToString() ?? "") ||
             evidence["hops"] is not JsonArray hops || hops.Count is < 1 or > 21) return false;
         var seen = new HashSet<string>(StringComparer.Ordinal); var expected = evidence["requestedUrl"]!.ToString();
         for (var index = 0; index < hops.Count; index++)
         {
             var hop = hops[index]; var url = hop?["url"]?.ToString();
-            if (url is null || url != expected || !AmazonObservedRedirectPolicy.Allows(url, policy) || !seen.Add(url) || hop?["method"]?.ToString() != "GET" ||
+            if (url is null || url != expected || !allows(url) || !seen.Add(url) || hop?["method"]?.ToString() != "GET" ||
                 hop["statusCode"] is not JsonValue status || !status.TryGetValue<int>(out var code)) return false;
             if (index == hops.Count - 1)
                 return code is >= 200 and < 300 && hop["location"] is null && evidence["finalUrl"]?.ToString() == url;

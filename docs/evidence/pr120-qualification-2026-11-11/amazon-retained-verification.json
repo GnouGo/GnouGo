@@ -1,0 +1,130 @@
+{
+  "proposal": {
+    "version": "amazon-source-resolution-v8-proposal",
+    "active": false,
+    "resolution_evidence_complete": false,
+    "source_prerequisite_qualified": false,
+    "business_oracle_passed": false,
+    "findings": [
+      "source_resolutions_incomplete"
+    ],
+    "resolutions": [
+      {
+        "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:58",
+        "destination_kind": "indeterminate",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:59",
+        "destination_kind": "indeterminate",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:60",
+        "destination_kind": "indeterminate",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:63",
+        "destination_kind": "indeterminate",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:394",
+        "destination_kind": "indeterminate",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:395",
+        "destination_kind": "indeterminate",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:396",
+        "destination_kind": "indeterminate",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:401",
+        "destination_kind": "indeterminate",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:1213",
+        "destination_kind": "indeterminate",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:1214",
+        "destination_kind": "indeterminate",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:1215",
+        "destination_kind": "indeterminate",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:1216",
+        "destination_kind": "indeterminate",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:1217",
+        "destination_kind": "indeterminate",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:1218",
+        "destination_kind": "indeterminate",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:1219",
+        "destination_kind": "indeterminate",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:1220",
+        "destination_kind": "indeterminate",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:1221",
+        "destination_kind": "indeterminate",
+        "product_identity": null,
+        "occurrence_verified": false
+      }
+    ]
+  },
+  "kind": "read-only actual-source inspection; no workflow execution or generation",
+  "selection_evidence": {
+    "version": "amazon-business-v7",
+    "passed": false,
+    "expected_product_count": 3,
+    "visited_product_count": 0,
+    "findings": [
+      "search_product_context_unverified",
+      "first_product_visits_incomplete"
+    ]
+  },
+  "eligible_observed_redirect_entries": 0,
+  "source_record_count": 1527,
+  "capture_truncated": false
+}
