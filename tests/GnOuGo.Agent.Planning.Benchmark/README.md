@@ -970,3 +970,10 @@ one. It records the fresh identity and added bytes and cannot execute, resume or
 approve the source session. Choose only this presentation factor for that probe;
 ordinary campaign admission, financial holds and the independent full workflow
 oracle remain mandatory.
+
+Planner CI runs the complete, unfiltered Server test assembly with per-test console
+progress and a TRX result. Its five-minute per-test hang diagnostic terminates a
+stalled test host and retains the blame sequence, with memory dumps disabled.
+The existing fixture cases remain included. A cancelled or timed-out CI job is
+not a pass; inspect its exact active test before changing implementation or
+execution policy. This CI diagnostic changes no live request timeout or budget.

@@ -73,7 +73,16 @@ jobs:
           dotnet test tests/GnOuGo.GithubCopilot.Core.Tests -m:1 -warnaserror
           dotnet test tests/GnOuGo.GithubCopilot.Mcp.Tests -m:1 -warnaserror
           dotnet test tests/GnOuGo.Flow.Tests/GnOuGo.Flow.Tests.csproj -m:1 -warnaserror
-          dotnet test tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj -m:1 -warnaserror /p:SkipClientBuild=true
+          dotnet test tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj -m:1 -warnaserror /p:SkipClientBuild=true --logger "console;verbosity=normal" --logger "trx;LogFileName=server.trx" --results-directory artifacts/server-tests --blame-hang-timeout 5m --blame-hang-dump-type none
+      - name: Retain Server test progress and hang diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: server-test-diagnostics
+          path: |
+            artifacts/server-tests/**/*.trx
+            artifacts/server-tests/**/*_Sequence.xml
+          if-no-files-found: ignore
       - name: Pack independently publishable Flow libraries
         run: |
           for component in Core Planning Integrations Copilot Persistence; do
