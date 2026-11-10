@@ -5,7 +5,9 @@
 Session `a4f2be1d43ea4fa98254ea9e4704203a`, trace
 `b490faff6d8a1e5b32ab289f3060319b`, stopped at revision 30 during its
 first draft (logical call 9, `block_1` / `step_1`, zero checkpoints).
-This is distinct from the earlier tentative matrix-repair incident.
+This is distinct from the earlier tentative matrix-repair incident. The Desktop
+runtime build identity is unavailable in the inspected records; the source
+investigation began at `ea8de646`.
 
 The captured Diagnostic policy did allow input/cumulative targets to warn.
 The separately captured draft allocation remained **8,192 output tokens**.
@@ -15,7 +17,9 @@ The response contains an unfinished JSON prefix followed by **24,202 trailing
 whitespace characters** (27,811 raw characters; 3,609 after normalization).
 Character counts do not establish the number of tokens charged for whitespace.
 The retained raw HTTP/assembled evidence preserves this tail; normalization does
-not discard that evidence. No fragment can be accepted from this response.
+not discard that evidence. Independent concatenation of all 7,864 native SSE
+events (zero parse errors) exactly matches the raw retained content, including
+the whitespace tail. The client assembler did not introduce the padding. No fragment can be accepted from this response.
 
 The timeline displays the occurrence's start at **22:09:24Z** and its 133.0-second
 duration. The actual blocked event was **22:11:37.786510Z**. Physical HTTP ran from
@@ -62,10 +66,25 @@ usage, exact captures and stopped state survive recovery without another dispatc
 The fixture model handler now carries its synthetic output-limit outcome onto the
 HTTP response as `length` rather than incorrectly forcing `stop`.
 
-Focused validation: **55 passed**, including inspector, policy and new regressions,
-with `-warnaserror`. Full local validation results are recorded separately after
-the source is frozen. These checks use controlled models; they establish no fresh
-live accepted plan, execution or independent business-oracle qualification.
+Implementation commit: `d9038a53855138a09b84fd0e8638cebb28fd66de`.
+The [validation record](validation.json) binds the frozen source and log hashes:
+
+- Focused tests: **55 passed** with `-warnaserror`.
+- Shared solution excluding Server: **6,696 passed, 12 existing skips** across
+  32 projects, including all **2,967 planning tests**.
+- Full Server inventory: **2,073 passed, one existing skip**, with exact coverage
+  of all 2,074 discovered cases and unchanged binaries. All 217 workbook cases pass.
+- Aggregate: **8,769 passed, 13 existing skips, zero failures**. Focused reruns are
+  not added again. Skips are seven Windows command cases, five opt-in live Copilot
+  cases and the existing Designer clarification browser case.
+- Full solution build, including Desktop: **zero warnings, zero errors**, with
+  `-warnaserror`. Agent.Server frontend production build also passes; the package
+  declares no separate test, lint or type-check scripts. Razor interactions and
+  existing browser flows are covered by the Server suite.
+
+These checks use controlled models; they establish no fresh live accepted plan,
+execution or independent business-oracle qualification. No native Desktop window
+was driven and no deployment or push was performed.
 
 [Diagnosis](diagnosis.json) binds identifiers, timestamps and private evidence
 hashes. Read-only public encrypted-record/compiled-EF inspection confirmed the
@@ -78,8 +97,9 @@ changes occurred. Full original workflow qualification remains outstanding.
 The [route-owner message](route-owner-message.md) is prepared and **not sent**.
 The owner must correlate the provider ID with routing and constrained-decoding logs
 and identify where the whitespace repetition originates. A discriminating test
-compares the reduced recursive schema with a semantically equivalent unhoisted
-schema using the same authorized route/model/settings. This test has not been run
+compares the reduced recursive schema with the same grammar after inlining
+nonrecursive shared definitions while retaining recursive references, using the
+same authorized route/model/settings. This test has not been run
 against the real route. Each paid variant requires separate admission and identity.
 Complete, representative schema-valid output through the actual route is the
 prerequisite for a fresh full planning attempt. Full success additionally requires

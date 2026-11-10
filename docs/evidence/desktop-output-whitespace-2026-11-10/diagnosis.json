@@ -49,5 +49,17 @@
     "exact.call9.request.json": "5621f71df985c0f3d3264d523d26df3999e3d15fdf1d8dedffad32955918679c",
     "exact.call9.http.json": "fec365ca5eabe8fd2f2ef6710eef623a03e567291820f382f398b78b86f891ed",
     "exact.session.json": "9fa2a2677c5599a99a487fbbb94d65c9f77986c809db87383b978bbe767bdd47"
-  }
+  },
+  "native_stream_cross_check": {
+    "native_events": 7864,
+    "native_parse_errors": 0,
+    "native_content_characters": 27811,
+    "native_trailing_whitespace_characters": 24202,
+    "native_finish_reasons": [
+      "length"
+    ],
+    "native_content_equals_retained_raw_content": true,
+    "native_delta_content_sha256": "696377fa6533d820f0dded95007a53c2540374f5121bde8e0e436a98e84c16fa"
+  },
+  "runtime_build_identity": "unavailable_in_inspected_records"
 }

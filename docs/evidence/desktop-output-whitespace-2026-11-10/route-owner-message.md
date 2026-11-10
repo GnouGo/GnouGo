@@ -11,7 +11,9 @@ KeyVault `OpenAi` Chat Completions route, model `gpt-6.1-sol-2026-09-29`.
   Output allocation/usage 8,192; reasoning 320; input 11,280.
 - Strict `json_schema` was transmitted. Raw content has a 3,609-character
   unfinished JSON prefix followed by 24,202 whitespace characters. Compact JSON
-  and no-padding guidance was already present. No retry occurred.
+  and no-padding guidance was already present. No retry occurred. Independent
+  concatenation of 7,864 native SSE events exactly reproduces the retained text
+  and its whitespace tail; the client assembler did not create it.
 - Local validation accepts a manually completed suffix under both the exact
   issued and on-wire schemas. That witness was never accepted as model output.
 
@@ -23,7 +25,8 @@ any intermediary? Where was `length` generated?
 Suggested discriminating test, through this **same authorized route**: emit the
 generic nested array/object/nullable type in `nested-type-reproduction.json`
 under strict structured output, first with its retained recursive `$defs`, then
-with a semantically equivalent unhoisted schema. Keep model, reasoning, transport
+with nonrecursive shared definitions inlined (preserve recursive references and
+the accepted language). Keep model, reasoning, transport
 and output allowance fixed; preserve each exact request/response with separate
 identities and reservations. Capture decoder diagnostics and native deltas to
 locate the first divergence. This is a proposed test, not evidence of an executed
