@@ -977,9 +977,15 @@ approve the source session. Choose only this presentation factor for that probe;
 ordinary campaign admission, financial holds and the independent full workflow
 oracle remain mandatory.
 
-Planner CI runs the complete, unfiltered Server test assembly with per-test console
-progress and a TRX result. Its five-minute per-test hang diagnostic terminates a
-stalled test host and retains the blame sequence, with memory dumps disabled.
-The existing fixture cases remain included. A cancelled or timed-out CI job is
-not a pass; inspect its exact active test before changing implementation or
-execution policy. This CI diagnostic changes no live request timeout or budget.
+Planner CI builds Server tests once, discovers the complete unfiltered inventory,
+and runs the ordinary remainder in one process followed by four disjoint workbook
+fixture partitions in parallel. The existing fixture isolation and all cases remain
+mandatory. Exact method filters keep theory rows together. The runner independently
+compares every full TRX case name against discovery, rejects omissions, duplicates,
+failures and unexpected skips, and verifies that staged managed binaries did not
+change. Only the existing platform-dependent clarification-browser skip is accepted.
+Per-test console progress, TRX, a five-minute no-dump hang diagnostic and the exact
+coverage manifest are retained in `server-test-diagnostics`. A cancelled or timed-out
+job is not a pass. This orchestration changes no runtime, live request timeout,
+permission or budget. Run `python3 .github/scripts/test_server_partitions.py` from
+the repository root after preparing the frontend and Chromium as in the workflow.

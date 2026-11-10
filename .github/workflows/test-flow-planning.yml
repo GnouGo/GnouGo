@@ -24,6 +24,7 @@ on:
       - 'tests/GnOuGo.Agent.Server.Tests/**'
       - 'tests/GnOuGo.Agent.Planning.Benchmark/**'
       - '.github/workflows/test-flow-planning.yml'
+      - '.github/scripts/test_server_partitions*.py'
       - 'GnOuGo.Agent.sln'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -73,7 +74,8 @@ jobs:
           dotnet test tests/GnOuGo.GithubCopilot.Core.Tests -m:1 -warnaserror
           dotnet test tests/GnOuGo.GithubCopilot.Mcp.Tests -m:1 -warnaserror
           dotnet test tests/GnOuGo.Flow.Tests/GnOuGo.Flow.Tests.csproj -m:1 -warnaserror
-          dotnet test tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj -m:1 -warnaserror /p:SkipClientBuild=true --logger "console;verbosity=normal" --logger "trx;LogFileName=server.trx" --results-directory artifacts/server-tests --blame-hang-timeout 5m --blame-hang-dump-type none
+          python3 -m unittest discover -s .github/scripts -p 'test_server_partitions_test.py'
+          python3 .github/scripts/test_server_partitions.py
       - name: Retain Server test progress and hang diagnostics
         if: always()
         uses: actions/upload-artifact@v7.0.1
@@ -82,6 +84,7 @@ jobs:
           path: |
             artifacts/server-tests/**/*.trx
             artifacts/server-tests/**/*_Sequence.xml
+            artifacts/server-tests/server-test-coverage.json
           if-no-files-found: ignore
       - name: Pack independently publishable Flow libraries
         run: |
