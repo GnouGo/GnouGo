@@ -1,0 +1,63 @@
+{
+  "source": "bc0ef13f17ae88c007d32c281c513f17429372cd",
+  "run": "resume300b-sdk-keyvault-20261110-03",
+  "kind": "stored transport reaches SDK; command probe fails because launcher supplied EOF",
+  "explicit_transport_override": false,
+  "persisted_operation_transport": "gnougo-structured-tools-v1",
+  "provider_request": {
+    "model": "gpt-6.1-sol-2026-09-29",
+    "protocol": "ChatCompletions",
+    "stream": false,
+    "reasoning": "high",
+    "native_tools": 0,
+    "response_format": "json_schema",
+    "http_status": 200,
+    "complete_model_responses": 1
+  },
+  "first_cause": {
+    "launcher": "Python heredoc inherited as child stdin",
+    "reproduction": "stdin_is_tty=false and stdin_eof=true",
+    "pending_confirmation_created_utc": "2026-11-10T03:46:01.396273+00:00",
+    "task_cancelled_utc": "2026-11-10T03:46:01.464366+00:00",
+    "logical_deadline_utc": "2026-11-10T04:15:24.144827+00:00",
+    "captured_deadline_expired": false,
+    "missing_pre_dispatch_console_check": true
+  },
+  "outcome": {
+    "passed": false,
+    "workflow_error": "RUN_NEEDS_RECONCILIATION",
+    "completion_verified": false,
+    "observed_command_count": 0,
+    "command_approval_granted": false,
+    "cleanup": false,
+    "task_status": "cancelled",
+    "operation_phase": "reconciliation_required",
+    "operation_termination": "cancelled_unverified",
+    "old_run_will_not_replay": true,
+    "old_records_and_workspace_retained": true,
+    "uncertainty_not_relabelled_as_completion": true
+  },
+  "generic_correction": "Reuse RequireConsolePreflightAsync before creating a fresh SDK probe record or dispatching inference. Keep child stdin attached, and use only fresh independent identities.",
+  "existing_regressions": {
+    "interaction_preflight_and_late_approval_tests_passed": 8,
+    "failed": 0,
+    "warnings": 0
+  },
+  "financial": {
+    "ceiling_eur": "1700",
+    "unknown_http_attempts": 47,
+    "retained_application_reservations_eur": "59.555978487450312513390730382",
+    "remaining_after_retained_liabilities_eur": "464.213802076813010370621800618",
+    "this_complete_response_tariff_estimate_eur": "0.29994626063591580832960144",
+    "provider_invoice": false,
+    "supplement_reapplied": false
+  },
+  "private_evidence_sha256": {
+    "resume300b-sdk-keyvault03-terminal.json": "a050ac4e47350e8f77f8ec43c99b864eddf72096c779ab07ade4744b7a1f165c",
+    "resume300b-sdk-keyvault03-http-current.json": "17cade03f09de3bdc753cf620ba255669ba063eb3f4313332d54868ba71310a2",
+    "resume300b-sdk-keyvault03-dialogs.json": "98f04fd578151bcdd3c8011b87a58faf8c1d6b0400352197d772d3ffd30c7ac3",
+    "resume300b-sdk-keyvault03-closed-audit.json": "098b971b35d5f93261acbe8187fb1627f045fe5c5410f52ff859aa9108298cd5",
+    "resume300b-heredoc-stdin-reproduction.json": "a545909f1c9430e88abedb75f9eaa8708939c14ed6e9a866a74954f267c8df1b",
+    "resume300b-sdk-console-preflight-tests.log": "a02561be751beebeb7f69ac6659139df341188e93ba5c3649b77546e1b2a6132"
+  }
+}

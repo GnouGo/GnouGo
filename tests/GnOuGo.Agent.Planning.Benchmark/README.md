@@ -949,6 +949,12 @@ A diagnostic prerequisite may explicitly capture
 `copilot-probe --sdk-inference-transport gnougo-structured-tools-v1` in its fresh
 probe record before changing deployment settings. It rejects a native-tools request
 under that profile and requires the persisted SDK operation's matching transport.
+Every SDK command probe first checks the frozen build and the existing
+non-authorizing console challenge, before creating its run record or dispatching
+inference. Keep the child's standard input attached: a pipeline or a Python
+heredoc can leave it at EOF. An absent channel fails before spending; answering
+the challenge grants no tool permission. Actual SDK operations still require
+their separate invocation confirmations.
 A later persistent configuration uses `register-configuration --capture-current-settings
 --sdk-transport-amendment --previous-configuration-id <exact-parent>
 --previous-sdk-transport absent` (or `native` when explicitly captured). Restoring

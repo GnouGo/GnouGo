@@ -10,7 +10,8 @@ using GnOuGo.Flow.Integrations;
 using GnOuGo.Flow.Persistence;
 using GnOuGo.KeyVault.Core.Services;
 
-// Disposable prerequisites only: no external page, provider dispatch or policy edit.
+// Disposable prerequisites. The SDK probe uses finite campaign admission and
+// explicit interaction; browser/document readiness dispatches no inference.
 internal static class LiveExecutionReadiness
 {
     internal static async Task CopilotAsync(string[] args, BenchmarkCampaign campaign, KeyVaultBenchmarkModel model, string root)
@@ -32,6 +33,7 @@ internal static class LiveExecutionReadiness
         if (await campaign.LoadAsync(collection, label) is not null) throw new InvalidOperationException("Probe already retained; never replay an external invocation.");
         var directory = Path.Combine(root, "workflows", campaign.Id, label);
         if (Directory.Exists(directory)) throw new InvalidOperationException("Probe workspace already exists.");
+        await LiveWorkflowEvaluation.RequireConsolePreflightAsync();
         var tenant = "probe-" + label;
         var state = new JsonObject { ["source_sha"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD"), ["label"] = label,
             ["provider_hash"] = model.ConfigurationFingerprint, ["readiness"] = await model.ReadinessAsync(CancellationToken.None),
