@@ -1,0 +1,22 @@
+{
+  "run": "code-qualification-20261111-23",
+  "source": "ecdf098ab29a320d7985ae603dbe02739237c39d",
+  "session": "d66123a26d774153918479aca533d7d0",
+  "milestone": "first useful technically accepted checkpoint; business block remains open",
+  "checkpoint": 1,
+  "task_ids": [
+    "cleanup_repository",
+    "clone_repository",
+    "qualify_with_copilot"
+  ],
+  "accepted_at_utc": "2026-11-10T23:23:50.962064+00:00",
+  "elapsed_from_run_start_seconds": 631.291955,
+  "logical_calls": 14,
+  "physical_http_attempts": 14,
+  "native_completions_with_usage": 14,
+  "receipt_tariff_cost_eur": "5.0175100761307657859381997311",
+  "http_elapsed_seconds": 532.601112,
+  "global_review_complete": false,
+  "execution_started": false,
+  "independent_oracle_passed": false
+}

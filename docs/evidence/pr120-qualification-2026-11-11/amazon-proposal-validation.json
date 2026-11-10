@@ -1,8 +1,8 @@
 {
   "affected_amazon_tests": {
-    "total": "160",
-    "executed": "160",
-    "passed": "160",
+    "total": "161",
+    "executed": "161",
+    "passed": "161",
     "failed": "0",
     "error": "0",
     "timeout": "0",
@@ -17,7 +17,7 @@
     "inProgress": "0",
     "pending": "0"
   },
-  "new_proposal_tests": 25,
+  "new_proposal_tests": 26,
   "validation_kind": "Controlled fixtures plus read-only actual retained source; no navigation or model calls",
   "active_policy": "amazon-observed-product-context-v3",
   "active_oracle": "amazon-business-v7",
@@ -26,7 +26,8 @@
   "hashes": {
     "tests/amazon-proposal.trx": "418daae1e4bab073e84c470c6768ff5cd42928e3af276eb3b1566e6f19ed3fec",
     "retained-source-verification.json": "4a61a7920d2c263f3334f48e1fef12a95fd336e9d93354b53845cecd0fb2aac2",
-    "analyze_source.py": "d37d009a8dcc4643d2af2a83954893f5b937c63c9818e24456bdd558d761da8b"
+    "analyze_source.py": "d37d009a8dcc4643d2af2a83954893f5b937c63c9818e24456bdd558d761da8b",
+    "tests/amazon-final.trx": "8772886f39dfd9178bc6aa2bfa6caf7488a3a13161f5eef0590fe57ba2f9c237"
   },
   "setup_incidents": [
     {
@@ -36,5 +37,6 @@
       "correction": "Rebuild frozen Release harness and all MCP dependencies; use fresh Code23 identity.",
       "paid_calls": 0
     }
-  ]
+  ],
+  "final_route_guard": "Proposed store URLs also reject raw whitespace/control characters; active policies unchanged."
 }

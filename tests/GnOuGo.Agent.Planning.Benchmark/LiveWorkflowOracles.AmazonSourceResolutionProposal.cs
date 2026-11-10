@@ -11,7 +11,10 @@ internal static partial class LiveWorkflowOracles
         RegexOptions.CultureInvariant | RegexOptions.NonBacktracking, TimeSpan.FromSeconds(1));
 
     internal static bool ProposedSourceResolutionRoute(string value)
-        => AmazonSponsoredHostPolicy.Allows(value) || ProposedStoreRoute.IsMatch(value);
+        => AmazonSponsoredHostPolicy.Allows(value) || ProposedStoreDestination(value);
+
+    private static bool ProposedStoreDestination(string value)
+        => !value.Any(c => char.IsControl(c) || char.IsWhiteSpace(c)) && ProposedStoreRoute.IsMatch(value);
 
     // Resolves destinations, not occurrence equivalence or business completion.
     // The advertised r/target parameter and brand/collection labels are never proof.
@@ -63,7 +66,7 @@ internal static partial class LiveWorkflowOracles
                 // Equal destination IDs do not deduplicate source occurrences or
                 // establish which outer links are aliases of a child product.
             }
-            else if (destination.Url is { } url && ProposedStoreRoute.IsMatch(url)) item["destination_kind"] = "store_navigation";
+            else if (destination.Url is { } url && ProposedStoreDestination(url)) item["destination_kind"] = "store_navigation";
             else findings.Add("source_resolution_destination_indeterminate");
         }
         return ResolutionReport(findings, resolutions);

@@ -102,6 +102,7 @@ public sealed class AmazonSourceResolutionProposalTests
     [InlineData("https://user@www.amazon.fr/stores/page/12345678-1234-1234-1234-123456789abc")]
     [InlineData("https://www.amazon.fr/stores/BrandName")]
     [InlineData("https://www.amazon.fr/stores/page/12345678-1234-1234-1234-123456789abc#fragment")]
+    [InlineData("https://www.amazon.fr/stores/page/12345678-1234-1234-1234-123456789abc?invalid=\n")]
     [InlineData("https://sponsored-ads.amazon.fr/clk?opaque=bad")]
     public void ProposalAddsOnlyTheExactStorePageRoute(string url)
         => Assert.False(LiveWorkflowOracles.ProposedSourceResolutionRoute(url));
