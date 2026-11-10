@@ -39,6 +39,16 @@ public sealed class LLMHttpReceiptRetrieval
 
 public sealed class LLMHttpAttempt
 {
+    private LLMHttpReadTermination? _readTermination;
+    // Absent on historical attempts. Observation only: never used for admission or retry decisions.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LLMHttpReadTermination? ReadTermination { get => _readTermination; set => _readTermination = value; }
+    internal void ObserveReadTermination(LLMHttpReadTermination value)
+        => Interlocked.CompareExchange(ref _readTermination, value, null);
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? CancellationSource { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ResponseHttpVersion { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public DateTimeOffset? DeadlineAtUtc { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -88,6 +98,39 @@ public sealed class LLMHttpAttempt
     public string? RetryAfter { get; set; }
     public string? Failure { get; set; }
     public DateTimeOffset? NotBefore { get; set; }
+}
+
+/// <summary>What the response stream reader observed, not which remote hop caused it.
+/// No exception messages, headers, URLs or stacks are retained.</summary>
+public sealed class LLMHttpReadTermination
+{
+    public string Observer { get; set; } = "";
+    public string Outcome { get; set; } = "";
+    public DateTimeOffset AtUtc { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ErrorType { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? HttpError { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SocketError { get; set; }
+
+    internal static LLMHttpReadTermination FromException(Exception error, DateTimeOffset now, string observer = "response_stream")
+    {
+        var result = new LLMHttpReadTermination { AtUtc = now, Observer = observer,
+            Outcome = error is OperationCanceledException ? "cancelled" : "exception",
+            ErrorType = error switch { OperationCanceledException => "operation_cancelled",
+                HttpIOException => "http_io", HttpRequestException => "http_request",
+                System.Net.Sockets.SocketException => "socket", IOException => "io", _ => "other" } };
+        // Bound traversal and retain only framework enum codes, never arbitrary exception content.
+        Exception? current = error;
+        for (var depth = 0; current is not null && depth < 8; current = current.InnerException, depth++)
+        {
+            result.HttpError ??= current switch { HttpIOException http => http.HttpRequestError.ToString(),
+                HttpRequestException http => http.HttpRequestError.ToString(), _ => null };
+            if (current is System.Net.Sockets.SocketException socket) result.SocketError ??= socket.SocketErrorCode.ToString();
+        }
+        return result;
+    }
 }
 
 /// <summary>Opt-in for one side-effect-free, synchronous generation HTTP operation.

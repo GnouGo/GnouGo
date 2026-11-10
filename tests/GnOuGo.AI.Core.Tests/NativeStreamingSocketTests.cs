@@ -17,6 +17,7 @@ public sealed class NativeStreamingSocketTests(ITestOutputHelper output)
     [InlineData("socket_reset")]
     [InlineData("missing_done")]
     [InlineData("deadline")]
+    [InlineData("caller_cancel")]
     public async Task NativeSocketSeparatesSilentGapProtocolTerminationAndUsage(string ending)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -28,7 +29,7 @@ public sealed class NativeStreamingSocketTests(ITestOutputHelper output)
                 throw new InvalidOperationException("The controlled idle interval must be 1–450 seconds.");
             silence = TimeSpan.FromSeconds(seconds);
         }
-        if (ending == "deadline") silence = TimeSpan.FromSeconds(10);
+        if (ending is "deadline" or "caller_cancel") silence = TimeSpan.FromSeconds(10);
         await using var fixture = new SocketFixture(ending, silence, ct);
         var directory = Path.Combine(Path.GetTempPath(), "gnougo-native-socket-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
@@ -57,10 +58,18 @@ public sealed class NativeStreamingSocketTests(ITestOutputHelper output)
                 MaxOutputTokens = 32768, Reasoning = "low", StructuredOutputStrict = true,
                 StructuredOutputSchema = JsonNode.Parse("""{"type":"object","properties":{"value":{"type":"integer"}},"required":["value"],"additionalProperties":false}""") };
             var timer = Stopwatch.StartNew();
+            using var caller = CancellationTokenSource.CreateLinkedTokenSource(ct);
             using (new LLMHttpRetryContext("controlled-socket", journal, policy).Activate())
             {
                 if (ending == "complete")
                     Assert.Equal(42, (await new RoutingLLMClient(http, options).CallAsync(request, ct)).Json!["value"]!.GetValue<int>());
+                else if (ending == "caller_cancel")
+                {
+                    var pending = new RoutingLLMClient(http, options).CallAsync(request, caller.Token);
+                    await journal.Identified.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+                    await caller.CancelAsync();
+                    await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
+                }
                 else
                 {
                     var error = await Assert.ThrowsAsync<LLMProviderException>(() => new RoutingLLMClient(http, options).CallAsync(request, ct));
@@ -77,6 +86,29 @@ public sealed class NativeStreamingSocketTests(ITestOutputHelper output)
             Assert.Equal(ending == "complete", attempt.ResponseBodyComplete == true);
             Assert.Equal(TimeSpan.FromMilliseconds(policy.AttemptTimeoutMilliseconds), attempt.DeadlineAtUtc - attempt.StartedAtUtc);
             Assert.Equal(1, fixture.Requests);
+            var persisted = JsonSerializer.SerializeToNode(state, LLMHttpRetryJsonContext.Default.LLMHttpRetryState)!;
+            var observed = persisted["Attempts"]![0]!;
+            if (ending is "http_eof" or "missing_done")
+            {
+                Assert.Equal("eof", observed["ReadTermination"]?["Outcome"]?.ToString());
+                Assert.Null(observed["ReadTermination"]?["ErrorType"]);
+            }
+            if (ending == "socket_reset")
+            {
+                Assert.Equal("exception", observed["ReadTermination"]?["Outcome"]?.ToString());
+                Assert.NotNull(observed["ReadTermination"]?["ErrorType"]);
+            }
+            if (ending == "deadline")
+            {
+                Assert.Equal("cancelled", observed["ReadTermination"]?["Outcome"]?.ToString());
+                Assert.Equal("attempt_deadline", observed["CancellationSource"]?.ToString());
+            }
+            if (ending == "caller_cancel")
+            {
+                Assert.Equal("cancelled", observed["ReadTermination"]?["Outcome"]?.ToString());
+                Assert.Equal("caller", observed["CancellationSource"]?.ToString());
+            }
+            Assert.Equal("1.1", observed["ResponseHttpVersion"]?.ToString());
             if (ending == "complete")
             {
                 Assert.True(timer.Elapsed >= silence);
@@ -107,6 +139,7 @@ public sealed class NativeStreamingSocketTests(ITestOutputHelper output)
 
     private sealed class FileJournal(string path) : ILLMHttpRetryJournal
     {
+        internal TaskCompletionSource Identified { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         internal string Path { get; } = path;
         public async Task<LLMHttpRetryState?> LoadAsync(CancellationToken ct) => File.Exists(Path)
             ? JsonSerializer.Deserialize(await File.ReadAllTextAsync(Path, ct), LLMHttpRetryJsonContext.Default.LLMHttpRetryState) : null;
@@ -114,6 +147,7 @@ public sealed class NativeStreamingSocketTests(ITestOutputHelper output)
         {
             await File.WriteAllTextAsync(Path + ".next", JsonSerializer.Serialize(state, LLMHttpRetryJsonContext.Default.LLMHttpRetryState), ct);
             File.Move(Path + ".next", Path, overwrite: true);
+            if (state.Attempts.LastOrDefault()?.ProviderResponseId is not null) Identified.TrySetResult();
         }
     }
 

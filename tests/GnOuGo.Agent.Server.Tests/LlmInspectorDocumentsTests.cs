@@ -18,6 +18,46 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class LlmInspectorDocumentsTests : BunitContext
 {
     private static CancellationToken Ct => Xunit.TestContext.Current.CancellationToken;
+    [Theory]
+    [InlineData("eof")]
+    [InlineData("exception")]
+    [InlineData("cancelled")]
+    [InlineData(null)]
+    public async Task ExistingInspectorShowsReadEvidenceWithoutInventingLegacyOutcomes(string? outcome)
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        Assert.True(await fixture.Store.TrySaveAsync(new() { Request = new() { SessionId = "session", TenantId = "tenant" } }, null, Ct));
+        var store = Store(fixture.Records, fixture.Store);
+        const string requestId = "session:1:hash";
+        var request = new LLMRequest { ClientRequestId = requestId, Prompt = "controlled" };
+        await fixture.Records.UpsertAsync("agent-planning-model-requests-v11", "tenant", "session:" + requestId,
+            JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), "test", Ct);
+        var attempt = new LLMHttpAttempt { Id = "physical", ObservedStatus = 200, Failure = "transport",
+            ResponseBodyComplete = false, ResponseHttpVersion = outcome is null ? null : "1.1",
+            CancellationSource = outcome == "cancelled" ? "caller" : null,
+            ReadTermination = outcome is null ? null : new() { Observer = "response_stream", Outcome = outcome,
+                AtUtc = DateTimeOffset.Parse("2026-11-10T01:38:05Z"),
+                ErrorType = outcome == "exception" ? "http_io" : null, HttpError = outcome == "exception" ? "ResponseEnded" : null } };
+        var saved = await fixture.Records.UpsertAsync("agent-planning-model-http-v11", "tenant", requestId,
+            new JsonObject { ["tenant"] = "tenant", ["session"] = "session",
+                ["request_hash"] = GnOuGo.Flow.Planning.PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)),
+                ["transport"] = JsonSerializer.SerializeToNode(new LLMHttpRetryState { Attempts = [attempt] }, LLMHttpRetryJsonContext.Default.LLMHttpRetryState) }.ToJsonString(), "test", Ct);
+        await store.ObserveAsync(saved.Collection, "tenant", "session", requestId, saved.Value, saved.UpdatedAt.UtcTicks, Ct);
+        var detail = await store.JournalDocumentsAsync("session", false, "session:" + requestId, Ct);
+        Assert.Equal(outcome, detail["transport"]!["Attempts"]![0]!["ReadTermination"]?["Outcome"]?.ToString());
+        await store.SaveAsync("read-reference", new LlmTraceContent { TenantId = "tenant", TraceId = "trace", SpanId = "span",
+            SessionId = "session", Journal = "agent", RequestKey = "session:" + requestId }, Ct);
+        Services.AddSingleton(store); JSInterop.Mode = JSRuntimeMode.Loose;
+        var cut = Render<LlmCallDetail>(p => p.Add(c => c.Reference, "read-reference").Add(c => c.TraceId, "trace")
+            .Add(c => c.SpanId, "span").Add(c => c.SessionId, "session").Add(c => c.InitiallyOpen, true));
+        cut.WaitForAssertion(() => Assert.Contains("Read termination:", cut.Markup));
+        Assert.Contains(outcome ?? "not observed / legacy", cut.Markup);
+        if (outcome == "exception") Assert.Contains("ResponseEnded", cut.Markup);
+        if (outcome == "cancelled") Assert.Contains("caller", cut.Markup);
+        Assert.Contains("does not establish LLM completion", cut.Markup);
+        Assert.Equal(saved, await fixture.Records.GetAsync(saved.Collection, "tenant", requestId, "test", Ct));
+    }
+
     [Fact]
     public async Task StreamingInspectorPagesNativeAndAssembledEvidenceWithoutExposingRecoveryBytes()
     {

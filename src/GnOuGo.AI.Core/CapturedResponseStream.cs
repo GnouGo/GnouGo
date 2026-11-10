@@ -16,8 +16,18 @@ internal sealed class CapturedResponseStream(Stream inner, LLMHttpAttempt attemp
     public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
     public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
     {
-        var count = await inner.ReadAsync(buffer, cancellationToken).AsTask().WaitAsync(cancellationToken).ConfigureAwait(false);
-        if (count == 0) return 0;
+        int count;
+        try { count = await inner.ReadAsync(buffer, cancellationToken).AsTask().WaitAsync(cancellationToken).ConfigureAwait(false); }
+        catch (Exception error)
+        {
+            attempt.ObserveReadTermination(LLMHttpReadTermination.FromException(error, utcNow()));
+            throw;
+        }
+        if (count == 0)
+        {
+            attempt.ObserveReadTermination(new() { Observer = "response_stream", Outcome = "eof", AtUtc = utcNow() });
+            return 0;
+        }
         if (_bytes.Length + count > MaximumBytes) throw new InvalidDataException("Native stream exceeds the response size limit.");
         _bytes.Write(buffer.Span[..count]);
         var now = utcNow();

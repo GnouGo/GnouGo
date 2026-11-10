@@ -51,7 +51,12 @@
                             Failure: @(attempt?["Failure"]?.ToString() ?? "none recorded") · complete body: @(attempt?["ResponseBodyComplete"]?.ToString() ?? "unavailable")<br />
                             Native protocol complete: @(attempt?["ProtocolComplete"]?.ToString() ?? "legacy / unavailable") · termination: @(attempt?["TerminationStatus"]?.ToString() ?? "unavailable") · usage known: @(attempt?["UsageKnown"]?.ToString() ?? "unavailable")<br />
                             First byte: @(attempt?["FirstByteAtUtc"]?.ToString() ?? "unavailable") · last byte: @(attempt?["LastByteAtUtc"]?.ToString() ?? "unavailable")<br />
+                            Response HTTP version: @(attempt?["ResponseHttpVersion"]?.ToString() ?? "legacy / unavailable")<br />
+                            Read termination: @(attempt?["ReadTermination"]?["Outcome"]?.ToString() ?? "not observed / legacy") · observer: @(attempt?["ReadTermination"]?["Observer"]?.ToString() ?? "unavailable") · at: @(attempt?["ReadTermination"]?["AtUtc"]?.ToString() ?? "unavailable")<br />
+                            Read error: @(attempt?["ReadTermination"]?["ErrorType"]?.ToString() ?? "none recorded") · HTTP error: @(attempt?["ReadTermination"]?["HttpError"]?.ToString() ?? "unavailable") · socket error: @(attempt?["ReadTermination"]?["SocketError"]?.ToString() ?? "unavailable")<br />
+                            Cancellation source: @(attempt?["CancellationSource"]?.ToString() ?? "not observed / legacy")<br />
                             Retry decision: @(attempt?["RetryDecision"]?.ToString() ?? "unavailable")</p>
+                        <p>Read termination describes the client observation. EOF does not establish LLM completion or identify the closing hop.</p>
                         @foreach (var doc in LlmTraceContentStore.Documents(_detail).Where(d => d.Title.StartsWith("HTTP attempt " + attempt?["Id"] + " — ", StringComparison.Ordinal)))
                         { <LlmTraceDocument @key="doc.Id" Title="@doc.Title" Status="encrypted journal; redacted" Document="doc" Bytes="doc.Bytes"
                             ReadPage="@((offset, count, version, ct) => ReadAsync(doc, offset, count, version, ct))"

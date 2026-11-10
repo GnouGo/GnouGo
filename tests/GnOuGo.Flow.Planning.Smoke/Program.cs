@@ -82,15 +82,22 @@ var exhaustedHttp = new GnOuGo.AI.Core.LLMHttpRetryState { Attempts = [new()
 {
     Id = "native-exhausted-generation", Failure = "timeout", PartialBody = "{partial:",
     IndependentGenerationDurationExhausted = true,
+    ResponseHttpVersion = "1.1", CancellationSource = "attempt_deadline",
+    ReadTermination = new() { Observer = "native_reader", Outcome = "cancelled",
+        AtUtc = DateTimeOffset.Parse("2026-11-10T01:38:05Z"), ErrorType = "operation_cancelled" },
     RetryDecision = "blocked; captured generation duration exhausted"
 }] };
 var restoredHttp = JsonSerializer.Deserialize(JsonSerializer.Serialize(exhaustedHttp,
     GnOuGo.AI.Core.LLMHttpRetryJsonContext.Default.LLMHttpRetryState),
     GnOuGo.AI.Core.LLMHttpRetryJsonContext.Default.LLMHttpRetryState)!;
 if (restoredHttp.Attempts.Single().IndependentGenerationDurationExhausted != true ||
-    restoredHttp.Attempts.Single().PartialBody != exhaustedHttp.Attempts.Single().PartialBody)
+    restoredHttp.Attempts.Single().PartialBody != exhaustedHttp.Attempts.Single().PartialBody ||
+    restoredHttp.Attempts.Single().ResponseHttpVersion != "1.1" ||
+    restoredHttp.Attempts.Single().CancellationSource != "attempt_deadline" ||
+    restoredHttp.Attempts.Single().ReadTermination is not { Observer: "native_reader", Outcome: "cancelled", ErrorType: "operation_cancelled" } readEnd ||
+    readEnd.AtUtc != exhaustedHttp.Attempts.Single().ReadTermination!.AtUtc)
     throw new InvalidOperationException("Native HTTP journal lost its exhausted generation or partial evidence.");
-Console.WriteLine("HTTP journal: fired generation deadline and retained partial evidence survive native serialization");
+Console.WriteLine("HTTP journal: fired generation deadline, read termination and retained partial evidence survive native serialization");
 
 await CompactConstructionSmoke.RunAsync();
 

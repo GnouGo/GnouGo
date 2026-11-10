@@ -351,6 +351,7 @@ public static class HttpRequestHelper
                 timeout.Token.ThrowIfCancellationRequested();
                 received = await http.SendAsync(request, context is null && !streaming ? completionOption : HttpCompletionOption.ResponseHeadersRead, timeout.Token).ConfigureAwait(false);
                 attempt.ObservedStatus = (int)received.StatusCode;
+                attempt.ResponseHttpVersion = received.Version.ToString();
                 attempt.ContentType = received.Content.Headers.ContentType?.ToString();
                 if (streaming && received.IsSuccessStatusCode)
                 {
@@ -393,6 +394,13 @@ public static class HttpRequestHelper
             catch (OperationCanceledException ex)
             {
                 originalFailure = ex;
+                // The native reader's outer WaitAsync can observe cancellation before
+                // the underlying ReadAsync continuation. Publish before terminal save;
+                // a later stream continuation cannot rewrite that observation.
+                if (capturedStream is not null)
+                    attempt.ObserveReadTermination(LLMHttpReadTermination.FromException(ex, utcNow(), "native_reader"));
+                attempt.CancellationSource = ct.IsCancellationRequested ? "caller"
+                    : timeout.IsCancellationRequested ? "attempt_deadline" : "other_cancellation";
                 attempt.Failure = ct.IsCancellationRequested ? "cancelled" : "timeout";
                 // Preserve the fired captured timer across journal restoration even
                 // when the UTC clock still reports time before its deadline.
@@ -415,6 +423,8 @@ public static class HttpRequestHelper
             finally
             {
                 attempt.CompletedAtUtc = utcNow();
+                if (attempt.Failure == "cancelled" && ct.IsCancellationRequested)
+                    attempt.CancellationSource ??= "caller";
                 if (streaming)
                 {
                     System.Diagnostics.Activity.Current?.SetTag("gnougo.llm.stream.protocol_complete", attempt.ProtocolComplete == true);

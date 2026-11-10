@@ -60,6 +60,22 @@ The existing HTTP owner records the actual serialized request, transport selecti
 
 The shared inspector displays effective transport and terminal facts, and pages native/assembled documents through its existing protected reader. Recovery-only base64 bytes never enter the inspection projection. Logical content is redacted before publication. Existing OpenTelemetry activities carry transport and completion tags; observability never authorizes recovery, admission or execution.
 
+New HTTP attempts also record the received `ResponseHttpVersion` and optional
+`ReadTermination`: the first observed `eof`, `exception` or `cancelled`, its UTC
+timestamp, observer and safe framework error codes. `response_stream` observes
+the underlying response read; `native_reader` records cancellation when the outer
+reader observes it first. Exception messages, URLs, headers and stacks are excluded.
+`CancellationSource` distinguishes a signalled caller token, the captured attempt
+deadline, and another cancellation. It does not change the existing failure category.
+Storage checkpoint failures are outside the response-read diagnostic boundary.
+
+The existing per-attempt inspector shows these facts alongside protocol completion,
+useful content, usage and retry decisions. An EOF can precede the required LLM
+terminal event; it identifies neither the closing network hop nor upstream HTTP
+framing. Missing diagnostics mean unavailable evidence, especially on historical
+attempts. Old records are not backfilled. These fields do not affect admission,
+timeouts, retry eligibility, receipt recovery, reservation retention or acceptance.
+
 ## Official protocol references and limits
 
 - [OpenAI Chat streaming events](https://developers.openai.com/api/reference/resources/chat/subresources/completions/streaming-events), [Responses events](https://developers.openai.com/api/reference/resources/responses/streaming-events), and [background receipt retrieval](https://developers.openai.com/api/docs/guides/background).
