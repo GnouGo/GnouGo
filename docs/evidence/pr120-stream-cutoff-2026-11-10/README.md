@@ -1,5 +1,13 @@
 # Code stream cutoff: route-owner investigation
 
+Follow-up from verified HEAD `0719c65a`: the demonstrated diagnostic gap is
+addressed in [new-attempt read diagnostics](diagnostic-followup.md), and a
+[short route-owner message](route-owner-message.md) is prepared but unsent.
+[Retained Amazon DOM reproduction](amazon-empty-context-reproduction.md) now
+demonstrates a generic accessible-label/ARIA-heading observation defect. Its fix
+does not resolve the remaining product provenance or qualify the source.
+The original investigation below remains historical evidence.
+
 Base HEAD: `7a12a9d88f2aef143a18bc1796fb49f734da31f8`. The controlled reproduction
 was committed as `a2ffec26`. No runtime engine, provider configuration, permission,
 oracle or LLM guidance changed. The [successful stored-KeyVault SDK command](../pr120-supplement-convergence-2026-11-08/copilot-keyvault-live-command-05.json)

@@ -576,7 +576,7 @@ public sealed partial class PlaywrightBrowserHost
     internal static readonly string ObservationScript = """
         (root, observation) => {
           const [snapshotId, ...attributeNames] = observation, attributeContexts = new Map();
-          const records = [], elements = [], states = [], groups = new Map(), occurrences = new Map(), actionState = __ACTION_STATE__, owned = 'a[href],button,[role="button"],[role="checkbox"],[role="radio"],[role="switch"],[role="tab"],[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"],[contenteditable="true"],h1,h2,h3,h4,h5,h6,input,select,textarea';
+          const records = [], elements = [], states = [], groups = new Map(), occurrences = new Map(), actionState = __ACTION_STATE__, owned = 'a[href],button,[role="button"],[role="checkbox"],[role="radio"],[role="switch"],[role="tab"],[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"],[contenteditable="true"],h1,h2,h3,h4,h5,h6,[role="heading"],input,select,textarea';
           let visited = 0, size = 0, truncated = false;
           const text = s => (s || '').replace(/\s+/g, ' ').trim();
           const documentEmpty = () => {
@@ -624,10 +624,10 @@ public sealed partial class PlaywrightBrowserHost
           while (element && !truncated) {
             const tag = element.tagName.toLowerCase(), owner = element.closest(owned);
             if (!owner || owner === element) {
-              const kind = element.matches('button,[role="button"],[role="checkbox"],[role="radio"],[role="switch"],[role="tab"],[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"],input,select,textarea,[contenteditable="true"]') ? 'control' : element.matches('a[href]') ? 'link' : /^h[1-6]$/.test(tag) ? 'heading' : 'text';
+              const kind = element.matches('button,[role="button"],[role="checkbox"],[role="radio"],[role="switch"],[role="tab"],[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"],input,select,textarea,[contenteditable="true"]') ? 'control' : element.matches('a[href]') ? 'link' : /^h[1-6]$/.test(tag) || element.getAttribute('role') === 'heading' ? 'heading' : 'text';
               const label = element.getAttribute('aria-label');
               const content = kind === 'control' ? text(label || (element.matches('button,[role="button"]') ? element.innerText : element.getAttribute('placeholder'))) :
-                kind === 'text' ? text([...element.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join(' ')) : text(element.innerText);
+                kind === 'text' ? text([...element.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join(' ')) : text(element.innerText) || text(label);
               const href = kind === 'link' ? element.href : null;
               if (content || href || kind === 'control') {
                 const group = element.closest('dialog,[role="dialog"],[role="alertdialog"],[aria-modal="true"]') || element.closest('article,li,tr,[role="listitem"],[role="article"],[role="row"]') || element.closest('section,nav,header,main,form,[role="region"],[role="navigation"],[role="main"],[role="form"]') || root;

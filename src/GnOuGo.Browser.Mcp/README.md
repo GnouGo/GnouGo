@@ -186,6 +186,13 @@ Example MCP configuration in `LLMOptions`:
 
 ### Compact observations
 
+Links and headings retain visible text, with their explicit `aria-label` as a
+fallback when that text is empty. Explicit ARIA `heading` elements are observed
+alongside native headings. Hidden elements remain excluded. Labels describe the
+observed element; they do not establish product identity, destination provenance
+or authority. Link URLs, nearest requested ancestor attributes and DOM order retain
+their existing meaning.
+
 Semantic repeated containers retain their observed tag, explicit ARIA role and
 snapshot-local first-occurrence index in each record's `groupContext`. Native
 `article`, `li`, `tr` and ARIA `listitem`, `article`, `row` containers take precedence
