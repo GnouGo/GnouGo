@@ -293,7 +293,8 @@ remain journaled even when its envelope is rejected; they grant no admission or
 repair authority. The existing typed repair slots define permissible
 edits; a finding outside the fragment does not grant edits to accepted producers.
 Invalid compiler results still publish no interfaces. Corrected candidates undergo
-the same continuation, complete technical and business validation before acceptance.
+the same continuation and complete technical validation, with applicable business
+reviews still required before business closure or final acceptance.
 
 Type diagnostics describe bounded nested item shapes and nullability, including
 item unions. Literal findings retain their instance pointer in the message while
