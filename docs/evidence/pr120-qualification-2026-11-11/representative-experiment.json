@@ -1,6 +1,6 @@
 {
   "base_head": "95aafb46a242ebc1f00e13ba2347a84016505512",
-  "run": "representative-read-end-20261111-01",
+  "run": "representative-read-end-20261111-02",
   "campaign": "pr120-live-20261107-400",
   "configuration": "5341dae8fc9343a598475ca873ea5abdd917d6412118f91d028256436766d3c3",
   "source_request": "04e9a197fd54468cba3d44f84cd0e5e3:32:7f18e79e3266b08c28c355c94e335d9a6f34929ffc8f4d9257a978bb6d6cbf79:d3f25c9b4098f4f45be3ccb6394a9e6e2b19e91a38ab46f8408ce663b1164717",
@@ -42,5 +42,13 @@
     "seed-receipt.json": "ba64f8cb2652c3c478b4b75418a8489a71b4a008c7a6c7c0a8552b78d2ab842f",
     "seed-http.json": "adde836fd0abdd86401d5324ad6df51192f534b74387cbe17af824caa46d9268"
   },
-  "paid_dispatches_at_publication": 0
+  "paid_dispatches_at_publication": 0,
+  "pre_dispatch_operator_error": {
+    "run": "representative-read-end-20261111-01",
+    "cause": "Mistyped seed ID in CLI arguments; exact-source loader rejected before constructing an independent request.",
+    "owned_requests": 0,
+    "http_journals": 0,
+    "paid_attempts": 0,
+    "retry_of_model_request": false
+  }
 }
