@@ -97,15 +97,30 @@ public sealed class AmazonSourceResolutionProposalTests
     }
 
     [Theory]
-    [InlineData("http://www.amazon.fr/stores/page/12345678-1234-1234-1234-123456789abc")]
-    [InlineData("https://www.amazon.fr:443/stores/page/12345678-1234-1234-1234-123456789abc")]
-    [InlineData("https://user@www.amazon.fr/stores/page/12345678-1234-1234-1234-123456789abc")]
-    [InlineData("https://www.amazon.fr/stores/BrandName")]
-    [InlineData("https://www.amazon.fr/stores/page/12345678-1234-1234-1234-123456789abc#fragment")]
-    [InlineData("https://www.amazon.fr/stores/page/12345678-1234-1234-1234-123456789abc?invalid=\n")]
-    [InlineData("https://sponsored-ads.amazon.fr/clk?opaque=bad")]
-    public void ProposalAddsOnlyTheExactStorePageRoute(string url)
-        => Assert.False(LiveWorkflowOracles.ProposedSourceResolutionRoute(url));
+    [InlineData("http")]
+    [InlineData("explicit_port")]
+    [InlineData("credentials")]
+    [InlineData("brand_path")]
+    [InlineData("fragment")]
+    [InlineData("control_character")]
+    [InlineData("clk_without_slash")]
+    public void ProposalAddsOnlyTheExactStorePageRoute(string variant)
+    {
+        // Short distinct labels preserve exact discovery/TRX identity; long URL
+        // arguments are truncated by the runner's theory display names.
+        var url = variant switch
+        {
+            "http" => Store.Replace("https:", "http:", StringComparison.Ordinal),
+            "explicit_port" => Store.Replace("amazon.fr/", "amazon.fr:443/", StringComparison.Ordinal),
+            "credentials" => Store.Replace("https://", "https://user@", StringComparison.Ordinal),
+            "brand_path" => "https://www.amazon.fr/stores/BrandName",
+            "fragment" => Store + "#fragment",
+            "control_character" => Store + "?invalid=\n",
+            "clk_without_slash" => "https://sponsored-ads.amazon.fr/clk?opaque=bad",
+            _ => throw new ArgumentOutOfRangeException(nameof(variant))
+        };
+        Assert.False(LiveWorkflowOracles.ProposedSourceResolutionRoute(url));
+    }
 
     internal static List<JsonObject> Events()
     {
