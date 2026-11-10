@@ -8,6 +8,11 @@ demonstrates a generic accessible-label/ARIA-heading observation defect. Its fix
 does not resolve the remaining product provenance or qualify the source.
 The original investigation below remains historical evidence.
 
+Final follow-up checks: [complete local validation](followup-validation.json),
+[unchanged funding and stage status](followup-status.json), and the
+[independent source-only check after the Browser correction](amazon-observation-live-check.json).
+The latter validates observation, but unchanged v7 still rejects product provenance.
+
 Base HEAD: `7a12a9d88f2aef143a18bc1796fb49f734da31f8`. The controlled reproduction
 was committed as `a2ffec26`. No runtime engine, provider configuration, permission,
 oracle or LLM guidance changed. The [successful stored-KeyVault SDK command](../pr120-supplement-convergence-2026-11-08/copilot-keyvault-live-command-05.json)

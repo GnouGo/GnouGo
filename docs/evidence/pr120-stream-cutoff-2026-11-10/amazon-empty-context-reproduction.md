@@ -2,8 +2,9 @@
 
 Source: the complete 1,495-record snapshot `ef6854e34bd4423999244dcb1bf617b1`
 already captured with the real benchmark v3 profile. Its 65 `/clk/` links are
-authorized route shapes; it contains no `/clk` link. No new Amazon acquisition,
-generation, product visit or workbook run was performed in this follow-up.
+authorized route shapes; it contains no `/clk` link. The local reproduction used
+only this retained source. A subsequent independent source-only validation is
+recorded below; no generation, product visit or workbook run occurred.
 
 The three individually complete retained DOM fragments are sufficient to
 reproduce the observation defect. The truncated whole-page HTML is not treated
@@ -79,3 +80,23 @@ Resume a complete Amazon qualification only after a source-only check on the act
 profile preserves every candidate and establishes its product/non-product provenance
 under an approved versioned proof contract. Run no paid Amazon planning merely
 because accessible labels now survive capture.
+
+## Source-only validation after the correction
+
+[`next-amazon-observation-20261110-01`](amazon-observation-live-check.json) uses
+the real benchmark builder and unchanged v3 profile with the frozen Release Browser
+assembly from `e25ef5f6`. It captures all **1,527 records**, 44 sponsored-host
+`/clk/` links, no `/clk`, and 85 `/sspa/click` links. This is an independent search
+with a different advertising inventory, not a before/after record-count comparison.
+
+The source retains 36 explicit ARIA headings, including the related-brand heading,
+and the labelled image-only outer links. All 17 ambiguous empty-context sponsored
+links remain present. Three complete context reads match the source labels;
+the actual browser binary hash and protected profile are recorded. Close and the
+absence of an active page are verified.
+
+The independent, unchanged **v7** source oracle still returns
+`search_product_context_unverified` and `first_product_visits_incomplete`, with
+zero eligible redirect entries. The observation correction is validated on the
+actual profile; the source provenance prerequisite is **not qualified**. No model
+call, product visit, partial result application or new permission followed.

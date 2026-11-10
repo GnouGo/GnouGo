@@ -1,0 +1,61 @@
+{
+  "base_head": "0719c65a8e8b7053faf3b00131d9019f7960f415",
+  "runtime_test_source": "e25ef5f66ad8bbeb3daf4966671558bfa0fe4228",
+  "campaign": "pr120-live-20261107-400",
+  "ceiling_eur": "1700",
+  "available_after_retained_liabilities_eur": "463.312512332074989770532235018",
+  "retained_application_reservations_eur": "59.555978487450312513390730382",
+  "unknown_http_attempts": 47,
+  "funding_history_entries": 6,
+  "initial_and_final_audit_deeply_identical": true,
+  "extend_budget_invocations": 0,
+  "new_paid_model_calls": 0,
+  "new_model_charges_eur": "0",
+  "new_live_source_acquisitions": 1,
+  "new_accepted_code_checkpoints": 0,
+  "new_accepted_complete_plans": 0,
+  "new_global_reviews": 0,
+  "new_verified_workflow_executions": 0,
+  "new_full_business_oracle_passes": 0,
+  "retained_sessions_replayed": false,
+  "sdk05_reexecuted": false,
+  "old_310_second_loopback_test_reexecuted": false,
+  "route_owner_message_sent": false,
+  "real_route_silent_vs_heartbeat_test_performed": false,
+  "provider_model_endpoint_protocol_timeouts_retries_or_permissions_changed": false,
+  "oracle_changed": false,
+  "v8_proposal_active": false,
+  "private_evidence_sha256": {
+    "diagnosis-next-initial-audit.json": "f8456adae1c3abf2f74f22d76430004739527bcfbc83e3eb48f108abb609d4d5",
+    "diagnosis-next-final-audit.json": "f8456adae1c3abf2f74f22d76430004739527bcfbc83e3eb48f108abb609d4d5",
+    "diagnosis-next-after-source-audit.json": "f8456adae1c3abf2f74f22d76430004739527bcfbc83e3eb48f108abb609d4d5"
+  },
+  "validation_manifest": "next-frozen-validation.json",
+  "qualification_gates": {
+    "Code": "Authorized same-route silent/heartbeat discrimination or evidenced delivery correction, then fresh representative strict-schema completion and durable usage receipt before a fresh full session.",
+    "Amazon": "Source-only actual-profile validation preserving every candidate with verified classification/provenance under an approved proof contract."
+  },
+  "latest_source_prerequisite_qualified": false,
+  "local_validation": "followup-validation.json",
+  "independent_source_check": "amazon-observation-live-check.json",
+  "after_source_audit_deeply_identical": true,
+  "ci_at_evidence_publication": {
+    "source": "e25ef5f66ad8bbeb3daf4966671558bfa0fe4228",
+    "standalone": {
+      "run_id": 42787456583,
+      "conclusion": "success"
+    },
+    "native_aot": {
+      "run_id": 42787456189,
+      "targets": 6,
+      "conclusion": "success"
+    },
+    "primary": {
+      "run_id": 42787456545,
+      "status": "in_progress",
+      "conclusion": null
+    },
+    "merge_checkout": "a8e4f0944983642556c38f0327bb1e1ca5da945f",
+    "merge_tree_identical_to_branch": true
+  }
+}
