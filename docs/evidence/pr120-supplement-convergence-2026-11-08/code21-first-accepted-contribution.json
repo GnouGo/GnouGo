@@ -1,0 +1,45 @@
+{
+  "source": "003160488d20b7c259473f8944e8aa781db4b3f3",
+  "run": "code-qualification-20261110-21",
+  "session": "04e9a197fd54468cba3d44f84cd0e5e3",
+  "kind": "first accepted contribution; full workflow still pending",
+  "checkpoint": {
+    "sequence": 1,
+    "plan_hash": "4dca312ab9cdb569956b4ee8c1cd63d83a4b8e67bda6229b25314a9faecbebd5",
+    "task_ids": [
+      "cleanup_pr610",
+      "clone_pr610",
+      "copilot_qualification",
+      "repository_identity"
+    ],
+    "closed_requirements": [],
+    "closed_scopes": []
+  },
+  "metrics": {
+    "planning_started_utc": "2026-11-10T01:00:48.287964+00:00",
+    "accepted_after_response_at_utc": "2026-11-10T01:20:46.807431+00:00",
+    "accepted_before_review_dispatch_at_utc": "2026-11-10T01:20:51.639481+00:00",
+    "acceptance_elapsed_lower_seconds": "1198.519467",
+    "acceptance_elapsed_upper_seconds": "1203.351517",
+    "completed_model_calls_through_contribution": 32,
+    "captured_tariff_estimate_through_contribution_eur": "17.3286609941782355575459023733",
+    "provider_invoice": false
+  },
+  "local_business_review": {
+    "model_call": 33,
+    "verdict": "ok",
+    "completed_at_utc": "2026-11-10T01:21:20.25159+00:00"
+  },
+  "actual_execution_started": false,
+  "full_independent_oracle_passed": false,
+  "limitations": [
+    "One observed independent run; no controlled end-to-end speedup or convergence claim.",
+    "Technical acceptance and local business review do not close the original workflow obligations."
+  ],
+  "private_evidence_sha256": {
+    "resume300b-code21-first-metric-basis.json": "c2a9da140cfd81b4378a0ab2e661e4c1050ee060bab31fc271d96f51736e8f3b",
+    "resume300b-code21-receipts-snapshot.json": "0c1ec2cc2050adc8cd5599235ef149cf04175fabe736afefd406921317923768",
+    "resume300b-code21-http32.json": "adde836fd0abdd86401d5324ad6df51192f534b74387cbe17af824caa46d9268",
+    "resume300b-code21-http33.json": "62a84c2b364badacfd7d121c6f8fdf77879e2e69ebe304cc213ba5f537ee0fa8"
+  }
+}
