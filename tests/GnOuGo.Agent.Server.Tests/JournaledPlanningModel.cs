@@ -35,7 +35,7 @@ internal sealed class JournaledPlanningModel(ILLMClient script, bool preserveUsa
             var response = Response ?? throw new InvalidOperationException("No scripted response was prepared.");
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(new JsonObject
             {
-                ["choices"] = new JsonArray(new JsonObject { ["finish_reason"] = "stop", ["message"] = new JsonObject
+                ["choices"] = new JsonArray(new JsonObject { ["finish_reason"] = response.CompletionStatus == "output_limit" ? "length" : "stop", ["message"] = new JsonObject
                     { ["role"] = "assistant", ["content"] = response.Json?.ToJsonString() ?? response.Text } }),
                 ["usage"] = preserveUsage && response.Usage is not null ? response.Usage.DeepClone() : new JsonObject { ["prompt_tokens"] = 10, ["completion_tokens"] = 5, ["total_tokens"] = 15 }
             }.ToJsonString(), System.Text.Encoding.UTF8, "application/json") });

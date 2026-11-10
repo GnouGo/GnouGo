@@ -38,7 +38,7 @@
             @if (_diagnosticAvailable)
             {
                 <label for="plan-thresholds">Threshold policy</label><select id="plan-thresholds" @bind="_thresholdMode"><option value="strict">Strict</option><option value="diagnostic">Diagnostic — thresholds are warnings</option></select>
-                <p>Diagnostic output allocations use verified model/deployment capacity. The captured application budget policy applies; execution requires approval.</p>
+                <p>@GnOuGo.Agent.Server.Telemetry.LlmInspectionLabels.DiagnosticThresholdExplanation</p>
             }
             else { <PlanningDebugHelp /> }
             <label for="plan-name">Agent name</label><input id="plan-name" class="form-control" @bind="_name" required />

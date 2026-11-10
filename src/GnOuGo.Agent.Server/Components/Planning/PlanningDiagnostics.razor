@@ -9,6 +9,7 @@
 <section class="planning-diagnostics" aria-label="Planning progress and model calls">
     <h3>Generation timeline</h3>
     <p><strong>@(Session.ThresholdMode == "diagnostic" ? "Diagnostic — thresholds are warnings" : "Strict thresholds")</strong> · Generation and approval; execution is a separate operation.</p>
+    @if (Session.ThresholdMode == "diagnostic") { <p>@LlmInspectionLabels.DiagnosticThresholdExplanation</p> }
     <p>Waiting → active → succeeded / warning / correction / blocked / cancelled. Repeated occurrences show actual loops; no completion percentage is inferred.</p>
     @if (_events.Count == 0) { <p role="status">No historical transition timestamps were recorded for this session. Current phase: @Label(Session.Phase).</p> }
     else
@@ -21,6 +22,8 @@
                     <strong>@Label(first.Phase)</strong> <span class="phase-state">@(last.State == "succeeded" && Session.ThresholdWarnings.Any(w => w.RequestId is not null && w.RequestId == last.RequestId) ? "warning (completed)" : LlmInspectionLabels.State(last.State))</span>
                     <small>@first.TimestampUtc.ToString("u") · @Duration(first.TimestampUtc, last.TimestampUtc, last.State)</small>
                     <p>@last.Reason</p>
+                    @if (last.State == "blocked" && last.Reason.Split(',', StringSplitOptions.TrimEntries).Contains("MODEL_OUTPUT_LIMIT", StringComparer.Ordinal))
+                    { <p class="planning-output-limit">@LlmInspectionLabels.OutputLimitExplanation</p> }
                     @if (last.Discovery is { } discovery)
                     { <p>Metadata source <strong>@(discovery["sourceLabel"] ?? discovery["sourceId"])</strong> · focus <code>@discovery["focusId"]</code> · @discovery["outcome"]</p> }
                     @if (_canInspect && last.RequestId is { } requestId)

@@ -19,6 +19,41 @@ public sealed class LlmInspectorDocumentsTests : BunitContext
 {
     private static CancellationToken Ct => Xunit.TestContext.Current.CancellationToken;
     [Theory]
+    [InlineData("output_limit", true)]
+    [InlineData(null, false)]
+    public async Task OutputExhaustionIsVisibleOnOpeningTheExistingInspectorWithoutChangingReceipts(string? status, bool cutoff)
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        Assert.True(await fixture.Store.TrySaveAsync(new() { Request = new() { SessionId = "session", TenantId = "tenant" } }, null, Ct));
+        const string id = "session:1:hash", key = "session:" + id;
+        var store = Store(fixture.Records, fixture.Store);
+        await fixture.Records.UpsertAsync("agent-planning-model-requests-v11", "tenant", key,
+            JsonSerializer.Serialize(new LLMRequest { ClientRequestId = id, Prompt = "controlled", MaxTokens = 8192 }, PlanningJsonContext.Default.LLMRequest), "test", Ct);
+        var saved = await fixture.Records.UpsertAsync("agent-planning-model-receipts-v11", "tenant", key,
+            JsonSerializer.Serialize(new LLMResponse { CompletionStatus = status, Text = cutoff ? "{\"items\":[" : "{}",
+                Usage = new JsonObject { ["completion_tokens"] = cutoff ? 8192 : 12,
+                    ["completion_tokens_details"] = new JsonObject { ["reasoning_tokens"] = 320 } } }, PlanningJsonContext.Default.LLMResponse), "test", Ct);
+        await store.SaveAsync("limit-reference", new LlmTraceContent { TenantId = "tenant", TraceId = "trace", SpanId = "span",
+            SessionId = "session", Journal = "agent", RequestKey = key }, Ct);
+        Services.AddSingleton(store); JSInterop.Mode = JSRuntimeMode.Loose;
+        var cut = Render<LlmCallDetail>(p => p.Add(c => c.Reference, "limit-reference").Add(c => c.TraceId, "trace")
+            .Add(c => c.SpanId, "span").Add(c => c.SessionId, "session"));
+        cut.Find(".llm-call__expand").Click();
+        cut.WaitForAssertion(() => Assert.Contains("Effective output allocation", cut.Markup));
+        Assert.Equal(cutoff, cut.FindAll(".llm-output-limit").Count == 1);
+        if (cutoff)
+        {
+            Assert.Contains("Provider output allocation exhausted", cut.Markup);
+            Assert.Contains("Reported output tokens", cut.Markup);
+            Assert.Contains("8192", cut.Find(".llm-output-limit").TextContent);
+            Assert.Contains("320", cut.Find(".llm-output-limit").TextContent);
+        }
+        Assert.Equal(saved, await fixture.Records.GetAsync(saved.Collection, "tenant", key, "test", Ct));
+        cut.Find(".llm-call__expand").Click();
+        Assert.Empty(cut.FindAll(".llm-output-limit"));
+    }
+
+    [Theory]
     [InlineData("eof")]
     [InlineData("exception")]
     [InlineData("cancelled")]

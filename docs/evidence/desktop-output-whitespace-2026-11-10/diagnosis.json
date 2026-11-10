@@ -1,0 +1,53 @@
+{
+  "base_head": "ea8de646",
+  "session": "a4f2be1d43ea4fa98254ea9e4704203a",
+  "trace": "b490faff6d8a1e5b32ab289f3060319b",
+  "gen_ai_span": "3e5a6df81ece0736",
+  "session_revision": 30,
+  "status": "stopped",
+  "request_id": "a4f2be1d43ea4fa98254ea9e4704203a:9:9ba701387947ca70045fdd125ddba63c212c05c4924789f0633d8acc447b20e4:19de62acc2d9971d8dc628ba1a8bdd61920b31d5c961e8538c579ba48f29922b",
+  "provider_response_id": "chatcmpl-EioJpLTBgK7B2vmqF0UKM9kJCMZmH",
+  "phase": "construction_draft",
+  "checkpoint": 0,
+  "http": {
+    "StartedAtUtc": "2026-11-10T22:09:25.167966+00:00",
+    "FirstByteAtUtc": "2026-11-10T22:09:36.075889+00:00",
+    "LastByteAtUtc": "2026-11-10T22:11:35.901678+00:00",
+    "CompletedAtUtc": "2026-11-10T22:11:35.904634+00:00",
+    "DeadlineAtUtc": "2026-11-10T22:19:25.167966+00:00",
+    "ObservedStatus": 200,
+    "ProtocolComplete": true,
+    "ResponseBodyComplete": true,
+    "TerminationStatus": "length",
+    "UsageKnown": true,
+    "Failure": null,
+    "RetryDecision": "completed; no retry"
+  },
+  "blocked_at_utc": "2026-11-10T22:11:37.78651+00:00",
+  "threshold_mode": "diagnostic",
+  "allocation_origin": "configured_phases",
+  "issued_output_tokens": 8192,
+  "reported_input_tokens": 11280,
+  "reported_output_tokens": 8192,
+  "reported_reasoning_tokens": 320,
+  "raw_text_characters": 27811,
+  "trailing_whitespace_characters": 24202,
+  "normalized_text_characters": 3609,
+  "strict_json_schema_on_wire": true,
+  "compact_json_guidance_already_issued": true,
+  "offline_prefix_witness": {
+    "issued_schema_findings": 0,
+    "wire_schema_findings": 0,
+    "accepted_or_executed": false,
+    "note": "A manually supplied suffix completes the exact prefix and validates locally. It is a grammar witness, not recovered model output or proof of provider decoder behavior."
+  },
+  "existing_session_and_all_nine_call_records_unchanged": true,
+  "new_provider_dispatches": 0,
+  "financial_mutations": false,
+  "private_evidence_sha256": {
+    "exact.call9.receipt.json": "3cbd472b3851fb9190168d64223c82eff0f1d762daf09db9bbd574b786d34491",
+    "exact.call9.request.json": "5621f71df985c0f3d3264d523d26df3999e3d15fdf1d8dedffad32955918679c",
+    "exact.call9.http.json": "fec365ca5eabe8fd2f2ef6710eef623a03e567291820f382f398b78b86f891ed",
+    "exact.session.json": "9fa2a2677c5599a99a487fbbb94d65c9f77986c809db87383b978bbe767bdd47"
+  }
+}

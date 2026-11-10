@@ -77,6 +77,14 @@ public sealed record LlmCallPage(IReadOnlyList<LlmCallProjection> Calls, LlmCall
 public static class LlmInspectionLabels
 {
     public const string FinancialRefusal = "Not dispatched — financial admission refused; reservations retained";
+    internal const string DiagnosticThresholdExplanation = "Diagnostic mode makes planning optimization thresholds advisory. The issued output allocation remains enforced by the provider. Incomplete model responses still stop planning; validation, permissions and applicable financial limits remain enforced.";
+    internal const string OutputLimitExplanation = "The provider stopped before completing its response. This is not an advisory threshold: incomplete output cannot be accepted as a plan. The receipt and usage are retained. This stopped session cannot be replayed; investigate the exchange before starting fresh work.";
+    internal static string ReceivedResponse(string? completionStatus) => completionStatus switch
+    {
+        "output_limit" => "Provider output allocation exhausted — incomplete result rejected",
+        "refused" or "failed" or "incomplete" => "Provider response rejected — " + completionStatus,
+        _ => "Response received — validation and business review are separate"
+    };
 
     public static string Phase(string? phase) => phase switch
     {

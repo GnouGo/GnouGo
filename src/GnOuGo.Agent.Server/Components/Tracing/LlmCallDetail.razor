@@ -12,6 +12,16 @@
     else
     {
         <p>@_detail["responseStatus"]</p>
+        @if (_detail["completionStatus"]?.ToString() == "output_limit")
+        {
+            <section class="llm-output-limit" aria-label="Provider output exhaustion">
+                <p>@LlmInspectionLabels.OutputLimitExplanation</p>
+                <dl><dt>Issued output tokens</dt><dd>@(_detail["settings"]?["maxTokens"] ?? _detail["outputAllocation"])</dd>
+                    <dt>Reported output tokens (including reasoning)</dt><dd>@(LlmTraceCapture.Usage(_detail["usage"], "output_tokens", "completion_tokens")?.ToString() ?? "unavailable")</dd>
+                    <dt>Reported reasoning tokens</dt><dd>@((LlmTraceCapture.Usage(_detail["usage"], "reasoning_tokens") ?? LlmTraceCapture.Usage(_detail["usage"]?["output_tokens_details"], "reasoning_tokens") ?? LlmTraceCapture.Usage(_detail["usage"]?["completion_tokens_details"], "reasoning_tokens"))?.ToString() ?? "unavailable")</dd></dl>
+                <p>HTTP/SSE completion and a usage receipt do not establish a complete model answer. Inspect the retained response and native HTTP evidence; output exhaustion alone does not prove that a larger allocation would resolve it.</p>
+            </section>
+        }
         @if (_detail["settings"] is { } settings)
         {
             <dl><dt>Effective output allocation</dt><dd>@(settings["maxTokens"] ?? _detail["outputAllocation"])</dd>

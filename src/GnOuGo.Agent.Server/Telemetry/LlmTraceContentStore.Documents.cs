@@ -137,7 +137,7 @@ public sealed partial class LlmTraceContentStore
         var http = await SourceAsync(prefix + "-planning-model-http-v11", session, requestId, true, ct);
         if (http is not null && !string.Equals(http["requestHash"]?.ToString(), request["requestHash"]?.ToString(), StringComparison.OrdinalIgnoreCase)) throw new KeyNotFoundException("HTTP evidence does not match this request.");
         return new JsonObject { ["sessionId"] = session, ["requestId"] = requestId, ["settings"] = request["settings"]?.DeepClone(),
-            ["responseStatus"] = response is not null ? "Response received — validation and business review are separate" :
+            ["responseStatus"] = response is not null ? LlmInspectionLabels.ReceivedResponse(response["completionStatus"]?.ToString()) :
                 state.RequestMeasurements?.SingleOrDefault(m => m.RequestId == requestId)?.Result == "financial_refusal_before_dispatch"
                     ? LlmInspectionLabels.FinancialRefusal : "No completion receipt — outcome or usage may be uncertain",
             ["completionStatus"] = response?["completionStatus"]?.DeepClone(),

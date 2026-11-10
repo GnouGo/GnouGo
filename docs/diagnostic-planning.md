@@ -44,6 +44,22 @@ allocation are independent. There is no artificial 65,536 output ceiling.
 In Limited mode, financial admission can refuse the complete reservation, never silently reduce it.
 Requested/effective allocations and restriction origins remain inspectable.
 
+`MODEL_OUTPUT_LIMIT` with a retained `output_limit` receipt means the provider
+ended its answer at the issued output allocation. It is a mandatory completeness
+failure, including in Diagnostic mode. HTTP 200, a complete SSE stream and known
+usage can all accompany incomplete JSON. Reasoning tokens are included in the
+reported output total. A large whitespace tail can also consume that allocation;
+raising it is not a demonstrated correction for such a response.
+The generation timeline and shared inspector distinguish this outcome from
+advisory thresholds and display the issued allocation and reported usage.
+The raw native/assembled response remains available through the existing protected
+documents; normalized logical text can omit trailing whitespace. An unavailable
+usage field stays unavailable. No new inspector or persisted planning format is used.
+Keep the stopped session, receipts and reservations unchanged; investigate the
+exact exchange before admitting a separately identified new attempt. No automatic
+retry, allocation escalation or partial-fragment acceptance is authorized by this
+failure. See the [Desktop whitespace-tail investigation](evidence/desktop-output-whitespace-2026-11-10/README.md).
+
 The OpenTelemetry trace panel opens on **Pipeline / LLM calls**. Capture is enabled
 by default; full redacted inputs/outputs load on demand from encrypted storage.
 Exported spans carry measurements and content references, not business prompt or
