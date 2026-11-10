@@ -282,6 +282,26 @@ than a model selection page; unchanged claim repetition is not progress. A succe
 completed-workflow global review closes every original obligation, including retained
 claims outside the final step. Local review closes only its explicit current claims.
 
+An unfinished business-block continuation validates its envelope and selection
+structure before retaining a tentative fragment. Compiler findings from its import
+probe stay attached to that fragment when their locations belong to its owned work;
+they do not discard the rejected values or force a whole-fragment regeneration.
+Stage commitments and continuation metadata on a clone, then publish the tentative
+transition together. Structural/authority failures leave prior commitments and
+accepted checkpoints unchanged. The existing typed repair slots define permissible
+edits; a finding outside the fragment does not grant edits to accepted producers.
+Invalid compiler results still publish no interfaces. Corrected candidates undergo
+the same continuation, complete technical and business validation before acceptance.
+
+Type diagnostics describe bounded nested item shapes and nullability, including
+item unions. Literal findings retain their instance pointer in the message while
+the diagnostic's semantic location remains unchanged. These descriptions and retained
+rejected values are context, never additional repair authority. A type-valid table
+containing only headers does not prove that the required source rows are consumed.
+Provider output exhaustion still rejects all returned content, retains usage and
+receipts, and grants neither replay nor a larger output allocation. Stopped sessions
+are not reconstructed from historical rejected proposals.
+
 One selected discovery action follows exact provider cursors in host batches of four
 reads, retaining the action across checkpoints instead of requesting another model
 decision for pagination. Cycles, unavailable providers, caller cancellation and actual

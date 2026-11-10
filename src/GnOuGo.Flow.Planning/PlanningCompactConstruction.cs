@@ -949,11 +949,21 @@ internal static partial class PlanningCompactConstruction
     internal static JsonArray ImportedInterfaces(PlanningSession state, PlanningConstructionStep step)
     {
         if (step.Inputs.Count == 0) return [];
+        return ImportedInterfaces(state, step, InspectImportedInterfaces(state, step));
+    }
+
+    private static TaskConstructionValidation InspectImportedInterfaces(PlanningSession state, PlanningConstructionStep step)
+    {
         var plan = PlanningConstruction.Clone(state.Plan ?? new TaskPlan { Inputs = state.Requirements!.Inputs! });
         foreach (var choice in plan.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
-        var result = TaskPlanCompiler.ValidateConstruction(plan, state.Catalog!, state.Request,
+        return TaskPlanCompiler.ValidateConstruction(plan, state.Catalog!, state.Request,
             state.Construction!.OpenScopes.ToHashSet(StringComparer.Ordinal),
             new Dictionary<string, IReadOnlyList<TaskValue>> { [step.Scope] = step.Inputs });
+    }
+
+    private static JsonArray ImportedInterfaces(PlanningSession state, PlanningConstructionStep step, TaskConstructionValidation result)
+    {
+        var plan = state.Plan ?? new TaskPlan { Inputs = state.Requirements!.Inputs! };
         if (!result.Interfaces.TryGetValue(step.Scope, out var interfaces) || interfaces.Count != step.Inputs.Count)
         {
             // Compiler failures clear captured interfaces. Preserve their actual
@@ -997,6 +1007,12 @@ internal static partial class PlanningCompactConstruction
 
     internal static void ValidateSelection(PlanningSession state, PlanningConstructionStep step)
     {
+        ValidateSelectionStructure(state, step);
+        _ = ImportedInterfaces(state, step);
+    }
+
+    private static void ValidateSelectionStructure(PlanningSession state, PlanningConstructionStep step)
+    {
         var construction = state.Construction!;
         var compact = State(state);
         if (step.Kind is null ? false : !TaskKinds.Contains(step.Kind, StringComparer.Ordinal))
@@ -1027,7 +1043,6 @@ internal static partial class PlanningCompactConstruction
         if (step.InputTaskIds.Any(id => !symbols.Tasks.ContainsKey(id)))
             PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/step/inputTaskIds", "Input task identities must already exist; construct prerequisites first.");
         step.BaseHash = PlanningConstruction.Hash(state.Plan);
-        _ = ImportedInterfaces(state, step);
     }
 
     private static void ValidatePrerequisites(PlanningSession state, PlanningConstructionStep step)

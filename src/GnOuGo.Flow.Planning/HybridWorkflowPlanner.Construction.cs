@@ -249,23 +249,33 @@ public sealed partial class HybridWorkflowPlanner
             PlanningConstruction.Fail("REQUIREMENTS_INVALID", "/requirements", "The first extension requires explicit caller inputs and business outputs.");
         if (PlanningCommitments.Validate(state, requirements!, final: true) is { Count: > 0 } invalid)
             throw new PlanningResponseException(invalid);
-        state.Requirements ??= requirements;
-        if (construction.Requirements.Count == 0)
-            construction.Requirements = state.Requirements!.Outcomes.Select(r => new PlanningConstructionRequirement { Id = r.Id }).ToList();
+        // Stage the complete transition on a clone. Invalid envelopes must not
+        // replace commitments or continuation claims of a retained candidate.
+        var admission = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession),
+            PlanningJsonContext.Default.PlanningSession)!;
+        admission.Requirements ??= requirements;
+        if (admission.Construction!.Requirements.Count == 0)
+            admission.Construction.Requirements = admission.Requirements!.Outcomes.Select(r => new PlanningConstructionRequirement { Id = r.Id }).ToList();
         if (repair && previous is not null && proposal.Extension!.Scope != previous.Extension.Scope)
             PlanningConstruction.Fail("REVISION_SCOPE_CHANGED", "/extension/scope", "Correction cannot move the tentative extension to another scope.");
-        var next = PlanningConstruction.Apply(state, proposal.Extension!);
-        PlanningCompactConstruction.StageCommitments(state, proposal.Commitments, next);
-        PlanningCompactConstruction.ValidateExtension(state, next);
+        var next = PlanningConstruction.Apply(admission, proposal.Extension!);
+        PlanningCompactConstruction.StageCommitments(admission, proposal.Commitments, next);
+        var extensionFindings = PlanningCompactConstruction.ExtensionFindings(admission, next);
+        if (extensionFindings.Any(finding => !PlanningConstruction.Owns(next, finding.Location)))
+            throw new PlanningResponseException(extensionFindings.ToList());
         if (state.Request.Mode == PlanningMode.Auto)
         {
             foreach (var choice in next.Plan.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
             next.Hash = PlanningConstruction.Hash(next.Plan);
         }
         next.Corrections = previous?.Corrections ?? construction.DraftCorrections;
-        PlanningConstruction.CarryDefectWitnesses(state, previous, next);
-        if (PlanningConstruction.PreviouslyRejected(state, next))
+        PlanningConstruction.CarryDefectWitnesses(admission, previous, next);
+        if (PlanningConstruction.PreviouslyRejected(admission, next))
             throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "Construction repeated a failed semantic candidate. No budget was reset.");
+        state.Requirements = admission.Requirements;
+        construction.Requirements = admission.Construction.Requirements;
+        construction.Compact!.CurrentStep = admission.Construction.Compact!.CurrentStep;
+        construction.Compact.PendingCommitments = admission.Construction.Compact.PendingCommitments;
         construction.Candidate = next; construction.PendingReviewContext = null; construction.PendingReviewHash = null;
         PlanningCompactConstruction.RetainPrerequisiteEvidence(state);
         await ValidateConstructionCandidateAsync(state, runtime, ct);
@@ -282,12 +292,12 @@ public sealed partial class HybridWorkflowPlanner
             draft.Hash == PlanningConstruction.Hash(draft.Plan) && draft.BaseHash == PlanningConstruction.Hash(state.Plan)
             ? draft.Diagnostics.Where(d => d.Required && d.Code == "JUDGE_SCOPED_REVIEW" &&
                 authorized.Contains(d.Location, StringComparer.Ordinal)).ToArray() : [];
-        PlanningCompactConstruction.ValidateExtension(state, draft);
+        var extensionFindings = PlanningCompactConstruction.ExtensionFindings(state, draft);
         PlanningConstruction.AdmitResolvedOperations(state, draft.Plan);
         var candidate = PlanningConstruction.Clone(draft.Plan);
         foreach (var choice in candidate.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
         draft.Diagnostics = TaskPlanCompiler.ValidateConstruction(candidate, state.Catalog!, state.Request,
-            draft.OpenScopes.ToHashSet(StringComparer.Ordinal)).Diagnostics.ToList();
+            draft.OpenScopes.ToHashSet(StringComparer.Ordinal)).Diagnostics.Concat(extensionFindings).Distinct().ToList();
         draft.Diagnostics.AddRange(PlanningConstruction.RebuildFindings(state, candidate, draft.Extension.Complete));
         if (draft.Extension.Complete)
         {

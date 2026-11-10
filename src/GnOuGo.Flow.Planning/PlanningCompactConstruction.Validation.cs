@@ -61,15 +61,23 @@ internal static partial class PlanningCompactConstruction
 
     internal static void ValidateExtension(PlanningSession state, PlanningConstructionCandidate candidate)
     {
+        var findings = ExtensionFindings(state, candidate);
+        if (findings.Count > 0) throw new PlanningResponseException(findings.ToList());
+    }
+
+    // Envelope/authority failures still throw. Compiler findings can instead be
+    // retained with an unaccepted candidate for the existing owned-slot repair.
+    internal static IReadOnlyList<PlanningDiagnostic> ExtensionFindings(PlanningSession state, PlanningConstructionCandidate candidate)
+    {
         var step = State(state).CurrentStep!;
         if (candidate.AuthorizedPaths is not null)
         {
             if (candidate.Extension.ContinueInScope is not null)
                 PlanningConstruction.Fail("CONSTRUCTION_BLOCK_CONTINUATION_INVALID", "/extension/continueInScope",
                     "An explicit scoped revision cannot continue or expand the selected business block.");
-            return; // The existing typed patch verifier owns this explicit revision boundary.
+            return []; // The existing typed patch verifier owns this explicit revision boundary.
         }
-        if (candidate.Reviews.Any(row => row["purpose"]?.ToString() == "construction_transition")) return;
+        if (candidate.Reviews.Any(row => row["purpose"]?.ToString() == "construction_transition")) return [];
         if (step.BlockId is null || CurrentBlock(state)?.Id != step.BlockId || candidate.Extension.CompleteBlock is null)
             PlanningConstruction.Fail("CONSTRUCTION_BLOCK_INVALID", "/extension/completeBlock", "Every new fragment belongs to the retained business block and explicitly states whether it claims business completion.");
         if (candidate.Extension.Complete && candidate.Extension.CompleteBlock != true)
@@ -117,7 +125,7 @@ internal static partial class PlanningCompactConstruction
                 CheckImport(candidate.Extension.Choices[i].Alternatives[j].Value, "/extension/choices/" + i + "/alternatives/" + j + "/value", step.Scope);
         ValidateContinuationBinding(state, candidate);
         ValidateBoundaryTransition(state, candidate);
-        ValidateBlockContinuation(state, candidate);
+        return ValidateBlockContinuation(state, candidate);
 
         void CheckImport(TaskValue value, string location, string scope)
         {

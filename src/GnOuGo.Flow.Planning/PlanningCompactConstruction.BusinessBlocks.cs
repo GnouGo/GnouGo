@@ -74,9 +74,9 @@ internal static partial class PlanningCompactConstruction
             item.Consumer.RequirementIds.Any(id => step.RequirementIds.Contains(id, StringComparer.Ordinal)) && ContinuationCurrent(state, item));
     }
 
-    private static void ValidateBlockContinuation(PlanningSession state, PlanningConstructionCandidate candidate)
+    private static IReadOnlyList<PlanningDiagnostic> ValidateBlockContinuation(PlanningSession state, PlanningConstructionCandidate candidate)
     {
-        if (candidate.Extension.ContinueInScope is not { } path) return;
+        if (candidate.Extension.ContinueInScope is not { } path) return [];
         var step = State(state).CurrentStep!;
         if (!SupportsBusinessFragment(step.Kind) || candidate.AuthorizedPaths is not null || CandidateCompletesBlock(candidate) ||
             candidate.Extension.CloseScopes.Contains("/root", StringComparer.Ordinal) ||
@@ -106,7 +106,15 @@ internal static partial class PlanningCompactConstruction
         // exact interfaces; the ordinary compiler still checks every actual use.
         if (path != step.Scope) { continuation.Inputs.Clear(); continuation.DependencyTaskIds.Clear(); }
         if (State(probe).ReplacementScope is not null) State(probe).ReplacementScope = path;
-        ValidateSelection(probe, continuation);
+        ValidateSelectionStructure(probe, continuation);
+        if (continuation.Inputs.Count == 0) return [];
+        var validation = InspectImportedInterfaces(probe, continuation);
+        // A bad consumer anywhere in the tentative fragment clears all captured
+        // interfaces. Keep its findings, never publish unchecked interfaces or
+        // blame a valid accepted import for that consumer's error.
+        if (validation.Diagnostics.Count > 0) return validation.Diagnostics;
+        _ = ImportedInterfaces(probe, continuation, validation);
+        return [];
     }
 
     private static void ContinueAcceptedBlock(PlanningSession state, string path)

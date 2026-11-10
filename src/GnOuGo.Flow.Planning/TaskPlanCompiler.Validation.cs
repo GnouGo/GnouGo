@@ -529,17 +529,38 @@ public sealed partial class TaskPlanCompiler
 
     private void Fits(Bound value, JsonObject schema, string code, bool optional = false)
     {
-        if (PlanningGraphValidation.IsLiteral(value.Value)
-            ? PlanningContractValidation.ValidateInstance(PlanningGraphValidation.Literal(value.Value), schema).Count > 0
+        var literal = PlanningGraphValidation.IsLiteral(value.Value);
+        var instanceFindings = literal
+            ? PlanningContractValidation.ValidateInstanceFindings(PlanningGraphValidation.Literal(value.Value), schema) : [];
+        if (literal
+            ? instanceFindings.Count > 0
             : !PlanningGraphValidation.TypesFit(value.Schema, schema, allowUnresolved: false))
             Fail(code, "Produced " + Describe(value.Schema) + (value.TypeLocation is null ? "" : " from " + value.TypeLocation) +
                 "; expected " + Describe(schema) + ". The business value does not satisfy its authoritative contract." +
+                (instanceFindings.FirstOrDefault() is { } finding ? " Instance " +
+                    (finding.InstancePointer.Length == 0 ? "/" : finding.InstancePointer) + ": " + finding.Message : "") +
                 (optional ? " This argument may be omitted; if supplied it must satisfy the contract. Null is not omission." : ""));
     }
 
     private static string Describe(JsonObject schema) => (schema["type"]?.ToJsonString() ?? "opaque") +
+        (schema["items"] is JsonObject items ? " items " + ItemShape(items, 0) : "") +
         string.Concat(new[] { "enum", "pattern", "minLength", "maxLength", "default" }
             .Where(key => schema[key] is not null).Select(key => " " + key + " " + schema[key]!.ToJsonString()));
+
+    // Presentation only: preserve semantic diagnostic locations and the existing
+    // compatibility rules. Deep schemas remain available as exact evidence.
+    private static string ItemShape(JsonObject schema, int depth)
+    {
+        if (depth == 4) return "...";
+        var shape = schema["type"]?.ToJsonString();
+        foreach (var key in new[] { "anyOf", "oneOf" })
+            if (shape is null && schema[key] is JsonArray alternatives)
+                shape = key + "(" + string.Join(" | ", alternatives.OfType<JsonObject>().Take(4)
+                    .Select(alternative => ItemShape(alternative, depth + 1)).Distinct(StringComparer.Ordinal)) +
+                    (alternatives.Count > 4 ? " | ..." : "") + ")";
+        shape = (shape ?? "opaque") + (schema["items"] is JsonObject items ? " items " + ItemShape(items, depth + 1) : "");
+        return shape.Length > 512 ? shape[..509] + "..." : shape;
+    }
 
     private static IEnumerable<PlanningDiagnostic> ConstraintFindings(Bound value, JsonObject expected, string consumer)
     {
