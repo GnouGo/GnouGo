@@ -13,6 +13,12 @@ Final follow-up checks: [complete local validation](followup-validation.json),
 [independent source-only check after the Browser correction](amazon-observation-live-check.json).
 The latter validates observation, but unchanged v7 still rejects product provenance.
 
+A subsequent CI refusal exposed an independent
+[fixture execution-budget lifecycle defect](fixture-budget-lifecycle.md).
+Its controlled regression reproduces setup ageing the finite execution scope;
+the correction keeps the two-minute limit and all original cases. It does not
+explain the remote SSE cutoff or alter live accounting.
+
 Base HEAD: `7a12a9d88f2aef143a18bc1796fb49f734da31f8`. The controlled reproduction
 was committed as `a2ffec26`. No runtime engine, provider configuration, permission,
 oracle or LLM guidance changed. The [successful stored-KeyVault SDK command](../pr120-supplement-convergence-2026-11-08/copilot-keyvault-live-command-05.json)
