@@ -39,10 +39,26 @@ public static class BrowserNavigationPolicy
         return uri;
     }
 
-    private static bool Matches(string url, string pattern) => System.Text.RegularExpressions.Regex.IsMatch(
-        url, "\\A(?:" + pattern + ")\\z",
-        System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.NonBacktracking,
-        TimeSpan.FromSeconds(1));
+    private static bool Matches(string url, string pattern)
+    {
+        try
+        {
+            // Regex.Escape denotes one exact string. Long literal URLs need no
+            // regex automaton; require the canonical round trip before using
+            // this equivalent comparison, without changing any other pattern.
+            var literal = System.Text.RegularExpressions.Regex.Unescape(pattern);
+            if (System.Text.RegularExpressions.Regex.Escape(literal) == pattern)
+                return string.Equals(url, literal, StringComparison.Ordinal);
+        }
+        catch (ArgumentException)
+        {
+            // Regex escapes such as \d belong to the existing regex engine.
+        }
+        return System.Text.RegularExpressions.Regex.IsMatch(
+            url, "\\A(?:" + pattern + ")\\z",
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.NonBacktracking,
+            TimeSpan.FromSeconds(1));
+    }
 
     // HTTP gives an omitted path the request target "/". Preserve that existing
     // form without normalizing the authority, explicit port, or supplied path.

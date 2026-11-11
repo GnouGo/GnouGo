@@ -1,0 +1,14 @@
+{
+  "campaign": "pr120-live-20261107-400",
+  "ceiling_eur": 1700,
+  "grant_count": 6,
+  "physical_attempts": 2094,
+  "known_captured_tariff_cost_eur": "903.3595163457232422749664384",
+  "unresolved_http_holds_eur": "419.6402955665024630541871923",
+  "retained_application_holds_eur": "78.429543670458514476397434969",
+  "historical_unknown_http_attempts": 50,
+  "arithmetic_headroom_eur": "298.570644417315780194448934331",
+  "new_supplement": false,
+  "provider_invoice": "unavailable",
+  "global_available_funding": "unavailable"
+}

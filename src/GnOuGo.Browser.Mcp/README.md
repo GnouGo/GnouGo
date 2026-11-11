@@ -88,6 +88,7 @@ Very short MCP client examples:
 - `Browser:Channel`: specific channel (`msedge`, `chrome`, etc.)
 - `Browser:AllowedHosts`: optional allowlist of allowed hosts (`example.com`, `*.example.com`)
 - `Browser:AllowedNavigationUrlPatterns`: optional full-URL regular expressions, combined with the host allowlist; each explicit read and redirect destination must match one pattern. The same pattern must authorize both the supplied absolute URL and its transmitted URI form: removing an explicit default port or collapsing path segments cannot grant route authority. An omitted HTTP path retains its ordinary `/` request target. Absolute redirect spelling is checked before canonicalization and before contact. These are trusted host settings, never model-authored permission grants.
+  Canonically escaped literal patterns use an equivalent ordinal string comparison, so long exact URLs do not require a regex automaton. Other patterns retain the bounded nonbacktracking engine. This changes no URL spelling, host restriction, redirect rule or permission.
 - `Browser:DefaultTimeoutMs` / `NavigationTimeoutMs`: Playwright timeouts
 - `Browser:MaxContentCharacters`: max size returned by `browser_get_content`
 - `Browser:SlowMoMs`: slows down each Playwright action for visual debugging

@@ -27,8 +27,25 @@ Historical issued requests, responses and diagnostics are not regenerated.
 Two regressions first fail on the empty link, including cold restoration. A third
 checks that the directory's nonempty link still retrieves the exact original
 schemas and remains non-consumable. All **2,981 planning tests pass** in Release
-with `-warnaserror`, zero failures and zero skips. The earlier shared baseline is
-9,090 passes and 13 existing skips; shared checks for this correction remain pending.
+with `-warnaserror`, zero failures and zero skips. The earlier shared baseline was
+9,090 passes and 13 existing skips.
+
+The completed shared check at `745a12fc` records **9,110 passes and 13 existing
+skips**: 6,721 Release non-Server passes across 32 projects and 2,389 Server passes
+with exact partition coverage and unchanged binaries. Builds use `-warnaserror`;
+the repository Server partition runner uses Debug. These overlapping sets are not
+added to the separate planning count. See [shared validation](shared-validation.json).
+
+A [fresh independent probe](live-fix-probe.json) removes the 26-byte empty-directory
+link from the exact call-41 context, retaining its original schema, low reasoning
+and 4,096 output tokens. It completes in 44.406465 seconds with known protocol/usage,
+at EUR 0.7889744738020600089565606807 captured-tariff cost. The evidence-only response
+requests five other original addresses. On the exact issued baseline/map, the
+production reader resolves all five and admits their complete follow-up without
+changing the plan or accounting. Fresh production follow-up schemas also omit the
+unavailable empty-export address. This probe deliberately retains the historical
+response schema, including its unused old ID; it is not a full new planning session
+or a useful executable fragment. No source session is resumed or changed.
 
 ## Live and qualification boundaries
 
@@ -47,6 +64,15 @@ exact cancelled request and source. The first apply is refused by the existing
 clean-worktree guard; no retention or financial release is inferred from that
 refusal. Administrative application follows the tested commit. No supplement,
 reset, Unlimited or historical reservation release is authorized.
+
+After the tested commit, permanent retention is applied successfully at
+`2026-11-11T23:09:04.0975930Z`, with evidence hash
+`31b7cd3285bc1481ad2b6e24b62417ad050d041181e3920adc325d5ec74c0f01`.
+The entire reservation remains; replay and continuation are forbidden. The
+[post-retention audit](financial-summary.json), before the independent probe,
+retains all six grants, the EUR 1,700 ceiling and all 50 historical unknown HTTP
+attempts. Its conservative application-hold projection is EUR
+78.429543670458514476397434969. Provider invoices and global funding remain unavailable.
 
 ## Separate generated-binding finding
 
