@@ -81,3 +81,22 @@ The combined probe cost was about EUR 0.99; neither added uncertainty. The stopp
 full run is [permanently retained](workflow-permanent-retention.json) with its
 complete uncertain reservation and replay/continuation forbidden. A new full
 workflow requires its own admission and fresh source authority.
+
+## Second attempt: source-resolution scope mismatch
+
+The fresh run retained four technical checkpoints and an `ok` local business review,
+then was cancelled through the ordinary endpoint at revision 84 before global review
+or execution. Inspection found that v6 facts had lost v5's **unverified identity**
+qualifier. The generated transform selected all allowlisted navigable source links;
+the unchanged guard permits only the next unresolved sponsored occurrence before
+business qualification. This was detected before execution, not observed as a live
+permission rejection. See [the reproduction and correction](source-scope-first-cause.json).
+
+A mixed source fixture puts an already identified product before unresolved links.
+It confirms that URL eligibility does not grant early-read authority. The new test
+first failed on the captured wording, then passed after v6 reused v5's exact sentence.
+All **433 affected tests pass** with `-warnaserror`; guard, oracle and allowlist code
+are unchanged. The earlier [shared local checks](shared-local-validation.json) passed
+8,955 tests with 13 existing skips on the preceding implementation. No engine code
+changed in this subsequent text correction. A new targeted probe will test whether
+the precise original constraint corrects source selection; it will apply no fragment.

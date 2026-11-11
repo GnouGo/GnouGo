@@ -7,6 +7,27 @@ public sealed class AmazonReviewProofWorkflowTests
     private const string Policy = "amazon-observed-review-proof-context-v6";
 
     [Fact]
+    public void SourceResolutionFactsDoNotRequireEarlyReadsOfAlreadyIdentifiedProducts()
+    {
+        var events = Events(); var records = Records(events[0]);
+        var known = records.OfType<JsonObject>().First(r =>
+            r["ancestorAttributes"]?["data-asin"]?["value"]?.ToString() is { Length: 10 });
+        var knownHref = known["href"]!.ToString();
+        records.Remove(known); records.Insert(0, known);
+        for (var index = 0; index < records.Count; index++) records[index]!["reference"] = "search:record:" + index;
+        Assert.True(AmazonReviewProofPolicy.Allows(knownHref));
+        var next = LiveWorkflowOracles.ResolvedSourceAllowedEntries([events[0]], Policy).ToArray();
+        Assert.Equal([events[1]["arguments"]!["url"]!.ToString()], next);
+        Assert.DoesNotContain(knownHref, next);
+        Assert.Contains(knownHref, LiveWorkflowOracles.ResolvedSourceAllowedEntries(events.Take(21).ToArray(), Policy));
+
+        const string resolution = "Before business product selection, resolve every sponsored source-link occurrence with unverified identity by GET of its exact literal href in source order, including repeated hrefs.";
+        Assert.Contains(resolution, AmazonResolvedProductPolicy.PlanningFacts, StringComparison.Ordinal);
+        Assert.Contains(resolution, AmazonReviewProofPolicy.PlanningFacts, StringComparison.Ordinal);
+        Assert.DoesNotContain("Resolve every navigable source-link occurrence", AmazonReviewProofPolicy.PlanningFacts, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ExactReviewAliasRequiresEveryNavigableOccurrenceBeforeBusinessAuthority()
     {
         var events = Events();
