@@ -156,6 +156,13 @@ public sealed partial class PlaywrightBrowserHost
                 return response;
             }
         }
+        catch (PlaywrightException error)
+        {
+            // Retain only responses already observed by this read. An interrupted
+            // browser navigation establishes neither a final URL nor completion.
+            lock (_observationLock) error.Data[nameof(BrowserNavigationEvidence)] = read.Evidence();
+            throw;
+        }
         catch (OperationCanceledException error)
         {
             error.Data[nameof(BrowserNavigationEvidence)] = read.Evidence();

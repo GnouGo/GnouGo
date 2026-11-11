@@ -9,6 +9,38 @@ namespace GnOuGo.Browser.Mcp.Tests;
 public sealed class BrowserSemanticOccurrenceTests
 {
     [Theory]
+    [InlineData("html", false)]
+    [InlineData("html", true)]
+    [InlineData("observation_complete", false)]
+    [InlineData("observation_complete", true)]
+    public async Task InterruptedReadRetainsOnlyItsObservedIncompleteHops(string format, bool redirect)
+    {
+        var ct = TestContext.Current.CancellationToken; var requests = 0;
+        await using var site = await LoopbackTestServer.StartAsync(async context =>
+        {
+            if (context.Request.Path is not { Value: "/start" or "/final" }) { context.Response.StatusCode = 204; return; }
+            Interlocked.Increment(ref requests);
+            if (context.Request.Path == "/start") { context.Response.Redirect("/final"); return; }
+            context.Response.ContentType = "text/html";
+            await context.Response.WriteAsync("<html><body>Observed document</body></html>", ct);
+        }, ct);
+        await using var host = new PlaywrightBrowserHost(Options.Create(new BrowserServerSettings
+            { AllowedHosts = ["127.0.0.1"] }), NullLogger<PlaywrightBrowserHost>.Instance)
+        {
+            NavigationReadCheckpoint = (_, _) => throw new Microsoft.Playwright.PlaywrightException("net::ERR_ABORTED")
+        };
+        var tools = new BrowserTools(host, NullLogger<BrowserTools>.Instance); var url = site.Origin + (redirect ? "/start" : "/final");
+        var result = await tools.GetContentAsync(url: url, waitUntil: "domcontentloaded", timeoutMs: 10000, format: format, cancellationToken: ct);
+        Assert.False(result.Success); Assert.Equal("BROWSER_ERROR", result.ErrorCode);
+        Assert.Null(result.ObservationSnapshot); Assert.Empty(result.Content);
+        var evidence = Assert.IsType<BrowserNavigationEvidence>(result.NavigationEvidence);
+        Assert.Equal(url, evidence.RequestedUrl); Assert.False(evidence.Complete); Assert.Null(evidence.FinalUrl); Assert.Null(evidence.DocumentUrl);
+        Assert.Equal(redirect ? new[] { 302, 200 } : [200], evidence.Hops.Select(h => h.StatusCode));
+        Assert.Equal(redirect ? 2 : 1, requests); Assert.All(evidence.Hops, h => Assert.Equal("GET", h.Method));
+        if (format == "observation_complete") Assert.Equal("net::ERR_ABORTED", result.Acquisition!.FailureCategory);
+    }
+
+    [Theory]
     [InlineData(false, false)]
     [InlineData(false, true)]
     [InlineData(true, false)]

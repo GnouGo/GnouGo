@@ -450,7 +450,10 @@ public sealed partial class PlaywrightBrowserHost
                 : error.Message.Contains("closed", StringComparison.OrdinalIgnoreCase) ? "target_closed"
                 : System.Text.RegularExpressions.Regex.Match(error.Message, @"net::ERR_[A-Z_]+", System.Text.RegularExpressions.RegexOptions.CultureInvariant,
                     TimeSpan.FromMilliseconds(100)) is { Success: true } network ? network.Value : "playwright_error";
-            throw new BrowserObservationException("BROWSER_ERROR", "The Browser could not complete snapshot acquisition.", Acquisition() with { FailureCategory = category });
+            var failure = new BrowserObservationException("BROWSER_ERROR", "The Browser could not complete snapshot acquisition.", Acquisition() with { FailureCategory = category });
+            if (error.Data[nameof(BrowserNavigationEvidence)] is BrowserNavigationEvidence partialNavigation)
+                failure.Data[nameof(BrowserNavigationEvidence)] = partialNavigation;
+            throw failure;
         }
         catch (BrowserNavigationException ex)
         {
