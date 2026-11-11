@@ -143,16 +143,27 @@ public sealed partial class BenchmarkPermanentRetentionTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task UnjournaledServerRetentionKeepsUncertaintyAndTheWholeHoldAcrossColdRestart(bool cancelled)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task UnjournaledServerRetentionKeepsUncertaintyAndTheWholeHoldAcrossColdRestart(bool cancelled, bool applicationHoldExceedsCampaignEstimate)
     {
         var workspace = Path.Combine(Path.GetTempPath(), "GnOuGo.ServerRetention", Guid.NewGuid().ToString("N"));
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(Path.Combine(workspace, ".GnOuGo/data/live-server", InterruptedServerRun));
         var campaign = await SeedInterruptedServerAsync(fixture);
         var retentionKind = cancelled ? BenchmarkCampaign.CancelledPlanningRetention : Interrupted;
         if (cancelled) await MarkUnjournaledServerCancelledAsync(campaign, fixture);
+        if (applicationHoldExceedsCampaignEstimate)
+        {
+            // The Server and campaign capture their own estimates/FX quotes.
+            // No campaign attempt exists; the full .95 Server hold stays external.
+            var journal = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct))!;
+            journal["cost_ceiling_eur"] = .9m;
+            await campaign.SaveAsync(BenchmarkHttpJournal.Collection, RequestId, journal, Ct);
+        }
         var budgetBefore = await fixture.Records.GetAsync("agent-planning-budgets-v11", "benchmark", Session, "test", Ct);
+        var journalBefore = await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct);
         var accountingBefore = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
         var proposal = await campaign.InspectPermanentRetentionAsync("planning-evaluation-runs", InterruptedServerRun, RequestId, Ct, retentionKind, workspace);
         var closure = await campaign.ApplyPermanentRetentionAsync("planning-evaluation-runs", InterruptedServerRun, RequestId,
@@ -172,6 +183,7 @@ public sealed partial class BenchmarkPermanentRetentionTests
         await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => cold.RequireRetainedApplicationHoldsAsync(1m, Ct, requireComplete: true));
         Assert.True(JsonNode.DeepEquals(accountingBefore, await BenchmarkHttpJournal.AccountingAsync(cold, ct: Ct)));
         Assert.Equal(budgetBefore, await fixture.Records.GetAsync("agent-planning-budgets-v11", "benchmark", Session, "test", Ct));
+        Assert.True(JsonNode.DeepEquals(journalBefore, await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct)));
         Assert.Null(await cold.LoadAsync("planning-evaluation-receipts", RequestId, Ct));
         using var handler = new RetainedHoldRuntimeHandler();
         using var http = new HttpClient(handler);

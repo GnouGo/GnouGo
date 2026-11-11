@@ -859,6 +859,13 @@ owned Server lease and exact evidence hash; it creates no request or response an
 releases no reservation. The whole application hold remains external to campaign
 HTTP accounting, and replay and continuation are permanently forbidden.
 
+For an empty campaign attempt journal, the exact retained Server reservation is
+also an external liability. Its independently captured FX quote may differ from
+the campaign's quote; neither estimate replaces or caps the other. Retention
+keeps the complete Server hold, both original journals and the replay barrier.
+It releases no money and does not turn the empty journal into proof of dispatch
+or a provider receipt.
+
 Read-only audits and new-spending admission reject an unretained Server hold
 without a campaign envelope instead of treating those funds as available. The
 existing campaign-owned session-policy index bounds the metadata reads. The

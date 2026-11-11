@@ -109,9 +109,11 @@ internal sealed partial class BenchmarkCampaign
             budget?["uncertainCalls"]?.GetValue<int>() is not > 0 || applicationHold?["verifiedUsage"] is not null ||
             applicationHold?["inputTokenCeiling"]?.GetValue<int>() != input || applicationHold["outputTokenCeiling"]?.GetValue<int>() != pending.Request.MaxTokens ||
             applicationHold["reservedEstimatedCost"]?.GetValue<decimal>() is not > 0 || budget["estimatedCostCurrency"]?.ToString() != "EUR" ||
-            journal["cost_ceiling_eur"]?.GetValue<decimal>() is not >= 0 ||
-            journal["cost_ceiling_eur"]!.GetValue<decimal>() < applicationHold["reservedEstimatedCost"]!.GetValue<decimal>())
+            journal["cost_ceiling_eur"]?.GetValue<decimal>() is not >= 0)
             throw new InvalidOperationException("The exact interrupted Server journals, cancellation failure and complete uncertain reservation do not match.");
+        // These independently captured estimates can use different FX quotes.
+        // With zero campaign attempts, retain the exact whole Server hold as an
+        // external liability below; the campaign estimate does not cover it.
         var siblings = await InspectAccountedSiblingReservationsAsync(scope.Session, requestId, budget!, ct);
         await using var db = await scope.Contexts.CreateDbContextAsync(ct);
         var index = await db.Calls.AsNoTracking().SingleOrDefaultAsync(c => c.TenantId == "benchmark" && c.SessionId == scope.Session && c.RequestHash == requestId, ct);
