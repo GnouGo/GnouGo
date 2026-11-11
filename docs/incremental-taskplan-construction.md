@@ -381,6 +381,9 @@ Accepted scope-export evidence can be read through its exact link before selecti
 that scope. It validates at the requested scope’s own frontier and grants no import
 or result visibility. Tentative candidate pages retain their selected-scope and
 clean-closure guards.
+Empty accepted export directories show their zero count and empty names without
+offering an unavailable export page. The original scope evidence remains available;
+historical issued requests and rejected evidence addresses are preserved unchanged.
 
 Selection, discovery, drafting and correction compact optional navigation toward their
 captured targets. A selected operation and a producer sharing the same exact contract share

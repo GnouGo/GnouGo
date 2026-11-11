@@ -123,6 +123,9 @@ Open-frontier ordering follows existing scope ownership rather than the shape of
 Accepted export navigation resolves the exact requested scope even during selection;
 its declarations remain non-consumable. Candidate export pages still require the exact
 selected scope, clean validation and the issued closure claim.
+An accepted scope with no exports retains its explicit zero count and empty names,
+but offers no export-page link. Its ordinary scope evidence remains retrievable;
+an absent export does not grant an interface or import.
 
 Suspended-consumer presentation retains its own bounded rejection reason through
 selection and discovery. It comes from the indexed rejected step, not the latest

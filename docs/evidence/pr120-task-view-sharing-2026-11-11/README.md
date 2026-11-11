@@ -51,8 +51,21 @@ phase separation, changed-argument/scope/ID rejection, exact literal preservatio
 pointer escaping, issued-map validation, canonical recovery and cold restoration.
 No model dispatch or accepted checkpoint occurs in these controlled checks.
 
-A fresh independently admitted Code delivery probe remains necessary to measure
-useful complete output and validate its actual candidate with the existing
-continuation/compiler. Full Code qualification still requires global review,
-real execution, persisted command evidence, cleanup and the independent oracle.
-SDK05 remains the positive provider/SDK reference; no reconfiguration is made.
+## Independent representative Code delivery
+
+On frozen `8f2d02f4`, [code24-task-sharing-20261111-01](code24-live-probe.json)
+uses a new independently admitted identity, the exact original baseline and schema,
+low reasoning and 32,768 output tokens. Only the task-sharing presentation changes.
+Its single real HTTP attempt completes in **66.733423 seconds**, with first nonempty
+assistant output after **65.187167 seconds**, complete native protocol termination
+and known usage: 18,343 input, 1,376 output and 186 reasoning tokens. Captured-tariff
+cost is **EUR 0.7147066726377071204657411554**. Its durable receipt is reloaded.
+
+The returned report/save fragment passes production continuation and complete
+technical validation with zero findings on a clone of the exact issued baseline.
+No fragment is applied, plan accepted or effect executed; the stopped Code24
+session and its old uncertain request remain unchanged. This validates representative
+delivery and a useful technical contribution, not the proxy's precise failure layer
+or full Code success. Global review, real execution, persisted command evidence,
+cleanup and the independent oracle remain required. SDK05 remains the positive
+provider/SDK reference; no reconfiguration is made.

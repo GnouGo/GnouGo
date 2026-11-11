@@ -298,11 +298,13 @@ internal static partial class PlanningCompactConstruction
     private static JsonObject AcceptedExportDirectory(PlanningSession state, TaskPlanSymbols.Scope scope)
     {
         var version = ScopeInterfaceVersion(state.Plan!, state.Construction!.OpenScopes, scope.Path);
-        return new()
+        var directory = new JsonObject
         {
             ["basis"] = "accepted_declarations", ["count"] = scope.Source.Outputs.Count,
-            ["names"] = new JsonArray(scope.Source.Outputs.Take(8).Select(output => (JsonNode?)JsonValue.Create(output.Name)).ToArray()),
-            ["evidence"] = ScopeInterfaceAddress(scope.Path, false, version, 0)
+            ["names"] = new JsonArray(scope.Source.Outputs.Take(8).Select(output => (JsonNode?)JsonValue.Create(output.Name)).ToArray())
         };
+        if (scope.Source.Outputs.Count > 0)
+            directory["evidence"] = ScopeInterfaceAddress(scope.Path, false, version, 0);
+        return directory;
     }
 }

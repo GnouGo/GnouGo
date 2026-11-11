@@ -8,6 +8,57 @@ public sealed class CompactAcceptedExportNavigationTests
 {
     private const string Scope = "/tasks/container/body";
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task EmptyAcceptedScopesKeepTheirDeclarationsWithoutOfferingUnavailableExportEvidence(bool coldRestore)
+    {
+        var state = await Ready(32);
+        state.Construction!.Candidate = null;
+        state.Construction.Compact!.CurrentStep = null;
+        state.Plan!.Root.Tasks[0].Body!.Outputs.Clear();
+        if (coldRestore)
+            state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession),
+                PlanningJsonContext.Default.PlanningSession)!;
+        var original = JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan);
+        var calls = state.ModelCalls;
+
+        var context = PlanningCompactConstruction.ImplementationContext(state);
+        foreach (var path in new[] { "/root", Scope })
+        {
+            var entry = context["scopes"]!.AsArray().Single(scope => scope!["path"]!.ToString() == path)!;
+            var exports = entry["acceptedExports"]!;
+            Assert.Equal(0, exports["count"]!.GetValue<int>());
+            Assert.Empty(exports["names"]!.AsArray());
+            Assert.Null(exports["evidence"]);
+            PlanningConstruction.LoadEvidence(state, [entry["evidence"]!.ToString()]);
+        }
+
+        Assert.Equal(calls, state.ModelCalls);
+        Assert.Equal(original, JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
+    }
+
+    [Fact]
+    public async Task NonemptyAcceptedScopeDirectoryOffersItsExactReadableExportPage()
+    {
+        var state = await Ready(32);
+        state.Construction!.Candidate = null;
+        state.Construction.Compact!.CurrentStep = null;
+        var entry = PlanningCompactConstruction.ImplementationContext(state)["scopes"]!.AsArray()
+            .Single(scope => scope!["path"]!.ToString() == Scope)!;
+        var exports = entry["acceptedExports"]!;
+        Assert.Equal(2, exports["count"]!.GetValue<int>());
+        var address = exports["evidence"]!.ToString();
+
+        PlanningConstruction.LoadEvidence(state, [address]);
+
+        var page = state.Construction.Evidence![address]!;
+        Assert.Equal(new[] { "first_record", "second_record" }, page["outputs"]!.AsArray().Select(output => output!["name"]!.ToString()));
+        Assert.False(page["consumable"]!.GetValue<bool>());
+        Assert.True(page["open"]!.GetValue<bool>());
+        Assert.All(page["outputs"]!.AsArray(), output => Assert.NotNull(output!["schema"]));
+    }
+
     [Fact]
     public async Task ConsumedScalarInterfacesRetainExactBindingsAndNullableTypes()
     {
