@@ -866,6 +866,15 @@ keeps the complete Server hold, both original journals and the replay barrier.
 It releases no money and does not turn the empty journal into proof of dispatch
 or a provider receipt.
 
+The separately approved AAX source diagnostic uses `AmazonAaxSourceDiagnostic`
+with its own exact source-only grant. It configures only a disposable production
+Browser component from the captured profile, admitting exact observed AAX entries
+after a complete successful search and checking each redirect before contact.
+It preserves repeated occurrences, forbids fragment navigation, expires on failure,
+close or new search, and requires distinct complete captures. This guard has no
+workflow policy flag, business-oracle dispatch or paid-plan activation. See the
+[approved scope and controlled validation](../../docs/evidence/pr120-amazon-unclassified-context-2026-11-11/source-diagnostic-activation.md).
+
 Read-only audits and new-spending admission reject an unretained Server hold
 without a campaign envelope instead of treating those funds as available. The
 existing campaign-owned session-policy index bounds the metadata reads. The

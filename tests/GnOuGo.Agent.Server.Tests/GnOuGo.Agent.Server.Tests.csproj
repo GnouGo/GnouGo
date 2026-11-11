@@ -72,6 +72,7 @@
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.AmazonSourceCoverage.cs" Link="LiveWorkflowOracles.AmazonSourceCoverage.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.AmazonSourceResolutionProposal.cs" Link="LiveWorkflowOracles.AmazonSourceResolutionProposal.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/AmazonObservedRedirectPolicy.cs" Link="AmazonObservedRedirectPolicy.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/AmazonAaxSourceDiagnostic.cs" Link="AmazonAaxSourceDiagnostic.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveCodeEvidence.cs" Link="LiveCodeEvidence.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/SchemaPortabilityCampaign.cs" Link="SchemaPortabilityCampaign.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/ServerLiveDiagnostics.cs" Link="ServerLiveDiagnostics.cs" />
