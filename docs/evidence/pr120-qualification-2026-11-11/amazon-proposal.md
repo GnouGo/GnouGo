@@ -1,5 +1,10 @@
 # Amazon provenance: retained source and inactive resolution proposal
 
+Subsequent status: the user explicitly approved the source-only scope below.
+The [fresh diagnostic outcome](source-diagnostic/outcome.md) records all 17 actual
+redirect resolutions and the tested inactive context-proof delta. This earlier
+retained-source analysis is preserved; no workflow/verifier activation is implied.
+
 The actual-profile source `5b8184daa25741bc987b67a7dc77a03d` has 1,527
 complete records, 44 `/clk/` links and no `/clk` link. This investigation adds
 no source acquisition, product visit, generation or workbook execution.

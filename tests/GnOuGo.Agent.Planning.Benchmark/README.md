@@ -1005,6 +1005,17 @@ the repository root after preparing the frontend and Chromium as in the workflow
 
 ### Inactive Amazon source-resolution proposal
 
+`amazon-resolved-store-context-v1-proposal` is a further offline proof delta.
+After complete exact ordered resolution of every unresolved source link, it may
+account for a link as store navigation only with an actually observed approved
+store destination, a valid consistent empty-ASIN context, and no product heading,
+semantic product occurrence or direct product URL. It reuses the original context
+and occurrence checks without rewriting source evidence. V7 callers supply no
+such proof and retain their existing behavior. The proposal has no live capture,
+entry authorization or business-verifier registration; its source and business
+qualification flags remain false even when offline analysis succeeds. See the
+[authorized diagnostic and remaining boundary](../../docs/evidence/pr120-qualification-2026-11-11/source-diagnostic/outcome.md).
+
 `amazon-source-resolution-v8-proposal` is an offline evidence verifier, not a
 selectable campaign oracle or navigation policy. It retains every sponsored link
 without a verified source identity and checks ordered, exact source-to-destination

@@ -6,6 +6,7 @@ internal static partial class LiveWorkflowOracles
     // Offline proposal only: deliberately absent from policy capture, host allowlists,
     // redirect-entry authorization and the full business oracle version switch.
     internal const string AmazonSourceResolutionProposalVersion = "amazon-source-resolution-v8-proposal";
+    internal const string AmazonResolvedStoreContextProposalVersion = "amazon-resolved-store-context-v1-proposal";
     private static readonly Regex ProposedStoreRoute = new(
         @"\Ahttps://(?:www\.)?amazon\.fr/stores/page/[A-Fa-f0-9]{8}(?:-[A-Fa-f0-9]{4}){3}-[A-Fa-f0-9]{12}(?:\?[^#]+)?\z",
         RegexOptions.CultureInvariant | RegexOptions.NonBacktracking, TimeSpan.FromSeconds(1));
@@ -80,4 +81,36 @@ internal static partial class LiveWorkflowOracles
         ["findings"] = new JsonArray(findings.Distinct().Select(f => (JsonNode)JsonValue.Create(f)).ToArray()),
         ["resolutions"] = resolutions
     };
+
+    // Offline proof delta only; no policy capture, entry authority, or business
+    // verifier dispatch uses it. Preserve the actual source and every occurrence.
+    internal static JsonObject VerifyAmazonResolvedStoreContextProposal(IReadOnlyList<JsonObject> events, int maximum, string query)
+    {
+        if (maximum is < 1 or > 10) throw new ArgumentOutOfRangeException(nameof(maximum));
+        var resolution = VerifyAmazonSourceResolutionProposal(events, query);
+        var findings = resolution["findings"]!.AsArray().Select(f => f!.ToString()).ToList();
+        var products = new List<ContextProduct>();
+        var references = new HashSet<string>(StringComparer.Ordinal);
+        if (resolution["resolution_evidence_complete"]!.GetValue<bool>())
+        {
+            foreach (var item in resolution["resolutions"]!.AsArray().OfType<JsonObject>())
+                if (item["destination_kind"]?.ToString() == "store_navigation") references.Add(item["source_record"]!.ToString());
+            var source = CompleteSnapshots(events).Single(s => ReferenceEquals(s.Read, events[0]));
+            products = ContextProducts(source, findings, references);
+        }
+        if (products.Count == 0) findings.Add("source_products_unverified");
+        return new JsonObject
+        {
+            ["version"] = AmazonResolvedStoreContextProposalVersion, ["active"] = false,
+            ["source_analysis_complete"] = findings.Count == 0,
+            ["source_prerequisite_qualified"] = false, ["business_oracle_passed"] = false,
+            ["findings"] = new JsonArray(findings.Distinct().Select(f => (JsonNode)JsonValue.Create(f)).ToArray()),
+            ["resolved_store_references"] = new JsonArray(references.Select(r => (JsonNode)JsonValue.Create(r)).ToArray()),
+            ["product_occurrence_count"] = products.Count,
+            ["first_products"] = new JsonArray(products.Take(maximum).Select(p => (JsonNode)new JsonObject
+            {
+                ["identity"] = p.Identity, ["source_urls"] = new JsonArray(p.Urls.Select(u => (JsonNode)JsonValue.Create(u)).ToArray())
+            }).ToArray())
+        };
+    }
 }

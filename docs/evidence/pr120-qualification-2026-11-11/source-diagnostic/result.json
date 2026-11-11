@@ -1,0 +1,712 @@
+{
+  "run": "amazon-source-resolution-20261111-01",
+  "repository_head_at_dispatch": "614c0aad23a70f50d7dbe83e30758a2e2213ae62",
+  "compiled_benchmark_browser_source": "0328d1b1",
+  "approval": "user-amazon-source-only-20261111",
+  "started_at_utc": "2026-11-11T02:19:29.178664+00:00",
+  "source_snapshot": "d2f9fa0ddfad40f58690d877fda66f68",
+  "source_records": 1564,
+  "source_capture_truncated": false,
+  "source_manifest_truncated": false,
+  "unresolved_source_links": 17,
+  "completed_resolutions": 17,
+  "observed_navigation_hops": 35,
+  "distinct_store_page_paths": 5,
+  "cold_resolution_verification": {
+    "version": "amazon-source-resolution-v8-proposal",
+    "active": false,
+    "resolution_evidence_complete": true,
+    "source_prerequisite_qualified": false,
+    "business_oracle_passed": false,
+    "findings": [],
+    "resolutions": [
+      {
+        "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:60",
+        "destination_kind": "store_navigation",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:61",
+        "destination_kind": "store_navigation",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:62",
+        "destination_kind": "store_navigation",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:65",
+        "destination_kind": "store_navigation",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:450",
+        "destination_kind": "store_navigation",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:451",
+        "destination_kind": "store_navigation",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:452",
+        "destination_kind": "store_navigation",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:457",
+        "destination_kind": "store_navigation",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:1252",
+        "destination_kind": "store_navigation",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:1253",
+        "destination_kind": "store_navigation",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:1254",
+        "destination_kind": "store_navigation",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:1255",
+        "destination_kind": "store_navigation",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:1256",
+        "destination_kind": "store_navigation",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:1257",
+        "destination_kind": "store_navigation",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:1258",
+        "destination_kind": "store_navigation",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:1259",
+        "destination_kind": "store_navigation",
+        "product_identity": null,
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:1260",
+        "destination_kind": "store_navigation",
+        "product_identity": null,
+        "occurrence_verified": false
+      }
+    ]
+  },
+  "unchanged_v7_selection": {
+    "version": "amazon-business-v7",
+    "passed": false,
+    "expected_product_count": 3,
+    "visited_product_count": 17,
+    "findings": [
+      "search_product_context_unverified",
+      "first_product_visits_incomplete",
+      "first_product_identity_or_order_mismatch",
+      "product_navigation_provenance_incomplete"
+    ]
+  },
+  "v7_eligible_redirect_entries": 0,
+  "browser_closed_and_no_active_page": true,
+  "model_calls": 0,
+  "workflow_execution": false,
+  "business_oracle_passed": false,
+  "ledger_deeply_unchanged": true,
+  "campaign_ceiling_eur": 1700,
+  "known_cost_added_eur": 0,
+  "new_reservations_eur": 0,
+  "campaign_remainder_eur": "416.028858055317264736945128318",
+  "active_policy_changed": false,
+  "isolated_diagnostic_route_extension_only": true,
+  "profile": {
+    "approval": "user-amazon-source-only-20261111",
+    "base_policy": "amazon-observed-product-context-v3",
+    "source_only": true,
+    "benchmark_builder": true,
+    "model_calls": 0,
+    "saved_configuration_modified": false,
+    "active_business_oracle_modified": false,
+    "original_route_pattern": "(?:https://(?:www\\.)?amazon\\.fr/(?:s\\?[^#]+|sspa/click\\?[^#]+|(?:[^/?#]+/)?dp/[A-Za-z0-9]{10}(?:[/?][^#]*)?|gp/product/[A-Za-z0-9]{10}(?:[/?][^#]*)?|gp/aw/d/[A-Za-z0-9]{10}(?:\\?[^#]*)?)|https://sponsored-ads\\.amazon\\.fr/clk/\\?[^#]+)",
+    "additional_redirect_pattern": "https://(?:www\\.)?amazon\\.fr/stores/page/[A-Fa-f0-9]{8}(?:-[A-Fa-f0-9]{4}){3}-[A-Fa-f0-9]{12}(?:\\?[^#\\s]+)?",
+    "benchmark_assembly_sha256": "57f213b10f77b5e7ffc2556cabf2ceb02b53e4d256eaa15e715e148ed17a6dc7",
+    "browser_assembly_sha256": "408410b93c30f7e1ffc08f1b728f374fb7834dd3b733fcdd3631f2a61ba609c6",
+    "environment": {
+      "Browser__KeepBrowserOpen": "false",
+      "Browser__AllowedHosts__0": "www.amazon.fr",
+      "Browser__AllowedHosts__1": "amazon.fr",
+      "Browser__AllowedHosts__2": "sponsored-ads.amazon.fr",
+      "Browser__AllowedNavigationUrlPatterns__0": "(?:https://(?:www\\.)?amazon\\.fr/(?:s\\?[^#]+|sspa/click\\?[^#]+|(?:[^/?#]+/)?dp/[A-Za-z0-9]{10}(?:[/?][^#]*)?|gp/product/[A-Za-z0-9]{10}(?:[/?][^#]*)?|gp/aw/d/[A-Za-z0-9]{10}(?:\\?[^#]*)?)|https://sponsored-ads\\.amazon\\.fr/clk/\\?[^#]+)",
+      "Browser__ObservationAncestorAttributes__0": "data-asin",
+      "Browser__AllowedNavigationUrlPatterns__1": "https://(?:www\\.)?amazon\\.fr/stores/page/[A-Fa-f0-9]{8}(?:-[A-Fa-f0-9]{4}){3}-[A-Fa-f0-9]{12}(?:\\?[^#\\s]+)?"
+    }
+  },
+  "links": [
+    {
+      "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:60",
+      "source_context": {
+        "value": "",
+        "tag": "div",
+        "role": null,
+        "index": 0
+      },
+      "has_product_occurrence": false,
+      "has_product_heading": false,
+      "exact_source_url_sha256": "0b7afdbfb441fe716aa34b63650f3e4a801e56dc6cf320173382b45485a3b7f2",
+      "requested_literal_matches_source": true,
+      "completed_at_utc": "2026-11-11T02:19:40.6405760+00:00",
+      "hops": [
+        {
+          "method": "GET",
+          "status": 302,
+          "url_sha256": "0b7afdbfb441fe716aa34b63650f3e4a801e56dc6cf320173382b45485a3b7f2",
+          "location_sha256": "fa0ba8b5fef410384fe09de527ed14d0d51ed6367f71c94660d6f2eb15f93f46"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url_sha256": "fa0ba8b5fef410384fe09de527ed14d0d51ed6367f71c94660d6f2eb15f93f46",
+          "location_sha256": null
+        }
+      ],
+      "destination_kind": "store_navigation",
+      "destination_path": "/stores/page/05FD89AC-C0B3-4411-A9AB-BF1A16C3F50D",
+      "destination_url_sha256": "fa0ba8b5fef410384fe09de527ed14d0d51ed6367f71c94660d6f2eb15f93f46"
+    },
+    {
+      "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:61",
+      "source_context": {
+        "value": "",
+        "tag": "div",
+        "role": null,
+        "index": 0
+      },
+      "has_product_occurrence": false,
+      "has_product_heading": false,
+      "exact_source_url_sha256": "6c1e790e676b1fa7145c062ab90d13ea8f7ee05afcde2794e27b92dd26709313",
+      "requested_literal_matches_source": true,
+      "completed_at_utc": "2026-11-11T02:19:44.1184880+00:00",
+      "hops": [
+        {
+          "method": "GET",
+          "status": 302,
+          "url_sha256": "6c1e790e676b1fa7145c062ab90d13ea8f7ee05afcde2794e27b92dd26709313",
+          "location_sha256": "8c1ee24355674a190433bbd77135900c6f6103d4102135cc763e6aa803e38005"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url_sha256": "8c1ee24355674a190433bbd77135900c6f6103d4102135cc763e6aa803e38005",
+          "location_sha256": null
+        }
+      ],
+      "destination_kind": "store_navigation",
+      "destination_path": "/stores/page/05FD89AC-C0B3-4411-A9AB-BF1A16C3F50D",
+      "destination_url_sha256": "8c1ee24355674a190433bbd77135900c6f6103d4102135cc763e6aa803e38005"
+    },
+    {
+      "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:62",
+      "source_context": {
+        "value": "",
+        "tag": "div",
+        "role": null,
+        "index": 0
+      },
+      "has_product_occurrence": false,
+      "has_product_heading": false,
+      "exact_source_url_sha256": "a26cd3e757dc1b31f6707731fe67de9af5c581b6d1359f21134b81bc2039ef06",
+      "requested_literal_matches_source": true,
+      "completed_at_utc": "2026-11-11T02:19:47.2697000+00:00",
+      "hops": [
+        {
+          "method": "GET",
+          "status": 302,
+          "url_sha256": "a26cd3e757dc1b31f6707731fe67de9af5c581b6d1359f21134b81bc2039ef06",
+          "location_sha256": "c9e178bffc4a1c434b9987b1f09b37fcdc2aa86920e5481b47d6df4c4af79fa4"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url_sha256": "c9e178bffc4a1c434b9987b1f09b37fcdc2aa86920e5481b47d6df4c4af79fa4",
+          "location_sha256": null
+        }
+      ],
+      "destination_kind": "store_navigation",
+      "destination_path": "/stores/page/05FD89AC-C0B3-4411-A9AB-BF1A16C3F50D",
+      "destination_url_sha256": "c9e178bffc4a1c434b9987b1f09b37fcdc2aa86920e5481b47d6df4c4af79fa4"
+    },
+    {
+      "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:65",
+      "source_context": {
+        "value": "",
+        "tag": "div",
+        "role": null,
+        "index": 0
+      },
+      "has_product_occurrence": false,
+      "has_product_heading": false,
+      "exact_source_url_sha256": "94da996cfb6ce9dd79ee15795bffeb615364234de578f4918cd16a9b24442096",
+      "requested_literal_matches_source": true,
+      "completed_at_utc": "2026-11-11T02:19:50.4152910+00:00",
+      "hops": [
+        {
+          "method": "GET",
+          "status": 302,
+          "url_sha256": "94da996cfb6ce9dd79ee15795bffeb615364234de578f4918cd16a9b24442096",
+          "location_sha256": "a1b2566f1c8e3c8475609e878be73300301eabb2599f145527c87f8502c4a93b"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url_sha256": "a1b2566f1c8e3c8475609e878be73300301eabb2599f145527c87f8502c4a93b",
+          "location_sha256": null
+        }
+      ],
+      "destination_kind": "store_navigation",
+      "destination_path": "/stores/page/05FD89AC-C0B3-4411-A9AB-BF1A16C3F50D",
+      "destination_url_sha256": "a1b2566f1c8e3c8475609e878be73300301eabb2599f145527c87f8502c4a93b"
+    },
+    {
+      "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:450",
+      "source_context": {
+        "value": "",
+        "tag": "div",
+        "role": null,
+        "index": 29
+      },
+      "has_product_occurrence": false,
+      "has_product_heading": false,
+      "exact_source_url_sha256": "9df1cecc07099be54f64000db512ff67c7e24b2ca8283262736b3d187e9eccde",
+      "requested_literal_matches_source": true,
+      "completed_at_utc": "2026-11-11T02:19:53.9438320+00:00",
+      "hops": [
+        {
+          "method": "GET",
+          "status": 302,
+          "url_sha256": "9df1cecc07099be54f64000db512ff67c7e24b2ca8283262736b3d187e9eccde",
+          "location_sha256": "34d8ecb7ae12419d6fdaf478a73463f5253ec9f96cee39ce492a0f6e56898478"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url_sha256": "34d8ecb7ae12419d6fdaf478a73463f5253ec9f96cee39ce492a0f6e56898478",
+          "location_sha256": null
+        }
+      ],
+      "destination_kind": "store_navigation",
+      "destination_path": "/stores/page/6FF61881-3C53-472B-AB08-52BA7BEB4E04",
+      "destination_url_sha256": "34d8ecb7ae12419d6fdaf478a73463f5253ec9f96cee39ce492a0f6e56898478"
+    },
+    {
+      "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:451",
+      "source_context": {
+        "value": "",
+        "tag": "div",
+        "role": null,
+        "index": 29
+      },
+      "has_product_occurrence": false,
+      "has_product_heading": false,
+      "exact_source_url_sha256": "d06e57e1ce67c42826fbd80864ce72585cf2b263ca8fbe6d2a1656a5071f0401",
+      "requested_literal_matches_source": true,
+      "completed_at_utc": "2026-11-11T02:19:56.0810200+00:00",
+      "hops": [
+        {
+          "method": "GET",
+          "status": 302,
+          "url_sha256": "d06e57e1ce67c42826fbd80864ce72585cf2b263ca8fbe6d2a1656a5071f0401",
+          "location_sha256": "24d682df172fba265633ed7aee65b3a49c978c6386c4a77b94ce4885d10f20f8"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url_sha256": "24d682df172fba265633ed7aee65b3a49c978c6386c4a77b94ce4885d10f20f8",
+          "location_sha256": null
+        }
+      ],
+      "destination_kind": "store_navigation",
+      "destination_path": "/stores/page/6FF61881-3C53-472B-AB08-52BA7BEB4E04",
+      "destination_url_sha256": "24d682df172fba265633ed7aee65b3a49c978c6386c4a77b94ce4885d10f20f8"
+    },
+    {
+      "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:452",
+      "source_context": {
+        "value": "",
+        "tag": "div",
+        "role": null,
+        "index": 29
+      },
+      "has_product_occurrence": false,
+      "has_product_heading": false,
+      "exact_source_url_sha256": "12fb29efd50f0116e173e92d974b26052d8af18c473b7c98948260066dd0d58a",
+      "requested_literal_matches_source": true,
+      "completed_at_utc": "2026-11-11T02:19:58.2775150+00:00",
+      "hops": [
+        {
+          "method": "GET",
+          "status": 302,
+          "url_sha256": "12fb29efd50f0116e173e92d974b26052d8af18c473b7c98948260066dd0d58a",
+          "location_sha256": "e5be9e9c16ec6b6e7d8b30f67d1d286681e7fa32055d4ec54b0d7a99508be3a7"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url_sha256": "e5be9e9c16ec6b6e7d8b30f67d1d286681e7fa32055d4ec54b0d7a99508be3a7",
+          "location_sha256": null
+        }
+      ],
+      "destination_kind": "store_navigation",
+      "destination_path": "/stores/page/6FF61881-3C53-472B-AB08-52BA7BEB4E04",
+      "destination_url_sha256": "e5be9e9c16ec6b6e7d8b30f67d1d286681e7fa32055d4ec54b0d7a99508be3a7"
+    },
+    {
+      "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:457",
+      "source_context": {
+        "value": "",
+        "tag": "div",
+        "role": null,
+        "index": 29
+      },
+      "has_product_occurrence": false,
+      "has_product_heading": false,
+      "exact_source_url_sha256": "8fcdff77475524aa415c317ffc4c5956f7b3eeea00b543b38f21882da98c9a87",
+      "requested_literal_matches_source": true,
+      "completed_at_utc": "2026-11-11T02:20:00.4541590+00:00",
+      "hops": [
+        {
+          "method": "GET",
+          "status": 302,
+          "url_sha256": "8fcdff77475524aa415c317ffc4c5956f7b3eeea00b543b38f21882da98c9a87",
+          "location_sha256": "8ba0840ee67fcdb4c816f8c8aa0d9bb8de143e751372cd89a2f4e79398cd52a5"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url_sha256": "8ba0840ee67fcdb4c816f8c8aa0d9bb8de143e751372cd89a2f4e79398cd52a5",
+          "location_sha256": null
+        }
+      ],
+      "destination_kind": "store_navigation",
+      "destination_path": "/stores/page/6FF61881-3C53-472B-AB08-52BA7BEB4E04",
+      "destination_url_sha256": "8ba0840ee67fcdb4c816f8c8aa0d9bb8de143e751372cd89a2f4e79398cd52a5"
+    },
+    {
+      "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:1252",
+      "source_context": {
+        "value": "",
+        "tag": "div",
+        "role": null,
+        "index": 86
+      },
+      "has_product_occurrence": false,
+      "has_product_heading": false,
+      "exact_source_url_sha256": "29d733f10a09168296129833c6b031dc0853a34b220c2864367c830ced420bce",
+      "requested_literal_matches_source": true,
+      "completed_at_utc": "2026-11-11T02:20:02.3384850+00:00",
+      "hops": [
+        {
+          "method": "GET",
+          "status": 302,
+          "url_sha256": "29d733f10a09168296129833c6b031dc0853a34b220c2864367c830ced420bce",
+          "location_sha256": "5f3d8e2c80edac4107f246a954deb2bf979f7a79cde185f79aa05dedfead7480"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url_sha256": "5f3d8e2c80edac4107f246a954deb2bf979f7a79cde185f79aa05dedfead7480",
+          "location_sha256": null
+        }
+      ],
+      "destination_kind": "store_navigation",
+      "destination_path": "/stores/page/F7948FCD-5A4D-488E-88A2-97BB397A7299",
+      "destination_url_sha256": "5f3d8e2c80edac4107f246a954deb2bf979f7a79cde185f79aa05dedfead7480"
+    },
+    {
+      "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:1253",
+      "source_context": {
+        "value": "",
+        "tag": "div",
+        "role": null,
+        "index": 86
+      },
+      "has_product_occurrence": false,
+      "has_product_heading": false,
+      "exact_source_url_sha256": "7b301323ba2c6194614fe354356cdc216ffebd6004a522ae4a67d36e3453d7d1",
+      "requested_literal_matches_source": true,
+      "completed_at_utc": "2026-11-11T02:20:04.4182240+00:00",
+      "hops": [
+        {
+          "method": "GET",
+          "status": 302,
+          "url_sha256": "7b301323ba2c6194614fe354356cdc216ffebd6004a522ae4a67d36e3453d7d1",
+          "location_sha256": "b98399eaa06e2457ac89e66a54667fd068065eeaaa2e8c3da29e3d3efa1cf9ac"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url_sha256": "b98399eaa06e2457ac89e66a54667fd068065eeaaa2e8c3da29e3d3efa1cf9ac",
+          "location_sha256": null
+        }
+      ],
+      "destination_kind": "store_navigation",
+      "destination_path": "/stores/page/F7948FCD-5A4D-488E-88A2-97BB397A7299",
+      "destination_url_sha256": "b98399eaa06e2457ac89e66a54667fd068065eeaaa2e8c3da29e3d3efa1cf9ac"
+    },
+    {
+      "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:1254",
+      "source_context": {
+        "value": "",
+        "tag": "div",
+        "role": null,
+        "index": 86
+      },
+      "has_product_occurrence": false,
+      "has_product_heading": false,
+      "exact_source_url_sha256": "bfdcab9ba2a2799c0066f4a1a006aa5678283856ee3d63f226ec64ce24533516",
+      "requested_literal_matches_source": true,
+      "completed_at_utc": "2026-11-11T02:20:06.7819120+00:00",
+      "hops": [
+        {
+          "method": "GET",
+          "status": 302,
+          "url_sha256": "bfdcab9ba2a2799c0066f4a1a006aa5678283856ee3d63f226ec64ce24533516",
+          "location_sha256": "00babb0b6238241422ff8ce712d7fab850c66738a0be6d4fdea53360005584f8"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url_sha256": "00babb0b6238241422ff8ce712d7fab850c66738a0be6d4fdea53360005584f8",
+          "location_sha256": null
+        }
+      ],
+      "destination_kind": "store_navigation",
+      "destination_path": "/stores/page/F7948FCD-5A4D-488E-88A2-97BB397A7299",
+      "destination_url_sha256": "00babb0b6238241422ff8ce712d7fab850c66738a0be6d4fdea53360005584f8"
+    },
+    {
+      "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:1255",
+      "source_context": {
+        "value": "",
+        "tag": "div",
+        "role": null,
+        "index": 86
+      },
+      "has_product_occurrence": false,
+      "has_product_heading": false,
+      "exact_source_url_sha256": "70793b42a04e8b4079cc8fce65278690b058ea2b3f57732c82e830155c14bada",
+      "requested_literal_matches_source": true,
+      "completed_at_utc": "2026-11-11T02:20:09.2749530+00:00",
+      "hops": [
+        {
+          "method": "GET",
+          "status": 302,
+          "url_sha256": "70793b42a04e8b4079cc8fce65278690b058ea2b3f57732c82e830155c14bada",
+          "location_sha256": "531da67eee79af10432c7f7f349ce90d8e535ff8895c1271c023fcf0d0f32255"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url_sha256": "531da67eee79af10432c7f7f349ce90d8e535ff8895c1271c023fcf0d0f32255",
+          "location_sha256": null
+        }
+      ],
+      "destination_kind": "store_navigation",
+      "destination_path": "/stores/page/438B4594-874D-44A1-9127-F73064E5D4A0",
+      "destination_url_sha256": "531da67eee79af10432c7f7f349ce90d8e535ff8895c1271c023fcf0d0f32255"
+    },
+    {
+      "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:1256",
+      "source_context": {
+        "value": "",
+        "tag": "div",
+        "role": null,
+        "index": 86
+      },
+      "has_product_occurrence": false,
+      "has_product_heading": false,
+      "exact_source_url_sha256": "f31a52fbc5828d40e75ffa487c021c86971b710b32557718cc9607e55a4ed141",
+      "requested_literal_matches_source": true,
+      "completed_at_utc": "2026-11-11T02:20:11.3352970+00:00",
+      "hops": [
+        {
+          "method": "GET",
+          "status": 302,
+          "url_sha256": "f31a52fbc5828d40e75ffa487c021c86971b710b32557718cc9607e55a4ed141",
+          "location_sha256": "930ea19b9fa06d08f14d558d9fc497380a1345f86b0dde0252c744444bc139d1"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url_sha256": "930ea19b9fa06d08f14d558d9fc497380a1345f86b0dde0252c744444bc139d1",
+          "location_sha256": null
+        }
+      ],
+      "destination_kind": "store_navigation",
+      "destination_path": "/stores/page/438B4594-874D-44A1-9127-F73064E5D4A0",
+      "destination_url_sha256": "930ea19b9fa06d08f14d558d9fc497380a1345f86b0dde0252c744444bc139d1"
+    },
+    {
+      "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:1257",
+      "source_context": {
+        "value": "",
+        "tag": "div",
+        "role": null,
+        "index": 86
+      },
+      "has_product_occurrence": false,
+      "has_product_heading": false,
+      "exact_source_url_sha256": "43d54572da10379c1ee56b92bbf40940accfa1b6d8bc85a76db0704b2912542b",
+      "requested_literal_matches_source": true,
+      "completed_at_utc": "2026-11-11T02:20:13.5877890+00:00",
+      "hops": [
+        {
+          "method": "GET",
+          "status": 302,
+          "url_sha256": "43d54572da10379c1ee56b92bbf40940accfa1b6d8bc85a76db0704b2912542b",
+          "location_sha256": "a2816638a0dde00fb017f1ab3d19c5ff6f007d441d82d8ad273310a5bcc6e734"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url_sha256": "a2816638a0dde00fb017f1ab3d19c5ff6f007d441d82d8ad273310a5bcc6e734",
+          "location_sha256": null
+        }
+      ],
+      "destination_kind": "store_navigation",
+      "destination_path": "/stores/page/438B4594-874D-44A1-9127-F73064E5D4A0",
+      "destination_url_sha256": "a2816638a0dde00fb017f1ab3d19c5ff6f007d441d82d8ad273310a5bcc6e734"
+    },
+    {
+      "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:1258",
+      "source_context": {
+        "value": "",
+        "tag": "div",
+        "role": null,
+        "index": 86
+      },
+      "has_product_occurrence": false,
+      "has_product_heading": false,
+      "exact_source_url_sha256": "c46b5676d41b63310a90c43021e4c6af210f51f9ca1f64c35469a7db66807f5c",
+      "requested_literal_matches_source": true,
+      "completed_at_utc": "2026-11-11T02:20:16.0783390+00:00",
+      "hops": [
+        {
+          "method": "GET",
+          "status": 302,
+          "url_sha256": "c46b5676d41b63310a90c43021e4c6af210f51f9ca1f64c35469a7db66807f5c",
+          "location_sha256": "28896874c7f11dc657ae4582f1846b2db32e673c6814ca8ddca236e6f0657031"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url_sha256": "28896874c7f11dc657ae4582f1846b2db32e673c6814ca8ddca236e6f0657031",
+          "location_sha256": null
+        }
+      ],
+      "destination_kind": "store_navigation",
+      "destination_path": "/stores/page/9C4A2230-B798-4F27-9D8D-5003F3DCC8A2",
+      "destination_url_sha256": "28896874c7f11dc657ae4582f1846b2db32e673c6814ca8ddca236e6f0657031"
+    },
+    {
+      "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:1259",
+      "source_context": {
+        "value": "",
+        "tag": "div",
+        "role": null,
+        "index": 86
+      },
+      "has_product_occurrence": false,
+      "has_product_heading": false,
+      "exact_source_url_sha256": "261ea4c069d3e2a6280150b5236a99f0b190cf2ee8bd6a6526bd7c24cc8beefa",
+      "requested_literal_matches_source": true,
+      "completed_at_utc": "2026-11-11T02:20:18.1549420+00:00",
+      "hops": [
+        {
+          "method": "GET",
+          "status": 302,
+          "url_sha256": "261ea4c069d3e2a6280150b5236a99f0b190cf2ee8bd6a6526bd7c24cc8beefa",
+          "location_sha256": "8722b7af3bb90b64e5c4ded1800f06814e74e482f15932f309808e0caa97e5fd"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url_sha256": "8722b7af3bb90b64e5c4ded1800f06814e74e482f15932f309808e0caa97e5fd",
+          "location_sha256": null
+        }
+      ],
+      "destination_kind": "store_navigation",
+      "destination_path": "/stores/page/9C4A2230-B798-4F27-9D8D-5003F3DCC8A2",
+      "destination_url_sha256": "8722b7af3bb90b64e5c4ded1800f06814e74e482f15932f309808e0caa97e5fd"
+    },
+    {
+      "source_record": "d2f9fa0ddfad40f58690d877fda66f68:record:1260",
+      "source_context": {
+        "value": "",
+        "tag": "div",
+        "role": null,
+        "index": 86
+      },
+      "has_product_occurrence": false,
+      "has_product_heading": false,
+      "exact_source_url_sha256": "39baf2b92c87de4355f4c5910d04ae3a2c33dd9b9a4808c73b6e48f796eb70d0",
+      "requested_literal_matches_source": true,
+      "completed_at_utc": "2026-11-11T02:20:20.3787040+00:00",
+      "hops": [
+        {
+          "method": "GET",
+          "status": 302,
+          "url_sha256": "39baf2b92c87de4355f4c5910d04ae3a2c33dd9b9a4808c73b6e48f796eb70d0",
+          "location_sha256": "45a408bf14f094eeae1544f58ed3e0bb693c26e512d17d4a03fcc4a44ded2d91"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url_sha256": "45a408bf14f094eeae1544f58ed3e0bb693c26e512d17d4a03fcc4a44ded2d91",
+          "location_sha256": null
+        }
+      ],
+      "destination_kind": "store_navigation",
+      "destination_path": "/stores/page/9C4A2230-B798-4F27-9D8D-5003F3DCC8A2",
+      "destination_url_sha256": "45a408bf14f094eeae1544f58ed3e0bb693c26e512d17d4a03fcc4a44ded2d91"
+    }
+  ],
+  "private_evidence_sha256": {
+    "candidates.json": "94b41f465b2f23425cd0b372ecfe8c47c7cf1669cd9ea5d702609d0189436ba8",
+    "events.json": "a31ae2072cdc63d72c94c696bb7d15af8150e2190d44e6221b083247d20d4cf0",
+    "close.json": "50888101f7346754a6e98e03123704d577f652f05424bfa881b79694ccfa2b7f",
+    "source-selection.json": "927daa372007c78b91a95c56b095d241456c3fcb27a674d2087c0292ce5d7b42",
+    "issued.json": "3ad9174e0d74f941671fa035426ac6e3d49b882097a76b0286f1a82999af19b1",
+    "resolution.json": "1ff5514f2b33df5ec7ac2f623111cf28fa7fe5dafaffd474726ca2884d05483f",
+    "profile.json": "4f8ff7879a8665717a790cae1ed2466269e7882c059644b29c8170ac1b6176f2",
+    "admission.json": "91183c5b5973b71b042958d31cd60ee7c033daffc0e9ca8211cfd50ea909b7ba"
+  }
+}

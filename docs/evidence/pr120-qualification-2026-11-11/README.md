@@ -5,6 +5,13 @@ of two consecutive execution-plus-oracle successes per scenario remains unmet.
 All existing provider, transport, model, allocations, financial holds, permissions
 and business criteria are preserved.
 
+**Authorized source-only follow-up:** the subsequent explicit navigation approval
+was used in an isolated diagnostic profile. All 17 fresh ambiguous links have
+complete observed store-page redirects; an inactive proof proposal accounts for
+them without changing V7. See the [outcome and exact remaining boundary](source-diagnostic/outcome.md).
+The diagnostic added no model cost or workflow qualification. Code route-owner
+access remains unavailable; its packet is unsent.
+
 ## Implemented and controlled
 
 | Commit | Change | Validation |
@@ -60,8 +67,8 @@ another full Code run; stopped Code20/21/23/24 identities must not be replayed.
 quiescence through its owning runtime before the existing audited reconciliation
 path can permit cleanup. Cancellation acknowledgement alone is insufficient.
 
-**Amazon:** the [concrete source-only permission delta](amazon-proposal.md) remains
-awaiting explicit approval, independently of funding. No active policy or verifier
-was changed. After approval, obtain actual redirect evidence for every unresolved
-source link, then propose any necessary separately approved business-proof version.
-Only a qualified source on the real authorized profile permits paid Amazon planning.
+**Amazon:** the [concrete source-only permission delta](amazon-proposal.md) was
+subsequently approved and exercised successfully in the isolated diagnostic.
+No workflow policy or active verifier was changed. The
+[tested inactive proof delta](source-diagnostic/outcome.md) still requires a separate
+versioned workflow-policy/business-verifier amendment before full Amazon planning.

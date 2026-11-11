@@ -64,7 +64,8 @@ internal static partial class LiveWorkflowOracles
             ["findings"] = new JsonArray(findings.Distinct().Select(f => (JsonNode)JsonValue.Create(f)).ToArray()) };
     }
 
-    private static List<ContextProduct> ContextProducts(Snapshot snapshot, List<string> findings)
+    private static List<ContextProduct> ContextProducts(Snapshot snapshot, List<string> findings,
+        IReadOnlySet<string>? independentlyResolvedStoreReferences = null)
     {
         var id = snapshot.Read["result"]?["observationSnapshot"]?["id"]?.ToString() ??
             snapshot.Read["result"]?["observationManifest"]?["id"]?.ToString() ?? snapshot.Read["result"]?["observation"]?["id"]?.ToString();
@@ -93,6 +94,11 @@ internal static partial class LiveWorkflowOracles
             {
                 contexts[at] = context;
             }
+            // Only the inactive source-analysis proposal supplies this evidence.
+            // V7 callers retain null and their original navigation-only rule.
+            if (code.Length == 0 && ObservedProductIdentity(href) is null && record["occurrence"] is null && record["heading"] is null &&
+                independentlyResolvedStoreReferences?.Contains(record["reference"]!.ToString()) == true)
+                continue;
             if (code.Length == 0 && ObservedProductIdentity(href) is null && record["occurrence"] is null && record["heading"] is null &&
                 (tag == "nav" || context["role"]?.ToString() == "navigation"))
                 continue; // Observed navigation semantics, never an inference from the empty identifier alone.
