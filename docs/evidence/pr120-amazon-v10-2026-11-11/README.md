@@ -62,3 +62,22 @@ The campaign audit separates EUR 9.8734258844603672189879103 new known cost from
 EUR 3.57192118226600985221674877 new uncertain reservation. EUR
 402.5835109885908876657404693 remains under the unchanged EUR 1,700 ceiling.
 The cancelled request retains its full hold; no supplement or release occurred.
+
+## Targeted follow-up delivery
+
+Two independent single-attempt probes retained complete HTTP/protocol/usage
+receipts. The first changed only the facts paragraph; its old embedded source
+version was a limitation, and it requested the policy clause and root scope.
+The second supplied those exact requested pages with a consistent amended clause
+version. Its root scope was obtained through the existing read-only evidence path
+against the unchanged empty accepted baseline; no session was written.
+
+The second response contains [a useful draft](representative-draft.json): query
+encoding, complete search acquisition and root cleanup, with `completeBlock=false`.
+No fragment was applied, no plan accepted, and no business execution/oracle was
+performed. [Exact probe evidence](targeted-probes.json) separates transport,
+protocol termination, useful content, usage, receipt reload and qualification.
+The combined probe cost was about EUR 0.99; neither added uncertainty. The stopped
+full run is [permanently retained](workflow-permanent-retention.json) with its
+complete uncertain reservation and replay/continuation forbidden. A new full
+workflow requires its own admission and fresh source authority.
