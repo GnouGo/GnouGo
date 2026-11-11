@@ -349,10 +349,10 @@ internal static class LiveWorkflowEvaluation
                     throw new InvalidOperationException("Explicit saved Browser navigation restrictions require a reviewed intersection.");
                 clone.EnvironmentVariables["Browser__AllowedHosts__0"] = "www.amazon.fr";
                 clone.EnvironmentVariables["Browser__AllowedHosts__1"] = "amazon.fr";
-                if (browserObservationPolicy is AmazonSponsoredHostPolicy.Id or AmazonProductContextPolicy.Id or AmazonResolvedStorePolicy.Id or AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id)
+                if (browserObservationPolicy is AmazonSponsoredHostPolicy.Id or AmazonProductContextPolicy.Id or AmazonResolvedStorePolicy.Id or AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id or AmazonCardReviewPolicy.Id)
                     clone.EnvironmentVariables["Browser__AllowedHosts__2"] = "sponsored-ads.amazon.fr";
                 clone.EnvironmentVariables["Browser__AllowedNavigationUrlPatterns__0"] = AmazonObservedRedirectPolicy.Pattern(browserObservationPolicy!);
-                if (browserObservationPolicy is AmazonProductContextPolicy.Id or AmazonResolvedStorePolicy.Id or AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id)
+                if (browserObservationPolicy is AmazonProductContextPolicy.Id or AmazonResolvedStorePolicy.Id or AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id or AmazonCardReviewPolicy.Id)
                 {
                     const string prefix = "Browser__ObservationAncestorAttributes__";
                     var attributes = clone.EnvironmentVariables.Where(p => p.Key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).ToArray();

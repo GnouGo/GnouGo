@@ -1115,6 +1115,28 @@ physical reads. Every later business visit, field, workbook, execution, receipt
 and cleanup requirement remains unchanged. V5/v9 and earlier versions retain their
 prior behavior. See [approved scope and evidence](../../docs/evidence/pr120-amazon-v10-2026-11-11/README.md).
 
+### Approved semantic-card review amendment (v7 / v11)
+
+Fresh Amazon runs may capture `--amazon-card-review-context
+--amazon-scope-approval user-amazon-semantic-card-review-20261111` under the
+separate user grant recorded in the [activation evidence](../../docs/evidence/pr120-amazon-card-context-2026-11-11/activation.md).
+This selects `amazon-observed-card-review-context-v7` and `amazon-business-v11`.
+Its navigation pattern is byte-identical to v6; fragment URLs remain forbidden.
+Observed semantic child-card boundaries distinguish empty-ASIN contexts. Every
+navigable occurrence still requires its own ordered redirect proof, including
+equal URLs. Each resolved card requires one heading, one consistent identity and
+no unresolved sibling. An inherited auxiliary review anchor needs an exact
+observed href plus `#customerReviews` relationship to completed proof in that card.
+In an already identified DOM-ASIN card, an auxiliary review anchor can instead
+reference consistent original card membership with a permitted source entry,
+without an identical HTTP-prefix twin. That evidence is explicitly reported as
+membership, with no HTTP receipt or business visit. Conflicting identities,
+cross-card borrowing, self-occurrence anchors and inconsistent metadata fail.
+All raw records, product occurrences/order, later business visits, fields, actual
+Excel, execution and cleanup remain mandatory. V6/v10 and older behavior remains
+unchanged. A fresh actual-profile source preflight must pass before paid planning;
+controlled regressions alone establish no live workflow qualification.
+
 A targeted tool-free presentation experiment may use `server-live-probe
 --probe-source-request <exact-owned-id> --probe-prompt-amendment <json-file>`.
 The amendment supplies `expectedPromptHash`, nonempty distinct `before`/`after`

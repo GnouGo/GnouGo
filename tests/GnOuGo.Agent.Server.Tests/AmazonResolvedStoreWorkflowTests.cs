@@ -154,13 +154,13 @@ public sealed class AmazonResolvedStoreWorkflowTests
     public Task FullBusinessOracleStillRequiresExactWorkbookExecutionReceiptsAndCleanup(string change, bool passed)
         => CheckBusinessAsync(change, passed, productResolution: false);
 
-    internal static async Task CheckBusinessAsync(string change, bool passed, bool productResolution, bool reviewProof = false)
+    internal static async Task CheckBusinessAsync(string change, bool passed, bool productResolution, bool reviewProof = false, bool cardReview = false)
     {
         var root = Path.Combine(Path.GetTempPath(), "gnougo-resolved-store-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         try
         {
-            var path = Path.Combine(root, "products.xlsx"); var events = reviewProof ? AmazonReviewProofWorkflowTests.Events() : productResolution ? AmazonResolvedProductWorkflowTests.Events() : Events();
+            var path = Path.Combine(root, "products.xlsx"); var events = cardReview ? AmazonCardReviewWorkflowTests.Events() : reviewProof ? AmazonReviewProofWorkflowTests.Events() : productResolution ? AmazonResolvedProductWorkflowTests.Events() : Events();
             string[][] rows = [["name", "description", "price"], ["Product 1", "Description 1", "12,00 €"], ["Product 2", "Description 2", "13,00 €"]];
             if (productResolution) rows = [rows[0], ["Product 3", "Description 3", "14,00 €"], rows[1], rows[2]];
             if (change == "missing_header") rows = rows.Skip(1).ToArray();
@@ -177,14 +177,14 @@ public sealed class AmazonResolvedStoreWorkflowTests
                 part.Workbook.Append(new Sheets(new Sheet { Id = part.GetIdOfPart(sheet), SheetId = 1, Name = "Products" }));
             }
             if (change == "omitted_resolution") events.RemoveAt(1);
-            if (change == "omitted_product") events.RemoveAt(productResolution ? 21 : 18);
-            if (change == "source_only") events.RemoveRange(21, events.Count - 21);
+            if (change == "omitted_product") events.RemoveAt(cardReview ? 7 : productResolution ? 21 : 18);
+            if (change == "source_only") events.RemoveRange(cardReview ? 7 : 21, events.Count - (cardReview ? 7 : 21));
             if (change != "missing_writer") events.Add(new JsonObject { ["tool"] = "document_write", ["error"] = false,
                 ["result"] = new JsonObject { ["success"] = true, ["filePath"] = path } });
             events.Add(new JsonObject { ["tool"] = "browser_close" });
-            var run = new JsonObject { ["workspace_relative"] = ".", ["oracle_version"] = reviewProof ? LiveWorkflowOracles.AmazonReviewProofVersion : productResolution ? LiveWorkflowOracles.AmazonResolvedProductVersion : LiveWorkflowOracles.AmazonResolvedStoreVersion,
-                ["browser_observation_policy"] = reviewProof ? AmazonReviewProofPolicy.Id : productResolution ? AmazonResolvedProductPolicy.Id : AmazonResolvedStorePolicy.Id,
-                ["browser_scope_approval"] = reviewProof ? AmazonReviewProofPolicy.Approval : productResolution ? AmazonResolvedProductPolicy.Approval : AmazonResolvedStorePolicy.Approval,
+            var run = new JsonObject { ["workspace_relative"] = ".", ["oracle_version"] = cardReview ? LiveWorkflowOracles.AmazonCardReviewVersion : reviewProof ? LiveWorkflowOracles.AmazonReviewProofVersion : productResolution ? LiveWorkflowOracles.AmazonResolvedProductVersion : LiveWorkflowOracles.AmazonResolvedStoreVersion,
+                ["browser_observation_policy"] = cardReview ? AmazonCardReviewPolicy.Id : reviewProof ? AmazonReviewProofPolicy.Id : productResolution ? AmazonResolvedProductPolicy.Id : AmazonResolvedStorePolicy.Id,
+                ["browser_scope_approval"] = cardReview ? AmazonCardReviewPolicy.Approval : reviewProof ? AmazonReviewProofPolicy.Approval : productResolution ? AmazonResolvedProductPolicy.Approval : AmazonResolvedStorePolicy.Approval,
                 ["max_products"] = productResolution ? 3 : 2, ["inputs"] = new JsonObject { ["query"] = Query },
                 ["execution"] = new JsonObject { ["success"] = change != "execution_failed" },
                 ["events"] = new JsonArray(events.Select(e => (JsonNode)e.DeepClone()).ToArray()) };

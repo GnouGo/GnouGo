@@ -49,8 +49,10 @@ internal static partial class LiveWorkflowOracles
         if (reads.Any(p => p.read["error"]?.GetValue<bool>() != false || p.read["result"]?["success"]?.GetValue<bool>() != true))
         { state.Findings.Add("source_authority_failed_read"); return state; }
 
-        var aliases = policy == AmazonReviewProofPolicy.Id ? ReviewProofAliases(source) : new Dictionary<string, string[]>(StringComparer.Ordinal);
-        var aliasReferences = aliases.Keys.ToHashSet(StringComparer.Ordinal);
+        var knownReviews = new Dictionary<string, KnownCardReview>(StringComparer.Ordinal);
+        var aliases = policy == AmazonCardReviewPolicy.Id ? CardReviewAliases(source, state.Findings, out knownReviews) :
+            policy == AmazonReviewProofPolicy.Id ? ReviewProofAliases(source) : new Dictionary<string, string[]>(StringComparer.Ordinal);
+        var aliasReferences = aliases.Keys.Concat(knownReviews.Keys).ToHashSet(StringComparer.Ordinal);
         var candidates = UnresolvedStoreCandidates(source, state.Findings, policy, aliasReferences);
         if (state.Findings.Count != 0) return state;
         state.ResolutionCount = candidates.Count;
@@ -74,18 +76,20 @@ internal static partial class LiveWorkflowOracles
             string kind; string? identity = null;
             if (AmazonResolvedStorePolicy.IsStore(destination.Url ?? "") && AmazonResolvedStorePolicy.IsStore(final ?? ""))
             { references.Add(reference); state.StoreReads.Add(read); kind = "store_navigation"; }
-            else if (policy is AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id && ObservedProductIdentity(final) is { } product && ObservedProductIdentity(destination.Url) == product)
+            else if (policy is AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id or AmazonCardReviewPolicy.Id && ObservedProductIdentity(final) is { } product && ObservedProductIdentity(destination.Url) == product)
             { productReferences.Add(reference, product); kind = "product_identity"; identity = product; }
             else { state.Findings.Add("source_resolution_destination_indeterminate"); return state; }
             state.SourceReads.Add(read);
             state.ResolutionEvidence.Add(new JsonObject { ["source_record"] = reference, ["event_index"] = navigations[index + 1].index,
                 ["kind"] = kind, ["product_identity"] = identity, ["business_visit"] = false });
         }
-        if (policy is AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id)
+        if (policy is AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id or AmazonCardReviewPolicy.Id)
         {
             BindReviewProofAliases(aliases, productReferences, state);
-            var identities = ResolvedProductReferences(source, productReferences, state.Findings);
+            var identities = policy == AmazonCardReviewPolicy.Id ? ResolvedCardProductReferences(source, productReferences, state.Findings) :
+                ResolvedProductReferences(source, productReferences, state.Findings);
             state.Products = ContextProducts(source, state.Findings, references, identities, policy, aliasReferences);
+            if (policy == AmazonCardReviewPolicy.Id) BindKnownCardReviews(knownReviews, state);
         }
         else state.Products = ContextProducts(source, state.Findings, references);
         if (state.Products.Count == 0) state.Findings.Add("source_products_unverified");
@@ -105,7 +109,7 @@ internal static partial class LiveWorkflowOracles
 
     private static List<JsonObject> UnresolvedStoreCandidates(Snapshot source, List<string> findings, string policy, IReadOnlySet<string> aliasReferences)
     {
-        ValidateObservedProductRoutes(source, findings, policy is AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id ? policy : AmazonProductContextPolicy.Id, aliasReferences);
+        ValidateObservedProductRoutes(source, findings, policy is AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id or AmazonCardReviewPolicy.Id ? policy : AmazonProductContextPolicy.Id, aliasReferences);
         var id = source.Read["result"]?["observationSnapshot"]?["id"]?.ToString() ??
             source.Read["result"]?["observationManifest"]?["id"]?.ToString() ?? source.Read["result"]?["observation"]?["id"]?.ToString();
         var candidates = new List<JsonObject>();
@@ -183,17 +187,17 @@ internal static partial class LiveWorkflowOracles
                 ObservedProductIdentity(read["result"]?["navigationEvidence"]?["finalUrl"]?.ToString()) != product.Identity)
                 findings.Add("product_navigation_provenance_incomplete");
         }
-        var report = new JsonObject { ["version"] = policy == AmazonReviewProofPolicy.Id ? AmazonReviewProofVersion : policy == AmazonResolvedProductPolicy.Id ? AmazonResolvedProductVersion : AmazonResolvedStoreVersion, ["passed"] = findings.Count == 0,
+        var report = new JsonObject { ["version"] = policy == AmazonCardReviewPolicy.Id ? AmazonCardReviewVersion : policy == AmazonReviewProofPolicy.Id ? AmazonReviewProofVersion : policy == AmazonResolvedProductPolicy.Id ? AmazonResolvedProductVersion : AmazonResolvedStoreVersion, ["passed"] = findings.Count == 0,
             ["source_prerequisite_qualified"] = source.Complete && !string.IsNullOrWhiteSpace(query), ["source_resolution_count"] = source.ResolutionCount,
             ["expected_product_count"] = expected.Length, ["visited_product_count"] = visits.Length,
             ["findings"] = new JsonArray(findings.Distinct().Select(f => (JsonNode)JsonValue.Create(f)).ToArray()) };
-        if (policy is AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id)
+        if (policy is AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id or AmazonCardReviewPolicy.Id)
         {
             report["source_resolution_evidence"] = source.ResolutionEvidence.DeepClone();
             report["source_product_reads"] = source.ResolutionEvidence.Count(e => e?["kind"]?.ToString() == "product_identity");
             report["source_store_reads"] = source.ResolutionEvidence.Count(e => e?["kind"]?.ToString() == "store_navigation");
         }
-        if (policy == AmazonReviewProofPolicy.Id) report["source_proof_aliases"] = source.AliasEvidence.DeepClone();
+        if (policy is AmazonReviewProofPolicy.Id or AmazonCardReviewPolicy.Id) report["source_proof_aliases"] = source.AliasEvidence.DeepClone();
         return report;
     }
 }
