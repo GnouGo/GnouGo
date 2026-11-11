@@ -27,7 +27,13 @@ if (args is ["--verify", var retainedEvents, var reportPath])
     var saved = JsonNode.Parse(await File.ReadAllTextAsync(retainedEvents))!.AsArray().Select(n => n!.AsObject()).ToList();
     await File.WriteAllTextAsync(reportPath, evidence.Verify(saved).ToJsonString()); return;
 }
-if (args.Length != 4 || args[2] != "--approval" || args[3] != approval)
+if (args is ["--associations", var associationEvents, var associationReport])
+{
+    var saved = JsonNode.Parse(await File.ReadAllTextAsync(associationEvents))!.AsArray().Select(n => n!.AsObject()).ToList();
+    await File.WriteAllTextAsync(associationReport, evidence.ProductAssociationFacts(saved).ToJsonString()); return;
+}
+var contextAttributes = args.Length == 5 && args[4] == "--context-attributes";
+if ((!contextAttributes && args.Length != 4) || args[2] != "--approval" || args[3] != approval)
     throw new ArgumentException("Required: <workspace> <fresh-private-output-directory> --approval " + approval);
 var output = Path.GetFullPath(args[1]);
 Directory.CreateDirectory(output);
@@ -59,6 +65,15 @@ if (environment.Keys.Any(k => k.StartsWith("Browser__AllowedNavigationUrlPattern
     throw new InvalidOperationException("Unexpected route configuration; no replacement is authorized.");
 var originalPattern = environment["Browser__AllowedNavigationUrlPatterns__0"];
 environment["Browser__AllowedNavigationUrlPatterns__1"] = DiagnosticEvidence.Pattern;
+if (contextAttributes)
+{
+    const string prefix = "Browser__ObservationAncestorAttributes__";
+    var next = environment.Keys.Where(k => k.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+        .Select(k => int.Parse(k[prefix.Length..], System.Globalization.CultureInfo.InvariantCulture)).DefaultIfEmpty(-1).Max() + 1;
+    foreach (var attribute in new[] { "data-component-type", "data-index", "data-cel-widget" })
+        if (!environment.Any(p => p.Key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) && p.Value == attribute))
+            environment[prefix + next++] = attribute;
+}
 
 await Save("profile", new JsonObject
 {
@@ -66,6 +81,7 @@ await Save("profile", new JsonObject
     ["benchmark_builder"] = true, ["model_calls"] = 0, ["saved_configuration_modified"] = false,
     ["business_oracle"] = "amazon-business-v8", ["artifact_review_created"] = false,
     ["execution_tool_guard"] = false, ["source_only_exact_entry_guard"] = true,
+    ["additional_context_observation"] = contextAttributes,
     ["workflow_policy_modified"] = false, ["route_pattern"] = originalPattern, ["additional_source_only_pattern"] = DiagnosticEvidence.Pattern,
     ["benchmark_assembly_sha256"] = Convert.ToHexString(SHA256.HashData(await File.ReadAllBytesAsync(assembly.Location))).ToLowerInvariant(),
     ["browser_assembly_sha256"] = Convert.ToHexString(SHA256.HashData(await File.ReadAllBytesAsync(settings.Args![0]))).ToLowerInvariant(),

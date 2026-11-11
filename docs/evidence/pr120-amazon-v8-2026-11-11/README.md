@@ -76,3 +76,10 @@ The [next source-only proposal](next-source-proposal.md) describes the precise
 additional navigation approval needed to investigate those literal `/clk` links.
 It is not implemented as an active policy or inferred from the store-page grant.
 No normalization, product omission or verifier weakening was used to pass this gate.
+
+The source-only `/clk` diagnostic was subsequently explicitly authorized and
+completed. Its [separate result](slashless-diagnostic/README.md) establishes three
+actual product destinations, not store navigation. Full-workflow slashless
+navigation and product-occurrence classification remain unchanged. Full local
+validation passed **8,870 tests with 13 existing skips and zero failures**; the
+Server runner verified exact discovery coverage and unchanged binaries.

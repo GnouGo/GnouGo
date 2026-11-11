@@ -105,4 +105,36 @@ internal sealed class DiagnosticEvidence(Assembly assembly)
             ["workflow_policy_modified"] = false, ["model_calls"] = 0,
             ["findings"] = new JsonArray(findings.Distinct().Select(f => (JsonNode)JsonValue.Create(f)).ToArray()), ["resolutions"] = resolutions };
     }
+
+    // Read-only association facts, not a source classifier or occurrence count.
+    // The caller must separately justify any later workflow proof/order amendment.
+    internal JsonObject ProductAssociationFacts(IReadOnlyList<JsonObject> events)
+    {
+        var resolution = Verify(events); var groups = new JsonArray();
+        if (resolution["resolution_evidence_complete"]!.GetValue<bool>())
+        {
+            var candidates = Candidates(events[0]); var records = Records(events[0]);
+            foreach (var group in candidates.GroupBy(r => r["ancestorAttributes"]?["data-asin"]?["index"]?.ToString()))
+            {
+                var links = group.ToArray(); var context = links[0]["ancestorAttributes"]?["data-asin"] as JsonObject;
+                var completeContext = context?["value"]?.ToString() == "" && context["index"] is JsonValue number && number.TryGetValue<int>(out var ordinal) && ordinal >= 0 &&
+                    context["tag"]?.ToString() is { Length: > 0 } && (context["role"] is null || context["role"] is JsonValue role && role.TryGetValue<string>(out _)) &&
+                    links.All(r => JsonNode.DeepEquals(context, r["ancestorAttributes"]?["data-asin"]) && r["occurrence"] is null) &&
+                    records.Count(r => r?["ancestorAttributes"]?["data-asin"]?["index"]?.ToString() == group.Key) == links.Length;
+                var observed = links.Select(r => resolution["resolutions"]!.AsArray().Single(n => n!["source_record"]!.ToString() == r["reference"]!.ToString())!).ToArray();
+                var identities = observed.Select(r => r["product_identity"]?.ToString()).Distinct(StringComparer.Ordinal).ToArray();
+                var oneHeading = links.Count(r => r["heading"]?.ToString() is { Length: > 0 }) == 1;
+                groups.Add(new JsonObject { ["context_index"] = group.Key, ["all_context_links_resolved"] = completeContext,
+                    ["one_heading_link"] = oneHeading,
+                    ["same_independent_product_identity"] = identities.Length == 1 && identities[0] is not null && observed.All(r => r["destination_kind"]?.ToString() == "product"),
+                    ["source_references"] = new JsonArray(links.Select(r => r["reference"]!.DeepClone()).ToArray()),
+                    ["product_identity"] = identities.Length == 1 ? identities[0] : null });
+            }
+        }
+        return new JsonObject { ["kind"] = "read_only_product_association_facts", ["groups"] = groups,
+            ["association_evidence_complete"] = groups.Count > 0 && groups.All(g => g!["all_context_links_resolved"]!.GetValue<bool>() &&
+                g["one_heading_link"]!.GetValue<bool>() && g["same_independent_product_identity"]!.GetValue<bool>()),
+            ["product_occurrence_claimed"] = false, ["source_prerequisite_qualified"] = false, ["business_oracle_passed"] = false,
+            ["workflow_policy_modified"] = false };
+    }
 }

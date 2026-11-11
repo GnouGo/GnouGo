@@ -50,6 +50,26 @@ internal static class DiagnosticChecks
         Check(report["resolution_evidence_complete"]!.GetValue<bool>());
         Check(report["resolutions"]![0]!["destination_kind"]!.ToString() == "product");
         Check(!report["resolutions"]![0]!["occurrence_verified"]!.GetValue<bool>());
+        foreach (var change in new[] { "none", "different_product", "missing_link", "second_heading", "different_context", "borrowed_source_identity", "unresolved_context_link" })
+        {
+            var association = Events();
+            for (var index = 1; index <= 3; index++) association[index] = Read(association[index]["arguments"]!["url"]!.ToString(), "https://www.amazon.fr/dp/B000000001", "destination", [new JsonObject { ["text"] = "Observed product" }]);
+            var records = association[0]["result"]!["observationSnapshot"]!["pages"]![0]!["records"]!.AsArray();
+            switch (change)
+            {
+                case "different_product": association[3] = Read(association[3]["arguments"]!["url"]!.ToString(), "https://www.amazon.fr/dp/B000000002", "destination", [new JsonObject { ["text"] = "Other product" }]); break;
+                case "missing_link": association.RemoveAt(3); break;
+                case "second_heading": records[0]!["heading"] = "other > h2"; break;
+                case "different_context": records[0]!["ancestorAttributes"]!["data-asin"]!["index"] = 36; break;
+                case "borrowed_source_identity": records[0]!["ancestorAttributes"]!["data-asin"]!["value"] = "B000000001"; break;
+                case "unresolved_context_link":
+                    var extra = records[0]!.DeepClone(); extra["href"] = Entry.Replace("/clk?", "/clk/?"); extra["reference"] = "source:record:3"; records.Add(extra);
+                    association[0]["result"]!["observationSnapshot"]!["recordCount"] = records.Count; break;
+            }
+            var facts = evidence.ProductAssociationFacts(association);
+            Check(facts["association_evidence_complete"]!.GetValue<bool>() == (change == "none"));
+            Check(!facts["product_occurrence_claimed"]!.GetValue<bool>());
+        }
         Console.WriteLine(new JsonObject { ["controlled_checks_passed"] = passed, ["model_calls"] = 0, ["network_calls"] = 0, ["workflow_qualification"] = false }.ToJsonString());
     }
 

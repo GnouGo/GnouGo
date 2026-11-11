@@ -1,0 +1,167 @@
+{
+  "run": "amazon-slashless-source-20261111-01",
+  "dispatch_source": "3a7fe216",
+  "base_policy": "amazon-observed-resolved-store-context-v4",
+  "approval": "user-amazon-source-only-slashless-20261111",
+  "started_utc": "2026-11-11T08:29:02.94789+00:00",
+  "last_read_completed_utc": "2026-11-11T08:29:31.3816390+00:00",
+  "complete_source_records": 1505,
+  "snapshot": "696d8c97b5b347628b3dde9f318f5c10",
+  "exact_source_occurrences": [
+    {
+      "reference": "696d8c97b5b347628b3dde9f318f5c10:record:427",
+      "href_sha256": "d78b6cea89b2e20e400086989e25d8bcf070a6455642d3ce1a89da68d26e6467",
+      "context": {
+        "data-asin": {
+          "value": "",
+          "tag": "div",
+          "role": null,
+          "index": 28
+        }
+      },
+      "heading_present": false,
+      "semantic_occurrence_present": false
+    },
+    {
+      "reference": "696d8c97b5b347628b3dde9f318f5c10:record:429",
+      "href_sha256": "22f7ff0be5eae3738f10ab445458fe1c80860617ec731830990a42ed388a49fe",
+      "context": {
+        "data-asin": {
+          "value": "",
+          "tag": "div",
+          "role": null,
+          "index": 28
+        }
+      },
+      "heading_present": true,
+      "semantic_occurrence_present": false
+    },
+    {
+      "reference": "696d8c97b5b347628b3dde9f318f5c10:record:433",
+      "href_sha256": "22f7ff0be5eae3738f10ab445458fe1c80860617ec731830990a42ed388a49fe",
+      "context": {
+        "data-asin": {
+          "value": "",
+          "tag": "div",
+          "role": null,
+          "index": 28
+        }
+      },
+      "heading_present": false,
+      "semantic_occurrence_present": false
+    }
+  ],
+  "redirect_chains": [
+    [
+      {
+        "method": "GET",
+        "status": 302,
+        "host": "sponsored-ads.amazon.fr",
+        "path": "/clk"
+      },
+      {
+        "method": "GET",
+        "status": 200,
+        "host": "www.amazon.fr",
+        "path": "/dp/B0H8RD31XM"
+      }
+    ],
+    [
+      {
+        "method": "GET",
+        "status": 302,
+        "host": "sponsored-ads.amazon.fr",
+        "path": "/clk"
+      },
+      {
+        "method": "GET",
+        "status": 200,
+        "host": "www.amazon.fr",
+        "path": "/Giniros-Chaussures-Sneakers-Respirant-Confortables/dp/B0H8RD31XM/ref=sxin_26_sbv_search_btf"
+      }
+    ],
+    [
+      {
+        "method": "GET",
+        "status": 302,
+        "host": "sponsored-ads.amazon.fr",
+        "path": "/clk"
+      },
+      {
+        "method": "GET",
+        "status": 200,
+        "host": "www.amazon.fr",
+        "path": "/Giniros-Chaussures-Sneakers-Respirant-Confortables/dp/B0H8RD31XM/ref=sxin_26_sbv_search_btf"
+      }
+    ]
+  ],
+  "resolution": {
+    "version": "amazon-slashless-source-diagnostic-v1",
+    "source_only": true,
+    "resolution_evidence_complete": true,
+    "source_prerequisite_qualified": false,
+    "business_oracle_passed": false,
+    "workflow_policy_modified": false,
+    "model_calls": 0,
+    "findings": [],
+    "resolutions": [
+      {
+        "source_record": "696d8c97b5b347628b3dde9f318f5c10:record:427",
+        "destination_kind": "product",
+        "product_identity": "B0H8RD31XM",
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "696d8c97b5b347628b3dde9f318f5c10:record:429",
+        "destination_kind": "product",
+        "product_identity": "B0H8RD31XM",
+        "occurrence_verified": false
+      },
+      {
+        "source_record": "696d8c97b5b347628b3dde9f318f5c10:record:433",
+        "destination_kind": "product",
+        "product_identity": "B0H8RD31XM",
+        "occurrence_verified": false
+      }
+    ]
+  },
+  "cold_result_identical": true,
+  "association_facts": {
+    "kind": "read_only_product_association_facts",
+    "groups": [
+      {
+        "context_index": "28",
+        "all_context_links_resolved": true,
+        "one_heading_link": true,
+        "same_independent_product_identity": true,
+        "source_references": [
+          "696d8c97b5b347628b3dde9f318f5c10:record:427",
+          "696d8c97b5b347628b3dde9f318f5c10:record:429",
+          "696d8c97b5b347628b3dde9f318f5c10:record:433"
+        ],
+        "product_identity": "B0H8RD31XM"
+      }
+    ],
+    "association_evidence_complete": true,
+    "product_occurrence_claimed": false,
+    "source_prerequisite_qualified": false,
+    "business_oracle_passed": false,
+    "workflow_policy_modified": false
+  },
+  "cleanup_verified": true,
+  "model_calls": 0,
+  "ledger_byte_identical": true,
+  "plan_accepted": false,
+  "workflow_execution": false,
+  "independent_business_oracle_qualified": false,
+  "artifact_hashes": {
+    "candidates.json": "db9d91bd5fcb13aa5b59b071c9c464933d2d07dbeefaf779e366dd68e6ebf4b8",
+    "events.json": "ab2bb0d72ef136ab72809d0334e52b781138086fb3f885c54acd0a89d53a136f",
+    "close.json": "50888101f7346754a6e98e03123704d577f652f05424bfa881b79694ccfa2b7f",
+    "source-selection.json": "3d78a6b1e079d37bce65835598fa36dc3a70d512f97f5bd5f74981390d1dd954",
+    "issued.json": "6f878cb34852a038d191bf4692b32b58b6af7baa860c7656fc071ca7767e2337",
+    "resolution.json": "084173378c38376f370f7d30ecc10575af741f90e656fb34354b0082582ea1bd",
+    "profile.json": "92dc074fb8d6387ed93b2b93df260c3f37f6e6ed1abae82f54ef214d21287f2e",
+    "admission.json": "51e226860d6a3ec50ed34f83e985dcd0998164e874cf0d03880062f7a77fdc9d"
+  }
+}
