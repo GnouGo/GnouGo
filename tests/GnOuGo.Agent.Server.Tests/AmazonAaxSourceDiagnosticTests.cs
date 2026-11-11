@@ -10,6 +10,40 @@ public sealed class AmazonAaxSourceDiagnosticTests
     internal const string Heading = "https://aax-eu-zaz.amazon.fr/x/c/opaque-heading/https://www.amazon.fr/dp/B000000001?observed=2";
 
     [Fact]
+    public void SameQueryHistoryAddressKeepsHttpEvidenceAndLiteralEntriesWithoutNormalization()
+    {
+        var settings = Settings(); var guard = new AmazonAaxSourceDiagnostic(settings, AmazonAaxSourceDiagnostic.Approval); var source = Source();
+        const string httpUrl = "https://www.amazon.fr/s?k=chaussure%20geox%20homme%2045";
+        const string documentUrl = "https://www.amazon.fr/s?k=chaussure+geox+homme+45";
+        source["arguments"]!["url"] = httpUrl;
+        source["result"]!["navigationEvidence"]!["requestedUrl"] = httpUrl;
+        source["result"]!["navigationEvidence"]!["finalUrl"] = httpUrl;
+        source["result"]!["navigationEvidence"]!["hops"] = new JsonArray(new JsonObject
+            { ["url"] = httpUrl, ["method"] = "GET", ["statusCode"] = 200, ["location"] = null });
+        source["result"]!["url"] = documentUrl;
+        source["result"]!["acquisition"]!["navigation"]!["url"] = documentUrl;
+        source["result"]!["navigationEvidence"]!["documentUrl"] = documentUrl;
+        var bytes = source.ToJsonString();
+        guard.ObserveSearch(source, Query);
+        Assert.Equal([First, Heading, Heading], guard.OriginalOccurrences.Select(r => r["href"]!.ToString()));
+        Assert.Equal(bytes, source.ToJsonString());
+        Assert.Equal(httpUrl, source["result"]!["navigationEvidence"]!["finalUrl"]!.ToString());
+    }
+
+    [Fact]
+    public void MatchingDocumentQueryCannotReplaceTheActualHttpSearchQuery()
+    {
+        var settings = Settings(); var guard = new AmazonAaxSourceDiagnostic(settings, AmazonAaxSourceDiagnostic.Approval); var source = Source();
+        var navigation = source["result"]!["navigationEvidence"]!; var original = navigation["finalUrl"]!.ToString();
+        const string other = "https://www.amazon.fr/s?k=different";
+        navigation["finalUrl"] = other; navigation["documentUrl"] = original;
+        navigation["hops"]![0]!["statusCode"] = 302; navigation["hops"]![0]!["location"] = other;
+        navigation["hops"]!.AsArray().Add(new JsonObject { ["url"] = other, ["method"] = "GET", ["statusCode"] = 200, ["location"] = null });
+        Assert.Throws<InvalidOperationException>(() => guard.ObserveSearch(source, Query));
+        Assert.Null(guard.Next);
+    }
+
+    [Fact]
     public void OwnOriginalOccurrencesPreserveOrderDuplicatesAndFragmentWithoutWorkflowAuthority()
     {
         var settings = Settings(); var guard = new AmazonAaxSourceDiagnostic(settings, AmazonAaxSourceDiagnostic.Approval);

@@ -80,7 +80,9 @@ internal static partial class LiveWorkflowOracles
         var source = CompleteSnapshots([read]).SingleOrDefault();
         if (source is null || !WholeDocumentSearch(read) || !SearchAddress(source.Url) || string.IsNullOrWhiteSpace(query) ||
             SearchQuery(new Uri(source.Url!)) != query || read["arguments"]?["url"]?.ToString() is not { } requested ||
-            !SearchAddress(requested) || SearchQuery(new Uri(requested)) != query || !AaxDiagnosticReadComplete(read, AmazonAaxSourceDiagnostic.IsDestination))
+            !SearchAddress(requested) || SearchQuery(new Uri(requested)) != query ||
+            read["result"]?["navigationEvidence"]?["finalUrl"]?.ToString() is not { } responseUrl ||
+            !SearchAddress(responseUrl) || SearchQuery(new Uri(responseUrl)) != query || !AaxDiagnosticReadComplete(read, AmazonAaxSourceDiagnostic.IsDestination))
             throw new InvalidOperationException("A complete successful owned search is required for the source-only diagnostic.");
         var records = source.Records.OfType<JsonObject>().ToArray();
         var id = read["result"]?["observationSnapshot"]?["id"]?.ToString();
@@ -97,6 +99,5 @@ internal static partial class LiveWorkflowOracles
     internal static bool AaxDiagnosticReadComplete(JsonObject read, Func<string, bool> allowed)
         => read["error"]?.GetValue<bool>() == false && read["result"]?["success"]?.GetValue<bool>() == true &&
             CompleteSnapshots([read]).SingleOrDefault() is { } snapshot && ValidNavigationEvidence(read, allowed) &&
-            snapshot.Url == read["result"]?["navigationEvidence"]?["finalUrl"]?.ToString() &&
             read["result"]?["acquisition"]?["navigation"]?["url"]?.ToString() == snapshot.Url;
 }
