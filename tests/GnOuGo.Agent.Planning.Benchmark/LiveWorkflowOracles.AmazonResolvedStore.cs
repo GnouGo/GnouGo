@@ -5,6 +5,8 @@ internal static partial class LiveWorkflowOracles
     internal const string AmazonResolvedStoreVersion = "amazon-business-v8";
     internal const string AmazonResolvedProductVersion = "amazon-business-v9";
 
+    internal const string AmazonReviewProofVersion = "amazon-business-v10";
+
     private sealed class ResolvedStoreSource
     {
         internal List<string> Findings { get; } = [];
@@ -12,6 +14,7 @@ internal static partial class LiveWorkflowOracles
         internal HashSet<JsonObject> StoreReads { get; } = [];
         internal HashSet<JsonObject> SourceReads { get; } = [];
         internal JsonArray ResolutionEvidence { get; } = new();
+        internal JsonArray AliasEvidence { get; } = new();
         internal string? NextResolution { get; set; }
         internal bool Complete { get; set; }
         internal int ResolutionCount { get; set; }
@@ -46,7 +49,9 @@ internal static partial class LiveWorkflowOracles
         if (reads.Any(p => p.read["error"]?.GetValue<bool>() != false || p.read["result"]?["success"]?.GetValue<bool>() != true))
         { state.Findings.Add("source_authority_failed_read"); return state; }
 
-        var candidates = UnresolvedStoreCandidates(source, state.Findings, policy);
+        var aliases = policy == AmazonReviewProofPolicy.Id ? ReviewProofAliases(source) : new Dictionary<string, string[]>(StringComparer.Ordinal);
+        var aliasReferences = aliases.Keys.ToHashSet(StringComparer.Ordinal);
+        var candidates = UnresolvedStoreCandidates(source, state.Findings, policy, aliasReferences);
         if (state.Findings.Count != 0) return state;
         state.ResolutionCount = candidates.Count;
         var references = new HashSet<string>(StringComparer.Ordinal);
@@ -69,17 +74,18 @@ internal static partial class LiveWorkflowOracles
             string kind; string? identity = null;
             if (AmazonResolvedStorePolicy.IsStore(destination.Url ?? "") && AmazonResolvedStorePolicy.IsStore(final ?? ""))
             { references.Add(reference); state.StoreReads.Add(read); kind = "store_navigation"; }
-            else if (policy == AmazonResolvedProductPolicy.Id && ObservedProductIdentity(final) is { } product && ObservedProductIdentity(destination.Url) == product)
+            else if (policy is AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id && ObservedProductIdentity(final) is { } product && ObservedProductIdentity(destination.Url) == product)
             { productReferences.Add(reference, product); kind = "product_identity"; identity = product; }
             else { state.Findings.Add("source_resolution_destination_indeterminate"); return state; }
             state.SourceReads.Add(read);
             state.ResolutionEvidence.Add(new JsonObject { ["source_record"] = reference, ["event_index"] = navigations[index + 1].index,
                 ["kind"] = kind, ["product_identity"] = identity, ["business_visit"] = false });
         }
-        if (policy == AmazonResolvedProductPolicy.Id)
+        if (policy is AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id)
         {
+            BindReviewProofAliases(aliases, productReferences, state);
             var identities = ResolvedProductReferences(source, productReferences, state.Findings);
-            state.Products = ContextProducts(source, state.Findings, references, identities, policy);
+            state.Products = ContextProducts(source, state.Findings, references, identities, policy, aliasReferences);
         }
         else state.Products = ContextProducts(source, state.Findings, references);
         if (state.Products.Count == 0) state.Findings.Add("source_products_unverified");
@@ -97,9 +103,9 @@ internal static partial class LiveWorkflowOracles
         return state;
     }
 
-    private static List<JsonObject> UnresolvedStoreCandidates(Snapshot source, List<string> findings, string policy)
+    private static List<JsonObject> UnresolvedStoreCandidates(Snapshot source, List<string> findings, string policy, IReadOnlySet<string> aliasReferences)
     {
-        ValidateObservedProductRoutes(source, findings, policy == AmazonResolvedProductPolicy.Id ? policy : AmazonProductContextPolicy.Id);
+        ValidateObservedProductRoutes(source, findings, policy is AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id ? policy : AmazonProductContextPolicy.Id, aliasReferences);
         var id = source.Read["result"]?["observationSnapshot"]?["id"]?.ToString() ??
             source.Read["result"]?["observationManifest"]?["id"]?.ToString() ?? source.Read["result"]?["observation"]?["id"]?.ToString();
         var candidates = new List<JsonObject>();
@@ -107,7 +113,7 @@ internal static partial class LiveWorkflowOracles
         {
             var record = source.Records[index];
             if (id is null || record?["reference"]?.ToString() != id + ":record:" + index) findings.Add("search_record_provenance_inconsistent");
-            if (record is JsonObject link && link["kind"]?.ToString() == "link" &&
+            if (record is JsonObject link && !aliasReferences.Contains(link["reference"]?.ToString() ?? "") && link["kind"]?.ToString() == "link" &&
                 AmazonObservedRedirectPolicy.IsSourceEntry(link["href"]?.ToString() ?? "", policy) && !ProductCode(ContextAttribute(link)?["value"]?.ToString()))
                 candidates.Add(link);
         }
@@ -153,6 +159,9 @@ internal static partial class LiveWorkflowOracles
     internal static JsonObject VerifyAmazonResolvedProductSelection(IReadOnlyList<JsonObject> events, int maximum, string? query)
         => ResolvedStoreSelection(events, maximum, query, ResolveStoreSource(events, query, AmazonResolvedProductPolicy.Id), AmazonResolvedProductPolicy.Id);
 
+    internal static JsonObject VerifyAmazonReviewProofSelection(IReadOnlyList<JsonObject> events, int maximum, string? query)
+        => ResolvedStoreSelection(events, maximum, query, ResolveStoreSource(events, query, AmazonReviewProofPolicy.Id), AmazonReviewProofPolicy.Id);
+
     private static JsonObject ResolvedStoreSelection(IReadOnlyList<JsonObject> events, int maximum, string? query, ResolvedStoreSource source, string policy = AmazonResolvedStorePolicy.Id)
     {
         if (maximum is < 1 or > 10) throw new ArgumentOutOfRangeException(nameof(maximum));
@@ -174,16 +183,17 @@ internal static partial class LiveWorkflowOracles
                 ObservedProductIdentity(read["result"]?["navigationEvidence"]?["finalUrl"]?.ToString()) != product.Identity)
                 findings.Add("product_navigation_provenance_incomplete");
         }
-        var report = new JsonObject { ["version"] = policy == AmazonResolvedProductPolicy.Id ? AmazonResolvedProductVersion : AmazonResolvedStoreVersion, ["passed"] = findings.Count == 0,
+        var report = new JsonObject { ["version"] = policy == AmazonReviewProofPolicy.Id ? AmazonReviewProofVersion : policy == AmazonResolvedProductPolicy.Id ? AmazonResolvedProductVersion : AmazonResolvedStoreVersion, ["passed"] = findings.Count == 0,
             ["source_prerequisite_qualified"] = source.Complete && !string.IsNullOrWhiteSpace(query), ["source_resolution_count"] = source.ResolutionCount,
             ["expected_product_count"] = expected.Length, ["visited_product_count"] = visits.Length,
             ["findings"] = new JsonArray(findings.Distinct().Select(f => (JsonNode)JsonValue.Create(f)).ToArray()) };
-        if (policy == AmazonResolvedProductPolicy.Id)
+        if (policy is AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id)
         {
             report["source_resolution_evidence"] = source.ResolutionEvidence.DeepClone();
             report["source_product_reads"] = source.ResolutionEvidence.Count(e => e?["kind"]?.ToString() == "product_identity");
             report["source_store_reads"] = source.ResolutionEvidence.Count(e => e?["kind"]?.ToString() == "store_navigation");
         }
+        if (policy == AmazonReviewProofPolicy.Id) report["source_proof_aliases"] = source.AliasEvidence.DeepClone();
         return report;
     }
 }

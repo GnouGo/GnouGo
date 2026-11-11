@@ -1,0 +1,22 @@
+{
+  "base_commit": "fc353ebe828793388c8df5fb7899b10db1a82a8c",
+  "approval": "user-amazon-workflow-review-proof-20261111",
+  "policy": "amazon-observed-review-proof-context-v6",
+  "oracle": "amazon-business-v10",
+  "navigation_allowlist_changed": false,
+  "controlled_tests": {
+    "command": "dotnet test tests/GnOuGo.Agent.Server.Tests -m:1 -warnaserror --filter 'FullyQualifiedName~Amazon|FullyQualifiedName~DelegatedTestReview'",
+    "passed": 389,
+    "failed": 0,
+    "skipped": 0,
+    "red_result": "Before alias binding, expected next exact entry was rejected with empty allowed-entry set.",
+    "red_log_sha256": "da904ac637479268568e383e90521dcd0e96043d237a1d364ebc172626ccbd4d",
+    "green_log_sha256": "1cc1ebd3f6ac62b551882dfd5bd891675d52fdf9204abe1b306c472be92c405f"
+  },
+  "live_source_qualified": false,
+  "accepted_plan": false,
+  "workflow_executed": false,
+  "independent_live_oracle_passed": false,
+  "model_calls": 0,
+  "budget_added_eur": 0
+}

@@ -81,14 +81,15 @@ internal static partial class LiveWorkflowOracles
             ["findings"] = new JsonArray(findings.Distinct().Select(f => (JsonNode)JsonValue.Create(f)).ToArray()) };
     }
 
-    private static void ValidateObservedProductRoutes(Snapshot snapshot, List<string> findings, string policy)
+    private static void ValidateObservedProductRoutes(Snapshot snapshot, List<string> findings, string policy, IReadOnlySet<string>? proofAliasReferences = null)
     {
         foreach (var record in snapshot.Records.OfType<JsonObject>())
         {
             if (record["href"]?.ToString() is not { } href) continue;
+            if (proofAliasReferences?.Contains(record["reference"]?.ToString() ?? "") == true) continue;
             if (!AmazonAddress(href, out var address))
             {
-                if (policy is AmazonSponsoredHostPolicy.Id or AmazonProductContextPolicy.Id or AmazonResolvedProductPolicy.Id && Uri.TryCreate(href, UriKind.Absolute, out var other) &&
+                if (policy is AmazonSponsoredHostPolicy.Id or AmazonProductContextPolicy.Id or AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id && Uri.TryCreate(href, UriKind.Absolute, out var other) &&
                     other.Host.StartsWith("sponsored-ads.", StringComparison.Ordinal) && !AmazonObservedRedirectPolicy.IsSourceEntry(href, policy))
                     findings.Add("search_product_redirect_route_unapproved");
                 continue;

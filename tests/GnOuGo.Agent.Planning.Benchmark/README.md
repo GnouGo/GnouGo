@@ -1084,3 +1084,19 @@ visits, order, duplicates, fields, actual Excel, writer receipt, execution succe
 and cleanup checks remain mandatory. Neither a source pass nor early product data
 establishes completed business work. All previous policy/approval boundaries and
 no-replay financial controls remain in force.
+
+### Explicit review-fragment evidence amendment (v6 / v10)
+
+Fresh Amazon runs may capture `--amazon-review-proof-context
+--amazon-scope-approval user-amazon-workflow-review-proof-20261111` only under the
+separate approved verifier amendment. This selects policy
+`amazon-observed-review-proof-context-v6` and oracle `amazon-business-v10`.
+The full navigation allowlist is identical to v5; fragment URLs remain forbidden.
+An exact original `#customerReviews` alias may reference completed product proof
+from separately observed permitted hrefs in the same verified empty-ASIN context.
+No heading or semantic occurrence is allowed on the alias. Every navigable
+occurrence still has its own ordered GET; all links, contexts, identities and the
+one-heading condition must agree. The report retains aliases separately from
+physical reads. Every later business visit, field, workbook, execution, receipt
+and cleanup requirement remains unchanged. V5/v9 and earlier versions retain their
+prior behavior. See [approved scope and evidence](../../docs/evidence/pr120-amazon-v10-2026-11-11/README.md).

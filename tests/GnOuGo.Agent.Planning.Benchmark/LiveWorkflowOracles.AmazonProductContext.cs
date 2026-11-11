@@ -66,11 +66,12 @@ internal static partial class LiveWorkflowOracles
 
     private static List<ContextProduct> ContextProducts(Snapshot snapshot, List<string> findings,
         IReadOnlySet<string>? independentlyResolvedStoreReferences = null,
-        IReadOnlyDictionary<string, string>? independentlyResolvedProductReferences = null, string policy = AmazonProductContextPolicy.Id)
+        IReadOnlyDictionary<string, string>? independentlyResolvedProductReferences = null, string policy = AmazonProductContextPolicy.Id,
+        IReadOnlySet<string>? proofAliasReferences = null)
     {
         var id = snapshot.Read["result"]?["observationSnapshot"]?["id"]?.ToString() ??
             snapshot.Read["result"]?["observationManifest"]?["id"]?.ToString() ?? snapshot.Read["result"]?["observation"]?["id"]?.ToString();
-        ValidateObservedProductRoutes(snapshot, findings, policy);
+        ValidateObservedProductRoutes(snapshot, findings, policy, proofAliasReferences);
         var contexts = new Dictionary<int, JsonObject>();
         var candidates = new List<JsonObject>();
         var occurrences = new Dictionary<string, JsonNode>(StringComparer.Ordinal);
@@ -80,7 +81,8 @@ internal static partial class LiveWorkflowOracles
             var record = snapshot.Records[index];
             if (id is null || record?["reference"]?.ToString() != id + ":record:" + index) findings.Add("search_record_provenance_inconsistent");
             if (record?["href"]?.ToString() is not { } href ||
-                ObservedProductIdentity(href) is null && !AmazonObservedRedirectPolicy.IsSourceEntry(href, policy)) continue;
+                ObservedProductIdentity(href) is null && !AmazonObservedRedirectPolicy.IsSourceEntry(href, policy) &&
+                proofAliasReferences?.Contains(record["reference"]?.ToString() ?? "") != true) continue;
             var context = ContextAttribute(record);
             if (record["kind"]?.ToString() != "link" || context is null || context["value"] is not JsonValue value || !value.TryGetValue<string>(out var code) ||
                 context["tag"] is not JsonValue tagValue || !tagValue.TryGetValue<string>(out var tag) ||
