@@ -210,3 +210,28 @@ CI at c05b114f repeats the same Ubuntu DNS failures during native toolchain/brow
 dependency installation (runs 43052666148, 43052666157, 43052666474); four other AOT
 platform jobs pass. There is no demonstrated production regression, and no green
 CI claim for this HEAD. Full Amazon and Code qualification both remain **0/2**.
+
+## Fresh source gate after the correction
+
+At frozen implementation 82b1902b, Release remains warning-free and the full Server
+inventory passes 2,274 tests with one existing skip and unchanged binaries. Together
+with the unchanged non-Server coverage, this is 8,981 passes and 13 existing skips.
+Standalone and all-platform AOT CI at 82b1902b pass; planner CI remains in progress
+at the latest check. The earlier Ubuntu DNS failures are historical, not an ongoing
+claim about those now-successful jobs.
+
+The [new actual-profile source](../pr120-amazon-card-context-2026-11-11/fresh-source-refusal.json)
+retains 1,431 complete records but fails v6/v10 before dependent reads. Its review
+links include inherited semantic occurrence metadata and nonempty-ASIN cards beyond
+the approved empty-ASIN exact-alias exception. No fresh full workflow is funded.
+One [already authorized source-only diagnostic](../pr120-amazon-card-context-2026-11-11/authorized-diagnostic-target-absent.json)
+tests the new card-boundary hypothesis. The target is absent in its fresh page;
+it performs only the search, verifies cleanup and stops without another search.
+
+The [inactive versioned proposal](../pr120-amazon-card-context-2026-11-11/proposal.md)
+and 36 controlled relationship checks make the additional scope reviewable. They
+grant no navigation, source qualification or business pass. Activation requires
+separate authorization: known-ASIN card membership would be an explicit alternative
+to exact HTTP-prefix alias equality, and empty-ASIN proof would use observed child
+card boundaries while still requiring every own ordered product redirect proof.
+Current v6/v10, every record, all financial holds and stopped sessions remain intact.
