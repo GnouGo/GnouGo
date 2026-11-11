@@ -1,0 +1,11 @@
+{
+  "source": "b605ded48b45d49571b978430086ffa7ac31e05f",
+  "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror --filter FullyQualifiedName!~GnOuGo.Agent.Server.Tests",
+  "exit_code": 0,
+  "test_projects": 32,
+  "failed": 0,
+  "passed": 6707,
+  "skipped": 12,
+  "server_partition_validation": "running separately on same source",
+  "log_sha256": "9ece9d6acdcc5800f44c4a7af5ee29e26bce5d2be1c4972fc76ac0f6234fd828"
+}

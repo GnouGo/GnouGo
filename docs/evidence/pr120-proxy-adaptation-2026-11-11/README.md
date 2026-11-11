@@ -106,3 +106,38 @@ warnings. The prior 390 AI-core passes still cover unchanged transport code.
 The next independent correction must bind the necessary approved rule facts while
 keeping host-enforced next-read and redirect checks with the host. Zero/one/multiple
 runtime cases will be qualified before full-workflow admission.
+
+## Consumer and source prerequisites qualified
+
+The [fresh policy-input correction](consumer-policy-01.json) binds the approved
+rule facts and exact profile allowlist as literal transform inputs. It completes
+in 79.57 seconds and passes the existing continuation/compiler checks. No source
+session, accepted plan or business execution is changed.
+
+[Zero, one and multiple runtime cases](runtime-cases-0-1-many.json) complete in
+35.40, 40.17 and 38.98 seconds. All return `ready=true`, exclude the three preceding
+known-product links, preserve source references/order and retain both equal href
+occurrences in the multiple case. The existing engine also completes each isolated
+transform when given its exact completed experimental receipt, without dispatching
+another call. These synthetic cases use explicitly captured low reasoning and
+32,768 output tokens; runtime defaults remain unspecified in the captured plan.
+They establish controlled consumer behavior, not a full Amazon workflow.
+
+A [fresh actual-profile source preflight](real-profile-source-preflight.json)
+qualifies 1,448 records and 13 individual store resolutions under unchanged v6/v10.
+Cold oracle evaluation agrees and browser cleanup is verified. There are no model
+calls or business product visits; the independent business oracle correctly still
+reports incomplete visits. A new workflow must acquire its own source authority.
+
+The [pre-admission audit](pre-full-financial-audit.json) retains the EUR 1,700 ceiling,
+all HTTP/application holds and historical costs, leaving approximately EUR 375.46
+of arithmetic campaign headroom. Global funding and provider invoices remain
+unestablished. One accidentally concurrent one-occurrence launch was refused by
+the existing single-owner lease before a run or request existed; its serial fresh
+identity succeeded without changing the lease or releasing reservations.
+
+The [current shared solution check](shared-solution-current.json) passes with
+warnings treated as errors; Server partitions run separately. [CI at b605ded4](ci-b605ded4.json)
+has Ubuntu package DNS failures in Linux setup/browser dependency installation.
+Four macOS/Windows AOT jobs pass. This does not change the three green baseline
+checks at cd8951b7, and does not establish green CI at the new HEAD.

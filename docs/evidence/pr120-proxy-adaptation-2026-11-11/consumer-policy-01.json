@@ -1,0 +1,29 @@
+{
+  "http_status": 200,
+  "protocol_complete": true,
+  "termination": "stop",
+  "usage_known": true,
+  "first_output_seconds": 77.393824,
+  "complete_seconds": 79.569251,
+  "input_tokens": 22908,
+  "output_tokens": 1643,
+  "reasoning_tokens": 36,
+  "captured_tariff_cost_eur": "0.8804120017913121361397223466",
+  "provider_response_id": "chatcmpl-Ej4e2xywwJCGPqWB7S8ON766Sylds",
+  "receipt_cold_reloaded": true,
+  "http_journal_sha256": "2e272e050025c0ca1730be8d77698e5d4d5b56be6829543bd0b2ae688cef8538",
+  "receipt_sha256": "d1c2ba5270c1e94f351a5168b3e8c4651149afebead5668bf0847850a6922908",
+  "identity": "amazon-proxy-consumer-policy-20261111-01",
+  "source": "b605ded48b45d49571b978430086ffa7ac31e05f",
+  "compiler_and_continuation_valid": true,
+  "complete_block": false,
+  "tasks": 1,
+  "literal_rule_inputs": [
+    "policyRules",
+    "fullUrlAllowlist"
+  ],
+  "allowlist_exact_profile_match": true,
+  "accepted_plan": false,
+  "full_workflow_execution": false,
+  "oracle_passed": false
+}
