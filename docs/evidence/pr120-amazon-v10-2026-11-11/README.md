@@ -100,3 +100,38 @@ are unchanged. The earlier [shared local checks](shared-local-validation.json) p
 8,955 tests with 13 existing skips on the preceding implementation. No engine code
 changed in this subsequent text correction. A new targeted probe will test whether
 the precise original constraint corrects source selection; it will apply no fragment.
+
+## Targeted scope probes and renewed transport blockage
+
+The producer probe returned complete schema-valid output and a cold-reloaded receipt,
+but did not demonstrate narrowed consumer selection. It also introduced exact-one
+array bounds absent from the issued zero-or-more prerequisite; no fragment was
+applied. A separate probe targeted the actual consumer draft, changing only the
+original policy sentence and its matching source version. It received HTTP 200 and
+two empty initial envelopes, then a network read `ConnectionReset` after 300.68
+seconds idle, before the captured 600-second deadline. No completion or usage receipt
+was received, and no retry occurred. See [probe evidence](source-scope-probes.json).
+
+The responsible route component remains unknown. The [short owner message](route-owner-followup.md)
+is ready and unsent; the authorized same-route silence-versus-comments comparison
+still requires external access. No further full Amazon workflow was launched.
+The correction has controlled coverage; representative consumer delivery and full
+execution/oracle qualification remain missing. Code remains independently blocked
+on the same external investigation.
+
+[Run2 milestones](run2-milestones.json) separate the first useful checkpoint
+(14 physical calls, 662.82 seconds, EUR 3.689513 known cost) from unreached global
+review and execution. [Permanent retention](run2-permanent-retention.json) forbids
+the cancelled identity's continuation without releasing reservations. The cancelled
+34th issued request did not become a campaign HTTP attempt; its separate application
+reservation of EUR 2.742990904226859283039058320 remains included.
+The [closing audit](closing-financial-audit.json) retains the EUR 1,700 ceiling,
+EUR 839.877340 known captured-tariff cost, EUR 419.640296 uncertain HTTP holds and
+EUR 62.298969 application holds: arithmetic headroom EUR 378.183395. No grant,
+reset, invoice claim, unsupported release or stopped-session replay occurred.
+
+The incomplete [consumer probe is permanently retained](consumer-probe-permanent-retention.json)
+with its full EUR 8.140868786386027765338110166 reservation and replay forbidden.
+
+[CI status](ci-status.json) at implementation `926b8131`: standalone and Native AOT
+passed; planner integration remains running. The current full CI is not claimed green.
