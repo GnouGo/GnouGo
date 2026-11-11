@@ -25,3 +25,14 @@ the new policy before alias binding was implemented. **389 affected tests pass**
 [controlled evidence](controlled-validation.json) retains the red/green log hashes.
 A fresh actual-profile source preflight will be recorded separately. No model call is
 admitted before the source prerequisite qualifies. No campaign funds are added.
+
+## Fresh actual-profile prerequisite
+
+`amazon-v10-source-20261111-01` captured 1,529 complete records and independently
+resolved all 17 unresolved sponsored occurrences to approved store pages. The v10
+source prerequisite passed, its cold reload was identical, and browser closure was
+verified. This source had no product-proof alias: that exception has controlled
+coverage, not a claimed live target exercise. No model call, business product visit,
+accepted plan, extraction or workbook occurred. The independent business check
+correctly remains false. See [sanitized source evidence](fresh-source-result.json).
+A full workflow must create fresh source authority and satisfy every later stage.
