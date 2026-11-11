@@ -3,12 +3,15 @@ using System.Text.Json.Nodes;
 internal static partial class LiveWorkflowOracles
 {
     internal const string AmazonResolvedStoreVersion = "amazon-business-v8";
+    internal const string AmazonResolvedProductVersion = "amazon-business-v9";
 
     private sealed class ResolvedStoreSource
     {
         internal List<string> Findings { get; } = [];
         internal List<ContextProduct> Products { get; set; } = [];
         internal HashSet<JsonObject> StoreReads { get; } = [];
+        internal HashSet<JsonObject> SourceReads { get; } = [];
+        internal JsonArray ResolutionEvidence { get; } = new();
         internal string? NextResolution { get; set; }
         internal bool Complete { get; set; }
         internal int ResolutionCount { get; set; }
@@ -16,7 +19,7 @@ internal static partial class LiveWorkflowOracles
 
     private static bool SearchAddress(string? value) => AmazonAddress(value, out var uri) && uri.AbsolutePath == "/s";
 
-    private static ResolvedStoreSource ResolveStoreSource(IReadOnlyList<JsonObject> events, string? query)
+    private static ResolvedStoreSource ResolveStoreSource(IReadOnlyList<JsonObject> events, string? query, string policy = AmazonResolvedStorePolicy.Id)
     {
         var state = new ResolvedStoreSource();
         var complete = CompleteSnapshots(events).ToDictionary(s => s.Read);
@@ -28,7 +31,7 @@ internal static partial class LiveWorkflowOracles
         if (SearchAddress(requested) && query is null) query = SearchQuery(new Uri(requested));
         if (reads[0].read != first || !WholeDocumentSearch(first) || !SearchAddress(requested) || string.IsNullOrWhiteSpace(query) ||
             SearchQuery(new Uri(requested)) != query || !complete.TryGetValue(first, out var source) ||
-            !ValidNavigationEvidence(first, AmazonResolvedStorePolicy.Id) || !SearchAddress(source.Url) || SearchQuery(new Uri(source.Url!)) != query ||
+            !ValidNavigationEvidence(first, policy) || !SearchAddress(source.Url) || SearchQuery(new Uri(source.Url!)) != query ||
             !SearchAddress(first["result"]?["navigationEvidence"]?["finalUrl"]?.ToString()) ||
             SearchQuery(new Uri(first["result"]!["navigationEvidence"]!["finalUrl"]!.ToString())) != query)
         { state.Findings.Add("complete_owned_search_required"); return state; }
@@ -43,45 +46,60 @@ internal static partial class LiveWorkflowOracles
         if (reads.Any(p => p.read["error"]?.GetValue<bool>() != false || p.read["result"]?["success"]?.GetValue<bool>() != true))
         { state.Findings.Add("source_authority_failed_read"); return state; }
 
-        var candidates = UnresolvedStoreCandidates(source, state.Findings);
+        var candidates = UnresolvedStoreCandidates(source, state.Findings, policy);
         if (state.Findings.Count != 0) return state;
         state.ResolutionCount = candidates.Count;
         var references = new HashSet<string>(StringComparer.Ordinal);
+        var productReferences = new Dictionary<string, string>(StringComparer.Ordinal);
         for (var index = 0; index < candidates.Count; index++)
         {
             var candidate = candidates[index]; var href = candidate["href"]!.ToString();
-            if (!AmazonSponsoredHostPolicy.IsEntry(href))
+            if (!AmazonObservedRedirectPolicy.IsEntry(href, policy))
             { state.Findings.Add("source_resolution_route_unapproved"); return state; }
             if (navigations.Length <= index + 1)
             { state.NextResolution = href; return state; }
             var read = navigations[index + 1].read;
             if (read["arguments"]!["url"]?.ToString() != href || !complete.TryGetValue(read, out var destination) ||
-                !ValidNavigationEvidence(read, AmazonResolvedStorePolicy.Id))
+                !ValidNavigationEvidence(read, policy))
             { state.Findings.Add("source_resolution_provenance_unverified"); return state; }
-            // Both the observed HTTP destination and the current document must be
-            // store pages. A history-only address change cannot disguise a product.
-            if (!AmazonResolvedStorePolicy.IsStore(destination.Url ?? "") ||
-                !AmazonResolvedStorePolicy.IsStore(read["result"]?["navigationEvidence"]?["finalUrl"]?.ToString() ?? ""))
-            { state.Findings.Add("source_resolution_destination_indeterminate"); return state; }
-            references.Add(candidate["reference"]!.ToString()); state.StoreReads.Add(read);
+            // HTTP and document identities must independently agree; a history
+            // update cannot disguise a product as a store, or substitute an ASIN.
+            var final = read["result"]?["navigationEvidence"]?["finalUrl"]?.ToString();
+            var reference = candidate["reference"]!.ToString();
+            string kind; string? identity = null;
+            if (AmazonResolvedStorePolicy.IsStore(destination.Url ?? "") && AmazonResolvedStorePolicy.IsStore(final ?? ""))
+            { references.Add(reference); state.StoreReads.Add(read); kind = "store_navigation"; }
+            else if (policy == AmazonResolvedProductPolicy.Id && ObservedProductIdentity(final) is { } product && ObservedProductIdentity(destination.Url) == product)
+            { productReferences.Add(reference, product); kind = "product_identity"; identity = product; }
+            else { state.Findings.Add("source_resolution_destination_indeterminate"); return state; }
+            state.SourceReads.Add(read);
+            state.ResolutionEvidence.Add(new JsonObject { ["source_record"] = reference, ["event_index"] = navigations[index + 1].index,
+                ["kind"] = kind, ["product_identity"] = identity, ["business_visit"] = false });
         }
-        state.Products = ContextProducts(source, state.Findings, references);
+        if (policy == AmazonResolvedProductPolicy.Id)
+        {
+            var identities = ResolvedProductReferences(source, productReferences, state.Findings);
+            state.Products = ContextProducts(source, state.Findings, references, identities, policy);
+        }
+        else state.Products = ContextProducts(source, state.Findings, references);
         if (state.Products.Count == 0) state.Findings.Add("source_products_unverified");
         state.Complete = state.Findings.Count == 0;
         // Retain cursor reads as part of their exact proved navigation, without
         // replacing, filtering or annotating any raw source/event record.
-        var inStore = false;
+        var inStore = false; var inResolution = false;
         foreach (var (read, _) in reads)
         {
-            if (read["arguments"]?["url"] is not null) inStore = state.StoreReads.Contains(read);
-            else if (inStore) state.StoreReads.Add(read);
+            if (read["arguments"]?["url"] is not null)
+            { inStore = state.StoreReads.Contains(read); inResolution = state.SourceReads.Contains(read); }
+            else
+            { if (inStore) state.StoreReads.Add(read); if (inResolution) state.SourceReads.Add(read); }
         }
         return state;
     }
 
-    private static List<JsonObject> UnresolvedStoreCandidates(Snapshot source, List<string> findings)
+    private static List<JsonObject> UnresolvedStoreCandidates(Snapshot source, List<string> findings, string policy)
     {
-        ValidateObservedProductRoutes(source, findings, AmazonProductContextPolicy.Id);
+        ValidateObservedProductRoutes(source, findings, policy == AmazonResolvedProductPolicy.Id ? policy : AmazonProductContextPolicy.Id);
         var id = source.Read["result"]?["observationSnapshot"]?["id"]?.ToString() ??
             source.Read["result"]?["observationManifest"]?["id"]?.ToString() ?? source.Read["result"]?["observation"]?["id"]?.ToString();
         var candidates = new List<JsonObject>();
@@ -90,15 +108,41 @@ internal static partial class LiveWorkflowOracles
             var record = source.Records[index];
             if (id is null || record?["reference"]?.ToString() != id + ":record:" + index) findings.Add("search_record_provenance_inconsistent");
             if (record is JsonObject link && link["kind"]?.ToString() == "link" &&
-                AmazonSponsoredHostPolicy.IsSourceEntry(link["href"]?.ToString() ?? "") && !ProductCode(ContextAttribute(link)?["value"]?.ToString()))
+                AmazonObservedRedirectPolicy.IsSourceEntry(link["href"]?.ToString() ?? "", policy) && !ProductCode(ContextAttribute(link)?["value"]?.ToString()))
                 candidates.Add(link);
         }
         return candidates;
     }
 
-    internal static IEnumerable<string> ResolvedStoreAllowedEntries(IReadOnlyList<JsonObject> reads)
+    private static Dictionary<string, string> ResolvedProductReferences(Snapshot source,
+        IReadOnlyDictionary<string, string> productReferences, List<string> findings)
     {
-        var source = ResolveStoreSource(reads, null);
+        var accepted = new Dictionary<string, string>(StringComparer.Ordinal);
+        var resolved = source.Records.OfType<JsonObject>().Where(r => productReferences.ContainsKey(r["reference"]?.ToString() ?? "")).ToArray();
+        foreach (var group in resolved.GroupBy(r => ContextAttribute(r)?["index"]?.ToString(), StringComparer.Ordinal))
+        {
+            var links = group.ToArray(); var context = ContextAttribute(links[0]);
+            var allContextLinks = source.Records.OfType<JsonObject>().Where(r => ContextAttribute(r)?["index"]?.ToString() == group.Key).ToArray();
+            if (context?["value"] is not JsonValue value || !value.TryGetValue<string>(out var code) || code.Length != 0 ||
+                context["index"] is not JsonValue index || !index.TryGetValue<int>(out var ordinal) || ordinal < 0 ||
+                context["tag"]?.ToString() == "nav" || context["role"]?.ToString() == "navigation" ||
+                allContextLinks.Length != links.Length || links.Any(r => r["occurrence"] is not null || !JsonNode.DeepEquals(context, ContextAttribute(r))) ||
+                links.Count(r => r["heading"]?.ToString() is { Length: > 0 }) != 1 ||
+                links.Select(r => productReferences[r["reference"]!.ToString()]).Distinct(StringComparer.Ordinal).Count() != 1)
+            { findings.Add("source_product_resolution_context_unverified"); continue; }
+            // Original context validation still checks every tag, role, source
+            // reference and grouping. Identities remain separate from raw records.
+            foreach (var link in links) accepted.Add(link["reference"]!.ToString(), productReferences[link["reference"]!.ToString()]);
+        }
+        return accepted;
+    }
+
+    internal static IEnumerable<string> ResolvedStoreAllowedEntries(IReadOnlyList<JsonObject> reads)
+        => ResolvedSourceAllowedEntries(reads, AmazonResolvedStorePolicy.Id);
+
+    internal static IEnumerable<string> ResolvedSourceAllowedEntries(IReadOnlyList<JsonObject> reads, string policy)
+    {
+        var source = ResolveStoreSource(reads, null, policy);
         if (source.Findings.Count != 0) return [];
         return source.NextResolution is { } next ? [next] : source.Complete ? source.Products.SelectMany(p => p.Urls).Distinct(StringComparer.Ordinal) : [];
     }
@@ -106,7 +150,10 @@ internal static partial class LiveWorkflowOracles
     internal static JsonObject VerifyAmazonResolvedStoreSelection(IReadOnlyList<JsonObject> events, int maximum, string? query)
         => ResolvedStoreSelection(events, maximum, query, ResolveStoreSource(events, query));
 
-    private static JsonObject ResolvedStoreSelection(IReadOnlyList<JsonObject> events, int maximum, string? query, ResolvedStoreSource source)
+    internal static JsonObject VerifyAmazonResolvedProductSelection(IReadOnlyList<JsonObject> events, int maximum, string? query)
+        => ResolvedStoreSelection(events, maximum, query, ResolveStoreSource(events, query, AmazonResolvedProductPolicy.Id), AmazonResolvedProductPolicy.Id);
+
+    private static JsonObject ResolvedStoreSelection(IReadOnlyList<JsonObject> events, int maximum, string? query, ResolvedStoreSource source, string policy = AmazonResolvedStorePolicy.Id)
     {
         if (maximum is < 1 or > 10) throw new ArgumentOutOfRangeException(nameof(maximum));
         var findings = source.Findings.ToList();
@@ -123,13 +170,20 @@ internal static partial class LiveWorkflowOracles
             if (!product.Urls.Contains(read["arguments"]!["url"]!.ToString(), StringComparer.Ordinal) ||
                 !complete.TryGetValue(read, out var snapshot) || ObservedProductIdentity(snapshot.Url) != product.Identity)
                 findings.Add("first_product_identity_or_order_mismatch");
-            if (!ValidNavigationEvidence(read, AmazonResolvedStorePolicy.Id) ||
+            if (!ValidNavigationEvidence(read, policy) ||
                 ObservedProductIdentity(read["result"]?["navigationEvidence"]?["finalUrl"]?.ToString()) != product.Identity)
                 findings.Add("product_navigation_provenance_incomplete");
         }
-        return new JsonObject { ["version"] = AmazonResolvedStoreVersion, ["passed"] = findings.Count == 0,
+        var report = new JsonObject { ["version"] = policy == AmazonResolvedProductPolicy.Id ? AmazonResolvedProductVersion : AmazonResolvedStoreVersion, ["passed"] = findings.Count == 0,
             ["source_prerequisite_qualified"] = source.Complete && !string.IsNullOrWhiteSpace(query), ["source_resolution_count"] = source.ResolutionCount,
             ["expected_product_count"] = expected.Length, ["visited_product_count"] = visits.Length,
             ["findings"] = new JsonArray(findings.Distinct().Select(f => (JsonNode)JsonValue.Create(f)).ToArray()) };
+        if (policy == AmazonResolvedProductPolicy.Id)
+        {
+            report["source_resolution_evidence"] = source.ResolutionEvidence.DeepClone();
+            report["source_product_reads"] = source.ResolutionEvidence.Count(e => e?["kind"]?.ToString() == "product_identity");
+            report["source_store_reads"] = source.ResolutionEvidence.Count(e => e?["kind"]?.ToString() == "store_navigation");
+        }
+        return report;
     }
 }

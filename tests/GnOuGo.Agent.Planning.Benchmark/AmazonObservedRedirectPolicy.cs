@@ -31,13 +31,14 @@ internal static class AmazonObservedRedirectPolicy
             throw new InvalidOperationException("Unknown or mismatched captured browser observation policy.");
     }
 
-    internal static bool IsObserved(string? policy) => policy is Id or AmazonSponsoredHostPolicy.Id or AmazonProductContextPolicy.Id or AmazonResolvedStorePolicy.Id;
+    internal static bool IsObserved(string? policy) => policy is Id or AmazonSponsoredHostPolicy.Id or AmazonProductContextPolicy.Id or AmazonResolvedStorePolicy.Id or AmazonResolvedProductPolicy.Id;
     internal static bool Allows(string value, string policy) => policy switch
     {
         Id => Allows(value),
         AmazonSponsoredHostPolicy.Id => AmazonSponsoredHostPolicy.Allows(value),
         AmazonProductContextPolicy.Id => AmazonSponsoredHostPolicy.Allows(value),
         AmazonResolvedStorePolicy.Id => AmazonResolvedStorePolicy.Allows(value),
+        AmazonResolvedProductPolicy.Id => AmazonResolvedProductPolicy.Allows(value),
         _ => throw new InvalidOperationException("Unknown captured browser observation policy.")
     };
     internal static bool IsEntry(string value, string policy) => policy switch
@@ -46,6 +47,7 @@ internal static class AmazonObservedRedirectPolicy
         AmazonSponsoredHostPolicy.Id => AmazonSponsoredHostPolicy.IsEntry(value),
         AmazonProductContextPolicy.Id => AmazonSponsoredHostPolicy.IsEntry(value),
         AmazonResolvedStorePolicy.Id => AmazonSponsoredHostPolicy.IsEntry(value),
+        AmazonResolvedProductPolicy.Id => AmazonResolvedProductPolicy.IsEntry(value),
         _ => throw new InvalidOperationException("Unknown captured browser observation policy.")
     };
     internal static bool IsSourceEntry(string value, string policy) => policy switch
@@ -54,6 +56,7 @@ internal static class AmazonObservedRedirectPolicy
         AmazonSponsoredHostPolicy.Id => AmazonSponsoredHostPolicy.IsSourceEntry(value),
         AmazonProductContextPolicy.Id => AmazonSponsoredHostPolicy.IsSourceEntry(value),
         AmazonResolvedStorePolicy.Id => AmazonSponsoredHostPolicy.IsSourceEntry(value),
+        AmazonResolvedProductPolicy.Id => AmazonResolvedProductPolicy.IsSourceEntry(value),
         _ => throw new InvalidOperationException("Unknown captured browser observation policy.")
     };
     internal static string Facts(string policy) => policy switch
@@ -62,6 +65,7 @@ internal static class AmazonObservedRedirectPolicy
         AmazonSponsoredHostPolicy.Id => AmazonSponsoredHostPolicy.PlanningFacts,
         AmazonProductContextPolicy.Id => AmazonProductContextPolicy.PlanningFacts,
         AmazonResolvedStorePolicy.Id => AmazonResolvedStorePolicy.PlanningFacts,
+        AmazonResolvedProductPolicy.Id => AmazonResolvedProductPolicy.PlanningFacts,
         _ => throw new InvalidOperationException("Unknown captured browser observation policy.")
     };
     internal static string ApprovalFor(string policy) => policy switch
@@ -70,6 +74,7 @@ internal static class AmazonObservedRedirectPolicy
         AmazonSponsoredHostPolicy.Id => AmazonSponsoredHostPolicy.Approval,
         AmazonProductContextPolicy.Id => AmazonProductContextPolicy.Approval,
         AmazonResolvedStorePolicy.Id => AmazonResolvedStorePolicy.Approval,
+        AmazonResolvedProductPolicy.Id => AmazonResolvedProductPolicy.Approval,
         _ => throw new InvalidOperationException("Unknown captured browser observation policy.")
     };
     internal static string Pattern(string policy) => policy switch
@@ -78,6 +83,7 @@ internal static class AmazonObservedRedirectPolicy
         AmazonSponsoredHostPolicy.Id => AmazonSponsoredHostPolicy.UrlPattern,
         AmazonProductContextPolicy.Id => AmazonProductContextPolicy.UrlPattern,
         AmazonResolvedStorePolicy.Id => AmazonResolvedStorePolicy.UrlPattern,
+        AmazonResolvedProductPolicy.Id => AmazonResolvedProductPolicy.UrlPattern,
         _ => throw new InvalidOperationException("Unknown captured browser observation policy.")
     };
 
@@ -87,6 +93,15 @@ internal static class AmazonObservedRedirectPolicy
         var sponsored = args.Contains("--amazon-observed-sponsored-host", StringComparer.Ordinal);
         var context = args.Contains("--amazon-product-context", StringComparer.Ordinal);
         var approval = SchemaPortabilityCampaign.Option(args, "--amazon-scope-approval");
+        if (args.Contains("--amazon-resolved-product-context", StringComparer.Ordinal))
+        {
+            if (original || sponsored || context || args.Contains("--amazon-resolved-store-context", StringComparer.Ordinal))
+                throw new ArgumentException("Select the separate resolved-product policy alone.");
+            if (approval != AmazonResolvedProductPolicy.Approval)
+                throw new InvalidOperationException("The product-resolution workflow amendment requires its exact separate grant.");
+            Validate(AmazonResolvedProductPolicy.Id, scenario);
+            return AmazonResolvedProductPolicy.Id;
+        }
         if (args.Contains("--amazon-resolved-store-context", StringComparer.Ordinal))
         {
             if (original || sponsored || context) throw new ArgumentException("Select the separate resolved-store policy alone.");
@@ -142,4 +157,20 @@ internal static class AmazonResolvedStorePolicy
     internal static bool IsStore(string value) => !value.Any(c => char.IsControl(c) || char.IsWhiteSpace(c)) && Stores.IsMatch(value);
     internal static bool Allows(string value) => AmazonSponsoredHostPolicy.Allows(value) || IsStore(value);
     internal const string PlanningFacts = "Authorized browser policy amazon-observed-resolved-store-context-v4: acquire a complete whole-document Amazon.fr search including nearest data-asin context. Before selecting products, resolve each sponsored source-link occurrence with unverified source identity by GET of its exact literal href in source order. Retain all complete redirect and destination observations, including repeated links. The host permits the next exact resolution only; it then permits source product links after every context is verified. Only an observed approved store-page destination with a consistent empty-ASIN source context and no product heading/semantic occurrence/direct product URL establishes non-product navigation. Product or ambiguous destinations remain blockers. Do not decode advertising targets, construct URLs, omit sponsored products, merge repeated product occurrences or change order. Visit the first requested products, extract their observed fields, write Excel, and close the browser even on failure. Close or another search expires source authority. Observation cursors expire on navigation. Every GET redirect is checked before contact; the only added route is /stores/page/{UUID} on the existing Amazon.fr hosts, for redirects only. No model output grants permission. Captured full-URL allowlist: " + UrlPattern;
+}
+
+
+// Explicitly approved product-identity resolution phase, separate from v4/v8.
+internal static class AmazonResolvedProductPolicy
+{
+    internal const string Id = "amazon-observed-resolved-product-context-v5";
+    internal const string Approval = "user-amazon-workflow-product-context-20261111";
+    internal const string SlashlessPattern = @"https://sponsored-ads\.amazon\.fr/clk\?[^#\s]+";
+    internal const string UrlPattern = "(?:" + AmazonResolvedStorePolicy.UrlPattern + "|" + SlashlessPattern + ")";
+    private static readonly Regex Slashless = new(@"\A(?:" + SlashlessPattern + @")\z", RegexOptions.CultureInvariant | RegexOptions.NonBacktracking, TimeSpan.FromSeconds(1));
+    internal static bool IsSlashless(string value) => !value.Any(c => char.IsControl(c) || char.IsWhiteSpace(c)) && Slashless.IsMatch(value);
+    internal static bool Allows(string value) => AmazonResolvedStorePolicy.Allows(value) || IsSlashless(value);
+    internal static bool IsEntry(string value) => AmazonSponsoredHostPolicy.IsEntry(value) || IsSlashless(value);
+    internal static bool IsSourceEntry(string value) => AmazonSponsoredHostPolicy.IsSourceEntry(value) || IsSlashless(value);
+    internal const string PlanningFacts = "Authorized browser policy amazon-observed-resolved-product-context-v5: acquire a complete whole-document Amazon.fr search with nearest data-asin context. Before business product selection, resolve every sponsored source-link occurrence with unverified identity by GET of its exact literal href in source order, including repeated hrefs. This separately authorized source-resolution phase may reach products. Keep and report those early reads; they never substitute for later required business visits. An empty-ASIN product context requires every link's complete own redirect/destination proof, the same observed product identity, consistent original context, exactly one heading-bearing link and no conflicting or unresolved context link/occurrence. Different contexts remain separate products even when identities match. Store navigation retains the strict no-product-heading/occurrence rule. The host grants the next exact resolution only, then original source product links after all contexts qualify. Visit every first requested product in original source order, extract actual fields, write Excel and close the browser even on failure. Never decode advertising targets, construct or normalize URLs, omit sponsored products or deduplicate product occurrences. Close, failure or another search expires source authority; observation cursors expire on navigation. Every redirect is checked before contact. Only literal /clk with a nonempty query is newly added on the already approved sponsored host; store-page routes remain redirect-only. No model output grants permission. Captured full-URL allowlist: " + UrlPattern;
 }

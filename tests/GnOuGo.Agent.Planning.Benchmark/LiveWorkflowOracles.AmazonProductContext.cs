@@ -65,11 +65,12 @@ internal static partial class LiveWorkflowOracles
     }
 
     private static List<ContextProduct> ContextProducts(Snapshot snapshot, List<string> findings,
-        IReadOnlySet<string>? independentlyResolvedStoreReferences = null)
+        IReadOnlySet<string>? independentlyResolvedStoreReferences = null,
+        IReadOnlyDictionary<string, string>? independentlyResolvedProductReferences = null, string policy = AmazonProductContextPolicy.Id)
     {
         var id = snapshot.Read["result"]?["observationSnapshot"]?["id"]?.ToString() ??
             snapshot.Read["result"]?["observationManifest"]?["id"]?.ToString() ?? snapshot.Read["result"]?["observation"]?["id"]?.ToString();
-        ValidateObservedProductRoutes(snapshot, findings, AmazonProductContextPolicy.Id);
+        ValidateObservedProductRoutes(snapshot, findings, policy);
         var contexts = new Dictionary<int, JsonObject>();
         var candidates = new List<JsonObject>();
         var occurrences = new Dictionary<string, JsonNode>(StringComparer.Ordinal);
@@ -79,7 +80,7 @@ internal static partial class LiveWorkflowOracles
             var record = snapshot.Records[index];
             if (id is null || record?["reference"]?.ToString() != id + ":record:" + index) findings.Add("search_record_provenance_inconsistent");
             if (record?["href"]?.ToString() is not { } href ||
-                ObservedProductIdentity(href) is null && !AmazonSponsoredHostPolicy.IsSourceEntry(href)) continue;
+                ObservedProductIdentity(href) is null && !AmazonObservedRedirectPolicy.IsSourceEntry(href, policy)) continue;
             var context = ContextAttribute(record);
             if (record["kind"]?.ToString() != "link" || context is null || context["value"] is not JsonValue value || !value.TryGetValue<string>(out var code) ||
                 context["tag"] is not JsonValue tagValue || !tagValue.TryGetValue<string>(out var tag) ||
@@ -94,14 +95,16 @@ internal static partial class LiveWorkflowOracles
             {
                 contexts[at] = context;
             }
-            // Only the inactive source-analysis proposal supplies this evidence.
-            // V7 callers retain null and their original navigation-only rule.
+            // Independent resolution evidence is supplied only by its separately
+            // authorized verifier or offline proposal. V7 retains null.
             if (code.Length == 0 && ObservedProductIdentity(href) is null && record["occurrence"] is null && record["heading"] is null &&
                 independentlyResolvedStoreReferences?.Contains(record["reference"]!.ToString()) == true)
                 continue;
             if (code.Length == 0 && ObservedProductIdentity(href) is null && record["occurrence"] is null && record["heading"] is null &&
                 (tag == "nav" || context["role"]?.ToString() == "navigation"))
                 continue; // Observed navigation semantics, never an inference from the empty identifier alone.
+            if (code.Length == 0 && independentlyResolvedProductReferences?.TryGetValue(record["reference"]!.ToString(), out var resolvedIdentity) == true)
+                code = resolvedIdentity; // Local evidence value only; never edit the source attribute.
             if (!ProductCode(code)) { findings.Add("search_product_context_unverified"); continue; }
             if (record["occurrence"] is JsonObject occurrence)
             {
@@ -128,15 +131,17 @@ internal static partial class LiveWorkflowOracles
             var primary = group.Where(record => record["heading"]?.ToString() is { Length: > 0 }).ToArray();
             if (primary.Length == 0) primary = group.ToArray();
             foreach (var record in primary)
-                if (ObservedProductIdentity(record["href"]!.ToString()) is { } identity && identity != ContextAttribute(record)!["value"]!.ToString())
+                if (ObservedProductIdentity(record["href"]!.ToString()) is { } identity && identity != Identity(record))
                     findings.Add("search_product_context_identity_mismatch");
-            var identities = primary.Select(record => ContextAttribute(record)!["value"]!.ToString()).Distinct(StringComparer.Ordinal).ToArray();
+            var identities = primary.Select(Identity).Distinct(StringComparer.Ordinal).ToArray();
             if (identities.Length != 1) { findings.Add("search_product_aliases_unverified"); continue; }
-            var urls = primary.Select(record => record["href"]!.ToString()).Where(AmazonSponsoredHostPolicy.Allows).Distinct(StringComparer.Ordinal).ToArray();
+            var urls = primary.Select(record => record["href"]!.ToString()).Where(url => AmazonObservedRedirectPolicy.Allows(url, policy)).Distinct(StringComparer.Ordinal).ToArray();
             if (urls.Length == 0) findings.Add("search_product_link_unavailable");
             products.Add(new(identities[0], urls));
         }
         return products;
+        string Identity(JsonObject record) => independentlyResolvedProductReferences?.TryGetValue(record["reference"]!.ToString(), out var identity) == true
+            ? identity : ContextAttribute(record)!["value"]!.ToString();
     }
 
     private static JsonObject? ContextAttribute(JsonNode? record) => record?["ancestorAttributes"]?[AmazonProductContextPolicy.ProductAttribute] as JsonObject;

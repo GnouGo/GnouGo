@@ -1059,3 +1059,28 @@ The oracle separates proved store-resolution reads from product visits without
 mutating the event log. Product count/order/duplicates, exact observed fields,
 writer receipt, actual Excel contents, successful execution and browser closure
 remain mandatory. A source-prerequisite pass is not a business-oracle pass.
+
+### Authorized product-resolution workflow phase
+
+Fresh Amazon runs may capture `--amazon-resolved-product-context
+--amazon-scope-approval user-amazon-workflow-product-context-20261111` after the
+separate [product-resolution approval](../../docs/evidence/pr120-amazon-v9-2026-11-11/README.md).
+This selects policy `amazon-observed-resolved-product-context-v5` / oracle
+`amazon-business-v9`; v4/v8 keep their store-only behavior and original grant.
+The additional literal `/clk?…` route is independent of `/clk/?…`; neither is
+normalized into the other. Source-only grants cannot activate this workflow phase.
+
+Every unresolved source-link occurrence is resolved in source order before
+business selection. An empty-ASIN context may receive independent product identity
+only when every context link has its own complete agreeing product destination,
+one original heading-bearing link, consistent context and no conflicting source
+identity/semantic occurrence or unresolved sibling. The separate evidence map never
+edits raw attributes. Different contexts with equal identities remain distinct.
+
+The explicit source-resolution phase may reach product pages. V9 reports all such
+reads separately and does not count them as required business visits or workbook
+field evidence. After the complete source qualifies, the original first-N product
+visits, order, duplicates, fields, actual Excel, writer receipt, execution success
+and cleanup checks remain mandatory. Neither a source pass nor early product data
+establishes completed business work. All previous policy/approval boundaries and
+no-replay financial controls remain in force.

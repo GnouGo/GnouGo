@@ -88,8 +88,8 @@ internal static partial class LiveWorkflowOracles
             if (record["href"]?.ToString() is not { } href) continue;
             if (!AmazonAddress(href, out var address))
             {
-                if (policy is AmazonSponsoredHostPolicy.Id or AmazonProductContextPolicy.Id && Uri.TryCreate(href, UriKind.Absolute, out var other) &&
-                    other.Host.StartsWith("sponsored-ads.", StringComparison.Ordinal) && !AmazonSponsoredHostPolicy.IsSourceEntry(href))
+                if (policy is AmazonSponsoredHostPolicy.Id or AmazonProductContextPolicy.Id or AmazonResolvedProductPolicy.Id && Uri.TryCreate(href, UriKind.Absolute, out var other) &&
+                    other.Host.StartsWith("sponsored-ads.", StringComparison.Ordinal) && !AmazonObservedRedirectPolicy.IsSourceEntry(href, policy))
                     findings.Add("search_product_redirect_route_unapproved");
                 continue;
             }

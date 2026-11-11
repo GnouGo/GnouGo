@@ -86,43 +86,57 @@ public sealed class DelegatedTestReviewTests
     [InlineData("redirect_search")]
     [InlineData("failure")]
     [InlineData("invalid_provenance")]
-    public async Task ResolvedStoreWorkflowAuthorityRequiresEveryExactResolutionAndExpires(string expiry)
+    public Task ResolvedStoreWorkflowAuthorityRequiresEveryExactResolutionAndExpires(string expiry)
+        => ResolvedAuthorityExpires(expiry, productResolution: false);
+
+    [Theory]
+    [InlineData("close")]
+    [InlineData("new_search")]
+    [InlineData("failure")]
+    [InlineData("redirect_search")]
+    [InlineData("invalid_provenance")]
+    public Task ResolvedProductWorkflowAuthorityRequiresEveryExactResolutionAndExpires(string expiry)
+        => ResolvedAuthorityExpires(expiry, productResolution: true);
+
+    private static async Task ResolvedAuthorityExpires(string expiry, bool productResolution)
     {
         var (_, _, original, evidence, receipt) = await Fixture();
-        var authorization = original with { Scenario = "amazon", BrowserObservationPolicy = AmazonResolvedStorePolicy.Id };
+        var policy = productResolution ? AmazonResolvedProductPolicy.Id : AmazonResolvedStorePolicy.Id;
+        var lastResolution = productResolution ? 20 : 17; var firstBusiness = lastResolution + 1;
+        var authorization = original with { Scenario = "amazon", BrowserObservationPolicy = policy };
         DelegatedTestReviewAuthority Fresh() => new(authorization, new(receipt, evidence), "campaign", "test-run", "amazon",
-            Path.GetTempPath(), "frozen-source", browserObservationPolicy: AmazonResolvedStorePolicy.Id);
-        var authority = Fresh(); var events = AmazonResolvedStoreWorkflowTests.Events();
+            Path.GetTempPath(), "frozen-source", browserObservationPolicy: policy);
+        var authority = Fresh(); var events = productResolution ? AmazonResolvedProductWorkflowTests.Events() : AmazonResolvedStoreWorkflowTests.Events();
         void Require(JsonNode args) => authority.RequireTool("GnOuGo.Browser.Mcp", "browser_get_content", args);
         void Observe(JsonObject e) => authority.ObserveTool("GnOuGo.Browser.Mcp", "browser_get_content", e["arguments"], new() { Content = e["result"]!.DeepClone() });
         Assert.Throws<PlanningConflictException>(() => Require(events[1]["arguments"]!));
         Require(events[0]["arguments"]!); Observe(events[0]);
-        Assert.Throws<PlanningConflictException>(() => Require(events[18]["arguments"]!));
+        Assert.Throws<PlanningConflictException>(() => Require(events[firstBusiness]["arguments"]!));
         Assert.Throws<PlanningConflictException>(() => Require(new JsonObject { ["url"] = events[1]["result"]!["url"]!.DeepClone() }));
-        for (var index = 1; index <= 17; index++)
+        for (var index = 1; index <= lastResolution; index++)
         {
             Require(events[index]["arguments"]!);
-            if (index < 17) Assert.Throws<PlanningConflictException>(() => Require(events[index + 1]["arguments"]!));
+            if (index < lastResolution) Assert.Throws<PlanningConflictException>(() => Require(events[index + 1]["arguments"]!));
             Observe(events[index]);
         }
-        Require(events[18]["arguments"]!);
+        Require(events[firstBusiness]["arguments"]!);
         Assert.Throws<PlanningConflictException>(() => Require(events[1]["arguments"]!));
-        Assert.Throws<PlanningConflictException>(() => Fresh().RequireTool("GnOuGo.Browser.Mcp", "browser_get_content", events[18]["arguments"]!));
+        Assert.Throws<PlanningConflictException>(() => Fresh().RequireTool("GnOuGo.Browser.Mcp", "browser_get_content", events[firstBusiness]["arguments"]!));
         switch (expiry)
         {
             case "invalid_provenance":
-                var invalid = events[18].DeepClone().AsObject(); invalid["result"]!["url"] = "https://example.org/";
+                var invalid = events[firstBusiness].DeepClone().AsObject(); invalid["result"]!["url"] = "https://example.org/";
                 Assert.Throws<PlanningConflictException>(() => Observe(invalid)); break;
             case "close": authority.RequireTool("GnOuGo.Browser.Mcp", "browser_close", new JsonObject()); break;
             case "new_search": Require(events[0]["arguments"]!); break;
-            case "failure": authority.ObserveTool("GnOuGo.Browser.Mcp", "browser_get_content", events[18]["arguments"], new() { IsError = true }); break;
+            case "failure": authority.ObserveTool("GnOuGo.Browser.Mcp", "browser_get_content", events[firstBusiness]["arguments"], new() { IsError = true }); break;
             case "redirect_search":
-                var redirected = events[18].DeepClone().AsObject();
+                var redirected = events[firstBusiness].DeepClone().AsObject();
                 redirected["result"]!["url"] = events[0]["arguments"]!["url"]!.DeepClone();
                 redirected["result"]!["acquisition"]!["navigation"]!["url"] = redirected["result"]!["url"]!.DeepClone();
                 Observe(redirected); break;
         }
-        Assert.Throws<PlanningConflictException>(() => Require(events[18]["arguments"]!));
+        Assert.Throws<PlanningConflictException>(() => Require(events[firstBusiness]["arguments"]!));
     }
 
     [Theory]
