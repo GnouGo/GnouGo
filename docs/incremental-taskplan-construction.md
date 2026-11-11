@@ -850,3 +850,9 @@ Native HTTP attempt journals additionally record `FirstOutputAtUtc` for nonempty
 assistant text, refusal or tool payload, excluding empty initial envelopes, comments
 and reasoning-only events. This timestamp does not establish useful semantics,
 protocol completion or a usage receipt. Missing historical timestamps remain absent.
+
+A transform's runtime context consists of its executable instruction and bound inputs.
+Original planning clauses, catalogue entries and policy identifiers are not inherited
+by execution. Needed rule facts must be bound or expressed completely in the task.
+The same inference-input guidance applies during fresh drafting and correction;
+it grants no new binding, permission or repair authority.

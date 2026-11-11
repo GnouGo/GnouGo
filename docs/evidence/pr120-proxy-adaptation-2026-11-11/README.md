@@ -81,3 +81,28 @@ identifies the wrong selection and missing context binding; no original producer
 permission, stopped identity or financial record is modified. The complete new
 request/schema amendment is hash-bound and separately journaled. No full Amazon
 workflow is admitted until representative consumer behavior also qualifies.
+
+## Runtime rule facts are explicit inputs
+
+The [bounded consumer correction](consumer-repair-01.json) completed in 56.55 seconds
+and passed continuation/compiler validation. It added the original snapshot input
+and preserved the correct zero/one/multiple selection semantics. A real isolated
+[runtime multiple-occurrence trial](runtime-case3-missing-facts.json) then preserved
+the three expected href occurrences and their order, but returned `ready=false`:
+the compiled transform had no policy text, only a policy identifier in its instruction.
+This safe refusal is a demonstrated missing runtime-context dependency, not a proxy
+cutoff or completed workflow. The source was a synthetic controlled fixture; no
+product visit or source-session fragment was applied.
+
+The generic generator guidance now states that transforms receive only their
+instruction and bound inputs. Needed rule facts must be explicit; planning context
+and policy IDs do not become runtime data. This replaces the existing inference-input
+guidance and also applies it to fresh corrections through the ordinary preparation
+path. No Amazon rule is placed in the engine, and no authority or verifier is relaxed.
+[Controlled regression](runtime-context-controlled.json): 2,971 planning tests and
+435 affected benchmark tests pass with warnings treated as errors; Release has no
+warnings. The prior 390 AI-core passes still cover unchanged transport code.
+
+The next independent correction must bind the necessary approved rule facts while
+keeping host-enforced next-read and redirect checks with the host. Zero/one/multiple
+runtime cases will be qualified before full-workflow admission.

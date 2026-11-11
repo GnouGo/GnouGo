@@ -5,6 +5,23 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class PlanningPromptPresentationTests
 {
+    [Theory]
+    [InlineData("construction_draft")]
+    [InlineData("replan")]
+    public void FreshDraftAndCorrectionExposeTheRuntimeContextBoundary(string purpose)
+    {
+        var state = PlannerFixture.Session();
+        state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        var before = PlanningConstruction.Hash(state.Plan);
+        var request = PlanningModelCalls.PrepareRequest(state, purpose, "Original obligations.\n{}",
+            new JsonObject { ["type"] = "object", ["properties"] = new JsonObject() }, null, null);
+        Assert.Contains("planning context and policy IDs are not runtime facts", request.Prompt, StringComparison.Ordinal);
+        Assert.Contains("Bind needed rules explicitly", request.Prompt, StringComparison.Ordinal);
+        Assert.Equal(before, PlanningConstruction.Hash(state.Plan));
+        Assert.Contains("Original obligations.", request.Prompt, StringComparison.Ordinal);
+        Assert.Empty(state.Construction!.Checkpoints);
+    }
+
     [Fact]
     public void RepeatedImportedSchemaShapesFactorWithoutChangingCardinalityOrLiteralData()
     {
