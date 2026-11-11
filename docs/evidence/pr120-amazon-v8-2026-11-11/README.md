@@ -83,3 +83,11 @@ actual product destinations, not store navigation. Full-workflow slashless
 navigation and product-occurrence classification remain unchanged. Full local
 validation passed **8,870 tests with 13 existing skips and zero failures**; the
 Server runner verified exact discovery coverage and unchanged binaries.
+
+The [subsequent source checks](subsequent-source-results.json) distinguish the
+inconclusive extra-container observation (target absent) from a fresh v4 refusal
+(target returned). Neither dispatched dependent navigation or inference. Further
+equivalent retries are not planned. The [inactive product-resolution proposal](product-resolution-proposal.md)
+spells out both the exact route/identity-proof delta and the additional ordering
+boundary: source-proof reads may reach products before business selection. This
+cannot be silently treated as the existing non-product-store exemption.
