@@ -7,6 +7,12 @@ proved inherited store-list records, identical cold results and verified cleanup
 The [sanitized result](fresh-source-03.json) still reports missing later business
 visits. Source qualification is not a workflow or business-oracle pass.
 
+Later coverage analysis of source-04 found an additional heading-bearing context
+on an unapproved host that V12 does not account for. Its own favorable source
+verdict does not establish complete coverage. See the [retained context and
+separate source-only proposal](../pr120-amazon-unclassified-context-2026-11-11/proposal.md).
+No full Amazon qualification is claimed or funded while that evidence is missing.
+
 The preceding [search-only attempt](fresh-source-02.json) exhausted three bounded
 captures after main-frame navigation to a product page. The user subsequently
 reported that the visible window may have been used. Interaction is plausible,

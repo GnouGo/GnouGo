@@ -37,6 +37,15 @@ exact full external liability, no duplicate model dispatch or charging, and
 refusal of understated or additional unverified external holds. Existing negative
 ownership, received-evidence, altered-budget and execution cases remain covered.
 
-At this commit, this is a tested inspector correction. Actual retention still
-requires a fresh successful preview and its exact evidence-bound application.
-It establishes neither a provider receipt nor workflow execution.
+The rebuilt inspector's fresh preview succeeded and its exact evidence-bound
+application retained EUR **8.039471555675384200593151793**, without changing the
+original journals. Evidence hash:
+`e1057c67ba84c94f19677d9898aca53e7b0efcaf15742255822d8415377af1a1`.
+The read-only audit reports EUR 880.7949484997760859829825563 known captured-tariff
+cost, EUR 419.6402955665024630541871923 unresolved HTTP holds and
+EUR 73.522237118827347045823156187 external application holds. The six original
+grants and EUR 1,700 ceiling remain; arithmetic headroom is
+EUR 326.042518814894103917007095213. All 50 unknown HTTP attempts remain.
+Provider invoices and globally available funding remain unavailable. No
+supplement or release occurred. Retention establishes neither a provider receipt
+nor workflow execution.
