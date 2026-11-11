@@ -1,0 +1,79 @@
+{
+  "source": "6cda7c8409a34e3e9cfb32c30c3fb6c4641b8109",
+  "run": "amazon-v12-qualification-20261111-02",
+  "session": "d62a4235aa9a4818a332d6121560db8e",
+  "status": "cancelled",
+  "revision": 70,
+  "model_calls_issued": 24,
+  "physical_attempts": 23,
+  "complete_attempts": 23,
+  "known_usage_attempts": 23,
+  "max_complete_http_seconds": 46.797419,
+  "known_tariff_cost_eur": "6.8600716524854455888938647558",
+  "accepted_checkpoints": 0,
+  "accepted_plan": false,
+  "workflow_execution": false,
+  "business_oracle_passed": false,
+  "first_useful_checkpoint_seconds": null,
+  "global_review_seconds": null,
+  "verified_execution_seconds": null,
+  "phase_counts": {
+    "construction_intent": {
+      "issued": 1,
+      "physical_attempts": 1,
+      "complete": 1,
+      "known_usage": 1,
+      "known_cost_eur": "0.2320734437975817286162113748"
+    },
+    "construction_select": {
+      "issued": 1,
+      "physical_attempts": 1,
+      "complete": 1,
+      "known_usage": 1,
+      "known_cost_eur": "0.1961486789072995969547693686"
+    },
+    "construction_implementation": {
+      "issued": 4,
+      "physical_attempts": 4,
+      "complete": 4,
+      "known_usage": 4,
+      "known_cost_eur": "0.6718763994626063591580832960"
+    },
+    "construction_discovery": {
+      "issued": 17,
+      "physical_attempts": 16,
+      "complete": 16,
+      "known_usage": 16,
+      "known_cost_eur": "5.3078101209135691894312583967"
+    },
+    "construction_draft": {
+      "issued": 1,
+      "physical_attempts": 1,
+      "complete": 1,
+      "known_usage": 1,
+      "known_cost_eur": "0.4521630094043887147335423197"
+    }
+  },
+  "cancelled_pending_request": "d62a4235aa9a4818a332d6121560db8e:24:1b06394406f4261d3dd0cf3c3fe6940291f64c8fe4067ee00888fca4cda7cf7a:6d9cbfcfe37a5f0b1e442c9aa27bbcab0aa71f86a541e7c8b089dd22e61ad4a5",
+  "retention_kind": "cancelled-before-campaign-envelope",
+  "retention_evidence_hash": "a016741c376204cce50e96fdf00e05d1812e8e4c327e97eb60fbc117bddbb6f1",
+  "application_reservation_retained_eur": "3.1837961714747910488002156916",
+  "replay_and_continuation_forbidden": true,
+  "native_pending_request_envelope_present": false,
+  "metadata_gap": "Exact draft contained the one-shot URL clause but no explicit browser/page startup guarantee; it reselected discovery for separate open/search operations.",
+  "evidence_sha256": {
+    "amazon-full-02-run.json": "419993d55b25ffbc9cded1bcf79947e34b25cb9f22a65ec7577e7d0b5eec1b3d",
+    "amazon-full-02-http.json": "b9732a83259383f65a4a94470e06484c09d063af8ae5c7fd57aabcb1a6ab2a48",
+    "amazon-full-02-stop.json": "260d9d953fb2c14947d630e340dfe5d61f872fd1c9b13bdb6d52ca6751af38bd",
+    "cancelled-02-retention-applied.json": "72f257152c420eb234cc3151c1204ac8b4b7b623694b11c626411f5c24b649dc"
+  },
+  "campaign": "pr120-live-20261107-400",
+  "ceiling_eur": 1700,
+  "known_cost_eur": "870.6314643976712942230183814",
+  "unresolved_http_reservations_eur": "419.6402955665024630541871923",
+  "retained_application_reservations_eur": "65.482765563151962845230004394",
+  "unknown_http_attempts": 50,
+  "all_physical_attempts": 2016,
+  "new_budget": false,
+  "reservation_released": false
+}

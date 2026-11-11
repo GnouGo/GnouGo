@@ -36,6 +36,7 @@ These tools allow building MCP scenarios such as:
 Practical rule for `browser_get_content`:
 
 - for a "one-shot" page read, prefer `browser_get_content(url: ..., format: ...)` so a single call handles both navigation and extraction
+- a permitted `url` opens the owned browser/page when needed; no existing tab is required. Omitting `url` reads an already active page. The tool description states this lifecycle in its opening sentence so discovery can distinguish the two forms.
 - use `format: text` to summarize a page, read visible content, extract readable text, or feed a synthesis
 - use `format: html` whenever you need to preserve the DOM structure or attributes, e.g., to extract menu/navigation links, retrieve `href`/`src`, inspect buttons, forms, tables, or decide which element to click on the MCP client side
 - 
