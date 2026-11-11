@@ -1,0 +1,113 @@
+{
+  "run": "amazon-v8-source-20261111-01",
+  "source_commit": "0f37fb24",
+  "started_utc": "2026-11-11T08:02:25.697587+00:00",
+  "completed_read_utc": "2026-11-11T08:02:34.8619650+00:00",
+  "policy": "amazon-observed-resolved-store-context-v4",
+  "approval": "user-amazon-workflow-store-context-20261111",
+  "snapshot": "4956e790630241e99d03180c5731efb4",
+  "record_count": 1554,
+  "capture_truncated": false,
+  "manifest_truncated": false,
+  "routes": [
+    {
+      "scheme": "https",
+      "host": "sponsored-ads.amazon.fr",
+      "path": "/clk/",
+      "occurrences": 69
+    },
+    {
+      "scheme": "https",
+      "host": "www.amazon.fr",
+      "path": "/sspa/click",
+      "occurrences": 87
+    },
+    {
+      "scheme": "https",
+      "host": "sponsored-ads.amazon.fr",
+      "path": "/clk",
+      "occurrences": 3
+    }
+  ],
+  "blocked_occurrences": [
+    {
+      "reference": "4956e790630241e99d03180c5731efb4:record:474",
+      "literal_url_sha256": "e248704c2c3bddf82e9d17d8048726b65f4d052a7c1b3c5ce28c634292385bf2",
+      "scheme": "https",
+      "host": "sponsored-ads.amazon.fr",
+      "path": "/clk",
+      "query_present": true,
+      "data_asin": {
+        "value": "",
+        "tag": "div",
+        "role": null,
+        "index": 35
+      },
+      "heading_present": false,
+      "semantic_occurrence_present": false
+    },
+    {
+      "reference": "4956e790630241e99d03180c5731efb4:record:476",
+      "literal_url_sha256": "1c48b1e2877e39829902319f393a11f2d8af9dec34093a33fc29e0b0c36c4e7f",
+      "scheme": "https",
+      "host": "sponsored-ads.amazon.fr",
+      "path": "/clk",
+      "query_present": true,
+      "data_asin": {
+        "value": "",
+        "tag": "div",
+        "role": null,
+        "index": 35
+      },
+      "heading_present": true,
+      "semantic_occurrence_present": false
+    },
+    {
+      "reference": "4956e790630241e99d03180c5731efb4:record:480",
+      "literal_url_sha256": "1c48b1e2877e39829902319f393a11f2d8af9dec34093a33fc29e0b0c36c4e7f",
+      "scheme": "https",
+      "host": "sponsored-ads.amazon.fr",
+      "path": "/clk",
+      "query_present": true,
+      "data_asin": {
+        "value": "",
+        "tag": "div",
+        "role": null,
+        "index": 35
+      },
+      "heading_present": false,
+      "semantic_occurrence_present": false
+    }
+  ],
+  "selection": {
+    "version": "amazon-business-v8",
+    "passed": false,
+    "source_prerequisite_qualified": false,
+    "source_resolution_count": 0,
+    "expected_product_count": 0,
+    "visited_product_count": 0,
+    "findings": [
+      "search_product_redirect_route_unapproved",
+      "source_resolutions_incomplete",
+      "first_product_visits_incomplete"
+    ]
+  },
+  "explicit_search_reads": 1,
+  "resolution_reads": 0,
+  "product_reads": 0,
+  "model_calls": 0,
+  "accepted_plan": false,
+  "workflow_execution": false,
+  "business_oracle_qualified": false,
+  "browser_close_error": false,
+  "closure_probe_no_active_page": true,
+  "private_artifact_hashes": {
+    "events.json": "24d8e5a48ee3814b5f4c6b56cdcd7987efccf1a20161278520b519b158db10e5",
+    "close.json": "50888101f7346754a6e98e03123704d577f652f05424bfa881b79694ccfa2b7f",
+    "source-selection.json": "53833c37305e670d42a0562268620895045f4a33ca68616a2ae0f2dc3ff05249",
+    "issued.json": "7196585f2d04b1056621d990d7b42e36b1b94022d31db0b03cb220a9a1f8d382",
+    "failure.json": "a19dc204ad5b191bf3ba064e02a1c77ec29348deac4425247b56a8f2520a1bfd",
+    "profile.json": "18b20560d8e4da195bb3f5920e861276978c3d72afa662de7387a69adfc7cce3",
+    "admission.json": "aa339eb4ec137797e9c5a6ebdccac89a9d076708a72ce3203b6dfa0180d79af4"
+  }
+}

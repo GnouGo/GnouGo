@@ -104,6 +104,28 @@ public sealed class AmazonResolvedStoreWorkflowTests
     }
 
     [Fact]
+    public void FreshSourceSlashlessAdvertisingLinksBlockBeforeAnyDependentNavigation()
+    {
+        // Sanitized shape of the 2026-11-11 actual-profile preflight: three
+        // slashless links share one empty-ASIN div; the middle link has a heading.
+        var events = Events(); var records = Records(events[0]);
+        for (var index = 0; index < 3; index++) records.Add(new JsonObject
+        {
+            ["kind"] = "link", ["reference"] = "search:record:" + records.Count,
+            ["href"] = "https://sponsored-ads.amazon.fr/clk?opaque=unapproved-" + index,
+            ["heading"] = index == 1 ? "a > h2" : null,
+            ["ancestorAttributes"] = new JsonObject { ["data-asin"] = new JsonObject
+                { ["value"] = "", ["tag"] = "div", ["role"] = null, ["index"] = 35 } }
+        });
+        events[0]["result"]!["observationSnapshot"]!["recordCount"] = records.Count;
+        var report = Verify([events[0]]);
+        Assert.False(report["source_prerequisite_qualified"]!.GetValue<bool>());
+        Assert.Contains("search_product_redirect_route_unapproved", report["findings"]!.AsArray().Select(f => f!.ToString()));
+        Assert.Empty(LiveWorkflowOracles.ResolvedStoreAllowedEntries([events[0]]));
+        Assert.False(Verify(events)["passed"]!.GetValue<bool>()); // Other resolved entries cannot hide the three unknown ones.
+    }
+
+    [Fact]
     public void CaptureRequiresTheNewGrantAndPreservesOldProfiles()
     {
         Assert.Equal(AmazonResolvedStorePolicy.Id, AmazonObservedRedirectPolicy.Capture(

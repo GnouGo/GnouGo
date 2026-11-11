@@ -54,3 +54,25 @@ No supplement, reset, released liability or replay is authorized by this amendme
 
 Code remains blocked on unavailable route-owner access. The prepared packet stays
 unsent. A local silent-stream test is not a test through that inaccessible route.
+
+## Fresh actual-profile result
+
+Commit `0f37fb24` ran `amazon-v8-source-20261111-01` through the real KeyVault Browser
+profile and v4 execution guard. The complete search contained **1,554 records**,
+69 `/clk/` links, 87 `/sspa/click` links and **three unapproved `/clk` links**.
+The guard issued no resolution or product reads. It rejected the source with
+`search_product_redirect_route_unapproved`; cleanup and a no-active-page probe
+succeeded. One blocked link has heading context, so destination proof alone may
+not satisfy the separately approved non-product rule.
+
+The [sanitized live result](fresh-source-result.json) retains exact references and
+hashes. Its minimal regression passes, bringing affected coverage to **329 tests**.
+No planning checkpoint, global review, workflow execution or independent business
+oracle pass occurred. **No model calls or cost were added**, and the complete
+before/after financial audits are deeply identical. Code24 retention was not
+applied: no new inference admission is needed while the source gate remains blocked.
+
+The [next source-only proposal](next-source-proposal.md) describes the precise
+additional navigation approval needed to investigate those literal `/clk` links.
+It is not implemented as an active policy or inferred from the store-page grant.
+No normalization, product omission or verifier weakening was used to pass this gate.
