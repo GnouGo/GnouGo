@@ -42,6 +42,15 @@ This is a presentation link with no binding or execution authority. Preparation
 measures and binds the final shared presentation before dispatch; saved pending
 requests, maps and receipts recover exactly without applying new compaction.
 
+When an imported producer or individually retrieved task repeats an exact task
+declaration already shown in a retained scope view, `taskPresentedAt` points to
+that declaration in the same context. Matching includes task identity, owning
+scope, `tasks` versus `always` phase and the complete declaration bytes. Original
+arguments, control bodies, bindings and cleanup remain at that pointer; result
+bindings remain distinct. Evidence-address mapping rewrites only the pointer's
+evidence-key segment, preserving literal strings and canonical recovery. Different
+arguments or locations do not share. No plan, interface or repair authority changes.
+
 Business-only selection captures immutable objectives, original obligations, information
 needs, expected results, existing-result dependencies and success criteria. Its request
 and response contain no implementation kinds, scopes, MCP identifiers or typed bindings.

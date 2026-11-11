@@ -245,6 +245,16 @@ internal static partial class PlanningModelCalls
             if (value is not JsonObject metadata || metadata.ContainsKey("properties") || metadata.ContainsKey("$ref")) return;
             foreach (var pair in metadata.ToArray())
             {
+                if (pair.Key == "taskPresentedAt" && pair.Value is JsonValue pointerValue && pointerValue.TryGetValue<string>(out var pointer) &&
+                    pointer.StartsWith("/evidence/", StringComparison.Ordinal))
+                {
+                    var end = pointer.IndexOf('/', 10);
+                    if (end > 10)
+                    {
+                        var address = pointer[10..end].Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal);
+                        metadata[pair.Key] = "/evidence/" + PlanningSchemaReferences.Escape(replace(address)) + pointer[end..];
+                    }
+                }
                 if (NavigationFields.Contains(pair.Key)) Links(metadata, pair.Key, pair.Value);
                 if (MetadataLists.Contains(pair.Key) && pair.Value is JsonArray || MetadataObjects.Contains(pair.Key) && pair.Value is JsonObject)
                     Metadata(pair.Value);

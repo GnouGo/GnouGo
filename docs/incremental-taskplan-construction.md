@@ -841,6 +841,15 @@ unchanged. Views with existing references, definitions or reference-scope identi
 remain exact. This representation is bound to the issued request; historical requests
 and recovery bytes are unchanged.
 
+Fresh presentation also replaces duplicate task views with `taskPresentedAt`
+links to an exact declaration already present in scope evidence. Matching requires
+the same task, scope, execution/cleanup phase and complete declaration bytes.
+The existing evidence mapper binds and restores the pointer's evidence-key segment;
+it does not rewrite original arguments or TaskValue literals. No declaration is
+removed from the context, no result is equated with another result, and no binding,
+repair, interface publication or execution authority is created. Cold recovery uses
+the original issued request and map without regenerating this presentation.
+
 An empty initial root exposes its existing structural evidence in transient
 `scopeContext`, without adding retained evidence, checkpoints, approvals or calls.
 Strict packing may remove these redundant details while retaining the original scope

@@ -248,6 +248,7 @@ public static class PlanningPromptPresentation
         // each schema independently; never substitute one owner's contract for
         // another or detach the original schema's reference scope.
         var shared = context["schemaPresentation"] is null && FactorImportedSchemaShapes(context);
+        var sharedTasks = ShareRepeatedTaskViews(context);
         var operations = context["operations"] as JsonArray ?? [];
         var evidence = context["evidence"] as JsonObject ?? [];
         var schemas = new Dictionary<(string Id, string Version, string Hash, string Pointer, string Schema), string>();
@@ -275,9 +276,51 @@ public static class PlanningPromptPresentation
             {
                 row.Remove("schema"); row["schemaPresentedAt"] = presented; shared = true;
             }
-        if (!shared) return prompt;
-        context["schemaPresentation"] = "schemaPresentedAt is a JSON pointer within this same context to the byte-identical schema for the retained operation id/version/hash and original pointer. Evidence retains its original ancestor constraints and reference closure. This presentation link grants no binding, contract or execution authority.";
+        if (!shared && !sharedTasks) return prompt;
+        if (shared)
+            context["schemaPresentation"] = "schemaPresentedAt is a JSON pointer within this same context to the byte-identical schema for the retained operation id/version/hash and original pointer. Evidence retains its original ancestor constraints and reference closure. This presentation link grants no binding, contract or execution authority.";
+        if (sharedTasks)
+            context["taskPresentation"] = "taskPresentedAt is a JSON pointer within this same context to the byte-identical task declaration under the same task id, scope and tasks/always phase. Location metadata stays on each view. Read its original arguments and behavior there; distinct task results remain distinct. This presentation link grants no binding, repair or execution authority.";
         return prompt[..(offset + 1)] + PlanningJsonTransport.Prompt(context);
+    }
+
+    private static bool ShareRepeatedTaskViews(JsonObject context)
+    {
+        var evidence = context["evidence"] as JsonObject ?? [];
+        var declarations = new Dictionary<(string Id, string Scope, string Phase, string Json), string>();
+        foreach (var (address, node) in evidence)
+        {
+            if (node is not JsonObject scope || Text(scope["path"]) is not { Length: > 0 } path) continue;
+            foreach (var phase in new[] { "tasks", "always" })
+                if (scope[phase] is JsonArray tasks)
+                    for (var index = 0; index < tasks.Count; index++)
+                        if (tasks[index] is JsonObject task && Text(task["id"]) is { Length: > 0 } id && task["kind"] is JsonValue)
+                            declarations.TryAdd((id, path, phase, task.ToJsonString()),
+                                "/evidence/" + PlanningSchemaReferences.Escape(address) + "/" + phase + "/" + index.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+        var changed = false;
+        foreach (var item in (context["interfaces"] as JsonArray ?? []).OfType<JsonObject>())
+            foreach (var producer in (item["producers"] as JsonArray ?? []).OfType<JsonObject>())
+                if (producer["task"] is JsonObject task && Pointer(producer, task) is { } pointer && pointer.Length + 24 < task.ToJsonString().Length)
+                { producer.Remove("task"); producer["taskPresentedAt"] = pointer; changed = true; }
+        foreach (var row in evidence.Select(pair => pair.Value).OfType<JsonObject>())
+        {
+            if (row["kind"] is not JsonValue || row.ContainsKey("taskPresentedAt")) continue;
+            var task = row.DeepClone().AsObject(); task.Remove("scope"); task.Remove("phase");
+            if (Pointer(row, task) is not { } pointer) continue;
+            var view = new JsonObject { ["id"] = row["id"]!.DeepClone(), ["scope"] = row["scope"]!.DeepClone(),
+                ["phase"] = row["phase"]!.DeepClone(), ["taskPresentedAt"] = pointer };
+            if (view.ToJsonString().Length >= row.ToJsonString().Length) continue;
+            row.Clear(); foreach (var (key, value) in view) row[key] = value?.DeepClone(); changed = true;
+        }
+        return changed;
+
+        string? Pointer(JsonObject location, JsonObject task)
+        {
+            var id = Text(location["id"]); var scope = Text(location["scope"]); var phase = Text(location["phase"]);
+            return id.Length > 0 && Text(task["id"]) == id && scope.Length > 0 && phase is "tasks" or "always" &&
+                declarations.TryGetValue((id, scope, phase, task.ToJsonString()), out var pointer) ? pointer : null;
+        }
     }
 
     private static bool FactorImportedSchemaShapes(JsonObject context)

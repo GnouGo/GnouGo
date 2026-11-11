@@ -1,0 +1,38 @@
+[
+  {
+    "identity": "foreach-capacity-reasoning-20261111-01",
+    "physical_attempts": 1,
+    "protocol_complete": true,
+    "usage_known": true,
+    "http_seconds": 39.788517,
+    "first_nonempty_output_seconds": 35.343586,
+    "known_cost_eur": "0.3777339901477832512315270936",
+    "input_tokens": 11856,
+    "output_tokens": 367,
+    "reasoning_tokens": 130,
+    "schema_valid": true,
+    "useful_fragment": false,
+    "response_action": "reselectStep",
+    "applied": false,
+    "business_execution": false,
+    "production_change_from_this_experiment": false
+  },
+  {
+    "identity": "foreach-capacity-guide-20261111-01",
+    "physical_attempts": 1,
+    "protocol_complete": true,
+    "usage_known": true,
+    "http_seconds": 35.528938,
+    "first_nonempty_output_seconds": 30.321187,
+    "known_cost_eur": "0.3804209583519928347514554411",
+    "input_tokens": 11962,
+    "output_tokens": 366,
+    "reasoning_tokens": 71,
+    "schema_valid": true,
+    "useful_fragment": false,
+    "response_action": "reselectStep",
+    "applied": false,
+    "business_execution": false,
+    "production_change_from_this_experiment": false
+  }
+]
