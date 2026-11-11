@@ -10,6 +10,59 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class DelegatedTestReviewTests
 {
     [Theory]
+    [InlineData("Allow once")]
+    [InlineData("Refuse")]
+    public async Task CanonicalChoiceResponsePassesDelegatedValidationBeforeMcpFieldMapping(string choice)
+    {
+        var payload = HumanInputContract.BuildRequestPayload(new HumanInputRequest
+        {
+            Mode = HumanInputContract.ModeChoice, Choices = ["Allow once", "Allow similar operations for this task", "Refuse"],
+            Fields = [new() { Name = "answer", Type = "select", Options = ["Allow once", "Allow similar operations for this task", "Refuse"] }]
+        });
+        using var input = new StringReader(new JsonObject { ["response"] = choice }.ToJsonString());
+        using var output = new StringWriter();
+        var response = await LiveWorkflowEvaluation.ReadHumanAnswerAsync(payload, input, output, Ct);
+        Assert.Null(response!["answer"]);
+        DelegatedTestReviewAuthority.ValidateRuntimeAnswer(response, artifactGate: false);
+        Assert.Equal(choice, response["response"]!.ToString());
+    }
+
+    [Theory]
+    [InlineData("matching_pair", true)]
+    [InlineData("named_form", true)]
+    [InlineData("broad_choice", false)]
+    [InlineData("broad_form", false)]
+    [InlineData("allow_refuse", false)]
+    [InlineData("refuse_allow", false)]
+    [InlineData("broad_allow", false)]
+    [InlineData("boolean_choice", false)]
+    [InlineData("null", false)]
+    [InlineData("artifact_true", true)]
+    [InlineData("artifact_false", true)]
+    [InlineData("artifact_string", false)]
+    public void DelegatedAnswersRetainExactSingleOperationAuthority(string variant, bool accepted)
+    {
+        var response = JsonNode.Parse(variant switch
+        {
+            "matching_pair" => "{\"response\":\"Allow once\",\"answer\":\"Allow once\"}",
+            "named_form" => "{\"answer\":\"Allow once\"}",
+            "broad_choice" => "{\"response\":\"Allow similar operations for this task\"}",
+            "broad_form" => "{\"answer\":\"Allow similar operations for this task\"}",
+            "allow_refuse" => "{\"response\":\"Allow once\",\"answer\":\"Refuse\"}",
+            "refuse_allow" => "{\"response\":\"Refuse\",\"answer\":\"Allow once\"}",
+            "broad_allow" => "{\"response\":\"Allow similar operations for this task\",\"answer\":\"Allow once\"}",
+            "boolean_choice" or "artifact_false" => "{\"response\":false}",
+            "artifact_true" => "{\"response\":true}",
+            "artifact_string" => "{\"response\":\"true\"}",
+            "null" => "null",
+            _ => throw new ArgumentOutOfRangeException(nameof(variant))
+        });
+        void Validate() => DelegatedTestReviewAuthority.ValidateRuntimeAnswer(response, variant.StartsWith("artifact_", StringComparison.Ordinal));
+        if (accepted) Validate();
+        else Assert.Throws<PlanningConflictException>(Validate);
+    }
+
+    [Theory]
     [InlineData("workflows/campaign/fresh-server-run", true)]
     [InlineData("workflows/other/fresh-server-run", false)]
     [InlineData("workflows/campaign/../escape", false)]

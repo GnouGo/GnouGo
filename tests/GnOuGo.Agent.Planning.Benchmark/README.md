@@ -601,6 +601,12 @@ real TTY throughout execution; a successful initial echo does not guarantee late
 channel availability. Planning-only, inspection and provider probes do not require
 an execution interaction channel. Losing that channel during an external invocation
 still requires reconciliation; preflight never authorizes replay or cleanup.
+Delegated operation answers accept the existing choice `response` envelope and
+the named `answer` form field, as consumed by the MCP bridge. Only `Allow once`
+or `Refuse` is allowed. If both fields are present they must agree; neither a
+reusable grant nor conflicting aliases can pass delegation. Artifact confirmation
+retains its explicit Boolean contract. Issued requests and historical dialogs
+are never rewritten to apply this validation correction.
 `server-live-mcp-readiness --mcp-server <exact-configured-name> --run <fresh-id>`
 uses the actual Server runtime factory to list tool metadata with background planning
 disabled. It records the configured launch, existence check and redacted exception/

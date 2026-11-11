@@ -322,13 +322,30 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
                 : "Delegated isolated-test reviewer: inspect this exact operation and its destination; only Allow once or Refuse is accepted.");
             Console.WriteLine(payload.ToJsonString());
             var response = await LiveWorkflowEvaluation.ReadHumanAnswerAsync(payload, Console.In, Console.Out, ct);
-            if (artifactGate ? response?["response"] is not JsonValue value || !value.TryGetValue<bool>(out _) :
-                response?["answer"]?.ToString() is not ("Allow once" or "Refuse"))
-                throw new PlanningConflictException("Delegation never grants reusable, broad or sandbox-bypass permission.");
+            ValidateRuntimeAnswer(response, artifactGate);
             record["answer"] = response.DeepClone();
             await campaign.SaveAsync("planning-evaluation-dialogs", key, record, CancellationToken.None);
             return response;
         }
+    }
+
+    internal static void ValidateRuntimeAnswer([System.Diagnostics.CodeAnalysis.NotNull] JsonNode? response, bool artifactGate)
+    {
+        if (response is not JsonObject answer)
+            throw new PlanningConflictException("Delegation never grants reusable, broad or sandbox-bypass permission.");
+        if (artifactGate)
+        {
+            if (answer["response"] is not JsonValue value || !value.TryGetValue<bool>(out _))
+                throw new PlanningConflictException("Artifact confirmation requires an explicit Boolean response.");
+            return;
+        }
+        // Choice input uses the canonical response envelope. The existing MCP
+        // bridge maps it to the requested field; forms already use that field.
+        // Never permit contradictory aliases to change the downstream decision.
+        var canonical = answer["response"]; var named = answer["answer"];
+        if (canonical is not null && named is not null && !JsonNode.DeepEquals(canonical, named) ||
+            (named ?? canonical)?.ToString() is not ("Allow once" or "Refuse"))
+            throw new PlanningConflictException("Delegation requires one unambiguous Allow once or Refuse decision.");
     }
 
     private void RequirePath(string? path, string expected, bool exact)

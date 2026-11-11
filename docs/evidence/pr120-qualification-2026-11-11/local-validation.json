@@ -1,0 +1,18 @@
+{
+  "full_suite_source": "02f40eb1f3b704b79c4e3e6d7ed64a5ac63c3c63",
+  "strategy": "Shared solution excluding Agent.Server.Tests plus existing exact-coverage Server partitions",
+  "passed": 8795,
+  "skipped": 13,
+  "failed": 0,
+  "server_passed": 2099,
+  "server_skipped": 1,
+  "server_exact_coverage": true,
+  "nonserver_passed": 6696,
+  "nonserver_skipped": 12,
+  "all_builds_warnings_as_errors": true,
+  "later_interaction_patch_affected_suite_passed": 94,
+  "new_interaction_cases": 7,
+  "final_source_ci": "in_progress",
+  "earlier_serial_attempt": "Interrupted, not counted as passing",
+  "first_partition_attempt": "Failed discovery-name collision; fixed with short labels preserving exact URLs/assertions"
+}

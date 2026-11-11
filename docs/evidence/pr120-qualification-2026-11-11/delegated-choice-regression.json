@@ -1,0 +1,31 @@
+{
+  "first_cause": "The delegated harness read answer although the actual choice output schema requires response. The existing MCP bridge already maps response to the sole requested MCP field.",
+  "controlled_red": {
+    "failed": 2,
+    "reason": "Canonical Allow once and Refuse passed the displayed schema but failed delegated validation.",
+    "log_sha256": "3d8705e31afdf30e05043760cfe964938b0acfb3fd0315e3b370d6c4ffbd67e9"
+  },
+  "correction": "Validate the canonical choice or named form decision; reject conflicting aliases and anything except Allow once or Refuse. Preserve Boolean artifact confirmation and the existing MCP bridge.",
+  "controlled_green": {
+    "passed": 108,
+    "failed": 0,
+    "skipped": 0,
+    "warnings_as_errors": true,
+    "log_sha256": "643045d306d1f6d34033936de28fd9efec36ed8e7629f84e33fc96fc55c4dfc0"
+  },
+  "live_status": "Code24 is still planning on frozen source 316ac23fe477dae6febcae563ece8ed802eac900. This patch has not been loaded into that process. No post-patch execution claimed.",
+  "frozen_compatibility": "The old issued schema has additionalProperties:true and accepts an explicit matching response/answer pair. If used for Code24, both fields must carry the same separately reviewed single-operation choice. This is not a new permission or rewritten historical answer.",
+  "preflight_cli": {
+    "source": "316ac23fe477dae6febcae563ece8ed802eac900",
+    "eof_rejected_before_campaign_access": true,
+    "tty_echo_passed": true,
+    "paid_calls": 0,
+    "permission_granted": false
+  },
+  "boundaries": [
+    "No provider/model/transport/timeouts/retries/allocation change",
+    "No MCP or public protocol/schema change",
+    "No mutation or replay of Code23",
+    "No plan editing or oracle relaxation"
+  ]
+}

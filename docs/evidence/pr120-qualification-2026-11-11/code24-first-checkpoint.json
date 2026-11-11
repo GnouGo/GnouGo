@@ -1,0 +1,21 @@
+{
+  "run": "code-qualification-20261111-24",
+  "session_id": "4fee0f5c8fbc42cdad72507ef1aa81a1",
+  "source": "316ac23fe477dae6febcae563ece8ed802eac900",
+  "checkpoint": 1,
+  "accepted_at_utc": "2026-11-11T00:13:24.183707+00:00",
+  "task_ids": [
+    "cleanup_clone",
+    "clone",
+    "qualification"
+  ],
+  "completed_calls": 26,
+  "http_attempts": 26,
+  "native_completed_attempts": 26,
+  "elapsed_from_run_start_seconds": 1065.456871,
+  "summed_http_seconds": 907.779934,
+  "measured_usage_tariff_estimate_eur": "9.4531571876399462606359158081",
+  "global_review_accepted": false,
+  "execution_started": false,
+  "oracle_passed": false
+}
