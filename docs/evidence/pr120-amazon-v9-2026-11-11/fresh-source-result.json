@@ -1,0 +1,40 @@
+{
+  "run": "amazon-v9-source-20261111-01",
+  "source_commit": "96b4c061",
+  "policy": "amazon-observed-resolved-product-context-v5",
+  "approval": "user-amazon-workflow-product-context-20261111",
+  "snapshot": "4fe15b620b724cd9b96c191bfe57a65b",
+  "source_records": 1548,
+  "explicit_search_reads": 1,
+  "dependent_reads": 0,
+  "model_calls": 0,
+  "source_evidence": {
+    "version": "amazon-business-v9",
+    "passed": false,
+    "source_prerequisite_qualified": false,
+    "source_resolution_count": 0,
+    "expected_product_count": 0,
+    "visited_product_count": 0,
+    "findings": [
+      "search_product_redirect_route_unapproved",
+      "source_resolutions_incomplete",
+      "first_product_visits_incomplete"
+    ],
+    "source_resolution_evidence": [],
+    "source_product_reads": 0,
+    "source_store_reads": 0
+  },
+  "cleanup_verified": true,
+  "accepted_plan": false,
+  "workflow_execution": false,
+  "business_oracle_qualified": false,
+  "artifact_hashes": {
+    "events.json": "f088619c7432d2377a7253eb30f7dab8f0b6f7344dd6e2d1efecc023a05e76c8",
+    "close.json": "50888101f7346754a6e98e03123704d577f652f05424bfa881b79694ccfa2b7f",
+    "source-selection.json": "f2c8e716f150fd76b0b3b2b55b2b6e9afff7e27d09737b64a2a127ee07fcd3f8",
+    "issued.json": "42f732f7ab02abfa2059fb3d2a029a0fe206c6213e98178bb3e05e6aaf5486b9",
+    "failure.json": "a19dc204ad5b191bf3ba064e02a1c77ec29348deac4425247b56a8f2520a1bfd",
+    "profile.json": "8b31959ca750b3c7c10f49ec2f405f54c504c5ecbee6a4cd1b6edaa9499eb5e0",
+    "admission.json": "3f924ad753dd3b654ecefeba347f8458a4048f32f1ebf9b7aad910ce72e37ebb"
+  }
+}

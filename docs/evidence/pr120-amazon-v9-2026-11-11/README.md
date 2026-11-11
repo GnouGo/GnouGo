@@ -53,3 +53,14 @@ remain separately reported. Historical closed browsers supply no reusable author
 The campaign remains `pr120-live-20261107-400`, ceiling EUR 1,700. All earlier costs,
 reservations and histories are retained. Code still requires inaccessible route-owner
 evidence; its prepared packet is unsent and no stopped run is replayed.
+
+## Fresh v9 result
+
+The [first real preflight](fresh-source-result.json) stopped on a fourth source
+link ending in `#customerReviews`, before dependent navigation or model spending.
+It is an exact literal alias of two separately observed non-fragment hrefs in the
+same empty-ASIN context. V9 neither authorizes fragment navigation nor substitutes
+another link's redirect proof. Its refusal is preserved by a dedicated regression.
+The [verifier-only proposal](fragment-alias-proposal.md) records the precise
+same-resource proof alternative; it is inactive and needs separate agreement.
+The source-only fact checker passes 60 controlled checks without network/model calls.

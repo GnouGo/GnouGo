@@ -137,4 +137,29 @@ internal sealed class DiagnosticEvidence(Assembly assembly)
             ["product_occurrence_claimed"] = false, ["source_prerequisite_qualified"] = false, ["business_oracle_passed"] = false,
             ["workflow_policy_modified"] = false };
     }
+
+    // Literal source relationship only. No URL is rewritten or dispatched, and
+    // no redirect/identity proof is inferred from this relationship alone.
+    internal JsonObject FragmentAliasFacts(JsonObject source)
+    {
+        _ = Candidates(source); // Reuse the complete successful exact-source gate.
+        var records = Records(source).OfType<JsonObject>().ToArray(); var aliases = new JsonArray();
+        const string suffix = "#customerReviews";
+        foreach (var link in records)
+        {
+            if (link["kind"]?.ToString() != "link" || link["href"]?.ToString() is not { } href || !href.EndsWith(suffix, StringComparison.Ordinal) ||
+                link["heading"] is not null || link["occurrence"] is not null || link["ancestorAttributes"]?["data-asin"] is not JsonObject context || context["value"]?.ToString() != "") continue;
+            // Compare the literal prefix with a separately observed original
+            // href. This prefix is never returned as a navigation target.
+            var matches = records.Where(r => r != link && r["kind"]?.ToString() == "link" && r["href"]?.ToString() is { } other &&
+                Entry(other) && href == other + suffix && JsonNode.DeepEquals(context, r["ancestorAttributes"]?["data-asin"])).ToArray();
+            if (matches.Length == 0) continue;
+            aliases.Add(new JsonObject { ["source_record"] = link["reference"]!.DeepClone(),
+                ["matching_original_references"] = new JsonArray(matches.Select(r => r["reference"]!.DeepClone()).ToArray()),
+                ["same_context"] = true, ["literal_http_prefix_equal"] = true, ["redirect_proof_reused"] = false });
+        }
+        return new JsonObject { ["kind"] = "literal_fragment_alias_source_facts", ["aliases"] = aliases,
+            ["source_prerequisite_qualified"] = false, ["business_oracle_passed"] = false,
+            ["workflow_policy_modified"] = false, ["navigation_authority_added"] = false };
+    }
 }

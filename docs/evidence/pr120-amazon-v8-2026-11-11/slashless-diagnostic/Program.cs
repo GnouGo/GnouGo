@@ -32,6 +32,11 @@ if (args is ["--associations", var associationEvents, var associationReport])
     var saved = JsonNode.Parse(await File.ReadAllTextAsync(associationEvents))!.AsArray().Select(n => n!.AsObject()).ToList();
     await File.WriteAllTextAsync(associationReport, evidence.ProductAssociationFacts(saved).ToJsonString()); return;
 }
+if (args is ["--fragment-facts", var fragmentEvents, var fragmentReport])
+{
+    var saved = JsonNode.Parse(await File.ReadAllTextAsync(fragmentEvents))!.AsArray().Select(n => n!.AsObject()).ToList();
+    await File.WriteAllTextAsync(fragmentReport, evidence.FragmentAliasFacts(saved[0]).ToJsonString()); return;
+}
 var contextAttributes = args.Length == 5 && args[4] == "--context-attributes";
 if ((!contextAttributes && args.Length != 4) || args[2] != "--approval" || args[3] != approval)
     throw new ArgumentException("Required: <workspace> <fresh-private-output-directory> --approval " + approval);

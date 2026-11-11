@@ -115,6 +115,19 @@ public sealed class AmazonResolvedProductWorkflowTests
         Assert.False(AmazonResolvedProductPolicy.Allows(Entry(0) + "#fragment"));
     }
 
+    [Fact]
+    public void V9DoesNotSilentlyReuseRedirectProofForAFragmentAlias()
+    {
+        var events = Events(); var records = Records(events[0]);
+        var alias = records[17]!.DeepClone(); alias["href"] = Entry(1) + "#customerReviews";
+        alias["reference"] = "search:record:" + records.Count; records.Add(alias);
+        events[0]["result"]!["observationSnapshot"]!["recordCount"] = records.Count;
+        var report = Verify(events);
+        Assert.False(report["source_prerequisite_qualified"]!.GetValue<bool>());
+        Assert.Contains("search_product_redirect_route_unapproved", report["findings"]!.AsArray().Select(f => f!.ToString()));
+        Assert.Empty(LiveWorkflowOracles.ResolvedSourceAllowedEntries([events[0]], AmazonResolvedProductPolicy.Id));
+    }
+
     [Theory]
     [InlineData("none", true)]
     [InlineData("header_only", false)]

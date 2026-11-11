@@ -70,6 +70,23 @@ internal static class DiagnosticChecks
             Check(facts["association_evidence_complete"]!.GetValue<bool>() == (change == "none"));
             Check(!facts["product_occurrence_claimed"]!.GetValue<bool>());
         }
+        foreach (var change in new[] { "none", "different_query", "different_context", "heading", "other_fragment", "encoded_fragment" })
+        {
+            var source = Events()[0]; var records = source["result"]!["observationSnapshot"]!["pages"]![0]!["records"]!.AsArray();
+            var alias = records[0]!.DeepClone(); alias["href"] = Entry + "#customerReviews"; alias["reference"] = "source:record:3";
+            switch (change)
+            {
+                case "different_query": alias["href"] = Entry + "&other=1#customerReviews"; break;
+                case "different_context": alias["ancestorAttributes"]!["data-asin"]!["index"] = 36; break;
+                case "heading": alias["heading"] = "a > h2"; break;
+                case "other_fragment": alias["href"] = Entry + "#other"; break;
+                case "encoded_fragment": alias["href"] = Entry + "%23customerReviews"; break;
+            }
+            records.Add(alias); source["result"]!["observationSnapshot"]!["recordCount"] = records.Count;
+            var original = source.ToJsonString(); var facts = evidence.FragmentAliasFacts(source);
+            Check(facts["aliases"]!.AsArray().Count == (change == "none" ? 1 : 0));
+            Check(!facts["source_prerequisite_qualified"]!.GetValue<bool>() && source.ToJsonString() == original);
+        }
         Console.WriteLine(new JsonObject { ["controlled_checks_passed"] = passed, ["model_calls"] = 0, ["network_calls"] = 0, ["workflow_qualification"] = false }.ToJsonString());
     }
 
