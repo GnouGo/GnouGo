@@ -57,3 +57,27 @@ low navigation reasoning, low draft reasoning and the existing medium review
 reasoning, while preserving every output allocation. It is prepared for authorized
 new experiments; no old session or pin acquires it. Full Amazon qualification waits
 for correct representative consumer responses and a fresh actual-profile source.
+
+## First adapted consumer response
+
+[The independent consumer trial](consumer-01.json) completed in **58.40 seconds**,
+with first nonempty output at **57.30 seconds** and a cold-reloaded usage receipt.
+It returned one typed transform, passed the existing continuation and compiler
+checks against the exact two-producer retained baseline, and added no candidate to
+the stopped source session. This establishes representative delivery within the
+proxy margin, but not correct consumer behavior.
+
+The transform still flattens every link marked navigable and omits the raw identity
+context from its inputs. [Controlled zero/one/multiple cases](source-selection-cases.json)
+place three already identified links before zero, one or three unresolved sponsored
+occurrences; the multiple case includes equal hrefs. The unchanged guard requires
+0/1/3 early reads, preserving their individual order and occurrences. The draft's
+instruction instead describes 3/4/6. These are synthetic source/guard counterexamples,
+not claims of model execution or live browser success.
+
+A new independent correction will use the ordinary bounded-replacement request
+on an inspected in-memory copy of the exact accepted baseline. Its business finding
+identifies the wrong selection and missing context binding; no original producer,
+permission, stopped identity or financial record is modified. The complete new
+request/schema amendment is hash-bound and separately journaled. No full Amazon
+workflow is admitted until representative consumer behavior also qualifies.
