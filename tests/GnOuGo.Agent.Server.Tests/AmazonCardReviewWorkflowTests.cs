@@ -7,6 +7,30 @@ public sealed class AmazonCardReviewWorkflowTests
     private const string Query = "chaussure geox homme 45";
 
     [Fact]
+    public void InheritedStoreListItemsRemainOutsideTheProductCardGrant()
+    {
+        var events = AmazonResolvedStoreWorkflowTests.Events();
+        Assert.True(Verify(events)["passed"]!.GetValue<bool>());
+        // Sanitized shape of source-01: eight separately resolved store links
+        // inherit two list items under one empty-ASIN parent. This grant does
+        // not relax the existing store exception's no-occurrence condition.
+        foreach (var (record, index) in Records(events[0]).Take(8).Select((r, i) => (r!, i)))
+        {
+            record["tag"] = "a"; record["selector"] = "#store-link-" + index;
+            record["ancestorAttributes"]!["data-asin"]!["index"] = 900;
+            record["occurrence"] = new JsonObject { ["selector"] = "#store-list-" + index / 4,
+                ["tag"] = "li", ["role"] = "listitem", ["index"] = 119 + index / 4 };
+        }
+        var raw = Encode(events); var report = Verify(events);
+        Assert.Equal(17, report["source_store_reads"]!.GetValue<int>());
+        Assert.False(report["source_prerequisite_qualified"]!.GetValue<bool>());
+        Assert.Contains("search_product_context_unverified", report["findings"]!.AsArray().Select(f => f!.ToString()));
+        Assert.Empty(LiveWorkflowOracles.ResolvedSourceAllowedEntries(events.Take(18).ToArray(), AmazonCardReviewPolicy.Id));
+        Assert.Equal(report.ToJsonString(), Verify(JsonNode.Parse(raw)!.AsArray().OfType<JsonObject>().ToList()).ToJsonString());
+        Assert.Equal(raw, Encode(events));
+    }
+
+    [Fact]
     public void SemanticChildCardsRetainEachOwnProofAndLaterBusinessVisit()
     {
         var events = Events(); var raw = Encode(events);
