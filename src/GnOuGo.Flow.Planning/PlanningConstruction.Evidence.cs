@@ -165,6 +165,28 @@ internal static partial class PlanningConstruction
         PlanningGraphCompiler.Fingerprint(Hash(state.Plan) + ":" + state.Construction!.Candidate?.Hash + ":" +
             string.Join('\n', requests.Order(StringComparer.Ordinal)));
 
+    internal static JsonObject? ScopeEvidence(PlanningSession state, string path)
+    {
+        var construction = state.Construction!;
+        var plan = construction.Candidate?.Plan ?? state.Plan ?? new TaskPlan();
+        var scope = new TaskPlanSymbols(plan).Scopes.SingleOrDefault(scope => scope.Path == path);
+        if (scope is null) return null;
+        var value = new JsonObject
+        {
+            ["path"] = scope.Path, ["parent"] = scope.Parent?.Path, ["owner"] = scope.Owner?.Id,
+            ["open"] = (construction.Candidate?.OpenScopes ?? construction.OpenScopes).Contains(scope.Path, StringComparer.Ordinal),
+            ["outputs"] = Node(scope.Source.Outputs, PlanningJsonContext.Default.ListTaskOutput),
+            ["taskCount"] = scope.Source.Tasks.Count, ["alwaysCount"] = scope.Source.Always.Count,
+            ["tasks"] = new JsonArray(scope.Source.Tasks.Take(8).Select(TaskNode).ToArray()),
+            ["always"] = new JsonArray(scope.Source.Always.Take(8).Select(TaskNode).ToArray()),
+            ["continuation"] = "Use page:tasks:<offset> for the complete task directory; scope children retain their original identities."
+        };
+        if (path == "/root") value["inputs"] = Node(plan.Inputs, PlanningJsonContext.Default.ListTaskInput);
+        if (PlanningCompactConstruction.ScopeGroup(state, path) is { } group)
+            value["group"] = PlanningCompactConstruction.GroupInterface(state, group.Id);
+        return value;
+    }
+
     private static void LoadEvidenceCore(PlanningSession state, List<string> requests, string? descriptionReadKey = null, JsonNode? issuedSchema = null, PlanningSession? producerBasis = null)
     {
         var construction = state.Construction!;
@@ -252,21 +274,7 @@ internal static partial class PlanningConstruction
                         Outcomes = [requirement] }, PlanningJsonContext.Default.PlanningRequirements);
                     break;
                 case "scope":
-                    var scope = symbols.Scopes.SingleOrDefault(s => s.Path == id);
-                    if (scope is not null) value = new JsonObject
-                    {
-                        ["path"] = scope.Path, ["parent"] = scope.Parent?.Path, ["owner"] = scope.Owner?.Id,
-                        ["open"] = (construction.Candidate?.OpenScopes ?? construction.OpenScopes).Contains(scope.Path, StringComparer.Ordinal),
-                        ["outputs"] = Node(scope.Source.Outputs, PlanningJsonContext.Default.ListTaskOutput),
-                        ["taskCount"] = scope.Source.Tasks.Count, ["alwaysCount"] = scope.Source.Always.Count,
-                        ["tasks"] = new JsonArray(scope.Source.Tasks.Take(8).Select(t => TaskNode(t)).ToArray()),
-                        ["always"] = new JsonArray(scope.Source.Always.Take(8).Select(t => TaskNode(t)).ToArray()),
-                        ["continuation"] = "Use page:tasks:<offset> for the complete task directory; scope children retain their original identities."
-                    };
-                    if (value is not null && id == "/root")
-                        value["inputs"] = Node(plan.Inputs, PlanningJsonContext.Default.ListTaskInput);
-                    if (value is not null && PlanningCompactConstruction.ScopeGroup(state, id) is { } scopeGroup)
-                        value["group"] = PlanningCompactConstruction.GroupInterface(state, scopeGroup.Id);
+                    value = ScopeEvidence(state, id);
                     break;
                 case "contract":
                     var contracts = state.Catalog!.Capabilities.Concat(state.Discovery.Resolved)

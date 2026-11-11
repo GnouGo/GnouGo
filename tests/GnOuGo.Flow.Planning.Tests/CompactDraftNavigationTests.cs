@@ -7,6 +7,33 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class CompactDraftNavigationTests
 {
+    [Fact]
+    public void EmptyRootEvidenceIsAlreadyPresentDuringSelectionAndDraftWithoutChangingTheSession()
+    {
+        var state = State(); var original = PlanningConstruction.Hash(state.Plan);
+        state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        var retained = state.Construction!.Evidence?.ToJsonString();
+        var selected = state.Construction.Compact!.CurrentStep;
+        state.Construction.Compact.CurrentStep = null;
+        var selection = PlanningCompactConstruction.ImplementationContext(state);
+        state.Construction.Compact.CurrentStep = selected;
+        var draft = Context(PlanningConstruction.DraftRequest(state, repair: false));
+        foreach (var context in new[] { selection, draft })
+        {
+            var root = context["scopeContext"]!;
+            Assert.Equal("/root", root["path"]!.ToString());
+            Assert.True(root["open"]!.GetValue<bool>());
+            Assert.Equal(0, root["taskCount"]!.GetValue<int>());
+            Assert.Equal(0, root["alwaysCount"]!.GetValue<int>());
+            Assert.Empty(root["tasks"]!.AsArray());
+            Assert.Empty(root["always"]!.AsArray());
+        }
+        Assert.Equal(original, PlanningConstruction.Hash(state.Plan));
+        Assert.Equal(retained, state.Construction.Evidence?.ToJsonString());
+        Assert.Empty(state.Construction.Checkpoints);
+        Assert.Equal(0, state.ModelCalls);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

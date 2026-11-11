@@ -11,6 +11,35 @@ public sealed class NativeStreamingTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FirstOutputTimingExcludesInitialEnvelopesAndReasoningAndSurvivesColdReload(bool incomplete)
+    {
+        var initial = Event(new { id = "r", choices = new[] { new { index = 0, delta = new { role = "assistant", content = "", reasoning_content = "controlled reasoning" } } } });
+        var body = initial + (incomplete ? "" : Fixture("openai"));
+        var journal = new Journal();
+        using var http = NewHttp(new Handler(_ => Task.FromResult(Response("openai", new FragmentStream(
+            Encoding.UTF8.GetBytes(body), delayAt: Encoding.UTF8.GetByteCount(initial), pause: TimeSpan.FromMilliseconds(120))))));
+        using (Context(journal))
+        {
+            if (incomplete) await Assert.ThrowsAnyAsync<Exception>(() => Client(http, "openai").CallAsync(Request(), Ct));
+            else Assert.NotNull((await Client(http, "openai").CallAsync(Request(), Ct)).Usage);
+        }
+        var encoded = JsonSerializer.Serialize(journal.State!, LLMHttpRetryJsonContext.Default.LLMHttpRetryState);
+        var observed = JsonNode.Parse(encoded)!["Attempts"]![0]!;
+        if (incomplete) Assert.Null(observed["FirstOutputAtUtc"]);
+        else
+        {
+            var first = observed["FirstOutputAtUtc"]!.GetValue<DateTimeOffset>();
+            Assert.True(first - journal.State!.Attempts[0].FirstByteAtUtc >= TimeSpan.FromMilliseconds(90));
+            Assert.True(first <= journal.State.Attempts[0].CompletedAtUtc);
+        }
+        var restored = JsonSerializer.Deserialize(encoded, LLMHttpRetryJsonContext.Default.LLMHttpRetryState)!;
+        Assert.Equal(encoded, JsonSerializer.Serialize(restored, LLMHttpRetryJsonContext.Default.LLMHttpRetryState));
+        Assert.Equal(1, httpCalls(http));
+    }
+
+    [Theory]
     [InlineData("openai")]
     [InlineData("copilot")]
     [InlineData("anthropic")]

@@ -625,15 +625,27 @@ internal static class ServerLiveDiagnostics
         var before = amendment["before"]?.GetValue<string>(); var after = amendment["after"]?.GetValue<string>();
         var count = amendment["occurrences"]?.GetValue<int>() ?? 0;
         var hash = PlanningGraphCompiler.Fingerprint(request.Prompt);
+        var schemaHash = request.StructuredOutputSchema is null ? null : PlanningGraphCompiler.Fingerprint(request.StructuredOutputSchema.ToJsonString());
+        var responseSchema = amendment["responseSchema"] as JsonObject;
         if (request.Tools is { Count: > 0 } || request.UseBackgroundMode || request.StructuredOutputSchema is null ||
             string.IsNullOrEmpty(before) || string.IsNullOrEmpty(after) || before == after || count is < 1 or > 32 ||
             amendment["expectedPromptHash"]?.ToString() != hash ||
             request.Prompt.Split(before, StringSplitOptions.None).Length - 1 != count)
             throw new ArgumentException("The tool-free prompt experiment must match its exact owned baseline and occurrence count.");
+        if (amendment.ContainsKey("responseSchema") || amendment.ContainsKey("expectedSchemaHash"))
+            if (responseSchema is null || amendment["expectedSchemaHash"]?.ToString() != schemaHash ||
+                PlanningContractValidation.ValidateSchema(responseSchema, strict: true).Count != 0)
+                throw new ArgumentException("A captured response-schema experiment requires its exact source schema hash and a valid strict schema.");
         var changed = request.Prompt.Replace(before, after, StringComparison.Ordinal);
         var evidence = new JsonObject { ["before_prompt_hash"] = hash, ["after_prompt_hash"] = PlanningGraphCompiler.Fingerprint(changed),
             ["before_evidence_hash"] = PlanningGraphCompiler.Fingerprint(before), ["after_evidence_hash"] = PlanningGraphCompiler.Fingerprint(after),
-            ["occurrences"] = count, ["source_session_modified"] = false, ["response_schema_changed"] = false };
+            ["occurrences"] = count, ["source_session_modified"] = false, ["response_schema_changed"] = responseSchema is not null };
+        if (responseSchema is not null)
+        {
+            evidence["before_schema_hash"] = schemaHash;
+            evidence["after_schema_hash"] = PlanningGraphCompiler.Fingerprint(responseSchema.ToJsonString());
+            request.StructuredOutputSchema = responseSchema.DeepClone();
+        }
         request.Prompt = changed; request.ClientRequestId = null;
         request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
         return evidence;

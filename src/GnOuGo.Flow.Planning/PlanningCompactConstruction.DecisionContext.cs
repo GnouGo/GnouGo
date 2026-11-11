@@ -119,6 +119,13 @@ internal static partial class PlanningCompactConstruction
         while (measurement.EstimatedInputTokens > phase.TargetInputTokens)
         {
             (string Identity, JsonObject Page, LLMRequest Request, PlanningRequestMeasurement Measurement)? best = null;
+            if (page.ContainsKey("scopeContext"))
+            {
+                // Empty-scope details are redundant with the scope directory.
+                // Keep the exact original retrieval link under strict packing.
+                var probe = page.DeepClone().AsObject(); probe.Remove("scopeContext");
+                Consider("scopeContext", probe);
+            }
             if (page.ContainsKey("contractInspection"))
             {
                 // The exact same source/operation choices remain in the strict
@@ -233,6 +240,11 @@ internal static partial class PlanningCompactConstruction
         while (measurement.EstimatedInputTokens > phase.TargetInputTokens)
         {
             (string Identity, JsonObject Page, LLMRequest Request, PlanningRequestMeasurement Measurement)? best = null;
+            if (page.ContainsKey("scopeContext"))
+            {
+                var probe = page.DeepClone().AsObject(); probe.Remove("scopeContext");
+                Consider("scopeContext", probe);
+            }
             // A boundary's purpose is needed to choose work inside it. Keep its
             // bounded objective with every offered scope rather than fitting it
             // away and making the model rediscover the accepted business action.
@@ -397,6 +409,15 @@ internal static partial class PlanningCompactConstruction
     internal static void AddDecisionContext(PlanningSession state, JsonObject context, bool discovery = false)
     {
         AddOriginalDecisionContext(state, context);
+        // The empty initial workflow has no hidden tasks, cleanup or scope
+        // exports to inspect. Supply the exact existing evidence once instead
+        // of requiring an inference round trip merely to read those facts.
+        if (state.Construction is { Candidate: null } construction && construction.OpenScopes.Contains("/root", StringComparer.Ordinal) &&
+            (State(state).CurrentStep is null || State(state).CurrentStep!.Scope == "/root") &&
+            (state.Plan is null || state.Plan.Root is { Tasks.Count: 0, Always.Count: 0, Outputs.Count: 0 }) &&
+            context["evidence"]?["scope:/root"] is null && PlanningConstruction.ScopeEvidence(state, "/root") is { } root &&
+            Encoding.UTF8.GetByteCount(root.ToJsonString()) <= ContractDescriptionPageSize)
+            context["scopeContext"] = root;
         if (state.Plan is null) return;
         if (context["interfaces"] is not JsonArray)
             context["interfaces"] = State(state).CurrentStep is { } step

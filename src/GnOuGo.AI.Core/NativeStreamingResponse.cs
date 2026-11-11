@@ -13,7 +13,7 @@ internal static class NativeStreamingResponse
             LLMTransportResolver.ChatCompletions => await ChatAsync(stream, attempt, checkpoint, ct),
             LLMTransportResolver.Responses => await ResponsesAsync(stream, attempt, checkpoint, ct),
             LLMTransportResolver.Messages => await MessagesAsync(stream, attempt, checkpoint, ct),
-            LLMTransportResolver.OllamaChat => await OllamaAsync(stream, attempt, ct),
+            LLMTransportResolver.OllamaChat => await OllamaAsync(stream, attempt, checkpoint, ct),
             _ => throw Invalid("No native stream reader is available for this protocol.")
         };
     }
@@ -32,6 +32,14 @@ internal static class NativeStreamingResponse
     private static bool KnownUsage(JsonNode? usage, string input, string output)
         => usage?[input] is JsonValue i && i.TryGetValue<long>(out var a) && a >= 0 &&
            usage[output] is JsonValue o && o.TryGetValue<long>(out var b) && b >= 0;
+    private static async Task ObserveOutputAsync(LLMHttpAttempt attempt, Func<Task> checkpoint, params JsonNode?[] values)
+    {
+        if (attempt.FirstOutputAtUtc is not null || !values.Any(value => !string.IsNullOrWhiteSpace(Text(value)))) return;
+        // CapturedResponseStream records the arrival of the bytes that completed
+        // this event. Initial roles, comments and reasoning are not output.
+        attempt.FirstOutputAtUtc = attempt.LastByteAtUtc;
+        if (attempt.FirstOutputAtUtc is not null) await checkpoint();
+    }
     private sealed class Fragments
     {
         private readonly Dictionary<(JsonObject Target, string Key), StringBuilder> _values = [];
@@ -97,10 +105,12 @@ internal static class NativeStreamingResponse
                     if (choice["finish_reason"] is not null && delta.Count > 0) throw Invalid("Chat content arrived after its finish reason.");
                     if (delta["role"] is { } role) message["role"] = role.DeepClone();
                     foreach (var key in new[] { "content", "refusal", "reasoning_content", "reasoning" }) fragments.Append(message, key, delta[key]);
+                    await ObserveOutputAsync(attempt, checkpoint, delta["content"], delta["refusal"]);
                     if (delta["function_call"] is JsonObject legacy)
                     {
                         if (message["function_call"] is not JsonObject) message["function_call"] = new JsonObject();
                         foreach (var key in new[] { "name", "arguments" }) fragments.Append(message["function_call"]!.AsObject(), key, legacy[key]);
+                        await ObserveOutputAsync(attempt, checkpoint, legacy["name"], legacy["arguments"]);
                     }
                     if (delta["tool_calls"] is JsonArray calls)
                         foreach (var call in calls)
@@ -114,7 +124,10 @@ internal static class NativeStreamingResponse
                                     tool[key] = value.DeepClone();
                                 }
                             if (call!["function"] is JsonObject function)
+                            {
                                 foreach (var key in new[] { "name", "arguments" }) fragments.Append(tool["function"]!.AsObject(), key, function[key]);
+                                await ObserveOutputAsync(attempt, checkpoint, function["name"], function["arguments"]);
+                            }
                         }
                 }
                 foreach (var name in new[] { "content_filter_results", "content_filter_offsets" })
@@ -173,6 +186,8 @@ internal static class NativeStreamingResponse
             var evt = Object(data);
             var type = Text(evt["type"]);
             if (type == "error") throw ReportedError(evt["error"] ?? evt, attempt);
+            if (type is "response.output_text.delta" or "response.refusal.delta" or "response.function_call_arguments.delta")
+                await ObserveOutputAsync(attempt, checkpoint, evt["delta"]);
             if (type != "keepalive" && evt["sequence_number"] is JsonValue sequence && sequence.TryGetValue<long>(out var cursor))
             {
                 if (attempt.StreamCursor is { } previous && cursor <= previous) throw Invalid("Responses stream events are out of order.");
@@ -231,6 +246,8 @@ internal static class NativeStreamingResponse
                     var index = Index(evt["index"]);
                     if (ended || blocks.ContainsKey(index) || evt["content_block"] is not JsonObject block) throw Invalid("Invalid Anthropic content block.");
                     blocks.Add(index, (JsonObject)block.DeepClone()); active.Add(index);
+                    if (Text(block["type"]) is "text" or "tool_use")
+                        await ObserveOutputAsync(attempt, checkpoint, block["text"], block["name"]);
                     break;
                 }
                 case "content_block_delta":
@@ -238,6 +255,8 @@ internal static class NativeStreamingResponse
                     var index = Index(evt["index"]);
                     if (!active.Contains(index) || evt["delta"] is not JsonObject delta) throw Invalid("Anthropic delta has no active block.");
                     var block = blocks[index];
+                    if (Text(delta["type"]) is "text_delta" or "refusal_delta" or "input_json_delta")
+                        await ObserveOutputAsync(attempt, checkpoint, delta["text"], delta["refusal"], delta["partial_json"]);
                     switch (Text(delta["type"]))
                     {
                         case "text_delta": fragments.Append(block, "text", delta["text"]); break;
@@ -284,7 +303,7 @@ internal static class NativeStreamingResponse
         return message;
     }
 
-    private static async Task<JsonObject> OllamaAsync(Stream stream, LLMHttpAttempt attempt, CancellationToken ct)
+    private static async Task<JsonObject> OllamaAsync(Stream stream, LLMHttpAttempt attempt, Func<Task> checkpoint, CancellationToken ct)
     {
         var fragments = new Fragments();
         var message = new JsonObject { ["role"] = "assistant", ["content"] = "" };
@@ -297,8 +316,13 @@ internal static class NativeStreamingResponse
             if (chunk["message"] is not JsonObject delta) throw Invalid("Ollama returned an invalid native message.");
             fragments.Append(message, "content", delta["content"]);
             fragments.Append(message, "thinking", delta["thinking"]);
+            await ObserveOutputAsync(attempt, checkpoint, delta["content"]);
             if (delta["tool_calls"] is JsonArray calls)
-                foreach (var call in calls) tools.Add(call?.DeepClone());
+                foreach (var call in calls)
+                {
+                    tools.Add(call?.DeepClone());
+                    await ObserveOutputAsync(attempt, checkpoint, call?["function"]?["name"]);
+                }
             if (chunk["done"]?.GetValue<bool>() != true) continue;
             fragments.Flush();
             if (tools.Count > 0) message["tool_calls"] = tools;

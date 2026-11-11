@@ -826,3 +826,27 @@ a navigation cursor cannot hide another selected original in the same batch. No
 extra page, requested-read marker, operation selection or binding is retained.
 Exact contracts and permission checks still apply; rejected batches leave state
 unchanged, and complete prospective follow-ups require ordinary admission.
+
+### Enterprise-proxy request preparation
+
+Fresh drafts contribute coherent typed increments within the existing business block.
+They retain all original obligations and claim block completion only through the
+existing review transition. A smaller contribution does not change output allocations
+or permit acceptance of an incomplete model response.
+
+New request presentation factors repeated schema shapes independently inside each
+bound interface or embedded producer view, using the existing JSON Schema factoring
+mechanism. Cardinality, nullable values, descriptions, constants and defaults remain
+unchanged. Views with existing references, definitions or reference-scope identifiers
+remain exact. This representation is bound to the issued request; historical requests
+and recovery bytes are unchanged.
+
+An empty initial root exposes its existing structural evidence in transient
+`scopeContext`, without adding retained evidence, checkpoints, approvals or calls.
+Strict packing may remove these redundant details while retaining the original scope
+directory and exact evidence link. Fresh diagnostic requests retain the useful view.
+
+Native HTTP attempt journals additionally record `FirstOutputAtUtc` for nonempty
+assistant text, refusal or tool payload, excluding empty initial envelopes, comments
+and reasoning-only events. This timestamp does not establish useful semantics,
+protocol completion or a usage receipt. Missing historical timestamps remain absent.

@@ -78,6 +78,9 @@ public sealed class LLMHttpAttempt
     public DateTimeOffset? FirstByteAtUtc { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public DateTimeOffset? LastByteAtUtc { get; set; }
+    /// <summary>First nonempty assistant text, refusal or tool payload; not schema validation or protocol completion.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? FirstOutputAtUtc { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? RetryDecision { get; set; }

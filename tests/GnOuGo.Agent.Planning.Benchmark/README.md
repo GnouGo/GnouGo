@@ -1112,3 +1112,12 @@ campaign admission, durable request/HTTP/receipt journals and incomplete-respons
 rejection remain in force. No source session is resumed or changed and no output
 is applied to a TaskPlan. Record a precise hypothesis and inspect the complete
 response before any separately admitted workflow.
+
+A newly authorized prompt-amendment experiment may optionally include
+`responseSchema` and `expectedSchemaHash`. The exact source schema hash and a valid
+strict schema are required before any mutation. Both schema hashes are recorded,
+and the new independently owned request retains the complete schema. This permits
+explicitly captured schema-presentation experiments without changing source sessions,
+provider, model, endpoint, tool authority, retries or historical requests. The probe
+still applies no fragment; compiler, continuation and business validation remain
+separate from JSON-schema conformance.

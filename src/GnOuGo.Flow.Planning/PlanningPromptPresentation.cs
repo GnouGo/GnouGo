@@ -242,7 +242,14 @@ public static class PlanningPromptPresentation
         JsonObject? context;
         try { context = JsonNode.Parse(prompt[(offset + 1)..]) as JsonObject; }
         catch (JsonException) { return prompt; }
-        if (context?["operations"] is not JsonArray operations || context["evidence"] is not JsonObject evidence) return prompt;
+        if (context is null) return prompt;
+        // Bound interfaces can repeat large record shapes even when their
+        // producer contracts differ through compiler-applied constraints. Factor
+        // each schema independently; never substitute one owner's contract for
+        // another or detach the original schema's reference scope.
+        var shared = context["schemaPresentation"] is null && FactorImportedSchemaShapes(context);
+        var operations = context["operations"] as JsonArray ?? [];
+        var evidence = context["evidence"] as JsonObject ?? [];
         var schemas = new Dictionary<(string Id, string Version, string Hash, string Pointer, string Schema), string>();
         for (var i = 0; i < operations.Count; i++)
         {
@@ -261,7 +268,6 @@ public static class PlanningPromptPresentation
                     schemas.TryAdd((id, version, hash, entry.Path, entry.Schema.ToJsonString()), presented + entry.Path[original.Length..]);
             }
         }
-        var shared = false;
         foreach (var row in evidence.Select(p => p.Value).OfType<JsonObject>())
             if (Identity(row, out var id, out var version, out var hash) && Text(row["pointer"]) is { Length: > 0 } pointer &&
                 row["schema"] is JsonObject schema && !row.ContainsKey("schemaPresentedAt") &&
@@ -272,6 +278,36 @@ public static class PlanningPromptPresentation
         if (!shared) return prompt;
         context["schemaPresentation"] = "schemaPresentedAt is a JSON pointer within this same context to the byte-identical schema for the retained operation id/version/hash and original pointer. Evidence retains its original ancestor constraints and reference closure. This presentation link grants no binding, contract or execution authority.";
         return prompt[..(offset + 1)] + PlanningJsonTransport.Prompt(context);
+    }
+
+    private static bool FactorImportedSchemaShapes(JsonObject context)
+    {
+        var changed = false;
+        foreach (var row in (context["interfaces"] as JsonArray ?? []).OfType<JsonObject>())
+        {
+            Factor(row, "schema");
+            foreach (var producer in (row["producers"] as JsonArray ?? []).OfType<JsonObject>())
+                if (producer["contract"] is JsonObject contract)
+                    foreach (var field in new[] { "selectedInputs", "selectedOutputs" })
+                        foreach (var view in (contract[field] as JsonArray ?? []).OfType<JsonObject>())
+                            Factor(view, "schema");
+        }
+        return changed;
+
+        void Factor(JsonObject owner, string field)
+        {
+            if (owner[field] is not JsonObject original || original.ContainsKey("$defs")) return;
+            var copy = original.DeepClone().AsObject();
+            var schemas = PlanningSchemaReferences.Walk(copy, "", 0).Select(entry => entry.Schema).ToArray();
+            // Nested identifiers introduce reference scopes. Keep those exact;
+            // this optimization only factors within one unchanged schema root.
+            if (schemas.Any(schema => new[] { "$id", "$anchor", "$dynamicAnchor", "$dynamicRef", "$recursiveRef", "$ref" }
+                    .Any(schema.ContainsKey))) return;
+            var definitions = new JsonObject(); copy["$defs"] = definitions;
+            PlanningSchemas.ShareRepeatedSchemas(copy, definitions, schemaNodes: schemas);
+            if (definitions.Count == 0 || copy.ToJsonString().Length >= original.ToJsonString().Length) return;
+            owner[field] = copy; changed = true;
+        }
     }
 
     private static bool Identity(JsonObject value, out string id, out string version, out string hash)

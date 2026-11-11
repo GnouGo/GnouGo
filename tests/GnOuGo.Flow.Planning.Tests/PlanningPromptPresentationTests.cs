@@ -5,6 +5,35 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class PlanningPromptPresentationTests
 {
+    [Fact]
+    public void RepeatedImportedSchemaShapesFactorWithoutChangingCardinalityOrLiteralData()
+    {
+        var record = new JsonObject { ["type"] = "object", ["properties"] = new JsonObject
+            { ["href"] = new JsonObject { ["type"] = new JsonArray("string", "null"), ["description"] = new string('x', 2000) } },
+            ["required"] = new JsonArray("href"), ["additionalProperties"] = false };
+        var records = new JsonObject { ["type"] = "array", ["items"] = record, ["minItems"] = 0 };
+        var schema = new JsonObject { ["type"] = "object", ["properties"] = new JsonObject
+            { ["first"] = records, ["second"] = records.DeepClone() },
+            ["required"] = new JsonArray("first", "second"), ["additionalProperties"] = false,
+            ["default"] = new JsonObject { ["first"] = records.DeepClone(), ["second"] = records.DeepClone() } };
+        var context = new JsonObject { ["interfaces"] = new JsonArray(new JsonObject
+            { ["value"] = new JsonObject { ["kind"] = "output", ["source"] = "accepted" }, ["schema"] = schema }) };
+        var prompt = "Keep all original obligations.\n" + context.ToJsonString();
+        var compact = PlanningPromptPresentation.ShareDuplicateContractSchemas(prompt);
+        Assert.True(compact.Length < prompt.Length - 500);
+        var shown = JsonNode.Parse(compact[(compact.LastIndexOf('\n') + 1)..])!["interfaces"]![0]!["schema"]!.AsObject();
+        Assert.NotNull(shown["$defs"]);
+        Assert.True(JsonNode.DeepEquals(schema["default"], shown["default"]));
+        var expanded = PlanningSchemaReferences.ExpandLocalReferences(shown); expanded.Remove("$defs");
+        Assert.True(JsonNode.DeepEquals(schema, expanded));
+        foreach (var json in new[] { "{\"first\":[],\"second\":[]}", "{\"first\":[{\"href\":null}],\"second\":[]}",
+            "{\"first\":[{\"href\":\"same\"},{\"href\":\"same\"}],\"second\":[{\"href\":null}]}" })
+            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(JsonNode.Parse(json), shown));
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(JsonNode.Parse("{\"first\":[{}],\"second\":[]}"), shown));
+        Assert.Equal(compact, PlanningPromptPresentation.ShareDuplicateContractSchemas(compact));
+        Assert.Equal("Keep all original obligations.\n" + context.ToJsonString(), prompt);
+    }
+
     private static JsonObject Context()
     {
         var schema = new JsonObject { ["type"] = new JsonArray("string", "null"), ["description"] = new string('x', 2000),

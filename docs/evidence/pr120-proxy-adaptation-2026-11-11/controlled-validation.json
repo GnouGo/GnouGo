@@ -1,0 +1,34 @@
+{
+  "planning": {
+    "passed": 2969,
+    "failed": 0,
+    "skipped": 0,
+    "log_sha256": "8ea77a447ee26e65892aee0b6e65bd1f7f0546bfec13f253623c51f420be3d66"
+  },
+  "ai_core": {
+    "passed": 390,
+    "failed": 0,
+    "skipped": 0,
+    "log_sha256": "672f700012e61f33d4ea40ef304340122a2dafb2e38625d3a0dddeb782003cb7"
+  },
+  "affected_benchmark": {
+    "passed": 435,
+    "failed": 0,
+    "skipped": 0,
+    "log_sha256": "ac700c1b0b2595e202cffa59caefd32e90cbaa0dd9f68f61bc061fd0425987d4"
+  },
+  "release_build": {
+    "warnings": 0,
+    "errors": 0,
+    "log_sha256": "c0ddcf9a1832a8d44c5076a79e30f6ceed157c0592024a5c7ca84a4fcea6015e"
+  },
+  "warnaserror": true,
+  "red_evidence": {
+    "schema_factoring": "bf61d4a1f509cab3800aaa1186522fe2311f0d120f5b6f1ae198a039dcf90753",
+    "empty_scope": "49b8c987b529b766fa8213275105537416726e08343525bd3f6ec2b0409d83a3",
+    "first_output_timing": "feca7d787a613a7fa7cd887243ea8b94925d9f78b04e361f73b4e62eb83ab67c",
+    "schema_experiment": "18b1a7a9528a9acca390e64db6ea3ad3e3326bbc74b418d44bc4c7f67ebaa7fd"
+  },
+  "live_calls_for_this_change": 0,
+  "full_workflow_qualification": false
+}

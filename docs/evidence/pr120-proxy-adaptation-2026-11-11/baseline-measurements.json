@@ -1,0 +1,45 @@
+{
+  "base_head": "cd8951b7a791813261e6c15b0aa9bd4b8ad4bf53",
+  "configured_reasoning_levels": [
+    "low",
+    "medium",
+    "high",
+    "max"
+  ],
+  "consumer_wire_reasoning": "low",
+  "consumer_output_allocation": 32768,
+  "consumer_prompt_utf8_bytes": 57117,
+  "consumer_response_schema_utf8_bytes": 22767,
+  "prior_failed_consumer": {
+    "http_status": 200,
+    "initial_sse_envelopes": 2,
+    "useful_content_characters": 0,
+    "idle_until_reset_seconds": 300.676586,
+    "client_deadline_seconds": 600,
+    "usage_receipt": false
+  },
+  "first_checkpoint": {
+    "physical_calls": 14,
+    "elapsed_seconds": 662.817933,
+    "historical_milestone_snapshot_cost_eur": "3.689513108614232209737827716",
+    "cold_journal_sum_cost_eur": "3.705705329153605015673981191",
+    "note": "The historical milestone snapshot is preserved. Cold HTTP and response-receipt sums agree; report the durable sum separately without rewriting historical records."
+  },
+  "baseline_ci": [
+    {
+      "id": 43008912014,
+      "name": "ProxyCopilot standalone validation",
+      "conclusion": "success"
+    },
+    {
+      "id": 43008912058,
+      "name": "Build ProxyCopilot Native AOT",
+      "conclusion": "success"
+    },
+    {
+      "id": 43008912175,
+      "name": "Deterministic planner validation",
+      "conclusion": "success"
+    }
+  ]
+}

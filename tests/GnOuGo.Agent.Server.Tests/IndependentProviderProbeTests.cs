@@ -9,6 +9,35 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class IndependentProviderProbeTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CapturedSchemaExperimentRequiresTheExactBaselineAndNeverMutatesSource(bool stale)
+    {
+        var request = new LLMRequest { Prompt = "Original phase. Old context.", StructuredOutputStrict = true,
+            StructuredOutputSchema = new JsonObject { ["type"] = "object", ["properties"] = new JsonObject() } };
+        var frozen = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
+        var schema = new JsonObject { ["type"] = "object", ["properties"] = new JsonObject
+            { ["answer"] = new JsonObject { ["type"] = "string" } }, ["required"] = new JsonArray("answer"), ["additionalProperties"] = false };
+        var amendment = new JsonObject { ["expectedPromptHash"] = PlanningGraphCompiler.Fingerprint(request.Prompt),
+            ["before"] = request.Prompt, ["after"] = "Original phase. Reduced context.", ["occurrences"] = 1,
+            ["expectedSchemaHash"] = stale ? "stale" : PlanningGraphCompiler.Fingerprint(request.StructuredOutputSchema.ToJsonString()),
+            ["responseSchema"] = schema };
+        if (stale)
+        {
+            Assert.Throws<ArgumentException>(() => ServerLiveDiagnostics.AmendProbePrompt(request, "fresh", "nonce", amendment));
+            Assert.Equal(frozen, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+        }
+        else
+        {
+            var evidence = ServerLiveDiagnostics.AmendProbePrompt(request, "fresh", "nonce", amendment);
+            Assert.True(evidence["response_schema_changed"]!.GetValue<bool>());
+            Assert.True(JsonNode.DeepEquals(schema, request.StructuredOutputSchema));
+            request.StructuredOutputSchema!["required"]!.AsArray().Clear();
+            Assert.Single(schema["required"]!.AsArray());
+        }
+    }
+
+    [Theory]
     [InlineData("valid")]
     [InlineData("stale")]
     [InlineData("count")]

@@ -1,0 +1,37 @@
+{
+  "construction_intent": {
+    "calls": 1,
+    "known_cost_eur": "0.2108195253022839229735781460",
+    "input_tokens": 1804,
+    "output_tokens": 1007,
+    "http_seconds": 61.856022
+  },
+  "construction_select": {
+    "calls": 1,
+    "known_cost_eur": "0.1812897447380206000895656068",
+    "input_tokens": 1689,
+    "output_tokens": 843,
+    "http_seconds": 53.465096
+  },
+  "construction_implementation": {
+    "calls": 4,
+    "known_cost_eur": "0.5911867442901925660546350201",
+    "input_tokens": 17592,
+    "output_tokens": 735,
+    "http_seconds": 137.684704
+  },
+  "construction_discovery": {
+    "calls": 5,
+    "known_cost_eur": "1.577492163009404388714733542",
+    "input_tokens": 51323,
+    "output_tokens": 1231,
+    "http_seconds": 208.46975400000002
+  },
+  "construction_draft": {
+    "calls": 3,
+    "known_cost_eur": "1.144917151813703537841468876",
+    "input_tokens": 38038,
+    "output_tokens": 762,
+    "http_seconds": 94.822574
+  }
+}
