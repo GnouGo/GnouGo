@@ -6,6 +6,29 @@ namespace GnOuGo.Browser.Mcp.Tests;
 public class BrowserNavigationPolicyTests
 {
     [Theory]
+    [InlineData("https://example.com", "https://example.com/")]
+    [InlineData("https://example.com?query=1", "https://example.com/?query=1")]
+    public void OmittedHttpRootPathStillUsesItsExplicitRequestTarget(string reference, string target)
+    {
+        var settings = new BrowserServerSettings { AllowedNavigationUrlPatterns = [System.Text.RegularExpressions.Regex.Escape(target)] };
+        Assert.Equal(target, BrowserNavigationPolicy.ValidateNavigationTarget(reference, settings).AbsoluteUri);
+    }
+
+    [Theory]
+    [InlineData("https://example.com:443/allowed")]
+    [InlineData("https://example.com/denied/../allowed")]
+    public void ExactRouteDoesNotAcquireAuthorityThroughUriCanonicalization(string reference)
+    {
+        var settings = new BrowserServerSettings
+        {
+            AllowedHosts = ["example.com"],
+            AllowedNavigationUrlPatterns = [@"https://example\.com/allowed"]
+        };
+        Assert.Throws<InvalidOperationException>(() => BrowserNavigationPolicy.ValidateNavigationTarget(reference, settings));
+        Assert.Equal("https://example.com/allowed", BrowserNavigationPolicy.ValidateNavigationTarget("https://example.com/allowed", settings).AbsoluteUri);
+    }
+
+    [Theory]
     [InlineData("https%3A%2F%2Fexample.invalid%2Fitems%2F7")]
     [InlineData("/items/7")]
     [InlineData("https://example.invalid/item 7")]

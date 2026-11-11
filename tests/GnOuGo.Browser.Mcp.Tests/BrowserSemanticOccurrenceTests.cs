@@ -442,6 +442,31 @@ public sealed class BrowserSemanticOccurrenceTests
     }
 
     [Fact]
+    public async Task AbsoluteRedirectCannotGainRouteAuthorityThroughCanonicalization()
+    {
+        var ct = TestContext.Current.CancellationToken; var followed = 0;
+        await using var site = await LoopbackTestServer.StartAsync(context =>
+        {
+            if (context.Request.Path == "/start")
+                context.Response.Headers.Location = "http://" + context.Request.Host + "/denied/../allowed";
+            else Interlocked.Increment(ref followed);
+            context.Response.StatusCode = context.Request.Path == "/start" ? 302 : 200;
+            return Task.CompletedTask;
+        }, ct);
+        await using var host = new PlaywrightBrowserHost(Options.Create(new BrowserServerSettings
+        {
+            AllowedHosts = ["127.0.0.1"],
+            AllowedNavigationUrlPatterns = [System.Text.RegularExpressions.Regex.Escape(site.Origin) + "/(?:start|allowed)"]
+        }), NullLogger<PlaywrightBrowserHost>.Instance);
+        var result = await new BrowserTools(host, NullLogger<BrowserTools>.Instance).GetContentAsync(
+            url: site.Origin + "/start", waitUntil: "domcontentloaded", timeoutMs: 10000,
+            format: "observation_complete", cancellationToken: ct);
+        Assert.False(result.Success); Assert.Equal("NAVIGATION_POLICY_DENIED", result.ErrorCode);
+        Assert.Equal(0, followed);
+        Assert.Equal(site.Origin + "/denied/../allowed", Assert.Single(result.NavigationEvidence!.Hops).Location);
+    }
+
+    [Fact]
     public async Task RedirectLimitStopsBeforeSendingTheNextRequest()
     {
         var ct = TestContext.Current.CancellationToken; var requests = 0;

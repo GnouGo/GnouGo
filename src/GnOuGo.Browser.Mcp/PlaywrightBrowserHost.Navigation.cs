@@ -85,7 +85,7 @@ public sealed partial class PlaywrightBrowserHost
                     var evidence = owned ? read!.Evidence() : new BrowserNavigationEvidence(request.Url, null, [hop], false);
                     if (!Uri.TryCreate(new Uri(request.Url), location, out var next))
                         throw new BrowserNavigationException("NAVIGATION_REDIRECT_INVALID", "The observed redirect has no valid destination.", evidence);
-                    try { BrowserNavigationPolicy.ValidateNavigationTarget(next.AbsoluteUri, _settings); }
+                    try { BrowserNavigationPolicy.ValidateNavigationTarget(next.OriginalString, _settings); }
                     catch (InvalidOperationException)
                     { throw new BrowserNavigationException("NAVIGATION_POLICY_DENIED", "The observed redirect destination is outside the configured browser policy.", evidence); }
                     if (!owned)
