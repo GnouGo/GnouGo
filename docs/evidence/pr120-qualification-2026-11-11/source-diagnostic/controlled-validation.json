@@ -27,8 +27,21 @@
     "source-route-green.log": "7138ff199693d62c4bf24cda725f34ca9267ae9bc9cd6ef5d3932216b8cda548",
     "source-route-green-final.log": "bc8e2f08df3219cc59cd7af65c5dcf2d6c05f52881b5f9d47f06cf98090c2179",
     "source-amazon-regressions.log": "d88dfbf1721be9e756f8d9353fad70335fc61e3b973ca402c9b890fd0a176fa4",
-    "source-diagnostic-build.log": "42dfa33684e7ac6d842c9fe36b44c349ff08bff32a238588282513fd0d5060a1"
+    "source-diagnostic-build.log": "42dfa33684e7ac6d842c9fe36b44c349ff08bff32a238588282513fd0d5060a1",
+    "source-diagnostic-release.log": "ac4d9e40221b202f25d6319fac573c14380b3b6e14c31064f06deec0e37e2103",
+    "source-diagnostic-build-final.log": "baea792f918b0199bc0178b394b2c43f0462dd0fb869767c74e855678a032323",
+    "source-cli-preflight.json": "dca6c16f1d5dac8dc30c060c98db2596f7ae4a826882c81c5395e2a8652e47de"
   },
   "model_calls": 0,
-  "business_oracle_activated": false
+  "business_oracle_activated": false,
+  "cli_guards": {
+    "wrong_grant_rejected_before_admission": true,
+    "occupied_identity_rejected_before_configuration": true,
+    "browser_dispatches": 0,
+    "model_calls": 0
+  },
+  "release_build": {
+    "warnings": 0,
+    "errors": 0
+  }
 }
