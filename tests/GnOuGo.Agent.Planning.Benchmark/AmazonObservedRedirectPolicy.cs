@@ -33,7 +33,7 @@ internal static class AmazonObservedRedirectPolicy
             throw new InvalidOperationException("Unknown or mismatched captured browser observation policy.");
     }
 
-    internal static bool IsObserved(string? policy) => policy is Id or AmazonSponsoredHostPolicy.Id or AmazonProductContextPolicy.Id or AmazonResolvedStorePolicy.Id or AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id or AmazonCardReviewPolicy.Id;
+    internal static bool IsObserved(string? policy) => policy is Id or AmazonSponsoredHostPolicy.Id or AmazonProductContextPolicy.Id or AmazonResolvedStorePolicy.Id or AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id or AmazonCardReviewPolicy.Id or AmazonStoreListPolicy.Id;
     internal static bool Allows(string value, string policy) => policy switch
     {
         Id => Allows(value),
@@ -43,6 +43,7 @@ internal static class AmazonObservedRedirectPolicy
         AmazonResolvedProductPolicy.Id => AmazonResolvedProductPolicy.Allows(value),
         AmazonReviewProofPolicy.Id => AmazonReviewProofPolicy.Allows(value),
         AmazonCardReviewPolicy.Id => AmazonCardReviewPolicy.Allows(value),
+        AmazonStoreListPolicy.Id => AmazonStoreListPolicy.Allows(value),
         _ => throw new InvalidOperationException("Unknown captured browser observation policy.")
     };
     internal static bool IsEntry(string value, string policy) => policy switch
@@ -54,6 +55,7 @@ internal static class AmazonObservedRedirectPolicy
         AmazonResolvedProductPolicy.Id => AmazonResolvedProductPolicy.IsEntry(value),
         AmazonReviewProofPolicy.Id => AmazonReviewProofPolicy.IsEntry(value),
         AmazonCardReviewPolicy.Id => AmazonCardReviewPolicy.IsEntry(value),
+        AmazonStoreListPolicy.Id => AmazonStoreListPolicy.IsEntry(value),
         _ => throw new InvalidOperationException("Unknown captured browser observation policy.")
     };
     internal static bool IsSourceEntry(string value, string policy) => policy switch
@@ -65,6 +67,7 @@ internal static class AmazonObservedRedirectPolicy
         AmazonResolvedProductPolicy.Id => AmazonResolvedProductPolicy.IsSourceEntry(value),
         AmazonReviewProofPolicy.Id => AmazonReviewProofPolicy.IsSourceEntry(value),
         AmazonCardReviewPolicy.Id => AmazonCardReviewPolicy.IsSourceEntry(value),
+        AmazonStoreListPolicy.Id => AmazonStoreListPolicy.IsSourceEntry(value),
         _ => throw new InvalidOperationException("Unknown captured browser observation policy.")
     };
     internal static string Facts(string policy) => policy switch
@@ -76,6 +79,7 @@ internal static class AmazonObservedRedirectPolicy
         AmazonResolvedProductPolicy.Id => AmazonResolvedProductPolicy.PlanningFacts,
         AmazonReviewProofPolicy.Id => AmazonReviewProofPolicy.PlanningFacts,
         AmazonCardReviewPolicy.Id => AmazonCardReviewPolicy.PlanningFacts,
+        AmazonStoreListPolicy.Id => AmazonStoreListPolicy.PlanningFacts,
         _ => throw new InvalidOperationException("Unknown captured browser observation policy.")
     };
     internal static string ApprovalFor(string policy) => policy switch
@@ -87,6 +91,7 @@ internal static class AmazonObservedRedirectPolicy
         AmazonResolvedProductPolicy.Id => AmazonResolvedProductPolicy.Approval,
         AmazonReviewProofPolicy.Id => AmazonReviewProofPolicy.Approval,
         AmazonCardReviewPolicy.Id => AmazonCardReviewPolicy.Approval,
+        AmazonStoreListPolicy.Id => AmazonStoreListPolicy.Approval,
         _ => throw new InvalidOperationException("Unknown captured browser observation policy.")
     };
     internal static string Pattern(string policy) => policy switch
@@ -98,6 +103,7 @@ internal static class AmazonObservedRedirectPolicy
         AmazonResolvedProductPolicy.Id => AmazonResolvedProductPolicy.UrlPattern,
         AmazonReviewProofPolicy.Id => AmazonReviewProofPolicy.UrlPattern,
         AmazonCardReviewPolicy.Id => AmazonCardReviewPolicy.UrlPattern,
+        AmazonStoreListPolicy.Id => AmazonStoreListPolicy.UrlPattern,
         _ => throw new InvalidOperationException("Unknown captured browser observation policy.")
     };
 
@@ -107,6 +113,16 @@ internal static class AmazonObservedRedirectPolicy
         var sponsored = args.Contains("--amazon-observed-sponsored-host", StringComparer.Ordinal);
         var context = args.Contains("--amazon-product-context", StringComparer.Ordinal);
         var approval = SchemaPortabilityCampaign.Option(args, "--amazon-scope-approval");
+        if (args.Contains("--amazon-store-list-context", StringComparer.Ordinal))
+        {
+            if (original || sponsored || context || args.Contains("--amazon-card-review-context", StringComparer.Ordinal) ||
+                args.Contains("--amazon-review-proof-context", StringComparer.Ordinal) || args.Contains("--amazon-resolved-store-context", StringComparer.Ordinal) ||
+                args.Contains("--amazon-resolved-product-context", StringComparer.Ordinal))
+                throw new ArgumentException("Select the separately authorized inherited store-list policy alone.");
+            if (approval != AmazonStoreListPolicy.Approval) throw new InvalidOperationException("The inherited store-list amendment requires its exact separate grant.");
+            Validate(AmazonStoreListPolicy.Id, scenario);
+            return AmazonStoreListPolicy.Id;
+        }
         if (args.Contains("--amazon-card-review-context", StringComparer.Ordinal))
         {
             if (original || sponsored || context || args.Contains("--amazon-review-proof-context", StringComparer.Ordinal) ||

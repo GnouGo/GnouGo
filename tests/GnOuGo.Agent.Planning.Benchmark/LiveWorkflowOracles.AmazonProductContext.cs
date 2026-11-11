@@ -67,7 +67,7 @@ internal static partial class LiveWorkflowOracles
     private static List<ContextProduct> ContextProducts(Snapshot snapshot, List<string> findings,
         IReadOnlySet<string>? independentlyResolvedStoreReferences = null,
         IReadOnlyDictionary<string, string>? independentlyResolvedProductReferences = null, string policy = AmazonProductContextPolicy.Id,
-        IReadOnlySet<string>? proofAliasReferences = null)
+        IReadOnlySet<string>? proofAliasReferences = null, IReadOnlySet<string>? independentlyResolvedStoreListReferences = null)
     {
         var id = snapshot.Read["result"]?["observationSnapshot"]?["id"]?.ToString() ??
             snapshot.Read["result"]?["observationManifest"]?["id"]?.ToString() ?? snapshot.Read["result"]?["observation"]?["id"]?.ToString();
@@ -98,10 +98,13 @@ internal static partial class LiveWorkflowOracles
                 contexts[at] = context;
             }
             // Independent resolution evidence is supplied only by its separately
-            // authorized verifier or offline proposal. V7 retains null.
+            // authorized verifier or offline proposal. Legacy versions retain null.
             if (code.Length == 0 && ObservedProductIdentity(href) is null && record["occurrence"] is null && record["heading"] is null &&
                 independentlyResolvedStoreReferences?.Contains(record["reference"]!.ToString()) == true)
                 continue;
+            if (code.Length == 0 && ObservedProductIdentity(href) is null &&
+                independentlyResolvedStoreListReferences?.Contains(record["reference"]!.ToString()) == true)
+                continue; // Separately authorized, individually proved store-card membership; raw occurrence remains intact.
             if (code.Length == 0 && ObservedProductIdentity(href) is null && record["occurrence"] is null && record["heading"] is null &&
                 (tag == "nav" || context["role"]?.ToString() == "navigation"))
                 continue; // Observed navigation semantics, never an inference from the empty identifier alone.

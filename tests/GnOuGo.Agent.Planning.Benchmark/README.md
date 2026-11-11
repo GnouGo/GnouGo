@@ -1137,6 +1137,22 @@ Excel, execution and cleanup remain mandatory. V6/v10 and older behavior remains
 unchanged. A fresh actual-profile source preflight must pass before paid planning;
 controlled regressions alone establish no live workflow qualification.
 
+### Approved inherited store-list amendment (v8 / v12)
+
+The separate user-approved scope in [store-list activation](../../docs/evidence/pr120-amazon-card-context-2026-11-11/store-list-activation.md)
+uses `--amazon-store-list-context --amazon-scope-approval
+user-amazon-inherited-store-list-20261111`, selecting
+`amazon-observed-store-list-context-v8` and `amazon-business-v12`.
+The navigation pattern is byte-identical to v7/v6. An empty-ASIN card inherited
+from an original `li` with `role=listitem` can be accounted for as store navigation
+only when every original link is an auxiliary anchor with its own complete ordered
+store proof. No heading, direct product identity, self-occurrence, mixed card,
+unresolved sibling or inconsistent metadata is permitted. Separate evidence links
+each classification to its existing physical receipt; it creates no product,
+business visit, extra receipt or navigation target. V7/v11 and older rules remain
+unchanged. All source, product, workbook, execution and fresh-preflight requirements
+above still apply.
+
 A targeted tool-free presentation experiment may use `server-live-probe
 --probe-source-request <exact-owned-id> --probe-prompt-amendment <json-file>`.
 The amendment supplies `expectedPromptHash`, nonempty distinct `before`/`after`
