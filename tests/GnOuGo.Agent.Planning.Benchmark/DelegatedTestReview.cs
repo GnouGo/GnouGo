@@ -185,6 +185,9 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
                         (!AmazonObservedRedirectPolicy.IsEntry(url.ToString(), browserObservationPolicy!) || _observedRedirects.Contains(url.ToString()))
                     : AmazonUrl(url.ToString())) || args["cursor"] is not null)
                     throw new PlanningConflictException("Only authorized product/search reads are permitted.");
+                if (browserObservationPolicy == AmazonResolvedStorePolicy.Id && new Uri(url.ToString()).AbsolutePath != "/s" &&
+                    !_observedRedirects.Contains(url.ToString()))
+                    throw new PlanningConflictException("Only the next exact source resolution or a qualified source product link is authorized.");
                 if (browserObservationPolicy is not null && new Uri(url.ToString()).AbsolutePath == "/s") { _observedRedirects.Clear(); _searchReads.Clear(); }
                 ClearBrowser(); // New navigation invalidates every previously issued cursor before transport.
             }
@@ -225,7 +228,11 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
         if (server != "GnOuGo.Browser.Mcp" || tool is not ("browser_get_content" or "browser_close")) return;
         if (tool == "browser_close") { _observedRedirects.Clear(); _searchReads.Clear(); }
         if (tool == "browser_close" || result is null || result.IsError || result.Content?["success"]?.GetValue<bool>() != true)
-        { ClearBrowser(); return; }
+        {
+            ClearBrowser();
+            if (browserObservationPolicy == AmazonResolvedStorePolicy.Id) { _observedRedirects.Clear(); _searchReads.Clear(); }
+            return;
+        }
         var content = result.Content!;
         var url = content["url"]?.ToString();
         var snapshot = content["observationManifest"]?["id"]?.ToString() ?? content["observation"]?["id"]?.ToString();
@@ -233,7 +240,11 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
         {
             if (url is null || !(AmazonObservedRedirectPolicy.IsObserved(browserObservationPolicy) ? AmazonObservedRedirectPolicy.Allows(url, browserObservationPolicy!) : AmazonUrl(url)) || content["acquisition"]?["navigation"]?["url"] is { } final && final.ToString() != url ||
                 arguments?["url"] is null && (url != _browserUrl || snapshot != _browserSnapshot))
-            { ClearBrowser(); throw new PlanningConflictException("Browser producer evidence left the authorized URL or observation generation."); }
+            {
+                ClearBrowser();
+                if (browserObservationPolicy == AmazonResolvedStorePolicy.Id) { _observedRedirects.Clear(); _searchReads.Clear(); }
+                throw new PlanningConflictException("Browser producer evidence left the authorized URL or observation generation.");
+            }
             // A product navigation may enter another search through a redirect,
             // even when its final document is a product. It expires the old source
             // just like an explicit search request; cursor reads add no navigation.
@@ -244,7 +255,14 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
             bool Search(string? value) => value is not null && AmazonObservedRedirectPolicy.Allows(value, browserObservationPolicy!) &&
                 new Uri(value).AbsolutePath == "/s";
             _browserUrl = url; _browserSnapshot = snapshot;
-            if (AmazonObservedRedirectPolicy.IsObserved(browserObservationPolicy) && new Uri(url).AbsolutePath == "/s")
+            if (browserObservationPolicy == AmazonResolvedStorePolicy.Id)
+            {
+                _searchReads.Add(new JsonObject { ["tool"] = tool, ["error"] = false,
+                    ["arguments"] = arguments?.DeepClone(), ["result"] = content.DeepClone() });
+                _observedRedirects.Clear();
+                foreach (var href in LiveWorkflowOracles.ResolvedStoreAllowedEntries(_searchReads)) _observedRedirects.Add(href);
+            }
+            else if (AmazonObservedRedirectPolicy.IsObserved(browserObservationPolicy) && new Uri(url).AbsolutePath == "/s")
             {
                 var observation = new JsonObject { ["tool"] = tool, ["error"] = false,
                     ["arguments"] = arguments?.DeepClone(), ["result"] = content.DeepClone() };

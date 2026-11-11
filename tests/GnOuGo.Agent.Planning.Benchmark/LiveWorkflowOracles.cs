@@ -25,7 +25,7 @@ internal static partial class LiveWorkflowOracles
         var events = run["events"]!.AsArray().OfType<JsonObject>().ToArray();
         if (scenario == "amazon")
         {
-            if (run["oracle_version"]?.ToString() is { } version && version is not ("real-workflows-v1" or ObservedProductsVersion or AmazonBusinessVersion3 or AmazonBusinessVersion or AmazonObservedRedirectVersion or AmazonSponsoredHostVersion or AmazonProductContextVersion))
+            if (run["oracle_version"]?.ToString() is { } version && version is not ("real-workflows-v1" or ObservedProductsVersion or AmazonBusinessVersion3 or AmazonBusinessVersion or AmazonObservedRedirectVersion or AmazonSponsoredHostVersion or AmazonProductContextVersion or AmazonResolvedStoreVersion))
                 throw new InvalidOperationException("Unknown retained execution oracle version.");
             if (run["oracle_version"]?.ToString() == AmazonObservedRedirectVersion &&
                 (run["browser_observation_policy"]?.ToString() != AmazonObservedRedirectPolicy.Id ||
@@ -39,6 +39,10 @@ internal static partial class LiveWorkflowOracles
                 (run["browser_observation_policy"]?.ToString() != AmazonProductContextPolicy.Id ||
                  run["browser_scope_approval"]?.ToString() != AmazonProductContextPolicy.Approval))
                 throw new InvalidOperationException("The product-context verifier requires its captured evidence policy and exact granted scope.");
+            if (run["oracle_version"]?.ToString() == AmazonResolvedStoreVersion &&
+                (run["browser_observation_policy"]?.ToString() != AmazonResolvedStorePolicy.Id ||
+                 run["browser_scope_approval"]?.ToString() != AmazonResolvedStorePolicy.Approval))
+                throw new InvalidOperationException("The resolved-store verifier requires its separately authorized workflow scope.");
             var productLimit = run["max_products"]?.GetValue<int>() ?? 3;
             if (productLimit is < 1 or > 10) throw new InvalidOperationException("Invalid retained product bound.");
             var browser = await transport.GetClientAsync("GnOuGo.Browser.Mcp", CancellationToken.None);
@@ -64,14 +68,19 @@ internal static partial class LiveWorkflowOracles
                     var descriptionIndex = Array.FindIndex(names, n => n == "description");
                     var priceIndex = Array.FindIndex(names, n => n is "prix" or "price");
                     if (nameIndex < 0 || descriptionIndex < 0 || priceIndex < 0) findings.Add("workbook_columns_missing");
-                    else if (run["oracle_version"]?.ToString() is ObservedProductsVersion or AmazonBusinessVersion3 or AmazonBusinessVersion or AmazonObservedRedirectVersion or AmazonSponsoredHostVersion or AmazonProductContextVersion)
+                    else if (run["oracle_version"]?.ToString() is ObservedProductsVersion or AmazonBusinessVersion3 or AmazonBusinessVersion or AmazonObservedRedirectVersion or AmazonSponsoredHostVersion or AmazonProductContextVersion or AmazonResolvedStoreVersion)
                     {
-                        var evidence = VerifyObservedProducts(events, rows, productLimit);
+                        var resolvedSource = run["oracle_version"]?.ToString() == AmazonResolvedStoreVersion
+                            ? ResolveStoreSource(events, run["inputs"]?["query"]?.ToString()) : null;
+                        var evidence = VerifyObservedProducts(events, rows, productLimit,
+                            resolvedSource?.Complete == true ? resolvedSource.StoreReads : null);
                         run["product_evidence"] = evidence;
                         findings.AddRange(evidence["findings"]!.AsArray().Select(f => f!.ToString()));
-                        if (run["oracle_version"]?.ToString() is AmazonBusinessVersion3 or AmazonBusinessVersion or AmazonObservedRedirectVersion or AmazonSponsoredHostVersion or AmazonProductContextVersion)
+                        if (run["oracle_version"]?.ToString() is AmazonBusinessVersion3 or AmazonBusinessVersion or AmazonObservedRedirectVersion or AmazonSponsoredHostVersion or AmazonProductContextVersion or AmazonResolvedStoreVersion)
                         {
-                            var selection = run["oracle_version"]?.ToString() == AmazonProductContextVersion
+                            var selection = resolvedSource is not null
+                                ? ResolvedStoreSelection(events, productLimit, run["inputs"]?["query"]?.ToString(), resolvedSource)
+                                : run["oracle_version"]?.ToString() == AmazonProductContextVersion
                                 ? VerifyAmazonProductContextSelection(events, productLimit, run["inputs"]?["query"]?.ToString())
                                 : run["oracle_version"]?.ToString() == AmazonSponsoredHostVersion
                                 ? VerifyAmazonSponsoredHostSelection(events, productLimit, run["inputs"]?["query"]?.ToString())
@@ -227,7 +236,8 @@ internal static partial class LiveWorkflowOracles
     }
 
     // Pure evidence replay: no Browser actions, inference or artifact mutation.
-    internal static JsonObject VerifyObservedProducts(IReadOnlyList<JsonObject> events, string[][] rows, int maximum)
+    internal static JsonObject VerifyObservedProducts(IReadOnlyList<JsonObject> events, string[][] rows, int maximum,
+        IReadOnlySet<JsonObject>? verifiedNonProductReads = null)
     {
         var findings = new List<string>();
         var complete = CompleteSnapshots(events).ToDictionary(s => s.Read);
@@ -237,7 +247,7 @@ internal static partial class LiveWorkflowOracles
         for (var index = 0; index < events.Count; index++)
         {
             var read = events[index];
-            if (read["tool"]?.ToString() != "browser_get_content") continue;
+            if (read["tool"]?.ToString() != "browser_get_content" || verifiedNonProductReads?.Contains(read) == true) continue;
             complete.TryGetValue(read, out var snapshot);
             var requested = read["arguments"]?["url"]?.ToString();
             if (requested is not null && observedUrls.Contains(requested))

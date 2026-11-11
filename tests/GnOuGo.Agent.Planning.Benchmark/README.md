@@ -1029,3 +1029,33 @@ map v7 checks to original obligations and document the 17 unresolved links. V3/v
 remain active. New route contact and a source-only host capture require explicit
 approval; a full Amazon workflow still requires a qualified actual-profile source
 and the independent business oracle.
+
+### Authorized resolved-store workflow amendment
+
+Fresh Amazon runs may select `--amazon-resolved-store-context
+--amazon-scope-approval user-amazon-workflow-store-context-20261111` after the
+separate workflow approval recorded in the [v8 evidence](../../docs/evidence/pr120-amazon-v8-2026-11-11/README.md).
+This captures policy `amazon-observed-resolved-store-context-v4` and independent
+oracle `amazon-business-v8`. Earlier grants and v7 are unchanged; the inactive
+proposal above remains available for historical analysis.
+
+The only additional redirect route is `https://(www.)amazon.fr/stores/page/{UUID}`
+with an optional query. Direct store entry is not permitted. From a fresh complete
+search, the execution guard permits the next exact unresolved sponsored-link
+occurrence only. Every occurrence, including repeated hrefs, requires a complete
+GET chain and complete store observation. Both actual HTTP destination and current
+document must be approved store pages. No decoded advertising target, substituted
+URL, or history-only address change establishes that proof.
+
+V8 then reuses the original context and product-occurrence checks. Empty identity
+alone is insufficient: contradictory headings, semantic product occurrences,
+missing context and actual product destinations remain failures. Only after all
+source contexts qualify does the guard permit the original product links. Close,
+a new search, a search redirect or failed read revokes authority. The source-only
+preflight uses the same configuration and guard without model calls, product
+extraction, a review receipt or workflow execution approval.
+
+The oracle separates proved store-resolution reads from product visits without
+mutating the event log. Product count/order/duplicates, exact observed fields,
+writer receipt, actual Excel contents, successful execution and browser closure
+remain mandatory. A source-prerequisite pass is not a business-oracle pass.
