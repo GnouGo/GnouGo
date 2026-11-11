@@ -10,6 +10,17 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class LiveWorkflowReviewTests
 {
     [Fact]
+    public void WorkbookFormatCriterionIsPresentBeforeGenerationForEveryPolicy()
+    {
+        foreach (var policy in new string?[] { null, AmazonObservedRedirectPolicy.Id, AmazonReviewProofPolicy.Id })
+        {
+            var prompt = LiveWorkflowEvaluation.AmazonEvaluationPrompt("workflows/campaign/fresh", 3, policy);
+            Assert.Contains("une ligne d’en-tête Nom, Description, Prix", prompt, StringComparison.Ordinal);
+            Assert.Contains("toutes les lignes produit dans leur ordre", prompt, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
     public void StrictObservedRedirectPromptExposesCapturedAuthorityAndPreservesOriginalBusinessClauses()
     {
         const string relative = "workflows/campaign/fresh";

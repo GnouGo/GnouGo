@@ -50,7 +50,7 @@ harness still applies no fragment and changes no provider, endpoint or tool gran
 planning, 390 AI-core and 435 affected benchmark tests; Release is warning-free.
 [Captured presentation](consumer-presentation.json) reduces the retained consumer
 prompt from 57,117 to 54,990 bytes. This reduction alone is not a latency or workflow
-qualification. No paid call for these changes has yet been made.
+qualification. These controlled checks preceded the paid trials below.
 
 The optional [fresh navigation policy](server-navigation-low-draft32k.json) captures
 low navigation reasoning, low draft reasoning and the existing medium review
@@ -141,3 +141,72 @@ warnings treated as errors; Server partitions run separately. [CI at b605ded4](c
 has Ubuntu package DNS failures in Linux setup/browser dependency installation.
 Four macOS/Windows AOT jobs pass. This does not change the three green baseline
 checks at cd8951b7, and does not establish green CI at the new HEAD.
+
+## Full adapted planning and artifact review
+
+The [fresh full planning run](full-plan-01.json) reaches final review after 47 calls
+and an applicable successful global business review. All 47 physical attempts have
+cold-reloaded complete receipts and known usage; the longest HTTP response is
+104.31 seconds. The first useful search/cleanup checkpoint takes nine calls,
+458.74 seconds from first request admission (443.54 seconds from first physical
+HTTP), and EUR 2.0017107030900134348410210478. The earlier 14-call/662.82-second
+measurement remains historical. The compact root was available but still requested;
+the fresh selection did include search and cleanup together. One trial does not
+isolate a universal latency or call-count improvement.
+
+Full planning costs EUR 21.1690103000447828034034930583. Global review arrives
+2,265.34 seconds after first request admission. Artifact-bound execution approval
+is withheld: the writer receives product rows without a header. Its unchanged
+contract treats headers as ordinary supplied rows. The benchmark request had not
+explicitly stated the header format required by the independent oracle.
+
+The [native writer reproduction](controlled-header-oracle.json) writes actual XLSX
+files against synthetic complete v10 business events. Three product rows without
+headers fail `workbook_columns_missing`; the same rows with `Nom`, `Description`,
+`Prix` prepended pass the unchanged oracle. This controlled result is not a live
+Amazon execution. Fresh benchmark requests now state this existing format criterion;
+no engine rule, permission, result criterion or oracle changes.
+
+The unapproved run is cancelled at revision 127, with 47 calls and no pending
+inference or business effects. It must never be replayed. The earlier final-review
+snapshot, exact requests, receipts, transport journals and cancellation remain
+retained; the run's planning-only `passed` field does not claim business success.
+
+An [offline actual-source sizing capture](runtime-sizing.json) reaches the existing
+engine's inference boundary with a 1,495,112-byte prompt. It uses saved source data
+and mock MCP returns, makes no model call or navigation, and deliberately cancels
+at capture. The 96,000-token mapping target is advisory under the original trusted
+diagnostic policy; it is not manufactured into a failure or increased. Runtime
+requests remain unspecified in the plan and receive the existing benchmark's
+medium reasoning/32,768 output allocation. Their actual large-source delivery,
+workbook, cleanup and independent live oracle remain unqualified.
+
+## Reuse scoped repair while awaiting review
+
+The old harness waits only for files after final review, so it cannot observe an
+ordinary scoped correction or a cancelled revision. The generic harness now polls
+the existing owned session before approval. A later revision with no review file
+returns to the original coordinator/monitor, retaining the earlier revision/hash
+in evidence. It creates no plan, approval or effect. Exact current files still
+require the unchanged lease, metadata, artifact and delegated-authority checks;
+partial or complete stale files fail. Retained execution cannot resume generation.
+
+[Regressions](review-wait-regressions.json) first fail eight cases against the old
+files-only behavior and unstated header criterion, then pass. The actual coordinator
+scoped-revision handoff preserves accepted work, calls, corrections and usage.
+Missing sessions, changed ownership, rolled-back revisions, changed artifacts,+cancellation and stale files retain negative coverage. Affected validation passes
+1,105 tests, with additional focused header/negative checks and 13 wait/handoff
+checks, all with `-warnaserror`. The [complete preceding production validation](server-validation-b605ded4.json)
+has 8,964 passes and 13 existing skips across the shared solution and exact Server
+inventory. Production source is unchanged by this harness/format correction.
+
+The [post-plan audit](post-plan-financial-audit.json) retains EUR 863.771393 known
+tariff cost, EUR 419.640296 unresolved HTTP holds and EUR 62.298969 application
+holds, leaving approximately EUR 354.29 arithmetic campaign headroom under the
+unchanged EUR 1,700 ceiling. All 50 historical uncertain attempts remain. No grant,
+reservation release, stopped-session replay or global-funding claim is added.
+
+CI at c05b114f repeats the same Ubuntu DNS failures during native toolchain/browser
+dependency installation (runs 43052666148, 43052666157, 43052666474); four other AOT
+platform jobs pass. There is no demonstrated production regression, and no green
+CI claim for this HEAD. Full Amazon and Code qualification both remain **0/2**.

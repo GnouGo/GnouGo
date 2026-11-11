@@ -151,6 +151,7 @@ public sealed class AmazonReviewProofWorkflowTests
     [Theory]
     [InlineData("none", true)]
     [InlineData("header_only", false)]
+    [InlineData("missing_header", false)]
     [InlineData("swapped_rows", false)]
     [InlineData("invented_field", false)]
     [InlineData("execution_failed", false)]

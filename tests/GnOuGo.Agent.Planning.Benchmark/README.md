@@ -557,6 +557,20 @@ LLM client. An independent numeric-output oracle requires exactly `result: 42`;
 execution has a separate 30-second cancellation bound. Review is labelled
 `delegated_test_reviewed`, never human review. No raw response or plan edit can grant
 this authority, and an execution-start marker is durable before running.
+Before either review file exists, an ordinary authorized scoped revision returns
+the fresh planning harness to its existing session monitor and coordinator. It
+records the earlier review revision/hash and waits for the revised artifact's new
+business review and artifact-bound authorization. It never edits the plan or
+retargets a receipt. Partial or complete stale review files still fail; cancellation
+and host shutdown cannot grant execution. Retained execution remains metadata-only
+and cannot resume generation or replay a stopped/executed session.
+
+Fresh Amazon requests explicitly require the same header row already checked by
+the independent workbook oracle: `Nom`, `Description`, `Prix`, followed by every
+product row in order. `document_write` treats headers as ordinary supplied rows;
+it does not invent them. This states an existing format criterion before generation
+without changing the oracle or navigation grants.
+
 `server-live-execute --run <id>` can continue only the identical review-ready,
 unexecuted Server artifact after correcting a rejected review document. It starts
 with background processing disabled and maps no inference endpoint. An existing

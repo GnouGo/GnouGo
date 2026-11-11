@@ -29,7 +29,7 @@ internal static class LiveWorkflowEvaluation
         return AmazonPrompt +
         "\nContraintes de cette évaluation autorisée: utilise Amazon.fr, au maximum les " + productLimit +
         " premiers produits; une seule entrée publique nommée query, de type texte (string), obligatoire et sans valeur par défaut. Sauvegarde le classeur à " + relative +
-        "/products.xlsx. Ferme le navigateur même en cas d’échec. Les erreurs observées, prix ou données absents restent explicites, jamais inventés. Ne déclare pas de réussite si le travail n’a pas abouti." +
+        "/products.xlsx. Fournis une ligne d’en-tête Nom, Description, Prix, puis toutes les lignes produit dans leur ordre. Ferme le navigateur même en cas d’échec. Les erreurs observées, prix ou données absents restent explicites, jamais inventés. Ne déclare pas de réussite si le travail n’a pas abouti." +
         (browserObservationPolicy is null ? "" : "\n" + AmazonObservedRedirectPolicy.Facts(browserObservationPolicy));
     }
 

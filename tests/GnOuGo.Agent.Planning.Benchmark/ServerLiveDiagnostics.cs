@@ -450,7 +450,8 @@ internal static class ServerLiveDiagnostics
                     saved["execution_harness_source"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD");
                     saved["execution_harness_assembly"] = AssemblyEvidence(System.Reflection.Assembly.GetEntryAssembly()!);
                     model.RetainedExternalReservationsEur = saved["retained_external_reservations_eur"]?.GetValue<decimal>() ?? 0;
-                    await ExecuteReviewedLocalAsync(app, campaign, model, state, saved, root, workspace);
+                    if (!await ExecuteReviewedLocalAsync(app, campaign, model, state, saved, root, workspace))
+                        throw new PlanningConflictException("The retained artifact was revised; execution requires its new captured review-ready state.");
                 }
                 Console.WriteLine(new JsonObject { ["run"] = run, ["inspection_only"] = inspectionOnly, ["provider_dispatches"] = 0 }.ToJsonString());
             }
@@ -580,8 +581,18 @@ internal static class ServerLiveDiagnostics
                             report["browser_observation_exit_code"] = observer.ExitCode;
                             await campaign.SaveAsync("planning-evaluation-runs", run, report);
                         }
-                        if (state.Status == PlanningStatus.FinalReview && args.Contains("--await-delegated-review", StringComparer.Ordinal))
-                            await ExecuteReviewedLocalAsync(app, campaign, model, state, report, root, workspace);
+                        if (state.Status == PlanningStatus.FinalReview && args.Contains("--await-delegated-review", StringComparer.Ordinal) &&
+                            !await ExecuteReviewedLocalAsync(app, campaign, model, state, report, root, workspace))
+                        {
+                            (report["review_wait_history"] ??= new JsonArray()).AsArray().Add(new JsonObject
+                            {
+                                ["revision"] = state.Revision, ["artifact_hash"] = state.ComputeArtifactHash(),
+                                ["disposition"] = "returned_to_session_monitor_without_execution", ["observed_at_utc"] = DateTimeOffset.UtcNow
+                            });
+                            report["passed"] = false;
+                            revision = -1;
+                            continue;
+                        }
                         break;
                     }
                     await Task.Delay(2000);
@@ -751,7 +762,7 @@ internal static class ServerLiveDiagnostics
         await campaign.SaveAsync("planning-evaluation-runs", report["run"]!.ToString(), report);
     }
 
-    private static async Task ExecuteReviewedLocalAsync(WebApplication app, BenchmarkCampaign campaign, KeyVaultBenchmarkModel model, PlanningSession state,
+    private static async Task<bool> ExecuteReviewedLocalAsync(WebApplication app, BenchmarkCampaign campaign, KeyVaultBenchmarkModel model, PlanningSession state,
         JsonObject report, string root, string workspace)
     {
         if (report["execution_started"] is not null) throw new PlanningConflictException("An execution-start marker forbids another execution.");
@@ -762,7 +773,12 @@ internal static class ServerLiveDiagnostics
         Console.WriteLine(new JsonObject { ["awaiting_delegated_review"] = true, ["session_id"] = state.Request.SessionId,
             ["revision"] = state.Revision, ["artifact_hash"] = state.ComputeArtifactHash() }.ToJsonString());
         // Review files acknowledge the already generated immutable artifact. They cannot edit it.
-        while (!File.Exists(Path.Combine(output, "authorization.json")) || !File.Exists(Path.Combine(output, "review.json"))) await Task.Delay(1000);
+        var authorizationPath = Path.Combine(output, "authorization.json"); var reviewPath = Path.Combine(output, "review.json");
+        if (!await ServerLiveReviewWait.WaitAsync(state,
+            () => app.Services.GetRequiredService<PlanningSessionService>().GetAsync(state.Request.SessionId, CancellationToken.None),
+            () => File.Exists(authorizationPath) || File.Exists(reviewPath),
+            () => File.Exists(authorizationPath) && File.Exists(reviewPath),
+            () => RequireNotCancelledAsync(app, state, CancellationToken.None), app.Lifetime.ApplicationStopping)) return false;
         await using var lease = await PlanningSessionLease.TryAcquireAsync(app.Services.GetRequiredService<IDbContextFactory<PlanningDbContext>>(),
             state.Request.TenantId, state.Request.SessionId, CancellationToken.None) ?? throw new PlanningConflictException("The reviewed session has another active owner.");
         var latest = await app.Services.GetRequiredService<IPlanningSessionStore>().LoadAsync(state.Request.TenantId, state.Request.SessionId, CancellationToken.None);
@@ -866,6 +882,7 @@ internal static class ServerLiveDiagnostics
         await campaign.SaveAsync("planning-evaluation-runs", report["run"]!.ToString(), report);
         Console.WriteLine(new JsonObject { ["session_id"] = state.Request.SessionId, ["execution_success"] = report["execution"]!["success"]!.DeepClone(), ["oracle_passed"] = accepted }.ToJsonString());
         if (!accepted) Environment.ExitCode = 1;
+        return true;
     }
 
     internal static bool NativeOutputOracle(bool success, JsonNode? result) => success && result is JsonObject outputs && outputs.Count == 1 &&

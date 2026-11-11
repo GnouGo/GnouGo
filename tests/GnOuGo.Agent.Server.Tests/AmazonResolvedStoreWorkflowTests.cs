@@ -143,6 +143,7 @@ public sealed class AmazonResolvedStoreWorkflowTests
     [Theory]
     [InlineData("none", true)]
     [InlineData("header_only", false)]
+    [InlineData("missing_header", false)]
     [InlineData("swapped_rows", false)]
     [InlineData("invented_field", false)]
     [InlineData("execution_failed", false)]
@@ -162,6 +163,7 @@ public sealed class AmazonResolvedStoreWorkflowTests
             var path = Path.Combine(root, "products.xlsx"); var events = reviewProof ? AmazonReviewProofWorkflowTests.Events() : productResolution ? AmazonResolvedProductWorkflowTests.Events() : Events();
             string[][] rows = [["name", "description", "price"], ["Product 1", "Description 1", "12,00 €"], ["Product 2", "Description 2", "13,00 €"]];
             if (productResolution) rows = [rows[0], ["Product 3", "Description 3", "14,00 €"], rows[1], rows[2]];
+            if (change == "missing_header") rows = rows.Skip(1).ToArray();
             if (change == "early_fields") rows[1][1] = "Early source evidence";
             if (change == "header_only") rows = [rows[0]];
             if (change == "swapped_rows") (rows[1], rows[2]) = (rows[2], rows[1]);
