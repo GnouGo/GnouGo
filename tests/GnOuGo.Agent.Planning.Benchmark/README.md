@@ -1100,3 +1100,15 @@ one-heading condition must agree. The report retains aliases separately from
 physical reads. Every later business visit, field, workbook, execution, receipt
 and cleanup requirement remains unchanged. V5/v9 and earlier versions retain their
 prior behavior. See [approved scope and evidence](../../docs/evidence/pr120-amazon-v10-2026-11-11/README.md).
+
+A targeted tool-free presentation experiment may use `server-live-probe
+--probe-source-request <exact-owned-id> --probe-prompt-amendment <json-file>`.
+The amendment supplies `expectedPromptHash`, nonempty distinct `before`/`after`
+strings and an exact positive `occurrences` count (maximum 32). It rejects stale
+baselines, count mismatches, tools/background authority and every other probe
+override. Only the prompt and independently issued client identity change;
+provider, model, schema, reasoning and allocation stay captured. The ordinary
+campaign admission, durable request/HTTP/receipt journals and incomplete-response
+rejection remain in force. No source session is resumed or changed and no output
+is applied to a TaskPlan. Record a precise hypothesis and inspect the complete
+response before any separately admitted workflow.

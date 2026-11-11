@@ -20,6 +20,20 @@ public sealed class LiveWorkflowReviewTests
         Assert.Throws<InvalidOperationException>(() => LiveWorkflowEvaluation.AmazonEvaluationPrompt(relative, 3, "unapproved"));
     }
 
+    [Fact]
+    public void ReviewProofCaptureKeepsExistingHostGuaranteesSeparateFromWorkflowOperations()
+    {
+        const string relative = "workflows/campaign/fresh";
+        var original = LiveWorkflowEvaluation.AmazonEvaluationPrompt(relative, 3);
+        var captured = LiveWorkflowEvaluation.AmazonEvaluationPrompt(relative, 3, AmazonReviewProofPolicy.Id);
+        Assert.StartsWith(original + "\n", captured, StringComparison.Ordinal);
+        Assert.Contains("not missing workflow operations", captured, StringComparison.Ordinal);
+        Assert.Contains("returns actual navigationEvidence", captured, StringComparison.Ordinal);
+        Assert.DoesNotContain("All contexts must", captured, StringComparison.Ordinal);
+        Assert.Contains("Store navigation", captured, StringComparison.Ordinal);
+        Assert.False(AmazonReviewProofPolicy.Allows("https://sponsored-ads.amazon.fr/clk?x=1#customerReviews"));
+    }
+
     [Theory]
     [InlineData("--business-judge")]
     [InlineData("--no-business-judge")]

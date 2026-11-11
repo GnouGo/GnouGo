@@ -192,6 +192,15 @@ internal static class ServerLiveDiagnostics
                 SchemaPortabilityCampaign.Option(args, "--probe-output-tokens") is { } allocation
                     ? int.Parse(allocation, System.Globalization.CultureInfo.InvariantCulture) : original?.MaxTokens ?? 1024,
                 SchemaPortabilityCampaign.Option(args, "--probe-structured-strict") is { } strict ? bool.Parse(strict) : null);
+            if (SchemaPortabilityCampaign.Option(args, "--probe-prompt-amendment") is { } amendmentFile)
+            {
+                if (original is null || args.Any(a => a.StartsWith("--probe-", StringComparison.Ordinal) &&
+                    a is not ("--probe-source-request" or "--probe-prompt-amendment")))
+                    throw new ArgumentException("A prompt-evidence experiment requires an exact source and no other probe override.");
+                var amendment = JsonNode.Parse(await File.ReadAllTextAsync(amendmentFile, context.RequestAborted)) as JsonObject
+                    ?? throw new ArgumentException("A prompt-evidence amendment object is required.");
+                report["prompt_evidence_amendment"] = AmendProbePrompt(request, run, nonce, amendment);
+            }
             if (args.Contains("--probe-share-schema-evidence", StringComparer.Ordinal))
             {
                 var before = request.Prompt;
@@ -610,6 +619,26 @@ internal static class ServerLiveDiagnostics
         request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
         return request;
     }
+    // One hash-bound presentation experiment, never applied to its source session.
+    internal static JsonObject AmendProbePrompt(LLMRequest request, string run, string nonce, JsonObject amendment)
+    {
+        var before = amendment["before"]?.GetValue<string>(); var after = amendment["after"]?.GetValue<string>();
+        var count = amendment["occurrences"]?.GetValue<int>() ?? 0;
+        var hash = PlanningGraphCompiler.Fingerprint(request.Prompt);
+        if (request.Tools is { Count: > 0 } || request.UseBackgroundMode || request.StructuredOutputSchema is null ||
+            string.IsNullOrEmpty(before) || string.IsNullOrEmpty(after) || before == after || count is < 1 or > 32 ||
+            amendment["expectedPromptHash"]?.ToString() != hash ||
+            request.Prompt.Split(before, StringSplitOptions.None).Length - 1 != count)
+            throw new ArgumentException("The tool-free prompt experiment must match its exact owned baseline and occurrence count.");
+        var changed = request.Prompt.Replace(before, after, StringComparison.Ordinal);
+        var evidence = new JsonObject { ["before_prompt_hash"] = hash, ["after_prompt_hash"] = PlanningGraphCompiler.Fingerprint(changed),
+            ["before_evidence_hash"] = PlanningGraphCompiler.Fingerprint(before), ["after_evidence_hash"] = PlanningGraphCompiler.Fingerprint(after),
+            ["occurrences"] = count, ["source_session_modified"] = false, ["response_schema_changed"] = false };
+        request.Prompt = changed; request.ClientRequestId = null;
+        request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+        return evidence;
+    }
+
     internal static void PresentProbeResponseSchema(LLMRequest request, string run, string nonce)
     {
         if (request.StructuredOutputSchema is null || request.Tools is { Count: > 0 } || request.UseBackgroundMode)

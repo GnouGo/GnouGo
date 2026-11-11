@@ -9,6 +9,50 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class IndependentProviderProbeTests
 {
     [Theory]
+    [InlineData("valid")]
+    [InlineData("stale")]
+    [InlineData("count")]
+    [InlineData("missing")]
+    [InlineData("tools")]
+    [InlineData("background")]
+    [InlineData("schema")]
+    [InlineData("empty")]
+    [InlineData("same")]
+    public void PromptEvidenceExperimentIsAtomicAndPreservesSourceAndTransport(string change)
+    {
+        var original = new LLMRequest { Provider = "p", Model = "m", Reasoning = "low", MaxTokens = 32768,
+            Prompt = "Original requirement. Captured host fact. Original output contract.",
+            StructuredOutputSchema = new JsonObject { ["type"] = "object" } };
+        var source = JsonSerializer.Serialize(original, PlanningJsonContext.Default.LLMRequest);
+        var request = ServerLiveDiagnostics.IndependentProbe(original, "p", "m", "new", "nonce", null, 32768);
+        var amendment = new JsonObject { ["expectedPromptHash"] = PlanningGraphCompiler.Fingerprint(request.Prompt),
+            ["before"] = "Captured host fact.", ["after"] = "Corrected captured host fact.", ["occurrences"] = 1 };
+        if (change == "stale") amendment["expectedPromptHash"] = new string('0', 64);
+        if (change == "count") amendment["occurrences"] = 2;
+        if (change == "missing") amendment["before"] = "Missing fact";
+        if (change == "tools") request.Tools = [new() { Name = "external_effect" }];
+        if (change == "background") request.UseBackgroundMode = true;
+        if (change == "schema") request.StructuredOutputSchema = null;
+        if (change == "empty") amendment["before"] = "";
+        if (change == "same") amendment["after"] = amendment["before"]!.DeepClone();
+        var before = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
+        if (change != "valid")
+        {
+            Assert.Throws<ArgumentException>(() => ServerLiveDiagnostics.AmendProbePrompt(request, "new", "nonce", amendment));
+            Assert.Equal(before, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+        }
+        else
+        {
+            var evidence = ServerLiveDiagnostics.AmendProbePrompt(request, "new", "nonce", amendment);
+            Assert.False(evidence["source_session_modified"]!.GetValue<bool>());
+            Assert.Equal("Original requirement. Corrected captured host fact. Original output contract.", request.Prompt);
+            var expected = JsonNode.Parse(before)!; expected["prompt"] = request.Prompt; expected["clientRequestId"] = request.ClientRequestId;
+            Assert.True(JsonNode.DeepEquals(expected, JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)));
+        }
+        Assert.Equal(source, JsonSerializer.Serialize(original, PlanningJsonContext.Default.LLMRequest));
+    }
+
+    [Theory]
     [InlineData("low")]
     [InlineData(null)]
     public void SourceReasoningIsPreservedUnlessExplicitlyOverridden(string? reasoning)
