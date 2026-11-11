@@ -67,6 +67,27 @@ JSON-schema conformance alone is insufficient. Full workflow qualification still
 requires real execution, workbook, cleanup and the independent oracle twice on
 one frozen version.
 
+The [single-change live result](startup-probe.json),
+`browser-startup-description-20261111-01` at `7d41517e`, is complete with known
+usage: **35.717835 seconds** HTTP duration, first useful output at
+**29.441244 seconds**, EUR 0.5024630541871921182266009852 captured-tariff cost.
+It returns `amazon_search` with runtime `query` encoded into the permitted search
+URL, and root `always` cleanup. It leaves the block/root incomplete and requests
+no additional opening/search interface. No additional policy wording was needed
+for this fixture. One sample does not establish general convergence.
+
+The actual rebuilt MCP publishes the new opening sentence and still rejects an
+omitted-URL read without an active page, with zero navigation/model calls.
+Offline validation retrieves the exact original issuance revision 28 through
+bounded public KeyVault metadata and reads (two owned revisions inspected). It
+verifies the original request-bound map, unchanged prompt/schema factors and
+baseline, then runs the production authority, continuation, operation-contract
+admission and complete technical-validation stage on an in-memory clone.
+There are **zero findings**. The immutable source session, requests, counters,
+receipts and financial journals are unchanged. No fragment is applied, plan
+accepted, business review claimed or execution performed. A fresh real-profile
+preflight still precedes the next full workflow on the frozen build.
+
 ## Cancellation and accounting
 
 The existing antiforgery-protected stop API cancelled the unproductive run at
