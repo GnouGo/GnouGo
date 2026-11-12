@@ -712,6 +712,14 @@ as a task-free host checkpoint. Fresh block identities and new review follow; th
 checkpoint hash chain and artifact verifier are unchanged. Historical results cannot
 reappear as available work merely because new requirements reuse their identifiers.
 
+For an implementation correction preserving the original requirements, an operator
+may explicitly select an existing `foreach` collection at `/tasks/{id}/items`.
+Reuse its typed binding patch, baseline checks and lexical visibility; retain the
+body, task kind, ordering, finite iteration/concurrency limits and unrelated work.
+The correction still invalidates approval and requires ordinary compilation and
+business review. This adds no patch operation, request field or persisted format,
+and a model response cannot grant the explicit path authority.
+
 One resolver applies captured phase targets and exact reasoning/output allocations.
 The host-owned `optimization_threshold_policy: "diagnostic-v1"` is available only to
 new authorized diagnostic sessions. Ordinary hosts and model-authored inputs reject

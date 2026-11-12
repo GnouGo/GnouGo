@@ -320,6 +320,13 @@ Use it only to reconnect selection: verify selected IDs against the offered cand
 
 Explicit `EditablePaths` revisions may select an existing transform’s `/mode`, `/each` and `/resultType` alongside dependent bindings. The typed patch preserves unrelated tasks, objectives, ordering and cleanup, invalidates approval, and retains cumulative accounting. Automatic repair does not acquire this authority. Invalid immutable required bindings stop with `REVISION_REQUIRED` when no issued producer/export edit can resolve them.
 
+An explicit revision may also select `/tasks/{id}/items` for an existing `foreach`.
+This offers its existing collection binding through the same typed value patch
+grammar; it grants no edit to the body, task kind, iteration limit, concurrency or
+parallel execution. Scope/type checks, exact request recovery and renewed business
+review remain mandatory. A large source can require a different collection binding
+or batching; increasing a loop limit does not repair repeated oversized model input.
+
 ## Executable tasks versus workflow documents
 
 Model instructions describe business tasks and typed bindings, without exposing

@@ -21,6 +21,7 @@ internal static class TaskPlanRevisions
             var binding = symbols.Values.ContainsKey(path) && (path.Contains("/inputs/", StringComparison.Ordinal) || path.Contains("/outputs/", StringComparison.Ordinal));
             var field = path.Split('/') is ["", "tasks", var id, var name] && symbols.Tasks.TryGetValue(id, out var task) &&
                 (name == "inputs" && task.Task.Kind is "operation" or "transform" or "call" || name == "requires" || name == "condition" && task.Task.Kind == "conditional" ||
+                    name == "items" && task.Task.Kind == "foreach" ||
                     name is "objective" or "mode" or "each" or "resultType" && task.Task.Kind == "transform");
             if (PlanningRepairPatch.FindSite(index, path) is null || !binding && !field || OwnedInput(symbols, path, state.Catalog) is not null)
                 throw new ArgumentException("EditablePaths supports existing business bindings, input lists, conditions, executable transform instructions/declarations and export values only: " + path);
