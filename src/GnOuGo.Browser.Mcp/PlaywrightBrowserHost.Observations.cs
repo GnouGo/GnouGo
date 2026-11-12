@@ -307,6 +307,7 @@ public sealed partial class PlaywrightBrowserHost
                 InvalidateObservation("navigation");
                 SetPhase("navigation");
                 initialResponse = await NavigateReadAsync(page, target.AbsoluteUri, ParseWaitUntil(waitUntil), Remaining(), token).WaitAsync(token);
+                if (NavigationAcquisitionCheckpoint is { } navigated) await navigated(page, token).WaitAsync(token);
             }
             // Navigation invalidation and one eligible empty-document reload share
             // the original deadline and three captures. No interaction is replayed.

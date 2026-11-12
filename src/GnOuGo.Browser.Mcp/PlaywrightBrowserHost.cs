@@ -67,7 +67,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
             _observedNavigation.BeginRead(url);
             var navigationAuthorityGeneration = _observedNavigation.Generation;
             var contentFormat = NormalizeFormat(format);
-            _sourceAuthorityAcquisition = contentFormat == "observation_complete" && _observedNavigation.IsSource(url);
+            lock (_observationLock) _sourceAuthorityAcquisition = contentFormat == "observation_complete" && _observedNavigation.IsSource(url);
             if (cursor is not null)
             {
                 if (contentFormat is not ("observation" or "observation_pages") || url is not null || selector is not null)
@@ -157,7 +157,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
         }
         finally
         {
-            _sourceAuthorityAcquisition = false;
+            lock (_observationLock) { _sourceAuthorityAcquisition = false; _sourceAuthorityRead = null; }
             await ReleaseBrowserGateAsync();
         }
     }
@@ -749,7 +749,11 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
             if (page == _page && frame == page.MainFrame)
                 lock (_observationLock)
                 {
-                    if (_navigationRead is null && !(_sourceAuthorityAcquisition && _pendingMainNavigation is null))
+                    var ownedSourceCommit = _sourceAuthorityAcquisition && _pendingMainNavigation is not null &&
+                        _sourceAuthorityRead?.Page == page && _sourceAuthorityReadGeneration == _observedNavigation.Generation &&
+                        _sourceAuthorityRead.ResponseIndexes.ContainsKey(_pendingMainNavigation);
+                    if (ownedSourceCommit) _observedNavigation.ObserveOwnedCommit(_sourceAuthorityReadGeneration);
+                    if (_navigationRead is null && !ownedSourceCommit && !(_sourceAuthorityAcquisition && _pendingMainNavigation is null))
                         _observedNavigation.BeginRead(frame.Url, _pendingMainNavigation is null ? "unowned_source_history" : "unowned_source_commit");
                     if (_pendingMainNavigation is null && _committedMainNavigation is not null && _lastNavigationEvidence is { } document)
                     {

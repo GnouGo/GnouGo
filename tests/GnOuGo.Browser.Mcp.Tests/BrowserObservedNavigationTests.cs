@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Playwright;
 using Xunit;
 
 namespace GnOuGo.Browser.Mcp.Tests;
@@ -94,7 +95,39 @@ public sealed class BrowserObservedNavigationTests
     }
 
     [Fact]
-    public async Task NewSearchDuringPublicationCannotRestoreTheOldAuthority()
+    public async Task AnOwnedSourceResponseCommittingDuringAcquisitionRetainsItsOwnAuthority()
+    {
+        await using var site = await Site.Start(); site.HoldSecondSource = true;
+        Task<IResponse?>? reload = null; var injected = false; var diagnostics = new ScopeLogger();
+        await using var host = new PlaywrightBrowserHost(Options.Create(site.Settings()), diagnostics)
+        {
+            NavigationReadCheckpoint = async (page, token) =>
+            {
+                if (injected) return;
+                injected = true;
+                reload = page.ReloadAsync(new() { WaitUntil = WaitUntilState.DOMContentLoaded });
+                await site.LateSourceStarted.Task.WaitAsync(token);
+            },
+            NavigationAcquisitionCheckpoint = async (_, token) =>
+            {
+                if (reload is null) return;
+                site.ReleaseLateSource.TrySetResult();
+                await reload.WaitAsync(token); reload = null;
+            }
+        };
+        var source = await Read(host, site.Origin + "/search?q=1");
+        Assert.True(source.Success);
+        Assert.Equal(2, site.SourceHits);
+        var destination = await Read(host, site.Entry);
+        Assert.True(destination.Success);
+        Assert.Contains(diagnostics.Messages, message => message.Contains("owned_source_commit", StringComparison.Ordinal));
+        Assert.DoesNotContain(diagnostics.Messages, message => message.Contains("unowned_source_commit", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task NewSearchDuringPublicationCannotRestoreTheOldAuthority(bool sameAddress)
     {
         await using var site = await Site.Start(); var injected = false;
         var diagnostics = new ScopeLogger();
@@ -104,11 +137,11 @@ public sealed class BrowserObservedNavigationTests
             {
                 if (phase != "publish" || injected) return;
                 injected = true;
-                await page.GotoAsync(site.Origin + "/search?q=2").WaitAsync(token);
+                await page.GotoAsync(site.Origin + "/search?q=" + (sameAddress ? "1" : "2")).WaitAsync(token);
             }
         };
         var moved = await Read(host, site.Origin + "/search?q=1");
-        Assert.Equal(site.Origin + "/search?q=2", moved.Url);
+        Assert.Equal(site.Origin + "/search?q=" + (sameAddress ? "1" : "2"), moved.Url);
         await Assert.ThrowsAnyAsync<InvalidOperationException>(() => Read(host, site.Entry));
         await Assert.ThrowsAnyAsync<InvalidOperationException>(() => Read(host, site.Origin + "/ad/two?opaque=%2F"));
         Assert.Equal(0, site.EntryHits);
@@ -143,8 +176,10 @@ public sealed class BrowserObservedNavigationTests
         internal string Origin => _server.Origin;
         private string EntryOrigin => SeparateHost ? Origin.Replace("127.0.0.1", "localhost", StringComparison.Ordinal) : Origin;
         internal string Entry => EntryOrigin + "/ad/one?opaque=%2F";
-        internal int EntryHits, UnobservedHits;
-        internal bool FailSource, UnobservedRedirect, SeparateHost;
+        internal int EntryHits, UnobservedHits, SourceHits;
+        internal bool FailSource, UnobservedRedirect, SeparateHost, HoldSecondSource;
+        internal TaskCompletionSource LateSourceStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal TaskCompletionSource ReleaseLateSource { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         internal static async Task<Site> Start()
         {
             var site = new Site();
@@ -159,6 +194,11 @@ public sealed class BrowserObservedNavigationTests
                 if (path == "/ad/unseen") Interlocked.Increment(ref site.UnobservedHits);
                 if (path == "/search")
                 {
+                    if (Interlocked.Increment(ref site.SourceHits) == 2 && site.HoldSecondSource)
+                    {
+                        site.LateSourceStarted.TrySetResult();
+                        await site.ReleaseLateSource.Task.WaitAsync(context.RequestAborted);
+                    }
                     if (site.FailSource) context.Response.StatusCode = 503;
                     var href = context.Request.Query["q"] == "1" ? site.Entry : site.Origin + "/ad/two?opaque=%2F";
                     context.Response.ContentType = "text/html";

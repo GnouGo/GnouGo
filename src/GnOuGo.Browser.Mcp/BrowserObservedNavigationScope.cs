@@ -39,6 +39,7 @@ internal sealed class BrowserObservedNavigationScope
     internal void Clear(string reason = "failed_read")
     { lock (_sync) { _entries.Clear(); _generation++; Trace("cleared", reason); } }
     internal void BeginRead(string? url, string reason = "explicit_source_read") { if (IsSource(url)) Clear(reason); }
+    internal void ObserveOwnedCommit(long generation) { lock (_sync) Trace("retained", "owned_source_commit", generation); }
 
     private void Trace(string outcome, string reason, long? expected = null, string? snapshot = null)
     {

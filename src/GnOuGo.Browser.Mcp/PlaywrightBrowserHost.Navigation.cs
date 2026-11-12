@@ -25,8 +25,11 @@ internal sealed class BrowserNavigationException(string code, string message, Br
 public sealed partial class PlaywrightBrowserHost
 {
     internal Func<IPage, CancellationToken, Task>? NavigationReadCheckpoint { get; init; }
+    internal Func<IPage, CancellationToken, Task>? NavigationAcquisitionCheckpoint { get; init; }
     private const int MaximumRedirects = 20;
     private NavigationRead? _navigationRead;
+    private NavigationRead? _sourceAuthorityRead;
+    private long _sourceAuthorityReadGeneration;
     private BrowserNavigationException? _navigationFailure;
     private BrowserNavigationEvidence? _lastNavigationEvidence;
     private IRequest? _pendingMainNavigation;
@@ -125,6 +128,14 @@ public sealed partial class PlaywrightBrowserHost
             previous.GetComponents(UriComponents.HttpRequestUrl, UriFormat.UriEscaped) == new Uri(initial).GetComponents(UriComponents.HttpRequestUrl, UriFormat.UriEscaped);
         var read = new NavigationRead(page, initial, timeout, ct);
         _navigationFailure = null; _lastNavigationEvidence = null; _navigationRead = read;
+        if (_sourceAuthorityAcquisition && _observedNavigation.IsSource(initial))
+            lock (_observationLock)
+            {
+                // A response admitted by this exact read may commit after its
+                // navigation helper returns, while complete acquisition continues.
+                _sourceAuthorityRead = read;
+                _sourceAuthorityReadGeneration = _observedNavigation.Generation;
+            }
         var visited = new HashSet<string>(StringComparer.Ordinal);
         try
         {

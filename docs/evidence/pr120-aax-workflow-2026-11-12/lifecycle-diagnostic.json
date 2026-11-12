@@ -1,0 +1,30 @@
+{
+  "source": "5380fea2dcbd14deb3eff8bb9bca34aea29b3419",
+  "identity": "amazon-v14-source-20261112-03",
+  "hypothesis": "Distinguish withheld publication from post-publication expiry through existing Browser diagnostics",
+  "source_record_count": 1470,
+  "scope_lifecycle": [
+    "Observed navigation scope cleared: reason=explicit_source_read, generation=1, expectedGeneration=(null), entries=0, snapshot=(null).",
+    "Observed navigation scope cleared: reason=unowned_source_commit, generation=2, expectedGeneration=(null), entries=0, snapshot=(null).",
+    "Observed navigation scope withheld: reason=source_changed_during_acquisition, generation=2, expectedGeneration=1, entries=0, snapshot=f770ddaf8cfb45d48337ad5589327b6a.",
+    "Observed navigation scope cleared: reason=failed_read, generation=3, expectedGeneration=(null), entries=0, snapshot=(null).",
+    "Observed navigation scope cleared: reason=closure, generation=4, expectedGeneration=(null), entries=0, snapshot=(null).",
+    "Observed navigation scope cleared: reason=closure, generation=5, expectedGeneration=(null), entries=0, snapshot=(null).",
+    "Observed navigation scope cleared: reason=closure, generation=6, expectedGeneration=(null), entries=0, snapshot=(null)."
+  ],
+  "source_grant_published": false,
+  "source_grant_withheld_reason": "source_changed_during_acquisition",
+  "preceding_transition": "unowned_source_commit",
+  "expected_generation": 1,
+  "actual_generation": 2,
+  "source_prerequisite_qualified": false,
+  "cold_reload_identical": true,
+  "cleanup": {
+    "closed": true,
+    "close_error": false,
+    "probe_error": true
+  },
+  "model_calls": 0,
+  "business_visits": 0,
+  "raw_evidence_sha256": "39db51bbb4387e9469c64ccd8a90d252c71a9c72fc2c88d1b799f02f88a3b600"
+}

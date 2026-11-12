@@ -66,3 +66,31 @@ publication, observable reasons and redaction. All 215 Browser tests pass in
 Release with `-warnaserror`, zero skips. Navigation and expiry rules are unchanged.
 Another fresh source-only check must identify the actual transition before any
 behavioral correction or paid full planning.
+
+## Demonstrated owned-response timing defect
+
+The [fresh lifecycle trace](lifecycle-diagnostic.json) shows the source grant was
+withheld before any dependent read: a commit during complete acquisition was
+classified `unowned_source_commit`, changing generation 1 to 2. It was not later
+expiry after a published grant. A deterministic Kestrel regression starts a second
+same-address GET while the original navigation read owns it, holds its response,
+then commits it after the navigation helper returns but before complete acquisition
+finishes. The retained source is complete, but the next exact observed entry is
+denied. The semantic red fails at that entry in 736 ms; an earlier fixture setup
+that deadlocked during readiness is retained separately and is not this semantic red.
+
+The generic correction retains the existing navigation read's exact response
+index and source generation until complete acquisition ends. A pending request
+already in that index keeps its own ownership after the helper returns; URL
+equality alone establishes nothing. An unowned new source request, including one
+to the same address, still changes generation and cannot borrow that ownership.
+The reference is cleared when acquisition finishes. No URL, route, source query,
+permissions, timeouts, retry count or business classification is changed.
+
+All **217 Browser tests** and **557 affected Amazon/delegated-review tests** pass,
+Release, `--no-restore -m:1 -warnaserror`, zero skips. The new test seam is internal
+and disabled outside controlled tests; public tools and persisted formats are
+unchanged. Private logs are `source-late-commit-semantic-red.log`,
+`source-owned-commit-final-browser.log` and `source-owned-commit-affected.log` under
+the existing artifact directory. A fresh actual-profile preflight must validate
+this correction; these controlled results do not qualify live business execution.
