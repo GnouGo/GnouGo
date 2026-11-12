@@ -13,3 +13,11 @@ This makes a collection-binding/batching correction representable. It does not r
 The [first useful checkpoint](first-checkpoint.json) took nine calls, 500.299715 seconds from harness start and EUR2.4886968204209583519928347513 in known receipt tariffs. Maximum complete HTTP was 62.936088 seconds; all nine have protocol completion and known usage. These are delivery and accepted search/cleanup facts, with no global acceptance or business execution/oracle credit.
 
 [Earlier actual source/cache prerequisites and baseline validation](../pr120-prerequisites-2026-11-13/README.md) remain separate. Full Amazon and Code stay **0/2**. No stopped session or uncertain effect is replayed and no reservation is released.
+
+## Permanent closure of the unexecuted attempt
+
+[Stopped outcome](stopped-outcome.json): 62 issued calls, 61 complete physical responses/receipts, eight checkpoints and one favorable local review. Phase counts are from the existing protected inspector. Maximum HTTP duration is 83.624033 seconds. No global accepted plan, artifact approval, execution, workbook or independent oracle. The last issued request has no recorded HTTP attempt; dispatch remains unknown.
+
+[Applied retention](retention.json) binds the cancelled, tool-free, unexecuted request to its exact journals and permanently forbids replay/continuation. Its full application hold of EUR10.965120476491291399693168486 remains outside HTTP accounting. The [post-retention audit](financial-after-retention.json) keeps all six grants, EUR1,700, all historical charges, 50 unknown HTTP attempts and every hold. Aggregated holds round conservatively upward; arithmetic headroom is EUR256.91016343925709067563350444. Invoices and global funding remain unavailable. There is no new grant, reset, Unlimited mode or release.
+
+A controlled correction on a read-only clone does not revive this session or create execution authority. Fresh qualification requires a new independently admitted identity after the repaired binding path, actual source prerequisite and shared checks are validated.
