@@ -33,10 +33,43 @@ successful child version command from the probe process's zero exit code.
 
 Audit existing funding before and after. Do not add funds, reset reservations,
 retry an uncertain invocation or clean up an unverified external task. Results
-and costs will be recorded separately; this proposal contains no live success.
+and costs are recorded separately below; preparation alone establishes no live success.
 
 Preparation is controlled first: the separate Release harness builds with zero
 warnings/errors, and the script runs once in a disposable **host-only** control,
 with exact emitted/file JSON agreement. This is not SDK evidence. The
 [preparation hashes](preparation.json), [host control](host-control.json) and
 [read-only funding audit](before-financial-audit.json) precede live admission.
+
+## Actual result
+
+The [fresh live probe](result.json) succeeds on frozen `d22d8a09`: exactly one
+`python3 probe.py`, byte-identical script, emitted/file JSON agreement, verified
+completion, encrypted task receipt reloaded and cleanup. Its provider fingerprint
+and actual receipt transport equal SDK05's; the original SDK05 record is read
+only. All three actual provider responses are HTTP 200, fully parsed JSON with
+`finish_reason=stop`, and known bounded usage. Receipt cost sum is approximately
+EUR 0.971017. Whole probe execution is 187.681 seconds. This established SDK
+capture omits individual HTTP start/end/first-output fields; no duration is
+invented from journal persistence times or response creation timestamps.
+
+**Pinned environment readiness fails.** Actual SDK subprocesses observe Node
+`22.20.0`, Python3 `3.14.4`, no `python`, and pnpm exits 1 with `MODULE_NOT_FOUND`.
+Its default `corepack/v1/pnpm/12.18.0/bin/pnpm.cjs` entry is absent on the host as
+well. No install, cache repair, alias, PATH change, network bypass or weaker oracle
+is introduced. Required Node `24.20.0`, pnpm `10.34.5`, Python `3.11.13` and
+dependency installation still need an approved offline SDK environment. The
+existing Homebrew Python 3.11.13 is outside this effective PATH.
+
+An earlier terminal challenge expired before probe creation; the exact code guard,
+zero owned probe records and absent project are checked before reopening the
+still-unadmitted identity. It creates no SDK session or paid attempt. The actual
+experiment is admitted once; it must never be replayed.
+
+The [post-probe audit](after-financial-audit.json) preserves the EUR 1,700 ceiling,
+six grants, all 50 historical unknown attempts and both sets of existing holds.
+It contains 2,098 physical attempts, known tariff cost EUR 905.1195073891625615763547057
+and EUR 296.810653373876460893060667031 arithmetic headroom. The tiny difference
+between receipt-sum and campaign-delta estimates comes from the existing
+conservative decimal fold and is retained. Provider invoices/global funding remain
+unavailable. Full Code and Amazon remain **0/2** each.

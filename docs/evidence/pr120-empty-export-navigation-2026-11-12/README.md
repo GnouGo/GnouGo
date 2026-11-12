@@ -57,6 +57,16 @@ useful checkpoint takes 10 calls, 508.030057 seconds from run start and EUR
 Global review, approval, execution, workbook and independent oracle are not reached.
 Full Amazon remains **0/2**, full Code **0/2**.
 
+A [read-only audit of the first ten calls](first-checkpoint-http.json) measures
+the retained actual request bodies, prompt/schema projections, sent reasoning and
+first nonempty output separately. All ten send `low`, complete with known usage,
+and individually take at most 51.410101 HTTP seconds; their HTTP durations total
+411.288201 seconds. The largest retained body is 120,071 UTF-8 bytes. Three calls
+request evidence before continuing. These measurements establish delivery within
+the proxy constraint, not a complete accepted workflow or a demonstrated defect
+in those legitimate retrievals. No requested contract evidence is dropped to
+force a smaller call count.
+
 The cancelled final request has an empty physical-attempt journal. Dispatch remains
 unknown; its entire application reservation, EUR
 4.9073065516311674305742787814, is kept separately. Retention preview binds the

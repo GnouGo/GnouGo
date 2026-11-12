@@ -40,7 +40,16 @@ Both the new regression and the existing preparation-boundary regression pass in
 Release with `-warnaserror`, zero skips. The [sanitized red/green evidence](regression.json)
 preserves the failed partial run and log hashes. All 6,728 non-Server tests at
 `f207d8b5` pass with 12 existing skips; this fixture-only correction changes no
-non-Server source. Complete Server coverage must be rerun on the corrected build.
+non-Server source. Complete Server coverage is checked separately on the corrected build.
+
+That [complete frozen-build run](final-local-validation.json) covers every case
+with unchanged binaries: 2,399 pass, one existing skip and five actual elapsed-time
+failures. A concurrent Release rebuild was a separate source of load; it should
+have been kept outside this time-bounded run. All five failures then pass in
+isolation on the exact same binaries, with unchanged limits/clocks. This
+establishes load sensitivity, not the rebuild as the sole cause. The failed full
+run remains failed; the five reruns are not merged into a green full manifest.
+Final-HEAD CI is reported independently.
 
 Complete final validation is reported separately. Controlled workbook execution
 does not establish real Amazon extraction, a complete accepted live plan or an
