@@ -1,0 +1,264 @@
+{
+  "run": "amazon-v14-qualification-20261112-01",
+  "session": "c0f162de57b94712862e3890d9660bf1",
+  "source": "e6445a041c4eddc6cbe7152101df9138d705f072",
+  "checkpoint": 1,
+  "accepted_tasks": [
+    "search_source",
+    "close_browser"
+  ],
+  "logical_calls_through_checkpoint": 9,
+  "physical_attempts": 9,
+  "checkpoint_observed_utc": "2026-11-12T22:58:15.976888+00:00",
+  "harness_started_utc": "2026-11-12T22:49:55.677173+00:00",
+  "seconds_from_harness_start": 500.299715,
+  "known_receipt_cost_eur": "2.4886968204209583519928347513",
+  "http": [
+    {
+      "logical_call": 1,
+      "request_utf8_bytes": 12217,
+      "request_body_sha256": "ab7aad4fdd9b1c0d4835b175d3e02c9cb6cf8cbd9cd0f1eb40ed6583ca83cf66",
+      "reasoning_effort": "low",
+      "output_allocation": 4096,
+      "attempts": [
+        {
+          "ProviderResponseId": "chatcmpl-EjXvCxbnf24DTyLh1mzqdrB6mFow0",
+          "ProtocolComplete": true,
+          "TerminationStatus": "stop",
+          "UsageKnown": true,
+          "ResponseBodyComplete": true,
+          "StartedAtUtc": "2026-11-12T22:50:23.25565+00:00",
+          "FirstByteAtUtc": "2026-11-12T22:51:08.182082+00:00",
+          "FirstOutputAtUtc": "2026-11-12T22:51:08.193962+00:00",
+          "LastByteAtUtc": "2026-11-12T22:51:26.189411+00:00",
+          "CompletedAtUtc": "2026-11-12T22:51:26.191738+00:00",
+          "DeadlineAtUtc": "2026-11-12T23:00:23.25565+00:00",
+          "ObservedStatus": 200,
+          "ResponseHttpVersion": "1.1",
+          "RetryDecision": "completed; no retry",
+          "elapsed_seconds": 62.936088,
+          "first_output_seconds": 44.938312
+        }
+      ]
+    },
+    {
+      "logical_call": 2,
+      "request_utf8_bytes": 12059,
+      "request_body_sha256": "104ca1c5729bf1c37c33bcbcebc9ad1dc2172eca7de5710ccf6f5e3c532cbe45",
+      "reasoning_effort": "low",
+      "output_allocation": 4096,
+      "attempts": [
+        {
+          "ProviderResponseId": "chatcmpl-EjXwKXv6dHcDVXzsR8E5pk2ShN4PZ",
+          "ProtocolComplete": true,
+          "TerminationStatus": "stop",
+          "UsageKnown": true,
+          "ResponseBodyComplete": true,
+          "StartedAtUtc": "2026-11-12T22:51:35.960345+00:00",
+          "FirstByteAtUtc": "2026-11-12T22:52:15.474768+00:00",
+          "FirstOutputAtUtc": "2026-11-12T22:52:29.483377+00:00",
+          "LastByteAtUtc": "2026-11-12T22:52:30.243532+00:00",
+          "CompletedAtUtc": "2026-11-12T22:52:30.243917+00:00",
+          "DeadlineAtUtc": "2026-11-12T23:01:35.960345+00:00",
+          "ObservedStatus": 200,
+          "ResponseHttpVersion": "1.1",
+          "RetryDecision": "completed; no retry",
+          "elapsed_seconds": 54.283572,
+          "first_output_seconds": 53.523032
+        }
+      ]
+    },
+    {
+      "logical_call": 3,
+      "request_utf8_bytes": 20928,
+      "request_body_sha256": "15324502bf5141ce5b464b20c0ce80fe58e0b7407c67223c9124792ba8b09aa7",
+      "reasoning_effort": "low",
+      "output_allocation": 4096,
+      "attempts": [
+        {
+          "ProviderResponseId": "chatcmpl-EjXxLNnM0vaBryw9ltcNsEIuoe2OE",
+          "ProtocolComplete": true,
+          "TerminationStatus": "stop",
+          "UsageKnown": true,
+          "ResponseBodyComplete": true,
+          "StartedAtUtc": "2026-11-12T22:52:38.527107+00:00",
+          "FirstByteAtUtc": "2026-11-12T22:53:16.011551+00:00",
+          "FirstOutputAtUtc": "2026-11-12T22:53:16.011551+00:00",
+          "LastByteAtUtc": "2026-11-12T22:53:17.465371+00:00",
+          "CompletedAtUtc": "2026-11-12T22:53:17.465697+00:00",
+          "DeadlineAtUtc": "2026-11-12T23:02:38.527107+00:00",
+          "ObservedStatus": 200,
+          "ResponseHttpVersion": "1.1",
+          "RetryDecision": "completed; no retry",
+          "elapsed_seconds": 38.93859,
+          "first_output_seconds": 37.484444
+        }
+      ]
+    },
+    {
+      "logical_call": 4,
+      "request_utf8_bytes": 22937,
+      "request_body_sha256": "cf90a348bab5935fa123e47a02339952610a6c995e0eaa6fc1dddb1348e7906d",
+      "reasoning_effort": "low",
+      "output_allocation": 4096,
+      "attempts": [
+        {
+          "ProviderResponseId": "chatcmpl-EjXy6cNNbRKFmRa9RSVy1eW7WRNSG",
+          "ProtocolComplete": true,
+          "TerminationStatus": "stop",
+          "UsageKnown": true,
+          "ResponseBodyComplete": true,
+          "StartedAtUtc": "2026-11-12T22:53:25.70152+00:00",
+          "FirstByteAtUtc": "2026-11-12T22:54:02.80732+00:00",
+          "FirstOutputAtUtc": "2026-11-12T22:54:02.818716+00:00",
+          "LastByteAtUtc": "2026-11-12T22:54:06.103817+00:00",
+          "CompletedAtUtc": "2026-11-12T22:54:06.103978+00:00",
+          "DeadlineAtUtc": "2026-11-12T23:03:25.70152+00:00",
+          "ObservedStatus": 200,
+          "ResponseHttpVersion": "1.1",
+          "RetryDecision": "completed; no retry",
+          "elapsed_seconds": 40.402458,
+          "first_output_seconds": 37.117196
+        }
+      ]
+    },
+    {
+      "logical_call": 5,
+      "request_utf8_bytes": 28014,
+      "request_body_sha256": "be1d016dbf963bda0b1c72480507a5a7fb33514c0ddb6b269e948cfeeaef2efd",
+      "reasoning_effort": "low",
+      "output_allocation": 4096,
+      "attempts": [
+        {
+          "ProviderResponseId": "chatcmpl-EjXyrqWzTXsemDq7ZFBfOc09kmN2v",
+          "ProtocolComplete": true,
+          "TerminationStatus": "stop",
+          "UsageKnown": true,
+          "ResponseBodyComplete": true,
+          "StartedAtUtc": "2026-11-12T22:54:14.600707+00:00",
+          "FirstByteAtUtc": "2026-11-12T22:54:50.906776+00:00",
+          "FirstOutputAtUtc": "2026-11-12T22:54:53.978396+00:00",
+          "LastByteAtUtc": "2026-11-12T22:54:54.137971+00:00",
+          "CompletedAtUtc": "2026-11-12T22:54:54.138126+00:00",
+          "DeadlineAtUtc": "2026-11-12T23:04:14.600707+00:00",
+          "ObservedStatus": 200,
+          "ResponseHttpVersion": "1.1",
+          "RetryDecision": "completed; no retry",
+          "elapsed_seconds": 39.537419,
+          "first_output_seconds": 39.377689
+        }
+      ]
+    },
+    {
+      "logical_call": 6,
+      "request_utf8_bytes": 39300,
+      "request_body_sha256": "be78d05e8e823d1c1389fedf08eea6d814edec5cb83f9096b88adb40a880e333",
+      "reasoning_effort": "low",
+      "output_allocation": 4096,
+      "attempts": [
+        {
+          "ProviderResponseId": "chatcmpl-EjXzdLuY56zV8wubgOHIGswa127PY",
+          "ProtocolComplete": true,
+          "TerminationStatus": "stop",
+          "UsageKnown": true,
+          "ResponseBodyComplete": true,
+          "StartedAtUtc": "2026-11-12T22:55:02.086834+00:00",
+          "FirstByteAtUtc": "2026-11-12T22:55:38.624206+00:00",
+          "FirstOutputAtUtc": "2026-11-12T22:55:40.981223+00:00",
+          "LastByteAtUtc": "2026-11-12T22:55:41.11157+00:00",
+          "CompletedAtUtc": "2026-11-12T22:55:41.111728+00:00",
+          "DeadlineAtUtc": "2026-11-12T23:05:02.086834+00:00",
+          "ObservedStatus": 200,
+          "ResponseHttpVersion": "1.1",
+          "RetryDecision": "completed; no retry",
+          "elapsed_seconds": 39.024894,
+          "first_output_seconds": 38.894389
+        }
+      ]
+    },
+    {
+      "logical_call": 7,
+      "request_utf8_bytes": 71621,
+      "request_body_sha256": "1ed0a7f2f9d1d7f28a1cc3a0b099a51ca4e0367f4f932760c38931d375773bd7",
+      "reasoning_effort": "low",
+      "output_allocation": 4096,
+      "attempts": [
+        {
+          "ProviderResponseId": "chatcmpl-EjY0SWD3q0Rx7IOmygA3WyZwbngCZ",
+          "ProtocolComplete": true,
+          "TerminationStatus": "stop",
+          "UsageKnown": true,
+          "ResponseBodyComplete": true,
+          "StartedAtUtc": "2026-11-12T22:55:49.482158+00:00",
+          "FirstByteAtUtc": "2026-11-12T22:56:30.95284+00:00",
+          "FirstOutputAtUtc": "2026-11-12T22:56:30.976755+00:00",
+          "LastByteAtUtc": "2026-11-12T22:56:32.918059+00:00",
+          "CompletedAtUtc": "2026-11-12T22:56:32.918247+00:00",
+          "DeadlineAtUtc": "2026-11-12T23:05:49.482158+00:00",
+          "ObservedStatus": 200,
+          "ResponseHttpVersion": "1.1",
+          "RetryDecision": "completed; no retry",
+          "elapsed_seconds": 43.436089,
+          "first_output_seconds": 41.494597
+        }
+      ]
+    },
+    {
+      "logical_call": 8,
+      "request_utf8_bytes": 91288,
+      "request_body_sha256": "5839d6273cd7de6f134a06f39841436fc9e09d1281036a69b929725f4c07e7ab",
+      "reasoning_effort": "low",
+      "output_allocation": 4096,
+      "attempts": [
+        {
+          "ProviderResponseId": "chatcmpl-EjY1HIMK12ctZufayBsSK5aBJ9BSl",
+          "ProtocolComplete": true,
+          "TerminationStatus": "stop",
+          "UsageKnown": true,
+          "ResponseBodyComplete": true,
+          "StartedAtUtc": "2026-11-12T22:56:41.267805+00:00",
+          "FirstByteAtUtc": "2026-11-12T22:57:21.731974+00:00",
+          "FirstOutputAtUtc": "2026-11-12T22:57:21.769229+00:00",
+          "LastByteAtUtc": "2026-11-12T22:57:22.947106+00:00",
+          "CompletedAtUtc": "2026-11-12T22:57:22.947236+00:00",
+          "DeadlineAtUtc": "2026-11-12T23:06:41.267805+00:00",
+          "ObservedStatus": 200,
+          "ResponseHttpVersion": "1.1",
+          "RetryDecision": "completed; no retry",
+          "elapsed_seconds": 41.679431,
+          "first_output_seconds": 40.501424
+        }
+      ]
+    },
+    {
+      "logical_call": 9,
+      "request_utf8_bytes": 79182,
+      "request_body_sha256": "745d62c849517bb0db204db1f7d847f856ae0925d22785b67cf45afba16383de",
+      "reasoning_effort": "low",
+      "output_allocation": 32768,
+      "attempts": [
+        {
+          "ProviderResponseId": "chatcmpl-EjY22FCWGjWDXp38tMfLUkIxHWSIX",
+          "ProtocolComplete": true,
+          "TerminationStatus": "stop",
+          "UsageKnown": true,
+          "ResponseBodyComplete": true,
+          "StartedAtUtc": "2026-11-12T22:57:29.584876+00:00",
+          "FirstByteAtUtc": "2026-11-12T22:58:08.337466+00:00",
+          "FirstOutputAtUtc": "2026-11-12T22:58:08.337466+00:00",
+          "LastByteAtUtc": "2026-11-12T22:58:15.631154+00:00",
+          "CompletedAtUtc": "2026-11-12T22:58:15.631532+00:00",
+          "DeadlineAtUtc": "2026-11-12T23:07:29.584876+00:00",
+          "ObservedStatus": 200,
+          "ResponseHttpVersion": "1.1",
+          "RetryDecision": "completed; no retry",
+          "elapsed_seconds": 46.046656,
+          "first_output_seconds": 38.75259
+        }
+      ]
+    }
+  ],
+  "global_review_accepted": false,
+  "executed": false,
+  "independent_oracle_passed": false
+}

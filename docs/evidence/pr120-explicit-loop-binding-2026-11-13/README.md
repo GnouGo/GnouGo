@@ -1,0 +1,15 @@
+# Explicit revision of an existing loop collection
+
+The [unexecuted artifact finding](artifact-finding.json) identifies an accepted `foreach` over every complete source record with `maxItems:100`, containing a model transform supplied the complete source again. The actual source prerequisite contains 1,439 records. This is a static artifact incompatibility and repeated model exposure; the workflow was never executed. Its copied rules binding also names an incorrect AAX host, which grants no permission. A favorable local business review does not resolve these findings.
+
+The [zero-model scope reproduction](scope-reproduction.json) isolates a generic correction-path gap: explicit revision accepts existing transform inputs but rejects the existing `foreach.items` value. Automatic diagnosed repair already recognizes that semantic binding. The reproduction changes no session.
+
+Commit `cd45592e` admits explicit selection of only an existing foreach task's `/tasks/{id}/items` value through the existing typed grammar. Scope, baseline, lexical visibility, compiler and review checks remain. The slot grants no task kind, body, ordering, parallelism, iteration/concurrency limit or unrelated edit. No public field, persisted format, protocol, provider, transport, output allocation or financial policy changes. The caller grants the exact path; model responses cannot create that authority.
+
+[Validation](validation.json): final unchanged fixture is red against the old validator (one expected rejection, seven negatives pass), then all eight checks pass after the correction. The positive case applies the typed patch through a cold clone, compiles and executes it, preserving ordered duplicate/nullable cells, finite limits, accounting counters and an unrelated constant. All 2,989 planning tests pass Release `-warnaserror`, zero skips. Earlier fixture preparation failures remain private; only final warning-free runs count. Shared solution checks for this change remain pending.
+
+This makes a collection-binding/batching correction representable. It does not repair or execute the Amazon artifact itself. That correction still needs a controlled real-artifact reproduction, normal technical/business validation, fresh live execution and independent oracle. The original live run stayed frozen while this fix was tested separately; it was subsequently cancelled and will never resume.
+
+The [first useful checkpoint](first-checkpoint.json) took nine calls, 500.299715 seconds from harness start and EUR2.4886968204209583519928347513 in known receipt tariffs. Maximum complete HTTP was 62.936088 seconds; all nine have protocol completion and known usage. These are delivery and accepted search/cleanup facts, with no global acceptance or business execution/oracle credit.
+
+[Earlier actual source/cache prerequisites and baseline validation](../pr120-prerequisites-2026-11-13/README.md) remain separate. Full Amazon and Code stay **0/2**. No stopped session or uncertain effect is replayed and no reservation is released.

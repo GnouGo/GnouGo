@@ -1,0 +1,35 @@
+{
+  "run": "amazon-v14-qualification-20261112-01",
+  "session": "c0f162de57b94712862e3890d9660bf1",
+  "captured_revision": 76,
+  "source": "e6445a041c4eddc6cbe7152101df9138d705f072",
+  "accepted_checkpoint": 4,
+  "checkpoint_plan_hash": "1a4ad95def7192b27ef6c61efd26b58d13f4d424ea36f77c65f50776eeac6bea",
+  "snapshot_sha256": "66385b735bc9d884c6664bb842ce87fb832657d7ba93dd65ac9977c1800428de",
+  "scope": "/root/classify_source_occurrences",
+  "kind": "foreach",
+  "max_items": 100,
+  "items": "retain_ordered_source_records.records",
+  "child_model_task": "classify_original_occurrence",
+  "child_model_inputs": [
+    "current record",
+    "current source index",
+    "complete source snapshot",
+    "source acquisition",
+    "source navigation evidence",
+    "rules"
+  ],
+  "observed_source_records": 1439,
+  "potential_model_invocations_without_early_stop": 1439,
+  "executed": false,
+  "first_cause": "Generated artifact repeats a complete-source model classification for each raw source record and retains default iteration bound below actual source cardinality.",
+  "required_correction": "Use ordinary scoped revision to batch classification once, returning only required unresolved navigable occurrences in original order with repetitions; preserve every raw record/proof and all later obligations. Do not raise limits, truncate, change permissions or alter engine.",
+  "secondary_binding_defect": {
+    "task": "classify_original_occurrence",
+    "location": "/tasks/classify_original_occurrence/inputs/rules",
+    "literal_host_in_plan": "sponsored-ads.amazon.fr/x/c/",
+    "approved_aax_host": "aax-eu-zaz.amazon.fr/x/c/",
+    "permission_created": false,
+    "correction": "Reuse the exact captured authoritative policy facts; no copied route text creates authority."
+  }
+}
