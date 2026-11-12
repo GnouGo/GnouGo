@@ -7,6 +7,8 @@ using DocumentFormat.OpenXml.Spreadsheet;
 using GnOuGo.Document.Mcp;
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Expressions;
+using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
@@ -56,7 +58,28 @@ public sealed partial class LocalProductOutcomeExecutionTests
     [InlineData("repeated-selection")]
     [InlineData("typed-repair")]
     [InlineData("typed-lookup-repair")]
-    public async Task RetainedCompositionVisitsProductsAndWritesIndependentlyCheckedExcel(string variant)
+    public Task RetainedCompositionVisitsProductsAndWritesIndependentlyCheckedExcel(string variant)
+        => ExecuteRetainedComposition(variant);
+
+    [Fact]
+    public async Task RetainedPreparationDoesNotAgeTheFreshFiniteExecutionBudget()
+    {
+        var clock = new CompositionClock(DateTimeOffset.UtcNow - TimeSpan.FromMinutes(3));
+        LLMUsageBudgetScope? captured = null;
+        await ExecuteRetainedComposition("typed-lookup-repair", executionClock: clock,
+            beforeExecution: () => clock.Advance(TimeSpan.FromMinutes(3)), observeExecutionBudget: scope => captured = scope);
+        Assert.NotNull(captured);
+        Assert.False(captured.IsTrackingOnly);
+        Assert.Equal(TimeSpan.FromMinutes(2), captured.Limits.MaxElapsed);
+        clock.Advance(TimeSpan.FromMinutes(2));
+        var expired = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => captured.EnsureAllowanceAsync(
+            new() { Model = "deterministic", MaxTokens = 1 }, null, 1, [1], "controlled.retained.execution.expired", TestContext.Current.CancellationToken));
+        Assert.Equal(ErrorCodes.LlmBudgetExceeded, expired.Code);
+        Assert.Equal("elapsed_ms", expired.Details!["limit_kind"]!.ToString());
+    }
+
+    private async Task ExecuteRetainedComposition(string variant, TimeProvider? executionClock = null,
+        Action? beforeExecution = null, Action<LLMUsageBudgetScope>? observeExecutionBudget = null)
     {
         var ct = TestContext.Current.CancellationToken;
         var typedRepair = variant is "typed-repair" or "typed-lookup-repair";
@@ -110,7 +133,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             var store = new GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore(
                 new GnOuGo.KeyVault.Core.Services.KeyVaultRecordStore(Path.Combine(root, "vault.db")), Path.Combine(root, "index.db"), Path.Combine(root, "owners"));
             var engine = new WorkflowEngine { McpClientFactory = transport, LLMClient = model, RunStore = store,
-                LLMUsageBudget = new(new() { MaxElapsed = TimeSpan.FromMinutes(2) }), HumanInputProvider = new PlanningCorpus.Human(true), LlmDefaults = new() { Model = "deterministic" } };
+                HumanInputProvider = new PlanningCorpus.Human(true), LlmDefaults = new() { Model = "deterministic" } };
             engine.Limits.TenantId = "local"; engine.Limits.RunId = "retained-" + variant;
             var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
             var catalog = await RetainedCatalog(runtime, ct);
@@ -126,6 +149,9 @@ public sealed partial class LocalProductOutcomeExecutionTests
             Assert.Empty(visits); Assert.Empty(model.Requests);
             var planningMs = timer.Elapsed.TotalMilliseconds;
             var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(session.Yaml!)); timer.Restart();
+            beforeExecution?.Invoke();
+            var executionBudget = StartFreshExecutionBudget(engine, executionClock);
+            observeExecutionBudget?.Invoke(executionBudget);
             var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject { ["query"] = "observed lamps" }, ct);
             var executionMs = timer.Elapsed.TotalMilliseconds;
             var journal = await store.ReadAsync("local", engine.Limits.RunId, ct);
@@ -146,7 +172,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 Assert.DoesNotContain(journal.Invocations.Values, i => i.StepType == "mcp.call" && i.ResolvedInput?["method"]?.ToString() == "document_write" && i.Status == "completed");
                 return;
             }
-            Assert.True(result.Success, result.Error?.Message);
+            Assert.True(result.Success, $"{result.Error?.Message}; {result.Error?.Details}");
             Assert.Equal(["observed lamps"], submitted);
             var selectedIndices = variant == "repeated-selection" ? Enumerable.Range(0, 9).Append(0).ToArray() : Enumerable.Range(0, 10).ToArray();
             var visitedProducts = visits.Where(p => p.StartsWith("/product/", StringComparison.Ordinal)).ToArray();

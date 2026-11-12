@@ -178,7 +178,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             var model = new BusinessModel(variant, site.Urls.Single());
             var store = new GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore(new GnOuGo.KeyVault.Core.Services.KeyVaultRecordStore(Path.Combine(root, "vault.db")), Path.Combine(root, "index.db"), Path.Combine(root, "owners"));
             var engine = new WorkflowEngine { McpClientFactory = transport, LLMClient = model, RunStore = store,
-                LLMUsageBudget = new(new() { MaxElapsed = TimeSpan.FromMinutes(2) }), LlmDefaults = new() { Model = "deterministic" },
+                LlmDefaults = new() { Model = "deterministic" },
                 Limits = new() { TenantId = "local", RunId = "business-" + variant } };
             var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
             var catalog = await RetainedCatalog(runtime, ct);
@@ -193,6 +193,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             Assert.Contains("expression_contracts:", session.Yaml!); Assert.DoesNotContain("checkedMapping(", session.Yaml!);
             Assert.Equal(0, session.ModelCalls); Assert.Null(session.ApprovedHash); Assert.Empty(visits); Assert.Empty(model.Requests);
             var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(session.Yaml!)); var timer = Stopwatch.StartNew();
+            StartFreshExecutionBudget(engine);
             var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject { ["query"] = "observed lamps" }, ct);
             var journal = (await store.ReadAsync("local", engine.Limits.RunId, ct))!;
             Assert.True(journal.FinalizationCompleted, $"{result.Error?.Code}: {result.Error?.Message}; {result.Error?.Details}");

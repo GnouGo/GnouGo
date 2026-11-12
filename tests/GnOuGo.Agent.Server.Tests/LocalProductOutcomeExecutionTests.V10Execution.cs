@@ -47,6 +47,15 @@ public sealed partial class LocalProductOutcomeExecutionTests
         internal void Advance(TimeSpan amount) => now += amount;
     }
 
+    private static LLMUsageBudgetScope StartFreshExecutionBudget(WorkflowEngine engine, TimeProvider? clock = null)
+    {
+        // These fixtures prepare catalogues and plans offline without inference.
+        // Create this new run's unchanged finite allowance only at execution;
+        // an existing scope or retained usage must never be replaced.
+        Assert.Null(engine.LLMUsageBudget);
+        return engine.LLMUsageBudget = new(new() { MaxElapsed = TimeSpan.FromMinutes(2) }, timeProvider: clock);
+    }
+
     [Theory]
     [InlineData("complete")]
     [InlineData("repeated")]
@@ -161,12 +170,8 @@ public sealed partial class LocalProductOutcomeExecutionTests
             }
             else
             {
-                // Offline catalogue/plan preparation above performs no inference.
-                // Start this fresh run's unchanged finite execution allowance here;
-                // never replace a scope that has already existed or incurred usage.
-                Assert.Null(engine.LLMUsageBudget);
-                engine.LLMUsageBudget = new(new() { MaxElapsed = TimeSpan.FromMinutes(2) }, timeProvider: executionClock);
-                observeExecutionBudget?.Invoke(engine.LLMUsageBudget);
+                var executionBudget = StartFreshExecutionBudget(engine, executionClock);
+                observeExecutionBudget?.Invoke(executionBudget);
                 result = await engine.ExecuteAsync(workflow.Workflows[workflow.Entrypoint!], inputs, ct);
             }
             allocated = GC.GetTotalAllocatedBytes() - allocated;

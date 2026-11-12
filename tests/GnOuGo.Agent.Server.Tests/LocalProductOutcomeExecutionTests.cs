@@ -104,7 +104,7 @@ public sealed partial class LocalProductOutcomeExecutionTests(ITestOutputHelper 
             var model = new ProductTransformationFixture(variant) { ReadMethod = "browser_get_content", WriteMethod = "document_write", CloseMethod = "browser_close" };
             var extractionModel = new ExtractModel(model);
             var compactModel = new CompactModel(new PagedModel(model, compact: true, flattened: flattened, lookup: lookup));
-            var engine = new WorkflowEngine { LLMUsageBudget = new(new() { MaxElapsed = TimeSpan.FromMinutes(2) }), McpClientFactory = informationalNotice
+            var engine = new WorkflowEngine { McpClientFactory = informationalNotice
                 ? new LiveWorkflowEvaluation.ObservedMcp(transport, e => { observed.Add(e); return Task.CompletedTask; }) : transport,
                 LLMClient = compact ? compactModel : variant.StartsWith("pages", StringComparison.Ordinal) ? new PagedModel(model) : variant is "extract" or "observation" or "each" or "each-parallel" ? extractionModel : model, HumanInputProvider = new PlanningCorpus.Human(true), LlmDefaults = new() { Model = "deterministic" } };
             if (compact)
@@ -267,6 +267,7 @@ public sealed partial class LocalProductOutcomeExecutionTests(ITestOutputHelper 
             Assert.True(session.Status == PlanningStatus.FinalReview, string.Join("; ", session.Diagnostics));
             Assert.Equal(0, session.ModelCalls); Assert.Null(session.ApprovedHash);
             var doc = new WorkflowCompiler().Compile(WorkflowParser.Parse(session.Yaml!)); timer.Restart();
+            StartFreshExecutionBudget(engine);
             var result = await engine.ExecuteAsync(doc.Workflows[doc.Entrypoint!], new JsonObject { ["search"] = site.Urls.Single() + "/search" }, ct);
             var executionMs = timer.Elapsed.TotalMilliseconds;
             output.WriteLine($"LOCAL {variant}: success={result.Success}, calls={session.ModelCalls}, discovery={reads}, repairs={session.ReplanAttempts}, executionAdapterCalls={model.Calls.Count}, compilationMs={compilationMs:F1}, executionMs={executionMs:F1}; error={result.Error?.Code} {result.Error?.Message}");

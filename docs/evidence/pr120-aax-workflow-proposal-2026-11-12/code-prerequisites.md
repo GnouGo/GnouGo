@@ -25,6 +25,13 @@ The observed managed Python installations contain 3.10.18, 3.11.14 and 3.12.11,
 not the required 3.11.13. No aliases, fake version outputs, global installations,
 network workaround or weaker oracle is introduced.
 
+A subsequent read-only check finds real Python `3.11.13` at
+`/opt/homebrew/opt/python@3.11/bin/python3.11` and its existing
+`libexec/bin/python` executable. This narrows the missing-toolchain finding:
+Python is installed outside the effective MCP PATH; Node `24.20.0` and pnpm
+`10.34.5` are not found in the standard installations/caches checked. No PATH or
+saved profile is changed, and these host observations still are not SDK receipts.
+
 Before funding another complete Code run, identify/provision an approved offline
 toolchain and dependency environment accessible within the existing confinement.
 Any required environment/configuration amendment must be explicit and immutable;
