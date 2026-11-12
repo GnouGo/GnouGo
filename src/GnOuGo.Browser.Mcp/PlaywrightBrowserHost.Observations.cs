@@ -92,6 +92,7 @@ public sealed partial class PlaywrightBrowserHost
     {
         lock (_observationLock)
         {
+            if (reason == "closure") _observedNavigation.Clear();
             if (_observation is { } snapshot) { RememberInvalidation(snapshot.Stamp, reason); _retiredObservationHandles.Add(snapshot.Handle); }
             if (_capturingObservation is { } capture) RememberInvalidation(capture, reason);
             _observation = null;
@@ -193,7 +194,7 @@ public sealed partial class PlaywrightBrowserHost
     }
 
     private async Task<BrowserContentResult> AcquireCompleteObservationAsync(string? url, string waitUntil, int? timeoutMs,
-        string? selector, int? characters, int? records, CancellationToken ct)
+        string? selector, int? characters, int? records, CancellationToken ct, long navigationAuthorityGeneration)
     {
         var invalidations = new List<BrowserSnapshotInvalidation>();
         var attempt = 0;
@@ -294,7 +295,7 @@ public sealed partial class PlaywrightBrowserHost
         var token = deadline.Token;
         try
         {
-            var target = url is null ? null : BrowserNavigationPolicy.ValidateNavigationTarget(url, _settings);
+            var target = url is null ? null : _observedNavigation.Validate(url, _settings, true);
             page = target is null ? GetRequiredPage() : await EnsurePageAsync().WaitAsync(token);
             page.Request += Requested;
             page.Response += Responded;
@@ -318,7 +319,7 @@ public sealed partial class PlaywrightBrowserHost
                     SetPhase("readiness");
                     await readiness.WaitForLoadStateAsync(ParseLoadState(waitUntil), Remaining(), token);
                     EnsureCurrent(stamp);
-                    BrowserNavigationPolicy.ValidateNavigationTarget(page.Url, _settings);
+                    _observedNavigation.Validate(page.Url, _settings, true);
                     // Complete acquisition must not silently broaden a requested selector.
                     var requested = string.IsNullOrWhiteSpace(selector) ? "body" : selector.Trim();
                     SetPhase("selector");
@@ -363,7 +364,7 @@ public sealed partial class PlaywrightBrowserHost
                         if (!reload)
                             throw new BrowserObservationException("OBSERVATION_EMPTY", "The document is empty or unusable. No business absence or blocker can be established from this acquisition.", Acquisition());
                         reloaded = true;
-                        BrowserNavigationPolicy.ValidateNavigationTarget(page.Url, _settings);
+                        _observedNavigation.Validate(page.Url, _settings, true);
                         SetPhase("reload");
                         await NavigateReadAsync(page, page.Url, ParseWaitUntil(waitUntil), Remaining(), token).WaitAsync(token);
                         continue;
@@ -390,6 +391,7 @@ public sealed partial class PlaywrightBrowserHost
                         snapshot.Complete = true;
                         foreach (var pageResult in snapshot.Pages) snapshot.Deliver(pageResult);
                         published = true;
+                        _observedNavigation.Publish(result, selector, navigationAuthorityGeneration);
                         Activity.Current?.SetTag("browser.snapshot.attempts", attempt);
                         Activity.Current?.SetTag("browser.snapshot.id", snapshot.Id);
                         Activity.Current?.SetTag("browser.snapshot.pages", pages.Length);

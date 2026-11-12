@@ -39,7 +39,7 @@ public static class BrowserNavigationPolicy
         return uri;
     }
 
-    private static bool Matches(string url, string pattern)
+    internal static bool Matches(string url, string pattern)
     {
         try
         {

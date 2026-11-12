@@ -9,6 +9,8 @@ namespace GnOuGo.Browser.Mcp;
 public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
 {
     private readonly BrowserServerSettings _settings;
+    private readonly BrowserObservedNavigationScope _observedNavigation;
+    private bool _sourceAuthorityAcquisition;
     private readonly ILogger<PlaywrightBrowserHost> _logger;
     private readonly string[] _observationAncestorAttributes;
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -24,6 +26,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
         ILogger<PlaywrightBrowserHost> logger)
     {
         _settings = settings.Value;
+        _observedNavigation = new(_settings);
         _logger = logger;
         var names = _settings.ObservationAncestorAttributes;
         if (names is null || names.Count > 8 || names.Any(name => string.IsNullOrEmpty(name) || name.Length > 64 ||
@@ -61,7 +64,10 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
         await _gate.WaitAsync(cancellationToken);
         try
         {
+            _observedNavigation.BeginRead(url);
+            var navigationAuthorityGeneration = _observedNavigation.Generation;
             var contentFormat = NormalizeFormat(format);
+            _sourceAuthorityAcquisition = contentFormat == "observation_complete" && _observedNavigation.IsSource(url);
             if (cursor is not null)
             {
                 if (contentFormat is not ("observation" or "observation_pages") || url is not null || selector is not null)
@@ -69,7 +75,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
                 return ContinueObservation(cursor, maxCharacters, maxRecords, cancellationToken);
             }
             if (contentFormat == "observation_complete")
-                return await AcquireCompleteObservationAsync(url, waitUntil, timeoutMs, selector, maxCharacters, maxRecords, cancellationToken);
+                return await AcquireCompleteObservationAsync(url, waitUntil, timeoutMs, selector, maxCharacters, maxRecords, cancellationToken, navigationAuthorityGeneration);
             var limit = maxCharacters.GetValueOrDefault(_settings.MaxContentCharacters);
             var selectorTimeout = NormalizeTimeout(timeoutMs, _settings.DefaultTimeoutMs);
             if (limit <= 0)
@@ -84,7 +90,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
             else
             {
                 InvalidateObservation("navigation");
-                var targetUri = BrowserNavigationPolicy.ValidateNavigationTarget(url, _settings);
+                var targetUri = _observedNavigation.Validate(url, _settings, true);
                 page = await EnsurePageAsync();
                 IResponse? response = null;
                 try
@@ -144,8 +150,14 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
                 Truncated: truncated,
                 MaxCharacters: limit) { NavigationEvidence = NavigationEvidenceFor(page) };
         }
+        catch
+        {
+            _observedNavigation.Clear();
+            throw;
+        }
         finally
         {
+            _sourceAuthorityAcquisition = false;
             await ReleaseBrowserGateAsync();
         }
     }
@@ -594,6 +606,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
             if (_disposed)
                 return;
 
+            InvalidateObservation("closure");
             await HoldOpenIfConfiguredAsync(CancellationToken.None);
 
             if (_settings.KeepBrowserOpen)
@@ -676,6 +689,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
                 "webkit" => await _playwright.Webkit.LaunchAsync(launchOptions),
                 _ => await _playwright.Chromium.LaunchAsync(launchOptions)
             };
+            _browser.Disconnected += (_, _) => InvalidateObservation("closure");
 
             _logger.LogInformation(
                 "Playwright browser launched with engine {BrowserName} (headless={Headless}, slowMoMs={SlowMoMs}, holdOpenMs={HoldOpenMs}, keepBrowserOpen={KeepBrowserOpen})",
@@ -735,6 +749,8 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
             if (page == _page && frame == page.MainFrame)
                 lock (_observationLock)
                 {
+                    if (_navigationRead is null && !(_sourceAuthorityAcquisition && _pendingMainNavigation is null))
+                        _observedNavigation.BeginRead(frame.Url);
                     if (_pendingMainNavigation is null && _committedMainNavigation is not null && _lastNavigationEvidence is { } document)
                     {
                         _lastNavigationEvidence = document with { DocumentUrl = frame.Url };

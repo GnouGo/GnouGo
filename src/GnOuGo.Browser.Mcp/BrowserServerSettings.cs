@@ -21,4 +21,6 @@ public sealed class BrowserServerSettings
     public bool KeepBrowserOpen { get; set; }
     public List<string> AllowedHosts { get; set; } = [];
     public List<string> AllowedNavigationUrlPatterns { get; set; } = [];
+    public List<string> ObservedNavigationSourceUrlPatterns { get; set; } = [];
+    public List<string> ObservedNavigationEntryUrlPatterns { get; set; } = [];
 }

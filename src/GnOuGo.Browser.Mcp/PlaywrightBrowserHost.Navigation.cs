@@ -62,7 +62,9 @@ public sealed partial class PlaywrightBrowserHost
         if (!owned && !HasNavigationPolicy) { await route.ContinueAsync(); return; }
         try
         {
-            try { BrowserNavigationPolicy.ValidateNavigationTarget(request.Url, _settings); }
+            if (request.Frame == (read?.Page ?? _page)?.MainFrame && (!owned || !_observedNavigation.IsSource(read?.RequestedUrl)))
+                _observedNavigation.BeginRead(request.Url);
+            try { _observedNavigation.Validate(request.Url, _settings, owned); }
             catch (InvalidOperationException)
             {
                 throw new BrowserNavigationException("NAVIGATION_POLICY_DENIED", "Navigation is outside the configured browser policy.",
@@ -85,7 +87,7 @@ public sealed partial class PlaywrightBrowserHost
                     var evidence = owned ? read!.Evidence() : new BrowserNavigationEvidence(request.Url, null, [hop], false);
                     if (!Uri.TryCreate(new Uri(request.Url), location, out var next))
                         throw new BrowserNavigationException("NAVIGATION_REDIRECT_INVALID", "The observed redirect has no valid destination.", evidence);
-                    try { BrowserNavigationPolicy.ValidateNavigationTarget(next.OriginalString, _settings); }
+                    try { _observedNavigation.Validate(next.OriginalString, _settings, owned); }
                     catch (InvalidOperationException)
                     { throw new BrowserNavigationException("NAVIGATION_POLICY_DENIED", "The observed redirect destination is outside the configured browser policy.", evidence); }
                     if (!owned)
@@ -106,8 +108,11 @@ public sealed partial class PlaywrightBrowserHost
             // A denied child-frame navigation must stay denied without replacing
             // the main document's independent acquisition outcome.
             if (ReferenceEquals(_navigationRead, read) && request.Frame == (read?.Page ?? _page)?.MainFrame)
+            {
+                _observedNavigation.Clear();
                 _navigationFailure = error as BrowserNavigationException ?? new("NAVIGATION_FAILED",
                     "Browser navigation did not complete; no final destination is established.", read?.Evidence() ?? new(request.Url, null, [], false));
+            }
             try { await route.AbortAsync("aborted"); }
             catch (PlaywrightException) { /* The caller may already have closed the cancelled page. */ }
         }
@@ -115,7 +120,7 @@ public sealed partial class PlaywrightBrowserHost
 
     private async Task<IResponse?> NavigateReadAsync(IPage page, string url, WaitUntilState waitUntil, float timeout, CancellationToken ct)
     {
-        var initial = BrowserNavigationPolicy.ValidateNavigationTarget(url, _settings).AbsoluteUri;
+        var initial = _observedNavigation.Validate(url, _settings, true).AbsoluteUri;
         var sameDocument = new Uri(initial).Fragment.Length > 0 && Uri.TryCreate(page.Url, UriKind.Absolute, out var previous) &&
             previous.GetComponents(UriComponents.HttpRequestUrl, UriFormat.UriEscaped) == new Uri(initial).GetComponents(UriComponents.HttpRequestUrl, UriFormat.UriEscaped);
         var read = new NavigationRead(page, initial, timeout, ct);
@@ -148,7 +153,7 @@ public sealed partial class PlaywrightBrowserHost
                 {
                     if (_committedMainNavigation != response.Request)
                         throw new BrowserNavigationException("NAVIGATION_EVIDENCE_INCOMPLETE", "The observed response no longer owns the current document.", read.Evidence());
-                    BrowserNavigationPolicy.ValidateNavigationTarget(page.Url, _settings);
+                    _observedNavigation.Validate(page.Url, _settings, true);
                     if (page.Url != response.Url && (_lastNavigationEvidence?.FinalUrl != response.Url || _lastNavigationEvidence.DocumentUrl != page.Url))
                         throw new BrowserNavigationException("NAVIGATION_EVIDENCE_INCOMPLETE", "The document address cannot be bound to its committed response.", read.Evidence());
                     _lastNavigationEvidence = CurrentReadEvidence(read, response) with { DocumentUrl = page.Url == response.Url ? null : page.Url };
