@@ -1,0 +1,64 @@
+{
+  "source_checks": [
+    {
+      "identity": "amazon-v14-source-20261112-01",
+      "source": "e4a3288e138c09b2761cadebfd0ae19561287c6e",
+      "source_record_count": 1448,
+      "source_pages": 62,
+      "acquisition_attempts": 3,
+      "capture_navigation_invalidations": 2,
+      "document_address_changed": true,
+      "content_calls": 6,
+      "successful_resolution_reads": 4,
+      "first_failure_code": "INVALID_INPUT",
+      "first_failure_host": "aax-eu-zaz.amazon.fr",
+      "first_failure": "Observed AAX entry lacks current owning-Browser entry authority",
+      "source_prerequisite_qualified": false,
+      "warm_cold_equal": true,
+      "cleanup": {
+        "closed": true,
+        "close_error": false,
+        "probe_error": true
+      },
+      "model_calls": 0,
+      "business_visits_performed": 0,
+      "paid_planning": false,
+      "evidence_sha256": "343b22f28380fa4998627be40ed12154909f04ac1b6c14344c82e58e1ed9e387"
+    },
+    {
+      "identity": "amazon-v14-source-20261112-02",
+      "source": "e4a3288e138c09b2761cadebfd0ae19561287c6e",
+      "source_record_count": 1459,
+      "source_pages": 66,
+      "acquisition_attempts": 2,
+      "capture_navigation_invalidations": 1,
+      "document_address_changed": false,
+      "content_calls": 6,
+      "successful_resolution_reads": 4,
+      "first_failure_code": "INVALID_INPUT",
+      "first_failure_host": "aax-eu-zaz.amazon.fr",
+      "first_failure": "Observed AAX entry lacks current owning-Browser entry authority",
+      "source_prerequisite_qualified": false,
+      "warm_cold_equal": true,
+      "cleanup": {
+        "closed": true,
+        "close_error": false,
+        "probe_error": true
+      },
+      "model_calls": 0,
+      "business_visits_performed": 0,
+      "paid_planning": false,
+      "evidence_sha256": "4737102b756987c3bf601f7a640da4f9ccca44f8421580984724d7fc0064f0f9"
+    }
+  ],
+  "controlled_retained_snapshot_publish": {
+    "published_from_retained_source": true,
+    "failure_type": null,
+    "exact_literal_valid": true,
+    "source_records": 1448,
+    "navigation_calls": 0,
+    "model_calls": 0
+  },
+  "cause_boundary": "Retained source content and exact literal URL pass standalone publication/validation. Live generation expiry versus post-publication expiry is not distinguished by prior logs. No permission rule changed.",
+  "next_hypothesis": "Use existing Browser logger and activity to distinguish missing publication due to stale source generation, unowned source requests/commits/history and post-publication failures."
+}

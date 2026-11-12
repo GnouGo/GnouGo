@@ -92,7 +92,7 @@ public sealed partial class PlaywrightBrowserHost
     {
         lock (_observationLock)
         {
-            if (reason == "closure") _observedNavigation.Clear();
+            if (reason == "closure") _observedNavigation.Clear("closure");
             if (_observation is { } snapshot) { RememberInvalidation(snapshot.Stamp, reason); _retiredObservationHandles.Add(snapshot.Handle); }
             if (_capturingObservation is { } capture) RememberInvalidation(capture, reason);
             _observation = null;

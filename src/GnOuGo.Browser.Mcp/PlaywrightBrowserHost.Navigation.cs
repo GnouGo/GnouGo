@@ -63,7 +63,7 @@ public sealed partial class PlaywrightBrowserHost
         try
         {
             if (request.Frame == (read?.Page ?? _page)?.MainFrame && (!owned || !_observedNavigation.IsSource(read?.RequestedUrl)))
-                _observedNavigation.BeginRead(request.Url);
+                _observedNavigation.BeginRead(request.Url, "unowned_source_request");
             try { _observedNavigation.Validate(request.Url, _settings, owned); }
             catch (InvalidOperationException)
             {
@@ -109,7 +109,7 @@ public sealed partial class PlaywrightBrowserHost
             // the main document's independent acquisition outcome.
             if (ReferenceEquals(_navigationRead, read) && request.Frame == (read?.Page ?? _page)?.MainFrame)
             {
-                _observedNavigation.Clear();
+                _observedNavigation.Clear("navigation_failure");
                 _navigationFailure = error as BrowserNavigationException ?? new("NAVIGATION_FAILED",
                     "Browser navigation did not complete; no final destination is established.", read?.Evidence() ?? new(request.Url, null, [], false));
             }

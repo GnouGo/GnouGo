@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using GnOuGo.Browser.Mcp;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Xunit;
 
@@ -96,7 +97,8 @@ public sealed class BrowserObservedNavigationTests
     public async Task NewSearchDuringPublicationCannotRestoreTheOldAuthority()
     {
         await using var site = await Site.Start(); var injected = false;
-        await using var host = new PlaywrightBrowserHost(Options.Create(site.Settings()), NullLogger<PlaywrightBrowserHost>.Instance)
+        var diagnostics = new ScopeLogger();
+        await using var host = new PlaywrightBrowserHost(Options.Create(site.Settings()), diagnostics)
         {
             ObservationCheckpoint = async (page, phase, token) =>
             {
@@ -110,14 +112,30 @@ public sealed class BrowserObservedNavigationTests
         await Assert.ThrowsAnyAsync<InvalidOperationException>(() => Read(host, site.Entry));
         await Assert.ThrowsAnyAsync<InvalidOperationException>(() => Read(host, site.Origin + "/ad/two?opaque=%2F"));
         Assert.Equal(0, site.EntryHits);
+        Assert.Contains(diagnostics.Messages, message => message.Contains("source_changed_during_acquisition", StringComparison.Ordinal));
+        Assert.Contains(diagnostics.Messages, message => message.Contains("unowned_source_request", StringComparison.Ordinal));
         await Read(host, site.Origin + "/search?q=2");
         Assert.True((await Read(host, site.Origin + "/ad/two?opaque=%2F")).Success);
+        Assert.Contains(diagnostics.Messages, message => message.Contains("complete_owned_source", StringComparison.Ordinal));
+        Assert.DoesNotContain(diagnostics.Messages, message => message.Contains(site.Origin, StringComparison.Ordinal) || message.Contains("opaque=", StringComparison.Ordinal));
     }
 
     private static PlaywrightBrowserHost Host(BrowserServerSettings settings)
         => new(Options.Create(settings), NullLogger<PlaywrightBrowserHost>.Instance);
     private static Task<BrowserContentResult> Read(PlaywrightBrowserHost host, string url, string format = "observation_complete", string? selector = null)
         => host.GetContentAsync(url, "load", 30000, selector, format, 8000, false, TestContext.Current.CancellationToken);
+
+    private sealed class ScopeLogger : ILogger<PlaywrightBrowserHost>
+    {
+        internal System.Collections.Concurrent.ConcurrentBag<string> Messages { get; } = [];
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            var text = formatter(state, exception);
+            if (text.StartsWith("Observed navigation scope ", StringComparison.Ordinal)) Messages.Add(text);
+        }
+    }
 
     private sealed class Site : IAsyncDisposable
     {

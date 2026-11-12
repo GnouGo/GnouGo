@@ -42,3 +42,27 @@ The failed intermediate run is retained as failed; it is not a qualification pas
 Actual-profile source readiness and cold verification must pass before a fresh
 paid Amazon plan. Controlled fixtures establish neither a live accepted plan nor
 real business execution or independent qualification. Amazon and Code remain 0/2.
+
+## Actual-profile source investigation
+
+Two [fresh source-only checks](source-checks.json) on frozen `e4a3288e` retain every
+record, complete ordered reads, cleanup and identical cold verification. Each
+succeeds on four legacy source resolutions and then fails at the first AAX read:
+the owning Browser has no current exact-entry grant. No model or business visit
+is dispatched. The first search changes only query spelling (`%20` to `+`) and
+has two capture navigation invalidations. A second independent check explicitly
+GETs the exact observed document address, without rewriting/normalizing it. Its
+address remains unchanged but a capture navigation invalidation and the same
+refusal remain. The address-spelling hypothesis therefore does not resolve it.
+
+The retained complete snapshot passes a standalone production-scope publication
+and literal validation test, with no navigation. This separates valid retained
+content from actual live authority. Prior logs cannot distinguish stale-generation
+publication from later source expiry. Add only useful lifecycle diagnostics to
+the existing Browser logger/activity: reason, generation, expected generation,
+entry count and opaque capture ID, never URLs, patterns or record contents.
+The controlled race regression verifies withheld authority, a later valid fresh
+publication, observable reasons and redaction. All 215 Browser tests pass in
+Release with `-warnaserror`, zero skips. Navigation and expiry rules are unchanged.
+Another fresh source-only check must identify the actual transition before any
+behavioral correction or paid full planning.

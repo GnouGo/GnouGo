@@ -26,7 +26,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
         ILogger<PlaywrightBrowserHost> logger)
     {
         _settings = settings.Value;
-        _observedNavigation = new(_settings);
+        _observedNavigation = new(_settings, logger);
         _logger = logger;
         var names = _settings.ObservationAncestorAttributes;
         if (names is null || names.Count > 8 || names.Any(name => string.IsNullOrEmpty(name) || name.Length > 64 ||
@@ -750,7 +750,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
                 lock (_observationLock)
                 {
                     if (_navigationRead is null && !(_sourceAuthorityAcquisition && _pendingMainNavigation is null))
-                        _observedNavigation.BeginRead(frame.Url);
+                        _observedNavigation.BeginRead(frame.Url, _pendingMainNavigation is null ? "unowned_source_history" : "unowned_source_commit");
                     if (_pendingMainNavigation is null && _committedMainNavigation is not null && _lastNavigationEvidence is { } document)
                     {
                         _lastNavigationEvidence = document with { DocumentUrl = frame.Url };

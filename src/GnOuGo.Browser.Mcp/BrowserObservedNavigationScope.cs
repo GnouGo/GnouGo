@@ -1,4 +1,6 @@
 using System.Text.RegularExpressions;
+using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 
 namespace GnOuGo.Browser.Mcp;
 
@@ -8,11 +10,13 @@ internal sealed class BrowserObservedNavigationScope
 {
     private readonly object _sync = new();
     private readonly string[] _sources, _patterns;
+    private readonly ILogger _logger;
     private HashSet<string> _entries = new(StringComparer.Ordinal);
     private long _generation;
 
-    internal BrowserObservedNavigationScope(BrowserServerSettings settings)
+    internal BrowserObservedNavigationScope(BrowserServerSettings settings, ILogger logger)
     {
+        _logger = logger;
         _sources = settings.ObservedNavigationSourceUrlPatterns?.ToArray() ?? throw InvalidConfiguration();
         _patterns = settings.ObservedNavigationEntryUrlPatterns?.ToArray() ?? throw InvalidConfiguration();
         if ((_sources.Length == 0) != (_patterns.Length == 0)) throw InvalidConfiguration();
@@ -32,8 +36,22 @@ internal sealed class BrowserObservedNavigationScope
         "ObservedNavigationSourceUrlPatterns and ObservedNavigationEntryUrlPatterns must both be disabled or contain valid patterns.");
     internal bool IsSource(string? url) => url is not null && _sources.Any(p => BrowserNavigationPolicy.Matches(url, p));
     internal long Generation { get { lock (_sync) return _generation; } }
-    internal void Clear() { lock (_sync) { _entries.Clear(); _generation++; } }
-    internal void BeginRead(string? url) { if (IsSource(url)) Clear(); }
+    internal void Clear(string reason = "failed_read")
+    { lock (_sync) { _entries.Clear(); _generation++; Trace("cleared", reason); } }
+    internal void BeginRead(string? url, string reason = "explicit_source_read") { if (IsSource(url)) Clear(reason); }
+
+    private void Trace(string outcome, string reason, long? expected = null, string? snapshot = null)
+    {
+        if (_sources.Length == 0) return;
+        _logger.LogInformation("Observed navigation scope {Outcome}: reason={Reason}, generation={Generation}, expectedGeneration={ExpectedGeneration}, entries={EntryCount}, snapshot={SnapshotId}.",
+            outcome, reason, _generation, expected, _entries.Count, snapshot);
+        Activity.Current?.AddEvent(new ActivityEvent("browser.observed_navigation." + outcome, tags: new ActivityTagsCollection
+        {
+            ["browser.observed_navigation.reason"] = reason, ["browser.observed_navigation.generation"] = _generation,
+            ["browser.observed_navigation.expected_generation"] = expected, ["browser.observed_navigation.entries"] = _entries.Count,
+            ["browser.observed_navigation.snapshot_id"] = snapshot
+        }));
+    }
 
     internal Uri Validate(string url, BrowserServerSettings settings, bool explicitContentRead)
     {
@@ -63,7 +81,7 @@ internal sealed class BrowserObservedNavigationScope
             result.Acquisition?.Navigation?.Url != result.Url ||
             snapshot.RecordCount != snapshot.Pages.Sum(p => p.Records.Count) ||
             snapshot.Pages.Any(p => p.Id != snapshot.Id || p.CaptureTruncated || p.NextCursor is not null))
-            return;
+        { lock (_sync) Trace("withheld", "source_evidence_incomplete", generation, snapshot?.Id); return; }
         var entries = new HashSet<string>(StringComparer.Ordinal);
         foreach (var record in snapshot.Pages.SelectMany(p => p.Records))
         {
@@ -77,6 +95,10 @@ internal sealed class BrowserObservedNavigationScope
             catch (Exception error) when (error is InvalidOperationException or ArgumentException) { }
         }
         lock (_sync)
-            if (_generation == generation) _entries = entries;
+        {
+            if (_generation != generation) { Trace("withheld", "source_changed_during_acquisition", generation, snapshot.Id); return; }
+            _entries = entries;
+            Trace("published", "complete_owned_source", generation, snapshot.Id);
+        }
     }
 }

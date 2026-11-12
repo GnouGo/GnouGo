@@ -91,6 +91,12 @@ Very short MCP client examples:
   Canonically escaped literal patterns use an equivalent ordinal string comparison, so long exact URLs do not require a regex automaton. Other patterns retain the bounded nonbacktracking engine. This changes no URL spelling, host restriction, redirect rule or permission.
 - `Browser:ObservedNavigationSourceUrlPatterns` / `ObservedNavigationEntryUrlPatterns`: optional trusted pattern lists, disabled by default and validated together. A successful complete whole-document observation of a matching source may authorize explicit content reads of exact, fragment-free observed link hrefs matching an entry pattern, including a different host. Every redirect still requires a base-policy route or exact current observed entry. Interaction tools gain no additional authority. This per-Browser scope expires on close/disconnect, a new matching source navigation or failed read; another Browser cannot borrow it. Partial, selector-scoped and failed observations grant nothing. The original records, base allowlists and URL spelling remain unchanged. A configuration change requires the host's ordinary permission review; model arguments cannot enable this capability.
 - `Browser:DefaultTimeoutMs` / `NavigationTimeoutMs`: Playwright timeouts
+
+Observed-navigation lifecycle events use the existing logger and activity. They
+distinguish source publication, incomplete evidence, a changed source generation,
+unowned source requests/commits/history, failed reads and closure. Diagnostics
+carry reason codes, generation numbers, counts and opaque snapshot IDs; they
+contain no entry URLs, patterns or page content and grant no authority.
 - `Browser:MaxContentCharacters`: max size returned by `browser_get_content`
 - `Browser:SlowMoMs`: slows down each Playwright action for visual debugging
 - `Browser:HoldOpenMs`: keeps the window open for a few milliseconds before closing
