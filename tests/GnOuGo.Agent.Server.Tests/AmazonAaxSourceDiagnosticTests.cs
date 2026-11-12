@@ -143,7 +143,7 @@ public sealed class AmazonAaxSourceDiagnosticTests
         return source;
     }
 
-    private static JsonObject Resolution(string href, string snapshot)
+    internal static JsonObject Resolution(string href, string snapshot)
     {
         var read = AmazonProductContextOracleTests.Events()[1]; var result = read["result"]!;
         read["arguments"]!["url"] = href; result["navigationEvidence"]!["requestedUrl"] = href;

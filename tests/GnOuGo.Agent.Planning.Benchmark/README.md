@@ -875,6 +875,13 @@ close or new search, and requires distinct complete captures. This guard has no
 workflow policy flag, business-oracle dispatch or paid-plan activation. See the
 [approved scope and controlled validation](../../docs/evidence/pr120-amazon-unclassified-context-2026-11-11/source-diagnostic-activation.md).
 
+The later real-MCP source diagnostic completes every original AAX occurrence's
+own guarded redirect read, including repetitions, without activating a workflow.
+An internal offline relationship prototype and separately proposed V10/V14
+amendment remain inactive; see the [source evidence, negative regressions and
+required authority](../../docs/evidence/pr120-aax-workflow-proposal-2026-11-12/proposal.md).
+No configured host/API or policy registry entry enables the proposal.
+
 Fresh Amazon qualification can select `--amazon-source-coverage` with the existing
 `--amazon-scope-approval user-amazon-inherited-store-list-20261111`. Its V9 policy /
 V13 business oracle preserve the exact V8 routes and exceptions, adding a strict

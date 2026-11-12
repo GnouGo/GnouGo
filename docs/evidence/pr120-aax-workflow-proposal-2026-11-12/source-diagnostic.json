@@ -1,0 +1,97 @@
+{
+  "source": "8590c8714d2602958eb5fa68541870471ff1f78a",
+  "identity": "amazon-aax-mcp-source-20261112-03",
+  "source_records": 1581,
+  "source_occurrences": 3,
+  "source_only": true,
+  "model_calls": 0,
+  "diagnostic_complete": true,
+  "source_mcp_held_open_during_resolution": true,
+  "resolution_transport": "direct production BrowserTools with matching effective profile, distinct browser context",
+  "own_reads": [
+    {
+      "ordinal": 0,
+      "original_reference": "f0f1851f4aab4fe2b3c1f6ef64305326:record:400",
+      "original_href_sha256": "22f3dd4163e6f4583e7b74cea360950af2e17f2b508584d2a3807f3104281d88",
+      "exact_requested_href": true,
+      "snapshot_id": "ef09ba1f40d04a03bc88aed8673442ee",
+      "complete": true,
+      "terminal_status": 200,
+      "terminal_host": "www.amazon.fr",
+      "product_identity": "B0H8RD31XM",
+      "hops": [
+        {
+          "method": "GET",
+          "status_code": 302,
+          "host": "aax-eu-zaz.amazon.fr"
+        },
+        {
+          "method": "GET",
+          "status_code": 200,
+          "host": "www.amazon.fr"
+        }
+      ]
+    },
+    {
+      "ordinal": 1,
+      "original_reference": "f0f1851f4aab4fe2b3c1f6ef64305326:record:402",
+      "original_href_sha256": "f045885171000716c278a1ab82f66780b11e7c896e54959607dd6a5ede1dc935",
+      "exact_requested_href": true,
+      "snapshot_id": "fbbc4e7655264af487ca068d0b79476e",
+      "complete": true,
+      "terminal_status": 200,
+      "terminal_host": "www.amazon.fr",
+      "product_identity": "B0H8RD31XM",
+      "hops": [
+        {
+          "method": "GET",
+          "status_code": 302,
+          "host": "aax-eu-zaz.amazon.fr"
+        },
+        {
+          "method": "GET",
+          "status_code": 200,
+          "host": "www.amazon.fr"
+        }
+      ]
+    },
+    {
+      "ordinal": 2,
+      "original_reference": "f0f1851f4aab4fe2b3c1f6ef64305326:record:406",
+      "original_href_sha256": "f045885171000716c278a1ab82f66780b11e7c896e54959607dd6a5ede1dc935",
+      "exact_requested_href": true,
+      "snapshot_id": "160207a93c694a78ac8abc9c75116f81",
+      "complete": true,
+      "terminal_status": 200,
+      "terminal_host": "www.amazon.fr",
+      "product_identity": "B0H8RD31XM",
+      "hops": [
+        {
+          "method": "GET",
+          "status_code": 302,
+          "host": "aax-eu-zaz.amazon.fr"
+        },
+        {
+          "method": "GET",
+          "status_code": 200,
+          "host": "www.amazon.fr"
+        }
+      ]
+    }
+  ],
+  "cold_reload_identical": true,
+  "cleanup": {
+    "closed": true,
+    "probe_error": true,
+    "no_active_page": true,
+    "source_mcp": {
+      "closed": true,
+      "probe_error": true,
+      "no_active_page": true
+    }
+  },
+  "raw_events_sha256": "b8400024407dc4da6dbedaa1669734ddb9e9ed10418736dd8dd33f7b6a3c2cac",
+  "source_prerequisite_qualified": false,
+  "full_business_oracle_passed": false,
+  "workflow_activation": false
+}

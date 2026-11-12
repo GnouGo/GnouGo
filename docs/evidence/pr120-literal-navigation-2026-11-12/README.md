@@ -51,12 +51,23 @@ admits every original occurrence and rejects 24 query/fragment/default-port/path
 variants. Source bytes remain unchanged, with zero navigation and model calls.
 This does not reactivate the expired source or establish live redirect completion.
 
-A fresh independently identified source-only attempt remains necessary to validate
-all own ordered AAX reads after the correction. Prior no-entry attempts establish
-neither destinations nor missing-page facts. The source-only grant still excludes
-full workflow/classification activation. V9/V13 full workflows continue to reject
-unaccounted AAX contexts; full Amazon and Code qualification remain **0/2** each.
+A fresh independently identified source-only attempt on `8590c871` subsequently
+captures 1,581 records through the configured MCP. All three original AAX
+occurrences, including the repeated heading link, receive their own checked
+302 → 200 chain and distinct capture. Cold verification and both browsers'
+cleanup pass, with zero model calls. The source MCP stays open while the guarded
+production Browser performs resolution in a separate context; this is not a
+full MCP workflow qualification. See the [sanitized source evidence and inactive
+workflow proposal](../pr120-aax-workflow-proposal-2026-11-12/proposal.md).
+
+The source-only grant still excludes full workflow/classification activation.
+Other unresolved source links have not been qualified by this diagnostic.
+V9/V13 full workflows continue to reject unaccounted AAX contexts; full Amazon
+and Code qualification remain **0/2** each.
 
 The complete shared baseline at `745a12fc` is 9,110 passes and 13 existing skips.
 The Browser test count overlaps that baseline and is not added as independent
-coverage. Final-source CI and affected host validation are reported separately.
+coverage. An additional 155 affected Server tests pass in Release with
+`-warnaserror`, zero skips; the benchmark build has zero warnings/errors. These
+overlapping counts are [recorded separately](validation.json). Final-source CI
+remains a separate check.

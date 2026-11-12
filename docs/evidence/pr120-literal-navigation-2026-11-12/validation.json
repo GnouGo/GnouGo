@@ -1,0 +1,19 @@
+{
+  "source": "8590c8714d2602958eb5fa68541870471ff1f78a",
+  "configuration": "Release",
+  "warnaserror": true,
+  "browser_tests_passed": 197,
+  "browser_tests_skipped": 0,
+  "server_targeted_tests_passed": 155,
+  "server_targeted_tests_skipped": 0,
+  "benchmark_build_warnings": 0,
+  "benchmark_build_errors": 0,
+  "shared_baseline_source": "745a12fc11ae0c1c4254d2f6d49d298164b00bdc",
+  "shared_baseline_passes": 9110,
+  "shared_baseline_existing_skips": 13,
+  "overlapping_counts_not_added": true,
+  "red_cases": 5,
+  "red_log_sha256": "60e0f6429472622007755f31a8eb6ffc3061f19c3e7abb71ca0bb0d2b193e29b",
+  "browser_log_sha256": "c1352626d72ce40ff8ef5fe2807f1bd2db08d4160059e6abfef998bf6b322084",
+  "server_targeted_log_sha256": "b9ede90064b5c7d61081e4cdd3bf990e87ee559844d7c2c1ab8f7f1e32ffffbd"
+}
