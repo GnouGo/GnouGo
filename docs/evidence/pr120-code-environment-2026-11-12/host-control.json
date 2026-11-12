@@ -1,0 +1,38 @@
+{
+  "host_control_only": true,
+  "sdk_execution": false,
+  "provider_calls": 0,
+  "script_exit_code": 0,
+  "command_count": 1,
+  "terminal_report_exact": true,
+  "toolchains": [
+    {
+      "name": "node",
+      "available": true,
+      "exit_code": 0,
+      "stdout": "v22.20.0\n",
+      "timed_out": false
+    },
+    {
+      "name": "pnpm",
+      "available": true,
+      "exit_code": 0,
+      "stdout": "10.14.0\n",
+      "timed_out": false
+    },
+    {
+      "name": "python",
+      "available": false,
+      "exit_code": null,
+      "stdout": "",
+      "timed_out": false
+    },
+    {
+      "name": "python3",
+      "available": true,
+      "exit_code": 0,
+      "stdout": "Python 3.14.4\n",
+      "timed_out": false
+    }
+  ]
+}
