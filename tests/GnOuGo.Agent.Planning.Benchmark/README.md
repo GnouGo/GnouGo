@@ -890,6 +890,20 @@ omitting unsupported hrefs. This does not grant AAX workflow navigation. Old V8/
 verdicts remain versioned and unchanged. See the [coverage correction and required
 fresh preflight](../../docs/evidence/pr120-amazon-unclassified-context-2026-11-11/stricter-source-coverage.md).
 
+The separately approved AAX amendment selects `--amazon-aax-product-context
+--amazon-scope-approval user-amazon-aax-workflow-20261112`, capturing
+`amazon-observed-aax-product-context-v10` and `amazon-business-v14`.
+Its disposable Browser profile retains the v9 static routes and enables only the
+two trusted observed-navigation pattern lists. Exact AAX entries require a complete
+owned source; every redirect is checked against existing routes or exact original
+entries. The wrapper grants only the next unresolved occurrence, preserving order
+and repetition. Empty-ASIN product proof requires every own read, one heading,
+consistent identity/context and only exact permitted review twins. Distinct later
+business captures, fields, real Excel and cleanup remain mandatory. V9/v13 and
+the inactive proposal are preserved. The [implementation evidence](../../docs/evidence/pr120-aax-workflow-2026-11-12/README.md)
+distinguishes controlled regression results from actual-profile source readiness
+and complete independent workflow qualification. No funding is added.
+
 Read-only audits and new-spending admission reject an unretained Server hold
 without a campaign envelope instead of treating those funds as available. The
 existing campaign-owned session-policy index bounds the metadata reads. The

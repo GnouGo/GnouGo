@@ -154,13 +154,13 @@ public sealed class AmazonResolvedStoreWorkflowTests
     public Task FullBusinessOracleStillRequiresExactWorkbookExecutionReceiptsAndCleanup(string change, bool passed)
         => CheckBusinessAsync(change, passed, productResolution: false);
 
-    internal static async Task CheckBusinessAsync(string change, bool passed, bool productResolution, bool reviewProof = false, bool cardReview = false, bool storeList = false, bool sourceCoverage = false)
+    internal static async Task CheckBusinessAsync(string change, bool passed, bool productResolution, bool reviewProof = false, bool cardReview = false, bool storeList = false, bool sourceCoverage = false, bool aax = false)
     {
         var root = Path.Combine(Path.GetTempPath(), "gnougo-resolved-store-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         try
         {
-            var path = Path.Combine(root, "products.xlsx"); var events = storeList ? AmazonStoreListWorkflowTests.Events() : cardReview ? AmazonCardReviewWorkflowTests.Events() : reviewProof ? AmazonReviewProofWorkflowTests.Events() : productResolution ? AmazonResolvedProductWorkflowTests.Events() : Events();
+            var path = Path.Combine(root, "products.xlsx"); var events = aax ? AmazonAaxWorkflowTests.WorkflowEvents() : storeList ? AmazonStoreListWorkflowTests.Events() : cardReview ? AmazonCardReviewWorkflowTests.Events() : reviewProof ? AmazonReviewProofWorkflowTests.Events() : productResolution ? AmazonResolvedProductWorkflowTests.Events() : Events();
             string[][] rows = [["name", "description", "price"], ["Product 1", "Description 1", "12,00 €"], ["Product 2", "Description 2", "13,00 €"]];
             if (productResolution) rows = [rows[0], ["Product 3", "Description 3", "14,00 €"], rows[1], rows[2]];
             if (change == "missing_header") rows = rows.Skip(1).ToArray();
@@ -182,9 +182,9 @@ public sealed class AmazonResolvedStoreWorkflowTests
             if (change != "missing_writer") events.Add(new JsonObject { ["tool"] = "document_write", ["error"] = false,
                 ["result"] = new JsonObject { ["success"] = true, ["filePath"] = path } });
             events.Add(new JsonObject { ["tool"] = "browser_close" });
-            var run = new JsonObject { ["workspace_relative"] = ".", ["oracle_version"] = sourceCoverage ? LiveWorkflowOracles.AmazonSourceCoverageVersion : storeList ? LiveWorkflowOracles.AmazonStoreListVersion : cardReview ? LiveWorkflowOracles.AmazonCardReviewVersion : reviewProof ? LiveWorkflowOracles.AmazonReviewProofVersion : productResolution ? LiveWorkflowOracles.AmazonResolvedProductVersion : LiveWorkflowOracles.AmazonResolvedStoreVersion,
-                ["browser_observation_policy"] = sourceCoverage ? AmazonSourceCoveragePolicy.Id : storeList ? AmazonStoreListPolicy.Id : cardReview ? AmazonCardReviewPolicy.Id : reviewProof ? AmazonReviewProofPolicy.Id : productResolution ? AmazonResolvedProductPolicy.Id : AmazonResolvedStorePolicy.Id,
-                ["browser_scope_approval"] = storeList ? AmazonStoreListPolicy.Approval : cardReview ? AmazonCardReviewPolicy.Approval : reviewProof ? AmazonReviewProofPolicy.Approval : productResolution ? AmazonResolvedProductPolicy.Approval : AmazonResolvedStorePolicy.Approval,
+            var run = new JsonObject { ["workspace_relative"] = ".", ["oracle_version"] = aax ? LiveWorkflowOracles.AmazonAaxProductVersion : sourceCoverage ? LiveWorkflowOracles.AmazonSourceCoverageVersion : storeList ? LiveWorkflowOracles.AmazonStoreListVersion : cardReview ? LiveWorkflowOracles.AmazonCardReviewVersion : reviewProof ? LiveWorkflowOracles.AmazonReviewProofVersion : productResolution ? LiveWorkflowOracles.AmazonResolvedProductVersion : LiveWorkflowOracles.AmazonResolvedStoreVersion,
+                ["browser_observation_policy"] = aax ? AmazonAaxProductPolicy.Id : sourceCoverage ? AmazonSourceCoveragePolicy.Id : storeList ? AmazonStoreListPolicy.Id : cardReview ? AmazonCardReviewPolicy.Id : reviewProof ? AmazonReviewProofPolicy.Id : productResolution ? AmazonResolvedProductPolicy.Id : AmazonResolvedStorePolicy.Id,
+                ["browser_scope_approval"] = aax ? AmazonAaxProductPolicy.Approval : storeList ? AmazonStoreListPolicy.Approval : cardReview ? AmazonCardReviewPolicy.Approval : reviewProof ? AmazonReviewProofPolicy.Approval : productResolution ? AmazonResolvedProductPolicy.Approval : AmazonResolvedStorePolicy.Approval,
                 ["max_products"] = productResolution ? 3 : 2, ["inputs"] = new JsonObject { ["query"] = Query },
                 ["execution"] = new JsonObject { ["success"] = change != "execution_failed" },
                 ["events"] = new JsonArray(events.Select(e => (JsonNode)e.DeepClone()).ToArray()) };

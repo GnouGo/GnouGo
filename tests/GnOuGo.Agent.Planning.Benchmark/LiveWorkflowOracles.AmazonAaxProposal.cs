@@ -35,37 +35,7 @@ internal static partial class LiveWorkflowOracles
         if (entries.Count > 0)
         {
             var source = CompleteSnapshots([original!]).Single();
-            var records = source.Records.OfType<JsonObject>().ToDictionary(record => record["reference"]!.ToString(), StringComparer.Ordinal);
-            foreach (var context in UnclassifiedHeadingContexts(source).OfType<JsonObject>())
-            {
-                var members = context["source_records"]!.AsArray().Select(reference => records[reference!.ToString()]).ToArray();
-                if (!members.Any(member => originals.Contains(member["href"]!.ToString()))) continue;
-                var before = findings.Count;
-                if (context["asin_context"]?["value"]?.ToString() != "" ||
-                    members.Count(member => member["heading"]?.ToString() is { Length: > 0 }) != 1 || !ConsistentCardMetadata(members))
-                    findings.Add("aax_original_context_unverified");
-                var proposed = new HashSet<string>(StringComparer.Ordinal);
-                var aliases = new JsonArray();
-                foreach (var member in members)
-                {
-                    var reference = member["reference"]!.ToString();
-                    if (identities.TryGetValue(reference, out var identity)) { proposed.Add(identity); continue; }
-                    var href = member["href"]!.ToString();
-                    var twin = members.FirstOrDefault(other => other["href"]?.ToString() is { } baseHref &&
-                        AmazonAaxSourceDiagnostic.IsEntry(baseHref) && href == baseHref + "#customerReviews" &&
-                        identities.ContainsKey(other["reference"]!.ToString()));
-                    if (member["heading"] is not null || member["occurrence"] is not null || twin is null)
-                    { findings.Add("aax_context_member_unverified"); continue; }
-                    proposed.Add(identities[twin["reference"]!.ToString()]);
-                    aliases.Add(new JsonObject { ["original_reference"] = reference, ["proved_twin_reference"] = twin["reference"]!.DeepClone(),
-                        ["http_receipt_claimed"] = false });
-                }
-                if (proposed.Count != 1) findings.Add("aax_context_identity_inconsistent");
-                contexts.Add(new JsonObject { ["original_context"] = context.DeepClone(), ["original_member_count"] = members.Length,
-                    ["own_product_reads"] = members.Count(member => identities.ContainsKey(member["reference"]!.ToString())),
-                    ["candidate_identity"] = proposed.Count == 1 ? proposed.Single() : null,
-                    ["exact_review_aliases"] = aliases, ["relationship_supported"] = findings.Count == before });
-            }
+            contexts = AaxProductContextEvidence(source, identities, originals, findings);
         }
         if (contexts.Count == 0) findings.Add("aax_original_context_missing");
         return new JsonObject { ["version"] = "amazon-aax-product-context-proposal-v1", ["active"] = false,

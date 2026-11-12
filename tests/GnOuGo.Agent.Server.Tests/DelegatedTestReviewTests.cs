@@ -107,15 +107,24 @@ public sealed class DelegatedTestReviewTests
     public Task ReviewProofWorkflowAuthorityExpires(string expiry)
         => ResolvedAuthorityExpires(expiry, productResolution: true, reviewProof: true);
 
-    private static async Task ResolvedAuthorityExpires(string expiry, bool productResolution, bool reviewProof = false)
+    [Theory]
+    [InlineData("close")]
+    [InlineData("new_search")]
+    [InlineData("failure")]
+    [InlineData("redirect_search")]
+    [InlineData("invalid_provenance")]
+    public Task AaxWorkflowAuthorityRequiresEveryOrderedOwnReadAndExpires(string expiry)
+        => ResolvedAuthorityExpires(expiry, productResolution: true, aax: true);
+
+    private static async Task ResolvedAuthorityExpires(string expiry, bool productResolution, bool reviewProof = false, bool aax = false)
     {
         var (_, _, original, evidence, receipt) = await Fixture();
-        var policy = reviewProof ? AmazonReviewProofPolicy.Id : productResolution ? AmazonResolvedProductPolicy.Id : AmazonResolvedStorePolicy.Id;
+        var policy = aax ? AmazonAaxProductPolicy.Id : reviewProof ? AmazonReviewProofPolicy.Id : productResolution ? AmazonResolvedProductPolicy.Id : AmazonResolvedStorePolicy.Id;
         var lastResolution = productResolution ? 20 : 17; var firstBusiness = lastResolution + 1;
         var authorization = original with { Scenario = "amazon", BrowserObservationPolicy = policy };
         DelegatedTestReviewAuthority Fresh() => new(authorization, new(receipt, evidence), "campaign", "test-run", "amazon",
             Path.GetTempPath(), "frozen-source", browserObservationPolicy: policy);
-        var authority = Fresh(); var events = reviewProof ? AmazonReviewProofWorkflowTests.Events() : productResolution ? AmazonResolvedProductWorkflowTests.Events() : AmazonResolvedStoreWorkflowTests.Events();
+        var authority = Fresh(); var events = aax ? AmazonAaxWorkflowTests.WorkflowEvents() : reviewProof ? AmazonReviewProofWorkflowTests.Events() : productResolution ? AmazonResolvedProductWorkflowTests.Events() : AmazonResolvedStoreWorkflowTests.Events();
         void Require(JsonNode args) => authority.RequireTool("GnOuGo.Browser.Mcp", "browser_get_content", args);
         void Observe(JsonObject e) => authority.ObserveTool("GnOuGo.Browser.Mcp", "browser_get_content", e["arguments"], new() { Content = e["result"]!.DeepClone() });
         Assert.Throws<PlanningConflictException>(() => Require(events[1]["arguments"]!));

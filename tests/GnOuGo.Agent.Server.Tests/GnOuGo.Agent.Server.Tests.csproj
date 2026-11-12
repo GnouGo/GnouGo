@@ -70,6 +70,7 @@
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.AmazonCardReview.cs" Link="LiveWorkflowOracles.AmazonCardReview.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.AmazonStoreList.cs" Link="LiveWorkflowOracles.AmazonStoreList.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.AmazonSourceCoverage.cs" Link="LiveWorkflowOracles.AmazonSourceCoverage.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.AmazonAaxProduct.cs" Link="LiveWorkflowOracles.AmazonAaxProduct.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.AmazonAaxProposal.cs" Link="LiveWorkflowOracles.AmazonAaxProposal.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.AmazonSourceResolutionProposal.cs" Link="LiveWorkflowOracles.AmazonSourceResolutionProposal.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/AmazonObservedRedirectPolicy.cs" Link="AmazonObservedRedirectPolicy.cs" />
