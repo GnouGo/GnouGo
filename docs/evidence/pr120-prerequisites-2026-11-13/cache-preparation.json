@@ -1,0 +1,72 @@
+[
+  {
+    "identity": "locked-cache-prefetch-20261112-03",
+    "operation": "metadata-only no-build lock check",
+    "expected_result": "source-only package blocked",
+    "exit_code": 1,
+    "elapsed_seconds": 75.794,
+    "stop_reason": null,
+    "model_calls": 0,
+    "sdk_permissions_changed": false,
+    "repository_code_built_on_host": false,
+    "raw_outcome_sha256": "ddc6266ddd570f54286bed13f5e011160cc3dd0abee9529b853e29b90e0ebbe2",
+    "locked_metadata_unchanged": true,
+    "requirements_unchanged": null
+  },
+  {
+    "identity": "locked-cache-prefetch-20261112-04",
+    "operation": "hash-pinned third-party source cache preparation",
+    "expected_result": "completed",
+    "exit_code": 0,
+    "elapsed_seconds": 3.028,
+    "stop_reason": null,
+    "model_calls": 0,
+    "sdk_permissions_changed": false,
+    "repository_code_built_on_host": false,
+    "raw_outcome_sha256": "4920fa43646d2e275440e8ce5cc00a1958700201841d3f2765d3fe51877db82f",
+    "locked_metadata_unchanged": true,
+    "requirements_unchanged": null
+  },
+  {
+    "identity": "locked-cache-prefetch-20261112-06",
+    "operation": "lock check with all 17 local package builds prohibited",
+    "expected_result": "stale lock metadata detected without writes",
+    "exit_code": 1,
+    "elapsed_seconds": 7.559,
+    "stop_reason": null,
+    "model_calls": 0,
+    "sdk_permissions_changed": false,
+    "repository_code_built_on_host": false,
+    "raw_outcome_sha256": "0e12a95dfc4115bf46ed022ea91a98f546954ad4ca3849abf9ccf4383c6224ab",
+    "locked_metadata_unchanged": true,
+    "requirements_unchanged": null
+  },
+  {
+    "identity": "locked-cache-prefetch-20261112-07",
+    "operation": "native-cache offline install with local packages excluded and builds prohibited",
+    "expected_result": "completed",
+    "exit_code": 0,
+    "elapsed_seconds": 2.526,
+    "stop_reason": null,
+    "model_calls": 0,
+    "sdk_permissions_changed": false,
+    "repository_code_built_on_host": false,
+    "raw_outcome_sha256": "a0a9276a602ab0d9e7db483d3b8797e681f9122fb7d9b142dcdeeab8d74aa358",
+    "locked_metadata_unchanged": false,
+    "requirements_unchanged": true
+  },
+  {
+    "identity": "locked-cache-prefetch-20261112-08",
+    "operation": "temporary flat-index offline comparison",
+    "expected_result": "completed; native registry identity profile selected instead",
+    "exit_code": 0,
+    "elapsed_seconds": 5.04,
+    "stop_reason": null,
+    "model_calls": 0,
+    "sdk_permissions_changed": false,
+    "repository_code_built_on_host": false,
+    "raw_outcome_sha256": "7e9b8636d1b3d67a6acdf8644bc6bf083a43d8123b1d6c1548698878c8394468",
+    "locked_metadata_unchanged": false,
+    "requirements_unchanged": true
+  }
+]

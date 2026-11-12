@@ -1,0 +1,12 @@
+{
+  "original_packages": 384,
+  "generated_packages": 384,
+  "package_versions_and_registry_identities_unchanged": true,
+  "requirements_unchanged": true,
+  "lock_metadata_updated_by_ordinary_uv_sync": true,
+  "local_package_installation_excluded": true,
+  "local_package_builds_explicitly_prohibited": true,
+  "model_calls": 0,
+  "sdk_network_permissions_changed": false,
+  "full_workflow_qualified": false
+}

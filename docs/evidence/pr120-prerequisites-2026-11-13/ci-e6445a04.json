@@ -1,0 +1,35 @@
+{
+  "source": "e6445a041c4eddc6cbe7152101df9138d705f072",
+  "workflows": [
+    {
+      "id": 43307265305,
+      "name": "ProxyCopilot standalone validation",
+      "status": "completed",
+      "conclusion": "success",
+      "run_number": 691,
+      "jobs_url": "https://api.github.com/repos/GnouGo/GnouGo/actions/runs/43307265305/jobs",
+      "logs_url": "https://api.github.com/repos/GnouGo/GnouGo/actions/runs/43307265305/logs",
+      "workflow_id": 364325139
+    },
+    {
+      "id": 43307265250,
+      "name": "Build ProxyCopilot Native AOT",
+      "status": "completed",
+      "conclusion": "success",
+      "run_number": 685,
+      "jobs_url": "https://api.github.com/repos/GnouGo/GnouGo/actions/runs/43307265250/jobs",
+      "logs_url": "https://api.github.com/repos/GnouGo/GnouGo/actions/runs/43307265250/logs",
+      "workflow_id": 364541300
+    },
+    {
+      "id": 43307265230,
+      "name": "Deterministic planner validation",
+      "status": "completed",
+      "conclusion": "success",
+      "run_number": 1010,
+      "jobs_url": "https://api.github.com/repos/GnouGo/GnouGo/actions/runs/43307265230/jobs",
+      "logs_url": "https://api.github.com/repos/GnouGo/GnouGo/actions/runs/43307265230/logs",
+      "workflow_id": 355287970
+    }
+  ]
+}
