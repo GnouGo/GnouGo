@@ -1,0 +1,9 @@
+# Ready to forward; not sent
+
+We need the route/gateway owner to correlate incomplete native SSE response `chatcmpl-Ejauw2OHSEpnKp2GtN9qKcQQ93HfA` for model `gpt-6.1-sol-2026-09-29`, independent runtime probe `amazon-source-batch-20261113-01`.
+
+UTC window: request 2026-11-13 02:02:14.840917; first and last observed bytes 02:03:32.298224; response-stream exception 02:08:31.618475 (`http_io`, `ResponseEnded`, HTTP/1.1). Client deadline was 02:12:14.840917. HTTP 200 delivered only initial filter/assistant-role SSE envelopes: no useful content, LLM termination or usage receipt. The connection ended 299.320251 seconds after the last data. The exact request, partial bytes and attempt remain in the owned encrypted journal; its full EUR58.860157025539211262521433082 reservation is retained. No result was applied or retried. SDK JSON/tool executions through the same configured provider have separately completed; this does not identify the component terminating this SSE stream.
+
+Please identify which hop ended the response, its idle/request deadlines and whether the upstream generation continued or was cancelled. Please supply upstream completion/usage or its precise absence for that provider ID. Distinguish gateway/upstream failure from a clean HTTP completion and from client cancellation; our read observer records a network response-end exception before the local deadline.
+
+Discriminating test: through an explicitly authorized endpoint on this same real route, compare 310 seconds of silence with periodic SSE comments followed by a valid completion/usage event. The production client already passed its separate local 310-second-silence test; that local result does not establish this route's behavior. This real-route experiment has not been performed. No alternate endpoint, routing workaround, timeout/retry/pool change or protocol switch is requested here. Existing owner access is unavailable; keep this packet ready.

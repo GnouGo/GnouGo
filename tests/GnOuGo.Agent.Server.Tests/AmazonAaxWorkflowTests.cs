@@ -7,6 +7,44 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class AmazonAaxWorkflowTests
 {
     private const string Query = "chaussure geox homme 45";
+
+    [Fact]
+    public void EmptyAsinProductCardRetainsItsUnprovedDealsNavigationAsABlocker()
+    {
+        var events = JsonNode.Parse(JsonSerializerBytes(WorkflowEvents()).Replace(
+            "https://aax-eu-zaz.amazon.fr/x/c/product-", "https://sponsored-ads.amazon.fr/clk?opaque=product-", StringComparison.Ordinal))!
+            .AsArray().OfType<JsonObject>().ToList();
+        var records = Records(events[0]);
+        var entry = records[17]!.AsObject();
+        var review = entry.DeepClone().AsObject();
+        review["tag"] = "a"; review["selector"] = "#review-link"; review["heading"] = null;
+        review["href"] = entry["href"]!.ToString() + "#customerReviews";
+        review["reference"] = "search:record:" + records.Count;
+        records.Add(review);
+        events[0]["result"]!["observationSnapshot"]!["recordCount"] = records.Count;
+        Assert.True(Verify(events)["source_prerequisite_qualified"]!.GetValue<bool>());
+
+        // Sanitized source06 relationship: three own product proofs and an
+        // exact review alias share one empty-ASIN card with an extra offer link.
+        const string href = "https://www.amazon.fr/deals";
+        var offer = entry.DeepClone().AsObject();
+        offer["tag"] = "a"; offer["selector"] = "#offer-link"; offer["heading"] = null;
+        offer["href"] = href; offer["reference"] = "search:record:" + records.Count;
+        records.Add(offer);
+        events[0]["result"]!["observationSnapshot"]!["recordCount"] = records.Count;
+        var raw = JsonSerializerBytes(events);
+        var result = Verify(events);
+        Assert.False(AmazonAaxProductPolicy.Allows(href));
+        Assert.False(result["source_prerequisite_qualified"]!.GetValue<bool>());
+        Assert.Contains("source_product_resolution_context_unverified", result["findings"]!.AsArray().Select(f => f!.ToString()));
+        Assert.Equal(3, result["source_product_reads"]!.GetValue<int>());
+        Assert.Contains(result["source_proof_aliases"]!.AsArray(), row => row?["source_record"]?.ToString() == review["reference"]!.ToString());
+        Assert.Empty(LiveWorkflowOracles.ResolvedSourceAllowedEntries(events, AmazonAaxProductPolicy.Id));
+        var cold = JsonNode.Parse(raw)!.AsArray().OfType<JsonObject>().ToList();
+        Assert.True(JsonNode.DeepEquals(result, Verify(cold)));
+        Assert.Equal(raw, JsonSerializerBytes(events));
+    }
+
     [Fact]
     public void ExactOptInCapturesOnlyTrustedObservedScopeAndPreservesSavedSettings()
     {
